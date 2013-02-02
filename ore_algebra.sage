@@ -1,14 +1,4 @@
 
-"""
-OreAlgebra
-==========
-
-AUTHORS:
-
--  Maximilian Jaroschek, Fredrik Johansson, Manuel Kauers
-
-"""
-
 class OreAlgebra(sage.algebras.algebra.Algebra):
     """
     Univariate polynomial ring over a ring.
