@@ -80,7 +80,7 @@ class OreAlgebra(sage.algebras.algebra.Algebra):
         """
         """
         R = self._base_ring = base_ring
-        gens = self._gens = list(gens)
+        gens = list(gens)
 
         # expand generator shortcuts
         for i in xrange(len(gens)):
@@ -95,6 +95,9 @@ class OreAlgebra(sage.algebras.algebra.Algebra):
                     raise TypeError, "unexpected generator declaration"
             elif len(gens[i]) != 3:
                 raise TypeError, "unexpected generator declaration"
+            gens[i] = tuple(gens[i])
+
+        self._gens = tuple(gens)
 
         # try to recognize standard operators
         is_shift = [False for q in gens]; is_qshift = [False for q in gens]; is_derivation = [False for q in gens]
@@ -145,6 +148,12 @@ class OreAlgebra(sage.algebras.algebra.Algebra):
 
     # information extraction
 
+    def base_ring(self):
+        """
+        Returns this algebra's base ring
+        """
+        return self._base_ring
+
     def is_integral_domain(self, proof = True):
         """
         Returns True because Ore algebras are always integral domains.
@@ -159,18 +168,23 @@ class OreAlgebra(sage.algebras.algebra.Algebra):
 
     def construction(self):
         from sage.categories.pushout import PolynomialFunctor
-        return PolynomialFunctor(self.variable_name(), sparse=self.__is_sparse), self.base_ring()
+        return PolynomialFunctor(self.variable_name()), self.base_ring()
 
     def _coerce_map_from_(self, P):
         """
+        An object can be coerced to this algebra iff it can be coerced to the
+        associated commutative algebra.
         """
-        raise NotImplementedError
+        return self.associated_commutative_algebra()._coerce_map_from_(P)
 
     def _sage_input_(self, sib, coerced):
         r"""
         Produce an expression which will reproduce this value when
         evaluated.
         """
+        # how to deal with the problem that sigma and delta may be arbitrary callable objects?
+        # convert them to internal objects based on what they do to the generators of the base ring?
+        # clean solution: require that the sigma's be Hom objects, and design a similar data type for the delta's. 
         raise NotImplementedError
 
     def _is_valid_homomorphism_(self, codomain, im_gens):
@@ -179,45 +193,88 @@ class OreAlgebra(sage.algebras.algebra.Algebra):
         raise NotImplementedError
 
     def __hash__(self):
-        """
-        """
-        # should be faster than just relying on the string representation
         try:
             return self._cached_hash
         except AttributeError:
             pass
-        h = self._cached_hash = hash((self.base_ring(),self.variable_name()))
+        h = self._cached_hash = hash((self.base_ring(),tuple(self._gens)))
         return h
 
     def _repr_(self):
-        """
-        """
         try:
             return self._cached_repr
         except AttributeError:
             pass
-        raise NotImplementedError
+        if self.ngens() == 1:
+            r = "Univariate"
+        else:
+            r = "Multivariate"
+        r = r + " Ore algebra in "
+        for x in self._gens:
+            r = r + x[0] + ", "
+        r = r[:-2r] + " over " + self.base_ring()._repr_()
+        self._cached_repr = r
+        return r
 
     def _latex_(self):
-        """
-        """
-        raise NotImplementedError
-
-
-    def sigma(self, n=0):
-        """
-        """
-        raise NotImplementedError
-
-    def delta(self, n=0):
-        """
-        """
-        raise NotImplementedError
+        try:
+            return self._cached_latex
+        except AttributeError:
+            pass
+        r = self.base_ring()._latex_() + "\\langle "
+        for x in self._gens:
+            r = r + x[0] + ", "
+        r = r[:-2r] + "\\rangle "
+        self._cached_latex = r
+        return r
 
     def var(self, n=0):
         """
+        Returns the name of the `n`th generator of this algebra.
+
+        EXAMPLES::
+
+           sage: A.<Dx> = OreAlgebra(QQ['x'].fraction_field(), 'Dx')
+           sage: A.var()
+           Dx
         """
-        raise NotImplementedError
+        return self._gens[n][0]
+
+    def sigma(self, n=0):
+        """
+        Returns the sigma callable associated to the `n`th generator of this algebra.
+
+        EXAMPLES::
+
+           sage: A.<Dx> = OreAlgebra(QQ['x'].fraction_field(), 'Dx')
+           sage: A.sigma() # random
+           <function <lambda> at 0x1be2bf7c>
+        """
+        return self._gens[n][1]
+
+    def delta(self, n=0):
+        """
+        Returns the delta callable associated to the `n`th generator of this algebra. 
+
+        EXAMPLES::
+
+           sage: A.<Dx> = OreAlgebra(QQ['x'].fraction_field(), 'Dx')
+           sage: A.delta() # random
+           <function <lambda> at 0x1be2bf7c>
+        """
+        return self._gens[n][2]
+
+    def variable_names(self):
+        """
+        Returns a tuple with the names (as strings) of the generators of this algebra. 
+
+        EXAMPLES::
+
+           sage: A.<Dx> = OreAlgebra(QQ['x'].fraction_field(), 'Dx')
+           sage: A.variable_names() 
+           ('Dx',)
+        """
+        return tuple(x[0] for x in self._gens)
         
     def variable_names_recursive(self, depth=sage.rings.infinity.infinity):
         r"""
@@ -239,7 +296,7 @@ class OreAlgebra(sage.algebras.algebra.Algebra):
         else:
             my_vars = self.variable_names()
             try:
-               return self.base_ring().variable_names_recursive(depth - len(my_vars)) + my_vars
+                return self.base_ring().variable_names_recursive(depth - len(my_vars)) + my_vars
             except AttributeError:
                 return my_vars
                 
@@ -262,7 +319,7 @@ class OreAlgebra(sage.algebras.algebra.Algebra):
         """
         Return a list of generators of this Ore algebra. 
         """
-        raise NotImplementedError
+        raise self.gens_dict().values()
 
     def gens_dict(self):
         """
@@ -270,7 +327,15 @@ class OreAlgebra(sage.algebras.algebra.Algebra):
         Algebra as strings and whose values are the corresponding
         generators.
         """
-        raise NotImplementedError
+        try:
+            return self._gen_dict.copy()
+        except AttributeError:
+            pass
+        d = {}
+        for x in self._gens:
+            d[x] = self._element_constructor_(x)
+        self._gen_dict = d.copy()
+        return d
 
     def is_finite(self):
         """
@@ -308,27 +373,18 @@ class OreAlgebra(sage.algebras.algebra.Algebra):
 
     # generation of elements
         
-    def _element_constructor_(self, x=None, check=True, is_gen = False, construct=False, **kwds):
-        r"""
-        Convert ``x`` into this algebra, possibly non-canonically.
+    def _element_constructor_(self, *args, **kwds):
         """
-        raise NotImplementedError
-
-    def one(self):
+        Create a new element based on the given arguments. 
         """
-        """
-        raise NotImplementedError
-
-    def zero(self):
-        """
-        """
-        raise NotImplementedError
+        return self._operator_class(*args, **kwds)
         
-    def random_element(self, degree=2, *args, **kwds):
-        r"""
-        Return a random operator. 
+    def random_element(self, *args, **kwds):
         """
-        raise NotImplementedError
+        Return a random operator. The random operator is constructed by coercing a random element
+        of the associated commutative algebra to an element of this algebra. 
+        """
+        return self._element_constructor_(self.associated_commutative_algebra().random_element(*args, **kwds))
 
     # generation of related parent objects
 
@@ -340,7 +396,7 @@ class OreAlgebra(sage.algebras.algebra.Algebra):
         ::
 
            sage: R.<x> = QQ['x']
-           sage: A = OreAlgebra(K.fraction_field(), "Dx")
+           sage: A = OreAlgebra(R.fraction_field(), "Dx")
            sage: A
            Univariate Ore algebra in Dx over Fraction Field of Univariate Polynomial Ring in x over Rational Field
            sage: A.associated_commutative_algebra()
@@ -351,7 +407,7 @@ class OreAlgebra(sage.algebras.algebra.Algebra):
             return self._commutative_ring
         except AttributeError:
             pass
-        R = self._commutative_ring = PolynomialRing(self.base_ring(), map(str, self.gens()))
+        R = self._commutative_ring = PolynomialRing(self.base_ring(), self.variable_names())
         return R
 
     def base_extend(self, R):
@@ -365,19 +421,19 @@ class OreAlgebra(sage.algebras.algebra.Algebra):
         raise NotImplementedError
 
     def change_var(self, var, n=0):
-        r"""
         """
-        raise NotImplementedError
+        """
+        return self.change_var_sigma_delta(var, self._gens[n][1], self._gens[n][2], n)
 
     def change_sigma(self, sigma, n=0):
         """
         """
-        raise NotImplementedError
+        return self.change_var_sigma_delta(self._gens[n][0], sigma, self._gens[n][2], n)
 
     def change_delta(self, delta, n=0):
         """
         """
-        raise NotImplementedError
+        return self.change_var_sigma_delta(self._gens[n][0], self._gens[n][1], delta, n)
 
     def change_var_sigma_delta(self, var, sigma, delta, n=0):
         """
