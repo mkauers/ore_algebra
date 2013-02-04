@@ -772,3 +772,4 @@ class UnivariateRationalQRecurrenceOperator(UnivariateRationalOreOperator):
 
     def get_data(self, init, n):
         raise NotImplementedError
+
