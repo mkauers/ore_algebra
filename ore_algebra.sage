@@ -68,7 +68,7 @@ class OreAlgebra(sage.algebras.algebra.Algebra):
       Univariate Ore algebra in Sx over Fraction Field of Univariate Polynomial Ring in x over Rational Field 
 
     Ore algebras support coercion from their base rings.  Furthermore, an Ore
-    algebras `A` know how to coerce commutative polynomials `p` to elements of
+    algebra `A` knows how to coerce commutative polynomials `p` to elements of
     `A` if the generators of the parent of `p` have the same names as the
     generators of `A`, and the base ring of the parent of `p` admits a coercion
     to the base ring of `A`.
@@ -360,7 +360,7 @@ class OreAlgebra(sage.algebras.algebra.Algebra):
         
     def krull_dimension(self):
         """
-        Returns the Krull dimension of this algebra, which is the Kull dimension of the base ring
+        Returns the Krull dimension of this algebra, which is the Krull dimension of the base ring
         plus the number of generators of this algebra. 
         """
         return self.base_ring().krull_dimension() + self.ngens()
