@@ -87,10 +87,14 @@ class OreAlgebra(sage.algebras.algebra.Algebra):
             if type(gens[i]) == type(""):
                 if gens[i][0] == 'D':
                     x = R(gens[i][1:])
+                    if x != R.gen():
+                        raise NotImplementedError, "todo: generator shortcuts don't work unless they act on base.gen()"
                     gens[i] = (gens[i], lambda p: p, lambda p: p.derivative(x))
                 elif gens[i][0] == 'S':
-                    x = R(gens[i][1:]); z = R.zero()
-                    gens[i] = (gens[i], lambda p: p.subs(x=x+1), lambda p: z)
+                    x = R(gens[i][1:]); z = R.zero(); d = {x:x+1}
+                    if x != R.gen():
+                        raise NotImplementedError, "todo: generator shortcuts don't work unless they act on base.gen()"
+                    gens[i] = (gens[i], lambda p: R(p).subs(d), lambda p: z)
                 else:
                     raise TypeError, "unexpected generator declaration"
             elif len(gens[i]) != 3:
@@ -138,13 +142,13 @@ class OreAlgebra(sage.algebras.algebra.Algebra):
         elif not R == R.fraction_field() or not sage.rings.polynomial.polynomial_ring.is_PolynomialRing(R.base()):
             self._operator_class = UnivariateOreOperator
         elif is_qshift[0]:
-            self._operator_class = UnivariateRationalQRecurrenceOperator
+            self._operator_class = UnivariateQRecurrenceOperatorOverRationalFunctionField
         elif is_shift[0]:
-            self._operator_class = UnivariateRationalRecurrenceOperator
+            self._operator_class = UnivariateRecurrenceOperatorOverRationalFunctionField
         elif is_derivation[0]:
-            self._operator_class = UnivariateRationalDifferentialOperator
+            self._operator_class = UnivariateDifferentialOperatorOverRationalFunctionField
         else:
-            self._operator_class = UnivariateRationalOreOperator
+            self._operator_class = UnivariateOreOperator
 
     # information extraction
 
@@ -166,16 +170,22 @@ class OreAlgebra(sage.algebras.algebra.Algebra):
         """
         return True
 
-    def construction(self):
-        from sage.categories.pushout import PolynomialFunctor
-        return PolynomialFunctor(self.variable_name()), self.base_ring()
+    #def construction(self):
+    #    from sage.categories.pushout import PolynomialFunctor
+    #    return PolynomialFunctor(self.variable_name()), self.base_ring()
 
     def _coerce_map_from_(self, P):
         """
         An object can be coerced to this algebra iff it can be coerced to the
         associated commutative algebra.
         """
-        return self.associated_commutative_algebra()._coerce_map_from_(P)
+        out = self.associated_commutative_algebra()._coerce_map_from_(P)
+        if out is None:
+            return None
+        elif out is False:
+            return None
+        else:
+            return True
 
     def _sage_input_(self, sib, coerced):
         r"""
@@ -319,7 +329,7 @@ class OreAlgebra(sage.algebras.algebra.Algebra):
         """
         Return a list of generators of this Ore algebra. 
         """
-        raise self.gens_dict().values()
+        return self.gens_dict().values()
 
     def gens_dict(self):
         """
@@ -332,8 +342,8 @@ class OreAlgebra(sage.algebras.algebra.Algebra):
         except AttributeError:
             pass
         d = {}
-        for x in self._gens:
-            d[x] = self._element_constructor_(x)
+        for (x, _, _) in self._gens:
+            d[x] = self(x)
         self._gen_dict = d.copy()
         return d
 
@@ -377,7 +387,7 @@ class OreAlgebra(sage.algebras.algebra.Algebra):
         """
         Create a new element based on the given arguments. 
         """
-        return self._operator_class(*args, **kwds)
+        return self._operator_class(self, *args, **kwds)
         
     def random_element(self, *args, **kwds):
         """
@@ -412,33 +422,55 @@ class OreAlgebra(sage.algebras.algebra.Algebra):
 
     def base_extend(self, R):
         """
+        Creates the Ore algebra obtained from `self` by replacing the base ring by `R`
         """
-        raise NotImplementedError
+        return self.change_ring(R)
 
     def change_ring(self, R):
         """
+        Creates the Ore algebra obtained from `self` by replacing the base ring by `R`
         """
-        raise NotImplementedError
+        return OreAlgebra(R, *self._gens)
 
     def change_var(self, var, n=0):
         """
-        """
+        Creates the Ore algebra obtained from `self` by renaming the `n`th generator to `var`
+        """ 
+        if n < 0 or n >= self.ngens():
+            raise IndexError("No such generator.")
         return self.change_var_sigma_delta(var, self._gens[n][1], self._gens[n][2], n)
 
     def change_sigma(self, sigma, n=0):
         """
+        Creates the Ore algebra obtained from `self` by replacing the homomorphism associated to the
+        `n`th generator to `sigma`
         """
+        if n < 0 or n >= self.ngens():
+            raise IndexError("No such generator.")
         return self.change_var_sigma_delta(self._gens[n][0], sigma, self._gens[n][2], n)
 
     def change_delta(self, delta, n=0):
         """
+        Creates the Ore algebra obtained from `self` by replacing the skew-derivation associated to the
+        `n`th generator to `delta`
         """
+        if n < 0 or n >= self.ngens():
+            raise IndexError("No such generator.")
         return self.change_var_sigma_delta(self._gens[n][0], self._gens[n][1], delta, n)
 
     def change_var_sigma_delta(self, var, sigma, delta, n=0):
         """
+        Creates the Ore algebra obtained from `self` by replacing the
+        `n`th generator and its associated homomorphism and skew-derivation
+        by `var`, `sigma`, and `delta`, respectively.
         """
-        raise NotImplementedError
+        if n < 0 or n >= self.ngens():
+            raise IndexError("No such generator.")
+
+        gens = list(self._gens)
+        gens[n] = (var, sigma, delta)
+
+        return OreAlgebra(self.base_ring(), *gens)
         
 ##########################################################################################################
 
