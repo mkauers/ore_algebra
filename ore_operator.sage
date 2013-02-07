@@ -144,7 +144,7 @@ class OreOperator(RingElement):
 
     def __div__(self, right):
         """
-        Exact division. Uses division with remainder, and returns the quotient if the
+        Exact right division. Uses division with remainder, and returns the quotient if the
         remainder is zero. Otherwise a TypeError is raised.
         """
         Q, R = self.quo_rem(right)
@@ -277,12 +277,6 @@ class OreOperator(RingElement):
         """
         raise NotImplementedError
 
-    def numerator(self):
-        """
-        Return a numerator of self computed as self.denominator() * self
-        """
-        return self.denominator() * self
-
 #############################################################################################################
     
 class UnivariateOreOperator(OreOperator):
@@ -405,7 +399,7 @@ class UnivariateOreOperator(OreOperator):
             DiB = DiB.map_coefficients(sigma)*D + DiB.map_coefficients(delta)
             res += coeffs[i]*DiB
 
-        return self.parent()(res)
+        return R(res)
 
     def quo_rem(self, other):
         """
@@ -528,22 +522,7 @@ class UnivariateOreOperator(OreOperator):
         Return the exponents of the monomials appearing in self.
         """
         return self.polynomial().exponents()
-             
-    # numerator and denominator
 
-    def denominator(self):
-        """
-        Return a denominator of self.
-
-        First, the lcm of the denominators of the coefficient of self
-        is computed and returned. If this computation fails, the
-        unit of the base of the parent of self is returned.
-        """
-        R = self.base_ring()
-        try:
-            return lcm([ R(p.denominator()) for p in self.coefficients() ])
-        except:
-            return R.one_element()
 
 #############################################################################################################
 
@@ -552,8 +531,8 @@ class UnivariateOreOperatorOverRationalFunctionField(UnivariateOreOperator):
     Element of an Ore algebra with a single generator and a commutative rational function field as base ring.     
     """
 
-    def __init__(self, parent, is_gen = False, construct=False): 
-        UnivariateOreOperator.__init__(self, parent, is_gen, construct)
+    def __init__(self, parent, *data, **kwargs):
+        super(UnivariateOreOperator, self).__init__(parent, *data, **kwargs)
 
     def degree(self):
         """
@@ -580,15 +559,37 @@ class UnivariateOreOperatorOverRationalFunctionField(UnivariateOreOperator):
         """
         raise NotImplementedError
 
+    # numerator and denominator
+
+    def numerator(self):
+        """
+        Return a numerator of self computed as self.denominator() * self
+        """
+        return self.denominator() * self
+
+    def denominator(self):
+        """
+        Return a denominator of self.
+
+        First, the lcm of the denominators of the coefficient of self
+        is computed and returned. If this computation fails, the
+        unit of the base of the parent of self is returned.
+        """
+        R = self.base_ring()
+        try:
+            return lcm([ R(p.denominator()) for p in self.coefficients() ])
+        except:
+            return R.one_element()
+
 #############################################################################################################
 
-class UnivariateDifferentialOperatorOverRationalFunctionField(UnivariateRationalOreOperator):
+class UnivariateDifferentialOperatorOverRationalFunctionField(UnivariateOreOperatorOverRationalFunctionField):
     """
     Element of an Ore algebra K(x)[D], where D acts as derivation d/dx on K(x).
     """
 
-    def __init__(self, parent, is_gen = False, construct=False): 
-        UnivariateRationalOreOperator.__init__(self, parent, is_gen, construct)
+    def __init__(self, parent, *data, **kwargs):
+        super(UnivariateOreOperatorOverRationalFunctionField, self).__init__(parent, *data, **kwargs)
 
     def to_recurrence(self, *args):
         raise NotImplementedError
@@ -623,13 +624,13 @@ class UnivariateDifferentialOperatorOverRationalFunctionField(UnivariateRational
 
 #############################################################################################################
 
-class UnivariateRecurrenceOperatorOverRationalFunctionField(UnivariateRationalOreOperator):
+class UnivariateRecurrenceOperatorOverRationalFunctionField(UnivariateOreOperatorOverRationalFunctionField):
     """
     Element of an Ore algebra K(x)[S], where S is the shift x->x+1.
     """
 
-    def __init__(self, parent, is_gen = False, construct=False): 
-        UnivariateRationalOreOperator.__init__(self, parent, is_gen, construct)
+    def __init__(self, parent, *data, **kwargs):
+        super(UnivariateOreOperatorOverRationalFunctionField, self).__init__(parent, *data, **kwargs)
 
     def to_differential_equation(self, *args):
         raise NotImplementedError
@@ -658,13 +659,13 @@ class UnivariateRecurrenceOperatorOverRationalFunctionField(UnivariateRationalOr
 
 #############################################################################################################
 
-class UnivariateQRecurrenceOperatorOverRationalFunctionField(UnivariateRationalOreOperator):
+class UnivariateQRecurrenceOperatorOverRationalFunctionField(UnivariateOreOperatorOverRationalFunctionField):
     """
     Element of an Ore algebra K(x)[S], where S is the shift x->q*x for some q in K.
     """
 
-    def __init__(self, parent, is_gen = False, construct=False): 
-        UnivariateRationalOreOperator.__init__(self, parent, is_gen, construct)
+    def __init__(self, parent, *data, **kwargs):
+        super(UnivariateOreOperatorOverRationalFunctionField, self).__init__(parent, *data, **kwargs)
 
     def sum(self):
         """
