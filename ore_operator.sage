@@ -1,11 +1,11 @@
 
 class OreOperator(RingElement):
     """
-    An Ore operator. This is an abstract class whose instances represent elements of `OreAlgebra`.
+    An Ore operator. This is an abstract class whose instances represent elements of ``OreAlgebra``.
 
-    In addition to usual `RingElement` features, Ore operators provide coefficient extraction
+    In addition to usual ``RingElement`` features, Ore operators provide coefficient extraction
     functionality and the possibility of letting an operator act on another object. The latter
-    is provided through `__call__`.
+    is provided through ``call``.
 
     """
 
@@ -24,14 +24,50 @@ class OreOperator(RingElement):
 
     # action
 
-    def __call__(self, *x, **kwds):
+    def __call__(self, f, **kwds):
         """
-        Lets ``self`` act on ``x`` and returns the result.
+        Lets ``self`` act on ``f`` and returns the result.
+        The meaning of the action corresponding to the generator
+        of the Ore algebra can be specified with a keyword arguments
+        whose left hand sides are the names of the generator and the
+        right hand side some callable object. If no such information
+        is provided for some generator, a default function is used.
+        The choice of the default depends on the subclass. 
+
+        The parent of ``f`` must be a ring supporting conversion
+        from the base ring of ``self``. (There is room for generalization.)
+
+        EXAMPLE::
+
+           # In differential operator algebras, generators acts as derivations
+           sage: R.<x> = QQ['x']
+           sage: A.<Dx> = OreAlgebra(R.fraction_field(), "Dx")
+           sage: (Dx^5)(x^5) # acting on base ring elements
+           120
+           sage: (x*Dx - 1)(x)
+           0
+           sage: RR = PowerSeriesRing(QQ, "x", 5)
+           sage: 1/(1-RR.gen())
+           1 + x + x^2 + x^3 + x^4 + O(x^5)
+           sage: (Dx^2 - (5*x-3)*Dx - 1)(_) # acting on something else
+           4 + 6*x + 10*x^2 + O(x^3)
+
+           # In shift operator algebras, generators act per default as shifts
+           sage: R.<x> = QQ['x']
+           sage: A.<Sx> = OreAlgebra(R.fraction_field(), "Sx")
+           sage: (Sx - 1)(x)
+           1
+           sage: (Sx - 1)(1/4*x*(x-1)*(x-2)*(x-3))
+           x^3 - 3*x^2 + 2*x
+           sage: factor(_)
+           (x - 2) * (x - 1) * x
+           sage: (Sx - 1)(1/4*x*(x-1)*(x-2)*(x-3), Sx=lambda p:p(2*x)) # let Sx act as q-shift
+           15/4*x^4 - 21/2*x^3 + 33/4*x^2 - 3/2*x
+
         """
         raise NotImplementedError
 
     # tests
-
     def __nonzero__(self):
         raise NotImplementedError
 
@@ -139,6 +175,8 @@ class OreOperator(RingElement):
 
     def __invert__(self):
         """
+        This returns ``1/self``, an object which is meaningful only if ``self`` can be coerced
+        to the base ring of its parent, and admits a multiplicative inverse there. 
         """
         return self.parent().one_element()/self
 
@@ -154,12 +192,14 @@ class OreOperator(RingElement):
                    
     def __floordiv__(self,right):
         """
+        Quotient of quotient with remainder. 
         """
         Q, _ = self.quo_rem(right)
         return Q
         
     def __mod__(self, other):
         """
+        Remainder of quotient with remainder. 
         """
         _, R = self.quo_rem(other)
         return R
@@ -191,9 +231,7 @@ class OreOperator(RingElement):
         raise NotImplementedError
 
     def __setitem__(self, n, value):
-        """
-        """
-        raise IndexError("Operators are immutable")
+        raise IndexError, "Operators are immutable"
 
     def is_primitive(self, n=None, n_prime_divs=None):
         """
@@ -295,11 +333,20 @@ class UnivariateOreOperator(OreOperator):
 
     # action
 
-    def __call__(self, *x, **kwds):
-        """
-        Lets ``self`` act on ``x`` and returns the result.
-        """
-        raise NotImplementedError
+    def __call__(self, f, **kwds):
+
+        D = self.parent().var();
+        if kwds.has_key(D):
+            D = kwds[D]
+        else:
+            D = lambda p:p
+
+        R = f.parent(); Dif = f; result = R(self[0r])*f; 
+        for i in xrange(1r, self.order() + 1r):
+            Dif = D(Dif)
+            result += R(self[i])*Dif
+        
+        return result
 
     # tests
 
@@ -596,6 +643,14 @@ class UnivariateDifferentialOperatorOverRationalFunctionField(UnivariateOreOpera
     def __init__(self, parent, *data, **kwargs):
         super(UnivariateOreOperatorOverRationalFunctionField, self).__init__(parent, *data, **kwargs)
 
+    def __call__(self, f, **kwargs):
+        
+        D = self.parent().var();
+        if not kwargs.has_key(D):
+            kwargs[D] = lambda p : p.derivative()
+
+        return UnivariateOreOperator.__call__(self, f, **kwargs)
+
     def to_recurrence(self, *args):
         raise NotImplementedError
 
@@ -637,6 +692,15 @@ class UnivariateRecurrenceOperatorOverRationalFunctionField(UnivariateOreOperato
     def __init__(self, parent, *data, **kwargs):
         super(UnivariateOreOperatorOverRationalFunctionField, self).__init__(parent, *data, **kwargs)
 
+    def __call__(self, f, **kwargs):
+        
+        D = self.parent().var();
+        x = self.parent().base_ring().gen()
+        if not kwargs.has_key(D):
+            kwargs[D] = lambda p : p(x+1)
+
+        return UnivariateOreOperator.__call__(self, f, **kwargs)
+
     def to_differential_equation(self, *args):
         raise NotImplementedError
 
@@ -671,6 +735,17 @@ class UnivariateQRecurrenceOperatorOverRationalFunctionField(UnivariateOreOperat
 
     def __init__(self, parent, *data, **kwargs):
         super(UnivariateOreOperatorOverRationalFunctionField, self).__init__(parent, *data, **kwargs)
+
+    def __call__(self, f, **kwargs):
+
+        R = self.parent()
+        D = R.var()
+        x = R.base_ring().gen()
+        qx = R.sigma()(x)
+        if not kwargs.has_key(D):
+            kwargs[D] = lambda p : p(qx)
+
+        return UnivariateOreOperator.__call__(self, f, **kwargs)
 
     def sum(self):
         """

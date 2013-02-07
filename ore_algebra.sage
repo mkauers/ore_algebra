@@ -297,7 +297,7 @@ def OreAlgebra(base_ring, *generators, **kwargs):
     generators of `A`, and the base ring of the parent of `p` admits a coercion
     to the base ring of `A`. The ring of these polynomials is called the
     associated commutative algebra of `A`, and it can be obtained by calling
-    `A.associated_commutative_algebra()`.
+    ``A.associated_commutative_algebra()``.
 
     Elements of Ore algebras are called Ore operators. They can be constructed
     from the same data from which also elements of the associated commutative
@@ -358,7 +358,7 @@ def OreAlgebra(base_ring, *generators, **kwargs):
         if type(gens[i][2]) == dict:
             gens[i] = (gens[i][0], gens[i][1], _dict_to_delta(R, gens[i][2], gens[i][1]))
         if not gens[i][1](R.one()) == R.one():
-            raise TypeError, "sigma(1) must be 1"
+            raise ValueError, "sigma(1) must be 1"
         gens[i] = tuple(gens[i])
 
     # try to recognize standard operators
@@ -416,8 +416,6 @@ _list_of_ore_algebras = []
 
 class OreAlgebra_generic(sage.algebras.algebra.Algebra):
 
-    _no_generic_basering_coercion = False
-    
     def __init__(self, base_ring, operator_class, gens, **kargs):
         self._base_ring = base_ring
         self._operator_class = operator_class
@@ -506,8 +504,7 @@ class OreAlgebra_generic(sage.algebras.algebra.Algebra):
             return False
 
     def _sage_input_(self, sib, coerced):
-        r"""
-        Produce an expression which will reproduce this value when evaluated.
+        """
         """
         raise NotImplementedError
 
@@ -599,6 +596,68 @@ class OreAlgebra_generic(sage.algebras.algebra.Algebra):
            
         """
         return self._gens[self._gen_to_idx(n)][1]
+
+    def sigma_inverse(self, n=0):
+        """
+        Returns a callable object which represents the compositional inverse of the sigma
+        callable associated to the `n`th generator of this algebra.
+        The generator can be specified by index (as integer), or by name (as string),
+        or as algebra element.
+
+        The inverse can be constructed if `sigma` is such that it maps every generator `x` of
+        the base ring (or the base ring's base ring, etc.) to a linear combination `a*x+b`
+        where `a` and `b` belong to the base ring of the parent of `x`.
+
+        If the method fails in constructing the inverse, it raises a ``ValueError``.
+
+        EXAMPLES::
+
+           sage: R.<x> = QQ['x']
+           sage: A.<Sx> = OreAlgebra(R.fraction_field(), "Sx")
+           sage: sigma = A.sigma()
+           sage: sigma_inverse = A.sigma_inverse()
+           sage: sigma(x)
+           x + 1
+           sage: sigma_inverse(x)
+           x - 1
+        
+        """
+        # possible generalization in case of rings with more generators: each generator is
+        # mapped to a linear combination of the other generators with coefficients in the
+        # base ring.
+        
+        if not hasattr(self, "_sigma_inverses"):
+            self._sigma_inverses = [ None for D in self.gens() ]
+
+        n = self._gen_to_idx(n)
+        sig_inv = self._sigma_inverses[n]
+        if sig_inv is not None:
+            return sig_inv
+
+        R = self.base_ring()
+        sigma = self.sigma(n)
+        sigma_inv_dict = {}
+        for x in _collect_generators(R):
+            sx = sigma(x)
+            if sx == x:
+                continue
+            B = R
+            while x not in B.gens():
+                B = B.base_ring()
+            if is_FractionField(B):
+                B = B.ring()
+            try:
+                sx = B(sx) # may raise exception
+                if sx.degree() > 1r:
+                    raise ValueError # may raise exception
+                b, a = sx[0r], sx[1r];
+                sigma_inv_dict[x] = R( (x - b)/a ) # may raise exception
+            except:
+                raise ValueError, "unable to construct inverse of sigma"
+
+        sigma_inv = _dict_to_sigma(R, sigma_inv_dict)
+        self._sigma_inverses[n] = sigma_inv
+        return sigma_inv
 
     def delta(self, n=0):
         """
