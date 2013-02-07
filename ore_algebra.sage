@@ -1,8 +1,208 @@
 
-from sage.rings.ring import Algebra
 from sage.structure.element import RingElement
+from sage.rings.ring import Algebra
+from sage.rings.polynomial.polynomial_ring import is_PolynomialRing
+from sage.rings.polynomial.multi_polynomial_ring import is_MPolynomialRing
+from sage.rings.number_field.number_field import is_NumberField
+from sage.rings.fraction_field import is_FractionField
 
 load("ore_operator.sage")
+
+def _collect_generators(R):
+    """
+    An auxiliary function which collects the generators of the given ring `R`, its base ring,
+    the base ring of its base ring, and so on. Returns these generators as elements of `R`.
+
+    ::
+
+       sage: R1.<x1> = QQ['x1']
+       sage: R2.<x2> = R1['x2']
+       sage: R3.<x3> = (R2.fraction_field())['x3']
+       sage: _collect_generators(R3)
+       [x3, x2, x1, 1]
+    
+    """
+    gens = list(R.gens()); B = R.base_ring()
+    try:
+        while B.base_ring() is not B:
+            for x in B.gens():
+                gens.append(x)
+            B = B.base_ring()
+    except:
+        pass
+    gens.append(R.one_element())
+    return map(R, gens)
+
+def _dict_to_sigma(R, d):
+    """
+    Given a ring `R` and a dictionary `d` whose left hand sides are generators of (some base ring of) `R`,
+    construct a callable object that acts on elements of `R` as the homomorphism defined by the dictionary.
+
+    ::
+
+       sage: R1.<x1> = QQ['x1']
+       sage: R2.<x2> = R1['x2']
+       sage: R3.<x3> = (R2.fraction_field())['x3']
+       sage: sigma = _dict_to_sigma(R3, {x1:2*x1, x2:1-x2, x3:x3+1})
+       sage: sigma(x1+x2+x3)
+       x3 - x2 + 2*x1
+
+    WARNING:
+
+       Problems arise if a generator is mapped to some element which does not belong to the parent of
+       the generator. For example, if `R=QQ(x)(y)(z)`, then the image of `x` must belong to `QQ(x)`,
+       and the image of `y` to `QQ(x)(y)`. 
+    
+    """
+    my_dict = {}
+    for x in d:
+        my_dict[R(x)] = d[x]
+    def sigma(p):
+        R0 = p.parent()
+        if p in QQ:
+            return p
+        elif p in R0.base_ring():
+            return sigma(R0.base_ring()(p))
+        elif is_FractionField(R0):
+            return sigma(p.numerator())/sigma(p.denominator())
+        elif is_PolynomialRing(R0):
+            x = R(R0.gen())
+            q = p.map_coefficients(sigma)
+            if my_dict.has_key(x) and my_dict[x] != x:
+                q = q(my_dict[x])
+            return q
+        else:
+            raise NotImplementedError, "NYI: sigma for multivariate polynomials"
+    
+    return sigma
+
+def _sigma_to_dict(R, sigma):
+    """
+    Given a ring `R` and a callable object `sigma` representing a homomorphism from `R` to itself, 
+    construct a dictionary with the values of `sigma` of the generators of `R` and its base rings.
+    Generators on which `sigma` acts as identity are omitted. 
+
+    ::
+
+       sage: R1.<x1> = QQ['x1']
+       sage: R2.<x2> = R1['x2']
+       sage: R3.<x3> = (R2.fraction_field())['x3']
+       sage: sigma = _dict_to_sigma(R3, {x1:2*x1, x2:1-x2, x3:x3+1})
+       sage: _sigma_to_dict(R3, sigma)
+       {x3:x3+1, x2:1-x2, x1:2*x1}
+    
+    """
+    d = {}
+    for x in _collect_generators(R):
+        sx = sigma(x)
+        if x != sx:
+            d[x] = sx
+    return d    
+
+def _dict_to_delta(R, d, sigma):
+    """
+    Given a ring `R` and a dictionary `d` whose left hand sides are generators of (some base ring of) `R`,
+    and a callable object `sigma` encoding a homomorphism on `R`,
+    construct a callable object that acts on elements of `R` as the skew-derivation for `sigma` defined
+    by the dictionary. Generators for which no image is specified are mapped to zero. 
+    Unless `delta` is the zero map, we require that `R` be a tower of polynomial or rational-function
+    extensions (univariate or multivariate) of ZZ or QQ or some number field on which `delta` is identically zero.
+    If `R` does not have this form, a `TypeError` is raised. 
+
+    ::
+
+       sage: R1.<x1> = QQ['x1']
+       sage: R2.<x2> = R1['x2']
+       sage: R3.<x3> = (R2.fraction_field())['x3']
+       sage: delta = _dict_to_delta(R3, {x1:0, x2:1, x3:0}, lambda p:p)
+       sage: delta(x1+x2+x3)
+       1
+
+    WARNING:
+
+       Problems arise if a generator is mapped to some element which does not belong to the parent of
+       the generator. For example, if `R=QQ(x)(y)(z)`, then the image of `x` must belong to `QQ(x)`,
+       and the image of `y` to `QQ(x)(y)`. 
+    
+    """
+    # 1. is delta the zero map?
+    is_zero = True; zero = R.zero(); my_dict = {}
+    for x in d:
+        if d[x] != zero:
+            is_zero = False
+        my_dict[R(x), 0r] = zero
+        my_dict[R(x), 1r] = d[x]
+    if is_zero:
+        return lambda p: zero
+
+    # 2. check whether R has the expected form
+    B = R
+    while B.base_ring() != B and not is_NumberField(B):
+        if is_FractionField(B):
+            B = B.ring()
+        if not is_PolynomialRing(B) and not is_MPolynomialRing(B):
+            raise TypeError, "unexpected ring encountered in construction of skew derivation"
+        B = B.base_ring()
+
+    if is_NumberField(B):
+        # check that delta is identically zero on B
+        is_zero = True
+        for x in _collect_generators(B):
+            if my_dict.has_key((R(x), 1r)) and my_dict[R(x), 1r] != B.zero():
+                is_zero = False
+        if not is_zero:
+            raise TypeError, "expecting skew derivation to be identically zero on number field"
+
+    # 3. define the map and return it.
+    def delta(p):
+        R0 = p.parent()
+        if p in B:
+            return R0.zero()
+        elif p in R0.base_ring():
+            return delta(R0.base_ring()(p))
+        elif is_FractionField(R0):
+            a = p.numerator(); b = p.denominator()
+            return R0(delta(a))/R0(b) - R0(delta(b)*sigma(a))/R0(b*sigma(b)) # this needs sigma(1)=1
+        elif is_PolynomialRing(R0):
+            x = R(R0.gen())
+            if not my_dict.has_key((x, 1r)) or my_dict[x, 1r] == R.zero():
+                return p.map_coefficients(delta)
+            if sigma(x) == x:
+                return p.map_coefficients(delta) + p.derivative(x).map_coefficients(sigma)*my_dict[x, 1r]
+            for i in xrange(2r, p.degree() + 1r):
+                if not my_dict.has_key((x, i)):
+                    my_dict[x, i] = my_dict[x, i-1r]*x + sigma(x^(i-1r))*my_dict[x, 1r]
+            out = p.map_coefficients(delta)
+            for i in xrange(p.degree() + 1r):
+                out += sigma(p[i])*my_dict[x, i]
+            return out
+        else:
+            raise NotImplementedError, "NYI: delta for multivariate polynomials"
+    
+    return delta
+
+def _delta_to_dict(R, delta):
+    """
+    Given a ring `R`, and a callable object `delta` representing a skew-derivation on `R`,
+    construct a dictionary with the values of `delta` of the generators of `R` and its base rings.
+
+    ::
+
+       sage: R1.<x1> = QQ['x1']
+       sage: R2.<x2> = R1['x2']
+       sage: R3.<x3> = (R2.fraction_field())['x3']
+       sage: delta = _dict_to_delta(R3, {x1:0, x2:1, x3:0}, lambda p:p)
+       sage: _delta_to_dict(R3, delta)
+       {x3:0, x2:1, x1:0, 1:0}
+    
+    """
+    d = {}
+    for x in _collect_generators(R):
+        dx = delta(x)
+        if x != dx:
+            d[x] = dx
+    return d    
+
 
 class OreAlgebra(sage.algebras.algebra.Algebra):
     """
@@ -43,7 +243,26 @@ class OreAlgebra(sage.algebras.algebra.Algebra):
       # This creates an Ore algebra of linear recurrence operators
       sage: A.<S> = OreAlgebra(K, ('S', lambda p: p(x+1), lambda p: K.zero()))
       sage: A
-      Univariate Ore algebra in S over Fraction Field of Univariate Polynomial Ring in x over Rational Field 
+      Univariate Ore algebra in S over Fraction Field of Univariate Polynomial Ring in x over Rational Field
+
+    Instead of a callable object for `sigma` and `delta`, also a dictionary can
+    be supplied which for every generator of the base ring specifies the desired
+    image. If the base ring is a tower of polynomial ring or fraction field
+    extensions, the dictionary may specify images for any selection of
+    generators at any level of the tower. If some generator is not in the
+    dictionary, it is understood that `sigma` acts as identity on it, and that
+    `delta` maps it to zero.
+
+    ::
+
+      sage: U = QQ['x'].fraction_field(); x = U.gen()
+      sage: V = U['y'].fraction_field(); y = V.gen()
+      # here, the base ring represents the differential field QQ(x, y=e^x)
+      sage: A.<D> = OreAlgebra(V, ('D', {}, {x:1, y:0}))
+      # here, the base ring represents the difference field QQ(x, 2^x)
+      sage: B.<S> = OreAlgebra(V, ('S', {x:x+1, y:2*y}, {}))
+      # here too, but the algebra's generator represents the forward difference instead of the shift
+      sage: C.<Delta> = OreAlgebra(V, ('Delta', {x:x+1, y:2*y}, {x:1, y:y}))
 
     For differential and shift operators (the most common cases), there are
     shortcuts: Supplying as generator a string ``'Dx'`` consisting of ``'D'``
@@ -71,8 +290,50 @@ class OreAlgebra(sage.algebras.algebra.Algebra):
     algebra `A` knows how to coerce commutative polynomials `p` to elements of
     `A` if the generators of the parent of `p` have the same names as the
     generators of `A`, and the base ring of the parent of `p` admits a coercion
-    to the base ring of `A`.
+    to the base ring of `A`. The ring of these polynomials is called the
+    associated commutative algebra of `A`, and it can be obtained by calling
+    `A.associated_commutative_algebra()`.
 
+    Elements of Ore algebras are called Ore operators. They can be constructed
+    from the same data from which also elements of the associated commutative
+    algebra can be constructed.
+
+    The conversion from data to an Ore operator is equivalent to the conversion
+    from the given data to an element of the associated commutative algebra, and
+    from there to an Ore operator. This has the consequence that possible implicit
+    information about multiplication order may be lost, for example when generating
+    operators from strings:
+
+    ::
+
+       sage: A = OreAlgebra(QQ['x'].fraction_field(), 'Dx')
+       sage: A("Dx*x")
+       x*Dx
+       sage: A("Dx")*A("x")
+       x*Dx + 1
+
+    A secure way of creating operators is via a list of coefficients. These are then
+    always interpreted as standing to the left of some algebra generator monomial.
+
+    ::
+
+       sage: R.<x> = QQ['x']
+       sage: A = OreAlgebra(R.fraction_field(), 'Dx')
+       sage: A([x^2+1, 5*x-7, 7*x+18])
+       (7*x + 18)*Dx^2 + (5*x - 7)*Dx + x^2 + 1
+       sage: (7*x + 18)*Dx^2 + (5*x - 7)*Dx + x^2 + 1
+       (7*x + 18)*Dx^2 + (5*x - 7)*Dx + x^2 + 1
+       sage: _^2
+       (49*x^2 + 252*x + 324)*Dx^4 + (70*x^2 + 180*x)*Dx^3 + (14*x^3 + 61*x^2 + 49*x + 216)*Dx^2 + (10*x^3 + 14*x^2 + 107*x - 49)*Dx + x^4 + 12*x^2 + 37
+       
+       sage: A.<Sx> = OreAlgebra(R.fraction_field(), 'Sx')
+       sage: A([x^2+1, 5*x-7, 7*x+18])
+       (7*x + 18)*Sx^2 + (5*x - 7)*Sx + x^2 + 1
+       sage: (7*x + 18)*Sx^2 + (5*x - 7)*Sx + x^2 + 1
+       (7*x + 18)*Sx^2 + (5*x - 7)*Sx + x^2 + 1
+       sage: _^2
+       (49*x^2 + 350*x + 576)*Sx^4 + (70*x^2 + 187*x - 121)*Sx^3 + (14*x^3 + 89*x^2 + 69*x + 122)*Sx^2 + (10*x^3 - 4*x^2 + x - 21)*Sx + x^4 + 2*x^2 + 1
+       
     """
     _no_generic_basering_coercion = False
     
@@ -82,37 +343,30 @@ class OreAlgebra(sage.algebras.algebra.Algebra):
         R = self._base_ring = base_ring
         gens = list(gens)
 
-        # expand generator shortcuts
+        # expand generator shortcuts, convert dictionaries to callables, and check that sigma(1)=1
         for i in xrange(len(gens)):
             if type(gens[i]) == type(""):
                 if gens[i][0] == 'D':
-                    x = R(gens[i][1:])
-                    if x != R.gen():
-                        raise NotImplementedError, "todo: generator shortcuts don't work unless they act on base.gen()"
-                    gens[i] = (gens[i], lambda p: p, lambda p: p.derivative(x))
+                    x = R(gens[i][1:]); gens[i] = (gens[i], lambda p: p, {x:1})
                 elif gens[i][0] == 'S':
-                    x = R(gens[i][1:]); z = R.zero(); d = {x:x+1}
-                    if x != R.gen():
-                        raise NotImplementedError, "todo: generator shortcuts don't work unless they act on base.gen()"
-                    gens[i] = (gens[i], lambda p: R(p).subs(d), lambda p: z)
+                    x = R(gens[i][1:]); gens[i] = (gens[i], {x:x+1}, lambda p: R.zero())
                 else:
                     raise TypeError, "unexpected generator declaration"
             elif len(gens[i]) != 3:
                 raise TypeError, "unexpected generator declaration"
+            if type(gens[i][1]) == dict:
+                gens[i] = (gens[i][0], _dict_to_sigma(R, gens[i][1]), gens[i][2])
+            if type(gens[i][2]) == dict:
+                gens[i] = (gens[i][0], gens[i][1], _dict_to_delta(R, gens[i][2], gens[i][1]))
+            if not gens[i][1](R.one()) == R.one():
+                raise TypeError, "sigma(1) must be 1"
             gens[i] = tuple(gens[i])
 
         self._gens = tuple(gens)
 
         # try to recognize standard operators
         is_shift = [False for q in gens]; is_qshift = [False for q in gens]; is_derivation = [False for q in gens]
-        subgens = list(R.gens()); B = R.base_ring()
-        try:
-            while B.base_ring() is not B:
-                for x in B.gens():
-                    subgens.append(x)
-                B = B.base_ring()
-        except:
-            pass
+        subgens = _collect_generators(R)
             
         for i in xrange(len(gens)):
             if all(gens[i][1](x) == x for x in subgens):
@@ -170,31 +424,21 @@ class OreAlgebra(sage.algebras.algebra.Algebra):
         """
         return True
 
-    #def construction(self):
-    #    from sage.categories.pushout import PolynomialFunctor
-    #    return PolynomialFunctor(self.variable_name()), self.base_ring()
-
     def _coerce_map_from_(self, P):
         """
         An object can be coerced to this algebra iff it can be coerced to the
         associated commutative algebra.
         """
         out = self.associated_commutative_algebra()._coerce_map_from_(P)
-        if out is None:
-            return None
-        elif out is False:
+        if out is None or out is False:
             return None
         else:
             return True
 
     def _sage_input_(self, sib, coerced):
         r"""
-        Produce an expression which will reproduce this value when
-        evaluated.
+        Produce an expression which will reproduce this value when evaluated.
         """
-        # how to deal with the problem that sigma and delta may be arbitrary callable objects?
-        # convert them to internal objects based on what they do to the generators of the base ring?
-        # clean solution: require that the sigma's be Hom objects, and design a similar data type for the delta's. 
         raise NotImplementedError
 
     def _is_valid_homomorphism_(self, codomain, im_gens):
@@ -364,9 +608,9 @@ class OreAlgebra(sage.algebras.algebra.Algebra):
 
     def is_field(self, proof = True):
         """
-        Returns False since Ore algebras are not fields.
+        Returns False since Ore algebras are not fields (unless they have 0 generators and the base ring is a field)
         """
-        return False
+        return self.ngens() == 0 and self.base_ring().is_field()
         
     def krull_dimension(self):
         """
@@ -443,7 +687,7 @@ class OreAlgebra(sage.algebras.algebra.Algebra):
     def change_sigma(self, sigma, n=0):
         """
         Creates the Ore algebra obtained from `self` by replacing the homomorphism associated to the
-        `n`th generator to `sigma`
+        `n`th generator to `sigma`, which may be a callable or a dictionary.
         """
         if n < 0 or n >= self.ngens():
             raise IndexError("No such generator.")
@@ -452,7 +696,7 @@ class OreAlgebra(sage.algebras.algebra.Algebra):
     def change_delta(self, delta, n=0):
         """
         Creates the Ore algebra obtained from `self` by replacing the skew-derivation associated to the
-        `n`th generator to `delta`
+        `n`th generator to `delta`, which may be a callable or a dictionary.
         """
         if n < 0 or n >= self.ngens():
             raise IndexError("No such generator.")
@@ -463,13 +707,18 @@ class OreAlgebra(sage.algebras.algebra.Algebra):
         Creates the Ore algebra obtained from `self` by replacing the
         `n`th generator and its associated homomorphism and skew-derivation
         by `var`, `sigma`, and `delta`, respectively.
+        The maps `sigma` and `delta` may be specified as callables or dictionaries.
         """
         if n < 0 or n >= self.ngens():
             raise IndexError("No such generator.")
 
         gens = list(self._gens)
-        gens[n] = (var, sigma, delta)
+        if type(sigma) == dict:
+            sigma = _dict_to_sigma(self.base_ring(), sigma)
+        if type(delta) == dict:
+            delta = _dict_to_delta(self.base_ring(), delta, sigma)
 
+        gens[n] = (var, sigma, delta)
         return OreAlgebra(self.base_ring(), *gens)
         
 ##########################################################################################################
@@ -483,5 +732,3 @@ def guess_deq(data, x, D):
     """
     """
     raise NotImplementedError
-
-
