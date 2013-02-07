@@ -286,7 +286,12 @@ class UnivariateOreOperator(OreOperator):
 
     def __init__(self, parent, *data, **kwargs):
         super(OreOperator, self).__init__(parent)
-        self._poly = parent.associated_commutative_algebra()(*data, **kwargs)
+        if len(data) == 1 and isinstance(data[0], OreOperator):
+            # CASE 1:  *data is an OreOperator, possibly from a different algebra
+            self._poly = parent.associated_commutative_algebra()(data[0].polynomial(), **kwargs)
+        else:
+            # CASE 2:  *data can be coerced to a commutative polynomial         
+            self._poly = parent.associated_commutative_algebra()(*data, **kwargs)
 
     # action
 
