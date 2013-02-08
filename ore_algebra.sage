@@ -8,6 +8,12 @@ from sage.rings.fraction_field import is_FractionField
 
 load("ore_operator.sage")
 
+def is_OreAlgebra(A):
+    """
+    Checks whether `A` is an Ore algebra object.     
+    """
+    return isinstance(A, OreAlgebra_generic)
+
 def _collect_generators(R):
     """
     An auxiliary function which collects the generators of the given ring `R`, its base ring,
@@ -177,7 +183,7 @@ def _dict_to_delta(R, d, sigma):
                 out += sigma(p[i])*my_dict[x, i]
             return out
         else:
-            raise NotImplementedError, "NYI: delta for multivariate polynomials"
+            raise NotImplementedError, "NYI: delta for elements of " + str(R0)
     
     return delta
 
@@ -203,12 +209,11 @@ def _delta_to_dict(R, delta):
             d[x] = dx
     return d    
 
-
-class OreAlgebra(sage.algebras.algebra.Algebra):
+def OreAlgebra(base_ring, *generators, **kwargs):
     """
     An Ore algebra is a noncommutative polynomial ring whose elements are
     interpreted as operators.
-
+    
     An Ore algebra has the form `A=R[\partial_1,\partial_2,\dots,\partial_n]`
     where `R` is a commutative ring and `\partial_1,\dots,\partial_n` are
     indeterminates.  For each of them, there is an associated automorphism
@@ -292,7 +297,7 @@ class OreAlgebra(sage.algebras.algebra.Algebra):
     generators of `A`, and the base ring of the parent of `p` admits a coercion
     to the base ring of `A`. The ring of these polynomials is called the
     associated commutative algebra of `A`, and it can be obtained by calling
-    `A.associated_commutative_algebra()`.
+    ``A.associated_commutative_algebra()``.
 
     Elements of Ore algebras are called Ore operators. They can be constructed
     from the same data from which also elements of the associated commutative
@@ -335,76 +340,109 @@ class OreAlgebra(sage.algebras.algebra.Algebra):
        (49*x^2 + 350*x + 576)*Sx^4 + (70*x^2 + 187*x - 121)*Sx^3 + (14*x^3 + 89*x^2 + 69*x + 122)*Sx^2 + (10*x^3 - 4*x^2 + x - 21)*Sx + x^4 + 2*x^2 + 1
        
     """
-    _no_generic_basering_coercion = False
-    
-    def __init__(self, base_ring, *gens, **kargs):
-        """
-        """
-        R = self._base_ring = base_ring
-        gens = list(gens)
+    R = base_ring; gens = list(generators)
 
-        # expand generator shortcuts, convert dictionaries to callables, and check that sigma(1)=1
-        for i in xrange(len(gens)):
-            if type(gens[i]) == type(""):
-                if gens[i][0] == 'D':
-                    x = R(gens[i][1:]); gens[i] = (gens[i], lambda p: p, {x:1})
-                elif gens[i][0] == 'S':
-                    x = R(gens[i][1:]); gens[i] = (gens[i], {x:x+1}, lambda p: R.zero())
-                else:
-                    raise TypeError, "unexpected generator declaration"
-            elif len(gens[i]) != 3:
+    # expand generator shortcuts, convert dictionaries to callables, and check that sigma(1)=1
+    for i in xrange(len(gens)):
+        if type(gens[i]) == type(""):
+            if gens[i][0] == 'D':
+                x = R(gens[i][1:]); gens[i] = (gens[i], lambda p: p, {x:1})
+            elif gens[i][0] == 'S':
+                x = R(gens[i][1:]); gens[i] = (gens[i], {x:x+1}, lambda p: R.zero())
+            else:
                 raise TypeError, "unexpected generator declaration"
-            if type(gens[i][1]) == dict:
-                gens[i] = (gens[i][0], _dict_to_sigma(R, gens[i][1]), gens[i][2])
-            if type(gens[i][2]) == dict:
-                gens[i] = (gens[i][0], gens[i][1], _dict_to_delta(R, gens[i][2], gens[i][1]))
-            if not gens[i][1](R.one()) == R.one():
-                raise TypeError, "sigma(1) must be 1"
-            gens[i] = tuple(gens[i])
+        elif len(gens[i]) != 3:
+            raise TypeError, "unexpected generator declaration"
+        if type(gens[i][1]) == dict:
+            gens[i] = (gens[i][0], _dict_to_sigma(R, gens[i][1]), gens[i][2])
+        if type(gens[i][2]) == dict:
+            gens[i] = (gens[i][0], gens[i][1], _dict_to_delta(R, gens[i][2], gens[i][1]))
+        if not gens[i][1](R.one()) == R.one():
+            raise ValueError, "sigma(1) must be 1"
+        gens[i] = tuple(gens[i])
 
-        self._gens = tuple(gens)
-
-        # try to recognize standard operators
-        is_shift = [False for q in gens]; is_qshift = [False for q in gens]; is_derivation = [False for q in gens]
-        subgens = _collect_generators(R)
+    # try to recognize standard operators
+    is_shift = [False for q in gens]; is_qshift = [False for q in gens]; is_derivation = [False for q in gens]
+    subgens = _collect_generators(R)
             
-        for i in xrange(len(gens)):
-            if all(gens[i][1](x) == x for x in subgens):
-                deltas = [gens[i][2](x) for x in subgens]
-                if sum(deltas) == 1 and all( (x==1 or x==0) for x in deltas):
-                    is_derivation[i] = True
-            if all(gens[i][2](x) == 0 for x in subgens):
-                shifts = [gens[i][1](x) - x for x in subgens]
-                shifts = [x for x in shifts if x != 0]
-                if len(shifts) == 1 and shifts[0] == 1:
-                    is_shift[i] = True
-                else:
-                    shifts = [gens[i][1](x)/x for x in subgens]
-                    shifts = [x for x in shifts if x != 1]
-                    if len(shifts) == 1 and gens[i][1](shifts[0]) == shifts[0]:
-                        is_qshift[i] = True
+    for i in xrange(len(gens)):
+        if all(gens[i][1](x) == x for x in subgens):
+            deltas = [gens[i][2](x) for x in subgens]
+            if sum(deltas) == 1 and all( (x==1 or x==0) for x in deltas):
+                is_derivation[i] = True
+        if all(gens[i][2](x) == 0 for x in subgens):
+            shifts = [gens[i][1](x) - x for x in subgens]
+            shifts = [x for x in shifts if x != 0]
+            if len(shifts) == 1 and shifts[0] == 1:
+                is_shift[i] = True
+            else:
+                shifts = [gens[i][1](x)/x for x in subgens]
+                shifts = [x for x in shifts if x != 1]
+                if len(shifts) == 1 and gens[i][1](shifts[0]) == shifts[0]:
+                    is_qshift[i] = True
 
-        # select element class
-        if kargs.has_key("element_class"):
-            self._operator_class = kargs["element_class"]
-        elif len(gens) > 1:
-            raise NotImplementedError, "Multivariate Ore algebras still under construction"
-        elif not R.is_field():
-            raise NotImplementedError, "Ore algebras with non-fields as base ring still under construction"
-        elif not R.is_integral_domain():
-            raise TypeError, "Base rings of Ore algebras must be integral domains"
-        elif not R == R.fraction_field() or not sage.rings.polynomial.polynomial_ring.is_PolynomialRing(R.base()):
-            self._operator_class = UnivariateOreOperator
-        elif is_qshift[0]:
-            self._operator_class = UnivariateQRecurrenceOperatorOverRationalFunctionField
-        elif is_shift[0]:
-            self._operator_class = UnivariateRecurrenceOperatorOverRationalFunctionField
-        elif is_derivation[0]:
-            self._operator_class = UnivariateDifferentialOperatorOverRationalFunctionField
-        else:
-            self._operator_class = UnivariateOreOperator
+    # Select element class
+    if kwargs.has_key("element_class"):
+        operator_class = kwargs["element_class"]
+    elif len(gens) > 1:
+        raise NotImplementedError, "Multivariate Ore algebras still under construction"
+    elif not R.is_field():
+        raise NotImplementedError, "Ore algebras with non-fields as base ring still under construction"
+    elif not R.is_integral_domain():
+        raise TypeError, "Base rings of Ore algebras must be integral domains"
+    elif not R == R.fraction_field() or not sage.rings.polynomial.polynomial_ring.is_PolynomialRing(R.base()):
+        operator_class = UnivariateOreOperator
+    elif is_qshift[0]:
+        operator_class = UnivariateQRecurrenceOperatorOverRationalFunctionField
+    elif is_shift[0]:
+        operator_class = UnivariateRecurrenceOperatorOverRationalFunctionField
+    elif is_derivation[0]:
+        operator_class = UnivariateDifferentialOperatorOverRationalFunctionField
+    else:
+        operator_class = UnivariateOreOperator
+
+    # Check whether this algebra already exists.
+    global _list_of_ore_algebras
+    alg = OreAlgebra_generic(base_ring, operator_class, gens, **kwargs)
+    for a in _list_of_ore_algebras:
+        if a == alg:
+            return a
+
+    # It's new. register it and return it. 
+    _list_of_ore_algebras.append(alg)    
+    return alg
+
+_list_of_ore_algebras = []
+
+class OreAlgebra_generic(sage.algebras.algebra.Algebra):
+
+    def __init__(self, base_ring, operator_class, gens, **kargs):
+        self._base_ring = base_ring
+        self._operator_class = operator_class
+        self._gens = gens
 
     # information extraction
+
+    def __eq__(self, other):
+        if not is_OreAlgebra(other):
+            return False
+        if not self.base_ring() == other.base_ring():
+            return False
+        if not self.ngens() == other.ngens():
+            return False
+        if not self._operator_class == other._operator_class:
+            return False 
+        base_gens = _collect_generators(self.base_ring())
+        for i in xrange(self.ngens()):
+            if not self.var(i) == other.var(i):
+                return False
+            self_sigma = self.sigma(i); other_sigma = other.sigma(i)
+            if not all((self_sigma(x) == other_sigma(x)) for x in base_gens):
+                return False
+            self_delta = self.delta(i); other_delta = other.delta(i)
+            if not all((self_delta(x) == other_delta(x)) for x in base_gens):
+                return False
+        return True        
 
     def base_ring(self):
         """
@@ -426,18 +464,47 @@ class OreAlgebra(sage.algebras.algebra.Algebra):
 
     def _coerce_map_from_(self, P):
         """
-        An object can be coerced to this algebra iff it can be coerced to the
-        associated commutative algebra.
+        If `P` is an Ore algebra, then a coercion from `P` to self is possible
+        if the base ring of `P` admits coercion to the base ring of `self` and
+        the generators of `P` form a subset of the generators of `self`.
+        Corresponding generators are considered equal if they have the same
+        name and the action of the associated `sigma` and `delta` agree on the
+        generators of `P`'s base ring (including the base ring's base ring's
+        generators and so on). 
+
+        If `P` is not an Ore algebra, then a coercion from `P` to `self` is possible
+        iff there is a coercion from `P` to the base ring of `self` or to the
+        associated commutative algebra of `self`.
         """
-        out = self.associated_commutative_algebra()._coerce_map_from_(P)
-        if out is None or out is False:
-            return None
-        else:
-            return True
+        if is_OreAlgebra(P):
+            out = self.base_ring()._coerce_map_from_(P.base_ring())
+            if out is None or out is False:
+                return False
+            P_base_gens = _collect_generators(P.base_ring())
+            # TEST: forall i exists j st "P.gen(i) == self.gen(j)" (with matching sigma and delta)
+            for i in xrange(P.ngens()):
+                found_match = False
+                for j in xrange(self.ngens()):
+                    if P.var(i) == self.var(j):
+                        Ps = P.sigma(i); Ss = self.sigma(j)
+                        Pd = P.delta(i); Sd = self.delta(j)
+                        if all((Ps(x) == Ss(x)) for x in P_base_gens) and \
+                           all((Pd(x) == Sd(x)) for x in P_base_gens):
+                            found_match = True; break
+                if not found_match:
+                    return False
+            return True            
+        else: # P is not an Ore algebra
+            out = self.base_ring()._coerce_map_from_(P)
+            if out is not None and out is not False:
+                return True
+            out = self.associated_commutative_algebra()._coerce_map_from_(P)
+            if out is not None and out is not False:
+                return True
+            return False
 
     def _sage_input_(self, sib, coerced):
-        r"""
-        Produce an expression which will reproduce this value when evaluated.
+        """
         """
         raise NotImplementedError
 
@@ -494,29 +561,124 @@ class OreAlgebra(sage.algebras.algebra.Algebra):
         """
         return self._gens[n][0]
 
+    def _gen_to_idx(self, D):
+        """
+        If `D` is a generator of this algebra, given either as string or as an actual algebra element,
+        return the index `n` such that `self.gen(n) == self(D)`.
+        If `D` is already an integer, return `D` itself. 
+        An IndexError is raised if `gen` is not a generator of this algebra.
+        """
+        if D in ZZ:
+            return D
+        D = str(D)
+        for i in xrange(self.ngens()):
+            if D == self.var(i):
+                return i
+        raise IndexError, "no such generator"
+
     def sigma(self, n=0):
         """
         Returns the sigma callable associated to the `n`th generator of this algebra.
+        The generator can be specified by index (as integer), or by name (as string),
+        or as algebra element.         
 
         EXAMPLES::
 
            sage: A.<Dx> = OreAlgebra(QQ['x'].fraction_field(), 'Dx')
-           sage: A.sigma() # random
-           <function <lambda> at 0x1be2bf7c>
+           sage: A.sigma() 
+           <function <lambda> at 0x1be2bf7c> # random
+           sage: A.sigma(0)
+           <function <lambda> at 0x1be2bf7c> # random
+           sage: A.sigma("Dx")
+           <function <lambda> at 0x1be2bf7c> # random
+           sage: A.sigma(Dx)
+           <function <lambda> at 0x1be2bf7c> # random
+           
         """
-        return self._gens[n][1]
+        return self._gens[self._gen_to_idx(n)][1]
+
+    def sigma_inverse(self, n=0):
+        """
+        Returns a callable object which represents the compositional inverse of the sigma
+        callable associated to the `n`th generator of this algebra.
+        The generator can be specified by index (as integer), or by name (as string),
+        or as algebra element.
+
+        The inverse can be constructed if `sigma` is such that it maps every generator `x` of
+        the base ring (or the base ring's base ring, etc.) to a linear combination `a*x+b`
+        where `a` and `b` belong to the base ring of the parent of `x`.
+
+        If the method fails in constructing the inverse, it raises a ``ValueError``.
+
+        EXAMPLES::
+
+           sage: R.<x> = QQ['x']
+           sage: A.<Sx> = OreAlgebra(R.fraction_field(), "Sx")
+           sage: sigma = A.sigma()
+           sage: sigma_inverse = A.sigma_inverse()
+           sage: sigma(x)
+           x + 1
+           sage: sigma_inverse(x)
+           x - 1
+        
+        """
+        # possible generalization in case of rings with more generators: each generator is
+        # mapped to a linear combination of the other generators with coefficients in the
+        # base ring.
+        
+        if not hasattr(self, "_sigma_inverses"):
+            self._sigma_inverses = [ None for D in self.gens() ]
+
+        n = self._gen_to_idx(n)
+        sig_inv = self._sigma_inverses[n]
+        if sig_inv is not None:
+            return sig_inv
+
+        R = self.base_ring()
+        sigma = self.sigma(n)
+        sigma_inv_dict = {}
+        for x in _collect_generators(R):
+            sx = sigma(x)
+            if sx == x:
+                continue
+            B = R
+            while x not in B.gens():
+                B = B.base_ring()
+            if is_FractionField(B):
+                B = B.ring()
+            try:
+                sx = B(sx) # may raise exception
+                if sx.degree() > 1r:
+                    raise ValueError # may raise exception
+                b, a = sx[0r], sx[1r];
+                sigma_inv_dict[x] = R( (x - b)/a ) # may raise exception
+            except:
+                raise ValueError, "unable to construct inverse of sigma"
+
+        sigma_inv = _dict_to_sigma(R, sigma_inv_dict)
+        self._sigma_inverses[n] = sigma_inv
+        return sigma_inv
 
     def delta(self, n=0):
         """
         Returns the delta callable associated to the `n`th generator of this algebra. 
+        The generator can be specified by index (as integer), or by name (as string),
+        or as algebra element.         
 
         EXAMPLES::
 
            sage: A.<Dx> = OreAlgebra(QQ['x'].fraction_field(), 'Dx')
-           sage: A.delta() # random
-           <function <lambda> at 0x1be2bf7c>
+           sage: A.delta() 
+           <function <lambda> at 0x1be2bf7c> # random
+           sage: A.delta(0)
+           <function <lambda> at 0x1be2bf7c> # random
+           sage: A.delta("Dx")
+           <function <lambda> at 0x1be2bf7c> # random
+           sage: A.delta(Dx)
+           <function <lambda> at 0x1be2bf7c> # random
+           
         """
-        return self._gens[n][2]
+        return self._gens[self._gen_to_idx(n)][2]
 
     def variable_names(self):
         """
@@ -680,6 +842,7 @@ class OreAlgebra(sage.algebras.algebra.Algebra):
         """
         Creates the Ore algebra obtained from `self` by renaming the `n`th generator to `var`
         """ 
+        n = self._gen_to_idx(n)
         if n < 0 or n >= self.ngens():
             raise IndexError("No such generator.")
         return self.change_var_sigma_delta(var, self._gens[n][1], self._gens[n][2], n)
@@ -689,6 +852,7 @@ class OreAlgebra(sage.algebras.algebra.Algebra):
         Creates the Ore algebra obtained from `self` by replacing the homomorphism associated to the
         `n`th generator to `sigma`, which may be a callable or a dictionary.
         """
+        n = self._gen_to_idx(n)
         if n < 0 or n >= self.ngens():
             raise IndexError("No such generator.")
         return self.change_var_sigma_delta(self._gens[n][0], sigma, self._gens[n][2], n)
@@ -698,6 +862,7 @@ class OreAlgebra(sage.algebras.algebra.Algebra):
         Creates the Ore algebra obtained from `self` by replacing the skew-derivation associated to the
         `n`th generator to `delta`, which may be a callable or a dictionary.
         """
+        n = self._gen_to_idx(n)
         if n < 0 or n >= self.ngens():
             raise IndexError("No such generator.")
         return self.change_var_sigma_delta(self._gens[n][0], self._gens[n][1], delta, n)
@@ -709,6 +874,7 @@ class OreAlgebra(sage.algebras.algebra.Algebra):
         by `var`, `sigma`, and `delta`, respectively.
         The maps `sigma` and `delta` may be specified as callables or dictionaries.
         """
+        n = self._gen_to_idx(n)
         if n < 0 or n >= self.ngens():
             raise IndexError("No such generator.")
 
