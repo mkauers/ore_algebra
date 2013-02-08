@@ -353,6 +353,9 @@ class UnivariateOreOperator(OreOperator):
     def __nonzero__(self):
         return self._poly.__nonzero__()
 
+    def __eq__(self,other):
+        return (isinstance(other, UnivariateOreOperator) and self.parent()==other.parent() and self.polynomial()==other.polynomial())
+
     def _is_atomic(self):
         return self._poly._is_atomic()
 
@@ -454,19 +457,69 @@ class UnivariateOreOperator(OreOperator):
         return R(res)
 
     def quo_rem(self, other):
-        """
-        """
-        raise NotImplementedError
+
+        if other.is_zero(): 
+            raise ZeroDivisionError, "other must be nonzero"
+        if (self.order() < other.order()): return (self.parent().zero(),self)
+
+        R = self.parent()
+        K = R.base_ring()
+        if not K.is_field(): R = R.change_ring(K.fraction_field())
+        p = R(self)
+        q = R(other)
+        sigma = R.sigma()
+        D = R.gen()
+        orddiff = p.order() - q.order()
+        cfquo = R.one()
+        quo = R.zero()
+
+        qlcs = [q.leading_coefficient()]
+        for i in range(orddiff): qlcs.append(sigma(qlcs[len(qlcs)-1]))
+
+        while(orddiff >= 0):
+            cfquo = p.leading_coefficient()/qlcs[orddiff] * D**(orddiff)
+            quo = quo+cfquo
+            p = p - cfquo*q
+            orddiff = p.order() - q.order()
+        return (quo,p)
 
     def gcrd(self, other):
         """
+        Returns the GCRD of self and other
         """
-        raise NotImplementedError
+        if self.is_zero(): return other
+        if other.is_zero(): return self
+
+        r0 = self
+        r1 = other
+        if (r0.order()<r1.order()):
+            r0,r1=r1,r0
+
+        while not r1.is_zero(): r0,r1=r1,r0.quo_rem(r1)[1]
+            
+        return r0
 
     def xgcrd(self, other):
         """
+        When called for two operators p,q, this will return their GCRD g together with two operators s and t such that sp+tq=g
         """
-        raise NotImplementedError
+        if self.is_zero(): return other
+        if other.is_zero(): return self
+
+        r0 = self
+        r1 = other
+        if (r0.order()<r1.order()):
+            r0,r1=r1,r0
+        
+        R = self.parent()
+
+        a11,a12,a21,a22 = R.one(),R.zero(),R.zero(),R.one()
+
+        while not r1.is_zero():        
+            q = r0.quo_rem(r1)
+            r0,r1=r1,q[1]
+            a11,a12,a21,a22 = a21,a22,(a11-q[0]*a21),(a12-q[0]*a22)
+        return (r0,a11,a12)
 
     def lclm(self, other):
         """
@@ -514,7 +567,7 @@ class UnivariateOreOperator(OreOperator):
         """
         Returns ``True`` if the operator is primitive.
         """
-        raise NotImplementedError
+        return self.content().is_unit()
 
     def is_monomial(self):
         """
@@ -535,10 +588,7 @@ class UnivariateOreOperator(OreOperator):
         return self.polynomial()[0]
 
     def content(self):
-        """
-        Return the content of ``self``.
-        """
-        raise NotImplementedError
+        return self.polynomial().content()
 
     def map_coefficients(self, f, new_base_ring = None):
         """
