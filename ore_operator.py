@@ -1,4 +1,18 @@
 
+"""
+ore_operator
+============
+
+"""
+
+
+from sage.structure.element import RingElement
+from sage.rings.ring import Algebra
+from sage.rings.polynomial.polynomial_ring import is_PolynomialRing
+from sage.rings.polynomial.multi_polynomial_ring import is_MPolynomialRing
+from sage.rings.number_field.number_field import is_NumberField
+from sage.rings.fraction_field import is_FractionField
+
 class OreOperator(RingElement):
     """
     An Ore operator. This is an abstract class whose instances represent elements of ``OreAlgebra``.
@@ -37,7 +51,7 @@ class OreOperator(RingElement):
         The parent of ``f`` must be a ring supporting conversion
         from the base ring of ``self``. (There is room for generalization.)
 
-        EXAMPLE::
+        EXAMPLES::
 
            # In differential operator algebras, generators acts as derivations
            sage: R.<x> = QQ['x']
@@ -72,33 +86,49 @@ class OreOperator(RingElement):
         raise NotImplementedError
 
     def _is_atomic(self):
-        """
-        """
         raise NotImplementedError
 
     def is_monic(self):
         """
-        Returns True if this polynomial is monic. The zero operator is by
-        definition not monic.
+        Returns True if this polynomial is monic. The zero operator is by definition not monic.
+
+        EXAMPLES::
+
+          sage: R.<x> = QQ['x']
+          sage: A.<Dx> = OreAlgebra(R, 'Dx')
+          sage: (Dx^3 + (5*x+3)*Dx + (71*x+1)).is_monic()
+          True
+          sage: ((5*x+3)*Dx^2 + (71*x+1)).is_monic()
+          False 
+        
         """
         raise NotImplementedError
 
     def is_unit(self):
-        r"""
-        Return True if this polynomial is a unit.
+        """
+        Return True if this operator is a unit.
+
+        EXAMPLES::
+
+          sage: R.<x> = QQ['x']
+          sage: A.<Dx> = OreAlgebra(R, 'Dx')
+          sage: A(x).is_unit()
+          False
+          sage: A.<Dx> = OreAlgebra(R.fraction_field(), 'Dx')
+          sage: A(x).is_unit()
+          True
+          
         """
         raise NotImplementedError
        
     def is_gen(self):
-        r"""
-        Return True if this operator is the distinguished generator of
-        the parent Ore algebra. 
+        """
+        Return True if this operator is one of the generators of the parent Ore algebra. 
                 
         Important - this function doesn't return True if self equals the
         generator; it returns True if self *is* the generator.
         """
         raise NotImplementedError
-        #return bool(self._is_gen)
 
     def prec(self):
         """
@@ -109,22 +139,25 @@ class OreOperator(RingElement):
         return infinity.infinity
     
     # conversion
-
-    def change_variable_name(self, var, n=0):
-        """
-        Return a new operator over the same base ring but in a different
-        variable.
-        """
-        R = self.parent().change_var(var, n)
-        return R(self.list())
         
     def change_ring(self, R):
         """
         Return a copy of this operator but with coefficients in R, if at
         all possible.
+
+        EXAMPLES::
+
+          sage: R.<x> = QQ['x']
+          sage: A.<Dx> = OreAlgebra(R, 'Dx')
+          sage: op = Dx^2 + 5*x*Dx + 1
+          sage: op.parent()
+          Univariate Ore algebra in Dx over Univariate Polynomial Ring in x over Rational Field
+          sage: op = op.change_ring(R.fraction_field())
+          sage: op.parent()
+          Univariate Ore algebra in Dx over Fraction Field of Univariate Polynomial Ring in x over Rational Field
+        
         """
-        S = self.parent().change_ring(R)
-        return S(self)
+        return self.parent().change_ring(R)(self)
 
     def __iter__(self):
         return iter(self.list())
@@ -176,36 +209,94 @@ class OreOperator(RingElement):
     def __invert__(self):
         """
         This returns ``1/self``, an object which is meaningful only if ``self`` can be coerced
-        to the base ring of its parent, and admits a multiplicative inverse there. 
+        to the base ring of its parent, and admits a multiplicative inverse, possibly in a
+        suitably extended ring.
+
+        EXAMPLES::
+
+           sage: R.<x> = QQ['x']
+           sage: A.<Dx> = OreAlgebra(R, 'Dx')
+           sage: A
+           Univariate Ore algebra in Dx over Univariate Polynomial Ring in x over Rational Field
+           sage: ~A(x)
+           1/x
+           sage: _.parent()
+           Univariate Ore algebra in Dx over Fraction Field of Univariate Polynomial Ring in x over Rational Field
+        
         """
-        return self.parent().one_element()/self
+        return self.parent().one()/self
 
     def __div__(self, right):
         """
         Exact right division. Uses division with remainder, and returns the quotient if the
-        remainder is zero. Otherwise a TypeError is raised.
+        remainder is zero. Otherwise a ``ValueError`` is raised.
+
+        EXAMPLES::
+
+           sage: R.<x> = QQ['x']
+           sage: A.<Dx> = OreAlgebra(R, 'Dx')
+           sage: U = (15*x^2 + 28*x + 5)*Dx^2 + (5*x^2 - 50*x - 41)*Dx - 2*x + 64
+           sage: V = (3*x+5)*Dx + (x-9)
+           sage: U/V
+           (5*x + 1)*Dx - 7
+           sage: _*V == U
+           True
+        
         """
         Q, R = self.quo_rem(right)
-        if R == self.parent().zero():
+        if R == R.parent().zero():
             return Q
-        raise TypeError, "Cannot divide the given OreOperators"
+        else:
+            raise ValueError, "Cannot divide the given OreOperators"
                    
     def __floordiv__(self,right):
         """
-        Quotient of quotient with remainder. 
+        Quotient of quotient with remainder.
+
+        EXAMPLES::
+
+           sage: R.<x> = QQ['x']
+           sage: A.<Dx> = OreAlgebra(R, 'Dx')
+           sage: U = (15*x^2 + 29*x + 5)*Dx^2 + (5*x^2 - 50*x - 41)*Dx - 2*x + 64
+           sage: V = (3*x+5)*Dx + (x-9)
+           sage: U//V
+           ((15*x^2 + 29*x + 5)/(3*x + 5))*Dx + (-64*x^2 - 204*x - 175)/(9*x^2 + 30*x + 25)
+        
         """
         Q, _ = self.quo_rem(right)
         return Q
         
     def __mod__(self, other):
         """
-        Remainder of quotient with remainder. 
+        Remainder of quotient with remainder.
+
+        EXAMPLES::
+
+           sage: R.<x> = QQ['x']
+           sage: A.<Dx> = OreAlgebra(R, 'Dx')
+           sage: U = (15*x^2 + 29*x + 5)*Dx^2 + (5*x^2 - 50*x - 41)*Dx - 2*x + 64
+           sage: V = (3*x+5)*Dx + (x-9)
+           sage: U % V
+           (3*x^3 - 54*x^2 + 147*x)/(27*x^2 + 90*x + 75)
+        
         """
         _, R = self.quo_rem(other)
         return R
 
     def quo_rem(self, other):
         """
+        Quotient and remainder.
+
+        EXAMPLES::
+
+          sage: R.<x> = QQ['x']
+          sage: A.<Dx> = OreAlgebra(R.fraction_field(), 'Dx')
+          sage: U = (15*x^2 + 29*x + 5)*Dx^2 + (5*x^2 - 50*x - 41)*Dx - 2*x + 64
+          sage: V = (3*x+5)*Dx + (x-9)
+          sage: Q, R = U.quo_rem(V)
+          sage: Q*V + R == U
+          True 
+        
         """
         raise NotImplementedError
 
@@ -214,6 +305,12 @@ class OreOperator(RingElement):
     def base_ring(self):
         """
         Return the base ring of the parent of self.
+
+        EXAMPLES::
+
+           sage: OreAlgebra(QQ['x'], 'Dx').random_element().base_ring()
+           Univariate Polynomial Ring in x over Rational Field
+        
         """
         return self.parent().base_ring()
 
@@ -221,9 +318,16 @@ class OreOperator(RingElement):
         """
         Return a copy of this operator but with coefficients in R, if
         there is a natural map from coefficient ring of self to R.
+
+        EXAMPLES::
+
+           sage: L = OreAlgebra(QQ['x'], 'Dx').random_element()
+           sage: L = L.base_extend(QQ['x'].fraction_field())
+           sage: L.parent()
+           Univariate Ore algebra in Dx over Fraction Field of Univariate Polynomial Ring in x over Rational Field
+
         """
-        S = self.parent().base_extend(R)
-        return S(self)
+        return self.parent().base_extend(R)(self)
 
     # coefficient-related functions
 
@@ -235,15 +339,15 @@ class OreOperator(RingElement):
 
     def is_primitive(self, n=None, n_prime_divs=None):
         """
-        Returns ``True`` if the operator is primitive.
+        Returns ``True`` if this operator's content is a unit of the base ring. 
         """
-        raise NotImplementedError
+        return self.content().is_unit()
 
     def is_monomial(self):
         """
         Returns True if self is a monomial, i.e., a power of the generator.
         """
-        return len(self.exponents()) == 1 and self.leading_coefficient() == 1
+        return len(self.exponents()) == 1 and self.leading_coefficient() == self.parent().base_ring().one()
 
     def leading_coefficient(self):
         """
@@ -260,34 +364,87 @@ class OreOperator(RingElement):
     def monic(self):
         """
         Return this operator divided from the left by its leading coefficient.
-        Does not change this operator. 
+        Does not change this operator. If the leading coefficient does not have
+        a multiplicative inverse in the base ring of ``self``'s parent, the
+        the method returns an element of a suitably extended algebra.
+
+        EXAMPLES::
+
+          sage: R.<x> = QQ['x']
+          sage: A.<Dx> = OreAlgebra(R, 'Dx')
+          sage: (x*Dx + 1).monic()
+          Dx + 1/x
+          sage: _.parent()
+          Univariate Ore algebra in Dx over Fraction Field of Univariate Polynomial Ring in x over Rational Field
+        
         """
         if self.is_monic():
             return self
         a = ~self.leading_coefficient()
-        R = self.parent()
-        if a.parent() != R.base_ring():
-            S = R.base_extend(a.parent())
+        A = self.parent()
+        if a.parent() != A.base_ring():
+            S = A.base_extend(a.parent())
             return a*S(self)
         else:
             return a*self
 
     def content(self):
         """
-        Return the content of ``self``.
+        Returns the content of ``self``.
+
+        If the base ring of ``self``'s parent is a field, the method returns the base ring's one.
+
+        If the base ring is not a field, then it is a polynomial ring. In this case,
+        the method returns the greatest common divisor of the nonzero coefficients of
+        ``self``.
+
+        EXAMPLES::
+
+           sage: R.<x> = ZZ['x']
+           sage: A.<Dx> = OreAlgebra(R, 'Dx')
+           sage: (5*x^2*Dx + 10*x).content()
+           5*x
+           sage: R.<x> = QQ['x']
+           sage: A.<Dx> = OreAlgebra(R, 'Dx')
+           sage: (5*x^2*Dx + 10*x).content()
+           x
+           sage: R.<x> = QQ['x']
+           sage: A.<Dx> = OreAlgebra(R.fraction_field(), 'Dx')
+           sage: (5*x^2*Dx + 10*x).content()
+           1
+        
         """
-        raise NotImplementedError
+        R = self.parent().base_ring()
+
+        if R.is_field():
+            return R.one()
+        else:
+            return gcd([c for c in self.coefficients()])
+
+    def primitive_part(self):
+        """
+        Returns the primitive part of ``self``.
+
+        It is obtained by dividing ``self`` from the left by ``self.content()``.
+
+        EXAMPLES::
+
+          sage: R.<x> = ZZ['x']
+          sage: A.<Dx> = OreAlgebra(R, 'Dx')
+          sage: (5*x^2*Dx + 10*x).primitive_part()
+          x*Dx + 2
+        
+        """
+        c = self.content()
+        if c == c.parent().one():
+            return self
+        else:
+            return self.map_coefficients(lambda p: p//c)
 
     def map_coefficients(self, f, new_base_ring = None):
         """
-        Returns the polynomial obtained by applying ``f`` to the non-zero
+        Returns the operator obtained by applying ``f`` to the non-zero
         coefficients of self.
-        """
-        raise NotImplementedError
-
-    def subs(self, *x, **kwds):
-        r"""
-        Applies a substitution to each of the coefficients. 
         """
         raise NotImplementedError
 
@@ -305,15 +462,82 @@ class OreOperator(RingElement):
              
     # numerator and denominator
 
+    def numerator(self):
+        """
+        Return a numerator of ``self``.
+
+        If the base ring of ``self``'s parent is not a field, this returns
+        ``self``.
+
+        If the base ring is a field, then it is the fraction field of a
+        polynomial ring. In this case, the method returns
+        ``self.denominator()*self`` and tries to cast the result into the Ore
+        algebra whose base ring is just the polynomial ring. If this fails (for
+        example, because some `\sigma` maps a polynomial to a rational
+        function), the result will be returned as element of the original
+        algebra.
+
+        EXAMPLES::
+
+          sage: R.<x> = ZZ['x']
+          sage: A.<Dx> = OreAlgebra(R.fraction_field(), 'Dx')
+          sage: op = (5*x+3)/(3*x+5)*Dx + (7*x+1)/(2*x+5)
+          sage: op.numerator()
+          (10*x^2 + 31*x + 15)*Dx + 21*x^2 + 38*x + 5
+          sage: R.<x> = QQ['x']
+          sage: A.<Dx> = OreAlgebra(R.fraction_field(), 'Dx')
+          sage: op = (5*x+3)/(3*x+5)*Dx + (7*x+1)/(2*x+5)
+          sage: op.numerator()
+          (5/3*x^2 + 31/6*x + 5/2)*Dx + 7/2*x^2 + 19/3*x + 5/6          
+
+        """
+        A = self.parent(); R = A.base_ring()
+
+        if not R.is_field():
+            return self
+
+        op = self.denominator()*self;
+
+        try:
+            op = A.change_ring(R.ring())(op)
+        except:
+            pass
+
+        return op
+
     def denominator(self):
         """
         Return a denominator of self.
 
-        First, the lcm of the denominators of the entries of self
-        is computed and returned. If this computation fails, the
-        unit of the parent of self is returned.
+        If the base ring of the algebra of ``self`` is not a field, this returns the one element
+        of the base ring.
+
+        If the base ring is a field, then it is the fraction field of a
+        polynomial ring. In this case, the method returns the least common multiple
+        of the denominators of all the coefficients of ``self``.
+        It is an element of the polynomial ring. 
+
+        EXAMPLES::
+
+          sage: R.<x> = ZZ['x']
+          sage: A.<Dx> = OreAlgebra(R.fraction_field(), 'Dx')
+          sage: op = (5*x+3)/(3*x+5)*Dx + (7*x+1)/(2*x+5)
+          sage: op.denominator()
+          6*x^2 + 25*x + 25
+          sage: R.<x> = QQ['x']
+          sage: A.<Dx> = OreAlgebra(R.fraction_field(), 'Dx')
+          sage: op = (5*x+3)/(3*x+5)*Dx + (7*x+1)/(2*x+5)
+          sage: op.denominator()
+          x^2 + 25/6*x + 25/6
+          
         """
-        raise NotImplementedError
+        A = self.parent(); R = A.base_ring()
+
+        if not R.is_field():
+            return R.one()
+        else:
+            return lcm([c.denominator() for c in self.coefficients()])
+
 
 #############################################################################################################
     
@@ -341,8 +565,8 @@ class UnivariateOreOperator(OreOperator):
         else:
             D = lambda p:p
 
-        R = f.parent(); Dif = f; result = R(self[0r])*f; 
-        for i in xrange(1r, self.order() + 1r):
+        R = f.parent(); Dif = f; result = R(self[0])*f; 
+        for i in xrange(1, self.order() + 1):
             Dif = D(Dif)
             result += R(self[i])*Dif
         
@@ -353,41 +577,29 @@ class UnivariateOreOperator(OreOperator):
     def __nonzero__(self):
         return self._poly.__nonzero__()
 
-    def __eq__(self,other):
-        return (isinstance(other, UnivariateOreOperator) and self.parent()==other.parent() and self.polynomial()==other.polynomial())
+    def __eq__(self, other):
+        # TODO: THIS NEEDS TO BE REWRITTEN SUCH AS TO SUPPORT COERCION.
+        # Example:
+        #   sage: A = OreAlgebra(QQ['x'], 'Dx')
+        #   sage: B = OreAlgebra(QQ['x'].fraction_field(), 'Dx')
+        #   sage: op = A.random_element()
+        #   sage: op == B(op)
+        #   False # <== we want this to be True
+        return isinstance(other, UnivariateOreOperator) and \
+               self.parent() == other.parent() and \
+               self.polynomial() == other.polynomial()
 
     def _is_atomic(self):
         return self._poly._is_atomic()
 
     def is_monic(self):
-        """
-        Returns True if this polynomial is monic. The zero operator is by definition not monic.
-        """
         return self._poly.is_monic()
 
     def is_unit(self):
-        r"""
-        Return True if this polynomial is a unit.
-        """
         return self._poly.is_unit()
        
     def is_gen(self):
-        r"""
-        Return True if this operator is the distinguished generator of
-        the parent Ore algebra. 
-                
-        Important - this function doesn't return True if self equals the
-        generator; it returns True if self *is* the generator.
-        """
         return self._poly.is_gen()
-
-    def prec(self):
-        """
-        Return the precision of this operator. This is always infinity,
-        since operators are of infinite precision by definition (there is
-        no big-oh).
-        """
-        return infinity.infinity
     
     # conversion
 
@@ -447,9 +659,9 @@ class UnivariateOreOperator(OreOperator):
         sigma = R.sigma(); delta = R.delta()
         A = DiB.parent() # associate commutative algebra
         D = A.gen() 
-        res = coeffs[0r]*DiB
+        res = coeffs[0]*DiB
 
-        for i in xrange(1r, len(coeffs)):
+        for i in xrange(1, len(coeffs)):
 
             DiB = DiB.map_coefficients(sigma)*D + DiB.map_coefficients(delta)
             res += coeffs[i]*DiB
@@ -460,7 +672,9 @@ class UnivariateOreOperator(OreOperator):
 
         if other.is_zero(): 
             raise ZeroDivisionError, "other must be nonzero"
-        if (self.order() < other.order()): return (self.parent().zero(),self)
+
+        if (self.order() < other.order()):
+            return (self.parent().zero(),self)
 
         R = self.parent()
         K = R.base_ring()
@@ -474,7 +688,7 @@ class UnivariateOreOperator(OreOperator):
         quo = R.zero()
 
         qlcs = [q.leading_coefficient()]
-        for i in range(orddiff): qlcs.append(sigma(qlcs[len(qlcs)-1]))
+        for i in range(orddiff): qlcs.append(sigma(qlcs[-1]))
 
         while(orddiff >= 0):
             cfquo = p.leading_coefficient()/qlcs[orddiff] * D**(orddiff)
@@ -563,32 +777,11 @@ class UnivariateOreOperator(OreOperator):
     def __setitem__(self, n, value):
         raise IndexError("Operators are immutable")
 
-    def is_primitive(self, n=None, n_prime_divs=None):
-        """
-        Returns ``True`` if the operator is primitive.
-        """
-        return self.content().is_unit()
-
-    def is_monomial(self):
-        """
-        Returns True if self is a monomial, i.e., a power of the generator.
-        """
-        return len(self.exponents()) == 1 and self.leading_coefficient() == 1
-
     def leading_coefficient(self):
-        """
-        Return the leading coefficient of this operator. 
-        """
         return self.polynomial().leading_coefficient()
 
     def constant_coefficient(self):
-        """
-        Return the leading coefficient of this operator. 
-        """
         return self.polynomial()[0]
-
-    def content(self):
-        return self.polynomial().content()
 
     def map_coefficients(self, f, new_base_ring = None):
         """
@@ -601,30 +794,17 @@ class UnivariateOreOperator(OreOperator):
         else:
             return self.parent().base_extend(new_base_ring)(poly)
 
-    def subs(self, *x, **kwds):
-        r"""
-        Applies a substitution to each of the coefficients. 
-        """
-        raise NotImplementedError
-
-    def coefficients(self):
-        """
-        Return the coefficients of the monomials appearing in self.
-        """
-        return self.polynomial().coefficients()
-
     def coeffs(self):
         """
         Return the coefficient vector of this operator.
         """
         return self.polynomial().coeffs()
 
-    def exponents(self):
-        """
-        Return the exponents of the monomials appearing in self.
-        """
-        return self.polynomial().exponents()
+    def coefficients(self):
+        return self.polynomial().coefficients()
 
+    def exponents(self):
+        return self.polynomial().exponents()
 
 #############################################################################################################
 
@@ -660,28 +840,6 @@ class UnivariateOreOperatorOverRationalFunctionField(UnivariateOreOperator):
         for some rational function rat.
         """
         raise NotImplementedError
-
-    # numerator and denominator
-
-    def numerator(self):
-        """
-        Return a numerator of self computed as self.denominator() * self
-        """
-        return self.denominator() * self
-
-    def denominator(self):
-        """
-        Return a denominator of self.
-
-        First, the lcm of the denominators of the coefficient of self
-        is computed and returned. If this computation fails, the
-        unit of the base of the parent of self is returned.
-        """
-        R = self.base_ring()
-        try:
-            return lcm([ R(p.denominator()) for p in self.coefficients() ])
-        except:
-            return R.one_element()
 
 #############################################################################################################
 
@@ -770,6 +928,19 @@ class UnivariateRecurrenceOperatorOverRationalFunctionField(UnivariateOreOperato
         """
         raise NotImplementedError
 
+    def interlace(self, *other):
+        """
+        If ``self`` is an operator which annihilates a certain sequence `a(n)`
+        and ``other`` an operator from the same algebra which annihilates some sequence `b(n)`,
+        this returns an operator which annihilates the sequence `a(0),b(0),a(1),b(1),a(2),b(2),...`.
+
+        Any number of operators can be given. For example, in the case of two arguments,
+        the resulting operator will annihilate the sequence `a(0),b(0),c(0),a(1),...`,
+        where `a(n),b(n),c(n)` are sequence annihilated by ``self`` and the to operators
+        given as argument.         
+        """
+        raise NotImplementedError
+
     def generalized_series_solutions(self, n): # at infinity. 
         raise NotImplementedError
 
@@ -810,5 +981,19 @@ class UnivariateQRecurrenceOperatorOverRationalFunctionField(UnivariateOreOperat
         """
         raise NotImplementedError
 
+    def interlace(self, *other):
+        """
+        If ``self`` is an operator which annihilates a certain sequence `a(n)`
+        and ``other`` an operator from the same algebra which annihilates some sequence `b(n)`,
+        this returns an operator which annihilates the sequence `a(0),b(0),a(1),b(1),a(2),b(2),...`.
+
+        Any number of operators can be given. For example, in the case of two arguments,
+        the resulting operator will annihilate the sequence `a(0),b(0),c(0),a(1),...`,
+        where `a(n),b(n),c(n)` are sequence annihilated by ``self`` and the to operators
+        given as argument.         
+        """
+        raise NotImplementedError
+
     def get_data(self, init, n):
         raise NotImplementedError
+

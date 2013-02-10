@@ -1,12 +1,22 @@
 
+"""
+ore_algebra
+===========
+
+
+
+"""
+
 from sage.structure.element import RingElement
 from sage.rings.ring import Algebra
 from sage.rings.polynomial.polynomial_ring import is_PolynomialRing
 from sage.rings.polynomial.multi_polynomial_ring import is_MPolynomialRing
 from sage.rings.number_field.number_field import is_NumberField
 from sage.rings.fraction_field import is_FractionField
+from sage.rings.infinity import infinity
 
-load("ore_operator.sage")
+from ore_operator import *
+from nullspace import *
 
 def is_OreAlgebra(A):
     """
@@ -49,7 +59,7 @@ def _dict_to_sigma(R, d):
     Given a suitable ring `R` and a dictionary `d` whose left hand sides are generators of `R`,
     construct a callable object that acts on elements of `R` as the homomorphism defined by the dictionary.
 
-    ::
+    EXAMPLES::
 
        sage: R.<x1,x2,x3> = QQ['x1,x2,x3']
        sage: sigma = _dict_to_sigma(R, {x1:2*x1, x2:1-x2, x3:x3+1})
@@ -65,12 +75,12 @@ def _dict_to_sigma(R, d):
         if not x in Rgens:
             raise ValueError, str(x) + " is not a generator of " + str(R)
         if x != d[x]:
-            my_dict[str(x)] = d[x]
-    if len(my_dict) == 0r:
+            my_dict[str(x)] = R(d[x])
+    if len(my_dict) == 0:
         return lambda p:p
     for x in Rgens:
         if not my_dict.has_key(str(x)):
-            my_dict[str(x)] = x
+            my_dict[str(x)] = R(x)
     B = R.base_ring()
     def sigma(p):
         R0 = p.parent()
@@ -85,11 +95,11 @@ def _dict_to_sigma(R, d):
 
 def _sigma_to_dict(R, sigma):
     """
-    Given a ring `R` and a callable object `sigma` representing a homomorphism from `R` to itself, 
-    construct a dictionary with the values of `sigma` of the generators of `R`. 
-    Generators on which `sigma` acts as identity are omitted. 
+    Given a ring `R` and a callable object `\sigma` representing a homomorphism from `R` to itself, 
+    construct a dictionary with the values of `\sigma` of the generators of `R`. 
+    Generators on which `\sigma` acts as identity are omitted. 
 
-    ::
+    EXAMPLES::
 
        sage: R.<x1,x2,x3> = QQ['x1,x2,x3']
        sage: sigma = _dict_to_sigma(R, {x1:2*x1, x2:1-x2, x3:x3+1})
@@ -111,11 +121,11 @@ def _sigma_to_dict(R, sigma):
 def _dict_to_delta(R, d, sigma):
     """
     Given a suitable ring `R` and a dictionary `d` whose left hand sides are generators of `R`,
-    and a callable object `sigma` encoding a homomorphism on `R`,
-    construct a callable object that acts on elements of `R` as the skew-derivation for `sigma` defined
+    and a callable object `\sigma` encoding a homomorphism on `R`,
+    construct a callable object that acts on elements of `R` as the skew-derivation for `\sigma` defined
     by the dictionary. Generators for which no image is specified are mapped to zero.
 
-    ::
+    EXAMPLES::
 
        sage: R.<x1,x2,x3> = QQ['x1,x2,x3']
        sage: delta = _dict_to_delta(R, {x1:1, x2:x2, x3:1+x3^2}, lambda p:p)
@@ -131,7 +141,7 @@ def _dict_to_delta(R, d, sigma):
         if d[x] != zero:
             is_zero = False
         my_dict[R(x), 0] = zero
-        my_dict[R(x), 1] = d[x]
+        my_dict[R(x), 1] = R(d[x])
     if is_zero:
         return lambda p: zero
 
@@ -143,7 +153,7 @@ def _dict_to_delta(R, d, sigma):
             return R0.zero()
         elif is_FractionField(R0):
             a = p.numerator(); b = p.denominator()
-            return R0(delta(a))/R0(b) - R0(delta(b)*sigma(a))/R0(b*sigma(b)) # this needs sigma(1)=1
+            return R0(delta(a))/R0(b) - R0(delta(b)*sigma(a))/R0(b*sigma(b)) # this assumes sigma(1)=1
         elif is_PolynomialRing(R0):
             x = R(R0.gen())
             if not my_dict.has_key((x, 0)):
@@ -152,7 +162,7 @@ def _dict_to_delta(R, d, sigma):
                 return p.map_coefficients(delta) + p.derivative(x).map_coefficients(sigma)*my_dict[x, 1]
             for i in xrange(2, p.degree() + 1):
                 if not my_dict.has_key((x, i)):
-                    my_dict[x, i] = my_dict[x, i - 1]*x + sigma(x**(i-1r))*my_dict[x, 1]
+                    my_dict[x, i] = my_dict[x, i - 1]*x + sigma(x**(i - 1))*my_dict[x, 1]
             out = R0.zero()
             for i in xrange(p.degree() + 1):
                 out += sigma(p[i])*my_dict[x, i]
@@ -163,12 +173,12 @@ def _dict_to_delta(R, d, sigma):
                 for i in xrange(2, p.degree(x) + 1):
                     if not my_dict.has_key((x, i)):
                         my_dict[x, i] = my_dict[x, i - 1]*x + sigma(x**(i - 1))*my_dict[x, 1]
-            out = R0.zero()
+            out = R0.zero(); one = R0.one()
             for exp in p.exponents():
                 # x1^e1 x2^e2 x3^e3
                 # ==> delta(x1^e1)*x2^e2*x3^e3 + sigma(x1^e1)*delta(x2^e2)*x3^e3 + sigma(x1^e1)*sigma(x2^e2)*delta(x3^e3)
                 for i in xrange(len(Rgens)):
-                    term = R0.one()
+                    term = one
                     for j in xrange(len(Rgens)):
                         if j < i:
                             term *= sigma(Rgens[j]**exp[j])
@@ -185,10 +195,10 @@ def _dict_to_delta(R, d, sigma):
 
 def _delta_to_dict(R, delta):
     """
-    Given a suitable ring `R` and a callable object `delta` representing a skew-derivation on `R`,
-    construct a dictionary with the values of `delta` of the generators of `R` and its base rings.
+    Given a suitable ring `R` and a callable object `\delta` representing a skew-derivation on `R`,
+    construct a dictionary with the values of `\delta` of the generators of `R` and its base rings.
 
-    ::
+    EXAMPLES::
 
        sage: R.<x1,x2,x3> = QQ['x1,x2,x3']
        sage: delta = _dict_to_delta(R, {x1:0, x2:1, x3:0}, lambda p:p)
@@ -254,10 +264,10 @@ def OreAlgebra(base_ring, *generators, **kwargs):
       sage: A
       Univariate Ore algebra in S over Fraction Field of Univariate Polynomial Ring in x over Rational Field
 
-    Instead of a callable object for `sigma` and `delta`, also a dictionary can
+    Instead of a callable object for `\sigma` and `\delta`, also a dictionary can
     be supplied which for every generator of the base ring specifies the desired
     image. If some generator is not in the dictionary, it is understood that
-    `sigma` acts as identity on it, and that `delta` maps it to zero.
+    `\sigma` acts as identity on it, and that `\delta` maps it to zero.
 
     ::
 
@@ -280,8 +290,7 @@ def OreAlgebra(base_ring, *generators, **kwargs):
 
     ::
 
-      # This creates an Ore algebra of differential operators
-      sage: A.<Dx> = OreAlgebra(QQ['x'], 'Dx')
+      sage: A.<Dx> = OreAlgebra(QQ['x'], 'Dx') # This creates an Ore algebra of differential operators
       sage: A
       Univariate Ore algebra in Dx over Fraction Field of Univariate Polynomial Ring in x over Rational Field 
       # This creates an Ore algebra of linear recurrence operators
@@ -357,12 +366,18 @@ def OreAlgebra(base_ring, *generators, **kwargs):
         elif len(gens[i]) != 3:
             raise TypeError, "unexpected generator declaration"
         if type(gens[i][1]) == dict:
-            gens[i] = (gens[i][0], _dict_to_sigma(R, gens[i][1]), gens[i][2])
+            s = _dict_to_sigma(R, gens[i][1])
+        else:
+            # if gens[i][1] is too unreasonable, the following will cause a crash
+            s = _dict_to_sigma(R, _sigma_to_dict(R, gens[i][1])) 
         if type(gens[i][2]) == dict:
-            gens[i] = (gens[i][0], gens[i][1], _dict_to_delta(R, gens[i][2], gens[i][1]))
-        if not gens[i][1](R.one()) == R.one():
+            d = _dict_to_delta(R, gens[i][2], s)
+        else:
+            # if gens[i][1] is too unreasonable, the following will cause a crash
+            d = _dict_to_delta(R, _delta_to_dict(R, gens[i][2]), s)
+        if s(one) != one:
             raise ValueError, "sigma(1) must be 1"
-        gens[i] = tuple(gens[i])
+        gens[i] = (gens[i][0], s, d)
 
     # try to recognize standard operators
     is_shift = [False for q in gens]; is_qshift = [False for q in gens]; is_derivation = [False for q in gens]
@@ -413,7 +428,9 @@ def OreAlgebra(base_ring, *generators, **kwargs):
 
 _list_of_ore_algebras = []
 
-class OreAlgebra_generic(sage.algebras.algebra.Algebra):
+class OreAlgebra_generic(Algebra):
+    """
+    """
 
     def __init__(self, base_ring, operator_class, gens, **kargs):
         self._base_ring = base_ring
@@ -430,8 +447,8 @@ class OreAlgebra_generic(sage.algebras.algebra.Algebra):
         if not self.ngens() == other.ngens():
             return False
         if not self._operator_class == other._operator_class:
-            return False 
-        Rgens = R.gens()
+            return False
+        Rgens = self.base_ring().gens()
         for i in xrange(self.ngens()):
             if not self.var(i) == other.var(i):
                 return False
@@ -464,16 +481,16 @@ class OreAlgebra_generic(sage.algebras.algebra.Algebra):
     def _coerce_map_from_(self, P):
         """
         If `P` is an Ore algebra, then a coercion from `P` to self is possible
-        if the base ring of `P` admits coercion to the base ring of `self` and
-        the generators of `P` form a subset of the generators of `self`.
+        if the base ring of `P` admits coercion to the base ring of ``self`` and
+        the generators of `P` form a subset of the generators of ``self``.
         Corresponding generators are considered equal if they have the same
-        name and the action of the associated `sigma` and `delta` agree on the
+        name and the action of the associated `\sigma` and `\delta` agree on the
         generators of `P`'s base ring (including the base ring's base ring's
         generators and so on). 
 
-        If `P` is not an Ore algebra, then a coercion from `P` to `self` is possible
-        iff there is a coercion from `P` to the base ring of `self` or to the
-        associated commutative algebra of `self`.
+        If `P` is not an Ore algebra, then a coercion from `P` to ``self`` is possible
+        iff there is a coercion from `P` to the base ring of ``self`` or to the
+        associated commutative algebra of ``self``.
         """
         if is_OreAlgebra(P):
             out = self.base_ring()._coerce_map_from_(P.base_ring())
@@ -503,13 +520,9 @@ class OreAlgebra_generic(sage.algebras.algebra.Algebra):
             return False
 
     def _sage_input_(self, sib, coerced):
-        """
-        """
         raise NotImplementedError
 
     def _is_valid_homomorphism_(self, codomain, im_gens):
-        """
-        """
         raise NotImplementedError
 
     def __hash__(self):
@@ -532,7 +545,7 @@ class OreAlgebra_generic(sage.algebras.algebra.Algebra):
         r = r + " Ore algebra in "
         for x in self._gens:
             r = r + x[0] + ", "
-        r = r[:-2r] + " over " + self.base_ring()._repr_()
+        r = r[:-2] + " over " + self.base_ring()._repr_()
         self._cached_repr = r
         return r
 
@@ -544,26 +557,27 @@ class OreAlgebra_generic(sage.algebras.algebra.Algebra):
         r = self.base_ring()._latex_() + "\\langle "
         for x in self._gens:
             r = r + x[0] + ", "
-        r = r[:-2r] + "\\rangle "
+        r = r[:-2] + "\\rangle "
         self._cached_latex = r
         return r
 
     def var(self, n=0):
         """
-        Returns the name of the `n`th generator of this algebra.
+        Returns the name of the `n` th generator of this algebra.
 
         EXAMPLES::
 
            sage: A.<Dx> = OreAlgebra(QQ['x'].fraction_field(), 'Dx')
            sage: A.var()
            Dx
+           
         """
         return self._gens[n][0]
 
     def _gen_to_idx(self, D):
         """
         If `D` is a generator of this algebra, given either as string or as an actual algebra element,
-        return the index `n` such that `self.gen(n) == self(D)`.
+        return the index `n` such that ``self.gen(n) == self(D)``.
         If `D` is already an integer, return `D` itself. 
         An IndexError is raised if `gen` is not a generator of this algebra.
         """
@@ -580,7 +594,7 @@ class OreAlgebra_generic(sage.algebras.algebra.Algebra):
 
     def sigma(self, n=0):
         """
-        Returns the sigma callable associated to the `n`th generator of this algebra.
+        Returns the sigma callable associated to the `n` th generator of this algebra.
         The generator can be specified by index (as integer), or by name (as string),
         or as algebra element.         
 
@@ -602,11 +616,11 @@ class OreAlgebra_generic(sage.algebras.algebra.Algebra):
     def sigma_inverse(self, n=0):
         """
         Returns a callable object which represents the compositional inverse of the sigma
-        callable associated to the `n`th generator of this algebra.
+        callable associated to the `n` th generator of this algebra.
         The generator can be specified by index (as integer), or by name (as string),
         or as algebra element.
 
-        The inverse can be constructed if `sigma` is such that it maps every generator `x` of
+        The inverse can be constructed if `\sigma` is such that it maps every generator `x` of
         the base ring to a linear combination `a*x+b` where `a` and `b` belong to the base
         ring of the parent of `x`.
 
@@ -669,7 +683,7 @@ class OreAlgebra_generic(sage.algebras.algebra.Algebra):
 
     def delta(self, n=0):
         """
-        Returns the delta callable associated to the `n`th generator of this algebra. 
+        Returns the delta callable associated to the `n` th generator of this algebra. 
         The generator can be specified by index (as integer), or by name (as string),
         or as algebra element.         
 
@@ -700,7 +714,7 @@ class OreAlgebra_generic(sage.algebras.algebra.Algebra):
         """
         return tuple(x[0] for x in self._gens)
         
-    def variable_names_recursive(self, depth=sage.rings.infinity.infinity):
+    def variable_names_recursive(self, depth=infinity):
         r"""
         Returns the list of variable names of this and its base rings, as if
         it were a single multi-variate polynomial.
@@ -836,45 +850,45 @@ class OreAlgebra_generic(sage.algebras.algebra.Algebra):
 
     def base_extend(self, R):
         """
-        Creates the Ore algebra obtained from `self` by replacing the base ring by `R`
+        Creates the Ore algebra obtained from ``self`` by replacing the base ring by `R`
         """
         return self.change_ring(R)
 
     def change_ring(self, R):
         """
-        Creates the Ore algebra obtained from `self` by replacing the base ring by `R`
+        Creates the Ore algebra obtained from ``self`` by replacing the base ring by `R`
         """
         return OreAlgebra(R, *self._gens)
 
     def change_var(self, var, n=0):
         """
-        Creates the Ore algebra obtained from `self` by renaming the `n`th generator to `var`
+        Creates the Ore algebra obtained from ``self`` by renaming the `n` th generator to `var`
         """ 
         n = self._gen_to_idx(n)
         return self.change_var_sigma_delta(var, self._gens[n][1], self._gens[n][2], n)
 
     def change_sigma(self, sigma, n=0):
         """
-        Creates the Ore algebra obtained from `self` by replacing the homomorphism associated to the
-        `n`th generator to `sigma`, which may be a callable or a dictionary.
+        Creates the Ore algebra obtained from ``self`` by replacing the homomorphism associated to the
+        `n` th generator to `\sigma`, which may be a callable or a dictionary.
         """
         n = self._gen_to_idx(n)
         return self.change_var_sigma_delta(self._gens[n][0], sigma, self._gens[n][2], n)
 
     def change_delta(self, delta, n=0):
         """
-        Creates the Ore algebra obtained from `self` by replacing the skew-derivation associated to the
-        `n`th generator to `delta`, which may be a callable or a dictionary.
+        Creates the Ore algebra obtained from ``self`` by replacing the skew-derivation associated to the
+        `n` th generator to `\delta`, which may be a callable or a dictionary.
         """
         n = self._gen_to_idx(n)
         return self.change_var_sigma_delta(self._gens[n][0], self._gens[n][1], delta, n)
 
     def change_var_sigma_delta(self, var, sigma, delta, n=0):
         """
-        Creates the Ore algebra obtained from `self` by replacing the
-        `n`th generator and its associated homomorphism and skew-derivation
-        by `var`, `sigma`, and `delta`, respectively.
-        The maps `sigma` and `delta` may be specified as callables or dictionaries.
+        Creates the Ore algebra obtained from ``self`` by replacing the
+        `n` th generator and its associated homomorphism and skew-derivation
+        by `var`, `\sigma`, and `\delta`, respectively.
+        The maps `\sigma` and `\delta` may be specified as callables or dictionaries.
         """
         n = self._gen_to_idx(n)
 
@@ -898,3 +912,4 @@ def guess_deq(data, x, D):
     """
     """
     raise NotImplementedError
+

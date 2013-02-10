@@ -1,16 +1,13 @@
 
 """
-
 dfinite_function
 ================
 
-AUTHOR:
-
- - Maximilian Jaroschek, Fredrik Johansson, Manuel Kauers
-
 """
 
-class DFiniteFunctionRing(sage.algebras.algebra.Algebra):
+from sage.rings.ring import Algebra
+
+class DFiniteFunctionRing(Algebra):
     """
     A Ring of Dfinite objects (functions or sequences)
     """
