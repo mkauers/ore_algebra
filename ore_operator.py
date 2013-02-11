@@ -1005,6 +1005,41 @@ class UnivariateRecurrenceOperatorOverRationalFunctionField(UnivariateOreOperato
     def get_data(self, init, n):
         raise NotImplementedError
 
+    def companion_matrix(self):
+        """
+        If ``self`` is an operator of order `r`, returns an `r` by `r` matrix
+        `M` such that for any sequence `c_i` annihilated by ``self``,
+        `[c_{i+1}, c_{i+2}, \ldots, c_{i+r}]^T = M(i) [c_i, c_{i+1}, \ldots, c_{i+r-1}]^T`
+
+        EXAMPLES::
+
+            sage: R.<n> = QQ['n']
+            sage: A.<Sn> = OreAlgebra(R, 'Sn')
+            sage: M = ((-n-4)*Sn**2 + (5+2*n)*Sn + (3+3*n)).companion_matrix()
+            sage: M
+            [                0                 1]
+            [(3*n + 3)/(n + 4) (2*n + 5)/(n + 4)]
+            sage: initial = Matrix([[1],[1]])
+            sage: [prod(M(k) for k in range(n, -1, -1)) * initial for n in range(10)]
+            [
+            [1]  [2]  [4]  [ 9]  [21]  [ 51]  [127]  [323]  [ 835]  [2188]
+            [2], [4], [9], [21], [51], [127], [323], [835], [2188], [5798]
+            ]
+
+        """
+        from sage.matrix.constructor import Matrix
+        ring = self.base_ring().fraction_field()
+        r = self.order()
+        M = Matrix(ring, r, r)
+        for i in range(r-1):
+            M[i, i+1] = 1
+        for j in range(r):
+            M[r - 1, j] = self[j] / (-self[r])
+        return M
+
+
+
+
 #############################################################################################################
 
 class UnivariateQRecurrenceOperatorOverRationalFunctionField(UnivariateOreOperatorOverRationalFunctionField):
