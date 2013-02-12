@@ -9,6 +9,7 @@ ore_algebra
 
 from sage.structure.element import RingElement
 from sage.rings.ring import Algebra
+from sage.rings.ring import Ring 
 from sage.rings.polynomial.polynomial_ring import is_PolynomialRing
 from sage.rings.polynomial.multi_polynomial_ring import is_MPolynomialRing
 from sage.rings.number_field.number_field import is_NumberField
@@ -82,14 +83,16 @@ def _dict_to_sigma(R, d):
         if not my_dict.has_key(str(x)):
             my_dict[str(x)] = R(x)
     B = R.base_ring()
-    def sigma(p):
-        R0 = p.parent()
-        if p in B:
+    def sigma(p, exp=1):
+        if exp == 1:
+            return R(p)(**my_dict)
+        elif exp > 1:
+            # possible improvement: store separate dictionaries for each exp
+            return sigma(sigma(p), exp=exp-1)
+        elif exp == 0:
             return p
-        elif is_FractionField(R0) or is_PolynomialRing(R0) or is_MPolynomialRing(R0):
-            return p(**my_dict)
         else:
-            raise ValueError, "don't know how to shift " + str(p)
+            raise ValueError, "illegal sigma power " + str(exp)            
     
     return sigma
 
@@ -216,6 +219,59 @@ def _delta_to_dict(R, delta):
         if x != z:
             d[x] = dx
     return d    
+
+from sage.categories.pushout import ConstructionFunctor
+from sage.categories.rings import Rings
+from sage.categories.functor import Functor
+
+class OreAlgebraFunctor(ConstructionFunctor):
+    
+    rank = 10 # a little lower as polynomial ring
+
+    def __init__(self, *gens):
+        """
+        INPUT:
+
+        - gens: list (or tuple) of generators, each generator is specified by a tuple
+          ``(a, b, c)`` where ``a`` is a variable name (string), ``b`` is a shift
+          (specified as dictionary), and ``c`` is a sigma-derivation (specified as
+          dictionary).
+
+        The functor is only applicable to rings which are compatible with the given
+        dictionaries. Applying the functor to another ring causes an error. 
+        """
+        Functor.__init__(self, Rings(), Rings())
+        self.gens = tuple(tuple(g) for g in gens) 
+        self.vars = [g[0] for g in gens]
+
+    def _apply_functor(self, R):
+        return OreAlgebra(R, *(self.gens))
+
+    def __cmp__(self, other):
+        c = cmp(type(self), type(other))
+        if c != 0:
+            return c
+        c = cmp(self.vars, other.vars)
+        if c != 0:
+            return c
+        for i in xrange(len(self.vars)):
+            c = cmp(self.gens[i][1], other.gens[i][1])
+            if c != 0:
+                return c
+            c = cmp(self.gens[i][2], other.gens[i][2])
+            if c != 0:
+                return c
+        return 0
+
+    def merge(self, other):
+        if self == other:
+            return self
+        else:
+            return None
+
+    def __str__(self):
+        return "OreAlgebra" + str(list(self.vars))
+
 
 def OreAlgebra(base_ring, *generators, **kwargs):
     """
@@ -477,6 +533,14 @@ class OreAlgebra_generic(Algebra):
         Returns True because Ore algebras are always noetherian. 
         """
         return True
+
+    def construction(self):
+        """
+        Returns a functorial description of this Ore algebra
+        """
+        R = self.base_ring()
+        gens = ((str(x), _sigma_to_dict(R, self.sigma(x)), _delta_to_dict(R, self.delta(x))) for x in self.gens())
+        return (OreAlgebraFunctor(*gens), self.base_ring())
 
     def _coerce_map_from_(self, P):
         """
