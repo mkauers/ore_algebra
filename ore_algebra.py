@@ -681,6 +681,32 @@ class OreAlgebra_generic(Algebra):
         self._sigma_inverses[n] = sigma_inv
         return sigma_inv
 
+    def applySigmaKTimes(self,a, k, n=0):
+        """
+        Applies the automorphism sigma associated to the `n` generator of this algebra `k` times to an object `a` and returns the result.  
+        """
+        if k<0: 
+            sigma=self.sigma_inverse(n)
+            k=-k
+        else: sigma=self.sigma(n)
+        for i in range(k): a = sigma(a)
+        return a
+
+    def sigmaFactorial(self,a,k,n=0):
+        """
+        Returns the `k` th sigma factorial of an object `a` and the automorphism sigma associated to the `n` th generator of this algebra
+        """
+
+        if k<0: raise ValueError, "k as to be greater than or equal to zero"
+        prod = a.parent().one()
+        if k==0: return prod
+
+        sigma = self.sigma()
+        for i in range(k):
+            prod = prod*a
+            a = sigma(a)
+        return prod
+
     def delta(self, n=0):
         """
         Returns the delta callable associated to the `n` th generator of this algebra. 
