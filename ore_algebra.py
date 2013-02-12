@@ -676,12 +676,11 @@ def OreAlgebra(base_ring, *generators, **kwargs):
             if B.is_field() or R.is_field():
                 solver = nullspace.clear(solver)
             B = B.base_ring()
-        elif len(Rgens) > 1:
-            solver = nullspace.kronecker(solver)
+        else:
+            if len(Rgens) > 1:
+                solver = nullspace.kronecker(solver)
             if R.is_field():
                 solver = nullspace.clear(solver)
-        elif R.is_field():
-            solver = nullspace.clear(solver)        
             
         if B is ZZ or B.characteristic() > 0:
             solver = solver
