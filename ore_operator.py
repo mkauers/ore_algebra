@@ -83,6 +83,7 @@ class OreOperator(RingElement):
         raise NotImplementedError
 
     # tests
+
     def __nonzero__(self):
         raise NotImplementedError
 
@@ -599,17 +600,19 @@ class UnivariateOreOperator(OreOperator):
         return self._poly.__nonzero__()
 
     def __eq__(self, other):
-        #TODO: Check if both operators can be casted into a common Ore-Ring.
-        if not isinstance(other, UnivariateOreOperator): return False
-        if not self.parent() == other.parent():
-            try:
-                other = self.parent()(other)
-            except:
-                try:
-                    self = other.parent()(self)
-                except:
-                    return False
-        return self.polynomial() == other.polynomial()
+
+        if not isinstance(other, OreOperator):
+            return False
+        
+        if self.parent() == other.parent():
+            return self.polynomial() == other.polynomial()
+
+        try:
+            from sage.categories.pushout import pushout
+            A = pushout(self.parent(), other.parent())
+            return A(self).polynomial() == A(other).polynomial()
+        except:
+            return False
 
     def _is_atomic(self):
         return self._poly._is_atomic()

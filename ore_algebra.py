@@ -112,7 +112,7 @@ class _Sigma:
                 my_dict[str(x)] = R(d(x))
         else:         
             for x in d:
-                if not x in Rgens:
+                if not R(x) in Rgens:
                     raise ValueError, str(x) + " is not a generator of " + str(R)
                 if x != d[x]:
                     my_dict[str(x)] = R(d[x])
@@ -245,11 +245,11 @@ class _Sigma:
                     a = sx[tuple(exp)] # multivariate poly ring
                 if sx != a*x + b:
                     raise ValueError # may raise exception
-                sigma_inv_dict[x] = (x - b)/a # may raise exception
+                sigma_inv_dict[x] = self.__R((x - b)/a) # may raise exception
             except:
                 raise ValueError, "unable to construct inverse of sigma"
 
-        sigma_inv = _Sigma(R, sigma_inv_dict)
+        sigma_inv = _Sigma(self.__R, sigma_inv_dict)
         self.__inverse = sigma_inv
         sigma_inv.__inverse = self
         return sigma_inv
@@ -689,6 +689,8 @@ class OreAlgebra_generic(Algebra):
     # information extraction
 
     def __eq__(self, other):
+        if hash(self) != hash(other):
+            return False
         if not is_OreAlgebra(other):
             return False
         if not self.base_ring() == other.base_ring():
