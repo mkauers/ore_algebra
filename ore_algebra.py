@@ -55,108 +55,275 @@ def _is_suitable_base_ring(R):
     else:
         return False
 
-def _dict_to_sigma(R, d):
+class _Sigma:
     """
-    Given a suitable ring `R` and a dictionary `d` whose left hand sides are generators of `R`,
-    construct a callable object that acts on elements of `R` as the homomorphism defined by the dictionary.
+    A ring endomorphism for suitable rings. 
+
+    A sigma object is created by a ring `R` on which it operates, and some piece of defining the action.
+    The action is defined through a dictionary which has generators of `R` on its left hand side and
+    elements of `R` on its right hand side. Generators of `R` which are not contained in the dictionary
+    are mapped to themselves.
+
+    Instead of a dictionary, the constructor also accepts arbitrary callable objects. In this case, a
+    dictionary is created based on the values this callable object produces when applied to the generators
+    of `R`.     
+
+    It is assumed without test that the ring `R` is \"suitable\".
 
     EXAMPLES::
 
        sage: R.<x1,x2,x3> = QQ['x1,x2,x3']
-       sage: sigma = _dict_to_sigma(R, {x1:2*x1, x2:1-x2, x3:x3+1})
+       sage: sigma = _Sigma(R, {x1:2*x1, x2:1-x2, x3:x3+1})
        sage: sigma(x1+x2+x3)
        2*x1 - x2 + x3 + 2
-       sage: sigma = _dict_to_sigma(R.fraction_field(), {x1:2*x1, x2:1-x2, x3:x3+1})
+       sage: sigma = _Sigma(R.fraction_field(), {x1:2*x1, x2:1-x2, x3:x3+1})
        sage: sigma(x1+x2+x3)
        2*x1 - x2 + x3 + 2
 
+    Repeated application of a sigma object to some ring element can be specified by an optional second
+    argument. There are also functions for computing sigma factorials, for constructing the compositional
+    inverse of a (sufficiently simple) sigma object, and for converting a sigma object into a dictionary
+
+    EXAMPLES::
+
+       sage: R.<x1,x2,x3> = QQ['x1,x2,x3']
+       sage: sigma = _Sigma(R, {x1:2*x1, x2:1-x2, x3:x3+1})
+       sage: sigma(x1+x2+x3, 5)
+       32*x1 - x2 + x3 + 6
+       sage: sigma.factorial(x1+x2+x3, 4).factor()
+       (x1 + x2 + x3) * (2*x1 - x2 + x3 + 2) * (4*x1 + x2 + x3 + 2) * (8*x1 - x2 + x3 + 4)
+       sage: sigma_inv = sigma.inverse()
+       sage: sigma_inv(x1+x2+x3)
+       1/2*x1 - x2 + x3
+       sage: sigma(x1+x2+x3, -1)
+       1/2*x1 - x2 + x3
+       sage: sigma.inverse().inverse() == sigma
+       True
+       sage: sigma.to_dict()
+       {'x2': -x2 + 1, 'x3': x3 + 1, 'x1': 2*x1}    
+    
     """
-    my_dict = {}; Rgens = R.gens()
-    for x in d:
-        if not x in Rgens:
-            raise ValueError, str(x) + " is not a generator of " + str(R)
-        if x != d[x]:
-            my_dict[str(x)] = R(d[x])
-    if len(my_dict) == 0:
-        return lambda p:p
-    for x in Rgens:
-        if not my_dict.has_key(str(x)):
-            my_dict[str(x)] = R(x)
-    B = R.base_ring()
-    def sigma(p, exp=1):
+
+    def __init__(self, R, d):
+
+        Rgens = R.gens(); my_dict = {}
+        if type(d) != dict:
+            for x in Rgens:
+                my_dict[str(x)] = R(d(x))
+        else:         
+            for x in d:
+                if not x in Rgens:
+                    raise ValueError, str(x) + " is not a generator of " + str(R)
+                if x != d[x]:
+                    my_dict[str(x)] = R(d[x])
+            for x in Rgens:
+                if not my_dict.has_key(str(x)):
+                    my_dict[str(x)] = R(x)
+        self.__R = R
+        self.__dict = my_dict
+
+    def __call__(self, p, exp=1):
+
         if exp == 1:
-            return R(p)(**my_dict)
+            return self.__R(p)(**self.__dict)
         elif exp > 1:
             # possible improvement: store separate dictionaries for each exp
             return sigma(sigma(p), exp=exp-1)
         elif exp == 0:
             return p
+        elif exp < 0:
+            return self.inverse()(p, -exp)
         else:
-            raise ValueError, "illegal sigma power " + str(exp)            
-    
-    return sigma
+            raise ValueError, "illegal sigma power " + str(exp)
 
-def _sigma_to_dict(R, sigma):
+    def to_dict(self):
+        """
+        Returns a dictionary representing ``self``
+        """
+        return self.__dict.copy()
+
+    def __hash__(self):
+        try:
+            return self.__hash_value
+        except:
+            pass
+        gens = self.__R.gens()
+        self.__hash_value = h = hash((self.__R, (sigma(x) for x in gens)))
+        return h
+
+    def __eq__(self, other):
+
+        try:
+            if hash(self) != hash(other):
+                return False 
+            if self.__R != other.__R: # todo: exists pushout would be sufficient
+                return False
+            for x in self.__R.gens():
+                if self(x) != other(x):
+                    return False
+            for x in other.__R.gens():
+                if self(x) != other(x):
+                    return False
+            return True
+        except:
+            return False 
+
+    def ring(self):
+        """
+        Returns the ring for which this sigma object is defined
+        """
+        return self.__R
+
+    def factorial(self, p, n):
+        """
+        Returns `p\sigma(p)...\sigma^{n-1}(p)` if `n` is nonnegative, and `1` if `n` is negative.
+        """
+        if n <= 0:
+            return self.__R.one()
+        elif n == 1:
+            return p
+        elif n > 1:
+            q = p; out = p
+            for i in xrange(n - 1):
+                q = self(q)
+                out = out*q
+            return out
+        else:
+            raise ValueError, "illegal argument to Sigma.factorial: " + str(n)
+
+    def inverse(self):
+        """
+        Returns a sigma object which represents the compositional inverse of ``self``.
+
+        The inverse can be constructed if `\sigma` is such that it maps every generator `x` of
+        the base ring to a linear combination `a*x+b` where `a` and `b` belong to the base
+        ring of the parent of `x`.
+
+        If the method fails in constructing the inverse, it raises a ``ValueError``.
+
+        EXAMPLES::
+
+           sage: R.<x> = QQ['x']
+           sage: A.<Sx> = OreAlgebra(R.fraction_field(), "Sx")
+           sage: sigma = A.sigma()
+           sage: sigma_inverse = sigma.inverse()
+           sage: sigma(x)
+           x + 1
+           sage: sigma_inverse(x)
+           x - 1
+        
+        """
+        # possible generalization in case of rings with more generators: each generator is
+        # mapped to a linear combination of the other generators with coefficients in the
+        # base ring.
+
+        try:
+            return self.__inverse
+        except AttributeError:
+            pass
+
+        R = self.__R
+        if is_FractionField(R):
+            R = R.ring()
+        C_one = R.base_ring().one()
+        sigma = self
+        sigma_inv_dict = {}
+        for exp in MatrixSpace(ZZ, R.ngens()).one():
+            if len(exp) == 1:
+                x = R.gen()
+            else:
+                x = R({tuple(exp):C_one});
+            sx = sigma(x)
+            if sx == x:
+                continue
+            try:
+                sx = R(sx) # may raise exception
+                b = sx.constant_coefficient()
+                if len(exp) == 1:
+                    a = sx[1] # univariate poly ring
+                else:
+                    a = sx[tuple(exp)] # multivariate poly ring
+                if sx != a*x + b:
+                    raise ValueError # may raise exception
+                sigma_inv_dict[x] = (x - b)/a # may raise exception
+            except:
+                raise ValueError, "unable to construct inverse of sigma"
+
+        sigma_inv = _Sigma(R, sigma_inv_dict)
+        self.__inverse = sigma_inv
+        sigma_inv.__inverse = self
+        return sigma_inv
+
+class _Delta:
     """
-    Given a ring `R` and a callable object `\sigma` representing a homomorphism from `R` to itself, 
-    construct a dictionary with the values of `\sigma` of the generators of `R`. 
-    Generators on which `\sigma` acts as identity are omitted. 
+    A skew-derivation for suitable rings. 
+
+    A delta object is created by a ring `R` on which it operates, some piece of information defining the action,
+    and an associated Sigma object. 
+    The action is defined through a dictionary which has generators of `R` on its left hand side and
+    elements of `R` on its right hand side. Generators of `R` which are not contained in the dictionary
+    are mapped to zero.
+
+    Instead of a dictionary, the constructor also accepts arbitrary callable objects. In this case, a
+    dictionary is created based on the values this callable object produces when applied to the generators
+    of `R`.     
+
+    It is assumed without test that the ring `R` is \"suitable\".
 
     EXAMPLES::
 
        sage: R.<x1,x2,x3> = QQ['x1,x2,x3']
-       sage: sigma = _dict_to_sigma(R, {x1:2*x1, x2:1-x2, x3:x3+1})
-       sage: _sigma_to_dict(R, sigma)
-       {x3:x3+1, x2:1-x2, x1:2*x1}
-    
-    """
-    try:
-        Rgens = R.gens()
-    except AttributeError:
-        return {}
-    d = {}
-    for x in Rgens:
-        sx = sigma(x)
-        if x != sx:
-            d[x] = sx
-    return d    
-
-def _dict_to_delta(R, d, sigma):
-    """
-    Given a suitable ring `R` and a dictionary `d` whose left hand sides are generators of `R`,
-    and a callable object `\sigma` encoding a homomorphism on `R`,
-    construct a callable object that acts on elements of `R` as the skew-derivation for `\sigma` defined
-    by the dictionary. Generators for which no image is specified are mapped to zero.
-
-    EXAMPLES::
-
-       sage: R.<x1,x2,x3> = QQ['x1,x2,x3']
-       sage: delta = _dict_to_delta(R, {x1:1, x2:x2, x3:1+x3^2}, lambda p:p)
+       sage: sigma = _Sigma(R, {x1:2*x1, x2:1-x2, x3:x3+1})
+       sage: delta = _Delta(R, {x1:1, x3:x3}, sigma)
        sage: delta(x1+x2+x3)
-       x3^2 + x2 + 2
+       x3 + 1
+       sage: delta(x1*x2*x3)
+       -2*x1*x2*x3 + 2*x1*x3 + x2*x3
+       sage: delta.to_dict()
+       {x1: 1, x3: x3}
 
     """
-    # 1. is delta the zero map?
-    is_zero = True; zero = R.zero(); my_dict = {}
-    for x in d:
-        if not x in R.gens():
-            raise ValueError, "R is not a suitable ring"
-        if d[x] != zero:
-            is_zero = False
-        my_dict[R(x), 0] = zero
-        my_dict[R(x), 1] = R(d[x])
-    if is_zero:
-        return lambda p: zero
 
-    # 3. define the map and return it.
-    B = R.base_ring()
-    def delta(p):
-        R0 = p.parent()
-        if p in B:
-            return R0.zero()
-        elif is_FractionField(R0):
+    def __init__(self, R, d, s):
+
+        if R != s.ring():
+            raise ValueError, "delta constructor received incompatible sigma"
+
+        Rgens = R.gens(); is_zero = True; zero = R.zero(); my_dict = {}
+
+        for x in Rgens:
+            my_dict[R(x), 0] = zero
+            my_dict[R(x), 1] = zero
+
+        if type(d) != dict:
+            for x in Rgens:
+                my_dict[R(x), 1] = R(d(x))
+        else:         
+            for x in d:
+                if not x in Rgens:
+                    raise ValueError, str(x) + " is not a generator of " + str(R)
+                if d[x] != zero:
+                    is_zero = False
+                my_dict[R(x), 1] = R(d[x])
+                
+        self.__is_zero = is_zero
+        self.__R = R
+        self.__dict = my_dict
+        self.__sigma = s
+
+    def __call__(self, p):
+
+        if self.__is_zero:
+            return self.__R.zero()
+
+        R = self.__R; delta = self; sigma = self.__sigma; my_dict = self.__dict
+        if p in R.base_ring():
+            return R.zero()
+
+        R0 = p.parent(); 
+        if is_FractionField(R0):
             a = p.numerator(); b = p.denominator()
-            return R0(delta(a))/R0(b) - R0(delta(b)*sigma(a))/R0(b*sigma(b)) # this assumes sigma(1)=1
+            return R0(delta(a))/R0(b) - R0(delta(b)*sigma(a))/R0(b*sigma(b)) 
         elif is_PolynomialRing(R0):
             x = R(R0.gen())
             if not my_dict.has_key((x, 0)):
@@ -193,40 +360,72 @@ def _dict_to_delta(R, d, sigma):
             return out
         else:
             raise TypeError, "don't know how to apply delta to " + str(p)
-    
-    return delta
 
-def _delta_to_dict(R, delta):
-    """
-    Given a suitable ring `R` and a callable object `\delta` representing a skew-derivation on `R`,
-    construct a dictionary with the values of `\delta` of the generators of `R` and its base rings.
+    def __hash__(self):
+        try:
+            return self.__hash_value
+        except:
+            pass
+        sigma = self.__sigma; gens = self.__R.gens()
+        self.__hash_value = h = hash((self.__R, (self(x) for x in gens), (sigma(x) for x in gens)))
+        return h 
 
-    EXAMPLES::
+    def __eq__(self, other):
 
-       sage: R.<x1,x2,x3> = QQ['x1,x2,x3']
-       sage: delta = _dict_to_delta(R, {x1:0, x2:1, x3:0}, lambda p:p)
-       sage: _delta_to_dict(R, delta)
-       {x2: 1, x1: 0, x3: 0}
-    
-    """
-    try:
-        Rgens = R.gens()
-    except AttributeError:
-        return {}
-    d = {}; z = R.zero()
-    for x in Rgens:
-        dx = delta(x)
-        if x != z:
-            d[x] = dx
-    return d    
+        try:
+            if hash(self) != hash(other):
+                return False 
+            if self.__sigma != other.__sigma: # includes ring comparison
+                return False
+            for x in self.__R.gens():
+                if self(x) != other(x):
+                    return False
+            for x in other.__R.gens():
+                if self(x) != other(x):
+                    return False
+            return True
+        except:
+            return False
+
+    def ring():
+        """
+        Returns the ring for which this sigma object is defined
+        """
+        return self.__R
+
+    def to_dict(self):
+        """
+        Returns a dictionary representing ``self``
+        """
+
+        R = self.__R
+
+        try:
+            Rgens = R.gens()
+        except AttributeError:
+            return {}
+        
+        d = {}; z = R.zero()
+        for x in Rgens:
+            dx = self(x)
+            if dx != z:
+                d[x] = dx
+        return d    
 
 from sage.categories.pushout import ConstructionFunctor
-from sage.categories.rings import Rings
-from sage.categories.functor import Functor
 
 class OreAlgebraFunctor(ConstructionFunctor):
+    """
+    Construction functor for Ore algebras.
+
+    Such a functor is made from the same data as an Ore algebra, except for the base ring.
+    In particular, Ore algebra functors contain sigmas and deltas, which do act on certain
+    domains. The sigmas and deltas are represented by dictionaries. The functor is
+    applicable to rings that contain generators named like the left hand sides of the
+    sigmas and deltas, and to which the right hand sides can be casted.     
+    """
     
-    rank = 10 # a little lower as polynomial ring
+    rank = 9 # like polynomial ring
 
     def __init__(self, *gens):
         """
@@ -240,6 +439,8 @@ class OreAlgebraFunctor(ConstructionFunctor):
         The functor is only applicable to rings which are compatible with the given
         dictionaries. Applying the functor to another ring causes an error. 
         """
+        from sage.categories.functor import Functor
+        from sage.categories.rings import Rings
         Functor.__init__(self, Rings(), Rings())
         self.gens = tuple(tuple(g) for g in gens) 
         self.vars = [g[0] for g in gens]
@@ -421,16 +622,8 @@ def OreAlgebra(base_ring, *generators, **kwargs):
                 raise TypeError, "unexpected generator declaration"
         elif len(gens[i]) != 3:
             raise TypeError, "unexpected generator declaration"
-        if type(gens[i][1]) == dict:
-            s = _dict_to_sigma(R, gens[i][1])
-        else:
-            # if gens[i][1] is too unreasonable, the following will cause a crash
-            s = _dict_to_sigma(R, _sigma_to_dict(R, gens[i][1])) 
-        if type(gens[i][2]) == dict:
-            d = _dict_to_delta(R, gens[i][2], s)
-        else:
-            # if gens[i][1] is too unreasonable, the following will cause a crash
-            d = _dict_to_delta(R, _delta_to_dict(R, gens[i][2]), s)
+        s = _Sigma(R, gens[i][1]) # assuming gens[i][1] is either a dict or a callable
+        d = _Delta(R, gens[i][2], s) # assuming gens[i][2] is either a dict or a callable
         if s(one) != one:
             raise ValueError, "sigma(1) must be 1"
         gens[i] = (gens[i][0], s, d)
@@ -506,13 +699,7 @@ class OreAlgebra_generic(Algebra):
             return False
         Rgens = self.base_ring().gens()
         for i in xrange(self.ngens()):
-            if not self.var(i) == other.var(i):
-                return False
-            self_sigma = self.sigma(i); other_sigma = other.sigma(i)
-            if not all((self_sigma(x) == other_sigma(x)) for x in Rgens):
-                return False
-            self_delta = self.delta(i); other_delta = other.delta(i)
-            if not all((self_delta(x) == other_delta(x)) for x in Rgens):
+            if not (self.var(i) == other.var(i) and self.sigma(i) == other.sigma(i) and self.delta(i) == other.delta(i)):
                 return False
         return True        
 
@@ -539,7 +726,7 @@ class OreAlgebra_generic(Algebra):
         Returns a functorial description of this Ore algebra
         """
         R = self.base_ring()
-        gens = ((str(x), _sigma_to_dict(R, self.sigma(x)), _delta_to_dict(R, self.delta(x))) for x in self.gens())
+        gens = ((str(x), self.sigma(x).to_dict(), self.delta(x).to_dict()) for x in self.gens())
         return (OreAlgebraFunctor(*gens), self.base_ring())
 
     def _coerce_map_from_(self, P):
@@ -702,49 +889,8 @@ class OreAlgebra_generic(Algebra):
            x - 1
         
         """
-        # possible generalization in case of rings with more generators: each generator is
-        # mapped to a linear combination of the other generators with coefficients in the
-        # base ring.
-        
-        if not hasattr(self, "_sigma_inverses"):
-            self._sigma_inverses = [ None for D in self.gens() ]
-
-        n = self._gen_to_idx(n)
-        sig_inv = self._sigma_inverses[n]
-        if sig_inv is not None:
-            return sig_inv
-
-        R = self.base_ring()
-        if is_FractionField(R):
-            R = R.ring()
-        C_one = R.base_ring().one()
-        sigma = self.sigma(n)
-        sigma_inv_dict = {}
-        for exp in MatrixSpace(ZZ, R.ngens()).one():
-            if len(exp) == 1:
-                x = R.gen()
-            else:
-                x = R({tuple(exp):C_one});
-            sx = sigma(x)
-            if sx == x:
-                continue
-            try:
-                sx = R(sx) # may raise exception
-                b = sx.constant_coefficient()
-                if len(exp) == 1:
-                    a = sx[1]
-                else:
-                    a = sx[tuple(exp)]
-                if sx != a*x + b:
-                    raise ValueError # may raise exception
-                sigma_inv_dict[x] = (x - b)/a # may raise exception
-            except:
-                raise ValueError, "unable to construct inverse of sigma"
-
-        sigma_inv = _dict_to_sigma(self.base_ring(), sigma_inv_dict)
-        self._sigma_inverses[n] = sigma_inv
-        return sigma_inv
-
+        return self.sigma(n).inverse()
+    
     def delta(self, n=0):
         """
         Returns the delta callable associated to the `n` th generator of this algebra. 
@@ -777,31 +923,7 @@ class OreAlgebra_generic(Algebra):
            ('Dx',)
         """
         return tuple(x[0] for x in self._gens)
-        
-    def variable_names_recursive(self, depth=infinity):
-        r"""
-        Returns the list of variable names of this and its base rings, as if
-        it were a single multi-variate polynomial.
-        
-        EXAMPLES::
-        
-            sage: R = QQ['x']['y']['z']
-            sage: R.variable_names_recursive()
-            ('x', 'y', 'z')
-            sage: R.variable_names_recursive(2)
-            ('y', 'z')
-        """
-        if depth <= 0:
-            return ()
-        elif depth == 1:
-            return self.variable_names()
-        else:
-            my_vars = self.variable_names()
-            try:
-                return self.base_ring().variable_names_recursive(depth - len(my_vars)) + my_vars
-            except AttributeError:
-                return my_vars
-                
+                        
     def characteristic(self):
         """
         Return the characteristic of this Ore algebra, which is the
@@ -957,13 +1079,12 @@ class OreAlgebra_generic(Algebra):
         n = self._gen_to_idx(n)
 
         gens = list(self._gens)
-        if type(sigma) == dict:
-            sigma = _dict_to_sigma(self.base_ring(), sigma)
-        if type(delta) == dict:
-            delta = _dict_to_delta(self.base_ring(), delta, sigma)
+        R = self.base_ring()
+        sigma = _Sigma(R, sigma)
+        delta = _Delta(R, delta, sigma)
 
         gens[n] = (var, sigma, delta)
-        return OreAlgebra(self.base_ring(), *gens)
+        return OreAlgebra(R, *gens)
         
 ##########################################################################################################
 
