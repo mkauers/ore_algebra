@@ -12,6 +12,7 @@ from sage.rings.polynomial.polynomial_ring import is_PolynomialRing
 from sage.rings.polynomial.multi_polynomial_ring import is_MPolynomialRing
 from sage.rings.number_field.number_field import is_NumberField
 from sage.rings.fraction_field import is_FractionField
+from sage.rings.arith import gcd
 
 class OreOperator(RingElement):
     """
@@ -388,7 +389,7 @@ class OreOperator(RingElement):
         else:
             return a*self
 
-    def content(self):
+    def content(self,proof=True):
         """
         Returns the content of ``self``.
 
@@ -414,12 +415,25 @@ class OreOperator(RingElement):
            1
         
         """
-        R = self.parent().base_ring()
+        if self==0 or self.is_zero(): return 1
+        if self.order()==0: return self
 
-        if R.is_field():
-            return R.one()
+        Rbase = self.parent().base_ring()
+        coeffs = self.coefficients()
+
+        if proof:
+            cont = lambda x: gcd([x(c) for c in coeffs])
         else:
-            return gcd([c for c in self.coefficients()])
+            cont = lambda x: gcd(x(coeffs.pop()),reduce(lambda y,z: x(y)+x(z),coeffs))
+
+        if Rbase.is_field():
+            try:
+                return Rbase(cont(Rbase.base()))
+            except:
+                pass
+            return Rbase.one()
+        else:
+            return cont(Rbase)
 
     def primitive_part(self):
         """
@@ -435,7 +449,8 @@ class OreOperator(RingElement):
           x*Dx + 2
         
         """
-        c = self.content()
+        if self.parent().base_ring().is_field(): c = self.leading_coefficient()
+        else: c = self.content()
         if c == c.parent().one():
             return self
         else:
@@ -578,16 +593,17 @@ class UnivariateOreOperator(OreOperator):
         return self._poly.__nonzero__()
 
     def __eq__(self, other):
-        # TODO: THIS NEEDS TO BE REWRITTEN SUCH AS TO SUPPORT COERCION.
-        # Example:
-        #   sage: A = OreAlgebra(QQ['x'], 'Dx')
-        #   sage: B = OreAlgebra(QQ['x'].fraction_field(), 'Dx')
-        #   sage: op = A.random_element()
-        #   sage: op == B(op)
-        #   False # <== we want this to be True
-        return isinstance(other, UnivariateOreOperator) and \
-               self.parent() == other.parent() and \
-               self.polynomial() == other.polynomial()
+        #TODO: Check if both operators can be casted into a common Ore-Ring.
+        if not isinstance(other, UnivariateOreOperator): return False
+        if not self.parent() == other.parent():
+            try:
+                other = self.parent()(other)
+            except:
+                try:
+                    self = other.parent()(self)
+                except:
+                    return False
+        return self.polynomial() == other.polynomial()
 
     def _is_atomic(self):
         return self._poly._is_atomic()
@@ -668,7 +684,7 @@ class UnivariateOreOperator(OreOperator):
 
         return R(res)
 
-    def quo_rem(self, other):
+    def quo_rem(self, other, fractionFree=False):
 
         if other.is_zero(): 
             raise ZeroDivisionError, "other must be nonzero"
@@ -690,50 +706,77 @@ class UnivariateOreOperator(OreOperator):
         qlcs = [q.leading_coefficient()]
         for i in range(orddiff): qlcs.append(sigma(qlcs[-1]))
 
+        if fractionFree: op = lambda x,y:x//y
+        else: op = lambda x,y:x/y
         while(orddiff >= 0):
-            cfquo = p.leading_coefficient()/qlcs[orddiff] * D**(orddiff)
+            cfquo = op(p.leading_coefficient(),qlcs[orddiff]) * D**(orddiff)
             quo = quo+cfquo
             p = p - cfquo*q
             orddiff = p.order() - q.order()
         return (quo,p)
 
-    def gcrd(self, other):
+    def gcrd(self, other, prs=None):
         """
-        Returns the GCRD of self and other
+        Returns the GCRD of self and other. 
+        It is possible to specify which remainder sequence should be used.
         """
+
         if self.is_zero(): return other
         if other.is_zero(): return self
 
-        r0 = self
-        r1 = other
-        if (r0.order()<r1.order()):
-            r0,r1=r1,r0
+        r = (self,other)
+        if (r[0].order()<r[1].order()):
+            r=(other,self)
 
-        while not r1.is_zero(): r0,r1=r1,r0.quo_rem(r1)[1]
-            
-        return r0
+        R = r[0].parent()
+        RF = R.change_ring(R.base_ring().fraction_field())
+        r = (RF(r[0]),RF(r[1]))
 
-    def xgcrd(self, other):
-        """
-        When called for two operators p,q, this will return their GCRD g together with two operators s and t such that sp+tq=g
-        """
-        if self.is_zero(): return other
-        if other.is_zero(): return self
+        if prs==None:
+            if R.base_ring().is_field():
+                prs = __classicPRS__
+            else:
+                prs = __improvedPRS__
 
-        r0 = self
-        r1 = other
-        if (r0.order()<r1.order()):
-            r0,r1=r1,r0
+        additional = []
+        while not r[1].is_zero(): 
+            r=prs(r,additional)[0]
         
-        R = self.parent()
+        return R(r[0]).primitive_part()
 
-        a11,a12,a21,a22 = R.one(),R.zero(),R.zero(),R.one()
+    
+    def xgcrd(self, other,prs=None):
+        """
+        When called for two operators p,q, this will return their GCRD g together with 
+        two operators s and t such that sp+tq=g. 
+        It is possible to specify which remainder sequence should be used.
+        """
 
-        while not r1.is_zero():        
-            q = r0.quo_rem(r1)
-            r0,r1=r1,q[1]
-            a11,a12,a21,a22 = a21,a22,(a11-q[0]*a21),(a12-q[0]*a22)
-        return (r0,a11,a12)
+        if self.is_zero(): return other
+        if other.is_zero(): return self
+
+        r = (self,other)
+        if (r[0].order()<r[1].order()):
+            r=(other,self)
+        
+        R = r[0].parent()
+        RF = R.change_ring(R.base_ring().fraction_field())
+        r = (RF(r[0]),RF(r[1]))
+
+        a11,a12,a21,a22 = RF.one(),RF.zero(),RF.zero(),RF.one()
+
+        if prs==None:
+            if R.base_ring().is_field():
+                prs = __classicPRS__
+            else:
+                prs = __improvedPRS__
+
+        additional = []
+
+        while not r[1].is_zero():  
+            (r,q,alpha,beta)=prs(r,additional)
+            a11,a12,a21,a22 = a21,a22,(1/beta)*(alpha*a11-q*a21),(1/beta)*(alpha*a12-q*a22)
+        return (r[0],a11,a12)
 
     def lclm(self, other):
         """
@@ -1090,3 +1133,100 @@ class UnivariateQRecurrenceOperatorOverRationalFunctionField(UnivariateOreOperat
     def get_data(self, init, n):
         raise NotImplementedError
 
+#############################################################################################################
+
+def __primitivePRS__(r,additional):
+    """
+    Computes one division step in the subresultant polynomial remainder sequence.
+    """
+
+    orddiff = r[0].order()-r[1].order()
+
+    R = r[0].parent()
+
+    alpha = R.sigmaFactorial(r[1].leading_coefficient(),orddiff+1)
+    newRem = (alpha*r[0]).quo_rem(r[1],fractionFree=True)
+    beta = newRem[1].content()
+    r2 = newRem[1].map_coefficients(lambda p: p//beta)
+    return ((r[1],r2),newRem[0],alpha,beta)
+
+def __classicPRS__(r,additional):
+    """
+    Computes one division step in the classic polynomial remainder sequence.
+    """
+
+    newRem = r[0].quo_rem(r[1])
+    return ((r[1],newRem[1]),newRem[0],r[0].parent().base_ring().one(),r[0].parent().base_ring().one())
+
+def __improvedPRS__(r,additional):
+    """
+    Computes one division step in the improved polynomial remainder sequence.
+    """
+
+    d0 = r[0].order()
+    d1 = r[1].order()
+    orddiff = d0-d1
+
+    R = r[0].parent()
+    Rbase = R.base_ring()
+    sigma = R.sigma()
+    sigmainv=R.sigma_inverse()
+
+    if (len(additional)==0):
+        essentialPart = gcd(sigmainv(r[0].leading_coefficient(),orddiff),r[1].leading_coefficient())
+        phi = Rbase.one()
+        beta = (-Rbase.one())**(orddiff+1)*R.sigmaFactorial(sigma(phi,1),orddiff)
+    else:
+        d2 = additional.pop()
+        oldalpha = additional.pop()
+        k = additional.pop()
+        essentialPart = additional.pop()
+        phi = additional.pop()
+        phi = oldalpha / R.sigmaFactorial(sigma(phi,1),d2-d1-1)
+        beta = ((-Rbase.one())**(orddiff+1)*R.sigmaFactorial(sigma(phi,1),orddiff)*k)
+        essentialPart = sigmainv(essentialPart,orddiff)
+
+    k = r[1].leading_coefficient()//essentialPart
+    alpha = R.sigmaFactorial(k,orddiff)
+    alpha2=alpha*sigma(k,orddiff)
+    newRem = (alpha2*r[0]).quo_rem(r[1],fractionFree=True)
+    r2 = newRem[1].map_coefficients(lambda p: p//beta)
+
+    additional.append(phi)
+    additional.append(essentialPart)
+    additional.append(k)
+    additional.append(alpha)
+    additional.append(d1)
+
+    return ((r[1],r2),newRem[0],alpha2,beta)
+
+def __subresultantPRS__(r,additional):
+    """
+    Computes one division step in the subresultant polynomial remainder sequence.
+    """
+
+    d0 = r[0].order()
+    d1 = r[1].order()
+    orddiff = d0-d1
+
+    R = r[0].parent()
+    Rbase = R.base_ring()
+    sigma = R.sigma()
+
+    if (len(additional)==0):
+        phi = -Rbase.one()
+        beta = (-Rbase.one())*R.sigmaFactorial(sigma(phi,1),orddiff)
+    else:
+        d2 = additional.pop()
+        phi = additional.pop()
+        phi = R.sigmaFactorial(-r[0].leading_coefficient(),d0-d1) / R.sigmaFactorial(sigma(phi,1),d0-d1-1)
+        beta = (-Rbase.one())*R.sigmaFactorial(sigma(phi,1),orddiff)*r[0].leading_coefficient()
+
+    alpha = R.sigmaFactorial(r[1].leading_coefficient(),orddiff+1)
+    newRem = (alpha*r[0]).quo_rem(r[1],fractionFree=True)
+    r2 = newRem[1].map_coefficients(lambda p: p//beta)
+
+    additional.append(d1)
+    additional.append(phi)
+
+    return ((r[1],r2),newRem[0],alpha,beta)
