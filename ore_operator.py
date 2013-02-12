@@ -460,7 +460,9 @@ class OreOperator(RingElement):
         c = prim.leading_coefficient()
         while (not c.is_unit()) and (c.parent()!=c.parent().base_ring()):
             c = c.leading_coefficient()
-        return (1/c)*prim
+	if not c.is_unit():
+	    return prim
+        return c.parent()((1/c))*prim
 
     def map_coefficients(self, f, new_base_ring = None):
         """
