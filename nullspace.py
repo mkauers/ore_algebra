@@ -1643,7 +1643,7 @@ def _merge(subsolver, mat, degrees, infolevel):
 
         _info(infolevel, "changing base ring to ", str(B), alter=-1)
 
-    except: # ring was not of expected form, or conversion faild
+    except: # ring was not of expected form, or conversion failed
         _info(infolevel, "leaving base ring as it is: ", str(R), alter=-1)
 
     return subsolver(mat, degrees=degrees, infolevel=_alter_infolevel(infolevel, -2, 1))

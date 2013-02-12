@@ -17,7 +17,7 @@ from sage.rings.fraction_field import is_FractionField
 from sage.rings.infinity import infinity
 
 from ore_operator import *
-from nullspace import *
+import nullspace
 
 def is_OreAlgebra(A):
     """
@@ -300,7 +300,7 @@ class _Delta:
                 my_dict[R(x), 1] = R(d(x))
         else:         
             for x in d:
-                if not x in Rgens:
+                if not R(x) in Rgens:
                     raise ValueError, str(x) + " is not a generator of " + str(R)
                 if d[x] != zero:
                     is_zero = False
@@ -664,9 +664,42 @@ def OreAlgebra(base_ring, *generators, **kwargs):
     else:
         operator_class = UnivariateOreOperator
 
+    # Select the linear system solver for matrices over the base ring
+    if kwargs.has_key("solver"):
+        solver = kwargs["solver"]
+    else:
+        B = R.base_ring()
+        solver = nullspace.gauss()
+
+        if is_PolynomialRing(B) or is_FractionField(B):
+            solver = nullspace.merge(nullspace.kronecker(solver))
+            if B.is_field() or R.is_field():
+                solver = nullspace.clear(solver)
+            B = B.base_ring()
+        elif len(Rgens) > 1:
+            solver = nullspace.kronecker(solver)
+            if R.is_field():
+                solver = nullspace.clear(solver)
+        elif R.is_field():
+            solver = nullspace.clear(solver)        
+            
+        if B is ZZ or B.characteristic() > 0:
+            solver = solver
+        elif B is QQ:
+            solver = nullspace.clear(solver)
+        elif is_NumberField(B):
+            solver = nullspace.galois(solver)
+        else:
+            solver = nullspace.sage_native
+
+    # complain if we got any bogus keyword arguments
+    for kw in kwargs:
+        if kw not in ("solver", "element_class"):
+            raise ValueError, "unexpected keyword argument: " + kw
+
     # Check whether this algebra already exists.
     global _list_of_ore_algebras
-    alg = OreAlgebra_generic(base_ring, operator_class, gens, **kwargs)
+    alg = OreAlgebra_generic(base_ring, operator_class, gens, solver)
     for a in _list_of_ore_algebras:
         if a == alg:
             return a
@@ -681,10 +714,11 @@ class OreAlgebra_generic(Algebra):
     """
     """
 
-    def __init__(self, base_ring, operator_class, gens, **kargs):
+    def __init__(self, base_ring, operator_class, gens, solver):
         self._base_ring = base_ring
         self._operator_class = operator_class
         self._gens = gens
+        self.__solver = solver
 
     # information extraction
 
@@ -1041,6 +1075,19 @@ class OreAlgebra_generic(Algebra):
         Creates the Ore algebra obtained from ``self`` by replacing the base ring by `R`
         """
         return self.change_ring(R)
+
+    def _solver(self):
+        """
+        Returns this Ore algebra's preferred linear system solver, if there is any.
+        If the algebra has no preference, this function returns ``None``
+        """
+        return self.__solver
+
+    def _set_solver(self, solver):
+        """
+        Defines this Ore algebra's preferred linear system solver. 
+        """
+        self.__solver = solver
 
     def change_ring(self, R):
         """

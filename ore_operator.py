@@ -610,7 +610,7 @@ class UnivariateOreOperator(OreOperator):
         try:
             from sage.categories.pushout import pushout
             A = pushout(self.parent(), other.parent())
-            return A(self).polynomial() == A(other).polynomial()
+            return A(self) == A(other)
         except:
             return False
 
