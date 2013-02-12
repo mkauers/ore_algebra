@@ -415,6 +415,9 @@ class OreOperator(RingElement):
            1
         
         """
+        if self==0 or self.is_zero(): return 1
+        if self.order()==0: return self
+
         Rbase = self.parent().base_ring()
         coeffs = self.coefficients()
 
@@ -425,7 +428,7 @@ class OreOperator(RingElement):
 
         if Rbase.is_field():
             try:
-                return cont(Rbase.base())
+                return Rbase(cont(Rbase.base()))
             except:
                 pass
             return Rbase.one()
@@ -590,7 +593,7 @@ class UnivariateOreOperator(OreOperator):
         return self._poly.__nonzero__()
 
     def __eq__(self, other):
-        #TODO: Funktioniert noch nicht bei vielfachen in Q
+        #TODO: Check if both operators can be casted into a common Ore-Ring.
         if not isinstance(other, UnivariateOreOperator): return False
         if not self.parent() == other.parent():
             try:
@@ -714,7 +717,8 @@ class UnivariateOreOperator(OreOperator):
 
     def gcrd(self, other, prs=None):
         """
-        Returns the GCRD of self and other
+        Returns the GCRD of self and other. 
+        It is possible to specify which remainder sequence should be used.
         """
 
         if self.is_zero(): return other
@@ -741,28 +745,38 @@ class UnivariateOreOperator(OreOperator):
         return R(r[0]).primitive_part()
 
     
-    def xgcrd(self, other):
+    def xgcrd(self, other,prs=None):
         """
-        When called for two operators p,q, this will return their GCRD g together with two operators s and t such that sp+tq=g
+        When called for two operators p,q, this will return their GCRD g together with 
+        two operators s and t such that sp+tq=g. 
+        It is possible to specify which remainder sequence should be used.
         """
 
         if self.is_zero(): return other
         if other.is_zero(): return self
 
-        r0 = self
-        r1 = other
-        if (r0.order()<r1.order()):
-            r0,r1=r1,r0
+        r = (self,other)
+        if (r[0].order()<r[1].order()):
+            r=(other,self)
         
-        R = self.parent()
+        R = r[0].parent()
+        RF = R.change_ring(R.base_ring().fraction_field())
+        r = (RF(r[0]),RF(r[1]))
 
-        a11,a12,a21,a22 = R.one(),R.zero(),R.zero(),R.one()
+        a11,a12,a21,a22 = RF.one(),RF.zero(),RF.zero(),RF.one()
 
-        while not r1.is_zero():        
-            q = r0.quo_rem(r1)
-            r0,r1=r1,q[1]
-            a11,a12,a21,a22 = a21,a22,(a11-q[0]*a21),(a12-q[0]*a22)
-        return (r0,a11,a12)
+        if prs==None:
+            if R.base_ring().is_field():
+                prs = __classicPRS__
+            else:
+                prs = __improvedPRS__
+
+        additional = []
+
+        while not r[1].is_zero():  
+            (r,q,alpha,beta)=prs(r,additional)
+            a11,a12,a21,a22 = a21,a22,(1/beta)*(alpha*a11-q*a21),(1/beta)*(alpha*a12-q*a22)
+        return (r[0],a11,a12)
 
     def lclm(self, other):
         """
@@ -1155,10 +1169,11 @@ def __improvedPRS__(r,additional):
 
     R = r[0].parent()
     Rbase = R.base_ring()
-    sigma = R.applySigmaKTimes
+    sigma = R.sigma()
+    sigmainv=R.sigma_inverse()
 
     if (len(additional)==0):
-        essentialPart = gcd(sigma(r[0].leading_coefficient(),-orddiff),r[1].leading_coefficient())
+        essentialPart = gcd(sigmainv(r[0].leading_coefficient(),orddiff),r[1].leading_coefficient())
         phi = Rbase.one()
         beta = (-Rbase.one())**(orddiff+1)*R.sigmaFactorial(sigma(phi,1),orddiff)
     else:
@@ -1169,11 +1184,12 @@ def __improvedPRS__(r,additional):
         phi = additional.pop()
         phi = oldalpha / R.sigmaFactorial(sigma(phi,1),d2-d1-1)
         beta = ((-Rbase.one())**(orddiff+1)*R.sigmaFactorial(sigma(phi,1),orddiff)*k)
-        essentialPart = sigma(essentialPart,-orddiff)
+        essentialPart = sigmainv(essentialPart,orddiff)
 
     k = r[1].leading_coefficient()//essentialPart
     alpha = R.sigmaFactorial(k,orddiff)
-    newRem = ((alpha*sigma(k,orddiff))*r[0]).quo_rem(r[1],fractionFree=True)
+    alpha2=alpha*sigma(k,orddiff)
+    newRem = (alpha2*r[0]).quo_rem(r[1],fractionFree=True)
     r2 = newRem[1].map_coefficients(lambda p: p//beta)
 
     additional.append(phi)
@@ -1182,7 +1198,7 @@ def __improvedPRS__(r,additional):
     additional.append(alpha)
     additional.append(d1)
 
-    return ((r[1],r2),newRem[0],alpha,beta)
+    return ((r[1],r2),newRem[0],alpha2,beta)
 
 def __subresultantPRS__(r,additional):
     """
@@ -1195,7 +1211,7 @@ def __subresultantPRS__(r,additional):
 
     R = r[0].parent()
     Rbase = R.base_ring()
-    sigma = R.applySigmaKTimes
+    sigma = R.sigma()
 
     if (len(additional)==0):
         phi = -Rbase.one()
@@ -1203,7 +1219,7 @@ def __subresultantPRS__(r,additional):
     else:
         d2 = additional.pop()
         phi = additional.pop()
-        phi = R.sigmaFactorial(-r[0].leading_coefficient(),d0-d1) / R.sigmaFactorial(sigma(Rbase(phi),1),d0-d1-1) #TODO: Remove the Rbase cast
+        phi = R.sigmaFactorial(-r[0].leading_coefficient(),d0-d1) / R.sigmaFactorial(sigma(phi,1),d0-d1-1)
         beta = (-Rbase.one())*R.sigmaFactorial(sigma(phi,1),orddiff)*r[0].leading_coefficient()
 
     alpha = R.sigmaFactorial(r[1].leading_coefficient(),orddiff+1)
