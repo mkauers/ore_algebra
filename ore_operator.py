@@ -1,4 +1,4 @@
-
+ 
 """
 ore_operator
 ============
@@ -888,8 +888,66 @@ class UnivariateDifferentialOperatorOverRationalFunctionField(UnivariateOreOpera
 
         return UnivariateOreOperator.__call__(self, f, **kwargs)
 
-    def to_recurrence(self, *args):
-        raise NotImplementedError
+    def to_recurrence(self, rec_algebra):
+        """
+        Returns a shift operator that annihilates the sequence of
+        coefficients in the power series solutions of ``self`` at the origin.
+        The result will be an element of the Ore algebra of
+        recurrence operators provided as ``rec_algebra``.
+
+        EXAMPLES::
+
+            sage: R.<x> = ZZ['x']
+            sage: A.<Dx> = OreAlgebra(R, 'Dx')
+            sage: R2.<n> = ZZ['n']
+            sage: A2.<Sn> = OreAlgebra(R2, 'Sn')
+            sage: (Dx - 1).to_recurrence(A2)
+            (n + 1)*Sn - 1
+            sage: ((1+x)*Dx^2 + Dx).to_recurrence(A2)
+            (n^2 + n)*Sn + n^2
+            sage: ((x^3+x^2-x)*Dx + (x^2+1)).to_recurrence(A2)
+            (-n - 1)*Sn^2 + (n + 1)*Sn + n + 1
+
+        """
+        numer = self.numerator()
+        coeffs = [list(c) for c in list(numer)]
+        lengths = [len(c) for c in coeffs]
+
+        r = len(coeffs) - 1
+        d = max(lengths) - 1
+        start = d + 1
+        for k in range(r + 1):
+            start = min(start, d - (lengths[k] - 1) + k)
+
+        roots = [0] * r
+        result = [[] for i in range(d + r + 1 - start)]
+
+        def set_coeff(lst, i, x):
+            while i >= len(lst):
+                lst.append(0)
+            lst[i] = x
+            while lst and not lst[-1]:
+                lst.pop()
+
+        def from_newton_basis(coeffs, roots):
+            n = len(coeffs)
+            for i in range(n - 1, 0, -1):
+                for j in range(i - 1, n - 1):
+                    coeffs[j] -= coeffs[j + 1] * roots[i - 1]
+
+        for k in range(start, d + r + 1):
+            i = k - start
+            result[i] = []
+
+            for j in range(r + 1):
+                v = d + j - k
+                if v >= 0 and v < lengths[j]:
+                    set_coeff(result[i], j, coeffs[j][v])
+
+            if result[i]:
+                from_newton_basis(result[i], range(-i, -i + r))
+
+        return rec_algebra(result)
 
     def to_rec(self, *args):
         return self.to_recurrence(args)
@@ -975,6 +1033,41 @@ class UnivariateRecurrenceOperatorOverRationalFunctionField(UnivariateOreOperato
 
     def get_data(self, init, n):
         raise NotImplementedError
+
+    def companion_matrix(self):
+        """
+        If ``self`` is an operator of order `r`, returns an `r` by `r` matrix
+        `M` such that for any sequence `c_i` annihilated by ``self``,
+        `[c_{i+1}, c_{i+2}, \ldots, c_{i+r}]^T = M(i) [c_i, c_{i+1}, \ldots, c_{i+r-1}]^T`
+
+        EXAMPLES::
+
+            sage: R.<n> = QQ['n']
+            sage: A.<Sn> = OreAlgebra(R, 'Sn')
+            sage: M = ((-n-4)*Sn**2 + (5+2*n)*Sn + (3+3*n)).companion_matrix()
+            sage: M
+            [                0                 1]
+            [(3*n + 3)/(n + 4) (2*n + 5)/(n + 4)]
+            sage: initial = Matrix([[1],[1]])
+            sage: [prod(M(k) for k in range(n, -1, -1)) * initial for n in range(10)]
+            [
+            [1]  [2]  [4]  [ 9]  [21]  [ 51]  [127]  [323]  [ 835]  [2188]
+            [2], [4], [9], [21], [51], [127], [323], [835], [2188], [5798]
+            ]
+
+        """
+        from sage.matrix.constructor import Matrix
+        ring = self.base_ring().fraction_field()
+        r = self.order()
+        M = Matrix(ring, r, r)
+        for i in range(r-1):
+            M[i, i+1] = 1
+        for j in range(r):
+            M[r - 1, j] = self[j] / (-self[r])
+        return M
+
+
+
 
 #############################################################################################################
 
