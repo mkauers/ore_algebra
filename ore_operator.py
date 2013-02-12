@@ -449,12 +449,18 @@ class OreOperator(RingElement):
           x*Dx + 2
         
         """
+        if self.is_zero(): return self
         if self.parent().base_ring().is_field(): c = self.leading_coefficient()
-        else: c = self.content()
+        else: 
+            c = self.content()
         if c == c.parent().one():
-            return self
+            prim = self
         else:
-            return self.map_coefficients(lambda p: p//c)
+            prim = self.map_coefficients(lambda p: p//c)
+        c = prim.leading_coefficient()
+        while (not c.is_unit()) and (c.parent()!=c.parent().base_ring()):
+            c = c.leading_coefficient()
+        return (1/c)*prim
 
     def map_coefficients(self, f, new_base_ring = None):
         """
@@ -742,7 +748,16 @@ class UnivariateOreOperator(OreOperator):
         while not r[1].is_zero(): 
             r=prs(r,additional)[0]
         
-        return R(r[0]).primitive_part()
+        r=r[0]
+        try:
+            r = R(r)
+        except:
+            pass
+
+        if not prs==__classicPRS__:
+            r = r.primitive_part()
+
+        return r
 
     
     def xgcrd(self, other,prs=None):
@@ -776,7 +791,17 @@ class UnivariateOreOperator(OreOperator):
         while not r[1].is_zero():  
             (r,q,alpha,beta)=prs(r,additional)
             a11,a12,a21,a22 = a21,a22,(1/beta)*(alpha*a11-q*a21),(1/beta)*(alpha*a12-q*a22)
-        return (r[0],a11,a12)
+
+        r=r[0]
+        try:
+            r = R(r)
+        except:
+            pass
+
+        if not prs==__classicPRS__:
+            r = r.primitive_part()
+
+        return (r,a11,a12)
 
     def lclm(self, other):
         """
@@ -1144,7 +1169,7 @@ def __primitivePRS__(r,additional):
 
     R = r[0].parent()
 
-    alpha = R.sigmaFactorial(r[1].leading_coefficient(),orddiff+1)
+    alpha = R.sigma().factorial(r[1].leading_coefficient(),orddiff+1)
     newRem = (alpha*r[0]).quo_rem(r[1],fractionFree=True)
     beta = newRem[1].content()
     r2 = newRem[1].map_coefficients(lambda p: p//beta)
@@ -1158,6 +1183,14 @@ def __classicPRS__(r,additional):
     newRem = r[0].quo_rem(r[1])
     return ((r[1],newRem[1]),newRem[0],r[0].parent().base_ring().one(),r[0].parent().base_ring().one())
 
+def __monicPRS__(r,additional):
+    """
+    Computes one division step in the monic polynomial remainder sequence.
+    """
+
+    newRem = r[0].quo_rem(r[1])
+    return ((r[1],newRem[1].primitive_part()),newRem[0],r[0].parent().base_ring().one(),r[0].parent().base_ring().one())
+
 def __improvedPRS__(r,additional):
     """
     Computes one division step in the improved polynomial remainder sequence.
@@ -1170,24 +1203,23 @@ def __improvedPRS__(r,additional):
     R = r[0].parent()
     Rbase = R.base_ring()
     sigma = R.sigma()
-    sigmainv=R.sigma_inverse()
 
     if (len(additional)==0):
-        essentialPart = gcd(sigmainv(r[0].leading_coefficient(),orddiff),r[1].leading_coefficient())
+        essentialPart = gcd(sigma(r[0].leading_coefficient(),-orddiff),r[1].leading_coefficient())
         phi = Rbase.one()
-        beta = (-Rbase.one())**(orddiff+1)*R.sigmaFactorial(sigma(phi,1),orddiff)
+        beta = (-Rbase.one())**(orddiff+1)*R.sigma().factorial(sigma(phi,1),orddiff)
     else:
         d2 = additional.pop()
         oldalpha = additional.pop()
         k = additional.pop()
         essentialPart = additional.pop()
         phi = additional.pop()
-        phi = oldalpha / R.sigmaFactorial(sigma(phi,1),d2-d1-1)
-        beta = ((-Rbase.one())**(orddiff+1)*R.sigmaFactorial(sigma(phi,1),orddiff)*k)
-        essentialPart = sigmainv(essentialPart,orddiff)
+        phi = oldalpha / R.sigma().factorial(sigma(phi,1),d2-d1-1)
+        beta = ((-Rbase.one())**(orddiff+1)*R.sigma().factorial(sigma(phi,1),orddiff)*k)
+        essentialPart = sigma(essentialPart,-orddiff)
 
     k = r[1].leading_coefficient()//essentialPart
-    alpha = R.sigmaFactorial(k,orddiff)
+    alpha = R.sigma().factorial(k,orddiff)
     alpha2=alpha*sigma(k,orddiff)
     newRem = (alpha2*r[0]).quo_rem(r[1],fractionFree=True)
     r2 = newRem[1].map_coefficients(lambda p: p//beta)
@@ -1215,14 +1247,14 @@ def __subresultantPRS__(r,additional):
 
     if (len(additional)==0):
         phi = -Rbase.one()
-        beta = (-Rbase.one())*R.sigmaFactorial(sigma(phi,1),orddiff)
+        beta = (-Rbase.one())*R.sigma().factorial(sigma(phi,1),orddiff)
     else:
         d2 = additional.pop()
         phi = additional.pop()
-        phi = R.sigmaFactorial(-r[0].leading_coefficient(),d0-d1) / R.sigmaFactorial(sigma(phi,1),d0-d1-1)
-        beta = (-Rbase.one())*R.sigmaFactorial(sigma(phi,1),orddiff)*r[0].leading_coefficient()
+        phi = R.sigma().factorial(-r[0].leading_coefficient(),d0-d1) / R.sigma().factorial(sigma(phi,1),d0-d1-1)
+        beta = (-Rbase.one())*R.sigma().factorial(sigma(phi,1),orddiff)*r[0].leading_coefficient()
 
-    alpha = R.sigmaFactorial(r[1].leading_coefficient(),orddiff+1)
+    alpha = R.sigma().factorial(r[1].leading_coefficient(),orddiff+1)
     newRem = (alpha*r[0]).quo_rem(r[1],fractionFree=True)
     r2 = newRem[1].map_coefficients(lambda p: p//beta)
 
