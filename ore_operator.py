@@ -158,7 +158,10 @@ class OreOperator(RingElement):
           Univariate Ore algebra in Dx over Fraction Field of Univariate Polynomial Ring in x over Rational Field
         
         """
-        return self.parent().change_ring(R)(self)
+        if R == self.base_ring():
+            return self
+        else:
+            return self.parent().change_ring(R)(self)
 
     def __iter__(self):
         return iter(self.list())
@@ -834,7 +837,6 @@ class UnivariateOreOperator(OreOperator):
         if self.parent() != other.parent():
             from sage.categories.pushout import pushout
             A = pushout(self.parent(), other.parent())
-            print A
             return A(self).lclm(A(other))
 
         A = self.numerator(); r = A.order()
@@ -905,17 +907,133 @@ class UnivariateOreOperator(OreOperator):
         
         return (L, L0 // A, L0 // B)
 
-    def symmetric_product(self, other, tensor_map):
-        # tensor_map is meant to be a matrix [[a,b],[c,d]] such that
-        # D(uv) = a u v + b Du v + c u Dv + d Du Dv  for "functions" u,v
+    def symmetric_product(self, other, solver=None, tensor_map=None):
         """
-        """
-        raise NotImplementedError
+        Returns the symmetric product of ``self`` and ``other``.
 
-    def symmetric_power(self, exp, tensor_map):
+        The symmetric product of two operators `A` and `B` is a minimal order
+        operator `C` such that for all \"functions\" `f` and `g` with `A.f=B.g=0`
+        we have `C.(fg)=0`.
+
+        The function requires the  a 2x2 matrix over the base ring which
+        describes the action of the algebra's generator on a product of functions:
+        A matrix ``tensor_map=[[a,b],[c,d]]`` encodes the property 
+        `D(uv) = a u v + b D(u) v + c u D(v) + d D(u) D(v)` for functions `u`, `v`.
+        If set to ``None``, a ``ValueError`` is raised. 
+
+        If no ``solver`` is specified, the the Ore algebra's solver is used.         
+
+        EXAMPLES::
+
+           sage: R.<x> = ZZ['x']
+           sage: A.<Dx> = OreAlgebra(R, 'Dx')
+           sage: (Dx - 1).symmetric_product(x*Dx - 1)
+           x*Dx - x - 1
+           sage: (x*Dx - 1).symmetric_product(Dx - 1)
+           x*Dx - x - 1
+           sage: A.<Sx> = OreAlgebra(R, 'Sx')
+           sage: (Sx - 2).symmetric_product(x*Sx - (x+1))
+           x*Sx - 2*x - 2
+           sage: (x*Sx - (x+1)).symmetric_product(Sx - 2)
+           x*Sx - 2*x - 2           
+        
         """
+        if tensor_map is None:
+            raise ValueError, "need tensor_map to perform symmetric product"
+
+        if not isinstance(other, UnivariateOreOperator):
+            raise TypeError, "unexpected argument in symmetric_product"
+
+        if self.parent() != other.parent():
+            from sage.categories.pushout import pushout
+            A = pushout(self.parent(), other.parent())
+            return A(self).symmetric_product(A(other), solver=solver, tensor_map=tensor_map)
+
+        # TODO: special treatment for when one of the two operators has order one.
+        R = self.base_ring().fraction_field(); zero = R.zero(); one = R.one()
+        
+        A = self.change_ring(R);  a = A.order(); Ared = tuple(-A[i]/A[a] for i in xrange(a))
+        B = other.change_ring(R); b = B.order(); Bred = tuple(-B[j]/B[b] for j in xrange(b))
+
+        Alg = A.parent(); sigma = Alg.sigma(); delta = Alg.delta();
+        if solver is None:
+            solver = Alg._solver()
+
+        # Dkuv[i][j] is the coefficient of D^i(u)*D^j(v) in the normal form of D^k(u*v) 
+        Dkuv = [[zero for i in xrange(b + 1)] for j in xrange(a + 1)]; Dkuv[0][0] = one
+        
+        mat = [[Dkuv[i][j] for i in xrange(a) for j in xrange(b)]]
+
+        from sage.matrix.constructor import Matrix
+        sol = solver(Matrix(mat).transpose())
+
+        while len(sol) == 0:
+
+            # push
+            for i in xrange(a - 1, -1, -1):
+                for j in xrange(b - 1, -1, -1):
+                    s = sigma(Dkuv[i][j])
+                    Dkuv[i + 1][j + 1] += s*tensor_map[1][1]
+                    Dkuv[i][j + 1] += s*tensor_map[0][1]
+                    Dkuv[i + 1][j] += s*tensor_map[1][0]
+                    Dkuv[i][j] = delta(Dkuv[i][j]) + s*tensor_map[0][0]
+
+            # reduce
+            for i in xrange(a + 1):
+                if not Dkuv[i][b] == zero:
+                    for j in xrange(b):
+                        Dkuv[i][j] += Bred[j]*Dkuv[i][b]
+                    Dkuv[i][b] = zero
+
+            for j in xrange(b): # not b + 1
+                if not Dkuv[a][j] == zero:
+                    for i in xrange(a):
+                        Dkuv[i][j] += Ared[i]*Dkuv[a][j]
+                    Dkuv[a][j] = zero
+
+            # solve
+            mat.append([Dkuv[i][j] for i in xrange(a) for j in xrange(b)])
+            sol = solver(Matrix(mat).transpose())
+
+        L = A.parent()(list(sol[0]))
+        return L
+
+    def symmetric_power(self, exp, solver=None, tensor_map=None):
         """
-        raise NotImplementedError
+        Returns a symmetric power of this operator.
+
+        The `n` th symmetric power of an operator `L` is a minimal order operator `Q`
+        such that for all \"functions\" `f` annihilated by `L` the operator `Q` annihilates
+        the function `f^n`.
+
+        For information about the optional arguments, see the docstring of ``symmetric_product``.
+
+        EXAMPLES::
+
+           sage: R.<x> = ZZ['x']
+           sage: A.<Dx> = OreAlgebra(R, 'Dx')
+           sage: (Dx^2 + x*Dx - 2).symmetric_power(3)
+           Dx^4 + 6*x*Dx^3 + (11*x^2 - 16)*Dx^2 + (6*x^3 - 53*x)*Dx - 36*x^2 + 24
+           sage: A.<Sx> = OreAlgebra(R, 'Sx')
+           sage: (Sx^2 + x*Sx - 2).symmetric_power(2)
+           -x*Sx^3 + (x^3 + 2*x^2 + 3*x + 2)*Sx^2 + (2*x^3 + 2*x^2 + 4*x)*Sx - 8*x - 8
+        
+        """
+        if exp < 0:
+            raise TypeError, "unexpected exponent received in symmetric_power"
+        elif exp == 0:
+            # subclasses have to override this
+            return ValueError, "Don't know how the 0th symmetric power is defined in this algebra"
+        elif exp == 1:
+            return self
+        elif exp % 2 == 1:
+            L = self.symmetric_power(exp - 1, solver=solver, tensor_map=tensor_map)
+            return L.symmetric_product(self, solver=solver, tensor_map=tensor_map)
+        elif exp % 2 == 0:
+            L = self.symmetric_power(exp/2, solver=solver, tensor_map=tensor_map)
+            return L.symmetric_product(L, solver=solver, tensor_map=tensor_map)
+        else:
+            raise TypeError, "unexpected exponent received in symmetric_power"
 
     def annihilator_of_operator_of_solution(self, other):
         """
@@ -1038,6 +1156,17 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
 
         return UnivariateOreOperator.__call__(self, f, **kwargs)
 
+    def symmetric_product(self, other, solver=None, tensor_map=None):
+        R = self.base_ring(); one = R.one(); zero = R.zero()
+        return UnivariateOreOperator.symmetric_product(self, other, solver=solver, tensor_map=[[zero, one], [one, zero]])
+
+    def symmetric_power(self, exp, solver=None, tensor_map=None):
+        R = self.base_ring(); one = R.one(); zero = R.zero()
+        if exp == 0:
+            return self.parent()([zero, one]) # annihilator of 1
+        else:
+            return UnivariateOreOperator.symmetric_power(self, exp, solver=solver, tensor_map=[[zero, one], [one, zero]])
+
     def to_recurrence(self, rec_algebra):
         """
         Returns a shift operator that annihilates the sequence of
@@ -1145,6 +1274,17 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
             kwargs[D] = lambda p : p(x+1)
 
         return UnivariateOreOperator.__call__(self, f, **kwargs)
+
+    def symmetric_product(self, other, solver=None, tensor_map=None):
+        R = self.base_ring(); one = R.one(); zero = R.zero()
+        return UnivariateOreOperator.symmetric_product(self, other, solver=solver, tensor_map=[[zero, zero], [zero, one]])
+
+    def symmetric_power(self, exp, solver=None, tensor_map=None):
+        R = self.base_ring(); one = R.one(); zero = R.zero()
+        if exp == 0:
+            return self.parent()([-one, one]) # annihilator of 1
+        else:
+            return UnivariateOreOperator.symmetric_power(self, exp, solver=solver, tensor_map=[[zero, zero], [zero, one]])
 
     def to_differential_equation(self, *args):
         raise NotImplementedError
