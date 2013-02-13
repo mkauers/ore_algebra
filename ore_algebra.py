@@ -490,7 +490,7 @@ class OreAlgebraFunctor(ConstructionFunctor):
 
 
 def OreAlgebra(base_ring, *generators, **kwargs):
-    """
+    u"""
     An Ore algebra is a noncommutative polynomial ring whose elements are
     interpreted as operators.
     
@@ -568,7 +568,12 @@ def OreAlgebra(base_ring, *generators, **kwargs):
       # This creates an Ore algebra of linear recurrence operators
       sage: A.<Sx> = OreAlgebra(QQ['x'], 'Sx')
       sage: A
-      Univariate Ore algebra in Sx over Fraction Field of Univariate Polynomial Ring in x over Rational Field 
+      Univariate Ore algebra in Sx over Fraction Field of Univariate Polynomial Ring in x over Rational Field
+
+    Further available shortcuts are ``'\u0394x'`` or ``'Fx'`` for the forward difference
+    (``sigma=lambda p:p(x+1)`` and ``delta=lambda p: p(x+1)-p(x)``)
+    and ``'\u03B8x'`` or ``'Tx'`` for the Eulerian derivation `x\frac d{dx}`
+    (i.e., ``sigma=lambda p:p`` and ``delta=lambda p: x*p.derivative(x)``).
 
     Ore algebras support coercion from their base rings. Furthermore, an Ore
     algebra `A` knows how to coerce commutative polynomials `p` to elements of
@@ -631,10 +636,15 @@ def OreAlgebra(base_ring, *generators, **kwargs):
     # expand generator shortcuts, convert dictionaries to callables, and check that sigma(1)=1
     for i in xrange(len(gens)):
         if type(gens[i]) == str:
-            if gens[i][0] == 'D':
-                x = R(gens[i][1:]); gens[i] = (gens[i], lambda p: p, {x:one})
-            elif gens[i][0] == 'S':
-                x = R(gens[i][1:]); gens[i] = (gens[i], {x:x + one}, lambda p: zero)
+            head = gens[i][0]; x = R(gens[i][1:])
+            if head == 'D': # derivative
+                gens[i] = (gens[i], lambda p: p, {x:one})
+            elif head == 'S': # shift
+                gens[i] = (gens[i], {x:x + one}, lambda p: zero)
+            elif head == 'F' or head == u'\u0394': # forward difference
+                gens[i] = (gens[i], {x:x + one}, {x:one})
+            elif head == 'T' or head == u'\u03B8': # eulerian derivative
+                gens[i] = (gens[i], lambda p: p, {x:x})
             else:
                 raise TypeError, "unexpected generator declaration"
         elif len(gens[i]) != 3:
@@ -647,6 +657,7 @@ def OreAlgebra(base_ring, *generators, **kwargs):
 
     # try to recognize standard operators
     is_shift = [False for q in gens]; is_qshift = [False for q in gens]; is_derivation = [False for q in gens]
+    is_delta = [False for q in gens]; is_theta = [False for q in gens];
     Rgens = R.gens()
 
     for i in xrange(len(gens)):
@@ -654,6 +665,9 @@ def OreAlgebra(base_ring, *generators, **kwargs):
             deltas = [gens[i][2](x) for x in Rgens]
             if sum(deltas) == one and all( (x==one or x==zero) for x in deltas):
                 is_derivation[i] = True
+            deltas = [gens[i][2](x)/x for x in Rgens]
+            if sum(deltas) == one and all( (x==one or x==zero) for x in deltas):
+                is_theta[i] = True
         if all(gens[i][2](x) == zero for x in Rgens):
             shifts = [gens[i][1](x) - x for x in Rgens]
             shifts = [x for x in shifts if x != zero]
@@ -664,6 +678,10 @@ def OreAlgebra(base_ring, *generators, **kwargs):
                 shifts = [x for x in shifts if x != one]
                 if len(shifts) == 1 and gens[i][1](shifts[0]) == shifts[0]:
                     is_qshift[i] = True
+        sigma_delta = [(gens[i][1](x) - x, gens[i][2](x)) for x in Rgens]
+        sigma_delta = [ (a, b) for (a, b) in sigma_delta if (a==zero and b==zero) ]
+        if len(sigma_delta) == 1 and sigma_delta[0][0] == sigma_delta[0][1] == one:
+            is_delta[i] = True
 
     # Select element class
     if kwargs.has_key("element_class"):
