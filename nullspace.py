@@ -78,6 +78,16 @@ is a solver using chinese remaindering combined with kronecker substitution comb
   sage: A*V[0]
   (0, 0, 0, 0)
 
+Alternatively:
+
+::
+
+  sage: my_solver = kronecker(cra(gauss()))
+  sage: A = MatrixSpace(ZZ['x', 'y'], 4, 5).random_element()
+  sage: V = my_solver(A)
+  sage: A*V[0]
+  (0, 0, 0, 0)
+
 Here is the same example with a variant of the same solver (not necessarily faster).
 
 ::
@@ -98,6 +108,7 @@ reading (unvariate vs. multivariate) in corresponding rows of the 2nd and 3rd co
   method           input domain                     		     requires subsolver for
   =============== ================================================== ========================
   cra_            `K[x,...]` where `K` is `ZZ`, `QQ`, or `GF(p)`     `GF(p)[x,...]`
+  galois_         `QQ(alpha)[x,...]`                                 `GF(p)[x,...]`
   clear_          `K(x,...)`                                         `K[x,...]`
   clear_          `K[x,...]` where `K` is the fraction field of `R`  `R[x,...]`
   compress_       `K[x,...]` or `K(x,...)`                           same domain and `GF(p)`
@@ -107,6 +118,7 @@ reading (unvariate vs. multivariate) in corresponding rows of the 2nd and 3rd co
   lagrange_       `K[x]` or `K(x)` where `K` is a field              `K`
   hermite_        `K[x]` where `K` is a field                        None
   newton_         `K[x]` where `K` is a field                        `K`
+  merge_          `K[x,...][y,...]`                                  `K[x,...,y,...]`
   `sage_native`_  `K[x,...]` or `K(x,...)` or `K`                    None
   =============== ================================================== ========================
 
@@ -124,7 +136,8 @@ AUTHOR:
 .. _lagrange : #nullspace.lagrange
 .. _`sage_native` : #nullspace.sage_native
 .. _wiedemann : #nullspace.wiedemann
-
+.. _merge : #nullspace.merge
+.. _galois : #nullspace.galois
  
 """
 
@@ -153,7 +166,9 @@ from sage.matrix.berlekamp_massey import berlekamp_massey
 from sage.ext.multi_modular import MAX_MODULUS 
 from sage.parallel.decorate import parallel 
 from sage.rings.arith import previous_prime as pp
-from sage.rings.arith import CRT_basis
+from sage.rings.arith import CRT_basis, gcd, lcm
+from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
+from sage.rings.fraction_field import FractionField
 from datetime import datetime
 
 #####################
@@ -249,7 +264,7 @@ def _pivot(mat, r, n, c, m, zero):
         mati = mat[i + r]
         for j in xrange(m):
             if mati[j + c] != zero:
-                w = (nz_in_row[i] - 1)^EXPONENT*(nz_in_col[j] - 1) # expected fillin
+                w = (nz_in_row[i] - 1)**EXPONENT*(nz_in_col[j] - 1) # expected fillin
                 if w < min_nz_fillin:
                     min_nz_fillin = w; bound = ALPHA*(min_nz_fillin + BETA)
                     piv_cand.append((i, j, w, nz_in_row[i] - 1))
@@ -271,9 +286,9 @@ def _pivot(mat, r, n, c, m, zero):
             def size(ij):
                 if not elsize.has_key(ij):
                     pol = mat[ij[0] + r][ij[1] + c].coefficients()
-                    m = max(abs(cc) for cc in pol)
+                    m = float(max(abs(cc) for cc in pol))
                     # the constant in the line below is 53*log(2)
-                    elsize[ij] = (1 + math.floor(float(RR(m).log())/36.7368))*len(pol)
+                    elsize[ij] = (1 + math.floor(math.log(m)/36.7368))*len(pol)
                 return elsize[ij]
         elif K.is_finite():
             def size(ij):
@@ -293,7 +308,7 @@ def _pivot(mat, r, n, c, m, zero):
             return elsize[ij]
 
     # determine the expected term-fillin for each pivot candidate
-    avg_nz_fillin = 0; avg_term_fillin = 0; 
+    avg_nz_fillin = float(0); avg_term_fillin = float(0); 
     for k in xrange(len(piv_cand)):
         i, j, nz_fillin, nz_row = piv_cand[k] 
         pivot_fillin = size((i, j))*(nz_in_rows_for_col[j] - nz_in_col[j] - nz_in_row[i] + 1)
@@ -310,7 +325,7 @@ def _pivot(mat, r, n, c, m, zero):
 
     # select the candidate where both the term-fillin and the non-zero-fillin are small
     alpha = 1/avg_nz_fillin; gamma = 1/avg_term_fillin
-    pivot = min(piv_cand, key=lambda (i, j, w1, w2, w3): (alpha*w1)^2 + (gamma*w3)^2)
+    pivot = min(piv_cand, key=lambda (i, j, w1, w2, w3): (alpha*w1)**2 + (gamma*w3)**2)
     del piv_cand
     return (pivot[0] + r, pivot[1] + c)
 
@@ -1129,6 +1144,62 @@ def _lagrange_rec(mod, mat, Mprime, a, b, product_tree, subsolver, infolevel):
     
     return [ map(lambda v_l, v_r: M_right*v_l + M_left*v_r, V_left[i], V_right[i]) for i in xrange(len(V_left)) ]
 
+def galois(subsolver, max_modulus=MAX_MODULUS, proof=False):
+    r"""
+    Creates a subsolver based on chinese remaindering for matrices over `K[x]` or `K[x,y,..]` where
+    `K` is a single algebraic extension of `QQ`
+
+    INPUT:
+
+    - ``subsolver`` -- a solver for matrices over `GF(p)[x]` (if the original matrix contains univariate
+      polynomails) or `GF(p)[x,y,...]` (if it contains multivariate polynomials)
+    - ``max_modulus`` -- a positive integer. The solver will iterate over the primes less than this number
+      in decreasing order. Defaults to the largest word size integer for which we expect Sage to use hardware
+      arithmetic.
+    - ``proof`` -- a boolean value. If set to ``False`` (default), a termination is only tested in a
+      homomorphic image, which saves much time but may, with a very low probability, lead to a wrong output.
+
+    OUTPUT:
+
+    - a solver for matrices with entries in `QQ(\alpha)[x,...]` based on a ``subsolver`` for matrices with
+      entries in `GF(p)[x,...]`.
+
+    EXAMPLES:
+
+    ::
+
+       sage: R.<x> = QQ['x']
+       sage: K.<a> = NumberField(x^3-2, 'a')
+       sage: A = MatrixSpace(K['x'], 4, 5).random_element(degree=3)
+       sage: my_solver = galois(gauss())
+       sage: V = my_solver(A)
+       sage: A*V[0]
+       (0, 0, 0, 0)
+
+    ALGORITHM:
+
+    #. If the coefficient domain is a finite field, the problem is delegated to the subsolver and we return
+       whatever we obtain from it.
+    #. For various word-size primes `p`, reduce the coefficients in ``mat`` modulo `p` and call the
+       subsolver on the resulting matrix. Primes are chosen in such a way that the minimal polynomial of
+       the generator of the number field splits into linear factors modulo `p`.
+    #. The generator of the number field is mapped in turn to each
+       of the roots of the linear factors of the minimal polynomial mod `p`, the results are then combined
+       by interpolation to a polynomial over `GF(p)`, and chinese remaindering and rational reconstruction
+       are used to lift it back to the original number field. 
+    #. If this solution candidate is correct, return it and stop. If ``proof`` is set to ``True``, this check
+       is performed rigorously, otherwise (default) only modulo some new prime.
+    #. If the solution candidate is not correct, consider some more primes and try again.
+
+    """
+    def galois_solver(mat, degrees=[], infolevel=0):
+        """See docstring of galois() for further information."""
+        return _galois(subsolver, max_modulus, proof, mat, degrees, infolevel)
+    return galois_solver
+
+def _galois(subsolver, max_modulus, proof, mat, degrees, infolevel):
+    raise NotImplementedError    
+
 def cra(subsolver, max_modulus=MAX_MODULUS, proof=False, ncpus=1):
     r"""
     Creates a subsolver based on chinese remaindering for matrices over `K[x]` or `K[x,y,..]` where
@@ -1155,8 +1226,8 @@ def cra(subsolver, max_modulus=MAX_MODULUS, proof=False, ncpus=1):
     ::
 
        sage: A = MatrixSpace(ZZ['x', 'y'], 4, 7).random_element(degree=3)
-       sage: my_solver = cra(kronecker(gauss))
-       sage: V = nullspace_cra(A)
+       sage: my_solver = cra(kronecker(gauss()))
+       sage: V = my_solver(A)
        sage: A*V[0]
        (0, 0, 0, 0)
 
@@ -1396,7 +1467,7 @@ def _newton(subsolver, inverse, mat, degrees, infolevel):
         V[i][idxB[i]] = one
 
     # rational reconstruction and undo offset
-    phi = Hom(R, R)([x - 1324]); split = bound//2; xk = x^bound
+    phi = Hom(R, R)([x - 1324]); split = bound//2; xk = x**bound
     for v in V:
         d = one
         for p in v:
@@ -1484,7 +1555,10 @@ def _clear(subsolver, mat, degrees, infolevel):
     elif R.base_ring().fraction_field()[R.gens()] == R:
         # entries are polynomials over some fraction field
         oldK = R.base_ring(); # e.g. QQ
-        newK = oldK.ring_of_integers(); # e.g. ZZ
+        try:
+            newK = oldK.ring_of_integers(); # e.g. ZZ
+        except AttributeError:
+            newK = oldK.ring()
         newR = newK[R.gens()]; # e.g. ZZ[x]
         def common_denominator(row):
             den = newK.one()
@@ -1508,6 +1582,71 @@ def _clear(subsolver, mat, degrees, infolevel):
     newmat = matrix(newR, newmat)
     
     return subsolver(newmat, degrees=degrees, infolevel=_alter_infolevel(infolevel, -1, 1))
+
+def merge(subsolver):
+    """
+    Constructs a solver which first merges towers of polynomial or rational function extensions
+    into a single one and then applies the subsolver.
+
+    INPUT:
+
+    - ``subsolver`` -- a solver for matrices over the target ring
+
+    OUTPUT:
+
+    - a solver for matrices over base rings which are obtained from some ring `R` by extending
+      twice by polynomials or rational functions, i.e., `R=B[x..][y..]` or `R=F(B[x..])[y..]`
+      or `R=F(B[x..][y..])` or `R=F(F(B[x..])[y..])`. In the first case, the target ring will
+      be `B[x..,y..]`, in the remaining cases it will be `F(B[x..,y..])`.
+      If `R` is not of one of the four forms listed above, the matrix is passed to the
+      subsolver without modification. 
+
+    EXAMPLES::
+
+      sage: my_solver = merge(kronecker(gauss()))
+      sage: A = MatrixSpace(ZZ['x']['y'], 3, 4).random_element()
+      sage: V = my_solver(A)
+      sage: A*V[0]
+      (0, 0, 0)
+      sage: my_solver = merge(clear(kronecker(gauss())))
+      sage: A = MatrixSpace(ZZ['x'].fraction_field()['y'], 3, 4).random_element()
+      sage: V = my_solver(A)
+      sage: A*V[0]
+      (0, 0, 0)
+
+    """
+    def merge_solver(mat, degrees=[], infolevel=0):
+        """See docstring of merge() for further information."""
+        return _merge(subsolver, mat, degrees, infolevel)
+    return merge_solver
+
+def _merge(subsolver, mat, degrees, infolevel):
+
+    _launch_info(infolevel, "merge", dim=mat.dimensions(), domain=mat.parent().base_ring())
+
+    try: 
+
+        R = mat.parent().base_ring()
+
+        B = R; field = B.is_field()
+        upper_gens = B.gens()
+        B = B.base_ring()
+        field = field or B.is_field()
+        lower_gens = B.gens()
+
+        B = PolynomialRing(B.base_ring(), lower_gens + upper_gens)
+
+        if field:
+            B = B.fraction_field()
+
+        mat = mat.change_ring(B)
+
+        _info(infolevel, "changing base ring to ", str(B), alter=-1)
+
+    except: # ring was not of expected form, or conversion failed
+        _info(infolevel, "leaving base ring as it is: ", str(R), alter=-1)
+
+    return subsolver(mat, degrees=degrees, infolevel=_alter_infolevel(infolevel, -2, 1))
 
 def compress(subsolver, presolver=sage_native, max_modulus=MAX_MODULUS):
     """
@@ -1582,7 +1721,7 @@ def _compress(subsolver, presolver, modulus, mat, degrees, infolevel):
         mat = mat.delete_columns(useless_columns)
 
     # determine row weights
-    row_idx = [ 10^13*sum(1 for p in row if p != zero) + sum(p.degree() for p in row if p != zero) for row in mat ]
+    row_idx = [ 10**13*sum(1 for p in row if p != zero) + sum(p.degree() for p in row if p != zero) for row in mat ]
     row_idx = zip(range(n), row_idx)
     row_idx.sort(key=lambda p: -p[1])
     row_idx = map(lambda p: p[0], row_idx)
@@ -1714,17 +1853,17 @@ def _wiedemann(A, degrees, infolevel):
 
 #################################################################################################################
 
-def take_picture(mat, idx):
-    f = open("/scratch/mkauers/picbignaive" + str(idx) + ".m", "w")
-    f.write("{")
-    for i in xrange(len(mat) - 1):
-        f.write("{"); mati = mat[i]
-        for j in xrange(len(mati) - 1):
-            f.write(str(len(mati[j].coefficients())) + ",")
-        f.write(str(len(mati[-1].coefficients())) + "},\n")
-    f.write("{"); mati = mat[-1]
-    for j in xrange(len(mati) - 1):
-        f.write(str(len(mati[j].coefficients())) + ",")
-    f.write(str(len(mati[-1].coefficients())) + "}}\n")
-    f.close()
+#def take_picture(mat, idx):
+#    f = open("/scratch/mkauers/picbignaive" + str(idx) + ".m", "w")
+#    f.write("{")
+#    for i in xrange(len(mat) - 1):
+#        f.write("{"); mati = mat[i]
+#        for j in xrange(len(mati) - 1):
+#            f.write(str(len(mati[j].coefficients())) + ",")
+#        f.write(str(len(mati[-1].coefficients())) + "},\n")
+#    f.write("{"); mati = mat[-1]
+#    for j in xrange(len(mati) - 1):
+#        f.write(str(len(mati[j].coefficients())) + ",")
+#    f.write(str(len(mati[-1].coefficients())) + "}}\n")
+#    f.close()
     

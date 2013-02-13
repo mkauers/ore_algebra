@@ -83,6 +83,7 @@ class OreOperator(RingElement):
         raise NotImplementedError
 
     # tests
+
     def __nonzero__(self):
         raise NotImplementedError
 
@@ -451,18 +452,24 @@ class OreOperator(RingElement):
         """
         if self.is_zero(): return self
         if self.parent().base_ring().is_field(): c = self.leading_coefficient()
-        else: 
-            c = self.content()
-        if c == c.parent().one():
-            prim = self
-        else:
-            prim = self.map_coefficients(lambda p: p//c)
+        else: c = self.content()
+        return self.map_coefficients(lambda p: p//c)
+
+
+    def normalize(self):
+        """
+        Returns a normal form of an Ore operator.
+        First, it takes the primitve part of the operator and then tries to normalize it by making it monic.
+        If the leading coefficient is a polynomial, it tries to make its leading coefficient monic, unless this is a polynomial again.
+        In the latter case, the process is repeated until the leading coefficient is a unit.
+        """
+        prim = self.primitive_part()
         c = prim.leading_coefficient()
         while (not c.is_unit()) and (c.parent()!=c.parent().base_ring()):
             c = c.leading_coefficient()
-	if not c.is_unit():
-	    return prim
-        return c.parent()((1/c))*prim
+        if not c.is_unit():
+            return prim
+        return (~c)*prim
 
     def map_coefficients(self, f, new_base_ring = None):
         """
@@ -601,17 +608,19 @@ class UnivariateOreOperator(OreOperator):
         return self._poly.__nonzero__()
 
     def __eq__(self, other):
-        #TODO: Check if both operators can be casted into a common Ore-Ring.
-        if not isinstance(other, UnivariateOreOperator): return False
-        if not self.parent() == other.parent():
-            try:
-                other = self.parent()(other)
-            except:
-                try:
-                    self = other.parent()(self)
-                except:
-                    return False
-        return self.polynomial() == other.polynomial()
+
+        if not isinstance(other, OreOperator):
+            return False
+        
+        if self.parent() == other.parent():
+            return self.polynomial() == other.polynomial()
+
+        try:
+            from sage.categories.pushout import pushout
+            A = pushout(self.parent(), other.parent())
+            return A(self) == A(other)
+        except:
+            return False
 
     def _is_atomic(self):
         return self._poly._is_atomic()
@@ -700,11 +709,13 @@ class UnivariateOreOperator(OreOperator):
         if (self.order() < other.order()):
             return (self.parent().zero(),self)
 
+        p=self
+        q=other
         R = self.parent()
-        K = R.base_ring()
-        if not K.is_field(): R = R.change_ring(K.fraction_field())
-        p = R(self)
-        q = R(other)
+        if fractionFree==False and not R.base_ring().is_field():
+            R = R.change_ring(R.base_ring().fraction_field())
+            p=R(p)
+            q=R(q)
         sigma = R.sigma()
         D = R.gen()
         orddiff = p.order() - q.order()
@@ -736,10 +747,6 @@ class UnivariateOreOperator(OreOperator):
         if (r[0].order()<r[1].order()):
             r=(other,self)
 
-        R = r[0].parent()
-        RF = R.change_ring(R.base_ring().fraction_field())
-        r = (RF(r[0]),RF(r[1]))
-
         if prs==None:
             if R.base_ring().is_field():
                 prs = __classicPRS__
@@ -751,10 +758,6 @@ class UnivariateOreOperator(OreOperator):
             r=prs(r,additional)[0]
         
         r=r[0]
-        try:
-            r = R(r)
-        except:
-            pass
 
         if not prs==__classicPRS__:
             r = r.primitive_part()
@@ -778,7 +781,6 @@ class UnivariateOreOperator(OreOperator):
         
         R = r[0].parent()
         RF = R.change_ring(R.base_ring().fraction_field())
-        r = (RF(r[0]),RF(r[1]))
 
         a11,a12,a21,a22 = RF.one(),RF.zero(),RF.zero(),RF.one()
 
@@ -792,13 +794,10 @@ class UnivariateOreOperator(OreOperator):
 
         while not r[1].is_zero():  
             (r,q,alpha,beta)=prs(r,additional)
-            a11,a12,a21,a22 = a21,a22,(1/beta)*(alpha*a11-q*a21),(1/beta)*(alpha*a12-q*a22)
+            bInv = ~beta
+            a11,a12,a21,a22 = a21,a22,bInv*(alpha*a11-q*a21),bInv*(alpha*a12-q*a22)
 
         r=r[0]
-        try:
-            r = R(r)
-        except:
-            pass
 
         if not prs==__classicPRS__:
             r = r.primitive_part()
