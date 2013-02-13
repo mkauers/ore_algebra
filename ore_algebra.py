@@ -30,7 +30,7 @@ from sage.rings.fraction_field import is_FractionField
 from sage.rings.infinity import infinity
 
 from ore_operator import *
-from nullspace import *
+import nullspace 
 
 def is_OreAlgebra(A):
     """
@@ -703,28 +703,26 @@ def OreAlgebra(base_ring, *generators, **kwargs):
     if kwargs.has_key("solver"):
         solver = kwargs["solver"]
     else:
-        B = R.base_ring()
-        solver = gauss()
+        B = R.base_ring(); field = R.is_field(); merge_levels = 0
 
-        if is_PolynomialRing(B) or is_FractionField(B):
-            solver = merge(kronecker(solver))
-            if B.is_field() or R.is_field():
-                solver = clear(solver)
+        while (is_MPolynomialRing(B) or is_PolynomialRing(B) or is_FractionField(B)):
+            field = field or B.is_field()
+            merge_levels += 1
             B = B.base_ring()
-        else:
-            if len(Rgens) > 1:
-                solver = kronecker(solver)
-            if R.is_field():
-                solver = clear(solver)
-            
-        if B is ZZ or B.characteristic() > 0:
-            solver = solver
-        elif B is QQ:
-            solver = clear(solver)
+
+        solver = nullspace.quick_check(nullspace.kronecker(nullspace.gauss())) # good for ZZ[x...] and GF(p)[x...]
+        if B is QQ:
+            solver = nullspace.clear(solver) # good for QQ[x...]
         elif is_NumberField(B):
-            solver = galois(solver)
-        else:
-            solver = sage_native
+            solver = nullspace.galois(solver) # good for QQ(alpha)[x...]
+        elif not (ZZ or B.characteristic() > 0):
+            solver = nullspace.sage_native # good luck...
+
+        if field:
+            solver = nullspace.clear(solver) # good for K(x...)
+
+        for i in xrange(merge_levels):
+            solver = nullspace.merge(solver) # good for K(x..)(y..) 
 
     # complain if we got any bogus keyword arguments
 

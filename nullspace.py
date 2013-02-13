@@ -119,6 +119,7 @@ reading (unvariate vs. multivariate) in corresponding rows of the 2nd and 3rd co
   hermite_        `K[x]` where `K` is a field                        None
   newton_         `K[x]` where `K` is a field                        `K`
   merge_          `K[x,...][y,...]`                                  `K[x,...,y,...]`
+  `quick_check`_  `K[x,...]` where `K` is `ZZ`, `QQ`, or `GF(p)`     same domain and `GF(p)`
   `sage_native`_  `K[x,...]` or `K(x,...)` or `K`                    None
   =============== ================================================== ========================
 
@@ -138,6 +139,7 @@ AUTHOR:
 .. _wiedemann : #nullspace.wiedemann
 .. _merge : #nullspace.merge
 .. _galois : #nullspace.galois
+.. _`quick_check` : #nullspace.quick_check
  
 """
 
@@ -168,6 +170,7 @@ from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 from sage.rings.fraction_field import FractionField
 from sage.rings.integer_ring import ZZ
 from sage.rings.rational_field import QQ
+from sage.rings.finite_rings.all import GF
 from sage.matrix.berlekamp_massey import berlekamp_massey
 from sage.ext.multi_modular import MAX_MODULUS 
 from sage.parallel.decorate import parallel
@@ -1653,7 +1656,70 @@ def _merge(subsolver, mat, degrees, infolevel):
 
     return subsolver(mat, degrees=degrees, infolevel=_alter_infolevel(infolevel, -2, 1))
 
-def compress(subsolver, presolver=sage_native, max_modulus=MAX_MODULUS):
+def quick_check(subsolver, modsolver=sage_native, modulus=MAX_MODULUS):
+    """
+    Constructs a solver which first tests in a homomorphic image whether the nullspace is empty
+    and applies the subsolver only if it is not.
+
+    INPUT:
+
+    - ``subsolver`` -- a solver
+    - ``modsolver`` -- a solver for matrices over `GF(p)`, defaults to `sage_native`_
+    - ``modulus`` -- modulus used for the precomputation in the homomorphic image if `R.characteristic()==0`.
+      If this number is not a prime, it will be replaced by the next smaller integer which is a prime.
+
+    OUTPUT:
+
+    - a solver for matrices over `K[x..]` or `K(x..)` with `K` one of `ZZ`, `QQ`, `GF(p)`, and which
+      can be handled by the given subsolver.
+
+    EXAMPLE::
+
+       sage: A = MatrixSpace(ZZ['x'], 4, 5).random_element()
+       sage: my_solver = quick_check(gauss())
+       sage: V = my_solver(A)
+       sage: A*V[0]
+       (0, 0, 0, 0)
+       sage: V = my_solver(A.transpose())
+       sage: len(V)
+       0
+    
+    """
+    def quick_check_solver(mat, degrees=[], infolevel=0):
+        """See docstring of quick_check() for further information."""
+        return _quick_check(subsolver, modsolver, modulus, mat, degrees, infolevel)
+    return quick_check_solver
+
+def _quick_check(subsolver, modsolver, modulus, mat, degrees, infolevel):
+
+    R = mat.base_ring()
+    _launch_info(infolevel, "quick_check", dim=mat.dimensions(), domain=R)
+
+    if R.is_prime_field():
+        return modsolver(mat, degrees=degrees, infolevel=_alter_infolevel(infolevel, -1, 1))
+
+    K = R.base_ring(); x = R.gens()
+
+    if not (K == QQ or K == ZZ):
+        _info(infolevel, "Unexpected ring encountered; skipping quick check.", alter = -1)
+        return subsolver(mat, degrees=degrees, infolevel=_alter_infolevel(infolevel, -1, 1))
+    
+    check_prime = pp(modulus) if R.characteristic() == 0 else R.characteristic()
+    check_eval = dict(zip(x, [ 17*j + 13 for j in xrange(len(x)) ]))
+    check_field = GF(check_prime)
+    check_mat = mat.apply_map( lambda pol : pol.substitute(check_eval), check_field )
+
+    _info(infolevel, "Starting modular solver...", alter = -1)
+    check_sol = modsolver(check_mat)
+
+    _info(infolevel, "Modular solver predicts " + str(len(check_sol)) + " solutions", alter = -1)
+
+    if len(check_sol) == 0:
+        return []
+    else:
+        return subsolver(mat, degrees=degrees, infolevel=_alter_infolevel(infolevel, -2, 1))
+
+def compress(subsolver, presolver=sage_native, modulus=MAX_MODULUS):
     """
     Constructs a solver which throws away unnecessary rows and columns and then applies the subsolver
 
@@ -1694,7 +1760,7 @@ def compress(subsolver, presolver=sage_native, max_modulus=MAX_MODULUS):
     """
     def compress_solver(mat, degrees=[], infolevel=0):
         """See docstring of compress() for further information."""
-        return _compress(subsolver, presolver, max_modulus, mat, degrees, infolevel)
+        return _compress(subsolver, presolver, modulus, mat, degrees, infolevel)
     return compress_solver
 
 def _compress(subsolver, presolver, modulus, mat, degrees, infolevel):
