@@ -7,6 +7,19 @@ ore_algebra
 
 """
 
+######### development mode ###########
+try:
+    if sys.modules.has_key('nullspace'):
+        del sys.modules['nullspace']
+except:
+    pass
+try:
+    if sys.modules.has_key('ore_operator'):
+        del sys.modules['ore_operator']
+except:
+    pass
+#######################################
+
 from sage.structure.element import RingElement
 from sage.rings.ring import Algebra
 from sage.rings.ring import Ring 
@@ -17,7 +30,7 @@ from sage.rings.fraction_field import is_FractionField
 from sage.rings.infinity import infinity
 
 from ore_operator import *
-import nullspace
+from nullspace import *
 
 def is_OreAlgebra(A):
     """
@@ -99,7 +112,7 @@ class _Sigma:
        1/2*x1 - x2 + x3
        sage: sigma.inverse().inverse() == sigma
        True
-       sage: sigma.to_dict()
+       sage: sigma.dict()
        {'x2': -x2 + 1, 'x3': x3 + 1, 'x1': 2*x1}    
     
     """
@@ -136,7 +149,7 @@ class _Sigma:
         else:
             raise ValueError, "illegal sigma power " + str(exp)
 
-    def to_dict(self):
+    def dict(self):
         """
         Returns a dictionary representing ``self``
         """
@@ -154,10 +167,6 @@ class _Sigma:
     def __eq__(self, other):
 
         try:
-            if hash(self) != hash(other):
-                return False 
-            if self.__R != other.__R: # todo: exists pushout would be sufficient
-                return False
             for x in self.__R.gens():
                 if self(x) != other(x):
                     return False
@@ -166,7 +175,10 @@ class _Sigma:
                     return False
             return True
         except:
-            return False 
+            return False
+
+    def __neq__(self, other):
+        return not self.__eq__(other)
 
     def ring(self):
         """
@@ -279,7 +291,7 @@ class _Delta:
        x3 + 1
        sage: delta(x1*x2*x3)
        -2*x1*x2*x3 + 2*x1*x3 + x2*x3
-       sage: delta.to_dict()
+       sage: delta.dict()
        {x1: 1, x3: x3}
 
     """
@@ -292,19 +304,22 @@ class _Delta:
         Rgens = R.gens(); is_zero = True; zero = R.zero(); my_dict = {}
 
         for x in Rgens:
-            my_dict[R(x), 0] = zero
-            my_dict[R(x), 1] = zero
+            my_dict[str(x), 0] = zero
+            my_dict[str(x), 1] = zero
 
         if type(d) != dict:
             for x in Rgens:
-                my_dict[R(x), 1] = R(d(x))
-        else:         
+                dx = R(d(x))
+                if dx != zero:
+                    is_zero = False
+                my_dict[str(x), 1] = R(d(x))
+        else:
             for x in d:
                 if not R(x) in Rgens:
                     raise ValueError, str(x) + " is not a generator of " + str(R)
                 if d[x] != zero:
                     is_zero = False
-                my_dict[R(x), 1] = R(d[x])
+                my_dict[str(x), 1] = R(d[x])
                 
         self.__is_zero = is_zero
         self.__R = R
@@ -325,24 +340,25 @@ class _Delta:
             a = p.numerator(); b = p.denominator()
             return R0(delta(a))/R0(b) - R0(delta(b)*sigma(a))/R0(b*sigma(b)) 
         elif is_PolynomialRing(R0):
-            x = R(R0.gen())
-            if not my_dict.has_key((x, 0)):
+            x = R(R0.gen()); strx = str(x)
+            if not my_dict.has_key((strx, 0)):
                 return R0.zero()
             if sigma(x) == x:
-                return p.map_coefficients(delta) + p.derivative(x).map_coefficients(sigma)*my_dict[x, 1]
+                return p.map_coefficients(delta) + p.derivative(x).map_coefficients(sigma)*my_dict[strx, 1]
             for i in xrange(2, p.degree() + 1):
-                if not my_dict.has_key((x, i)):
-                    my_dict[x, i] = my_dict[x, i - 1]*x + sigma(x**(i - 1))*my_dict[x, 1]
+                if not my_dict.has_key((strx, i)):
+                    my_dict[strx, i] = my_dict[x, i - 1]*x + sigma(x**(i - 1))*my_dict[strx, 1]
             out = R0.zero()
             for i in xrange(p.degree() + 1):
-                out += sigma(p[i])*my_dict[x, i]
+                out += sigma(p[i])*my_dict[strx, i]
             return out
         elif is_MPolynomialRing(R0):
             Rgens = R0.gens()
             for x in Rgens:
+                strx = str(x)
                 for i in xrange(2, p.degree(x) + 1):
-                    if not my_dict.has_key((x, i)):
-                        my_dict[x, i] = my_dict[x, i - 1]*x + sigma(x**(i - 1))*my_dict[x, 1]
+                    if not my_dict.has_key((strx, i)):
+                        my_dict[strxx, i] = my_dict[strx, i - 1]*x + sigma(x**(i - 1))*my_dict[strx, 1]
             out = R0.zero(); one = R0.one()
             for exp in p.exponents():
                 # x1^e1 x2^e2 x3^e3
@@ -353,7 +369,7 @@ class _Delta:
                         if j < i:
                             term *= sigma(Rgens[j]**exp[j])
                         elif j == i:
-                            term *= my_dict[Rgens[j], exp[j]]
+                            term *= my_dict[str(Rgens[j]), exp[j]]
                         else:
                             term *= Rgens[j]**exp[j]
                     out += p[exp]*term
@@ -373,10 +389,6 @@ class _Delta:
     def __eq__(self, other):
 
         try:
-            if hash(self) != hash(other):
-                return False 
-            if self.__sigma != other.__sigma: # includes ring comparison
-                return False
             for x in self.__R.gens():
                 if self(x) != other(x):
                     return False
@@ -387,13 +399,16 @@ class _Delta:
         except:
             return False
 
+    def __neq__(self, other):
+        return not self.__eq__(other)
+
     def ring():
         """
         Returns the ring for which this sigma object is defined
         """
         return self.__R
 
-    def to_dict(self):
+    def dict(self):
         """
         Returns a dictionary representing ``self``
         """
@@ -410,6 +425,7 @@ class _Delta:
             dx = self(x)
             if dx != z:
                 d[x] = dx
+
         return d    
 
 from sage.categories.pushout import ConstructionFunctor
@@ -425,7 +441,7 @@ class OreAlgebraFunctor(ConstructionFunctor):
     sigmas and deltas, and to which the right hand sides can be casted.     
     """
     
-    rank = 9 # like polynomial ring
+    rank = 15 # less than polynomial ring
 
     def __init__(self, *gens):
         """
@@ -449,6 +465,7 @@ class OreAlgebraFunctor(ConstructionFunctor):
         return OreAlgebra(R, *(self.gens))
 
     def __cmp__(self, other):
+        
         c = cmp(type(self), type(other))
         if c != 0:
             return c
@@ -456,12 +473,10 @@ class OreAlgebraFunctor(ConstructionFunctor):
         if c != 0:
             return c
         for i in xrange(len(self.vars)):
-            c = cmp(self.gens[i][1], other.gens[i][1])
-            if c != 0:
-                return c
-            c = cmp(self.gens[i][2], other.gens[i][2])
-            if c != 0:
-                return c
+            if self.gens[i][1] != other.gens[i][1]:
+                return cmp(self.gens[i][1], other.gens[i][1])
+            if self.gens[i][2] != other.gens[i][2]:
+                return cmp(self.gens[i][2], other.gens[i][2])
         return 0
 
     def merge(self, other):
@@ -609,7 +624,9 @@ def OreAlgebra(base_ring, *generators, **kwargs):
     zero = R.zero(); one = R.one()            
 
     if not _is_suitable_base_ring(R):
-        raise ValueError, "The base ring is not of the required form."
+        raise TypeError, "The base ring is not of the required form."
+    if len(gens) == 0:
+        raise TypeError, "There must be at least one generator"
 
     # expand generator shortcuts, convert dictionaries to callables, and check that sigma(1)=1
     for i in xrange(len(gens)):
@@ -669,38 +686,45 @@ def OreAlgebra(base_ring, *generators, **kwargs):
         solver = kwargs["solver"]
     else:
         B = R.base_ring()
-        solver = nullspace.gauss()
+        solver = gauss()
 
         if is_PolynomialRing(B) or is_FractionField(B):
-            solver = nullspace.merge(nullspace.kronecker(solver))
+            solver = merge(kronecker(solver))
             if B.is_field() or R.is_field():
-                solver = nullspace.clear(solver)
+                solver = clear(solver)
             B = B.base_ring()
         else:
             if len(Rgens) > 1:
-                solver = nullspace.kronecker(solver)
+                solver = kronecker(solver)
             if R.is_field():
-                solver = nullspace.clear(solver)
+                solver = clear(solver)
             
         if B is ZZ or B.characteristic() > 0:
             solver = solver
         elif B is QQ:
-            solver = nullspace.clear(solver)
+            solver = clear(solver)
         elif is_NumberField(B):
-            solver = nullspace.galois(solver)
+            solver = galois(solver)
         else:
-            solver = nullspace.sage_native
+            solver = sage_native
 
     # complain if we got any bogus keyword arguments
+<<<<<<< HEAD
 #    for kw in kwargs:
 #        if kw not in ("solver", "element_class"):
 #            raise ValueError, "unexpected keyword argument: " + kw
+=======
+    for kw in kwargs:
+        if kw not in ("solver", "element_class", "names"):
+            raise TypeError, "OreAlgebra constructor got an unexpected keyword argument " + str(kw)
+>>>>>>> 6e63c8840da136f4413291647f6ce1dca6c0ec3b
 
     # Check whether this algebra already exists.
     global _list_of_ore_algebras
     alg = OreAlgebra_generic(base_ring, operator_class, gens, solver)
     for a in _list_of_ore_algebras:
         if a == alg:
+            a._set_solver(solver)
             return a
 
     # It's new. register it and return it. 
@@ -722,8 +746,6 @@ class OreAlgebra_generic(Algebra):
     # information extraction
 
     def __eq__(self, other):
-        if hash(self) != hash(other):
-            return False
         if not is_OreAlgebra(other):
             return False
         if not self.base_ring() == other.base_ring():
@@ -761,7 +783,7 @@ class OreAlgebra_generic(Algebra):
         Returns a functorial description of this Ore algebra
         """
         R = self.base_ring()
-        gens = ((str(x), self.sigma(x).to_dict(), self.delta(x).to_dict()) for x in self.gens())
+        gens = tuple((str(x), self.sigma(x).dict(), self.delta(x).dict()) for x in self.gens())
         return (OreAlgebraFunctor(*gens), self.base_ring())
 
     def _coerce_map_from_(self, P):
@@ -782,17 +804,11 @@ class OreAlgebra_generic(Algebra):
             out = self.base_ring()._coerce_map_from_(P.base_ring())
             if out is None or out is False:
                 return False
-            P_base_gens = P.base_ring().gens()
-            # TEST: forall i exists j st "P.gen(i) == self.gen(j)" (with matching sigma and delta)
             for i in xrange(P.ngens()):
                 found_match = False
                 for j in xrange(self.ngens()):
-                    if P.var(i) == self.var(j):
-                        Ps = P.sigma(i); Ss = self.sigma(j)
-                        Pd = P.delta(i); Sd = self.delta(j)
-                        if all((Ps(x) == Ss(x)) for x in P_base_gens) and \
-                           all((Pd(x) == Sd(x)) for x in P_base_gens):
-                            found_match = True; break
+                    if P.var(i) == self.var(j) and P.sigma(i) == self.sigma(j) and P.delta(i) == self.delta(j):
+                        found_match = True; break
                 if not found_match:
                     return False
             return True            
@@ -898,33 +914,6 @@ class OreAlgebra_generic(Algebra):
            
         """
         return self._gens[self._gen_to_idx(n)][1]
-
-    def sigma_inverse(self, n=0):
-        """
-        Returns a callable object which represents the compositional inverse of the sigma
-        callable associated to the `n` th generator of this algebra.
-        The generator can be specified by index (as integer), or by name (as string),
-        or as algebra element.
-
-        The inverse can be constructed if `\sigma` is such that it maps every generator `x` of
-        the base ring to a linear combination `a*x+b` where `a` and `b` belong to the base
-        ring of the parent of `x`.
-
-        If the method fails in constructing the inverse, it raises a ``ValueError``.
-
-        EXAMPLES::
-
-           sage: R.<x> = QQ['x']
-           sage: A.<Sx> = OreAlgebra(R.fraction_field(), "Sx")
-           sage: sigma = A.sigma()
-           sage: sigma_inverse = A.sigma_inverse()
-           sage: sigma(x)
-           x + 1
-           sage: sigma_inverse(x)
-           x - 1
-        
-        """
-        return self.sigma(n).inverse()
     
     def delta(self, n=0):
         """
@@ -1052,7 +1041,7 @@ class OreAlgebra_generic(Algebra):
         Returns a polynomial ring with the same base ring as this algebra and whose generators
         have the same name as this Ore algebra's generators.
 
-        ::
+        EXAMPLES::
 
            sage: R.<x> = QQ['x']
            sage: A = OreAlgebra(R.fraction_field(), "Dx")
@@ -1092,6 +1081,7 @@ class OreAlgebra_generic(Algebra):
         """
         Creates the Ore algebra obtained from ``self`` by replacing the base ring by `R`
         """
+        A = OreAlgebra(R, *self._gens)
         return OreAlgebra(R, *self._gens)
 
     def change_var(self, var, n=0):
