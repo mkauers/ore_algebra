@@ -691,11 +691,11 @@ def OreAlgebra(base_ring, *generators, **kwargs):
     elif len(Rgens) > 1:
         operator_class = UnivariateOreOperator
     elif is_qshift[0]:
-        operator_class = UnivariateQRecurrenceOperatorOverRationalFunctionField
+        operator_class = UnivariateQRecurrenceOperatorOverUnivariateRing
     elif is_shift[0]:
-        operator_class = UnivariateRecurrenceOperatorOverRationalFunctionField
+        operator_class = UnivariateRecurrenceOperatorOverUnivariateRing
     elif is_derivation[0]:
-        operator_class = UnivariateDifferentialOperatorOverRationalFunctionField
+        operator_class = UnivariateDifferentialOperatorOverUnivariateRing
     else:
         operator_class = UnivariateOreOperator
 

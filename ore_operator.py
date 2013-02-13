@@ -863,7 +863,7 @@ class UnivariateOreOperator(OreOperator):
             sol = solver(sys)
 
         U = A.parent()(list(sol[0])[:t+1-r])
-        return self.parent()((U*A))
+        return self.parent()(U*A)
 
     def xlclm(self, other):
         """
@@ -987,7 +987,7 @@ class UnivariateOreOperator(OreOperator):
 
 #############################################################################################################
 
-class UnivariateOreOperatorOverRationalFunctionField(UnivariateOreOperator):
+class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
     """
     Element of an Ore algebra with a single generator and a commutative rational function field as base ring.     
     """
@@ -1022,13 +1022,13 @@ class UnivariateOreOperatorOverRationalFunctionField(UnivariateOreOperator):
 
 #############################################################################################################
 
-class UnivariateDifferentialOperatorOverRationalFunctionField(UnivariateOreOperatorOverRationalFunctionField):
+class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOverUnivariateRing):
     """
     Element of an Ore algebra K(x)[D], where D acts as derivation d/dx on K(x).
     """
 
     def __init__(self, parent, *data, **kwargs):
-        super(UnivariateOreOperatorOverRationalFunctionField, self).__init__(parent, *data, **kwargs)
+        super(UnivariateOreOperatorOverUnivariateRing, self).__init__(parent, *data, **kwargs)
 
     def __call__(self, f, **kwargs):
         
@@ -1129,13 +1129,13 @@ class UnivariateDifferentialOperatorOverRationalFunctionField(UnivariateOreOpera
 
 #############################################################################################################
 
-class UnivariateRecurrenceOperatorOverRationalFunctionField(UnivariateOreOperatorOverRationalFunctionField):
+class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUnivariateRing):
     """
     Element of an Ore algebra K(x)[S], where S is the shift x->x+1.
     """
 
     def __init__(self, parent, *data, **kwargs):
-        super(UnivariateOreOperatorOverRationalFunctionField, self).__init__(parent, *data, **kwargs)
+        super(UnivariateOreOperatorOverUnivariateRing, self).__init__(parent, *data, **kwargs)
 
     def __call__(self, f, **kwargs):
         
@@ -1221,13 +1221,13 @@ class UnivariateRecurrenceOperatorOverRationalFunctionField(UnivariateOreOperato
 
 #############################################################################################################
 
-class UnivariateQRecurrenceOperatorOverRationalFunctionField(UnivariateOreOperatorOverRationalFunctionField):
+class UnivariateQRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUnivariateRing):
     """
     Element of an Ore algebra K(x)[S], where S is the shift x->q*x for some q in K.
     """
 
     def __init__(self, parent, *data, **kwargs):
-        super(UnivariateOreOperatorOverRationalFunctionField, self).__init__(parent, *data, **kwargs)
+        super(UnivariateOreOperatorOverUnivariateRing, self).__init__(parent, *data, **kwargs)
 
     def __call__(self, f, **kwargs):
 
