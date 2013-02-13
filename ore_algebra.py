@@ -709,15 +709,10 @@ def OreAlgebra(base_ring, *generators, **kwargs):
             solver = sage_native
 
     # complain if we got any bogus keyword arguments
-<<<<<<< HEAD
-#    for kw in kwargs:
-#        if kw not in ("solver", "element_class"):
-#            raise ValueError, "unexpected keyword argument: " + kw
-=======
+
     for kw in kwargs:
         if kw not in ("solver", "element_class", "names"):
             raise TypeError, "OreAlgebra constructor got an unexpected keyword argument " + str(kw)
->>>>>>> 6e63c8840da136f4413291647f6ce1dca6c0ec3b
 
     # Check whether this algebra already exists.
     global _list_of_ore_algebras
