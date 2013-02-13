@@ -162,14 +162,19 @@ testsuite
 
 """
 
-from sage.matrix.berlekamp_massey import berlekamp_massey
-from sage.ext.multi_modular import MAX_MODULUS 
-from sage.parallel.decorate import parallel 
 from sage.rings.arith import previous_prime as pp
 from sage.rings.arith import CRT_basis, gcd, lcm
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 from sage.rings.fraction_field import FractionField
+from sage.rings.integer_ring import ZZ
+from sage.rings.rational_field import QQ
+from sage.matrix.berlekamp_massey import berlekamp_massey
+from sage.ext.multi_modular import MAX_MODULUS 
+from sage.parallel.decorate import parallel
+from sage.matrix.constructor import Matrix, matrix
+from sage.modules.free_module_element import vector
 from datetime import datetime
+import math
 
 #####################
 ####### tools #######
@@ -400,7 +405,7 @@ def _launch_info(infolevel, name, dim=None, deg=None, domain=None):
     if not deg == None:
         message = message + ", deg=" + str(deg)
     if not domain == None:
-        message = message + ", domain=" + latex(domain)
+        message = message + ", domain=" + domain._latex_()
     message = message + "."    
     _info(infolevel, message)
 
@@ -712,7 +717,7 @@ def _hermite_base(early_termination, R, A, u, D):
             # for the candidates, check whether also the higher degree coefficients are zero
             candidates = filter(lambda j : not any(A[i][j][l] for i in xrange(n) for l in xrange(k+1, u)), candidates)
             if len(candidates) > 0:
-                return matrix(R, [[v[c] for c in candidates] for v in V ]), True
+                return Matrix(R, [[v[c] for c in candidates] for v in V ]), True
         for i in xrange(n):
             row = A[i]
             # pivot: among the indices j where A[i,j]!=0, pick one where D[j] is minimal
@@ -740,7 +745,7 @@ def _hermite_base(early_termination, R, A, u, D):
                 a[piv].insert(0, 0)
             D[piv] += 1
 
-    return matrix(R, V), False
+    return Matrix(R, V), False
 
 def _hermite_rec(early_termination, R, A, cut, offset, infolevel):
     r"""
@@ -1119,7 +1124,7 @@ def _lagrange_base(mat, MprimeA, subsolver, infolevel):
     # base case of interpolation solver (a separate function in order to facilitate profiling)
 
     R = mat[0][0].parent(); K = R.base_ring()
-    V = subsolver(matrix(K, [[ p[0] for p in v ] for v in mat]), infolevel=infolevel)
+    V = subsolver(Matrix(K, [[ p[0] for p in v ] for v in mat]), infolevel=infolevel)
     if len(V) == 0:
         raise NoSolution
     return [[ R(p/MprimeA) for p in v ] for v in V]
@@ -1430,9 +1435,9 @@ def _newton(subsolver, inverse, mat, degrees, infolevel):
 
     idxA, idxB = _select_regular_square_submatrix(V0, n, m, dim, one, zero)
 
-    A = matrix(R, [ [ v[idxA[i]] for i in xrange(len(idxA)) ] for v in mat ] )
-    B = matrix(R, [ [ v[idxB[i]] for i in xrange(len(idxB)) ] for v in mat ] )
-    X = matrix(R, [ [ R(v[idxA[i]]) for i in xrange(len(idxA)) ] for v in V0 ] ).transpose()
+    A = Matrix(R, [ [ v[idxA[i]] for i in xrange(len(idxA)) ] for v in mat ] )
+    B = Matrix(R, [ [ v[idxB[i]] for i in xrange(len(idxB)) ] for v in mat ] )
+    X = Matrix(R, [ [ R(v[idxA[i]]) for i in xrange(len(idxA)) ] for v in V0 ] ).transpose()
     # have: A*X + B = 0 mod x^1. want: A*X + B = 0 mod x^bound
 
     if n > rank:
@@ -1579,7 +1584,7 @@ def _clear(subsolver, mat, degrees, infolevel):
     for row in mat:
         den = common_denominator(row)
         newmat.append( row.apply_map(lambda p: den*p, newR) )
-    newmat = matrix(newR, newmat)
+    newmat = Matrix(newR, newmat)
     
     return subsolver(newmat, degrees=degrees, infolevel=_alter_infolevel(infolevel, -1, 1))
 

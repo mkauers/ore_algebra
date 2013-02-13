@@ -5,7 +5,6 @@ ore_operator
 
 """
 
-
 from sage.structure.element import RingElement
 from sage.rings.ring import Algebra
 from sage.rings.polynomial.polynomial_ring import is_PolynomialRing
@@ -390,7 +389,7 @@ class OreOperator(RingElement):
         else:
             return a*self
 
-    def content(self,proof=True):
+    def content(self, proof=True):
         """
         Returns the content of ``self``.
 
@@ -416,8 +415,10 @@ class OreOperator(RingElement):
            1
         
         """
-        if self==0 or self.is_zero(): return 1
-        if self.order()==0: return self
+        if self == 0 or self.is_zero():
+            return self.parent().base_ring().one()
+        if self.order() == 0:
+            return self.constant_coefficient()
 
         Rbase = self.parent().base_ring()
         coeffs = self.coefficients()
@@ -451,7 +452,8 @@ class OreOperator(RingElement):
         
         """
         if self.is_zero(): return self
-        if self.parent().base_ring().is_field(): c = self.leading_coefficient()
+        if self.parent().base_ring().is_field():
+            c = self.leading_coefficient()
         else: 
             c = self.content()
         if c == c.parent().one():
@@ -463,7 +465,7 @@ class OreOperator(RingElement):
             c = c.leading_coefficient()
         if not c.is_unit():
             return prim
-        return c.parent()((1/c))*prim
+        return (~c)*prim
 
     def map_coefficients(self, f, new_base_ring = None):
         """
@@ -679,7 +681,7 @@ class UnivariateOreOperator(OreOperator):
 
     def _mul_(self, right):
 
-        coeffs = self.polynomial().coeffs()
+        coeffs = self.coeffs()
         DiB = right.polynomial() # D^i * B, for i=0,1,2,...
 
         R = self.parent() # Ore algebra
@@ -810,13 +812,103 @@ class UnivariateOreOperator(OreOperator):
 
     def lclm(self, other):
         """
+        Computes the least common left multiple of ``self`` and ``other``.
+
+        That is, it returns an operator `L` of minimal order such that there
+        exist `U` and `V` with `L=U*self=V*other`. The base ring of the
+        parent of `U` and `V` is the fraction field of the base ring of the
+        parent of ``self`` and ``other``. The parent of `L` is the same as
+        the parent of the input operators.
+
+        EXAMPLES::
+
+            sage: R.<x> = QQ['x']
+            sage: Alg.<Dx> = OreAlgebra(R, 'Dx')
+            sage: A = 5*(x+1)*Dx + (x - 7); B = (3*x+5)*Dx - (8*x+1)
+            sage: L = A.lclm(B)
+            (-645*x^4 - 2155*x^3 - 1785*x^2 + 475*x + 750)*Dx^2 + (1591*x^4 + 3696*x^3 + 3664*x^2 + 2380*x + 725)*Dx + 344*x^4 - 2133*x^3 - 2911*x^2 - 1383*x - 1285
+            sage: 
+            (15*x^2 + 40*x + 25)*Dx^2 + (-37*x^2 - 46*x - 25)*Dx - 8*x^2 + 15*x - 33
+            sage: B.lclm(A*B)
+            (-15*x^2 - 40*x - 25)*Dx^2 + (37*x^2 + 46*x + 25)*Dx + 8*x^2 - 15*x + 33
+        
         """
-        raise NotImplementedError
+        if not isinstance(other, UnivariateOreOperator):
+            raise TypeError, "unexpected argument in lclm"
+
+        if self.parent() != other.parent():
+            from sage.categories.pushout import pushout
+            A = pushout(self.parent(), other.parent())
+            print A
+            return A(self).lclm(A(other))
+
+        A = self.numerator(); r = A.order()
+        B = other.numerator(); s = B.order()
+        D = self.parent().gen()
+
+        t = max(r, s) # expected order of the lclm
+
+        rowsA = [A]
+        for i in xrange(t - r):
+            rowsA.append(D*rowsA[-1])
+        rowsB = [B]
+        for i in xrange(t - s):
+            rowsB.append(D*rowsB[-1])
+
+        from sage.matrix.constructor import Matrix
+        solver = A.parent()._solver()
+
+        sys = Matrix(map(lambda p: p.coeffs(padd=t), rowsA + rowsB)).transpose()
+        sol = solver(sys)
+
+        while len(sol) == 0:
+            t += 1
+            rowsA.append(D*rowsA[-1]); rowsB.append(D*rowsB[-1])
+            sys = Matrix(map(lambda p: p.coeffs(padd=t), rowsA + rowsB)).transpose()
+            sol = solver(sys)
+
+        U = A.parent()(list(sol[0])[:t+1-r])
+        return self.parent()((U*A))
 
     def xlclm(self, other):
         """
+        Computes the least common left multiple of ``self`` and ``other`` along
+        with the appropriate cofactors. 
+
+        That is, it returns a triple `(L,U,V)` such that `L=U*self=V*other` and
+        `L` has minimal possible order.
+        The base ring of the parent of `U` and `V` is the fraction field of the
+        base ring of the parent of ``self`` and ``other``.
+        The parent of `L` is the same as the parent of the input operators.
+
+        EXAMPLES::
+
+            sage: R.<x> = QQ['x']
+            sage: Alg.<Dx> = OreAlgebra(R, 'Dx')
+            sage: A = 5*(x+1)*Dx + (x - 7); B = (3*x+5)*Dx - (8*x+1)
+            sage: L, U, V = A.xlclm(B)
+            sage: L == U*A
+            True
+            sage: L == V*B
+            True
+            sage: L.parent()
+            Univariate Ore algebra in Dx over Univariate Polynomial Ring in x over Rational Field
+            sage: U.parent()
+            Univariate Ore algebra in Dx over Fraction Field of Univariate Polynomial Ring in x over Rational Field
+        
         """
-        raise NotImplementedError
+        A = self; B = other; L = self.lclm(other)
+        K = L.parent().base_ring()
+
+        if K.is_field():
+            L0 = L
+        else:
+            K = K.fraction_field()
+            A = A.change_ring(K)
+            B = B.change_ring(K)
+            L0 = L.change_ring(K)
+        
+        return (L, L0 // A, L0 // B)
 
     def symmetric_product(self, other, tensor_map):
         # tensor_map is meant to be a matrix [[a,b],[c,d]] such that
@@ -867,11 +959,30 @@ class UnivariateOreOperator(OreOperator):
         else:
             return self.parent().base_extend(new_base_ring)(poly)
 
-    def coeffs(self):
+    def coeffs(self, padd=-1):
         """
         Return the coefficient vector of this operator.
+
+        If the degree is less than the number given in the optional
+        argument, the list is padded with zeros so as to ensure that
+        the output has length ``padd``+1.
+
+        EXAMPLES::
+
+           sage: A.<Sx> = OreAlgebra(ZZ['x'], 'Sx')
+           sage: (5*Sx^3-4).coeffs()
+           [-4, 0, 0, 5]
+           sage: (5*Sx^3-4).coeffs(padd=5)
+           [-4, 0, 0, 5, 0, 0]
+           sage: (5*Sx^3-4).coeffs(padd=1)
+           [-4, 0, 0, 5]
+        
         """
-        return self.polynomial().coeffs()
+        c = self.polynomial().coeffs()
+        if len(c) <= padd:
+            z = self.base_ring().zero()
+            c = c + [z for i in xrange(padd + 1 - len(c))]
+        return c
 
     def coefficients(self):
         return self.polynomial().coefficients()
