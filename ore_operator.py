@@ -971,7 +971,7 @@ class UnivariateOreOperator(OreOperator):
                 return A            
 
             # define g such that (D - h)(u) == 0 iff (D - g)(1/u) == 0.
-            g = (D1 - pr[0] - pr[1]*h)/(pr[2] + pr[3]*h)
+            g = (D1 - pr[0] - pr[1]*h)/(pr[1] + pr[2]*h)
             
             # define p, q such that "D*1/u == p*1/u*D + q*1/u" 
             p = (g - D1)/(D1 - h); q = g - p*D1
@@ -1009,8 +1009,8 @@ class UnivariateOreOperator(OreOperator):
             for i in xrange(a - 1, -1, -1):
                 for j in xrange(b - 1, -1, -1):
                     s = sigma(Dkuv[i][j])
-                    Dkuv[i + 1][j + 1] += s*pr[3]
-                    Dkuv[i][j + 1] += s*pr[2]
+                    Dkuv[i + 1][j + 1] += s*pr[2]
+                    Dkuv[i][j + 1] += s*pr[1]
                     Dkuv[i + 1][j] += s*pr[1]
                     Dkuv[i][j] = delta(Dkuv[i][j]) + s*pr[0]
 

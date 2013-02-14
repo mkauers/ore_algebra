@@ -451,8 +451,8 @@ class OreAlgebraFunctor(ConstructionFunctor):
           ``(a, b, c)`` where ``a`` is a variable name (string), ``b`` is a shift
           (specified as dictionary), and ``c`` is a sigma-derivation (specified as
           dictionary), or ``(a, b, c, d)`` where ``a,b,c`` are as before, and ``d``
-          is a vector (w0,w1,w2,w3) of base ring elements encoding the product rule
-          for this generator: D(u*v) == w0*u*v + w1*D(u)*v + w2*u*D(v) + w3*D(u)*D(v)
+          is a vector (w0,w1,w2) of base ring elements encoding the product rule
+          for this generator: D(u*v) == w0*u*v + w1*(D(u)*v + u*D(v)) + w2*D(u)*D(v)
 
         The functor is only applicable to rings which are compatible with the given
         dictionaries. Applying the functor to another ring causes an error. 
@@ -577,9 +577,9 @@ def OreAlgebra(base_ring, *generators, **kwargs):
     and ``'\u03B8x'`` or ``'Tx'`` for the Eulerian derivation `x\\frac d{dx}`
     (i.e., ``sigma=lambda p:p`` and ``delta=lambda p: x*p.derivative(x)``).
 
-    A generator can optionally be extended by a vector `(w_0,w_1,w_2,w_3)` of
+    A generator can optionally be extended by a vector `(w_0,w_1,w_2)` of
     base ring elements which encodes the product rule for the generator:
-    `D(u*v) == w_0*u*v + w_1*D(u)*v + w_2*u*D(v) + w_3*D(u)*D(v)`. This data
+    `D(u*v) == w_0*u*v + w_1*(D(u)*v + u*D(v)) + w_2*D(u)*D(v)`. This data
     is needed in the computation of symmetric products.     
 
     Ore algebras support coercion from their base rings. Furthermore, an Ore
@@ -701,9 +701,9 @@ def OreAlgebra(base_ring, *generators, **kwargs):
         if product_rules[i] is not None:
             continue
         elif is_shift[i] or is_qshift[i]:
-            product_rules[i] = (zero, zero, zero, one)
+            product_rules[i] = (zero, zero, one)
         elif is_derivation[i] or is_theta[i]:
-            product_rules[i] = (zero, one, one, zero)
+            product_rules[i] = (zero, one, zero)
 
     # Select element class
     if kwargs.has_key("element_class"):
@@ -723,28 +723,11 @@ def OreAlgebra(base_ring, *generators, **kwargs):
 
     # Select the linear system solver for matrices over the base ring
     if kwargs.has_key("solver"):
-        solver = kwargs["solver"]
+        solvers = kwargs["solver"]
+        if type(solvers) != dict:
+            solvers = {R : solvers}
     else:
-        B = R.base_ring(); field = R.is_field(); merge_levels = 0
-
-        while (is_MPolynomialRing(B) or is_PolynomialRing(B) or is_FractionField(B)):
-            field = field or B.is_field()
-            merge_levels += 1
-            B = B.base_ring()
-
-        solver = nullspace.quick_check(nullspace.kronecker(nullspace.gauss())) # good for ZZ[x...] and GF(p)[x...]
-        if B is QQ:
-            solver = nullspace.clear(solver) # good for QQ[x...]
-        elif is_NumberField(B):
-            solver = nullspace.galois(solver) # good for QQ(alpha)[x...]
-        elif not (ZZ or B.characteristic() > 0):
-            solver = nullspace.sage_native # good luck...
-
-        if field:
-            solver = nullspace.clear(solver) # good for K(x...)
-
-        for i in xrange(merge_levels):
-            solver = nullspace.merge(solver) # good for K(x..)(y..) 
+        solvers = {}
 
     # complain if we got any bogus keyword arguments
 
@@ -754,11 +737,11 @@ def OreAlgebra(base_ring, *generators, **kwargs):
 
     # Check whether this algebra already exists.
     global _list_of_ore_algebras
-    alg = OreAlgebra_generic(base_ring, operator_class, gens, solver, product_rules)
+    alg = OreAlgebra_generic(base_ring, operator_class, gens, solvers, product_rules)
     for a in _list_of_ore_algebras:
         if a == alg:
             if kwargs.has_key("solver"):
-                a._set_solver(solver)
+                a._set_solvers(solvers)
             a._set_product_rules(product_rules)
             return a
 
@@ -772,11 +755,11 @@ class OreAlgebra_generic(Algebra):
     """
     """
 
-    def __init__(self, base_ring, operator_class, gens, solver, product_rules):
+    def __init__(self, base_ring, operator_class, gens, solvers, product_rules):
         self._base_ring = base_ring
         self._operator_class = operator_class
         self._gens = gens
-        self.__solver = solver
+        self.__solvers = solvers
         self.__product_rules = product_rules
 
     # information extraction
@@ -799,10 +782,10 @@ class OreAlgebra_generic(Algebra):
             # if there are product rules, they must agree
             pr1 = self._product_rule(i); pr2 = self._product_rule(i)
             if pr1 is not None and pr2 is not None:
-                for i in xrange(4):
+                for i in xrange(3):
                     if pr1[i] != pr2[i]:
                         return False
-        # solver does not matter
+        # solvers do not matter
         return True
 
     def base_ring(self):
@@ -1109,18 +1092,63 @@ class OreAlgebra_generic(Algebra):
         """
         return self.change_ring(R)
 
-    def _solver(self):
+    def _solver(self, R=None):
         """
-        Returns this Ore algebra's preferred linear system solver, if there is any.
-        If the algebra has no preference, this function returns ``None``
-        """
-        return self.__solver
+        Returns this Ore algebra's preferred linear system solver.
 
-    def _set_solver(self, solver):
+        By default, the method returns a solver for matrices over the base ring of
+        this algebra. To obtain a solver for matrices over some other ring, the
+        ring can be supplied as optional argument.
         """
-        Defines this Ore algebra's preferred linear system solver. 
+        if R is None:
+            R = self.base_ring()
+
+        try:
+            return self.__solvers[R]
+        except:
+            pass
+
+        # make a reasonable choice
+        if R.is_prime_field():
+            return nullspace.sage_native
+        elif R is ZZ or R is QQ:
+            return nullspace.cra(nullspace.sage_native)
+        elif is_NumberField(R):
+            return nullspace.cra(nullspace.sage_native)
+        elif not (is_MPolynomialRing(R) or is_PolynomialRing(R) or is_FractionField(R)):
+            return nullspace.sage_native # for lack of better ideas. 
+
+        B = R.base_ring(); field = R.is_field(); merge_levels = 0
+
+        while (is_MPolynomialRing(B) or is_PolynomialRing(B) or is_FractionField(B)):
+            field = field or B.is_field()
+            merge_levels += 1
+            B = B.base_ring()
+
+        solver = nullspace.quick_check(nullspace.kronecker(nullspace.gauss())) # good for ZZ[x...] and GF(p)[x...]
+        if B is QQ:
+            solver = nullspace.clear(solver) # good for QQ[x...]
+        elif is_NumberField(B):
+            solver = nullspace.galois(solver) # good for QQ(alpha)[x...]
+        elif not (B is ZZ or B.characteristic() > 0):
+            solver = nullspace.sage_native # for lack of better ideas
+
+        if field:
+            solver = nullspace.clear(solver) # good for K(x...)
+
+        for i in xrange(merge_levels):
+            solver = nullspace.merge(solver) # good for K(x..)(y..) 
+
+        self.__solvers[R] = solver        
+        return solver
+
+    def _set_solvers(self, solvers):
         """
-        self.__solver = solver
+        Defines a collection of linear system solvers which Ore algebra prefers.
+        The argument is supposed to be a dictionary which some rings `R` to solvers
+        for matrices with coefficients in `R`
+        """
+        self.__solvers = solvers.copy()
 
     def _product_rule(self, n=0):
         """
@@ -1138,8 +1166,8 @@ class OreAlgebra_generic(Algebra):
         """
         Registers product rules for the generators of this algebra.
 
-        A product rule for a generator `D` is a tuple `(w_0,w_1,w_2,w_3)` such that for the operator
-        application we have `D(u*v) = w_0*u*v + w_1*D(u)*v + w_2*u*D(v) + w_3*D(u)*D(v)`.
+        A product rule for a generator `D` is a tuple `(w_0,w_1,w_2)` such that for the operator
+        application we have `D(u*v) = w_0*u*v + w_1*(D(u)*v + u*D(v)) + w_2*D(u)*D(v)`.
 
         The input paramter ``rules`` is a list of length ``self.ngens()`` which at index ``i``
         carries either ``None`` or a coefficient tuple representing the rule.
@@ -1157,7 +1185,7 @@ class OreAlgebra_generic(Algebra):
                     if old[i] is None:
                         old[i] = tuple(new[i])
                     else:
-                        for j in xrange(4):
+                        for j in xrange(3):
                             if old[i][j] != new[i][j]:
                                 raise ValueError, "inconsistent product rule specification"
 
