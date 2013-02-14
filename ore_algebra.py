@@ -141,7 +141,7 @@ class _Sigma:
             return self.__R(p)(**self.__dict)
         elif exp > 1:
             # possible improvement: store separate dictionaries for each exp
-            return sigma(sigma(p), exp=exp-1)
+            return self(self.__R(p)(**self.__dict), exp=exp-1)
         elif exp == 0:
             return p
         elif exp < 0:
@@ -161,7 +161,7 @@ class _Sigma:
         except:
             pass
         gens = self.__R.gens()
-        self.__hash_value = h = hash((self.__R, (sigma(x) for x in gens)))
+        self.__hash_value = h = hash((self.__R, (self(x) for x in gens)))
         return h
 
     def __eq__(self, other):
