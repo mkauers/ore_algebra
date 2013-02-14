@@ -689,6 +689,8 @@ class UnivariateOreOperator(OreOperator):
 
     def _mul_(self, right):
 
+        if self.is_zero(): return self
+
         coeffs = self.coeffs()
         DiB = right.polynomial() # D^i * B, for i=0,1,2,...
 
@@ -760,7 +762,6 @@ class UnivariateOreOperator(OreOperator):
         additional = []
         while not r[1].is_zero(): 
             r=prs(r,additional)[0]
-        
         r=r[0]
 
         if not prs==__classicPRS__:
@@ -1459,11 +1460,7 @@ def __improvedPRS__(r,additional):
         phi = Rbase.one()
         beta = (-Rbase.one())**(orddiff+1)*R.sigma().factorial(sigma(phi,1),orddiff)
     else:
-        d2 = additional.pop()
-        oldalpha = additional.pop()
-        k = additional.pop()
-        essentialPart = additional.pop()
-        phi = additional.pop()
+        (d2,oldalpha,k,essentialPart,phi) = (additional.pop(),additional.pop(),additional.pop(),additional.pop(),additional.pop())
         phi = oldalpha / R.sigma().factorial(sigma(phi,1),d2-d1-1)
         beta = ((-Rbase.one())**(orddiff+1)*R.sigma().factorial(sigma(phi,1),orddiff)*k)
         essentialPart = sigma(essentialPart,-orddiff)
@@ -1473,12 +1470,7 @@ def __improvedPRS__(r,additional):
     alpha2=alpha*sigma(k,orddiff)
     newRem = (alpha2*r[0]).quo_rem(r[1],fractionFree=True)
     r2 = newRem[1].map_coefficients(lambda p: p//beta)
-
-    additional.append(phi)
-    additional.append(essentialPart)
-    additional.append(k)
-    additional.append(alpha)
-    additional.append(d1)
+    additional.extend([phi,essentialPart,k,alpha,d1])
 
     return ((r[1],r2),newRem[0],alpha2,beta)
 
@@ -1499,8 +1491,7 @@ def __subresultantPRS__(r,additional):
         phi = -Rbase.one()
         beta = (-Rbase.one())*R.sigma().factorial(sigma(phi,1),orddiff)
     else:
-        d2 = additional.pop()
-        phi = additional.pop()
+        (d2,phi) = (additional.pop(),additional.pop())
         phi = R.sigma().factorial(-r[0].leading_coefficient(),d0-d1) / R.sigma().factorial(sigma(phi,1),d0-d1-1)
         beta = (-Rbase.one())*R.sigma().factorial(sigma(phi,1),orddiff)*r[0].leading_coefficient()
 
@@ -1508,7 +1499,6 @@ def __subresultantPRS__(r,additional):
     newRem = (alpha*r[0]).quo_rem(r[1],fractionFree=True)
     r2 = newRem[1].map_coefficients(lambda p: p//beta)
 
-    additional.append(d1)
-    additional.append(phi)
+    additional.extend([phi,d1])
 
     return ((r[1],r2),newRem[0],alpha,beta)
