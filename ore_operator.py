@@ -5,7 +5,7 @@ ore_operator
 
 """
 
-from sage.structure.element import RingElement
+from sage.structure.element import RingElement, canonical_coercion
 from sage.rings.ring import Algebra
 from sage.rings.polynomial.polynomial_ring import is_PolynomialRing
 from sage.rings.polynomial.multi_polynomial_ring import is_MPolynomialRing
@@ -620,9 +620,8 @@ class UnivariateOreOperator(OreOperator):
             return self.polynomial() == other.polynomial()
 
         try:
-            from sage.categories.pushout import pushout
-            A = pushout(self.parent(), other.parent())
-            return A(self) == A(other)
+            A, B = canonical_coercion(self, other)
+            return A == B
         except:
             return False
 
@@ -836,9 +835,8 @@ class UnivariateOreOperator(OreOperator):
             raise TypeError, "unexpected argument in lclm"
 
         if self.parent() != other.parent():
-            from sage.categories.pushout import pushout
-            A = pushout(self.parent(), other.parent())
-            return A(self).lclm(A(other))
+            A, B = canonical_coercion(self, other)
+            return A.lclm(B)
 
         A = self.numerator(); r = A.order()
         B = other.numerator(); s = B.order()
@@ -946,9 +944,8 @@ class UnivariateOreOperator(OreOperator):
             raise TypeError, "unexpected argument in symmetric_product"
 
         if self.parent() != other.parent():
-            from sage.categories.pushout import pushout
-            A = pushout(self.parent(), other.parent())
-            return A(self).symmetric_product(A(other), solver=solver, tensor_map=tensor_map)
+            A, B = canonical_coercion(self, other)
+            return A.symmetric_product(B, solver=solver, tensor_map=tensor_map)
 
         R = self.base_ring().fraction_field(); zero = R.zero(); one = R.one()
         
@@ -970,6 +967,7 @@ class UnivariateOreOperator(OreOperator):
             h = -B[0]/B[1] # B = D - h
             if h == D1:
                 return A            
+
             # define g such that (D - h)(u) == 0 iff (D - g)(1/u) == 0.
             g = (D1 - tensor_map[0][0] - tensor_map[0][1]*h)/(tensor_map[1][0] + tensor_map[1][1]*h)
             
@@ -984,7 +982,7 @@ class UnivariateOreOperator(OreOperator):
                 Dk = Dk.map_coefficients(sigma_u)*D + Dk.map_coefficients(delta_u)
                 c = coeffs[i]
                 if not c.is_zero():
-                    L += coeffs[i]*Dk
+                    L += c*Dk
             
             return A.parent()(L)
 
@@ -1073,11 +1071,52 @@ class UnivariateOreOperator(OreOperator):
         else:
             raise TypeError, "unexpected exponent received in symmetric_power"
 
-    def annihilator_of_operator_of_solution(self, other):
+    def annihilator_of_associate(self, other, solver=None):
         """
-        computes an operator M such that when self*f = 0, then M*(other*f)=0
+        Computes an operator `L` with `L(other(f))=0` for all `f` with `self(f)=0`.
+
+        EXAMPLES::
+
+           sage: R.<x> = ZZ['x']
+           sage: A.<Dx> = OreAlgebra(R, 'Dx')
+           sage: (Dx^2 + x*Dx + 5).annihilator_of_associate(Dx + 7*x+3)
+           (-42*x^2 - 39*x - 7)*Dx^2 + (-42*x^3 - 39*x^2 + 77*x + 39)*Dx - 168*x^2 - 174*x - 61
+           sage: A.<Sx> = OreAlgebra(R, 'Sx')
+           (-42*x^2 - 88*x - 35)*Sx^2 + (-42*x^3 - 130*x^2 - 53*x + 65)*Sx - 210*x^2 - 860*x - 825
+
         """
-        raise NotImplementedError
+        if not isinstance(other, UnivariateOreOperator):
+            raise TypeError, "unexpected argument in symmetric_product"
+
+        if self.parent() != other.parent():
+            A, B = canonical_coercion(self, other)
+            return A.annihilator_of_associate(B, solver=solver)
+
+        if self.is_zero():
+            return self
+        elif other.is_zero():
+            return self.parent().one()
+
+        R = self.base_ring().fraction_field()
+        A = self.change_ring(R); a = A.order()
+        B = other.change_ring(R) % A
+        D = A.parent().gen()
+
+        if solver == None:
+            solver = A.parent()._solver()
+
+        mat = [B.coeffs(padd=a-1)]
+
+        from sage.matrix.constructor import Matrix
+        sol = solver(Matrix(mat).transpose())
+
+        while len(sol) == 0:
+            B = (D*B) % A
+            mat.append(B.coeffs(padd=a-1))
+            sol = solver(Matrix(mat).transpose())
+
+        L = A.parent()(list(sol[0]))
+        return L
 
     # coefficient-related functions
 
@@ -1114,9 +1153,17 @@ class UnivariateOreOperator(OreOperator):
         return M
 
     def order(self):
+        """
+        Returns the order of this operator, which is defined as the maximal power `i` of the
+        generator which has a nonzero coefficient. The zero operator has order `-1`.
+        """
         return self.polynomial().degree()
 
     def valuation(self):
+        """
+        Returns the valuation of this operator, which is defined as the minimal power `i` of the
+        generator which has a nonzero coefficient. The zero operator has order `\\infinity`.
+        """
         return min(self.exponents())
 
     def __getitem__(self, n):
@@ -1313,6 +1360,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         If self is such that self*f = 0 and alg is an algebraic function, this function returns an
         operator L such that L*(f circ alg) = 0.
         """
+        raise NotImplementedError
 
     def power_series_solutions(self, n):
         raise NotImplementedError
