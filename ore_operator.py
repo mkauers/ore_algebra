@@ -949,13 +949,48 @@ class UnivariateOreOperator(OreOperator):
             A = pushout(self.parent(), other.parent())
             return A(self).symmetric_product(A(other), solver=solver, tensor_map=tensor_map)
 
-        # TODO: special treatment for when one of the two operators has order one.
         R = self.base_ring().fraction_field(); zero = R.zero(); one = R.one()
         
-        A = self.change_ring(R);  a = A.order(); Ared = tuple(-A[i]/A[a] for i in xrange(a))
-        B = other.change_ring(R); b = B.order(); Bred = tuple(-B[j]/B[b] for j in xrange(b))
+        A = self.change_ring(R);  a = A.order()
+        B = other.change_ring(R); b = B.order()
 
         Alg = A.parent(); sigma = Alg.sigma(); delta = Alg.delta();
+
+        if A.is_zero() or B.is_zero():
+            return A
+        elif min(a, b) < 1:
+            return A.one()
+        elif a == 1 and b > 1:
+            A, B, a, b = B, A, b, a
+
+        if b == 1:
+            
+            D = A.parent().gen(); D1 = D(R.one())
+            h = -B[0]/B[1] # B = D - h
+            if h == D1:
+                return A            
+            # define g such that (D - h)(u) == 0 iff (D - g)(1/u) == 0.
+            g = (D1 - tensor_map[0][0] - tensor_map[0][1]*h)/(tensor_map[1][0] + tensor_map[1][1]*h)
+            
+            # define p, q such that "D*1/u == p*1/u*D + q*1/u" 
+            p = (g - D1)/(D1 - h); q = g - p*D1
+            sigma_u = lambda c: sigma(c)*p
+            delta_u = lambda c: delta(c) + q
+
+            # calculate L with L(u*v)=0 iff A(v)=0 and B(u)=0 using A(1/u * u*v) = 0
+            coeffs = A.coeffs(); L = coeffs[0]; Dk = A.parent().one()
+            for i in xrange(1, A.order() + 1):
+                Dk = Dk.map_coefficients(sigma_u)*D + Dk.map_coefficients(delta_u)
+                c = coeffs[i]
+                if not c.is_zero():
+                    L += coeffs[i]*Dk
+            
+            return A.parent()(L)
+
+        # general case via linear algebra
+
+        Ared = tuple(-A[i]/A[a] for i in xrange(a)); Bred = tuple(-B[j]/B[b] for j in xrange(b))
+
         if solver is None:
             solver = Alg._solver()
 
@@ -1017,13 +1052,15 @@ class UnivariateOreOperator(OreOperator):
            sage: A.<Sx> = OreAlgebra(R, 'Sx')
            sage: (Sx^2 + x*Sx - 2).symmetric_power(2)
            -x*Sx^3 + (x^3 + 2*x^2 + 3*x + 2)*Sx^2 + (2*x^3 + 2*x^2 + 4*x)*Sx - 8*x - 8
+           sage: A.random_element().symmetric_power(0)
+           Sx - 1
         
         """
         if exp < 0:
             raise TypeError, "unexpected exponent received in symmetric_power"
         elif exp == 0:
-            # subclasses have to override this
-            return ValueError, "Don't know how the 0th symmetric power is defined in this algebra"
+            D = self.parent().gen(); R = D.base_ring()
+            return D - R(D(R.one())) # annihilator of 1
         elif exp == 1:
             return self
         elif exp % 2 == 1:
@@ -1110,7 +1147,7 @@ class UnivariateOreOperator(OreOperator):
 
         If the degree is less than the number given in the optional
         argument, the list is padded with zeros so as to ensure that
-        the output has length ``padd``+1.
+        the output has length ``padd`` + 1.
 
         EXAMPLES::
 

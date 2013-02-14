@@ -166,6 +166,7 @@ testsuite
 
 from sage.rings.arith import previous_prime as pp
 from sage.rings.arith import CRT_basis, gcd, lcm
+from sage.misc.misc import prod
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 from sage.rings.fraction_field import FractionField
 from sage.rings.integer_ring import ZZ

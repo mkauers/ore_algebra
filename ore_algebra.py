@@ -572,7 +572,7 @@ def OreAlgebra(base_ring, *generators, **kwargs):
 
     Further available shortcuts are ``'\u0394x'`` or ``'Fx'`` for the forward difference
     (``sigma=lambda p:p(x+1)`` and ``delta=lambda p: p(x+1)-p(x)``)
-    and ``'\u03B8x'`` or ``'Tx'`` for the Eulerian derivation `x\frac d{dx}`
+    and ``'\u03B8x'`` or ``'Tx'`` for the Eulerian derivation `x\\frac d{dx}`
     (i.e., ``sigma=lambda p:p`` and ``delta=lambda p: x*p.derivative(x)``).
 
     Ore algebras support coercion from their base rings. Furthermore, an Ore
