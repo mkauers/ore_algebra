@@ -450,7 +450,9 @@ class OreAlgebraFunctor(ConstructionFunctor):
         - gens: list (or tuple) of generators, each generator is specified by a tuple
           ``(a, b, c)`` where ``a`` is a variable name (string), ``b`` is a shift
           (specified as dictionary), and ``c`` is a sigma-derivation (specified as
-          dictionary).
+          dictionary), or ``(a, b, c, d)`` where ``a,b,c`` are as before, and ``d``
+          is a vector (w0,w1,w2,w3) of base ring elements encoding the product rule
+          for this generator: D(u*v) == w0*u*v + w1*D(u)*v + w2*u*D(v) + w3*D(u)*D(v)
 
         The functor is only applicable to rings which are compatible with the given
         dictionaries. Applying the functor to another ring causes an error. 
@@ -575,6 +577,11 @@ def OreAlgebra(base_ring, *generators, **kwargs):
     and ``'\u03B8x'`` or ``'Tx'`` for the Eulerian derivation `x\\frac d{dx}`
     (i.e., ``sigma=lambda p:p`` and ``delta=lambda p: x*p.derivative(x)``).
 
+    A generator can optionally be extended by a vector `(w_0,w_1,w_2,w_3)` of
+    base ring elements which encodes the product rule for the generator:
+    `D(u*v) == w_0*u*v + w_1*D(u)*v + w_2*u*D(v) + w_3*D(u)*D(v)`. This data
+    is needed in the computation of symmetric products.     
+
     Ore algebras support coercion from their base rings. Furthermore, an Ore
     algebra `A` knows how to coerce commutative polynomials `p` to elements of
     `A` if the generators of the parent of `p` have the same names as the
@@ -626,12 +633,19 @@ def OreAlgebra(base_ring, *generators, **kwargs):
        
     """
     R = base_ring; gens = list(generators)
-    zero = R.zero(); one = R.one()            
+    zero = R.zero(); one = R.one()
 
     if not _is_suitable_base_ring(R):
         raise TypeError, "The base ring is not of the required form."
     if len(gens) == 0:
         raise TypeError, "There must be at least one generator"
+
+    product_rules = []
+    for g in gens:
+        if len(g) > 3:
+            product_rules.append(tuple(g[3]))
+        else:
+            product_rules.append(None)
 
     # expand generator shortcuts, convert dictionaries to callables, and check that sigma(1)=1
     for i in xrange(len(gens)):
@@ -683,6 +697,14 @@ def OreAlgebra(base_ring, *generators, **kwargs):
         if len(sigma_delta) == 1 and sigma_delta[0][0] == sigma_delta[0][1] == one:
             is_delta[i] = True
 
+    for i in xrange(len(gens)):
+        if product_rules[i] is not None:
+            continue
+        elif is_shift[i] or is_qshift[i]:
+            product_rules[i] = (zero, zero, zero, one)
+        elif is_derivation[i] or is_theta[i]:
+            product_rules[i] = (zero, one, one, zero)
+
     # Select element class
     if kwargs.has_key("element_class"):
         operator_class = kwargs["element_class"]
@@ -732,10 +754,12 @@ def OreAlgebra(base_ring, *generators, **kwargs):
 
     # Check whether this algebra already exists.
     global _list_of_ore_algebras
-    alg = OreAlgebra_generic(base_ring, operator_class, gens, solver)
+    alg = OreAlgebra_generic(base_ring, operator_class, gens, solver, product_rules)
     for a in _list_of_ore_algebras:
         if a == alg:
-            a._set_solver(solver)
+            if kwargs.has_key("solver"):
+                a._set_solver(solver)
+            a._set_product_rules(product_rules)
             return a
 
     # It's new. register it and return it. 
@@ -748,15 +772,17 @@ class OreAlgebra_generic(Algebra):
     """
     """
 
-    def __init__(self, base_ring, operator_class, gens, solver):
+    def __init__(self, base_ring, operator_class, gens, solver, product_rules):
         self._base_ring = base_ring
         self._operator_class = operator_class
         self._gens = gens
         self.__solver = solver
+        self.__product_rules = product_rules
 
     # information extraction
 
     def __eq__(self, other):
+        # type and base ring and number of generators and element constructur must agree
         if not is_OreAlgebra(other):
             return False
         if not self.base_ring() == other.base_ring():
@@ -767,9 +793,17 @@ class OreAlgebra_generic(Algebra):
             return False
         Rgens = self.base_ring().gens()
         for i in xrange(self.ngens()):
+            # variable names and sigmas and deltas must agree
             if not (self.var(i) == other.var(i) and self.sigma(i) == other.sigma(i) and self.delta(i) == other.delta(i)):
                 return False
-        return True        
+            # if there are product rules, they must agree
+            pr1 = self._product_rule(i); pr2 = self._product_rule(i)
+            if pr1 is not None and pr2 is not None:
+                for i in xrange(4):
+                    if pr1[i] != pr2[i]:
+                        return False
+        # solver does not matter
+        return True
 
     def base_ring(self):
         """
@@ -1088,11 +1122,49 @@ class OreAlgebra_generic(Algebra):
         """
         self.__solver = solver
 
+    def _product_rule(self, n=0):
+        """
+        Returns the product rule associated to the given generator.
+
+        The product rule is a tuple `(w_0,w_1,w_2,w_3)` such that for the operator
+        application we have `D(u*v) = w_0*u*v + w_1*D(u)*v + w_2*u*D(v) + w_3*D(u)*D(v)`.
+
+        An algebra generator need not have a product rule associated to it.
+        If there is none, this method returns ``None``.        
+        """
+        return self.__product_rules[self._gen_to_idx(n)]
+
+    def _set_product_rules(self, rules, force=False):
+        """
+        Registers product rules for the generators of this algebra.
+
+        A product rule for a generator `D` is a tuple `(w_0,w_1,w_2,w_3)` such that for the operator
+        application we have `D(u*v) = w_0*u*v + w_1*D(u)*v + w_2*u*D(v) + w_3*D(u)*D(v)`.
+
+        The input paramter ``rules`` is a list of length ``self.ngens()`` which at index ``i``
+        carries either ``None`` or a coefficient tuple representing the rule.
+
+        If ``force=False``, rules which are already registered are kept and only new rules are added
+        to this algebra's set of rules. If ``force=True``, the current list of rules is discarded in
+        favor of the given ``rules``.        
+        """
+        if force:
+            self.__product_rules = list(rules)
+        else:
+            old = self.__product_rules; new = rules
+            for i in xrange(self.ngens()):
+                if new[i] is not None:
+                    if old[i] is None:
+                        old[i] = tuple(new[i])
+                    else:
+                        for j in xrange(4):
+                            if old[i][j] != new[i][j]:
+                                raise ValueError, "inconsistent product rule specification"
+
     def change_ring(self, R):
         """
         Creates the Ore algebra obtained from ``self`` by replacing the base ring by `R`
         """
-        A = OreAlgebra(R, *self._gens)
         return OreAlgebra(R, *self._gens)
 
     def change_var(self, var, n=0):

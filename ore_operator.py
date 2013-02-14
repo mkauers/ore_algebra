@@ -593,9 +593,8 @@ class UnivariateOreOperator(OreOperator):
 
     def __call__(self, f, **kwds):
 
-        D = self.parent().var();
-        if kwds.has_key(D):
-            D = kwds[D]
+        if kwds.has_key("action"):
+            D = kwds["action"]
         else:
             D = lambda p:p
 
@@ -906,7 +905,7 @@ class UnivariateOreOperator(OreOperator):
         
         return (L, L0 // A, L0 // B)
 
-    def symmetric_product(self, other, solver=None, tensor_map=None):
+    def symmetric_product(self, other, solver=None):
         """
         Returns the symmetric product of ``self`` and ``other``.
 
@@ -914,11 +913,9 @@ class UnivariateOreOperator(OreOperator):
         operator `C` such that for all \"functions\" `f` and `g` with `A.f=B.g=0`
         we have `C.(fg)=0`.
 
-        The function requires the  a 2x2 matrix over the base ring which
-        describes the action of the algebra's generator on a product of functions:
-        A matrix ``tensor_map=[[a,b],[c,d]]`` encodes the property 
-        `D(uv) = a u v + b D(u) v + c u D(v) + d D(u) D(v)` for functions `u`, `v`.
-        If set to ``None``, a ``ValueError`` is raised. 
+        The function requires that a product rule is associated to the ore algebra
+        where ``self`` and ``other`` live. (See docstring of OreAlgebra for information
+        about product rules.)
 
         If no ``solver`` is specified, the the Ore algebra's solver is used.         
 
@@ -930,22 +927,23 @@ class UnivariateOreOperator(OreOperator):
            x*Dx - x - 1
            sage: (x*Dx - 1).symmetric_product(Dx - 1)
            x*Dx - x - 1
+           sage: ((x+1)*Dx^2 + (x-1)*Dx + 8).symmetric_product((x-1)*Dx^2 + (2*x+3)*Dx + (8*x+5))
+           (-29*x^8 + 4*x^7 + 55*x^6 + 34*x^5 + 23*x^4 - 80*x^3 - 95*x^2 + 42*x + 46)*Dx^4 + (-174*x^8 - 150*x^7 - 48*x^6 + 294*x^5 + 864*x^4 + 646*x^3 - 232*x^2 - 790*x - 410)*Dx^3 + (-783*x^8 - 1661*x^7 + 181*x^6 + 1783*x^5 + 3161*x^4 + 3713*x^3 - 213*x^2 - 107*x + 1126)*Dx^2 + (-1566*x^8 - 5091*x^7 - 2394*x^6 - 2911*x^5 + 10586*x^4 + 23587*x^3 + 18334*x^2 + 2047*x - 5152)*Dx - 2552*x^8 - 3795*x^7 - 8341*x^6 - 295*x^5 + 6394*x^4 + 24831*x^3 + 35327*x^2 + 23667*x + 13708
            sage: A.<Sx> = OreAlgebra(R, 'Sx')
            sage: (Sx - 2).symmetric_product(x*Sx - (x+1))
            x*Sx - 2*x - 2
            sage: (x*Sx - (x+1)).symmetric_product(Sx - 2)
-           x*Sx - 2*x - 2           
+           x*Sx - 2*x - 2
+           sage: ((x+1)*Sx^2 + (x-1)*Sx + 8).symmetric_product((x-1)*Sx^2 + (2*x+3)*Sx + (8*x+5))
+           (8*x^8 + 13*x^7 - 300*x^6 - 1640*x^5 - 3698*x^4 - 4373*x^3 - 2730*x^2 - 720*x)*Sx^4 + (-16*x^8 - 34*x^7 + 483*x^6 + 1947*x^5 + 2299*x^4 + 2055*x^3 + 4994*x^2 + 4592*x)*Sx^3 + (64*x^8 - 816*x^7 - 1855*x^6 + 21135*x^5 + 76919*x^4 + 35377*x^3 - 179208*x^2 - 283136*x - 125440)*Sx^2 + (-1024*x^7 - 1792*x^6 + 39792*x^5 + 250472*x^4 + 578320*x^3 + 446424*x^2 - 206528*x - 326144)*Sx + 32768*x^6 + 61440*x^5 - 956928*x^4 - 4897984*x^3 - 9390784*x^2 - 7923200*x - 2329600
         
         """
-        if tensor_map is None:
-            raise ValueError, "need tensor_map to perform symmetric product"
-
         if not isinstance(other, UnivariateOreOperator):
             raise TypeError, "unexpected argument in symmetric_product"
 
         if self.parent() != other.parent():
             A, B = canonical_coercion(self, other)
-            return A.symmetric_product(B, solver=solver, tensor_map=tensor_map)
+            return A.symmetric_product(B, solver=solver)
 
         R = self.base_ring().fraction_field(); zero = R.zero(); one = R.one()
         
@@ -961,6 +959,10 @@ class UnivariateOreOperator(OreOperator):
         elif a == 1 and b > 1:
             A, B, a, b = B, A, b, a
 
+        pr = Alg._product_rule()
+        if pr is None:
+            raise ValueError, "no product rule found"
+
         if b == 1:
             
             D = A.parent().gen(); D1 = D(R.one())
@@ -969,7 +971,7 @@ class UnivariateOreOperator(OreOperator):
                 return A            
 
             # define g such that (D - h)(u) == 0 iff (D - g)(1/u) == 0.
-            g = (D1 - tensor_map[0][0] - tensor_map[0][1]*h)/(tensor_map[1][0] + tensor_map[1][1]*h)
+            g = (D1 - pr[0] - pr[1]*h)/(pr[2] + pr[3]*h)
             
             # define p, q such that "D*1/u == p*1/u*D + q*1/u" 
             p = (g - D1)/(D1 - h); q = g - p*D1
@@ -1007,10 +1009,10 @@ class UnivariateOreOperator(OreOperator):
             for i in xrange(a - 1, -1, -1):
                 for j in xrange(b - 1, -1, -1):
                     s = sigma(Dkuv[i][j])
-                    Dkuv[i + 1][j + 1] += s*tensor_map[1][1]
-                    Dkuv[i][j + 1] += s*tensor_map[0][1]
-                    Dkuv[i + 1][j] += s*tensor_map[1][0]
-                    Dkuv[i][j] = delta(Dkuv[i][j]) + s*tensor_map[0][0]
+                    Dkuv[i + 1][j + 1] += s*pr[3]
+                    Dkuv[i][j + 1] += s*pr[2]
+                    Dkuv[i + 1][j] += s*pr[1]
+                    Dkuv[i][j] = delta(Dkuv[i][j]) + s*pr[0]
 
             # reduce
             for i in xrange(a + 1):
@@ -1032,7 +1034,7 @@ class UnivariateOreOperator(OreOperator):
         L = A.parent()(list(sol[0]))
         return L
 
-    def symmetric_power(self, exp, solver=None, tensor_map=None):
+    def symmetric_power(self, exp, solver=None):
         """
         Returns a symmetric power of this operator.
 
@@ -1040,7 +1042,7 @@ class UnivariateOreOperator(OreOperator):
         such that for all \"functions\" `f` annihilated by `L` the operator `Q` annihilates
         the function `f^n`.
 
-        For information about the optional arguments, see the docstring of ``symmetric_product``.
+        For further information, see the docstring of ``symmetric_product``.
 
         EXAMPLES::
 
@@ -1063,11 +1065,11 @@ class UnivariateOreOperator(OreOperator):
         elif exp == 1:
             return self
         elif exp % 2 == 1:
-            L = self.symmetric_power(exp - 1, solver=solver, tensor_map=tensor_map)
-            return L.symmetric_product(self, solver=solver, tensor_map=tensor_map)
+            L = self.symmetric_power(exp - 1, solver=solver)
+            return L.symmetric_product(self, solver=solver)
         elif exp % 2 == 0:
-            L = self.symmetric_power(exp/2, solver=solver, tensor_map=tensor_map)
-            return L.symmetric_product(L, solver=solver, tensor_map=tensor_map)
+            L = self.symmetric_power(exp/2, solver=solver)
+            return L.symmetric_product(L, solver=solver)
         else:
             raise TypeError, "unexpected exponent received in symmetric_power"
 
@@ -1269,21 +1271,10 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
     def __call__(self, f, **kwargs):
         
         D = self.parent().var();
-        if not kwargs.has_key(D):
-            kwargs[D] = lambda p : p.derivative()
+        if not kwargs.has_key("action"):
+            kwargs["action"] = lambda p : p.derivative()
 
         return UnivariateOreOperator.__call__(self, f, **kwargs)
-
-    def symmetric_product(self, other, solver=None, tensor_map=None):
-        R = self.base_ring(); one = R.one(); zero = R.zero()
-        return UnivariateOreOperator.symmetric_product(self, other, solver=solver, tensor_map=[[zero, one], [one, zero]])
-
-    def symmetric_power(self, exp, solver=None, tensor_map=None):
-        R = self.base_ring(); one = R.one(); zero = R.zero()
-        if exp == 0:
-            return self.parent()([zero, one]) # annihilator of 1
-        else:
-            return UnivariateOreOperator.symmetric_power(self, exp, solver=solver, tensor_map=[[zero, one], [one, zero]])
 
     def to_recurrence(self, rec_algebra):
         """
@@ -1389,21 +1380,10 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
         
         D = self.parent().var();
         x = self.parent().base_ring().gen()
-        if not kwargs.has_key(D):
-            kwargs[D] = lambda p : p(x+1)
+        if not kwargs.has_key("action"):
+            kwargs["action"] = lambda p : p(x+1)
 
         return UnivariateOreOperator.__call__(self, f, **kwargs)
-
-    def symmetric_product(self, other, solver=None, tensor_map=None):
-        R = self.base_ring(); one = R.one(); zero = R.zero()
-        return UnivariateOreOperator.symmetric_product(self, other, solver=solver, tensor_map=[[zero, zero], [zero, one]])
-
-    def symmetric_power(self, exp, solver=None, tensor_map=None):
-        R = self.base_ring(); one = R.one(); zero = R.zero()
-        if exp == 0:
-            return self.parent()([-one, one]) # annihilator of 1
-        else:
-            return UnivariateOreOperator.symmetric_power(self, exp, solver=solver, tensor_map=[[zero, zero], [zero, one]])
 
     def to_differential_equation(self, *args):
         raise NotImplementedError
