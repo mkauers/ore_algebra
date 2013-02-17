@@ -1166,9 +1166,12 @@ class UnivariateOreOperator(OreOperator):
     def valuation(self):
         """
         Returns the valuation of this operator, which is defined as the minimal power `i` of the
-        generator which has a nonzero coefficient. The zero operator has order `\\infinity`.
+        generator which has a nonzero coefficient. The zero operator has order `\\infty`.
         """
-        return min(self.exponents())
+        if self == self.parent().zero():
+            return infinity.infinity
+        else:
+            return min(self.exponents())
 
     def __getitem__(self, n):
         return self.polynomial()[n]
@@ -1260,6 +1263,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         """
         raise NotImplementedError
 
+
 #############################################################################################################
 
 class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOverUnivariateRing):
@@ -1272,7 +1276,6 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
 
     def __call__(self, f, **kwargs):
         
-        D = self.parent().var();
         if not kwargs.has_key("action"):
             kwargs["action"] = lambda p : p.derivative()
 
@@ -1341,6 +1344,9 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
 
     def to_rec(self, *args):
         return self.to_recurrence(args)
+
+    def to_euler_form(self, *args):
+        raise NotImplementedError
 
     def annihilator_of_integral(self):
         """
@@ -1449,6 +1455,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         """
         raise NotImplementedError
 
+
 #############################################################################################################
 
 class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUnivariateRing):
@@ -1461,18 +1468,20 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
 
     def __call__(self, f, **kwargs):
         
-        D = self.parent().var();
         x = self.parent().base_ring().gen()
         if not kwargs.has_key("action"):
             kwargs["action"] = lambda p : p(x+1)
 
         return UnivariateOreOperator.__call__(self, f, **kwargs)
 
-    def to_differential_equation(self, *args):
+    def to_differential_operator(self, *args):
         raise NotImplementedError
 
     def to_deq(self, *args):
-        return self.to_differential_equation(args)
+        return self.to_differential_operator(args)
+
+    def to_difference_operator(self, *args):
+        raise NotImplementedError
 
     def annihilator_of_sum(self):
         """
@@ -1501,7 +1510,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
 
         - `a` -- a polynomial `u*x+v` where `x` is the generator of the base ring,
           `u` and `v` are integers or rational numbers. If they are rational,
-           the base ring of the parent of ``self`` must contain ``QQ``.
+          the base ring of the parent of ``self`` must contain ``QQ``.
         - ``solver`` (optional) -- a callable object which applied to a matrix
           with polynomial entries returns its kernel. 
 
@@ -1634,12 +1643,9 @@ class UnivariateQRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverU
 
     def __call__(self, f, **kwargs):
 
-        R = self.parent()
-        D = R.var()
-        x = R.base_ring().gen()
-        qx = R.sigma()(x)
-        if not kwargs.has_key(D):
-            kwargs[D] = lambda p : p(qx)
+        R = self.parent(); x = R.base_ring().gen(); qx = R.sigma()(x)
+        if not kwargs.has_key("action"):
+            kwargs["action"] = lambda p : p(qx)
 
         return UnivariateOreOperator.__call__(self, f, **kwargs)
 
@@ -1671,6 +1677,75 @@ class UnivariateQRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverU
 
     def get_data(self, init, n):
         raise NotImplementedError
+
+
+#############################################################################################################
+
+class UnivariateQDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOverUnivariateRing):
+    """
+    Element of an Ore algebra K(x)[J], where J is the Jackson q-differentiation J f(x) = (f(q*x) - f(x))/(q*(x-1))
+    """
+
+    def __init__(self, parent, *data, **kwargs):
+        super(UnivariateOreOperatorOverUnivariateRing, self).__init__(parent, *data, **kwargs)
+
+    def __call__(self, f, **kwargs):
+
+        R = self.parent(); x = R.base_ring().gen(); qx = R.sigma()(x)
+        if not kwargs.has_key("action"):
+            kwargs["action"] = lambda p : (p(qx) - p)/(q*(x-1))
+
+        return UnivariateOreOperator.__call__(self, f, **kwargs)
+
+
+#############################################################################################################
+
+class UnivariateDifferenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUnivariateRing):
+    """
+    Element of an Ore algebra K(x)[F], where F is the forward difference operator F f(x) = f(x+1) - f(x)
+    """
+
+    def __init__(self, parent, *data, **kwargs):
+        super(UnivariateOreOperatorOverUnivariateRing, self).__init__(parent, *data, **kwargs)
+
+    def __call__(self, f, **kwargs):
+
+        R = self.parent(); x = R.base_ring().gen(); qx = R.sigma()(x)
+        if not kwargs.has_key("action"):
+            kwargs["action"] = lambda p : p(qx) - p
+
+        return UnivariateOreOperator.__call__(self, f, **kwargs)
+
+    def to_recurrence_operator(self, *args):
+        raise NotImplementedError
+
+    def to_rec(self, *args):
+        return self.to_recurrence_operator(*args)
+
+#############################################################################################################
+
+class UnivariateEulerDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOverUnivariateRing):
+    """
+    Element of an Ore algebra K(x)[T], where T is the Euler differential operator T = x*d/dx
+    """
+
+    def __init__(self, parent, *data, **kwargs):
+        super(UnivariateOreOperatorOverUnivariateRing, self).__init__(parent, *data, **kwargs)
+
+    def __call__(self, f, **kwargs):
+
+        R = self.parent(); x = R.base_ring().gen(); 
+        if not kwargs.has_key("action"):
+            kwargs["action"] = lambda p : x*p.derivative()
+
+        return UnivariateOreOperator.__call__(self, f, **kwargs)
+
+    def to_differential_operator(self, *args):
+        raise NotImplementedError
+
+    def to_deq(self, *args):
+        return self.to_differential_operator(*args)
+    
 
 #############################################################################################################
 
