@@ -740,14 +740,29 @@ class UnivariateOreOperator(OreOperator):
             orddiff = p.order() - q.order()
         return (quo,p)
 
-    def gcrd(self, other, prs=None):
+    def gcrd(self, *other, **kwargs):
         """
         Returns the GCRD of self and other. 
         It is possible to specify which remainder sequence should be used.
         """
 
-        if self.is_zero(): return other
-        if other.is_zero(): return self
+        if len(other) > 1:
+            return reduce(lambda p, q: p.gcrd(q), other, self)
+        elif len(other) == 0:
+            return self
+
+        other = other[0]
+        if self.is_zero():
+            return other
+        elif other.is_zero():
+            return self
+        elif self.order() == 1 or other in self.base_ring():
+            return self.parent().one()
+        elif self.parent() is not other.parent():
+            A, B = canonical_coercion(self, other)
+            return A.gcrd(B)
+
+        prs = kwargs["prs"] if kwargs.has_key("prs") else None
 
         r = (self,other)
         if (r[0].order()<r[1].order()):
@@ -809,7 +824,7 @@ class UnivariateOreOperator(OreOperator):
 
         return (r,a11,a12)
 
-    def lclm(self, other):
+    def lclm(self, *other, **kwargs):
         """
         Computes the least common left multiple of ``self`` and ``other``.
 
@@ -819,19 +834,47 @@ class UnivariateOreOperator(OreOperator):
         parent of ``self`` and ``other``. The parent of `L` is the same as
         the parent of the input operators.
 
+        If more than one operator is given, the function computes the lclm
+        of all the operators.
+
+        Through the optional argument ``solver``, a callable object can be
+        provided which the function should use for computing the kernel of
+        matrices with entries in the Ore algebra's base ring. 
+
         EXAMPLES::
 
-            sage: R.<x> = QQ['x']
+            sage: R.<x> = ZZ['x']
             sage: Alg.<Dx> = OreAlgebra(R, 'Dx')
             sage: A = 5*(x+1)*Dx + (x - 7); B = (3*x+5)*Dx - (8*x+1)
             sage: L = A.lclm(B)
             (-645*x^4 - 2155*x^3 - 1785*x^2 + 475*x + 750)*Dx^2 + (1591*x^4 + 3696*x^3 + 3664*x^2 + 2380*x + 725)*Dx + 344*x^4 - 2133*x^3 - 2911*x^2 - 1383*x - 1285
-            sage: 
+            sage: A*B
             (15*x^2 + 40*x + 25)*Dx^2 + (-37*x^2 - 46*x - 25)*Dx - 8*x^2 + 15*x - 33
             sage: B.lclm(A*B)
             (-15*x^2 - 40*x - 25)*Dx^2 + (37*x^2 + 46*x + 25)*Dx + 8*x^2 - 15*x + 33
+            sage: B.lclm(L, A*B)
+            (15*x^2 + 40*x + 25)*Dx^2 + (-37*x^2 - 46*x - 25)*Dx - 8*x^2 + 15*x - 33
         
         """
+
+        if len(other) != 1:
+            return reduce(lambda p, q: p.lclm(q), other, self)
+        elif len(other) == 0:
+            return self
+
+        other = other[0]
+        if self.is_zero() or other.is_zero():
+            return self.parent().zero()
+        elif self.order() == 1:
+            return other
+        elif other in self.base_ring():
+            return self
+        elif self.parent() is not other.parent():
+            A, B = canonical_coercion(self, other)
+            return A.lclm(B)
+
+        solver = kwargs["solver"] if kwargs.has_key("solver") else None
+        
         if not isinstance(other, UnivariateOreOperator):
             raise TypeError, "unexpected argument in lclm"
 
@@ -853,7 +896,8 @@ class UnivariateOreOperator(OreOperator):
             rowsB.append(D*rowsB[-1])
 
         from sage.matrix.constructor import Matrix
-        solver = A.parent()._solver()
+        if solver == None:
+            solver = A.parent()._solver()
 
         sys = Matrix(map(lambda p: p.coeffs(padd=t), rowsA + rowsB)).transpose()
         sol = solver(sys)
