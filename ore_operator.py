@@ -12,6 +12,7 @@ from sage.rings.polynomial.multi_polynomial_ring import is_MPolynomialRing
 from sage.rings.number_field.number_field import is_NumberField
 from sage.rings.fraction_field import is_FractionField
 from sage.rings.arith import gcd
+from sage.rings.rational_field import QQ
 
 class OreOperator(RingElement):
     """
@@ -612,17 +613,18 @@ class UnivariateOreOperator(OreOperator):
 
     def __eq__(self, other):
 
-        if not isinstance(other, OreOperator):
+        if self.order() == 0:
+            return self.constant_coefficient() == other
+        elif not isinstance(other, OreOperator):
             return False
-        
-        if self.parent() == other.parent():
+        elif self.parent() == other.parent():
             return self.polynomial() == other.polynomial()
-
-        try:
-            A, B = canonical_coercion(self, other)
-            return A == B
-        except:
-            return False
+        else:
+            try:
+                A, B = canonical_coercion(self, other)
+                return A == B
+            except:
+                return False
 
     def _is_atomic(self):
         return self._poly._is_atomic()
@@ -1340,18 +1342,99 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
     def to_rec(self, *args):
         return self.to_recurrence(args)
 
-    def integrate(self):
+    def annihilator_of_integral(self):
         """
-        If self is such that self*f = 0, this function returns an operator L such that L*int(f) = 0
-        """
-        raise NotImplementedError
+        Returns an operator `L` which annihilates all the indefinite integrals `\int f`
+        where `f` runs through the functions annihilated by ``self``.
+        The output operator is not necessarily of smallest possible order. 
 
-    def compose(self, alg):
+        EXAMPLES::
+
+           sage: R.<x> = ZZ['x']
+           sage: A.<Dx> = OreAlgebra(R, 'Dx')
+           sage: ((x-1)*Dx - 2*x).annihilator_of_integral()
+           (x-1)*Dx^2 - 2*x*Dx
+           sage: _.annihilator_of_associate(Dx)
+           (x-1)*Dx - 2*x
+           
         """
-        If self is such that self*f = 0 and alg is an algebraic function, this function returns an
-        operator L such that L*(f circ alg) = 0.
+        return self*self.parent().gen()
+
+    def annihilator_of_composition(self, a, solver=None):
         """
-        raise NotImplementedError
+        Returns an operator `L` which annihilates all the functions `f(a(x))`
+        where `f` runs through the functions annihilated by ``self``.
+        The output operator is not necessarily of smallest possible order.
+
+        INPUT:
+
+        - ``a`` -- either an element of the base ring of the parent of ``self``,
+          or an element of an algebraic extension of this ring.
+        - ``solver`` (optional) -- a callable object which applied to a matrix
+          with polynomial entries returns its kernel. 
+
+        EXAMPLES::
+
+           sage: R.<x> = ZZ['x']
+           sage: K.<y> = R.fraction_field()['y']
+           sage: K.<y> = R.fraction_field().extension(y^3 - x^2*(x+1))
+           sage: A.<Dx> = OreAlgebra(R, 'Dx')
+           sage: (x*Dx-1).annihilator_of_composition(y) # ann for x^(2/3)*(x+1)^(1/3)
+           (3*x^2 + 3*x)*Dx - 3*x - 2
+           sage: (x*Dx-1).annihilator_of_composition(y + 2*x) # ann for 2*x + x^(2/3)*(x+1)^(1/3)
+           (-3*x^3 - 3*x^2)*Dx^2 + 2*x*Dx - 2
+           sage: (Dx - 1).annihilator_of_composition(y) # ann for exp(x^(2/3)*(x+1)^(1/3))
+           (243*x^6 + 810*x^5 + 999*x^4 + 540*x^3 + 108*x^2)*Dx^3 + (162*x^3 + 270*x^2 + 108*x)*Dx^2 + (-162*x^2 - 180*x - 12)*Dx - 243*x^6 - 810*x^5 - 1080*x^4 - 720*x^3 - 240*x^2 - 32*x
+        
+        """
+
+        A = self.parent(); K = A.base_ring().fraction_field(); R = K['Y']
+        if solver == None:
+            solver = A._solver(K)
+
+        if self == A.one():
+            return self
+        elif a in K:
+            minpoly = R.gen() - K(a)
+        else:
+            try:
+                minpoly = R(a.minpoly()).monic()
+            except:
+                raise TypeError, "argument not recognized as algebraic function over base ring"
+
+        d = minpoly.degree(); r = self.order()
+
+        # derivative of a
+        Da = -minpoly.map_coefficients(lambda p: p.derivative())
+        Da *= minpoly.xgcd(minpoly.derivative())[2]
+        Da = Da % minpoly
+
+        # self's coefficients with x replaced by a, denominators cleared, and reduced by minpoly.
+        # have: (D^r f)(a) == sum( red[i]*(D^i f)a, i=0..len(red)-1 ) and each red[i] is a poly in Y of deg <= d.
+        red = [ R(p.numerator().coeffs()) for p in self.numerator().change_ring(K).coeffs() ]
+        lc = -minpoly.xgcd(red[-1])[2]
+        red = [ (red[i]*lc) % minpoly for i in xrange(r) ]
+
+        from sage.matrix.constructor import Matrix
+        Dkfa = [R.zero() for i in xrange(r)] # Dkfa[i] == coeff of (D^i f)(a) in D^k (f(a))
+        Dkfa[0] = R.one()
+        mat = [[ q for p in Dkfa for q in p.padded_list(d) ]]; sol = []
+
+        while len(sol) == 0:
+
+            # compute coeffs of (k+1)th derivative
+            next = [ (p.map_coefficients(lambda q: q.derivative()) + p.derivative()*Da) % minpoly for p in Dkfa ]
+            for i in xrange(r - 1):
+                next[i + 1] += (Dkfa[i]*Da) % minpoly
+            for i in xrange(r):
+                next[i] += (Dkfa[-1]*red[i]*Da) % minpoly
+            Dkfa = next
+
+            # check for linear relations
+            mat.append([ q for p in Dkfa for q in p.padded_list(d) ])
+            sol = solver(Matrix(K, mat).transpose())
+
+        return self.parent()(list(sol[0]))
 
     def power_series_solutions(self, n):
         raise NotImplementedError
@@ -1391,31 +1474,146 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
     def to_deq(self, *args):
         return self.to_differential_equation(args)
 
-    def sum(self):
+    def annihilator_of_sum(self):
         """
-        If self is such that self*f = 0, this function returns an operator L such that L*sum(f) = 0
-        """
-        raise NotImplementedError
+        Returns an operator `L` which annihilates all the indefinite sums `\sum_{k=0}^n a_k`
+        where `a_n` runs through the sequences annihilated by ``self``.
+        The output operator is not necessarily of smallest possible order. 
 
-    def compose(self, u, v):
-        """
-        If self is such that self*f(n) = 0 and u, v are nonnegative rational numbers,
-        this function returns an operator L such that L*f(floor(u*n+v)) = 0.
-        """
-        raise NotImplementedError
+        EXAMPLES::
 
-    def interlace(self, *other):
+           sage: R.<x> = ZZ['x']
+           sage: A.<Sx> = OreAlgebra(R, 'Sx')
+           sage: ((x+1)*Sx - x).annihilator_of_sum() # constructs L such that L(H_n) == 0
+           (x + 2)*Sx^2 + (-2*x - 3)*Sx + x + 1
+           
         """
-        If ``self`` is an operator which annihilates a certain sequence `a(n)`
-        and ``other`` an operator from the same algebra which annihilates some sequence `b(n)`,
-        this returns an operator which annihilates the sequence `a(0),b(0),a(1),b(1),a(2),b(2),...`.
+        A = self.parent()
+        return self.map_coefficients(A.sigma())*(A.gen() - A.one())
 
-        Any number of operators can be given. For example, in the case of two arguments,
-        the resulting operator will annihilate the sequence `a(0),b(0),c(0),a(1),...`,
-        where `a(n),b(n),c(n)` are sequence annihilated by ``self`` and the to operators
-        given as argument.         
+    def annihilator_of_composition(self, a, solver=None):
         """
-        raise NotImplementedError
+        Returns an operator `L` which annihilates all the sequences `f(floor(a(n)))`
+        where `f` runs through the functions annihilated by ``self``.
+        The output operator is not necessarily of smallest possible order.
+
+        INPUT:
+
+        - `a` -- a polynomial `u*x+v` where `x` is the generator of the base ring,
+          `u` and `v` are integers or rational numbers. If they are rational,
+           the base ring of the parent of ``self`` must contain ``QQ``.
+        - ``solver`` (optional) -- a callable object which applied to a matrix
+          with polynomial entries returns its kernel. 
+
+        EXAMPLES::
+
+          sage: R.<x> = QQ['x']
+          sage: A.<Sx> = OreAlgebra(R, 'Sx')
+          sage: ((2+x)*Sx^2-(2*x+3)*Sx+(x+1)).annihilator_of_composition(2*x+5) 
+          (16*x^3 + 188*x^2 + 730*x + 936)*Sx^2 + (-32*x^3 - 360*x^2 - 1340*x - 1650)*Sx + 16*x^3 + 172*x^2 + 610*x + 714
+          sage: ((2+x)*Sx^2-(2*x+3)*Sx+(x+1)).annihilator_of_composition(1/2*x)
+          (1/2*x^2 + 11/2*x + 15)*Sx^6 + (-3/2*x^2 - 25/2*x - 27)*Sx^4 + (3/2*x^2 + 17/2*x + 13)*Sx^2 - 1/2*x^2 - 3/2*x - 1
+          sage: ((2+x)*Sx^2-(2*x+3)*Sx+(x+1)).annihilator_of_composition(100-x)
+          (-x + 99)*Sx^2 + (2*x - 199)*Sx - x + 100
+          
+        """
+
+        A = self.parent()
+        
+        if a in QQ:
+            # a is constant => f(a) is constant => S-1 kills it
+            return A.gen() - A.one()
+
+        R = QQ[A.base_ring().gen()]
+
+        try:
+            a = R(a)
+        except:
+            raise ValueError, "argument has to be of the form u*x+v where u,v are rational"
+
+        if a.degree() > 1:
+            raise ValueError, "argument has to be of the form u*x+v where u,v are rational"
+
+        try:
+            u = QQ(a[1]); v = QQ(a[0])
+        except:
+            raise ValueError, "argument has to be of the form u*x+v where u,v are rational"
+
+        r = self.order(); x = A.base_ring().gen()
+
+        # special treatment for easy cases
+        w = u.denominator().abs()
+        if w > 1:
+            w = w.lcm(v.denominator()).abs()
+            p = self.polynomial()(A.associated_commutative_algebra().gen()**w)
+            q = p = A(p.map_coefficients(lambda f: f(x/w)))
+            for i in xrange(1, w):
+                q = q.lclm(p.annihilator_of_composition(x - i), solver=solver)
+            return q.annihilator_of_composition(w*u*x + w*v)
+        elif v != 0:
+            s = A.sigma(); v = v.floor()
+            L = self.map_coefficients(lambda p: s(p, v))
+            return L if u == 1 else L.annihilator_of_composition(u*x)
+        elif u == 1:
+            return self
+        elif u < 0:
+            c = [ p(-r - x) for p in self.coeffs() ]; c.reverse()
+            return A(c).annihilator_of_composition(-u*x)
+
+        # now a = u*x where u > 1 is an integer. 
+        from sage.matrix.constructor import Matrix
+        A = A.change_ring(A.base_ring().fraction_field())
+        if solver == None:
+            solver = A._solver()
+        L = A(self)
+
+        p = A.one(); Su = A.gen()**u # possible improvement: multiplication matrix. 
+        mat = [ p.coeffs(padd=r) ]; sol = []
+
+        while len(sol) == 0:
+
+            p = (Su*p) % L
+            mat.append( p.coeffs(padd=r) )
+            sol = solver(Matrix(mat).transpose())
+
+        return self.parent()(list(sol[0])).map_coefficients(lambda p: p(u*x))
+
+    def annihilator_of_interlacing(self, *other):
+        """
+        Returns an operator `L` which annihilates any sequence which can be
+        obtained by interlacing sequences annihilated by ``self`` and the
+        operators given in the arguments.
+
+        More precisely, if ``self`` and the operators given in the arguments are
+        denoted `L_1,L_2,\dots,L_m`, and if `f_1(n),\dots,f_m(n)` are some
+        sequences such that `L_i` annihilates `f_i(n)`, then the output operator
+        `L` annihilates sequence
+        `f_1(0),f_2(0),\dots,f_m(0),f_1(1),f_2(1),\dots,f_m(1),\dots`, the
+        interlacing sequence of `f_1(n),\dots,f_m(n)`.
+
+        The output operator is not necessarily of smallest possible order.
+
+        The ``other`` operators must be coercible to the parent of ``self``.
+
+        EXAMPLES::
+
+          sage: R.<x> = QQ['x']
+          sage: A.<Sx> = OreAlgebra(R, 'Sx')
+          sage: (x*Sx - (x+1)).annihilator_of_interlacing(Sx - (x+1), Sx + 1)
+          (-x^7 - 45/2*x^6 - 363/2*x^5 - 1129/2*x^4 - 45/2*x^3 + 5823/2*x^2 + 5751/2*x - 2349)*Sx^9 + (1/3*x^8 + 61/6*x^7 + 247/2*x^6 + 4573/6*x^5 + 14801/6*x^4 + 7173/2*x^3 + 519/2*x^2 - 3051*x + 756)*Sx^6 + (-7/2*x^6 - 165/2*x^5 - 1563/2*x^4 - 7331/2*x^3 - 16143/2*x^2 - 9297/2*x + 5535)*Sx^3 - 1/3*x^8 - 67/6*x^7 - 299/2*x^6 - 6157/6*x^5 - 22877/6*x^4 - 14549/2*x^3 - 10839/2*x^2 + 1278*x + 2430
+
+        """
+        A = self.parent(); A = A.change_ring(A.base_ring().fraction_field())
+        ops = [A(self)] + map(A, list(other))
+        S_power = A.associated_commutative_algebra().gen()**len(ops)
+        x = A.base_ring().gen()
+
+        for i in xrange(len(ops)):
+            ops[i] = A(ops[i].polynomial()(S_power)\
+                       .map_coefficients(lambda p: p(x/len(ops))))\
+                       .annihilator_of_composition(x - i)
+
+        return self.parent()(reduce(lambda p, q: p.lclm(q), ops).numerator())
 
     def generalized_series_solutions(self, n): # at infinity. 
         raise NotImplementedError
@@ -1445,20 +1643,20 @@ class UnivariateQRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverU
 
         return UnivariateOreOperator.__call__(self, f, **kwargs)
 
-    def sum(self):
+    def annihilator_of_sum(self):
         """
         If self is such that self*f = 0, this function returns an operator L such that L*sum(f) = 0
         """
         raise NotImplementedError
 
-    def compose(self, u, v):
+    def annihilator_of_composition(self, u, v):
         """
         If self is such that self*f(n) = 0 and u, v are nonnegative rational numbers,
         this function returns an operator L such that L*f(floor(u*n+v)) = 0.
         """
         raise NotImplementedError
 
-    def interlace(self, *other):
+    def annihilator_of_interlacing(self, *other):
         """
         If ``self`` is an operator which annihilates a certain sequence `a(n)`
         and ``other`` an operator from the same algebra which annihilates some sequence `b(n)`,

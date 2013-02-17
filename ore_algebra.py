@@ -141,7 +141,10 @@ class _Sigma:
             return self.__R(p)(**self.__dict)
         elif exp > 1:
             # possible improvement: store separate dictionaries for each exp
-            return self(self.__R(p)(**self.__dict), exp=exp-1)
+            out = self.__R(p); d = self.__dict
+            for i in xrange(exp):
+                out = out(**d)
+            return out
         elif exp == 0:
             return p
         elif exp < 0:
