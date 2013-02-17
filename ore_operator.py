@@ -1512,6 +1512,20 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
 
     def __call__(self, f, **kwargs):
         
+        if type(f) in (tuple, list):
+
+            r = self.order()
+            R = self.parent().base_ring(); K = R.base_ring()
+            out = [K.zero()]*(len(f) - r)
+            for i in xrange(r + 1):
+                c = R(self[i])
+                for n in xrange(len(out)):
+                    try:
+                        out[n] += K(c(n))*K(f[n + i])
+                    except ZeroDivisionError:
+                        out[n] = None
+            return type(f)(out)
+
         x = self.parent().base_ring().gen()
         if not kwargs.has_key("action"):
             kwargs["action"] = lambda p : p(x+1)
@@ -1687,6 +1701,21 @@ class UnivariateQRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverU
 
     def __call__(self, f, **kwargs):
 
+        if type(f) in (tuple, list):
+
+            r = self.order()
+            _, q = self.parent().is_Q()
+            R = self.parent().base_ring(); K = R.base_ring()
+            out = [K.zero()]*(len(f) - r)
+            for i in xrange(r + 1):
+                c = R(self[i])
+                for n in xrange(len(out)):
+                    try:
+                        out[n] += K(c(q**n))*K(f[n + i])
+                    except ZeroDivisionError:
+                        out[n] = None
+            return type(f)(out)
+
         R = self.parent(); x = R.base_ring().gen(); qx = R.sigma()(x)
         if not kwargs.has_key("action"):
             kwargs["action"] = lambda p : p(qx)
@@ -1754,6 +1783,9 @@ class UnivariateDifferenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
 
     def __call__(self, f, **kwargs):
 
+        if type(f) in (tuple, list):
+            return self.to_rec('n')(f, **kwargs)
+            
         R = self.parent(); x = R.base_ring().gen(); qx = R.sigma()(x)
         if not kwargs.has_key("action"):
             kwargs["action"] = lambda p : p(qx) - p
@@ -1765,6 +1797,7 @@ class UnivariateDifferenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
 
     def to_rec(self, *args):
         return self.to_recurrence_operator(*args)
+
 
 #############################################################################################################
 
