@@ -119,7 +119,7 @@ class _Sigma:
 
     def __init__(self, R, d):
 
-        Rgens = R.gens(); my_dict = {}
+        Rgens = R.gens(); my_dict = {}; is_id = True
         if type(d) != dict:
             for x in Rgens:
                 my_dict[str(x)] = R(d(x))
@@ -129,22 +129,47 @@ class _Sigma:
                     raise ValueError, str(x) + " is not a generator of " + str(R)
                 if x != d[x]:
                     my_dict[str(x)] = R(d[x])
+                    is_id = False
             for x in Rgens:
                 if not my_dict.has_key(str(x)):
                     my_dict[str(x)] = R(x)
         self.__R = R
         self.__dict = my_dict
+        self.__is_identity = is_id
 
     def __call__(self, p, exp=1):
 
-        if exp == 1:
+        if self.__is_identity:
+            return p
+        elif exp == 1:
             return self.__R(p)(**self.__dict)
         elif exp > 1:
-            # possible improvement: store separate dictionaries for each exp
-            out = self.__R(p); d = self.__dict
-            for i in xrange(exp):
-                out = out(**d)
-            return out
+
+            try:
+                pows = self.__powers
+            except AttributeError:
+                pows = self.__powers = {1: self.__dict}
+
+            def merge(d1, d2):
+                d = {}
+                for x in d1:
+                    d[x] = d1[x](**d2)
+                return d
+            
+            def pow_dict(n):
+                if pows.has_key(n):
+                    return pows[n].copy()
+                elif n % 2 == 0:
+                    d = pow_dict(n/2)
+                    pows[n] = d = merge(d, d)
+                    return d
+                else:
+                    d = pow_dict((n-1)/2)
+                    pows[n] = d = merge(merge(d, d), self.__dict)
+                    return d
+
+            return self.__R(p)(**pow_dict(exp))
+                
         elif exp == 0:
             return p
         elif exp < 0:
@@ -743,12 +768,12 @@ def OreAlgebra(base_ring, *generators, **kwargs):
                     is_derivation[i] = True
                 elif sx - x == one:
                     is_delta[i] = True
-                elif gens[i][1](sx/x) == sx/x:
+                elif gens[i][1](sx)*x == sx**2:
                     is_qderivation[i] = True
             elif dx == zero:
                 if sx - x == one:
                     is_shift[i] = True
-                elif gens[i][1](sx/x) == sx/x:
+                elif gens[i][1](sx)*x == sx**2:
                     is_qshift[i] = True
             elif dx == x:
                 if sx == x:
@@ -1272,9 +1297,9 @@ class OreAlgebra_generic(Algebra):
         
         for x in R.gens():
             try:
-                q = sigma(x)/x
-                if sigma(q) == q and delta(x) == zero:
-                    candidates.append((x, q))
+                sx = sigma(x); 
+                if sigma(sx)*x == sx**2 and delta(x) == zero:
+                    candidates.append((x, R(sx(1))))
             except:
                 pass
 
@@ -1312,11 +1337,12 @@ class OreAlgebra_generic(Algebra):
         sigma = self.sigma(n); delta = self.delta(n); R = self.base_ring()
         one = R.one(); zero = R.zero(); candidates = []
         
+        
         for x in R.gens():
             try:
-                q = sigma(x)/x
-                if sigma(q) == q and delta(x) == one:
-                    candidates.append((x, q))
+                sx = sigma(x)
+                if sigma(sx)*x == sx**2 and delta(x) == one:
+                    candidates.append((x, R(sx(1))))
             except:
                 pass
 

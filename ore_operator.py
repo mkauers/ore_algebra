@@ -1541,6 +1541,9 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
     def to_difference_operator(self, *args):
         raise NotImplementedError
 
+    def to_list(self, initvals, n, start=0):
+        raise NotImplementedError
+
     def annihilator_of_sum(self):
         """
         Returns an operator `L` which annihilates all the indefinite sums `\sum_{k=0}^n a_k`
@@ -1685,9 +1688,6 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
     def generalized_series_solutions(self, n): # at infinity. 
         raise NotImplementedError
 
-    def get_data(self, init, n):
-        raise NotImplementedError
-
 
 #############################################################################################################
 
@@ -1722,11 +1722,31 @@ class UnivariateQRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverU
 
         return UnivariateOreOperator.__call__(self, f, **kwargs)
 
+    def to_qdifferential_operator(self, *args):
+        raise NotImplementedError
+
+    def to_qdeq(self, *args):
+        return self.to_qdifferential_operator(*args)    
+
+    def to_list(self, initvals, n, start=0):
+        raise NotImplementedError
+
     def annihilator_of_sum(self):
         """
-        If self is such that self*f = 0, this function returns an operator L such that L*sum(f) = 0
+        Returns an operator `L` which annihilates all the indefinite sums `\sum_{k=0}^n a_k`
+        where `a_n` runs through the sequences annihilated by ``self``.
+        The output operator is not necessarily of smallest possible order. 
+
+        EXAMPLES::
+
+           sage: R.<x> = ZZ['q'].fraction_field()['x']
+           sage: A.<Qx> = OreAlgebra(R, 'Qx')
+           sage: ((x+1)*Qx - x).annihilator_of_sum()
+           (q*x + 1)*Qx - q*x
+           
         """
-        raise NotImplementedError
+        A = self.parent()
+        return self.map_coefficients(A.sigma())*(A.gen() - A.one())
 
     def annihilator_of_composition(self, u, v):
         """
@@ -1748,9 +1768,6 @@ class UnivariateQRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverU
         """
         raise NotImplementedError
 
-    def get_data(self, init, n):
-        raise NotImplementedError
-
 
 #############################################################################################################
 
@@ -1769,6 +1786,30 @@ class UnivariateQDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOve
             kwargs["action"] = lambda p : (p(qx) - p)/(q*(x-1))
 
         return UnivariateOreOperator.__call__(self, f, **kwargs)
+
+    def to_qrecurrence_operator(self, *args):
+        raise NotImplementedError
+
+    def to_qrec(self, *args):
+        return self.to_qrecurrence_operator(*args)
+
+    def annihilator_of_integral(self):
+        """
+        Returns an operator `L` which annihilates all the indefinite `q`-integrals `\int_q f`
+        where `f` runs through the functions annihilated by ``self``.
+        The output operator is not necessarily of smallest possible order. 
+
+        EXAMPLES::
+
+           sage: R.<x> = ZZ['q'].fraction_field()['x']
+           sage: A.<Jx> = OreAlgebra(R, 'Jx')
+           sage: ((x-1)*Jx - 2*x).annihilator_of_integral()
+           (x - 1)*Jx^2 - 2*x*Jx
+           sage: _.annihilator_of_associate(Jx)
+           (x - 1)*Jx - 2*x
+           
+        """
+        return self*self.parent().gen()
 
 
 #############################################################################################################
@@ -1797,6 +1838,9 @@ class UnivariateDifferenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
 
     def to_rec(self, *args):
         return self.to_recurrence_operator(*args)
+
+    def to_list(self, *args, **kwargs):
+        return self.to_rec('n').to_list(*args, **kwargs)
 
 
 #############################################################################################################
