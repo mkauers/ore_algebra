@@ -381,7 +381,7 @@ class _Delta:
                 return p.map_coefficients(delta) + p.derivative(x).map_coefficients(sigma)*my_dict[strx, 1]
             for i in xrange(2, p.degree() + 1):
                 if not my_dict.has_key((strx, i)):
-                    my_dict[strx, i] = my_dict[x, i - 1]*x + sigma(x**(i - 1))*my_dict[strx, 1]
+                    my_dict[strx, i] = my_dict[strx, i - 1]*x + sigma(x**(i - 1))*my_dict[strx, 1]
             out = R0.zero()
             for i in xrange(p.degree() + 1):
                 out += sigma(p[i])*my_dict[strx, i]
@@ -1311,7 +1311,7 @@ class OreAlgebra_generic(Algebra):
 
     def is_J(self, n=0):
         r"""
-        Checks whether the `n` th generator of this algebra is the q-derivation `p(x)\rightarrow (p(q*x)-p(x))/(q*(x-1))`
+        Checks whether the `n` th generator of this algebra is the q-derivation `p(x)\rightarrow (p(q*x)-p(x))/(x*(q-1))`
         for some generator `x` of the base ring and some element `q` of the base ring's base ring.
         If so, it returns the pair `(x, q)`, otherwise ``False``.
 
@@ -1344,7 +1344,7 @@ class OreAlgebra_generic(Algebra):
             try:
                 sx = sigma(x)
                 if sigma(sx)*x == sx**2 and delta(x) == one:
-                    candidates.append((x, R(sx(1))))
+                    candidates.append((x, R(sx(one))))
             except:
                 pass
 

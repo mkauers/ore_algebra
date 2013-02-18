@@ -11,7 +11,7 @@ from sage.rings.polynomial.polynomial_ring import is_PolynomialRing
 from sage.rings.polynomial.multi_polynomial_ring import is_MPolynomialRing
 from sage.rings.number_field.number_field import is_NumberField
 from sage.rings.fraction_field import is_FractionField
-from sage.rings.arith import gcd
+from sage.rings.arith import gcd, lcm
 from sage.rings.rational_field import QQ
 
 class OreOperator(RingElement):
@@ -498,7 +498,7 @@ class OreOperator(RingElement):
     # numerator and denominator
 
     def numerator(self):
-        """
+        r"""
         Return a numerator of ``self``.
 
         If the base ring of ``self``'s parent is not a field, this returns
@@ -1169,7 +1169,7 @@ class UnivariateOreOperator(OreOperator):
     # coefficient-related functions
 
     def companion_matrix(self):
-        """
+        r"""
         If ``self`` is an operator of order `r`, returns an `r` by `r` matrix
         `M` such that for any sequence `c_i` annihilated by ``self``,
         `[c_{i+1}, c_{i+2}, \ldots, c_{i+r}]^T = M(i) [c_i, c_{i+1}, \ldots, c_{i+r-1}]^T`
@@ -1208,9 +1208,9 @@ class UnivariateOreOperator(OreOperator):
         return self.polynomial().degree()
 
     def valuation(self):
-        """
+        r"""
         Returns the valuation of this operator, which is defined as the minimal power `i` of the
-        generator which has a nonzero coefficient. The zero operator has order `\\infty`.
+        generator which has a nonzero coefficient. The zero operator has order `\infty`.
         """
         if self == self.parent().zero():
             return infinity.infinity
@@ -1334,7 +1334,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
 
         - ``alg`` -- the Ore algebra in which the output should be expressed.
           The algebra must satisfy ``alg.base_ring().base_ring() == self.base_ring().base_ring()``
-          and ``alg.is_S() == True``.
+          and ``alg.is_S()`` is not ``False``.
           Instead of an algebra object, also a string can be passed as argument.
           This amounts to specifying an Ore algebra over ``self.base_ring()`` with
           the standard shift with respect to ``self.base_ring().gen()``.
@@ -1411,7 +1411,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
 
         - ``alg`` -- the Ore algebra in which the output should be expressed.
           The algebra must satisfy ``alg.base_ring().base_ring() == self.base_ring().base_ring()``
-          and ``alg.is_F() == True``.
+          and ``alg.is_F()`` is not ``False``.
           Instead of an algebra object, also a string can be passed as argument.
           This amounts to specifying an Ore algebra over ``self.base_ring()`` with
           the forward difference with respect to ``self.base_ring().gen()``.
@@ -1444,7 +1444,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
 
         - ``alg`` -- the Ore algebra in which the output should be expressed.
           The algebra must satisfy ``alg.base_ring().base_ring() == self.base_ring().base_ring()``
-          and ``alg.is_T() == True``.
+          and ``alg.is_T()`` is not ``False``.
           Instead of an algebra object, also a string can be passed as argument.
           This amounts to specifying an Ore algebra over ``self.base_ring()`` with
           an euler derivation with respect to ``self.base_ring().gen()``.
@@ -1486,7 +1486,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         return out if alg.base_ring() is R else out.numerator()
 
     def annihilator_of_integral(self):
-        """
+        r"""
         Returns an operator `L` which annihilates all the indefinite integrals `\int f`
         where `f` runs through the functions annihilated by ``self``.
         The output operator is not necessarily of smallest possible order. 
@@ -1635,7 +1635,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
 
         - ``alg`` -- the Ore algebra in which the output should be expressed.
           The algebra must satisfy ``alg.base_ring().base_ring() == self.base_ring().base_ring()``
-          and ``alg.is_D() == True``.
+          and ``alg.is_D()`` is not ``False``.
           Instead of an algebra object, also a string can be passed as argument.
           This amounts to specifying an Ore algebra over ``self.base_ring()`` with
           the standard derivation with respect to ``self.base_ring().gen()``.
@@ -1686,7 +1686,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
 
         - ``alg`` -- the Ore algebra in which the output should be expressed.
           The algebra must satisfy ``alg.base_ring().base_ring() == self.base_ring().base_ring()``
-          and ``alg.is_F() == True``.
+          and ``alg.is_F()`` is not ``False``.
           Instead of an algebra object, also a string can be passed as argument.
           This amounts to specifying an Ore algebra over ``self.base_ring()`` with
           the forward difference with respect to ``self.base_ring().gen()``.
@@ -1733,7 +1733,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
 
         - ``alg`` -- the Ore algebra in which the output should be expressed.
           The algebra must satisfy ``alg.base_ring().base_ring() == self.base_ring().base_ring()``
-          and ``alg.is_T() == True``.
+          and ``alg.is_T()`` is not ``False``.
           Instead of an algebra object, also a string can be passed as argument.
           This amounts to specifying an Ore algebra over ``self.base_ring()`` with
           the Euler derivation with respect to ``self.base_ring().gen()``.
@@ -1757,7 +1757,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
         raise NotImplementedError
 
     def annihilator_of_sum(self):
-        """
+        r"""
         Returns an operator `L` which annihilates all the indefinite sums `\sum_{k=0}^n a_k`
         where `a_n` runs through the sequences annihilated by ``self``.
         The output operator is not necessarily of smallest possible order. 
@@ -1861,7 +1861,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
         return self.parent()(list(sol[0])).map_coefficients(lambda p: p(u*x))
 
     def annihilator_of_interlacing(self, *other):
-        """
+        r"""
         Returns an operator `L` which annihilates any sequence which can be
         obtained by interlacing sequences annihilated by ``self`` and the
         operators given in the arguments.
@@ -1934,14 +1934,65 @@ class UnivariateQRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverU
 
         return UnivariateOreOperator.__call__(self, f, **kwargs)
 
-    def to_J(self, *args): # q2j
-        raise NotImplementedError
+    def to_J(self, alg): # q2j
+        """
+        Returns a q-differential operator which annihilates every power series (about the origin)
+        whose coefficient sequence is annihilated by ``self``.
+        The output operator may not be minimal. 
+
+        INPUT:
+
+        - ``alg`` -- the Ore algebra in which the output should be expressed.
+          The algebra must satisfy ``alg.base_ring().base_ring() == self.base_ring().base_ring()``
+          and ``alg.is_J()`` is not ``False``.
+          Instead of an algebra object, also a string can be passed as argument.
+          This amounts to specifying an Ore algebra over ``self.base_ring()`` with
+          the q-derivation with respect to ``self.base_ring().gen()``.
+
+        EXAMPLES::
+
+          sage: Rn.<n> = ZZ['n']; Rx.<x> = ZZ['x']
+          sage: A.<Qn> = OreAlgebra(Rn, 'Qn', q=2)
+          sage: B.<Jx> = OreAlgebra(Rx, 'Jx', q=2)
+          sage: (Qn - 1).to_J(B)
+          sage: ((n+1)*Qn - 1).to_J(B)
+          sage: (x*Jx-1).to_Q(A).to_J(B)
+        
+        """
+        R = self.base_ring(); K = R.base_ring(); x, q = self.parent().is_Q(); one = R.one()
+
+        if type(alg) == str:
+            alg = self.parent().change_var_sigma_delta(alg, {x:q*x}, {x:one})
+        elif not isinstance(alg, type(self.parent())) or not alg.is_J() or \
+             alg.base_ring().base_ring() is not K or K(alg.is_J()[1]) != K(q):
+            raise TypeError, "target algebra is not adequate"
+
+        if self.is_zero():
+            return alg.zero()
+
+        R = alg.base_ring().fraction_field(); x, q = alg.is_J()
+        alg = alg.change_ring(R);
+
+        Q = alg(~x); out = alg.zero()
+        coeffs = self.numerator().coeffs()
+        x_pows = {0 : alg.one(), 1 : ((q - R.one())*x)*alg.gen() + alg.one()}
+
+        for i in xrange(len(coeffs)):
+            term = alg.zero()
+            c = coeffs[i].coeffs()
+            for j in xrange(len(c)):
+                if not x_pows.has_key(j):
+                    x_pows[j] = x_pows[j - 1]*x_pows[1]
+                term += c[j] * x_pows[j]
+            out += term*(Q**i)
+
+        return out.numerator().change_ring(alg.base_ring())
 
     def to_list(self, initvals, n, start=0):
         raise NotImplementedError
 
     def annihilator_of_sum(self):
-        """
+        r"""
         Returns an operator `L` which annihilates all the indefinite sums `\sum_{k=0}^n a_k`
         where `a_n` runs through the sequences annihilated by ``self``.
         The output operator is not necessarily of smallest possible order. 
@@ -1992,15 +2043,66 @@ class UnivariateQDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOve
 
         R = self.parent(); x = R.base_ring().gen(); qx = R.sigma()(x)
         if not kwargs.has_key("action"):
-            kwargs["action"] = lambda p : (p(qx) - p)/(q*(x-1))
+            kwargs["action"] = lambda p : (p(qx) - p)/(x*(q-1))
 
         return UnivariateOreOperator.__call__(self, f, **kwargs)
 
-    def to_Q(self, *args): # j2q
-        raise NotImplementedError
+    def to_Q(self, alg): # j2q
+        """
+        Returns a q-recurrence operator which annihilates the coefficient sequence
+        of every power series (about the origin) annihilated by ``self``.
+        The output operator may not be minimal. 
+
+        INPUT:
+
+        - ``alg`` -- the Ore algebra in which the output should be expressed.
+          The algebra must satisfy ``alg.base_ring().base_ring() == self.base_ring().base_ring()``
+          and ``alg.is_Q() == self.parent().is_J()``.
+          Instead of an algebra object, also a string can be passed as argument.
+          This amounts to specifying an Ore algebra over ``self.base_ring()`` with
+          the q-shift with respect to ``self.base_ring().gen()``.
+
+        EXAMPLES::
+
+          sage: Rn.<n> = ZZ['n']; Rx.<x> = ZZ['x']
+          sage: A.<Jx> = OreAlgebra(Rx, 'Jx', q=2)
+          sage: B.<Qn> = OreAlgebra(Rn, 'Qn', q=2)
+          sage: (Jx - 1).to_Q(B)
+          sage: ((x+1)*Jx - 1).to_Q(B)
+          sage: (n*Qn-1).to_J(A).to_Q(B)
+        
+        """
+        R = self.base_ring(); K = R.base_ring()
+        x, q = self.parent().is_J(); one = R.one()
+
+        if type(alg) == str:
+            alg = self.parent().change_var_sigma_delta(alg, {x:q*x}, {})
+        elif not isinstance(alg, type(self.parent())) or not alg.is_Q() or \
+             alg.base_ring().base_ring() is not R.base_ring() or K(alg.is_Q()[1]) != K(q) :
+            raise TypeError, "target algebra is not adequate"
+
+        if self.is_zero():
+            return alg.zero()
+
+        R = alg.base_ring().fraction_field(); x, q = alg.is_Q()
+        alg = alg.change_ring(R);
+
+        Q = alg.gen(); J = ((q*x - R.one())/(q - R.one()))*Q; J_pow = alg.one()
+        out = alg.zero(); 
+        coeffs = self.numerator().coeffs()
+        d = max( c.degree() for c in coeffs )
+
+        for i in xrange(len(coeffs)):
+            if i > 0:
+                J_pow *= J
+            c = coeffs[i].padded_list(d + 1)
+            c.reverse()
+            out += alg(map(R, c)) * J_pow            
+
+        return ((q-1)**(len(coeffs)-1)*out).numerator().change_ring(alg.base_ring())
 
     def annihilator_of_integral(self):
-        """
+        r"""
         Returns an operator `L` which annihilates all the indefinite `q`-integrals `\int_q f`
         where `f` runs through the functions annihilated by ``self``.
         The output operator is not necessarily of smallest possible order. 
@@ -2047,7 +2149,7 @@ class UnivariateDifferenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
 
         - ``alg`` -- the Ore algebra in which the output should be expressed.
           The algebra must satisfy ``alg.base_ring().base_ring() == self.base_ring().base_ring()``
-          and ``alg.is_S() == True``.
+          and ``alg.is_S()`` is not ``False``.
           Instead of an algebra object, also a string can be passed as argument.
           This amounts to specifying an Ore algebra over ``self.base_ring()`` with
           a standard shift with respect to ``self.base_ring().gen()``.
@@ -2093,7 +2195,7 @@ class UnivariateDifferenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
 
         - ``alg`` -- the Ore algebra in which the output should be expressed.
           The algebra must satisfy ``alg.base_ring().base_ring() == self.base_ring().base_ring()``
-          and ``alg.is_D() == True``.
+          and ``alg.is_D()`` is not ``False``.
           Instead of an algebra object, also a string can be passed as argument.
           This amounts to specifying an Ore algebra over ``self.base_ring()`` with
           the standard derivation with respect to ``self.base_ring().gen()``.
@@ -2124,7 +2226,7 @@ class UnivariateDifferenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
 
         - ``alg`` -- the Ore algebra in which the output should be expressed.
           The algebra must satisfy ``alg.base_ring().base_ring() == self.base_ring().base_ring()``
-          and ``alg.is_T() == True``.
+          and ``alg.is_T()`` is not ``False``.
           Instead of an algebra object, also a string can be passed as argument.
           This amounts to specifying an Ore algebra over ``self.base_ring()`` with
           the Euler derivation with respect to ``self.base_ring().gen()``.
@@ -2174,7 +2276,7 @@ class UnivariateEulerDifferentialOperatorOverUnivariateRing(UnivariateOreOperato
 
         - ``alg`` -- the Ore algebra in which the output should be expressed.
           The algebra must satisfy ``alg.base_ring().base_ring() == self.base_ring().base_ring()``
-          and ``alg.is_D() == True``.
+          and ``alg.is_D()`` is not ``False``.
           Instead of an algebra object, also a string can be passed as argument.
           This amounts to specifying an Ore algebra over ``self.base_ring()`` with
           the standard derivation with respect to ``self.base_ring().gen()``.
@@ -2219,7 +2321,7 @@ class UnivariateEulerDifferentialOperatorOverUnivariateRing(UnivariateOreOperato
 
         - ``alg`` -- the Ore algebra in which the output should be expressed.
           The algebra must satisfy ``alg.base_ring().base_ring() == self.base_ring().base_ring()``
-          and ``alg.is_S() == True``.
+          and ``alg.is_S()`` is not ``False``.
           Instead of an algebra object, also a string can be passed as argument.
           This amounts to specifying an Ore algebra over ``self.base_ring()`` with
           the standard shift with respect to ``self.base_ring().gen()``.
@@ -2249,7 +2351,7 @@ class UnivariateEulerDifferentialOperatorOverUnivariateRing(UnivariateOreOperato
 
         - ``alg`` -- the Ore algebra in which the output should be expressed.
           The algebra must satisfy ``alg.base_ring().base_ring() == self.base_ring().base_ring()``
-          and ``alg.is_F() == True``.
+          and ``alg.is_F()`` is not ``False``.
           Instead of an algebra object, also a string can be passed as argument.
           This amounts to specifying an Ore algebra over ``self.base_ring()`` with
           the forward difference with respect to ``self.base_ring().gen()``.
