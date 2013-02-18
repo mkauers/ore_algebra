@@ -1955,8 +1955,11 @@ class UnivariateQRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverU
           sage: A.<Qn> = OreAlgebra(Rn, 'Qn', q=2)
           sage: B.<Jx> = OreAlgebra(Rx, 'Jx', q=2)
           sage: (Qn - 1).to_J(B)
+          (-2*x + 1)*Jx - 1
           sage: ((n+1)*Qn - 1).to_J(B)
-          sage: (x*Jx-1).to_Q(A).to_J(B)
+          2*x*Jx^2 + (-4*x + 4)*Jx - 2
+          sage: (x*Jx-1).to_Q(A).to_J(B) % (x*Jx - 1)
+          0
         
         """
         R = self.base_ring(); K = R.base_ring(); x, q = self.parent().is_Q(); one = R.one()
@@ -1986,7 +1989,7 @@ class UnivariateQRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverU
                 term += c[j] * x_pows[j]
             out += term*(Q**i)
 
-        return out.numerator().change_ring(alg.base_ring())
+        return (alg.gen()**(len(coeffs)-1))*out.numerator().change_ring(alg.base_ring())
 
     def to_list(self, initvals, n, start=0):
         raise NotImplementedError
@@ -2068,8 +2071,11 @@ class UnivariateQDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOve
           sage: A.<Jx> = OreAlgebra(Rx, 'Jx', q=2)
           sage: B.<Qn> = OreAlgebra(Rn, 'Qn', q=2)
           sage: (Jx - 1).to_Q(B)
+          (2*n - 1)*Qn - 1
           sage: ((x+1)*Jx - 1).to_Q(B)
-          sage: (n*Qn-1).to_J(A).to_Q(B)
+          (4*n - 1)*Qn^2 + (2*n - 2)*Qn
+          sage: (n*Qn-1).to_J(A).to_Q(B) % (n*Qn - 1)
+          0 
         
         """
         R = self.base_ring(); K = R.base_ring()
