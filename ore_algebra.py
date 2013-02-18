@@ -122,7 +122,10 @@ class _Sigma:
         Rgens = R.gens(); my_dict = {}; is_id = True
         if type(d) != dict:
             for x in Rgens:
-                my_dict[str(x)] = R(d(x))
+                dx = R(d(x))
+                my_dict[str(x)] = dx
+                if dx != x:
+                    is_id = False
         else:         
             for x in d:
                 if not R(x) in Rgens:
@@ -821,7 +824,6 @@ def OreAlgebra(base_ring, *generators, **kwargs):
         solvers = {}
 
     # complain if we got any bogus keyword arguments
-
     for kw in kwargs:
         if kw not in ("solver", "element_class", "names", "q"):
             raise TypeError, "OreAlgebra constructor got an unexpected keyword argument " + str(kw)
@@ -1623,7 +1625,7 @@ class OreAlgebra_generic(Algebra):
         delta = _Delta(R, delta, sigma)
 
         gens[n] = (var, sigma, delta)
-        if var == self.var(i) and sigma == self.sigma(i) and delta == self.delta(i):
+        if var == self.var(n) and sigma == self.sigma(n) and delta == self.delta(n):
             return self
         else:
             return OreAlgebra(R, *gens)

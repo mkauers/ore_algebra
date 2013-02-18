@@ -1325,12 +1325,19 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
 
         return UnivariateOreOperator.__call__(self, f, **kwargs)
 
-    def to_recurrence(self, rec_algebra):
+    def to_S(self, alg): # d2s
         """
-        Returns a shift operator that annihilates the sequence of
-        coefficients in the power series solutions of ``self`` at the origin.
-        The result will be an element of the Ore algebra of
-        recurrence operators provided as ``rec_algebra``.
+        Returns a recurrence operator annihilating the coefficient sequence of
+        every power series (about the origin) annihilated by ``self``.
+
+        INPUT:
+
+        - ``alg`` -- the Ore algebra in which the output should be expressed.
+          The algebra must satisfy ``alg.base_ring().base_ring() == self.base_ring().base_ring()``
+          and ``alg.is_S() == True``.
+          Instead of an algebra object, also a string can be passed as argument.
+          This amounts to specifying an Ore algebra over ``self.base_ring()`` with
+          the standard shift with respect to ``self.base_ring().gen()``.
 
         EXAMPLES::
 
@@ -1338,14 +1345,23 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             sage: A.<Dx> = OreAlgebra(R, 'Dx')
             sage: R2.<n> = ZZ['n']
             sage: A2.<Sn> = OreAlgebra(R2, 'Sn')
-            sage: (Dx - 1).to_recurrence(A2)
+            sage: (Dx - 1).to_S(A2)
             (n + 1)*Sn - 1
-            sage: ((1+x)*Dx^2 + Dx).to_recurrence(A2)
+            sage: ((1+x)*Dx^2 + Dx).to_S(A2)
             (n^2 + n)*Sn + n^2
-            sage: ((x^3+x^2-x)*Dx + (x^2+1)).to_recurrence(A2)
+            sage: ((x^3+x^2-x)*Dx + (x^2+1)).to_S(A2)
             (-n - 1)*Sn^2 + (n + 1)*Sn + n + 1
 
         """
+        if type(alg) == str:
+            R = self.base_ring(); x = R.gen(); one = R.one()
+            rec_algebra = self.parent().change_var_sigma_delta(alg, {x:x+one}, {})
+        elif not isinstance(alg, type(self.parent())) or not alg.is_S() \
+             or alg.base_ring().base_ring() is not self.base_ring().base_ring():
+            raise TypeError, "not an adequate algebra"
+        else:
+            rec_algebra = alg
+        
         numer = self.numerator()
         coeffs = [list(c) for c in list(numer)]
         lengths = [len(c) for c in coeffs]
@@ -1386,11 +1402,88 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
 
         return rec_algebra(result)
 
-    def to_rec(self, *args):
-        return self.to_recurrence(args)
+    def to_F(self, alg):
+        """
+        Returns a difference operator annihilating the coefficient sequence of
+        every power series (about the origin) annihilated by ``self``.
 
-    def to_euler_form(self, *args):
-        raise NotImplementedError
+        INPUT:
+
+        - ``alg`` -- the Ore algebra in which the output should be expressed.
+          The algebra must satisfy ``alg.base_ring().base_ring() == self.base_ring().base_ring()``
+          and ``alg.is_F() == True``.
+          Instead of an algebra object, also a string can be passed as argument.
+          This amounts to specifying an Ore algebra over ``self.base_ring()`` with
+          the forward difference with respect to ``self.base_ring().gen()``.
+
+        EXAMPLES::
+
+            sage: R.<x> = ZZ['x']
+            sage: A.<Dx> = OreAlgebra(R, 'Dx')
+            sage: R2.<n> = ZZ['n']
+            sage: A2.<Sn> = OreAlgebra(R2, 'Fn')
+            sage: (Dx - 1).to_F(A2)
+            (n + 1)*Fn + n
+            sage: ((1+x)*Dx^2 + Dx).to_F(A2)
+            (n^2 + n)*Fn + 2*n^2 + n
+            sage: ((x^3+x^2-x)*Dx + (x^2+1)).to_F(A2)
+            (-n - 1)*Fn^2 + (-n - 1)*Fn + n + 1
+
+        """
+        return self.to_S('S').to_F(alg)
+
+    def to_T(self, alg): # d2theta
+        """
+        Rewrites ``self`` in terms of the eulerian derivation `x*d/dx`.
+
+        If the base ring of the target algebra is not a field, the operator returned by the 
+        method may not correspond exactly to ``self``, but only to a suitable left-multiple
+        by a term `x^k`.
+
+        INPUT:
+
+        - ``alg`` -- the Ore algebra in which the output should be expressed.
+          The algebra must satisfy ``alg.base_ring().base_ring() == self.base_ring().base_ring()``
+          and ``alg.is_T() == True``.
+          Instead of an algebra object, also a string can be passed as argument.
+          This amounts to specifying an Ore algebra over ``self.base_ring()`` with
+          an euler derivation with respect to ``self.base_ring().gen()``.
+
+        EXAMPLES::
+
+          sage: R.<x> = ZZ['x']
+          sage: R2.<y> = ZZ['y']
+          sage: A.<Dx> = OreAlgebra(R, 'Dx')
+          sage: (Dx^4).to_T(OreAlgebra(R2, 'Ty'))
+          Ty^4 - 6*Ty^3 + 11*Ty^2 - 6*Ty
+          sage: (Dx^4).to_T('Tx').to_D(A)
+          x^4*Dx^4
+          sage: _.to_T('Tx')
+          Tx^4 - 6*Tx^3 + 11*Tx^2 - 6*Tx
+        
+        """
+        R = self.base_ring(); one = R.one(); x = R.gen()
+        
+        if type(alg) == str:
+            alg = self.parent().change_var_sigma_delta(alg, {}, {x:x})
+        elif not isinstance(alg, type(self.parent())) or not alg.is_T() or \
+             alg.base_ring().base_ring() is not R.base_ring():
+            raise TypeError, "target algebra is not adequate"
+
+        if self.is_zero():
+            return alg.zero()
+
+        R = alg.base_ring().fraction_field(); alg2 = alg.change_ring(R); x = R.gen()
+
+        theta = (1/x)*alg2.gen(); theta_k = alg2.one();
+        c = self.coeffs(); out = alg2(R(c[0]))
+
+        for i in xrange(self.order()):
+            
+            theta_k *= theta
+            out += R(c[i + 1])*theta_k
+
+        return out if alg.base_ring() is R else out.numerator()
 
     def annihilator_of_integral(self):
         """
@@ -1532,14 +1625,133 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
 
         return UnivariateOreOperator.__call__(self, f, **kwargs)
 
-    def to_differential_operator(self, *args):
-        raise NotImplementedError
+    def to_D(self, alg): # s2d
+        """
+        Returns a differential operator which annihilates every power series whose
+        coefficient sequence is annihilated by ``self``.
+        The output operator may not be minimal. 
 
-    def to_deq(self, *args):
-        return self.to_differential_operator(args)
+        INPUT:
 
-    def to_difference_operator(self, *args):
-        raise NotImplementedError
+        - ``alg`` -- the Ore algebra in which the output should be expressed.
+          The algebra must satisfy ``alg.base_ring().base_ring() == self.base_ring().base_ring()``
+          and ``alg.is_D() == True``.
+          Instead of an algebra object, also a string can be passed as argument.
+          This amounts to specifying an Ore algebra over ``self.base_ring()`` with
+          the standard derivation with respect to ``self.base_ring().gen()``.
+
+        EXAMPLES::
+
+          sage: Rn.<n> = ZZ['n']; Rx.<x> = ZZ['x']
+          sage: A.<Sn> = OreAlgebra(Rn, 'Sn')
+          sage: B.<Dx> = OreAlgebra(Rx, 'Dx')
+          sage: (Sn - 1).to_D(B)
+          (-x + 1)*Dx - 1
+          sage: ((n+1)*Sn - 1).to_D(B)
+          x*Dx^2 + (-x + 1)*Dx - 1
+          sage: (x*Dx-1).to_S(A).to_D(B)
+          x*Dx - 1
+        
+        """
+        R = self.base_ring(); x = R.gen(); one = R.one()
+
+        if type(alg) == str:
+            alg = self.parent().change_var_sigma_delta(alg, {}, {x:one})
+        elif not isinstance(alg, type(self.parent())) or not alg.is_D() \
+             or alg.base_ring().base_ring() is not R.base_ring():
+            raise TypeError, "target algebra is not adequate"
+
+        if self.is_zero():
+            return alg.zero()
+
+        R = alg.base_ring().fraction_field(); x = R.gen()
+        alg_theta = alg.change_var_sigma_delta('T', {}, {x:x}).change_ring(R)
+
+        S = alg_theta(~x); out = alg_theta.zero()
+        coeffs = self.numerator().coeffs()
+
+        for i in xrange(len(coeffs)):
+            out += alg_theta([R(p) for p in coeffs[i].coeffs()])*(S**i)
+
+        out = out.numerator().change_ring(alg.base_ring()).to_D(alg)
+        out = alg.gen()**(len(coeffs)-1)*out
+
+        return out
+
+    def to_F(self, alg): # s2delta
+        """
+        Returns the difference operator corresponding to ``self``
+
+        INPUT:
+
+        - ``alg`` -- the Ore algebra in which the output should be expressed.
+          The algebra must satisfy ``alg.base_ring().base_ring() == self.base_ring().base_ring()``
+          and ``alg.is_F() == True``.
+          Instead of an algebra object, also a string can be passed as argument.
+          This amounts to specifying an Ore algebra over ``self.base_ring()`` with
+          the forward difference with respect to ``self.base_ring().gen()``.
+
+        EXAMPLES::
+
+          sage: R.<x> = ZZ['x']
+          sage: A.<Sx> = OreAlgebra(R, 'Sx')
+          sage: (Sx^4).to_F(OreAlgebra(R, 'Fx'))
+          Fx^4 + 4*Fx^3 + 6*Fx^2 + 4*Fx + 1
+          sage: (Sx^4).to_F('Fx').to_S(A)
+          Sx^4
+        
+        """
+        R = self.base_ring(); x = R.gen(); one = R.one()
+
+        if type(alg) == str:
+            alg = self.parent().change_var_sigma_delta(alg, {x:x+one}, {x:one})
+        elif not isinstance(alg, type(self.parent())) or not alg.is_F() or \
+             alg.base_ring().base_ring() is not R.base_ring():
+            raise TypeError, "target algebra is not adequate"
+
+        if self.is_zero():
+            return alg.zero()
+
+        delta = alg.gen() + alg.one(); delta_k = alg.one(); R = alg.base_ring()
+        c = self.coeffs(); out = alg(R(c[0]))
+
+        for i in xrange(self.order()):
+            
+            delta_k *= delta
+            out += R(c[i + 1])*delta_k
+
+        return out
+
+    def to_T(self, alg):
+        """
+        Returns a differential operator, expressed in terms of the Euler derivation,
+        which annihilates every power series (about the origin) whose coefficient
+        sequence is annihilated by ``self``.
+        The output operator may not be minimal. 
+
+        INPUT:
+
+        - ``alg`` -- the Ore algebra in which the output should be expressed.
+          The algebra must satisfy ``alg.base_ring().base_ring() == self.base_ring().base_ring()``
+          and ``alg.is_T() == True``.
+          Instead of an algebra object, also a string can be passed as argument.
+          This amounts to specifying an Ore algebra over ``self.base_ring()`` with
+          the Euler derivation with respect to ``self.base_ring().gen()``.
+
+        EXAMPLES::
+
+          sage: Rn.<n> = ZZ['n']; Rx.<x> = ZZ['x']
+          sage: A.<Sn> = OreAlgebra(Rn, 'Sn')
+          sage: B.<Tx> = OreAlgebra(Rx, 'Tx')
+          sage: (Sn - 1).to_T(B)
+          (-x + 1)*Tx - x
+          sage: ((n+1)*Sn - 1).to_T(B)
+          Tx^2 - x*Tx - x
+          sage: (x*Tx-1).to_S(A).to_T(B)
+          x*Tx^2 + (x - 1)*Tx
+        
+        """
+        return self.to_D('D').to_T(alg)        
 
     def to_list(self, initvals, n, start=0):
         raise NotImplementedError
@@ -1722,11 +1934,8 @@ class UnivariateQRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverU
 
         return UnivariateOreOperator.__call__(self, f, **kwargs)
 
-    def to_qdifferential_operator(self, *args):
+    def to_J(self, *args): # q2j
         raise NotImplementedError
-
-    def to_qdeq(self, *args):
-        return self.to_qdifferential_operator(*args)    
 
     def to_list(self, initvals, n, start=0):
         raise NotImplementedError
@@ -1787,11 +1996,8 @@ class UnivariateQDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOve
 
         return UnivariateOreOperator.__call__(self, f, **kwargs)
 
-    def to_qrecurrence_operator(self, *args):
+    def to_Q(self, *args): # j2q
         raise NotImplementedError
-
-    def to_qrec(self, *args):
-        return self.to_qrecurrence_operator(*args)
 
     def annihilator_of_integral(self):
         """
@@ -1833,14 +2039,113 @@ class UnivariateDifferenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
 
         return UnivariateOreOperator.__call__(self, f, **kwargs)
 
-    def to_recurrence_operator(self, *args):
-        raise NotImplementedError
+    def to_S(self, alg): # delta2s
+        """
+        Returns the differential operator corresponding to ``self``
 
-    def to_rec(self, *args):
-        return self.to_recurrence_operator(*args)
+        INPUT:
+
+        - ``alg`` -- the Ore algebra in which the output should be expressed.
+          The algebra must satisfy ``alg.base_ring().base_ring() == self.base_ring().base_ring()``
+          and ``alg.is_S() == True``.
+          Instead of an algebra object, also a string can be passed as argument.
+          This amounts to specifying an Ore algebra over ``self.base_ring()`` with
+          a standard shift with respect to ``self.base_ring().gen()``.
+
+        EXAMPLES::
+
+          sage: R.<x> = ZZ['x']
+          sage: A.<Fx> = OreAlgebra(R, 'Fx')
+          sage: (Fx^4).to_S(OreAlgebra(R, 'Sx'))
+          Sx^4 - 4*Sx^3 + 6*Sx^2 - 4*Sx + 1
+          sage: (Fx^4).to_S('Sx')
+          Sx^4 - 4*Sx^3 + 6*Sx^2 - 4*Sx + 1
+        
+        """
+        R = self.base_ring(); x = R.gen(); one = R.one(); zero 
+
+        if type(alg) == str:
+            alg = self.parent().change_var_sigma_delta(alg, {x:x+one}, {})
+        elif not isinstance(alg, type(self.parent())) or not alg.is_S() or \
+             alg.base_ring().base_ring() is not R.base_ring():
+            raise TypeError, "target algebra is not adequate"
+
+        if self.is_zero():
+            return alg.zero()
+
+        delta = alg.gen() - alg.one(); delta_k = alg.one(); R = alg.base_ring()
+        c = self.coeffs(); out = alg(R(c[0]))
+
+        for i in xrange(self.order()):
+            
+            delta_k *= delta
+            out += R(c[i + 1])*delta_k
+
+        return out
+
+    def to_D(self, alg):
+        """
+        Returns a differential operator which annihilates every power series (about
+        the origin) whose coefficient sequence is annihilated by ``self``.
+        The output operator may not be minimal. 
+
+        INPUT:
+
+        - ``alg`` -- the Ore algebra in which the output should be expressed.
+          The algebra must satisfy ``alg.base_ring().base_ring() == self.base_ring().base_ring()``
+          and ``alg.is_D() == True``.
+          Instead of an algebra object, also a string can be passed as argument.
+          This amounts to specifying an Ore algebra over ``self.base_ring()`` with
+          the standard derivation with respect to ``self.base_ring().gen()``.
+
+        EXAMPLES::
+
+          sage: Rn.<n> = ZZ['n']; Rx.<x> = ZZ['x']
+          sage: A.<Fn> = OreAlgebra(Rn, 'Fn')
+          sage: B.<Dx> = OreAlgebra(Rx, 'Dx')
+          sage: Fn.to_D(B)
+          (-x + 1)*Dx - 1
+          sage: ((n+1)*Fn - 1).to_D(B)
+          (-x^2 + x)*Dx^2 + (-4*x + 1)*Dx - 2
+          sage: (x*Dx-1).to_F(A).to_D(B)
+          x*Dx - 1
+        
+        """
+        return self.to_S('S').to_D(alg)
+
+    def to_T(self, alg):
+        """
+        Returns a differential operator, expressed in terms of the Euler derivation,
+        which annihilates every power series (about the origin) whose coefficient
+        sequence is annihilated by ``self``.
+        The output operator may not be minimal. 
+
+        INPUT:
+
+        - ``alg`` -- the Ore algebra in which the output should be expressed.
+          The algebra must satisfy ``alg.base_ring().base_ring() == self.base_ring().base_ring()``
+          and ``alg.is_T() == True``.
+          Instead of an algebra object, also a string can be passed as argument.
+          This amounts to specifying an Ore algebra over ``self.base_ring()`` with
+          the Euler derivation with respect to ``self.base_ring().gen()``.
+
+        EXAMPLES::
+
+          sage: Rn.<n> = ZZ['n']; Rx.<x> = ZZ['x']
+          sage: A.<Fn> = OreAlgebra(Rn, 'Fn')
+          sage: B.<Tx> = OreAlgebra(Rx, 'Tx')
+          sage: Fn.to_T(B)
+          (-x + 1)*Tx - x
+          sage: ((n+1)*Fn - 1).to_T(B)
+          (-x + 1)*Tx^2 - 3*x*Tx - 2*x
+          sage: (x*Tx-1).to_F(A).to_T(B)
+          x*Tx^2 + (x - 1)*Tx
+        
+        """
+        return self.to_S('S').to_T(alg)
 
     def to_list(self, *args, **kwargs):
-        return self.to_rec('n').to_list(*args, **kwargs)
+        return self.to_rec('S').to_list(*args, **kwargs)
 
 
 #############################################################################################################
@@ -1861,11 +2166,109 @@ class UnivariateEulerDifferentialOperatorOverUnivariateRing(UnivariateOreOperato
 
         return UnivariateOreOperator.__call__(self, f, **kwargs)
 
-    def to_differential_operator(self, *args):
-        raise NotImplementedError
+    def to_D(self, alg): # theta2d
+        """
+        Returns the differential operator corresponding to ``self``
 
-    def to_deq(self, *args):
-        return self.to_differential_operator(*args)
+        INPUT:
+
+        - ``alg`` -- the Ore algebra in which the output should be expressed.
+          The algebra must satisfy ``alg.base_ring().base_ring() == self.base_ring().base_ring()``
+          and ``alg.is_D() == True``.
+          Instead of an algebra object, also a string can be passed as argument.
+          This amounts to specifying an Ore algebra over ``self.base_ring()`` with
+          the standard derivation with respect to ``self.base_ring().gen()``.
+
+        EXAMPLES::
+
+          sage: R.<x> = ZZ['x']
+          sage: A.<Tx> = OreAlgebra(R, 'Tx')
+          sage: (Tx^4).to_D(OreAlgebra(R, 'Dx'))
+          x^4*Dx^4 + 6*x^3*Dx^3 + 7*x^2*Dx^2 + x*Dx
+          sage: (Tx^4).to_D('Dx').to_T(A)
+          Tx^4
+        
+        """
+        R = self.base_ring(); x = R.gen(); one = R.one()
+
+        if type(alg) == str:
+            alg = self.parent().change_var_sigma_delta(alg, {}, {x:one})
+        elif not isinstance(alg, type(self.parent())) or not alg.is_D() or \
+             alg.base_ring().base_ring() is not R.base_ring():
+            raise TypeError, "target algebra is not adequate"
+
+        if self.is_zero():
+            return alg.zero()
+
+        R = alg.base_ring(); theta = R.gen()*alg.gen(); theta_k = alg.one(); 
+        c = self.coeffs(); out = alg(R(c[0]))
+
+        for i in xrange(self.order()):
+            
+            theta_k *= theta
+            out += R(c[i + 1])*theta_k
+
+        return out
+
+    def to_S(self, alg):
+        """
+        Returns a recurrence operator annihilating the coefficient sequence of
+        every power series (at the origin) annihilated by ``self``.
+
+        INPUT:
+
+        - ``alg`` -- the Ore algebra in which the output should be expressed.
+          The algebra must satisfy ``alg.base_ring().base_ring() == self.base_ring().base_ring()``
+          and ``alg.is_S() == True``.
+          Instead of an algebra object, also a string can be passed as argument.
+          This amounts to specifying an Ore algebra over ``self.base_ring()`` with
+          the standard shift with respect to ``self.base_ring().gen()``.
+
+        EXAMPLES::
+
+            sage: R.<x> = ZZ['x']
+            sage: A.<Tx> = OreAlgebra(R, 'Tx')
+            sage: R2.<n> = ZZ['n']
+            sage: A2.<Sn> = OreAlgebra(R2, 'Sn')
+            sage: (Tx - 1).to_S(A2)
+            n - 1
+            sage: ((1+x)*Tx^2 + Tx).to_S(A2)
+            (n^2 + 3*n + 2)*Sn + n^2
+            sage: ((x^3+x^2-x)*Tx + (x^2+1)).to_S(A2)
+            Sn^3 + (-n - 2)*Sn^2 + (n + 2)*Sn + n
+
+        """
+        return self.to_D('D').to_S(alg)
+
+    def to_F(self, alg):
+        """
+        Returns a difference operator annihilating the coefficient sequence of
+        every power series (about the origin) annihilated by ``self``.
+
+        INPUT:
+
+        - ``alg`` -- the Ore algebra in which the output should be expressed.
+          The algebra must satisfy ``alg.base_ring().base_ring() == self.base_ring().base_ring()``
+          and ``alg.is_F() == True``.
+          Instead of an algebra object, also a string can be passed as argument.
+          This amounts to specifying an Ore algebra over ``self.base_ring()`` with
+          the forward difference with respect to ``self.base_ring().gen()``.
+
+        EXAMPLES::
+
+            sage: R.<x> = ZZ['x']
+            sage: A.<Tx> = OreAlgebra(R, 'Tx')
+            sage: R2.<n> = ZZ['n']
+            sage: A2.<Fn> = OreAlgebra(R2, 'Fn')
+            sage: (Tx - 1).to_F(A2)
+            n - 1
+            sage: ((1+x)*Tx^2 + Tx).to_F(A2)
+            (n^2 + 3*n + 2)*Fn + 2*n^2 + 3*n + 2
+            sage: ((x^3+x^2-x)*Tx + (x^2+1)).to_F(A2)
+            Fn^3 + (-n + 1)*Fn^2 + (-n + 1)*Fn + n + 1
+
+        """
+        return self.to_D('D').to_F(alg)
     
 
 #############################################################################################################
