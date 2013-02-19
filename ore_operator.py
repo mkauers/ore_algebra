@@ -13,6 +13,7 @@ from sage.rings.number_field.number_field import is_NumberField
 from sage.rings.fraction_field import is_FractionField
 from sage.rings.arith import gcd, lcm
 from sage.rings.rational_field import QQ
+from sage.rings.integer_ring import ZZ
 
 class OreOperator(RingElement):
     """
@@ -1753,8 +1754,48 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
         """
         return self.to_D('D').to_T(alg)        
 
-    def to_list(self, initvals, n, start=0):
-        raise NotImplementedError
+    def to_list(self, init, n, start=0, append=False, padd=False):
+        """
+        Computes the terms of some sequence annihilated by ``self``.
+
+        INPUT:
+
+        - ``init`` -- a vector (or list or tuple) of initial values.
+          The components must be elements of ``self.base_ring().base_ring().fraction_field()``.
+          If the length is more than ``self.order()``, we do not check whether the given
+          terms are consistent with ``self``. 
+        - ``n`` -- desired number of terms. 
+        - ``start`` (optional) -- index of the sequence term which is represented
+          by the first entry of ``init``. Defaults to zero.
+        - ``append`` (optional) -- if ``True``, the computed terms are appended
+          to ``init`` list. Otherwise (default), a new list is created.
+        - ``padd`` (optional) -- if ``True``, the vector of initial values is implicitely
+          prolonged to the left (!) by zeros if it is too short. Otherwise (default),
+          the method raises a ``ValueError`` if ``init`` is too short.
+
+        OUTPUT:
+
+        A list of ``n`` terms whose `k` th component carries the sequence term with
+        index ``start+k``.
+        Terms whose calculation causes an error are represented by ``None``. 
+
+        EXAMPLES::
+
+           sage: R = ZZ['x']['n']; x = R('x'); n = R('n')
+           sage: A.<Sn> = OreAlgebra(R, 'Sn')
+           sage: L = ((n+2)*Sn^2 - x*(2*n+3)*Sn + (n+1))
+           sage: L.to_list([1, x], 5)
+           [1, x, (3*x^2 - 1)/2, (5*x^3 - 3*x)/2, (35*x^4 - 30*x^2 + 3)/8]
+           sage: polys = L.to_list([1], 5, padd=True)
+           [1, x, (3*x^2 - 1)/2, (5*x^3 - 3*x)/2, (35*x^4 - 30*x^2 + 3)/8]
+           sage: L.to_list([polys[3], polys[4]], 8, start=3)
+           [(5*x^3 - 3*x)/2, (35*x^4 - 30*x^2 + 3)/8, (63*x^5 - 70*x^3 + 15*x)/8, (231*x^6 - 315*x^4 + 105*x^2 - 5)/16, (429*x^7 - 693*x^5 + 315*x^3 - 35*x)/16]
+           
+           sage: ((n-5)*Sn - 1).to_list([1], 10)
+           [1, 1/-5, 1/20, 1/-60, 1/120, -1/120, None, None, None, None]
+        
+        """
+        return _rec2list(self, init, n, start, append, padd, self.parent().sigma(), ZZ)
 
     def annihilator_of_sum(self):
         r"""
@@ -1991,8 +2032,42 @@ class UnivariateQRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverU
 
         return (alg.gen()**(len(coeffs)-1))*out.numerator().change_ring(alg.base_ring())
 
-    def to_list(self, initvals, n, start=0):
-        raise NotImplementedError
+    def to_list(self, init, n, start=0, append=False, padd=False):
+        """
+        Computes the terms of some sequence annihilated by ``self``.
+
+        INPUT:
+
+        - ``init`` -- a vector (or list or tuple) of initial values.
+          The components must be elements of ``self.base_ring().base_ring().fraction_field()``.
+          If the length is more than ``self.order()``, we do not check whether the given
+          terms are consistent with ``self``. 
+        - ``n`` -- desired number of terms. 
+        - ``start`` (optional) -- index of the sequence term which is represented
+          by the first entry of ``init``. Defaults to zero.
+        - ``append`` (optional) -- if ``True``, the computed terms are appended
+          to ``init`` list. Otherwise (default), a new list is created.
+        - ``padd`` (optional) -- if ``True``, the vector of initial values is implicitely
+          prolonged to the left (!) by zeros if it is too short. Otherwise (default),
+          the method raises a ``ValueError`` if ``init`` is too short.
+
+        OUTPUT:
+
+        A list of ``n`` terms whose `k` th component carries the sequence term with
+        index ``start+k``.
+        Terms whose calculation causes an error are represented by ``None``. 
+
+        EXAMPLES::
+
+           sage: R.<x> = QQ['x']; A.<Qx> = OreAlgebra(R, 'Qx', q=3)
+           sage: (Qx^2-x*Qx + 1).to_list([1,1], 10)
+           [1, 1, 0, -1, -9, -242, -19593, -4760857, -3470645160, -7590296204063]
+           sage: (Qx^2-x*Qx + 1)(_)
+           [0, 0, 0, 0, 0, 0, 0, 0]
+        
+        """
+        _, q = self.parent().is_Q()
+        return _rec2list(self, init, n, start, append, padd, self.parent().sigma(), lambda n: q**n)
 
     def annihilator_of_sum(self):
         r"""
@@ -2377,6 +2452,58 @@ class UnivariateEulerDifferentialOperatorOverUnivariateRing(UnivariateOreOperato
 
         """
         return self.to_D('D').to_F(alg)
+
+#############################################################################################################
+
+
+def _rec2list(L, init, n, start, append, padd, sigma, deform):
+    """
+    Common code for computing terms of holonomic and q-holonomic sequences.
+    """
+        
+    r = L.order()
+    terms = init if append else list(init)
+    K = L.base_ring().base_ring().fraction_field()
+
+    if len(terms) >= n:
+        return terms
+    elif len(terms) < r:
+
+        if not padd:
+            raise ValueError, "not enough initial values."
+            
+        z = K.zero(); padd = r - len(terms)
+            
+        if append:
+            for i in xrange(padd):
+                terms.insert(0, z)
+            terms = _rec2list(L, terms, min(n, r) + padd, start - padd, True, False, sigma, deform)
+            for i in xrange(padd):
+                terms.remove(0)
+        else:
+            terms = _rec2list(L, [z]*padd + terms, min(n, r) + padd, start - padd, False, False, sigma, deform)[padd:]
+
+        return _rec2list(L, terms, n, start, append, False, sigma, deform)
+
+    for i in xrange(r):
+        if terms[-i - 1] not in K:
+            raise TypeError, "illegal initial value object"
+
+    rec = L.numerator().coeffs()
+    rec = tuple( -sigma(p, -r) for p in rec )
+    lc = -rec[-1]
+
+    for k in xrange(len(terms), n):
+
+        lck = lc(deform(k + start))
+        if lck.is_zero():
+            for i in xrange(k, n):
+                terms.append(None)
+            return terms
+
+        terms.append((~lck)*sum(terms[-r + k + i]*rec[i](deform(k + start)) for i in xrange(r)))
+
+    return terms
     
 
 #############################################################################################################
