@@ -2099,25 +2099,89 @@ class UnivariateQRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverU
         A = self.parent()
         return self.map_coefficients(A.sigma())*(A.gen() - A.one())
 
-    def annihilator_of_composition(self, u, v):
+    def annihilator_of_composition(self, a, solver=None):
         """
-        If self is such that self*f(n) = 0 and u, v are nonnegative rational numbers,
-        this function returns an operator L such that L*f(floor(u*n+v)) = 0.
-        """
-        raise NotImplementedError
+        Returns an operator `L` which annihilates all the sequences `f(a(n))`
+        where `f` runs through the functions annihilated by ``self``.
+        The output operator is not necessarily of smallest possible order.
 
-    def annihilator_of_interlacing(self, *other):
-        """
-        If ``self`` is an operator which annihilates a certain sequence `a(n)`
-        and ``other`` an operator from the same algebra which annihilates some sequence `b(n)`,
-        this returns an operator which annihilates the sequence `a(0),b(0),a(1),b(1),a(2),b(2),...`.
+        INPUT:
 
-        Any number of operators can be given. For example, in the case of two arguments,
-        the resulting operator will annihilate the sequence `a(0),b(0),c(0),a(1),...`,
-        where `a(n),b(n),c(n)` are sequence annihilated by ``self`` and the to operators
-        given as argument.         
+        - `a` -- a polynomial `u*x+v` where `x` is the generator of the base ring,
+          `u` and `v` are integers. 
+        - ``solver`` (optional) -- a callable object which applied to a matrix
+          with polynomial entries returns its kernel. 
+
+        EXAMPLES::
+
+          sage: R.<x> = QQ['x']
+          sage: A.<Qx> = OreAlgebra(R, 'Qx', q=3)
+          sage: L = (x+3)*Qx^2 - (5*x+3)*Qx + 2*x-1
+          sage: data = L.to_list([1,2], 11)
+          sage: data
+          [1, 2, 15/4, 115/12, 1585/48, 19435/144, 2387975/4032, 188901875/70848, 488427432475/40336128, 1461633379710215/26500836096, 14580926901721431215/57983829378048]
+          sage: L2 = L.annihilator_of_composition(2*x)
+          sage: L2.to_list([1,15/4], 5)
+          [1, 15/4, 1585/48, 2387975/4032, 488427432475/40336128]
+          sage: Lrev = L.annihilator_of_composition(10 - x)
+          sage: Lrev.to_list([data[10], data[9]], 11)
+          [14580926901721431215/57983829378048, 1461633379710215/26500836096, 488427432475/40336128, 188901875/70848, 2387975/4032, 19435/144, 1585/48, 115/12, 15/4, 2, 1]
+          
+          
         """
-        raise NotImplementedError
+        # ugly code duplication: the following is more or less the same as
+        # UnivariateRecurrenceOperatorOverUnivariateRing.annihilator_of_composition :-(
+        
+        A = self.parent()
+        
+        if a in ZZ:
+            # a is constant => f(a) is constant => Q-1 kills it
+            return A.gen() - A.one()
+
+        R = ZZ[A.base_ring().gen()]
+
+        try:
+            a = R(a)
+        except:
+            raise ValueError, "argument has to be of the form u*x+v where u,v are integers"
+
+        if a.degree() > 1:
+            raise ValueError, "argument has to be of the form u*x+v where u,v are integers"
+
+        try:
+            u = ZZ(a[1]); v = ZZ(a[0])
+        except:
+            raise ValueError, "argument has to be of the form u*x+v where u,v are rational"
+
+        A = A.change_ring(A.base_ring().fraction_field())
+        L = A(self); s = A.sigma(); 
+        r = self.order(); x, q = A.is_Q()
+
+        # special treatment for easy cases
+        if v != 0:
+            L = self.map_coefficients(lambda p: s(p, v))
+            return L if u == 1 else L.annihilator_of_composition(u*x)
+        elif u == 1:
+            return self
+        elif u < 0:
+            c = [ p(q**(-r)/x) for p in self.coeffs() ]; c.reverse()
+            return A(c).numerator().annihilator_of_composition(-u*x)
+
+        # now a = u*x where u > 1 
+        from sage.matrix.constructor import Matrix
+        if solver == None:
+            solver = A._solver()
+
+        p = A.one(); Qu = A.gen()**u # possible improvement: multiplication matrix. 
+        mat = [ p.coeffs(padd=r) ]; sol = []
+
+        while len(sol) == 0:
+
+            p = (Qu*p) % L
+            mat.append( p.coeffs(padd=r) )
+            sol = solver(Matrix(mat).transpose())
+
+        return self.parent()(list(sol[0])).map_coefficients(lambda p: p(x**u))
 
 
 #############################################################################################################
