@@ -1609,16 +1609,22 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
         if type(f) in (tuple, list):
 
             r = self.order()
-            R = self.parent().base_ring(); K = R.base_ring()
-            out = [K.zero()]*(len(f) - r)
-            for i in xrange(r + 1):
-                c = R(self[i])
-                for n in xrange(len(out)):
+            R = self.parent().base_ring()
+            K = R.base_ring()
+            z = K.zero()
+            c = self.numerator().coeffs()
+            d = self.denominator()
+
+            def fun(n):
+                if f[n + r] is None:
+                    return None
+                else:
                     try:
-                        out[n] += K(c(n))*K(f[n + i])
-                    except ZeroDivisionError:
-                        out[n] = None
-            return type(f)(out)
+                        return sum( c[i](n)*f[n + i] for i in xrange(r + 1) )/d(n)
+                    except:
+                        return None
+
+            return type(f)(fun(n) for n in xrange(len(f) - r))
 
         x = self.parent().base_ring().gen()
         if not kwargs.has_key("action"):
@@ -1957,17 +1963,24 @@ class UnivariateQRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverU
         if type(f) in (tuple, list):
 
             r = self.order()
+            R = self.parent().base_ring()
             _, q = self.parent().is_Q()
-            R = self.parent().base_ring(); K = R.base_ring()
-            out = [K.zero()]*(len(f) - r)
-            for i in xrange(r + 1):
-                c = R(self[i])
-                for n in xrange(len(out)):
+            K = R.base_ring()
+            z = K.zero()
+            c = self.numerator().coeffs()
+            d = self.denominator()
+
+            def fun(n):
+                if f[n + r] is None:
+                    return None
+                else:
                     try:
-                        out[n] += K(c(q**n))*K(f[n + i])
-                    except ZeroDivisionError:
-                        out[n] = None
-            return type(f)(out)
+                        qn = q**n
+                        return sum( c[i](qn)*f[n + i] for i in xrange(r + 1) )/d(qn)
+                    except:
+                        return None
+
+            return type(f)(fun(n) for n in xrange(len(f) - r))
 
         R = self.parent(); x = R.base_ring().gen(); qx = R.sigma()(x)
         if not kwargs.has_key("action"):
