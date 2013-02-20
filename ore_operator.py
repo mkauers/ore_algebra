@@ -1637,14 +1637,23 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         - `p` -- an irreducible polynomial in the base ring of the operator algebra.
         - `var` (optional) -- the variable name to use for the indicial polynomial.
         """
+
+        if p.degree()<=0:
+            raise ValueError, "p has to have degree greater than zero."
+
         op = self.normalize()
-        R = self.parent()
+        R = op.parent()
         L = R.base_ring()
         if L.is_field():
             L = L.base()
         K = PolynomialRing(L.base(),var)
         L = L.change_ring(K.fraction_field())
         LF = L.fraction_field()
+
+        if self.order()==0:
+            return L.one()
+        if self.is_zero():
+            return L.zero()
 
         D = R.gens()[0]
         s = LF.zero()
@@ -1654,11 +1663,11 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         currentder = p.parent().one()
         currentinv = p.parent().one()
 
-        for i in range(self.order()):
-            s = s + falling_factorial(y,i)*L(self[i])*LF(currentinv)*L(currentder)
+        for i in range(op.order()):
+            s = s + falling_factorial(y,i)*L(op[i])*LF(currentinv)*L(currentder)
             currentder = (currentder * pder) % p
             currentinv = currentinv*pinv
-        s = s + falling_factorial(y,self.order())*L(P[self.order()])*LF(currentinv)*L(currentder)
+        s = s + falling_factorial(y,op.order())*L(op[op.order()])*LF(currentinv)*L(currentder)
 
         s = s.numerator()
         r = s.quo_rem(p)
@@ -2021,13 +2030,16 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
     def indicial_polynomial(self, p, var='lambda'):
         """
         If K[x] is the base ring of the operator algebra, this returns a polynomial `q` in K[`var`] with the following property:
-        If `r` ir a root of `q`, then there exist a series solution of order `r` for a sufficiently large class of series.
+        If `r` ir a root of `q`, then p divides the leading coefficient of the operator and the 'r'-th shift of the trailing coefficient
 
         INPUT:
 
-        - `p` -- an irreducible polynomial in the base ring of the operator algebra.
+        - `p` -- an irreducible polynomial of degree > 0 in the base ring of the operator algebra.
         - `var` (optional) -- the variable name to use for the indicial polynomial.
         """
+        if p.degree()<=0:
+            raise ValueError, "p has to have degree greater than zero."
+        
         R = self.parent()
         L = R.base_ring()
         if L.is_field():
@@ -2036,8 +2048,16 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
         L = L.change_ring(K.fraction_field())
         y = L(K.gen())
         x = L.gen()
-        print gcd(L(self.leading_coefficient()),p)
-        return gcd(L(self.leading_coefficient()),p).resultant(self[0](x+y))
+
+        if self.order()==0:
+            return L.one()
+        if self.is_zero():
+            return L.zero()
+
+        i = 0
+        while self[i].is_zero():
+            i = i+1
+        return gcd(L(self.leading_coefficient()),p).resultant(self[i](x+y))
 
     def generalized_series_solutions(self, n): # at infinity. 
         raise NotImplementedError
