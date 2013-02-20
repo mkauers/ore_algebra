@@ -6,11 +6,6 @@ ore_operator
 """
 
 from sage.structure.element import RingElement, canonical_coercion
-from sage.rings.ring import Algebra
-from sage.rings.polynomial.polynomial_ring import is_PolynomialRing
-from sage.rings.polynomial.multi_polynomial_ring import is_MPolynomialRing
-from sage.rings.number_field.number_field import is_NumberField
-from sage.rings.fraction_field import is_FractionField
 from sage.rings.arith import gcd, lcm
 from sage.rings.rational_field import QQ
 from sage.rings.integer_ring import ZZ
@@ -21,7 +16,7 @@ class OreOperator(RingElement):
 
     In addition to usual ``RingElement`` features, Ore operators provide coefficient extraction
     functionality and the possibility of letting an operator act on another object. The latter
-    is provided through ``call``.
+    is provided through ``__call__``.
 
     """
 
@@ -105,7 +100,10 @@ class OreOperator(RingElement):
           False 
         
         """
-        raise NotImplementedError
+        if self.is_zero():
+            return False
+        else:
+            return self.leading_coefficient().is_one()
 
     def is_unit(self):
         """
@@ -122,7 +120,10 @@ class OreOperator(RingElement):
           True
           
         """
-        raise NotImplementedError
+        if len(self.exponents()) > 1:
+            return False
+        else:
+            return self.constant_coefficient().is_unit()
        
     def is_gen(self):
         """
@@ -384,12 +385,15 @@ class OreOperator(RingElement):
           Univariate Ore algebra in Dx over Fraction Field of Univariate Polynomial Ring in x over Rational Field
         
         """
-        if self.is_monic():
+        if self.is_zero():
+            raise ZeroDivisionError
+        elif self.is_monic():
             return self
-        a = ~self.leading_coefficient()
+        R = self.base_ring().fraction_field()
+        a = ~R(self.leading_coefficient())
         A = self.parent()
-        if a.parent() != A.base_ring():
-            S = A.base_extend(a.parent())
+        if R != A.base_ring():
+            S = A.base_extend(R)
             return a*S(self)
         else:
             return a*self
@@ -398,11 +402,14 @@ class OreOperator(RingElement):
         """
         Returns the content of ``self``.
 
-        If the base ring of ``self``'s parent is a field, the method returns the base ring's one.
+        If the base ring of ``self``'s parent is a field, the method returns the leading coefficient.
 
         If the base ring is not a field, then it is a polynomial ring. In this case,
         the method returns the greatest common divisor of the nonzero coefficients of
-        ``self``.
+        ``self``. If the base ring does not know how to compute gcds, the method returns `1`.
+
+        If ``proof`` is set to ``False``, the gcd of two random linear combinations of
+        the coefficients is taken instead of the gcd of all the coefficients. 
 
         EXAMPLES::
 
@@ -414,39 +421,48 @@ class OreOperator(RingElement):
            sage: A.<Dx> = OreAlgebra(R, 'Dx')
            sage: (5*x^2*Dx + 10*x).content()
            x
+           sage: (5*x^2*Dx + 10*x).content(proof=False)
+           x
            sage: R.<x> = QQ['x']
            sage: A.<Dx> = OreAlgebra(R.fraction_field(), 'Dx')
            sage: (5*x^2*Dx + 10*x).content()
-           1
+           5*x^2
         
         """
-        if self == 0 or self.is_zero():
-            return self.parent().base_ring().one()
-        if self.order() == 0:
-            return self.constant_coefficient()
-
-        Rbase = self.parent().base_ring()
-        coeffs = self.coefficients()
-
-        if proof:
-            cont = lambda x: gcd([x(c) for c in coeffs])
+        R = self.base_ring()
+        if self.is_zero():
+            return R.one()
+        elif R.is_field():
+            return self.leading_coefficient()
         else:
-            cont = lambda x: gcd(x(coeffs.pop()),reduce(lambda y,z: x(y)+x(z),coeffs))
 
-        if Rbase.is_field():
+            coeffs = self.coefficients() # nonzero coefficients only
+            if len(coeffs) == 1:
+                return coeffs[0]
+            
             try:
-                return Rbase(cont(Rbase.base()))
+                if proof:
+                    if R.ngens() == 1:
+                        # move polynomials of lower degree to front
+                        coeffs.sort(key=lambda p: p.degree())
+                    else:
+                        # move polynomials with fewer terms to front
+                        coeffs.sort(key=lambda p: len(p.exponents()))
+                    return gcd(coeffs)
+                else:
+                    a = sum(R(2*i+3)*coeffs[i] for i in xrange(len(coeffs)))
+                    b = sum(R(3*i-1)*coeffs[i] for i in xrange(len(coeffs)))
+                    return a.gcd(b)
             except:
-                pass
-            return Rbase.one()
-        else:
-            return cont(Rbase)
+                return R.one()
 
-    def primitive_part(self):
+    def primitive_part(self, proof=True):
         """
         Returns the primitive part of ``self``.
 
         It is obtained by dividing ``self`` from the left by ``self.content()``.
+
+        The ``proof`` option is passed on to the content computation. 
 
         EXAMPLES::
 
@@ -454,28 +470,46 @@ class OreOperator(RingElement):
           sage: A.<Dx> = OreAlgebra(R, 'Dx')
           sage: (5*x^2*Dx + 10*x).primitive_part()
           x*Dx + 2
+          sage: A.<Dx> = OreAlgebra(R.fraction_field(), 'Dx')
+          sage: (5*x^2*Dx + 10*x).primitive_part()
+          Dx + 2/x
         
         """
-        if self.is_zero(): return self
-        if self.parent().base_ring().is_field(): c = self.leading_coefficient()
-        else: c = self.content()
-        return self.map_coefficients(lambda p: p//c)
+        c = self.content(proof=proof)
+        if c.is_one():
+            return self
+        elif self.base_ring().is_field():
+            return self.map_coefficients(lambda p: p/c)
+        else:
+            return self.map_coefficients(lambda p: p//c)
 
+    def normalize(self, proof=False):
+        """
+        Returns a normal form of ``self``.
 
-    def normalize(self):
+        Call two operators `A,B` equivalent iff there exist nonzero elements `p,q` of the base ring
+        such that `p*A=q*B`. Then `A` and `B` are equivalent iff their normal forms as computed by
+        this method agree.
+
+        The normal form is a left multiple of ``self`` by an element of (the fraction field of) the
+        base ring. An attempt is made in choosing a "simple" representative of the equivalence class.
+
+        EXAMPLES::
+
+          sage: R.<x> = QQ['x']
+          sage: A.<Dx> = OreAlgebra(R, 'Dx')
+          sage: (10*(x+1)*Dx - 5*x).normalize()
+          (x + 1)*Dx - 1/2*x
+        
         """
-        Returns a normal form of an Ore operator.
-        First, it takes the primitve part of the operator and then tries to normalize it by making it monic.
-        If the leading coefficient is a polynomial, it tries to make its leading coefficient monic, unless this is a polynomial again.
-        In the latter case, the process is repeated until the leading coefficient is a unit.
-        """
-        prim = self.primitive_part()
-        c = prim.leading_coefficient()
-        while (not c.is_unit()) and (c.parent()!=c.parent().base_ring()):
+        num = self.numerator().primitive_part(proof=proof)
+        c = num.leading_coefficient()
+        while not c.is_unit() and c.parent() is not c.parent().base_ring():
             c = c.leading_coefficient()
-        if not c.is_unit():
-            return prim
-        return (~c)*prim
+        if c.is_unit():
+            return self.parent()((~c)*num)
+        else:
+            return num
 
     def map_coefficients(self, f, new_base_ring = None):
         """
@@ -1828,7 +1862,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
 
         INPUT:
 
-        - `a` -- a polynomial `u*x+v` where `x` is the generator of the base ring,
+        - ``a`` -- a polynomial `u*x+v` where `x` is the generator of the base ring,
           `u` and `v` are integers or rational numbers. If they are rational,
           the base ring of the parent of ``self`` must contain ``QQ``.
         - ``solver`` (optional) -- a callable object which applied to a matrix
@@ -2107,7 +2141,7 @@ class UnivariateQRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverU
 
         INPUT:
 
-        - `a` -- a polynomial `u*x+v` where `x` is the generator of the base ring,
+        - ``a`` -- a polynomial `u*x+v` where `x` is the generator of the base ring,
           `u` and `v` are integers. 
         - ``solver`` (optional) -- a callable object which applied to a matrix
           with polynomial entries returns its kernel. 
