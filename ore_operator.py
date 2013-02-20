@@ -1298,14 +1298,14 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
     def desingularize(self, p):
         raise NotImplementedError
 
-    def indicial_polynomial(self, p, var='lambda'):
-        raise NotImplementedError
-
     def abramov_van_hoeij(self, other):
         """
         given other=a*D + b, find, if possible, an operator M such that rat*self = 1 - other*M
         for some rational function rat.
         """
+        raise NotImplementedError
+
+    def indicial_polynomial(self, p, var='lambda'):
         raise NotImplementedError
 
 
@@ -1593,6 +1593,46 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         """
         raise NotImplementedError
 
+    def indicial_polynomial(self, p, var='lambda'):
+        """
+        If K[x] is the base ring of the operator algebra, this returns a polynomial `q` in K[`var`] with the following property:
+        If `r` ir a root of `q`, then there exist a series solution of order `r` for a sufficiently large class of series.
+
+        INPUT:
+
+        - `p` -- an irreducible polynomial in the base ring of the operator algebra.
+        - `var` (optional) -- the variable name to use for the indicial polynomial.
+        """
+        op = self.normalize()
+        R = self.parent()
+        L = R.base_ring()
+        if L.is_field():
+            L = L.base()
+        K = PolynomialRing(L.base(),var)
+        L = L.change_ring(K.fraction_field())
+        LF = L.fraction_field()
+
+        D = R.gens()[0]
+        s = LF.zero()
+        y = K.gen()
+        pder = D(p)
+        pinv = ~p
+        currentder = p.parent().one()
+        currentinv = p.parent().one()
+
+        for i in range(self.order()):
+            s = s + falling_factorial(y,i)*L(self[i])*LF(currentinv)*L(currentder)
+            currentder = (currentder * pder) % p
+            currentinv = currentinv*pinv
+        s = s + falling_factorial(y,self.order())*L(P[self.order()])*LF(currentinv)*L(currentder)
+
+        s = s.numerator()
+        r = s.quo_rem(p)
+        while r[1].is_zero():
+            s = r[0]
+            r = s.quo_rem(p)
+        s = r[1]
+        return gcd(s.coefficients())
 
 #############################################################################################################
 
@@ -1943,6 +1983,27 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
                        .annihilator_of_composition(x - i)
 
         return self.parent()(reduce(lambda p, q: p.lclm(q), ops).numerator())
+
+    def indicial_polynomial(self, p, var='lambda'):
+        """
+        If K[x] is the base ring of the operator algebra, this returns a polynomial `q` in K[`var`] with the following property:
+        If `r` ir a root of `q`, then there exist a series solution of order `r` for a sufficiently large class of series.
+
+        INPUT:
+
+        - `p` -- an irreducible polynomial in the base ring of the operator algebra.
+        - `var` (optional) -- the variable name to use for the indicial polynomial.
+        """
+        R = self.parent()
+        L = R.base_ring()
+        if L.is_field():
+            L = L.base()
+        K = PolynomialRing(L.base(),var)
+        L = L.change_ring(K.fraction_field())
+        y = L(K.gen())
+        x = L.gen()
+        print gcd(L(self.leading_coefficient()),p)
+        return gcd(L(self.leading_coefficient()),p).resultant(self[0](x+y))
 
     def generalized_series_solutions(self, n): # at infinity. 
         raise NotImplementedError
