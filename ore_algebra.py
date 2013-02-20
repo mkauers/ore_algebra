@@ -222,9 +222,10 @@ class _Sigma:
 
     def factorial(self, p, n):
         """
-        Returns `p\sigma(p)...\sigma^{n-1}(p)` if `n` is nonnegative, and `1` if `n` is negative.
+        Returns `p\sigma(p)...\sigma^{n-1}(p)` if `n` is nonnegative,
+        and and `1/(\sigma(p)...\sigma^n(p)` otherwise.        
         """
-        if n <= 0:
+        if n == 0:
             return self.__R.one()
         elif n == 1:
             return p
@@ -234,6 +235,14 @@ class _Sigma:
                 q = self(q)
                 out = out*q
             return out
+        elif n < 0:
+            s = self.inverse()
+            q = ~s(p); out = q
+            n = -n 
+            for i in xrange(n - 1):
+                q = s(q)
+                out = out*q
+            return out                
         else:
             raise ValueError, "illegal argument to Sigma.factorial: " + str(n)
 
