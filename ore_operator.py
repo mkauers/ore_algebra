@@ -1638,10 +1638,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         - `var` (optional) -- the variable name to use for the indicial polynomial.
         """
 
-        if p.degree()<=0:
-            raise ValueError, "p has to have degree greater than zero."
-
-        op = self.normalize()
+        op = self.normalize(proof=True)
         R = op.parent()
         L = R.base_ring()
         if L.is_field():
@@ -1650,14 +1647,32 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         L = L.change_ring(K.fraction_field())
         LF = L.fraction_field()
 
-        if self.order()==0:
+        if op.order()==0:
             return L.one()
-        if self.is_zero():
+        if op.is_zero():
             return L.zero()
 
-        D = R.gens()[0]
         s = LF.zero()
         y = K.gen()
+
+        if not p==p.numerator():
+            if p==~p.parent().gen():
+                b = op[0].degree()
+                for j in range(1,op.order()+1):
+                    b = max(b,op[j].degree()-j)
+                for i in range(op.order()+1):
+                    s = s + op[i][b+i]*falling_factorial(y,i)
+                return K(L(s)[0])
+            else:
+                try:
+                    p = p.parent().base()(p)
+                except:
+                    raise ValueError, "p has to be a polynomial or 1/" + p.parent().gen()._repr_()
+
+        if p.degree()<=0:
+            raise ValueError, "p has to have degree greater than zero."
+
+        D = R.gens()[0]
         pder = D(p)
         pinv = ~p
         currentder = p.parent().one()
@@ -1668,14 +1683,13 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             currentder = (currentder * pder) % p
             currentinv = currentinv*pinv
         s = s + falling_factorial(y,op.order())*L(op[op.order()])*LF(currentinv)*L(currentder)
-
         s = s.numerator()
         r = s.quo_rem(p)
         while r[1].is_zero():
             s = r[0]
             r = s.quo_rem(p)
         s = r[1]
-        return gcd(s.coefficients())
+        return K(gcd(s.coefficients()))
 
 #############################################################################################################
 
@@ -2027,37 +2041,38 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
 
         return self.parent()(reduce(lambda p, q: p.lclm(q), ops).numerator())
 
-    def indicial_polynomial(self, p, var='lambda'):
+    def spread(self, p):
         """
-        If K[x] is the base ring of the operator algebra, this returns a polynomial `q` in K[`var`] with the following property:
-        If `r` ir a root of `q`, then p divides the leading coefficient of the operator and the 'r'-th shift of the trailing coefficient
+        This returns all integers i such that p divides the leading coefficient of the operator and the 'i'-th shift of the trailing coefficient
 
         INPUT:
 
         - `p` -- an irreducible polynomial of degree > 0 in the base ring of the operator algebra.
         - `var` (optional) -- the variable name to use for the indicial polynomial.
         """
+
         if p.degree()<=0:
             raise ValueError, "p has to have degree greater than zero."
         
-        R = self.parent()
+        op = self.normalize(proof=True)
+        R = op.parent()
         L = R.base_ring()
         if L.is_field():
             L = L.base()
-        K = PolynomialRing(L.base(),var)
+        K = PolynomialRing(L.base(),'y')
         L = L.change_ring(K.fraction_field())
         y = L(K.gen())
         x = L.gen()
 
-        if self.order()==0:
+        if op.order()==0:
             return L.one()
-        if self.is_zero():
+        if op.is_zero():
             return L.zero()
 
         i = 0
-        while self[i].is_zero():
+        while op[i].is_zero():
             i = i+1
-        return gcd(L(self.leading_coefficient()),p).resultant(self[i](x+y))
+        return [x[0] for x in K(gcd(L(op.leading_coefficient()),p).resultant(op[i](x+y))).roots(ring=QQ) if x[0].numerator()==x[0]]
 
     def generalized_series_solutions(self, n): # at infinity. 
         raise NotImplementedError
