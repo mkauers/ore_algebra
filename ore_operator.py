@@ -2215,38 +2215,78 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
 
         return self.parent()(reduce(lambda p, q: p.lclm(q), ops).numerator())
 
-    def spread(self, p):
+
+    def dispersion(self, p=0):
         """
-        This returns all integers i such that p divides the leading coefficient of the operator and the 'i'-th shift of the trailing coefficient
+        Returns the dispersion of this operator.
 
-        INPUT:
+        This is the maximum nonnegative integer `i` such that ``sigma(self[0], i)`` and ``sigma(self[r], -r)``
+        have a nontrivial common factor, where ``sigma`` is the shift of the parent's algebra and `r` is
+        the order of ``self``.
 
-        - `p` -- an irreducible polynomial of degree > 0 in the base ring of the operator algebra.
-        - `var` (optional) -- the variable name to use for the indicial polynomial.
-        """
+        An output `-1` indicates that there are no such integers `i` at all.
 
-        if p.degree()<=0:
-            raise ValueError, "p has to have degree greater than zero."
+        If the optional argument `p` is given, the method is applied to ``gcd(self[0], p)`` instead of ``self[0]``.
+
+        The output is `\infty` if the constant coefficient of ``self`` is zero.
+
+        EXAMPLES::
+
+          sage: R.<x> = ZZ['x']; A.<Sx> = OreAlgebra(R, 'Sx');
+          sage: ((x+5)*Sx - x).dispersion()
+          4
         
-        op = self.normalize(proof=True)
-        R = op.parent()
-        L = R.base_ring()
-        if L.is_field():
-            L = L.base()
-        K = PolynomialRing(L.base(),'y')
-        L = L.change_ring(K.fraction_field())
-        y = L(K.gen())
-        x = L.gen()
+        """
+        s = self.spread(p)
+        return max(s) if len(s) > 0 else -1
+
+    def spread(self, p=0):
+        """
+        Returns the dispersion of this operator.
+
+        This is the set of integers `i` such that ``sigma(self[0], i)`` and ``sigma(self[r], -r)``
+        have a nontrivial common factor, where ``sigma`` is the shift of the parent's algebra and `r` is
+        the order of ``self``.
+
+        If the optional argument `p` is given, the method is applied to ``gcd(self[0], p)`` instead of ``self[0]``.
+
+        The output set contains `\infty` if the constant coefficient of ``self`` is zero.
+
+        EXAMPLES::
+
+          sage: R.<x> = ZZ['x']; A.<Sx> = OreAlgebra(R, 'Sx');
+          sage: ((x+5)*Sx - x).spread()
+          [4]
+          sage: ((x+5)*Sx - x).lclm((x+19)*Sx - x).spread()
+          [3, 4, 17, 18]
+        
+        """
+
+        op = self.normalize(); A = op.parent(); R = A.base_ring()
+        if R.is_field():
+            R = R.ring() # R = k[x]
+
+        K = PolynomialRing(R.base_ring(), 'y') # k[y]
+        R = R.change_ring(K.fraction_field()) # FF(k[y])[x]
+
+        y = R(K.gen())
+        x = R.gen()
 
         if op.order()==0:
-            return L.one()
-        if op.is_zero():
-            return L.zero()
-
-        i = 0
-        while op[i].is_zero():
-            i = i+1
-        return [x[0] for x in K(gcd(L(op.leading_coefficient()),p).resultant(op[i](x+y))).roots(ring=QQ) if x[0].numerator()==x[0]]
+            return []
+        elif op[0].is_zero():
+            return [infinity.infinity]
+        else:
+            s = []; r = op.order()
+            for (p, _) in (R(op[r])(x - r).resultant(gcd(R(p), R(op[0]))(x + y))).numerator().factor():
+                if p.degree() == 1:
+                    try:
+                        s.append(ZZ(-p[0]/p[1]))
+                    except:
+                        pass
+            s = list(set(s)) # remove duplicates
+            s.sort()
+            return s
 
     def generalized_series_solutions(self, n): # at infinity. 
         raise NotImplementedError
