@@ -1420,7 +1420,10 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         ``sigma.factorial(p, e)`` but neither ``sigma(p, -1)*sigma.factorial(p, e)`` nor
         ``sigma.factorial(p, e + 1)``, then ``-e`` is a root of this polynomial.
 
-        Subclasses may implement this method only for certain choices of ``p``.
+        Applied to `p=1/x`, the maximum integer root of the output should serve as a degree bound
+        for the polynomial solutions of ``self``. 
+
+        This is an abstract method. Subclasses may implement it only for certain choices of ``p``.
         """
         raise NotImplementedError # abstract method
 
@@ -1780,67 +1783,87 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
 
     def indicial_polynomial(self, p, var='lambda'):
         """
-        If K[x] is the base ring of the operator algebra, this returns a polynomial `q` in K[`var`] with the following property:
-        If `r` ir a root of `q`, then there exist a series solution of order `r` for a sufficiently large class of series.
+        Computes the indicial polynomial of this operator at (a root of) `p`.
+
+        If `x` is the generator of the base ring, the input may be either irreducible polynomial in `x`
+        or the rational function `1/x`.
+
+        The output is a univariate polynomial in the given variable ``var`` with coefficients in the
+        base ring's base ring. It has the following property: for every nonzero series solution
+        of ``self`` in rising powers of `p`, i.e. `p_0 p^\alpha + p_1 p^{\alpha+1} + ...`, the
+        minimal exponent `\alpha` is a root of the indicial polynomial.
+        The converse may not hold. 
 
         INPUT:
 
-        - `p` -- an irreducible polynomial in the base ring of the operator algebra.
-        - `var` (optional) -- the variable name to use for the indicial polynomial.
+        - ``p`` -- an irreducible polynomial in the base ring of the operator algebra, or `1/x`.
+        - ``var`` (optional) -- the variable name to use for the indicial polynomial.
+
+        EXAMPLES::
+        
+          sage: R.<x> = ZZ['x']; A.<Dx> = OreAlgebra(R, 'Dx');
+          sage: L = (x*Dx-5).lclm((x^2+1)*Dx - 7*x).lclm(Dx - 1)
+          sage: L.indicial_polynomial(x).factor()
+          (-1) * 5 * 2^2 * (lambda - 5) * (lambda - 1) * lambda
+          sage: L.indicial_polynomial(1/x).factor()
+          2 * (lambda - 7) * (lambda - 5)
+          sage: L.indicial_polynomial(x^2+1).factor()
+          5 * 7 * 2^2 * (lambda - 1) * lambda * (2*lambda - 7)
+        
         """
 
         op = self.normalize(proof=True)
         R = op.parent()
-        L = R.base_ring()
+        L = R.base_ring() # k[x]
         if L.is_field():
-            L = L.base()
-        K = PolynomialRing(L.base(),var)
-        L = L.change_ring(K.fraction_field())
-        LF = L.fraction_field()
+            L = L.ring()
+        K = PolynomialRing(L.base_ring(),var) # k[lambda]
+        L = L.change_ring(K.fraction_field()) # FF(k[lambda])[x]
 
-        if op.order()==0:
+        if op.order() == 0:
             return L.one()
         if op.is_zero():
             return L.zero()
 
-        s = LF.zero()
-        y = K.gen()
+        s = L.zero()
+        y = L(K.gen())
 
-        if not p==p.numerator():
-            if p==~p.parent().gen():
-                b = op[0].degree()
-                for j in range(1,op.order()+1):
-                    b = max(b,op[j].degree()-j)
-                for i in range(op.order()+1):
-                    s = s + op[i][b+i]*falling_factorial(y,i)
-                return K(L(s)[0])
-            else:
-                try:
-                    p = p.parent().base()(p)
-                except:
-                    raise ValueError, "p has to be a polynomial or 1/" + p.parent().gen()._repr_()
+        if (p.parent().gen()*p).is_one():
+            b = op[0].degree()
+            for j in range(1, op.order() + 1):
+                b = max(b, op[j].degree() - j)
+            y_ff_i = L.one()
+            for i in range(op.order() + 1):
+                s = s + op[i][b + i]*y_ff_i
+                y_ff_i *= y - i
+            return K(L(s)[0])
 
-        if p.degree()<=0:
-            raise ValueError, "p has to have degree greater than zero."
+        try: 
+            p = L(p)
+        except:
+            raise ValueError, "p has to be a polynomial or 1/" + str(p.parent().gen())
 
-        D = R.gens()[0]
-        pder = D(p)
-        pinv = ~p
-        currentder = p.parent().one()
-        currentinv = p.parent().one()
+        r = self.order()
+        pder = self.parent().delta()(p)
+        currentder = p.parent().one() # = (p')^i mod p
+        currentinv = p**r # = p^(ord - i)
+        y_ff_i = y # = falling_factorial(y, i)
+        s = op[0]*currentinv
 
-        for i in range(op.order()):
-            s = s + falling_factorial(y,i)*L(op[i])*LF(currentinv)*L(currentder)
+        for i in range(1, op.order() + 1):
             currentder = (currentder * pder) % p
-            currentinv = currentinv*pinv
-        s = s + falling_factorial(y,op.order())*L(op[op.order()])*LF(currentinv)*L(currentder)
-        s = s.numerator()
-        r = s.quo_rem(p)
-        while r[1].is_zero():
-            s = r[0]
-            r = s.quo_rem(p)
-        s = r[1]
-        return K(gcd(s.coefficients()))
+            currentinv = currentinv // p
+            s += op[i]*currentinv*currentder*y_ff_i
+            y_ff_i *= y - i
+
+        q, r = s.quo_rem(p)
+        while r.is_zero() and not q.is_zero():
+            q, r = q.quo_rem(p)
+
+        if r.is_zero():
+            raise ValueError, "p not irreducible?"
+        else:
+            return K(gcd(r.coefficients()).numerator())
 
 #############################################################################################################
 
