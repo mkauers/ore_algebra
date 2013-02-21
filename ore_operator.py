@@ -1339,10 +1339,10 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         else:
             return max( p.degree() for p in self.coefficients() )                
 
-    def polynomial_solutions(self):
+    def polynomial_solutions(self, rhs=(), degree=None, solver=None):
         raise NotImplementedError
 
-    def rational_solutions(self):
+    def rational_solutions(self, rhs=(), denominator=None, degree=None, solver=None):
         raise NotImplementedError
 
     def _degree_bound(self):
@@ -1398,16 +1398,6 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
 
         return bound         
 
-    def desingularize(self, p):
-        raise NotImplementedError
-
-    def abramov_van_hoeij(self, other):
-        """
-        given other=a*D + b, find, if possible, an operator M such that rat*self = 1 - other*M
-        for some rational function rat.
-        """
-        raise NotImplementedError
-
     def indicial_polynomial(self, p, var='lambda'):
         """
         Computes the indicial polynomial of ``self`` at (a root of) ``p``.
@@ -1426,6 +1416,16 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         This is an abstract method. Subclasses may implement it only for certain choices of ``p``.
         """
         raise NotImplementedError # abstract method
+
+    def desingularize(self, p):
+        raise NotImplementedError
+
+    def abramov_van_hoeij(self, other):
+        """
+        given other=a*D + b, find, if possible, an operator M such that rat*self = 1 - other*M
+        for some rational function rat.
+        """
+        raise NotImplementedError
 
 
 #############################################################################################################
@@ -2214,6 +2214,54 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
                        .annihilator_of_composition(x - i)
 
         return self.parent()(reduce(lambda p, q: p.lclm(q), ops).numerator())
+
+    def indicial_polynomial(self, p, var='lambda'):
+        """
+        Returns the indicial polynomial of this operator.
+
+        The indicial polynomial is only defined if `p=1/x` where `x` is the generator of the base ring.
+        It has the property that for every (formal) series solution of this operator in descending powers,
+        i.e., `x^\alpha + p_1 x^{\alpha-1} + p_2 x^{\alpha-2} + ...` it has a root `\alpha`.
+
+        The polynomial is zero only if ``self`` is zero.
+
+        EXAMPLES::
+
+           sage: R.<x> = ZZ['x']; A.<Sx> = OreAlgebra(R, 'Sx');
+           sage: ((x-5)*Sx - x).lclm((x+19)*Sx - x).indicial_polynomial(1/x).factor()
+           (lambda - 5) * (lambda + 19)
+        
+        """
+        
+        if not (p*self.base_ring().gen()).is_one():
+            raise ValueError, "p must be 1/x"
+
+        op = self.normalize().to_F('F')
+        R = op.parent()
+        L = R.base_ring() # k[x]
+        if L.is_field():
+            L = L.ring()
+        K = PolynomialRing(L.base_ring(),var) # k[lambda]
+        L = L.change_ring(K.fraction_field()) # FF(k[lambda])[x]
+
+        if op.is_zero():
+            return L.zero()
+        if op.order() == 0:
+            return L.one()
+
+        s = L.zero()
+        y = L(K.gen())
+
+        b = op[0].degree()
+        for j in range(1, op.order() + 1):
+            b = max(b, op[j].degree() - j)
+            
+        y_ff_i = L.one()
+        for i in range(op.order() + 1):
+            s = s + op[i][b + i]*y_ff_i
+            y_ff_i *= y - i
+
+        return K(L(s)[0])
 
 
     def dispersion(self, p=0):
