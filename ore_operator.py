@@ -441,18 +441,24 @@ class OreOperator(RingElement):
                 return coeffs[0]
             
             try:
-                if proof:
-                    if R.ngens() == 1:
-                        # move polynomials of lower degree to front
-                        coeffs.sort(key=lambda p: p.degree())
-                    else:
-                        # move polynomials with fewer terms to front
-                        coeffs.sort(key=lambda p: len(p.exponents()))
-                    return gcd(coeffs)
+                a = sum(R(2*i+3)*coeffs[i] for i in xrange(len(coeffs)))
+                b = sum(R(3*i-1)*coeffs[i] for i in xrange(len(coeffs)))
+                try:
+                    c = a.gcd(b)
+                except:
+                    c = R.zero()
+                if not proof and not c.is_zero():
+                    return c
+
+                coeffs.append(c)
+                if R.ngens() == 1:
+                    # move polynomials of lower degree to front
+                    coeffs.sort(key=lambda p: p.degree())
                 else:
-                    a = sum(R(2*i+3)*coeffs[i] for i in xrange(len(coeffs)))
-                    b = sum(R(3*i-1)*coeffs[i] for i in xrange(len(coeffs)))
-                    return a.gcd(b)
+                    # move polynomials with fewer terms to front
+                    coeffs.sort(key=lambda p: len(p.exponents()))
+
+                return gcd(coeffs)
             except:
                 return R.one()
 
@@ -502,6 +508,8 @@ class OreOperator(RingElement):
           (x + 1)*Dx - 1/2*x
         
         """
+        if self.is_zero():
+            return self
         num = self.numerator().primitive_part(proof=proof)
         c = num.leading_coefficient()
         while not c.is_unit() and c.parent() is not c.parent().base_ring():
@@ -900,7 +908,7 @@ class UnivariateOreOperator(OreOperator):
         other = other[0]
         if self.is_zero() or other.is_zero():
             return self.parent().zero()
-        elif self.order() == 1:
+        elif self.order() == 0:
             return other
         elif other in self.base_ring():
             return self
@@ -1614,10 +1622,79 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
 
         return self.parent()(list(sol[0]))
 
-    def power_series_solutions(self, n):
-        raise NotImplementedError
+    def power_series_solutions(self, n=5):
+        """
+        Computes the first few terms of the power series solutions of this operator.
 
-    def generalized_series_solutions(self, n):
+        The method raises an error if Sage does not know how to factor univariate polynomials
+        over the base ring's base ring.
+
+        The base ring has to have characteristic zero.         
+
+        INPUT:
+
+        - ``n`` -- minimum number of terms to be computed
+
+        OUTPUT:
+
+        A list of power series of the form `x^\alpha + ...` with pairwise distinct
+        exponents `\alpha` and coefficients in the base ring's base ring's fraction field.
+        All expansions are computed up to order `k` where `k` is obtained by adding the
+        maximal `\alpha` to the maximum of `n` and the order of ``self``.         
+
+        EXAMPLES::
+
+          sage: R.<x> = ZZ['x']
+          sage: A.<Dx> = OreAlgebra(R, 'Dx')
+          sage: ((1-x)*Dx - 1).power_series_solutions(10) # geometric series
+          [1 + x + x^2 + x^3 + x^4 + x^5 + x^6 + x^7 + x^8 + O(x^9)]
+          sage: (Dx - 1).power_series_solutions(5) # exp(x)
+          [1 + x + 1/2*x^2 + 1/6*x^3 + O(x^4)]
+          sage: (Dx^2 - Dx + x).power_series_solutions(5) # a 2nd order equation
+          [x + 1/2*x^2 + 1/6*x^3 - 1/24*x^4 + O(x^5), 1 - 1/6*x^3 - 1/24*x^4 + O(x^5)]
+          sage: (2*x*Dx - 1).power_series_solutions(5) # sqrt(x) is not a power series
+          []
+    
+        """
+        L = self.numerator()
+        
+        factors = L.indicial_polynomial(self.base_ring().gen()).factor()
+        orders = []
+
+        for (p, e) in factors:
+            if p.degree() == 1:
+                try:
+                    alpha = ZZ(-p[0]/p[1])
+                    if alpha >= 0:
+                        orders.append(alpha)
+                except:
+                    pass
+
+        if len(orders) == 0:
+            return orders # no power series solutions
+
+        r = self.order()
+        maxexp = max(orders) + max(n, r)
+        K = self.base_ring().base_ring().fraction_field(); zero = K.zero(); one = K.one()
+        
+        from sage.rings.power_series_ring import PowerSeriesRing
+        R = PowerSeriesRing(K, str(self.base_ring().gen()))
+
+        x = R.gen()
+        rec = L.to_S('S')
+        
+        sols = []
+        for alpha in orders:
+
+            p = _rec2list(rec, [one], maxexp - alpha, alpha, False, True, ZZ, lambda k: zero)
+            p = x**(alpha) * R(p, maxexp - alpha - 1)
+
+            if L(p).is_zero(): # L(p) nonzero indicates series involving logarithms. 
+                sols.append(p)
+
+        return sols
+
+    def generalized_series_solutions(self, n, exp=True, log=True):
         raise NotImplementedError
 
     def get_value(self, init, z, n):
@@ -1884,7 +1961,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
            [1, 1/-5, 1/20, 1/-60, 1/120, -1/120, None, None, None, None]
         
         """
-        return _rec2list(self, init, n, start, append, padd, self.parent().sigma(), ZZ)
+        return _rec2list(self, init, n, start, append, padd, ZZ)
 
     def annihilator_of_sum(self):
         r"""
@@ -2195,7 +2272,7 @@ class UnivariateQRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverU
         
         """
         _, q = self.parent().is_Q()
-        return _rec2list(self, init, n, start, append, padd, self.parent().sigma(), lambda n: q**n)
+        return _rec2list(self, init, n, start, append, padd, lambda n: q**n)
 
     def annihilator_of_sum(self):
         r"""
@@ -2648,12 +2725,12 @@ class UnivariateEulerDifferentialOperatorOverUnivariateRing(UnivariateOreOperato
 #############################################################################################################
 
 
-def _rec2list(L, init, n, start, append, padd, sigma, deform):
+def _rec2list(L, init, n, start, append, padd, deform, singularity_handler=None):
     """
     Common code for computing terms of holonomic and q-holonomic sequences.
     """
         
-    r = L.order()
+    r = L.order(); sigma = L.parent().sigma()
     terms = init if append else list(init)
     K = L.base_ring().base_ring().fraction_field()
 
@@ -2669,31 +2746,34 @@ def _rec2list(L, init, n, start, append, padd, sigma, deform):
         if append:
             for i in xrange(padd):
                 terms.insert(0, z)
-            terms = _rec2list(L, terms, min(n, r) + padd, start - padd, True, False, sigma, deform)
+            terms = _rec2list(L, terms, min(n, r) + padd, start - padd, True, False, deform, singularity_handler)
             for i in xrange(padd):
                 terms.remove(0)
         else:
-            terms = _rec2list(L, [z]*padd + terms, min(n, r) + padd, start - padd, False, False, sigma, deform)[padd:]
+            terms = _rec2list(L, [z]*padd + terms, min(n, r) + padd, start - padd, False, False, deform, singularity_handler)[padd:]
 
-        return _rec2list(L, terms, n, start, append, False, sigma, deform)
+        return _rec2list(L, terms, n, start, append, False, deform, singularity_handler)
 
     for i in xrange(r):
         if terms[-i - 1] not in K:
             raise TypeError, "illegal initial value object"
 
-    rec = L.numerator().coeffs()
+    rec = L.numerator().coeffs(); sigma = L.parent().sigma()
     rec = tuple( -sigma(p, -r) for p in rec )
     lc = -rec[-1]
 
     for k in xrange(len(terms), n):
 
         lck = lc(deform(k + start))
-        if lck.is_zero():
+        
+        if not lck.is_zero():
+            terms.append((~lck)*sum(terms[-r + k + i]*rec[i](deform(k + start)) for i in xrange(r)))
+        elif singularity_handler is None:
             for i in xrange(k, n):
                 terms.append(None)
-            return terms
-
-        terms.append((~lck)*sum(terms[-r + k + i]*rec[i](deform(k + start)) for i in xrange(r)))
+                return terms
+        else:
+            terms.append(singularity_handler(k + start))
 
     return terms
     
