@@ -447,7 +447,8 @@ class OreOperator(RingElement):
                     c = a.gcd(b)
                 except:
                     c = R.zero()
-                if not proof and not c.is_zero():
+                if not proof and not c.is_zero() and \
+                   sum(len(p.coefficients()) for p in coeffs) > 30: # no shortcut for small operators
                     return c
 
                 coeffs.append(c)
@@ -1327,15 +1328,75 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
 
     def degree(self):
         """
-        maximum coefficient degree
+        Returns the maximum degree among the coefficients of ``self``
+
+        The degree of the zero operator is `-1`.
+
+        If the base ring is not a polynomial ring, this causes an error.
         """
-        raise NotImplementedError
+        if self.is_zero():
+            return -1
+        else:
+            return max( p.degree() for p in self.coefficients() )                
 
     def polynomial_solutions(self):
         raise NotImplementedError
 
     def rational_solutions(self):
         raise NotImplementedError
+
+    def _degree_bound(self):
+        """
+        Computes a degree bound for the polynomial solutions of this operator.
+
+        This is an integer `d` such that every polynomial solution of this operator
+        has degree `d` or less. 
+        """
+
+        if self.is_zero():
+            raise ZeroDivisionError, "unbounded degree"
+        
+        R = self.base_ring()
+        d = -1
+
+        for (p, e) in self.indicial_polynomial(~R.fraction_field()(R.gen())).factor():
+            if p.degree() == 1:
+                try:
+                    d = max(d, ZZ(-p[0]/p[1]))
+                except:
+                    pass
+
+        return d        
+
+    def _denominator_bound(self):
+        """
+        Computes a denominator bound for the rational solutions of this operator.
+
+        This is a polynomial `q` such that every rational solution of this operator
+        can be written in the form `p/q` for some other polynomial `p` (not necessarily
+        coprime with `q`)
+        """
+        
+        if self.is_zero():
+            raise ZeroDivisionError, "unbounded denominator"        
+
+        R = self.base_ring()
+        if not R.is_field():
+            R = R.fraction_field()        
+        bound = R.ring().one()
+        sigma = self.parent().sigma()
+
+        for (p, _) in R.ring()(self.leading_coefficient()).factor():
+            e = 0
+            for (q, _) in self.indicial_polynomial(p).factor():
+                if q.degree() == 1:
+                    try:
+                        e = min(e, ZZ(-q[0]/q[1]))
+                    except:
+                        pass
+            bound *= sigma.factorial(p, -e)
+
+        return bound         
 
     def desingularize(self, p):
         raise NotImplementedError
@@ -1348,7 +1409,20 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         raise NotImplementedError
 
     def indicial_polynomial(self, p, var='lambda'):
-        raise NotImplementedError
+        """
+        Computes the indicial polynomial of ``self`` at (a root of) ``p``.
+
+        The indicial polynomial is a polynomial in the given variable ``var`` with coefficients
+        in the fraction field of the base ring's base ring. 
+
+        The precise meaning of this polynomial may depend on the parent of ``self``. A minimum
+        requirement is that if ``self`` has a rational solution whose denominator contains
+        ``sigma.factorial(p, e)`` but neither ``sigma(p, -1)*sigma.factorial(p, e)`` nor
+        ``sigma.factorial(p, e + 1)``, then ``-e`` is a root of this polynomial.
+
+        Subclasses may implement this method only for certain choices of ``p``.
+        """
+        raise NotImplementedError # abstract method
 
 
 #############################################################################################################
