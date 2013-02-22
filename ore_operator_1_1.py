@@ -225,36 +225,48 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
 
         x = self.base_ring().gen()
 
-        if op.is_zero():
+        if self.is_zero():
             return self.base_ring().base_ring()[var].zero()
         
-        elif op.order() == 0:
+        elif self.order() == 0:
             return self.base_ring().base_ring()[var].one()
         
         elif (x*p).is_one():
             # at infinity
             deg = lambda q: q.degree()
+            m = max
 
         elif x == p:
             # at zero
             deg = lambda q: q.valuation()
+            m = min
 
         else:
             # leave this case to the subclass
             raise NotImplementedError
-
-        op = self._coeff_list_for_indicial_polynomial()
-        R = self.base_ring().base_ring()[var]
+        
+        op = self.numerator()._coeff_list_for_indicial_polynomial()
+        R = op[0].parent().base_ring()[var]
         y = R.gen()
 
+        A = self.parent()
+        q = A.is_Q()
+        if not q:
+            q = A.is_J()
+        if not q:
+            my_int = lambda n : n # we are in the ordinary case
+        else:
+            q = R(q[1]) # we are in the q-case
+            my_int = lambda n : (q**n - 1)/(q - 1)
+
         b = deg(op[0])
-        for j in xrange(1, len(op) + 1):
-            b = max(b, deg(op[j]) - j)
+        for j in xrange(1, len(op)):
+            b = m(b, deg(op[j]) - j)
 
         s = R.zero(); y_ff_i = R.one()
-        for i in xrange(len(op) + 1):
+        for i in xrange(len(op)):
             s = s + op[i][b + i]*y_ff_i
-            y_ff_i *= y - i
+            y_ff_i *= y - my_int(i)
 
         return s
 
@@ -589,43 +601,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
           []
     
         """
-        L = self.numerator()
-        
-        factors = L.indicial_polynomial(self.base_ring().gen()).factor()
-        orders = []
-
-        for (p, e) in factors:
-            if p.degree() == 1:
-                try:
-                    alpha = ZZ(-p[0]/p[1])
-                    if alpha >= 0:
-                        orders.append(alpha)
-                except:
-                    pass
-
-        if len(orders) == 0:
-            return orders # no power series solutions
-
-        r = self.order()
-        maxexp = max(orders) + max(n, r)
-        K = self.base_ring().base_ring().fraction_field(); zero = K.zero(); one = K.one()
-        
-        from sage.rings.power_series_ring import PowerSeriesRing
-        R = PowerSeriesRing(K, str(self.base_ring().gen()))
-
-        x = R.gen()
-        rec = L.to_S('S')
-        
-        sols = []
-        for alpha in orders:
-
-            p = _rec2list(rec, [one], maxexp - alpha, alpha, False, True, ZZ, lambda k: zero)
-            p = x**(alpha) * R(p, maxexp - alpha - 1)
-
-            if L(p).is_zero(): # L(p) nonzero indicates series involving logarithms. 
-                sols.append(p)
-
-        return sols
+        return _power_series_solutions(self, self.to_S('S'), n, ZZ)
 
     def generalized_series_solutions(self, n, exp=True, log=True):
         """
@@ -674,7 +650,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         x = p.parent().gen()
 
         if (x*p).is_one() or p == x:
-            return super(UnivariateOreOperatorOverUnivariateRing, self).indicial_polynomial(p, var=var)
+            return UnivariateOreOperatorOverUnivariateRing.indicial_polynomial(self, p, var=var)
 
         op = self.numerator()
 
@@ -1449,25 +1425,29 @@ class UnivariateQRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverU
 
     spread.__doc__ = UnivariateOreOperatorOverUnivariateRing.spread.__doc__
 
-    def _coeff_list_for_indicial_polynomial(self):
-        # rewrite self wrt "q-delta"
-
-        R = self.base_ring(); x, q = self.parent().is_Q(); one = R.one()
+    def __to_J_literally(self, gen='J'):
+        """
+        Rewrites ``self`` in terms of `J`
+        """
+        A = self.parent()
+        R = A.base_ring(); x, q = A.is_Q(); one = R.one()
+        A = A.change_var_sigma_delta(gen, {x:q*x}, {x:one})
 
         if self.is_zero():
-            return []
+            return A.zero()
 
-        alg = self.parent().change_var_sigma_delta('q_delta', {x:q*x}, {x:x})
-
-        delta = alg.gen() + alg.one(); delta_k = alg.one(); R = alg.base_ring()
-        c = self.coeffs(); out = alg(R(c[0]))
+        Q = (q - 1)*x*A.gen() + 1; Q_pow = A.one(); 
+        c = self.coeffs(); out = A(R(c[0]))
 
         for i in xrange(self.order()):
-            
-            delta_k *= delta
-            out += R(c[i + 1])*delta_k
 
-        return out.coeffs()
+            Q_pow *= Q
+            out += R(c[i + 1])*Q_pow
+
+        return out
+
+    def _coeff_list_for_indicial_polynomial(self):
+        return self.__to_J_literally().coeffs()
 
     def _denominator_bound(self):
 
@@ -1475,7 +1455,7 @@ class UnivariateQRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverU
         x = R.gen(); 
 
         # primitive factors (anything but powers of x)
-        u = super(UnivariateOreOperatorOverUnivariateRing, L)._denominator_bound()
+        u = UnivariateOreOperatorOverUnivariateRing._denominator_bound(L)
 
         quo, rem = R(u).quo_rem(x)
         while rem.is_zero():
@@ -1504,7 +1484,7 @@ class UnivariateQDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOve
 
     def __call__(self, f, **kwargs):
 
-        R = self.parent(); x = R.base_ring().gen(); qx = R.sigma()(x)
+        A = self.parent(); x, q = A.is_J(); qx = A.sigma()(x)
         if not kwargs.has_key("action"):
             kwargs["action"] = lambda p : (p(qx) - p)/(x*(q-1))
 
@@ -1585,12 +1565,43 @@ class UnivariateQDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOve
         """
         return self*self.parent().gen()
 
+    def power_series_solutions(self, n=5):
+        """
+        Computes the first few terms of the power series solutions of this operator.
+
+        The method raises an error if Sage does not know how to factor univariate polynomials
+        over the base ring's base ring.
+
+        The base ring has to have characteristic zero.         
+
+        INPUT:
+
+        - ``n`` -- minimum number of terms to be computed
+
+        OUTPUT:
+
+        A list of power series of the form `x^\alpha + ...` with pairwise distinct
+        exponents `\alpha` and coefficients in the base ring's base ring's fraction field.
+        All expansions are computed up to order `k` where `k` is obtained by adding the
+        maximal `\alpha` to the maximum of `n` and the order of ``self``.         
+
+        EXAMPLES::
+
+          sage: R.<x> = QQ['x']
+          sage: A.<Jx> = OreAlgebra(R, 'Jx', q=2)
+          sage: (Jx-1).lclm((1-x)*Jx-1).power_series_solutions()
+          [x^2 + x^3 + 3/5*x^4 + 11/35*x^5 + O(x^6), 1 + x - 2/7*x^3 - 62/315*x^4 - 146/1395*x^5 + O(x^6)]
+    
+        """
+        _, q = self.parent().is_J()
+        return _power_series_solutions(self, self.to_Q('Q'), n, lambda n: q**n)
+
     def __to_Q_literally(self, gen='Q'):
         """
         This computes the q-recurrence operator which corresponds to ``self`` in the sense
         that `J` is rewritten to `1/(q-1)/x * (Q - 1)`
         """
-        x, q = self.parent().is_Q()
+        x, q = self.parent().is_J()
         
         alg = self.parent().change_var_sigma_delta(gen, {x:q*x}, {})
         alg = alg.change_ring(self.base_ring().fraction_field())
@@ -1606,7 +1617,7 @@ class UnivariateQDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOve
             J_k *= J
             out += R(c[i + 1])*J_k
 
-        return out
+        return out.numerator().change_ring(R.ring())
 
     def spread(self, p=0):
         return self.__to_Q_literally().spread(p)
@@ -1614,7 +1625,7 @@ class UnivariateQDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOve
     spread.__doc__ = UnivariateOreOperatorOverUnivariateRing.spread.__doc__
 
     def _coeff_list_for_indicial_polynomial(self):
-        return self.__to_Q_literally()._coeff_list_for_indicial_polynomial()
+        return self.coeffs()
 
     def _denominator_bound(self):
         return self.__to_Q_literally()._denominator_bound()
@@ -1918,6 +1929,7 @@ def _rec2list(L, init, n, start, append, padd, deform, singularity_handler=None)
 
     if len(terms) >= n:
         return terms
+    
     elif len(terms) < r:
 
         if not padd:
@@ -1936,6 +1948,11 @@ def _rec2list(L, init, n, start, append, padd, deform, singularity_handler=None)
 
         return _rec2list(L, terms, n, start, append, False, deform, singularity_handler)
 
+    if None in terms:
+        for k in xrange(len(terms), n):
+            terms.append(None)
+        return terms
+
     for i in xrange(r):
         if terms[-i - 1] not in K:
             raise TypeError, "illegal initial value object"
@@ -1953,11 +1970,48 @@ def _rec2list(L, init, n, start, append, padd, deform, singularity_handler=None)
         elif singularity_handler is None:
             for i in xrange(k, n):
                 terms.append(None)
-                return terms
+            return terms
         else:
             terms.append(singularity_handler(k + start))
 
     return terms
     
+def _power_series_solutions(op, rec, n, deform):
+    """
+    Common code for computing terms of holonomic and q-holonomic power series.
+    """
 
+    L = op.numerator()
+    factors = L.indicial_polynomial(L.base_ring().gen()).factor()
+    orders = []
 
+    for (p, _) in factors:
+        if p.degree() == 1:
+            try:
+                alpha = ZZ(-p[0]/p[1])
+                if alpha >= 0:
+                    orders.append(alpha)
+            except:
+                pass
+
+    if len(orders) == 0:
+        return orders # no power series solutions
+
+    r = L.order()
+    maxexp = max(orders) + max(n, r)
+    K = L.base_ring().base_ring().fraction_field(); zero = K.zero(); one = K.one()
+        
+    from sage.rings.power_series_ring import PowerSeriesRing
+    R = PowerSeriesRing(K, str(L.base_ring().gen()))
+    x = R.gen()
+
+    sols = []
+    for alpha in orders:
+
+        p = _rec2list(rec, [one], maxexp - alpha, alpha, False, True, deform, lambda k: zero)
+        p = (x**alpha) * R(p, maxexp - alpha - 1)
+
+        if L(p).is_zero(): # L(p) nonzero indicates series involving logarithms. 
+            sols.append(p)
+
+    return sols
