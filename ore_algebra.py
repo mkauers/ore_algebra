@@ -18,6 +18,11 @@ try:
         del sys.modules['ore_operator']
 except:
     pass
+try:
+    if sys.modules.has_key('ore_operator_1_1'):
+        del sys.modules['ore_operator_1_1']
+except:
+    pass
 #######################################
 
 from sage.structure.element import RingElement
@@ -30,6 +35,7 @@ from sage.rings.fraction_field import is_FractionField
 from sage.rings.infinity import infinity
 
 from ore_operator import *
+from ore_operator_1_1 import *
 import nullspace 
 
 def is_OreAlgebra(A):
