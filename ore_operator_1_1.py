@@ -1630,6 +1630,26 @@ class UnivariateQDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOve
     def _denominator_bound(self):
         return self.__to_Q_literally()._denominator_bound()
 
+    def symmetric_product(self, other, solver=None):
+
+        if not isinstance(other, UnivariateOreOperator):
+            raise TypeError, "unexpected argument in symmetric_product"
+
+        if self.parent() != other.parent():
+            A, B = canonical_coercion(self, other)
+            return A.symmetric_product(B, solver=solver)
+
+        A = self.__to_Q_literally(); B = other.__to_Q_literally()
+
+        C = A.symmetric_product(B, solver=solver)._normalize_base_ring()[-1]
+        C = C._UnivariateQRecurrenceOperatorOverUnivariateRing__to_J_literally(str(self.parent().gen()))
+
+        try:
+            return self.parent()(C.numerator().coeffs())
+        except:
+            return C
+
+    symmetric_product.__doc__ = UnivariateOreOperator.symmetric_product.__doc__
 
 #############################################################################################################
 
@@ -1778,6 +1798,20 @@ class UnivariateDifferenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
     def _denominator_bound(self):
         return self.to_S()._denominator_bound()
 
+    def symmetric_product(self, other, solver=None):
+
+        if not isinstance(other, UnivariateOreOperator):
+            raise TypeError, "unexpected argument in symmetric_product"
+
+        if self.parent() != other.parent():
+            A, B = canonical_coercion(self, other)
+            return A.symmetric_product(B, solver=solver)
+
+        A = self.to_S('S'); B = other.to_S(A.parent())
+        return A.symmetric_product(B, solver=solver).to_F(self.parent())
+
+    symmetric_product.__doc__ = UnivariateOreOperator.symmetric_product.__doc__
+
 #############################################################################################################
 
 class UnivariateEulerDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOverUnivariateRing):
@@ -1915,6 +1949,20 @@ class UnivariateEulerDifferentialOperatorOverUnivariateRing(UnivariateOreOperato
 
     def _denominator_bound(self):
         return self.to_D()._denominator_bound()
+
+    def symmetric_product(self, other, solver=None):
+
+        if not isinstance(other, UnivariateOreOperator):
+            raise TypeError, "unexpected argument in symmetric_product"
+
+        if self.parent() != other.parent():
+            A, B = canonical_coercion(self, other)
+            return A.symmetric_product(B, solver=solver)
+
+        A = self.to_D('D'); B = other.to_D(A.parent())
+        return A.symmetric_product(B, solver=solver).to_T(self.parent())
+
+    symmetric_product.__doc__ = UnivariateOreOperator.symmetric_product.__doc__
 
 #############################################################################################################
 
