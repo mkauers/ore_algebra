@@ -9,6 +9,7 @@ from sage.structure.element import RingElement, canonical_coercion
 from sage.rings.arith import gcd, lcm
 from sage.rings.rational_field import QQ
 from sage.rings.integer_ring import ZZ
+from sage.rings.infinity import infinity
 
 class OreOperator(RingElement):
     """
@@ -140,7 +141,7 @@ class OreOperator(RingElement):
         since operators are of infinite precision by definition (there is
         no big-oh).
         """
-        return infinity.infinity
+        return infinity
     
     # conversion
         
@@ -827,7 +828,6 @@ class UnivariateOreOperator(OreOperator):
             r = r.primitive_part()
 
         return r
-
     
     def xgcrd(self, other,prs=None):
         """
@@ -1257,7 +1257,7 @@ class UnivariateOreOperator(OreOperator):
         generator which has a nonzero coefficient. The zero operator has order `\infty`.
         """
         if self == self.parent().zero():
-            return infinity.infinity
+            return infinity
         else:
             return min(self.exponents())
 
@@ -1322,9 +1322,53 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
     """
     Element of an Ore algebra with a single generator and a commutative rational function field as base ring.     
     """
+    # Overview of dependencies between degree and denominator bounding functions:
+    #
+    #   * _degree_bound()          ==> requires indicial_polynomial(1/x)
+    #
+    #   * _denominator_bound()     ==> requires dispersion() and implements Abramov's algorithm
+    #                                  Not universally correct. May have to be adapted by subclasses.
+    #
+    #   * indicial_polynomial(p)   ==> requires _coeff_list_for_indicial_polynomial when p is x or 1/x
+    #                                  ABSTRACT for other arguments p.
+    #
+    #   * dispersion(p)            ==> requires spread(p)
+    #
+    #   * _coeff_list_for_ind...   ==> ABSTRACT
+    #
+    #   * spread(p)                ==> ABSTRACT
+    #
 
     def __init__(self, parent, *data, **kwargs):
         super(UnivariateOreOperator, self).__init__(parent, *data, **kwargs)
+
+    def _normalize_base_ring(self):
+        """
+        Rewrites ``self`` into an operator from an algebra whose base ring is a univariate
+        polynomial ring over a field.
+
+        Returns a tuple ``(A, R, K, L)`` where
+
+         * ``L`` is the new operator
+ 
+         * ``A`` is the parent of ``L``
+
+         * ``R`` is the base ring of ``A``
+
+         * ``K`` is the base ring of ``R``
+
+        """
+        A = self.parent(); R = A.base_ring(); K = R.base_ring()
+
+        if R.is_field():
+            L = self.numerator()
+            R = R.ring()
+
+        if not K.is_field():
+            R.change_ring(K.fraction_field())
+
+        L = L.change_ring(R)
+        return L.parent(), R, K, L
 
     def degree(self):
         """
@@ -1337,7 +1381,10 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         if self.is_zero():
             return -1
         else:
-            return max( p.degree() for p in self.coefficients() )                
+            R = self.base_ring()
+            if R.is_field():
+                R = R.ring()
+            return max( R(p).degree() for p in self.coefficients() )                
 
     def polynomial_solutions(self, rhs=(), degree=None, solver=None):
         raise NotImplementedError
@@ -1359,7 +1406,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         R = self.base_ring()
         d = -1
 
-        for (p, e) in self.indicial_polynomial(~R.fraction_field()(R.gen())).factor():
+        for (p, _) in self.indicial_polynomial(~R.fraction_field()(R.gen())).factor():
             if p.degree() == 1:
                 try:
                     d = max(d, ZZ(-p[0]/p[1]))
@@ -1375,28 +1422,84 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         This is a polynomial `q` such that every rational solution of this operator
         can be written in the form `p/q` for some other polynomial `p` (not necessarily
         coprime with `q`)
+
+        The default implementation is Abramov's algorithm, which depends on the existence
+        of an implementation of ``dispersion``. Subclasses for algebras where this is not
+        appropriate must override this method. 
         """
-        
+
         if self.is_zero():
-            raise ZeroDivisionError, "unbounded denominator"        
+            raise ZeroDivisionError, "unbounded denominator"
 
-        R = self.base_ring()
-        if not R.is_field():
-            R = R.fraction_field()        
-        bound = R.ring().one()
-        sigma = self.parent().sigma()
+        A, R, k, L = self._normalize_base_ring()
+        sigma = A.sigma()
+        r = L.order()
 
-        for (p, _) in R.ring()(self.leading_coefficient()).factor():
-            e = 0
-            for (q, _) in self.indicial_polynomial(p).factor():
-                if q.degree() == 1:
-                    try:
-                        e = min(e, ZZ(-q[0]/q[1]))
-                    except:
-                        pass
-            bound *= sigma.factorial(p, -e)
+        n = L.dispersion()
+        A = sigma(L[r], -r)
+        B = L[0]
+        u = L.base_ring().one()
 
-        return bound         
+        for i in xrange(n, -1, -1):
+            d = A.gcd(sigma(B, i))
+            if d.degree() > 0:
+                A //= d
+                for j in xrange(i):
+                    u *= d
+                    d = sigma(d, -1)
+                u *= d
+                B //= d
+
+        return self.base_ring()(u.numerator())
+
+    def dispersion(self, p=0):
+        """
+        Returns the dispersion of this operator.
+
+        This is the maximum nonnegative integer `i` such that ``sigma(self[0], i)`` and ``sigma(self[r], -r)``
+        have a nontrivial common factor, where ``sigma`` is the shift of the parent's algebra and `r` is
+        the order of ``self``.
+
+        An output `-1` indicates that there are no such integers `i` at all.
+
+        If the optional argument `p` is given, the method is applied to ``gcd(self[0], p)`` instead of ``self[0]``.
+
+        The output is `\infty` if the constant coefficient of ``self`` is zero.
+
+        EXAMPLES::
+
+          sage: R.<x> = ZZ['x']; A.<Sx> = OreAlgebra(R, 'Sx');
+          sage: ((x+5)*Sx - x).dispersion()
+          4
+        
+        """
+        s = self.spread(p)
+        return max(max(s), -1) if len(s) > 0 else -1
+
+    def spread(self, p=0):
+        """
+        Returns the spread of this operator.
+
+        This is the set of integers `i` such that ``sigma(self[0], i)`` and ``sigma(self[r], -r)``
+        have a nontrivial common factor, where ``sigma`` is the shift of the parent's algebra and `r` is
+        the order of ``self``.
+
+        If the optional argument `p` is given, the method is applied to ``gcd(self[0], p)`` instead of ``self[0]``.
+
+        The output set contains `\infty` if the constant coefficient of ``self`` is zero.
+
+        This method is a stub and may not be implemented for every algebra. 
+
+        EXAMPLES::
+
+          sage: R.<x> = ZZ['x']; A.<Sx> = OreAlgebra(R, 'Sx');
+          sage: ((x+5)*Sx - x).spread()
+          [4]
+          sage: ((x+5)*Sx - x).lclm((x+19)*Sx - x).spread()
+          [3, 4, 17, 18]
+        
+        """
+        raise NotImplementedError # abstract
 
     def indicial_polynomial(self, p, var='lambda'):
         """
@@ -1413,9 +1516,55 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         Applied to `p=1/x`, the maximum integer root of the output should serve as a degree bound
         for the polynomial solutions of ``self``. 
 
-        This is an abstract method. Subclasses may implement it only for certain choices of ``p``.
+        This method is a stub. Depending on the particular subclass, restrictions on ``p`` may apply.
         """
-        raise NotImplementedError # abstract method
+
+        x = self.base_ring().gen()
+
+        if op.is_zero():
+            return self.base_ring().base_ring()[var].zero()
+        
+        elif op.order() == 0:
+            return self.base_ring().base_ring()[var].one()
+        
+        elif (x*p).is_one():
+            # at infinity
+            deg = lambda q: q.degree()
+
+        elif x == p:
+            # at zero
+            deg = lambda q: q.valuation()
+
+        else:
+            # leave this case to the subclass
+            raise NotImplementedError
+
+        op = self._coeff_list_for_indicial_polynomial()
+        R = self.base_ring().base_ring()[var]
+        y = R.gen()
+
+        b = deg(op[0])
+        for j in xrange(1, len(op) + 1):
+            b = max(b, deg(op[j]) - j)
+
+        s = R.zero(); y_ff_i = R.one()
+        for i in xrange(len(op) + 1):
+            s = s + op[i][b + i]*y_ff_i
+            y_ff_i *= y - i
+
+        return s
+
+    def _coeff_list_for_indicial_polynomial(self):
+        """
+        Computes a list of polynomials such that the usual algorithm for computing indicial
+        polynomials applied to this list gives the desired result.
+
+        For example, for differential operators, this is simply the coefficient list of ``self``,
+        but for recurrence operators, it is the coefficient list of ``self.to_F()``.
+
+        This is an abstract method.         
+        """
+        raise NotImplementedError
 
     def desingularize(self, p):
         raise NotImplementedError
@@ -1812,7 +1961,13 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         
         """
 
-        op = self.normalize(proof=True)
+        x = p.parent().gen()
+
+        if (x*p).is_one() or p == x:
+            return super(UnivariateOreOperatorOverUnivariateRing, self).indicial_polynomial(p, var=var)
+
+        op = self.numerator()
+
         R = op.parent()
         L = R.base_ring() # k[x]
         if L.is_field():
@@ -1820,28 +1975,18 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         K = PolynomialRing(L.base_ring(),var) # k[lambda]
         L = L.change_ring(K.fraction_field()) # FF(k[lambda])[x]
 
-        if op.order() == 0:
-            return L.one()
         if op.is_zero():
             return L.zero()
-
-        s = L.zero()
-        y = L(K.gen())
-
-        if (p.parent().gen()*p).is_one():
-            b = op[0].degree()
-            for j in range(1, op.order() + 1):
-                b = max(b, op[j].degree() - j)
-            y_ff_i = L.one()
-            for i in range(op.order() + 1):
-                s = s + op[i][b + i]*y_ff_i
-                y_ff_i *= y - i
-            return K(L(s)[0])
+        if op.order() == 0:
+            return L.one()
 
         try: 
             p = L(p)
         except:
             raise ValueError, "p has to be a polynomial or 1/" + str(p.parent().gen())
+
+        s = L.zero()
+        y = L(K.gen())
 
         r = self.order()
         pder = self.parent().delta()(p)
@@ -1864,6 +2009,43 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             raise ValueError, "p not irreducible?"
         else:
             return K(gcd(r.coefficients()).numerator())
+
+    def _coeff_list_for_indicial_polynomial(self):
+        return self.coeffs()
+
+    def spread(self, p=0):
+        L = self.numerator()
+        if L[0].is_zero():
+            return [infinity]
+        elif L[0].gcd(L.leading_coefficient()).degree() > 0:
+            return [0]
+        else:
+            return []
+
+    spread.__doc__ = UnivariateOreOperatorOverUnivariateRing.spread.__doc__
+    
+    def _denominator_bound(self):
+        """
+        Denominator bounding based on indicial polynomial. 
+        """
+        if self.is_zero():
+            raise ZeroDivisionError, "unbounded denominator"        
+
+        A, R, _, L = self._normalize_base_ring()
+
+        bound = R.one()
+        for (p, _) in L.leading_coefficient().factor():
+            e = 0
+            for (q, _) in L.indicial_polynomial(p).factor():
+                if q.degree() == 1:
+                    try:
+                        e = min(e, ZZ(-q[0]/q[1]))
+                    except:
+                        pass
+            bound *= p**(-e)
+
+        return bound         
+
 
 #############################################################################################################
 
@@ -2215,82 +2397,12 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
 
         return self.parent()(reduce(lambda p, q: p.lclm(q), ops).numerator())
 
-    def indicial_polynomial(self, p, var='lambda'):
-        """
-        Returns the indicial polynomial of this operator.
-
-        The indicial polynomial is only defined if `p=1/x` where `x` is the generator of the base ring.
-        It has the property that for every (formal) series solution of this operator in descending powers,
-        i.e., `x^\alpha + p_1 x^{\alpha-1} + p_2 x^{\alpha-2} + ...` it has a root `\alpha`.
-
-        The polynomial is zero only if ``self`` is zero.
-
-        EXAMPLES::
-
-           sage: R.<x> = ZZ['x']; A.<Sx> = OreAlgebra(R, 'Sx');
-           sage: ((x-5)*Sx - x).lclm((x+19)*Sx - x).indicial_polynomial(1/x).factor()
-           (lambda - 5) * (lambda + 19)
-        
-        """
-        
-        if not (p*self.base_ring().gen()).is_one():
-            raise ValueError, "p must be 1/x"
-
-        op = self.normalize().to_F('F')
-        R = op.parent()
-        L = R.base_ring() # k[x]
-        if L.is_field():
-            L = L.ring()
-        K = PolynomialRing(L.base_ring(),var) # k[lambda]
-        L = L.change_ring(K.fraction_field()) # FF(k[lambda])[x]
-
-        if op.is_zero():
-            return L.zero()
-        if op.order() == 0:
-            return L.one()
-
-        s = L.zero()
-        y = L(K.gen())
-
-        b = op[0].degree()
-        for j in range(1, op.order() + 1):
-            b = max(b, op[j].degree() - j)
-            
-        y_ff_i = L.one()
-        for i in range(op.order() + 1):
-            s = s + op[i][b + i]*y_ff_i
-            y_ff_i *= y - i
-
-        return K(L(s)[0])
-
-
-    def dispersion(self, p=0):
-        """
-        Returns the dispersion of this operator.
-
-        This is the maximum nonnegative integer `i` such that ``sigma(self[0], i)`` and ``sigma(self[r], -r)``
-        have a nontrivial common factor, where ``sigma`` is the shift of the parent's algebra and `r` is
-        the order of ``self``.
-
-        An output `-1` indicates that there are no such integers `i` at all.
-
-        If the optional argument `p` is given, the method is applied to ``gcd(self[0], p)`` instead of ``self[0]``.
-
-        The output is `\infty` if the constant coefficient of ``self`` is zero.
-
-        EXAMPLES::
-
-          sage: R.<x> = ZZ['x']; A.<Sx> = OreAlgebra(R, 'Sx');
-          sage: ((x+5)*Sx - x).dispersion()
-          4
-        
-        """
-        s = self.spread(p)
-        return max(s) if len(s) > 0 else -1
+    def _coeff_list_for_indicial_polynomial(self):
+        return self.to_F('F').coeffs()
 
     def spread(self, p=0):
         """
-        Returns the dispersion of this operator.
+        Returns the spread of this operator.
 
         This is the set of integers `i` such that ``sigma(self[0], i)`` and ``sigma(self[r], -r)``
         have a nontrivial common factor, where ``sigma`` is the shift of the parent's algebra and `r` is
@@ -2310,7 +2422,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
         
         """
 
-        op = self.normalize(); A = op.parent(); R = A.base_ring()
+        op = self.numerator(); A = op.parent(); R = A.base_ring()
         if R.is_field():
             R = R.ring() # R = k[x]
 
@@ -2323,7 +2435,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
         if op.order()==0:
             return []
         elif op[0].is_zero():
-            return [infinity.infinity]
+            return [infinity]
         else:
             s = []; r = op.order()
             for (p, _) in (R(op[r])(x - r).resultant(gcd(R(p), R(op[0]))(x + y))).numerator().factor():
@@ -2575,6 +2687,97 @@ class UnivariateQRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverU
 
         return self.parent()(list(sol[0])).map_coefficients(lambda p: p(x**u))
 
+    def spread(self, p=0):
+
+        op = self.numerator(); A = op.parent(); R = A.base_ring()
+
+        if op.order()==0:
+            return []
+        elif op[0].is_zero():
+            return [infinity]
+
+        if R.is_field():
+            R = R.ring() # R = k[x]
+
+        K = PolynomialRing(R.base_ring(), 'y').fraction_field() # F(k[y])
+        R = R.change_ring(K) # FF(k[y])[x]
+
+        y = R(K.gen())
+        x, q = op.parent().is_Q()
+        x = R(x); q = K(q)
+
+        # hack: we find integers n with poly(q,q^n)==0 by comparing the roots of poly(q,Y)==0
+        # against a finite set of precomputed powers of q. 
+        q_pows = {K.one() : ZZ(0)}; qq = K.one()
+        for i in xrange(1, 513):
+            qq *= q
+            q_pows[qq] = ZZ(i)
+            if qq.is_one():
+                raise ValueError, "q must not be a root of unity"
+        try:
+            qq = K.one()
+            for i in xrange(1, 513):
+                qq /= q
+                q_pows[qq] = ZZ(-i)
+        except:
+            pass
+
+        s = []; r = op.order()
+        for (p, _) in (R(op[r])(x*(q**(-r))).resultant(gcd(R(p), R(op[0]))(x*y))).numerator().factor():
+            if p.degree() == 1:
+                try:
+                    s.append(q_pows[K(-p[0]/p[1])])
+                except:
+                    pass
+
+        s = list(set(s)) # remove duplicates
+        s.sort()
+        return s
+
+    spread.__doc__ = UnivariateOreOperatorOverUnivariateRing.spread.__doc__
+
+    def _coeff_list_for_indicial_polynomial(self):
+        # rewrite self wrt "q-delta"
+
+        R = self.base_ring(); x, q = self.parent().is_Q(); one = R.one()
+
+        if self.is_zero():
+            return []
+
+        alg = self.parent().change_var_sigma_delta('q_delta', {x:q*x}, {x:x})
+
+        delta = alg.gen() + alg.one(); delta_k = alg.one(); R = alg.base_ring()
+        c = self.coeffs(); out = alg(R(c[0]))
+
+        for i in xrange(self.order()):
+            
+            delta_k *= delta
+            out += R(c[i + 1])*delta_k
+
+        return out.coeffs()
+
+    def _denominator_bound(self):
+
+        A, R, _, L = self._normalize_base_ring()
+        x = R.gen(); 
+
+        # primitive factors (anything but powers of x)
+        u = super(UnivariateOreOperatorOverUnivariateRing, L)._denominator_bound()
+
+        quo, rem = R(u).quo_rem(x)
+        while rem.is_zero():
+            quo, rem = quo.quo_rem(x)
+
+        # special factors (powers of x)
+        e = 0
+        for (q, _) in L.indicial_polynomial(x).factor():
+            if q.degree() == 1:
+                try:
+                    e = min(e, ZZ(-q[0]/q[1]))
+                except:
+                    pass
+
+        return (quo*x + rem)*x**(-e)
 
 #############################################################################################################
 
@@ -2669,6 +2872,38 @@ class UnivariateQDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOve
         """
         return self*self.parent().gen()
 
+    def __to_Q_literally(self, gen='Q'):
+        """
+        This computes the q-recurrence operator which corresponds to ``self`` in the sense
+        that `J` is rewritten to `1/(q-1)/x * (Q - 1)`
+        """
+        x, q = self.parent().is_Q()
+        
+        alg = self.parent().change_var_sigma_delta(gen, {x:q*x}, {})
+        alg = alg.change_ring(self.base_ring().fraction_field())
+
+        if self.is_zero():
+            return alg.zero()
+
+        J = ~(q-1)*(~x)*(alg.gen() - alg.one()); J_k = alg.one(); R = alg.base_ring()
+        c = self.coeffs(); out = alg(R(c[0]))
+
+        for i in xrange(self.order()):
+            
+            J_k *= J
+            out += R(c[i + 1])*J_k
+
+        return out
+
+    def spread(self, p=0):
+        return self.__to_Q_literally().spread(p)
+
+    def _coeff_list_for_indicial_polynomial(self):
+        return self.__to_Q_literally()._coeff_list_for_indicial_polynomial()
+
+    def _denominator_bound(self):
+        return self.__to_Q_literally()._denominator_bound()
+
 
 #############################################################################################################
 
@@ -2683,7 +2918,7 @@ class UnivariateDifferenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
     def __call__(self, f, **kwargs):
 
         if type(f) in (tuple, list):
-            return self.to_rec('n')(f, **kwargs)
+            return self.to_S('S')(f, **kwargs)
             
         R = self.parent(); x = R.base_ring().gen(); qx = R.sigma()(x)
         if not kwargs.has_key("action"):
@@ -2797,8 +3032,23 @@ class UnivariateDifferenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
         return self.to_S('S').to_T(alg)
 
     def to_list(self, *args, **kwargs):
-        return self.to_rec('S').to_list(*args, **kwargs)
+        return self.to_S('S').to_list(*args, **kwargs)
 
+    to_list.__doc__ = UnivariateRecurrenceOperatorOverUnivariateRing.to_list.__doc__
+    
+    def indicial_polynomial(self, *args, **kwargs):
+        return self.to_S('S').indicial_polynomial(*args, **kwargs)
+
+    indicial_polynomial.__doc__ = UnivariateRecurrenceOperatorOverUnivariateRing.indicial_polynomial.__doc__
+
+    def spread(self, p=0):
+        return self.to_S().spread(p)
+
+    def _coeff_list_for_indicial_polynomial(self):
+        return self.coeffs()
+
+    def _denominator_bound(self):
+        return self.to_S()._denominator_bound()
 
 #############################################################################################################
 
@@ -2922,8 +3172,21 @@ class UnivariateEulerDifferentialOperatorOverUnivariateRing(UnivariateOreOperato
         """
         return self.to_D('D').to_F(alg)
 
-#############################################################################################################
+    def power_series_solutions(self, *args, **kwargs):
+        return self.to_D('D').power_series_solutions(*args, **kwargs)
 
+    power_series_solutions.__doc__ = UnivariateDifferentialOperatorOverUnivariateRing.power_series_solutions.__doc__
+
+    def spread(self, p=0):
+        return self.to_D().spread(p)
+
+    def _coeff_list_for_indicial_polynomial(self):
+        return self.to_D()._coeff_list_for_indicial_polynomial()
+
+    def _denominator_bound(self):
+        return self.to_D()._denominator_bound()
+
+#############################################################################################################
 
 def _rec2list(L, init, n, start, append, padd, deform, singularity_handler=None):
     """
