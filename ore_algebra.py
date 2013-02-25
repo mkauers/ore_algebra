@@ -1327,7 +1327,7 @@ class OreAlgebra_generic(Algebra):
     def is_J(self, n=0):
         r"""
         Checks whether the `n` th generator of this algebra is the q-derivation `p(x)\rightarrow (p(q*x)-p(x))/(x*(q-1))`
-        for some generator `x` of the base ring and some element `q` of the base ring's base ring.
+        for some generator `x` of the base ring and some element `q`, different from 1, of the base ring's base ring.
         If so, it returns the pair `(x, q)`, otherwise ``False``.
 
         EXAMPLES::
@@ -1337,7 +1337,7 @@ class OreAlgebra_generic(Algebra):
            (x, 2)
            sage: A.<Dx> = OreAlgebra(ZZ['x'], 'Dx')
            sage: A.is_J()
-           (x, 1)
+           False
            sage: A.<Sx> = OreAlgebra(ZZ['x'], 'Sx')
            sage: A.is_J()
            False
@@ -1354,11 +1354,10 @@ class OreAlgebra_generic(Algebra):
         sigma = self.sigma(n); delta = self.delta(n); R = self.base_ring()
         one = R.one(); zero = R.zero(); candidates = []
         
-        
         for x in R.gens():
             try:
                 sx = sigma(x)
-                if sigma(sx)*x == sx**2 and delta(x) == one:
+                if sx != x and sigma(sx)*x == sx**2 and delta(x) == one:
                     candidates.append((x, R(sx(one))))
             except:
                 pass

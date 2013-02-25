@@ -205,7 +205,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         """
         raise NotImplementedError # abstract
 
-    def indicial_polynomial(self, p, var='lambda'):
+    def indicial_polynomial(self, p, var='alpha'):
         """
         Computes the indicial polynomial of ``self`` at (a root of) ``p``.
 
@@ -603,7 +603,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         """
         return _power_series_solutions(self, self.to_S('S'), n, ZZ)
 
-    def generalized_series_solutions(self, n, exp=True, log=True):
+    def generalized_series_solutions(self, n=5, base_extend=True, ramification=True, exp=True, log=True):
         """
         ...
         """
@@ -616,7 +616,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         """
         raise NotImplementedError
 
-    def indicial_polynomial(self, p, var='lambda'):
+    def indicial_polynomial(self, p, var='alpha'):
         """
         Computes the indicial polynomial of this operator at (a root of) `p`.
 
@@ -639,11 +639,11 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
           sage: R.<x> = ZZ['x']; A.<Dx> = OreAlgebra(R, 'Dx');
           sage: L = (x*Dx-5).lclm((x^2+1)*Dx - 7*x).lclm(Dx - 1)
           sage: L.indicial_polynomial(x).factor()
-          (-1) * 5 * 2^2 * (lambda - 5) * (lambda - 1) * lambda
+          (-1) * 5 * 2^2 * (alpha - 5) * (alpha - 1) * alpha
           sage: L.indicial_polynomial(1/x).factor()
-          2 * (lambda - 7) * (lambda - 5)
+          2 * (alpha - 7) * (alpha - 5)
           sage: L.indicial_polynomial(x^2+1).factor()
-          5 * 7 * 2^2 * (lambda - 1) * lambda * (2*lambda - 7)
+          5 * 7 * 2^2 * (alpha - 1) * alpha * (2*alpha - 7)
         
         """
 
@@ -658,8 +658,8 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         L = R.base_ring() # k[x]
         if L.is_field():
             L = L.ring()
-        K = PolynomialRing(L.base_ring(),var) # k[lambda]
-        L = L.change_ring(K.fraction_field()) # FF(k[lambda])[x]
+        K = PolynomialRing(L.base_ring(),var) # k[alpha]
+        L = L.change_ring(K.fraction_field()) # FF(k[alpha])[x]
 
         if op.is_zero():
             return L.zero()

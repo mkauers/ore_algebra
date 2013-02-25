@@ -14,6 +14,7 @@ Contents:
    ore_operator
    ore_operator_1_1
    dfinite_function
+   generalized_series
    nullspace
 
 Indices and tables
