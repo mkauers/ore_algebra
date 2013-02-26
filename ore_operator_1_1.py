@@ -15,6 +15,7 @@ from sage.rings.integer_ring import ZZ
 from sage.rings.infinity import infinity
 
 from ore_operator import *
+from generalized_series import *
 
 class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
     """
@@ -523,7 +524,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         if solver == None:
             solver = A._solver(K)
 
-        if self == A.one():
+        if self == A.one() or a == K.gen():
             return self
         elif a in K:
             minpoly = R.gen() - K(a)
@@ -604,10 +605,127 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         return _power_series_solutions(self, self.to_S('S'), n, ZZ)
 
     def generalized_series_solutions(self, n=5, base_extend=True, ramification=True, exp=True, log=True):
+        r"""
+        Returns the generalized series solutions of this operator.
+
+        These are solutions of the form
+
+          `\exp(\int_0^x \frac{p(t^{-1/s})}t dt)*q(x^{1/s},\log(x))`
+
+        where
+
+        * `s` is a positive integer (the object's "ramification")
+        * `p` is in `K[x]` (the object's "exponential part")
+        * `q` is in `K[[x]][y]` with `x\nmid q` unless `q` is zero (the object's "tail")
+        * `K` is some algebraic extension of the base ring's base ring.
+
+        An operator of order `r` has exactly `r` linearly independent solutions of this form.
+        This method computes them all, unless the flags specified in the arguments rule out some
+        of them.
+
+        At present, the method only works for operators where the base ring's base ring is either
+        QQ or a number field (i.e., no finite fields, no formal parameters). 
+
+        INPUT:
+
+        - ``n`` (default: 5) -- minimum number of terms in the series expansions to be computed
+          in addition to those needed to separate all solutions from each other.
+        - ``base_extend`` (default: ``True``) -- whether or not the coefficients of the solutions may
+          belong to an algebraic extension of the base ring's base ring.
+        - ``ramification`` (default: ``True``) -- whether or not the exponential parts of the solutions
+          may involve fractional exponents.
+        - ``exp`` (default: ``True``) -- set this to ``False`` if you only want solutions that have no
+          exponential part (viz `\deg(p)\leq0`). If set to a positive rational number `\alpha`,
+          the method returns all those solutions whose exponential part involves only terms `x^{-i/r}`
+          with `i/r<\alpha`.
+        - ``log`` (default: ``True``) -- set this to ``False`` if you are not interested in solutions
+          involving logarithms (viz `\deg(q)\leq0`).
+
+        OUTPUT:
+
+        - a list of ``GeneralizedSeries`` objects forming a fundamental system for this operator. 
+
+        .. NOTE::
+
+          - Different solutions may require different algebraic extensions. Thus in the list returned
+            by this method, the coefficient fields of different series typically do not coincide.
+          - If a solution involves an algebraic extension of the coefficient field, then all its
+            conjugates are solutions, too. But only one representative is listed in the output.
+
+        EXAMPLES::
+
+          sage: ...
+        
         """
-        ...
-        """
-        raise NotImplementedError
+
+        R = self.base_ring()
+        D = self.parent().gen()
+        
+        if self.is_zero():
+            raise ZeroDivisionError, "infinite dimensional solution space"
+        elif self.order() == 0:
+            return []
+        elif R.characteristic() > 0 or not (R.base_ring() is QQ or is_NumberField(R.base_ring())):
+            raise TypeError, "cannot compute generalized solutions for this coefficient domain"
+        elif R.is_field():
+            return self._normalize_base_ring()[-1].generalized_series_solutions(n, base_extend, ramification, exp, log)
+
+        solutions = []
+
+        # solutions with exponential parts
+
+        if exp is True:
+            exp = QQ(self.degree() * self.order()) # = infinity
+        elif exp is False:
+            exp = QQ.zero()
+        if exp not in QQ:
+            raise ValueError, "illegal option value encountered: exp=" + str(exp)
+
+        if exp > 0:
+
+            points = []
+            c = self.coeffs()
+            for i in xrange(self.order() + 1):
+                if not c[i].is_zero():
+                    points.append((QQ(i), QQ(c[i].valuation())))
+
+            exponents = []; x = R.base_ring()['c'].gen(); k = 0
+            while k < len(points) - 1:
+                (i1, j1) = points[k]; p = None; s = self.degree() + 1; 
+                for l in xrange(k + 1, len(points)):
+                    (i2, j2) = points[l]; s2 = (j2 - j1)/(i2 - i1)
+                    if s2 < s:
+                        s = s2; k = l; p = c[i1][j1]*(x**i1) + c[i2][j2]*(x**i2);
+                    elif s2 == s:
+                        k = l; p += c[i2][j2]*(x**i2);
+                e = 1 - s; 
+                if e < 0 and -e < exp and p is not None and (ramification or e in ZZ):
+                    exponents.append((e, p(e*x)))
+
+            x = R.gen()
+            dpt = 0; B = R
+            while B is not QQ:
+                dpt += 1
+                B = B.base_ring()
+
+            K = R.base_ring()
+            for (e, p) in exponents:
+                for (q, _) in p.factor():
+                    if q.degree() == 1:
+                        c = -K(q[0]/q[1])
+                    elif base_extend:
+                        c = K.extension(q, 'a_' + str(dpt)).gen()
+                    else:
+                        continue
+                    a = e.numerator(); b = e.denominator()
+                    G = GeneralizedSeriesMonoid(c.parent(), x)
+                    s = G(R.one(), exp = e*c*(x**(-a)), ramification = b)
+                    L = self.annihilator_of_composition(x**b).symmetric_product(x**(1-a)*D + a*c)
+                    sol = L.generalized_series_solutions(n, base_extend, ramification, -a, log)
+                    solutions = solutions + map(lambda f: s*f.substitute(~b), sol)
+
+        # tails
+        return solutions + [GeneralizedSeriesMonoid(R.base_ring(), R.gen()).one()] # NYI
 
     def get_value(self, init, z, n):
         """

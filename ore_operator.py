@@ -1071,19 +1071,19 @@ class UnivariateOreOperator(OreOperator):
             g = (D1 - pr[0] - pr[1]*h)/(pr[1] + pr[2]*h)
             
             # define p, q such that "D*1/u == p*1/u*D + q*1/u" 
-            p = (g - D1)/(D1 - h); q = g - p*D1
-            sigma_u = lambda c: sigma(c)*p
-            delta_u = lambda c: delta(c) + q
+            #p = (g - D1)/(D1 - h); q = g - p*D1
+            p = pr[1] + pr[2]*g; q = pr[0] + pr[1]*g
 
             # calculate L with L(u*v)=0 iff A(v)=0 and B(u)=0 using A(1/u * u*v) = 0
             coeffs = A.coeffs(); L = coeffs[0]; Dk = A.parent().one()
             for i in xrange(1, A.order() + 1):
-                Dk = Dk.map_coefficients(sigma_u)*D + Dk.map_coefficients(delta_u)
+                #Dk = Dk.map_coefficients(sigma_u)*D + Dk.map_coefficients(delta_u) [[buggy??]]
+                Dk = (p*D + q)*Dk
                 c = coeffs[i]
                 if not c.is_zero():
                     L += c*Dk
             
-            return A.parent()(L)
+            return A.parent()(L).normalize()
 
         # general case via linear algebra
 

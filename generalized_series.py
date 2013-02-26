@@ -11,6 +11,7 @@ from sage.rings.integer_ring import ZZ
 from sage.rings.rational_field import QQ
 from sage.rings.number_field.number_field import is_NumberField
 from sage.structure.element import Element, RingElement, canonical_coercion
+from sage.structure.parent import Parent
 from sage.rings.infinity import infinity
 from sage.rings.arith import gcd, lcm
 
@@ -91,16 +92,16 @@ def GeneralizedSeriesMonoid(base, x):
     M = GeneralizedSeriesMonoid_class(base, x)
 
     # Check whether this algebra already exists.
-    global _list_of_generalized_series_objects
-    for m in _list_of_generalized_series_objects:
+    global _list_of_generalized_series_parents
+    for m in _list_of_generalized_series_parents:
         if m == M:
             return m
 
     # It's new. register it and return it. 
-    _list_of_generalized_series_objects.append(M)
+    _list_of_generalized_series_parents.append(M)
     return M
 
-_list_of_generalized_series_objects = []
+_list_of_generalized_series_parents = []
 
 from sage.categories.pushout import ConstructionFunctor
 from sage.categories.functor import Functor
@@ -187,7 +188,7 @@ class GeneralizedSeriesMonoid_class(Parent):
         return self.__tail_ring
 
     def __eq__(self, other):
-        return isinstance(other, GeneralizedSeriesMonoid_class) \
+        return isinstance(other, type(self)) \
                and self.base() is other.base() \
                and self.var() == other.var()
 
@@ -341,7 +342,7 @@ class GeneralizedSeries(RingElement):
                 for c in p.coeffs():
                     c_new = dict()
                     for e in c.exponents():
-                        c_new[e/quo] = c[e]
+                        c_new[int(e/quo)] = c[e]
                     p_new.append(c.parent()(c_new))
                 p = p.parent()(p_new) # p = p(x^(1/quo), log(x))                
             
@@ -762,6 +763,51 @@ class GeneralizedSeries(RingElement):
         True if ``self`` is the monoid's one element.
         """
         return not self.has_exponential_part() and self.__tail.is_one()
+
+    def substitute(self, e):
+        """
+        Returns the series object obtained from ``self`` by replacing `x` by `x^e`, where `e` is
+        a positive rational number.
+
+        EXAMPLES::
+
+          sage: G = GeneralizedSeriesMonoid(QQ, 'x')
+          sage: G(1+x+x^2, ramification=2)
+          1 + x^(1/2) + x^(2/2)
+          sage: _.substitute(3/5)
+          1 + x^(3/10) + x^(6/10)
+          sage: _.substitute(10/3)
+          1 + x + x^2
+          sage: _.ramification()
+          1
+          sage: G(1, exp=1+x+x^2, ramification=2)
+          exp(-x^(-2/2) - 2*x^(-1/2))*x
+          sage: _.substitute(3/5)
+          exp(-x^(-6/10) - 2*x^(-3/10))*x^(3/5)
+          sage: G([1,x,x^2], ramification=2)
+          x^(2/2)*log(x)^2 + x^(1/2)*log(x) + 1
+          sage: _.substitute(3/5)
+          9/25*x^(6/10)*log(x)^2 + 3/5*x^(3/10)*log(x) + 1
+
+        """
+        if not e in QQ or e <= 0:
+            raise TypeError, "exponent must be a rational number"
+        elif e == 1:
+            return self
+        
+        e = QQ(e)
+        G = self.parent()
+
+        a = e.numerator(); b = e.denominator()
+
+        xe = G.exp_ring().gen()
+        log = G.tail_ring().gen()
+        xt = G.tail_ring().base_ring().gen()
+
+        exp = e*self.__exp(xe**a)
+        tail = self.__tail(e*log).map_coefficients(lambda p: p(xt**a))
+
+        return GeneralizedSeries(G, tail, exp=exp, ramification=b*self.ramification())
 
     def derivative(self):
         """

@@ -8,6 +8,7 @@ ore_algebra
 """
 
 ######### development mode ###########
+
 try:
     if sys.modules.has_key('nullspace'):
         del sys.modules['nullspace']
@@ -23,6 +24,12 @@ try:
         del sys.modules['ore_operator_1_1']
 except:
     pass
+try:
+    if sys.modules.has_key('generalized_series'):
+        del sys.modules['generalized_series']
+except:
+    pass
+
 #######################################
 
 from sage.structure.element import RingElement
