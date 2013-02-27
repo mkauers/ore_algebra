@@ -604,7 +604,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         """
         return _power_series_solutions(self, self.to_S('S'), n, ZZ)
 
-    def generalized_series_solutions(self, n=5, base_extend=True, ramification=True, exp=True, log=True):
+    def generalized_series_solutions(self, n=5, base_extend=True, ramification=True, exp=True):
         r"""
         Returns the generalized series solutions of this operator.
 
@@ -638,8 +638,6 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
           exponential part (viz `\deg(p)\leq0`). If set to a positive rational number `\alpha`,
           the method returns all those solutions whose exponential part involves only terms `x^{-i/r}`
           with `i/r<\alpha`.
-        - ``log`` (default: ``True``) -- set this to ``False`` if you are not interested in solutions
-          involving logarithms (viz `\deg(q)\leq0`).
 
         OUTPUT:
 
@@ -652,10 +650,44 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
           - If a solution involves an algebraic extension of the coefficient field, then all its
             conjugates are solutions, too. But only one representative is listed in the output.
 
+        ALGORITHM:
+
+        - Ince, Ordinary Differential Equations, Chapters 16 and 17
+        - Kauers/Paule, The Concrete Tetrahedron, Section 7.3
+
         EXAMPLES::
 
-          sage: ...
-        
+          sage: R.<x> = QQ['x']; A.<Dx> = OreAlgebra(R, 'Dx')
+          sage: L = (6+6*x-3*x^2) - (10*x-3*x^2-3*x^3)*Dx + (4*x^2-6*x^3+2*x^4)*Dx^2
+          sage: L.generalized_series_solutions()
+          [x^3*(1 + 3/2*x + 7/4*x^2 + 15/8*x^3 + 31/16*x^4 + O(x^5)), x^(1/2)*(1 + 3/2*x + 7/4*x^2 + 15/8*x^3 + 31/16*x^4 + O(x^5))]
+          sage: map(L, _)
+          [0, 0]
+
+          sage: L = (1-24*x+96*x^2) + (15*x-117*x^2+306*x^3)*Dx + (9*x^2-54*x^3)*Dx^2
+          sage: L.generalized_series_solutions(2)
+          sage: [x^(-1/3)*(1 + x + 8/3*x^2 + O(x^3)), x^(-1/3)*((1 + x + 8/3*x^2 + O(x^3))*log(x) + x - 59/12*x^2 + O(x^3))]
+          sage: map(L, _)
+          [0, 0]
+
+          sage: L = 216*(1+x+x^3) + x^3*(36-48*x^2+41*x^4)*Dx - x^7*(6+6*x-x^2+4*x^3)*Dx^2
+          sage: L.generalized_series_solutions(3)
+          [exp(3*x^(-2))*x^(-2)*(1 + 91/12*x^2 + O(x^3)), exp(-2*x^(-3) + x^(-1))*x^2*(1 + 41/3*x + 2849/36*x^2 + O(x^3))]
+          sage: map(L, _)
+          [0, 0]
+
+          sage: L = 9 - 49*x - 2*x^2 + 6*x^2*(7 + 5*x)*Dx + 36*(-1 + x)*x^3*Dx^2
+          sage: L.generalized_series_solutions()
+          [exp(x^(-1/2))*x^(4/3)*(1 + x^(2/2) + x^(4/2)), exp(-x^(-1/2))*x^(4/3)*(1 + x^(2/2) + x^(4/2))]
+          sage: L.generalized_series_solutions(ramification=False)
+          []
+
+          sage: L = 2*x^3*Dx^2 + 3*x^2*Dx-1
+          sage: L.generalized_series_solutions()
+          [exp(a_0*x^(-1/2))]
+          sage: _[0].base_ring()
+          Number Field in a_0 with defining polynomial c^2 - 2
+
         """
 
         R = self.base_ring()
@@ -665,10 +697,12 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             raise ZeroDivisionError, "infinite dimensional solution space"
         elif self.order() == 0:
             return []
-        elif R.characteristic() > 0 or not (R.base_ring() is QQ or is_NumberField(R.base_ring())):
+        elif R.characteristic() > 0:
             raise TypeError, "cannot compute generalized solutions for this coefficient domain"
-        elif R.is_field():
-            return self._normalize_base_ring()[-1].generalized_series_solutions(n, base_extend, ramification, exp, log)
+        elif R.is_field() or not R.base_ring().is_field():
+            return self._normalize_base_ring()[-1].generalized_series_solutions(n, base_extend, ramification, exp)
+        elif not (R.base_ring() is QQ or is_NumberField(R.base_ring())):
+            raise TypeError, "cannot compute generalized solutions for this coefficient domain"
 
         solutions = []
 
@@ -681,6 +715,19 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         if exp not in QQ:
             raise ValueError, "illegal option value encountered: exp=" + str(exp)
 
+        # search for a name which is not yet used as generator in (some subfield of) R.base_ring()
+        # for in case we need to make algebraic extensions.
+
+        # TODO: should we flatten multiple extensions? 
+
+        K = R.base_ring(); names = []
+        while K is not QQ:
+            names.append(str(K.gen()))
+            K = K.base_ring()
+        i = 0; newname = 'a_0'
+        while newname in names:
+            i = i + 1; newname = 'a_' + str(i)
+
         if exp > 0:
 
             points = []
@@ -689,43 +736,113 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
                 if not c[i].is_zero():
                     points.append((QQ(i), QQ(c[i].valuation())))
 
-            exponents = []; x = R.base_ring()['c'].gen(); k = 0
+            exponents = []; y = R.base_ring()['y'].gen(); k = 0
             while k < len(points) - 1:
                 (i1, j1) = points[k]; p = None; s = self.degree() + 1; 
                 for l in xrange(k + 1, len(points)):
                     (i2, j2) = points[l]; s2 = (j2 - j1)/(i2 - i1)
                     if s2 < s:
-                        s = s2; k = l; p = c[i1][j1]*(x**i1) + c[i2][j2]*(x**i2);
+                        s = s2; k = l; p = c[i1][j1]*(y**i1) + c[i2][j2]*(y**i2);
                     elif s2 == s:
-                        k = l; p += c[i2][j2]*(x**i2);
+                        k = l; p += c[i2][j2]*(y**i2);
                 e = 1 - s; 
                 if e < 0 and -e < exp and p is not None and (ramification or e in ZZ):
-                    exponents.append((e, p(e*x)))
+                    exponents.append((e, p(e*y)))
 
-            x = R.gen()
-            dpt = 0; B = R
-            while B is not QQ:
-                dpt += 1
-                B = B.base_ring()
-
-            K = R.base_ring()
+            x = R.gen(); K = R.base_ring(); 
             for (e, p) in exponents:
                 for (q, _) in p.factor():
-                    if q.degree() == 1:
+                    if q == y:
+                        continue
+                    elif q.degree() == 1:
                         c = -K(q[0]/q[1])
                     elif base_extend:
-                        c = K.extension(q, 'a_' + str(dpt)).gen()
+                        c = K.extension(q, newname).gen()
                     else:
                         continue
                     a = e.numerator(); b = e.denominator()
                     G = GeneralizedSeriesMonoid(c.parent(), x)
                     s = G(R.one(), exp = e*c*(x**(-a)), ramification = b)
                     L = self.annihilator_of_composition(x**b).symmetric_product(x**(1-a)*D + a*c)
-                    sol = L.generalized_series_solutions(n, base_extend, ramification, -a, log)
+                    sol = L.generalized_series_solutions(n, base_extend, ramification, -a)
                     solutions = solutions + map(lambda f: s*f.substitute(~b), sol)
 
         # tails
-        return solutions + [GeneralizedSeriesMonoid(R.base_ring(), R.gen()).one()] # NYI
+        indpoly = self.indicial_polynomial(R.gen(), 's')
+        s = indpoly.parent().gen()
+        x = R.gen()
+
+        for (c, e) in _shift_factor(indpoly):
+
+            if c.degree() == 1:
+                K = R.base_ring()
+                alpha = -c[0]/c[1]
+                L = self
+            else:
+                K = c.base_ring().extension(c, newname)
+                alpha = K.gen()
+                L = self.base_extend(K[x])
+
+            from sage.rings.power_series_ring import PowerSeriesRing
+            PS = PowerSeriesRing(K, str(x))
+            G = GeneralizedSeriesMonoid(K, x)
+
+            if len(e) == 1 and e[0][1] == 1:
+                # just a power series, use simpler code for this case
+
+                coeffs = _rec2list(L.to_S('S'), [K.one()], n, alpha, False, True, lambda p:p)
+                solutions.append(G(PS(coeffs, n), exp=alpha))
+
+            else:
+                # there may be logarithms, use general code
+                L = L.base_extend(K[s].fraction_field()[x]).to_S('S')
+
+                f = f0 = indpoly.parent().one()
+                for (a, b) in e:
+                    f0 *= c(s + a)**b
+
+                for i in xrange(e[-1][0]):
+                    f *= f0(s + i + 1) 
+
+                coeffs = _rec2list(L, [f], n, s, False, True, lambda p:p)
+
+                # If W(s, x) denotes the power series with the above coefficient array,
+                # then [ (d/ds)^i ( W(s, x)*x^s ) ]_{s=a} is a nonzero solution for every
+                # root a = alpha - e[j][0] of f0 and every i=0..e[j][1]-1.
+
+                # D_s^i (W(s, x)*x^s) = (D_s^i W + i*log(x)*D_s^(i-1) W + binom(i,2)*log(x)^2 D_s^(i-2) W + ... )*x^s.
+
+                m = sum([ee[1] for ee in e])
+                der = [coeffs]
+                while len(der) < m:
+                    der.append(map(lambda g: g.derivative(), der[-1]))
+
+                bin_cache = dict()
+                def bin(i, j):
+                    if i < 0 or j < 0 or j > i:
+                        return PS.zero()
+                    elif j == 0 or j == i:
+                        return PS.one()
+                    elif bin_cache.has_key((i, j)):
+                        return bin_cache[i, j]
+                    else:
+                        bin_cache[i, j] = bin(i - 1, j) + bin(i - 1, j - 1)
+                        return bin_cache[i, j] 
+
+                accum = 0
+                for (a, b) in e:
+                    der_a = dict()
+                    for i in xrange(accum + b):
+                        der_a[i] = PS(map(lambda g: g(alpha - a), der[i]), len(der[i]))
+                    for i in xrange(accum, accum + b):
+                        sol = []
+                        for j in xrange(i + 1):
+                            sol.append(bin(i, j)*der_a[j])
+                        sol.reverse()
+                        solutions.append(G(sol, exp=alpha - a, make_monic=True))
+                    accum += b
+        
+        return solutions
 
     def get_value(self, init, z, n):
         """
@@ -2181,3 +2298,68 @@ def _power_series_solutions(op, rec, n, deform):
             sols.append(p)
 
     return sols
+
+def _shift_factor(p):
+    """
+    Returns the roots of p in an appropriate extension of the base field, sorted according to
+    shift equivalence classes.
+
+    INPUT:
+
+    - ``p`` -- a univariate polynomial over QQ or a number field
+
+    OUTPUT:
+
+    A list of pairs (q, e) where
+
+    - q is an irreducible factor of p
+    - e is a tuple of pairs (a, b) of nonnegative integers
+    - p = c*prod( q(x+a)^b for (q, e) in output list for (a, b) in e ) for some nonzero constant c
+    - e[i][0] == 0, and e[i][j] < e[i][j+1] for all i and j
+    - any two distinct q have no roots at integer distance.
+
+    Note: rootof(q) is the largest root of every class. The other roots are given by rootof(q) - e[i][0].
+        
+    """
+
+    classes = []
+
+    for (q, b) in p.factor():
+
+        d = q.degree()
+        if d < 1:
+            continue
+
+        q0, q1 = q[d], q[d - 1]
+
+        # have we already seen a member of the shift equivalence class of q? 
+        new = True; 
+        for i in xrange(len(classes)):
+            u = classes[i][0]
+            if u.degree() != d:
+                continue
+            u0, u1 = u[d], u[d - 1]
+            a = (u1*q0 - u0*q1)/(u0*q0*d)
+            if a not in ZZ:
+                continue
+            # yes, we have: p(x+a) == u(x); u(x-a) == p(x)
+            # register it and stop searching
+            a = ZZ(a); new = False
+            if a < 0:
+                classes[i][1].append((-a, b))
+            elif a > 0:
+                classes[i][0] = q
+                classes[i][1] = [(n+a,m) for (n,m) in classes[i][1]]
+                classes[i][1].append((0, b))
+            break
+
+        # no, we haven't. this is the first.
+        if new:
+            classes.append( [q, [(0, b)]] )
+
+    for c in classes:
+        c[1].sort(key=lambda e: e[0])
+
+    return classes
+        
+    

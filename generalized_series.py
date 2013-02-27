@@ -287,7 +287,7 @@ class GeneralizedSeries(RingElement):
     See the docstring of ``GeneralizedSeriesMonoid`` for further information.
     """
 
-    def __init__(self, parent, tail, exp=0, ramification=1):
+    def __init__(self, parent, tail, exp=0, ramification=1, make_monic=False):
         # tail: an element of K[[x]][y]
         # exp: an element of K[x]
         # ramification: a positive integer
@@ -301,6 +301,8 @@ class GeneralizedSeries(RingElement):
             self.__tail = parent.tail_ring()(tail.__tail)
             self.__exp = parent.exp_ring()(tail.__exp)
             self.__ramification = tail.__ramification
+            if make_monic and not self.__tail.is_zero():
+                self.__tail /= self.__tail.leading_coefficient().coefficients()[0]
             return
 
         ramification = ZZ(ramification)
@@ -345,6 +347,9 @@ class GeneralizedSeries(RingElement):
                         c_new[int(e/quo)] = c[e]
                     p_new.append(c.parent()(c_new))
                 p = p.parent()(p_new) # p = p(x^(1/quo), log(x))                
+
+            if make_monic: 
+                p /= p.leading_coefficient().coefficients()[0]
             
             self.__ramification = ramification
             self.__exp = exp
