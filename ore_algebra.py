@@ -36,10 +36,14 @@ from sage.structure.element import RingElement
 from sage.rings.ring import Algebra
 from sage.rings.ring import Ring 
 from sage.rings.polynomial.polynomial_ring import is_PolynomialRing
+from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 from sage.rings.polynomial.multi_polynomial_ring import is_MPolynomialRing
 from sage.rings.number_field.number_field import is_NumberField
 from sage.rings.fraction_field import is_FractionField
 from sage.rings.infinity import infinity
+from sage.rings.integer_ring import ZZ
+from sage.rings.rational_field import QQ
+from sage.rings.finite_rings.all import GF
 
 from ore_operator import *
 from ore_operator_1_1 import *
@@ -296,11 +300,12 @@ class _Sigma:
         C_one = R.base_ring().one()
         sigma = self
         sigma_inv_dict = {}
-        for exp in MatrixSpace(ZZ, R.ngens()).one():
+        for exp in xrange(R.ngens()):
+            exp = tuple( (1 if i==exp else 0) for i in xrange(R.ngens()))
             if len(exp) == 1:
                 x = R.gen()
             else:
-                x = R({tuple(exp):C_one});
+                x = R({exp:C_one});
             sx = sigma(x)
             if sx == x:
                 continue
@@ -1472,6 +1477,9 @@ class OreAlgebra_generic(Algebra):
         """
         return self._element_constructor_(self.associated_commutative_algebra().random_element(*args, **kwds))
 
+    def _an_element_(self, *args, **kwds):
+        return self._element_constructor_(self.associated_commutative_algebra().an_element(*args, **kwds))
+
     # generation of related parent objects
 
     def associated_commutative_algebra(self):
@@ -1651,19 +1659,3 @@ class OreAlgebra_generic(Algebra):
         else:
             return OreAlgebra(R, *gens)
         
-##########################################################################################################
-
-def guess_rec(data, n, S):
-    """
-    """
-    raise NotImplementedError
-
-def guess_deq(data, x, D):
-    """
-    """
-    raise NotImplementedError
-
-def guess_qrec(data, n, Q, q):
-    """
-    """
-    raise NotImplementedError
