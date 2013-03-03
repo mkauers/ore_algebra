@@ -76,13 +76,14 @@ def _is_suitable_base_ring(R):
     
     """
     p = R.characteristic()
-    if (p == ZZ.zero() and (R is ZZ or R is QQ or is_NumberField(R))) or (p > ZZ.zero() and R is GF(p)):
+    if (p == 0 and (R is ZZ or R is QQ or is_NumberField(R))) or (p > 0 and R is GF(p)):
         return True
     elif is_FractionField(R):
         return _is_suitable_base_ring(R.ring())
     elif is_PolynomialRing(R) or is_MPolynomialRing(R):
         return _is_suitable_base_ring(R.base_ring())
     else:
+        print "rejecting ", R
         return False
 
 class _Sigma:
@@ -405,7 +406,7 @@ class _Delta:
             if not my_dict.has_key((strx, 0)):
                 return R0.zero()
             if sigma(x) == x:
-                return p.map_coefficients(delta) + p.derivative(x).map_coefficients(sigma)*my_dict[strx, 1]
+                return p.map_coefficients(delta) + p.derivative().map_coefficients(sigma)*my_dict[strx, 1]
             for i in xrange(2, p.degree() + 1):
                 if not my_dict.has_key((strx, i)):
                     my_dict[strx, i] = my_dict[strx, i - 1]*x + sigma(x**(i - 1))*my_dict[strx, 1]
