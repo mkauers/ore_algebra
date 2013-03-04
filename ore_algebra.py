@@ -1527,10 +1527,10 @@ class OreAlgebra_generic(Algebra):
             pass
 
         # make a reasonable choice
-        if R.is_prime_field():
+        if R.is_prime_field() and R.characteristic() > 0:
             return nullspace.sage_native
         elif R is ZZ or R is QQ:
-            return nullspace.cra(nullspace.sage_native)
+            return nullspace.sage_native
         elif is_NumberField(R):
             return nullspace.cra(nullspace.sage_native)
         elif not (is_MPolynomialRing(R) or is_PolynomialRing(R) or is_FractionField(R)):

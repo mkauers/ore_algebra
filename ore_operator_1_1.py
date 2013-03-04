@@ -57,10 +57,10 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
          * ``K`` is the base ring of ``R``
 
         """
-        A = self.parent(); R = A.base_ring(); K = R.base_ring()
+        L = self; A = L.parent(); R = A.base_ring(); K = R.base_ring()
 
         if R.is_field():
-            L = self.numerator()
+            L = L.numerator()
             R = R.ring()
 
         if not K.is_field():
@@ -87,15 +87,159 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
 
     def polynomial_solutions(self, rhs=(), degree=None, solver=None):
         """
-        ...
+        Computes the polynomial solutions of this operator.
+
+        INPUT:
+        
+        - ``rhs`` (optional) -- a list of base ring elements
+        - ``degree`` (optional) -- bound on the degree of interest.
+        - ``solver`` (optional) -- a callable for computing the right kernel
+          of a matrix over the base ring's base ring.
+
+        OUTPUT:
+
+        A list of tuples `(p, c_0,...,c_r)` such that `self(p) == c_0*rhs[0] + ... + c_r*rhs[r]`,
+        where `p` is a polynomial and `c_0,...,c_r` are constants.
+
+        .. NOTE::
+
+        - Even if no ``rhs`` is given, the output will be a list of tuples ``[(p1,), (p2,),...]``
+          and not just a list of plain polynomials.
+        - If no ``degree`` is given, a basis of all the polynomial solutions is returned.
+          This feature may not be implemented for all algebras. 
+
+        EXAMPLES::
+
+          sage: R.<n> = ZZ['n']; A.<Sn> = OreAlgebra(R, 'Sn')
+          sage: L = 2*Sn^2 + 3*(n-7)*Sn + 4
+          sage: L.polynomial_solutions((n^2+4*n-8, 4*n^2-5*n+3))
+          [(-70*n + 231, 242, -113)]
+          sage: L(-70*n + 231)
+          -210*n^2 + 1533*n - 2275
+          sage: 242*(n^2+4*n-8) - 113*(4*n^2-5*n+3)
+          -210*n^2 + 1533*n - 2275
+
+          sage: R.<x> = ZZ['x']; A.<Dx> = OreAlgebra(R, 'Dx')
+          sage: L = (x*Dx - 19).lclm( x*Dx - 4 )
+          sage: L.polynomial_solutions()
+          [(x^4,), (x^19,)]
+        
         """
-        raise NotImplementedError
+        A = self.parent(); R = A.base_ring(); 
+        R_field = R.fraction_field()
+        R_ring = R_field.ring()
+        K = R_ring.base_ring()
+        if not K.is_field():
+            R_ring = K[R.gens()]
+            K = R_ring.base_ring()
+
+        # clear denominators
+        if len(rhs) == 0:
+            den = R_ring.one()
+        else:
+            den = lcm(map(lambda p: R_field(p).denominator(), rhs))
+        den = den.lcm(self.denominator())
+
+        L = (den*self).change_ring(R_ring); rhs = tuple(R_ring(den*r) for r in rhs)
+
+        if degree is None:
+            degree = L._degree_bound()
+
+        if len(rhs) > 0:
+            degree = max(degree, max(map(lambda p: p.degree(), rhs)))
+
+        if degree < 0:
+            return []
+
+        from sage.matrix.constructor import matrix
+
+        x = R.gen()
+        sys = [-L(x**i) for i in xrange(degree + 1)] + list(rhs)
+        neqs = max(1, max(map(lambda p: R_ring(p).degree() + 1, sys)))
+        sys = map(lambda p: R_ring(p).padded_list(neqs), sys)
+        
+        if solver is None:
+            solver = A._solver(R_ring.base_ring())
+
+        sol = solver(matrix(K, zip(*sys)))
+
+        for i in xrange(len(sol)):
+            s = list(sol[i])
+            sol[i] = tuple([R_ring(s[:degree+1])] + s[degree+1:])
+
+        return sol         
 
     def rational_solutions(self, rhs=(), denominator=None, degree=None, solver=None):
         """
-        ...
+        Computes the rational solutions of this operator.
+
+        INPUT:
+        
+        - ``rhs`` (optional) -- a list of base ring elements
+        - ``denominator`` (optional) -- bound on the degree of interest.
+        - ``degree`` (optional) -- bound on the degree of interest.
+        - ``solver`` (optional) -- a callable for computing the right kernel
+          of a matrix over the base ring's base ring.
+
+        OUTPUT:
+
+        A list of tuples `(r, c_0,...,c_r)` such that `self(r) == c_0*rhs[0] + ... + c_r*rhs[r]`,
+        where `r` is a rational function and `c_0,...,c_r` are constants.
+
+        .. NOTE::
+
+        - Even if no ``rhs`` is given, the output will be a list of tuples ``[(p1,), (p2,),...]``
+          and not just a list of plain polynomials.
+        - If no ``denominator`` is given, a basis of all the rational solutions is returned.
+          This feature may not be implemented for all algebras. 
+        - If no ``degree`` is given, a basis of all the polynomial solutions is returned.
+          This feature may not be implemented for all algebras. 
+
+        EXAMPLES::
+
+          sage: R.<x> = ZZ['x']; A.<Dx> = OreAlgebra(R, 'Dx')
+          sage: L = ((x+3)*Dx + 2).lclm(x*Dx + 3).symmetric_product((x+4)*Dx-2)
+          sage: L.rational_solutions()
+          [((x^2 + 8*x + 16)/x^3,), ((x^2 + 8*x + 16)/(x^2 + 6*x + 9),)]
+          sage: L.rational_solutions((1, x))
+          [((7*x^5 + 21*x^4 + 73*x^2 + 168*x + 144)/(x^5 + 6*x^4 + 9*x^3), 5184, 756), ((4*x^2 + 14*x + 1)/(x^2 + 6*x + 9), 2592, 378), ((7*x^2 + 24*x)/(x^2 + 6*x + 9), 4608, 672)]
+          sage: L(_[0][0]) == _[0][1] + _[0][2]*x
+          True
+
+          sage: R.<n> = ZZ['n']; A.<Sn> = OreAlgebra(R, 'Sn');
+          sage: L = ((n+3)*Sn - n).lclm((2*n+5)*Sn - (2*n+1))
+          sage: L.rational_solutions()
+          [((-4*n^3 - 8*n^2 + 3)/(4*n^5 + 20*n^4 + 35*n^3 + 25*n^2 + 6*n),), (1/(4*n^2 + 8*n + 3),)]
+
+          sage: L = (2*n^2 - n - 2)*Sn^2 + (-n^2 - n - 1)*Sn + n^2 - 14
+          sage: y = (-n + 1)/(n^2 + 2*n - 2)
+          sage: L.rational_solutions((L(y),))
+          [((-n + 1)/(n^2 + 2*n - 2), 1)]          
+        
         """
-        raise NotImplementedError
+        A = self.parent(); R = A.base_ring(); 
+        R_field = R.fraction_field()
+        R_ring = R_field.ring()
+        A = A.change_ring(R_field)
+
+        # clear denominators
+        if len(rhs) == 0:
+            den = R_ring.one()
+        else:
+            den = lcm(map(lambda p: R_field(p).denominator(), rhs))
+        den = R_field(den.lcm(self.denominator()))
+
+        L = den*self; rhs = tuple(den*r for r in rhs)
+
+        if denominator is None:
+            denominator = L._denominator_bound()
+
+        sol = (L * A(~R_field(denominator))).polynomial_solutions(rhs, degree=degree, solver=solver)
+
+        for i in xrange(len(sol)):
+            sol[i] = tuple([sol[i][0]/denominator] + list(sol[i][1:]))
+
+        return sol
 
     def _degree_bound(self):
         """
@@ -112,6 +256,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         d = -1
 
         for (p, _) in self.indicial_polynomial(~R.fraction_field()(R.gen())).factor():
+            p = R(p)
             if p.degree() == 1:
                 try:
                     d = max(d, ZZ(-p[0]/p[1]))
