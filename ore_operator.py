@@ -656,6 +656,9 @@ class UnivariateOreOperator(OreOperator):
     def __nonzero__(self):
         return self._poly.__nonzero__()
 
+    def __neq__(self, other):
+        return not self == other
+
     def __eq__(self, other):
 
         if self.order() == 0:

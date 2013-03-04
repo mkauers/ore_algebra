@@ -146,7 +146,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
             degree = L._degree_bound()
 
         if len(rhs) > 0:
-            degree = max(degree, max(map(lambda p: p.degree(), rhs)))
+            degree = max(degree, max(map(lambda p: L.order() + p.degree(), rhs)))
 
         if degree < 0:
             return []
@@ -379,12 +379,14 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         
         elif (x*p).is_one():
             # at infinity
-            deg = lambda q: q.degree()
+            inf = 10*(max(1, self.degree()) + max(1, self.order()))
+            deg = lambda q: -inf if q.is_zero() else q.degree()
             m = max
 
         elif x == p:
             # at zero
-            deg = lambda q: q.valuation()
+            inf = 10*(max(1, self.degree()) + max(1, self.order()))
+            deg = lambda q: inf if q.is_zero() else q.valuation()
             m = min
 
         else:
@@ -434,13 +436,120 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         """
         raise NotImplementedError
 
-    def abramov_van_hoeij(self, other):
-        """
-        given other=a*D + b, find, if possible, an operator M such that rat*self = 1 - other*M
-        for some rational function rat.
-        """
-        raise NotImplementedError
+    def associate_solutions(self, D, p):
+        r"""
+        If ``self`` is `P`, this returns a list of pairs `(M, m)` such that `D*M = p + m*P`
 
+        INPUT:
+
+        - `D` -- a first order operator with the same parent as ``self``.
+          Depending on the algebra, this operator may be constrained to certain choices.
+          For example, for differential operators, it can only be `D` (corresponding to
+          integration), and for recurrence operators, it can only be `S - 1` (corresponding
+          to summation).         
+        - `p` -- a nonzero base ring element
+
+        OUTPUT:
+
+        - `M` -- an operator of order ``self.order() - 1`` with rational function coefficients.
+        - `m` -- a nonzero rational function.
+
+        Intended application: Express indefinite sums or integrals of holonomic functions in
+        terms of the summand/integrand. For example, with `D=S-1` and `P=S^2-S-1` and `p` some
+        polynomial, the output `M` is such that
+
+          `\sum_{k=0}^n p(k) F_k = const + M(F_n)`
+
+        where `F_k` denotes the Fibonacci sequence. The rational function `m` does not appear
+        in the closed form, it can be regarded as a certificate.         
+
+        This function may not be implemented for every algebra.
+
+        EXAMPLES::
+
+          sage: R.<x> = QQ['x']; A.<Dx> = OreAlgebra(R, 'Dx');
+          sage: L = x*Dx^2 + Dx; p = 1  ## L(log(x)) == 0
+          sage: L.associate_solutions(Dx, p)
+          [(-x^2*Dx + x, -x)]
+          sage: (M, m) = _[0]
+          sage: Dx*M == p + m*L  ## this implies int(log(x)) == M(log(x)) = x*log(x) - x
+          True
+
+          sage: R.<x> = QQ['x']; A.<Dx> = OreAlgebra(R, 'Dx');
+          sage: L = x^2*Dx^2 + x*Dx + (x^2 - 1); p = 1  ## L(bessel(x)) == 0
+          sage: L.associate_solutions(Dx, p)
+          [(-Dx + 1/-x, 1/-x^2)]
+          sage: (M, m) = _[0]
+          sage: Dx*M == p + m*L  ## this implies int(bessel(x)) == -bessel'(x) -1/x*bessel(x)
+          True
+
+          sage: R.<n> = QQ['n']; A.<Sn> = OreAlgebra(R, 'Sn');
+          sage: L = Sn^2 - Sn - 1; p = 1  ## L(fib(n)) == 0
+          sage: L.associate_solutions(Sn - 1, p)
+          [(Sn, 1)]
+          sage: (M, m) = _[0]
+          sage: (Sn-1)*M == p + m*L  ## this implies sum(fib(n)) == fib(n+1)
+          True
+
+          sage: R.<n> = QQ['n']; A.<Sn> = OreAlgebra(R, 'Sn');
+          sage: L = Sn^3 - 2*Sn^2 - 2*Sn + 1; p = 1  ## L(fib(n)^2) == 0
+          sage: L.associate_solutions(Sn - 1, p)
+          [(1/2*Sn^2 - 1/2*Sn - 3/2, 1/2)]
+          sage: (Sn-1)*M == p + m*L  ## this implies sum(fib(n)^2) == 1/2*fib(n+2)^2 - 1/2*fib(n+1)^2 - 3/2*fib(n)^2
+          True
+          
+        """
+        P = self; A = P.parent(); R = A.base_ring()
+
+        if not isinstance(D, OreOperator) or D.parent() is not A:
+            raise TypeError, "operators must live in the same algebra"
+        elif p not in R.fraction_field():
+            raise TypeError, "p must belong to the base ring"
+        elif D.order() != 1:
+            raise TypeError, "D must be a first order operator"
+        elif self.order() <= 0:
+            raise ValueError, "P must have at least order 1"
+        elif A.is_F():
+            sols = P.to_S('S').associate_solutions(D.to_S('S'), p)
+            return [ (M.to_F(str(A.gen())), m) for (M, m) in sols]
+        elif A.is_S() is not False or A.is_Q() is not False:
+            S = A.gen()
+            if not D == S - A.one():
+                raise NotImplementedError, "unsupported choice of D: " + str(D)
+            # adjoint = sum( (sigma^(-1) - 1)^i * a[i] ), where a[i] is the coeff of D^i in P
+            adjoint = A.zero(); coeffs = P.to_F('F').coeffs(); r = P.order()
+            for i in xrange(len(coeffs)):
+                adjoint += S**(r-i)*(A.one() - S)**i * coeffs[i]
+        elif A.is_D() is not False or A.is_T() is not False:
+            if D != A.gen():
+                raise NotImplementedError, "unsupported choice of D: " + str(D)
+            # adjoint = sum( (-D)^i * a[i] ), where a[i] is the coeff of D in P
+            adjoint = A.zero(); coeffs = P.coeffs()
+            for i in xrange(len(coeffs)):
+                adjoint += (-D)**i * coeffs[i]
+        else:
+            raise NotImplementedError
+
+        sol = adjoint.rational_solutions((-p,))
+        A = A.change_ring(A.base_ring().fraction_field())
+        sigma = A.sigma(); delta = A.delta()
+
+        for i in xrange(len(sol)):
+            if sol[i][1].is_zero():
+                sol[i] = None; continue
+            rat = sol[i][0]/sol[i][1]
+            DM = p + rat*P; M = A.zero()
+            while DM.order() > 0:
+                r = DM.order()
+                a = DM.leading_coefficient()
+                # DM = a*D^r + ...
+                #    = (a*D)*D^(r-1) + ...
+                #    = (D*s(a, -1) - d(s(a, -1)))*D^(r-1) + ...
+                M += sigma(a, -1)*(D**(r-1))
+                DM -= D*sigma(a, -1)*(D**(r-1))
+            sol[i] = (M, rat)
+
+        return filter(lambda p: p is not None, sol)
 
 #############################################################################################################
 
@@ -1492,8 +1601,10 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
         if R.is_field():
             R = R.ring() # R = k[x]
 
-        K = PolynomialRing(R.base_ring(), 'y') # k[y]
+        K = R.base_ring()['y'] # k[y]
+        R0 = R
         R = R.change_ring(K.fraction_field()) # FF(k[y])[x]
+        A = A.change_ring(R)
 
         y = R(K.gen())
         x = R.gen()
@@ -1504,10 +1615,10 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
             return [infinity]
         else:
             s = []; r = op.order()
-            for (p, _) in (R(op[r])(x - r).resultant(gcd(R(p), R(op[0]))(x + y))).numerator().factor():
-                if p.degree() == 1:
+            for (q, _) in R(gcd(R0(p), R0(op[r])))(x - r).resultant(R(op[0])(x + y)).numerator().factor():
+                if q.degree() == 1:
                     try:
-                        s.append(ZZ(-p[0]/p[1]))
+                        s.append(ZZ(-q[0]/q[1]))
                     except:
                         pass
             s = list(set(s)) # remove duplicates
