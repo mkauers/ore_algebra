@@ -820,6 +820,8 @@ class UnivariateOreOperator(OreOperator):
         if (r[0].order()<r[1].order()):
             r=(other,self)
 
+        R = self.parent()
+
         if prs==None:
             if self.base_ring().is_field():
                 prs = __classicPRS__
