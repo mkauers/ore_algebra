@@ -17,10 +17,11 @@ except:
 
 from sage.rings.integer_ring import ZZ
 from sage.rings.rational_field import QQ
-from sage.rings.finite_rings.all import GF
+from sage.rings.finite_rings.all import GF, is_FiniteField
 from sage.matrix.constructor import Matrix, matrix
 from sage.rings.arith import xgcd
 from sage.parallel.decorate import parallel
+from sage.rings.polynomial.polynomial_ring import is_PolynomialRing
 
 from ore_algebra import *
 
@@ -70,7 +71,7 @@ def guess(data, algebra, **kwargs):
       that can be interpreted by the element constructor of `K`. 
     - ``algebra`` -- a univariate Ore algebra over a univariate polynomial ring whose
       generator is the standard derivation, the standard shift, the forward difference,
-      the euler derivation, or a q-shift.
+      or a q-shift.
 
     Optional arguments:
 
@@ -93,9 +94,6 @@ def guess(data, algebra, **kwargs):
       given amount of data. 
     - ``solver`` -- function to be used for computing the right kernel of a matrix
       with elements in `K`. 
-    - ``lift`` -- function which maps the given objects in ``data`` to elements of `K`.
-      If ``data`` is a file name and ``lift`` is not ``None``, this function will
-      be applied to the rows of the file instead of `K`. 
     - ``infolevel`` -- an integer specifying the level of details of progress
       reports during the calculation. 
 
@@ -123,307 +121,77 @@ def guess(data, algebra, **kwargs):
     
     """
 
-    A = algebra; R = A.base_ring(); K = R.base_ring()
+    A = algebra; R = A.base_ring(); K = R.base_ring(); x = R.gen()
 
     if type(data) == str:
         f = open(data, 'r')
-        lift = kwargs['lift'] if kwargs.has_key('lift') else None
-        if lift is None:
-            lift = K        
-        data = [ lift(row) for row in f ]
+        data = [ K(line) for line in f ]
         f.close()
 
-    if kwargs.has_key('infolevel'):
-        infolevel = kwargs['infolevel']
-        kwargs['infolevel'] = infolevel - 2
-    else:
-        infolevel = 0
-        
-    def info(bound, msg):
-        if bound <= infolevel:
-            print msg
-
-    info(1, datetime.today().ctime() + ": guessing started.")
-    info(1, "len(data)=" + str(len(data)) + ", algebra=" + str(A._latex_()))
-
     if A.ngens() > 1 or R.ngens() > 1:
-        raise TypeError, "unexpected algebra"
-
-    elif A.is_F() is not False:
-        # reduce to shift case; note that this does not alter order or degrees
-        info(1, "Translating problem to shift case...")
-        x = A.base_ring().gen()
-        A0 = OreAlgebra(A.base_ring(), ('S', {x:x+K.one()}, {}))
-        return guess(data, A0, **kwargs).to_F(A)
-
-    elif A.is_T() is not False:
-        # reduce to shift case; note that this does not alter order or degrees (apart from switching them)
-        info(1, "Translating problem to shift case...")
-        x = A.base_ring().gen()
-        A0 = OreAlgebra(A.base_ring(), ('S', {x:x+K.one()}, {}))
-        order = degree = None
-        if kwargs.has_key('order'):
-            order = kwargs['order']
-            del kwargs['order']
-        if kwargs.has_key('degree'):
-            degree = kwargs['degree']
-            del kwargs['degree']
-        if order is not None:
-            kwargs['degree'] = order
-        if degree is not None:
-            kwargs['order'] = degree
-        if kwargs.has_key('path'):
-            kwargs['path'] = [ (d, r) for (r, d) in kwargs['path'] ]
-        L0 = guess(data, A0, **kwargs)
-        # (n, S) <==> (T, x); observe noncommutativity
-        x = A(R.gen()); T = A.gen(); L = A.zero()
-        for i in xrange(L0.order() + 1):
-            L = L + A(L0[i].coeffs())*(x**i)
-        return L            
-
-    elif (not A.is_S() and not A.is_D() and not A.is_Q()):
-        raise TypeError, "unexpected algebra"
-
+        raise TypeError, "unexpected algebra: " + str(A)
+    
     elif R.is_field():
         return guess(data, A.change_ring(R.ring()), **kwargs)
 
-    elif K.characteristic() == 0 or K.base_ring() is not K:
-    
-        # homomorphic images and rational reconstruction
+    elif A.is_F() is not False:
+        # reduce to shift case; note that this does not alter order or degrees
+        if kwargs.has_key('infolevel') and kwargs['infolevel'] >= 1:
+            print "Tanslating problem to shift case..."
+        A0 = OreAlgebra(R, ('S', {x:x+K.one()}, {}))
+        return guess(data, A0, **kwargs).change_ring(R).to_F(A)
 
-        x = R.gen(); curve_optimization = True
-        
-        if K.characteristic() == 0:
-            info(2, "Going to use chinese remaindering...")
-            modulus = _word_size_primes()
-            mod = ZZ.one()
-            if K.base_ring() is not K:
-                # ZZ[t] --> GF(p)[t]
-                Kgens = K.gens()
-                K = ZZ[Kgens]
-                to_hom = lambda mod : GF(mod)[Kgens].fraction_field()
-                curve_optimization = False # will have been done in the recursion already
-            else:
-                K = ZZ
-                # ZZ --> GF(p)
-                to_hom = lambda mod : GF(mod)
-        elif K.ngens() > 1 or K.base_ring().base_ring() is not K.base_ring():
-            # GF(p)[t1,t2,...] or GF(p)[t1][t2]... or smth like this
-            raise NotImplemented, "more than one parameter in coefficient ring"
-        else:
-            info(2, "Going to use evaluation/interpolation...")
-            if K.is_field():
-                K = K.ring()
-            modulus = _linear_polys(K.gen(), 7, K.characteristic())
-            mod = K.one()
-            # GF(p)[t] --> GF(p)
-            to_hom = lambda mod : (lambda pol : pol(-mod[0]))
-            
-        A = A.change_ring(K[x]); L = A.zero(); nn = 0; path = []; ncpus = 1
-        return_short_path = kwargs.has_key('return_short_path') and kwargs['return_short_path'] is True
+    elif (not A.is_S() and not A.is_D() and not A.is_Q()):
+        raise TypeError, "unexpected algebra: " + str(A)
 
-        while mod != 0:
+    elif K.is_prime_field() and K.characteristic() > 0:
+        return _guess_via_gcrd(data, A, **kwargs)
 
-            nn += 1 # iteration counter
+    elif K is ZZ:
+        # CRA
+        return _guess_via_hom(data, A, _word_size_primes(), lambda mod : GF(mod), **kwargs)
 
-            if nn == 1:
-                # 1st iteration: use the path specified by the user (or a default path)
-                kwargs['return_short_path'] = True
+    elif is_PolynomialRing(K) and K.base_ring().is_prime_field() and K.characteristic() > 0:  # K == GF(p)[t]
+        # eval/interpol
+        mod = _linear_polys(K.gen(), 7, K.characteristic())
+        to_hom = lambda mod : (lambda pol : pol(-mod[0]))
+        return _guess_via_hom(data, A, mod, to_hom, **kwargs)
 
-            elif nn == 2 and curve_optimization and path[0][0] >= Lp.order() + 2:
-                # 2nd iteration: try to optimize the path obtained in the 1st iteration 
-                r0 = Lp.order(); d0 = Lp.degree(); r1, d1 = path[0]
-                # determine the hyperbola through (r0,d0) and (r1,d1) and 
-                # choose (r2,d2) as the point on this hyperbola for which (r2+1)*(d2+1) is minimized
-                try: 
-                    r2 = r0 - 1 + math.sqrt(abs((d0-d1)*r0*(r0-1.-r1)/(d0+r0+d1*(r0-1.-r1)-r1)))
-                    d2 = (d1*(r0-1-r1)*(r0-r2) + d0*(r1-r2))/((r0-r1)*(r0-1-r2))
-                    r2 = int(math.ceil(r2)); d2 = int(math.ceil(d2))
-                    if abs(r2 - r1) >= 2 and abs(d2 - d1) >= 2:
-                        path = [ (i, d2 + ((d1-d2)*(i-r2))/(r1-r2)) for i in xrange(r2, r1, cmp(r1, r2)) ] + path
-                        kwargs['path'] = path
-                    else:
-                        del kwargs['return_short_path']
-                except:
-                    del kwargs['return_short_path']
+    elif is_PolynomialRing(K) and K.base_ring() is ZZ:  # K == ZZ[t]
+        # CRA + eval/interpol
 
-            elif kwargs.has_key('return_short_path'):
-                # subsequent iterations: stick to the path we have.                 
-                del kwargs['return_short_path']
+        KK = QQ[K.gens()].fraction_field() ## all elements of 'data' must be coercible to KK
+        KK2 = ZZ[K.gens()].fraction_field() ## rewrite them as elements of KK2
 
-            if not kwargs.has_key('path'):
-                kwargs['return_short_path'] = True
+        def cleanup(rat):
+            rat = KK(rat)
+            n, d = rat.numerator(), rat.denominator() # live in QQ[t]
+            nn, nd = n.numerator(), n.denominator()
+            dn, dd = d.numerator(), d.denominator()
+            return KK2(K(nn*dd)/K(nd*dn))
 
-            if ncpus == 1:
-                # sequential version 
-                data_mod = None
-                while data_mod is None:
-                    p = modulus.next(); hom = to_hom(p)
-                    info(2, "modulus = " + str(p))
-                    try:
-                        data_mod = map(hom, data)
-                    except ArithmeticError:
-                        info(2, "unlucky modulus discarded.")
+        data = map(cleanup, data)
 
-                Lp = guess(data_mod, A.change_ring(hom(K.one()).parent()[x]), **kwargs)
-                if type(Lp) is tuple and len(Lp) == 2:
-                    Lp, path = Lp
-                    kwargs['path'] = path
+        def to_hom(mod):
+            KK3 = GF(mod); KK4 = KK3[K.gens()]; KK5 = KK4.fraction_field()
+            return lambda rat: KK5(KK4(rat.numerator()).map_coefficients(KK3, KK3) / \
+                                   KK4(rat.denominator()).map_coefficients(KK3, KK3))
 
-            else:
-                # we can assume at this point that nn >= 3 and 'return_short_path' is switched off.
-                primes = [modulus.next() for i in xrange(ncpus)]
-                info(2, "moduli = " + str(primes))
-                primes = [ (p, to_hom(p)) for p in primes ]
-                primes = [ (p, hom, A.change_ring(hom(K.one()).parent()[x])) for (p, hom) in primes ]
-                Lp = A.zero(); p = K.one()
-                out = [ (arg[0][0], arg[0][2], Lpp) for (arg, Lpp) in forked_guess(primes) ]
-                for (pp, alg, Lpp) in out:
-                    Lpp = alg(Lpp)
-                    try:
-                        Lp, p = _merge_homomorphic_images(Lp, p, Lpp, pp)
-                    except:
-                        info(2, "unlucky modulus " + str(pp) + " discarded")
+        return _guess_via_hom(data, A, _word_size_primes(), to_hom, **kwargs)
 
-            if nn == 1:
-                info(2, "solution of order " + str(Lp.order()) + " and degree " + str(Lp.degree()) + " predicted")
+    elif K is QQ:
+        return guess(data, A.change_ring(ZZ[x]), **kwargs)
 
-            elif nn == 2 and kwargs.has_key('ncpus') and kwargs['ncpus'] > 1:
-                info(2, "Switching to multiprocessor code.")
-                ncpus = kwargs['ncpus']
-                del kwargs['ncpus']
-                kwargs['infolevel'] = 0
+    elif K.is_field():
+        return guess(data, A.change_ring(K.ring()[x]), **kwargs)
 
-                @parallel(ncpus=ncpus)
-                def forked_guess(p, hom, alg):
-                    try:
-                        return guess(map(hom, data), alg, **kwargs).polynomial()
-                    except ArithmeticError:
-                        return None
-                
-            elif nn == 3 and kwargs.has_key('infolevel'):
-                kwargs['infolevel'] = kwargs['infolevel'] - 2
+    elif is_PolynomialRing(K) and K.base_ring() is QQ:
+        return guess(data, A.change_ring(ZZ[K.gens()][x]), **kwargs)
 
-            if not Lp.is_zero():
-                L, mod = _merge_homomorphic_images(L, mod, Lp, p)
-
-        return (L, path) if return_short_path else L
-
-    elif K.base_ring() is not K:
-        # homomorphic images and rational reconstruction
-        info(2, "Going to use evaluation/interpolation...")
-        raise NotImplementedError
-
-    # At this point, A = GF(p)[x]<X> where X is S or D or Q.
-
-    if kwargs.has_key('ncpus'):
-        del kwargs['ncpus']
-
-    ensure = kwargs['ensure'] if kwargs.has_key('ensure') else 0
-    N = len(data) - ensure
-    
-    if kwargs.has_key('path'):
-        path = kwargs['path']; del kwargs['path']
-        sort_key = lambda p: (p[0]+1)*(p[1]+1)
     else:
-        r2d = lambda r: (N - 2*r - 2)/(r + 1) # python integer division intended.
-        path = [(r, r2d(r)) for r in xrange(1, N)] 
-        path = filter(lambda p: min(p[0] - 1, p[1]) >= 0, path)
-        (r, d) = (1, 1); prelude = []
-        while d <= r2d(r):
-            prelude.append((r, d))
-            (r, d) = (d, r + d)
-        path = prelude + path
-        sort_key = lambda p: 2*p[0] + (p[0]+1)*(p[1]+1) # give some preference to small orders
+        raise TypeError, "unexpected coefficient domain: " + str(K)
 
-    if kwargs.has_key('degree'):
-        degree = kwargs['degree']; del kwargs['degree']
-        path = filter(lambda p: p[1] <= degree, path)
-
-    if kwargs.has_key('order'):
-        order = kwargs['order']; del kwargs['order']
-        path = filter(lambda p: p[0] <= order, path)
-
-    path.sort(key=sort_key)
-    for i in xrange(len(path)):
-        (r, d) = path[i]
-        for j in xrange(i):
-            if path[j] is not None and path[j][0] >= r and path[j][1] >= d:
-                path[i] = None                    
-    path = filter(lambda p: p is not None, path)
-
-    info(2, "Going through a path with " + str(len(path)) + " points")
-
-    # search equation
-
-    if kwargs.has_key('return_short_path'):
-        return_short_path = True
-        del kwargs['return_short_path']
-    else:
-        return_short_path = False
-    
-    neg_probes = []
-    def probe(r, d):
-        if (r, d) in neg_probes:
-            return []        
-        kwargs['order'], kwargs['degree'] = r, d
-        sols = guess_raw(data, A, **kwargs)
-        info(2, str(len(sols)) + " sols for (r, d)=" + str((r, d)))
-        if len(sols) == 0:
-            neg_probes.append((r, d))
-        return sols
-
-    L = []; short_path = []; 
-    
-    for i in xrange(len(path)):
-
-        r, d = path[i]
-        for (r1, d1) in short_path:
-            if r >= r1:
-                d = min(d, d1 - 1)
-
-        if d < 0:
-            continue
-
-        sols = probe(r, d)
-        
-        while return_short_path and d > 0 and len(sols) > 1:
-            new = probe(r, d - 1)
-            if len(new) == 0:
-                break
-            m = len(sols) - len(new) # this is > 0
-            d2 = max(int(math.ceil(d - len(sols)*1.0/m)), 0)
-            sols = probe(r, d2) if d2 < d - 1 else new
-            d = d2
-            if len(sols) == 0:
-                while len(sols) == 0:
-                    d += 1; sols = probe(r, d)
-                break
-
-        if len(sols) > 1:
-            short_path = [(r, d)]
-            L = sols
-        elif len(sols) > 0:
-            short_path.append((r, d))
-            L = L + sols
-        if len(L) >= 2:
-            break
-
-    info(2, datetime.today().ctime() + ": search completed.")
-
-    if len(L) == 0:
-        raise ValueError, "No relations found."
-    elif len(L) == 1:
-        L = L[0]
-    else:
-        L = L[0].gcrd(L[1])
-        info(2, datetime.today().ctime() + ": gcrd completed.")
-
-    L = (~L.leading_coefficient().leading_coefficient())*L
-
-    return (L, short_path) if return_short_path else L
-
-#######################################
+###########################################################################################
 
 def guess_raw(data, A, order=-1, degree=-1, lift=None, solver=None, cut=25, ensure=0, infolevel=0):
     """
@@ -570,6 +338,286 @@ def guess_raw(data, A, order=-1, degree=-1, lift=None, solver=None, cut=25, ensu
 
 ###########################################################################################
 
+def _guess_via_hom(data, A, modulus, to_hom, **kwargs):
+    """
+    Implementation of guessing via homomorphic images.
+
+    INPUT:
+
+    - ``data``: list of terms
+    - ``A``: an algebra of the form K[x][X]
+    - ``modulus``: an iterator which produces appropriate moduli
+    - ``to_hom``: a callable which turns a given modulus to a map from K to some hom image domain
+
+    OUTPUT:
+
+    - ``L`` in ``A``, the guessed operator.
+    - if the option ``return_short_path`` is given and ``True``, return the pair ``(L, path)``.
+    
+    Covers three cases:
+
+    1. K == ZZ ---> GF(p) and back via CRA.
+       In this case, ``modulus`` is expected to iterate over primes `p`
+    2. K == GF(p)[t] --> GF(p) and back via interpolation.
+       In this case, ``modulus`` is expected to iterate over linear polynomial in `K`
+    3. K == ZZ[t] --> GF(p)[t] and back via CRA.
+       In this case, ``modulus`` is expected to iterate over primes `p`. The method
+       produces problem instances of type 2, which are handled recursively.     
+
+    """
+
+    if kwargs.has_key('infolevel'):
+        infolevel = kwargs['infolevel']
+        kwargs['infolevel'] = infolevel - 2
+    else:
+        infolevel = 0
+        
+    def info(bound, msg):
+        if bound <= infolevel:
+            print msg
+
+    R = A.base_ring(); x = R.gen(); K = R.base_ring(); 
+    atomic = not ( is_PolynomialRing(K) and K.base_ring() is ZZ )
+
+    info(1, datetime.today().ctime() + ": guessing via homomorphic images started.")
+    info(1, "len(data)=" + str(len(data)) + ", algebra=" + str(A._latex_()))
+
+    L = A.zero()
+    mod = K.one() if atomic else ZZ.one()
+
+    nn = 0; path = []; ncpus = 1
+    return_short_path = kwargs.has_key('return_short_path') and kwargs['return_short_path'] is True
+
+    while mod != 0:
+
+        nn += 1 # iteration counter
+
+        if nn == 1:
+            # 1st iteration: use the path specified by the user (or a default path)
+            kwargs['return_short_path'] = True
+
+        elif nn == 2 and atomic and path[0][0] >= Lp.order() + 2:
+            # 2nd iteration: try to optimize the path obtained in the 1st iteration 
+            r0 = Lp.order(); d0 = Lp.degree(); r1, d1 = path[0]
+            # determine the hyperbola through (r0,d0) and (r1,d1) and 
+            # choose (r2,d2) as the point on this hyperbola for which (r2+1)*(d2+1) is minimized
+            try: 
+                r2 = r0 - 1 + math.sqrt(abs((d0-d1)*r0*(r0-1.-r1)/(d0+r0+d1*(r0-1.-r1)-r1)))
+                d2 = (d1*(r0-1-r1)*(r0-r2) + d0*(r1-r2))/((r0-r1)*(r0-1-r2))
+                r2 = int(math.ceil(r2)); d2 = int(math.ceil(d2))
+                if abs(r2 - r1) >= 2 and abs(d2 - d1) >= 2:
+                    path = [ (i, d2 + ((d1-d2)*(i-r2))/(r1-r2)) for i in xrange(r2, r1, cmp(r1, r2)) ] + path
+                    kwargs['path'] = path
+                else:
+                    del kwargs['return_short_path']
+            except:
+                del kwargs['return_short_path']
+
+        elif kwargs.has_key('return_short_path'):
+            # subsequent iterations: stick to the path we have.                 
+            del kwargs['return_short_path']
+
+        if not kwargs.has_key('path'):
+            kwargs['return_short_path'] = True
+
+        if ncpus == 1:
+            # sequential version 
+            data_mod = None
+            while data_mod is None:
+                p = modulus.next(); hom = to_hom(p)
+                info(2, "modulus = " + str(p))
+                try:
+                    data_mod = map(hom, data)
+                except ArithmeticError:
+                    info(2, "unlucky modulus discarded.")
+
+            Lp = guess(data_mod, A.change_ring(hom(K.one()).parent()[x]), **kwargs)
+            if type(Lp) is tuple and len(Lp) == 2:
+                Lp, path = Lp
+                kwargs['path'] = path
+
+        else:
+            # we can assume at this point that nn >= 3 and 'return_short_path' is switched off.
+            primes = [modulus.next() for i in xrange(ncpus)]
+            info(2, "moduli = " + str(primes))
+            primes = [ (p, to_hom(p)) for p in primes ]
+            primes = [ (p, hom, A.change_ring(hom(K.one()).parent()[x])) for (p, hom) in primes ]
+            Lp = A.zero(); p = K.one()
+            out = [ (arg[0][0], arg[0][2], Lpp) for (arg, Lpp) in forked_guess(primes) ]
+            for (pp, alg, Lpp) in out:
+                Lpp = alg(Lpp)
+                try:
+                    Lp, p = _merge_homomorphic_images(Lp, p, Lpp, pp)
+                except:
+                    info(2, "unlucky modulus " + str(pp) + " discarded")
+
+        if nn == 1:
+            info(2, "solution of order " + str(Lp.order()) + " and degree " + str(Lp.degree()) + " predicted")
+
+        elif nn == 2 and kwargs.has_key('ncpus') and kwargs['ncpus'] > 1:
+            info(2, "Switching to multiprocessor code.")
+            ncpus = kwargs['ncpus']
+            del kwargs['ncpus']
+            kwargs['infolevel'] = 0
+            
+            @parallel(ncpus=ncpus)
+            def forked_guess(p, hom, alg):
+                try:
+                    return guess(map(hom, data), alg, **kwargs).polynomial()
+                except ArithmeticError:
+                    return None
+                
+        elif nn == 3 and kwargs.has_key('infolevel'):
+            kwargs['infolevel'] = kwargs['infolevel'] - 2
+
+        if not Lp.is_zero():
+            L, mod = _merge_homomorphic_images(L, mod, Lp, p)
+
+    return (L, path) if return_short_path else L
+
+###########################################################################################
+
+def _guess_via_gcrd(data, A, **kwargs):
+    """
+    Implementation of guessing by taking gcrd of small equations. 
+
+    INPUT:
+
+    - ``data``: list of terms
+    - ``A``: an algebra of the form GF(p)[x][X]
+
+    OUTPUT:
+
+    - ``L`` in ``A``, the guessed operator.
+
+    raises an error if no equation is found.
+    """
+
+    if kwargs.has_key('infolevel'):
+        infolevel = kwargs['infolevel']
+        kwargs['infolevel'] = infolevel - 2
+    else:
+        infolevel = 0
+        
+    def info(bound, msg):
+        if bound <= infolevel:
+            print msg
+
+    R = A.base_ring(); x = R.gen(); K = R.base_ring(); 
+
+    info(1, datetime.today().ctime() + ": guessing via gcrd started.")
+    info(1, "len(data)=" + str(len(data)) + ", algebra=" + str(A._latex_()))
+
+    if kwargs.has_key('ncpus'):
+        del kwargs['ncpus']
+
+    if kwargs.has_key('return_short_path'):
+        return_short_path = True
+        del kwargs['return_short_path']
+    else:
+        return_short_path = False
+        
+    ensure = kwargs['ensure'] if kwargs.has_key('ensure') else 0
+
+    N = len(data) - ensure
+    
+    if kwargs.has_key('path'):
+        path = kwargs['path']; del kwargs['path']
+        sort_key = lambda p: (p[0] + 1)*(p[1] + 1)
+    else:
+        r2d = lambda r: (N - 2*r - 2)/(r + 1) # python integer division intended.
+        path = [(r, r2d(r)) for r in xrange(1, N)] 
+        path = filter(lambda p: min(p[0] - 1, p[1]) >= 0, path)
+        (r, d) = (1, 1); prelude = []
+        while d <= r2d(r):
+            prelude.append((r, d))
+            (r, d) = (d, r + d)
+        path = prelude + path
+        sort_key = lambda p: 2*p[0] + (p[0] + 1)*(p[1] + 1) # give some preference to small orders
+
+    if kwargs.has_key('degree'):
+        degree = kwargs['degree']; del kwargs['degree']
+        path = filter(lambda p: p[1] <= degree, path)
+
+    if kwargs.has_key('order'):
+        order = kwargs['order']; del kwargs['order']
+        path = filter(lambda p: p[0] <= order, path)
+
+    path.sort(key=sort_key)
+    for i in xrange(len(path)):
+        (r, d) = path[i]
+        for j in xrange(i):
+            if path[j] is not None and path[j][0] >= r and path[j][1] >= d:
+                path[i] = None                    
+    path = filter(lambda p: p is not None, path)
+
+    info(2, "Going through a path with " + str(len(path)) + " points")
+
+    # search equation
+    
+    neg_probes = []
+    def probe(r, d):
+        if (r, d) in neg_probes:
+            return []        
+        kwargs['order'], kwargs['degree'] = r, d
+        sols = guess_raw(data, A, **kwargs)
+        info(2, str(len(sols)) + " sols for (r, d)=" + str((r, d)))
+        if len(sols) == 0:
+            neg_probes.append((r, d))
+        return sols
+
+    L = []; short_path = []; 
+    
+    for i in xrange(len(path)):
+
+        r, d = path[i]
+        for (r1, d1) in short_path:
+            if r >= r1:
+                d = min(d, d1 - 1)
+
+        if d < 0:
+            continue
+
+        sols = probe(r, d)
+        
+        while return_short_path and d > 0 and len(sols) > 1:
+            new = probe(r, d - 1)
+            if len(new) == 0:
+                break
+            m = len(sols) - len(new) # this is > 0
+            d2 = max(int(math.ceil(d - len(sols)*1.0/m)), 0)
+            sols = probe(r, d2) if d2 < d - 1 else new
+            d = d2
+            if len(sols) == 0:
+                while len(sols) == 0:
+                    d += 1; sols = probe(r, d)
+                break
+
+        if len(sols) > 1:
+            short_path = [(r, d)]
+            L = sols
+        elif len(sols) > 0:
+            short_path.append((r, d))
+            L = L + sols
+        if len(L) >= 2:
+            break
+
+    info(2, datetime.today().ctime() + ": search completed.")
+
+    if len(L) == 0:
+        raise ValueError, "No relations found."
+    elif len(L) == 1:
+        L = L[0]
+    else:
+        L = L[0].gcrd(L[1])
+        info(2, datetime.today().ctime() + ": gcrd completed.")
+
+    L = (~L.leading_coefficient().leading_coefficient())*L
+
+    return (L, short_path) if return_short_path else L
+
+###########################################################################################
+
 from sage.ext.multi_modular import MAX_MODULUS
 from sage.rings.arith import previous_prime as pp
 
@@ -607,6 +655,8 @@ class _linear_polys(object):
             self.__next = p + self.__step
             return p
 
+###########################################################################################
+
 def _merge_homomorphic_images(L, mod, Lp, p):
     """
     Interpolation or chinese remaindering on the coefficients of operators.
@@ -618,7 +668,7 @@ def _merge_homomorphic_images(L, mod, Lp, p):
       operator in R[x][X] of which ``L`` can be obtained by taking its
       coefficients mod ``mod``.
     - ``Lp`` -- an operator in r[x][X]
-    - ``p`` -- an element of r such that the hypothetical operator
+    - ``p`` -- an element of R such that the hypothetical operator
       gives `Lp` when its coeffs are reduced mod ``p``.
 
     OUTPUT:
@@ -626,7 +676,7 @@ def _merge_homomorphic_images(L, mod, Lp, p):
     A pair `(M, m)` where
 
     - `M` is in R[x][X] and obtained from `L` and `Lp`
-      by chinese remindering or interpolation possibly followed by rational
+      by chinese remindering or interpolation, possibly followed by rational
       reconstruction.
     - `m` is either `mod*p` or `0`, depending on whether rational reconstruction
       succeeded.
@@ -645,16 +695,17 @@ def _merge_homomorphic_images(L, mod, Lp, p):
     B = L.base_ring().base_ring()
     R = mod.parent()
     r = Lp.base_ring().base_ring()
-    if r is R:
-        r = p.parent()
+    if r is not R:
+        Lp = Lp.change_ring(L.base_ring())
 
-    poly = r.base_ring() is not R.base_ring()
+    atomic = (B is ZZ) or (B.characteristic() > 0)
+    poly = not atomic     
 
     if mod == 0:
         return L, R.zero()
 
     elif L.is_zero():
-        Lmod, mod = Lp.change_ring(L.base_ring()), R(p)
+        Lmod, mod = Lp, R(p)
 
     elif (L.order(), L.degree()) != (Lp.order(), Lp.degree()):
         raise ValueError
@@ -721,6 +772,7 @@ def _merge_homomorphic_images(L, mod, Lp, p):
 
     return L.parent()(coeffs), R.zero()
 
+###########################################################################################
 
 def _rat_recon(a, m, u=None):
     """

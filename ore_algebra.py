@@ -83,7 +83,6 @@ def _is_suitable_base_ring(R):
     elif is_PolynomialRing(R) or is_MPolynomialRing(R):
         return _is_suitable_base_ring(R.base_ring())
     else:
-        print "rejecting ", R
         return False
 
 class _Sigma:
