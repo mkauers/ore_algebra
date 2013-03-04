@@ -821,7 +821,7 @@ class UnivariateOreOperator(OreOperator):
             r=(other,self)
 
         if prs==None:
-            if R.base_ring().is_field():
+            if self.base_ring().is_field():
                 prs = __classicPRS__
             else:
                 prs = __improvedPRS__
