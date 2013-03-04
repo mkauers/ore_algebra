@@ -786,9 +786,14 @@ class UnivariateOreOperator(OreOperator):
         if fractionFree: op = lambda x,y:x//y
         else: op = lambda x,y:x/y
         while(orddiff >= 0):
+            currentOrder=p.order()
             cfquo = op(p.leading_coefficient(),qlcs[orddiff]) * D**(orddiff)
             quo = quo+cfquo
             p = p - cfquo*q
+            if p.order()==currentOrder:
+                p = self
+                q = other
+                op = lambda x,y:x/y
             orddiff = p.order() - q.order()
         return (quo,p)
 
@@ -829,8 +834,12 @@ class UnivariateOreOperator(OreOperator):
                 prs = __improvedPRS__
 
         additional = []
-        while not r[1].is_zero(): 
-            r=prs(r,additional)[0]
+        while not r[1].is_zero():
+            (r2,q,alpha,beta,correct)=prs(r,additional)
+            if not correct:
+                prs = __primitivePRS__
+            else:
+                r=r2
         r=r[0]
 
         if not prs==__classicPRS__:
@@ -866,9 +875,13 @@ class UnivariateOreOperator(OreOperator):
         additional = []
 
         while not r[1].is_zero():  
-            (r,q,alpha,beta)=prs(r,additional)
-            bInv = ~beta
-            a11,a12,a21,a22 = a21,a22,bInv*(alpha*a11-q*a21),bInv*(alpha*a12-q*a22)
+            (r2,q,alpha,beta)=prs(r,additional)
+            if not correct:
+                prs = __primitivePRS__
+            else:
+                r=r2
+                bInv = ~beta
+                a11,a12,a21,a22 = a21,a22,bInv*(alpha*a11-q*a21),bInv*(alpha*a12-q*a22)
 
         r=r[0]
 
@@ -1340,12 +1353,12 @@ def __primitivePRS__(r,additional):
     orddiff = r[0].order()-r[1].order()
 
     R = r[0].parent()
-
     alpha = R.sigma().factorial(r[1].leading_coefficient(),orddiff+1)
     newRem = (alpha*r[0]).quo_rem(r[1],fractionFree=True)
     beta = newRem[1].content()
     r2 = newRem[1].map_coefficients(lambda p: p//beta)
-    return ((r[1],r2),newRem[0],alpha,beta)
+    
+    return ((r[1],r2),newRem[0],alpha,beta,True)
 
 def __classicPRS__(r,additional):
     """
@@ -1353,7 +1366,7 @@ def __classicPRS__(r,additional):
     """
 
     newRem = r[0].quo_rem(r[1])
-    return ((r[1],newRem[1]),newRem[0],r[0].parent().base_ring().one(),r[0].parent().base_ring().one())
+    return ((r[1],newRem[1]),newRem[0],r[0].parent().base_ring().one(),r[0].parent().base_ring().one(),True)
 
 def __monicPRS__(r,additional):
     """
@@ -1361,7 +1374,7 @@ def __monicPRS__(r,additional):
     """
 
     newRem = r[0].quo_rem(r[1])
-    return ((r[1],newRem[1].primitive_part()),newRem[0],r[0].parent().base_ring().one(),r[0].parent().base_ring().one())
+    return ((r[1],newRem[1].primitive_part()),newRem[0],r[0].parent().base_ring().one(),r[0].parent().base_ring().one(),True)
 
 def __improvedPRS__(r,additional):
     """
@@ -1383,17 +1396,20 @@ def __improvedPRS__(r,additional):
     else:
         (d2,oldalpha,k,essentialPart,phi) = (additional.pop(),additional.pop(),additional.pop(),additional.pop(),additional.pop())
         phi = oldalpha / R.sigma().factorial(sigma(phi,1),d2-d1-1)
-        beta = ((-Rbase.one())**(orddiff+1)*R.sigma().factorial(sigma(phi,1),orddiff)*k)
+        beta = oldalpha.parent()(((-Rbase.one())**(orddiff+1)*R.sigma().factorial(sigma(phi,1),orddiff)*k))
         essentialPart = sigma(essentialPart,-orddiff)
 
     k = r[1].leading_coefficient()//essentialPart
+    if k.is_zero():
+        return ((0,0),0,0,0,False)
+
     alpha = R.sigma().factorial(k,orddiff)
     alpha2=alpha*sigma(k,orddiff)
     newRem = (alpha2*r[0]).quo_rem(r[1],fractionFree=True)
     r2 = newRem[1].map_coefficients(lambda p: p//beta)
     additional.extend([phi,essentialPart,k,alpha,d1])
 
-    return ((r[1],r2),newRem[0],alpha2,beta)
+    return ((r[1],r2),newRem[0],alpha2,beta,True)
 
 def __subresultantPRS__(r,additional):
     """
@@ -1419,7 +1435,6 @@ def __subresultantPRS__(r,additional):
     alpha = R.sigma().factorial(r[1].leading_coefficient(),orddiff+1)
     newRem = (alpha*r[0]).quo_rem(r[1],fractionFree=True)
     r2 = newRem[1].map_coefficients(lambda p: p//beta)
-
     additional.extend([phi,d1])
 
-    return ((r[1],r2),newRem[0],alpha,beta)
+    return ((r[1],r2),newRem[0],alpha,beta,True)
