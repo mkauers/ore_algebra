@@ -1811,16 +1811,12 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
             exp = [f] # coeffs of n^s, n^(s-1/ram), n^(s-2/ram), ...
             rest = sum((coeffs[i]*subs(x, prec, i, alpha=s)(x**ram)).shift(-ram*prec) for i in xrange(r + 1))
             #    = L(n^s) = indpoly(s)*n^(s - r) + ...
-            print "f0=", f0
             f0 = rest.leading_coefficient()
-            print "f0=", f0
             rest *= f
-            print "f=", f
             
             for k in xrange(1, ram*n):
                 # determine coeff of n^(s - k/ram) in exp so as to kill coeff of n^(s - r - k/ram) of rest
                 newcoeff = -rest[ram*(prec - r) - k]/f0(s - k/ram)
-                print rest.exponents()
                 rest += sum((newcoeff*coeffs[i]*subs(x, prec, i, alpha=s - k/ram)(x**ram)).shift(-ram*prec - k) \
                             for i in xrange(r + 1))
                 rest = rest.map_coefficients(normalize_ratfun)
@@ -1834,7 +1830,6 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
             accum = 0
             for (a, b) in e:
                 der_a = dict()
-                print "(a, b) = ", (a, b)
                 for i in xrange(accum + b):
                     der_a[i] = map(lambda g: g(alpha - a), der[i])
                 for i in xrange(accum, accum + b):

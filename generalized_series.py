@@ -9,6 +9,9 @@ from sage.rings.power_series_ring import PowerSeriesRing
 from sage.rings.polynomial.polynomial_ring import is_PolynomialRing
 from sage.rings.integer_ring import ZZ
 from sage.rings.rational_field import QQ
+from sage.rings.real_mpfr import RR
+from sage.functions.log import log as LOG
+from sage.functions.log import exp as EXP
 from sage.rings.number_field.number_field import is_NumberField
 from sage.structure.element import Element, RingElement, canonical_coercion
 from sage.structure.parent import Parent
@@ -297,7 +300,7 @@ class GeneralizedSeriesMonoid_class(Parent):
 
         EXAMPLES::
 
-           sage: G = GeneralizedSeriesMonoid(QQ, 'x')
+           sage: G = GeneralizedSeriesMonoid(QQ, 'x', 'continuous')
            sage: G
            Differential monoid of generalized series in x over Rational Field
            sage: x = ZZ['x'].gen()
@@ -395,6 +398,29 @@ class ContinuousGeneralizedSeries(RingElement):
             self.__ramification = ramification
             self.__exp = exp
             self.__tail = p
+
+    def __call__(self, arg):
+        """
+        Evaluate this generalized series approximately at some approximate nonzero real or complex number 
+        """
+        if arg.parent().is_exact() and (not self.__exp.is_zero() or self.__ramification > 1):
+            R = RR; arg = R(arg)
+        else:
+            R = arg.parent()
+
+        out = R.one()
+        if not self.__exp.is_zero():
+            p = self.__exp
+            x = arg**(-R.one()/self.__ramification)
+            q = p[0]*LOG(arg)
+            for i in xrange(1, p.degree() + 1):
+                q += -(p[i]/i) * x**i
+            out *= EXP(q)
+
+        nn = arg**(R.one()/self.__ramification)
+        out *= self.__tail.map_coefficients(lambda p: p.polynomial()(nn), R)(LOG(arg))
+
+        return out
 
     def __copy__(self):
         return self
@@ -1017,8 +1043,17 @@ class DiscreteGeneralizedSeries(RingElement):
 
     def __call__(self, arg):
         """
-        Evaluates this expanion at some approximate real or complex number, or composes it with a polynomial
-        of the form `n+i` where `n` is the generator of the parent of ``self`` and `i` is a nonnegative integer.        
+        Evaluates this expanion at some approximate real number, or composes it with a polynomial
+        of the form `n+i` where `n` is the generator of the parent of ``self`` and `i` is a nonnegative integer.
+
+        EXAMPLES::
+
+          sage: n = QQ['n'].gen()
+          sage: G = GeneralizedSeriesMonoid(QQ, 'n', 'discrete')
+          sage: f = G([0, 1, 1, [], 7, [[1,0,0,0,0,0]]])
+          sage: f(n + 5)
+          n^7*(1 + 35*n^(-1) + 525*n^(-2) + 4375*n^(-3) + 21875*n^(-4) + 65625*n^(-5) + O(n^(-6)))
+        
         """
         E = self.parent().exp_ring()
         if arg in E and not arg in E.base_ring():
@@ -1026,8 +1061,29 @@ class DiscreteGeneralizedSeries(RingElement):
             if arg.degree() != 1 or arg[1] != 1 or arg[0] not in ZZ or arg[0] < 0:
                 raise ValueError
             return self.shift(ZZ(arg[0]))
+        elif arg in RR:
+            if arg.parent().is_exact() and (self.__gamma != 0 or self.__ramification > 1 or \
+                                            self.__alpha not in ZZ or self.has_logarithms()):
+                R = RR; arg = R(arg)
+            else:
+                R = arg.parent()
+
+            out = R.one()
+            if self.__gamma != 0:
+                out *= (arg/EXP(R.one()))**(self.__gamma*arg)
+            if self.__rho != 1:
+                out *= self.__rho**arg
+            if not self.__subexp.is_zero():
+                out *= EXP(self.__subexp(arg**(R.one()/self.__ramification)))
+            if not self.__alpha.is_zero():
+                out *= arg**self.__alpha
+
+            nn = arg**(-R.one()/self.__ramification)
+            out *= self.__expansion.map_coefficients(lambda p: p.polynomial()(nn), R)(LOG(arg))
+
+            return out            
         else:
-            raise NotImplementedError        
+            raise ValueError, "don't know how to evaluate discrete generalized series at" + str(arg)
         
     def base_extend(self, ext, name='a'):
         """
@@ -1149,7 +1205,7 @@ class DiscreteGeneralizedSeries(RingElement):
     def _repr_(self):
 
         if self.is_zero():
-            return "0"
+            return self.__expansion._repr_()
 
         out = ""; n = str(self.parent().exp_ring().gen());
         r = self.__ramification
@@ -1197,7 +1253,7 @@ class DiscreteGeneralizedSeries(RingElement):
     def _latex_(self):
 
         if self.is_zero():
-            return "0"
+            return self.__expansion._latex_()
 
         out = ""; n = str(self.parent().exp_ring().gen());
         r = self.__ramification
@@ -1308,7 +1364,7 @@ class DiscreteGeneralizedSeries(RingElement):
         expansion = expansion(logx + logx_shifted)
 
         return DiscreteGeneralizedSeries(self.parent(), [self.__gamma, ram, self.__rho, self.__subexp, \
-                                                         self.__alpha, expansion])
+                                                         self.__alpha + self.__gamma*i, expansion])
     
     def prec(self):
         """
