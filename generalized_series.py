@@ -17,7 +17,7 @@ from sage.rings.arith import gcd, lcm
 
 import re
 
-def GeneralizedSeriesMonoid(base, x):
+def GeneralizedSeriesMonoid(base, x, type="continuous"):
     r"""
     Creates a monoid of generalized series objects.
 
@@ -25,8 +25,9 @@ def GeneralizedSeriesMonoid(base, x):
 
     - ``base`` -- constant field, may be either ``QQ`` or a number field. 
     - ``x`` -- name of the variable, must not contain the substring ``"log"``.
+    - ``type`` (optional) -- either ``"continuous"`` or ``"discrete"``.
 
-    The returned domain consists of series objects of the form 
+    If the type is ``"continuous"``, the domain contains series objects of the form
 
     `\exp(\int_0^x \frac{p(t^{-1/r})}t dt)*q(x^{1/r},\log(x))`
 
@@ -37,26 +38,41 @@ def GeneralizedSeriesMonoid(base, x):
     * `q` is in `K[[x]][y]` with `x\nmid q` unless `q` is zero (the object's "tail")
     * `K` is the base ring.
 
-    Generalized series objects are created by providing `q`, `p` (optionally,
-    defaults to `0`), and `r` (optionally, defaults to `1`). Note that the
-    ramification is part of the element, not part of the parent. The parent only
-    consists of the base ring and the name of the generator.
+    Any two such objects can be multiplied and differentiated.
+    Objects whose exponential parts differ by an integer ("similar" series) can also be added. 
 
-    Any two objects can be multiplied and differentiated. 
+    If the type is ``"discrete"``, the domain contains series objects of the form
 
-    Two objects are called "similar" if their exponential parts differ by an integer.
-    Similar objects can be added.
+    `(x/e)^(x*u/v)\rho^x\exp\bigl(c_1 x^{1/(m*v)} +...+ c_{v-1} x^{1-1/(m*v)}\bigr)x^\alpha p(x^{-1/(m*v)},\log(x))`
 
-    Also there is also a zero element which acts neutrally with respect to addition
-    (it is considered similar to all other objects), and whose product with any other
-    object is zero. In a strict mathematical sense, the set of all generalized series
-    therefore does not form a monoid. 
+    where
+
+    * `e` is Euler's constant (2.71...)
+    * `v` is a positive integer (the object's "ramification")
+    * `u` is an integer; the term `(x/e)^(v/u)` is called the "superexponential part" of the solution
+    * `\rho` is an element of an algebraic extension of the coefficient field `K`
+      (the algebra's base ring's base ring); the term `\rho^x` is called the "exponential part" of
+      the solution
+    * `c_1,...,c_{v-1}` are elements of `K(\rho)`; the term `\exp(...)` is called the "subexponential
+      part" of the solution
+    * `m` is a positive integer
+    * `\alpha` is an element of some algebraic extension of `K(\rho)`; the term `n^\alpha` is called
+      the "polynomial part" of the solution (even if `\alpha` is not an integer)
+    * `p` is an element of `K(\rho)(\alpha)[[x]][y]`. It is called the "expansion part" of the solution.
+
+    Any two such objects can be multiplied and shifted.
+    Objects with the same superexponential, exponential, and subexponential part can also be added. 
+    
+
+    Also there is also a zero element which acts neutrally with respect to addition,
+    and whose product with any other object is zero. In a strict mathematical sense,
+    the set of all generalized series therefore does not form a monoid. 
 
     Nonzero objects involving no logariths (i.e., deg(q)==0) admit a multiplicative
-    inverse.     
+    inverse if the series part has finite precision. 
 
     Coercion is supported from constants, polynomials, power series and Laurent
-    series and generalized series, provided that the respective coefficient
+    series and other generalized series, provided that the respective coefficient
     domains support coercion.
 
     There are functions for lifting the coefficient field to some algebraic extension.
@@ -89,7 +105,7 @@ def GeneralizedSeriesMonoid(base, x):
       Differential monoid of generalized series in x over Number Field in b with defining polynomial x^3 - 5
 
     """
-    M = GeneralizedSeriesMonoid_class(base, x)
+    M = GeneralizedSeriesMonoid_class(base, x, type)
 
     # Check whether this algebra already exists.
     global _list_of_generalized_series_parents
@@ -111,16 +127,17 @@ class GeneralizedSeriesFunctor(ConstructionFunctor):
     
     rank = 15
 
-    def __init__(self, x):
+    def __init__(self, x, type):
         Functor.__init__(self, Rings(), Rings())
         self.x = x
+        self.type = type
 
     def _apply_functor(self, R):
-        return GeneralizedSeriesMonoid(R, self.x)
+        return GeneralizedSeriesMonoid(R, self.x, self.type)
 
     def __cmp__(self, other):
         c = cmp(type(self), type(other))
-        return c if c != 0 else cmp(self.x, other.x)
+        return c if c != 0 else cmp(cmp(self.x, other.x), cmp(self.type, other.type))
 
     def merge(self, other):
         return self if self == other else None
@@ -133,10 +150,10 @@ class GeneralizedSeriesMonoid_class(Parent):
     """
     Objects of this class represent parents of generalized series objects.
     They depend on a coefficient ring, which must be either QQ or a number field,
-    and a variable name.     
+    and a variable name. The type must be \"continuous\" or \"discrete\"
     """
 
-    def __init__(self, base, x):
+    def __init__(self, base, x, type):
 
         x = str(x)
         Parent.__init__(self, base=base, names=(x,), category=Rings())
@@ -144,9 +161,18 @@ class GeneralizedSeriesMonoid_class(Parent):
             raise TypeError, "base ring must be QQ or a number field"
         if x.find("LOG") >= 0:
             raise ValueError, "generator name must not contain the substring 'LOG'"
+        if type != "continuous" and type != "discrete":
+            raise ValueError, "type must be either \"continuous\" or \"discrete\""
         self.__exp_ring = base[x]
         self.__tail_ring = PowerSeriesRing(base, x)['LOG']
         self.__var = x
+        self.__type = type
+
+    def is_discrete(self):
+        return self.__type == "discrete"
+
+    def is_continuous(self):
+        return self.__type == "continuous"        
 
     def var(self):
         """
@@ -162,7 +188,12 @@ class GeneralizedSeriesMonoid_class(Parent):
             return self.__gen
         except AttributeError:
             pass
-        self.__gen = self._element_constructor_(self.__tail_ring.one(), exp=self.__exp_ring.one())
+        if self.is_continuous():
+            self.__gen = self._element_constructor_(self.__tail_ring.one(), exp=self.__exp_ring.one())
+        else:
+            self.__gen = self._element_constructor_([QQ.zero(), ZZ.one(), self.base().one(), \
+                                                     self.__exp_ring.zero(), self.base().one(), \
+                                                     self.__tail_ring.one()])
         return self.__gen         
 
     def exp_ring(self):
@@ -189,11 +220,12 @@ class GeneralizedSeriesMonoid_class(Parent):
 
     def __eq__(self, other):
         return isinstance(other, type(self)) \
+               and self.__type == other.__type \
                and self.base() is other.base() \
                and self.var() == other.var()
 
     def construction(self):
-        return (GeneralizedSeriesFunctor(self.var()), self.base())
+        return (GeneralizedSeriesFunctor(self.var(), self.__type), self.base())
 
     def _coerce_map_from_(self, P):
 
@@ -214,22 +246,31 @@ class GeneralizedSeriesMonoid_class(Parent):
         return False
 
     def _element_constructor_(self, *args, **kwds):
-        return GeneralizedSeries(self, *args, **kwds)
+        if self.is_continuous():
+            return ContinuousGeneralizedSeries(self, *args, **kwds)
+        else:
+            return DiscreteGeneralizedSeries(self, *args, **kwds)
 
     def random_element(self):
         """
         Returns a random element of this monoid. 
         """
-        return self._element_constructor_(self.__tail_ring.random_element(), exp=self.__exp_ring.random_element())
+        if self.is_continuous():
+            return self._element_constructor_(self.__tail_ring.random_element(), exp=self.__exp_ring.random_element())
+        else:
+            raise NotImplementedError
     
     def _repr_(self):
-        return "Differential monoid of generalized series in " + self.var() + " over " + str(self.base())
+        return "Monoid of " + self.__type + " generalized series in " + self.var() + " over " + str(self.base())
 
     def _latex_(self):
         x = self.var()
-        return r"\bigcup_{r>0}\bigcup_{p\in " + self.base()._latex_() + "[" + x + "]}" \
-               + r"\exp\bigl(\int_x x^{-1} p(x^{-1/r})\bigr)" \
-               + self.base()._latex_() + "[[" + x + r"^{1/r}]][\log(" + x + ")]"
+        if self.is_continuous():        
+            return r"\bigcup_{r>0}\bigcup_{p\in " + self.base()._latex_() + "[" + x + "]}" \
+                   + r"\exp\bigl(\int_x x^{-1} p(x^{-1/r})\bigr)" \
+                   + self.base()._latex_() + "[[" + x + r"^{1/r}]][\log(" + x + ")]"
+        else:
+            return self._repr_()
 
     def is_exact(self):
         """
@@ -277,10 +318,10 @@ class GeneralizedSeriesMonoid_class(Parent):
             # assuming ext is an irreducible univariate polynomial over self.base()
             ext = self.base().extension(ext, name)
 
-        return GeneralizedSeriesMonoid(ext, self.var())            
+        return GeneralizedSeriesMonoid(ext, self.var(), self.__type)
 
 
-class GeneralizedSeries(RingElement):
+class ContinuousGeneralizedSeries(RingElement):
     """
     Objects of this class represent generalized series objects.
 
@@ -297,7 +338,7 @@ class GeneralizedSeries(RingElement):
 
         Element.__init__(self, parent)
 
-        if isinstance(tail, GeneralizedSeries):
+        if isinstance(tail, ContinuousGeneralizedSeries):
             self.__tail = parent.tail_ring()(tail.__tail)
             self.__exp = parent.exp_ring()(tail.__exp)
             self.__ramification = tail.__ramification
@@ -393,7 +434,7 @@ class GeneralizedSeries(RingElement):
         Write exp and tail of self as if it was a series with ramification s.
         s has to be a positive integer multiple of self's ramification.
         returns a pair (E, T), where E is the exponential part and T the tail
-        such that GeneralizedSeries(self.parent(), T, exp=E, ramification=s) == self
+        such that ContinuousGeneralizedSeries(self.parent(), T, exp=E, ramification=s) == self
         """
         r = self.ramification()
         if s == r:
@@ -416,9 +457,12 @@ class GeneralizedSeries(RingElement):
 
     def __eq__(self, other):
 
-        if not isinstance(other, GeneralizedSeries) or self.parent() is not other.parent():
-            A, B = canonical_coercion(self, other)
-            return A == B
+        if not isinstance(other, ContinuousGeneralizedSeries) or self.parent() is not other.parent():
+            try:
+                A, B = canonical_coercion(self, other)
+                return A == B
+            except:
+                return False
 
         return self.__ramification == other.__ramification and self.__exp == other.__exp \
                and self.__tail == other.__tail
@@ -430,14 +474,14 @@ class GeneralizedSeries(RingElement):
         Ae, At = self.__inflate(s)
         Be, Bt = other.__inflate(s)
         
-        return GeneralizedSeries(G, At*Bt, exp=Ae + Be, ramification=s)
+        return ContinuousGeneralizedSeries(G, At*Bt, exp=Ae + Be, ramification=s)
 
     def _neg_(self):
         
-        return GeneralizedSeries(self.parent(), \
-                                 -self.__tail, \
-                                 exp=self.__exp, \
-                                 ramification=self.ramification())
+        return ContinuousGeneralizedSeries(self.parent(), \
+                                           -self.__tail, \
+                                           exp=self.__exp, \
+                                           ramification=self.ramification())
 
     def _add_(self, other):
 
@@ -461,7 +505,7 @@ class GeneralizedSeries(RingElement):
             exp_diff = -exp_diff
 
         x = At.base_ring().gen()
-        return GeneralizedSeries(G, (x**(exp_diff))*At + Bt, exp=Be, ramification=s)
+        return ContinuousGeneralizedSeries(G, (x**(exp_diff))*At + Bt, exp=Be, ramification=s)
 
     def __invert__(self):
 
@@ -470,10 +514,10 @@ class GeneralizedSeries(RingElement):
         elif self.has_logarithms():
             raise ValueError, "generalized series involving logarithms are not invertible"
         else:
-            return GeneralizedSeries(self.parent(), \
-                                     ~self.__tail, \
-                                     exp = -self.__exp, \
-                                     ramification = self.ramification())
+            return ContinuousGeneralizedSeries(self.parent(), \
+                                               ~self.__tail, \
+                                               exp = -self.__exp, \
+                                               ramification = self.ramification())
 
     def _repr_(self):
 
@@ -610,7 +654,7 @@ class GeneralizedSeries(RingElement):
           x^3
         
         """
-        return GeneralizedSeries(self.parent(), 1, exp=self.__exp, ramification=self.ramification())
+        return ContinuousGeneralizedSeries(self.parent(), 1, exp=self.__exp, ramification=self.ramification())
 
     def has_exponential_part(self):
         """
@@ -659,7 +703,7 @@ class GeneralizedSeries(RingElement):
           1 + x
         
         """
-        return GeneralizedSeries(self.parent(), self.__tail, exp=0, ramification=self.ramification())
+        return ContinuousGeneralizedSeries(self.parent(), self.__tail, exp=0, ramification=self.ramification())
 
     def ramification(self):
         """
@@ -747,7 +791,7 @@ class GeneralizedSeries(RingElement):
           
         """
 
-        if not isinstance(other, GeneralizedSeries) or self.parent() is not other.parent():
+        if not isinstance(other, ContinuousGeneralizedSeries) or self.parent() is not other.parent():
             A, B = canonical_coercion(self, other)
             return A.similar(B, reference=reference)
 
@@ -812,7 +856,7 @@ class GeneralizedSeries(RingElement):
         exp = e*self.__exp(xe**a)
         tail = self.__tail(e*log).map_coefficients(lambda p: p(xt**a))
 
-        return GeneralizedSeries(G, tail, exp=exp, ramification=b*self.ramification())
+        return ContinuousGeneralizedSeries(G, tail, exp=exp, ramification=b*self.ramification())
 
     def derivative(self):
         """
@@ -843,15 +887,15 @@ class GeneralizedSeries(RingElement):
         # D(self) = E(x^(-1/r))/x * self  <<<< part1
         #         + exp(..) * ( T_1(x^(1/r),log(x)) * 1/r * x^(1/r - 1)  +  1/x * T_2(x^(1/r), log(x)) ) <<<< part2
 
-        part_1 = GeneralizedSeries(self.parent(), \
-                                   ((xE**r)*E).reverse()*T, \
-                                   exp = E - E.degree()/r - 1, \
-                                   ramification = r)
+        part_1 = ContinuousGeneralizedSeries(self.parent(), \
+                                             ((xE**r)*E).reverse()*T, \
+                                             exp = E - E.degree()/r - 1, \
+                                             ramification = r)
 
-        part_2 = GeneralizedSeries(self.parent(), \
-                                   T.map_coefficients(lambda p: p.derivative()*xT/r) + T.derivative(), \
-                                   exp = E - 1, \
-                                   ramification = r)
+        part_2 = ContinuousGeneralizedSeries(self.parent(), \
+                                             T.map_coefficients(lambda p: p.derivative()*xT/r) + T.derivative(), \
+                                             exp = E - 1, \
+                                             ramification = r)
 
         return part_1 + part_2
 
@@ -866,3 +910,517 @@ class GeneralizedSeries(RingElement):
             return infinity
         else:
             return min(c.prec() for c in t.coefficients())
+
+############################################################################################################
+
+class DiscreteGeneralizedSeries(RingElement):
+    """
+    Objects of this class represent generalized series objects.
+
+    See the docstring of ``GeneralizedSeriesMonoid`` for further information.
+    """
+
+    def __init__(self, parent, data, make_monic=False):
+        """
+        Input: data = [u/v, ram, rho, coeffs, alpha, [coeffs, coeffs, ...]]
+
+        creates (n/e)^(u/v) * rho^n * exp(p(n^(1/ram))) * n^alpha * (p(n^(-1/ram)) + p(..)*log(n) + ...)        
+        """
+
+        Element.__init__(self, parent)
+
+        if isinstance(data, DiscreteGeneralizedSeries):
+            self.__gamma = data.__gamma
+            self.__ramification = data.__ramification
+            self.__rho = data.__rho
+            self.__subexp = data.__subexp
+            self.__alpha = data.__alpha
+            self.__expansion = data.__expansion
+            if make_monic and not self.__expansion.is_zero():
+                self.__tail /= self.__expansion.leading_coefficient().coefficients()[0]
+            return
+
+        if type(data) != list:
+            K = parent.base(); R = parent.exp_ring(); B = parent.tail_ring().base_ring()
+            data = R(data)
+            if data.is_zero():
+                data = [QQ.zero(), ZZ.one(), K.one(), parent.exp_ring().zero(), K.zero(), R.zero()]
+            else:
+                alpha = data.degree(); data = data.reverse(); R = parent.tail_ring()
+                data = [QQ.zero(), ZZ.one(), K.one(), parent.exp_ring().zero(), alpha, R([B(data)]) ]                
+
+        K = parent.base()
+        gamma, ram, rho, subexp, alpha, expansion = data
+
+        self.__ramification = ZZ(ram)
+        self.__gamma = QQ(gamma)
+        self.__rho = K(rho)
+        self.__subexp = subexp if subexp in parent.exp_ring() else parent.exp_ring()([K.zero()] + subexp)
+        self.__alpha = K(alpha)
+
+        if rho.is_zero() or ram <= 0:
+            raise ValueError        
+
+        R = parent.tail_ring(); PS = R.base_ring()
+        if type(expansion) == list:
+            for i in xrange(len(expansion)):
+                if type(expansion[i]) == list:
+                    expansion[i] = PS(expansion[i], len(expansion[i]))
+        
+        self.__expansion = parent.tail_ring()(expansion)
+
+        if self.__expansion.is_zero():
+            self.__ramification = ZZ.one()
+            self.__gamma = ZZ.zero()
+            self.__rho = K.zero()
+            self.__subexp = parent.exp_ring().zero()
+            self.__alpha = K.zero()
+            return
+
+        # normalize alpha
+        x = PS.gen()
+        diff = min(c.valuation() for c in self.__expansion.coeffs())
+        if diff != 0:
+            self.__alpha -= diff/self.__ramification
+            self.__expansion = self.__expansion.map_coefficients(lambda p: p/(x**diff))
+
+        # normalize ramification
+        ram = self.__ramification
+        new_ram = self.__gamma.denominator()
+        new_ram = lcm([new_ram] + [ (e/ram).denominator() for e in self.__subexp.exponents() ])
+        for c in self.__expansion.coefficients():
+            new_ram = lcm([new_ram] + [ (e/ram).denominator() for e in c.exponents() ])
+
+        if new_ram < ram:
+
+            quo = ram/new_ram
+
+            subexp_new = dict() 
+            for e in self.__subexp.exponents():
+                subexp_new[e/quo] = self.__subexp[e]
+            self.__subexp = self.__subexp.parent()(subexp_new) 
+
+            expansion_new = []
+            for c in self.__expansion.coeffs():
+                c_new = dict()
+                for e in c.exponents():
+                    c_new[int(e/quo)] = c[e]
+                expansion_new.append(c.parent()(c_new))
+            self.__expansion = self.__expansion.parent()(expansion_new)
+
+        # make monic if requested
+        if make_monic: 
+            self.__expansion /= self.__expansion.leading_coefficient().coefficients()[0]
+
+    def __copy__(self):
+        return self
+
+    def __call__(self, arg):
+        """
+        Evaluates this expanion at some approximate real or complex number, or composes it with a polynomial
+        of the form `n+i` where `n` is the generator of the parent of ``self`` and `i` is a nonnegative integer.        
+        """
+        E = self.parent().exp_ring()
+        if arg in E and not arg in E.base_ring():
+            arg = E(arg)
+            if arg.degree() != 1 or arg[1] != 1 or arg[0] not in ZZ or arg[0] < 0:
+                raise ValueError
+            return self.shift(ZZ(arg[0]))
+        else:
+            raise NotImplementedError        
+        
+    def base_extend(self, ext, name='a'):
+        """
+        Lifts ``self`` to a domain with an enlarged coefficient domain.
+
+        INPUT:
+
+        - ``ext`` -- either a univariate irreducible polynomial over ``self.base()`` or an algebraic
+          extension field of ``self.base()``
+        - ``name`` (optional) -- if ``ext`` is a polynomial, this is used as a name for the generator
+          of the algebraic extension.
+
+        EXAMPLES::
+
+           sage: G = GeneralizedSeriesMonoid(QQ, 'x')
+           sage: s = G(1+x+x^2, exp=3*x^2, ramification=3)
+           sage: s.parent()
+           Differential monoid of generalized series in x over Rational Field
+           sage: x = ZZ['x'].gen()
+           sage: s.base_extend(x^2 + 2, 'a')
+           exp(-9/2*x^(-2/3))*(1 + x^(1/3) + x^(2/3))
+           sage: _.parent()
+           Differential monoid of generalized series in x over Number Field in a with defining polynomial x^2 + 2
+           sage: s == s.base_extend(x^2 + 2, 'a')
+           True
+           sage: s is s.base_extend(x^2 + 2, 'a')
+           False 
+        
+        """
+        return self.parent().base_extend(ext, name=name)(self)
+
+    def __inflate(self, s):
+
+        quo = s/self.__ramification
+
+        if quo == 1:
+            return (self.__subexp, self.__expansion)
+
+        sub = self.__subexp
+        sub = sub(sub.parent().gen()**quo)
+
+        exp = self.__expansion
+        x = exp.base_ring().gen()
+        exp = exp.map_coefficients(lambda p: p(x**quo))
+
+        return (sub, exp)        
+
+    def __eq__(self, other):
+
+        if not isinstance(other, DiscreteGeneralizedSeries) or self.parent() is not other.parent():
+            try:
+                A, B = canonical_coercion(self, other)
+                return A == B
+            except:
+                return False
+
+        return self.__gamma == other.__gamma and self.__ramification == other.__ramification \
+                   and self.__rho == other.__rho and self.__subexp == other.__subexp \
+                   and self.__alpha == other.__alpha and self.__expansion == other.__expansion
+
+    def _mul_(self, other):
+
+        ram = lcm(self.__ramification, other.__ramification)
+
+        Asub, Aexp = self.__inflate(ram)
+        Bsub, Bexp = other.__inflate(ram)
+        gamma = self.__gamma + other.__gamma
+
+        return DiscreteGeneralizedSeries(self.parent(), \
+                                         [self.__gamma + other.__gamma, \
+                                          ram,
+                                          self.__rho * other.__rho, \
+                                          Asub + Bsub, \
+                                          self.__alpha + other.__alpha, \
+                                          Aexp*Bexp])
+
+    def _neg_(self):
+
+        return DiscreteGeneralizedSeries(self.parent(), \
+                                         [self.__gamma, self.__ramification, self.__rho, self.__subexp, \
+                                          self.__alpha, -self.__expansion])
+    
+    def _add_(self, other):
+
+        if self.is_zero():
+            return other
+        elif other.is_zero():
+            return self
+        elif not self.similar(other):
+            # could be generalized such as to support x^(1/3) + x^(1/2) = x^(1/2)*(1 + x^(1/6))
+            raise ValueError, "can only add generalized series if they are \"similar\"."
+
+        ram = lcm(self.__ramification, other.__ramification)
+
+        Asub, Aexp = self.__inflate(ram)
+        Bsub, Bexp = other.__inflate(ram)
+
+        alpha = max(self.__alpha, other.__alpha)
+
+        if self.__alpha < alpha:
+            Aexp *= Aexp.base_ring().gen()**(ram*(alpha - self.__alpha))
+        elif other.__alpha < alpha:
+            Bexp *= Bexp.base_ring().gen()**(ram*(alpha - other.__alpha))
+
+        return DiscreteGeneralizedSeries(self.parent(), \
+                                         [self.__gamma, self.__ramification, self.__rho, Asub, alpha, Aexp + Bexp])
+
+    def __invert__(self):
+
+        if self.is_zero():
+            raise ZeroDivisionError
+        elif self.has_logarithms():
+            raise ValueError, "generalized series involving logarithms are not invertible"
+
+        return DiscreteGeneralizedSeries(self.parent(), \
+                                         [-self.__gamma, self.__ramification, ~self.__rho, -self.__subexp, \
+                                          -self.__alpha, ~self.__expansion])                                          
+            
+    def _repr_(self):
+
+        if self.is_zero():
+            return "0"
+
+        out = ""; n = str(self.parent().exp_ring().gen());
+        r = self.__ramification
+        n_ram = n if r == 1 else n + '^(1/' + str(r) + ')'
+
+        gamma = self.__gamma
+        if gamma == 1:
+            out += "(" + n + "/e)^n*"
+        elif gamma == -1:
+            out += "(" + n + "/e)^(-n)*"
+        elif gamma != 0:
+            out += "(" + n + "/e)^(" + str(gamma) + "*n)*"
+
+        rho = self.__rho
+        if rho != 1:
+            out += "(" + str(rho) + ")^" + n + "*"
+
+        subexp = self.__subexp
+        if not subexp.is_zero():
+            out += "exp(" + str(subexp).replace(n, n_ram) + ")*"
+
+        alpha = self.__alpha
+        if alpha == 0:
+            out += ""
+        elif alpha == 1:
+            out += n + "*"
+        else:
+            out += n + "^(" + str(alpha) + ")*"
+
+        n_ram = n + "^(-1)" if r == 1 else n + '^(-1/' + str(r) + ')'
+        exp = str(self.__expansion).replace(n, n_ram).replace('LOG', 'log(n)')
+        out += exp if len(out) == 0 else "(" + exp + ")"
+
+        # x^{1/3}^{17} --> x^{17/3}
+        out = re.sub(r"\^\(1/(?P<den>[0-9]*)\)\^(?P<num>[0-9]*)", r"^(\g<num>/\g<den>)", out)
+        # x^{-1/3}^{17} --> x^{-17/3}
+        out = re.sub(r"\^\(-1/(?P<den>[0-9]*)\)\^(?P<num>[0-9]*)", r"^(-\g<num>/\g<den>)", out)
+        # x^{-1}^{4} --> x^{-4}
+        out = re.sub(r"\^\(-1\)\^(?P<exp>[0-9]*)", r"^(-\g<exp>)", out)
+        # (5) --> 5
+        out = re.sub(r"\((?P<exp>[0-9]*)\)", r"\g<exp>", out)
+        
+        return out 
+
+    def _latex_(self):
+
+        if self.is_zero():
+            return "0"
+
+        out = ""; n = str(self.parent().exp_ring().gen());
+        r = self.__ramification
+        n_ram = n if r == 1 else n + '^{1/' + str(r) + '}'
+
+        gamma = self.__gamma
+        if gamma == 1:
+            out += "(" + n + "/\\mathrm{e})^n"
+        elif gamma == -1:
+            out += "(" + n + "/\\mathrm{e})^{-n}"
+        elif gamma != 0:
+            out += "(" + n + "/\\mathrm{e})^{" + str(gamma) + "n}"
+
+        rho = self.__rho
+        if rho != 1:
+            out += "(" + str(rho) + ")^{" + n + "}"
+
+        subexp = self.__subexp
+        if not subexp.is_zero():
+            out += "\\exp\\Bigl(" + subexp._latex_().replace(n, n_ram) + "\\Bigr)"
+
+        alpha = self.__alpha
+        if alpha == 0:
+            out += ""
+        elif alpha == 1:
+            out += n 
+        elif alpha in QQ:
+            out += n + "^{" + str(alpha) + "}"
+        else:
+            out += n + "^{" + alpha._latex_() + "}"
+
+        n_ram = n + "^{-1}" if r == 1 else n + '^{-1/' + str(r) + '}'
+        exp = self.__expansion._latex_().replace(n, n_ram).replace('\\mbox{LOG}', '\\log(n)')
+        out += exp if len(out) == 0 else "\\Bigl(" + exp + "\\Bigr)"
+
+        # x^{1/3}^{17} --> x^{17/3}
+        out = re.sub(r"\^\{1/(?P<den>[0-9]*)\}\^\{(?P<num>[0-9]*)\}", r"^{\g<num>/\g<den>}", out)
+        # x^{-1/3}^{17} --> x^{-17/3}
+        out = re.sub(r"\^\{-1/(?P<den>[0-9]*)\}\^\{(?P<num>[0-9]*)\}", r"^{-\g<num>/\g<den>}", out)
+        # x^{-1}^{4} --> x^{-4}
+        out = re.sub(r"\^\{-1\}\^\{(?P<exp>[0-9]*)\}", r"^{-\g<exp>}", out)
+        
+        return out 
+
+    def superexponential_part(self):
+        return self.__gamma
+
+    def exponential_part(self):
+        return self.__rho
+
+    def has_logarithms(self):
+        return self.__expansion.degree() > 0
+
+    def ramification(self):
+        return self.__ramification
+
+    def leading_exponent(self):
+        return self.__alpha
+
+    def base(self):
+        return self.parent().base()
+
+    def similar(self, other, reference=ZZ):
+
+        if not isinstance(other, DiscreteGeneralizedSeries) or self.parent() is not other.parent():
+            try:
+                A, B = canonical_coercion(self, other)
+                return A.similar(B)
+            except:
+                return False
+
+        return self.__gamma == other.__gamma and self.__rho == other.__rho and \
+               self.__ramification == other.__ramification and self.__subexp == other.__subexp and \
+               self.__alpha - other.__alpha in reference
+
+    def is_zero(self):
+        return self.__expansion.is_zero()
+
+    def is_one(self):
+        return self.__gamma == 0 and self.__rho == 1 and self.__subexp.is_zero() and self.__alpha == 0 \
+               and self.__expansion.is_one()
+
+    def shift(self, i=1):
+
+        if self.is_zero():
+            return self
+
+        prec = min(c.prec() for c in self.__expansion.coefficients())
+        x = self.parent().exp_ring().gen()
+        subexp = self.__subexp
+        subexp = [subexp[i] for i in xrange(1, max(subexp.degree(), self.__gamma.denominator()))]        
+        ram = self.__ramification
+        m = ram/self.__gamma.denominator()
+        
+        factor = _generalized_series_shift_quotient(x, prec=prec, shift=i, \
+                                                    gamma=self.__gamma, rho=self.__rho, \
+                                                    subexp=(subexp, m), alpha=self.__alpha).reverse()
+
+        # (x+i)^(-1/ram) = x^(-1/ram) * (1+i/x)^(-1/ram) 
+        x_shifted = x*sum(_binomial(-~ram, k)*(i*x**ram)**k for k in xrange(prec + 1))
+
+        PS = self.parent().tail_ring().base_ring()
+        expansion = self.__expansion.map_coefficients(lambda p: PS(factor*p(x_shifted), prec))
+
+        logx = expansion.parent().gen()
+        logx_shifted = -sum((-i*x**ram)**k /ZZ(k) for k in xrange(1, prec + 1))
+
+        expansion = expansion(logx + logx_shifted)
+
+        return DiscreteGeneralizedSeries(self.parent(), [self.__gamma, ram, self.__rho, self.__subexp, \
+                                                         self.__alpha, expansion])
+    
+    def prec(self):
+        """
+        The precision of ``self`` is the minimum of the precisions of all the power series objects
+        contained in it. 
+        """
+        t = self.__expansion
+
+        if t.is_zero():
+            return infinity
+        else:
+            return min(c.prec() for c in t.coefficients())/self.__ramification
+
+
+############################################################################################################
+
+def _binomial(lam, j): # works also when lambda is not an integer
+    if type(lam) == int:
+        lam = ZZ(lam)
+    b = one = lam.parent().one()
+    for jj in xrange(j):
+        b *= lam/(j - jj)
+        lam -= one
+    return b # checked.
+
+def _super_expansion(gamma, i, n, prec):
+    # (1 + i/n)^(gamma*n)
+    # = exp(gamma*i) * sum( 1/k! * sum( gamma*i^(l+1)/((l+1)*(-n)^l) , l=1..infty)^k , k=0..infty )
+    inner = gamma*i*sum( (-i*n)**l/(l+1) for l in xrange(1, prec + 1) )
+    outer = inner_pow = n.parent().one()
+    for k in xrange(1, prec + 1):
+        inner_pow = (inner_pow * inner) % (n**(prec + 1))
+        outer += inner_pow/ZZ(k).factorial()
+    coeffs = outer.padded_list(prec + 1)
+    coeffs.reverse()
+    return n.parent()(coeffs) # checked. 
+
+def _sub_expansion(coeffs, i, n, prec):
+    coeffs, m = coeffs
+    # exp( c_1*((n+i)^(1/(m*v)) - n^(1/(m*v))) + .. + c_{v-1} ((n+i)^((v-1)/(m*v)) - n^((v-1)/(m*v))) )
+    # = prod( sum( 1/k! * sum(c_l*binom(l/(m*v), j)*i^j*n^(-j+l/(m*v)), j=1..infty)^k, k=0..infty ), l=1..v*m-1 )
+    prod = one = n.parent().one(); v = m*ZZ(len(coeffs) + 1)
+    for l in xrange(1, len(coeffs) + 1):
+        inner = coeffs[l - 1]*sum(_binomial(ZZ(l)/v, j)* i**j * n**(v*j - l) for j in xrange(1, prec + 1))
+        outer = inner_pow = one
+        for k in xrange(1, v*prec + 1):
+            inner_pow = (inner_pow * inner) % (n**(v*prec + 1))
+            outer += inner_pow/ZZ(k).factorial()
+        prod = (prod*outer) % (n**(v*prec + 1))
+    coeffs = prod.padded_list(v*prec + 1)
+    coeffs.reverse()
+    return n.parent()(coeffs) 
+
+def _generalized_series_shift_quotient(x, prec=5, shift=1, gamma=0, rho=1, subexp=None, alpha=0):
+    r"""
+    Computes a series expansion for the shift quotient of some discrete generalized series.
+
+    INPUT:
+
+    - ``x`` -- generator of the univariate polynomial ring in terms of which the output should be expressed.
+      The coefficient domain has to contain `\rho` and `\alpha`. 
+    - ``prec`` -- a positive integer
+    - ``shift`` -- a positive integer
+    - ``gamma`` -- a rational number `u/v`
+    - ``rho`` -- an algebraic number
+    - ``subexp`` -- a pair `([c_1,...,c_{v-1}], m)` where the `c_i` algebraic numbers and `m` is a positive integer.
+       Defaults to all `c_i` being zero and `m=1`.
+    - ``alpha`` -- an algebraic number
+
+    OUTPUT:
+
+    - a polynomial `p` such that
+
+      `f(x+i)/f(x) = p(x^{1/(m*v)})/x^{prec} + O(x^{-prec})`
+
+      where
+
+      `f(x) = `(x/e)^(x*u/v)\rho^x\exp\bigl(c_1 x^{1/(m*v)} + ... + c_{v-1} x^{(v-1)/(m*v)}\bigr)x^\alpha`
+
+    """
+    R = x.parent(); K = R.base_ring(); gamma = QQ(gamma)
+    ram = gamma.denominator()
+    if subexp is not None:
+        ram *= subexp[1]    
+
+    if shift == 0:
+        return x**(ram*prec)
+    elif shift < 0:
+        raise ValueError, "only nonnegative shifts are allowed"
+
+    if gamma != 0:
+        
+        gamma = QQ(gamma); u = gamma.numerator(); v = gamma.denominator()
+        
+        if prec + shift*gamma < 0:
+            raise ValueError, "insufficient precision"
+        
+        # n^(i*gamma) (1+i/n)^(gamma*i) (1+i/n)^(gamma*n) 
+        cert = sum(_binomial(shift*gamma, k) * shift**k * x**(v*(prec + shift*gamma - k)) \
+                   for k in xrange(prec + shift*gamma + 1))
+        cert = (cert * _super_expansion(gamma, shift, x, prec)(x**v)).shift(-v*prec)
+        
+    else:
+        u = ZZ.zero(); v = ZZ.one(); cert = x**prec
+
+    if rho != 1:
+        cert *= rho**shift
+
+    if subexp is not None and not all(c == 0 for c in subexp[0]):
+        cert = (cert*_sub_expansion(subexp, shift, x, prec)).shift(-ram*prec)
+
+    if alpha != 0:
+        cert = (cert*sum(_binomial(alpha, k)*(shift**k)*(x**(ram*(prec - k))) for k in xrange(prec + 1))).shift(-ram*prec)
+
+    return x.parent()(cert)
