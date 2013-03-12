@@ -760,9 +760,6 @@ class UnivariateOreOperator(OreOperator):
         return R(res)
 
     def quo_rem(self, other, fractionFree=False):
-        """
-        ...         
-        """
 
         if other.is_zero(): 
             raise ZeroDivisionError, "other must be nonzero"
@@ -799,6 +796,8 @@ class UnivariateOreOperator(OreOperator):
                 op = lambda x,y:x/y
             orddiff = p.order() - q.order()
         return (quo,p)
+
+    quo_rem.__doc__ = OreOperator.quo_rem.__doc__
 
     def gcrd(self, *other, **kwargs):
         """
@@ -1044,6 +1043,7 @@ class UnivariateOreOperator(OreOperator):
            x*Dx - x - 1
            sage: ((x+1)*Dx^2 + (x-1)*Dx + 8).symmetric_product((x-1)*Dx^2 + (2*x+3)*Dx + (8*x+5))
            (-29*x^8 + 4*x^7 + 55*x^6 + 34*x^5 + 23*x^4 - 80*x^3 - 95*x^2 + 42*x + 46)*Dx^4 + (-174*x^8 - 150*x^7 - 48*x^6 + 294*x^5 + 864*x^4 + 646*x^3 - 232*x^2 - 790*x - 410)*Dx^3 + (-783*x^8 - 1661*x^7 + 181*x^6 + 1783*x^5 + 3161*x^4 + 3713*x^3 - 213*x^2 - 107*x + 1126)*Dx^2 + (-1566*x^8 - 5091*x^7 - 2394*x^6 - 2911*x^5 + 10586*x^4 + 23587*x^3 + 18334*x^2 + 2047*x - 5152)*Dx - 2552*x^8 - 3795*x^7 - 8341*x^6 - 295*x^5 + 6394*x^4 + 24831*x^3 + 35327*x^2 + 23667*x + 13708
+
            sage: A.<Sx> = OreAlgebra(R, 'Sx')
            sage: (Sx - 2).symmetric_product(x*Sx - (x+1))
            x*Sx - 2*x - 2

@@ -390,8 +390,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
             m = min
 
         else:
-            # leave this case to the subclass
-            raise NotImplementedError
+            raise NotImplementedError # leave this case to the subclass
         
         op = self.numerator()._coeff_list_for_indicial_polynomial()
         R = op[0].parent().base_ring()[var]
@@ -428,7 +427,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
 
         This is an abstract method.         
         """
-        raise NotImplementedError
+        raise NotImplementedError # abstract
 
     def desingularize(self, p):
         """
@@ -774,12 +773,18 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         
         """
 
-        A = self.parent(); K = A.base_ring().fraction_field(); R = K['Y']
+        A = self.parent(); K = A.base_ring().fraction_field(); A = A.change_ring(K); R = K['Y']
         if solver == None:
             solver = A._solver(K)
 
         if self == A.one() or a == K.gen():
             return self
+        elif a in K.ring() and K.ring()(a).degree() == 1:
+            # special handling for easy case  a == alpha*x + beta
+            a = K.ring()(a); alpha, beta = a[1], a[0]
+            x = self.base_ring().gen(); D = A.associated_commutative_algebra().gen()
+            L = A(self.polynomial()(D/alpha).map_coefficients(lambda p: p(alpha*x + beta)))
+            return L.normalize()
         elif a in K:
             minpoly = R.gen() - K(a)
         else:
@@ -1085,13 +1090,6 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
                     accum += b
         
         return solutions
-
-    def get_value(self, init, z, n):
-        """
-        If K is a subfield of CC, this computes an approximation of the solution of this operator
-        wrt the given initial values at the point z to precision n.
-        """
-        raise NotImplementedError
 
     def indicial_polynomial(self, p, var='alpha'):
         """
