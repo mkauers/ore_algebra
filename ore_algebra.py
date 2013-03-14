@@ -25,6 +25,11 @@ try:
 except:
     pass
 try:
+    if sys.modules.has_key('ore_operator_mult'):
+        del sys.modules['ore_operator_mult']
+except:
+    pass
+try:
     if sys.modules.has_key('generalized_series'):
         del sys.modules['generalized_series']
 except:
@@ -47,6 +52,7 @@ from sage.rings.finite_rings.all import GF
 
 from ore_operator import *
 from ore_operator_1_1 import *
+from ore_operator_mult import *
 import nullspace 
 
 def is_OreAlgebra(A):
@@ -156,6 +162,7 @@ class _Sigma:
         self.__R = R
         self.__dict = my_dict
         self.__is_identity = is_id
+        self.__powers = {1: my_dict}
 
     def __call__(self, p, exp=1):
 
@@ -163,12 +170,11 @@ class _Sigma:
             return p
         elif exp == 1:
             return self.__R(p)(**self.__dict)
+        elif exp == 0:
+            return p
         elif exp > 1:
 
-            try:
-                pows = self.__powers
-            except AttributeError:
-                pows = self.__powers = {1: self.__dict}
+            pows = self.__powers
 
             def merge(d1, d2):
                 d = {}
@@ -182,20 +188,20 @@ class _Sigma:
                 elif n % 2 == 0:
                     d = pow_dict(n/2)
                     pows[n] = d = merge(d, d)
-                    return d
                 else:
-                    d = pow_dict((n-1)/2)
+                    d = pow_dict((n - 1)/2)
                     pows[n] = d = merge(merge(d, d), self.__dict)
-                    return d
+                return d
 
             return self.__R(p)(**pow_dict(exp))
                 
-        elif exp == 0:
-            return p
         elif exp < 0:
             return self.inverse()(p, -exp)
         else:
             raise ValueError, "illegal sigma power " + str(exp)
+
+    def set_call(self, fun):
+        self.__call__ = fun 
 
     def dict(self):
         """
@@ -419,7 +425,7 @@ class _Delta:
                 strx = str(x)
                 for i in xrange(2, p.degree(x) + 1):
                     if not my_dict.has_key((strx, i)):
-                        my_dict[strxx, i] = my_dict[strx, i - 1]*x + sigma(x**(i - 1))*my_dict[strx, 1]
+                        my_dict[strx, i] = my_dict[strx, i - 1]*x + sigma(x**(i - 1))*my_dict[strx, 1]
             out = R0.zero(); one = R0.one()
             for exp in p.exponents():
                 # x1^e1 x2^e2 x3^e3
@@ -437,6 +443,9 @@ class _Delta:
             return out
         else:
             raise TypeError, "don't know how to apply delta to " + str(p)
+
+    def set_call(self, fun):
+        self.__call__ = fun
 
     def __repr__(self):
         return "Skew-derivation defined through " + str(self.dict()) + " for " + str(self.__sigma)
@@ -824,7 +833,7 @@ def OreAlgebra(base_ring, *generators, **kwargs):
     if kwargs.has_key("element_class"):
         operator_class = kwargs["element_class"]
     elif len(gens) > 1:
-        raise NotImplementedError, "Multivariate Ore algebras still under construction"
+        operator_class = MultivariateOreOperator
     elif len(Rgens) > 1:
         operator_class = UnivariateOreOperator
     elif is_shift[0]:
@@ -1410,7 +1419,7 @@ class OreAlgebra_generic(Algebra):
         """
         Return a list of generators of this Ore algebra. 
         """
-        return self.gens_dict().values()
+        return [ self(g) for g, _, _ in self._gens ]
 
     def gens_dict(self):
         """

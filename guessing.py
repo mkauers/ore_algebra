@@ -524,6 +524,7 @@ def _guess_via_gcrd(data, A, **kwargs):
     if kwargs.has_key('path'):
         path = kwargs['path']; del kwargs['path']
         sort_key = lambda p: (p[0] + 1)*(p[1] + 1)
+        prelude = []
     else:
         r2d = lambda r: (N - 2*r - 2)/(r + 1) # python integer division intended.
         path = [(r, r2d(r)) for r in xrange(1, N)] 
@@ -544,10 +545,11 @@ def _guess_via_gcrd(data, A, **kwargs):
         path = filter(lambda p: p[0] <= order, path)
 
     path.sort(key=sort_key)
-    for i in xrange(len(path)):
+    # autoreduce
+    for i in xrange(len(prelude), len(path)):
         (r, d) = path[i]
-        for j in xrange(i):
-            if path[j] is not None and path[j][0] >= r and path[j][1] >= d:
+        for j in xrange(len(path)):
+            if i != j and path[j] is not None and path[j][0] >= r and path[j][1] >= d:
                 path[i] = None                    
     path = filter(lambda p: p is not None, path)
 

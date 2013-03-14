@@ -23,7 +23,7 @@ class OreOperator(RingElement):
 
     # constructor
 
-    def __init__(self, parent, is_gen = False, construct=False): 
+    def __init__(self, parent, is_gen = False, construct=False):
         RingElement.__init__(self, parent)
         self._is_gen = is_gen
 
@@ -353,7 +353,7 @@ class OreOperator(RingElement):
 
     def is_monomial(self):
         """
-        Returns True if self is a monomial, i.e., a power of the generator.
+        Returns True if self is a monomial, i.e., a power product of the generators. 
         """
         return len(self.exponents()) == 1 and self.leading_coefficient() == self.parent().base_ring().one()
 
@@ -742,6 +742,7 @@ class UnivariateOreOperator(OreOperator):
     def _mul_(self, right):
 
         if self.is_zero(): return self
+        if right.is_zero(): return right
 
         coeffs = self.coeffs()
         DiB = right.polynomial() # D^i * B, for i=0,1,2,...
