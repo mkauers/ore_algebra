@@ -1181,12 +1181,16 @@ class DiscreteGeneralizedSeries(RingElement):
         Asub, Aexp = self.__inflate(ram)
         Bsub, Bexp = other.__inflate(ram)
 
-        alpha = max(self.__alpha, other.__alpha)
+        diff = QQ(self.__alpha - other.__alpha)
 
-        if self.__alpha < alpha:
-            Aexp *= Aexp.base_ring().gen()**(ram*(alpha - self.__alpha))
-        elif other.__alpha < alpha:
-            Bexp *= Bexp.base_ring().gen()**(ram*(alpha - other.__alpha))
+        if diff < 0:
+            alpha = other.__alpha
+            Aexp *= Aexp.base_ring().gen()**(-ram*diff)
+        elif diff > 0:
+            alpha = self.__alpha
+            Bexp *= Bexp.base_ring().gen()**(ram*diff)
+        else:
+            alpha = self.__alpha
 
         return DiscreteGeneralizedSeries(self.parent(), \
                                          [self.__gamma, self.__ramification, self.__rho, Asub, alpha, Aexp + Bexp])
@@ -1327,7 +1331,7 @@ class DiscreteGeneralizedSeries(RingElement):
 
         return self.__gamma == other.__gamma and self.__rho == other.__rho and \
                self.__ramification == other.__ramification and self.__subexp == other.__subexp and \
-               self.__alpha - other.__alpha in reference
+               self.__ramification*(self.__alpha - other.__alpha) in reference
 
     def is_zero(self):
         return self.__expansion.is_zero()
@@ -1344,7 +1348,7 @@ class DiscreteGeneralizedSeries(RingElement):
         prec = min(c.prec() for c in self.__expansion.coefficients())
         x = self.parent().exp_ring().gen()
         subexp = self.__subexp
-        subexp = [subexp[i] for i in xrange(1, max(subexp.degree(), self.__gamma.denominator()))]        
+        subexp = [subexp[j] for j in xrange(1, max(subexp.degree(), self.__gamma.denominator()))]        
         ram = self.__ramification
         m = ram/self.__gamma.denominator()
         

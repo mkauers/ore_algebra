@@ -16,6 +16,7 @@ from sage.rings.infinity import infinity
 
 from ore_operator import *
 from generalized_series import *
+from generalized_series import _generalized_series_shift_quotient, _binomial ## why not implied by the previous line?
 
 class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
     """
@@ -1717,14 +1718,14 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
                 v = s.denominator(); newcoeffs = []
                 newdeg = max([ coeffs[i].degree() - i*s for i in xrange(len(coeffs)) if coeffs[i] != 0 ])
                 for i in xrange(len(coeffs)):
-                    c = coeffs[i](x**v)*subs(x, prec=w_prec, shift=i, gamma=-s).shift(ZZ(-v*newdeg))
+                    c = (coeffs[i](x**v)*subs(x, prec=w_prec, shift=i, gamma=-s)).shift(-v*newdeg)
                     newcoeffs.append(c)
                 solutions.append( [-s, newcoeffs ] )
 
         # 2. exponential parts
         refined_solutions = []
         for (gamma, coeffs) in solutions:
-            deg = max(map(lambda p: p.degree(), coeffs))
+            deg = max([p.degree() for p in coeffs])
             char_poly = K['rho']([ c[deg] for c in coeffs ])
             if exponential_part:
                 for (cp, _) in char_poly.factor():
@@ -1745,8 +1746,8 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
             v = gamma.denominator(); zero = rho.parent().zero(); one = rho.parent().zero()
             x = x.change_ring(rho.parent())
 
-            if v.denominator().is_one():
-                refined_solutions.append( [gamma, rho, ([zero]*(v - 1), ZZ.one()), coeffs] )
+            if v.is_one():
+                refined_solutions.append( [gamma, rho, ([], ZZ.one()), coeffs] )
                 continue
 
             subexp = [zero] * (v - 1);
@@ -1759,33 +1760,38 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
                 for j in xrange(len(coeffs)):
                     coeffs[j] = coeffs[j](x**mult)
 
+            ram = v*mult
+            deg = w_prec*ram 
+
             for i in xrange(v - 1, 0, -1):
-                tokill = sum(c[v*w_prec - v + i] for c in coeffs)
+                tokill = sum(c[deg - v + i] for c in coeffs)
                 killer = [zero] * (v - 1);
-                subexp[i - 1] = killer[i - 1] = -tokill/((_binomial(i/(mult*v), mult)*extra))
+                subexp[i - 1] = killer[i - 1] = -tokill/((_binomial(i/ram, mult)*extra))
                 for j in xrange(1, len(coeffs)):
-                    coeffs[j] = (coeffs[j]*subs(x, prec=w_prec, shift=j, subexp=(killer, mult))).shift(-v*mult*w_prec)
+                    coeffs[j] = (coeffs[j]*subs(x, prec=w_prec, shift=j, subexp=(killer, mult))(x**v)).shift(-ram*w_prec)
 
             if subexponential_part or all(c == 0 for c in subexp):
                 refined_solutions.append( [gamma, rho, (subexp, mult), coeffs] )
 
-        # 4. polynomial parts
+        # 4. polynomial parts and expansion 
         solutions = refined_solutions; refined_solutions = []
         for (gamma, rho, subexp, coeffs) in solutions:
-            K = rho.parent(); x = x.change_ring(K); ram = gamma.denominator()*subexp[1]
-            ind_poly = L.parent().change_ring(K[x])(coeffs).indicial_polynomial(~x)
+            
+            K = rho.parent(); ram = gamma.denominator()*subexp[1]
+            K = K['s'].fraction_field(); s = K.gen(); x = x.change_ring(K)
+            rest = sum(coeffs[i].change_ring(K)*subs(x, w_prec, i, alpha=s)(x**ram) for i in xrange(len(coeffs)))
+            ind_poly = rest.leading_coefficient().numerator()
             for (p, e) in _shift_factor(ind_poly, ram):
                 alpha = -p[0]/p[1] if p.degree() == 1 else p.base_ring().extension(p, 'alpha').gen()
                 if polynomial_part or alpha in ZZ:
                     e.reverse()
-                    refined_solutions.append([gamma, rho, subexp, alpha/subexp[1], e])
+                    refined_solutions.append([gamma, rho, subexp, alpha, e])
 
-        # 5. expansion
-        
+        # 5. expansion        
         solutions = refined_solutions; refined_solutions = []
         for (gamma, rho, (subexp, mult), alpha, e) in solutions:
 
-            K = alpha.parent(); ram = gamma.denominator()*mult; prec = n + w_prec
+            K = alpha.parent(); ram = ZZ(gamma.denominator()*mult); prec = n + w_prec
             G = GeneralizedSeriesMonoid(K, self.base_ring().gen(), 'discrete')
             K = K['s'].fraction_field(); s = K.gen(); z = K.zero();
             x = x.change_ring(K); 
@@ -1800,9 +1806,9 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
                 f0 *= (s  - (alpha - a))**b
 
             for i in xrange(ram*e[0][0]):
-                f *= f0(s - (i + 1)/ZZ(ram))
+                f *= f0(s - (i + 1)/ram)
 
-            def normalize_ratfun(rat):
+            def normalize_ratfun(rat): # sage deficiency work around
                 lc = ~rat.denominator().leading_coefficient()
                 return (lc*rat.numerator())/(lc*rat.denominator())
 
@@ -1811,10 +1817,11 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
             #    = L(n^s) = indpoly(s)*n^(s - r) + ...
             f0 = rest.leading_coefficient()
             rest *= f
-            
+            rr = prec - rest.degree()/ram
+
             for k in xrange(1, ram*n):
-                # determine coeff of n^(s - k/ram) in exp so as to kill coeff of n^(s - r - k/ram) of rest
-                newcoeff = -rest[ram*(prec - r) - k]/f0(s - k/ram)
+                # determine coeff of n^(s - k/ram) in exp so as to kill coeff of n^(s - rr - k/ram) of rest
+                newcoeff = -rest[ram*(prec - rr) - k]/f0(s - k/ram)
                 rest += sum((newcoeff*coeffs[i]*subs(x, prec, i, alpha=s - k/ram)(x**ram)).shift(-ram*prec - k) \
                             for i in xrange(r + 1))
                 rest = rest.map_coefficients(normalize_ratfun)
