@@ -1352,7 +1352,7 @@ class DiscreteGeneralizedSeries(RingElement):
         ram = self.__ramification
         m = ram/self.__gamma.denominator()
         
-        factor = _generalized_series_shift_quotient(x, prec=prec, shift=i, \
+        factor = _generalized_series_shift_quotient(x, prec=prec + 1, shift=i, \
                                                     gamma=self.__gamma, rho=self.__rho, \
                                                     subexp=(subexp, m), alpha=self.__alpha).reverse()
 
