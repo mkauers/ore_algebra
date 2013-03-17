@@ -85,9 +85,13 @@ def guess(data, algebra, **kwargs):
     - ``ncpus`` -- number of processors to be used. Defaut: 1.
     - ``order`` -- bounds the order of the operators being searched for.
       Default: infinity.
+    - ``min_order`` -- smallest order to be considered in the search. The output
+      may nevertheless have lower order than this bound. Default: 1
     - ``degree`` -- bounds the degree of the operators being searched for.
       The method may decide to overrule this setting if it thinks this may speed up
       the calculation. Default: infinity.
+    - ``min_degree`` -- smallest degree to be considered in the search. The output
+      may nevertheless have lower degree than this bound. Default: 0
     - ``path`` -- a list of pairs `(r, d)` specifying which orders and degrees
       the method should attempt. If this value is equal to ``None`` (default), a
       path is chosen which examines all the `(r, d)` which can be tested with the
@@ -536,13 +540,21 @@ def _guess_via_gcrd(data, A, **kwargs):
         path = prelude + path
         sort_key = lambda p: 2*p[0] + (p[0] + 1)*(p[1] + 1) # give some preference to small orders
 
+    max_deg = max_ord = len(data); min_deg = 0; min_ord = 1;
+
     if kwargs.has_key('degree'):
-        degree = kwargs['degree']; del kwargs['degree']
-        path = filter(lambda p: p[1] <= degree, path)
+        max_deg = kwargs['degree']; del kwargs['degree']
+
+    if kwargs.has_key('min_degree'):
+        min_deg = kwargs['min_degree']; del kwargs['min_degree']
 
     if kwargs.has_key('order'):
-        order = kwargs['order']; del kwargs['order']
-        path = filter(lambda p: p[0] <= order, path)
+        max_ord = kwargs['order']; del kwargs['order']
+
+    if kwargs.has_key('min_order'):
+        min_ord = kwargs['min_order']; del kwargs['min_order']
+
+    path = filter(lambda p: min_ord <= p[0] and p[0] <= max_ord and min_deg <= p[1] and p[1] <= max_deg, path)
 
     path.sort(key=sort_key)
     # autoreduce
