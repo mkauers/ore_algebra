@@ -409,7 +409,7 @@ def _launch_info(infolevel, name, dim=None, deg=None, domain=None):
     if not deg == None:
         message = message + ", deg=" + str(deg)
     if not domain == None:
-        message = message + ", domain=" + domain._latex_()
+        message = message #+ ", domain=" + domain._latex_()
     message = message + "."    
     _info(infolevel, message)
 
