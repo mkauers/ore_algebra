@@ -816,7 +816,7 @@ class UnivariateOreOperator(OreOperator):
             return other
         elif other.is_zero():
             return self
-        elif self.order() == 1 or other in self.base_ring():
+        elif self in self.base_ring() or other in self.base_ring():
             return self.parent().one()
         elif self.parent() is not other.parent():
             A, B = canonical_coercion(self, other)
@@ -857,8 +857,15 @@ class UnivariateOreOperator(OreOperator):
         It is possible to specify which remainder sequence should be used.
         """
 
-        if self.is_zero(): return other
-        if other.is_zero(): return self
+        if self.is_zero():
+            return other
+        elif other.is_zero():
+            return self
+        elif self in self.base_ring() or other in self.base_ring():
+            return self.parent().one()
+        elif self.parent() is not other.parent():
+            A, B = canonical_coercion(self, other)
+            return A.xgcrd(B)
 
         r = (self,other)
         if (r[0].order()<r[1].order()):
@@ -878,7 +885,7 @@ class UnivariateOreOperator(OreOperator):
         additional = []
 
         while not r[1].is_zero():  
-            (r2,q,alpha,beta)=prs(r,additional)
+            (r2,q,alpha,beta,correct)=prs(r,additional)
             if not correct:
                 prs = __primitivePRS__
             else:
