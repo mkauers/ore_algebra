@@ -1549,6 +1549,173 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
                 return M2 * M1, Q2 * Q1
         return bsplit(start, start + n)
 
+
+    def delta_matrix(self, m):
+        r = self.order()
+
+        delta_ring = self.base_ring()
+        delta_matrix_ring = MatrixSpace(delta_ring, r, r)
+        k = delta_ring.gen()
+
+        coeffs = list(self)
+
+        def bsplit(a, b, shift):
+            if b - a == 0:
+                return delta_matrix_ring.one(), delta_ring.one()
+            elif b - a == 1:
+                M = delta_matrix_ring()
+                Q = coeffs[r](k + shift + a)
+                for i in range(r-1):
+                    M[i, i+1] = Q
+                for i in range(r):
+                    M[r-1, i] = -coeffs[i](k + shift + a)
+                return M, Q
+            else:
+                m = a + (b - a) // 2
+                M1, Q1 = bsplit(a, m, shift)
+                M2, Q2 = bsplit(m, b, shift)
+                return M2 * M1, Q2 * Q1
+
+        delta_M1, delta_Q1 = bsplit(0, m, m)
+        delta_M2, delta_Q2 = bsplit(0, m, 0)
+
+        delta_M = delta_M1 - delta_M2
+        delta_Q = delta_Q1 - delta_Q2
+
+        return delta_M, delta_Q
+
+
+    def forward_matrix_param_rectangular(self, value, n, start=0, m=None):
+        """
+        Assuming the coefficients of self are in `R[x][k]`,
+        computes the nth forward matrix with the parameter `x`
+        evaluated at ``value``, using rectangular splitting
+        with a step size of `m`.
+
+        TESTS:
+
+            sage: from sage.all import Matrix, randrange
+            sage: R = ZZ
+            sage: Rx = R['x']; x = Rx.gen()
+            sage: Rxk = Rx['k']; k = Rxk.gen()
+            sage: Rxks = OreAlgebra(Rxk, 'Sk')
+            sage: V = QQ
+            sage: Vks = OreAlgebra(V['k'], 'Sk')
+            sage: for i in range(1000):
+            sage:     A = Rxks.random_element(randrange(1,4))
+            sage:     r = A.order()
+            sage:     v = V.random_element()
+            sage:     initial = [V.random_element() for i in range(r)]
+            sage:     start = randrange(0,5)
+            sage:     n = randrange(0,30)
+            sage:     m = randrange(0,10)
+            sage:     B = Vks(list(A.polynomial()(x=v)))
+            sage:     singular = any([B[r](i) == 0 for i in range(n+r)])
+            sage:     M, Q = A.forward_matrix_param_rectangular(v, n, m=m, start=start)
+            sage:     if Q == 0:
+            sage:         assert singular
+            sage:     else:
+            sage:         V1 = M * Matrix(initial).transpose() / Q
+            sage:         values = B.to_list(initial, n + r, start)
+            sage:         V2 = Matrix(values[-r:]).transpose()
+            sage:         if V1 != V2:
+            sage:             raise ValueError
+
+        """
+        from sage.matrix.matrix_space import MatrixSpace
+
+        assert n >= 0
+        r = self.order()
+
+        indexed_ring = self.base_ring()
+        parametric_ring = indexed_ring.base_ring()
+        scalar_ring = parametric_ring.base_ring()
+
+        coeffs = list(self)
+        param_degree = max(max(d.degree() for d in c) for c in coeffs)
+
+        # Step size
+        if m is None:
+            m = floor(n ** 0.25)
+        m = max(m, 1)
+        m = min(m, n)
+
+        delta_M, delta_Q = self.delta_matrix(m)
+
+        # Precompute all needed powers of the parameter value
+        # TODO: tighter degree bound (by inspecting the matrices)
+        eval_degree = m * param_degree
+        num_powers = eval_degree + 1
+
+        power_table = [0] * num_powers
+        for i in xrange(num_powers):
+            if i == 0:
+                power_table[i] = value ** 0
+            elif i == 1:
+                power_table[i] = value
+            elif i % 2 == 0:
+                power_table[i] = power_table[i // 2] * power_table[i // 2]
+            else:
+                power_table[i] = power_table[i - 1] * power_table[1]
+
+        def evaluate_using_power_table(poly):
+            if not poly:
+                return scalar_ring.zero()
+            s = poly[0]
+            for i in xrange(1, poly.degree() + 1):
+                s += poly[i] * power_table[i]
+            return s
+
+        # TODO: check if transposing the polynomials gives better
+        # performance
+
+        # TODO: if the denominator does not depend on the parameter,
+        # we might want to avoid the ring of the parameter value for
+        # the denominator
+        value_ring = (scalar_ring.zero() * value).parent()
+        value_matrix_ring = MatrixSpace(value_ring, r, r)
+
+        value_M = value_matrix_ring.one()
+        value_Q = scalar_ring.one()
+
+        def baby_steps(VM, VQ, a, b):
+            for j in xrange(a, b):
+                M = value_matrix_ring()
+                Q = evaluate_using_power_table(coeffs[r](start + j))
+                for i in range(r-1):
+                    M[i, i+1] = Q
+                for i in range(r):
+                    M[r-1, i] = evaluate_using_power_table(-coeffs[i](start + j))
+                VM = M * VM
+                VQ = Q * VQ
+            return VM, VQ
+
+        # Baby steps
+        value_M, value_Q = baby_steps(value_M, value_Q, 0, m)
+
+        if m != 0:
+            step_M = value_M
+            step_Q = value_Q
+
+            # Giant steps
+            for j in range(m, n - m + 1, m):
+                v = start + j - m
+                M = value_matrix_ring()
+                Q = evaluate_using_power_table(delta_Q(v))
+                for row in range(r):
+                    for col in range(r):
+                        M[row, col] = evaluate_using_power_table(delta_M[row, col](v))
+                step_M = step_M + M
+                step_Q = step_Q + Q
+                value_M = step_M * value_M
+                value_Q = step_Q * value_Q
+
+            # Fill in if n is not a multiple of m
+            remainder = n % m
+            value_M, value_Q = baby_steps(value_M, value_Q, n-remainder, n)
+
+        return value_M, value_Q
+
     def annihilator_of_sum(self):
         r"""
         Returns an operator `L` which annihilates all the indefinite sums `\sum_{k=0}^n a_k`
