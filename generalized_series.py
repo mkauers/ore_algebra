@@ -17,6 +17,7 @@ from sage.structure.element import Element, RingElement, canonical_coercion
 from sage.structure.parent import Parent
 from sage.rings.infinity import infinity
 from sage.rings.arith import gcd, lcm
+from sage.rings.qqbar import QQbar
 
 import re
 
@@ -160,7 +161,7 @@ class GeneralizedSeriesMonoid_class(Parent):
 
         x = str(x)
         Parent.__init__(self, base=base, names=(x,), category=Rings())
-        if base is not QQ and not is_NumberField(base):
+        if base is not QQbar and base is not QQ and base is not ZZ and not is_NumberField(base):
             raise TypeError, "base ring must be QQ or a number field"
         if x.find("LOG") >= 0:
             raise ValueError, "generator name must not contain the substring 'LOG'"
@@ -1031,8 +1032,10 @@ class DiscreteGeneralizedSeries(RingElement):
                 c_new = dict()
                 for e in c.exponents():
                     c_new[int(e/quo)] = c[e]
-                expansion_new.append(c.parent()(c_new))
+                expansion_new.append(c.parent()(c_new, c.prec()/quo))
             self.__expansion = self.__expansion.parent()(expansion_new)
+
+            self.__ramification = new_ram
 
         # make monic if requested
         if make_monic: 
@@ -1217,11 +1220,11 @@ class DiscreteGeneralizedSeries(RingElement):
 
         gamma = self.__gamma
         if gamma == 1:
-            out += "(" + n + "/e)^n*"
+            out += "(" + n + "/e)^" + n + "*"
         elif gamma == -1:
-            out += "(" + n + "/e)^(-n)*"
+            out += "(" + n + "/e)^(-" + n + ")*"
         elif gamma != 0:
-            out += "(" + n + "/e)^(" + str(gamma) + "*n)*"
+            out += "(" + n + "/e)^(" + str(gamma) + "*" + n + ")*"
 
         rho = self.__rho
         if rho != 1:
@@ -1240,7 +1243,7 @@ class DiscreteGeneralizedSeries(RingElement):
             out += n + "^(" + str(alpha) + ")*"
 
         n_ram = n + "^(-1)" if r == 1 else n + '^(-1/' + str(r) + ')'
-        exp = str(self.__expansion).replace(n, n_ram).replace('LOG', 'log(n)')
+        exp = str(self.__expansion).replace(n, n_ram).replace('LOG', 'log(' + n + ')')
         out += exp if len(out) == 0 else "(" + exp + ")"
 
         # x^{1/3}^{17} --> x^{17/3}
@@ -1345,16 +1348,13 @@ class DiscreteGeneralizedSeries(RingElement):
         if self.is_zero():
             return self
 
-        prec = min(c.prec() for c in self.__expansion.coefficients())
-        x = self.parent().exp_ring().gen()
-        subexp = self.__subexp
-        subexp = [subexp[j] for j in xrange(1, max(subexp.degree(), self.__gamma.denominator()))]        
+        prec = min(c.prec() for c in self.__expansion.coefficients()); x = self.parent().exp_ring().gen()
+        gamma = self.__gamma; rho = self.__rho; subexp = self.__subexp; alpha = self.__alpha
+        subexp = [subexp[j] for j in xrange(1, max(subexp.degree(), gamma.denominator()) + 1)]
         ram = self.__ramification
-        m = ram/self.__gamma.denominator()
         
-        factor = _generalized_series_shift_quotient(x, prec=prec + 1, shift=i, \
-                                                    gamma=self.__gamma, rho=self.__rho, \
-                                                    subexp=(subexp, m), alpha=self.__alpha).reverse()
+        factor = _generalized_series_shift_quotient(x, prec=prec + 1, shift=i, gamma=gamma, rho=rho, \
+                                                    subexp=subexp, ramification=ram, alpha=alpha).reverse()
 
         # (x+i)^(-1/ram) = x^(-1/ram) * (1+i/x)^(-1/ram) 
         x_shifted = x*sum(_binomial(-~ram, k)*(i*x**ram)**k for k in xrange(prec + 1))
@@ -1362,10 +1362,8 @@ class DiscreteGeneralizedSeries(RingElement):
         PS = self.parent().tail_ring().base_ring()
         expansion = self.__expansion.map_coefficients(lambda p: PS(factor*p(x_shifted), prec))
 
-        logx = expansion.parent().gen()
-        logx_shifted = -sum((-i*x**ram)**k /ZZ(k) for k in xrange(1, prec + 1))
-
-        expansion = expansion(logx + logx_shifted)
+        logx_shifted = expansion.parent().gen() - sum((-i*x**ram)**k/QQ(k) for k in xrange(1, prec + 1))
+        expansion = expansion(logx_shifted)
 
         return DiscreteGeneralizedSeries(self.parent(), [self.__gamma, ram, self.__rho, self.__subexp, \
                                                          self.__alpha + self.__gamma*i, expansion])
@@ -1406,23 +1404,22 @@ def _super_expansion(gamma, i, n, prec):
     coeffs.reverse()
     return n.parent()(coeffs) # checked. 
 
-def _sub_expansion(coeffs, i, n, prec):
-    coeffs, m = coeffs
-    # exp( c_1*((n+i)^(1/(m*v)) - n^(1/(m*v))) + .. + c_{v-1} ((n+i)^((v-1)/(m*v)) - n^((v-1)/(m*v))) )
-    # = prod( sum( 1/k! * sum(c_l*binom(l/(m*v), j)*i^j*n^(-j+l/(m*v)), j=1..infty)^k, k=0..infty ), l=1..v*m-1 )
-    prod = one = n.parent().one(); v = m*ZZ(len(coeffs) + 1)
+def _sub_expansion(coeffs, ram, i, n, prec):
+    # exp( c_1*((n+i)^(1/ram) - n^(1/ram)) + .. + c_{ram-1} ((n+i)^((ram-1)/ram) - n^((ram-1)/ram)) )
+    # = prod( sum( 1/k! * sum(c_l*binom(l/ram, j)*i^j*n^(-j+l/ram), j=1..infty)^k, k=0..infty ), l=1..ram-1 )
+    prod = one = n.parent().one()
     for l in xrange(1, len(coeffs) + 1):
-        inner = coeffs[l - 1]*sum(_binomial(ZZ(l)/v, j)* i**j * n**(v*j - l) for j in xrange(1, prec + 1))
+        inner = coeffs[l - 1]*sum(_binomial(ZZ(l)/ram, j)* i**j * n**(ram*j - l) for j in xrange(1, prec + 1))
         outer = inner_pow = one
-        for k in xrange(1, v*prec + 1):
-            inner_pow = (inner_pow * inner) % (n**(v*prec + 1))
+        for k in xrange(1, ram*prec + 1):
+            inner_pow = (inner_pow * inner) % (n**(ram*prec + 1))
             outer += inner_pow/ZZ(k).factorial()
-        prod = (prod*outer) % (n**(v*prec + 1))
-    coeffs = prod.padded_list(v*prec + 1)
+        prod = (prod*outer) % (n**(ram*prec + 1))
+    coeffs = prod.padded_list(ram*prec + 1)
     coeffs.reverse()
     return n.parent()(coeffs) 
 
-def _generalized_series_shift_quotient(x, prec=5, shift=1, gamma=0, rho=1, subexp=None, alpha=0):
+def _generalized_series_shift_quotient(x, prec=5, shift=1, gamma=0, rho=1, subexp=None, ramification=None, alpha=0):
     r"""
     Computes a series expansion for the shift quotient of some discrete generalized series.
 
@@ -1434,25 +1431,32 @@ def _generalized_series_shift_quotient(x, prec=5, shift=1, gamma=0, rho=1, subex
     - ``shift`` -- a positive integer
     - ``gamma`` -- a rational number `u/v`
     - ``rho`` -- an algebraic number
-    - ``subexp`` -- a pair `([c_1,...,c_{v-1}], m)` where the `c_i` algebraic numbers and `m` is a positive integer.
-       Defaults to all `c_i` being zero and `m=1`.
+    - ``subexp`` -- a list `[c_1,...,c_{m-1}]` where the `c_i` algebraic numbers and `m` is the ramification.
+    - ``ramification`` -- the ramification of the series. If it is not specified, it is taken to be one more
+      than the length of ``subexp``. If also ``subexp`` is not given, it is taken to be the denominator of
+      ``gamma``. In any case, the ramification must be a positive integer multiple of the denominator of
+      ``gamma``.
     - ``alpha`` -- an algebraic number
 
     OUTPUT:
 
     - a polynomial `p` such that
 
-      `f(x+i)/f(x) = p(x^{1/(m*v)})/x^{prec} + O(x^{-prec})`
+      `f(x+i)/f(x) = p(x^{1/ram})/x^{prec} + O(x^{-prec})`
 
       where
 
-      `f(x) = `(x/e)^(x*u/v)\rho^x\exp\bigl(c_1 x^{1/(m*v)} + ... + c_{v-1} x^{(v-1)/(m*v)}\bigr)x^\alpha`
+      `f(x) = `(x/e)^(x*u/v)\rho^x\exp\bigl(c_1 x^{1/ram} + ... + c_{v-1} x^{(v-1)/ram}\bigr)x^\alpha`
 
     """
     R = x.parent(); K = R.base_ring(); gamma = QQ(gamma)
-    ram = gamma.denominator()
-    if subexp is not None:
-        ram *= subexp[1]    
+    ram = ramification
+    if ram is None:
+        ram = gamma.denominator() if subexp is None else len(subexp) + 1 
+
+    ram = ZZ(ram)
+    if not (ram % gamma.denominator()).is_zero():
+        raise ValueError, "ramification must be a multiple of the denominator of gamma."
 
     if shift == 0:
         return x**(ram*prec)
@@ -1467,18 +1471,18 @@ def _generalized_series_shift_quotient(x, prec=5, shift=1, gamma=0, rho=1, subex
             raise ValueError, "insufficient precision"
         
         # n^(i*gamma) (1+i/n)^(gamma*i) (1+i/n)^(gamma*n) 
-        cert = sum(_binomial(shift*gamma, k) * shift**k * x**(v*(prec + shift*gamma - k)) \
+        cert = sum(_binomial(shift*gamma, k) * shift**k * x**(ram*(prec + shift*gamma - k)) \
                    for k in xrange(prec + shift*gamma + 1))
-        cert = (cert * _super_expansion(gamma, shift, x, prec)(x**v)).shift(-v*prec)
+        cert = (cert * _super_expansion(gamma, shift, x, prec)(x**ram)).shift(-ram*prec)
         
     else:
-        u = ZZ.zero(); v = ZZ.one(); cert = x**prec
+        u = ZZ.zero(); v = ZZ.one(); cert = x**(ram*prec)
 
     if rho != 1:
         cert *= rho**shift
 
-    if subexp is not None and not all(c == 0 for c in subexp[0]):
-        cert = (cert*_sub_expansion(subexp, shift, x, prec)).shift(-ram*prec)
+    if subexp is not None and not all(c == 0 for c in subexp):
+        cert = (cert*_sub_expansion(subexp, ram, shift, x, prec)).shift(-ram*prec)
 
     if alpha != 0:
         cert = (cert*sum(_binomial(alpha, k)*(shift**k)*(x**(ram*(prec - k))) for k in xrange(prec + 1))).shift(-ram*prec)

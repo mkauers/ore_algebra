@@ -568,7 +568,7 @@ def _guess_via_gcrd(data, A, **kwargs):
     info(2, "Going through a path with " + str(len(path)) + " points")
 
     # search equation
-    
+
     neg_probes = []
     def probe(r, d):
         if (r, d) in neg_probes:
@@ -607,10 +607,7 @@ def _guess_via_gcrd(data, A, **kwargs):
                     d += 1; sols = probe(r, d)
                 break
 
-        if len(sols) > 1:
-            short_path = [(r, d)]
-            L = sols
-        elif len(sols) > 0:
+        if len(sols) > 0:
             short_path.append((r, d))
             L = L + sols
         if len(L) >= 2:

@@ -13,6 +13,8 @@ from sage.rings.arith import gcd, lcm
 from sage.rings.rational_field import QQ
 from sage.rings.integer_ring import ZZ
 from sage.rings.infinity import infinity
+from sage.rings.qqbar import QQbar
+from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 
 from ore_operator import *
 from generalized_series import *
@@ -1644,9 +1646,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
             s.sort()
             return s
 
-    def generalized_series_solutions(self, n=5, superexponential_part=True, exponential_part=True, \
-                                     subexponential_part=True, polynomial_part=True, log_part=True, \
-                                     base_extend=True, working_precision=3): 
+    def generalized_series_solutions(self, n=5, dominant_only=False): 
         r"""
         Returns the generalized series solutions of this operator.
 
@@ -1657,14 +1657,14 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
         where
 
         * `e` is Euler's constant (2.71...)
-        * `v` is a positive integer (the object's "ramification")
+        * `v` is a positive integer
         * `u` is an integer; the term `(x/e)^(v/u)` is called the "superexponential part" of the solution
         * `\rho` is an element of an algebraic extension of the coefficient field `K`
           (the algebra's base ring's base ring); the term `\rho^x` is called the "exponential part" of
           the solution
         * `c_1,...,c_{v-1}` are elements of `K(\rho)`; the term `\exp(...)` is called the "subexponential
           part" of the solution
-        * `m` is a positive integer multiple of `v`
+        * `m` is a positive integer multiple of `v`, it is called the object's "ramification"
         * `\alpha` is an element of some algebraic extension of `K(\rho)`; the term `n^\alpha` is called
           the "polynomial part" of the solution (even if `\alpha` is not an integer)
         * `p` is an element of `K(\rho)(\alpha)[[x]][y]`. It is called the "expansion part" of the solution.
@@ -1675,62 +1675,63 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
 
         Generalized series solutions are asymptotic expansions of sequences annihilated by the operator. 
 
-        At present, the method only works for operators where `K` is either
-        QQ or a number field (i.e., no finite fields, no formal parameters). 
+        At present, the method only works for operators where `K` is some field which supports
+        coercion to ``QQbar``. 
 
         INPUT:
 
-        - ``n`` (default: 5) -- minimum number of terms in the expansions parts to be computed
-          in addition to those needed to separate all solutions from each other.
-        - ``superexponential_part`` (default: True) -- if set to False, only compute solutions where `u=0`
-        - ``exponential_part`` (default: True) -- if set to False, only compute solutions where `\rho=1`
-        - ``subexponential_part`` (default: True) -- if set to False, only compute solutions where `c_i=0`
-          for all `i`
-        - ``polynomial_part`` (default: True) -- if set to False, only compute solutions where `\alpha=0`
-        - ``log_part`` (default: True) -- if set to False, only compute solutions without logarithmic terms
-        - ``base_extend`` (default: ``True``) -- if set to False, only compute solutions where `\rho` and
-          `\alpha` belong to `K`. 
-        - ``working_precision`` (default: 5) -- number of terms the algorithm should use in addition
-          to ``n`` during the computation in order to account for possible cancellations. This option
-          only affects the efficiency but not the correctness. If it turns out during the calculation
-          that the value was to low, the calculation will be restarted with the this value doubled.
+        - ``n`` (default: 5) -- minimum number of terms in the expansions parts to be computed.
+        - ``dominant_only`` (default: False) -- if set to True, only compute solution(s) with maximal
+          growth. 
 
         OUTPUT:
 
         - a list of ``DiscreteGeneralizedSeries`` objects forming a fundamental system for this operator. 
 
-        .. NOTE::
-
-          - Different solutions may require different algebraic extensions. Thus in the list returned
-            by this method, the coefficient fields of different series typically do not coincide.
-          - If a solution involves an algebraic extension of the coefficient field, then all its
-            conjugates are solutions, too. But only one representative is listed in the output.
-
         EXAMPLES::
 
           sage: R.<n> = QQ['n']; A.<Sn> = OreAlgebra(R, 'Sn')
+          
           sage: (Sn - (n+1)).generalized_series_solutions()
           [(n/e)^n*n^(1/2)*(1 + 1/12*n^(-1) + 1/288*n^(-2) - 139/51840*n^(-3) - 571/2488320*n^(-4) + O(n^(-5)))]
-          sage: ((n + 2)*Sn^2 + (-2*n - 3)*Sn + n + 1).generalized_series_solutions()
-          [1 + O(n^(-5)), (1 + O(n^(-5)))*log(n) + 1/2*n^(-1) - 1/12*n^(-2) + 1/120*n^(-4) + O(n^(-5))]
+          sage: map(Sn - (n+1), _)
+          [0]
+          
+          sage: L = ((n+1)*Sn - n).annihilator_of_sum().symmetric_power(2)
+          sage: L.generalized_series_solutions()
+          [1 + O(n^(-5)), (1 + O(n^(-5)))*log(n) + 1/2*n^(-1) - 1/12*n^(-2) + 1/120*n^(-4) + O(n^(-5)), (1 + O(n^(-5)))*log(n)^2 + (1/2*n^(-1) - 1/12*n^(-2) + 1/120*n^(-4) + O(n^(-5)))*log(n) - 3/2*n^(-1) + 5/8*n^(-2) - 7/54*n^(-3) - 59/3840*n^(-4) + O(n^(-5))]
+          sage: map(L, _)
+          [0, 0, 0]
+
+          sage: L = n^2*(1-2*Sn+Sn^2) + (n+1)*(1+Sn+Sn^2)
+          sage: L.generalized_series_solutions()
+          [exp(3.464101615137755?*I*n^(1/2))*n^(1/4)*(1 - 2.056810333988042?*I*n^(-1/2) - 1107/512*n^(-2/2) + (0.?e-19 + 1.489453749877895?*I)*n^(-3/2) + 2960239/2621440*n^(-4/2) + (0.?e-19 - 0.926161373412572?*I)*n^(-5/2) - 16615014713/46976204800*n^(-6/2) + (0.?e-20 + 0.03266142931818572?*I)*n^(-7/2) + 16652086533741/96207267430400*n^(-8/2) + (0.?e-20 - 0.1615093987591473?*I)*n^(-9/2) + O(n^(-10/2))), exp(-3.464101615137755?*I*n^(1/2))*n^(1/4)*(1 + 2.056810333988042?*I*n^(-1/2) - 1107/512*n^(-2/2) + (0.?e-19 - 1.489453749877895?*I)*n^(-3/2) + 2960239/2621440*n^(-4/2) + (0.?e-19 + 0.926161373412572?*I)*n^(-5/2) - 16615014713/46976204800*n^(-6/2) + (0.?e-20 - 0.03266142931818572?*I)*n^(-7/2) + 16652086533741/96207267430400*n^(-8/2) + (0.?e-20 + 0.1615093987591473?*I)*n^(-9/2) + O(n^(-10/2)))]
+
+          sage: L = guess([(-3)^n*(n+1)/(2*n+4) - 2^n*n^3/(n+3) for n in xrange(500)], A)
+          sage: L.generalized_series_solutions()
+          [2^n*n^2*(1 - 3*n^(-1) + 9*n^(-2) - 27*n^(-3) + 81*n^(-4) + O(n^(-5))), (-3)^n*(1 - n^(-1) + 2*n^(-2) - 4*n^(-3) + 8*n^(-4) + O(n^(-5)))]
+          sage: L.generalized_series_solutions(dominant_only=True)
+          [(-3)^n*(1 - n^(-1) + 2*n^(-2) - 4*n^(-3) + 8*n^(-4) + O(n^(-5)))]
+
           
         """
-        L = self.numerator().primitive_part()
-        origcoeffs = coeffs = L.coeffs()
-        r = len(coeffs) - 1
+        K = QQbar
+
+        try:
+            origcoeffs = coeffs = [c.change_ring(K) for c in self.numerator().primitive_part().coeffs() ]
+        except:
+            raise TypeError, "unexpected coefficient domain: " + str(self.base_ring().base_ring())
+
         if len(coeffs) == 0:
             raise ZeroDivisionError, "everything is a solution of the zero operator"
         elif len(coeffs) == 1:
             return []
-
-        K = coeffs[0].base_ring()
-        if K is not QQ and not is_NumberField(K):
-            raise TypeError, "unexpected coefficient domain: " + str(K)
-
+        
+        r = len(coeffs) - 1
         x = coeffs[0].parent().gen()
         solutions = []
         subs = _generalized_series_shift_quotient
-        w_prec = max(working_precision, 2*L.order())
+        w_prec = r + 1
 
         # 1. superexponential parts
         points = filter(lambda p: p[1] >= 0, [ (i, coeffs[i].degree()) for i in xrange(len(coeffs)) ])
@@ -1746,141 +1747,168 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
                     s = s2; k = l
             if s.is_zero():
                 solutions.append( [QQ.zero(), [c.shift(w_prec - deg) for c in coeffs ]] )
-            elif superexponential_part:
+            else:
                 v = s.denominator(); newcoeffs = []
                 newdeg = max([ coeffs[i].degree() - i*s for i in xrange(len(coeffs)) if coeffs[i] != 0 ])
                 for i in xrange(len(coeffs)):
-                    c = (coeffs[i](x**v)*subs(x, prec=w_prec, shift=i, gamma=-s)).shift(-v*newdeg)
-                    newcoeffs.append(c)
+                    newcoeffs.append((coeffs[i](x**v)*subs(x, prec=w_prec, shift=i, gamma=-s)).shift(-v*newdeg))
                 solutions.append( [-s, newcoeffs ] )
+
+        if dominant_only:
+            max_gamma = max( [g for (g, _) in solutions ] )
+            solutions = filter(lambda s: s[0]==max_gamma, solutions)
 
         # 2. exponential parts
         refined_solutions = []
         for (gamma, coeffs) in solutions:
-            deg = max([p.degree() for p in coeffs])
+            deg = max([p.degree() for p in coeffs]); v = gamma.denominator()
             char_poly = K['rho']([ c[deg] for c in coeffs ])
-            if exponential_part:
-                for (cp, _) in char_poly.factor():
-                    if cp.degree() == 1:
-                        K = cp[0].parent(); rho = -cp[0]/cp[1]
-                    elif base_extend:
-                        K = cp.base_ring().extension(cp, 'rho'); rho = K.gen()
-                    if not rho.is_zero():
-                        refined_solutions.append( [gamma, rho, [ coeffs[i].change_ring(K)*(rho**i) for i in xrange(len(coeffs)) ]] )
-                
-            elif char_poly(K.one()).is_zero():
-                refined_solutions.append( [gamma, K.one(), coeffs] )
+            for (cp, e) in char_poly.factor():
+                rho = -cp[0]/cp[1] # K is algebraically closed, so all factors are linear.
+                if not rho.is_zero():
+                    refined_solutions.append([gamma, rho, [coeffs[i]*(rho**i) for i in xrange(len(coeffs))], e*v])
+
+        if dominant_only:
+            max_rho = max( [abs(rho) for (_, rho, _, _) in refined_solutions ] )
+            refined_solutions = filter(lambda s: abs(s[1])==max_rho, refined_solutions)
 
         # 3. subexponential parts
         solutions = refined_solutions; refined_solutions = []
-        for (gamma, rho, coeffs) in solutions:
+        for (gamma, rho, coeffs, ram) in solutions:
 
-            v = gamma.denominator(); zero = rho.parent().zero(); one = rho.parent().zero()
-            x = x.change_ring(rho.parent())
-
-            if v.is_one():
-                refined_solutions.append( [gamma, rho, ([], ZZ.one()), coeffs] )
+            if ram == 1:
+                refined_solutions.append([gamma, rho, [], ram, coeffs])
                 continue
 
-            subexp = [zero] * (v - 1);
+            def mysubs(x, prec, shift, subexp, ramification=ram):
+                return subs(x, prec, shift, subexp=subexp, ramification=ram)
+            
+            KK = K['s'].fraction_field(); X = x.change_ring(KK); v = gamma.denominator(); e = ram/v
+            cc = [ c(x**e).change_ring(KK).shift(ram*(-w_prec + e - 1)) for c in coeffs ]
+            subexpvecs = [ [K.zero()]*(ram - 1) ]
 
-            mult = ZZ.zero(); extra = 0;
-            while extra == 0:
-                mult += 1
-                extra = sum(j**mult * coeffs[j][v*w_prec] for j in xrange(1, len(coeffs)))
-            if mult > 1:
-                for j in xrange(len(coeffs)):
-                    coeffs[j] = coeffs[j](x**mult)
+            for i in xrange(ram - 1):
+                old = subexpvecs; subexpvecs = []
+                for sub in old:
+                    sub[i] = KK.gen(); rest = sum((cc[j]*mysubs(X, e-1, j, sub)).shift((1-e)*ram) for j in xrange(r + 1))
+                    for (p, _) in rest.leading_coefficient().factor():
+                        vec = [ee for ee in sub]; vec[i] = -p[0]/p[1]; subexpvecs.append(vec)
 
-            ram = v*mult
-            deg = w_prec*ram 
-
-            for i in xrange(v - 1, 0, -1):
-                tokill = sum(c[deg - v + i] for c in coeffs)
-                killer = [zero] * (v - 1);
-                subexp[i - 1] = killer[i - 1] = -tokill/((_binomial(i/ram, mult)*extra))
-                for j in xrange(1, len(coeffs)):
-                    coeffs[j] = (coeffs[j]*subs(x, prec=w_prec, shift=j, subexp=(killer, mult))(x**v)).shift(-ram*w_prec)
-
-            if subexponential_part or all(c == 0 for c in subexp):
-                refined_solutions.append( [gamma, rho, (subexp, mult), coeffs] )
+            for sub in subexpvecs:
+                if all(ee.is_zero() for ee in sub):
+                    refined_solutions.append([gamma, rho, sub, gamma.denominator(), coeffs])
+                elif False:
+                    # possible improvement: check whether ramification can be reduced.
+                    pass
+                else:
+                    newcoeffs = [ (coeffs[j](x**e)*mysubs(x, w_prec, j, sub)).shift(-ram*w_prec) for j in xrange(r + 1) ]
+                    refined_solutions.append([gamma, rho, sub, ram, newcoeffs])
 
         # 4. polynomial parts and expansion 
         solutions = refined_solutions; refined_solutions = []
-        for (gamma, rho, subexp, coeffs) in solutions:
+        for (gamma, rho, subexp, ram, coeffs) in solutions:
             
-            K = rho.parent(); ram = gamma.denominator()*subexp[1]
-            K = K['s'].fraction_field(); s = K.gen(); x = x.change_ring(K)
-            rest = sum(coeffs[i].change_ring(K)*subs(x, w_prec, i, alpha=s)(x**ram) for i in xrange(len(coeffs)))
-            ind_poly = rest.leading_coefficient().numerator()
-            for (p, e) in _shift_factor(ind_poly, ram):
-                alpha = -p[0]/p[1] if p.degree() == 1 else p.base_ring().extension(p, 'alpha').gen()
-                if polynomial_part or alpha in ZZ:
-                    e.reverse()
-                    refined_solutions.append([gamma, rho, subexp, alpha, e])
+            KK = K['s'].fraction_field(); s = KK.gen(); X = x.change_ring(KK)
+            rest = sum(coeffs[i].change_ring(KK)*subs(X, w_prec, i, alpha=s)(X**ram) for i in xrange(len(coeffs)))
+            for (p, e) in _shift_factor(rest.leading_coefficient().numerator(), ram):
+                e.reverse()
+                alpha = -p[0]/p[1]
+                if alpha in QQ: # cause conversion to explicit rational 
+                    pass
+                refined_solutions.append([gamma, rho, subexp, ram, alpha, e, 2*ram*w_prec - rest.degree()])
 
-        # 5. expansion        
+        # 5. expansion and logarithmic terms
         solutions = refined_solutions; refined_solutions = []
-        for (gamma, rho, (subexp, mult), alpha, e) in solutions:
+        G = GeneralizedSeriesMonoid(K, x, 'discrete'); prec = n + w_prec
+        PS = PowerSeriesRing(K, 'x')
 
-            K = alpha.parent(); ram = ZZ(gamma.denominator()*mult); prec = n + w_prec
-            G = GeneralizedSeriesMonoid(K, self.base_ring().gen(), 'discrete')
-            K = K['s'].fraction_field(); s = K.gen(); z = K.zero();
-            x = x.change_ring(K); 
+        max_log_power = max([sum(b for (_, b) in e[5]) for e in solutions])
+        poly_tails = [[x**(ram*prec)]*(ram*prec)]; log_tails = [[x**(ram*prec)]*max_log_power]
+        for l in xrange(1, r + 1):
+                
+            # (n+l)^(-1/ram) = n^(-1/ram)*sum(bin(-1/ram, i)*(l/n)^i, i=0...)
+            # poly_tails[l][k] = expansion of (n+l)^(-k/ram)/n^(-k/ram)
+            p = sum(_binomial(-1/ram, i)*(l*x**ram)**i for i in xrange(prec + 1))
+            pt = [x.parent().one()]
+            while len(pt) <= ram*prec:
+                pt.append((pt[-1]*p) % x**(ram*prec + 1))
+            poly_tails.append([x**(ram*prec - p.degree())*p.reverse() for p in pt])
 
-            coeffs = [(origcoeffs[i](x**ram)*subs(x, prec, i, gamma, rho, (subexp, mult))) for i in xrange(r + 1)]
-            deg = max(map(lambda p: p.degree(), coeffs))
-            coeffs = [coeffs[i].shift(ram*prec - deg).change_ring(K) for i in xrange(r + 1)]
+            # log(n+l) = log(n) - sum( (-l/n)^i/i, i=1...)
+            # log_tails[l][k] = (log(n+l) - log(n))^k
+            p = -sum((-l*x**ram)**i/QQ(i) for i in xrange(1, prec + 1))
+            lt = [x.parent().one()]
+            while len(lt) < max_log_power:
+                lt.append((lt[-1]*p) % x**(prec*ram + 1))
+            log_tails.append([x**(ram*prec - p.degree())*p.reverse() for p in lt])
 
-            f = f0 = K.one();
+        for (gamma, rho, subexp, ram, alpha, e, degdrop) in solutions:
+
+            coeffs = [(origcoeffs[i](x**ram)*subs(x, prec, i, gamma, rho, subexp, ram)) for i in xrange(r + 1)]
+            deg = max([c.degree() for c in coeffs])
+            coeffs = [coeffs[i].shift(ram*prec - deg) for i in xrange(r + 1)]            
+            sols = dict( (a, []) for (a, b) in e )
 
             for (a, b) in e:
-                f0 *= (s  - (alpha - a))**b
 
-            for i in xrange(ram*e[0][0]):
-                f *= f0(s - (i + 1)/ram)
+                s = alpha - a/ram
+                # (n+l)^s/n^s = sum(binom(s,i) (l/n)^i, i=0...)
+                spoly_tails = [sum(_binomial(s, i)*(j**i)*(x**(ram*(prec-i))) for i in xrange(prec)) for j in xrange(r+1)];
 
-            def normalize_ratfun(rat): # sage deficiency work around
-                lc = ~rat.denominator().leading_coefficient()
-                return (lc*rat.numerator())/(lc*rat.denominator())
+                def operator_applied_to_term(k, l=0):
+                    # computes L( n^(s-k/ram) log(n)^l ) as list of length l+1
+                    # whose i-th component contains the polynomial terms corresponding to log(n)^i
+                    out = []
+                    for i in xrange(l + 1):
+                        # [log(n)^i] (n+j)^(s-k/ram)log(n+j)^l
+                        # = binom(l, i)*log_tails[j][l - i]*poly_tails[j][k]*spoly_tails[j]
+                        contrib = x-x #=0
+                        for j in xrange(r + 1):
+                            if i != l and j == 0: # [log(n)^i] log(n)^l 
+                                continue
+                            contrib += ((coeffs[j]*log_tails[j][l - i]).shift(-ram*prec)* \
+                                        (poly_tails[j][k]*spoly_tails[j]).shift(-ram*prec)).shift(-ram*prec - k)
+                        out.append(_binomial(l, i)*contrib)
 
-            exp = [f] # coeffs of n^s, n^(s-1/ram), n^(s-2/ram), ...
-            rest = sum((coeffs[i]*subs(x, prec, i, alpha=s)(x**ram)).shift(-ram*prec) for i in xrange(r + 1))
-            #    = L(n^s) = indpoly(s)*n^(s - r) + ...
-            f0 = rest.leading_coefficient()
-            rest *= f
-            rr = prec - rest.degree()/ram
+                    return out
 
-            for k in xrange(1, ram*n):
-                # determine coeff of n^(s - k/ram) in exp so as to kill coeff of n^(s - rr - k/ram) of rest
-                newcoeff = -rest[ram*(prec - rr) - k]/f0(s - k/ram)
-                rest += sum((newcoeff*coeffs[i]*subs(x, prec, i, alpha=s - k/ram)(x**ram)).shift(-ram*prec - k) \
-                            for i in xrange(r + 1))
-                rest = rest.map_coefficients(normalize_ratfun)
-                exp.append(newcoeff)
+                while len(sols[a]) < b: 
 
-            m = sum([ee[1] for ee in e])
-            der = [exp]
-            while len(der) < m:
-                der.append(map(lambda g: g.derivative(), der[-1]))
+                    newsol = [[K.zero()] for i in xrange(len(sols[a]))] + [[K.one()]]
+                    rest = operator_applied_to_term(0, len(sols[a]))
+                    sols[a].append(newsol)
 
-            accum = 0
-            for (a, b) in e:
-                der_a = dict()
-                for i in xrange(accum + b):
-                    der_a[i] = map(lambda g: g(alpha - a), der[i])
-                for i in xrange(accum, accum + b):
-                    sol = []
-                    for j in xrange(i + 1):
-                        bin = _binomial(ZZ(i), ZZ(j))
-                        sol.append(map(lambda q: q*bin, der_a[j]))
-                    sol.reverse()
-                    refined_solutions.append(G([gamma, gamma.denominator()*mult, rho, subexp, alpha - a, sol], \
-                                               make_monic=True))
-                accum += b
+                    for k in xrange(1, ram*n):
+                        for l in xrange(len(rest) - 1, -1, -1):
+                            # determine coeff of log(n)^l*n^(s - k/ram) in newsol so as to kill
+                            # coeff log(n)^l*n^(s - degdrop - k/ram) of rest
+                            tokill = rest[l][ram*prec - k - degdrop]
+                            if tokill.is_zero():
+                                newsol[l].append(K.zero())
+                                continue
+                            adjustment = operator_applied_to_term(k, l)
+                            killer = adjustment[l][ram*prec - k - degdrop]; dl = 0
+                            # determine appropriate log power for getting nonzero killer
+                            while killer.is_zero():
+                                dl += 1
+                                adjustment = operator_applied_to_term(k, l + dl)
+                                killer = adjustment[l + dl][ram*prec - degdrop - k]
+                            # update solution
+                            while len(newsol) < l + dl:
+                                newsol[-1].append(K.zero())
+                                newsol.append([K.zero()]*(k - 1))
+                            newcoeff = -tokill/killer; newsol[l + dl].append(newcoeff)
+                            # update remainder
+                            while len(rest) < len(adjustment):
+                                rest.append(x.parent().zero())
+                            for i in xrange(len(adjustment)):
+                                rest[i] += newcoeff*adjustment[i]
+                            
+            for a in sols.keys():
+                for eexp in sols[a]:
+                    refined_solutions.append(G([gamma, ram, rho, subexp, alpha - a/ram, [PS(p, len(p)) for p in eexp]]))
 
         return refined_solutions
-
 
     def desingularize(self,p):
         op = self.numerator()
