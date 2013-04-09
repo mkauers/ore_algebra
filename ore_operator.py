@@ -752,12 +752,21 @@ class UnivariateOreOperator(OreOperator):
         A = DiB.parent() # associate commutative algebra
         D = A.gen() 
         res = coeffs[0]*DiB
-
+        
+        if sigma.is_identity():
+            def times_D(b):
+                return b*D + b.map_coefficients(delta)
+        elif delta.is_zero():
+            def times_D(b):
+                return b.map_coefficients(sigma)*D
+        else:
+            def times_D(b):
+                return b.map_coefficients(sigma)*D + b.map_coefficients(delta)
+            
         for i in xrange(1, len(coeffs)):
-
-            DiB = DiB.map_coefficients(sigma)*D + DiB.map_coefficients(delta)
+            DiB = times_D(DiB)
             res += coeffs[i]*DiB
-
+        
         return R(res)
 
     def quo_rem(self, other, fractionFree=False):

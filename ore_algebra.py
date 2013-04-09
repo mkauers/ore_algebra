@@ -203,6 +203,9 @@ class _Sigma:
     def set_call(self, fun):
         self.__call__ = fun 
 
+    def is_identity(self):
+        return self.__is_identity
+
     def dict(self):
         """
         Returns a dictionary representing ``self``
@@ -446,6 +449,9 @@ class _Delta:
 
     def set_call(self, fun):
         self.__call__ = fun
+
+    def is_zero(self):
+        return self.__is_zero
 
     def __repr__(self):
         return "Skew-derivation defined through " + str(self.dict()) + " for " + str(self.__sigma)

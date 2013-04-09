@@ -1957,7 +1957,6 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
         EXAMPLES::
 
           sage: R.<n> = QQ['n']; A.<Sn> = OreAlgebra(R, 'Sn')
-          
           sage: (Sn - (n+1)).generalized_series_solutions()
           [(n/e)^n*n^(1/2)*(1 + 1/12*n^(-1) + 1/288*n^(-2) - 139/51840*n^(-3) - 571/2488320*n^(-4) + O(n^(-5)))]
           sage: map(Sn - (n+1), _)
@@ -2777,7 +2776,7 @@ class UnivariateDifferenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
           Sx^4 - 4*Sx^3 + 6*Sx^2 - 4*Sx + 1
         
         """
-        R = self.base_ring(); x = R.gen(); one = R.one(); zero 
+        R = self.base_ring(); x = R.gen(); one = R.one(); 
 
         if type(alg) == str:
             alg = self.parent().change_var_sigma_delta(alg, {x:x+one}, {})

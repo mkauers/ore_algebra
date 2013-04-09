@@ -426,19 +426,35 @@ def _guess_via_hom(data, A, modulus, to_hom, **kwargs):
 
         if ncpus == 1:
             # sequential version 
-            data_mod = None
-            while data_mod is None:
-                p = modulus.next(); hom = to_hom(p)
-                info(2, "modulus = " + str(p))
-                try:
-                    data_mod = map(hom, data)
-                except ArithmeticError:
-                    info(2, "unlucky modulus discarded.")
 
-            Lp = guess(data_mod, A.change_ring(hom(K.one()).parent()[x]), **kwargs)
-            if type(Lp) is tuple and len(Lp) == 2:
-                Lp, path = Lp
-                kwargs['path'] = path
+            imgs = [];
+            for i in xrange(max(1, nn - 3)): # do several imgs before proceeding with a reconstruction attempt
+                
+                data_mod = None
+                while data_mod is None:
+                    p = modulus.next(); hom = to_hom(p)
+                    info(2, "modulus = " + str(p))
+                    try:
+                        data_mod = map(hom, data)
+                    except ArithmeticError:
+                        info(2, "unlucky modulus discarded.")
+
+                Lp = guess(data_mod, A.change_ring(hom(K.one()).parent()[x]), **kwargs)
+                if type(Lp) is tuple and len(Lp) == 2:  ## this implies nn < 3  
+                    Lp, path = Lp
+                    kwargs['path'] = path
+
+                imgs.append((Lp, p))
+
+            if len(imgs) == 1:
+                Lp, p = imgs[0]
+            else:
+                Lp = A.zero(); p = K.one()
+                for (Lpp, pp) in imgs:
+                    try:
+                        Lp, p = _merge_homomorphic_images(Lp, p, Lpp, pp, reconstruct=False)
+                    except:
+                        info(2, "unlucky modulus " + str(pp) + " discarded")
 
         else:
             # we can assume at this point that nn >= 3 and 'return_short_path' is switched off.
@@ -451,7 +467,7 @@ def _guess_via_hom(data, A, modulus, to_hom, **kwargs):
             for (pp, alg, Lpp) in out:
                 Lpp = alg(Lpp)
                 try:
-                    Lp, p = _merge_homomorphic_images(Lp, p, Lpp, pp)
+                    Lp, p = _merge_homomorphic_images(Lp, p, Lpp, pp, reconstruct=False)
                 except:
                     info(2, "unlucky modulus " + str(pp) + " discarded")
 
@@ -475,6 +491,7 @@ def _guess_via_hom(data, A, modulus, to_hom, **kwargs):
             kwargs['infolevel'] = kwargs['infolevel'] - 2
 
         if not Lp.is_zero():
+            info(2, "Reconstruction attempt...")
             L, mod = _merge_homomorphic_images(L, mod, Lp, p)
 
     return (L, path) if return_short_path else L
@@ -668,7 +685,7 @@ class _linear_polys(object):
 
 ###########################################################################################
 
-def _merge_homomorphic_images(L, mod, Lp, p):
+def _merge_homomorphic_images(L, mod, Lp, p, reconstruct=True):
     """
     Interpolation or chinese remaindering on the coefficients of operators.
 
@@ -681,6 +698,8 @@ def _merge_homomorphic_images(L, mod, Lp, p):
     - ``Lp`` -- an operator in r[x][X]
     - ``p`` -- an element of R such that the hypothetical operator
       gives `Lp` when its coeffs are reduced mod ``p``.
+    - ``reconstruct`` (default: ``True``) -- if set to ``False``, only 
+      do Chinese remaindering, but no rational reconstruction.       
 
     OUTPUT:
 
@@ -742,6 +761,9 @@ def _merge_homomorphic_images(L, mod, Lp, p):
 
         Lmod = L.parent()(coeffs)
         mod *= p
+
+    if not reconstruct:
+        return Lmod, mod
 
     # rational reconstruction attempt
     
