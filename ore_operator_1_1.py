@@ -1242,7 +1242,6 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
 
         return bound         
 
-
 #############################################################################################################
 
 class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUnivariateRing):
@@ -1585,7 +1584,6 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
         delta_Q = delta_Q1 - delta_Q2
 
         return delta_M, delta_Q
-
 
     def forward_matrix_param_rectangular(self, value, n, start=0, m=None):
         """
@@ -2221,6 +2219,12 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
                 d = d+(s[j].lift()/q)*S**j
             sol[i] = d
         return sol
+
+    def right_factors(self):
+        """
+        Returns a list of first-order right hand factors of this operator. 
+        """
+        pass
 
 #############################################################################################################
 

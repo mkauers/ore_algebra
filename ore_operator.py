@@ -859,7 +859,7 @@ class UnivariateOreOperator(OreOperator):
 
         return r
     
-    def xgcrd(self, other,prs=None):
+    def xgcrd(self, other, prs=None):
         """
         When called for two operators p,q, this will return their GCRD g together with 
         two operators s and t such that sp+tq=g. 

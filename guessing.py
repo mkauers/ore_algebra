@@ -615,8 +615,8 @@ def _guess_via_gcrd(data, A, **kwargs):
             new = probe(r, d - 1)
             if len(new) == 0:
                 break
-            m = len(sols) - len(new) # this is > 0
-            d2 = max(int(math.ceil(d - len(sols)*1.0/m)), 0)
+            m = len(sols) - len(new) 
+            d2 = d2 - 1 if m == 0 else max(int(math.ceil(d - len(sols)*1.0/m)), 0)
             sols = probe(r, d2) if d2 < d - 1 else new
             d = d2
             if len(sols) == 0:
