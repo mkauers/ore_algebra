@@ -432,43 +432,66 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         """
         raise NotImplementedError # abstract
 
-    def desingularize(self, p):
+    def _desingularization_order_bound(self):
         """
-        If self has polynomial coefficients, this computes a list of operators [Q1,Q2,...] 
-        such that the product B=Qi*self again has polynomial coefficients and the multiplicity 
-        of ``p`` in the leading coefficient of B is one less than in the leading coefficient of self.
+        Computes a number `m` such that there exists an operator ``Q`` of order `m` such that ``Q*self``
+        is completely desingularized. 
+
+        This method returns per default the maximum element of the elements of spread times `-1`.
+        This is the right choice for many algebras. Other algebras have to override this method appropriately. 
+        """
+        s = self.spread()
+        return 0 if len(s) == 0 else max(0, max([-k for k in s]))
+
+    def desingularize(self, m=-1):
+        """
+        Returns a left multiple of ``self`` whose coefficients are polynomials and whose leading
+        coefficient does not contain unnecessary factors.
 
         INPUT:
 
-        - `p` -- a power of some irreducible polynomial
+        - `m` (optional) -- If the order of ``self`` is `r`, the output operator will have order `r+m`.
+          In order to ensure that all removable factors of the leading coefficient are removed in the 
+          output, `m` has to be chosen sufficiently large. If no `m` is given, a generic upper bound
+          is determined. This feature may not be available for every class.
+
+        OUTPUT:
+        
+        A left multiple of ``self`` whose coefficients are polynomials, whose order is `m` more than
+        ``self``, and whose leading coefficient has as low a degree as possible under these conditions.
 
         EXAMPLES:
 
-          sage: R.<x> = PolynomialRing(QQ); A.<Sx> = OreAlgebra(R, 'Sx')
-          sage: L = (3+x)*(9+7*x+x^2)-(33+70*x+47*x^2+12*x^3+x^4)*Sx + (2+x)^2*(3+5*x+x^2)*Sx^2
-          sage: p = x+2
-          sage: Q = L.desingularize(p)[0]; B=Q*L
-          sage: B.denominator().is_one()
-          True
-          sage: (B.leading_coefficient() / (p+Q.order())).denominator().is_one()
-          True
-          sage: (B.leading_coefficient() / (p+Q.order())^2).denominator().is_one()
-          False
+          sage: R.<x> = ZZ['x']
+          sage: A.<Sx> = OreAlgebra(R, 'Sx')
+          
 
-          sage: R.<x> = PolynomialRing(QQ); A.<Sx> = OreAlgebra(R, 'Sx')
-          sage: L = (4*x-4)*Sx^2 + (2-4*x^2)*Sx +x*(2*x-1)
-          sage: p = x-1
-          sage: Q = L.desingularize(p)[0]; B=Q*L
-          sage: B.denominator().is_one()
-          sage: (B.leading_coefficient() / (p+Q.order())).denominator().is_one()
-          False
-
-          sage: L = (-2/45*x^2 + 1/2*x)*Sx^2 + (-2*x^2 - 1/4)*Sx + x^2 + 2/3*x - 6
-          sage: p = L.leading_coefficient()
-          sage: L.desingularize(p)[0]
-          []
         """
-        raise NotImplementedError
+
+        L = self.numerator()
+        A = L.parent()
+        if A.base_ring().is_field():
+            A = A.change_base(A.base_ring().base())
+            L = A(L)
+        R = A.base_ring(); C = R.base_ring()
+
+        if m < 0:
+            m = L._desingularization_order_bound()
+        
+        if m <= 0:
+            return L
+
+        D = A.zero()
+        while D.order() != L.order() + m:
+            # this is only probabilistic, it may fail to remove some removable factors with low probability.
+            T = A([R.random_element() for i in xrange(m)] + [R.one()])
+            if not T[0].is_zero():
+                D = L.lclm(T)
+            
+        L = A.gen()**m * L
+        _, u, v = L.leading_coefficient().xgcd(D.leading_coefficient())
+
+        return (u*L + v*D).normalize()
 
     def associate_solutions(self, D, p):
         r"""
@@ -1261,6 +1284,25 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             raise ValueError, "p not irreducible?"
         else:
             return K(gcd(r.coefficients()).numerator())
+
+    def _desingularization_order_bound(self):
+
+        m = 0
+        for p, _ in self.numerator().leading_coefficient().factor():
+
+            ip = self.indicial_polynomial(p)
+            nn = 0
+            for q, _ in ip.change_ring(ip.base_ring().fraction_field()).factor():
+                if q.degree() == 1:
+                    try:
+                        nn = max(nn, ZZ(-q[0]))
+                    except:
+                        pass
+            if nn > 0:
+                ip = gcd(ip, reduce(lambda p, q: p*q, [ip.parent().gen() - i for i in xrange(nn)]))
+                m = max(m, nn - ip.degree())
+
+        return m
 
     def _coeff_list_for_indicial_polynomial(self):
         return self.coeffs()
@@ -2228,53 +2270,6 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
                     refined_solutions.append(G([gamma, ram, rho, subexp, alpha - a/ram, [PS(p, len(p)) for p in eexp]]))
 
         return refined_solutions
-
-    def desingularize(self,p):
-        op = self.numerator()
-
-        R = op.parent().base_ring()
-        if R.is_field():
-            R = R.ring()
-        K = PolynomialRing(R.base_ring(), 'y').fraction_field()
-        RY = R.change_ring(K)
-        y = RY(K.gen())
-        S = op.parent().gen()
-
-        # compute denominator bound
-        u = op.leading_coefficient()
-        v = [0,0]
-        for i in RY(u).resultant(RY(p)+y).factor():
-            if i[0].degree()==1 and i[0][0].denominator()==1 and i[0][0]>0 and i[1] > v[1]:
-                v = i
-        v = v[1]
-
-        # compute order bound
-        k=1
-        try:
-            r = -(max(op.spread(p))+op.order())
-        except:
-            return []
-        e = k+r*v
-        neqs = op.order()+r
-
-        # solve linear system
-        q = op.parent().sigma()(p,r)**e
-        I = R.ideal([q])
-        L = R.quotient_ring(I)
-
-        sys = [((S**i)*op).polynomial().padded_list(neqs+1) for i in range(r+1)]
-        sys= map(lambda i: map(lambda p: L(p),i), sys)
-
-        sol = op.parent()._solver(L)(matrix(zip(*sys)))
-
-        # assemble solutions
-        for i in range(len(sol)):
-            d = 0
-            s = sol[i]
-            for j in range(len(s)):
-                d = d+(s[j].lift()/q)*S**j
-            sol[i] = d
-        return sol
 
     def right_factors(self):
         """
