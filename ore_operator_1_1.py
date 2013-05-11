@@ -585,6 +585,62 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
 
         return filter(lambda p: p is not None, sol)
 
+    def resultant(self, other):
+        """
+        Returns the resultant between this operator and ``other``. 
+
+        INPUT:
+        
+        - ``other`` -- some operator that lives in the same algebra as ``self``.
+        
+        OUTPUT:
+
+        The resultant between ``self`` and ``other``, which is defined as the determinant of the
+        `(n+m) x (n+m)` matrix `[ A, D*A, ..., D^(m-1)*A, B, D*B, ..., D^(n-1)*B ]` constructed
+        from the coefficient vectors of the operators obtained from ``self`` and ``other`` by
+        multiplying them by powers of the parent's generator. 
+
+        EXAMPLES::
+
+           sage: R.<x> = ZZ['x']
+           sage: A.<Dx> = OreAlgebra(R, 'Dx')
+           sage: L1 = (5*x+3)*Dx^3 + (7*x+4)*Dx^2 + (3*x+2)*Dx + (4*x-1)
+           sage: L2 = (8*x-7)*Dx^2 + (x+9)*Dx + (2*x-3)
+           sage: L1.resultant(L2)
+           2934*x^5 - 8200*x^4 + 32161*x^3 - 83588*x^2 - 67505*x + 42514
+           sage: L2.resultant(L1)
+           -2934*x^5 + 8200*x^4 - 32161*x^3 + 83588*x^2 + 67505*x - 42514
+
+           sage: R.<x> = ZZ['x']
+           sage: A.<Sx> = OreAlgebra(R, 'Sx')
+           sage: L1 = (5*x+3)*Sx^3 + (7*x+4)*Sx^2 + (3*x+2)*Sx + (4*x-1)
+           sage: L2 = (8*x-7)*Sx^2 + (x+9)*Sx + (2*x-3)
+           sage: L1.resultant(L2)
+           2934*x^5 + 3536*x^4 + 11142*x^3 + 16298*x^2 - 1257*x - 2260
+           sage: L2.resultant(L1)
+           -2934*x^5 - 3536*x^4 - 11142*x^3 - 16298*x^2 + 1257*x + 2260
+
+        """
+        if self.parent() is not other.parent():
+            A, B = canonical_coercion(self, other)
+            return A.resultant(B)
+
+        n = self.order(); m = other.order()
+
+        if n < m:
+            return other.resultant(self) * (-1)**(n+m)
+
+        Alg = self.parent(); s = Alg.sigma()
+        mat = []; A = None; D = Alg.gen()
+
+        # for better performance, we don't use the sylvester matrix 
+        for i in xrange(m):
+            A = self if A == None else D*A
+            mat.append((A % other).coeffs(padd=m-1))
+
+        from sage.matrix.constructor import matrix      
+        return s.factorial(other.leading_coefficient(), n) * matrix(Alg.base_ring().fraction_field(), mat).det()
+
 #############################################################################################################
 
 class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOverUnivariateRing):
