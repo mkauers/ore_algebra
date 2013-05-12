@@ -442,14 +442,14 @@ class OreOperator(RingElement):
                 return coeffs[0]
             
             try:
-                a = sum(R(2*i+3)*coeffs[i] for i in xrange(len(coeffs)))
-                b = sum(R(3*i-1)*coeffs[i] for i in xrange(len(coeffs)))
+                a = sum(R(29*i+13)*coeffs[i] for i in xrange(len(coeffs)))
+                b = sum(R(31*i+17)*coeffs[i] for i in xrange(len(coeffs)))
                 try:
                     c = a.gcd(b)
                 except:
                     c = R.zero()
                 if not proof and not c.is_zero() and \
-                   sum(len(p.coefficients()) for p in coeffs) > 30: # no shortcut for small operators
+                   sum(len(p.coefficients()) for p in coeffs) > 1000: # no shortcut for small operators
                     return c
 
                 coeffs.append(c)

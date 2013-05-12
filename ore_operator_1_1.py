@@ -1295,7 +1295,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             for q, _ in ip.change_ring(ip.base_ring().fraction_field()).factor():
                 if q.degree() == 1:
                     try:
-                        nn = max(nn, ZZ(-q[0]))
+                        nn = max(nn, ZZ(-q[0]/q[1]))
                     except:
                         pass
             if nn > 0:
