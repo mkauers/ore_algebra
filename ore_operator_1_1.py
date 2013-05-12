@@ -2271,11 +2271,108 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
 
         return refined_solutions
 
-    def right_factors(self):
+    def right_factors(self, early_termination=False):
         """
         Returns a list of first-order right hand factors of this operator. 
+
+        INPUT:
+
+        - ``early_termination`` (optional) -- if set to ``True``, the search for factors will be aborted as soon as
+          one factor has been found. A list containing this single factor will be returned (or the empty list if there
+          are no first order factors). If set to ``False`` (default), a complete list will be computed.
+
+        OUTPUT:
+
+        A list of first order operators living in the parent of ``self`` of which ``self`` is a left multiple. 
+
+        Note that this implementation does not construct factors that involve algebraic extensions of the constant
+        field. 
+
+        EXAMPLES::
+
+           sage: R.<n> = ZZ['n']; A.<Sn> = OreAlgebra(R, 'Sn');
+           sage: L = (-25*n^6 - 180*n^5 - 584*n^4 - 1136*n^3 - 1351*n^2 - 860*n - 220)*Sn^2 + (50*n^6 + 560*n^5 + 2348*n^4 + 5368*n^3 + 7012*n^2 + 4772*n + 1298)*Sn - 200*n^5 - 1540*n^4 - 5152*n^3 - 8840*n^2 - 7184*n - 1936
+           sage: L.right_factors()
+           [(n^2 + 2*n + 1)*Sn - 4*n - 2, (-25*n^2 - 30*n - 9)*Sn + 50*n^2 + 160*n + 128]
+
         """
-        pass
+
+        # Petkovsek's algorithm with some mild improvements.
+        
+        if self.is_zero():
+            raise ZeroDivisionError
+
+        coeffs = self.normalize().coeffs()
+        A = self.parent().change_ring(self.base_ring().fraction_field())
+        R = A.base_ring().fraction_field().base()
+        R = R.change_ring(R.base_ring().fraction_field()) # univ poly ring over const field
+        s = A.sigma()
+
+        # shift back such as to make the trailing coefficient nonzero
+        min_r = 0
+        while coeffs[min_r].is_zero():
+            min_r += 1
+        if min_r > 0:
+            coeffs = [s(coeffs[i], -min_r) for i in xrange(min_r, len(coeffs))]
+
+        # handle trivial cases
+        if len(coeffs) == 1:
+            return []
+        elif len(coeffs) == 2: 
+            return [A(coeffs)]
+
+        r = len(coeffs) - 1
+        coeffs = [R(c) for c in coeffs]
+        L = self.parent()(coeffs)
+        sols = []
+
+        # heuristically remove unnecessary factors from leading and trailing coefficients
+        L1 = L.lclm(self.parent()([R(1097), R(1091)])).normalize()
+        lc = R(L.leading_coefficient().gcd(s(L1.leading_coefficient(), -1)))
+        tc = R(L[0].gcd(L1[0]))
+
+        # determine slopes of the newton polygon
+        points = filter(lambda p: p[1] >= 0, [ (i, coeffs[i].degree()) for i in xrange(len(coeffs)) ])
+        deg = max(map(lambda p: p[1], points))
+        slopes = []
+
+        k = 0
+        while k < len(points) - 1:
+            (i1, j1) = points[k]; m = -QQ(deg + 5) # = -infinity
+            for l in xrange(k + 1, len(points)):
+                (i2, j2) = points[l]; m2 = QQ(j2 - j1)/QQ(i2 - i1)
+                if m2 >= m:
+                    m = m2; k = l
+            slopes.append(-m)
+
+        # construct list of all divisors of lc and tc
+        import itertools
+        def alldivisors(poly):
+            poly = R(poly)
+            div = [ [p]*(i+1) for p, e in poly.factor() for i in xrange(e) ]
+            div = reduce(lambda a, b: a+b, div, [])
+            div = [R.one()] + [reduce(lambda p, q: p*q, f) for k in xrange(len(div)) \
+                                    for f in itertools.combinations(div, k + 1) ]
+            return list(set(div))
+        
+        # enter Petkovsek's algorithm
+        for b in alldivisors(tc):
+            for c in alldivisors(s(lc, -r)):
+                if b.degree() - c.degree() not in slopes:
+                    # possible further improvement: instead of discarding these pairs, it would be better
+                    # not to construct them in the first place. 
+                    continue
+                coeffs0 = [R(coeffs[k]*s.factorial(b, k)*s.factorial(s(c, k + 1), r - k)) for k in xrange(r+1)]
+                d = max([p.degree() for p in coeffs0])
+                for p, _ in R([coeffs0[k][d] for k in xrange(r + 1)]).factor():
+                    if p.degree() == 1 and not p[0].is_zero():
+                        z = -p[0]/p[1]
+                        for a in A([coeffs0[k]*(z**k) for k in xrange(r+1)]).polynomial_solutions():
+                            sols.append(A([z*s(a[0])*b, -a[0]*s(c)]).normalize())
+                            if early_termination:
+                                return sols
+
+        return list(set(sols))
 
 #############################################################################################################
 

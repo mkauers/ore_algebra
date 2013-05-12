@@ -941,9 +941,6 @@ class UnivariateOreOperator(OreOperator):
             (15*x^2 + 40*x + 25)*Dx^2 + (-37*x^2 - 46*x - 25)*Dx - 8*x^2 + 15*x - 33
         
         """
-        # BUG: 
-        # L = (-n^10 - 5*n^9 - 10*n^8 - 10*n^7 - 5*n^6 - n^5)*Sn^2 + (20*n^10 + 190*n^9 + 720*n^8 + 1360*n^7 + 1280*n^6 + 480*n^5)*Sn - 96*n^10 - 1344*n^9 - 8328*n^8 - 30048*n^7 - 69840*n^6 - 109152*n^5 - 116040*n^4 - 82752*n^3 - 37824*n^2 - 9984*n - 1152
-        # M = Sn^4 + Sn^3 + (n + 2)*Sn^2 + (4*n^2 + 2*n + 1)*Sn + n - 1
 
         if len(other) != 1:
             return reduce(lambda p, q: p.lclm(q), other, self)
