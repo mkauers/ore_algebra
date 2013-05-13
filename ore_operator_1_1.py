@@ -2316,15 +2316,15 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
             coeffs = [s(coeffs[i], -min_r) for i in xrange(min_r, len(coeffs))]
 
         # handle trivial cases
+        sols = [] if min_r == 0 else [A.gen()]
         if len(coeffs) == 1:
-            return []
+            return sols
         elif len(coeffs) == 2: 
-            return [A(coeffs)]
+            return sols + [A(coeffs)]
 
         r = len(coeffs) - 1
         coeffs = [R(c) for c in coeffs]
         L = self.parent()(coeffs)
-        sols = []
 
         # heuristically remove unnecessary factors from leading and trailing coefficients
         L1 = L.lclm(self.parent()([R(1097), R(1091)])).normalize()

@@ -1699,7 +1699,7 @@ def _quick_check(subsolver, modsolver, modulus, mat, degrees, infolevel):
     R = mat.base_ring()
     _launch_info(infolevel, "quick_check", dim=mat.dimensions(), domain=R)
 
-    if R.is_prime_field():
+    if R.is_prime_field() and R.characteristic() > 0:
         return modsolver(mat, degrees=degrees, infolevel=_alter_infolevel(infolevel, -1, 1))
 
     K = R.base_ring(); x = R.gens()

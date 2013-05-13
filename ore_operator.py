@@ -957,19 +957,14 @@ class UnivariateOreOperator(OreOperator):
         elif self.parent() is not other.parent():
             A, B = canonical_coercion(self, other)
             return A.lclm(B)
-
-        solver = kwargs["solver"] if kwargs.has_key("solver") else None
-        
-        if not isinstance(other, UnivariateOreOperator):
+        elif not isinstance(other, UnivariateOreOperator):
             raise TypeError, "unexpected argument in lclm"
 
-        if self.parent() != other.parent():
-            A, B = canonical_coercion(self, other)
-            return A.lclm(B)
+        solver = kwargs["solver"] if kwargs.has_key("solver") else None
 
         A = self.numerator(); r = A.order()
         B = other.numerator(); s = B.order()
-        D = self.parent().gen()
+        D = A.parent().gen()
 
         t = max(r, s) # expected order of the lclm
 

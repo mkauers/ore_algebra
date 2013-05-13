@@ -1558,7 +1558,7 @@ class OreAlgebra_generic(Algebra):
             merge_levels += 1
             B = B.base_ring()
 
-        solver = nullspace.quick_check(nullspace.kronecker(nullspace.gauss())) # good for ZZ[x...] and GF(p)[x...]
+        solver = nullspace.kronecker(nullspace.gauss()) # good for ZZ[x...] and GF(p)[x...]
         if B is QQ:
             solver = nullspace.clear(solver) # good for QQ[x...]
         elif is_NumberField(B):
@@ -1569,10 +1569,12 @@ class OreAlgebra_generic(Algebra):
         if field:
             solver = nullspace.clear(solver) # good for K(x...)
 
+        solver = nullspace.quick_check(solver) 
+
         for i in xrange(merge_levels):
             solver = nullspace.merge(solver) # good for K(x..)(y..) 
 
-        self.__solvers[R] = solver        
+        self.__solvers[R] = solver
         return solver
 
     def _set_solvers(self, solvers):
