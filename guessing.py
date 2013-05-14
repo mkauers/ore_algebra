@@ -158,6 +158,7 @@ def guess(data, algebra, **kwargs):
     elif is_PolynomialRing(K) and K.base_ring().is_prime_field() and K.characteristic() > 0:  # K == GF(p)[t]
         # eval/interpol
         mod = _linear_polys(K.gen(), 7, K.characteristic())
+        print "here"
         to_hom = lambda mod : (lambda pol : pol(-mod[0]))
         return _guess_via_hom(data, A, mod, to_hom, **kwargs)
 
@@ -439,7 +440,12 @@ def _guess_via_hom(data, A, modulus, to_hom, **kwargs):
                     except ArithmeticError:
                         info(2, "unlucky modulus discarded.")
 
-                Lp = guess(data_mod, A.change_ring(hom(K.one()).parent()[x]), **kwargs)
+                qq = A.is_Q()
+                if not qq:
+                    Lp = guess(data_mod, A.change_ring(hom(K.one()).parent()[x]), **kwargs)
+                else:
+                    qq = hom(qq[1])
+                    Lp = guess(data_mod, OreAlgebra(hom(K.one()).parent()[x], (A.var(), {x:qq*x}, {}), q=qq), **kwargs)
                 if type(Lp) is tuple and len(Lp) == 2:  ## this implies nn < 3  
                     Lp, path = Lp
                     kwargs['path'] = path
@@ -775,8 +781,12 @@ def _merge_homomorphic_images(L, mod, Lp, p, reconstruct=True):
             return Lmod, mod        
         adjust = lambda c : c % mod
 
-    s = L.parent().sigma(); r2 = L.order() // ZZ(2)
-    coeffs = map(lambda c: s(c, -r2), Lmod.coeffs())
+    s = L.parent().sigma(); r2 = Lp.order() // ZZ(2)
+    try:
+        coeffs = map(lambda c: s(c, -r2), Lmod.coeffs())
+    except:
+        r2 = 0
+        coeffs = Lmod.coeffs()
 
     try:
         d = R.one()

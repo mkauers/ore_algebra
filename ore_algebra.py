@@ -1343,7 +1343,7 @@ class OreAlgebra_generic(Algebra):
             try:
                 sx = sigma(x); 
                 if sigma(sx)*x == sx**2 and delta(x) == zero:
-                    candidates.append((x, R(sx(1))))
+                    candidates.append((x, R.base_ring()(sx(1))))
             except:
                 pass
 

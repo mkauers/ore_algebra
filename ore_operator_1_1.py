@@ -2343,7 +2343,8 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
                 (i2, j2) = points[l]; m2 = QQ(j2 - j1)/QQ(i2 - i1)
                 if m2 >= m:
                     m = m2; k = l
-            slopes.append(-m)
+            if m in ZZ:
+                slopes.append(-m)
 
         # construct list of all divisors of lc and tc
         import itertools
@@ -2353,7 +2354,9 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
             div = reduce(lambda a, b: a+b, div, [])
             div = [R.one()] + [reduce(lambda p, q: p*q, f) for k in xrange(len(div)) \
                                     for f in itertools.combinations(div, k + 1) ]
-            return list(set(div))
+            div = list(set(div))
+            div.sort(key=lambda p: p.degree())
+            return div
         
         # enter Petkovsek's algorithm
         for b in alldivisors(tc):
