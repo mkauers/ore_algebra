@@ -2347,24 +2347,53 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
                 slopes.append(-m)
 
         # construct list of all divisors of lc and tc
-        import itertools
-        def alldivisors(poly):
-            poly = R(poly)
-            div = [ [p]*(i+1) for p, e in poly.factor() for i in xrange(e) ]
-            div = reduce(lambda a, b: a+b, div, [])
-            div = [R.one()] + [reduce(lambda p, q: p*q, f) for k in xrange(len(div)) \
-                                    for f in itertools.combinations(div, k + 1) ]
-            div = list(set(div))
-            div.sort(key=lambda p: p.degree())
-            return div
-        
+        class exponent_vectors:
+
+            def __init__(self, bounds):
+                self.bounds = bounds
+                self.current = [0 for i in xrange(len(bounds))]
+                if len(bounds) > 0:
+                    self.current[0] = -1
+
+            def __iter__(self):
+                return self
+
+            def next(self):
+                try:
+                    self.current[0] += 1
+                    for i in xrange(len(self.current)):
+                        if self.current[i] > self.bounds[i][1]:
+                            self.current[i] = 0; self.current[i+1] += 1
+                        else:
+                            break
+                except:
+                    raise StopIteration
+                return tuple(self.current)
+
+        tc = [ (R(s(p, e[0][0])), sum([u[1] for u in e])) for p, e in _shift_factor(R(tc))]
+        lc = [ (R(s(p, e[-1][0])), sum([u[1] for u in e])) for p, e in _shift_factor(R(s(lc, -r)))]
+
+        c_cache = dict(); pairs_considered = 0; pairs_in_total = 0
         # enter Petkovsek's algorithm
-        for b in alldivisors(tc):
-            for c in alldivisors(s(lc, -r)):
-                if b.degree() - c.degree() not in slopes:
-                    # possible further improvement: instead of discarding these pairs, it would be better
-                    # not to construct them in the first place. 
-                    continue
+        for b_exp in exponent_vectors(tc):
+            b_deg = sum([b_exp[i]*tc[i][0].degree() for i in xrange(len(b_exp))])
+            b = None
+            for c_exp in exponent_vectors(lc):
+
+                pairs_in_total += 1
+
+                c_deg = sum([c_exp[i]*lc[i][0].degree() for i in xrange(len(c_exp))])
+                if b_deg - c_deg not in slopes:
+                    continue # discard pair, there can be no solution
+                elif b is None:
+                    b = reduce(lambda p, q: p*q, [tc[i][0]**b_exp[i] for i in xrange(len(b_exp))], R.one())
+
+                if not c_cache.has_key(c_exp):
+                    c_cache[c_exp] = reduce(lambda p, q: p*q, [lc[i][0]**c_exp[i] for i in xrange(len(c_exp))], R.one())
+                c = c_cache[c_exp]
+
+                pairs_considered += 1
+                
                 coeffs0 = [R(coeffs[k]*s.factorial(b, k)*s.factorial(s(c, k + 1), r - k)) for k in xrange(r+1)]
                 d = max([p.degree() for p in coeffs0])
                 for p, _ in R([coeffs0[k][d] for k in xrange(r + 1)]).factor():
@@ -2374,6 +2403,8 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
                             sols.append(A([z*s(a[0])*b, -a[0]*s(c)]).normalize())
                             if early_termination:
                                 return sols
+
+        # print pairs_considered, "of", pairs_in_total, "factor pairs have been investigated"
 
         return list(set(sols))
 

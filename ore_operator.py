@@ -491,7 +491,7 @@ class OreOperator(RingElement):
         else:
             return self.map_coefficients(lambda p: p//c)
 
-    def normalize(self, proof=False):
+    def normalize(self, proof=True):
         """
         Returns a normal form of ``self``.
 
