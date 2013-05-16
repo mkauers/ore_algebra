@@ -684,6 +684,48 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         from sage.matrix.constructor import matrix      
         return s.factorial(other.leading_coefficient(), n) * matrix(Alg.base_ring().fraction_field(), mat).det()
 
+    def factor(self):
+        """
+        Returns a factorization of this operator into linear factors, if possible.
+
+        More precisely, the output will be a list  `[L1,L2,...]` of operators such that 
+        
+          * `L1*L2*...` is equal to ``self``
+          * `L2,L3,...` are monic first order operators
+          * `L1` has no first order right hand factor
+
+        This method requires the method ``right_factors()`` to be implemented. 
+
+        EXAMPLE::
+
+          sage: R.<n> = ZZ['n']; A.<Sn> = OreAlgebra(R, 'Sn')
+          sage: L = (-2*n^4 - 17*n^3 - 45*n^2 - 33*n + 9)*Sn^3 + (6*n^4 + 57*n^3 + 168*n^2 + 148*n - 15)*Sn^2 + (-4*n^4 - 44*n^3 - 157*n^2 - 195*n - 38)*Sn + 4*n^3 + 34*n^2 + 80*n + 44
+          sage: L.factor()
+          [-2*n^4 - 17*n^3 - 45*n^2 - 33*n + 9,
+          Sn + (-4*n^5 - 44*n^4 - 171*n^3 - 295*n^2 - 230*n - 66)/(4*n^5 + 44*n^4 + 175*n^3 + 291*n^2 + 147*n - 45),
+          Sn + (2*n + 5)/(-2*n^2 - 7*n - 6),
+          Sn + (-2*n - 4)/(n + 1)]
+          sage: reduce(lambda p,q: p*q, _) - L
+          0
+        
+        """
+        from sage.structure.factorization import Factorization
+
+        if self.is_zero():
+            raise ArithmeticError, "Factorization of 0 not defined."
+        elif self.order() == 0:
+            return [self]
+        elif self.order() == 1:
+            lc = self.leading_coefficient()
+            return [self.parent()(lc), (~lc)*self]
+
+        rf = self.right_factors(early_termination=True)
+        if len(rf) == 0:
+            return [self]
+        else:
+            Q = rf[0].monic(); P = self // Q
+            return P.factor() + [Q]
+
 #############################################################################################################
 
 class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOverUnivariateRing):
