@@ -644,10 +644,11 @@ class UnivariateOreOperator(OreOperator):
         else:
             D = lambda p:p
 
-        R = f.parent(); Dif = f; result = R(self[0])*f; 
+        coeffs = self.coeffs()
+        R = f.parent(); Dif = f; result = R(coeffs[0])*f; 
         for i in xrange(1, self.order() + 1):
             Dif = D(Dif)
-            result += R(self[i])*Dif
+            result += R(coeffs[i])*Dif
         
         return result
 

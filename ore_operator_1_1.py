@@ -460,11 +460,21 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         A left multiple of ``self`` whose coefficients are polynomials, whose order is `m` more than
         ``self``, and whose leading coefficient has as low a degree as possible under these conditions.
 
+        The output is not unique. With low probability, the leading coefficient degree in the output
+        may not be minimal. 
+
         EXAMPLES:
 
-          sage: R.<x> = ZZ['x']
-          sage: A.<Sx> = OreAlgebra(R, 'Sx')
-          
+          sage: R.<n> = ZZ['n']
+          sage: A.<Sn> = OreAlgebra(R, 'Sn')
+          sage: P = (-n^3 - 2*n^2 + 6*n + 9)*Sn^2 + (6*n^3 + 8*n^2 - 20*n - 30)*Sn - 8*n^3 - 12*n^2 + 20*n + 12
+          sage: Q = P.desingularize()
+          sage: Q.order()
+          4
+          sage: Q.leading_coefficient().degree()
+          1
+          sage: Q.leading_coefficient()
+          3114*n + 15570   # random
 
         """
 
@@ -474,24 +484,34 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
             A = A.change_base(A.base_ring().base())
             L = A(L)
         R = A.base_ring(); C = R.base_ring()
+        sub = m - 1
 
         if m < 0:
             m = L._desingularization_order_bound()
+            sub = 0
         
         if m <= 0:
             return L
 
-        D = A.zero()
-        while D.order() != L.order() + m:
-            # this is only probabilistic, it may fail to remove some removable factors with low probability.
-            T = A([R.random_element() for i in xrange(m)] + [R.one()])
-            if not T[0].is_zero():
-                D = L.lclm(T)
-            
-        L = A.gen()**m * L
-        _, u, v = L.leading_coefficient().xgcd(D.leading_coefficient())
+        deg = None; Dold = A.zero()
 
-        return (u*L + v*D).normalize()
+        for k in xrange(m, sub, -1):
+            D = A.zero(); 
+            while D.order() != L.order() + k:
+                # this is only probabilistic, it may fail to remove some removable factors with low probability.
+                T = A([R.random_element() for i in xrange(k)] + [R.one()])
+                if not T[0].is_zero():
+                    D = L.lclm(T)
+            L0 = (A.gen()**k)*L
+            _, u, v = L0.leading_coefficient().xgcd(D.leading_coefficient())
+            D = (u*L0 + v*D).normalize()
+            if k == m:
+                deg = D.leading_coefficient().degree() 
+            elif deg < D.leading_coefficient().degree():
+                return Dold
+            Dold = D
+        
+        return D                
 
     def associate_solutions(self, D, p):
         r"""
@@ -1956,7 +1976,14 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
         return self.parent()(reduce(lambda p, q: p.lclm(q), ops).numerator())
 
     def _coeff_list_for_indicial_polynomial(self):
-        return self.to_F('F').coeffs()
+        d = self.degree() # assuming coeffs are polynomials, not ratfuns.
+        r = self.order()
+        if d > max(20, r + 2):
+            # throw away coefficients which have no chance to influence the indicial polynomial
+            q = self.base_ring().gen()**(d - (r + 2))
+            return self.map_coefficients(lambda p: p // q).to_F('F').coeffs()
+        else:
+            return self.to_F('F').coeffs()
 
     def spread(self, p=0):
         """
@@ -2106,14 +2133,15 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
                 (i2, j2) = points[l]; s2 = QQ(j2 - j1)/QQ(i2 - i1)
                 if s2 >= s:
                     s = s2; k = l
-            if s.is_zero():
-                solutions.append( [QQ.zero(), [c.shift(w_prec - deg) for c in coeffs ]] )
+            if s == 0:
+                newcoeffs = [c.shift(w_prec - deg) for c in coeffs ]
             else:
-                v = s.denominator(); newcoeffs = []
+                v = s.denominator(); underflow = max(0, v*r*s)
                 newdeg = max([ coeffs[i].degree() - i*s for i in xrange(len(coeffs)) if coeffs[i] != 0 ])
-                for i in xrange(len(coeffs)):
-                    newcoeffs.append((coeffs[i](x**v)*subs(x, prec=w_prec, shift=i, gamma=-s)).shift(-v*newdeg))
-                solutions.append( [-s, newcoeffs ] )
+                newcoeffs = [(coeffs[i](x**v)*subs(x, prec=w_prec + underflow, shift=i, gamma=-s))
+                             .shift(-v*(newdeg + underflow)) for i in xrange(len(coeffs))]
+
+            solutions.append( [-s, newcoeffs ] )
 
         if dominant_only:
             max_gamma = max( [g for (g, _) in solutions ] )
@@ -2205,7 +2233,9 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
 
         for (gamma, rho, subexp, ram, alpha, e, degdrop) in solutions:
 
-            coeffs = [(origcoeffs[i](x**ram)*subs(x, prec, i, gamma, rho, subexp, ram)) for i in xrange(r + 1)]
+            underflow = max(0, -ram*r*gamma)
+            coeffs = [(origcoeffs[i](x**ram)*subs(x, prec + underflow, i, gamma, rho, subexp, ram)).shift(-underflow)\
+                          for i in xrange(r + 1)]
             deg = max([c.degree() for c in coeffs])
             coeffs = [coeffs[i].shift(ram*prec - deg) for i in xrange(r + 1)]            
             sols = dict( (a, []) for (a, b) in e )
@@ -2346,21 +2376,23 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
             if m in ZZ:
                 slopes.append(-m)
 
-        # construct list of all divisors of lc and tc
+        # construct iterator over all the divisors of lc and tc
         class exponent_vectors:
 
             def __init__(self, bounds):
+                # if bounds == [ (p1, e1), (p2, e2) ], the iterator produces
+                # (0, 0), (1, 0) ... (e1, 0), (0, 1), (1, 1), ... (e1, 1) ... (e1, e2)
                 self.bounds = bounds
                 self.current = [0 for i in xrange(len(bounds))]
                 if len(bounds) > 0:
                     self.current[0] = -1
 
             def __iter__(self):
-                return self
+                return self if len(self.bounds) > 0 else iter([()])
 
             def next(self):
+                self.current[0] += 1
                 try:
-                    self.current[0] += 1
                     for i in xrange(len(self.current)):
                         if self.current[i] > self.bounds[i][1]:
                             self.current[i] = 0; self.current[i+1] += 1
@@ -2370,41 +2402,66 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
                     raise StopIteration
                 return tuple(self.current)
 
-        tc = [ (R(s(p, e[0][0])), sum([u[1] for u in e])) for p, e in _shift_factor(R(tc))]
-        lc = [ (R(s(p, e[-1][0])), sum([u[1] for u in e])) for p, e in _shift_factor(R(s(lc, -r)))]
+        tc = [ (R(s(p, e[0][0]).numerator()), sum([u[1] for u in e])) for p, e in _shift_factor(R(tc))]
+        tc.sort(key=lambda u: u[0].degree()*u[1]) # small stuff first
+        lc = [ (R(s(p, e[-1][0]).numerator()), sum([u[1] for u in e])) for p, e in _shift_factor(R(s(lc, -r)))]
+        lc.sort(key=lambda u: u[0].degree()*u[1]) # small stuff first
+
+        #print reduce(lambda p,q: p*q, [p[1] + 1 for p in (tc + lc + [(0, 0)])], 1), " pairs expected"
+        #print "slopes: ", slopes
 
         c_cache = dict(); pairs_considered = 0; pairs_in_total = 0
+
         # enter Petkovsek's algorithm
         for b_exp in exponent_vectors(tc):
+
             b_deg = sum([b_exp[i]*tc[i][0].degree() for i in xrange(len(b_exp))])
-            b = None
+            b_fac_list = None
+
             for c_exp in exponent_vectors(lc):
+
+                ## possible further improvements: 
+                ##   * in the iterator for c_exp, take into account b_deg and min(slopes), max(slopes)
+                ##   * use a combined iterator which iterates over pairs (b,c) in increasing order of deg(b)+deg(c)
 
                 pairs_in_total += 1
 
                 c_deg = sum([c_exp[i]*lc[i][0].degree() for i in xrange(len(c_exp))])
                 if b_deg - c_deg not in slopes:
                     continue # discard pair, there can be no solution
-                elif b is None:
+                
+                if b_fac_list is None:
                     b = reduce(lambda p, q: p*q, [tc[i][0]**b_exp[i] for i in xrange(len(b_exp))], R.one())
+                    b_fac_list = [R.one()] # 1, b, b*s(b), ... fac(b, k), ...
+                    for k in xrange(r):
+                        b_fac_list.append(b_fac_list[-1]*s(b, k))
 
                 if not c_cache.has_key(c_exp):
-                    c_cache[c_exp] = reduce(lambda p, q: p*q, [lc[i][0]**c_exp[i] for i in xrange(len(c_exp))], R.one())
-                c = c_cache[c_exp]
+                    c = s(reduce(lambda p, q: p*q, [lc[i][0]**c_exp[i] for i in xrange(len(c_exp))], R.one()), r)
+                    c_fac_list = [R.one()] 
+                    for k in xrange(r):
+                        c_fac_list.append(c_fac_list[-1]*s(c, -k))
+                    c_fac_list.reverse() # ... fac(s(c, k+1), r-k), ..., s(c,r)*s(c,r-1), s(c,r), 1
+                    c_cache[c_exp] = c_fac_list
+                else:
+                    c_fac_list = c_cache[c_exp]
+
+                c = s(c_fac_list[-2], -r)
 
                 pairs_considered += 1
-                
-                coeffs0 = [R(coeffs[k]*s.factorial(b, k)*s.factorial(s(c, k + 1), r - k)) for k in xrange(r+1)]
+
+                coeffs0 = [R(coeffs[k]*b_fac_list[k]*c_fac_list[k]) for k in xrange(r+1)]
                 d = max([p.degree() for p in coeffs0])
                 for p, _ in R([coeffs0[k][d] for k in xrange(r + 1)]).factor():
                     if p.degree() == 1 and not p[0].is_zero():
                         z = -p[0]/p[1]
                         for a in A([coeffs0[k]*(z**k) for k in xrange(r+1)]).polynomial_solutions():
                             sols.append(A([z*s(a[0])*b, -a[0]*s(c)]).normalize())
-                            if early_termination:
+                            if early_termination or len(sols) == self.order():
+                                #print pairs_considered, "of", pairs_in_total, "factor pairs have been investigated"
                                 return sols
 
-        # print pairs_considered, "of", pairs_in_total, "factor pairs have been investigated"
+        #print pairs_considered, "of", pairs_in_total, "factor pairs have been investigated"
 
         return list(set(sols))
 
