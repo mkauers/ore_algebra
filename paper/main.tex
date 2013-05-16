@@ -1,0 +1,119 @@
+\documentclass[a4paper,draft]{amsart}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{bbm}
+\usepackage{a4wide}
+
+\parindent=0pt
+\parskip\smallskipamount
+
+\let\set\mathbbm
+\def\<#1>{\langle#1\rangle}
+\let\ideal\unlhd
+\def\i{\mathrm{i}}
+\def\e{\mathrm{e}}
+
+\newtheorem{thm}{Theorem}
+\newtheorem{prop}{Proposition}
+\newtheorem{defn}{Definition}
+\newtheorem{conj}{Conjecture}
+
+\newcommand\todo[1][.]{\edef\tmpa{.}\edef\tmpb{#1}%
+  \ifx\tmpa\tmpb
+    \typeout{To Be on page \thepage}\fbox{\bf To Be}
+  \else
+    \typeout{To Be on page \thepage: #1}\fbox{{\bf To Be:} #1}
+  \fi
+}
+
+\begin{document}
+
+ \author[Manuel Kauers, Maximilian Jaroschek, Fredrik Johansson]
+   {Manuel Kauers\,$^\ast$, Maximilian Jaroschek\,$^\ast$, Fredrik Johansson\,$^\ast$}
+ \address{Manuel Kauers, Research Institute for Symbolic Computation (RISC), J. Kepler University Linz, Austria}
+ \email{mkauers@risc.uni-linz.ac.at}
+ \address{Maximilian Jaroschek, Research Institute for Symbolic Computation (RISC), J. Kepler University Linz, Austria}
+ \email{mjarosch@risc.uni-linz.ac.at}
+ \address{Fredrik Johansson, Research Institute for Symbolic Computation (RISC), J. Kepler University Linz, Austria}
+ \email{fjohanss@risc.uni-linz.ac.at}
+ \thanks{$^\ast$ Supported by the Austrian FWF grant Y464-N18.}
+
+ \title{Ore Polynomials in Sage}
+
+ \begin{abstract}
+We present a Sage implementation of Ore algebras. The main features for the most
+common instances include basic arithmetic and actions; gcrd and lclm; D-finite
+closure properties; natural transformations between related algebras; guessing;
+desingularization; solvers for polynomials, rational functions and (generalized)
+power series. This paper is a tutorial on how to use the package.
+ \end{abstract}
+
+ \maketitle
+
+%%% page limit: 20, goal: 15--20.
+
+\section{Introduction}
+
+motivation
+
+similar packages: gfun, mallinger, q-gfun, future: mgfun, holonomicfunctions
+
+overview over the package
+
+short demo
+
+outlook, pending tasks (multivariate!)
+
+how to get it and how to install it. 
+
+\section{Ore Algebras and Ore Polynomials}
+
+\subsection{In Theory}
+
+basic facts and definitions
+
+reference to literature
+
+\subsection{In Sage}
+
+ground rings 
+
+general sigma and delta
+
+predefined shortcuts: D, T, S, F, J, Q, C
+
+\section{General Methods}
+
+arithmetic, lclm, gcrd, action, coercion and conversion, pretty printing, coefficient extraction,
+closure properties
+
+\section{Special Methods Standard Algebras}
+
+special methods available for univ algebras with univ algebra as ground ring
+
+\subsection{Differential Operators}
+
+D and theta
+
+\subsection{Recurrence Operators}
+
+delta and S
+
+\subsection{The $q$-Case}
+
+J and Q
+
+\section{Guessing}
+
+\section{Further Examples}
+
+Some longer session showing how to solve a meaningful problem by using several features of the code. Ideas?
+
+\subsection{}
+
+\subsection{}
+
+ \bibliographystyle{plain}
+ \bibliography{all}
+ 
+\end{document}
