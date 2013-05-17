@@ -333,7 +333,7 @@ def _pivot(mat, r, n, c, m, zero):
     l = float(len(piv_cand)); avg_nz_fillin /= l; avg_term_fillin /= l
 
     # select the candidate where both the term-fillin and the non-zero-fillin are small
-    alpha = 1/avg_nz_fillin; gamma = 1/avg_term_fillin
+    alpha = 1/max(.01, avg_nz_fillin); gamma = 1/max(.01, avg_term_fillin)
     pivot = min(piv_cand, key=lambda (i, j, w1, w2, w3): (alpha*w1)**2 + (gamma*w3)**2)
     del piv_cand
     return (pivot[0] + r, pivot[1] + c)

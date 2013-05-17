@@ -1040,7 +1040,7 @@ class UnivariateOreOperator(OreOperator):
         operator `C` such that for all \"functions\" `f` and `g` with `A.f=B.g=0`
         we have `C.(fg)=0`.
 
-        The function requires that a product rule is associated to the ore algebra
+        The method requires that a product rule is associated to the Ore algebra
         where ``self`` and ``other`` live. (See docstring of OreAlgebra for information
         about product rules.)
 
@@ -1247,6 +1247,109 @@ class UnivariateOreOperator(OreOperator):
 
         L = A.parent()(list(sol[0]))
         return L
+
+    def annihilator_of_polynomial(self, poly, solver=None):
+        """
+        Returns an annihilating operator of a polynomial expression evaluated at solutions of ``self``.
+
+        INPUT:
+
+        - ``poly`` -- a multivariate polynomial, say in the variables `x0,x1,x2,...`, with coefficients
+          in the base ring of the parent of ``self``.
+          The number of variables in the parent of ``poly`` must be at least the order of ``self``.
+        
+        OUTPUT:
+
+          An operator `L` with the following property. 
+          Let `A` be the parent of ``self``.
+          For a function `f` write `Df,D^2f,...` for the functions obtained from `f` by letting the generator
+          of `A` act on them. 
+          Then the output `L` is such that for all `f` annihilated by ``self`` we have
+          `L(p(f,Df,D^2f,...))=0`, where `p` is the input polynomial.
+
+        The method requires that a product rule is associated to `A`. 
+        (See docstring of OreAlgebra for information about product rules.)
+
+        NOTE:
+
+          Even for small input, the output operator may be very large, and its computation may need a lot of time.
+
+        EXAMPLES::
+
+          sage: K.<x> = ZZ['x']; K = K.fraction_field(); R.<n> = K['n']
+          sage: A.<Sn> = OreAlgebra(R, 'Sn'); R.<y0,y1,y2> = K['n'][]
+          sage: L = (n+2)*Sn^2 - (2*n+3)*x*Sn + (n+1)
+          sage: L.annihilator_of_polynomial(y1^2-y2*y0) # Turan's determinant
+          (-2*n^4 - 31*n^3 - 177*n^2 - 440*n - 400)*Sn^3 + ((8*x^2 - 2)*n^4 + (100*x^2 - 21)*n^3 + (462*x^2 - 75)*n^2 + (935*x^2 - 99)*n + 700*x^2 - 28)*Sn^2 + ((-8*x^2 + 2)*n^4 + (-92*x^2 + 27)*n^3 + (-390*x^2 + 129)*n^2 + (-721*x^2 + 261)*n - 490*x^2 + 190)*Sn + 2*n^4 + 17*n^3 + 51*n^2 + 64*n + 28
+          sage: M = L.annihilator_of_associate(Sn).symmetric_power(2).lclm(L.annihilator_of_associate(Sn^2).symmetric_product(L)) # same by lower level methods. 
+          sage: M.order() # overshoots
+          7
+          sage: M % L.annihilator_of_polynomial(y1^2-y2*y0) 
+          0
+
+          sage: K = ZZ; R.<x> = K['x']
+          sage: A.<Dx> = OreAlgebra(R, 'Dx'); R.<y0,y1> = K['x'][]
+          sage: L = (2*x+3)*Dx^2 + (4*x+5)*Dx + (6*x+7)
+          sage: L.annihilator_of_polynomial((2*x+1)*y0^2-y1^2)
+          (-16*x^7 - 112*x^6 - 312*x^5 - 388*x^4 - 85*x^3 + 300*x^2 + 303*x + 90)*Dx^3 + (-96*x^7 - 600*x^6 - 1420*x^5 - 1218*x^4 + 747*x^3 + 2285*x^2 + 1623*x + 387)*Dx^2 + (-320*x^7 - 1920*x^6 - 4288*x^5 - 3288*x^4 + 2556*x^3 + 6470*x^2 + 4322*x + 1014)*Dx - 384*x^7 - 2144*x^6 - 4080*x^5 - 1064*x^4 + 7076*x^3 + 10872*x^2 + 6592*x + 1552
+
+        """
+
+        if self.is_zero():
+            return self
+        elif self.order() == 0:
+            return self.one()
+        
+        A = self.parent(); pr = A._product_rule(); R = poly.parent(); r = self.order()
+        if len(R.gens()) < r:
+            raise TypeError, "poly must live in a ring with at least " + str(r) + " variables."
+        elif R.base_ring().fraction_field() is not self.base_ring().fraction_field():
+            raise TypeError, "poly must live in a ring with coefficient field " + str(self.base_ring()) + "."
+        elif pr is None:
+            raise ValueError, "no product rule found"
+
+        K = R.base_ring().fraction_field()
+        A = A.change_ring(K); R = R.change_ring(K); 
+        L = A(self); poly = R(poly)
+        sigma = A.sigma(); delta = A.delta()
+
+        shift_cache = { R.one().exponents()[0] : R.one() }
+        vars = R.gens()
+        for i in xrange(r - 1):
+            shift_cache[vars[i].exponents()[0]] = vars[i + 1]
+        shift_cache[vars[r - 1].exponents()[0]] = (-1/L.leading_coefficient())*sum(L[i]*vars[i] for i in xrange(r))
+
+        def shift(p): # computes D( p ), as element of R
+            out = R.zero()
+            for m, c in zip(p.monomials(), p.coefficients()):
+                exp = m.exponents()[0]
+                if not shift_cache.has_key(exp):
+                    x = vars[min([i for i in xrange(r) if exp[i] > 0])]
+                    m0 = m//x; A = shift_cache[x.exponents()[0]]; B = shift(m0)
+                    shift_cache[exp] = pr[0]*m + pr[1]*(A*m0 + x*B) + pr[2]*A*B
+                out += sigma(c)*shift_cache[exp]
+            return p.map_coefficients(delta) + out
+        
+        if len(vars) > r:
+            subs = {str(vars[0]):vars[0]}; p = vars[0]
+            for i in xrange(len(vars) - 1):
+                p = shift(p); subs[str(vars[i+1])] = p
+            poly = poly(**subs)
+
+        if solver is None:
+            solver = A._solver()
+
+        shifts = [poly]; basis = set(poly.monomials()) # set of all monomials appearing in any of the shifts
+        from sage.matrix.constructor import Matrix
+        sol = []
+
+        while len(sol) == 0:
+
+            shifts.append(shift(shifts[-1]))
+            basis = basis.union(shifts[-1].monomials())
+            sol = solver(Matrix(K, [[shifts[i].monomial_coefficient(m) for i in xrange(len(shifts))] for m in basis ]))
+
+        return self.parent()(list(sol[0]))
 
     # coefficient-related functions
 
