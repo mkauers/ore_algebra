@@ -859,13 +859,18 @@ class UnivariateOreOperator(OreOperator):
             r = r.primitive_part()
 
         return r
-    
-    def xgcrd(self, other, prs=None):
+
+    def xgcd(self, other, prs=None):
         """
         When called for two operators p,q, this will return their GCRD g together with 
         two operators s and t such that sp+tq=g. 
         It is possible to specify which remainder sequence should be used.
         """
+        return self._xeuclid(other, prs, "bezout")
+
+    def _xeuclid(self, other, prs=None, retval="bezout"):
+        # retval == "bezout" ===> returns (g, u, v) st gcrd(self, other) == g == u*self + v*other
+        # retval == "syzygy" ===> returns the smallest degree syzygy (u, v) of self and other
 
         if self.is_zero():
             return other
@@ -875,40 +880,37 @@ class UnivariateOreOperator(OreOperator):
             return self.parent().one()
         elif self.parent() is not other.parent():
             A, B = canonical_coercion(self, other)
-            return A.xgcrd(B)
+            return A._xeuclid(B, prs, retval)
 
-        r = (self,other)
-        if (r[0].order()<r[1].order()):
-            r=(other,self)
+        r = (self, other)
+        if r[0].order() < r[1].order():
+            r = (other, self)
         
         R = r[0].parent()
         RF = R.change_ring(R.base_ring().fraction_field())
 
-        a11,a12,a21,a22 = RF.one(),RF.zero(),RF.zero(),RF.one()
+        a11, a12, a21, a22 = RF.one(), RF.zero(), RF.zero(), RF.one()
 
-        if prs==None:
-            if R.base_ring().is_field():
-                prs = __classicPRS__
-            else:
-                prs = __improvedPRS__
+        if prs is None:
+            prs = __classicPRS__ if R.base_ring().is_field() else __improvedPRS__
 
         additional = []
 
         while not r[1].is_zero():  
-            (r2,q,alpha,beta,correct)=prs(r,additional)
+            (r2, q, alpha, beta, correct) = prs(r, additional)
             if not correct:
                 prs = __primitivePRS__
             else:
-                r=r2
-                bInv = ~beta
-                a11,a12,a21,a22 = a21,a22,bInv*(alpha*a11-q*a21),bInv*(alpha*a12-q*a22)
+                r = r2; bInv = ~beta
+                a11, a12, a21, a22 = a21, a22, bInv*(alpha*a11 - q*a21), bInv*(alpha*a12 - q*a22)
 
-        r=r[0]
+        if retval == "syzygy":
+            c = a21.denominator().lcm(a22.denominator())
+            return (c*a21, c*a22) ### ???correct???
 
-        if not prs==__classicPRS__:
-            r = r.primitive_part()
-
-        return (r,a11,a12)
+        r = r[0]
+        c = RF.base_ring().one() if prs is __classicPRS__ else ~r.content()
+        return (self.parent()(c*r), c*a11, c*a12) 
 
     def lclm(self, *other, **kwargs):
         """
@@ -923,9 +925,26 @@ class UnivariateOreOperator(OreOperator):
         If more than one operator is given, the function computes the lclm
         of all the operators.
 
-        Through the optional argument ``solver``, a callable object can be
-        provided which the function should use for computing the kernel of
-        matrices with entries in the Ore algebra's base ring. 
+        The optional argument ``algorithm`` allows to select between the following
+        methods.
+
+        * ``linalg`` (default) -- makes an ansatz for cofactors and solves a linear
+          system over the base ring. 
+          Through the optional argument ``solver``, a callable object can be
+          provided which the function should use for computing the kernel of
+          matrices with entries in the Ore algebra's base ring. 
+
+        * ``euclid`` -- uses the extended Euclidean algorithm to compute a minimal
+          syzygy between the operators in the input. Further optional arguments
+          can be passed as explained in the docstring of ``xgcrd``.
+
+        * ``guess`` -- computes the first terms of a solution of ``self`` and ``other``
+          and guesses from these a minimal operator annihilating a generic linear
+          combination. Unless the input are recurrence operators, an keyword argument
+          ``to_list`` has to be present which specifies a function for computing the
+          terms (input: an operator, a list of initial values, and the desired number
+          of terms). This method is heuristic. It may be much faster than the others,
+          but with low probability its output is incorrect or it aborts with an error. 
 
         EXAMPLES::
 
@@ -944,7 +963,9 @@ class UnivariateOreOperator(OreOperator):
         """
 
         if len(other) != 1:
-            return reduce(lambda p, q: p.lclm(q), other, self)
+            # possible improvement: rewrite algorithms to allow multiple arguments where possible
+            other.append(self); other.sort(key=lambda p: p.order())
+            return reduce(lambda p, q: p.lclm(q, **kwargs), other)
         elif len(other) == 0:
             return self
 
@@ -957,9 +978,28 @@ class UnivariateOreOperator(OreOperator):
             return self
         elif self.parent() is not other.parent():
             A, B = canonical_coercion(self, other)
-            return A.lclm(B)
+            return A.lclm(B, **kwargs)
         elif not isinstance(other, UnivariateOreOperator):
             raise TypeError, "unexpected argument in lclm"
+
+        if not kwargs.has_key("algorithm") or kwargs['algorithm'] == 'linalg':
+            return self._lclm_linalg(other, **kwargs)
+        elif kwargs['algorithm'] == 'euclid':
+            del kwargs['algorithm']; kwargs['retval'] = 'syzygy'
+            u, v = self._xeuclid(other, **kwargs)
+            return (u*other).normalize()
+        elif kwargs['algorithm'] == 'guess':
+            del kwargs['algorithm']
+            return self._lclm_guess(other, **kwargs)
+        else:
+            raise ValueError, "unknown algorithm: " + str(kwargs['algorithm'])
+
+    def _lclm_linalg(self, other, **kwargs):
+        """
+        lclm algorithm based on ansatz and linear algebra over the base ring. 
+
+        see docstring of lclm for further information. 
+        """
 
         solver = kwargs["solver"] if kwargs.has_key("solver") else None
 
@@ -967,7 +1007,7 @@ class UnivariateOreOperator(OreOperator):
         B = other.numerator(); s = B.order()
         D = A.parent().gen()
 
-        t = max(r, s) # expected order of the lclm
+        t = max(r, s) # current hypothesis for the order of the lclm
 
         rowsA = [A]
         for i in xrange(t - r):
@@ -991,6 +1031,49 @@ class UnivariateOreOperator(OreOperator):
 
         U = A.parent()(list(sol[0])[:t+1-r])
         return self.parent()((U*A).normalize())
+
+    def _lclm_guess(self, other, **kwargs):
+        """
+        lclm algorithm based on guessing.
+
+        see docstring of lclm for further information.
+        """
+
+        # lclm based on guessing an operator for a generic linear combination of two solutions. 
+        
+        A = self.parent(); R = A.base_ring(); K = R.base_ring().fraction_field()
+        if kwargs.has_key('to_list'):
+            terms = kwargs['to_list']
+        elif A.is_S():
+            terms = lambda L, n : L.to_list([K.random_element() for i in xrange(L.order())], n)
+        else:
+            raise TypeError, "don't know how to expand a generic solution for operators in " + str(A)
+
+        U = self.normalize().numerator(); V = other.normalize().numerator()
+
+        # bound on the order of the output
+        r_lcm = U.order() + V.order() 
+
+        # expected degree of the non-removable part of the leading coefficient
+        # heuristic: assume a factor of lc is removable if its multiplicity is 1 and its degree is >20
+        d_ess = sum([ p.degree() for L in U, V for p, e in L.leading_coefficient().factor() if e==1 and p.degree() > 20 ])
+        d_ess = U.leading_coefficient().degree() + V.leading_coefficient().degree() - d_ess
+
+        # expected degree of the removable part of the leading coefficient
+        d_res = U.degree()*V.order() + V.degree()*U.order()
+
+        # assuming existence of left multiples of size (r,d) where  d >= d_ess + d_res/(r - r_lcm + 1)
+        # optimal (r,d) as follows:
+        from math import sqrt
+        r = r_lcm - 1 + d_res*r_lcm/sqrt((1+d_ess)*d_res*r_lcm)
+        d = d_ess + sqrt((1+d_ess)*d_res*r_lcm)/r_lcm
+
+        n = int(1.20 * (r + 2) * (d + 2) + 10) # number of terms needed + some buffer
+
+        data = map(lambda p, q: 1234*p + 4321*q, terms(U, n), terms(V, n))
+
+        from guessing import guess
+        return guess(data, self.parent(), min_order=r_lcm)
 
     def xlclm(self, other):
         """
