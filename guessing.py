@@ -158,7 +158,6 @@ def guess(data, algebra, **kwargs):
     elif is_PolynomialRing(K) and K.base_ring().is_prime_field() and K.characteristic() > 0:  # K == GF(p)[t]
         # eval/interpol
         mod = _linear_polys(K.gen(), 7, K.characteristic())
-        print "here"
         to_hom = lambda mod : (lambda pol : pol(-mod[0]))
         return _guess_via_hom(data, A, mod, to_hom, **kwargs)
 
