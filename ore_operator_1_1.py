@@ -2460,7 +2460,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
                 q = lc[j][0]
                 if q.degree() == d:
                     k = (q[d-1]*p0 - q[d]*p1)/(p0*q[d]*d)
-                    if k in ZZ and k <= -1:
+                    if k in ZZ and k <= -1 and s(p, k) == q:
                         same_class.append((i, j))
 
         #print reduce(lambda p,q: p*q, [p[1] + 1 for p in (tc + lc + [(0, 0)])], 1), " pairs expected"
@@ -3484,7 +3484,7 @@ def _shift_factor(p, ram=ZZ.one()):
         if d < 1:
             continue
 
-        q0, q1 = q[d], q[d - 1]
+        q0, q1 = q[d], q[d - 1]; x = p.parent().gen()
 
         # have we already seen a member of the shift equivalence class of q? 
         new = True; 
@@ -3494,7 +3494,7 @@ def _shift_factor(p, ram=ZZ.one()):
                 continue
             u0, u1 = u[d], u[d - 1]
             a = ram*(u1*q0 - u0*q1)/(u0*q0*d)
-            if a not in ZZ:
+            if a not in ZZ or p(x+a) != u:
                 continue
             # yes, we have: p(x+a) == u(x); u(x-a) == p(x)
             # register it and stop searching
