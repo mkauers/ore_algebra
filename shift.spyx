@@ -3,6 +3,7 @@
 clang C++
 
 from sage.rings.polynomial.polynomial_integer_dense_flint cimport Polynomial_integer_dense_flint
+from sage.rings.polynomial.polynomial_zmod_flint cimport Polynomial_zmod_flint 
 
 clib flint
 include "sage/libs/flint/fmpz.pxi"
@@ -20,3 +21,19 @@ def taylor_shift_univ_int_poly(Polynomial_integer_dense_flint poly, long c):
     fmpz_poly_taylor_shift(result.__poly, poly.__poly, fc)
     fmpz_clear(fc)
     return result
+
+from sage.libs.flint.nmod_poly cimport *, nmod_poly_t
+from sage.libs.flint.ulong_extras cimport *
+
+include "sage/ext/stdsage.pxi"
+include "sage/ext/cdefs.pxi"
+
+cdef extern from "flint/nmod_poly.h":
+    void nmod_poly_taylor_shift(nmod_poly_t f, nmod_poly_t g, mp_limb_t c)
+
+def taylor_shift_univ_modp_poly(Polynomial_zmod_flint poly, long c):
+    cdef Polynomial_zmod_flint result
+    result = poly._new()
+    nmod_poly_taylor_shift(&result.x, &poly.x, c % poly.parent().characteristic())
+    return result
+
