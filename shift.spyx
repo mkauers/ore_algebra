@@ -1,0 +1,22 @@
+
+# Must be C++ because of an annoying NTL dependency in polynomial_integer_dense_flint.pxd
+clang C++
+
+from sage.rings.polynomial.polynomial_integer_dense_flint cimport Polynomial_integer_dense_flint
+
+clib flint
+include "sage/libs/flint/fmpz.pxi"
+include "sage/libs/flint/fmpz_poly.pxi"
+
+cdef extern from "flint/fmpz_poly.h":
+    void fmpz_poly_taylor_shift(fmpz_poly_t f, fmpz_poly_t g, fmpz_t c)
+
+def taylor_shift_univ_int_poly(Polynomial_integer_dense_flint poly, long c):
+    cdef Polynomial_integer_dense_flint result
+    cdef fmpz_t fc
+    fmpz_init(fc)
+    fmpz_set_si(fc, c)
+    result = poly._new()
+    fmpz_poly_taylor_shift(result.__poly, poly.__poly, fc)
+    fmpz_clear(fc)
+    return result
