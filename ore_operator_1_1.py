@@ -432,43 +432,86 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         """
         raise NotImplementedError # abstract
 
-    def desingularize(self, p):
+    def _desingularization_order_bound(self):
         """
-        If self has polynomial coefficients, this computes a list of operators [Q1,Q2,...] 
-        such that the product B=Qi*self again has polynomial coefficients and the multiplicity 
-        of ``p`` in the leading coefficient of B is one less than in the leading coefficient of self.
+        Computes a number `m` such that there exists an operator ``Q`` of order `m` such that ``Q*self``
+        is completely desingularized. 
+
+        This method returns per default the maximum element of the elements of spread times `-1`.
+        This is the right choice for many algebras. Other algebras have to override this method appropriately. 
+        """
+        s = self.spread()
+        return 0 if len(s) == 0 else max(0, max([-k for k in s]))
+
+    def desingularize(self, m=-1):
+        """
+        Returns a left multiple of ``self`` whose coefficients are polynomials and whose leading
+        coefficient does not contain unnecessary factors.
 
         INPUT:
 
-        - `p` -- a power of some irreducible polynomial
+        - `m` (optional) -- If the order of ``self`` is `r`, the output operator will have order `r+m`.
+          In order to ensure that all removable factors of the leading coefficient are removed in the 
+          output, `m` has to be chosen sufficiently large. If no `m` is given, a generic upper bound
+          is determined. This feature may not be available for every class.
+
+        OUTPUT:
+        
+        A left multiple of ``self`` whose coefficients are polynomials, whose order is `m` more than
+        ``self``, and whose leading coefficient has as low a degree as possible under these conditions.
+
+        The output is not unique. With low probability, the leading coefficient degree in the output
+        may not be minimal. 
 
         EXAMPLES:
 
-          sage: R.<x> = PolynomialRing(QQ); A.<Sx> = OreAlgebra(R, 'Sx')
-          sage: L = (3+x)*(9+7*x+x^2)-(33+70*x+47*x^2+12*x^3+x^4)*Sx + (2+x)^2*(3+5*x+x^2)*Sx^2
-          sage: p = x+2
-          sage: Q = L.desingularize(p)[0]; B=Q*L
-          sage: B.denominator().is_one()
-          True
-          sage: (B.leading_coefficient() / (p+Q.order())).denominator().is_one()
-          True
-          sage: (B.leading_coefficient() / (p+Q.order())^2).denominator().is_one()
-          False
+          sage: R.<n> = ZZ['n']
+          sage: A.<Sn> = OreAlgebra(R, 'Sn')
+          sage: P = (-n^3 - 2*n^2 + 6*n + 9)*Sn^2 + (6*n^3 + 8*n^2 - 20*n - 30)*Sn - 8*n^3 - 12*n^2 + 20*n + 12
+          sage: Q = P.desingularize()
+          sage: Q.order()
+          4
+          sage: Q.leading_coefficient().degree()
+          1
+          sage: Q.leading_coefficient()
+          3114*n + 15570   # random
 
-          sage: R.<x> = PolynomialRing(QQ); A.<Sx> = OreAlgebra(R, 'Sx')
-          sage: L = (4*x-4)*Sx^2 + (2-4*x^2)*Sx +x*(2*x-1)
-          sage: p = x-1
-          sage: Q = L.desingularize(p)[0]; B=Q*L
-          sage: B.denominator().is_one()
-          sage: (B.leading_coefficient() / (p+Q.order())).denominator().is_one()
-          False
-
-          sage: L = (-2/45*x^2 + 1/2*x)*Sx^2 + (-2*x^2 - 1/4)*Sx + x^2 + 2/3*x - 6
-          sage: p = L.leading_coefficient()
-          sage: L.desingularize(p)[0]
-          []
         """
-        raise NotImplementedError
+
+        L = self.numerator()
+        A = L.parent()
+        if A.base_ring().is_field():
+            A = A.change_base(A.base_ring().base())
+            L = A(L)
+        R = A.base_ring(); C = R.base_ring()
+        sub = m - 1
+
+        if m < 0:
+            m = L._desingularization_order_bound()
+            sub = 0
+        
+        if m <= 0:
+            return L
+
+        deg = None; Dold = A.zero()
+
+        for k in xrange(m, sub, -1):
+            D = A.zero(); 
+            while D.order() != L.order() + k:
+                # this is only probabilistic, it may fail to remove some removable factors with low probability.
+                T = A([R.random_element() for i in xrange(k)] + [R.one()])
+                if not T[0].is_zero():
+                    D = L.lclm(T)
+            L0 = (A.gen()**k)*L
+            _, u, v = L0.leading_coefficient().xgcd(D.leading_coefficient())
+            D = (u*L0 + v*D).normalize()
+            if k == m:
+                deg = D.leading_coefficient().degree() 
+            elif deg < D.leading_coefficient().degree():
+                return Dold
+            Dold = D
+        
+        return D                
 
     def associate_solutions(self, D, p):
         r"""
@@ -584,6 +627,104 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
             sol[i] = (M, rat)
 
         return filter(lambda p: p is not None, sol)
+
+    def resultant(self, other):
+        """
+        Returns the resultant between this operator and ``other``. 
+
+        INPUT:
+        
+        - ``other`` -- some operator that lives in the same algebra as ``self``.
+        
+        OUTPUT:
+
+        The resultant between ``self`` and ``other``, which is defined as the determinant of the
+        `(n+m) x (n+m)` matrix `[ A, D*A, ..., D^(m-1)*A, B, D*B, ..., D^(n-1)*B ]` constructed
+        from the coefficient vectors of the operators obtained from ``self`` and ``other`` by
+        multiplying them by powers of the parent's generator. 
+
+        EXAMPLES::
+
+           sage: R.<x> = ZZ['x']
+           sage: A.<Dx> = OreAlgebra(R, 'Dx')
+           sage: L1 = (5*x+3)*Dx^3 + (7*x+4)*Dx^2 + (3*x+2)*Dx + (4*x-1)
+           sage: L2 = (8*x-7)*Dx^2 + (x+9)*Dx + (2*x-3)
+           sage: L1.resultant(L2)
+           2934*x^5 - 8200*x^4 + 32161*x^3 - 83588*x^2 - 67505*x + 42514
+           sage: L2.resultant(L1)
+           -2934*x^5 + 8200*x^4 - 32161*x^3 + 83588*x^2 + 67505*x - 42514
+
+           sage: R.<x> = ZZ['x']
+           sage: A.<Sx> = OreAlgebra(R, 'Sx')
+           sage: L1 = (5*x+3)*Sx^3 + (7*x+4)*Sx^2 + (3*x+2)*Sx + (4*x-1)
+           sage: L2 = (8*x-7)*Sx^2 + (x+9)*Sx + (2*x-3)
+           sage: L1.resultant(L2)
+           2934*x^5 + 3536*x^4 + 11142*x^3 + 16298*x^2 - 1257*x - 2260
+           sage: L2.resultant(L1)
+           -2934*x^5 - 3536*x^4 - 11142*x^3 - 16298*x^2 + 1257*x + 2260
+
+        """
+        if self.parent() is not other.parent():
+            A, B = canonical_coercion(self, other)
+            return A.resultant(B)
+
+        n = self.order(); m = other.order()
+
+        if n < m:
+            return other.resultant(self) * (-1)**(n+m)
+
+        Alg = self.parent(); s = Alg.sigma()
+        mat = []; A = None; D = Alg.gen()
+
+        # for better performance, we don't use the sylvester matrix 
+        for i in xrange(m):
+            A = self if A == None else D*A
+            mat.append((A % other).coeffs(padd=m-1))
+
+        from sage.matrix.constructor import matrix      
+        return s.factorial(other.leading_coefficient(), n) * matrix(Alg.base_ring().fraction_field(), mat).det()
+
+    def factor(self):
+        """
+        Returns a factorization of this operator into linear factors, if possible.
+
+        More precisely, the output will be a list  `[L1,L2,...]` of operators such that 
+        
+          * `L1*L2*...` is equal to ``self``
+          * `L2,L3,...` are monic first order operators
+          * `L1` has no first order right hand factor
+
+        This method requires the method ``right_factors()`` to be implemented. 
+
+        EXAMPLE::
+
+          sage: R.<n> = ZZ['n']; A.<Sn> = OreAlgebra(R, 'Sn')
+          sage: L = (-2*n^4 - 17*n^3 - 45*n^2 - 33*n + 9)*Sn^3 + (6*n^4 + 57*n^3 + 168*n^2 + 148*n - 15)*Sn^2 + (-4*n^4 - 44*n^3 - 157*n^2 - 195*n - 38)*Sn + 4*n^3 + 34*n^2 + 80*n + 44
+          sage: L.factor()
+          [-2*n^4 - 17*n^3 - 45*n^2 - 33*n + 9,
+          Sn + (-4*n^5 - 44*n^4 - 171*n^3 - 295*n^2 - 230*n - 66)/(4*n^5 + 44*n^4 + 175*n^3 + 291*n^2 + 147*n - 45),
+          Sn + (2*n + 5)/(-2*n^2 - 7*n - 6),
+          Sn + (-2*n - 4)/(n + 1)]
+          sage: reduce(lambda p,q: p*q, _) - L
+          0
+        
+        """
+        from sage.structure.factorization import Factorization
+
+        if self.is_zero():
+            raise ArithmeticError, "Factorization of 0 not defined."
+        elif self.order() == 0:
+            return [self]
+        elif self.order() == 1:
+            lc = self.leading_coefficient()
+            return [self.parent()(lc), (~lc)*self]
+
+        rf = self.right_factors(early_termination=True)
+        if len(rf) == 0:
+            return [self]
+        else:
+            Q = rf[0].monic(); P = self // Q
+            return P.factor() + [Q]
 
 #############################################################################################################
 
@@ -1206,6 +1347,25 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         else:
             return K(gcd(r.coefficients()).numerator())
 
+    def _desingularization_order_bound(self):
+
+        m = 0
+        for p, _ in self.numerator().leading_coefficient().factor():
+
+            ip = self.indicial_polynomial(p)
+            nn = 0
+            for q, _ in ip.change_ring(ip.base_ring().fraction_field()).factor():
+                if q.degree() == 1:
+                    try:
+                        nn = max(nn, ZZ(-q[0]/q[1]))
+                    except:
+                        pass
+            if nn > 0:
+                ip = gcd(ip, reduce(lambda p, q: p*q, [ip.parent().gen() - i for i in xrange(nn)]))
+                m = max(m, nn - ip.degree())
+
+        return m
+
     def _coeff_list_for_indicial_polynomial(self):
         return self.coeffs()
 
@@ -1241,7 +1401,6 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             bound *= p**(-e)
 
         return bound         
-
 
 #############################################################################################################
 
@@ -1586,7 +1745,6 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
 
         return delta_M, delta_Q
 
-
     def forward_matrix_param_rectangular(self, value, n, start=0, m=None):
         """
         Assuming the coefficients of self are in `R[x][k]`,
@@ -1860,7 +2018,14 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
         return self.parent()(reduce(lambda p, q: p.lclm(q), ops).numerator())
 
     def _coeff_list_for_indicial_polynomial(self):
-        return self.to_F('F').coeffs()
+        d = self.degree() # assuming coeffs are polynomials, not ratfuns.
+        r = self.order()
+        if d > max(20, r + 2):
+            # throw away coefficients which have no chance to influence the indicial polynomial
+            q = self.base_ring().gen()**(d - (r + 2))
+            return self.map_coefficients(lambda p: p // q).to_F('F').coeffs()
+        else:
+            return self.to_F('F').coeffs()
 
     def spread(self, p=0):
         """
@@ -2010,14 +2175,15 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
                 (i2, j2) = points[l]; s2 = QQ(j2 - j1)/QQ(i2 - i1)
                 if s2 >= s:
                     s = s2; k = l
-            if s.is_zero():
-                solutions.append( [QQ.zero(), [c.shift(w_prec - deg) for c in coeffs ]] )
+            if s == 0:
+                newcoeffs = [c.shift(w_prec - deg) for c in coeffs ]
             else:
-                v = s.denominator(); newcoeffs = []
+                v = s.denominator(); underflow = max(0, v*r*s)
                 newdeg = max([ coeffs[i].degree() - i*s for i in xrange(len(coeffs)) if coeffs[i] != 0 ])
-                for i in xrange(len(coeffs)):
-                    newcoeffs.append((coeffs[i](x**v)*subs(x, prec=w_prec, shift=i, gamma=-s)).shift(-v*newdeg))
-                solutions.append( [-s, newcoeffs ] )
+                newcoeffs = [(coeffs[i](x**v)*subs(x, prec=w_prec + underflow, shift=i, gamma=-s))
+                             .shift(-v*(newdeg + underflow)) for i in xrange(len(coeffs))]
+
+            solutions.append( [-s, newcoeffs ] )
 
         if dominant_only:
             max_gamma = max( [g for (g, _) in solutions ] )
@@ -2109,7 +2275,9 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
 
         for (gamma, rho, subexp, ram, alpha, e, degdrop) in solutions:
 
-            coeffs = [(origcoeffs[i](x**ram)*subs(x, prec, i, gamma, rho, subexp, ram)) for i in xrange(r + 1)]
+            underflow = max(0, -ram*r*gamma)
+            coeffs = [(origcoeffs[i](x**ram)*subs(x, prec + underflow, i, gamma, rho, subexp, ram)).shift(-underflow)\
+                          for i in xrange(r + 1)]
             deg = max([c.degree() for c in coeffs])
             coeffs = [coeffs[i].shift(ram*prec - deg) for i in xrange(r + 1)]            
             sols = dict( (a, []) for (a, b) in e )
@@ -2175,52 +2343,169 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
 
         return refined_solutions
 
-    def desingularize(self,p):
-        op = self.numerator()
+    def right_factors(self, early_termination=False):
+        """
+        Returns a list of first-order right hand factors of this operator. 
 
-        R = op.parent().base_ring()
-        if R.is_field():
-            R = R.ring()
-        K = PolynomialRing(R.base_ring(), 'y').fraction_field()
-        RY = R.change_ring(K)
-        y = RY(K.gen())
-        S = op.parent().gen()
+        INPUT:
 
-        # compute denominator bound
-        u = op.leading_coefficient()
-        v = [0,0]
-        for i in RY(u).resultant(RY(p)+y).factor():
-            if i[0].degree()==1 and i[0][0].denominator()==1 and i[0][0]>0 and i[1] > v[1]:
-                v = i
-        v = v[1]
+        - ``early_termination`` (optional) -- if set to ``True``, the search for factors will be aborted as soon as
+          one factor has been found. A list containing this single factor will be returned (or the empty list if there
+          are no first order factors). If set to ``False`` (default), a complete list will be computed.
 
-        # compute order bound
-        k=1
-        try:
-            r = -(max(op.spread(p))+op.order())
-        except:
-            return []
-        e = k+r*v
-        neqs = op.order()+r
+        OUTPUT:
 
-        # solve linear system
-        q = op.parent().sigma()(p,r)**e
-        I = R.ideal([q])
-        L = R.quotient_ring(I)
+        A list of first order operators living in the parent of ``self`` of which ``self`` is a left multiple. 
 
-        sys = [((S**i)*op).polynomial().padded_list(neqs+1) for i in range(r+1)]
-        sys= map(lambda i: map(lambda p: L(p),i), sys)
+        Note that this implementation does not construct factors that involve algebraic extensions of the constant
+        field. 
 
-        sol = op.parent()._solver(L)(matrix(zip(*sys)))
+        EXAMPLES::
 
-        # assemble solutions
-        for i in range(len(sol)):
-            d = 0
-            s = sol[i]
-            for j in range(len(s)):
-                d = d+(s[j].lift()/q)*S**j
-            sol[i] = d
-        return sol
+           sage: R.<n> = ZZ['n']; A.<Sn> = OreAlgebra(R, 'Sn');
+           sage: L = (-25*n^6 - 180*n^5 - 584*n^4 - 1136*n^3 - 1351*n^2 - 860*n - 220)*Sn^2 + (50*n^6 + 560*n^5 + 2348*n^4 + 5368*n^3 + 7012*n^2 + 4772*n + 1298)*Sn - 200*n^5 - 1540*n^4 - 5152*n^3 - 8840*n^2 - 7184*n - 1936
+           sage: L.right_factors()
+           [(n^2 + 2*n + 1)*Sn - 4*n - 2, (-25*n^2 - 30*n - 9)*Sn + 50*n^2 + 160*n + 128]
+
+        """
+
+        # Petkovsek's algorithm with some mild improvements.
+        
+        if self.is_zero():
+            raise ZeroDivisionError
+
+        coeffs = self.normalize().coeffs()
+        A = self.parent().change_ring(self.base_ring().fraction_field())
+        R = A.base_ring().fraction_field().base()
+        R = R.change_ring(R.base_ring().fraction_field()) # univ poly ring over const field
+        s = A.sigma()
+
+        # shift back such as to make the trailing coefficient nonzero
+        min_r = 0
+        while coeffs[min_r].is_zero():
+            min_r += 1
+        if min_r > 0:
+            coeffs = [s(coeffs[i], -min_r) for i in xrange(min_r, len(coeffs))]
+
+        # handle trivial cases
+        sols = [] if min_r == 0 else [A.gen()]
+        if len(coeffs) == 1:
+            return sols
+        elif len(coeffs) == 2: 
+            return sols + [A(coeffs)]
+
+        r = len(coeffs) - 1
+        coeffs = [R(c) for c in coeffs]
+        L = self.parent()(coeffs)
+
+        # heuristically remove unnecessary factors from leading and trailing coefficients
+        L1 = L.lclm(self.parent()([R(1097), R(1091)])).normalize()
+        lc = R(L.leading_coefficient().gcd(s(L1.leading_coefficient(), -1)))
+        tc = R(L[0].gcd(L1[0]))
+
+        # determine slopes of the newton polygon
+        points = filter(lambda p: p[1] >= 0, [ (i, coeffs[i].degree()) for i in xrange(len(coeffs)) ])
+        deg = max(map(lambda p: p[1], points))
+        slopes = []
+
+        k = 0
+        while k < len(points) - 1:
+            (i1, j1) = points[k]; m = -QQ(deg + 5) # = -infinity
+            for l in xrange(k + 1, len(points)):
+                (i2, j2) = points[l]; m2 = QQ(j2 - j1)/QQ(i2 - i1)
+                if m2 >= m:
+                    m = m2; k = l
+            if m in ZZ:
+                slopes.append(-m)
+
+        # construct iterator over all the divisors of lc and tc
+        class exponent_vectors:
+
+            def __init__(self, bounds):
+                # if bounds == [ (p1, e1), (p2, e2) ], the iterator produces
+                # (0, 0), (1, 0) ... (e1, 0), (0, 1), (1, 1), ... (e1, 1) ... (e1, e2)
+                self.bounds = bounds
+                self.current = [0 for i in xrange(len(bounds))]
+                if len(bounds) > 0:
+                    self.current[0] = -1
+
+            def __iter__(self):
+                return self if len(self.bounds) > 0 else iter([()])
+
+            def next(self):
+                self.current[0] += 1
+                try:
+                    for i in xrange(len(self.current)):
+                        if self.current[i] > self.bounds[i][1]:
+                            self.current[i] = 0; self.current[i+1] += 1
+                        else:
+                            break
+                except:
+                    raise StopIteration
+                return tuple(self.current)
+
+        tc = [ (R(s(p, e[0][0]).numerator()), sum([u[1] for u in e])) for p, e in _shift_factor(R(tc))]
+        tc.sort(key=lambda u: u[0].degree()*u[1]) # small stuff first
+        lc = [ (R(s(p, e[-1][0]).numerator()), sum([u[1] for u in e])) for p, e in _shift_factor(R(s(lc, -r)))]
+        lc.sort(key=lambda u: u[0].degree()*u[1]) # small stuff first
+
+        #print reduce(lambda p,q: p*q, [p[1] + 1 for p in (tc + lc + [(0, 0)])], 1), " pairs expected"
+        #print "slopes: ", slopes
+
+        c_cache = dict(); pairs_considered = 0; pairs_in_total = 0
+
+        # enter Petkovsek's algorithm
+        for b_exp in exponent_vectors(tc):
+
+            b_deg = sum([b_exp[i]*tc[i][0].degree() for i in xrange(len(b_exp))])
+            b_fac_list = None
+
+            for c_exp in exponent_vectors(lc):
+
+                ## possible further improvements: 
+                ##   * in the iterator for c_exp, take into account b_deg and min(slopes), max(slopes)
+                ##   * use a combined iterator which iterates over pairs (b,c) in increasing order of deg(b)+deg(c)
+
+                pairs_in_total += 1
+
+                c_deg = sum([c_exp[i]*lc[i][0].degree() for i in xrange(len(c_exp))])
+                if b_deg - c_deg not in slopes:
+                    continue # discard pair, there can be no solution
+                
+                if b_fac_list is None:
+                    b = reduce(lambda p, q: p*q, [tc[i][0]**b_exp[i] for i in xrange(len(b_exp))], R.one())
+                    b_fac_list = [R.one()] # 1, b, b*s(b), ... fac(b, k), ...
+                    for k in xrange(r):
+                        b_fac_list.append(b_fac_list[-1]*s(b, k))
+
+                if not c_cache.has_key(c_exp):
+                    c = s(reduce(lambda p, q: p*q, [lc[i][0]**c_exp[i] for i in xrange(len(c_exp))], R.one()), r)
+                    c_fac_list = [R.one()] 
+                    for k in xrange(r):
+                        c_fac_list.append(c_fac_list[-1]*s(c, -k))
+                    c_fac_list.reverse() # ... fac(s(c, k+1), r-k), ..., s(c,r)*s(c,r-1), s(c,r), 1
+                    c_cache[c_exp] = c_fac_list
+                else:
+                    c_fac_list = c_cache[c_exp]
+
+                c = s(c_fac_list[-2], -r)
+
+                pairs_considered += 1
+
+                coeffs0 = [R(coeffs[k]*b_fac_list[k]*c_fac_list[k]) for k in xrange(r+1)]
+                d = max([p.degree() for p in coeffs0])
+                for p, _ in R([coeffs0[k][d] for k in xrange(r + 1)]).factor():
+                    if p.degree() == 1 and not p[0].is_zero():
+                        z = -p[0]/p[1]
+                        for a in A([coeffs0[k]*(z**k) for k in xrange(r+1)]).polynomial_solutions():
+                            sols.append(A([z*s(a[0])*b, -a[0]*s(c)]).normalize())
+                            if early_termination or len(sols) == self.order():
+                                #print pairs_considered, "of", pairs_in_total, "factor pairs have been investigated"
+                                return sols
+
+        #print pairs_considered, "of", pairs_in_total, "factor pairs have been investigated"
+
+        return list(set(sols))
 
 #############################################################################################################
 

@@ -1466,7 +1466,7 @@ def _generalized_series_shift_quotient(x, prec=5, shift=1, gamma=0, rho=1, subex
     if gamma != 0:
         
         gamma = QQ(gamma); u = gamma.numerator(); v = gamma.denominator()
-        
+
         if prec + shift*gamma < 0:
             raise ValueError, "insufficient precision"
         

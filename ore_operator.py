@@ -442,14 +442,14 @@ class OreOperator(RingElement):
                 return coeffs[0]
             
             try:
-                a = sum(R(2*i+3)*coeffs[i] for i in xrange(len(coeffs)))
-                b = sum(R(3*i-1)*coeffs[i] for i in xrange(len(coeffs)))
+                a = sum(R(29*i+13)*coeffs[i] for i in xrange(len(coeffs)))
+                b = sum(R(31*i+17)*coeffs[i] for i in xrange(len(coeffs)))
                 try:
                     c = a.gcd(b)
                 except:
                     c = R.zero()
                 if not proof and not c.is_zero() and \
-                   sum(len(p.coefficients()) for p in coeffs) > 30: # no shortcut for small operators
+                   sum(len(p.coefficients()) for p in coeffs) > 1000: # no shortcut for small operators
                     return c
 
                 coeffs.append(c)
@@ -491,7 +491,7 @@ class OreOperator(RingElement):
         else:
             return self.map_coefficients(lambda p: p//c)
 
-    def normalize(self, proof=False):
+    def normalize(self, proof=True):
         """
         Returns a normal form of ``self``.
 
@@ -644,10 +644,11 @@ class UnivariateOreOperator(OreOperator):
         else:
             D = lambda p:p
 
-        R = f.parent(); Dif = f; result = R(self[0])*f; 
+        coeffs = self.coeffs()
+        R = f.parent(); Dif = f; result = R(coeffs[0])*f; 
         for i in xrange(1, self.order() + 1):
             Dif = D(Dif)
-            result += R(self[i])*Dif
+            result += R(coeffs[i])*Dif
         
         return result
 
@@ -858,13 +859,18 @@ class UnivariateOreOperator(OreOperator):
             r = r.primitive_part()
 
         return r
-    
-    def xgcrd(self, other,prs=None):
+
+    def xgcd(self, other, prs=None):
         """
         When called for two operators p,q, this will return their GCRD g together with 
         two operators s and t such that sp+tq=g. 
         It is possible to specify which remainder sequence should be used.
         """
+        return self._xeuclid(other, prs, "bezout")
+
+    def _xeuclid(self, other, prs=None, retval="bezout"):
+        # retval == "bezout" ===> returns (g, u, v) st gcrd(self, other) == g == u*self + v*other
+        # retval == "syzygy" ===> returns the smallest degree syzygy (u, v) of self and other
 
         if self.is_zero():
             return other
@@ -874,40 +880,37 @@ class UnivariateOreOperator(OreOperator):
             return self.parent().one()
         elif self.parent() is not other.parent():
             A, B = canonical_coercion(self, other)
-            return A.xgcrd(B)
+            return A._xeuclid(B, prs, retval)
 
-        r = (self,other)
-        if (r[0].order()<r[1].order()):
-            r=(other,self)
+        r = (self, other)
+        if r[0].order() < r[1].order():
+            r = (other, self)
         
         R = r[0].parent()
         RF = R.change_ring(R.base_ring().fraction_field())
 
-        a11,a12,a21,a22 = RF.one(),RF.zero(),RF.zero(),RF.one()
+        a11, a12, a21, a22 = RF.one(), RF.zero(), RF.zero(), RF.one()
 
-        if prs==None:
-            if R.base_ring().is_field():
-                prs = __classicPRS__
-            else:
-                prs = __improvedPRS__
+        if prs is None:
+            prs = __classicPRS__ if R.base_ring().is_field() else __improvedPRS__
 
         additional = []
 
         while not r[1].is_zero():  
-            (r2,q,alpha,beta,correct)=prs(r,additional)
+            (r2, q, alpha, beta, correct) = prs(r, additional)
             if not correct:
                 prs = __primitivePRS__
             else:
-                r=r2
-                bInv = ~beta
-                a11,a12,a21,a22 = a21,a22,bInv*(alpha*a11-q*a21),bInv*(alpha*a12-q*a22)
+                r = r2; bInv = ~beta
+                a11, a12, a21, a22 = a21, a22, bInv*(alpha*a11 - q*a21), bInv*(alpha*a12 - q*a22)
 
-        r=r[0]
+        if retval == "syzygy":
+            c = a21.denominator().lcm(a22.denominator())
+            return (c*a21, c*a22) ### ???correct???
 
-        if not prs==__classicPRS__:
-            r = r.primitive_part()
-
-        return (r,a11,a12)
+        r = r[0]
+        c = RF.base_ring().one() if prs is __classicPRS__ else ~r.content()
+        return (self.parent()(c*r), c*a11, c*a12) 
 
     def lclm(self, *other, **kwargs):
         """
@@ -922,9 +925,26 @@ class UnivariateOreOperator(OreOperator):
         If more than one operator is given, the function computes the lclm
         of all the operators.
 
-        Through the optional argument ``solver``, a callable object can be
-        provided which the function should use for computing the kernel of
-        matrices with entries in the Ore algebra's base ring. 
+        The optional argument ``algorithm`` allows to select between the following
+        methods.
+
+        * ``linalg`` (default) -- makes an ansatz for cofactors and solves a linear
+          system over the base ring. 
+          Through the optional argument ``solver``, a callable object can be
+          provided which the function should use for computing the kernel of
+          matrices with entries in the Ore algebra's base ring. 
+
+        * ``euclid`` -- uses the extended Euclidean algorithm to compute a minimal
+          syzygy between the operators in the input. Further optional arguments
+          can be passed as explained in the docstring of ``xgcrd``.
+
+        * ``guess`` -- computes the first terms of a solution of ``self`` and ``other``
+          and guesses from these a minimal operator annihilating a generic linear
+          combination. Unless the input are recurrence operators, an keyword argument
+          ``to_list`` has to be present which specifies a function for computing the
+          terms (input: an operator, a list of initial values, and the desired number
+          of terms). This method is heuristic. It may be much faster than the others,
+          but with low probability its output is incorrect or it aborts with an error. 
 
         EXAMPLES::
 
@@ -943,7 +963,9 @@ class UnivariateOreOperator(OreOperator):
         """
 
         if len(other) != 1:
-            return reduce(lambda p, q: p.lclm(q), other, self)
+            # possible improvement: rewrite algorithms to allow multiple arguments where possible
+            other.append(self); other.sort(key=lambda p: p.order())
+            return reduce(lambda p, q: p.lclm(q, **kwargs), other)
         elif len(other) == 0:
             return self
 
@@ -956,22 +978,36 @@ class UnivariateOreOperator(OreOperator):
             return self
         elif self.parent() is not other.parent():
             A, B = canonical_coercion(self, other)
-            return A.lclm(B)
-
-        solver = kwargs["solver"] if kwargs.has_key("solver") else None
-        
-        if not isinstance(other, UnivariateOreOperator):
+            return A.lclm(B, **kwargs)
+        elif not isinstance(other, UnivariateOreOperator):
             raise TypeError, "unexpected argument in lclm"
 
-        if self.parent() != other.parent():
-            A, B = canonical_coercion(self, other)
-            return A.lclm(B)
+        if not kwargs.has_key("algorithm") or kwargs['algorithm'] == 'linalg':
+            return self._lclm_linalg(other, **kwargs)
+        elif kwargs['algorithm'] == 'euclid':
+            del kwargs['algorithm']; kwargs['retval'] = 'syzygy'
+            u, v = self._xeuclid(other, **kwargs)
+            return (u*other).normalize()
+        elif kwargs['algorithm'] == 'guess':
+            del kwargs['algorithm']
+            return self._lclm_guess(other, **kwargs)
+        else:
+            raise ValueError, "unknown algorithm: " + str(kwargs['algorithm'])
+
+    def _lclm_linalg(self, other, **kwargs):
+        """
+        lclm algorithm based on ansatz and linear algebra over the base ring. 
+
+        see docstring of lclm for further information. 
+        """
+
+        solver = kwargs["solver"] if kwargs.has_key("solver") else None
 
         A = self.numerator(); r = A.order()
         B = other.numerator(); s = B.order()
-        D = self.parent().gen()
+        D = A.parent().gen()
 
-        t = max(r, s) # expected order of the lclm
+        t = max(r, s) # current hypothesis for the order of the lclm
 
         rowsA = [A]
         for i in xrange(t - r):
@@ -994,7 +1030,50 @@ class UnivariateOreOperator(OreOperator):
             sol = solver(sys)
 
         U = A.parent()(list(sol[0])[:t+1-r])
-        return self.parent()(U*A)
+        return self.parent()((U*A).normalize())
+
+    def _lclm_guess(self, other, **kwargs):
+        """
+        lclm algorithm based on guessing.
+
+        see docstring of lclm for further information.
+        """
+
+        # lclm based on guessing an operator for a generic linear combination of two solutions. 
+        
+        A = self.parent(); R = A.base_ring(); K = R.base_ring().fraction_field()
+        if kwargs.has_key('to_list'):
+            terms = kwargs['to_list']
+        elif A.is_S():
+            terms = lambda L, n : L.to_list([K.random_element() for i in xrange(L.order())], n)
+        else:
+            raise TypeError, "don't know how to expand a generic solution for operators in " + str(A)
+
+        U = self.normalize().numerator(); V = other.normalize().numerator()
+
+        # bound on the order of the output
+        r_lcm = U.order() + V.order() 
+
+        # expected degree of the non-removable part of the leading coefficient
+        # heuristic: assume a factor of lc is removable if its multiplicity is 1 and its degree is >20
+        d_ess = sum([ p.degree() for L in U, V for p, e in L.leading_coefficient().factor() if e==1 and p.degree() > 20 ])
+        d_ess = U.leading_coefficient().degree() + V.leading_coefficient().degree() - d_ess
+
+        # expected degree of the removable part of the leading coefficient
+        d_res = U.degree()*V.order() + V.degree()*U.order()
+
+        # assuming existence of left multiples of size (r,d) where  d >= d_ess + d_res/(r - r_lcm + 1)
+        # optimal (r,d) as follows:
+        from math import sqrt
+        r = r_lcm - 1 + d_res*r_lcm/sqrt((1+d_ess)*d_res*r_lcm)
+        d = d_ess + sqrt((1+d_ess)*d_res*r_lcm)/r_lcm
+
+        n = int(1.20 * (r + 2) * (d + 2) + 10) # number of terms needed + some buffer
+
+        data = map(lambda p, q: 1234*p + 4321*q, terms(U, n), terms(V, n))
+
+        from guessing import guess
+        return guess(data, self.parent(), min_order=r_lcm)
 
     def xlclm(self, other):
         """
@@ -1044,7 +1123,7 @@ class UnivariateOreOperator(OreOperator):
         operator `C` such that for all \"functions\" `f` and `g` with `A.f=B.g=0`
         we have `C.(fg)=0`.
 
-        The function requires that a product rule is associated to the ore algebra
+        The method requires that a product rule is associated to the Ore algebra
         where ``self`` and ``other`` live. (See docstring of OreAlgebra for information
         about product rules.)
 
@@ -1251,6 +1330,109 @@ class UnivariateOreOperator(OreOperator):
 
         L = A.parent()(list(sol[0]))
         return L
+
+    def annihilator_of_polynomial(self, poly, solver=None):
+        """
+        Returns an annihilating operator of a polynomial expression evaluated at solutions of ``self``.
+
+        INPUT:
+
+        - ``poly`` -- a multivariate polynomial, say in the variables `x0,x1,x2,...`, with coefficients
+          in the base ring of the parent of ``self``.
+          The number of variables in the parent of ``poly`` must be at least the order of ``self``.
+        
+        OUTPUT:
+
+          An operator `L` with the following property. 
+          Let `A` be the parent of ``self``.
+          For a function `f` write `Df,D^2f,...` for the functions obtained from `f` by letting the generator
+          of `A` act on them. 
+          Then the output `L` is such that for all `f` annihilated by ``self`` we have
+          `L(p(f,Df,D^2f,...))=0`, where `p` is the input polynomial.
+
+        The method requires that a product rule is associated to `A`. 
+        (See docstring of OreAlgebra for information about product rules.)
+
+        NOTE:
+
+          Even for small input, the output operator may be very large, and its computation may need a lot of time.
+
+        EXAMPLES::
+
+          sage: K.<x> = ZZ['x']; K = K.fraction_field(); R.<n> = K['n']
+          sage: A.<Sn> = OreAlgebra(R, 'Sn'); R.<y0,y1,y2> = K['n'][]
+          sage: L = (n+2)*Sn^2 - (2*n+3)*x*Sn + (n+1)
+          sage: L.annihilator_of_polynomial(y1^2-y2*y0) # Turan's determinant
+          (-2*n^4 - 31*n^3 - 177*n^2 - 440*n - 400)*Sn^3 + ((8*x^2 - 2)*n^4 + (100*x^2 - 21)*n^3 + (462*x^2 - 75)*n^2 + (935*x^2 - 99)*n + 700*x^2 - 28)*Sn^2 + ((-8*x^2 + 2)*n^4 + (-92*x^2 + 27)*n^3 + (-390*x^2 + 129)*n^2 + (-721*x^2 + 261)*n - 490*x^2 + 190)*Sn + 2*n^4 + 17*n^3 + 51*n^2 + 64*n + 28
+          sage: M = L.annihilator_of_associate(Sn).symmetric_power(2).lclm(L.annihilator_of_associate(Sn^2).symmetric_product(L)) # same by lower level methods. 
+          sage: M.order() # overshoots
+          7
+          sage: M % L.annihilator_of_polynomial(y1^2-y2*y0) 
+          0
+
+          sage: K = ZZ; R.<x> = K['x']
+          sage: A.<Dx> = OreAlgebra(R, 'Dx'); R.<y0,y1> = K['x'][]
+          sage: L = (2*x+3)*Dx^2 + (4*x+5)*Dx + (6*x+7)
+          sage: L.annihilator_of_polynomial((2*x+1)*y0^2-y1^2)
+          (-16*x^7 - 112*x^6 - 312*x^5 - 388*x^4 - 85*x^3 + 300*x^2 + 303*x + 90)*Dx^3 + (-96*x^7 - 600*x^6 - 1420*x^5 - 1218*x^4 + 747*x^3 + 2285*x^2 + 1623*x + 387)*Dx^2 + (-320*x^7 - 1920*x^6 - 4288*x^5 - 3288*x^4 + 2556*x^3 + 6470*x^2 + 4322*x + 1014)*Dx - 384*x^7 - 2144*x^6 - 4080*x^5 - 1064*x^4 + 7076*x^3 + 10872*x^2 + 6592*x + 1552
+
+        """
+
+        if self.is_zero():
+            return self
+        elif self.order() == 0:
+            return self.one()
+        
+        A = self.parent(); pr = A._product_rule(); R = poly.parent(); r = self.order()
+        if len(R.gens()) < r:
+            raise TypeError, "poly must live in a ring with at least " + str(r) + " variables."
+        elif R.base_ring().fraction_field() is not self.base_ring().fraction_field():
+            raise TypeError, "poly must live in a ring with coefficient field " + str(self.base_ring()) + "."
+        elif pr is None:
+            raise ValueError, "no product rule found"
+
+        K = R.base_ring().fraction_field()
+        A = A.change_ring(K); R = R.change_ring(K); 
+        L = A(self); poly = R(poly)
+        sigma = A.sigma(); delta = A.delta()
+
+        shift_cache = { R.one().exponents()[0] : R.one() }
+        vars = R.gens()
+        for i in xrange(r - 1):
+            shift_cache[vars[i].exponents()[0]] = vars[i + 1]
+        shift_cache[vars[r - 1].exponents()[0]] = (-1/L.leading_coefficient())*sum(L[i]*vars[i] for i in xrange(r))
+
+        def shift(p): # computes D( p ), as element of R
+            out = R.zero()
+            for m, c in zip(p.monomials(), p.coefficients()):
+                exp = m.exponents()[0]
+                if not shift_cache.has_key(exp):
+                    x = vars[min([i for i in xrange(r) if exp[i] > 0])]
+                    m0 = m//x; A = shift_cache[x.exponents()[0]]; B = shift(m0)
+                    shift_cache[exp] = pr[0]*m + pr[1]*(A*m0 + x*B) + pr[2]*A*B
+                out += sigma(c)*shift_cache[exp]
+            return p.map_coefficients(delta) + out
+        
+        if len(vars) > r:
+            subs = {str(vars[0]):vars[0]}; p = vars[0]
+            for i in xrange(len(vars) - 1):
+                p = shift(p); subs[str(vars[i+1])] = p
+            poly = poly(**subs)
+
+        if solver is None:
+            solver = A._solver()
+
+        shifts = [poly]; basis = set(poly.monomials()) # set of all monomials appearing in any of the shifts
+        from sage.matrix.constructor import Matrix
+        sol = []
+
+        while len(sol) == 0:
+
+            shifts.append(shift(shifts[-1]))
+            basis = basis.union(shifts[-1].monomials())
+            sol = solver(Matrix(K, [[shifts[i].monomial_coefficient(m) for i in xrange(len(shifts))] for m in basis ]))
+
+        return self.parent()(list(sol[0]))
 
     # coefficient-related functions
 
