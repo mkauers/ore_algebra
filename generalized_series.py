@@ -85,28 +85,30 @@ def GeneralizedSeriesMonoid(base, x, type="continuous"):
 
       sage: G = GeneralizedSeriesMonoid(QQ, 'x')
       sage: G
-      Differential monoid of generalized series in x over Rational Field
+      Monoid of continuous generalized series in x over Rational Field
+      sage: x = QQ['x'].gen()
       sage: G(x+2*x^3 + 4*x^4 + O(x^5))
       x*(1 + 2*x^2 + 4*x^3 + O(x^4))
       sage: G(x+2*x^3 + 4*x^4 + O(x^5), ramification=2)
       x^(1/2)*(1 + 2*x^(2/2) + 4*x^(3/2) + O(x^(4/2)))
       sage: G(x+2*x^3 + 4*x^4 + O(x^5), ramification=3)
       x^(1/3)*(1 + 2*x^(2/3) + 4*x^(3/3) + O(x^(4/3)))
-      sage: _.derivative()
+      sage: f = _
+      sage: f.derivative()
       x^(-2/3)*(1/3 + 2*x^(2/3) + 16/3*x^(3/3) + O(x^(4/3)))
-      sage: _*__
+      sage: _*f
       x^(-1/3)*(1/3 + 8/3*x^(2/3) + 20/3*x^(3/3) + O(x^(4/3)))
       sage: (G(1+x, ramification=2)*G(1+x, ramification=3)).ramification()
       6
       sage: K = QQ.extension(x^2-2, 'a'); a = K.gen()
       sage: a*G(x)
-      a*x
+      x*a
       sage: _.parent()
-      Differential monoid of generalized series in x over Number Field in a with defining polynomial x^2 - 2
+      Monoid of continuous generalized series in x over Number Field in a with defining polynomial x^2 - 2
       sage: G(x).base_extend(x^3+5, 'b')
       x
       sage: _.parent()
-      Differential monoid of generalized series in x over Number Field in b with defining polynomial x^3 - 5
+      Monoid of continuous generalized series in x over Number Field in b with defining polynomial x^3 + 5
 
     """
     M = GeneralizedSeriesMonoid_class(base, x, type)
@@ -303,14 +305,14 @@ class GeneralizedSeriesMonoid_class(Parent):
 
            sage: G = GeneralizedSeriesMonoid(QQ, 'x', 'continuous')
            sage: G
-           Differential monoid of generalized series in x over Rational Field
+           Monoid of continuous generalized series in x over Rational Field
            sage: x = ZZ['x'].gen()
            sage: G1 = G.base_extend(x^2 + 2, 'a')
            sage: G1
-           Differential monoid of generalized series in x over Number Field in a with defining polynomial x^2 + 2
+           Monoid of continuous generalized series in x over Number Field in a with defining polynomial x^2 + 2
            sage: G2 = G1.base_extend(x^3 + 5, 'b')
            sage: G2
-           Differential monoid of generalized series in x over Number Field in b with defining polynomial x^3 + 5 over its base field
+           Monoid of continuous generalized series in x over Number Field in b with defining polynomial x^3 + 5 over its base field
            sage: G2(G1.random_element()).parent() is G2
            True
            sage: G1.random_element().parent() is G2
@@ -373,7 +375,7 @@ class ContinuousGeneralizedSeries(RingElement):
             new_ram = lcm([ (e/ramification).denominator() for e in exp.exponents() ])
             if new_ram < ramification:
                 for c in p.coefficients():
-                    new_ram = lcm([new_ram] +[ (e/ramification).denominator() for e in c.exponents() ])
+                    new_ram = lcm([new_ram] + [ (e/ramification).denominator() for e in c.exponents() ])
 
             if new_ram != ramification:
                 # the actual ramification is smaller than the specified one
@@ -442,12 +444,12 @@ class ContinuousGeneralizedSeries(RingElement):
            sage: G = GeneralizedSeriesMonoid(QQ, 'x')
            sage: s = G(1+x+x^2, exp=3*x^2, ramification=3)
            sage: s.parent()
-           Differential monoid of generalized series in x over Rational Field
+           Monoid of continuous generalized series in x over Rational Field
            sage: x = ZZ['x'].gen()
            sage: s.base_extend(x^2 + 2, 'a')
            exp(-9/2*x^(-2/3))*(1 + x^(1/3) + x^(2/3))
            sage: _.parent()
-           Differential monoid of generalized series in x over Number Field in a with defining polynomial x^2 + 2
+           Monoid of continuous generalized series in x over Number Field in a with defining polynomial x^2 + 2
            sage: s == s.base_extend(x^2 + 2, 'a')
            True
            sage: s is s.base_extend(x^2 + 2, 'a')
@@ -703,7 +705,7 @@ class ContinuousGeneralizedSeries(RingElement):
           True 
         
         """
-        return not self.exponential_part().is_zero()
+        return not self.__exp.is_zero()
 
     def has_logarithms(self):
         """
@@ -778,6 +780,7 @@ class ContinuousGeneralizedSeries(RingElement):
           sage: G(x^5+x^6, exp=-3)
           x^2*(1 + x)
           sage: _.order()
+          2
         
         """
         return infinity if self.is_zero() else self.__exp.constant_coefficient()
@@ -1104,12 +1107,12 @@ class DiscreteGeneralizedSeries(RingElement):
            sage: G = GeneralizedSeriesMonoid(QQ, 'x')
            sage: s = G(1+x+x^2, exp=3*x^2, ramification=3)
            sage: s.parent()
-           Differential monoid of generalized series in x over Rational Field
+           Monoid of continuous generalized series in x over Rational Field
            sage: x = ZZ['x'].gen()
            sage: s.base_extend(x^2 + 2, 'a')
            exp(-9/2*x^(-2/3))*(1 + x^(1/3) + x^(2/3))
            sage: _.parent()
-           Differential monoid of generalized series in x over Number Field in a with defining polynomial x^2 + 2
+           Monoid of continuous generalized series in x over Number Field in a with defining polynomial x^2 + 2
            sage: s == s.base_extend(x^2 + 2, 'a')
            True
            sage: s is s.base_extend(x^2 + 2, 'a')
