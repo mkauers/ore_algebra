@@ -566,12 +566,16 @@ def _guess_via_gcrd(data, A, **kwargs):
 
     if kwargs.has_key('degree'):
         max_deg = kwargs['degree']; del kwargs['degree']
+    elif kwargs.has_key('max_degree'):
+        max_deg = kwargs['max_degree']; del kwargs['max_degree']
 
     if kwargs.has_key('min_degree'):
         min_deg = kwargs['min_degree']; del kwargs['min_degree']
 
     if kwargs.has_key('order'):
         max_ord = kwargs['order']; del kwargs['order']
+    elif kwargs.has_key('max_order'):
+        max_ord = kwargs['max_order']; del kwargs['max_order']
 
     if kwargs.has_key('min_order'):
         min_ord = kwargs['min_order']; del kwargs['min_order']
