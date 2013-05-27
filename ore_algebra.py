@@ -35,6 +35,31 @@ try:
 except:
     pass
 
+def taylor_shift_univ_int_poly(p, i):
+    ## assuming that p is an element of ZZ['x']
+    return p(p.parent().gen() + i)
+def taylor_shift_univ_int_ratfun(q, i):
+    ## assuming that q is an element of Fract(ZZ['x'])
+    num = taylor_shift_univ_int_poly(q.numerator(), i)
+    den = taylor_shift_univ_int_poly(q.denominator(), i)
+    return q.parent()(num, den, coerce=False, reduce=False)
+def taylor_shift_univ_modp_poly(p, i):
+    ## assuming that p is an element of GF(m)['x']
+    return p(p.parent().gen() + i)
+def taylor_shift_univ_modp_ratfun(q, i):
+    ## assuming that q is an element of Fract(GF(m)['x'])
+    num = taylor_shift_univ_modp_poly(q.numerator(), i)
+    den = taylor_shift_univ_modp_poly(q.denominator(), i)
+    return q.parent()(num, den, coerce=False, reduce=False)
+# if sage version is 5.10.beta3 or later, use taylor shift of flint2
+import datetime
+v = version()
+if datetime.date(int(v[-10:-6]), int(v[-5:-3]), int(v[-2:])) >= datetime.date(2013, 05, 15):
+    try:
+        load("shift.spyx") # cython code defining 'taylor_shift_univ_int_poly' and 'taylor_shift_univ_modp_poly'
+    except:
+        pass
+
 #######################################
 
 from sage.structure.element import RingElement
@@ -818,6 +843,20 @@ def OreAlgebra(base_ring, *generators, **kwargs):
             elif dx == zero:
                 if sx - x == one:
                     is_shift[i] = True
+                    if R.base_ring() is ZZ and R.ngens() == 1:
+                        if R.is_field():
+                            gens[i][1].set_call(lambda q, k=1: taylor_shift_univ_int_ratfun(R(q), k))
+                            gens[i][1].inverse().set_call(lambda q, k=1: taylor_shift_univ_int_ratfun(R(q), -k))
+                        else:
+                            gens[i][1].set_call(lambda p, k=1: taylor_shift_univ_int_poly(R(p), k))
+                            gens[i][1].inverse().set_call(lambda p, k=1: taylor_shift_univ_int_poly(R(p), -k))
+                    elif 0 < R.characteristic() < sys.maxint and R.ngens() == 1:
+                        if R.is_field():
+                            gens[i][1].set_call(lambda q, k=1: taylor_shift_univ_modp_ratfun(R(q), k))
+                            gens[i][1].inverse().set_call(lambda q, k=1: taylor_shift_univ_modp_ratfun(R(q), -k))
+                        else:
+                            gens[i][1].set_call(lambda p, k=1: taylor_shift_univ_modp_poly(R(p), k))
+                            gens[i][1].inverse().set_call(lambda p, k=1: taylor_shift_univ_modp_poly(R(p), -k))
                 elif gens[i][1](sx)*x == sx**2:
                     is_qshift[i] = True
             elif dx == x:
