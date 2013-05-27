@@ -53,7 +53,10 @@ def taylor_shift_univ_modp_ratfun(q, i):
     return q.parent()(num, den, coerce=False, reduce=False)
 # if sage version is 5.10.beta3 or later, use taylor shift of flint2
 import datetime
-v = version()
+try:
+    v = version()
+except:
+    v = "2013-01-01"    
 if datetime.date(int(v[-10:-6]), int(v[-5:-3]), int(v[-2:])) >= datetime.date(2013, 05, 15):
     try:
         load("shift.spyx") # cython code defining 'taylor_shift_univ_int_poly' and 'taylor_shift_univ_modp_poly'

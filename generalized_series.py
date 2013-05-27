@@ -47,7 +47,7 @@ def GeneralizedSeriesMonoid(base, x, type="continuous"):
 
     If the type is ``"discrete"``, the domain contains series objects of the form
 
-    `(x/e)^(x*u/v)\rho^x\exp\bigl(c_1 x^{1/(m*v)} +...+ c_{v-1} x^{1-1/(m*v)}\bigr)x^\alpha p(x^{-1/(m*v)},\log(x))`
+    `(x/e)^{x u/v}\rho^x\exp\bigl(c_1 x^{1/(m*v)} +...+ c_{v-1} x^{1-1/(m*v)}\bigr)x^\alpha p(x^{-1/(m*v)},\log(x))`
 
     where
 

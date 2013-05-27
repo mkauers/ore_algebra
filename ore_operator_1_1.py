@@ -106,10 +106,10 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
 
         .. NOTE::
 
-        - Even if no ``rhs`` is given, the output will be a list of tuples ``[(p1,), (p2,),...]``
-          and not just a list of plain polynomials.
-        - If no ``degree`` is given, a basis of all the polynomial solutions is returned.
-          This feature may not be implemented for all algebras. 
+          - Even if no ``rhs`` is given, the output will be a list of tuples ``[(p1,), (p2,),...]``
+            and not just a list of plain polynomials.
+          - If no ``degree`` is given, a basis of all the polynomial solutions is returned.
+            This feature may not be implemented for all algebras. 
 
         EXAMPLES::
 
@@ -191,12 +191,12 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
 
         .. NOTE::
 
-        - Even if no ``rhs`` is given, the output will be a list of tuples ``[(p1,), (p2,),...]``
-          and not just a list of plain polynomials.
-        - If no ``denominator`` is given, a basis of all the rational solutions is returned.
-          This feature may not be implemented for all algebras. 
-        - If no ``degree`` is given, a basis of all the polynomial solutions is returned.
-          This feature may not be implemented for all algebras. 
+          - Even if no ``rhs`` is given, the output will be a list of tuples ``[(p1,), (p2,),...]``
+            and not just a list of plain polynomials.
+          - If no ``denominator`` is given, a basis of all the rational solutions is returned.
+            This feature may not be implemented for all algebras. 
+          - If no ``degree`` is given, a basis of all the polynomial solutions is returned.
+            This feature may not be implemented for all algebras. 
 
         EXAMPLES::
 
@@ -2083,7 +2083,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
 
         These are solutions of the form
 
-          `(x/e)^(x*u/v)\rho^x\exp\bigl(c_1 x^{1/m} +...+ c_{v-1} x^{1-1/m}\bigr)x^\alpha p(x^{-1/m},\log(x))`
+          `(x/e)^{x u/v}\rho^x\exp\bigl(c_1 x^{1/m} +...+ c_{v-1} x^{1-1/m}\bigr)x^\alpha p(x^{-1/m},\log(x))`
 
         where
 

@@ -109,8 +109,8 @@ def guess(data, algebra, **kwargs):
 
     .. NOTE::
 
-    This method is designed to find equations for D-finite objects. It may exhibit strange
-    behaviour for objects which are holonomic but not D-finite. 
+      This method is designed to find equations for D-finite objects. It may exhibit strange
+      behaviour for objects which are holonomic but not D-finite. 
 
     EXAMPLES::
 
@@ -246,8 +246,8 @@ def guess_raw(data, A, order=-1, degree=-1, lift=None, solver=None, cut=25, ensu
 
     .. NOTE::
 
-    This is a low-level method. Don't call it directly unless you know what you
-    are doing. In usual applications, the right method to call is ``guess``.
+      This is a low-level method. Don't call it directly unless you know what you
+      are doing. In usual applications, the right method to call is ``guess``.
 
     EXAMPLES::
 

@@ -13,7 +13,7 @@ Contents:
    ore_algebra
    ore_operator
    ore_operator_1_1
-   dfinite_function
+   guessing
    generalized_series
    nullspace
 
