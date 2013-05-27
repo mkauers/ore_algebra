@@ -1335,7 +1335,7 @@ class UnivariateOreOperator(OreOperator):
 
 def __primitivePRS__(r,additional):
     """
-    Computes one division step in the subresultant polynomial remainder sequence.
+    Computes one division step in the primitive polynomial remainder sequence.
     """
 
     orddiff = r[0].order()-r[1].order()
@@ -1380,11 +1380,11 @@ def __improvedPRS__(r,additional):
     if (len(additional)==0):
         essentialPart = gcd(sigma(r[0].leading_coefficient(),-orddiff),r[1].leading_coefficient())
         phi = Rbase.one()
-        beta = (-Rbase.one())**(orddiff+1)*R.sigma().factorial(sigma(phi,1),orddiff)
+        beta = (-Rbase.one())**(orddiff+1)*sigma().factorial(sigma(phi,1),orddiff)
     else:
         (d2,oldalpha,k,essentialPart,phi) = (additional.pop(),additional.pop(),additional.pop(),additional.pop(),additional.pop())
-        phi = oldalpha / R.sigma().factorial(sigma(phi,1),d2-d1-1)
-        beta = oldalpha.parent()(((-Rbase.one())**(orddiff+1)*R.sigma().factorial(sigma(phi,1),orddiff)*k))
+        phi = oldalpha / sigma().factorial(sigma(phi,1),d2-d0-1)
+        beta = oldalpha.parent()(((-Rbase.one())**(orddiff+1)*sigma().factorial(sigma(phi,1),orddiff)*k))
         essentialPart = sigma(essentialPart,-orddiff)
 
     k = r[1].leading_coefficient()//essentialPart
@@ -1414,11 +1414,12 @@ def __subresultantPRS__(r,additional):
 
     if (len(additional)==0):
         phi = -Rbase.one()
-        beta = (-Rbase.one())*R.sigma().factorial(sigma(phi,1),orddiff)
+        beta = (-Rbase.one())*sigma().factorial(sigma(phi,1),orddiff)
     else:
         (d2,phi) = (additional.pop(),additional.pop())
-        phi = R.sigma().factorial(-r[0].leading_coefficient(),d0-d1) / R.sigma().factorial(sigma(phi,1),d0-d1-1)
-        beta = (-Rbase.one())*R.sigma().factorial(sigma(phi,1),orddiff)*r[0].leading_coefficient()
+        orddiff2 = d2-d0
+        phi = sigma().factorial(-r[0].leading_coefficient(),orddiff2) / sigma().factorial(sigma(phi,1),orddiff2-1)
+        beta = (-Rbase.one())*sigma().factorial(sigma(phi,1),orddiff)*r[0].leading_coefficient()
 
     alpha = R.sigma().factorial(r[1].leading_coefficient(),orddiff+1)
     newRem = (alpha*r[0]).quo_rem(r[1],fractionFree=True)
