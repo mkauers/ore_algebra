@@ -515,7 +515,13 @@ class OreOperator(RingElement):
         num = self.numerator().primitive_part(proof=proof)
         c = num.leading_coefficient()
         while not c.is_unit() and c.parent() is not c.parent().base_ring():
-            c = c.leading_coefficient()
+            try:
+                c = c.leading_coefficient()
+            except:
+                try:
+                    c = c.lc()
+                except:
+                    break
         if c.is_unit():
             return self.parent()((~c)*num)
         else:

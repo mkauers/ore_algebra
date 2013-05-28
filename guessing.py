@@ -120,8 +120,7 @@ def guess(data, algebra, **kwargs):
       sage: R.<t> = QQ['t']
       sage: rec = guess([1/(i+t) + t^i for i in xrange(100)], OreAlgebra(R['n'], 'Sn'))
       sage: rec
-      ((-51891840*t + 51891840)*n^2 + (-103783680*t^2 - 51891840*t + 103783680)*n - 51891840*t^3 - 103783680*t^2)*Sn^2 + ((51891840*t^2 - 51891840)*n^2 + (103783680*t^3 + 155675520*t^2 - 103783680*t - 51891840)*n + 51891840*t^4 + 155675520*t^3 + 51891840*t^2 - 51891840*t)*Sn + (-51891840*t^2 + 51891840*t)*n^2 + (-103783680*t^3 + 51891840*t)*n - 51891840*t^4 - 51891840*t^3 + 51891840*t^2
-      sage: 
+      ((t - 1)*n^2 + (2*t^2 + t - 2)*n + t^3 + 2*t^2)*Sn^2 + ((-t^2 + 1)*n^2 + (-2*t^3 - 3*t^2 + 2*t + 1)*n - t^4 - 3*t^3 - t^2 + t)*Sn + (t^2 - t)*n^2 + (2*t^3 - t)*n + t^4 + t^3 - t^2
     
     """
 
@@ -884,9 +883,13 @@ def _rat_recon(a, m, u=None):
         if s < score:
             out = (p, q); score = s
             if score < early_termination_bound:
-                return out
+                break
 
     if score < bound:
-        return out
+        if K is ZZ:
+            return out
+        else:
+            lc = out[1].leading_coefficient()
+            return (out[0]/lc, out[1]/lc)
     else:
         raise ArithmeticError
