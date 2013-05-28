@@ -1,8 +1,9 @@
-\documentclass[a4paper,draft]{amsart}
+\documentclass{amsart}
 \usepackage{amsmath}
 \usepackage{amssymb}
 \usepackage{bbm}
 \usepackage{a4wide}
+\usepackage{sagetex}
 
 \parindent=0pt
 \parskip\smallskipamount
@@ -54,19 +55,52 @@ power series. This paper is a tutorial on how to use the package.
 
 \section{Introduction}
 
-motivation
+In computer algebra, objects are often described implicitly through equations
+they satisfy. For example, the exponential function $\exp(x)$ is uniquely
+specified by the linear differential equation $f'(x)-f(x)=0$ and the initial
+value $f(0)=1$.  Likewise, the sequence $F_n$ of Fibonacci numbers is uniquely
+determined by the linear recurrence $F_{n+2}-F_{n+1}-F_n=0$ and the two initial
+values $F_0=0$,~$F_1=1$.  Especially for representing functions or sequences
+that cannot be expressed in ``closed form'', the differential or difference
+equations they may satisfy provide an attractive way to store them on the
+computer. The question is then how to calculate with objects which are given in
+this form.
 
-similar packages: gfun, mallinger, q-gfun, future: mgfun, holonomicfunctions
+Algorithms for Ore algebras provide a systematic answer to this
+question~\cite{..,..}.  Invented in the early 20th century~\cite{..} with the
+objective of providing a unified theory for various kinds of linear operators,
+they have been used for many years in computer algebra systems, for example in
+the Maple packages gfun~\cite{..} and mgfun~\cite{..}, in the Mathematica
+packages by Mallinger~\cite{..} and Koutschan~\cite{..,..}, and
+elsewhere~\cite{..}. 
 
-overview over the package
+The purpose of this paper is to introduce an implementation of a collection of
+algorithms related to Ore algebras for the computer algebra system
+Sage~\cite{..}. It is addressed to first-time users who are already familiar
+with Sage, and with the theory of Ore algebras and their use for doing symbolic
+computation for special functions. Readers unfamiliar with Sage are referred
+to~\cite{..}, and readers unfamiliar with Ore algebras may wish to consult the
+recent tutorial~\cite{..} and the references given there for an introduction to
+the subject.
 
-short demo
+At the time of writing, the package we describe here is still under construction
+and has not yet been incorporated into the official Sage distribution. Readers
+who want to try it out are invited to download the current development version
+from [URL] and are encouraged to send us bug reports and other comments. We hope
+that the community will find the code useful.
 
-outlook, pending tasks (multivariate!)
+SHORT DEMO HOW TO INSTALL AND LAUNCH IT (TO BE DETERMINED)
 
-how to get it and how to install it. 
+DISCLAIMER: SO FAR WE MAINLY SUPPORT UNIVARIATE OPERATORS.
+
+HOWEVER: FOR THESE WE HAVE MORE OPERATIONS THAT GFUN OR MALLINGER. 
 
 \section{Ore Algebras and Ore Polynomials}
+
+\begin{sageexample}
+  sage: x = 5
+  sage: x + 1
+\end{sageexample}
 
 \subsection{In Theory}
 
