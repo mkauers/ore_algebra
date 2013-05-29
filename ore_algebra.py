@@ -770,6 +770,11 @@ def OreAlgebra(base_ring, *generators, **kwargs):
     if not is_suitable_base_ring(R):
         raise TypeError, "The base ring is not of the required form."
     if len(gens) == 0:
+        try:
+            gens = list(kwargs['names'])
+        except AttributeError:
+            raise TypeError, "There must be at least one generator"
+    if len(gens) == 0:
         raise TypeError, "There must be at least one generator"
 
     product_rules = []
