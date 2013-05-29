@@ -47,16 +47,18 @@ def taylor_shift_univ_modp_poly(p, i):
     ## assuming that p is an element of GF(m)['x']
     return p(p.parent().gen() + i)
 def taylor_shift_univ_modp_ratfun(q, i):
-    ## assuming that q is an element of Fract(GF(m)['x'])
+    ## assuming that q is an element of Frac(GF(m)['x'])
     num = taylor_shift_univ_modp_poly(q.numerator(), i)
     den = taylor_shift_univ_modp_poly(q.denominator(), i)
     return q.parent()(num, den, coerce=False, reduce=False)
+
 # if sage version is 5.10.beta3 or later, use taylor shift of flint2
 import datetime
 try:
     v = version()
 except:
     v = "2013-01-01"    
+
 if datetime.date(int(v[-10:-6]), int(v[-5:-3]), int(v[-2:])) >= datetime.date(2013, 05, 15):
     try:
         load("shift.spyx") # cython code defining 'taylor_shift_univ_int_poly' and 'taylor_shift_univ_modp_poly'
@@ -89,7 +91,7 @@ def is_OreAlgebra(A):
     """
     return isinstance(A, OreAlgebra_generic)
 
-def _is_suitable_base_ring(R):
+def is_suitable_base_ring(R):
     """
     Checks whether `R` is suitable as base ring of an Ore algebra.
     This is the case if and only if: (a) `R` is one of `ZZ`, `QQ`,
@@ -102,10 +104,10 @@ def _is_suitable_base_ring(R):
 
     EXAMPLES::
 
-       sage: R = GF(1091)['x,y'].fraction_field()['z']
-       sage: _is_suitable_base_ring(R)
+       sage: R = GF(1091)['x, y'].fraction_field()['z']
+       sage: is_suitable_base_ring(R)
        True
-       sage: _is_suitable_base_ring(GF(9, 'a'))
+       sage: is_suitable_base_ring(GF(9, 'a'))
        False
     
     """
@@ -113,13 +115,13 @@ def _is_suitable_base_ring(R):
     if (p == 0 and (R is ZZ or R is QQ or is_NumberField(R))) or (p > 0 and R is GF(p)):
         return True
     elif is_FractionField(R):
-        return _is_suitable_base_ring(R.ring())
+        return is_suitable_base_ring(R.ring())
     elif is_PolynomialRing(R) or is_MPolynomialRing(R):
-        return _is_suitable_base_ring(R.base_ring())
+        return is_suitable_base_ring(R.base_ring())
     else:
         return False
 
-class _Sigma:
+class Sigma_class:
     """
     A ring endomorphism for suitable rings. 
 
@@ -137,10 +139,10 @@ class _Sigma:
     EXAMPLES::
 
        sage: R.<x1,x2,x3> = QQ['x1,x2,x3']
-       sage: sigma = _Sigma(R, {x1:2*x1, x2:1-x2, x3:x3+1})
+       sage: sigma = Sigma_class(R, {x1:2*x1, x2:1-x2, x3:x3+1})
        sage: sigma(x1+x2+x3)
        2*x1 - x2 + x3 + 2
-       sage: sigma = _Sigma(R.fraction_field(), {x1:2*x1, x2:1-x2, x3:x3+1})
+       sage: sigma = Sigma_class(R.fraction_field(), {x1:2*x1, x2:1-x2, x3:x3+1})
        sage: sigma(x1+x2+x3)
        2*x1 - x2 + x3 + 2
 
@@ -151,7 +153,7 @@ class _Sigma:
     EXAMPLES::
 
        sage: R.<x1,x2,x3> = QQ['x1,x2,x3']
-       sage: sigma = _Sigma(R, {x1:2*x1, x2:1-x2, x3:x3+1})
+       sage: sigma = Sigma_class(R, {x1:2*x1, x2:1-x2, x3:x3+1})
        sage: sigma(x1+x2+x3, 5)
        32*x1 - x2 + x3 + 6
        sage: sigma.factorial(x1+x2+x3, 4).factor()
@@ -359,12 +361,12 @@ class _Sigma:
             except:
                 raise ValueError, "unable to construct inverse of sigma"
 
-        sigma_inv = _Sigma(self.__R, sigma_inv_dict)
+        sigma_inv = Sigma_class(self.__R, sigma_inv_dict)
         self.__inverse = sigma_inv
         sigma_inv.__inverse = self
         return sigma_inv
 
-class _Delta:
+class Delta_class:
     """
     A skew-derivation for suitable rings. 
 
@@ -383,8 +385,8 @@ class _Delta:
     EXAMPLES::
 
        sage: R.<x1,x2,x3> = QQ['x1,x2,x3']
-       sage: sigma = _Sigma(R, {x1:2*x1, x2:1-x2, x3:x3+1})
-       sage: delta = _Delta(R, {x1:1, x3:x3}, sigma)
+       sage: sigma = Sigma_class(R, {x1:2*x1, x2:1-x2, x3:x3+1})
+       sage: delta = Delta_class(R, {x1:1, x3:x3}, sigma)
        sage: delta(x1+x2+x3)
        x3 + 1
        sage: delta(x1*x2*x3)
@@ -636,10 +638,12 @@ def OreAlgebra(base_ring, *generators, **kwargs):
 
       sage: R.<x> = QQ['x']
       sage: K = R.fraction_field()
+
       # This creates an Ore algebra of linear differential operators
       sage: A.<D> = OreAlgebra(K, ('D', lambda p: p, lambda p: p.derivative(x)))
       sage: A
       Univariate Ore algebra in D over Fraction Field of Univariate Polynomial Ring in x over Rational Field 
+
       # This creates an Ore algebra of linear recurrence operators
       sage: A.<S> = OreAlgebra(K, ('S', lambda p: p(x+1), lambda p: K.zero()))
       sage: A
@@ -653,10 +657,13 @@ def OreAlgebra(base_ring, *generators, **kwargs):
     ::
 
       sage: U.<x, y> = ZZ['x', 'y']
+
       # here, the base ring represents the differential field QQ(x, e^x)
       sage: A.<D> = OreAlgebra(U, ('D', {}, {x:1, y:y}))
+
       # here, the base ring represents the difference field QQ(x, 2^x)
       sage: B.<S> = OreAlgebra(U, ('S', {x:x+1, y:2*y}, {}))
+
       # here too, but the algebra's generator represents the forward difference instead of the shift
       sage: C.<Delta> = OreAlgebra(U, ('Delta', {x:x+1, y:2*y}, {x:1, y:y}))
 
@@ -690,14 +697,15 @@ def OreAlgebra(base_ring, *generators, **kwargs):
       sage: A = OreAlgebra(R, 'Dx') # This creates an Ore algebra of differential operators
       sage: A == OreAlgebra(R, ('Dx', {}, {x:1}))
       True
-      sage: A == OreAlgebra(R, ('Dx', {}, {y:1}))
-      False # the Dx in A acts on x, not on y
+      sage: A == OreAlgebra(R, ('Dx', {}, {y:1})) # the Dx in A acts on x, not on y
+      False 
+
       # This creates an Ore algebra of linear recurrence operators
       sage: A = OreAlgebra(R, 'Sx')
       sage: A == OreAlgebra(R, ('Sx', {x:x+1}, {}))
       True
-      sage: A == OreAlgebra(R, ('Sx', {y:y+1}, {})) 
-      False # the Sx in A acts on x, not on y
+      sage: A == OreAlgebra(R, ('Sx', {y:y+1}, {})) # the Sx in A acts on x, not on y
+      False 
       sage: OreAlgebra(R, 'Qx', q=2)
       Univariate Ore algebra in Qx over Multivariate Polynomial Ring in x, y over Rational Field
 
@@ -759,7 +767,7 @@ def OreAlgebra(base_ring, *generators, **kwargs):
     R = base_ring; gens = list(generators)
     zero = R.zero(); one = R.one()
 
-    if not _is_suitable_base_ring(R):
+    if not is_suitable_base_ring(R):
         raise TypeError, "The base ring is not of the required form."
     if len(gens) == 0:
         raise TypeError, "There must be at least one generator"
@@ -776,7 +784,7 @@ def OreAlgebra(base_ring, *generators, **kwargs):
         if type(gens[i]) == str:
             head = gens[i][0]; 
             if head == 'C': # commutative
-                s = _Sigma(R, {}); d = _Delta(R, {}, s)
+                s = Sigma_class(R, {}); d = Delta_class(R, {}, s)
                 gens[i] = (gens[i], s, d)
                 continue
             x = R(gens[i][1:])
@@ -810,8 +818,8 @@ def OreAlgebra(base_ring, *generators, **kwargs):
                 raise TypeError, "unexpected generator declaration"
         elif len(gens[i]) != 3:
             raise TypeError, "unexpected generator declaration"
-        s = _Sigma(R, gens[i][1]) # assuming gens[i][1] is either a dict or a callable
-        d = _Delta(R, gens[i][2], s) # assuming gens[i][2] is either a dict or a callable
+        s = Sigma_class(R, gens[i][1]) # assuming gens[i][1] is either a dict or a callable
+        d = Delta_class(R, gens[i][2], s) # assuming gens[i][2] is either a dict or a callable
         if s(one) != one:
             raise ValueError, "sigma(1) must be 1"
         gens[i] = (gens[i][0], s, d)
@@ -1076,7 +1084,7 @@ class OreAlgebra_generic(Algebra):
 
            sage: A.<Dx> = OreAlgebra(QQ['x'].fraction_field(), 'Dx')
            sage: A.var()
-           Dx
+           'Dx'
            
         """
         return self._gens[n][0]
@@ -1312,10 +1320,10 @@ class OreAlgebra_generic(Algebra):
 
            sage: A.<Tx> = OreAlgebra(ZZ['x'], 'Tx')
            sage: A.is_T(), A.is_E()
-           (x, x, x)
+           (x, x)
            sage: A.<Dx> = OreAlgebra(ZZ['x'], 'Dx')
            sage: A.is_T(), A.is_E()
-           (False, False, False)
+           (False, False)
         
         """
         return self.is_T(n)
@@ -1328,11 +1336,11 @@ class OreAlgebra_generic(Algebra):
         EXAMPLES::
 
            sage: A.<Tx> = OreAlgebra(ZZ['x'], 'Tx')
-           sage: A.is_Theta(), A.is_T(), A.is_E()
-           (x, x, x)
+           sage: A.is_T(), A.is_E()
+           (x, x)
            sage: A.<Dx> = OreAlgebra(ZZ['x'], 'Dx')
-           sage: A.is_Theta(), A.is_T(), A.is_E()
-           (False, False, False)
+           sage: A.is_T(), A.is_E()
+           (False, False)
         
         """
         n = self._gen_to_idx(n)
@@ -1709,8 +1717,8 @@ class OreAlgebra_generic(Algebra):
 
         gens = list(self._gens)
         R = self.base_ring()
-        sigma = _Sigma(R, sigma)
-        delta = _Delta(R, delta, sigma)
+        sigma = Sigma_class(R, sigma)
+        delta = Delta_class(R, delta, sigma)
 
         gens[n] = (var, sigma, delta)
         if var == self.var(n) and sigma == self.sigma(n) and delta == self.delta(n):
