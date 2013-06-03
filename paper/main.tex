@@ -14,6 +14,8 @@
 \def\i{\mathrm{i}}
 \def\e{\mathrm{e}}
 
+\def\Bold#1{\mathbf{#1}}
+
 \newtheorem{thm}{Theorem}
 \newtheorem{prop}{Proposition}
 \newtheorem{defn}{Definition}
@@ -91,16 +93,22 @@ that the community will find the code useful.
 
 SHORT DEMO HOW TO INSTALL AND LAUNCH IT (TO BE DETERMINED)
 
+\begin{sageexample}
+  sage: load("ore_algebra.py");  #### TO BE FIXED ####
+  sage: R.<x> = PolynomialRing(ZZ); A.<Dx> = OreAlgebra(R, 'Dx')
+  sage: A
+  sage: A.random_element()
+  sage: Dx*x
+  sage: B.<Sx> = OreAlgebra(R, 'Sx')
+  sage: B
+  sage: Sx*x
+\end{sageexample}
+
 DISCLAIMER: SO FAR WE MAINLY SUPPORT UNIVARIATE OPERATORS.
 
 HOWEVER: FOR THESE WE HAVE MORE OPERATIONS THAT GFUN OR MALLINGER. 
 
 \section{Ore Algebras and Ore Polynomials}
-
-\begin{sageexample}
-  sage: x = 5
-  sage: x + 1
-\end{sageexample}
 
 \subsection{In Theory}
 
@@ -148,6 +156,6 @@ Some longer session showing how to solve a meaningful problem by using several f
 \subsection{}
 
  \bibliographystyle{plain}
- \bibliography{all}
+ \bibliography{main}
  
 \end{document}
