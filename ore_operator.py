@@ -73,7 +73,7 @@ class OreOperator(RingElement):
            x^3 - 3*x^2 + 2*x
            sage: factor(_)
            (x - 2) * (x - 1) * x
-           sage: (Sx - 1)(1/4*x*(x-1)*(x-2)*(x-3), Sx=lambda p:p(2*x)) # let Sx act as q-shift
+           sage: (Sx - 1)(1/4*x*(x-1)*(x-2)*(x-3), action=lambda p:p(2*x)) # let Sx act as q-shift
            15/4*x^4 - 21/2*x^3 + 33/4*x^2 - 3/2*x
 
         """
