@@ -1075,8 +1075,8 @@ class OreAlgebra_generic(Algebra):
         except AttributeError:
             pass
         r = self.base_ring()._latex_() + "\\langle "
-        for x in self._gens:
-            r = r + x[0] + ", "
+        for x in self.gens():
+            r = r + x._latex_() + ", "
         r = r[:-2] + "\\rangle "
         self._cached_latex = r
         return r

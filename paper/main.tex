@@ -79,57 +79,196 @@ elsewhere~\cite{..}.
 The purpose of this paper is to introduce an implementation of a collection of
 algorithms related to Ore algebras for the computer algebra system
 Sage~\cite{..}. It is addressed to first-time users who are already familiar
-with Sage, and with the theory of Ore algebras and their use for doing symbolic
-computation for special functions. Readers unfamiliar with Sage are referred
+with Sage, and with the theory of Ore algebras and its use for doing symbolic
+computation related to special functions. Readers unfamiliar with Sage are referred
 to~\cite{..}, and readers unfamiliar with Ore algebras may wish to consult the
 recent tutorial~\cite{..} and the references given there for an introduction to
 the subject.
 
 At the time of writing, the package we describe here is still under construction
 and has not yet been incorporated into the official Sage distribution. Readers
-who want to try it out are invited to download the current development version
-from [URL] and are encouraged to send us bug reports and other comments. We hope
+who want to try it out are invited to download the current latest version from 
+[URL] and are encouraged to send us bug reports and other comments. We hope 
 that the community will find the code useful.
 
-SHORT DEMO HOW TO INSTALL AND LAUNCH IT (TO BE DETERMINED)
+Creating an Ore algebra object is easy. The following instructions show how to 
+load the code and then create an Ore algebra $A$ of linear differential operators
+and an Ore algebra $B$ of recurrence operators. Observe the correct application
+of the respective commutation rules in both cases. 
 
 \begin{sageexample}
   sage: load("ore_algebra.py");  #### TO BE FIXED ####
-  sage: R.<x> = PolynomialRing(ZZ); A.<Dx> = OreAlgebra(R, 'Dx')
+  sage: R.<x> = PolynomialRing(ZZ); A.<Dx> = OreAlgebra(R)
   sage: A
   sage: A.random_element()
   sage: Dx*x
-  sage: B.<Sx> = OreAlgebra(R, 'Sx')
+  sage: B.<Sx> = OreAlgebra(R)
   sage: B
   sage: Sx*x
 \end{sageexample}
 
-DISCLAIMER: SO FAR WE MAINLY SUPPORT UNIVARIATE OPERATORS.
+More details on the construction of Ore algebras are given in the following section.
+Also Ore algebras with several generators are already supported. However, so far we offer
+no functionality beyond addition and multiplication for these. More functionality 
+is available for algebras with one generator. We describe some of it in 
+Section~\ref{sec:3}. Even more functionality has been implemented for special 
+algebras like the ones created above, which are most frequently used in practice. 
+See Section~\ref{sec:4} for an overview. Finally, the package also comes with a 
+fine tuned guessing engine, whose main features we describe in Section~\ref{sec:5}.
 
-HOWEVER: FOR THESE WE HAVE MORE OPERATIONS THAT GFUN OR MALLINGER. 
+\section{Ore Algebras}
 
-\section{Ore Algebras and Ore Polynomials}
+An Ore algebra is determined by a base ring and a finite number of generators.
+In the examples above, the base ring was $\Bold{Z}[x]$, and the generators were
+$\mathrm{Dx}$ and $\mathrm{Sx}$, respectively. If no other information is provided
+in the arguments, the \verb|OreAlgebra| constructor chooses the nature of the 
+generators according to their name: a generator called $\mathrm{Dt}$ represents
+the standard derivation $d/dt$ acting on the generator $t$ of the base ring, 
+a generator called $Sn$ represents the standard shift operator sending the
+generator $n$ of the base ring to $n+1$. 
 
-\subsection{In Theory}
+For this way of generating algebras, generator names must be composed of
+one of the following single-letter prefixes followed by the name of a generator
+of the base ring. 
 
-basic facts and definitions
+\begin{center}
+  \begin{tabular}{|c|c|c|}\hline
+    Prefix & Name & Commutation rule \\\hline
+     D & Standard derivation $d/dx$ & $\mathrm{Dx}\,x=x\,\mathrm{Dx}+1$ \\
+     S & Standard shift $x\leadsto x+1$ & $\mathrm{Sx}\,x=(x+1)\,\mathrm{Sx}$ \\
+     T or $\Theta$ & Eulerian derivation $x\,d/dx$ & $\mathrm{Tx}\,x=x\,\mathrm{Tx}+x$ \\
+     F or $\Delta$ & Forward difference $\Delta_x$ & $\mathrm{Fx}\,x=(x+1)\mathrm{Fx}+1$ \\
+     Q & $q$-shift $x\leadsto q\,x$ & $\mathrm{Qx}\,x=q\,x\,\mathrm{Qx}$ \\
+     J & $q$-derivation (``Jackson derivation'') & $\mathrm{Jx}\,x=q\,x\,\mathrm{Jx}+1$ \\ 
+     C & commutative generator & $\mathrm{Cx}\,x = x\,\mathrm{Cx}$ \\\hline
+  \end{tabular}
+\end{center}
 
-reference to literature
+For the $q$-shift and the $q$-derivation, the base ring must contain an element~$q$.
+The element playing the role of $q$ can be specified as an optional argument. 
 
-\subsection{In Sage}
+\begin{sageexample}
+  sage: R.<x> = PolynomialRing(ZZ['q'])
+  sage: A.<Qx> = OreAlgebra(R)
+  sage: Qx*x
+  sage: A.<Qx> = OreAlgebra(R, q=2)
+  sage: Qx*x
+\end{sageexample}
 
-ground rings 
+In general, the commutation rules of a generator~$X$ of an Ore algebra~$A$ with
+base ring~$R$ are governed by two maps, $\sigma\colon R\to R$ and $\delta\colon R\to R$,
+where $\sigma$ is a ring endomorphism (i.e., $\sigma(a+b)=\sigma(a)+\sigma(b)$ and
+$\sigma(ab)=\sigma(a)\sigma(b)$ for all $a,b\in R$) and $\delta$ is a skew-derivation
+for $\sigma$ (i.e., $\delta(a+b)=\delta(a)+\delta(b)$ and $\delta(ab)=\delta(a)b
++\sigma(a)\delta(b)$ for all $a,b\in R$). With two such maps being given, the
+generator $X$ satisfies the commutation rule $Xa=\sigma(a)X+\delta(a)$ for every
+$a\in R$. If there is more than one generator, then each of them has its own pair
+of maps $\sigma,\delta$. Different generators commute with each other; 
+noncommutativity only takes place ``between'' generators and base ring elements. 
 
-general sigma and delta
+It is possible to create an Ore algebra with user specified commutation rules.
+In this form, each generator must be declared by a tuple $(X,\sigma,\delta)$, 
+where $X$ is the name of the generator (a string), and $\sigma$ and $\delta$
+are dictionaries which contain the images of the generators of the base
+ring under the respective map. Here is how to specify an algebra of difference
+operators in this way:
 
-predefined shortcuts: D, T, S, F, J, Q, C
+\begin{sageexample}
+  sage: R.<x> = ZZ['x']
+  sage: A = OreAlgebra(R, ('X', {x:x+1}, {x:1}))
+  sage: X = A.gen()
+  sage: X*x
+\end{sageexample}
 
-\section{General Methods}
+As another example, here is how to define an algebra of differential operators 
+whose base ring is a differential field $K=\set Q(x,y,z)$ where $y$ represents
+$\exp(x)$ and $z$ represents $\log(x)$:
 
-arithmetic, lclm, gcrd, action, coercion and conversion, pretty printing, coefficient extraction,
-closure properties, associate solutions. 
+\begin{sageexample}
+  sage: K = ZZ['x','y','z'].fraction_field()
+  sage: x,y,z = K.gens()
+  sage: A = OreAlgebra(K, ('D', {}, {x:1, y:y, z:1/x}))
+  sage: D = A.gen()
+  sage: D*x, D*y, D*z
+\end{sageexample}
 
-\section{Special Methods Standard Algebras}
+In the dictionary specifying~$\sigma$, omitted generators are understood to be
+mapped to themselves, so that \verb|{}| in the definition of $A$ in the example
+above is equivalent to \verb|{x:x,y:y,z:z}|.  Likewise, in the dictionaries
+specifying~$\delta$, omitted generators are understood to be mapped to zero.
+
+For Ore algebras with several generators, it is possible to mix specifications
+of generators via triples $(X,\sigma,\delta)$ with generators using the naming
+convention shortcuts as explained before. Continuing the previous example,
+here is a way to define an algebra $A$ over $K$ with two generators, a $D$ 
+that behaves like before, and in addition an $Sx$ which acts like the standard
+shift on~$x$.
+
+\begin{sageexample}
+  sage: A = OreAlgebra(K, ('D', {}, {x:1, y:y, z:1/x}), 'Sx')
+  sage: D, Sx = A.gens()
+  sage: D*x, Sx*x
+\end{sageexample}
+
+Not every ring is suitable as base ring of an Ore algebra. Base rings must
+themselves be polynomial rings (univariate or multivariate), or fraction 
+fields of polynomial rings. Their base rings in turn may be either $\set Z$,
+$\set Q$, a prime field $GF(p)$, or a number field $\set Q(\alpha)$, or
+--- recursively --- some ring which itself would be suitable as base ring
+of an Ore algebra. 
+
+\begin{sageexample}
+  sage: ZZ['x'].fraction_field()['y','z'] ### OK
+  sage: GF(1091)['x','y','z']['u'] ### OK
+  sage: ( ZZ['x','y','z'].quotient_ring(x^2+y^2+z^2-1) )['u'] ### not OK
+  sage: GF(9, 'a')['x'] ### not OK
+\end{sageexample}
+
+Note that the maps $\sigma$ and $\delta$ must leave all the elements of
+the base ring's base ring fixed. They may only have nontrivial images for
+the top level generators. 
+
+The constituents of an Ore algebra $A$ can be accessed through the methods
+summarized in the following table. Further methods can be found in the 
+documentation. 
+
+\begin{center}
+  \begin{tabular}{|l|p{.55\hsize}|}
+    \hline
+    Method name & short description \\\hline
+    \verb|associated_commutative_algebra()| & returns a polynomial ring with the
+       same base ring as $A$ and whose generators are named like the generators
+       of~$A$\\
+    \verb|base_ring()| & returns the base ring of $A$\\
+    \verb|delta(i)| & returns a callable object representing the delta map
+       associated to the $i$th generator (default: $i=0$) \\
+    \verb|gen(i)| & returns the $i$th generator (default: $i=0$)\\
+    \verb|sigma(i)| & returns a callable object representing the sigma map
+       associated to the $i$th generator (default: $i=0$) \\
+    \verb|var(i)| & returns the name of the $i$th generator (default: $i=0$)\\\hline
+  \end{tabular}
+\end{center}
+
+\smallskip
+
+Examples: 
+
+\begin{sageexample}
+  sage: R.<x> = ZZ['x']; A.<Dx> = OreAlgebra(R)
+  sage: A
+  sage: A.associated_commutative_algebra()
+  sage: A.base_ring()
+  sage: A.gen()
+  sage: s = A.sigma(); d = A.delta(); 
+  sage: s(x^5), d(x^5)
+\end{sageexample}
+
+\section{Ore Polynomials}\label{sec:3}
+
+arithmetic, lclm, gcrd, action, coercion and conversion, pretty printing, 
+coefficient extraction, closure properties, associate solutions. 
+
+\section{Special Methods for Standard Algebras}\label{sec:4}
 
 special methods available for univ algebras with univ algebra as ground ring
 
@@ -145,7 +284,7 @@ delta and S
 
 J and Q
 
-\section{Guessing}
+\section{Guessing}\label{sec:5}
 
 \section{Further Examples}
 
