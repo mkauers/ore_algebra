@@ -4,6 +4,7 @@
 \usepackage{bbm}
 \usepackage{a4wide}
 \usepackage{sagetex}
+\usepackage{tikz}
 
 \parindent=0pt
 \parskip\smallskipamount
@@ -97,7 +98,7 @@ and an Ore algebra $B$ of recurrence operators. Observe the correct application
 of the respective commutation rules in both cases. 
 
 \begin{sageexample}
-  sage: load("ore_algebra.py");  #### TO BE FIXED ####
+  sage: load("ore_algebra.py", "guessing.py");  #### TO BE FIXED ####
   sage: R.<x> = PolynomialRing(ZZ); A.<Dx> = OreAlgebra(R)
   sage: A
   sage: A.random_element()
@@ -286,13 +287,124 @@ J and Q
 
 \section{Guessing}\label{sec:5}
 
-\section{Further Examples}
+[[CITE RUBEY.]]
 
-Some longer session showing how to solve a meaningful problem by using several features of the code. Ideas?
+Guessing is one of the most popular features of software packages like gfun.  It
+is a technique for detecting patterns in sequences of numbers, which is often
+used in combinatorics. The basic idea is simple. If we are given a finite array
+of numbers, though of as the first terms of an infinite sequence, we may want to
+know whether this sequence satisfies a recurrence. The algorithm behind a
+guessing engine searches for small equations matching the given data.
+Generically, no such equations exist, so if some are found, it is fair to
+``guess'' that they are in fact valid equations for the whole infinite sequence.
 
-\subsection{}
+We provide a guessing function which takes as input a list of terms and an Ore
+algebra, and returns as output an operator which matches the given data and
+which, in some measure, would be unlikely to exist for random data.
 
-\subsection{}
+\begin{sageexample}
+  sage: data = [ 0, 1, 1, 2, 3, 5, 8, 13, 21, 34, 55 ]
+  sage: L = guess(data, OreAlgebra(ZZ['n'], 'Sn'))
+  sage: L
+  sage: L(data)
+  sage: M = guess(data, OreAlgebra(ZZ['x'], 'Dx'))
+  sage: M
+  sage: M(x/(1-x-x^2))
+\end{sageexample}
+
+If an algebra of differential operators is supplied as second argument, the data
+is understood as the first few coefficients of a power series. The output
+operator is expected to have this power series as solution.
+
+It can happen that the procedure is unable to find an operator matching the 
+given data. In this case, an exception is raised. There are two possible 
+explanations for such an event. Either the sequence in question does not 
+satisfy any equations, or it does but the equations are so big that more
+data is needed to detect them. 
+
+A number of options are available for governing the search for relations.  In
+order to explain them, we first need to give some details on the underlying
+algorithms. For simplicity of language, we restrict here to the case of
+recurrence operators. The situation for differential operators is very similar.
+
+For the most typical situations, there are two important hyperbolas. One
+describes the region in the $(r,d)$-plane consisting of all points for which
+there exists an operator of order~$r$ and degree~$d$ truly satisfied by the
+sequence in question. (See~\cite{..} for an explanation why the boundary of this
+region is usually a hyperbola.) The second describes the region of all points
+$(r,d)$ for which an operator of order~$r$ and degree~$d$ can be detected when
+$N$ terms are provided as input. This region is determined by the requirement
+$(r+1)(d+2)<N$. 
+
+The method tests a sequence of points $(r_1,d_1)$, $(r_2,d_2)$, \dots\ right
+below this second parabola. Success at a point $(r_i,d_i)$ means that some
+evidence for an operator of order $\leq r_i$ and degree $\leq d_i$ has been found. 
+This operator however is not explicitly computed. Instead, the method uses the
+partial information found about this operator to calculate an operator which with 
+high probability is the minimal order operator satisfied by the sequence in question. 
+This operator is usually more interesting than the one at $(r_i,d_i)$, and its 
+computation is usually more efficient. 
+
+Using the option \verb|path|, the user can specify a list of points $(r_i,d_i)$
+which should be used instead of the standard path. By setting the options \verb|min_degree|,
+\verb|max_degree|, \verb|min_order|, \verb|max_order|, all points $(r,d)$ of the path
+are discarded for which $r$ or $d$ is not within the specified bounds. These options
+can be used to accelerate the search in situations where the user has some knowledge
+(or intuition) about the size of the expected equations. 
+
+\hangindent=-6.3cm\hangafter=-14\leavevmode
+\smash{\raise-5.3cm\rlap{\kern\hsize\kern-5.1cm\begin{tikzpicture}[scale=.45]
+  \draw[->] (10.5,0) node {$r$} (-.2,0) -- (10, 0) ;
+  \draw[->] (0,10.5) node {$d$} (0,-.2) -- (0, 10) ;
+  \draw (1.2, 3.5) -- (1.4, 4) (1.2, 3) -- (1.6, 4) (1.2, 2.5) -- (1.8, 4) (1.2, 2) -- (2, 4)
+        (1.4, 2) -- (2.2, 4) (1.6, 2) -- (2.4, 4) (1.8, 2) -- (2.6, 4) (2, 2) -- (2.8, 4) 
+        (2.2, 2) -- (3, 4) (2.4, 2) -- (3.2, 4) (2.6, 2) -- (3.4, 4) (2.8,2)--(3.6,4) (3,2)--(3.8,4)
+        (3.2, 2) -- (4, 4) (3.4, 2) -- (4.2, 4) (3.6, 2) -- (4.4, 4) (3.8,2)--(4.6,4) (4,2)--(4.8,4)
+        (4.2, 2) -- (5, 4) (4.4, 2) -- (5.2, 4) (4.6, 2) -- (5.4, 4) (4.8,2)--(5.6,4) (5,2)--(5.8,4); 
+  \fill[lightgray] (.75, 10) .. controls (1.5,2.5) and (2.5,1.5) .. (10, .75) -- (10, 10) -- (.75, 10);
+  \draw[thick] (2, 10) .. controls (2, 1.2) and (2, 1.2) .. (10, 1.2); 
+  \draw (-.2, 2) node {\vbox{\llap{\footnotesize min }\kern-3pt\llap{\footnotesize degree }}} -- (10, 2) 
+        (-.2, 4) node {\vbox{\llap{\footnotesize max }\kern-3pt\llap{\footnotesize degree }}} -- (10, 4);
+  \draw (1.2, -.2) node {\hbox to0pt{\rule{0pt}{2em}\hss\footnotesize min order\hss}} -- (1.2, 10)
+        (5, -.2) node {\hbox to0pt{\rule{0pt}{2em}\hss\footnotesize max order\hss}} -- (5, 10);
+  \fill (2.5, 3) circle(4pt) node[right] {\rule[-1em]{0pt}{0pt}$A$} (2, 9) circle(4pt) node[right] {$B$} ;
+\end{tikzpicture}}}%
+The figure on the right illustrates the typical situation for guessing problems
+that are not too small and not too artificial. The light gray region indicates
+the area which is not accessible with the given amount of data. Only the points
+$(r,d)$ below it can be tested for an operator of order~$r$ and degree~$d$ that
+fits to the given data. Let's assume that operators exist on and above the solid
+black hyperbola. The user will usually not know this curve in advance but may
+have some expectations about it and can restrict the search accordingly, for
+example to the dashed area shown in the figure. The method will detect the
+existence of an operator, say at point~$A$, and construct from the information
+gained at this point an operator of minimal possible order, which may correspond
+to point~$B$.  This operator is returned as output. Note that the degree of the
+output may exceed the value of \verb|max_degree|, and its order may be smaller
+than $\verb|min_order|$:
+
+\begin{sageexample}
+sage: data = [(n+1)^10*2^n + 3^n for n in xrange(200)]
+sage: L = guess(data, OreAlgebra(ZZ['n'],'Sn'), min_order=3, max_degree=5)
+sage: L.order(), L.degree()
+\end{sageexample}
+
+In order to test a specific point $(r,d)$, the data array must contain at least $(r+1)(d+2)$ terms. 
+If it has more terms, the guess becomes more trustworthy, but also the computation time increases.
+By setting the option \verb|ensure| to a positive integer~$e$, the user can request that only 
+such points $(r,d)$ should be tested for which the data array contains at least $e$ more terms than
+needed. This increases the reliability. By setting the option \verb|cut| to a positive integer~$c$,
+the user requests that for testing a point $(r,d)$, the method should take into account at most $c$
+more terms than needed. If the data array contains more terms, superfluous ones are ignored in the
+interested of better performance. We must always have $0\leq e\leq c\leq \infty$. The default setting
+is $e=0$, $c=\infty$. 
+
+Finally, there is an option \verb|infolevel| which, when set to a positive integer, causes the method
+to print some output about the progress of the computation. Higher values lead to more detailed output.
+
+\section{Concluding Remarks}
+
+...
 
  \bibliographystyle{plain}
  \bibliography{main}
