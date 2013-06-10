@@ -279,7 +279,44 @@ D and theta
 
 \subsection{Recurrence Operators}
 
-delta and S
+We compute an annihilator for the sequence
+$c(n) = \sum_{k=0}^n 1 / k!$:
+
+\begin{sageexample}
+  sage: R.<n> = ZZ[]; RS.<Sn> = OreAlgebra(R, 'Sn')
+  sage: inverse_factorials = (n + 1) * Sn - 1
+  sage: partial_sums = inverse_factorials.annihilator_of_sum()
+  sage: partial_sums
+\end{sageexample}
+
+The \verb|to_list| method returns the first few values of a sequence,
+given the initial values:
+
+\begin{sageexample}
+  sage: L = partial_sums.to_list([1, 2], 8)
+  sage: L
+  sage: N(L[7])
+\end{sageexample}
+
+In some cases (for example when the base ring is $\mathbb{Z}$ or
+$\mathbb{Z}[x]$), isolated values can be
+computed asymptotically faster for large $n$ using the binary splitting
+technique.
+The \verb|forward_matrix_bsplit| method, called with argument $n$,
+returns a matrix $P$ and a denominator $Q$ such that $P / Q$ multiplied a
+column vector of initial values $c_0, c_1, \ldots$
+yields $c_n, c_{n+1}, \ldots$.
+This way, computing $10^5$ digits of $e$ takes a fraction of a second:
+
+\begin{sageexample}
+  sage: e_approx = N(e, 400000)
+  sage: P, Q = partial_sums.forward_matrix_bsplit(25600)
+  sage: u = Matrix([[e_approx], [e_approx]]) - P * Matrix([[1], [2]]) / Q
+  sage: u.change_ring(RealField(20))
+\end{sageexample}
+
+
+
 
 \subsection{The $q$-Case}
 
