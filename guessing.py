@@ -387,6 +387,7 @@ def _guess_via_hom(data, A, modulus, to_hom, **kwargs):
 
     L = A.zero()
     mod = K.one() if atomic else ZZ.one()
+    order_adjustment = None
 
     nn = 0; path = []; ncpus = 1
     return_short_path = kwargs.has_key('return_short_path') and kwargs['return_short_path'] is True
@@ -496,7 +497,20 @@ def _guess_via_hom(data, A, modulus, to_hom, **kwargs):
 
         if not Lp.is_zero():
             info(2, "Reconstruction attempt...")
+            s = Lp.parent().sigma()
+            if not s.is_identity() and mod.parent() is ZZ:
+                try:
+                    if order_adjustment is None:
+                        order_adjustment = Lp.order() // ZZ(2)
+                    Lp = Lp.map_coefficients(lambda p: s(p, -order_adjustment))
+                except:
+                    L = A.zero(); mod = ZZ.zero(); order_adjustment = 0
+
             L, mod = _merge_homomorphic_images(L, mod, Lp, p)
+
+    if order_adjustment > 0:
+        s = L.parent().sigma()
+        L = L.map_coefficients(lambda p: s(p, order_adjustment))
 
     return (L, path) if return_short_path else L
 
@@ -783,12 +797,7 @@ def _merge_homomorphic_images(L, mod, Lp, p, reconstruct=True):
             return Lmod, mod        
         adjust = lambda c : c % mod
 
-    s = L.parent().sigma(); r2 = Lp.order() // ZZ(2)
-    try:
-        coeffs = map(lambda c: s(c, -r2), Lmod.coeffs())
-    except:
-        r2 = 0
-        coeffs = Lmod.coeffs()
+    coeffs = Lmod.coeffs()
 
     try:
         d = R.one()
@@ -813,7 +822,7 @@ def _merge_homomorphic_images(L, mod, Lp, p, reconstruct=True):
                 c = c.parent()([ cc.map_coefficients(adjust) for cc in c.coeffs() ])
             else:
                 c = c.map_coefficients(adjust)
-        coeffs[i] = s(c, r2)
+        coeffs[i] = c
 
     return L.parent()(coeffs), R.zero()
 
