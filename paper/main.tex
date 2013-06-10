@@ -117,6 +117,8 @@ Section~\ref{sec:3}. Even more functionality has been implemented for special
 algebras like the ones created above, which are most frequently used in practice. 
 Section~\ref{sec:4} describes some of these features. 
 
+/// disclaimer: we don't explain algorithms here, but only the software /// 
+
 \section{Ore Algebras}
 
 An Ore algebra is determined by a base ring and a finite number of generators.
@@ -324,11 +326,19 @@ as parent.
 
 -- available for all (univariate) algebras
 
+-- conceptually the base ring is always a field, even when it's not. 
+
 \subsection{closure properties?}
 
 -- table mapping function names to arithmetic
 
 -- example for how to prove some identity with the methods provided. 
+
+-- merge with previous section?
+
+\subsection{conversions?}
+
+-- re2de and all its relatives
 
 \subsection{solutions?}
 
@@ -340,15 +350,15 @@ as parent.
 
 -- should be mentioned somewhere, although there is not much to say about it. 
 
-\subsection{to list?}
+\subsection{Computation of Sequence Terms}
 
--- available for shift and q-shift algebras. 
+(... a few introductory words ... available for shift and q-shift algebras ...)
 
 We compute an annihilator for the sequence
 $c(n) = \sum_{k=0}^n 1 / k!$:
 
 \begin{sageexample}
-  sage: R.<n> = ZZ[]; RS.<Sn> = OreAlgebra(R, 'Sn')
+  sage: R.<n> = ZZ[]; RS.<Sn> = OreAlgebra(R)
   sage: inverse_factorials = (n + 1) * Sn - 1
   sage: partial_sums = inverse_factorials.annihilator_of_sum()
   sage: partial_sums
@@ -367,11 +377,11 @@ In some cases (for example when the base ring is $\mathbb{Z}$ or
 $\mathbb{Z}[x]$), isolated values can be
 computed asymptotically faster for large $n$ using the binary splitting
 technique.
-The \verb|forward_matrix_bsplit| method, called with argument $n$,
-returns a matrix $P$ and a denominator $Q$ such that $P / Q$ multiplied a
+The \verb|forward_matrix_bsplit| method, called with argument~$n$,
+returns a matrix~$P$ and a polynomial~$Q$ such that $P / Q$ multiplied by a
 column vector of initial values $c_0, c_1, \ldots$
 yields $c_n, c_{n+1}, \ldots$.
-This way, computing $10^5$ digits of $e$ takes a fraction of a second:
+This way, computing $10^5$ digits of $\mathrm{e}$ takes a fraction of a second:
 
 \begin{sageexample}
   sage: e_approx = N(e, 400000)
@@ -380,17 +390,19 @@ This way, computing $10^5$ digits of $e$ takes a fraction of a second:
   sage: u.change_ring(RealField(20))
 \end{sageexample}
 
+... add a figure with timings? ... 
+
 \subsection{Guessing}
 
-Guessing is a technique for detecting patterns in sequences of numbers, which is
-often used in combinatorics. It is one of the most popular features of packages
-like gfun, and there are even some special purpose packages dedicated to this
-technique~\cite{kauers09a,hebisch11}.  The basic idea is simple. If we are given
-a finite array of numbers, though of as the first terms of an infinite sequence,
-we may want to know whether this sequence satisfies a recurrence. The algorithm
-behind a guessing engine searches for small equations matching the given data.
-Generically, no such equations exist, so if some are found, it is fair to
-``guess'' that they are in fact valid equations for the whole infinite sequence.
+Guessing is, in some sense, the reverse operation of \verb|to_list|. It is one
+of the most popular features of packages like gfun, and there are even some
+special purpose packages dedicated to this technique~\cite{kauers09a,hebisch11}.
+The basic idea is simple. If we are given a finite array of numbers, thought of
+as the first terms of an infinite sequence, we may want to know whether this
+sequence satisfies a recurrence. The algorithm behind a guessing engine searches
+for small equations matching the given data.  Generically, no such equations
+exist, so if some are found, it is fair to ``guess'' that they are in fact valid
+equations for the whole infinite sequence.
 
 We provide a guessing function which takes as input a list of terms and an Ore
 algebra, and returns as output an operator which matches the given data and
