@@ -279,6 +279,23 @@ D and theta
 
 \subsection{Recurrence Operators}
 
+\begin{center}
+  \begin{tabular}{|l|p{.55\hsize}|}
+    \hline
+    Method name & short description \\\hline
+    \verb|to_D()| & converts annihilator for the coefficients in a power series to a
+        differential operator for the sum \\
+    \verb|to_F()| & converts shift operator to a difference operator\\
+    \verb|to_T()| & converts to a differential operator in terms of the Euler derivative \\
+    \verb|annihilator_of_sum()| & converts an annihilator for $f(n)$ to one for $\sum_{k=0}^n f(k)$\\
+    \verb|annihilator_of_composition()| & converts an annihilator for $f(n)$ to one for $f(\lfloor un+v \rfloor)$ where $u, v \in \mathbb{Q}$ \\
+    \verb|annihilator_of_interlacing()| & interlaces two or more sequences\\
+    \verb|generalized_series_solutions()| & computes asymptotic expansions of sequences annihilated by the operator\\ \hline
+  \end{tabular}
+\end{center}
+
+\smallskip
+
 We compute an annihilator for the sequence
 $c(n) = \sum_{k=0}^n 1 / k!$:
 
@@ -298,10 +315,22 @@ given the initial values:
   sage: N(L[7])
 \end{sageexample}
 
+We compute the asymptotic expansion of the sequence of terms
+to estimate how many terms we need to approximate $e$ to a given
+number of digits:
+
+\begin{sageexample}
+  sage: digits = 10^5
+  sage: asymp = inverse_factorials.generalized_series_solutions(3)
+  sage: target = lambda x: log(abs(asymp[0](RR(x))), 10) + digits
+  sage: num_terms = ceil(find_root(target, 1, 10^6))
+  sage: num_terms
+\end{sageexample}
+
 In some cases (for example when the base ring is $\mathbb{Z}$ or
-$\mathbb{Z}[x]$), isolated values can be
-computed asymptotically faster for large $n$ using the binary splitting
-technique.
+$\mathbb{Z}[x]$), isolated values of a sequence can be
+computed asymptotically faster for large $n$ than by listing all
+values, using the binary splitting technique.
 The \verb|forward_matrix_bsplit| method, called with argument $n$,
 returns a matrix $P$ and a denominator $Q$ such that $P / Q$ multiplied a
 column vector of initial values $c_0, c_1, \ldots$
@@ -310,12 +339,10 @@ This way, computing $10^5$ digits of $e$ takes a fraction of a second:
 
 \begin{sageexample}
   sage: e_approx = N(e, 400000)
-  sage: P, Q = partial_sums.forward_matrix_bsplit(25600)
+  sage: P, Q = partial_sums.forward_matrix_bsplit(num_terms)
   sage: u = Matrix([[e_approx], [e_approx]]) - P * Matrix([[1], [2]]) / Q
   sage: u.change_ring(RealField(20))
 \end{sageexample}
-
-
 
 
 \subsection{The $q$-Case}
