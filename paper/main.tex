@@ -70,20 +70,21 @@ computer. The question is then how to calculate with objects which are given in
 this form.
 
 Algorithms for Ore algebras provide a systematic answer to this
-question~\cite{..,..}.  Invented in the early 20th century~\cite{..} with the
-objective of providing a unified theory for various kinds of linear operators,
-they have been used for many years in computer algebra systems, for example in
-the Maple packages gfun~\cite{..} and mgfun~\cite{..}, in the Mathematica
-packages by Mallinger~\cite{..} and Koutschan~\cite{..,..}, and
-elsewhere~\cite{..}. 
+question~\cite{bronstein96,chyzak98}.  Invented in the first half of the 20th
+century~\cite{ore33} with the objective of providing a unified theory for
+various kinds of linear operators, they have been used for many years in
+computer algebra systems, for example in the Maple packages
+OreTools~\cite{abramov03}, gfun~\cite{salvy94} or mgfun~\cite{chyzak98a}, in the
+Mathematica packages by Mallinger~\cite{mallinger96} and
+Koutschan~\cite{koutschan10c,koutschan09}.
 
 The purpose of this paper is to introduce an implementation of a collection of
 algorithms related to Ore algebras for the computer algebra system
-Sage~\cite{..}. It is addressed to first-time users who are already familiar
+Sage~\cite{sage}. It is addressed to first-time users who are already familiar
 with Sage, and with the theory of Ore algebras and its use for doing symbolic
 computation related to special functions. Readers unfamiliar with Sage are referred
-to~\cite{..}, and readers unfamiliar with Ore algebras may wish to consult the
-recent tutorial~\cite{..} and the references given there for an introduction to
+to~\cite{sage}, and readers unfamiliar with Ore algebras may wish to consult the
+recent tutorial~\cite{kauers13} and the references given there for an introduction to
 the subject.
 
 At the time of writing, the package we describe here is still under construction
@@ -114,8 +115,7 @@ no functionality beyond addition and multiplication for these. More functionalit
 is available for algebras with one generator. We describe some of it in 
 Section~\ref{sec:3}. Even more functionality has been implemented for special 
 algebras like the ones created above, which are most frequently used in practice. 
-See Section~\ref{sec:4} for an overview. Finally, the package also comes with a 
-fine tuned guessing engine, whose main features we describe in Section~\ref{sec:5}.
+Section~\ref{sec:4} describes some of these features. 
 
 \section{Ore Algebras}
 
@@ -183,7 +183,7 @@ operators in this way:
 
 As another example, here is how to define an algebra of differential operators 
 whose base ring is a differential field $K=\set Q(x,y,z)$ where $y$ represents
-$\exp(x)$ and $z$ represents $\log(x)$:
+$\exp(x)$ and $z$ represents~$\log(x)$:
 
 \begin{sageexample}
   sage: K = ZZ['x','y','z'].fraction_field()
@@ -266,35 +266,97 @@ Examples:
 
 \section{Ore Polynomials}\label{sec:3}
 
-arithmetic, lclm, gcrd, action, coercion and conversion, pretty printing, 
-coefficient extraction, closure properties, associate solutions. 
+Ore polynomials are elements of Ore algebras, i.e., Sage objects whose parent is an Ore algebra
+object as described in the previous section. They can be constructed by addition and multiplication
+from generators and elements of the base ring. 
 
-\section{Special Methods for Standard Algebras}\label{sec:4}
+\begin{sageexample}
+  sage: R.<x> = ZZ['x']; A.<Dx> = OreAlgebra(R)
+  sage: (5*x^2+3*x-7)*Dx^2 + (3*x^2+8*x-1)*Dx + (9*x^2-3*x+8)
+\end{sageexample}
 
-special methods available for univ algebras with univ algebra as ground ring
+Alternatively, an Ore polynomial can be constructed from any piece of data that is also accepted
+by the constructor of the associated commutative algebra. The associated commutative algebra of
+an Ore algebra is the commutative polynomial ring with the same base ring as the Ore algebra 
+and with generators that are named like the generators of the Ore algebra. In particular, it is
+possible to create an Ore polynomial from the corresponding commutative polynomial, from a 
+coefficient list, or even from a string representation.
 
-\subsection{Differential Operators}
+\begin{sageexample}
+  sage: R.<x> = ZZ['x']; A.<Dx> = OreAlgebra(R)
+  sage: Ac = A.associated_commutative_algebra(); Ac
+  sage: A(Ac.random_element())
+  sage: A([5*x,7*x-3,3*x+1])
+  sage: A("(5*x^2+3*x-7)*Dx^2 + (3*x^2+8*x-1)*Dx + (9*x^2-3*x+8)")
+\end{sageexample}
 
-D and theta
+Ore polynomials can also be created from Ore polynomials that belong to other algebras, provided
+that such a conversion is meaningful. 
 
-\subsection{Recurrence Operators}
+\begin{sageexample}
+  sage: R.<x> = ZZ['x']; A.<Dx> = OreAlgebra(R)
+  sage: L = (5*x^2+3*x-7)*Dx^2 + (3*x^2+8*x-1)*Dx + (9*x^2-3*x+8)
+  sage: L.parent()
+  sage: B = OreAlgebra(QQ['x'], 'Dx')
+  sage: L = B(L)
+  sage: L.parent()
+\end{sageexample}
 
-delta and S
+In accordance with the default Sage coercion model, such conversions take place automatically (if possible) 
+when operators from different algebras are added or multiplied. Note that the result of such an operation
+need not belong to either of the parents of the operands but may instead have a suitable ``common extension'' 
+as parent. 
 
-\subsection{The $q$-Case}
+\begin{sageexample}
+  sage: A = OreAlgebra(ZZ['t']['x'], 'Dx'); 
+  sage: B = OreAlgebra(QQ['x'].fraction_field(), 'Dx')
+  sage: L = A.random_element() + B.random_element()
+  sage: L.parent()
+\end{sageexample}
 
-J and Q
+\section{Selected Methods}\label{sec:4}
 
-\section{Guessing}\label{sec:5}
+\subsection{gcrd and lclm?}
 
-[[CITE RUBEY.]]
+-- options for selecting algorithms / remainder sequence
 
-Guessing is one of the most popular features of software packages like gfun.  It
-is a technique for detecting patterns in sequences of numbers, which is often
-used in combinatorics. The basic idea is simple. If we are given a finite array
-of numbers, though of as the first terms of an infinite sequence, we may want to
-know whether this sequence satisfies a recurrence. The algorithm behind a
-guessing engine searches for small equations matching the given data.
+-- cite max's paper
+
+-- available for all (univariate) algebras
+
+\subsection{closure properties?}
+
+-- table mapping function names to arithmetic
+
+-- example for how to prove some identity with the methods provided. 
+
+\subsection{solutions?}
+
+-- polynomial, rational, generalized series solutions
+
+-- available for differential and shift algebras
+
+\subsection{action?}
+
+-- should be mentioned somewhere, although there is not much to say about it. 
+
+\subsection{to list?}
+
+-- options for handling singularities
+
+-- rectangular splitting
+
+-- available for shift algebras. 
+
+\subsection{Guessing}
+
+Guessing is a technique for detecting patterns in sequences of numbers, which is
+often used in combinatorics. It is one of the most popular features of packages
+like gfun, and there are even some special purpose packages dedicated to this
+technique~\cite{kauers09a,hebisch11}.  The basic idea is simple. If we are given
+a finite array of numbers, though of as the first terms of an infinite sequence,
+we may want to know whether this sequence satisfies a recurrence. The algorithm
+behind a guessing engine searches for small equations matching the given data.
 Generically, no such equations exist, so if some are found, it is fair to
 ``guess'' that they are in fact valid equations for the whole infinite sequence.
 
@@ -330,11 +392,11 @@ recurrence operators. The situation for differential operators is very similar.
 For the most typical situations, there are two important hyperbolas. One
 describes the region in the $(r,d)$-plane consisting of all points for which
 there exists an operator of order~$r$ and degree~$d$ truly satisfied by the
-sequence in question. (See~\cite{..} for an explanation why the boundary of this
-region is usually a hyperbola.) The second describes the region of all points
-$(r,d)$ for which an operator of order~$r$ and degree~$d$ can be detected when
-$N$ terms are provided as input. This region is determined by the requirement
-$(r+1)(d+2)<N$. 
+sequence in question. (See~\cite{jaroschek13a} for an explanation why the
+boundary of this region is usually a hyperbola.) The second describes the region
+of all points $(r,d)$ for which an operator of order~$r$ and degree~$d$ can be
+detected when $N$ terms are provided as input. This region is determined by the
+requirement $(r+1)(d+2)<N$.
 
 The method tests a sequence of points $(r_1,d_1)$, $(r_2,d_2)$, \dots\ right
 below this second parabola. Success at a point $(r_i,d_i)$ means that some
