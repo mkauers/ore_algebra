@@ -888,6 +888,9 @@ class UnivariateOreOperator(OreOperator):
             A, B = canonical_coercion(self, other)
             return A._xeuclid(B, prs, retval)
 
+        if retval == "syzygy": 
+            prs = __primitivePRS__ # overrule any given options
+
         r = (self, other)
         if r[0].order() < r[1].order():
             r = (other, self)
@@ -912,7 +915,7 @@ class UnivariateOreOperator(OreOperator):
 
         if retval == "syzygy":
             c = a21.denominator().lcm(a22.denominator())
-            return (c*a21, c*a22) ### ???correct???
+            return (c*a21, c*a22)
 
         r = r[0]
         c = RF.base_ring().one() if prs is __classicPRS__ else ~r.content()
