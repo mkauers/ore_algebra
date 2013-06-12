@@ -5,6 +5,16 @@ generalized_series
 
 """
 
+#############################################################################
+#  Copyright (C) 2013 Manuel Kauers (mkauers@gmail.com),                    #
+#                     Maximilian Jaroschek (mjarosch@risc.jku.at),          #
+#                     Fredrik Johansson (fjohanss@risc.jku.at).             #
+#                                                                           #
+#  Distributed under the terms of the GNU General Public License (GPL)      #
+#                                                                           #
+#  http://www.gnu.org/licenses/                                             #
+#############################################################################
+
 from sage.rings.power_series_ring import PowerSeriesRing
 from sage.rings.polynomial.polynomial_ring import is_PolynomialRing
 from sage.rings.integer_ring import ZZ

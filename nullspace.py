@@ -143,6 +143,15 @@ AUTHOR:
  
 """
 
+#############################################################################
+#  Copyright (C) 2013 Manuel Kauers (mkauers@gmail.com).                    #
+#                                                                           #
+#  Distributed under the terms of the GNU General Public License (GPL)      #
+#                                                                           #
+#  http://www.gnu.org/licenses/                                             #
+#############################################################################
+
+
 """ todo:
 
 * hensel: Z[x..] to Z_p[x..] with p-adic lifting and subsolver

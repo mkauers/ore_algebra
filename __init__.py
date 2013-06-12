@@ -1,4 +1,14 @@
 
+#############################################################################
+#  Copyright (C) 2013 Manuel Kauers (mkauers@gmail.com),                    #
+#                     Maximilian Jaroschek (mjarosch@risc.jku.at),          #
+#                     Fredrik Johansson (fjohanss@risc.jku.at).             #
+#                                                                           #
+#  Distributed under the terms of the GNU General Public License (GPL)      #
+#                                                                           #
+#  http://www.gnu.org/licenses/                                             #
+#############################################################################
+
 from ore_algebra import OreAlgebra
 from guessing import guess, guess_raw
 
