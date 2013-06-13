@@ -681,25 +681,8 @@ class UnivariateOreOperator(OreOperator):
     def __nonzero__(self):
         return self._poly.__nonzero__()
 
-    def __neq__(self, other):
-        return not (self == other)
-
-    def __eq__(self, other):
-
-        if self.order() < 0:
-            return other == ZZ.zero()
-        if self.order() == 0:
-            return other == self.constant_coefficient()
-        elif not isinstance(other, OreOperator):
-            return False
-        elif self.parent() == other.parent():
-            return self.polynomial() == other.polynomial()
-        else:
-            try:
-                A, B = canonical_coercion(self, other)
-                return A == B
-            except:
-                return False
+    def __cmp__(self, other):
+        return cmp(self.polynomial(), other.polynomial())
 
     def _is_atomic(self):
         return self._poly._is_atomic()
