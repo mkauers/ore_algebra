@@ -20,6 +20,7 @@ from sage.rings.arith import gcd, lcm
 from sage.rings.rational_field import QQ
 from sage.rings.integer_ring import ZZ
 from sage.rings.infinity import infinity
+from sage.functions.generalized import sign
 
 class OreOperator(RingElement):
     """
@@ -532,10 +533,17 @@ class OreOperator(RingElement):
                     c = c.lc()
                 except:
                     break
-        if c.is_unit():
-            return self.parent()((~c)*num)
-        else:
-            return num
+        while c.parent() is not c.parent().base_ring():
+            try:
+                c = c.parent().base_ring()(c)
+            except:
+                pass
+        if not c.is_unit(): 
+            try:
+                c = sign(c)
+            except:
+                c=c.parent().one()
+        return self.parent()((~c)*num)
 
     def map_coefficients(self, f, new_base_ring = None):
         """
@@ -866,6 +874,7 @@ class UnivariateOreOperator(OreOperator):
         while not r[1].is_zero():
             (r2,q,alpha,beta,correct)=prs(r,additional)
             if not correct:
+                print "switch to primitve PRS"
                 prs = __primitivePRS__
             else:
                 r=r2
@@ -876,7 +885,7 @@ class UnivariateOreOperator(OreOperator):
 
         return r
 
-    def xgcd(self, other, prs=None):
+    def xgcrd(self, other, prs=None):
         """
         When called for two operators p,q, this will return their GCRD g together with 
         two operators s and t such that sp+tq=g. 
@@ -911,25 +920,25 @@ class UnivariateOreOperator(OreOperator):
         a11, a12, a21, a22 = RF.one(), RF.zero(), RF.zero(), RF.one()
 
         if prs is None:
-            prs = __classicPRS__ if R.base_ring().is_field() else __improvedPRS__
+            prs = __classicPRS__ if R.base_ring().is_field() else (__improvedPRS__ if retval=="bezout" else __primitivePRS__)
 
         additional = []
 
         while not r[1].is_zero():  
             (r2, q, alpha, beta, correct) = prs(r, additional)
             if not correct:
+                print "switch to primitve PRS"
                 prs = __primitivePRS__
             else:
                 r = r2; bInv = ~beta
                 a11, a12, a21, a22 = a21, a22, bInv*(alpha*a11 - q*a21), bInv*(alpha*a12 - q*a22)
-
         if retval == "syzygy":
             c = a21.denominator().lcm(a22.denominator())
             return (c*a21, c*a22)
 
         r = r[0]
         c = RF.base_ring().one() if prs is __classicPRS__ else ~r.content()
-        return (self.parent()(c*r), c*a11, c*a12) 
+        return (self.parent()(c*r), c*a11, c*a12) if self.order()>=other.order() else (self.parent()(c*r), c*a12, c*a11)
 
     def lclm(self, *other, **kwargs):
         """
@@ -1536,7 +1545,7 @@ class UnivariateOreOperator(OreOperator):
 
 def __primitivePRS__(r,additional):
     """
-    Computes one division step in the subresultant polynomial remainder sequence.
+    Computes one division step in the primitive polynomial remainder sequence.
     """
 
     orddiff = r[0].order()-r[1].order()
@@ -1563,7 +1572,8 @@ def __monicPRS__(r,additional):
     """
 
     newRem = r[0].quo_rem(r[1])
-    return ((r[1],newRem[1].primitive_part()),newRem[0],r[0].parent().base_ring().one(),r[0].parent().base_ring().one(),True)
+    beta = newRem[1].leading_coefficient() if not newRem[1].is_zero() else r[0].parent().base_ring().one()
+    return ((r[1],newRem[1].primitive_part()),newRem[0],r[0].parent().base_ring().one(),beta,True)
 
 def __improvedPRS__(r,additional):
     """
@@ -1581,21 +1591,22 @@ def __improvedPRS__(r,additional):
     if (len(additional)==0):
         essentialPart = gcd(sigma(r[0].leading_coefficient(),-orddiff),r[1].leading_coefficient())
         phi = Rbase.one()
-        beta = (-Rbase.one())**(orddiff+1)*R.sigma().factorial(sigma(phi,1),orddiff)
+        beta = (-Rbase.one())**(orddiff+1)*sigma.factorial(sigma(phi,1),orddiff)
     else:
         (d2,oldalpha,k,essentialPart,phi) = (additional.pop(),additional.pop(),additional.pop(),additional.pop(),additional.pop())
-        phi = oldalpha / R.sigma().factorial(sigma(phi,1),d2-d1-1)
-        beta = oldalpha.parent()(((-Rbase.one())**(orddiff+1)*R.sigma().factorial(sigma(phi,1),orddiff)*k))
+        phi = oldalpha / sigma.factorial(sigma(phi,1),d2-d1-1)
+        beta = oldalpha.parent()(((-Rbase.one())**(orddiff+1)*sigma.factorial(sigma(phi,1),orddiff)*k))
         essentialPart = sigma(essentialPart,-orddiff)
 
     k = r[1].leading_coefficient()//essentialPart
-    if k.is_zero():
+    if k==0:
         return ((0,0),0,0,0,False)
-
-    alpha = R.sigma().factorial(k,orddiff)
+    alpha = sigma.factorial(k,orddiff)
     alpha2=alpha*sigma(k,orddiff)
     newRem = (alpha2*r[0]).quo_rem(r[1],fractionFree=True)
     r2 = newRem[1].map_coefficients(lambda p: p//beta)
+    if r2.parent() is not r[1].parent():
+        return ((0,0),0,0,0,False)
     additional.extend([phi,essentialPart,k,alpha,d1])
 
     return ((r[1],r2),newRem[0],alpha2,beta,True)
@@ -1615,13 +1626,14 @@ def __subresultantPRS__(r,additional):
 
     if (len(additional)==0):
         phi = -Rbase.one()
-        beta = (-Rbase.one())*R.sigma().factorial(sigma(phi,1),orddiff)
+        beta = (-Rbase.one())*sigma.factorial(sigma(phi,1),orddiff)
     else:
         (d2,phi) = (additional.pop(),additional.pop())
-        phi = R.sigma().factorial(-r[0].leading_coefficient(),d0-d1) / R.sigma().factorial(sigma(phi,1),d0-d1-1)
-        beta = (-Rbase.one())*R.sigma().factorial(sigma(phi,1),orddiff)*r[0].leading_coefficient()
+        orddiff2 = d2-d0
+        phi = sigma.factorial(-r[0].leading_coefficient(),orddiff2) / sigma.factorial(sigma(phi,1),orddiff2-1)
+        beta = (-Rbase.one())*sigma.factorial(sigma(phi,1),orddiff)*r[0].leading_coefficient()
 
-    alpha = R.sigma().factorial(r[1].leading_coefficient(),orddiff+1)
+    alpha = sigma.factorial(r[1].leading_coefficient(),orddiff+1)
     newRem = (alpha*r[0]).quo_rem(r[1],fractionFree=True)
     r2 = newRem[1].map_coefficients(lambda p: p//beta)
     additional.extend([phi,d1])
