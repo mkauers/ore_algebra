@@ -106,10 +106,10 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
 
         .. NOTE::
 
-        - Even if no ``rhs`` is given, the output will be a list of tuples ``[(p1,), (p2,),...]``
-          and not just a list of plain polynomials.
-        - If no ``degree`` is given, a basis of all the polynomial solutions is returned.
-          This feature may not be implemented for all algebras. 
+          - Even if no ``rhs`` is given, the output will be a list of tuples ``[(p1,), (p2,),...]``
+            and not just a list of plain polynomials.
+          - If no ``degree`` is given, a basis of all the polynomial solutions is returned.
+            This feature may not be implemented for all algebras. 
 
         EXAMPLES::
 
@@ -191,12 +191,12 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
 
         .. NOTE::
 
-        - Even if no ``rhs`` is given, the output will be a list of tuples ``[(p1,), (p2,),...]``
-          and not just a list of plain polynomials.
-        - If no ``denominator`` is given, a basis of all the rational solutions is returned.
-          This feature may not be implemented for all algebras. 
-        - If no ``degree`` is given, a basis of all the polynomial solutions is returned.
-          This feature may not be implemented for all algebras. 
+          - Even if no ``rhs`` is given, the output will be a list of tuples ``[(p1,), (p2,),...]``
+            and not just a list of plain polynomials.
+          - If no ``denominator`` is given, a basis of all the rational solutions is returned.
+            This feature may not be implemented for all algebras. 
+          - If no ``degree`` is given, a basis of all the polynomial solutions is returned.
+            This feature may not be implemented for all algebras. 
 
         EXAMPLES::
 
@@ -2083,7 +2083,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
 
         These are solutions of the form
 
-          `(x/e)^(x*u/v)\rho^x\exp\bigl(c_1 x^{1/m} +...+ c_{v-1} x^{1-1/m}\bigr)x^\alpha p(x^{-1/m},\log(x))`
+          `(x/e)^{x u/v}\rho^x\exp\bigl(c_1 x^{1/m} +...+ c_{v-1} x^{1-1/m}\bigr)x^\alpha p(x^{-1/m},\log(x))`
 
         where
 
@@ -2446,8 +2446,22 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
 
         tc = [ (R(s(p, e[0][0]).numerator()), sum([u[1] for u in e])) for p, e in _shift_factor(R(tc))]
         tc.sort(key=lambda u: u[0].degree()*u[1]) # small stuff first
+        # .... shift eq classes for possible factors of the numerator
+
         lc = [ (R(s(p, e[-1][0]).numerator()), sum([u[1] for u in e])) for p, e in _shift_factor(R(s(lc, -r)))]
         lc.sort(key=lambda u: u[0].degree()*u[1]) # small stuff first
+        # .... shift eq classes for possible factors of the denominator
+        
+        same_class = [] # record for each (i,j) whether s(tc[i], k) = lc[j] for some k >= 1.
+        # pairs containing the factors tc[i] and lc[j] for such (i,j) are redundant.
+        for i in xrange(len(tc)):
+            p = tc[i][0]; d = p.degree(); p0 = p[d]; p1 = p[d - 1]
+            for j in xrange(len(lc)):
+                q = lc[j][0]
+                if q.degree() == d:
+                    k = (q[d-1]*p0 - q[d]*p1)/(p0*q[d]*d)
+                    if k in ZZ and k <= -1 and s(p, k) == q:
+                        same_class.append((i, j))
 
         #print reduce(lambda p,q: p*q, [p[1] + 1 for p in (tc + lc + [(0, 0)])], 1), " pairs expected"
         #print "slopes: ", slopes
@@ -2469,8 +2483,16 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
                 pairs_in_total += 1
 
                 c_deg = sum([c_exp[i]*lc[i][0].degree() for i in xrange(len(c_exp))])
-                if b_deg - c_deg not in slopes:
-                    continue # discard pair, there can be no solution
+                discard = (b_deg - c_deg not in slopes) # pair cannot lead to a solution, wrong asymptotic growth
+                for i in xrange(len(b_exp)):
+                    if discard:
+                        break
+                    elif b_exp[i] > 0:
+                        for j in xrange(len(c_exp)):
+                            if c_exp[j] > 0 and (i, j) in same_class:
+                                discard = True; break # pair redundant
+                if discard:
+                    continue
                 
                 if b_fac_list is None:
                     b = reduce(lambda p, q: p*q, [tc[i][0]**b_exp[i] for i in xrange(len(b_exp))], R.one())
@@ -2500,10 +2522,10 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
                         for a in A([coeffs0[k]*(z**k) for k in xrange(r+1)]).polynomial_solutions():
                             sols.append(A([z*s(a[0])*b, -a[0]*s(c)]).normalize())
                             if early_termination or len(sols) == self.order():
-                                #print pairs_considered, "of", pairs_in_total, "factor pairs have been investigated"
+                                # print pairs_considered, "of", pairs_in_total, "factor pairs have been investigated"
                                 return sols
 
-        #print pairs_considered, "of", pairs_in_total, "factor pairs have been investigated"
+        # print pairs_considered, "of", pairs_in_total, "factor pairs have been investigated"
 
         return list(set(sols))
 
@@ -3462,7 +3484,7 @@ def _shift_factor(p, ram=ZZ.one()):
         if d < 1:
             continue
 
-        q0, q1 = q[d], q[d - 1]
+        q0, q1 = q[d], q[d - 1]; x = p.parent().gen()
 
         # have we already seen a member of the shift equivalence class of q? 
         new = True; 
@@ -3472,7 +3494,7 @@ def _shift_factor(p, ram=ZZ.one()):
                 continue
             u0, u1 = u[d], u[d - 1]
             a = ram*(u1*q0 - u0*q1)/(u0*q0*d)
-            if a not in ZZ:
+            if a not in ZZ or p(x+a) != u:
                 continue
             # yes, we have: p(x+a) == u(x); u(x-a) == p(x)
             # register it and stop searching

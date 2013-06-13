@@ -120,7 +120,8 @@ def guess(data, algebra, **kwargs):
       sage: R.<t> = QQ['t']
       sage: rec = guess([1/(i+t) + t^i for i in xrange(100)], OreAlgebra(R['n'], 'Sn'))
       sage: rec
-      ((t - 1)*n^2 + (2*t^2 + t - 2)*n + t^3 + 2*t^2)*Sn^2 + ((-t^2 + 1)*n^2 + (-2*t^3 - 3*t^2 + 2*t + 1)*n - t^4 - 3*t^3 - t^2 + t)*Sn + (t^2 - t)*n^2 + (2*t^3 - t)*n + t^4 + t^3 - t^2
+      ((-51891840*t + 51891840)*n^2 + (-103783680*t^2 - 51891840*t + 103783680)*n - 51891840*t^3 - 103783680*t^2)*Sn^2 + ((51891840*t^2 - 51891840)*n^2 + (103783680*t^3 + 155675520*t^2 - 103783680*t - 51891840)*n + 51891840*t^4 + 155675520*t^3 + 51891840*t^2 - 51891840*t)*Sn + (-51891840*t^2 + 51891840*t)*n^2 + (-103783680*t^3 + 51891840*t)*n - 51891840*t^4 - 51891840*t^3 + 51891840*t^2
+      sage: 
     
     """
 
@@ -387,7 +388,6 @@ def _guess_via_hom(data, A, modulus, to_hom, **kwargs):
 
     L = A.zero()
     mod = K.one() if atomic else ZZ.one()
-    order_adjustment = None
 
     nn = 0; path = []; ncpus = 1
     return_short_path = kwargs.has_key('return_short_path') and kwargs['return_short_path'] is True
@@ -497,20 +497,7 @@ def _guess_via_hom(data, A, modulus, to_hom, **kwargs):
 
         if not Lp.is_zero():
             info(2, "Reconstruction attempt...")
-            s = Lp.parent().sigma()
-            if not s.is_identity() and mod.parent() is ZZ:
-                try:
-                    if order_adjustment is None:
-                        order_adjustment = Lp.order() // ZZ(2)
-                    Lp = Lp.map_coefficients(lambda p: s(p, -order_adjustment))
-                except:
-                    L = A.zero(); mod = ZZ.zero(); order_adjustment = 0
-
             L, mod = _merge_homomorphic_images(L, mod, Lp, p)
-
-    if order_adjustment > 0:
-        s = L.parent().sigma()
-        L = L.map_coefficients(lambda p: s(p, order_adjustment))
 
     return (L, path) if return_short_path else L
 
@@ -797,7 +784,12 @@ def _merge_homomorphic_images(L, mod, Lp, p, reconstruct=True):
             return Lmod, mod        
         adjust = lambda c : c % mod
 
-    coeffs = Lmod.coeffs()
+    s = L.parent().sigma(); r2 = Lp.order() // ZZ(2)
+    try:
+        coeffs = map(lambda c: s(c, -r2), Lmod.coeffs())
+    except:
+        r2 = 0
+        coeffs = Lmod.coeffs()
 
     try:
         d = R.one()
@@ -822,7 +814,7 @@ def _merge_homomorphic_images(L, mod, Lp, p, reconstruct=True):
                 c = c.parent()([ cc.map_coefficients(adjust) for cc in c.coeffs() ])
             else:
                 c = c.map_coefficients(adjust)
-        coeffs[i] = c
+        coeffs[i] = s(c, r2)
 
     return L.parent()(coeffs), R.zero()
 
@@ -892,13 +884,9 @@ def _rat_recon(a, m, u=None):
         if s < score:
             out = (p, q); score = s
             if score < early_termination_bound:
-                break
+                return out
 
     if score < bound:
-        if K is ZZ:
-            return out
-        else:
-            lc = out[1].leading_coefficient()
-            return (out[0]/lc, out[1]/lc)
+        return out
     else:
         raise ArithmeticError

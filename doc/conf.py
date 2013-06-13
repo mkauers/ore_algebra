@@ -37,8 +37,8 @@ source_suffix = '.rst'
 master_doc = 'index'
 
 # General information about the project.
-project = u'holonomic'
-copyright = u'2013, Maximilian Jaroschek, Fredrik Johansson, Manuel Kauers'
+project = u'ore_algebra'
+copyright = u'2013, Manuel Kauers, Maximilian Jaroschek, Fredrik Johansson'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -172,8 +172,8 @@ htmlhelp_basename = 'holonomicdoc'
 # Grouping the document tree into LaTeX files. List of tuples
 # (source start file, target name, title, author, documentclass [howto/manual]).
 latex_documents = [
-  ('index', 'holonomic.tex', u'holonomic Documentation',
-   u'Maximilian Jaroschek, Fredrik Johansson, Manuel Kauers', 'manual'),
+  ('index', 'ore_algebra.tex', u'ore_algebra Documentation',
+   u'Manuel Kauers, Maximilian Jaroschek, Fredrik Johansson', 'manual'),
 ]
 
 # The name of an image file (relative to this directory) to place at the top of

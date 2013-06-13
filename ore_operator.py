@@ -73,7 +73,7 @@ class OreOperator(RingElement):
            x^3 - 3*x^2 + 2*x
            sage: factor(_)
            (x - 2) * (x - 1) * x
-           sage: (Sx - 1)(1/4*x*(x-1)*(x-2)*(x-3), Sx=lambda p:p(2*x)) # let Sx act as q-shift
+           sage: (Sx - 1)(1/4*x*(x-1)*(x-2)*(x-3), action=lambda p:p(2*x)) # let Sx act as q-shift
            15/4*x^4 - 21/2*x^3 + 33/4*x^2 - 3/2*x
 
         """
@@ -515,7 +515,13 @@ class OreOperator(RingElement):
         num = self.numerator().primitive_part(proof=proof)
         c = num.leading_coefficient()
         while not c.is_unit() and c.parent() is not c.parent().base_ring():
-            c = c.leading_coefficient()
+            try:
+                c = c.leading_coefficient()
+            except:
+                try:
+                    c = c.lc()
+                except:
+                    break
         if c.is_unit():
             return self.parent()((~c)*num)
         else:

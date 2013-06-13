@@ -1,0 +1,5 @@
+
+
+.. automodule:: guessing
+    :members:
+
