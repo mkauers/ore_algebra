@@ -10,6 +10,7 @@ from sage.rings.arith import gcd, lcm
 from sage.rings.rational_field import QQ
 from sage.rings.integer_ring import ZZ
 from sage.rings.infinity import infinity
+from sage.functions.generalized import sign
 
 class OreOperator(RingElement):
     """
@@ -522,10 +523,17 @@ class OreOperator(RingElement):
                     c = c.lc()
                 except:
                     break
-        if c.is_unit():
-            return self.parent()((~c)*num)
-        else:
-            return num
+        while c.parent() is not c.parent().base_ring():
+            try:
+                c = c.parent().base_ring()(c)
+            except:
+                pass
+        if not c.is_unit(): 
+            try:
+                c = sign(c)
+            except:
+                c=c.parent().one()
+        return self.parent()((~c)*num)
 
     def map_coefficients(self, f, new_base_ring = None):
         """
@@ -856,6 +864,7 @@ class UnivariateOreOperator(OreOperator):
         while not r[1].is_zero():
             (r2,q,alpha,beta,correct)=prs(r,additional)
             if not correct:
+                print "switch to primitve PRS"
                 prs = __primitivePRS__
             else:
                 r=r2
@@ -866,7 +875,7 @@ class UnivariateOreOperator(OreOperator):
 
         return r
 
-    def xgcd(self, other, prs=None):
+    def xgcrd(self, other, prs=None):
         """
         When called for two operators p,q, this will return their GCRD g together with 
         two operators s and t such that sp+tq=g. 
@@ -905,6 +914,7 @@ class UnivariateOreOperator(OreOperator):
         while not r[1].is_zero():  
             (r2, q, alpha, beta, correct) = prs(r, additional)
             if not correct:
+                print "switch to primitve PRS"
                 prs = __primitivePRS__
             else:
                 r = r2; bInv = ~beta
@@ -915,7 +925,7 @@ class UnivariateOreOperator(OreOperator):
 
         r = r[0]
         c = RF.base_ring().one() if prs is __classicPRS__ else ~r.content()
-        return (self.parent()(c*r), c*a11, c*a12) 
+        return (self.parent()(c*r), c*a11, c*a12) if self.order()>=other.order() else (self.parent()(c*r), c*a12, c*a11)
 
     def lclm(self, *other, **kwargs):
         """
@@ -1576,13 +1586,14 @@ def __improvedPRS__(r,additional):
         essentialPart = sigma(essentialPart,-orddiff)
 
     k = r[1].leading_coefficient()//essentialPart
-    if k.is_zero():
+    if k==0:
         return ((0,0),0,0,0,False)
-
     alpha = sigma.factorial(k,orddiff)
     alpha2=alpha*sigma(k,orddiff)
     newRem = (alpha2*r[0]).quo_rem(r[1],fractionFree=True)
     r2 = newRem[1].map_coefficients(lambda p: p//beta)
+    if r2.parent() is not r[1].parent():
+        return ((0,0),0,0,0,False)
     additional.extend([phi,essentialPart,k,alpha,d1])
 
     return ((r[1],r2),newRem[0],alpha2,beta,True)
