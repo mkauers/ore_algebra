@@ -686,8 +686,10 @@ class UnivariateOreOperator(OreOperator):
 
     def __eq__(self, other):
 
+        if self.order() < 0:
+            return other == ZZ.zero()
         if self.order() == 0:
-            return self.constant_coefficient() == other
+            return other == self.constant_coefficient()
         elif not isinstance(other, OreOperator):
             return False
         elif self.parent() == other.parent():
