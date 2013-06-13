@@ -892,7 +892,7 @@ class UnivariateOreOperator(OreOperator):
         a11, a12, a21, a22 = RF.one(), RF.zero(), RF.zero(), RF.one()
 
         if prs is None:
-            prs = __classicPRS__ if R.base_ring().is_field() else __improvedPRS__
+            prs = __classicPRS__ if R.base_ring().is_field() else (__improvedPRS__ if retval=="bezout" else __primitivePRS__)
 
         additional = []
 
@@ -903,7 +903,6 @@ class UnivariateOreOperator(OreOperator):
             else:
                 r = r2; bInv = ~beta
                 a11, a12, a21, a22 = a21, a22, bInv*(alpha*a11 - q*a21), bInv*(alpha*a12 - q*a22)
-
         if retval == "syzygy":
             c = a21.denominator().lcm(a22.denominator())
             return (c*a21, c*a22) ### ???correct???
@@ -1544,7 +1543,8 @@ def __monicPRS__(r,additional):
     """
 
     newRem = r[0].quo_rem(r[1])
-    return ((r[1],newRem[1].primitive_part()),newRem[0],r[0].parent().base_ring().one(),r[0].parent().base_ring().one(),True)
+    beta = newRem[1].leading_coefficient() if not newRem[1].is_zero() else r[0].parent().base_ring().one()
+    return ((r[1],newRem[1].primitive_part()),newRem[0],r[0].parent().base_ring().one(),beta,True)
 
 def __improvedPRS__(r,additional):
     """
@@ -1562,18 +1562,18 @@ def __improvedPRS__(r,additional):
     if (len(additional)==0):
         essentialPart = gcd(sigma(r[0].leading_coefficient(),-orddiff),r[1].leading_coefficient())
         phi = Rbase.one()
-        beta = (-Rbase.one())**(orddiff+1)*sigma().factorial(sigma(phi,1),orddiff)
+        beta = (-Rbase.one())**(orddiff+1)*sigma.factorial(sigma(phi,1),orddiff)
     else:
         (d2,oldalpha,k,essentialPart,phi) = (additional.pop(),additional.pop(),additional.pop(),additional.pop(),additional.pop())
-        phi = oldalpha / sigma().factorial(sigma(phi,1),d2-d0-1)
-        beta = oldalpha.parent()(((-Rbase.one())**(orddiff+1)*sigma().factorial(sigma(phi,1),orddiff)*k))
+        phi = oldalpha / sigma.factorial(sigma(phi,1),d2-d1-1)
+        beta = oldalpha.parent()(((-Rbase.one())**(orddiff+1)*sigma.factorial(sigma(phi,1),orddiff)*k))
         essentialPart = sigma(essentialPart,-orddiff)
 
     k = r[1].leading_coefficient()//essentialPart
     if k.is_zero():
         return ((0,0),0,0,0,False)
 
-    alpha = R.sigma().factorial(k,orddiff)
+    alpha = sigma.factorial(k,orddiff)
     alpha2=alpha*sigma(k,orddiff)
     newRem = (alpha2*r[0]).quo_rem(r[1],fractionFree=True)
     r2 = newRem[1].map_coefficients(lambda p: p//beta)
@@ -1596,14 +1596,14 @@ def __subresultantPRS__(r,additional):
 
     if (len(additional)==0):
         phi = -Rbase.one()
-        beta = (-Rbase.one())*sigma().factorial(sigma(phi,1),orddiff)
+        beta = (-Rbase.one())*sigma.factorial(sigma(phi,1),orddiff)
     else:
         (d2,phi) = (additional.pop(),additional.pop())
         orddiff2 = d2-d0
-        phi = sigma().factorial(-r[0].leading_coefficient(),orddiff2) / sigma().factorial(sigma(phi,1),orddiff2-1)
-        beta = (-Rbase.one())*sigma().factorial(sigma(phi,1),orddiff)*r[0].leading_coefficient()
+        phi = sigma.factorial(-r[0].leading_coefficient(),orddiff2) / sigma.factorial(sigma(phi,1),orddiff2-1)
+        beta = (-Rbase.one())*sigma.factorial(sigma(phi,1),orddiff)*r[0].leading_coefficient()
 
-    alpha = R.sigma().factorial(r[1].leading_coefficient(),orddiff+1)
+    alpha = sigma.factorial(r[1].leading_coefficient(),orddiff+1)
     newRem = (alpha*r[0]).quo_rem(r[1],fractionFree=True)
     r2 = newRem[1].map_coefficients(lambda p: p//beta)
     additional.extend([phi,d1])
