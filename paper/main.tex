@@ -99,7 +99,6 @@ and an Ore algebra $B$ of recurrence operators. Observe the correct application
 of the respective commutation rules in both cases. 
 
 \begin{sageexample}
-  sage: #load("ore_algebra.py", "guessing.py", "ore_operator.py");  #### TO BE FIXED ####
   sage: from ore_algebra import *
   sage: R.<x> = PolynomialRing(ZZ); A.<Dx> = OreAlgebra(R)
   sage: A
@@ -319,12 +318,38 @@ as parent.
 
 \section{Selected Methods}\label{sec:4}
 
+Besides basic arithmetic for Ore operators, the package provides a wide range of methods to create, manipulate and solve several different kinds of functional equations. 
+Some of these methods are accessible in any Ore algebra while others are tied specifically to e.g.\ recurrence operators or differential operators.
+In these predefined algebras, operators can act on suitable objects like functions or sequences in a natural way:
+
+\begin{sageexample}
+  sage: R.<x> = PolynomialRing(QQ)
+  sage: A = OreAlgebra(R, 'Dx'); Dx=A.gen() 
+  sage: p,q = R.random_element(3),R.random_element(1)
+  sage: L = p*Dx - p.derivative()
+  sage: L(p)
+  sage: L(q)
+\end{sageexample}
+
+It is also possible to define actions for other Ore algebras or to redefine the action in the predefined ones. 
+
+\begin{sageexample}
+  sage: R.<x> = PolynomialRing(QQ)
+  sage: A = OreAlgebra(R, ('S', {x:x+1}, {x:1})); S=A.gen()
+  sage: B = OreAlgebra(R, 'Dx'); Dx=B.gen()
+  sage: S(x-1,action=lambda x: 2*x)
+  sage: Dx(x,action=lambda x: x)
+  sage: Dx(x)
+\end{sageexample}
+
+We give a small overview of the functionality of some selected methods.
+
 \subsection{gcrd and lclm}
 
 A univariate Ore algebra over a field is a left Euclidean domain, which means that it is possible to perform 
 left division with remainder. Building upon this, the greatest common right divisor (GCRD) and the least common 
 left multiple (LCLM) of two Ore polynomials can be computed. The package provides a number of methods to carry 
-out these tasks
+out these tasks.
 
 \begin{center}
   \begin{tabular}{|l|p{.55\hsize}|}
@@ -333,14 +358,15 @@ out these tasks
     \verb|quo_rem(B)| & returns the left quotient and the left remainder of $A$ and $B$.\\
     \verb|gcrd(B)| & returns the greatest common right divisor of $A$ and $B$.\\
     \verb|xgcrd(B)| & returns the greatest common right divisor of $A$ and $B$ and the according B\'ezout coefficients.\\
-    \verb|lclm(B)| & returns the least common left multiple of $A$ and $B$.\\\hline
+    \verb|lclm(B)| & returns the least common left multiple of $A$ and $B$.\\
+    \verb|xlclm(B)| & returns the least common left multiple $L$ of $A$ and $B$ and the left quotients of $L$ and $A$ and of $L$ and $B$.\\\hline
   \end{tabular}
 \end{center}
 
-All these methods are also available for Ore operators living in univariate Ore algebras over a base ring $R$ which 
+All these methods are also available for Ore operators living in univariate Ore algebras over a base ring $\set R$ which 
 does not necessarily have to be a field. The operators are then implicitly assumed to live in the respective Ore 
-algebra over the quotient field $K$ of $R$. The output will be the GCRD (LCLM, quotient, remainder) in the Ore 
-algebra over $K$ but not over $R$, in which these objects might not exist or might not be computable. 
+algebra over the quotient field $\set K$ of $\set R$. The output will be the GCRD (LCLM, quotient, remainder) in the Ore 
+algebra over $\set K$ but not over $\set R$, in which these objects might not exist or might not be computable. 
 
 \begin{sageexample}
   sage: A = OreAlgebra(ZZ['n'], 'Sn');                                           
@@ -361,8 +387,8 @@ the fastest choice.
 \begin{sageexample}
   sage: A = OreAlgebra(ZZ['n'], 'Sn');                                           
   sage: L1,L2 = A.random_element(3),A.random_element(2)    
-  sage: #L1.gcrd(L2, prs=__primitivePRS__)
-  sage: #L1.gcrd(L2, prs=__classicPRS__)
+  sage: L1.gcrd(L2, prs="primitive")
+  sage: L1.gcrd(L2, prs="monic")
 \end{sageexample}
 
 \subsection{closure properties?}
@@ -503,19 +529,6 @@ This way, computing $10^5$ digits of $e$ takes a fraction of a second:
 
 J and Q
 
-\section{Guessing}\label{sec:5}
-
-[[CITE RUBEY.]]
-
-Guessing is one of the most popular features of software packages like gfun.  It
-is a technique for detecting patterns in sequences of numbers, which is often
-used in combinatorics. The basic idea is simple. If we are given a finite array
-of numbers, though of as the first terms of an infinite sequence, we may want to
-know whether this sequence satisfies a recurrence. The algorithm behind a
-guessing engine searches for small equations matching the given data.
-Generically, no such equations exist, so if some are found, it is fair to
-``guess'' that they are in fact valid equations for the whole infinite sequence.
-=======
 \subsection{Guessing}
 
 Guessing is, in some sense, the reverse operation of \verb|to_list|. It is one
@@ -527,7 +540,6 @@ sequence satisfies a recurrence. The algorithm behind a guessing engine searches
 for small equations matching the given data.  Generically, no such equations
 exist, so if some are found, it is fair to ``guess'' that they are in fact valid
 equations for the whole infinite sequence.
->>>>>>> manuel/master
 
 We provide a guessing function which takes as input a list of terms and an Ore
 algebra, and returns as output an operator which matches the given data and

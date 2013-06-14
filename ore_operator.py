@@ -849,7 +849,16 @@ class UnivariateOreOperator(OreOperator):
 
         R = self.parent()
 
-        if prs==None:
+        prslist = {"improved" : __improvedPRS__,
+                   "primitive" : __primitivePRS__,
+                   "classic" : __classicPRS__,
+                   "subresultant" : __subresultantPRS__,
+                   "monic" : __monicPRS__,
+        }
+
+        try:
+            prs = prslist[prs]
+        except:
             if self.base_ring().is_field():
                 prs = __classicPRS__
             else:
@@ -891,6 +900,21 @@ class UnivariateOreOperator(OreOperator):
         elif self.parent() is not other.parent():
             A, B = canonical_coercion(self, other)
             return A._xeuclid(B, prs, retval)
+
+        prslist = {"improved" : __improvedPRS__,
+                   "primitive" : __primitivePRS__,
+                   "classic" : __classicPRS__,
+                   "subresultant" : __subresultantPRS__,
+                   "monic" : __monicPRS__,
+        }
+
+        try:
+            prs = prslist[prs]
+        except:
+            if self.base_ring().is_field():
+                prs = __classicPRS__
+            else:
+                prs = __improvedPRS__
 
         if retval == "syzygy": 
             prs = __primitivePRS__ # overrule any given options
