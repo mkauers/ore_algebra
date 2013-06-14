@@ -47,23 +47,8 @@ class MultivariateOreOperator(OreOperator):
     def __nonzero__(self):
         return not self.__poly.is_zero()
 
-    def __neq__(self, other):
-        return not (self == other)
-
-    def __eq__(self, other):
-
-        if len(self.exponents()) == 1:
-            return self.constant_coefficient() == other
-        elif not isinstance(other, OreOperator):
-            return False
-        elif self.parent() is other.parent():
-            return self.__poly == other.__poly
-        else:
-            try:
-                A, B = canonical_coercion(self, other)
-                return A == B
-            except:
-                return False
+    def __cmp__(self, other):
+        return cmp(self.__poly, other.__poly)
 
     def _is_atomic(self):
         return self.__poly._is_atomic()

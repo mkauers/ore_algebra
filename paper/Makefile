@@ -1,6 +1,6 @@
 
 all:
-	cp ../*.py .
+	cp ../*.py ./ore_algebra
 	pdflatex main
 	sage main.sagetex.sage
 	bibtex main

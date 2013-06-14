@@ -3,6 +3,34 @@
 ore_algebra
 ===========
 
+The ore_algebra package provides functionality for doing computations with Ore polynomials.
+
+Ore polynomials are operators which can be used to describe special functions or combinatorial
+sequences. Typical examples are linear differential operators with polynomial coefficients.
+
+Ore polynomials are elements of Ore algebras. Ore algebras are ring objects created by the
+function ``OreAlgebra`` as described below. 
+
+Depending on the particular parent algebra, Ore polynomials may support different functionality.
+For example, for Ore polynomials representing recurrence operators, there is a method for 
+computing interlacing operatos, an operation which does not make sense for differential operators.
+
+The typical user will only need two functions defined in the package: 
+
+ * ``OreAlgebra`` -- for creating a new Ore algebra object. 
+ * ``guess`` -- for fitting an Ore polynomial to a given set of data.
+
+Ore polynomials are created using ``OreAlgebra`` objects, and most of the functionality for
+doing calculations with Ore polynomials is available in the methods attached to them. 
+
+For examples and further information, see the docstring of ``OreAlgebra`` below, or the 
+tutorial paper /Ore Polynomials in Sage/ by the authors. 
+
+
+AUTHOR:
+
+ - Manuel Kauers, Maximilian Jaroschek, Fredrik Johansson (2013-06-15)
+
 """
 
 #############################################################################
@@ -18,31 +46,13 @@ ore_algebra
 
 ######### development mode ###########
 
-try:
-    if sys.modules.has_key('nullspace'):
-        del sys.modules['nullspace']
-except:
-    pass
-try:
-    if sys.modules.has_key('ore_operator'):
-        del sys.modules['ore_operator']
-except:
-    pass
-try:
-    if sys.modules.has_key('ore_operator_1_1'):
-        del sys.modules['ore_operator_1_1']
-except:
-    pass
-try:
-    if sys.modules.has_key('ore_operator_mult'):
-        del sys.modules['ore_operator_mult']
-except:
-    pass
-try:
-    if sys.modules.has_key('generalized_series'):
-        del sys.modules['generalized_series']
-except:
-    pass
+if True:
+    # let load("ore_algebra") trigger reload of the modules in the list below
+    for mod in ['nullspace', 'ore_operator', 'ore_operator_1_1', 'ore_operator_mult', 'generalized_series']:
+        try:
+            del sys.modules[mod]
+        except:
+            pass
 
 def taylor_shift_univ_int_poly(p, i):
     ## assuming that p is an element of ZZ['x']

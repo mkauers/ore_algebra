@@ -99,7 +99,8 @@ and an Ore algebra $B$ of recurrence operators. Observe the correct application
 of the respective commutation rules in both cases. 
 
 \begin{sageexample}
-  sage: load("ore_algebra.py", "guessing.py", "ore_operator.py");  #### TO BE FIXED ####
+  sage: #load("ore_algebra.py", "guessing.py", "ore_operator.py");  #### TO BE FIXED ####
+  sage: from ore_algebra import *
   sage: R.<x> = PolynomialRing(ZZ); A.<Dx> = OreAlgebra(R)
   sage: A
   sage: A.random_element()
@@ -360,8 +361,8 @@ the fastest choice.
 \begin{sageexample}
   sage: A = OreAlgebra(ZZ['n'], 'Sn');                                           
   sage: L1,L2 = A.random_element(3),A.random_element(2)    
-  sage: L1.gcrd(L2, prs=__primitivePRS__)
-  sage: L1.gcrd(L2, prs=__classicPRS__)
+  sage: #L1.gcrd(L2, prs=__primitivePRS__)
+  sage: #L1.gcrd(L2, prs=__classicPRS__)
 \end{sageexample}
 
 \subsection{closure properties?}

@@ -473,7 +473,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         The output is not unique. With low probability, the leading coefficient degree in the output
         may not be minimal. 
 
-        EXAMPLES:
+        EXAMPLES::
 
           sage: R.<n> = ZZ['n']
           sage: A.<Sn> = OreAlgebra(R, 'Sn')
