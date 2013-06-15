@@ -1,4 +1,4 @@
-\documentclass{amsart}
+\documentclass[11pt]{amsart}
 \usepackage{amsmath}
 \usepackage{amssymb}
 \usepackage{bbm}
@@ -74,8 +74,8 @@ question~\cite{bronstein96,chyzak98}.  Invented in the first half of the 20th
 century~\cite{ore33} with the objective of providing a unified theory for
 various kinds of linear operators, they have been used for many years in
 computer algebra systems, for example in the Maple packages
-OreTools~\cite{abramov03}, gfun~\cite{salvy94} or mgfun~\cite{chyzak98a}, in the
-Mathematica packages by Mallinger~\cite{mallinger96} and
+OreTools~\cite{abramov03}, gfun~\cite{salvy94} or mgfun~\cite{chyzak98a}, or in
+the Mathematica packages by Mallinger~\cite{mallinger96} and
 Koutschan~\cite{koutschan10c,koutschan09}.
 
 The purpose of this paper is to introduce an implementation of a collection of
@@ -90,7 +90,10 @@ the subject.
 At the time of writing, the package we describe here is still under construction
 and has not yet been incorporated into the official Sage distribution. Readers
 who want to try it out are invited to download the current latest version from 
-[URL] and are encouraged to send us bug reports and other comments. We hope 
+\begin{center}
+  URL
+\end{center}
+and are encouraged to send us bug reports and other comments. We hope 
 that the community will find the code useful.
 
 Creating an Ore algebra object is easy. The following instructions show how to 
@@ -109,15 +112,14 @@ of the respective commutation rules in both cases.
   sage: Sx*x
 \end{sageexample}
 
-More details on the construction of Ore algebras are given in the following section.
-Also Ore algebras with several generators are already supported. However, so far we offer
-no functionality beyond addition and multiplication for these. More functionality 
-is available for algebras with one generator. We describe some of it in 
-Section~\ref{sec:3}. Even more functionality has been implemented for special 
-algebras like the ones created above, which are most frequently used in practice. 
-Section~\ref{sec:4} describes some of these features. 
+More details on the construction of Ore algebras are given in the following
+section. The construction and manipulation of elements of Ore algebras is
+discussed in Section~\ref{sec:3}.
 
-/// disclaimer: we don't explain algorithms here, but only the software /// 
+The package also supports Ore algebras with several generators already. However,
+so far we offer no functionality beyond addition and multiplication for
+these. Much more functionality is available for algebras with one generator. We
+describe some of it in Section~\ref{sec:4}. 
 
 \section{Ore Algebras}
 
@@ -236,7 +238,7 @@ summarized in the following table. Further methods can be found in the
 documentation. 
 
 \begin{center}
-  \begin{tabular}{|l|p{.55\hsize}|}
+  \begin{tabular}{|l|p{.5\hsize}|}
     \hline
     Method name & short description \\\hline
     \verb|associated_commutative_algebra()| & returns a polynomial ring with the
@@ -252,7 +254,7 @@ documentation.
   \end{tabular}
 \end{center}
 
-\smallskip
+\smallskip\goodbreak
 
 Examples: 
 
@@ -286,7 +288,8 @@ coefficient list, or even from a string representation.
 
 \begin{sageexample}
   sage: R.<x> = ZZ['x']; A.<Dx> = OreAlgebra(R)
-  sage: Ac = A.associated_commutative_algebra(); Ac
+  sage: Ac = A.associated_commutative_algebra()
+  sage: Ac
   sage: A(Ac.random_element())
   sage: A([5*x,7*x-3,3*x+1])
   sage: A("(5*x^2+3*x-7)*Dx^2 + (3*x^2+8*x-1)*Dx + (9*x^2-3*x+8)")
@@ -304,13 +307,13 @@ that such a conversion is meaningful.
   sage: L.parent()
 \end{sageexample}
 
-In accordance with the default Sage coercion model, such conversions take place automatically (if possible) 
+In accordance with the Sage coercion model, such conversions take place automatically (if possible) 
 when operators from different algebras are added or multiplied. Note that the result of such an operation
 need not belong to either of the parents of the operands but may instead have a suitable ``common extension'' 
 as parent. 
 
 \begin{sageexample}
-  sage: A = OreAlgebra(ZZ['t']['x'], 'Dx'); 
+  sage: A = OreAlgebra(ZZ['t']['x'], 'Dx')
   sage: B = OreAlgebra(QQ['x'].fraction_field(), 'Dx')
   sage: L = A.random_element() + B.random_element()
   sage: L.parent()
@@ -318,104 +321,168 @@ as parent.
 
 \section{Selected Methods}\label{sec:4}
 
-Besides basic arithmetic for Ore operators, the package provides a wide range of methods to create, manipulate and solve several different kinds of functional equations. 
-Some of these methods are accessible in any Ore algebra while others are tied specifically to e.g.\ recurrence operators or differential operators.
-In these predefined algebras, operators can act on suitable objects like functions or sequences in a natural way:
+Besides basic arithmetic for Ore operators, the package provides a wide range of
+methods to create, manipulate and solve several different kinds of operators.
+Some of these methods are accessible in any Ore algebra while others are tied
+specifically to e.g.\ recurrence operators or differential operators. 
 
-\begin{sageexample}
-  sage: R.<x> = PolynomialRing(QQ)
-  sage: A = OreAlgebra(R, 'Dx'); Dx=A.gen() 
-  sage: p,q = R.random_element(3),R.random_element(1)
-  sage: L = p*Dx - p.derivative()
-  sage: L(p)
-  sage: L(q)
-\end{sageexample}
+In this section, we give an overview of some of the functionality provided by
+the package. Because of space limitation, only some of the available methods
+can be discussed here. For further information, we refer to the documentation. 
 
-It is also possible to define actions for other Ore algebras or to redefine the action in the predefined ones. 
+\subsection{Methods for General Algebras}
 
-\begin{sageexample}
-  sage: R.<x> = PolynomialRing(QQ)
-  sage: A = OreAlgebra(R, ('S', {x:x+1}, {x:1})); S=A.gen()
-  sage: B = OreAlgebra(R, 'Dx'); Dx=B.gen()
-  sage: S(x-1,action=lambda x: 2*x)
-  sage: Dx(x,action=lambda x: x)
-  sage: Dx(x)
-\end{sageexample}
-
-We give a small overview of the functionality of some selected methods.
-
-\subsection{gcrd and lclm}
-
-A univariate Ore algebra over a field is a left Euclidean domain, which means that it is possible to perform 
-left division with remainder. Building upon this, the greatest common right divisor (GCRD) and the least common 
-left multiple (LCLM) of two Ore polynomials can be computed. The package provides a number of methods to carry 
-out these tasks.
+A univariate Ore algebra over a field is a left Euclidean domain, which means
+that it is possible to perform left division with remainder. Building upon this,
+the greatest common right divisor (GCRD) and the least common left multiple
+(LCLM) of two Ore polynomials can be computed. The package provides a number of
+methods to carry out these tasks.
 
 \begin{center}
-  \begin{tabular}{|l|p{.55\hsize}|}
+  \begin{tabular}{|l|p{.65\hsize}|}
     \hline
     Method name & short description \\\hline
-    \verb|quo_rem(B)| & returns the left quotient and the left remainder of $A$ and $B$.\\
-    \verb|gcrd(B)| & returns the greatest common right divisor of $A$ and $B$.\\
-    \verb|xgcrd(B)| & returns the greatest common right divisor of $A$ and $B$ and the according B\'ezout coefficients.\\
-    \verb|lclm(B)| & returns the least common left multiple of $A$ and $B$.\\
-    \verb|xlclm(B)| & returns the least common left multiple $L$ of $A$ and $B$ and the left quotients of $L$ and $A$ and of $L$ and $B$.\\\hline
+    \verb|A.quo_rem(B)| & returns the left quotient and the left remainder of $A$ and $B$.\\
+    \verb|A.gcrd(B)| & returns the greatest common right divisor of $A$ and $B$.\\
+    \verb|A.xgcrd(B)| & returns the greatest common right divisor of $A$ and $B$ and the according B\'ezout coefficients.\\
+    \verb|A.lclm(B)| & returns the least common left multiple of $A$ and $B$.\\
+    \verb|A.xlclm(B)| & returns the least common left multiple $L$ of $A$ and $B$ and the left quotients of $L$ and $A$ and of $L$ and $B$.\\
+    \verb|A.resultant(B)| & returns the resultant of $A$ and $B$ (see \cite{li96} for further information).\\
+    \hline
   \end{tabular}
 \end{center}
 
-All these methods are also available for Ore operators living in univariate Ore algebras over a base ring $\set R$ which 
-does not necessarily have to be a field. The operators are then implicitly assumed to live in the respective Ore 
-algebra over the quotient field $\set K$ of $\set R$. The output will be the GCRD (LCLM, quotient, remainder) in the Ore 
-algebra over $\set K$ but not over $\set R$, in which these objects might not exist or might not be computable. 
+All these methods are also available for Ore operators living in univariate Ore
+algebras over a base ring $R$ which does not necessarily have to be a
+field. The operators are then implicitly assumed to live in the respective Ore
+algebra over the quotient field $K$ of~$R$. The output will be the
+GCRD (LCLM, quotient, remainder) in the Ore algebra over $K$ but not over
+$R$, in which these objects might not exist or might not be computable.
 
 \begin{sageexample}
-  sage: A = OreAlgebra(ZZ['n'], 'Sn');                                           
-  sage: G,L1,L2 = A.random_element(2),A.random_element(7),A.random_element(5)    
-  sage: while not L1.gcrd(L2)==1: L2 = A.random_element(5)                       
-  sage: L1,L2 = L1*G,L2*G                                                        
-  sage: (L3,S,T) = L1.xgcrd(L2)                             
-  sage: (S*L1+T*L2).normalize() == L3.normalize() == G.normalize()
+  sage: A = OreAlgebra(ZZ['n'], 'Sn')
+  sage: G = A.random_element(2)
+  sage: L1, L2 = A.random_element(7), A.random_element(5)
+  sage: while L1.gcrd(L2) != 1: L2 = A.random_element(5)                       
+  sage: L1, L2 = L1*G, L2*G                                                        
+  sage: L1.gcrd(L2) == G.normalize()
+  sage: L3, S, T = L1.xgcrd(L2)                             
+  sage: S*L1 + T*L2 == L3
   sage: LCLM = L1.lclm(L2)
-  sage: LCLM.quo_rem(L1)[1] == LCLM.quo_rem(L2)[1] == A.zero()
+  sage: LCLM % L1 == LCLM % L2 == 0
+  sage: LCLM.order() == L1.order() + L2.order() - G.order()
 \end{sageexample}
 
-There are a number of options to adjust the functionality of the methods. For example, the efficiency of computing the GCRD 
-depends on the size of the coefficients of intermediate results and there are different strategies to control this in so called 
-polynomial remainder sequences (PRS). The default is the improved PRS described in \cite{jaroschek13b}. which will usually be 
-the fastest choice. 
+The GCRD is only unique up to multiplication (from the left) by an element from
+the base ring. The method \verb|normalize| called in line~6 of the listing above
+multiplies a given operator from the left by some element from the base ring
+such as to produce a canonical representative of the set of all the operators
+that can be obtained from the given one by left multiplication of a base ring
+element. This facilitates the comparison of output.
+
+There are a number of options to adjust the functionality of the methods. For
+example, the efficiency of computing the GCRD depends on the size of the
+coefficients of intermediate results and there are different strategies to
+control this in so called polynomial remainder sequences (PRS). The default is
+the improved PRS described in~\cite{jaroschek13b}. which will usually be the
+fastest choice.
 
 \begin{sageexample}
-  sage: A = OreAlgebra(ZZ['n'], 'Sn');                                           
-  sage: L1,L2 = A.random_element(3),A.random_element(2)    
-  sage: L1.gcrd(L2, prs="primitive")
-  sage: L1.gcrd(L2, prs="monic")
+  sage: A = OreAlgebra(ZZ['n'], 'Sn')
+  sage: L1, L2 = A.random_element(3), A.random_element(2)
+  sage: algs = ["improved", "classic", "monic", "subresultant"]
+  sage: [L1.gcrd(L2, prs=a) for a in algs]
 \end{sageexample}
 
-\subsection{closure properties?}
+If $L_1,L_2$ are operators, then the solutions of their GCRD are precisely the
+common solutions of $L_1$ and~$L_2$. The LCLM, on the other hand, is the minimal
+order operator whose solution space contains all the solutions of $L_1$ as well
+as all the solutions of~$L_1$. Because of this property, GCRD and LCLM are
+useful tools for constructing operators with prescribed solutions. For example,
+here is how to construct a differential operator which has the solutions $x^5$
+and $\exp(x)$ starting from the obvious operators annihilating $x^5$
+and~$\exp(x)$, respectively.
 
--- table mapping function names to arithmetic
+\begin{sageexample}
+  sage: R.<x> = ZZ[]; A.<Dx> = OreAlgebra(R)
+  sage: L = (Dx - 1).lclm(x*Dx - 5)
+  sage: L
+  sage: L(x^5)
+  sage: L(exp(x)).full_simplify() 
+\end{sageexample}
 
--- example for how to prove some identity with the methods provided. 
+Observe how in the last two lines we apply the operator~$L$ to other
+objects. Such applications are not defined for every algebra and in general have
+to be specified by the user through an optional argument:
 
--- merge with previous section?
+\begin{sageexample}
+  sage: A.<Qqn> = OreAlgebra(ZZ['q']['qn'])
+  sage: var('q', 'n', 'x')
+  sage: (Qqn^2+Qqn+1)(q^n, action=lambda expr: expr.substitute(n=n+1))
+  sage: (Qqn^2+Qqn+1)(x, action=lambda expr: expr.substitute(x=q*x))
+\end{sageexample}
 
-\subsection{conversions?}
+Thanks to the LCLM operation discussed above, we have the property that when $f$
+and $g$ are two objects which are annihilated by some operators $L_1,L_2$
+belonging to some Ore algebra~$A$ then this algebra contains also an operator
+which annihilates their sum~$f+g$. Thus the class of solutions of operators of
+$A$ is closed under addition. It turns out that similar closure properties hold
+for other operations. The following table lists some of the corresponding
+methods. Methods for some further closure properties will appear further below.
 
--- re2de and all its relatives
+\begin{center}
+\begin{tabular}{|l|p{.55\hsize}|}
+\hline
+Method name & short description \\\hline
+\verb|lclm()| & computes an annihilating operator for $f+g$ from annihilating operators for $f$ and $g$ \\
+\verb|symmetric_product()| & computes an annihilating operator for $fg$ from annihilating operators for $f$ and $g$ \\
+\verb|symmetric_power()| & computes an annihilating operator for $f^n$ from an annihilating operator for $f$ and a given positive integer~$n$\\ 
+\verb|annihilator_of_associate()| & computes an annihilating operator for $M(f)$ from an annihilating operator for $f$ and a given operator~$M$\\ 
+\verb|annihilator_of_polynomial()| & computes an annihilating operator for the object $p(f,\partial f,\partial^2 f,\dots)$ from an annihilating operator for $f$ and a given multivariate polynomial~$p$. \\
+\hline
+\end{tabular}
+\end{center}
 
-\subsection{solutions?}
+As an example application, let us prove Cassini's identity for Fibonacci
+numbers: 
+\[
+  F_{n+1}^2 - F_nF_{n+2}=(-1)^n.
+\]
+The idea is to derive, using commands
+from the table above, a recurrence satisfied by the left hand side and then show
+that this recurrence is also valid for the right hand side. 
 
--- polynomial, rational, generalized series solutions
+\begin{sageexample}
+  sage: A.<Sn> = OreAlgebra(ZZ['n'])
+  sage: fib = Sn^2 - Sn - 1
+  sage: R.<x0,x1,x2> = ZZ['n']['x0','x1','x2']
+  sage: fib.annihilator_of_polynomial(x1^2 - x0*x2) 
+\end{sageexample}
 
--- available for differential and shift algebras
+As this operator obviously annihilates $(-1)^n$, the proof is complete after
+checking that the identity holds for $n=0$. Another way of carrying out the
+same computation using the other commands would be as follows.
 
-\subsection{action?}
+\begin{sageexample}
+  sage: A.<Sn> = OreAlgebra(ZZ['n'])
+  sage: fib = Sn^2 - Sn - 1
+  sage: L1 = fib.annihilator_of_associate(Sn).symmetric_power(2)
+  sage: L2 = fib.annihilator_of_associate(Sn^2).symmetric_product(fib)
+  sage: L1.lclm(L2)
+\end{sageexample}
 
--- should be mentioned somewhere, although there is not much to say about it. 
+Observe that the resulting operator again annihilates~$(-1)^n$, but its order is
+higher than the operator obtained before, so we need to check more initial
+values to complete the proof. For larger computations, the command
+\verb|annihilator_of_polynomial| would also consume less computation time than
+the step-by-step approach.
 
-\subsection{Differential Operators}
+\subsection{Methods for Special Algebras}
 
-Useful methods available for differential operators:
+For the elements of some of the most important algebras, additional methods are
+available. The following table lists some of the additional methods available
+for differential operators, i.e., elements of an Ore algebra of the
+form~$R[x]\<Dx>$ or $K(x)\<Dx>$.
 
 \begin{center}
   \begin{tabular}{|l|p{.55\hsize}|}
@@ -426,6 +493,12 @@ Useful methods available for differential operators:
     \verb|to_T()| & rewrites in terms of the Euler derivative \\
     \verb|annihilator_of_integral()| & converts an annihilator for $f(x)$ to one for $\int f(x) dx$\\
     \verb|annihilator_of_composition()| & converts an annihilator for $f(x)$ to one for $f(a(x))$ where $a(x)$ is algebraic over the base ring\\
+    \verb|desingularize()| & computes a left multiple of this operator with polynomial coefficients and 
+           lowest possible leading coefficient degree\\
+    \verb|associate_solutions(p)| & applied to an operator~$P$, this computes, if possible, an operator $M$
+    and a rational function $m$ such that $DM=p+mP$ (see \cite{abramov99} for further information)\\
+    \verb|polynomial_solutions()| & computes the polynomial solutions of this operator\\
+    \verb|rational_solutions()| & computes the rational function solutions of this operator\\
     \verb|power_series_solutions()| & computes power series solutions of this operator\\
     \verb|generalized_series_solutions()| & computes generalized series solutions of this operator \\ \hline
   \end{tabular}
@@ -433,30 +506,57 @@ Useful methods available for differential operators:
 
 \smallskip
 
-We compute an annihilator for the error function $\frac{2}{\sqrt{\pi}} \int_0^x e^{-t^2} dt$,
-starting from the differential equation for $e^x$, and produce the
-recurrence for the Taylor series coefficients at the origin:
+As an example application, we compute an annihilator for the error function
+$\frac{2}{\sqrt{\pi}} \int_0^x \exp(-t^2) dt$, starting from the differential
+equation for $\exp(x)$, and produce the recurrence for the Taylor series
+coefficients at the origin. Finally, we compute the series solutions of the
+differential operator at infinity. 
 
 \begin{sageexample}
   sage: R.<x> = ZZ['x']; A.<Dx> = OreAlgebra(R, 'Dx')                            
-  sage: (Dx - 1).annihilator_of_composition(-x**2)
-  Dx + 2*x
-  sage: (Dx + 2*x).annihilator_of_integral()                                     
-  Dx^2 + 2*x*Dx
-  sage: (Dx^2 + 2*x*Dx).to_S(OreAlgebra(ZZ['n'], 'Sn'))                          
-  (n^2 + 3*n + 2)*Sn^2 + 2*n
-  sage: (Dx^2 + 2*x*Dx).power_series_solutions(10)                               
+  sage: (Dx - 1).annihilator_of_composition(-x^2)
+  sage: L = (Dx + 2*x).annihilator_of_integral()                                     
+  sage: L
+  sage: L.to_S(OreAlgebra(ZZ['n'], 'Sn'))                          
+  sage: L.power_series_solutions(10)                               
   [x - 1/3*x^3 + 1/10*x^5 - 1/42*x^7 + 1/216*x^9 + O(x^10), 1 + O(x^10)]
+  sage: L.annihilator_of_composition(1/x).generalized_series_solutions()
 \end{sageexample}
 
-
-\subsection{Computation of Sequence Terms}
-
-(... a few introductory words ... available for shift and q-shift algebras ...)
+The last output implies that the operator annihilating $\int_0^x \exp(-t^2) dt$
+admits also a solution which behaves for $x\to\infty$ like $\frac1x\exp(-x^2)$.
 
 
+The next example illustrates the methods for finding rational and polynomial
+solutions of an operator~$L$.  These methods accept as an optional parameter an
+inhomogeneous part consisting of a list (or tuple) of base ring elements,
+$(f_1,\dots,f_r)$. They return as output a list of tuples $(g,c_1,\dots,c_r)$
+with $L(g)=c_1f_1+\cdots+c_rf_r$ where $g$ is a polynomial or rational function
+and $c_1,\dots,c_r$ are constants, i.e., elements of the base ring's base
+ring. The tuples form a basis of the solution space.
 
-Useful methods available for recurrence operators:
+In the example session below, we start from two polynomials $p,q$, then compute an 
+operator $L$ having $p$ and $q$ as solutions, and then recover $p$ and $q$ from~$L$.
+Note that for consistency also the solutions of homogeneous equations are returned as 
+tuples. At the end we give an example for solving an inhomogeneous equation.
+
+\begin{sageexample}
+  sage: R.<x> = ZZ[]
+  sage: p = x^2 + 3*x + 8; q = x^3 - 7*x + 5
+  sage: A.<Dx> = OreAlgebra(R)
+  sage: L = (p*Dx - p.derivative()).lclm(q*Dx - q.derivative())
+  sage: L
+  sage: L.polynomial_solutions()
+  sage: M = (2*x+3)*Dx^2 + (4*x+5)*Dx + (6*x+7)
+  sage: sol = M.polynomial_solutions([1,x,x^2,x^3])
+  sage: sol
+  sage: map(lambda s: M(s[0]) == s[1]+s[2]*x+s[3]*x^2+s[4]*x^3, sol)
+\end{sageexample}
+
+The functions \verb|polynomial_solutions| and \verb|rational_solutions| are not
+only defined for differential operators but also for recurrence operators, i.e.,
+elements of an Ore algebra of the form $R[x]\<Sx>$ or~$K(x)\<Sx>$. Some other
+methods defined for recurrence operators are listed in the following table. 
 
 \begin{center}
   \begin{tabular}{|l|p{.55\hsize}|}
@@ -466,20 +566,27 @@ Useful methods available for recurrence operators:
         differential operator for the sum \\
     \verb|to_F()| & converts shift operator to a difference operator\\
     \verb|to_T()| & converts to a differential operator in terms of the Euler derivative \\
-    \verb|annihilator_of_sum()| & converts an annihilator for $f(n)$ to one for $\sum_{k=0}^n f(k)$\\
-    \verb|annihilator_of_composition()| & converts an annihilator for $f(n)$ to one for $f(\lfloor un+v \rfloor)$ where $u, v \in \mathbb{Q}$ \\
+    \verb|annihilator_of_sum()| & converts an annihilator for $f(n)$ to one for the sum $\sum_{k=0}^n f(k)$\\
+    \verb|annihilator_of_composition()| & converts an annihilator for $f(n)$ to one for $f(\lfloor un+v \rfloor)$ where $u, v \in \set Q$ \\
     \verb|annihilator_of_interlacing()| & interlaces two or more sequences\\
-    \verb|generalized_series_solutions()| & computes asymptotic expansions of sequences annihilated by the operator\\ \hline
+    \verb|desingularize()| & computes a left multiple of this operator with polynomial coefficients and 
+           lowest possible leading coefficient degree\\
+    \verb|associate_solutions(p)| & applied to an operator~$P$, this computes, if possible, an operator $M$
+    and a rational function $m$ such that $(S-1)M=p+mP$ (see \cite{abramov99} for further information)\\
+    \verb|polynomial_solutions()| & computes the polynomial solutions of this operator\\
+    \verb|rational_solutions()| & computes the rational function solutions of this operator\\
+    \verb|generalized_series_solutions()| & computes asymptotic expansions of sequences annihilated by the operator\\ 
+    \verb|to_list()| & computes terms of a sequence annihilated by the operator\\\hline
   \end{tabular}
 \end{center}
 
 \smallskip
 
-We compute an annihilator for the sequence
+As an example application, we compute an annihilator for the sequence
 $c(n) = \sum_{k=0}^n 1 / k!$:
 
 \begin{sageexample}
-  sage: R.<n> = ZZ[]; RS.<Sn> = OreAlgebra(R)
+  sage: R.<n> = ZZ[]; A.<Sn> = OreAlgebra(R)
   sage: inverse_factorials = (n + 1) * Sn - 1
   sage: partial_sums = inverse_factorials.annihilator_of_sum()
   sage: partial_sums
@@ -523,23 +630,19 @@ This way, computing $10^5$ digits of $e$ takes a fraction of a second:
   sage: u.change_ring(RealField(20))
 \end{sageexample}
 
-... add a figure with timings? ... 
-
-\subsection{The $q$-Case}
-
-J and Q
-
 \subsection{Guessing}
 
-Guessing is, in some sense, the reverse operation of \verb|to_list|. It is one
-of the most popular features of packages like gfun, and there are even some
-special purpose packages dedicated to this technique~\cite{kauers09a,hebisch11}.
-The basic idea is simple. If we are given a finite array of numbers, thought of
-as the first terms of an infinite sequence, we may want to know whether this
-sequence satisfies a recurrence. The algorithm behind a guessing engine searches
-for small equations matching the given data.  Generically, no such equations
-exist, so if some are found, it is fair to ``guess'' that they are in fact valid
-equations for the whole infinite sequence.
+Guessing is, in some sense, the reverse operation of \verb|to_list| for
+recurrence operators, or \verb|power_series_solutions| for differential
+operators.  It is of the most popular features of packages like gfun, and there
+are even some special purpose packages dedicated to this
+technique~\cite{kauers09a,hebisch11}. The basic idea is simple. If we are given
+a finite array of numbers, thought of as the first terms of an infinite
+sequence, we may want to know whether this sequence satisfies a recurrence. The
+algorithm behind a guessing engine searches for small equations matching the
+given data.  Generically, no such equations exist, so if some are found, it is
+fair to ``guess'' that they are in fact valid equations for the whole infinite
+sequence.
 
 We provide a guessing function which takes as input a list of terms and an Ore
 algebra, and returns as output an operator which matches the given data and
@@ -580,7 +683,7 @@ detected when $N$ terms are provided as input. This region is determined by the
 requirement $(r+1)(d+2)<N$.
 
 The method tests a sequence of points $(r_1,d_1)$, $(r_2,d_2)$, \dots\ right
-below this second parabola. Success at a point $(r_i,d_i)$ means that some
+below this second hyperbola. Success at a point $(r_i,d_i)$ means that some
 evidence for an operator of order $\leq r_i$ and degree $\leq d_i$ has been found. 
 This operator however is not explicitly computed. Instead, the method uses the
 partial information found about this operator to calculate an operator which with 
@@ -595,7 +698,7 @@ are discarded for which $r$ or $d$ is not within the specified bounds. These opt
 can be used to accelerate the search in situations where the user has some knowledge
 (or intuition) about the size of the expected equations. 
 
-\hangindent=-6.3cm\hangafter=-14\leavevmode
+\hangindent=-6.3cm\hangafter=-13\leavevmode
 \smash{\raise-5.3cm\rlap{\kern\hsize\kern-5.1cm\begin{tikzpicture}[scale=.45]
   \draw[->] (10.5,0) node {$r$} (-.2,0) -- (10, 0) ;
   \draw[->] (0,10.5) node {$d$} (0,-.2) -- (0, 10) ;
@@ -641,13 +744,6 @@ the user requests that for testing a point $(r,d)$, the method should take into 
 more terms than needed. If the data array contains more terms, superfluous ones are ignored in the
 interested of better performance. We must always have $0\leq e\leq c\leq \infty$. The default setting
 is $e=0$, $c=\infty$. 
-
-Finally, there is an option \verb|infolevel| which, when set to a positive integer, causes the method
-to print some output about the progress of the computation. Higher values lead to more detailed output.
-
-\section{Concluding Remarks}
-
-...
 
  \bibliographystyle{plain}
  \bibliography{main}
