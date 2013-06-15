@@ -648,20 +648,20 @@ class ContinuousGeneralizedSeries(RingElement):
                 if alpha.is_zero():
                     pass
                 elif alpha.is_one():
-                    E_rep += "*" + x
+                    E_rep += "\\cdot " + x
                 elif alpha in QQ:
-                    E_rep += "*" + x + "^{" + str(alpha) + "}" # prefer 1/3 over \frac{1}{3} in exponents
+                    E_rep += "\\cdot " + x + "^{" + str(alpha) + "}" # prefer 1/3 over \frac{1}{3} in exponents
                 else:
-                    E_rep += "*" + x + "^{" + alpha._latex_() + "}"
+                    E_rep += "\\cdot " + x + "^{" + alpha._latex_() + "}"
 
             if T.is_one():
                 rep = E_rep
             elif (-T).is_one():
                 rep = '-' + E_rep
             elif T._is_atomic():
-                rep = E_rep + "*" + T_rep
+                rep = E_rep + "\\cdot " + T_rep
             else:
-                rep = E_rep + r"*\Bigl(" + T_rep + r"\Bigr)"
+                rep = E_rep + r"\cdot\Bigl(" + T_rep + r"\Bigr)"
 
         if r > 1:
             # x^{1/3}^{17} --> x^{17/3}
