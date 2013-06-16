@@ -3,8 +3,12 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to ore_algebra's documentation!
-=======================================
+Documentation of ore_algebra
+============================
+
+This documentation is automatically generated from the docstrings of the source code.
+It also contains some information which is only of interest for the developer but not
+for the user. 
 
 Contents:
 
