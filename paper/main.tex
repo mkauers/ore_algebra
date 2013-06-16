@@ -89,17 +89,17 @@ the subject.
 
 At the time of writing, the package we describe here is still under construction
 and has not yet been incorporated into the official Sage distribution. Readers
-who want to try it out are invited to download the current latest version from 
+who want to try it out are invited to download the current version from 
 \begin{center}
-  URL
+  \verb|http://www.risc.jku.at/research/combinat/software/ore_algebra|
 \end{center}
-and are encouraged to send us bug reports and other comments. We hope 
+and are encouraged to send us bug reports or other comments. We hope 
 that the community will find the code useful.
 
-Creating an Ore algebra object is easy. The following instructions show how to 
-load the code and then create an Ore algebra $A$ of linear differential operators
-and an Ore algebra $B$ of recurrence operators. Observe the correct application
-of the respective commutation rules in both cases. 
+The following instructions show how to load the code and then create an Ore
+algebra~$A$ of linear differential operators and an Ore algebra~$B$ of
+recurrence operators. Observe the correct application of the respective
+commutation rules in both cases.
 
 \begin{sageexample}
   sage: from ore_algebra import *
@@ -117,9 +117,10 @@ section. The construction and manipulation of elements of Ore algebras is
 discussed in Section~\ref{sec:3}.
 
 The package also supports Ore algebras with several generators already. However,
-so far we offer no functionality beyond addition and multiplication for
-these. Much more functionality is available for algebras with one generator. We
-describe some of it in Section~\ref{sec:4}. 
+so far we offer hardly more functionality than addition and multiplication for
+these. Much more functionality is available for algebras with one generator. 
+Some of it is described in Section~\ref{sec:4}. We plan to add more code for the
+multivariate case in the future.
 
 \section{Ore Algebras}
 
@@ -129,7 +130,7 @@ $\mathrm{Dx}$ and $\mathrm{Sx}$, respectively. If no other information is provid
 in the arguments, the \verb|OreAlgebra| constructor chooses the nature of the 
 generators according to their name: a generator called $\mathrm{Dt}$ represents
 the standard derivation $d/dt$ acting on the generator $t$ of the base ring, 
-a generator called $Sn$ represents the standard shift operator sending the
+a generator called $\mathrm{Sn}$ represents the standard shift operator sending the
 generator $n$ of the base ring to $n+1$. 
 
 For this way of generating algebras, generator names must be composed of
@@ -169,7 +170,7 @@ for $\sigma$ (i.e., $\delta(a+b)=\delta(a)+\delta(b)$ and $\delta(ab)=\delta(a)b
 generator $X$ satisfies the commutation rule $Xa=\sigma(a)X+\delta(a)$ for every
 $a\in R$. If there is more than one generator, then each of them has its own pair
 of maps $\sigma,\delta$. Different generators commute with each other; 
-noncommutativity only takes place ``between'' generators and base ring elements. 
+noncommutativity only takes place between generators and base ring elements. 
 
 It is possible to create an Ore algebra with user specified commutation rules.
 In this form, each generator must be declared by a tuple $(X,\sigma,\delta)$, 
@@ -199,7 +200,7 @@ $\exp(x)$ and $z$ represents~$\log(x)$:
 
 In the dictionary specifying~$\sigma$, omitted generators are understood to be
 mapped to themselves, so that \verb|{}| in the definition of $A$ in the example
-above is equivalent to \verb|{x:x,y:y,z:z}|.  Likewise, in the dictionaries
+above is equivalent to \verb|{x:x,y:y,z:z}|. In the dictionaries
 specifying~$\delta$, omitted generators are understood to be mapped to zero.
 
 For Ore algebras with several generators, it is possible to mix specifications
@@ -207,12 +208,14 @@ of generators via triples $(X,\sigma,\delta)$ with generators using the naming
 convention shortcuts as explained before. Continuing the previous example,
 here is a way to define an algebra $A$ over $K$ with two generators, a $D$ 
 that behaves like before, and in addition an $Sx$ which acts like the standard
-shift on~$x$.
+shift on~$x$ and leaves the other generators fixed.
 
 \begin{sageexample}
   sage: A = OreAlgebra(K, ('D', {}, {x:1, y:y, z:1/x}), 'Sx')
   sage: D, Sx = A.gens()
   sage: D*x, Sx*x
+  sage: D*y, Sx*y
+  sage: D*z, Sx*z
 \end{sageexample}
 
 Not every ring is suitable as base ring of an Ore algebra. Base rings must
@@ -324,9 +327,9 @@ as parent.
 Besides basic arithmetic for Ore operators, the package provides a wide range of
 methods to create, manipulate and solve several different kinds of operators.
 Some of these methods are accessible in any Ore algebra while others are tied
-specifically to e.g.\ recurrence operators or differential operators. 
+specifically to, e.g., recurrence operators or differential operators. 
 
-In this section, we give an overview of some of the functionality provided by
+In this section, we give an overview of the functionality provided by
 the package. Because of space limitation, only some of the available methods
 can be discussed here. For further information, we refer to the documentation. 
 
@@ -347,7 +350,8 @@ methods to carry out these tasks.
     \verb|A.xgcrd(B)| & returns the greatest common right divisor of $A$ and $B$ and the according B\'ezout coefficients.\\
     \verb|A.lclm(B)| & returns the least common left multiple of $A$ and $B$.\\
     \verb|A.xlclm(B)| & returns the least common left multiple $L$ of $A$ and $B$ and the left quotients of $L$ and $A$ and of $L$ and $B$.\\
-    \verb|A.resultant(B)| & returns the resultant of $A$ and $B$ (see \cite{li96} for further information).\\
+    \verb|A.resultant(B)| & returns the resultant of $A$ and $B$ (see \cite{li96} for its definition and
+    properties).\\
     \hline
   \end{tabular}
 \end{center}
@@ -376,16 +380,15 @@ $R$, in which these objects might not exist or might not be computable.
 The GCRD is only unique up to multiplication (from the left) by an element from
 the base ring. The method \verb|normalize| called in line~6 of the listing above
 multiplies a given operator from the left by some element from the base ring
-such as to produce a canonical representative of the set of all the operators
-that can be obtained from the given one by left multiplication of a base ring
+such as to produce a canonical representative from the class of all the operators
+that can be obtained from each other by left multiplication of a base ring
 element. This facilitates the comparison of output.
 
-There are a number of options to adjust the functionality of the methods. For
-example, the efficiency of computing the GCRD depends on the size of the
-coefficients of intermediate results and there are different strategies to
-control this in so called polynomial remainder sequences (PRS). The default is
-the improved PRS described in~\cite{jaroschek13b}. which will usually be the
-fastest choice.
+The efficiency of computing the GCRD depends on the size of the
+coefficients of intermediate results, and there are different strategies to
+control this growth via so called polynomial remainder sequences (PRS). The default is
+the improved PRS described in~\cite{jaroschek13b}, which will usually be the
+fastest choice. Other strategies can be selected by the option \verb|prs|.
 
 \begin{sageexample}
   sage: A = OreAlgebra(ZZ['n'], 'Sn')
@@ -396,11 +399,11 @@ fastest choice.
 
 If $L_1,L_2$ are operators, then the solutions of their GCRD are precisely the
 common solutions of $L_1$ and~$L_2$. The LCLM, on the other hand, is the minimal
-order operator whose solution space contains all the solutions of $L_1$ as well
-as all the solutions of~$L_1$. Because of this property, GCRD and LCLM are
+order operator whose solution space contains all the solutions of $L_1$ and
+all the solutions of~$L_1$. Because of this property, GCRD and LCLM are
 useful tools for constructing operators with prescribed solutions. For example,
 here is how to construct a differential operator which has the solutions $x^5$
-and $\exp(x)$ starting from the obvious operators annihilating $x^5$
+and $\exp(x)$, starting from the obvious operators annihilating $x^5$
 and~$\exp(x)$, respectively.
 
 \begin{sageexample}
@@ -425,10 +428,10 @@ to be specified by the user through an optional argument:
 Thanks to the LCLM operation discussed above, we have the property that when $f$
 and $g$ are two objects which are annihilated by some operators $L_1,L_2$
 belonging to some Ore algebra~$A$ then this algebra contains also an operator
-which annihilates their sum~$f+g$. Thus the class of solutions of operators of
+which annihilates their sum~$f+g$. In other words, the class of solutions of operators of
 $A$ is closed under addition. It turns out that similar closure properties hold
 for other operations. The following table lists some of the corresponding
-methods. Methods for some further closure properties will appear further below.
+methods. Methods for more special closure properties will appear further below.
 
 \begin{center}
 \begin{tabular}{|l|p{.55\hsize}|}
@@ -448,9 +451,9 @@ numbers:
 \[
   F_{n+1}^2 - F_nF_{n+2}=(-1)^n.
 \]
-The idea is to derive, using commands
-from the table above, a recurrence satisfied by the left hand side and then show
-that this recurrence is also valid for the right hand side. 
+The idea is to derive, using commands from the table above, a recurrence
+satisfied by the left hand side, and then show that this recurrence is also
+valid for the right hand side.
 
 \begin{sageexample}
   sage: A.<Sn> = OreAlgebra(ZZ['n'])
@@ -479,9 +482,9 @@ the step-by-step approach.
 
 \subsection{Methods for Special Algebras}
 
-For the elements of some of the most important algebras, additional methods are
-available. The following table lists some of the additional methods available
-for differential operators, i.e., elements of an Ore algebra of the
+For the elements of some of the most important algebras, additional methods have
+been implemented. The following table lists some of the additional methods
+available for differential operators, i.e., elements of an Ore algebra of the
 form~$R[x]\<Dx>$ or $K(x)\<Dx>$.
 
 \begin{center}
@@ -524,8 +527,7 @@ differential operator at infinity.
 \end{sageexample}
 
 The last output implies that the operator annihilating $\int_0^x \exp(-t^2) dt$
-admits also a solution which behaves for $x\to\infty$ like $\frac1x\exp(-x^2)$.
-
+also admits a solution which behaves for $x\to\infty$ like $\frac1x\exp(-x^2)$.
 
 The next example illustrates the methods for finding rational and polynomial
 solutions of an operator~$L$.  These methods accept as an optional parameter an
@@ -533,10 +535,10 @@ inhomogeneous part consisting of a list (or tuple) of base ring elements,
 $(f_1,\dots,f_r)$. They return as output a list of tuples $(g,c_1,\dots,c_r)$
 with $L(g)=c_1f_1+\cdots+c_rf_r$ where $g$ is a polynomial or rational function
 and $c_1,\dots,c_r$ are constants, i.e., elements of the base ring's base
-ring. The tuples form a basis of the solution space.
+ring. The tuples form a vector space basis of the solution space.
 
 In the example session below, we start from two polynomials $p,q$, then compute an 
-operator $L$ having $p$ and $q$ as solutions, and then recover $p$ and $q$ from~$L$.
+operator~$L$ having $p$ and $q$ as solutions, and then recover $p$ and $q$ from~$L$.
 Note that for consistency also the solutions of homogeneous equations are returned as 
 tuples. At the end we give an example for solving an inhomogeneous equation.
 
@@ -613,12 +615,12 @@ number of digits:
   sage: num_terms
 \end{sageexample}
 
-In some cases (for example when the base ring is $\mathbb{Z}$ or
-$\mathbb{Z}[x]$), isolated values of a sequence can be
+In some cases, for example when the base ring is $\mathbb{Z}$ or
+$\mathbb{Z}[x]$, isolated values of a sequence can be
 computed asymptotically faster for large $n$ than by listing all
 values, using the binary splitting technique.
 The \verb|forward_matrix_bsplit| method, called with argument~$n$,
-returns a matrix $P$ and a denominator $Q$ such that $P / Q$ multiplied a
+returns a matrix $P$ and a polynomial $Q$ such that $P / Q$ multiplied by a
 column vector of initial values $c_0, c_1, \ldots$
 yields $c_n, c_{n+1}, \ldots$.
 This way, computing $10^5$ digits of $e$ takes a fraction of a second:
@@ -633,12 +635,12 @@ This way, computing $10^5$ digits of $e$ takes a fraction of a second:
 \subsection{Guessing}
 
 Guessing is, in some sense, the reverse operation of \verb|to_list| for
-recurrence operators, or \verb|power_series_solutions| for differential
+recurrence operators, or of \verb|power_series_solutions| for differential
 operators.  It is of the most popular features of packages like gfun, and there
 are even some special purpose packages dedicated to this
-technique~\cite{kauers09a,hebisch11}. The basic idea is simple. If we are given
+technique~\cite{kauers09a,hebisch11}. The basic idea is simple. Given
 a finite array of numbers, thought of as the first terms of an infinite
-sequence, we may want to know whether this sequence satisfies a recurrence. The
+sequence, we want to know whether this sequence satisfies a recurrence. The
 algorithm behind a guessing engine searches for small equations matching the
 given data.  Generically, no such equations exist, so if some are found, it is
 fair to ``guess'' that they are in fact valid equations for the whole infinite
@@ -668,7 +670,7 @@ explanations for such an event. Either the sequence in question does not
 satisfy any equations, or it does but the equations are so big that more
 data is needed to detect them. 
 
-A number of options are available for governing the search for relations.  In
+Several options are available for customizing the search for relations.  In
 order to explain them, we first need to give some details on the underlying
 algorithms. For simplicity of language, we restrict here to the case of
 recurrence operators. The situation for differential operators is very similar.
@@ -716,7 +718,7 @@ can be used to accelerate the search in situations where the user has some knowl
   \fill (2.5, 3) circle(4pt) node[right] {\rule[-1em]{0pt}{0pt}$A$} (2, 9) circle(4pt) node[right] {$B$} ;
 \end{tikzpicture}}}%
 The figure on the right illustrates the typical situation for guessing problems
-that are not too small and not too artificial. The light gray region indicates
+that are not too small and not too artificial. The gray region indicates
 the area which is not accessible with the given amount of data. Only the points
 $(r,d)$ below it can be tested for an operator of order~$r$ and degree~$d$ that
 fits to the given data. Let's assume that operators exist on and above the solid
@@ -742,7 +744,7 @@ such points $(r,d)$ should be tested for which the data array contains at least 
 needed. This increases the reliability. By setting the option \verb|cut| to a positive integer~$c$,
 the user requests that for testing a point $(r,d)$, the method should take into account at most $c$
 more terms than needed. If the data array contains more terms, superfluous ones are ignored in the
-interested of better performance. We must always have $0\leq e\leq c\leq \infty$. The default setting
+interest of better performance. We must always have $0\leq e\leq c\leq \infty$. The default setting
 is $e=0$, $c=\infty$. 
 
  \bibliographystyle{plain}
