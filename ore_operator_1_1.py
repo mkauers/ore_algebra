@@ -2878,7 +2878,7 @@ class UnivariateQDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOve
         return self*self.parent().gen()
 
     def power_series_solutions(self, n=5):
-        """
+        r"""
         Computes the first few terms of the power series solutions of this operator.
 
         The method raises an error if Sage does not know how to factor univariate polynomials
@@ -2892,7 +2892,7 @@ class UnivariateQDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOve
 
         OUTPUT:
 
-        A list of power series of the form `x^\alpha + ...` with pairwise distinct
+        A list of power series of the form `x^{\alpha} + ...` with pairwise distinct
         exponents `\alpha` and coefficients in the base ring's base ring's fraction field.
         All expansions are computed up to order `k` where `k` is obtained by adding the
         maximal `\alpha` to the maximum of `n` and the order of ``self``.         
