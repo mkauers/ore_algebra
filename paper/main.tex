@@ -218,12 +218,12 @@ shift on~$x$ and leaves the other generators fixed.
   sage: D*z, Sx*z
 \end{sageexample}
 
-Not every ring is suitable as base ring of an Ore algebra. Base rings must
-themselves be polynomial rings (univariate or multivariate), or fraction 
-fields of polynomial rings. Their base rings in turn may be either $\set Z$,
-$\set Q$, a prime field $GF(p)$, or a number field $\set Q(\alpha)$, or
---- recursively --- some ring which itself would be suitable as base ring
-of an Ore algebra. 
+In theory, any integral domain can serve as base ring of an Ore algebra. Not so
+in our implementation. Here, base rings must themselves be polynomial rings
+(univariate or multivariate), or fraction fields of polynomial rings. Their base
+rings in turn may be either $\set Z$, $\set Q$, a prime field $GF(p)$, or a
+number field $\set Q(\alpha)$, or --- recursively --- some ring which itself
+would be suitable as base ring of an Ore algebra.
 
 \begin{sageexample}
   sage: ZZ['x'].fraction_field()['y','z'] ### OK

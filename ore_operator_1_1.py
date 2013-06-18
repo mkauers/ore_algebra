@@ -1576,12 +1576,12 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
         allows rapidly computing `c_n, \ldots, c_{n+r-1}` (or just `c_n`)
         without generating all the intermediate values.
 
-        INPUT::
+        INPUT:
 
         - ``n`` -- desired number of terms to move forward
         - ``start`` (optional) -- starting index. Defaults to zero.
 
-        OUTPUT::
+        OUTPUT:
 
         A pair `(M, Q)` where `M` is an `r` by `r` matrix and `Q`
         is a scalar, such that `M / Q` is the product of the companion
