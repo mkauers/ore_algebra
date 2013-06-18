@@ -47,7 +47,7 @@ AUTHOR:
 
 ######### development mode ###########
 
-if False:
+if True:
 
     # let load("ore_algebra") trigger reload of the modules in the list below
     for mod in ['nullspace', 'ore_operator', 'ore_operator_1_1', 'ore_operator_mult', 'generalized_series']:
