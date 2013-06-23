@@ -822,8 +822,31 @@ class UnivariateOreOperator(OreOperator):
 
     def gcrd(self, *other, **kwargs):
         """
-        Returns the GCRD of self and other. 
-        It is possible to specify which remainder sequence should be used.
+        Returns the greatest common right divisor of ``self`` and one or more ``other`` operators.
+
+        INPUT:
+
+        - ``other`` -- one or more operators which together with ``self`` can be coerced to a common parent.
+        - ``prs`` (default: "improved") -- pseudo remainder sequence to be used. Possible values are
+          "improved", "primitive", "classic", "subresultant", "monic".
+        
+        OUTPUT:
+
+        An operator of maximum possible order which right divides ``self`` and all the ``other`` operators.
+
+        EXAMPLES::
+
+           sage: A = OreAlgebra(ZZ['n'], 'Sn')
+           sage: G = A.random_element(2)
+           sage: L1, L2 = A.random_element(7), A.random_element(5)
+           sage: while L1.gcrd(L2) != 1: L2 = A.random_element(5)                       
+           sage: L1, L2 = L1*G, L2*G                                                        
+           sage: L1.gcrd(L2) == G.normalize()
+           True
+           sage: L3, S, T = L1.xgcrd(L2)                             
+           sage: S*L1 + T*L2 == L3
+           True
+
         """
 
         if len(other) > 1:
@@ -879,9 +902,32 @@ class UnivariateOreOperator(OreOperator):
 
     def xgcrd(self, other, prs=None):
         """
-        When called for two operators p,q, this will return their GCRD g together with 
-        two operators s and t such that sp+tq=g. 
-        It is possible to specify which remainder sequence should be used.
+        Returns the greatest common right divisor of ``self`` and ``other`` together with the cofactors. 
+
+        INPUT:
+
+        - ``other`` -- one operators which together with ``self`` can be coerced to a common parent.
+        - ``prs`` (default: "improved") -- pseudo remainder sequence to be used. Possible values are
+          "improved", "primitive", "classic", "subresultant", "monic".
+        
+        OUTPUT:
+
+        A triple `(g, s, t)` of operators such that `g` is the greatest common right divisor of ``self`` and
+        ``other`` and `g = s*p+t*q` where `p` is ``self`` and `q` is ``other``.
+
+        EXAMPLES::
+
+           sage: A = OreAlgebra(ZZ['n'], 'Sn')
+           sage: G = A.random_element(2)
+           sage: L1, L2 = A.random_element(7), A.random_element(5)
+           sage: while L1.gcrd(L2) != 1: L2 = A.random_element(5)                       
+           sage: L1, L2 = L1*G, L2*G                                                        
+           sage: L1.gcrd(L2) == G.normalize()
+           True
+           sage: L3, S, T = L1.xgcrd(L2)                             
+           sage: S*L1 + T*L2 == L3
+           True
+
         """
         return self._xeuclid(other, prs, "bezout")
 
