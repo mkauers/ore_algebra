@@ -2002,7 +2002,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
             s.sort()
             return s
 
-    def generalized_series_solutions(self, n=5, dominant_only=False): 
+    def generalized_series_solutions(self, n=5, dominant_only=False, real_only=False): 
         r"""
         Returns the generalized series solutions of this operator.
 
@@ -2039,6 +2039,8 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
         - ``n`` (default: 5) -- minimum number of terms in the expansions parts to be computed.
         - ``dominant_only`` (default: False) -- if set to True, only compute solution(s) with maximal
           growth. 
+        - ``real_only`` (default: False) -- if set to True, only compute solution(s) where `\rho,c_1,...,c_{v-1},\alpha`
+          are real.
 
         OUTPUT:
 
@@ -2121,7 +2123,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
             char_poly = K['rho']([ c[deg] for c in coeffs ])
             for (cp, e) in char_poly.factor():
                 rho = -cp[0]/cp[1] # K is algebraically closed, so all factors are linear.
-                if not rho.is_zero():
+                if not rho.is_zero() and (not real_only or rho.imag().is_zero()):
                     refined_solutions.append([gamma, rho, [coeffs[i]*(rho**i) for i in xrange(len(coeffs))], e*v])
 
         if dominant_only:
@@ -2140,15 +2142,17 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
                 return subs(x, prec, shift, subexp=subexp, ramification=ram)
             
             KK = K['s'].fraction_field(); X = x.change_ring(KK); v = gamma.denominator(); e = ram/v
-            cc = [ c(x**e).change_ring(KK).shift(ram*(-w_prec + e - 1)) for c in coeffs ]
+            cc = [ c(x**e).change_ring(KK) for c in coeffs ]
             subexpvecs = [ [K.zero()]*(ram - 1) ]
 
-            for i in xrange(ram - 1):
+            for i in xrange(ram - 1, 0, -1):
                 old = subexpvecs; subexpvecs = []
                 for sub in old:
-                    sub[i] = KK.gen(); rest = sum((cc[j]*mysubs(X, e-1, j, sub)).shift((1-e)*ram) for j in xrange(r + 1))
+                    sub[i - 1] = KK.gen(); rest = sum((cc[j]*mysubs(X, e, j, sub)) for j in xrange(r + 1))
                     for (p, _) in rest.leading_coefficient().factor():
-                        vec = [ee for ee in sub]; vec[i] = -p[0]/p[1]; subexpvecs.append(vec)
+                        c = -p[0]/p[1]
+                        if not real_only or c.imag().is_zero():
+                            vec = [ee for ee in sub]; vec[i - 1] = c; subexpvecs.append(vec)
 
             for sub in subexpvecs:
                 if all(ee.is_zero() for ee in sub):
@@ -2163,7 +2167,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
         # 4. polynomial parts and expansion 
         solutions = refined_solutions; refined_solutions = []
         for (gamma, rho, subexp, ram, coeffs) in solutions:
-            
+
             KK = K['s'].fraction_field(); s = KK.gen(); X = x.change_ring(KK)
             rest = sum(coeffs[i].change_ring(KK)*subs(X, w_prec, i, alpha=s)(X**ram) for i in xrange(len(coeffs)))
             for (p, e) in _shift_factor(rest.leading_coefficient().numerator(), ram):
@@ -2171,7 +2175,8 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
                 alpha = -p[0]/p[1]
                 if alpha in QQ: # cause conversion to explicit rational 
                     pass
-                refined_solutions.append([gamma, rho, subexp, ram, alpha, e, 2*ram*w_prec - rest.degree()])
+                if (not real_only or alpha.imag().is_zero()):
+                    refined_solutions.append([gamma, rho, subexp, ram, alpha, e, 2*ram*w_prec - rest.degree()])
 
         # 5. expansion and logarithmic terms
         solutions = refined_solutions; refined_solutions = []
