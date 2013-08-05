@@ -152,7 +152,7 @@ def guess(data, algebra, **kwargs):
     elif A.is_F() is not False:
         # reduce to shift case; note that this does not alter order or degrees
         if kwargs.has_key('infolevel') and kwargs['infolevel'] >= 1:
-            print "Tanslating problem to shift case..."
+            print "Translating problem to shift case..."
         A0 = OreAlgebra(R, ('S', {x:x+K.one()}, {}))
         return guess(data, A0, **kwargs).change_ring(R).to_F(A)
 
