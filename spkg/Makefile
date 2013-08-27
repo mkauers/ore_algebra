@@ -1,12 +1,13 @@
 
-## boundle *.py files in .. into an spkg file
+## bundle files in ../src (except for shift.spyx) into an spkg file
 
 spkg:	
 	rm -rf ore_algebra-0.1 .hg
-	mkdir ore_algebra-0.1
-	mkdir ore_algebra-0.1/src
-	mkdir ore_algebra-0.1/src/ore_algebra
-	cp ../*.py ore_algebra-0.1/src/ore_algebra
+	# copy tracked files only (and copy the commited version rather than
+	# the one in the source tree)
+	(cd .. && git archive --format=tar --prefix=ore_algebra-0.1/ HEAD src) \
+	    | tar x
+	rm ore_algebra-0.1/src/ore_algebra/shift.spyx
 	echo "src/" > ore_algebra-0.1/.hgignore
 	cp SPKG.txt ore_algebra-0.1
 	cp spkg-install ore_algebra-0.1
