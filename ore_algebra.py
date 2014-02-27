@@ -39,6 +39,7 @@ AUTHOR:
 #                     Fredrik Johansson (fjohanss@risc.jku.at).             #
 #                                                                           #
 #  Distributed under the terms of the GNU General Public License (GPL)      #
+#  either version 2, or (at your option) any later version                  #
 #                                                                           #
 #  http://www.gnu.org/licenses/                                             #
 #############################################################################
@@ -47,6 +48,7 @@ AUTHOR:
 ######### development mode ###########
 
 if True:
+
     # let load("ore_algebra") trigger reload of the modules in the list below
     for mod in ['nullspace', 'ore_operator', 'ore_operator_1_1', 'ore_operator_mult', 'generalized_series']:
         try:
@@ -54,11 +56,27 @@ if True:
         except:
             pass
 
+    # if sage version is 5.10.beta3 or later, use taylor shift of flint2
+    import datetime
+    try:
+        v = version()
+    except:
+        v = "2013-01-01"    
+
+    if datetime.date(int(v[-10:-6]), int(v[-5:-3]), int(v[-2:])) >= datetime.date(2013, 05, 15):
+        try:
+            load("shift.spyx") # cython code defining 'taylor_shift_univ_int_poly' and 'taylor_shift_univ_modp_poly'
+        except:
+            pass
+
+#######################################
+
+
 def taylor_shift_univ_int_poly(p, i):
     ## assuming that p is an element of ZZ['x']
     return p(p.parent().gen() + i)
 def taylor_shift_univ_int_ratfun(q, i):
-    ## assuming that q is an element of Fract(ZZ['x'])
+    ## assuming that q is an element of Frac(ZZ['x'])
     num = taylor_shift_univ_int_poly(q.numerator(), i)
     den = taylor_shift_univ_int_poly(q.denominator(), i)
     return q.parent()(num, den, coerce=False, reduce=False)
@@ -70,21 +88,6 @@ def taylor_shift_univ_modp_ratfun(q, i):
     num = taylor_shift_univ_modp_poly(q.numerator(), i)
     den = taylor_shift_univ_modp_poly(q.denominator(), i)
     return q.parent()(num, den, coerce=False, reduce=False)
-
-# if sage version is 5.10.beta3 or later, use taylor shift of flint2
-import datetime
-try:
-    v = version()
-except:
-    v = "2013-01-01"    
-
-if datetime.date(int(v[-10:-6]), int(v[-5:-3]), int(v[-2:])) >= datetime.date(2013, 05, 15):
-    try:
-        load("shift.spyx") # cython code defining 'taylor_shift_univ_int_poly' and 'taylor_shift_univ_modp_poly'
-    except:
-        pass
-
-#######################################
 
 from sage.structure.element import RingElement
 from sage.rings.ring import Algebra

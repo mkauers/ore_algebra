@@ -1,4 +1,5 @@
-\documentclass[11pt]{amsart}
+%\documentclass[11pt]{amsart}
+\documentclass{llncs}
 \usepackage{amsmath}
 \usepackage{amssymb}
 \usepackage{bbm}
@@ -32,27 +33,27 @@
 
 \begin{document}
 
- \author[Manuel Kauers, Maximilian Jaroschek, Fredrik Johansson]
-   {Manuel Kauers\,$^\ast$, Maximilian Jaroschek\,$^\ast$, Fredrik Johansson\,$^\ast$}
- \address{Manuel Kauers, Research Institute for Symbolic Computation (RISC), J. Kepler University Linz, Austria}
- \email{mkauers@risc.uni-linz.ac.at}
- \address{Maximilian Jaroschek, Research Institute for Symbolic Computation (RISC), J. Kepler University Linz, Austria}
- \email{mjarosch@risc.uni-linz.ac.at}
- \address{Fredrik Johansson, Research Institute for Symbolic Computation (RISC), J. Kepler University Linz, Austria}
- \email{fjohanss@risc.uni-linz.ac.at}
- \thanks{$^\ast$ Supported by the Austrian FWF grant Y464-N18.}
+ \title{Ore Polynomials in Sage\thanks{All three authors were supported by the Austrian FWF grant Y464-N18.}}
+ \titlerunning{Ore Polynomials in Sage}
 
- \title{Ore Polynomials in Sage}
+ \author{Manuel Kauers\and Maximilian Jaroschek\and Fredrik Johansson}
+ \authorrunning{Manuel Kauers\and Maximilian Jaroschek\and Fredrik Johansson}
+
+\institute{Research Institute for Symbolic Computation (RISC)\\ 
+  Johannes Kepler University (JKU)\\
+  4040 Linz, Austria\\
+  \email{[mkauers|mjarosch|fjohanss]@risc.jku.at}}
+
+ \maketitle
 
  \begin{abstract}
 We present a Sage implementation of Ore algebras. The main features for the most
-common instances include basic arithmetic and actions; gcrd and lclm; D-finite
+common instances include basic arithmetic and actions; GCRD and LCLM; D-finite
 closure properties; natural transformations between related algebras; guessing;
 desingularization; solvers for polynomials, rational functions and (generalized)
 power series. This paper is a tutorial on how to use the package.
  \end{abstract}
 
- \maketitle
 
 %%% page limit: 20, goal: 15--20.
 
@@ -74,7 +75,7 @@ question~\cite{bronstein96,chyzak98}.  Invented in the first half of the 20th
 century~\cite{ore33} with the objective of providing a unified theory for
 various kinds of linear operators, they have been used for many years in
 computer algebra systems, for example in the Maple packages
-OreTools~\cite{abramov03}, gfun~\cite{salvy94} or mgfun~\cite{chyzak98a}, or in
+OreTools~\cite{abramov03}, gfun~\cite{salvy94} or Mgfun~\cite{chyzak98a}, or in
 the Mathematica packages by Mallinger~\cite{mallinger96} and
 Koutschan~\cite{koutschan10c,koutschan09}.
 
@@ -207,7 +208,7 @@ For Ore algebras with several generators, it is possible to mix specifications
 of generators via triples $(X,\sigma,\delta)$ with generators using the naming
 convention shortcuts as explained before. Continuing the previous example,
 here is a way to define an algebra $A$ over $K$ with two generators, a $D$ 
-that behaves like before, and in addition an $Sx$ which acts like the standard
+that behaves like before, and in addition an $\mathrm{Sx}$ which acts like the standard
 shift on~$x$ and leaves the other generators fixed.
 
 \begin{sageexample}
@@ -218,12 +219,12 @@ shift on~$x$ and leaves the other generators fixed.
   sage: D*z, Sx*z
 \end{sageexample}
 
-Not every ring is suitable as base ring of an Ore algebra. Base rings must
-themselves be polynomial rings (univariate or multivariate), or fraction 
-fields of polynomial rings. Their base rings in turn may be either $\set Z$,
-$\set Q$, a prime field $GF(p)$, or a number field $\set Q(\alpha)$, or
---- recursively --- some ring which itself would be suitable as base ring
-of an Ore algebra. 
+In theory, any integral domain can serve as base ring of an Ore algebra. Not so
+in our implementation. Here, base rings must themselves be polynomial rings
+(univariate or multivariate), or fraction fields of polynomial rings. Their base
+rings in turn may be either $\set Z$, $\set Q$, a prime field $GF(p)$, or a
+number field $\set Q(\alpha)$, or --- recursively --- some ring which itself
+would be suitable as base ring of an Ore algebra.
 
 \begin{sageexample}
   sage: ZZ['x'].fraction_field()['y','z'] ### OK
@@ -386,7 +387,7 @@ element. This facilitates the comparison of output.
 
 The efficiency of computing the GCRD depends on the size of the
 coefficients of intermediate results, and there are different strategies to
-control this growth via so called polynomial remainder sequences (PRS). The default is
+control this growth via so-called polynomial remainder sequences (PRS). The default is
 the improved PRS described in~\cite{jaroschek13b}, which will usually be the
 fastest choice. Other strategies can be selected by the option \verb|prs|.
 
@@ -400,7 +401,7 @@ fastest choice. Other strategies can be selected by the option \verb|prs|.
 If $L_1,L_2$ are operators, then the solutions of their GCRD are precisely the
 common solutions of $L_1$ and~$L_2$. The LCLM, on the other hand, is the minimal
 order operator whose solution space contains all the solutions of $L_1$ and
-all the solutions of~$L_1$. Because of this property, GCRD and LCLM are
+all the solutions of~$L_2$. Because of this property, GCRD and LCLM are
 useful tools for constructing operators with prescribed solutions. For example,
 here is how to construct a differential operator which has the solutions $x^5$
 and $\exp(x)$, starting from the obvious operators annihilating $x^5$
@@ -636,7 +637,7 @@ This way, computing $10^5$ digits of $e$ takes a fraction of a second:
 
 Guessing is, in some sense, the reverse operation of \verb|to_list| for
 recurrence operators, or of \verb|power_series_solutions| for differential
-operators.  It is of the most popular features of packages like gfun, and there
+operators.  It is one of the most popular features of packages like gfun, and there
 are even some special purpose packages dedicated to this
 technique~\cite{kauers09a,hebisch11}. The basic idea is simple. Given
 a finite array of numbers, thought of as the first terms of an infinite
@@ -747,7 +748,107 @@ more terms than needed. If the data array contains more terms, superfluous ones 
 interest of better performance. We must always have $0\leq e\leq c\leq \infty$. The default setting
 is $e=0$, $c=\infty$. 
 
- \bibliographystyle{plain}
- \bibliography{main}
+% \bibliographystyle{plain}
+% \bibliography{main}
+
+\begin{thebibliography}{10}
+
+\bibitem{abramov03}
+Sergei~A. Abramov, Ha~Q. Le, and Ziming Li.
+\newblock {OreTools:} a computer algebra library for univariate Ore polynomial
+  rings.
+\newblock Technical Report CS-2003-12, University of Waterloo, 2003.
+
+\bibitem{abramov99}
+Sergei~A. Abramov and Mark van Hoeij.
+\newblock Integration of solutions of linear functional equations.
+\newblock {\em Integral transforms and Special Functions}, 9:3--12, 1999.
+
+\bibitem{bronstein96}
+Manuel Bronstein and Marko Petkov{\v s}ek.
+\newblock An introduction to pseudo-linear algebra.
+\newblock {\em Theoretical Computer Science}, 157(1):3--33, 1996.
+
+\bibitem{chyzak98a}
+Fr{\'e}d{\'e}ric Chyzak.
+\newblock {\em Fonctions holonomes en calcul formel}.
+\newblock PhD thesis, INRIA Rocquencourt, 1998.
+
+\bibitem{chyzak98}
+Fr{\'e}d{\'e}ric Chyzak and Bruno Salvy.
+\newblock Non-commutative elimination in {O}re algebras proves multivariate
+  identities.
+\newblock {\em Journal of Symbolic Computation}, 26:187--227, 1998.
+
+\bibitem{hebisch11}
+Waldemar Hebisch and Martin Rubey.
+\newblock Extended {R}ate, more {GFUN}.
+\newblock {\em Journal of Symbolic Computation}, 46(8):889--903, 2011.
+
+\bibitem{jaroschek13b}
+Maximilian Jaroschek.
+\newblock Improved polynomial remainder sequences for {Ore} polynomials.
+\newblock {\em Journal of Symbolic Computation}, 58:64--76, 2013.
+
+\bibitem{jaroschek13a}
+Maximilian Jaroschek, Manuel Kauers, Shaoshi Chen, and Michael~F. Singer.
+\newblock Desingularization explains order-degree curves for {Ore} operators.
+\newblock In Manuel Kauers, editor, {\em Proceedings of ISSAC'13}, pp. 157--164, 2013.
+
+\bibitem{kauers09a}
+Manuel Kauers.
+\newblock Guessing handbook.
+\newblock Technical Report 09-07, RISC-Linz, 2009.
+
+\bibitem{kauers13}
+Manuel Kauers.
+\newblock The holonomic toolkit.
+\newblock In Johannes Bl\"umlein and Carsten Schneider, editors, {\em Computer
+  Algebra in Quantum Field Theory: Integration, Summation and Special
+  Functions}, Texts and Monographs in Symbolic Computation. Springer, 2013.
+
+\bibitem{koutschan09}
+Christoph Koutschan.
+\newblock {\em Advanced Applications of the Holonomic Systems Approach}.
+\newblock PhD thesis, RISC-Linz, Johannes Kepler Universit{\"a}t Linz, 2009.
+
+\bibitem{koutschan10c}
+Christoph Koutschan.
+\newblock {HolonomicFunctions (User's Guide)}.
+\newblock Technical Report 10-01, RISC Report Series, University of Linz,
+  Austria, January 2010.
+
+\bibitem{li96}
+Ziming Li.
+\newblock {\em A Subresultant Theory for Linear Differential, Linear
+  Difference, and {O}re Polynomials, with Applications}.
+\newblock PhD thesis, RISC-Linz, 1996.
+
+\bibitem{mallinger96}
+Christian Mallinger.
+\newblock Algorithmic manipulations and transformations of univariate holonomic
+  functions and sequences.
+\newblock Master's thesis, J. Kepler University, Linz, August 1996.
+
+\bibitem{ore33}
+{\O}ystein Ore.
+\newblock Theory of non-commutative polynomials.
+\newblock {\em Annals of Mathematics}, 34:480--508, 1933.
+
+\bibitem{salvy94}
+Bruno Salvy and Paul Zimmermann.
+\newblock {G}fun: a {M}aple package for the manipulation of generating and
+  holonomic functions in one variable.
+\newblock {\em ACM Transactions on Mathematical Software}, 20(2):163--177,
+  1994.
+
+\bibitem{sage}
+W.\thinspace{}A. Stein et~al.
+\newblock {\em {S}age {M}athematics {S}oftware (Version 5.9)}.
+\newblock The Sage Development Team, 2013.
+\newblock {\tt http://www.sagemath.org}.
+
+\end{thebibliography}
+
  
 \end{document}

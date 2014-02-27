@@ -14,6 +14,7 @@ one generator.
 #                     Fredrik Johansson (fjohanss@risc.jku.at).             #
 #                                                                           #
 #  Distributed under the terms of the GNU General Public License (GPL)      #
+#  either version 2, or (at your option) any later version                  #
 #                                                                           #
 #  http://www.gnu.org/licenses/                                             #
 #############################################################################
@@ -1576,12 +1577,12 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
         allows rapidly computing `c_n, \ldots, c_{n+r-1}` (or just `c_n`)
         without generating all the intermediate values.
 
-        INPUT::
+        INPUT:
 
         - ``n`` -- desired number of terms to move forward
         - ``start`` (optional) -- starting index. Defaults to zero.
 
-        OUTPUT::
+        OUTPUT:
 
         A pair `(M, Q)` where `M` is an `r` by `r` matrix and `Q`
         is a scalar, such that `M / Q` is the product of the companion
@@ -2001,7 +2002,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
             s.sort()
             return s
 
-    def generalized_series_solutions(self, n=5, dominant_only=False): 
+    def generalized_series_solutions(self, n=5, dominant_only=False, real_only=False, infolevel=0): 
         r"""
         Returns the generalized series solutions of this operator.
 
@@ -2038,6 +2039,10 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
         - ``n`` (default: 5) -- minimum number of terms in the expansions parts to be computed.
         - ``dominant_only`` (default: False) -- if set to True, only compute solution(s) with maximal
           growth. 
+        - ``real_only`` (default: False) -- if set to True, only compute solution(s) where `\rho,c_1,...,c_{v-1},\alpha`
+          are real.
+        - ``infolevel`` (default: 0) -- if set to a positive integer, the methods prints some messages
+          about the progress of the computation.
 
         OUTPUT:
 
@@ -2080,6 +2085,10 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
             raise ZeroDivisionError, "everything is a solution of the zero operator"
         elif len(coeffs) == 1:
             return []
+
+        def info(level, msg):
+            if level <= infolevel:
+                print " "*3*(level - 1) + msg
         
         r = len(coeffs) - 1
         x = coeffs[0].parent().gen()
@@ -2113,23 +2122,31 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
             max_gamma = max( [g for (g, _) in solutions ] )
             solutions = filter(lambda s: s[0]==max_gamma, solutions)
 
+        info(1, "superexponential parts isolated: " + str([g for g, _ in solutions]))
+
         # 2. exponential parts
         refined_solutions = []
         for (gamma, coeffs) in solutions:
+            info(2, "determining exponential parts for gamma=" + str(gamma))
             deg = max([p.degree() for p in coeffs]); v = gamma.denominator()
             char_poly = K['rho']([ c[deg] for c in coeffs ])
             for (cp, e) in char_poly.factor():
                 rho = -cp[0]/cp[1] # K is algebraically closed, so all factors are linear.
-                if not rho.is_zero():
+                if not rho.is_zero() and (not real_only or rho.imag().is_zero()):
+                    info(3, "found rho=" + str(rho))
                     refined_solutions.append([gamma, rho, [coeffs[i]*(rho**i) for i in xrange(len(coeffs))], e*v])
 
         if dominant_only:
             max_rho = max( [abs(rho) for (_, rho, _, _) in refined_solutions ] )
             refined_solutions = filter(lambda s: abs(s[1])==max_rho, refined_solutions)
 
+        info(1, "exponential parts isolated: " + str([(gamma, rho) for (gamma, rho, _, _) in refined_solutions]))
+
         # 3. subexponential parts
         solutions = refined_solutions; refined_solutions = []
         for (gamma, rho, coeffs, ram) in solutions:
+
+            info(2, "determining subexponential parts for (gamma,rho)=" + str((gamma, rho)))
 
             if ram == 1:
                 refined_solutions.append([gamma, rho, [], ram, coeffs])
@@ -2139,15 +2156,18 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
                 return subs(x, prec, shift, subexp=subexp, ramification=ram)
             
             KK = K['s'].fraction_field(); X = x.change_ring(KK); v = gamma.denominator(); e = ram/v
-            cc = [ c(x**e).change_ring(KK).shift(ram*(-w_prec + e - 1)) for c in coeffs ]
+            cc = [ c(x**e).change_ring(KK) for c in coeffs ]
             subexpvecs = [ [K.zero()]*(ram - 1) ]
 
-            for i in xrange(ram - 1):
+            for i in xrange(ram - 1, 0, -1):
                 old = subexpvecs; subexpvecs = []
                 for sub in old:
-                    sub[i] = KK.gen(); rest = sum((cc[j]*mysubs(X, e-1, j, sub)).shift((1-e)*ram) for j in xrange(r + 1))
+                    sub[i - 1] = KK.gen(); rest = sum((cc[j]*mysubs(X, e, j, sub)) for j in xrange(r + 1))
                     for (p, _) in rest.leading_coefficient().factor():
-                        vec = [ee for ee in sub]; vec[i] = -p[0]/p[1]; subexpvecs.append(vec)
+                        c = -p[0]/p[1]
+                        if not real_only or c.imag().is_zero():
+                            vec = [ee for ee in sub]; vec[i - 1] = c; subexpvecs.append(vec)
+                info(3, "after " + str(ram - i) + " of " + str(ram - 1) + " iterations: " + str(subexpvecs))
 
             for sub in subexpvecs:
                 if all(ee.is_zero() for ee in sub):
@@ -2159,10 +2179,14 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
                     newcoeffs = [ (coeffs[j](x**e)*mysubs(x, w_prec, j, sub)).shift(-ram*w_prec) for j in xrange(r + 1) ]
                     refined_solutions.append([gamma, rho, sub, ram, newcoeffs])
 
+        info(1, "subexponential parts completed; " + str(len(refined_solutions)) + " solutions separated.")
+
         # 4. polynomial parts and expansion 
         solutions = refined_solutions; refined_solutions = []
         for (gamma, rho, subexp, ram, coeffs) in solutions:
-            
+
+            info(2, "determining polynomial parts for (gamma,rho,subexp)=" + str((gamma, rho, subexp)))
+
             KK = K['s'].fraction_field(); s = KK.gen(); X = x.change_ring(KK)
             rest = sum(coeffs[i].change_ring(KK)*subs(X, w_prec, i, alpha=s)(X**ram) for i in xrange(len(coeffs)))
             for (p, e) in _shift_factor(rest.leading_coefficient().numerator(), ram):
@@ -2170,13 +2194,18 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
                 alpha = -p[0]/p[1]
                 if alpha in QQ: # cause conversion to explicit rational 
                     pass
-                refined_solutions.append([gamma, rho, subexp, ram, alpha, e, 2*ram*w_prec - rest.degree()])
+                if (not real_only or alpha.imag().is_zero()):
+                    info(3, "found alpha=" + str(alpha))
+                    refined_solutions.append([gamma, rho, subexp, ram, alpha, e, 2*ram*w_prec - rest.degree()])
+
+        info(1, "polynomial parts completed; " + str(len(refined_solutions)) + " solutions separated.")
 
         # 5. expansion and logarithmic terms
         solutions = refined_solutions; refined_solutions = []
         G = GeneralizedSeriesMonoid(K, x, 'discrete'); prec = n + w_prec
         PS = PowerSeriesRing(K, 'x')
 
+        info(2, "preparing computation of expansion terms...")
         max_log_power = max([sum(b for (_, b) in e[5]) for e in solutions])
         poly_tails = [[x**(ram*prec)]*(ram*prec)]; log_tails = [[x**(ram*prec)]*max_log_power]
         for l in xrange(1, r + 1):
@@ -2198,6 +2227,8 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
             log_tails.append([x**(ram*prec - p.degree())*p.reverse() for p in lt])
 
         for (gamma, rho, subexp, ram, alpha, e, degdrop) in solutions:
+
+            info(2, "determining expansions for (gamma,rho,subexp,alpha)=" + str((gamma, rho, subexp,alpha)))
 
             underflow = max(0, -ram*r*gamma)
             coeffs = [(origcoeffs[i](x**ram)*subs(x, prec + underflow, i, gamma, rho, subexp, ram)).shift(-underflow)\
@@ -2231,11 +2262,14 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
 
                 while len(sols[a]) < b: 
 
+                    info(3, str(len(sols[a])) + " of " + str(sum([bb for _, bb in e])) + " solutions...")
+
                     newsol = [[K.zero()] for i in xrange(len(sols[a]))] + [[K.one()]]
                     rest = operator_applied_to_term(0, len(sols[a]))
                     sols[a].append(newsol)
 
                     for k in xrange(1, ram*n):
+                        info(4, str(k) + " of " + str(ram*n - 1) + " terms...")
                         for l in xrange(len(rest) - 1, -1, -1):
                             # determine coeff of log(n)^l*n^(s - k/ram) in newsol so as to kill
                             # coeff log(n)^l*n^(s - degdrop - k/ram) of rest

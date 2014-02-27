@@ -11,6 +11,7 @@ dfinite_function
 #                     Fredrik Johansson (fjohanss@risc.jku.at).             #
 #                                                                           #
 #  Distributed under the terms of the GNU General Public License (GPL)      #
+#  either version 2, or (at your option) any later version                  #
 #                                                                           #
 #  http://www.gnu.org/licenses/                                             #
 #############################################################################
