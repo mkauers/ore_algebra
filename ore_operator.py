@@ -1679,9 +1679,9 @@ def __improvedPRS__(r,additional):
     Computes one division step in the improved polynomial remainder sequence.
     """
 
-    d0 = r[0].order()
-    d1 = r[1].order()
-    orddiff = d0-d1
+    d1 = r[0].order()
+    d0 = r[1].order()
+    orddiff = d1-d0
 
     R = r[0].parent()
     Rbase = R.base_ring()
@@ -1693,7 +1693,7 @@ def __improvedPRS__(r,additional):
         beta = (-Rbase.one())**(orddiff+1)*sigma.factorial(sigma(phi,1),orddiff)
     else:
         (d2,oldalpha,k,essentialPart,phi) = (additional.pop(),additional.pop(),additional.pop(),additional.pop(),additional.pop())
-        phi = oldalpha / sigma.factorial(sigma(phi,1),d2-d1-1)
+        phi = oldalpha / sigma.factorial(sigma(phi,1),d2-d0-1)
         beta = oldalpha.parent()(((-Rbase.one())**(orddiff+1)*sigma.factorial(sigma(phi,1),orddiff)*k))
         essentialPart = sigma(essentialPart,-orddiff)
 
@@ -1715,9 +1715,9 @@ def __subresultantPRS__(r,additional):
     Computes one division step in the subresultant polynomial remainder sequence.
     """
 
-    d0 = r[0].order()
-    d1 = r[1].order()
-    orddiff = d0-d1
+    d1 = r[0].order()
+    d0 = r[1].order()
+    orddiff = d1-d0
 
     R = r[0].parent()
     Rbase = R.base_ring()
@@ -1728,7 +1728,7 @@ def __subresultantPRS__(r,additional):
         beta = (-Rbase.one())*sigma.factorial(sigma(phi,1),orddiff)
     else:
         (d2,phi) = (additional.pop(),additional.pop())
-        orddiff2 = d2-d0
+        orddiff2 = d2-d1
         phi = sigma.factorial(-r[0].leading_coefficient(),orddiff2) / sigma.factorial(sigma(phi,1),orddiff2-1)
         beta = (-Rbase.one())*sigma.factorial(sigma(phi,1),orddiff)*r[0].leading_coefficient()
 
