@@ -683,6 +683,98 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
             Q = rf[0].monic(); P = self // Q
             return P.factor() + [Q]
 
+    def center(self,oBound,dBound):
+        """
+        Returns a Q-vector space of Ore polynomials that commute with this operator.
+
+        INPUT:
+
+        - ``oBound'' -- The maximal order of the operators in the center.
+        - ``dBound'' -- The maximal coefficient degree of the operators in the center.
+
+        OUTPUT:
+
+        A subspace of Q^((oBound+1)*(dBound+1)). Each entry of a vector corresponds to a coefficient of an Ore polynomial that commutes with `self'. To tranlstte a vector to its corresponding Ore
+        polynomial, call _listToOre
+
+        Note: This method only works for operators over Q[n].
+
+        """
+
+        R = self.parent()
+        K = R.base_ring()
+        Q = K.base_ring()
+        R2 = R.change_ring(PolynomialRing(PolynomialRing(Q,[('c'+str(i)+str(j)) for i in xrange(oBound) for j in xrange(dBound)]),K.gen()))
+        L = reduce(lambda x,y: x+y,[reduce(lambda x,y: x+y,[R2.base_ring().base_ring().gens()[i+j*dBound]*R2.base_ring().gen()**i for i in xrange(dBound)])*R2.gen()**j for j in xrange(oBound)])
+        C=L*self-self*L
+        SYS=[]
+        for sC in C.coeffs():
+            for nC in sC.coeffs():
+                l=[]
+                for cC in R2.base_ring().base_ring().gens():
+                    l.append(Q(nC.coefficient(cC)))
+                SYS.append(l)
+        return Matrix(SYS).right_kernel()
+
+    def radical(self):
+        """
+        Computes the radical of an Ore polynomials P, i.e. an operator L and an integer k such that P=L^k and k is maximal among all the integers for which such an L exists.
+
+        OUTPUT:
+
+        A tuple (L,k) such that self is equal to L^k and there is no larger integer k' for which such an L exists.
+
+        Note: This method only works for operators over Q[x].
+
+        """
+        if self.order()==0:
+            return _commutativeRadical(self.leading_coefficient())
+        if self.degree()==0:
+            return _commutativeRadical(PolynomialRing(self.parent().base_ring().base_ring(),self.parent().gen())(self.polynomial()))
+        M = self._radicalExp()
+        M = [a for a in M if self.order()%a==0 and self.degree()%a==0]
+        a = max(M)
+        oBound = self.order()//a+1
+        dBound = self.degree()//a+1
+        cen = self.center(oBound,dBound).basis()
+        R = self.parent()
+        K = R.base_ring()
+        Q = K.base_ring()
+        R2 = R.change_ring(PolynomialRing(PolynomialRing(Q,[('c'+str(i)) for i in xrange(len(cen))]),K.gen()))
+        L = reduce(lambda x,y: x+y,[R2.base_ring().base_ring().gens()[i]*_listToOre(cen[i],oBound,R2) for i in xrange(len(cen))])
+        L2 = L**(self.order()//(oBound-1))-self
+        dictionary = dict(zip(R2.base_ring().base_ring().gens(), _orePowerSolver(L2)))
+        sol = L.map_coefficients(lambda x: x.map_coefficients(lambda y: y.subs(dictionary)))
+        return (sol,self.order()/sol.order())
+
+    def _radicalExp(self):
+        """
+        For an Ore polynomial P, this method computes candidates for possible powers k such that there exists an operator L with P=L^k.
+
+        OUTPUT:
+
+        A list of integers k such that there possibly exists an operator L such that `self' equals L^k.
+
+        Note: This method only works for operators over Q[n].
+
+        """
+        p = self._powerIndicator()
+        exponents=[divisors(d) for (c,d) in p.squarefree_decomposition()]
+        M=[]
+        for a in exponents[0]:
+            contained = true
+            for i in range(1,len(exponents)):
+                contained = contained and a in exponents[i]
+            if contained: M.append(a)
+        return M
+
+    def _powerIndicator(self):
+        """
+        Returns the coefficient of an Ore polynomial P that is of the form p^k, where p is an element from the base ring and k is such that
+        P=L^k where L is the radical of P.
+        """
+        raise NotImplementedError
+
 #############################################################################################################
 
 class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOverUnivariateRing):
@@ -1357,7 +1449,10 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
                         pass
             bound *= p**(-e)
 
-        return bound         
+        return bound    
+
+    def _powerIndicator(self):
+        return self.leading_coefficient()    
 
 #############################################################################################################
 
@@ -2487,6 +2582,9 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
 
         return list(set(sols))
 
+    def _powerIndicator(self):
+        return self.coeffs()[0]
+
 #############################################################################################################
 
 class UnivariateQRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUnivariateRing):
@@ -2817,6 +2915,9 @@ class UnivariateQRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverU
                     pass
 
         return (quo*x + rem)*x**(-e)
+
+    def _powerIndicator(self):
+        return self.coeffs()[0]
 
 #############################################################################################################
 
@@ -3474,4 +3575,77 @@ def _shift_factor(p, ram=ZZ.one()):
 
     return classes
         
+def _commutativeRadical(p):
+    """
+    Computes the radical in degenerate cases. Used by radical(self)
+    """
+
+    if p.degree()==0:
+        p = p.parent().base_ring()(p)
+        for i in range(min(log(p.numerator()),log(p.denominator()))+1,2,-1):
+            try:
+                return (p.nth_root(i),i)
+            except:
+                pass
+        return (p,1)
+    sqf=p.squarefree_decomposition()
+    exponents=[d for (c,d) in sqf]
+    prad=1
+    d = gcd(exponents)
+    for i in range(len(sqf)):
+        prad=prad*sqf[i][0]**(exponents[i]/d)
+    sgn=p.leading_coefficient().sign()
+    return (p.parent()(sgn*(sgn*p.leading_coefficient())**(1/d)/prad.leading_coefficient())*prad,d)
+
+def _orePowerSolver(P):
+    """
+    Solver for special algebraic systems used in radical computation
+    """
+
+    R = P.parent()
+    K = R.base_ring().base_ring()
+    Q = K.base_ring()
+    n = R.base_ring().gen()
+    gens = list(K.gens())
+    c = gens.pop()
+    for i in range(P.order()+1):
+        cS = P.coeffs()[P.order()-i]
+        for j in range(cS.degree()+1):
+            cN = cS.coeffs()[cS.degree()-j]
+            if (len(gens)==0 and cN.degree()!=0) or (cN.degree(c) == cN.total_degree()):
+                sols=PolynomialRing(Q,c)(cN).roots()
+                for s in sols:
+                    sol=s[0]
+                    if len(gens)>0:
+                        L=PolynomialRing(Q,gens)
+                    else:
+                        L=Q
+                    L2=PolynomialRing(L,n)
+                    P2=P.map_coefficients(lambda x: x.map_coefficients(lambda y: y.subs({c:sol}),L),L2)
+                    if len(gens)==0:
+                        if P2==0: return [sol]
+                        return []
+                    recSol=_orePowerSolver(P2)
+                    if not len(recSol)==0:
+                        recSol.append(sol)
+                        return recSol
+    return []
+
+def _listToOre(l,order,R):
+    """
+    Converts a list of values into an Ore polynomial in R. l[0] will be used for the leading coefficient, l[len(l)-1] for the trailing coefficient.
     
+    INPUT:
+
+    - ``l`` -- a list with values in R.base_ring().base_ring().
+    - ``order`` -- the order of the Ore operator. Has to be a divisor of len(l).
+    - ``R`` -- an Ore algebra.
+
+    """
+    S = R.gen()
+    n = R.base_ring().gen()
+    res = 0
+    d = len(l)//(order)
+    for i in range(len(l)):
+        res = res+l[i]*n**(i%d)*S**(i//d)
+    return res
