@@ -827,8 +827,8 @@ class UnivariateOreOperator(OreOperator):
         INPUT:
 
         - ``other`` -- one or more operators which together with ``self`` can be coerced to a common parent.
-        - ``prs`` (default: "improved") -- pseudo remainder sequence to be used. Possible values are
-          "improved", "primitive", "classic", "subresultant", "monic".
+        - ``prs`` (default: "essential") -- pseudo remainder sequence to be used. Possible values are
+          "essential", "primitive", "classic", "subresultant", "monic".
         
         OUTPUT:
 
@@ -866,6 +866,7 @@ class UnivariateOreOperator(OreOperator):
             return A.gcrd(B, **kwargs)
 
         prs = kwargs["prs"] if kwargs.has_key("prs") else None
+        infolevel = kwargs["infolevel"] if kwargs.has_key("infolevel") else 0
 
         r = (self,other)
         if (r[0].order()<r[1].order()):
@@ -873,7 +874,7 @@ class UnivariateOreOperator(OreOperator):
 
         R = self.parent()
 
-        prslist = {"improved" : __improvedPRS__,
+        prslist = {"essential" : __essentialPRS__,
                    "primitive" : __primitivePRS__,
                    "classic" : __classicPRS__,
                    "subresultant" : __subresultantPRS__,
@@ -886,29 +887,30 @@ class UnivariateOreOperator(OreOperator):
             if self.base_ring().is_field():
                 prs = __classicPRS__
             else:
-                prs = __improvedPRS__
+                prs = __essentialPRS__
 
         additional = []
         while not r[1].is_zero():
             (r2,q,alpha,beta,correct)=prs(r,additional)
             if not correct:
-                print "switching to primitve PRS"
+                if infolevel>0: print "switching to primitve PRS"
                 prs = __primitivePRS__
             else:
                 r=r2
+                if infolevel>1: print r[0].order()
         r=r[0]
 
         return r.normalize()
 
-    def xgcrd(self, other, prs=None):
+    def xgcrd(self, other, **kwargs):
         """
         Returns the greatest common right divisor of ``self`` and ``other`` together with the cofactors. 
 
         INPUT:
 
         - ``other`` -- one operators which together with ``self`` can be coerced to a common parent.
-        - ``prs`` (default: "improved") -- pseudo remainder sequence to be used. Possible values are
-          "improved", "primitive", "classic", "subresultant", "monic".
+        - ``prs`` (default: "essential") -- pseudo remainder sequence to be used. Possible values are
+          "essential", "primitive", "classic", "subresultant", "monic".
         
         OUTPUT:
 
@@ -929,9 +931,11 @@ class UnivariateOreOperator(OreOperator):
            True
 
         """
-        return self._xeuclid(other, prs, "bezout")
+        prs = kwargs["prs"] if kwargs.has_key("prs") else None
+        infolevel = kwargs["infolevel"] if kwargs.has_key("infolevel") else 0
+        return self._xeuclid(other, prs, "bezout",infolevel)
 
-    def _xeuclid(self, other, prs=None, retval="bezout"):
+    def _xeuclid(self, other, prs=None, retval="bezout",infolevel=0):
         # retval == "bezout" ===> returns (g, u, v) st gcrd(self, other) == g == u*self + v*other
         # retval == "syzygy" ===> returns the smallest degree syzygy (u, v) of self and other
 
@@ -945,7 +949,7 @@ class UnivariateOreOperator(OreOperator):
             A, B = canonical_coercion(self, other)
             return A._xeuclid(B, prs, retval)
 
-        prslist = {"improved" : __improvedPRS__,
+        prslist = {"essential" : __essentialPRS__,
                    "primitive" : __primitivePRS__,
                    "classic" : __classicPRS__,
                    "subresultant" : __subresultantPRS__,
@@ -958,7 +962,7 @@ class UnivariateOreOperator(OreOperator):
             if self.base_ring().is_field():
                 prs = __classicPRS__
             else:
-                prs = __improvedPRS__
+                prs = __essentialPRS__
 
         if retval == "syzygy": 
             prs = __primitivePRS__ # overrule any given options
@@ -973,18 +977,19 @@ class UnivariateOreOperator(OreOperator):
         a11, a12, a21, a22 = RF.one(), RF.zero(), RF.zero(), RF.one()
 
         if prs is None:
-            prs = __classicPRS__ if R.base_ring().is_field() else (__improvedPRS__ if retval=="bezout" else __primitivePRS__)
+            prs = __classicPRS__ if R.base_ring().is_field() else (__essentialPRS__ if retval=="bezout" else __primitivePRS__)
 
         additional = []
 
         while not r[1].is_zero():  
             (r2, q, alpha, beta, correct) = prs(r, additional)
             if not correct:
-                print "switching to primitve PRS"
+                if infolevel>0: print "switching to primitve PRS"
                 prs = __primitivePRS__
             else:
                 r = r2; bInv = ~beta
                 a11, a12, a21, a22 = a21, a22, bInv*(alpha*a11 - q*a21), bInv*(alpha*a12 - q*a22)
+                if infolevel>1: print r[0].order()
         if retval == "syzygy":
             c = a21.denominator().lcm(a22.denominator())
             return (c*a21, c*a22)
@@ -1721,9 +1726,45 @@ def __monicPRS__(r,additional):
     beta = newRem[1].leading_coefficient() if not newRem[1].is_zero() else r[0].parent().base_ring().one()
     return ((r[1],newRem[1].primitive_part()),newRem[0],r[0].parent().base_ring().one(),beta,True)
 
-def __improvedPRS__(r,additional):
+#def __essentialPRS__(r,additional):
+#    """
+#    Computes one division step in the improved polynomial remainder sequence.
+#    """
+
+#    d1 = r[0].order()
+#    d0 = r[1].order()
+#    orddiff = d1-d0
+
+#    R = r[0].parent()
+#    Rbase = R.base_ring()
+#    sigma = R.sigma()
+
+#    if (len(additional)==0):
+#        essentialPart = gcd(sigma(r[0].leading_coefficient(),-orddiff),r[1].leading_coefficient())
+#        phi = Rbase.one()
+#        beta = (-Rbase.one())**(orddiff+1)*sigma.factorial(sigma(phi,1),orddiff)
+#    else:
+#        (d2,oldalpha,k,essentialPart,phi) = (additional.pop(),additional.pop(),additional.pop(),additional.pop(),additional.pop())
+#        phi = oldalpha / sigma.factorial(sigma(phi,1),d2-d0-1)
+#        beta = oldalpha.parent()(((-Rbase.one())**(orddiff+1)*sigma.factorial(sigma(phi,1),orddiff)*k))
+#        essentialPart = sigma(essentialPart,-orddiff)
+
+#    k = r[1].leading_coefficient()//essentialPart
+#    if k==0:
+#        return ((0,0),0,0,0,False)
+#    alpha = sigma.factorial(k,orddiff)
+#    alpha2=alpha*sigma(k,orddiff)
+#    newRem = (alpha2*r[0]).quo_rem(r[1],fractionFree=True)
+#    r2 = newRem[1].map_coefficients(lambda p: p//beta)
+#    if r2.parent() is not r[1].parent():
+#        return ((0,0),0,0,0,False)
+#    additional.extend([phi,essentialPart,k,alpha,d1])
+
+#    return ((r[1],r2),newRem[0],alpha2,beta,True)
+
+def __essentialPRS__(r,additional):
     """
-    Computes one division step in the improved polynomial remainder sequence.
+    Computes one division step in the essential polynomial remainder sequence.
     """
 
     d1 = r[0].order()
@@ -1735,27 +1776,28 @@ def __improvedPRS__(r,additional):
     sigma = R.sigma()
 
     if (len(additional)==0):
-        essentialPart = gcd(sigma(r[0].leading_coefficient(),-orddiff),r[1].leading_coefficient())
-        phi = Rbase.one()
-        beta = (-Rbase.one())**(orddiff+1)*sigma.factorial(sigma(phi,1),orddiff)
+        phi = -Rbase.one()
+        initD=d0+d1
+        essentialPart = sigma(gcd(sigma(r[0].leading_coefficient(),-orddiff),r[1].leading_coefficient()),-d0)
+        gamma1 = 1
+        gamma2 = sigma.factorial(sigma(essentialPart,d0),orddiff+1)
+        beta = (-Rbase.one())*sigma.factorial(sigma(phi,1),orddiff)*gamma2
     else:
-        (d2,oldalpha,k,essentialPart,phi) = (additional.pop(),additional.pop(),additional.pop(),additional.pop(),additional.pop())
-        phi = oldalpha / sigma.factorial(sigma(phi,1),d2-d0-1)
-        beta = oldalpha.parent()(((-Rbase.one())**(orddiff+1)*sigma.factorial(sigma(phi,1),orddiff)*k))
-        essentialPart = sigma(essentialPart,-orddiff)
+        (initD,essentialPart,gamma0,gamma1,d2,phi) = (additional.pop(),additional.pop(),additional.pop(),additional.pop(),additional.pop(),additional.pop())
+        orddiff2 = d2-d1
+        gamma2 = sigma.factorial(sigma(essentialPart,d1),orddiff2)*gamma1*sigma.factorial(sigma(essentialPart,initD-d0+1),orddiff2)
+        phi = sigma.factorial(-gamma0*r[0].leading_coefficient(),orddiff2) / sigma.factorial(sigma(phi,1),orddiff2-1)
+        beta = (-Rbase.one())*sigma.factorial(sigma(phi,1),orddiff)*r[0].leading_coefficient()*gamma2/sigma.factorial(gamma1,orddiff+1)
 
-    k = r[1].leading_coefficient()//essentialPart
-    if k==0:
+    alpha = sigma.factorial(r[1].leading_coefficient(),orddiff+1)
+    newRem = (alpha*r[0]).quo_rem(r[1],fractionFree=True)
+    try:
+        r2 = newRem[1].map_coefficients(lambda p: p/beta)
+    except:
         return ((0,0),0,0,0,False)
-    alpha = sigma.factorial(k,orddiff)
-    alpha2=alpha*sigma(k,orddiff)
-    newRem = (alpha2*r[0]).quo_rem(r[1],fractionFree=True)
-    r2 = newRem[1].map_coefficients(lambda p: p//beta)
-    if r2.parent() is not r[1].parent():
-        return ((0,0),0,0,0,False)
-    additional.extend([phi,essentialPart,k,alpha,d1])
+    additional.extend([phi,d1,gamma2,gamma1,essentialPart,initD])
 
-    return ((r[1],r2),newRem[0],alpha2,beta,True)
+    return ((r[1],r2),newRem[0],alpha,beta,True)
 
 def __subresultantPRS__(r,additional):
     """

@@ -731,21 +731,22 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
             return _commutativeRadical(self.leading_coefficient())
         if self.degree()==0:
             return _commutativeRadical(PolynomialRing(self.parent().base_ring().base_ring(),self.parent().gen())(self.polynomial()))
-        M = self._radicalExp()
-        M = [a for a in M if self.order()%a==0 and self.degree()%a==0]
-        a = max(M)
-        oBound = self.order()//a+1
-        dBound = self.degree()//a+1
-        cen = self.center(oBound,dBound).basis()
+        M = [a for a in self._radicalExp() if self.order()%a==0 and self.degree()%a==0]
         R = self.parent()
         K = R.base_ring()
         Q = K.base_ring()
-        R2 = R.change_ring(PolynomialRing(PolynomialRing(Q,[('c'+str(i)) for i in xrange(len(cen))]),K.gen()))
-        L = reduce(lambda x,y: x+y,[R2.base_ring().base_ring().gens()[i]*_listToOre(cen[i],oBound,R2) for i in xrange(len(cen))])
-        L2 = L**(self.order()//(oBound-1))-self
-        dictionary = dict(zip(R2.base_ring().base_ring().gens(), _orePowerSolver(L2)))
-        sol = L.map_coefficients(lambda x: x.map_coefficients(lambda y: y.subs(dictionary)))
-        return (sol,self.order()/sol.order())
+        for i in xrange(len(M)-1,-1,-1):
+            a = M[i]
+            oBound = self.order()//a+1
+            dBound = self.degree()//a+1
+            cen = self.center(oBound,dBound).basis()
+            if len(cen)>1:
+                R2 = R.change_ring(PolynomialRing(PolynomialRing(Q,[('c'+str(i)) for i in xrange(len(cen))]),K.gen()))
+                L = reduce(lambda x,y: x+y,[R2.base_ring().base_ring().gens()[i]*_listToOre(cen[i],oBound,R2) for i in xrange(len(cen))])
+                L2 = L**(self.order()//(oBound-1))-self
+                dictionary = dict(zip(R2.base_ring().base_ring().gens(), _orePowerSolver(L2)))
+                sol = L.map_coefficients(lambda x: x.map_coefficients(lambda y: y.subs(dictionary)))
+                if sol!=L: return (sol,self.order()/sol.order())
 
     def _radicalExp(self):
         """
@@ -763,7 +764,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         M=[]
         for a in exponents[0]:
             contained = true
-            for i in range(1,len(exponents)):
+            for i in xrange(1,len(exponents)):
                 contained = contained and a in exponents[i]
             if contained: M.append(a)
         return M
@@ -3608,20 +3609,21 @@ def _orePowerSolver(P):
     n = R.base_ring().gen()
     gens = list(K.gens())
     c = gens.pop()
-    for i in range(P.order()+1):
+    for i in xrange(P.order()+1):
         cS = P.coeffs()[P.order()-i]
-        for j in range(cS.degree()+1):
+        for j in xrange(cS.degree()+1):
             cN = cS.coeffs()[cS.degree()-j]
-            if (len(gens)==0 and cN.degree()!=0) or (cN.degree(c) == cN.total_degree()):
+            if (cN.degree()==0): return []
+            if (len(gens)==0) or (cN.degree(c) == cN.total_degree()):
                 sols=PolynomialRing(Q,c)(cN).roots()
                 for s in sols:
                     sol=s[0]
                     if len(gens)>0:
-                        L=PolynomialRing(Q,gens)
+                        K2=PolynomialRing(Q,gens)
                     else:
-                        L=Q
-                    L2=PolynomialRing(L,n)
-                    P2=P.map_coefficients(lambda x: x.map_coefficients(lambda y: y.subs({c:sol}),L),L2)
+                        K2=Q
+                    K3=PolynomialRing(K2,n)
+                    P2=P.map_coefficients(lambda x: x.map_coefficients(lambda y: y.subs({c:sol}),K2),K3)
                     if len(gens)==0:
                         if P2==0: return [sol]
                         return []
@@ -3645,7 +3647,7 @@ def _listToOre(l,order,R):
     S = R.gen()
     n = R.base_ring().gen()
     res = 0
-    d = len(l)//(order)
-    for i in range(len(l)):
+    d = len(l)//order
+    for i in xrange(len(l)):
         res = res+l[i]*n**(i%d)*S**(i//d)
     return res
