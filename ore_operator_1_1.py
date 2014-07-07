@@ -20,12 +20,14 @@ one generator.
 #############################################################################
 
 from sage.structure.element import RingElement, canonical_coercion
+from sage.rings.arith import previous_prime as pp
 from sage.rings.arith import gcd, lcm
 from sage.rings.rational_field import QQ
 from sage.rings.integer_ring import ZZ
 from sage.rings.infinity import infinity
 from sage.rings.qqbar import QQbar
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
+from sage.misc.all import prod, union
 
 from ore_operator import *
 from generalized_series import *
@@ -203,7 +205,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         .. NOTE::
 
           - Even if no ``rhs`` is given, the output will be a list of tuples ``[(p1,), (p2,),...]``
-            and not just a list of plain polynomials.
+            and not just a list of plain rational functions.
           - If no ``denominator`` is given, a basis of all the rational solutions is returned.
             This feature may not be implemented for all algebras. 
           - If no ``degree`` is given, a basis of all the polynomial solutions is returned.
@@ -2397,7 +2399,10 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
 
         return refined_solutions
 
-    def right_factors(self, early_termination=False):
+    def _powerIndicator(self):
+        return self.coeffs()[0]
+
+    def right_factors(self, early_termination=False, infolevel=0):
         """
         Returns a list of first-order right hand factors of this operator. 
 
@@ -2406,6 +2411,8 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
         - ``early_termination`` (optional) -- if set to ``True``, the search for factors will be aborted as soon as
           one factor has been found. A list containing this single factor will be returned (or the empty list if there
           are no first order factors). If set to ``False`` (default), a complete list will be computed.
+        - ``infolevel`` (optional) -- nonnegative integer specifying the amount of progress reports that should be
+          printed during the calculation. Defaults to 0 for nothing. 
 
         OUTPUT:
 
@@ -2419,48 +2426,331 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
            sage: R.<n> = ZZ['n']; A.<Sn> = OreAlgebra(R, 'Sn');
            sage: L = (-25*n^6 - 180*n^5 - 584*n^4 - 1136*n^3 - 1351*n^2 - 860*n - 220)*Sn^2 + (50*n^6 + 560*n^5 + 2348*n^4 + 5368*n^3 + 7012*n^2 + 4772*n + 1298)*Sn - 200*n^5 - 1540*n^4 - 5152*n^3 - 8840*n^2 - 7184*n - 1936
            sage: L.right_factors()
-           [(n^2 + 2*n + 1)*Sn - 4*n - 2, (-25*n^2 - 30*n - 9)*Sn + 50*n^2 + 160*n + 128]
+           [(n^2 + 6/5*n + 9/25)*Sn - 2*n^2 - 32/5*n - 128/25, (n^2 + 2*n + 1)*Sn - 4*n - 2]
+           sage: ((Sn - n)*(n*Sn - 1)).right_factors()
+           [n*Sn - 1]
+           sage: ((Sn - n).lclm(n*Sn - 1)).right_factors()
+           [n*Sn - 1, Sn - n]
 
         """
 
-        # Petkovsek's algorithm with some mild improvements.
-        
         if self.is_zero():
             raise ZeroDivisionError
 
         coeffs = self.normalize().coeffs()
-        A = self.parent().change_ring(self.base_ring().fraction_field())
-        R = A.base_ring().fraction_field().base()
-        R = R.change_ring(R.base_ring().fraction_field()) # univ poly ring over const field
-        s = A.sigma()
+        R = self.base_ring().fraction_field().base()
+        R = R.change_ring(R.base_ring().fraction_field()).fraction_field()
+        A = self.parent().change_ring(R)
+        S = A.gen(); sigma = A.sigma()
+        assert(R.characteristic() == 0)
 
         # shift back such as to make the trailing coefficient nonzero
         min_r = 0
         while coeffs[min_r].is_zero():
             min_r += 1
         if min_r > 0:
-            coeffs = [s(coeffs[i], -min_r) for i in xrange(min_r, len(coeffs))]
+            coeffs = [sigma(coeffs[i], -min_r) for i in xrange(min_r, len(coeffs))]
 
         # handle trivial cases
-        sols = [] if min_r == 0 else [A.gen()]
+        factors = [] if min_r == 0 else [A.gen()]
         if len(coeffs) == 1:
-            return sols
+            return factors
         elif len(coeffs) == 2: 
-            return sols + [A(coeffs)]
+            return factors + [A(coeffs)]
 
-        r = len(coeffs) - 1
-        coeffs = [R(c) for c in coeffs]
-        L = self.parent()(coeffs)
+        SELF = A([R(c) for c in coeffs]); r = SELF.order()
 
-        # heuristically remove unnecessary factors from leading and trailing coefficients
-        L1 = L.lclm(self.parent()([R(1097), R(1091)])).normalize()
-        lc = R(L.leading_coefficient().gcd(s(L1.leading_coefficient(), -1)))
-        tc = R(L[0].gcd(L1[0]))
+        def info(i, msg):
+            if i <= infolevel:
+                print (i - 1)*"  " + msg
 
-        # determine slopes of the newton polygon
+        # 1. determine the local behaviour at the finite singularities (discard apparent ones)
+        finite_local_data = filter(lambda u: len(u[1])>1 or u[1][0][0]!=0 or u[1][0][2]!=1, SELF.finite_singularities())
+        info(1, "Analysis of finite singularities completed. There are " + str(len(finite_local_data)) + " of them.")
+        # precompute some data that is handy to have available later during the big loop
+        for p, u in finite_local_data:
+            d = p.degree()
+            for v in u:
+                v.append(sigma(v[2])/v[2] * p**(-v[0])) # idx 3 : reciprocal shift quotient
+                v.append(v[0]*d) # idx 4 : gamma
+                # idx 5 : alpha, taking into account contribution from the denominator bound
+                v.append(v[0]*p[d - 1] - (R(v[2]).numerator().degree() - R(v[2]).denominator().degree()))
+
+        # 2. determine the local behaviour at infinity.
+        infinite_local_data = SELF._infinite_singularity()
+        # reorganize data in the form {gamma:[[phi,max_alpha,dim],[phi,max_alpha,dim],...], ...}
+        inf = {}
+        for gamma, phi, alpha in infinite_local_data:
+            try:
+                u = filter(lambda u: u[0]==phi and u[1]-alpha in ZZ, inf[gamma] )
+            except:
+                u = inf[gamma] = []
+            if len(u) == 0:
+                inf[gamma].append([phi, alpha, 1])
+            else:
+                u[0][1] = max(u[0][1], alpha); u[0][2] += 1
+        infinite_local_data = inf 
+        info(1, "Local data at infinity (for each gamma, list of triples [phi,max_alpha,dim]): " 
+             + str(infinite_local_data))
+
+        # 3. handle special case: no finite singularities at all. (viz. only poly-exponential solutions)
+        if len(finite_local_data) == 0:
+            info(1, "Branching into special code because there are no finite singularities.")
+            for phi, d, _ in infinite_local_data.setdefault(0, []):
+                if d in ZZ and d >= 0:
+                    for p in SELF.symmetric_product(S - 1/phi).polynomial_solutions(degree=d):
+                        factors.append( (p[0]*S - phi*sigma(p[0])).normalize() )
+                        if early_termination:
+                            return factors
+            return factors
+
+        # 4. construct iterator that enumerates all combinations of all local singular solutions
+        def combs(local_data):
+            idx = [0 for i in xrange(len(local_data))]
+            while idx[0] < len(local_data[0][1]):
+                yield [(local_data[j][0], local_data[j][1][idx[j]]) for j in xrange(len(idx))]
+                idx[-1] += 1
+                for j in xrange(len(local_data) - 1, 0, -1):
+                    if idx[j] == len(local_data[j][1]):
+                        idx[j] = 0; idx[j - 1] += 1
+                    else:
+                        break            
+
+        # 5. for all combinations of local solutions determine the polynomial factors. 
+        #    this is the heavy loop.
+        stat = [prod(len(u[1]) for u in finite_local_data), 0, 0, 0, 0]
+        for c in combs(finite_local_data):
+
+            if stat[1] > 0 and stat[1] % 1000 == 0:
+                info(2, "%i/%i combinations completed (%.2f%%)" % (stat[1], stat[0], 100.0*stat[1]/stat[0]))
+                info(3, "%.2f%% disc. by dimension, %.2f%% disc. by Fuchs-relation, %.4f%% disc. by degree, %.4f%% actually solved" % tuple(map(lambda u: 100.0*u/stat[1], [stat[2], stat[3], stat[4], stat[1] - (stat[2]+stat[3]+stat[4])])))
+
+            stat[1] += 1
+
+            # determine gamma, alpha, dim for this combination
+            gamma = alpha = 0; dim = r
+            for _, u in c:
+                gamma += u[4]; alpha += u[5]; dim = min(dim, u[1])
+            if dim == 0: # all solutions with this finite local behaviour have already been identified
+                stat[2] += 1
+                continue
+
+            # possible phi's are those that meet the current gamma and alpha+ZZ
+            phis = filter(lambda u: u[1] - alpha in ZZ, infinite_local_data.setdefault(gamma, []))
+            if len(phis) == 0: # Fuchs filter
+                stat[3] += 1
+                continue            
+
+            # check whether all solutions with this behaviour at infinity have already been found
+            phis = filter(lambda u: u[2] > 0, phis)
+            if len(phis) == 0:
+                stat[2] += 1 
+                continue
+
+            rat = prod( u[3] for _, u in c )
+            for phi_d_dim in phis:
+
+                phi = phi_d_dim[0]
+
+                # determine degree bound 
+                d = phi_d_dim[1] - alpha
+                if d < 0:
+                    stat[4] += 1
+                    continue 
+
+                # find polynomial solutions 
+                sols = SELF.symmetric_product( S - rat/phi ).polynomial_solutions(degree = d)
+
+                # register number of solutions found 
+                for u in c: u[1][1] -= len(sols) 
+                phi_d_dim[2] -= len(sols)
+
+                # store factors
+                for p in sols:
+                    info(1, "Factor found.")
+                    factors.append( (rat*p[0]*S - phi*sigma(p[0])).normalize() )
+                    if early_termination:
+                        return factors
+
+        info(1, "%i combinations have been investigated in total. Of them:" % stat[0])
+        stat[1] -= stat[2] + stat[3] + stat[4]
+        info(1, "--  %i were discarded by dimension arguments (%.4f%%)" % (stat[2], 100.0*stat[2]/stat[0] ) )
+        info(1, "--  %i were discarded by the Fuchs-relation (%.4f%%)" % (stat[3], 100.0*stat[3]/stat[0] ) )
+        info(1, "--  %i were discarded by negative degree bound (%.4f%%)" % (stat[4], 100.0*stat[4]/stat[0] ) )
+        info(1, "--  %i the polynomial solver was called on (%.4f%%)" % (stat[1], 100.0*stat[1]/stat[0] ) )
+        info(1, "We have found %i factors." % len(factors))
+
+        return factors
+
+    def finite_singularities(self):
+        """
+        Returns a list of all the finite singularities of this operator. 
+
+        OUTPUT:
+
+           For each finite singularity of the operator, the output list contains a pair (p, u) where
+
+           * p is an irreducible polynomial, representing the finite singularity rootof(p)+ZZ
+
+           * u is a list of pairs (v, dim, bound), where v is an integer that appears as valuation growth
+             among the solutions of the operator, and bound is a polynomial (or rational function) such 
+             that all the solutions of valuation growth v can be written f/bound*Gamma(x-rootof(p))^v 
+             where f has minimal valuation almost everywhere. dim is a bound for the number of distinct
+             hypergeometric solutions that may have this local behaviour at rootof(p)+ZZ.
+
+        EXAMPLES::
+
+           sage: R.<x> = ZZ['x']; A.<Sx> = OreAlgebra(R)
+           sage: (x^2*(x+1)*Sx + 3*(x+1/2)).finite_singularities()
+           [(x + 1/2, [[1, 1, 1]]), (x, [[-3, 1, x]])]
+        
+        """
+
+        from sage.matrix.constructor import matrix
+        from sage.rings.finite_rings.all import GF
+        from sage.rings.laurent_series_ring import LaurentSeriesRing
+
+        R = self.parent().base_ring().fraction_field().base()
+        R = R.change_ring(R.base_ring().fraction_field())
+        A = self.parent().change_ring(R)
+        L = A(self.normalize())
+        assert(not L.is_zero())
+
+        sigma = L.parent().sigma()
+        coeffs = L.coeffs()
+        while coeffs[0].is_zero(): # make trailing coefficient nonzero
+            coeffs = [sigma(coeffs[i], -1) for i in xrange(1, len(coeffs))]
+        L = L.parent()(coeffs)
+        r = L.order()
+
+        output = []
+        lctc_factors = _shift_factor(L[0]*L[r])
+        tc_factor_dict = dict( (u, sum(w for _, w in v) - 1) for u, v in 
+                               _shift_factor(prod(u for u, _ in lctc_factors)*L[0]) )
+        lc_factor_dict = dict( (u, sum(w for _, w in v) - 1) for u, v in 
+                               _shift_factor(prod(u for u, _ in lctc_factors)*L[r]) )
+
+        for pol, e in lctc_factors:
+
+            # we go from left to right. 
+            # left-most critical point is rootof(pol) - e[-1][0], right-most critical point is rootof(pol)
+
+            # search for a prime such that pol has a root xi in C:=GF(prime). 
+            if pol.degree() == 0:
+                continue
+            elif pol.degree() == 1:
+                C = GF(pp(2**23)); xi = C(-pol[0]/pol[1]) 
+            else:
+                modulus = 2**23; done = False
+                while not done:
+                    modulus = pp(modulus); C = GF(modulus)
+                    for u, _ in pol.change_ring(C).factor():
+                        if u.degree() == 1:
+                            xi = -u[0]/u[1]; done = True; break
+                
+            x = L.parent().base_ring().change_ring(C).gen() 
+            coeffs = [p.change_ring(C)(x + xi - r) for p in L] # recycling the symbol x as epsilon here. 
+            coeffs.reverse()
+            coeffs[0] = -coeffs[0]
+
+            # valuation growth can get at most val_range_bound much more than min 
+            val_range_bound = lc_factor_dict[pol] + tc_factor_dict[pol] + 1
+            R = LaurentSeriesRing(C, str(x), default_prec=val_range_bound)
+
+            def prolong(l, n):
+                ## given a list of values representing the values of a laurent series sequence solution
+                ## at ..., xi+n-2, xi+n-1, this appends the value at xi+n to the list l.
+                ## the list l has to have at least r elements. 
+                l.append(sum(l[-i]*coeffs[i](x + n) for i in xrange(1, r + 1))/coeffs[0](x + n))
+
+            # compute a C-basis of solutions in C((eps))^ZZ with 
+            sols = [ ]; 
+            for i in xrange(r):
+                sol = [ R.zero() for j in xrange(r) ]; sol[i] = R.one()
+                sols.append(sol)
+                for n in xrange(-e[-1][0], r + 1):
+                    prolong(sol, C(n))
+
+            valuation_growths = []; 
+
+            while True:
+
+                # determine the minimum valuation on the right of the solution which are still in the game
+                v = min( s[-i].valuation() for s in sols for i in xrange(1, r + 1) if not s[-i].is_zero() )
+
+                # determine the dimension of the corresponding subspace of V_{ZZ_{<=ql}}
+                dim = len(sols) - matrix(C, [ [u[0] for u in s[:r]] for s in sols ]).left_kernel().dimension()
+                # break the loop when nothing is left
+                if dim == 0:
+                    break
+
+                # determine the corresponding denominator bound
+                denbound = []
+                for n in xrange(r, len(sols[0]) - r):
+                    k = min( [s[n].valuation() for s in sols if not s[n].is_zero()] + [val_range_bound] )
+                    denbound.append((e[-1][0] - n + r, -k))
+                for n in xrange(len(sols[0]) - r, len(sols[0])):
+                    k = min( [s[n].valuation() for s in sols if not s[n].is_zero()] + [val_range_bound] )
+                    denbound.append((e[-1][0] - n + r, v - k))
+
+                # record this information
+                valuation_growths.append( [v, dim, denbound] )
+
+                # determine the C-linear combinations which kill all the lowest valuation terms on the right
+                ker = matrix(C, [[u[v] for u in s[-r:]] for s in sols]).left_kernel().basis()
+                if len(ker) == 0:  # I guess this can't happen, but if it does, it only means we are done.
+                    break
+
+                # apply these linear combinations such as to restrict to the corresponding subspace of solutions
+                # -- most of the time is spent here. any ideas for improvements? 
+                ker = [ map(R, list(k)) for k in ker ]
+                sols = [ [ sum(k[i]*sols[i][n] for i in xrange(len(k))) for n in xrange(len(sols[0])) ] for k in ker ] \
+                    + [ [ x*s[n] for n in xrange(len(s)) ] for s in sols]
+
+            # change dimension ">=" to dimension "=", discard those with dimension 0, evaluate denominator bound
+            for i in xrange(len(valuation_growths) - 1):
+                valuation_growths[i][1] -= valuation_growths[i + 1][1]
+            valuation_growths = filter(lambda v: v[1] > 0, valuation_growths)
+            for v in valuation_growths:
+                v[2] = prod(sigma(pol, i)**j for i, j in v[2] if j!=0)
+
+            # record information for this singularity
+            output.append( (pol, valuation_growths) )
+
+        return output
+
+    def _infinite_singularity(self):
+        """
+        Simplified version of generalized_series_solutions, without subexponential parts, without 
+        logarithms, and without extensions of the constant field.
+
+        This function is used in the hypergeometric solver. 
+
+        OUTPUT:
+        
+           A list of all triples (gamma, phi, alpha) such that 'self' has a local
+           solution at infinity of the form Gamma(x)^gamma phi^x x^alpha
+           series(1/x), where gamma is in ZZ and phi and alpha are in the constant
+           field of this operator's parent algebra. 
+
+        EXAMPLES::
+
+           sage: R.<x> = ZZ[]
+           sage: A.<Sx> = OreAlgebra(R)
+           sage: (Sx - x).lclm(x^2*Sx - 2).lclm((x+1)*Sx - (x-1/2))._infinite_singularity()
+           [[-2, 2, 0], [0, 1, -3/2], [1, 1, 0]]
+
+        """
+
+        S = self.parent().gen(); n = self.parent().base_ring().gen()
+        R = self.base_ring().base_ring().fraction_field()[n]
+        coeffs = map(R, self.normalize().coeffs())
+        r = self.order()
+
+        # determine the possible values of gamma 
         points = filter(lambda p: p[1] >= 0, [ (i, coeffs[i].degree()) for i in xrange(len(coeffs)) ])
         deg = max(map(lambda p: p[1], points))
-        slopes = []
+        output = []
 
         k = 0
         while k < len(points) - 1:
@@ -2470,121 +2760,28 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
                 if m2 >= m:
                     m = m2; k = l
             if m in ZZ:
-                slopes.append(-m)
+                L = self.symmetric_product(n**min(0, -m)*S - n**min(0, m)).normalize().change_ring(R)
+                d = max(r + 3, max(p.degree() for p in L if not p.is_zero()))
+                output.append([-m, L.map_coefficients(lambda p: p//n**(d - (r + 3)))])
 
-        # construct iterator over all the divisors of lc and tc
-        class exponent_vectors:
+        # for each possible value of gamma, determine the possible values of phi
+        oldoutput = output; output = []
+        for (gamma, L) in oldoutput:
+            d = max(R(p).degree() for p in L if not p.is_zero())
+            for p, _ in R(sum(R(L[i])[d]*n**i for i in xrange(L.order() + 1))).factor():
+                if p.degree() == 1 and not p[0].is_zero(): # no algebraic extensions
+                    phi = -p[0]/p[1];
+                    output.append([gamma, phi, L.symmetric_product(S - 1/phi)])
 
-            def __init__(self, bounds):
-                # if bounds == [ (p1, e1), (p2, e2) ], the iterator produces
-                # (0, 0), (1, 0) ... (e1, 0), (0, 1), (1, 1), ... (e1, 1) ... (e1, e2)
-                self.bounds = bounds
-                self.current = [0 for i in xrange(len(bounds))]
-                if len(bounds) > 0:
-                    self.current[0] = -1
-
-            def __iter__(self):
-                return self if len(self.bounds) > 0 else iter([()])
-
-            def next(self):
-                self.current[0] += 1
-                try:
-                    for i in xrange(len(self.current)):
-                        if self.current[i] > self.bounds[i][1]:
-                            self.current[i] = 0; self.current[i+1] += 1
-                        else:
-                            break
-                except:
-                    raise StopIteration
-                return tuple(self.current)
-
-        tc = [ (R(s(p, e[0][0]).numerator()), sum([u[1] for u in e])) for p, e in _shift_factor(R(tc))]
-        tc.sort(key=lambda u: u[0].degree()*u[1]) # small stuff first
-        # .... shift eq classes for possible factors of the numerator
-
-        lc = [ (R(s(p, e[-1][0]).numerator()), sum([u[1] for u in e])) for p, e in _shift_factor(R(s(lc, -r)))]
-        lc.sort(key=lambda u: u[0].degree()*u[1]) # small stuff first
-        # .... shift eq classes for possible factors of the denominator
+        # for each possible pair (gamma, phi), determine the possible values of alpha 
+        oldoutput = output; output = []
+        for (gamma, phi, L) in oldoutput:
+            for p, _ in R(L.indicial_polynomial(~n)).factor():
+                if p.degree() == 1: # no algebraic extensions
+                    output.append([gamma, phi, -p[0]/p[1]])
         
-        same_class = [] # record for each (i,j) whether s(tc[i], k) = lc[j] for some k >= 1.
-        # pairs containing the factors tc[i] and lc[j] for such (i,j) are redundant.
-        for i in xrange(len(tc)):
-            p = tc[i][0]; d = p.degree(); p0 = p[d]; p1 = p[d - 1]
-            for j in xrange(len(lc)):
-                q = lc[j][0]
-                if q.degree() == d:
-                    k = (q[d-1]*p0 - q[d]*p1)/(p0*q[d]*d)
-                    if k in ZZ and k <= -1 and s(p, k) == q:
-                        same_class.append((i, j))
+        return output
 
-        #print reduce(lambda p,q: p*q, [p[1] + 1 for p in (tc + lc + [(0, 0)])], 1), " pairs expected"
-        #print "slopes: ", slopes
-
-        c_cache = dict(); pairs_considered = 0; pairs_in_total = 0
-
-        # enter Petkovsek's algorithm
-        for b_exp in exponent_vectors(tc):
-
-            b_deg = sum([b_exp[i]*tc[i][0].degree() for i in xrange(len(b_exp))])
-            b_fac_list = None
-
-            for c_exp in exponent_vectors(lc):
-
-                ## possible further improvements: 
-                ##   * in the iterator for c_exp, take into account b_deg and min(slopes), max(slopes)
-                ##   * use a combined iterator which iterates over pairs (b,c) in increasing order of deg(b)+deg(c)
-
-                pairs_in_total += 1
-
-                c_deg = sum([c_exp[i]*lc[i][0].degree() for i in xrange(len(c_exp))])
-                discard = (b_deg - c_deg not in slopes) # pair cannot lead to a solution, wrong asymptotic growth
-                for i in xrange(len(b_exp)):
-                    if discard:
-                        break
-                    elif b_exp[i] > 0:
-                        for j in xrange(len(c_exp)):
-                            if c_exp[j] > 0 and (i, j) in same_class:
-                                discard = True; break # pair redundant
-                if discard:
-                    continue
-                
-                if b_fac_list is None:
-                    b = reduce(lambda p, q: p*q, [tc[i][0]**b_exp[i] for i in xrange(len(b_exp))], R.one())
-                    b_fac_list = [R.one()] # 1, b, b*s(b), ... fac(b, k), ...
-                    for k in xrange(r):
-                        b_fac_list.append(b_fac_list[-1]*s(b, k))
-
-                if not c_cache.has_key(c_exp):
-                    c = s(reduce(lambda p, q: p*q, [lc[i][0]**c_exp[i] for i in xrange(len(c_exp))], R.one()), r)
-                    c_fac_list = [R.one()] 
-                    for k in xrange(r):
-                        c_fac_list.append(c_fac_list[-1]*s(c, -k))
-                    c_fac_list.reverse() # ... fac(s(c, k+1), r-k), ..., s(c,r)*s(c,r-1), s(c,r), 1
-                    c_cache[c_exp] = c_fac_list
-                else:
-                    c_fac_list = c_cache[c_exp]
-
-                c = s(c_fac_list[-2], -r)
-
-                pairs_considered += 1
-
-                coeffs0 = [R(coeffs[k]*b_fac_list[k]*c_fac_list[k]) for k in xrange(r+1)]
-                d = max([p.degree() for p in coeffs0])
-                for p, _ in R([coeffs0[k][d] for k in xrange(r + 1)]).factor():
-                    if p.degree() == 1 and not p[0].is_zero():
-                        z = -p[0]/p[1]
-                        for a in A([coeffs0[k]*(z**k) for k in xrange(r+1)]).polynomial_solutions():
-                            sols.append(A([z*s(a[0])*b, -a[0]*s(c)]).normalize())
-                            if early_termination or len(sols) == self.order():
-                                # print pairs_considered, "of", pairs_in_total, "factor pairs have been investigated"
-                                return sols
-
-        # print pairs_considered, "of", pairs_in_total, "factor pairs have been investigated"
-
-        return list(set(sols))
-
-    def _powerIndicator(self):
-        return self.coeffs()[0]
 
 #############################################################################################################
 
@@ -3537,14 +3734,15 @@ def _shift_factor(p, ram=ZZ.one()):
     """
 
     classes = []
+    x = p.parent().gen()
 
-    for (q, b) in p.factor():
+    for (q, b) in (p.parent().base_ring().fraction_field()[x](p)).factor():
 
         d = q.degree()
         if d < 1:
             continue
 
-        q0, q1 = q[d], q[d - 1]; x = p.parent().gen()
+        q0, q1 = q[d], q[d - 1]; 
 
         # have we already seen a member of the shift equivalence class of q? 
         new = True; 
@@ -3554,9 +3752,9 @@ def _shift_factor(p, ram=ZZ.one()):
                 continue
             u0, u1 = u[d], u[d - 1]
             a = ram*(u1*q0 - u0*q1)/(u0*q0*d)
-            if a not in ZZ or p(x+a) != u:
+            if a not in ZZ or q(x+a) != u:
                 continue
-            # yes, we have: p(x+a) == u(x); u(x-a) == p(x)
+            # yes, we have: q(x+a) == u(x); u(x-a) == q(x)
             # register it and stop searching
             a = ZZ(a); new = False
             if a < 0:
