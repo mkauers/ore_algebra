@@ -2072,33 +2072,48 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
         
         """
 
-        op = self.numerator(); A = op.parent(); R = A.base_ring()
-        if R.is_field():
-            R = R.ring() # R = k[x]
+        op = self.normalize(); A = op.parent(); R = A.base_ring(); 
+        sigma = A.change_ring(R.change_ring(R.base_ring().fraction_field())).sigma()
+        s = []; r = op.order()
 
-        K = R.base_ring()['y'] # k[y]
-        R0 = R
-        R = R.change_ring(K.fraction_field()) # FF(k[y])[x]
-        A = A.change_ring(R)
-
-        y = R(K.gen())
-        x = R.gen()
-
-        if op.order()==0:
+        if op.is_zero():
             return []
         elif op[0].is_zero():
             return [infinity]
-        else:
-            s = []; r = op.order()
-            for (q, _) in R(gcd(R0(p), R0(op[r])))(x - r).resultant(R(op[0])(x + y)).numerator().factor():
-                if q.degree() == 1:
-                    try:
-                        s.append(ZZ(-q[0]/q[1]))
-                    except:
-                        pass
-            s = list(set(s)) # remove duplicates
+
+        if R.is_field():
+            R = R.ring() # R = k[x]
+            R.change_ring(R.base_ring().fraction_field())
+
+        try:
+            # first try to use shift factorization. this seems to be more efficient in most cases.
+            all_facs = [sigma(u, -1) for u, _ in _shift_factor(sigma(op[0].gcd(p), r)*op[r])]
+            tc = [ u[1:] for _, u in _shift_factor(prod(all_facs)*sigma(op[0].gcd(p), r)) ]
+            lc = [ u[1:] for _, u in _shift_factor(prod(all_facs)*op[r]) ]
+            for u, v in zip(tc, lc):
+                s = union(s, [j[0] - i[0] for i in u for j in v])
             s.sort()
             return s
+        except:
+            pass
+
+        # generic fall back code with using the resultant. 
+
+        K = R.base_ring(); R0 = R; R = R.change_ring(K.fraction_field()) # FF(k[y])[x]
+        A = A.change_ring(R)
+
+        y = R(K.gen()); x = R.gen()
+
+        for (q, _) in R(gcd(R0(p), R0(op[r])))(x - r).resultant(R(op[0])(x + y)).numerator().factor():
+            if q.degree() == 1:
+                try:
+                    s.append(ZZ(-q[0]/q[1]))
+                except:
+                    pass
+
+        s = list(set(s)) # remove duplicates
+        s.sort()
+        return s
 
     def generalized_series_solutions(self, n=5, dominant_only=False, real_only=False, infolevel=0): 
         r"""
