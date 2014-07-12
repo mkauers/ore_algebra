@@ -40,6 +40,7 @@ from ore_algebra import *
 from datetime import datetime
 import nullspace
 import math
+from nullspace import _hermite
 
 def guess_rec(data, n, S, **kwargs):
     """
@@ -83,7 +84,7 @@ def guess(data, algebra, **kwargs):
       that can be interpreted by the element constructor of `K`. 
     - ``algebra`` -- a univariate Ore algebra over a univariate polynomial ring whose
       generator is the standard derivation, the standard shift, the forward difference,
-      or a q-shift.
+      a q-shift, or a commutative variable. 
 
     Optional arguments:
 
@@ -121,8 +122,10 @@ def guess(data, algebra, **kwargs):
 
     .. NOTE::
 
-      This method is designed to find equations for D-finite objects. It may exhibit strange
+    - This method is designed to find equations for D-finite objects. It may exhibit strange
       behaviour for objects which are holonomic but not D-finite. 
+    - When the generator of the algebra is a commutative variable, the method searches for 
+      algebraic equations.
 
     EXAMPLES::
 
@@ -156,7 +159,7 @@ def guess(data, algebra, **kwargs):
         A0 = OreAlgebra(R, ('S', {x:x+K.one()}, {}))
         return guess(data, A0, **kwargs).change_ring(R).to_F(A)
 
-    elif (not A.is_S() and not A.is_D() and not A.is_Q()):
+    elif (not A.is_S() and not A.is_D() and not A.is_Q() and not A.is_C()):
         raise TypeError, "unexpected algebra: " + str(A)
 
     elif K.is_prime_field() and K.characteristic() > 0:
@@ -337,7 +340,7 @@ def guess_raw(data, A, order=-1, degree=-1, lift=None, solver=None, cut=25, ensu
     sys = matrix(K, zip(*sys))
 
     info(2, datetime.today().ctime() + ": matrix construction completed. size=" + str(sys.dimensions()))
-    sol = solver(sys, infolevel=infolevel-2)
+    sol = solver(sys, infolevel=infolevel - 2)
     del sys 
     info(2, datetime.today().ctime() + ": nullspace computation completed. size=" + str(len(sol)))
 
@@ -345,11 +348,120 @@ def guess_raw(data, A, order=-1, degree=-1, lift=None, solver=None, cut=25, ensu
     for l in xrange(len(sol)):
         c = []; s = list(sol[l])
         for j in xrange(order + 1):
-            c.append(sigma(R(s[j*(degree + 1):(j+1)*(degree + 1)]), j))
+            c.append(sigma(R(s[j*(degree + 1):(j + 1)*(degree + 1)]), j))
         sol[l] = A(c)
         sol[l] *= ~sol[l].leading_coefficient().leading_coefficient()
 
     return sol
+
+###########################################################################################
+
+def guess_hp(data, A, order=-1, degree=-1, lift=None, cut=25, ensure=0, infolevel=0):
+    """
+    Guesses differential equations or algebraic equations for a given sample of terms.
+
+    INPUT:
+
+    - ``data`` -- list of terms
+    - ``A`` -- an Ore algebra of differential operators or ordinary polynomials. 
+    - ``order`` -- maximum order of the sought operators
+    - ``degree`` -- maximum degree of the sought operators
+    - ``lift`` (optional) -- a function to be applied to the terms in ``data``
+      prior to computation
+    - ``cut`` (optional) -- if `N` is the minimum number of terms needed for
+      the the specified order and degree and ``len(data)`` is more than ``N+cut``,
+      use ``data[:N+cut]`` instead of ``data``. This must be a nonnegative integer
+      or ``None``.
+    - ``ensure`` (optional) -- if `N` is the minimum number of terms needed
+      for the specified order and degree and ``len(data)`` is less than ``N+ensure``,
+      raise an error. This must be a nonnegative integer.
+    - ``infolevel`` (optional) -- an integer indicating the desired amount of
+      progress report to be printed during the calculation. Default: 0 (no output).
+
+    OUTPUT:
+
+    A basis of the ``K``-vector space of all the operators `L` in ``A`` of order
+    at most ``order`` and degree at most ``degree`` such that `L` applied to
+    the truncated power series with ``data`` as terms gives the zero power series.
+
+    An error is raised in the following situations:
+
+    * the algebra ``A`` has more than one generator, or its unique generator
+      is neither a standard derivation nor a commutative variable. 
+    * ``data`` contains some item which does not belong to ``K``, even after
+      application of ``lift``
+    * if the condition on ``ensure`` is violated. 
+
+    ALGORITHM:
+
+    Hermite-Pade approximation.
+
+    .. NOTE::
+
+      This is a low-level method. Don't call it directly unless you know what you
+      are doing. In usual applications, the right method to call is ``guess``.
+
+    EXAMPLES::
+
+      sage: K = GF(1091); R.<x> = K['x']; 
+      sage: data = [binomial(2*n, n)*fibonacci(n)^3 for n in xrange(2000)]
+      sage: guess_hp(data, OreAlgebra(R, 'Dx'), order=4, degree=4, lift=K)
+      [(x^4 + 819*x^3 + 136*x^2 + 17*x + 635)*Dx^4 + (14*x^3 + 417*x^2 + 952*x + 605)*Dx^3 + (598*x^2 + 497*x + 99)*Dx^2 + (598*x + 794)*Dx + 893]
+      sage: len(guess_hp(data, OreAlgebra(R, 'C'), order=16, degree=64, lift=K))
+      1
+    
+    """
+
+    if min(order, degree) < 0:
+        return [] 
+
+    R = A.base_ring(); K = R.base_ring()
+
+    def info(bound, msg):
+        if bound <= infolevel:
+            print msg
+
+    info(1, datetime.today().ctime() + ": Hermite/Pade guessing started.")
+    info(1, "len(data)=" + str(len(data)) + ", algebra=" + str(A._latex_()))
+
+    if A.ngens() > 1 or (not A.is_C() and not A.is_D() ):
+        raise TypeError, "unexpected algebra"
+
+    diff_case = True if A.is_D() else False
+    min_len_data = (order + 1)*(degree + 2)
+
+    if cut is not None and len(data) > min_len_data + cut:
+        data = data[:min_len_data + cut]
+
+    if len(data) < min_len_data + ensure:
+        raise ValueError, "not enough terms"
+
+    if lift is not None:
+        data = map(lift, data)
+
+    if not all(p in K for p in data):
+        raise ValueError, "illegal term in data list"
+
+    if diff_case:
+        series = [R(data)]
+        for i in xrange(order):
+            series.append(series[-1].derivative())
+        truncate = len(data) - order 
+        series = [s.truncate(truncate) for s in series]
+    else:
+        truncate = len(data)
+        series = [R.one(), R(data)]
+        for i in xrange(order - 1):
+            series.append((series[1]*series[-1]).truncate(truncate))
+
+    info(2, datetime.today().ctime() + ": matrix construction completed.")
+    sol = _hermite(True, matrix(R, [series]), [degree], infolevel - 2, truncate = truncate - 1)
+    info(2, datetime.today().ctime() + ": hermite pade approximation completed.")
+
+    sol = [A(map(R, s)) for s in sol]
+    sol = [(~L.leading_coefficient().leading_coefficient())*L for L in sol]
+
+    return sol    
 
 ###########################################################################################
 
@@ -428,6 +540,9 @@ def _guess_via_hom(data, A, modulus, to_hom, **kwargs):
                     del kwargs['return_short_path']
             except:
                 del kwargs['return_short_path']
+
+            if A.is_C():
+                kwargs['path'] = [(Lp.order(), Lp.degree())] # there is no curve for algebraic equations
 
         elif kwargs.has_key('return_short_path'):
             # subsequent iterations: stick to the path we have.                 
@@ -620,12 +735,13 @@ def _guess_via_gcrd(data, A, **kwargs):
 
     # search equation
 
+    subguesser = guess_hp if A.is_C() else guess_raw
     neg_probes = []
     def probe(r, d):
         if (r, d) in neg_probes:
             return []        
         kwargs['order'], kwargs['degree'] = r, d
-        sols = guess_raw(data, A, **kwargs)
+        sols = subguesser(data, A, **kwargs)
         info(2, str(len(sols)) + " sols for (r, d)=" + str((r, d)))
         if len(sols) == 0:
             neg_probes.append((r, d))
@@ -650,7 +766,11 @@ def _guess_via_gcrd(data, A, **kwargs):
             if len(new) == 0:
                 break
             m = len(sols) - len(new) 
-            d2 = d2 - 1 if m == 0 else max(int(math.ceil(d - len(sols)*1.0/m)), 0)
+            if m == 0:
+                # assuming subsolver returned minimal degrees (as does, e.g., a h/p solver)
+                d = max(p.degree() for p in sols)
+                break
+            d2 = max(int(math.ceil(d - len(sols)*1.0/m)), 0)
             sols = probe(r, d2) if d2 < d - 1 else new
             d = d2
             if len(sols) == 0:
@@ -683,39 +803,25 @@ def _guess_via_gcrd(data, A, **kwargs):
 from sage.ext.multi_modular import MAX_MODULUS
 from sage.rings.arith import previous_prime as pp
 
-class _word_size_primes(object):
+def _word_size_primes(init=2**30, bound=1000):
     """
     returns an iterator which enumerates the primes smaller than ``init`` and ``bound``,
     in decreasing order. 
     """
-    def __init__(self, init=MAX_MODULUS, bound=1000):
-        self.__next = pp(init)
-        self.__bound = bound
+    p = pp(init)
+    while p > bound:
+        yield p
+        p = pp(p)
 
-    def next(self):
-        p = self.__next
-        if p < self.__bound:
-            raise StopIteration
-        else:
-            self.__next = pp(p)
-            return p
-
-class _linear_polys(object):
+def _linear_polys(x, init=7, bound=None):
     """
     returns an iterator which enumerates the polynomials x-a for a ranging within the given bounds
     """
-    def __init__(self, x, init=7, bound=None):
-        self.__next = x - init
-        self.__step = -x.parent().one()
-        self.__bound = None if bound is None else x - bound
-
-    def next(self):
-        p = self.__next
-        if p == self.__bound:
-            raise StopIteration
-        else:
-            self.__next = p + self.__step
-            return p
+    p = x - init; step = -x.parent().one()
+    if bound is not None:
+        bound = x - bound
+    while p != bound:
+        yield p; p += step
 
 ###########################################################################################
 
@@ -914,3 +1020,6 @@ def _rat_recon(a, m, u=None):
             return (out[0]/lc, out[1]/lc)
     else:
         raise ArithmeticError
+
+###########################################################################################
+

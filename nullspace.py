@@ -668,7 +668,7 @@ def hermite(early_termination=True):
         return _hermite(early_termination, mat, degrees, infolevel)
     return hermite_solver
 
-def _hermite(early_termination, mat, degrees, infolevel):
+def _hermite(early_termination, mat, degrees, infolevel, truncate=None):
     """
     internal version of nullspace.hermite_.
     """
@@ -676,17 +676,20 @@ def _hermite(early_termination, mat, degrees, infolevel):
     n, m = mat.dimensions(); matdeg = max( mat[i,j].degree() for i in xrange(n) for j in xrange(m) )
     _launch_info(infolevel, "hermite", dim=(n,m), deg=matdeg, domain=mat.parent().base_ring())
 
-    if len(degrees) < 1:
+    if truncate is not None:
+        deg = truncate
+        early_termination = False
+    elif len(degrees) < 1:
         deg = (min(n, m) + 1)*matdeg
     else:
-        deg = degrees[0] + matdeg
-        early_termination = false
+        deg = degrees[0] + matdeg 
+        early_termination = False
     R = mat.parent().base_ring() # expected to be univariate polynomial ring over a field
     V, done = _hermite_rec(early_termination, R, mat, deg + 1, [0 for i in xrange(m) ], \
                            _alter_infolevel(infolevel, -1, 1))
     V = V.transpose()
     if not done:
-        V = filter(lambda v: max(p.degree() for p in v)+matdeg<=deg, V)
+        V = [ v for v in V if max(p.degree() for p in v) <= degrees[0] ]
     # if the coefficient domain is a field, make the lowest-indexed nonzero component of each vector monic
     if R.base_ring().is_field():
         one = R.base_ring().one()
@@ -700,6 +703,7 @@ def _hermite(early_termination, mat, degrees, infolevel):
     return [v for v in V]
 
 def _hermite_base(early_termination, R, A, u, D):
+    ### this should be in cython. 
     r"""
     
     Base case of Hermite-Pade (iterative version):

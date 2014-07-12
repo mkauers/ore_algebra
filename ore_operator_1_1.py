@@ -2514,7 +2514,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
                     if idx[j] == len(local_data[j][1]):
                         idx[j] = 0; idx[j - 1] += 1
                     else:
-                        break            
+                        break
 
         # 5. for all combinations of local solutions determine the polynomial factors. 
         #    this is the heavy loop.
