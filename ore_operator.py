@@ -1510,7 +1510,7 @@ class UnivariateOreOperator(OreOperator):
         L = A.parent()(list(sol[0]))
         return L
 
-    def annihilator_of_polynomial(self, poly, solver=None):
+    def annihilator_of_polynomial(self, poly, solver=None, blocks=1):
         """
         Returns an annihilating operator of a polynomial expression evaluated at solutions of ``self``.
 
@@ -1519,6 +1519,13 @@ class UnivariateOreOperator(OreOperator):
         - ``poly`` -- a multivariate polynomial, say in the variables `x0,x1,x2,...`, with coefficients
           in the base ring of the parent of ``self``.
           The number of variables in the parent of ``poly`` must be at least the order of ``self``.
+        - ``solver`` -- if specified, this function will be used for computing the nullspace of 
+          polynomial matrices
+        - ``blocks`` -- if set to an integer greater than 1, the variables of the polynomial ring 
+          represent the shifts of several solutions of this operator. In this case, the polynomial
+          ring must have ``blocks*n`` many variables, for some `n` which is at least the order of ``self``.
+          Then the first ``n`` variables represent the shifts of one solution, the second ``n`` variables
+          represent the shifts of a second solution, and so on.
         
         OUTPUT:
 
@@ -1562,9 +1569,9 @@ class UnivariateOreOperator(OreOperator):
         elif self.order() == 0:
             return self.one()
         
-        A = self.parent(); pr = A._product_rule(); R = poly.parent(); r = self.order()
-        if len(R.gens()) < r:
-            raise TypeError, "poly must live in a ring with at least " + str(r) + " variables."
+        A = self.parent(); pr = A._product_rule(); R = poly.parent(); r = self.order(); vars = R.gens()
+        if len(vars) % blocks != 0 or len(vars) < r*blocks:
+            raise TypeError, "illegal number of variables"
         elif R.base_ring().fraction_field() is not self.base_ring().fraction_field():
             raise TypeError, "poly must live in a ring with coefficient field " + str(self.base_ring()) + "."
         elif pr is None:
@@ -1576,26 +1583,30 @@ class UnivariateOreOperator(OreOperator):
         sigma = A.sigma(); delta = A.delta()
 
         shift_cache = { R.one().exponents()[0] : R.one() }
-        vars = R.gens()
-        for i in xrange(r - 1):
-            shift_cache[vars[i].exponents()[0]] = vars[i + 1]
-        shift_cache[vars[r - 1].exponents()[0]] = (-1/L.leading_coefficient())*sum(L[i]*vars[i] for i in xrange(r))
+        for j in xrange(blocks):
+            J = j*len(vars)/blocks
+            for i in xrange(r - 1):
+                shift_cache[vars[J + i].exponents()[0]] = vars[J + i + 1]
+            shift_cache[vars[J + r - 1].exponents()[0]] = \
+                (-1/L.leading_coefficient())*sum(L[i]*vars[J + i] for i in xrange(r))
 
         def shift(p): # computes D( p ), as element of R
             out = R.zero()
             for m, c in zip(p.monomials(), p.coefficients()):
                 exp = m.exponents()[0]
                 if not shift_cache.has_key(exp):
-                    x = vars[min([i for i in xrange(r) if exp[i] > 0])]
+                    x = vars[min([i for i in xrange(len(vars)) if exp[i] > 0])]
                     m0 = m//x; A = shift_cache[x.exponents()[0]]; B = shift(m0)
                     shift_cache[exp] = pr[0]*m + pr[1]*(A*m0 + x*B) + pr[2]*A*B
                 out += sigma(c)*shift_cache[exp]
             return p.map_coefficients(delta) + out
         
-        if len(vars) > r:
-            subs = {str(vars[0]):vars[0]}; p = vars[0]
-            for i in xrange(len(vars) - 1):
-                p = shift(p); subs[str(vars[i+1])] = p
+        if len(vars) > blocks*r:
+            subs = {}
+            for j in xrange(blocks):
+                J = j*len(vars)/blocks; p = vars[J]; subs[str(p)] = p
+                for i in xrange(len(vars)/blocks - 1):
+                    p = shift(p); subs[str(vars[J + i + 1])] = p
             poly = poly(**subs)
 
         if solver is None:
@@ -1612,6 +1623,39 @@ class UnivariateOreOperator(OreOperator):
             sol = solver(Matrix(K, [[shifts[i].monomial_coefficient(m) for i in xrange(len(shifts))] for m in basis ]))
 
         return self.parent()(list(sol[0]))
+
+    def exterior_power(self, k, skip=[]):
+        """
+        Returns the `k`-th exterior power of this operator.
+
+        This is an operator which annihilates the Wronskian of any `k` solutions of this operator. 
+        The exterior power is unique up to left-multiplication by base ring elements. This method
+        returns a normalized operator. 
+
+        If the optional argument ``skip`` is supplied, we take a `k` times `k` Wronskian in which 
+        the rows corresponding to the `i`-th derivative is skipped for all `i` in the list. 
+
+        When `k` exceeds the order of ``self``, we raise an error rather than returning the operator 1.
+
+        EXAMPLES::
+
+           sage: t = ZZ['t'].gen(); A.<Dt> = OreAlgebra(ZZ[t])
+           sage: L = (6*t^2 - 10*t - 2)*Dt^3 + (-3*t^2 + 2*t + 7)*Dt^2 + (t + 3)*Dt + 7*t^2 - t + 1
+           sage: L.exterior_power(1)
+           (6*t^2 - 10*t - 2)*Dt^3 + (-3*t^2 + 2*t + 7)*Dt^2 + (t + 3)*Dt + 7*t^2 - t + 1
+           sage: L.exterior_power(2)
+           (36*t^4 - 120*t^3 + 76*t^2 + 40*t + 4)*Dt^3 + (-36*t^4 + 84*t^3 + 56*t^2 - 148*t - 28)*Dt^2 + (9*t^4 - 6*t^3 - 12*t^2 - 76*t + 109)*Dt - 42*t^4 + 73*t^3 - 15*t^2 - 15*t + 51
+           sage: L.exterior_power(3)
+           (6*t^2 - 10*t - 2)*Dt - 3*t^2 + 2*t + 7
+        
+        """
+        from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
+        from sage.matrix.constructor import matrix
+
+        r = self.order(); assert(1 <= k <= r); B = self.base_ring()
+        R = PolynomialRing(B, ['f' + str(i) + '_' + str(j) for i in xrange(k) for j in xrange(r + len(skip)) ])
+        poly = matrix(R, k, r + len(skip), R.gens()).delete_columns(skip).submatrix(0, 0, k, k).det()
+        return self.annihilator_of_polynomial(poly, blocks=k).normalize()
 
     # coefficient-related functions
 
