@@ -3724,15 +3724,18 @@ def _power_series_solutions(op, rec, n, deform):
 
     return sols
 
-def _shift_factor(p, ram=ZZ.one()):
+def _shift_factor(p, ram=ZZ.one(), q=1):
     """
-    Returns the roots of p in an appropriate extension of the base field, sorted according to
+    Returns the roots of p in an appropriate extension of the base ring, sorted according to
     shift equivalence classes.
 
     INPUT:
 
     - ``p`` -- a univariate polynomial over QQ or a number field
     - ``ram`` (optional) -- positive integer
+    - ``q`` (optional) -- if set to a quantity different from 1 or 0, the factorization will be
+      made according to the q-shift instead of the ordinary shift. The value must not be a root
+      of unity. 
 
     OUTPUT:
 
@@ -3740,34 +3743,67 @@ def _shift_factor(p, ram=ZZ.one()):
 
     - q is an irreducible factor of p
     - e is a tuple of pairs (a, b) of nonnegative integers 
-    - p = c*prod( q(x+a/ram)^b for (q, e) in output list for (a, b) in e ) for some nonzero constant c
+    - p = c*prod( sigma^(a/ram)(q)^b for (q, e) in output list for (a, b) in e ) for some nonzero constant c
+      (in the q-case, a possible power of x is also omitted)
     - e[0][0] == 0, and e[i][0] < e[i+1][0] for all i 
     - any two distinct q have no roots at integer distance.
 
-    Note: rootof(q) is the largest root of every class. The other roots are given by rootof(q) - e[i][0]/ram.
+    The constant domain must have characteristic zero. 
+
+    In the q-case, ramification greater than 1 requires that q^(1/ram) exists in the constant domain. 
+    
+    Note that rootof(q) is the largest root of every class. The other roots are given by rootof(q) - e[i][0]/ram.
         
     """
 
     classes = []
     x = p.parent().gen()
 
+    qq = q
+    assert(x.parent().characteristic() == 0)
+    if qq == 1:
+        def sigma(u, n=1):
+            return u(x + n)            
+        def candidate(u, v):
+            d = u.degree()
+            return ram*(u[d]*v[d-1] - u[d-1]*v[d])/(u[d]*v[d]*d)
+    else:
+        def sigma(u, n=1):
+            return u(x*qq**n)
+        ev = p.parent().base_ring().gens_dict_recursive()
+        if len(ev) == 0:
+            log = lambda u: u.n().log()
+        else:
+            ev = dict( (ev[i], 7 + 2**i) for i in xrange(len(eval)) )
+            log = lambda u: u(**ev).n().log()
+        def candidate(u, v):
+            d = u.degree()
+            e = (log(u[d]/v[d])/log(qq)*ram/d)
+            try: 
+                e = e.real_part()
+            except:
+                pass
+            e = -e.round()
+            return e if u[d]*qq**(d*e/ram) == v[d] else None
+            
     for (q, b) in (p.parent().base_ring().fraction_field()[x](p)).factor():
 
-        d = q.degree()
-        if d < 1:
+        if q.degree() < 1:
             continue
-
-        q0, q1 = q[d], q[d - 1]; 
+        if qq != 1:
+            if q[0].is_zero():
+                continue
+            else:
+                q/=q[0]
 
         # have we already seen a member of the shift equivalence class of q? 
         new = True; 
         for i in xrange(len(classes)):
             u = classes[i][0]
-            if u.degree() != d:
+            if u.degree() != q.degree():
                 continue
-            u0, u1 = u[d], u[d - 1]
-            a = ram*(u1*q0 - u0*q1)/(u0*q0*d)
-            if a not in ZZ or q(x+a) != u:
+            a = candidate(q, u)
+            if a not in ZZ or sigma(q, a/ram) != u:
                 continue
             # yes, we have: q(x+a) == u(x); u(x-a) == q(x)
             # register it and stop searching
