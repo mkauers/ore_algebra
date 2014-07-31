@@ -1657,6 +1657,58 @@ class UnivariateOreOperator(OreOperator):
         poly = matrix(R, k, r + len(skip), R.gens()).delete_columns(skip).submatrix(0, 0, k, k).det()
         return self.annihilator_of_polynomial(poly, blocks=k).normalize()
 
+    def adjoint(self):
+        """
+        Returns the adjoint of this operator. 
+
+        The adjoint is a map `a` from the Ore algebra to itself with the property that 
+        `a(A*B)==a(B)*a(A)` and `a(a(A))==A` for all operators `A` and `B`. 
+
+        This method may not be defined for every Ore algebra. A necessary (but not 
+        sufficient) requirement is that sigma be invertible.
+
+        EXAMPLES::
+
+          sage: R.<x> = ZZ[]; A.<Dx> = OreAlgebra(R)
+          sage: L = (x+5)*Dx^2 + (x-3)*Dx + (5*x+7)
+          sage: L.adjoint().adjoint() == L
+          True
+          sage: M = (8*x-7)*Dx^3 + (4*x+5)*Dx + (9*x-1)
+          sage: (M*L).adjoint() == L.adjoint()*M.adjoint()
+          True
+          sage: A.<Sx> = OreAlgebra(R)
+          sage: L = (x+5)*Sx^2 + (x-3)*Sx + (5*x+7)
+          sage: L.adjoint().adjoint() == L
+          True
+          sage: M = (8*x-7)*Sx^3 + (4*x+5)*Sx + (9*x-1)
+          sage: (M*L).adjoint() == L.adjoint()*M.adjoint()
+          True
+          sage: R.<x> = QQ[] # ensures that sigma of A below is invertible
+          sage: A.<Qx> = OreAlgebra(R, q=2)
+          sage: L = (x+5)*Qx^2 + (x-3)*Qx + (5*x+7)
+          sage: L.adjoint().adjoint() == L
+          True
+          sage: M = (8*x-7)*Qx^3 + (4*x+5)*Qx + (9*x-1)
+          sage: (M*L).adjoint() == L.adjoint()*M.adjoint()
+          True
+
+        """
+        A = self.parent(); sinv = A.sigma().inverse(); delta = A.delta(); out = A.zero(); r = self.order(); D = A.gen()
+
+        for c in reversed(self.coeffs()):
+            out = c + out.map_coefficients(sinv)*D - out.map_coefficients(sinv).map_coefficients(delta)
+
+        # at this point, out is the desired operator as element of k(x)[D, sinv, -(delta o sinv)]. 
+        # mapping this back to the original algebra requires a case distinction.
+
+        x = A.base_ring().gen()
+        if A.is_D() or A.is_S():
+            return out.map_coefficients(lambda p: p(-x))
+        elif A.is_Q():
+            return A.change_ring(A.base_ring().fraction_field())(out).map_coefficients(lambda p: p(~x))
+        else:
+            raise NotImplementedError
+
     # coefficient-related functions
 
     def order(self):
