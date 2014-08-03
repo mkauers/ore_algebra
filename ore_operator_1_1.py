@@ -29,6 +29,7 @@ from sage.rings.qqbar import QQbar
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 from sage.misc.all import prod, union
 
+from tools import *
 from ore_operator import *
 from generalized_series import *
 from generalized_series import _generalized_series_shift_quotient, _binomial ## why not implied by the previous line?
@@ -367,6 +368,64 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         """
         raise NotImplementedError # abstract
 
+    def newton_polygon(self, p):
+        """
+        Computes the Newton polygon of ``self`` at (a root of) ``p``.
+
+        INPUT:
+
+          - ``p`` -- polynomial at whose root the Newton polygon is to be determined. 
+            ``p`` must be an element of the parent's base ring (or its fraction field).
+            The value `p=1/x` represents the point at infinity.
+        
+        OUTPUT:
+
+           A list of pairs ``(gamma, q)`` such that ``gamma`` is a slope in the Newton
+           polygon and ``q`` is the associated polynomial, as elements of the base ring.
+
+        EXAMPLES::
+
+           sage: R.<x> = ZZ[]; A.<Dx> = OreAlgebra(R); 
+           sage: L = (x^3*Dx - 1+x).lclm(x*Dx^2-1)
+           sage: L.newton_polygon(x)
+           [(1/2, x^2 - 1), (3, -x + 1)]
+           sage: L.newton_polygon(~x)
+           [(-2, -x - 1), (-1/2, x^2 - 1)]
+           sage: A.<Sx> = OreAlgebra(R); L = (x*Sx - 5).lclm(Sx-x^3); L.newton_polygon(~x)
+           [(-1, -x + 5), (3, x - 1)]
+
+        Depending on the algebra in which this operator lives, restrictions on ``p`` may apply.
+        """
+
+        ## generic implementation for p=x and p=1/x
+        assert(not self.is_zero())
+
+        coeffs = self.change_ring(self.parent().base_ring().fraction_field().ring()).normalize().coeffs()
+        x = coeffs[0].parent().gen()
+
+        if p == x:
+            points = [ (QQ(i), QQ(coeffs[i].valuation(p))) for i in xrange(len(coeffs)) if coeffs[i]!=0 ]
+            flip = 1 
+        elif (x*p).is_one():
+            points = [ (QQ(i), QQ(coeffs[i].degree())) for i in xrange(len(coeffs)) if coeffs[i]!=0 ]
+            flip = -1
+        else:
+            raise NotImplementedError
+
+        output = []; k = 0; infty = max([j for _, j in points]) + 2
+        while k < len(points) - 1:
+            (i1, j1) = points[k]; m = infty
+            poly = coeffs[i1][j1]
+            for l in xrange(k + 1, len(points)):
+                (i2, j2) = points[l]; m2 = flip*(j2 - j1)/(i2 - i1)
+                if m2 == m:
+                    k = l; poly += coeffs[i2][j2]*x**(i2-i1)
+                elif m2 < m:
+                    m = m2; k = l; poly = coeffs[i1][j1] + coeffs[i2][j2]*x**(i2-i1)
+            output.append((m, poly))
+        
+        return output
+
     def indicial_polynomial(self, p, var='alpha'):
         """
         Computes the indicial polynomial of ``self`` at (a root of) ``p``.
@@ -470,11 +529,11 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
 
         OUTPUT:
         
-        A left multiple of ``self`` whose coefficients are polynomials, whose order is `m` more than
-        ``self``, and whose leading coefficient has as low a degree as possible under these conditions.
+          A left multiple of ``self`` whose coefficients are polynomials, whose order is `m` more than
+          ``self``, and whose leading coefficient has as low a degree as possible under these conditions.
 
-        The output is not unique. With low probability, the leading coefficient degree in the output
-        may not be minimal. 
+          The output is not unique. With low probability, the leading coefficient degree in the output
+          may not be minimal. 
 
         EXAMPLES::
 
@@ -1205,7 +1264,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         # search for a name which is not yet used as generator in (some subfield of) R.base_ring()
         # for in case we need to make algebraic extensions.
 
-        # TODO: should we flatten multiple extensions? 
+        # TODO: use QQbar as constant domain.
 
         K = R.base_ring(); names = []
         while K is not QQ:
@@ -1215,6 +1274,8 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         while newname in names:
             i = i + 1; newname = 'a_' + str(i)
 
+        x = self.base_ring().gen()
+
         if exp > 0:
 
             points = []
@@ -1223,22 +1284,12 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
                 if not c[i].is_zero():
                     points.append((QQ(i), QQ(c[i].valuation())))
 
-            exponents = []; y = R.base_ring()['y'].gen(); k = 0
-            while k < len(points) - 1:
-                (i1, j1) = points[k]; p = None; s = self.degree() + 1; 
-                for l in xrange(k + 1, len(points)):
-                    (i2, j2) = points[l]; s2 = (j2 - j1)/(i2 - i1)
-                    if s2 < s:
-                        s = s2; k = l; p = c[i1][j1]*(y**i1) + c[i2][j2]*(y**i2);
-                    elif s2 == s:
-                        k = l; p += c[i2][j2]*(y**i2);
-                e = 1 - s; 
-                if e < 0 and -e < exp and p is not None and (ramification or e in ZZ):
-                    exponents.append((e, p(e*y)))
-
-            x = R.gen(); K = R.base_ring(); 
-            for (e, p) in exponents:
-                for (q, _) in p.factor():
+            y = R.base_ring()['y'].gen(); x = R.gen(); K = R.base_ring(); 
+            for (s, p) in self.newton_polygon(x):
+                e = 1 - s
+                if e > 0 or -e >= exp or not (ramification or e in ZZ):
+                    continue
+                for (q, _) in p(e*y).factor():
                     if q == y:
                         continue
                     elif q.degree() == 1:
@@ -1259,7 +1310,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         s = indpoly.parent().gen()
         x = R.gen()
 
-        for (c, e) in _shift_factor(indpoly):
+        for (c, e) in shift_factor(indpoly):
 
             if c.degree() == 1:
                 K = R.base_ring()
@@ -1733,8 +1784,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
                 return M2 * M1, Q2 * Q1
         return bsplit(start, start + n)
 
-
-    def delta_matrix(self, m):
+    def _delta_matrix(self, m):
         r = self.order()
 
         delta_ring = self.base_ring()
@@ -1823,7 +1873,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
         m = max(m, 1)
         m = min(m, n)
 
-        delta_M, delta_Q = self.delta_matrix(m)
+        delta_M, delta_Q = self._delta_matrix(m)
 
         # Precompute all needed powers of the parameter value
         # TODO: tighter degree bound (by inspecting the matrices)
@@ -2083,13 +2133,13 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
 
         if R.is_field():
             R = R.ring() # R = k[x]
-            R.change_ring(R.base_ring().fraction_field())
+            R = R.change_ring(R.base_ring().fraction_field())
 
         try:
             # first try to use shift factorization. this seems to be more efficient in most cases.
-            all_facs = [sigma(u, -1) for u, _ in _shift_factor(sigma(op[0].gcd(p), r)*op[r])]
-            tc = [ u[1:] for _, u in _shift_factor(prod(all_facs)*sigma(op[0].gcd(p), r)) ]
-            lc = [ u[1:] for _, u in _shift_factor(prod(all_facs)*op[r]) ]
+            all_facs = [sigma(u, -1) for u, _ in shift_factor(sigma(op[0].gcd(p), r)*op[r])]
+            tc = [ u[1:] for _, u in shift_factor(prod(all_facs)*sigma(op[0].gcd(p), r)) ]
+            lc = [ u[1:] for _, u in shift_factor(prod(all_facs)*op[r]) ]
             for u, v in zip(tc, lc):
                 s = union(s, [j[0] - i[0] for i in u for j in v])
             s.sort()
@@ -2185,7 +2235,6 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
           sage: L.generalized_series_solutions(dominant_only=True)
           [(-3)^n*(1 - n^(-1) + 2*n^(-2) - 4*n^(-3) + 8*n^(-4) + O(n^(-5)))]
 
-          
         """
         K = QQbar
 
@@ -2205,31 +2254,23 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
         
         r = len(coeffs) - 1
         x = coeffs[0].parent().gen()
-        solutions = []
         subs = _generalized_series_shift_quotient
         w_prec = r + 1
 
         # 1. superexponential parts
-        points = filter(lambda p: p[1] >= 0, [ (i, coeffs[i].degree()) for i in xrange(len(coeffs)) ])
-        deg = max(map(lambda p: p[1], points))
-        degdiff = deg - min(map(lambda p: p[1], points))
+        deg = max(c.degree() for c in coeffs if c!=0)
+        degdiff = deg - min(c.degree() for c in coeffs if c!=0)
 
-        k = 0
-        while k < len(points) - 1:
-            (i1, j1) = points[k]; s = -QQ(deg + 5) # = -infinity
-            for l in xrange(k + 1, len(points)):
-                (i2, j2) = points[l]; s2 = QQ(j2 - j1)/QQ(i2 - i1)
-                if s2 >= s:
-                    s = s2; k = l
+        solutions = []
+        for s, _ in self.newton_polygon(~x):
             if s == 0:
                 newcoeffs = [c.shift(w_prec - deg) for c in coeffs ]
             else:
-                v = s.denominator(); underflow = max(0, v*r*s)
-                newdeg = max([ coeffs[i].degree() - i*s for i in xrange(len(coeffs)) if coeffs[i] != 0 ])
-                newcoeffs = [(coeffs[i](x**v)*subs(x, prec=w_prec + underflow, shift=i, gamma=-s))
+                v = s.denominator(); underflow = max(0, -v*r*s)
+                newdeg = max([ coeffs[i].degree() + i*s for i in xrange(len(coeffs)) if coeffs[i] != 0 ])
+                newcoeffs = [(coeffs[i](x**v)*subs(x, prec=w_prec + underflow, shift=i, gamma=s))
                              .shift(-v*(newdeg + underflow)) for i in xrange(len(coeffs))]
-
-            solutions.append( [-s, newcoeffs ] )
+            solutions.append( [s, newcoeffs ] )
 
         if dominant_only:
             max_gamma = max( [g for (g, _) in solutions ] )
@@ -2302,7 +2343,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
 
             KK = K['s'].fraction_field(); s = KK.gen(); X = x.change_ring(KK)
             rest = sum(coeffs[i].change_ring(KK)*subs(X, w_prec, i, alpha=s)(X**ram) for i in xrange(len(coeffs)))
-            for (p, e) in _shift_factor(rest.leading_coefficient().numerator(), ram):
+            for (p, e) in shift_factor(rest.leading_coefficient().numerator(), ram):
                 e.reverse()
                 alpha = -p[0]/p[1]
                 if alpha in QQ: # cause conversion to explicit rational 
@@ -2639,11 +2680,11 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
         r = L.order()
 
         output = []
-        lctc_factors = _shift_factor(L[0]*L[r])
+        lctc_factors = shift_factor(L[0]*L[r])
         tc_factor_dict = dict( (u, sum(w for _, w in v) - 1) for u, v in 
-                               _shift_factor(prod(u for u, _ in lctc_factors)*L[0]) )
+                               shift_factor(prod(u for u, _ in lctc_factors)*L[0]) )
         lc_factor_dict = dict( (u, sum(w for _, w in v) - 1) for u, v in 
-                               _shift_factor(prod(u for u, _ in lctc_factors)*L[r]) )
+                               shift_factor(prod(u for u, _ in lctc_factors)*L[r]) )
 
         for pol, e in lctc_factors:
 
@@ -2664,7 +2705,8 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
                             xi = -u[0]/u[1]; done = True; break
                 
             x = L.parent().base_ring().change_ring(C).gen() 
-            coeffs = [p.change_ring(C)(x + xi - r) for p in L] # recycling the symbol x as epsilon here. 
+            sigma_mod = L.change_ring(x.parent()).parent().sigma()
+            coeffs = [sigma_mod(p.change_ring(C), ZZ(xi - r)) for p in L] # recycling the symbol x as epsilon here. 
             coeffs.reverse()
             coeffs[0] = -coeffs[0]
 
@@ -2676,7 +2718,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
                 ## given a list of values representing the values of a laurent series sequence solution
                 ## at ..., xi+n-2, xi+n-1, this appends the value at xi+n to the list l.
                 ## the list l has to have at least r elements. 
-                l.append(sum(l[-i]*coeffs[i](x + n) for i in xrange(1, r + 1))/coeffs[0](x + n))
+                l.append(sum(l[-i]*sigma_mod(coeffs[i], n) for i in xrange(1, r + 1))/sigma_mod(coeffs[0], n))
 
             # compute a C-basis of solutions in C((eps))^ZZ with 
             sols = [ ]; 
@@ -2762,38 +2804,22 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
         coeffs = map(R, self.normalize().coeffs())
         r = self.order()
 
-        # determine the possible values of gamma 
+        # determine the possible values of gamma and phi
         points = filter(lambda p: p[1] >= 0, [ (i, coeffs[i].degree()) for i in xrange(len(coeffs)) ])
         deg = max(map(lambda p: p[1], points))
         output = []
 
-        k = 0
-        while k < len(points) - 1:
-            (i1, j1) = points[k]; m = -QQ(deg + 5) # = -infinity
-            for l in xrange(k + 1, len(points)):
-                (i2, j2) = points[l]; m2 = QQ(j2 - j1)/QQ(i2 - i1)
-                if m2 >= m:
-                    m = m2; k = l
-            if m in ZZ:
-                L = self.symmetric_product(n**min(0, -m)*S - n**min(0, m)).normalize().change_ring(R)
-                d = max(r + 3, max(p.degree() for p in L if not p.is_zero()))
-                output.append([-m, L.map_coefficients(lambda p: p//n**(d - (r + 3)))])
-
-        # for each possible value of gamma, determine the possible values of phi
-        oldoutput = output; output = []
-        for (gamma, L) in oldoutput:
-            d = max(R(p).degree() for p in L if not p.is_zero())
-            for p, _ in R(sum(R(L[i])[d]*n**i for i in xrange(L.order() + 1))).factor():
-                if p.degree() == 1 and not p[0].is_zero(): # no algebraic extensions
-                    phi = -p[0]/p[1];
-                    output.append([gamma, phi, L.symmetric_product(S - 1/phi)])
-
-        # for each possible pair (gamma, phi), determine the possible values of alpha 
-        oldoutput = output; output = []
-        for (gamma, phi, L) in oldoutput:
-            for p, _ in R(L.indicial_polynomial(~n)).factor():
-                if p.degree() == 1: # no algebraic extensions
-                    output.append([gamma, phi, -p[0]/p[1]])
+        for s, np in self.newton_polygon(~n):
+            if s in ZZ:
+                for p, _ in R(np).factor():
+                    if p.degree() == 1 and not p[0].is_zero():
+                        phi = -p[0]/p[1]
+                        L = self.symmetric_product(phi*n**max(0, s)*S - n**max(0, -s)).normalize().change_ring(R)
+                        d = max(r + 3, max(p.degree() for p in L if not p.is_zero()))
+                        for q, _ in L.map_coefficients(lambda p: p//n**(d - (r + 3)))\
+                                .indicial_polynomial(~n).factor():
+                            if q.degree() == 1:
+                                output.append([s, phi, -q[0]/q[1]])
         
         return output
 
@@ -3035,7 +3061,9 @@ class UnivariateQRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverU
 
     def spread(self, p=0):
 
-        op = self.numerator(); A = op.parent(); R = A.base_ring()
+        op = self.normalize(); A = op.parent(); R = A.base_ring()
+        sigma = A.change_ring(R.change_ring(R.base_ring().fraction_field())).sigma()
+        s = []; r = op.order(); _, q = A.is_Q()
 
         if op.order()==0:
             return []
@@ -3044,35 +3072,32 @@ class UnivariateQRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverU
 
         if R.is_field():
             R = R.ring() # R = k[x]
+            R = R.change_ring(R.base_ring().fraction_field())
+
+        try:
+            # first try to use shift factorization. this seems to be more efficient in most cases.
+            all_facs = [sigma(u, -1) for u, _ in shift_factor(sigma(op[0].gcd(p), r)*op[r], 1, q)]
+            tc = [ u[1:] for _, u in shift_factor(prod(all_facs)*sigma(op[0].gcd(p), r), 1, q) ]
+            lc = [ u[1:] for _, u in shift_factor(prod(all_facs)*op[r], 1, q) ]
+            for u, v in zip(tc, lc):
+                s = union(s, [j[0] - i[0] for i in u for j in v])
+            s.sort()
+            return s
+        except:
+            pass
 
         K = PolynomialRing(R.base_ring(), 'y').fraction_field() # F(k[y])
         R = R.change_ring(K) # FF(k[y])[x]
 
         y = R(K.gen())
         x, q = op.parent().is_Q()
-        x = R(x); q = K(q)
-
-        # hack: we find integers n with poly(q,q^n)==0 by comparing the roots of poly(q,Y)==0
-        # against a finite set of precomputed powers of q. 
-        q_pows = {K.one() : ZZ(0)}; qq = K.one()
-        for i in xrange(1, 513):
-            qq *= q
-            q_pows[qq] = ZZ(i)
-            if qq.is_one():
-                raise ValueError, "q must not be a root of unity"
-        try:
-            qq = K.one()
-            for i in xrange(1, 513):
-                qq /= q
-                q_pows[qq] = ZZ(-i)
-        except:
-            pass
+        x = R(x); q = K(q); 
 
         s = []; r = op.order()
-        for (p, _) in (R(op[r])(x*(q**(-r))).resultant(gcd(R(p), R(op[0]))(x*y))).numerator().factor():
+        for p, _ in (R(op[r])(x*(q**(-r))).resultant(gcd(R(p), R(op[0]))(x*y))).numerator().factor():
             if p.degree() == 1:
                 try:
-                    s.append(q_pows[K(-p[0]/p[1])])
+                    s.append(q_log(q, K(-p[0]/p[1])))
                 except:
                     pass
 
@@ -3131,6 +3156,40 @@ class UnivariateQRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverU
 
     def _powerIndicator(self):
         return self.coeffs()[0]
+
+    def _local_data_at_special_points(self):
+        """
+        Returns information about the local behaviour of this operator's solutions at x=0 and
+        at x=infinity.
+
+        The output is the list of all tuples `(gamma, phi, beta, alpha)` such that for every
+        q-hypergeometric solution `f` of this operator (over the same constant field) there
+        is a tuple with such that 
+        `f(q*x)/f(x) = phi * x^gamma * rat(q*x)/rat(x) * \prod_m (1-a_m*x)^{e_m}` 
+        with `\sum_m e_m = beta` and `deg(num(rat)) - deg(den(rat)) + \prod_m (-a_m)^{e_m} = alpha`.
+
+        EXAMPLES::
+
+          sage: ...
+
+        """
+
+        Q = self.parent().gen(); x, qq = self.parent().is_Q()
+        factors = make_factor_iterator(x.parent(), multiplicities=False)
+
+        out = []
+        for gamma, poly in self.newton_polygon(x):
+            if gamma in ZZ:
+                for p in factors(poly):
+                    if p.degree() == 1:
+                        phi = -p[0]/p[1]; L = self.symmetric_product(phi*x**max(-gamma, 0)*Q - x**max(gamma, 0))
+                        for beta, qoly in L.newton_polygon(~x):
+                            if beta in ZZ:
+                                for q in factors(qoly(x*qq**beta) + (qq**beta-1)*qoly[0]): # is this right?
+                                    if q.degree() == 1 and q[0] != 0:
+                                        out.append((-gamma, phi, beta, -q[0]/q[1]))
+
+        return out
 
 #############################################################################################################
 
@@ -3723,107 +3782,6 @@ def _power_series_solutions(op, rec, n, deform):
             sols.append(p)
 
     return sols
-
-def _shift_factor(p, ram=ZZ.one(), q=1):
-    """
-    Returns the roots of p in an appropriate extension of the base ring, sorted according to
-    shift equivalence classes.
-
-    INPUT:
-
-    - ``p`` -- a univariate polynomial over QQ or a number field
-    - ``ram`` (optional) -- positive integer
-    - ``q`` (optional) -- if set to a quantity different from 1 or 0, the factorization will be
-      made according to the q-shift instead of the ordinary shift. The value must not be a root
-      of unity. 
-
-    OUTPUT:
-
-    A list of pairs (q, e) where
-
-    - q is an irreducible factor of p
-    - e is a tuple of pairs (a, b) of nonnegative integers 
-    - p = c*prod( sigma^(a/ram)(q)^b for (q, e) in output list for (a, b) in e ) for some nonzero constant c
-      (in the q-case, a possible power of x is also omitted)
-    - e[0][0] == 0, and e[i][0] < e[i+1][0] for all i 
-    - any two distinct q have no roots at integer distance.
-
-    The constant domain must have characteristic zero. 
-
-    In the q-case, ramification greater than 1 requires that q^(1/ram) exists in the constant domain. 
-    
-    Note that rootof(q) is the largest root of every class. The other roots are given by rootof(q) - e[i][0]/ram.
-        
-    """
-
-    classes = []
-    x = p.parent().gen()
-
-    qq = q
-    assert(x.parent().characteristic() == 0)
-    if qq == 1:
-        def sigma(u, n=1):
-            return u(x + n)            
-        def candidate(u, v):
-            d = u.degree()
-            return ram*(u[d]*v[d-1] - u[d-1]*v[d])/(u[d]*v[d]*d)
-    else:
-        def sigma(u, n=1):
-            return u(x*qq**n)
-        ev = p.parent().base_ring().gens_dict_recursive()
-        if len(ev) == 0:
-            log = lambda u: u.n().log()
-        else:
-            ev = dict( (ev[i], 7 + 2**i) for i in xrange(len(eval)) )
-            log = lambda u: u(**ev).n().log()
-        def candidate(u, v):
-            d = u.degree()
-            e = (log(u[d]/v[d])/log(qq)*ram/d)
-            try: 
-                e = e.real_part()
-            except:
-                pass
-            e = -e.round()
-            return e if u[d]*qq**(d*e/ram) == v[d] else None
-            
-    for (q, b) in (p.parent().base_ring().fraction_field()[x](p)).factor():
-
-        if q.degree() < 1:
-            continue
-        if qq != 1:
-            if q[0].is_zero():
-                continue
-            else:
-                q/=q[0]
-
-        # have we already seen a member of the shift equivalence class of q? 
-        new = True; 
-        for i in xrange(len(classes)):
-            u = classes[i][0]
-            if u.degree() != q.degree():
-                continue
-            a = candidate(q, u)
-            if a not in ZZ or sigma(q, a/ram) != u:
-                continue
-            # yes, we have: q(x+a) == u(x); u(x-a) == q(x)
-            # register it and stop searching
-            a = ZZ(a); new = False
-            if a < 0:
-                classes[i][1].append((-a, b))
-            elif a > 0:
-                classes[i][0] = q
-                classes[i][1] = [(n+a,m) for (n,m) in classes[i][1]]
-                classes[i][1].append((0, b))
-            break
-
-        # no, we haven't. this is the first.
-        if new:
-            classes.append( [q, [(0, b)]] )
-
-    for c in classes:
-        c[1].sort(key=lambda e: e[0])
-
-    return classes
         
 def _commutativeRadical(p):
     """

@@ -538,12 +538,12 @@ class OreOperator(RingElement):
             try:
                 c = c.parent().base_ring()(c)
             except:
-                pass
+                break
         if not c.is_unit(): 
             try:
                 c = sign(c)
             except:
-                c=c.parent().one()
+                c = c.parent().one()
         return self.parent()((~c)*num)
 
     def map_coefficients(self, f, new_base_ring = None):
@@ -641,7 +641,7 @@ class OreOperator(RingElement):
         if not R.is_field():
             return R.one()
         else:
-            return lcm([c.denominator() for c in self.coefficients()])
+            return R(lcm([R(c.denominator()) for c in self.coefficients()]))
 
 
 #############################################################################################################
@@ -933,21 +933,25 @@ class UnivariateOreOperator(OreOperator):
         """
         prs = kwargs["prs"] if kwargs.has_key("prs") else None
         infolevel = kwargs["infolevel"] if kwargs.has_key("infolevel") else 0
-        return self._xeuclid(other, prs, "bezout",infolevel)
+        return self._xeuclid(other, prs, "bezout", infolevel)
 
-    def _xeuclid(self, other, prs=None, retval="bezout",infolevel=0):
+    def _xeuclid(self, other, prs=None, retval="bezout", infolevel=0):
         # retval == "bezout" ===> returns (g, u, v) st gcrd(self, other) == g == u*self + v*other
         # retval == "syzygy" ===> returns the smallest degree syzygy (u, v) of self and other
 
-        if self.is_zero():
-            return other
-        elif other.is_zero():
-            return self
-        elif self in self.base_ring() or other in self.base_ring():
-            return self.parent().one()
-        elif self.parent() is not other.parent():
+        if self.parent() is not other.parent():
             A, B = canonical_coercion(self, other)
-            return A._xeuclid(B, prs, retval)
+            return A._xeuclid(B, prs, retval, infolevel)
+        elif retval == "bezout":
+            if self.is_zero() or other in other.base_ring():
+                return other, self.parent().zero(), self.parent().one()
+            elif other.is_zero() or self in self.base_ring():
+                return self, self.parent().one(), self.parent().zero()
+        elif retval == "syzygy":
+            if other.is_zero():
+                return self.parent().zero(), self.parent().one()
+            elif self.is_zero():
+                return self.parent().one(), self.parent().zero()
 
         prslist = {"essential" : __essentialPRS__,
                    "primitive" : __primitivePRS__,
