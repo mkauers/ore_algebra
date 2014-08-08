@@ -702,48 +702,6 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
 
         return filter(lambda p: p is not None, sol)
 
-    def factor(self):
-        """
-        Returns a factorization of this operator into linear factors, if possible.
-
-        More precisely, the output will be a list  `[L1,L2,...]` of operators such that 
-        
-          * `L1*L2*...` is equal to ``self``
-          * `L2,L3,...` are monic first order operators
-          * `L1` has no first order right hand factor
-
-        This method requires the method ``right_factors()`` to be implemented. 
-
-        EXAMPLE::
-
-          sage: R.<n> = ZZ['n']; A.<Sn> = OreAlgebra(R, 'Sn')
-          sage: L = (-2*n^4 - 17*n^3 - 45*n^2 - 33*n + 9)*Sn^3 + (6*n^4 + 57*n^3 + 168*n^2 + 148*n - 15)*Sn^2 + (-4*n^4 - 44*n^3 - 157*n^2 - 195*n - 38)*Sn + 4*n^3 + 34*n^2 + 80*n + 44
-          sage: L.factor()
-          [-2*n^4 - 17*n^3 - 45*n^2 - 33*n + 9,
-          Sn + (-4*n^5 - 44*n^4 - 171*n^3 - 295*n^2 - 230*n - 66)/(4*n^5 + 44*n^4 + 175*n^3 + 291*n^2 + 147*n - 45),
-          Sn + (2*n + 5)/(-2*n^2 - 7*n - 6),
-          Sn + (-2*n - 4)/(n + 1)]
-          sage: reduce(lambda p,q: p*q, _) - L
-          0
-        
-        """
-        from sage.structure.factorization import Factorization
-
-        if self.is_zero():
-            raise ArithmeticError, "Factorization of 0 not defined."
-        elif self.order() == 0:
-            return [self]
-        elif self.order() == 1:
-            lc = self.leading_coefficient()
-            return [self.parent()(lc), (~lc)*self]
-
-        rf = self.right_factors(early_termination=True)
-        if len(rf) == 0:
-            return [self]
-        else:
-            Q = rf[0].monic(); P = self // Q
-            return P.factor() + [Q]
-
     def center(self,oBound,dBound):
         """
         Returns a Q-vector space of Ore polynomials that commute with this operator.
@@ -811,7 +769,8 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
 
     def _radicalExp(self):
         """
-        For an Ore polynomial P, this method computes candidates for possible powers k such that there exists an operator L with P=L^k.
+        For an Ore polynomial P, this method computes candidates for possible
+        powers k such that there exists an operator L with P=L^k.
 
         OUTPUT:
 
@@ -832,10 +791,415 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
 
     def _powerIndicator(self):
         """
-        Returns the coefficient of an Ore polynomial P that is of the form p^k, where p is an element from the base ring and k is such that
-        P=L^k where L is the radical of P.
+        Returns the coefficient of an Ore polynomial P that is of the form p^k,
+        where p is an element from the base ring and k is such that P=L^k where
+        L is the radical of P.
         """
         raise NotImplementedError
+
+    def finite_singularities(self):
+        """
+        Returns a list of all the finite singularities of this operator. 
+
+        OUTPUT:
+
+           For each finite singularity of the operator, the output list contains a pair (p, u) where
+
+           * p is an irreducible polynomial, representing the finite singularity rootof(p)+ZZ
+
+           * u is a list of pairs (v, dim, bound), where v is an integer that appears as valuation growth
+             among the solutions of the operator, and bound is a polynomial (or rational function) such 
+             that all the solutions of valuation growth v can be written f/bound*Gamma(x-rootof(p))^v 
+             where f has minimal valuation almost everywhere. dim is a bound for the number of distinct
+             hypergeometric solutions that may have this local behaviour at rootof(p)+ZZ.
+
+        This is a generic implementation for the case of shift and q-shift
+        recurrences. Subclasses for other kinds of operators may need to
+        override this method.
+
+        EXAMPLES::
+
+           sage: R.<x> = ZZ['x']; A.<Sx> = OreAlgebra(R)
+           sage: (x^2*(x+1)*Sx + 3*(x+1/2)).finite_singularities()
+           [(x + 1/2, [[1, 1, 1]]), (x, [[-3, 1, x]])]
+
+           sage: C.<q> = ZZ[]; R.<x> = C['x']; A.<Qx> = OreAlgebra(R)
+           sage: ((q^2*x-1)*Qx-(x-1)).finite_singularities()
+           [(-x + 1, [[0, 1, q*x^2 + (-q - 1)*x + 1]])]
+        
+        """
+
+        from sage.matrix.constructor import matrix
+        from sage.rings.finite_rings.all import GF
+        from sage.rings.laurent_series_ring import LaurentSeriesRing
+
+        R = self.parent().base_ring().fraction_field().base()
+        R = R.change_ring(R.base_ring().fraction_field())
+        A = self.parent().change_ring(R)
+        L = A(self.normalize())
+        assert(not L.is_zero())
+
+        sigma = L.parent().sigma()
+        coeffs = L.coeffs()
+        while coeffs[0].is_zero(): # make trailing coefficient nonzero
+            coeffs = [sigma(coeffs[i], -1) for i in xrange(1, len(coeffs))]
+        L = L.parent()(coeffs)
+        r = L.order()
+
+        imgs = dict( (y, hash(y)) for y in R.base_ring().gens_dict_recursive() )
+        R_img = QQ # coefficient ring after evaluation of parameters
+        ev = (lambda p: p) if len(imgs) == 0 else (lambda p: p(**imgs))
+        x = R.gen()
+
+        if A.is_Q():
+            _, q = A.is_Q()
+            sf = lambda p: shift_factor(p, q=q)
+            def make_sigma_mod(C):
+                R_mod = R.change_ring(C)
+                q_mod = C(ev(q))
+                x_mod = R_mod.gen()
+                return lambda p, n=1: R_mod(p)((1 + x_mod)*q_mod**n)
+            def change_of_variables(C, xi, r):
+                R_mod = R.change_ring(C)
+                q_inv_mod = C(ev(q))**(-r)
+                x_mod = R_mod.gen()
+                return lambda p: R_mod(p.map_coefficients(ev, R_img))(xi*x_mod*q_inv_mod)
+
+        elif A.is_S():
+            sf = shift_factor
+            def make_sigma_mod(C):
+                R_mod = R.change_ring(C)
+                x_mod = R_mod.gen()
+                return lambda p, n=1: R_mod(p)(x_mod + n)
+            def change_of_variables(C, xi, r):
+                R_mod = R.change_ring(C)
+                x_mod = R_mod.gen()
+                return lambda p: R_mod(p.map_coefficients(ev, R_img))(x_mod + xi - r)
+
+        else:
+            raise NotImplementedError
+
+        output = []
+        lctc_factors = sf(L[0]*L[r])
+        tc_factor_dict = dict( (u, sum(w for _, w in v) - 1) for u, v in 
+                               sf(prod(u for u, _ in lctc_factors)*L[0]) )
+        lc_factor_dict = dict( (u, sum(w for _, w in v) - 1) for u, v in 
+                               sf(prod(u for u, _ in lctc_factors)*L[r]) )
+
+        for pol, e in lctc_factors:
+
+            # left-most critical point is rootof(pol) - e[-1][0], right-most critical point is rootof(pol)
+
+            # search for a prime such that pol has a root xi in C:=GF(prime). 
+            if pol.degree() == 0:
+                continue
+            elif pol.degree() == 1:
+                C = GF(pp(2**23)); xi = C(ev(-pol[0]/pol[1]))
+            else:
+                modulus = 2**23; done = False
+                while not done:
+                    modulus = pp(modulus); C = GF(modulus)
+                    for u, _ in ev(pol).change_ring(C).factor():
+                        if u.degree() == 1:
+                            xi = -u[0]/u[1]; done = True; break
+
+            # valuation growth can get at most val_range_bound much more than min 
+            val_range_bound = lc_factor_dict[pol] + tc_factor_dict[pol] + 1
+            R = LaurentSeriesRing(C, str(A.base_ring().gen()), default_prec=val_range_bound)
+
+            # A. GOING FROM LEFT TO RIGHT
+            coeffs = map(change_of_variables(C, xi, r), L.coeffs())
+            coeffs.reverse()
+            coeffs[0] = -coeffs[0]
+
+            # compute a C-basis of the left-to-right solutions in C((eps))^ZZ 
+            sigma_mod = make_sigma_mod(C)
+            def prolong(l, n):
+                ## given a list of values representing the values of a laurent series sequence solution
+                ## at ..., xi+n-2, xi+n-1, this appends the value at xi+n to the list l.
+                ## the list l has to have at least r elements. 
+                ## --- recycling the symbol x as epsilon here. 
+                l.append(sum(l[-i]*sigma_mod(coeffs[i], n) for i in xrange(1, r + 1))/sigma_mod(coeffs[0], n))
+
+            sols = []
+            for i in xrange(r):
+                sol = [ R.zero() for j in xrange(r) ]; sol[i] = R.one()
+                sols.append(sol)
+                for n in xrange(-e[-1][0], r + 1):
+                    prolong(sol, n)
+
+            vg_min = min( s[-i].valuation() for s in sols for i in xrange(1, r + 1) if not s[-i].is_zero() )
+
+            den = 1
+            for n in xrange(r, len(sols[0])):
+                k = min( [s[n].valuation() for s in sols if not s[n].is_zero()] + [val_range_bound] )
+                den *= sigma(pol, e[-1][0] - n + r)**(-k + (vg_min if n > len(sols[0]) - r else 0))
+
+            # B. GOING FROM RIGHT TO LEFT
+            coeffs = map(change_of_variables(C, xi, 0), L.coeffs())
+            coeffs[0] = -coeffs[0]
+
+            sols = []
+            for i in xrange(r):
+                sol = [ R.zero() for j in xrange(r) ]; sol[i] = R.one()
+                sols.append(sol)
+                for n in xrange(e[-1][0] + r + 1):
+                    prolong(sol, -n)
+
+            vg_max = min( s[-i].valuation() for s in sols for i in xrange(1, r + 1) if not s[-i].is_zero() )
+
+            # record information for this singularity
+            valuation_growths = [[i, r, den] for i in xrange(vg_min, -vg_max + 1)]
+            output.append( (pol, valuation_growths) )
+
+        return output
+
+    def right_factors(self, order=1, early_termination=False, infolevel=0):
+        """
+        Returns a list of first-order right hand factors of this operator. 
+
+        INPUT:
+
+        - ``order'' (default=1) -- only determine right factors of at most this
+          order
+
+        - ``early_termination`` (optional) -- if set to ``True``, the search for
+          factors will be aborted as soon as one factor has been found. A list
+          containing this single factor will be returned (or the empty list if
+          there are no first order factors). If set to ``False`` (default), a
+          complete list will be computed.  
+
+        - ``infolevel`` (optional) -- nonnegative integer specifying the amount
+          of progress reports that should be printed during the
+          calculation. Defaults to 0 for no output.
+
+        OUTPUT:
+
+        A list of bases for all vector spaces of first-order operators living in the parent 
+        of ``self`` of which ``self`` is a left multiple. 
+
+        Note that this implementation does not construct factors that involve
+        algebraic extensions of the constant field.
+
+        This is a generic implementation for the case of shift and q-shift
+        recurrences. Subclasses for other kinds of operators may need to
+        override this method.
+
+        EXAMPLES::
+
+           sage: R.<n> = ZZ['n']; A.<Sn> = OreAlgebra(R, 'Sn');
+           sage: L = (-25*n^6 - 180*n^5 - 584*n^4 - 1136*n^3 - 1351*n^2 - 860*n - 220)*Sn^2 + (50*n^6 + 560*n^5 + 2348*n^4 + 5368*n^3 + 7012*n^2 + 4772*n + 1298)*Sn - 200*n^5 - 1540*n^4 - 5152*n^3 - 8840*n^2 - 7184*n - 1936
+           sage: L.right_factors()
+           [[(n^2 + 6/5*n + 9/25)*Sn - 2*n^2 - 32/5*n - 128/25], [(n^2 + 2*n + 1)*Sn - 4*n - 2]]
+           sage: ((Sn - n)*(n*Sn - 1)).right_factors()
+           [[n*Sn - 1]]
+           sage: ((Sn - n).lclm(n*Sn - 1)).right_factors()
+           [[n*Sn - 1], [Sn - n]]
+           sage: (Sn^2 - 2*Sn + 1).right_factors()
+           [[Sn - 1, n*Sn - n - 1]]
+
+           sage: R.<x> = QQ['x']; A.<Qx> = OreAlgebra(R, q=2) 
+           sage: ((2*x+3)*Qx - (8*x+3)).lclm(x*Qx-2*(x+5)).right_factors()
+           [[(x + 3/2)*Qx - 4*x - 3/2], [x*Qx - 2*x - 10]]
+           sage: (((2*x-1)*Qx-(x-1)).lclm(Qx-(x-3))).right_factors()
+           [[(x - 1/2)*Qx - 1/2*x + 1/2], [Qx - x + 3]]
+           sage: (((2*x-1)*Qx-(x-1))*(Qx-(x-3))).right_factors()
+           [[Qx - x + 3]]
+           sage: (((2*x-1)*Qx-(x-1))*(x^2*Qx-(x-3))).right_factors()
+           [[x^2*Qx - x + 3]]
+
+        """
+
+        if self.is_zero():
+            raise ZeroDivisionError
+
+        if order > 1:
+            raise NotImplementedError
+
+        coeffs = self.normalize().coeffs()
+        R = self.base_ring().fraction_field().base()
+        R = R.change_ring(R.base_ring().fraction_field()).fraction_field()
+        A = self.parent().change_ring(R)
+        S = A.gen(); sigma = A.sigma()
+        assert(R.characteristic() == 0)
+
+        if A.is_Q():
+            q_case = True; x, q = A.is_Q()
+        elif A.is_S():
+            q_case = False; x = R.gen()
+        else:
+            raise NotImplementedError
+
+        # shift back such as to make the trailing coefficient nonzero
+        min_r = 0
+        while coeffs[min_r].is_zero():
+            min_r += 1
+        if min_r > 0:
+            coeffs = [sigma(coeffs[i], -min_r) for i in xrange(min_r, len(coeffs))]
+
+        # handle trivial cases
+        factors = [] if min_r == 0 else [[A.gen()]]
+        if len(coeffs) == 1:
+            return factors
+        elif len(coeffs) == 2: 
+            return factors + [[A(coeffs)]]
+
+        SELF = A([R(c) for c in coeffs]); r = SELF.order()
+
+        def info(i, msg):
+            if i <= infolevel:
+                print (i - 1)*"  " + msg
+
+        # 1. determine the local behaviour at the finite singularities (discard apparent ones)
+        finite_local_data = filter(lambda u: len(u[1])>1 or u[1][0][0]!=0 or u[1][0][2]!=1, 
+                                   SELF.finite_singularities())
+        info(1, "Analysis of finite singularities completed. There are " + 
+             str(len(finite_local_data)) + " of them.")
+        # precompute some data that is handy to have available later during the big loop
+        for p, u in finite_local_data:
+            d = p.degree()
+            for v in u:
+                v.append(sigma(v[2])/v[2] * p**(-v[0])) # idx 3 : reciprocal shift quotient
+                v.append(v[0]*d) # idx 4 : exponent
+                # idx 5 : alpha, taking into account contribution from the denominator bound
+                delta = R(v[2]).numerator().degree() - R(v[2]).denominator().degree()
+                if q_case:
+                    v.append((p[d]/p[0])**v[0] * q**(-delta))
+                else:
+                    v.append(v[0]*p[d - 1]/p[d] - delta)
+
+        # 2. determine the local behaviour at infinity.
+
+        # reorganize data in the form {valg:[[gamma,phi,max_alpha,dim],[gamma,phi,max_alpha,dim],...], ...}
+        if q_case:
+            special_local_data = SELF._local_data_at_special_points()
+            def equiv(a, b):
+                try:
+                    return q_log(q, a/b) in ZZ
+                except:
+                    return False
+            def merge(a, b):
+                e = q_log(q, a/b)
+                return a if e > 0 else b
+        else:
+            special_local_data = SELF._infinite_singularity()
+            special_local_data = [ (0, phi, gamma, alpha) for gamma, phi, alpha in special_local_data]
+            equiv = lambda a, b: a - b in ZZ
+            merge = lambda a, b: max(a, b)
+
+        spec = {}
+        for gamma, phi, beta, alpha in special_local_data:
+            try:
+                u = filter(lambda u: u[1]==phi and equiv(u[2], alpha), spec[beta] )
+            except:
+                u = spec[beta] = []
+            if len(u) == 0:
+                spec[beta].append([gamma, phi, alpha, 1])
+            else:
+                u[0][2] = merge(u[0][2], alpha); u[0][3] += 1
+
+        special_local_data = spec
+        info(1, "Local data at infinity (for each val-growth, list of triples [gamma,phi,max_alpha,dim]): " 
+             + str(special_local_data))
+
+        # 3. handle special case: no finite singularities at all. (viz. only poly-exponential solutions)
+        info(1, "Searching for factors with singularities only at special points.")
+        for gamma, phi, d, _ in special_local_data.setdefault(0, []):
+            if d in ZZ and d >= 0:
+                f = []
+                for p in SELF.symmetric_product(phi*x**gamma*S - 1).polynomial_solutions(degree=d):
+                    f.append( (p[0]*S - phi*x**gamma*sigma(p[0])).normalize() )
+                if len(f) > 0:
+                    factors.append(f)
+                    if early_termination:
+                        return factors
+        if len(finite_local_data) == 0:
+            return factors
+
+        # 4. construct iterator that enumerates all combinations of all local singular solutions
+        def combs(local_data):
+            idx = [0 for i in xrange(len(local_data))]
+            while idx[0] < len(local_data[0][1]):
+                yield [(local_data[j][0], local_data[j][1][idx[j]]) for j in xrange(len(idx))]
+                idx[-1] += 1
+                for j in xrange(len(local_data) - 1, 0, -1):
+                    if idx[j] == len(local_data[j][1]):
+                        idx[j] = 0; idx[j - 1] += 1
+                    else:
+                        break
+
+        # 5. for all combinations of local solutions determine the polynomial factors. 
+        #    this is the heavy loop.
+        stat = [prod(len(u[1]) for u in finite_local_data), 0, 0, 0, 0]
+        for c in combs(finite_local_data):
+
+            if all(u[4]==0 for _, u in c):
+                continue
+            
+            if stat[1] > 0 and stat[1] % 1000 == 0:
+                info(2, "%i/%i combinations completed (%.2f%%)" % (stat[1], stat[0], 100.0*stat[1]/stat[0]))
+                info(3, "%.2f%% disc. by dimension, %.2f%% disc. by Fuchs-relation, %.4f%% disc. by degree, %.4f%% actually solved" % tuple(map(lambda u: 100.0*u/stat[1], [stat[2], stat[3], stat[4], stat[1] - (stat[2]+stat[3]+stat[4])])))
+
+            stat[1] += 1
+
+            # determine valg, gamma, alpha, dim for this combination
+            valg = 0; dim = r; alpha = 1 if q_case else 0
+            for _, u in c:
+                valg += u[4]; dim = min(dim, u[1])
+                if q_case: 
+                    alpha *= u[5]
+                else:
+                    alpha += u[5]
+            if dim == 0: # all solutions with this finite local behaviour have already been identified
+                stat[2] += 1
+                continue
+            
+            # possible phi's are those that meet the current gamma and alpha+ZZ
+            gamma_phis = filter(lambda u: equiv(u[2], alpha), special_local_data.setdefault(valg, []))
+            if len(gamma_phis) == 0: # Fuchs filter
+                stat[3] += 1
+                continue
+
+            # check whether all solutions with this behaviour at infinity have already been found
+            gamma_phis = filter(lambda u: u[3] > 0, gamma_phis)
+            if len(gamma_phis) == 0:
+                stat[2] += 1 
+                continue
+
+            rat = prod( u[3] for _, u in c )
+            for gamma_phi_d_dim in gamma_phis:
+
+                gamma, phi, d, _ = gamma_phi_d_dim
+
+                # determine degree bound 
+                d = q_log(q, d/alpha) if q_case else (d - alpha)
+                if d < 0 and not q_case:
+                    stat[4] += 1
+                    continue 
+
+                # find polynomial solutions 
+                sols = SELF.symmetric_product(x**gamma*phi*S - rat ).polynomial_solutions(degree = d)
+                if len(sols) == 0:
+                    continue
+
+                # register solutions found 
+                info(1, "Factor found.")
+                for u in c: u[1][1] -= len(sols) 
+                gamma_phi_d_dim[3] -= len(sols)
+                factors.append( [ (rat*p[0]*S - phi*x**gamma*sigma(p[0])).normalize() for p in sols ] )
+                if early_termination:
+                    return factors
+
+        info(1, "%i combinations have been investigated in total. Of them:" % stat[0])
+        stat[1] -= stat[2] + stat[3] + stat[4]
+        info(1, "--  %i were discarded by dimension arguments (%.4f%%)" % (stat[2], 100.0*stat[2]/stat[0] ))
+        info(1, "--  %i were discarded by the Fuchs-relation (%.4f%%)" % (stat[3], 100.0*stat[3]/stat[0] ))
+        info(1, "--  %i were discarded by negative degree bound (%.4f%%)" % (stat[4], 100.0*stat[4]/stat[0] ))
+        info(1, "--  %i the polynomial solver was called on (%.4f%%)" % (stat[1], 100.0*stat[1]/stat[0] ))
+        info(1, "We have found %i factors." % sum(len(f) for f in factors))
+
+        return factors
+
 
 #############################################################################################################
 
@@ -2458,324 +2822,6 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
     def _powerIndicator(self):
         return self.coeffs()[0]
 
-    def right_factors(self, early_termination=False, infolevel=0):
-        """
-        Returns a list of first-order right hand factors of this operator. 
-
-        INPUT:
-
-        - ``early_termination`` (optional) -- if set to ``True``, the search for factors will be aborted as soon as
-          one factor has been found. A list containing this single factor will be returned (or the empty list if there
-          are no first order factors). If set to ``False`` (default), a complete list will be computed.
-        - ``infolevel`` (optional) -- nonnegative integer specifying the amount of progress reports that should be
-          printed during the calculation. Defaults to 0 for nothing. 
-
-        OUTPUT:
-
-        A list of first order operators living in the parent of ``self`` of which ``self`` is a left multiple. 
-
-        Note that this implementation does not construct factors that involve algebraic extensions of the constant
-        field. 
-
-        EXAMPLES::
-
-           sage: R.<n> = ZZ['n']; A.<Sn> = OreAlgebra(R, 'Sn');
-           sage: L = (-25*n^6 - 180*n^5 - 584*n^4 - 1136*n^3 - 1351*n^2 - 860*n - 220)*Sn^2 + (50*n^6 + 560*n^5 + 2348*n^4 + 5368*n^3 + 7012*n^2 + 4772*n + 1298)*Sn - 200*n^5 - 1540*n^4 - 5152*n^3 - 8840*n^2 - 7184*n - 1936
-           sage: L.right_factors()
-           [(n^2 + 6/5*n + 9/25)*Sn - 2*n^2 - 32/5*n - 128/25, (n^2 + 2*n + 1)*Sn - 4*n - 2]
-           sage: ((Sn - n)*(n*Sn - 1)).right_factors()
-           [n*Sn - 1]
-           sage: ((Sn - n).lclm(n*Sn - 1)).right_factors()
-           [n*Sn - 1, Sn - n]
-
-        """
-
-        if self.is_zero():
-            raise ZeroDivisionError
-
-        coeffs = self.normalize().coeffs()
-        R = self.base_ring().fraction_field().base()
-        R = R.change_ring(R.base_ring().fraction_field()).fraction_field()
-        A = self.parent().change_ring(R)
-        S = A.gen(); sigma = A.sigma()
-        assert(R.characteristic() == 0)
-
-        # shift back such as to make the trailing coefficient nonzero
-        min_r = 0
-        while coeffs[min_r].is_zero():
-            min_r += 1
-        if min_r > 0:
-            coeffs = [sigma(coeffs[i], -min_r) for i in xrange(min_r, len(coeffs))]
-
-        # handle trivial cases
-        factors = [] if min_r == 0 else [A.gen()]
-        if len(coeffs) == 1:
-            return factors
-        elif len(coeffs) == 2: 
-            return factors + [A(coeffs)]
-
-        SELF = A([R(c) for c in coeffs]); r = SELF.order()
-
-        def info(i, msg):
-            if i <= infolevel:
-                print (i - 1)*"  " + msg
-
-        # 1. determine the local behaviour at the finite singularities (discard apparent ones)
-        finite_local_data = filter(lambda u: len(u[1])>1 or u[1][0][0]!=0 or u[1][0][2]!=1, SELF.finite_singularities())
-        info(1, "Analysis of finite singularities completed. There are " + str(len(finite_local_data)) + " of them.")
-        # precompute some data that is handy to have available later during the big loop
-        for p, u in finite_local_data:
-            d = p.degree()
-            for v in u:
-                v.append(sigma(v[2])/v[2] * p**(-v[0])) # idx 3 : reciprocal shift quotient
-                v.append(v[0]*d) # idx 4 : gamma
-                # idx 5 : alpha, taking into account contribution from the denominator bound
-                v.append(v[0]*p[d - 1] - (R(v[2]).numerator().degree() - R(v[2]).denominator().degree()))
-
-        # 2. determine the local behaviour at infinity.
-        infinite_local_data = SELF._infinite_singularity()
-        # reorganize data in the form {gamma:[[phi,max_alpha,dim],[phi,max_alpha,dim],...], ...}
-        inf = {}
-        for gamma, phi, alpha in infinite_local_data:
-            try:
-                u = filter(lambda u: u[0]==phi and u[1]-alpha in ZZ, inf[gamma] )
-            except:
-                u = inf[gamma] = []
-            if len(u) == 0:
-                inf[gamma].append([phi, alpha, 1])
-            else:
-                u[0][1] = max(u[0][1], alpha); u[0][2] += 1
-        infinite_local_data = inf 
-        info(1, "Local data at infinity (for each gamma, list of triples [phi,max_alpha,dim]): " 
-             + str(infinite_local_data))
-
-        # 3. handle special case: no finite singularities at all. (viz. only poly-exponential solutions)
-        if len(finite_local_data) == 0:
-            info(1, "Branching into special code because there are no finite singularities.")
-            for phi, d, _ in infinite_local_data.setdefault(0, []):
-                if d in ZZ and d >= 0:
-                    for p in SELF.symmetric_product(S - 1/phi).polynomial_solutions(degree=d):
-                        factors.append( (p[0]*S - phi*sigma(p[0])).normalize() )
-                        if early_termination:
-                            return factors
-            return factors
-
-        # 4. construct iterator that enumerates all combinations of all local singular solutions
-        def combs(local_data):
-            idx = [0 for i in xrange(len(local_data))]
-            while idx[0] < len(local_data[0][1]):
-                yield [(local_data[j][0], local_data[j][1][idx[j]]) for j in xrange(len(idx))]
-                idx[-1] += 1
-                for j in xrange(len(local_data) - 1, 0, -1):
-                    if idx[j] == len(local_data[j][1]):
-                        idx[j] = 0; idx[j - 1] += 1
-                    else:
-                        break
-
-        # 5. for all combinations of local solutions determine the polynomial factors. 
-        #    this is the heavy loop.
-        stat = [prod(len(u[1]) for u in finite_local_data), 0, 0, 0, 0]
-        for c in combs(finite_local_data):
-
-            if stat[1] > 0 and stat[1] % 1000 == 0:
-                info(2, "%i/%i combinations completed (%.2f%%)" % (stat[1], stat[0], 100.0*stat[1]/stat[0]))
-                info(3, "%.2f%% disc. by dimension, %.2f%% disc. by Fuchs-relation, %.4f%% disc. by degree, %.4f%% actually solved" % tuple(map(lambda u: 100.0*u/stat[1], [stat[2], stat[3], stat[4], stat[1] - (stat[2]+stat[3]+stat[4])])))
-
-            stat[1] += 1
-
-            # determine gamma, alpha, dim for this combination
-            gamma = alpha = 0; dim = r
-            for _, u in c:
-                gamma += u[4]; alpha += u[5]; dim = min(dim, u[1])
-            if dim == 0: # all solutions with this finite local behaviour have already been identified
-                stat[2] += 1
-                continue
-
-            # possible phi's are those that meet the current gamma and alpha+ZZ
-            phis = filter(lambda u: u[1] - alpha in ZZ, infinite_local_data.setdefault(gamma, []))
-            if len(phis) == 0: # Fuchs filter
-                stat[3] += 1
-                continue            
-
-            # check whether all solutions with this behaviour at infinity have already been found
-            phis = filter(lambda u: u[2] > 0, phis)
-            if len(phis) == 0:
-                stat[2] += 1 
-                continue
-
-            rat = prod( u[3] for _, u in c )
-            for phi_d_dim in phis:
-
-                phi = phi_d_dim[0]
-
-                # determine degree bound 
-                d = phi_d_dim[1] - alpha
-                if d < 0:
-                    stat[4] += 1
-                    continue 
-
-                # find polynomial solutions 
-                sols = SELF.symmetric_product( S - rat/phi ).polynomial_solutions(degree = d)
-
-                # register number of solutions found 
-                for u in c: u[1][1] -= len(sols) 
-                phi_d_dim[2] -= len(sols)
-
-                # store factors
-                for p in sols:
-                    info(1, "Factor found.")
-                    factors.append( (rat*p[0]*S - phi*sigma(p[0])).normalize() )
-                    if early_termination:
-                        return factors
-
-        info(1, "%i combinations have been investigated in total. Of them:" % stat[0])
-        stat[1] -= stat[2] + stat[3] + stat[4]
-        info(1, "--  %i were discarded by dimension arguments (%.4f%%)" % (stat[2], 100.0*stat[2]/stat[0] ) )
-        info(1, "--  %i were discarded by the Fuchs-relation (%.4f%%)" % (stat[3], 100.0*stat[3]/stat[0] ) )
-        info(1, "--  %i were discarded by negative degree bound (%.4f%%)" % (stat[4], 100.0*stat[4]/stat[0] ) )
-        info(1, "--  %i the polynomial solver was called on (%.4f%%)" % (stat[1], 100.0*stat[1]/stat[0] ) )
-        info(1, "We have found %i factors." % len(factors))
-
-        return factors
-
-    def finite_singularities(self):
-        """
-        Returns a list of all the finite singularities of this operator. 
-
-        OUTPUT:
-
-           For each finite singularity of the operator, the output list contains a pair (p, u) where
-
-           * p is an irreducible polynomial, representing the finite singularity rootof(p)+ZZ
-
-           * u is a list of pairs (v, dim, bound), where v is an integer that appears as valuation growth
-             among the solutions of the operator, and bound is a polynomial (or rational function) such 
-             that all the solutions of valuation growth v can be written f/bound*Gamma(x-rootof(p))^v 
-             where f has minimal valuation almost everywhere. dim is a bound for the number of distinct
-             hypergeometric solutions that may have this local behaviour at rootof(p)+ZZ.
-
-        EXAMPLES::
-
-           sage: R.<x> = ZZ['x']; A.<Sx> = OreAlgebra(R)
-           sage: (x^2*(x+1)*Sx + 3*(x+1/2)).finite_singularities()
-           [(x + 1/2, [[1, 1, 1]]), (x, [[-3, 1, x]])]
-        
-        """
-
-        from sage.matrix.constructor import matrix
-        from sage.rings.finite_rings.all import GF
-        from sage.rings.laurent_series_ring import LaurentSeriesRing
-
-        R = self.parent().base_ring().fraction_field().base()
-        R = R.change_ring(R.base_ring().fraction_field())
-        A = self.parent().change_ring(R)
-        L = A(self.normalize())
-        assert(not L.is_zero())
-
-        sigma = L.parent().sigma()
-        coeffs = L.coeffs()
-        while coeffs[0].is_zero(): # make trailing coefficient nonzero
-            coeffs = [sigma(coeffs[i], -1) for i in xrange(1, len(coeffs))]
-        L = L.parent()(coeffs)
-        r = L.order()
-
-        output = []
-        lctc_factors = shift_factor(L[0]*L[r])
-        tc_factor_dict = dict( (u, sum(w for _, w in v) - 1) for u, v in 
-                               shift_factor(prod(u for u, _ in lctc_factors)*L[0]) )
-        lc_factor_dict = dict( (u, sum(w for _, w in v) - 1) for u, v in 
-                               shift_factor(prod(u for u, _ in lctc_factors)*L[r]) )
-
-        for pol, e in lctc_factors:
-
-            # we go from left to right. 
-            # left-most critical point is rootof(pol) - e[-1][0], right-most critical point is rootof(pol)
-
-            # search for a prime such that pol has a root xi in C:=GF(prime). 
-            if pol.degree() == 0:
-                continue
-            elif pol.degree() == 1:
-                C = GF(pp(2**23)); xi = C(-pol[0]/pol[1]) 
-            else:
-                modulus = 2**23; done = False
-                while not done:
-                    modulus = pp(modulus); C = GF(modulus)
-                    for u, _ in pol.change_ring(C).factor():
-                        if u.degree() == 1:
-                            xi = -u[0]/u[1]; done = True; break
-                
-            x = L.parent().base_ring().change_ring(C).gen() 
-            sigma_mod = L.change_ring(x.parent()).parent().sigma()
-            coeffs = [sigma_mod(p.change_ring(C), ZZ(xi - r)) for p in L] # recycling the symbol x as epsilon here. 
-            coeffs.reverse()
-            coeffs[0] = -coeffs[0]
-
-            # valuation growth can get at most val_range_bound much more than min 
-            val_range_bound = lc_factor_dict[pol] + tc_factor_dict[pol] + 1
-            R = LaurentSeriesRing(C, str(x), default_prec=val_range_bound)
-
-            def prolong(l, n):
-                ## given a list of values representing the values of a laurent series sequence solution
-                ## at ..., xi+n-2, xi+n-1, this appends the value at xi+n to the list l.
-                ## the list l has to have at least r elements. 
-                l.append(sum(l[-i]*sigma_mod(coeffs[i], n) for i in xrange(1, r + 1))/sigma_mod(coeffs[0], n))
-
-            # compute a C-basis of solutions in C((eps))^ZZ with 
-            sols = [ ]; 
-            for i in xrange(r):
-                sol = [ R.zero() for j in xrange(r) ]; sol[i] = R.one()
-                sols.append(sol)
-                for n in xrange(-e[-1][0], r + 1):
-                    prolong(sol, C(n))
-
-            valuation_growths = []; 
-
-            while True:
-
-                # determine the minimum valuation on the right of the solution which are still in the game
-                v = min( s[-i].valuation() for s in sols for i in xrange(1, r + 1) if not s[-i].is_zero() )
-
-                # determine the dimension of the corresponding subspace of V_{ZZ_{<=ql}}
-                dim = len(sols) - matrix(C, [ [u[0] for u in s[:r]] for s in sols ]).left_kernel().dimension()
-                # break the loop when nothing is left
-                if dim == 0:
-                    break
-
-                # determine the corresponding denominator bound
-                denbound = []
-                for n in xrange(r, len(sols[0]) - r):
-                    k = min( [s[n].valuation() for s in sols if not s[n].is_zero()] + [val_range_bound] )
-                    denbound.append((e[-1][0] - n + r, -k))
-                for n in xrange(len(sols[0]) - r, len(sols[0])):
-                    k = min( [s[n].valuation() for s in sols if not s[n].is_zero()] + [val_range_bound] )
-                    denbound.append((e[-1][0] - n + r, v - k))
-
-                # record this information
-                valuation_growths.append( [v, dim, denbound] )
-
-                # determine the C-linear combinations which kill all the lowest valuation terms on the right
-                ker = matrix(C, [[u[v] for u in s[-r:]] for s in sols]).left_kernel().basis()
-                if len(ker) == 0:  # I guess this can't happen, but if it does, it only means we are done.
-                    break
-
-                # apply these linear combinations such as to restrict to the corresponding subspace of solutions
-                # -- most of the time is spent here. any ideas for improvements? 
-                ker = [ map(R, list(k)) for k in ker ]
-                sols = [ [ sum(k[i]*sols[i][n] for i in xrange(len(k))) for n in xrange(len(sols[0])) ] for k in ker ] \
-                    + [ [ x*s[n] for n in xrange(len(s)) ] for s in sols]
-
-            # change dimension ">=" to dimension "=", discard those with dimension 0, evaluate denominator bound
-            for i in xrange(len(valuation_growths) - 1):
-                valuation_growths[i][1] -= valuation_growths[i + 1][1]
-            valuation_growths = filter(lambda v: v[1] > 0, valuation_growths)
-            for v in valuation_growths:
-                v[2] = prod(sigma(pol, i)**j for i, j in v[2] if j!=0)
-
-            # record information for this singularity
-            output.append( (pol, valuation_growths) )
-
-        return output
-
     def _infinite_singularity(self):
         """
         Simplified version of generalized_series_solutions, without subexponential parts, without 
@@ -3164,7 +3210,7 @@ class UnivariateQRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverU
 
         The output is the list of all tuples `(gamma, phi, beta, alpha)` such that for every
         q-hypergeometric solution `f` of this operator (over the same constant field) there
-        is a tuple with such that 
+        is a tuple such that 
         `f(q*x)/f(x) = phi * x^gamma * rat(q*x)/rat(x) * \prod_m (1-a_m*x)^{e_m}` 
         with `\sum_m e_m = beta` and `deg(num(rat)) - deg(den(rat)) + \prod_m (-a_m)^{e_m} = alpha`.
 
