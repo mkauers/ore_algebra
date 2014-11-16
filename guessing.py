@@ -5,10 +5,12 @@ guessing
 
 """
 
+
 #############################################################################
-#  Copyright (C) 2013 Manuel Kauers (mkauers@gmail.com),                    #
-#                     Maximilian Jaroschek (mjarosch@risc.jku.at),          #
-#                     Fredrik Johansson (fjohanss@risc.jku.at).             #
+#  Copyright (C) 2013, 2014                                                 #
+#                Manuel Kauers (mkauers@gmail.com),                         #
+#                Maximilian Jaroschek (mjarosch@risc.jku.at),               #
+#                Fredrik Johansson (fjohanss@risc.jku.at).                  #
 #                                                                           #
 #  Distributed under the terms of the GNU General Public License (GPL)      #
 #  either version 2, or (at your option) any later version                  #
@@ -29,7 +31,8 @@ except:
 
 from sage.rings.integer_ring import ZZ
 from sage.rings.rational_field import QQ
-from sage.rings.finite_rings.all import GF, is_FiniteField
+from sage.rings.finite_rings.all import GF
+from sage.rings.finite_rings.finite_field_base import is_FiniteField
 from sage.matrix.constructor import Matrix, matrix
 from sage.rings.arith import xgcd
 from sage.parallel.decorate import parallel
@@ -142,9 +145,8 @@ def guess(data, algebra, **kwargs):
     A = algebra; R = A.base_ring(); K = R.base_ring(); x = R.gen()
 
     if type(data) == str:
-        f = open(data, 'r')
-        data = [ K(line) for line in f ]
-        f.close()
+        with open(data, 'r') as f:
+            data = [ K(line) for line in f ]
 
     if A.ngens() > 1 or R.ngens() > 1:
         raise TypeError, "unexpected algebra: " + str(A)
@@ -803,9 +805,9 @@ def _guess_via_gcrd(data, A, **kwargs):
 from sage.ext.multi_modular import MAX_MODULUS
 from sage.rings.arith import previous_prime as pp
 
-def _word_size_primes(init=2**30, bound=1000):
+def _word_size_primes(init=2**23, bound=1000):
     """
-    returns an iterator which enumerates the primes smaller than ``init`` and ``bound``,
+    returns an iterator which enumerates the primes smaller than ``init`` and bigger than ``bound``,
     in decreasing order. 
     """
     p = pp(init)

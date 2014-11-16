@@ -9,9 +9,10 @@ one generator.
 """
 
 #############################################################################
-#  Copyright (C) 2013 Manuel Kauers (mkauers@gmail.com),                    #
-#                     Maximilian Jaroschek (mjarosch@risc.jku.at),          #
-#                     Fredrik Johansson (fjohanss@risc.jku.at).             #
+#  Copyright (C) 2013, 2014                                                 #
+#                Manuel Kauers (mkauers@gmail.com),                         #
+#                Maximilian Jaroschek (mjarosch@risc.jku.at),               #
+#                Fredrik Johansson (fjohanss@risc.jku.at).                  #
 #                                                                           #
 #  Distributed under the terms of the GNU General Public License (GPL)      #
 #  either version 2, or (at your option) any later version                  #
@@ -396,32 +397,32 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
 
         Depending on the algebra in which this operator lives, restrictions on ``p`` may apply.
         """
-
-        ## generic implementation for p=x and p=1/x
         assert(not self.is_zero())
 
         coeffs = self.change_ring(self.parent().base_ring().fraction_field().ring()).normalize().coeffs()
         x = coeffs[0].parent().gen()
 
-        if p == x:
-            points = [ (QQ(i), QQ(coeffs[i].valuation(p))) for i in xrange(len(coeffs)) if coeffs[i]!=0 ]
-            flip = 1 
-        elif (x*p).is_one():
+        if (x*p).is_one():
             points = [ (QQ(i), QQ(coeffs[i].degree())) for i in xrange(len(coeffs)) if coeffs[i]!=0 ]
+            coeffs = dict( (i, coeffs[i].leading_coefficient()) \
+                           for i in xrange(len(coeffs)) if coeffs[i]!=0 )
             flip = -1
         else:
-            raise NotImplementedError
+            points = [ (QQ(i), QQ(coeffs[i].valuation(p))) for i in xrange(len(coeffs)) if coeffs[i]!=0 ]
+            coeffs = dict( (i, (coeffs[i]//p**coeffs[i].valuation(p))(0)) \
+                           for i in xrange(len(coeffs)) if coeffs[i]!=0 )
+            flip = 1 
 
         output = []; k = 0; infty = max([j for _, j in points]) + 2
         while k < len(points) - 1:
             (i1, j1) = points[k]; m = infty
-            poly = coeffs[i1][j1]
+            poly = coeffs[i1]
             for l in xrange(k + 1, len(points)):
                 (i2, j2) = points[l]; m2 = flip*(j2 - j1)/(i2 - i1)
                 if m2 == m:
-                    k = l; poly += coeffs[i2][j2]*x**(i2-i1)
+                    k = l; poly += coeffs[i2]*x**(i2 - i1)
                 elif m2 < m:
-                    m = m2; k = l; poly = coeffs[i1][j1] + coeffs[i2][j2]*x**(i2-i1)
+                    m = m2; k = l; poly = coeffs[i1] + coeffs[i2]*x**(i2 - i1)
             output.append((m, poly))
         
         return output
@@ -933,7 +934,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
             den = 1
             for n in xrange(r, len(sols[0])):
                 k = min( [s[n].valuation() for s in sols if not s[n].is_zero()] + [val_range_bound] )
-                den *= sigma(pol, e[-1][0] - n + r)**(-k + (vg_min if n > len(sols[0]) - r else 0))
+                den *= sigma(pol, e[-1][0] - n + r)**max(0, (-k + (vg_min if n > len(sols[0]) - r else 0)))
 
             # B. GOING FROM RIGHT TO LEFT
             coeffs = map(change_of_variables(C, xi, 0), L.coeffs())
@@ -954,9 +955,29 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
 
         return output
 
+    def left_factors(self, order=1, early_termination=False, infolevel=0):
+        """
+        Returns a list of left-hand factors of this operator.
+
+        This is a convenience method which simply returns the adjoints of the right factors
+        of the adjoint of self. See docstring of adjoint and right_factors for further information.
+        The method works only in algebras for which adjoint and right_factors are implemented.
+
+        EXAMPLES::
+
+           sage: R.<x> = ZZ[]; A.<Sx> = OreAlgebra(R)
+           sage: (((x+1)*Sx + (x+5))*(2*x*Sx + 3)).left_factors()
+           [[(-x - 1)*Sx - x - 5]]
+           sage: (((x+1)*Sx + (x+5))*(2*x*Sx + 3)).right_factors()
+           [[x*Sx + 3/2]]
+
+        """
+        return [[f.adjoint() for f in F] for F in 
+                self.adjoint().right_factors(order, early_termination, infolevel)]
+
     def right_factors(self, order=1, early_termination=False, infolevel=0):
         """
-        Returns a list of first-order right hand factors of this operator. 
+        Returns a list of right hand factors of this operator. 
 
         INPUT:
 
@@ -1102,19 +1123,20 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         info(1, "Local data at infinity (for each val-growth, list of triples [gamma,phi,max_alpha,dim]): " 
              + str(special_local_data))
 
-        # 3. handle special case: no finite singularities at all. (viz. only poly-exponential solutions)
-        info(1, "Searching for factors with singularities only at special points.")
-        for gamma, phi, d, _ in special_local_data.setdefault(0, []):
-            if d in ZZ and d >= 0:
-                f = []
-                for p in SELF.symmetric_product(phi*x**gamma*S - 1).polynomial_solutions(degree=d):
-                    f.append( (p[0]*S - phi*x**gamma*sigma(p[0])).normalize() )
-                if len(f) > 0:
-                    factors.append(f)
-                    if early_termination:
-                        return factors
-        if len(finite_local_data) == 0:
-            return factors
+        # 3. search for factors without valuation growth if there is no combination corresponding to this case.
+        if len(finite_local_data) == 0 or not all(any(v[0]==0 for v in u) for _, u in finite_local_data):
+            info(1, "Searching for factors with singularities only at special points.")
+            for gamma, phi, d, _ in special_local_data.setdefault(0, []):
+                if d in ZZ and d >= 0:
+                    f = []
+                    for p in SELF.symmetric_product(phi*x**gamma*S - 1).polynomial_solutions(degree=d):
+                        f.append( (p[0]*S - phi*x**gamma*sigma(p[0])).normalize() )
+                    if len(f) > 0:
+                        factors.append(f)
+                        if early_termination:
+                            return factors
+            if len(finite_local_data) == 0:
+                return factors
 
         # 4. construct iterator that enumerates all combinations of all local singular solutions
         def combs(local_data):
@@ -1133,9 +1155,6 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         stat = [prod(len(u[1]) for u in finite_local_data), 0, 0, 0, 0]
         for c in combs(finite_local_data):
 
-            if all(u[4]==0 for _, u in c):
-                continue
-            
             if stat[1] > 0 and stat[1] % 1000 == 0:
                 info(2, "%i/%i combinations completed (%.2f%%)" % (stat[1], stat[0], 100.0*stat[1]/stat[0]))
                 info(3, "%.2f%% disc. by dimension, %.2f%% disc. by Fuchs-relation, %.4f%% disc. by degree, %.4f%% actually solved" % tuple(map(lambda u: 100.0*u/stat[1], [stat[2], stat[3], stat[4], stat[1] - (stat[2]+stat[3]+stat[4])])))
@@ -1596,7 +1615,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
           sage: L.generalized_series_solutions()
           [exp(a_0*x^(-1/2))]
           sage: _[0].base_ring()
-          Number Field in a_0 with defining polynomial c^2 - 2
+          Number Field in a_0 with defining polynomial y^2 - 2
 
         """
 
@@ -1871,6 +1890,22 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
 
     def _powerIndicator(self):
         return self.leading_coefficient()    
+
+    def finite_singularities(self):
+
+        R = self.parent().base_ring().fraction_field().base()
+        R = R.change_ring(R.base_ring().fraction_field())
+        A = self.parent().change_ring(R)
+        L = A(self.normalize())
+        assert(not L.is_zero())
+
+        local_data = []
+        for p in make_factor_iterator(R, False)(L.leading_coefficient()):
+            pass
+
+        raise NotImplementedError
+
+    finite_singularities.__doc__ = UnivariateOreOperatorOverUnivariateRing.finite_singularities.__doc__
 
 #############################################################################################################
 
@@ -3208,15 +3243,17 @@ class UnivariateQRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverU
         Returns information about the local behaviour of this operator's solutions at x=0 and
         at x=infinity.
 
-        The output is the list of all tuples `(gamma, phi, beta, alpha)` such that for every
+        The output is a list of all tuples `(gamma, phi, beta, alpha)` such that for every
         q-hypergeometric solution `f` of this operator (over the same constant field) there
         is a tuple such that 
         `f(q*x)/f(x) = phi * x^gamma * rat(q*x)/rat(x) * \prod_m (1-a_m*x)^{e_m}` 
-        with `\sum_m e_m = beta` and `deg(num(rat)) - deg(den(rat)) + \prod_m (-a_m)^{e_m} = alpha`.
+        with `\sum_m e_m = beta` and `q^(deg(num(rat)) - deg(den(rat)))*\prod_m (-a_m)^{e_m} = alpha`.
 
         EXAMPLES::
 
-          sage: ...
+          sage: R.<x> = QQ['x']; A.<Qx> = OreAlgebra(R, q=2) 
+          sage: ((2*x+3)*Qx - (8*x+3)).lclm(Qx-1)._local_data_at_special_points()
+          [(0, 2, 0, 2), (0, 2, 0, 1/2), (0, 1, 0, 4), (0, 1, 0, 1)]
 
         """
 

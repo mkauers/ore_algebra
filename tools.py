@@ -20,6 +20,7 @@ collection of auxiliary functions.
 
 from sage.structure.element import RingElement, canonical_coercion
 from sage.rings.arith import gcd, lcm, previous_prime as pp
+from sage.rings.qqbar import QQbar
 from sage.rings.rational_field import QQ
 from sage.rings.integer_ring import ZZ
 from sage.rings.complex_field import ComplexField
@@ -71,16 +72,16 @@ def make_factor_iterator(ring, multiplicities=True):
     """
     R = ring.ring() if ring.is_field() else ring 
     x = R.gen(); C = R.base_ring().fraction_field()
-    if C is QQ:
+    if C in (QQ, QQbar):
         flush = (lambda p: R(p.numerator())) if R.base_ring() is ZZ else (lambda p: p)
         if multiplicities:
             def factors(p):
-                for f, e in QQ[x](p).factor():
+                for f, e in C[x](p).factor():
                     if f.degree() > 0:
                         yield flush(f), e
         else:
             def factors(p):
-                for f, e in QQ[x](p).factor():
+                for f, e in C[x](p).factor():
                     if f.degree() > 0:
                         yield flush(f)
     elif C.base_ring() in (ZZ, QQ) and C == C.base_ring()[R.base_ring().gens()].fraction_field():
@@ -99,7 +100,7 @@ def make_factor_iterator(ring, multiplicities=True):
                     if u.degree(x_ext) > 0:
                         yield R(u)
     else:
-        raise NotImplementedError
+        raise NotImplementedError, ring 
 
     return factors
 

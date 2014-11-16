@@ -34,9 +34,10 @@ AUTHOR:
 """
 
 #############################################################################
-#  Copyright (C) 2013 Manuel Kauers (mkauers@gmail.com),                    #
-#                     Maximilian Jaroschek (mjarosch@risc.jku.at),          #
-#                     Fredrik Johansson (fjohanss@risc.jku.at).             #
+#  Copyright (C) 2013, 2014                                                 #
+#                Manuel Kauers (mkauers@gmail.com),                         #
+#                Maximilian Jaroschek (mjarosch@risc.jku.at),               #
+#                Fredrik Johansson (fjohanss@risc.jku.at).                  #
 #                                                                           #
 #  Distributed under the terms of the GNU General Public License (GPL)      #
 #  either version 2, or (at your option) any later version                  #
@@ -45,12 +46,13 @@ AUTHOR:
 #############################################################################
 
 
+"""
 ######### development mode ###########
 
 if True:
 
     # let load("ore_algebra") trigger reload of the modules in the list below
-    for mod in ['nullspace', 'ore_operator', 'ore_operator_1_1', 'ore_operator_mult', 'generalized_series']:
+    for mod in ['nullspace', 'ore_operator', 'ore_operator_1_1', 'ore_operator_mult', 'generalized_series', 'tools']:
         try:
             del sys.modules[mod]
         except:
@@ -70,7 +72,7 @@ if True:
             pass
 
 #######################################
-
+"""
 
 def taylor_shift_univ_int_poly(p, i):
     ## assuming that p is an element of ZZ['x']
