@@ -738,7 +738,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
 
     def radical(self):
         """
-        Computes the radical of an Ore polynomials P, i.e. an operator L and an integer k such that P=L^k and k is maximal among all the integers for which such an L exists.
+        Computes the radical of an Ore polynomial P, i.e. an operator L and an integer k such that P=L^k and k is maximal among all the integers for which such an L exists.
 
         OUTPUT:
 
