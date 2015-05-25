@@ -597,7 +597,7 @@ def _gauss(pivot, ncpus, fun, mat, degrees, infolevel):
 
     _info(infolevel, "Constructing", dim, "nullspace basis vectors.", alter = -1)
 
-    sol = [[ zero for i in xrange(m) ] for  j in xrange(dim) ]
+    sol = [[ zero for i in xrange(m) ] for j in xrange(dim) ]
     for i in xrange(dim):
         sol[-i-1][-i-1] = one
 
@@ -895,7 +895,7 @@ def _kronecker(subsolver, presolver, mat, degrees, infolevel):
     if not R == PolynomialRing(K, x):
         raise TypeError 
     
-    # 1. for each variable (except the last), determine the maximal degree of the nullspace basis
+    # 1. for each variable, determine the maximal degree of the nullspace basis
     Kimg = GF(pp(MAX_MODULUS)) if K.characteristic() == 0 else K
     Rimg = Kimg[x0]
     if len(degrees) < len(x) - 1:
@@ -928,6 +928,7 @@ def _kronecker(subsolver, presolver, mat, degrees, infolevel):
         return Rimg(terms)
     
     # 3. subsolver in k[x]
+    from sage.misc.all import prod
     sol = subsolver(mat.apply_map(phi, Rimg), degrees=[prod(degrees)], infolevel=_alter_infolevel(infolevel, -1, 1))
 
     # 4. undo kronecker substitution x^u |--> prod(x[i]^(u quo degprod[i-1] rem deg[i]), i=0..len(x))
@@ -1344,6 +1345,14 @@ def _cra(subsolver, max_modulus, proof, ncpus, mat, degrees, infolevel):
         if len(x) == 1:
             true_degrees = [max(max(e.degree() for e in v) for v in Vp)]
         else:
+            print "==="
+            for x0 in x:
+                print x0.parent()
+            print "---"
+            for v in Vp:
+                for e in v:
+                    print e.parent()
+            print "==="
             true_degrees = [max(max(e.degree(x0) for e in v) for v in Vp) for x0 in x]
             
         if len(degrees) != len(x):
