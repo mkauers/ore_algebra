@@ -451,7 +451,8 @@ def bound_polynomials(pols):
     # Returns a majorant, _not_ a polynomial with interval coefficients
     # enclosing the absolute values or anything like that!
     PolyIC = pols[0].parent().change_ring(IC)
-    length = 1 + max(pol.degree() for pol in pols)
+    val = min(0, min(pol.valuation() for pol in pols))
+    deg = max(pol.degree() for pol in pols)
     pols = [PolyIC(pol) for pol in pols] # TBI
     order = Integer(len(pols))
     PolyIR = PolyIC.change_ring(IR)
@@ -459,7 +460,7 @@ def bound_polynomials(pols):
         IR.zero().max(*(
             abs(pols[k][n])/(order-1).binomial(k)
             for k in xrange(order)))
-        for n in xrange(length) ])
+        for n in xrange(val, deg + 1) ])
     maj = maj.map_coefficients(lambda iv: IR(iv.magnitude()))
     return maj
 
