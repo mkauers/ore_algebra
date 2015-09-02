@@ -48,6 +48,10 @@ class StepMatrix(object):
         self.Mat_big_scalars = rec_mat.parent().change_ring(self.BigScalars)
 
     def imulleft(low, high):
+        # TODO: Still very slow.
+        # - use polynomials (mul_trunc and friends) rather than power series?
+        # - rewrite everything using lower-level operations...
+        # - consider special-casing ℚ[i]
         mat = high.Mat_big_scalars.matrix(
                 [high.BigScalars(x, check=False)
                  for x in low.rec_mat.list()],
@@ -226,6 +230,9 @@ class MatrixRec(object):
 
         Series_sums = PowerSeriesRing(AlgInts_sums, 'delta')
         assert Series_sums.base_ring() is AlgInts_sums
+        # for speed
+        self.Series_sums = Series_sums
+        self.series_class_sums = type(Series_sums.gen())
 
         Mat_rec = MatrixSpace(AlgInts_rec, self.ordrec, self.ordrec)
         self._eval_template = StepMatrix(
@@ -238,7 +245,7 @@ class MatrixRec(object):
 
     def __call__(self, n):
         stepmat = self._eval_template.copy()
-        stepmat.rec_den = self.rec_den(self.rec_den.base_ring()(n))
+        stepmat.rec_den = self.rec_den(n)
         for i in xrange(self.ordrec-1):
             stepmat.rec_mat[i, i+1] = stepmat.rec_den
         for i in xrange(self.ordrec):
@@ -247,6 +254,7 @@ class MatrixRec(object):
         # here
         # XXX: should we give a truncation order?
         den = stepmat.rec_den * stepmat.pow_den
+        den = self.series_class_sums(self.Series_sums, den)
         stepmat.sums_row[0, self.orddiff] = den
         #R = stepmat.sums_row.base_ring().base_ring()
         #assert den.parent() is R or den.parent() != R
