@@ -36,7 +36,7 @@ logger = logging.getLogger(__name__)
 IR = RIF # TBI
 IC = rings.CIF
 
-QQi = number_field.QuadraticField(-1)
+QQi = number_field.QuadraticField(-1, 'i')
 
 ######################################################################
 # Points
@@ -153,6 +153,14 @@ class Point(SageObject):
 
     def local_diffop(self): # ?
         Pols = pushout.pushout(self.dop.base_ring(), self.value.parent())
+        # FIXME: pushout(QQ[x], K) doesn't handle embeddings well, and creates
+        # an L equal but not identical to K. But then other constructors like
+        # PolynomialRing(L, x) sometimes return objects over K found in cache,
+        # leading to lots of problems with slow coercions
+        #A, B = self.dop.base_ring().base_ring(), self.value.parent()
+        #C = Pols.base_ring()
+        #assert C is A or C != A
+        #assert C is B or C != B
         dop_P = self.dop.change_ring(Pols)
         return dop_P.annihilator_of_composition(Pols([self.value, 1]))
 
