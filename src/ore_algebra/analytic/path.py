@@ -152,15 +152,21 @@ class Point(SageObject):
         return IR(min_dist.lower())
 
     def local_diffop(self): # ?
-        Pols = pushout.pushout(self.dop.base_ring(), self.value.parent())
-        # FIXME: pushout(QQ[x], K) doesn't handle embeddings well, and creates
+        Pols_dop = self.dop.base_ring()
+        # NOTE: pushout(QQ[x], K) doesn't handle embeddings well, and creates
         # an L equal but not identical to K. But then other constructors like
         # PolynomialRing(L, x) sometimes return objects over K found in cache,
-        # leading to lots of problems with slow coercions
-        #A, B = self.dop.base_ring().base_ring(), self.value.parent()
-        #C = Pols.base_ring()
-        #assert C is A or C != A
-        #assert C is B or C != B
+        # leading to endless headaches with slow coercions. But the version here
+        # may be closer to what I really want in any case.
+        # XXX: This seems to work in the usual trivial case where we are looking
+        # for a scalar domain containing QQ and QQ[i], but probably won't be
+        # enough if we really have two different number fields with embeddings
+        Scalars = pushout.pushout(Pols_dop.base_ring(), self.value.parent())
+        Pols = Pols_dop.change_ring(Scalars)
+        A, B = self.dop.base_ring().base_ring(), self.value.parent()
+        C = Pols.base_ring()
+        assert C is A or C != A
+        assert C is B or C != B
         dop_P = self.dop.change_ring(Pols)
         return dop_P.annihilator_of_composition(Pols([self.value, 1]))
 

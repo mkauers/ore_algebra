@@ -224,10 +224,6 @@ class MatrixRec(object):
         assert AlgInts_sums is AlgInts_rec or AlgInts_sums != AlgInts_rec
         assert AlgInts_sums is AlgInts_pow or AlgInts_sums != AlgInts_pow
 
-        ### Work around NumberField uniqueness issues
-        from sage.rings.power_series_ring import PowerSeriesRing_generic
-        PowerSeriesRing_generic._clear_cache_()
-        ###
         Series_sums = PowerSeriesRing(AlgInts_sums, 'delta')
         assert Series_sums.base_ring() is AlgInts_sums
 
@@ -252,6 +248,8 @@ class MatrixRec(object):
         # XXX: should we give a truncation order?
         den = stepmat.rec_den * stepmat.pow_den
         stepmat.sums_row[0, self.orddiff] = den
+        #R = stepmat.sums_row.base_ring().base_ring()
+        #assert den.parent() is R or den.parent() != R
         return stepmat
 
     def one(self):

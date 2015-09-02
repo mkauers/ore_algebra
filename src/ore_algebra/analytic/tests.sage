@@ -7,6 +7,8 @@ import ore_algebra.analytic.analytic_continuation as ancont
 import ore_algebra.analytic.path as path
 import ore_algebra.analytic.naive_sum as naive_sum
 
+import ore_algebra.analytic.binary_splitting
+
 from ore_algebra.analytic.ui import *
 
 from ore_algebra.analytic.path import Point
