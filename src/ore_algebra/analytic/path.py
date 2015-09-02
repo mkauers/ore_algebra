@@ -120,7 +120,7 @@ class Point(SageObject):
         return IC(self.value)
 
     def exact(self):
-        if isinstance(self.value, rings.NumberFieldElement):
+        if self.is_exact():
             return self
         raise ValueError
 
@@ -134,6 +134,9 @@ class Point(SageObject):
 
     def is_real(self):
         return RIF.has_coerce_map_from(self.value.parent())
+
+    def is_exact(self):
+        return isinstance(self.value, rings.NumberFieldElement)
 
     # Autre modèle possible, peut-être mieux : Point pourrait être juste un
     # point du plan complexe (ne pas connaître l'opérateur), et ce serait alors
@@ -275,6 +278,9 @@ class Step(SageObject):
 
     def plot(self):
         return plot.arrow2d(self.start.n(), self.end.n())
+
+    def is_exact(self):
+        return self.start.is_exact() and self.end.is_exact()
 
 class Path(SageObject):
     """
