@@ -14,6 +14,10 @@ points as well even when a more specialized version exists. One could have
 QuasiRegularPoints too, but combined with SingularPoints that would make the
 whole thing too complicated.)
 
+FIXME: silence deprecation warnings::
+
+    sage: def ignore(*args): pass
+    sage: sage.misc.superseded.warning=ignore
 """
 
 import logging
@@ -29,7 +33,7 @@ from sage.misc.cachefunc import cached_method
 from sage.rings.all import QQ, CC, RIF, QQbar, RLF, CLF
 from sage.structure.sage_object import SageObject
 
-from .utilities import *
+from ore_algebra.analytic.utilities import *
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +68,13 @@ class Point(SageObject):
         """
         TESTS::
 
-
+            sage: from ore_algebra.analytic.ui import *
+            sage: from ore_algebra.analytic.path import Point
+            sage: Dops, x, Dx = Diffops()
+            sage: [Point(z, Dx) 
+            ....:  for z in [1, 1/2, 1+I, QQbar(I), RIF(1/3), CIF(1/3), pi]]
+            [1, 1/2, 1 + 1*I, I, 0.3333333333333334?, 0.3333333333333334?,
+            3.141592653589794?]
         """
         SageObject.__init__(self)
 
@@ -72,25 +82,27 @@ class Point(SageObject):
         from sage.rings.complex_field import ComplexField_class
         from sage.rings.real_mpfi import RealIntervalField_class
         from sage.rings.complex_interval_field import ComplexIntervalField_class
+        parent = point.parent()
         if isinstance(point, Point):
             self.value = point.value
-        elif isinstance(point.parent(), (
+        elif isinstance(parent, (
                 number_field_base.NumberField,
                 RealIntervalField_class, ComplexIntervalField_class)): # ?
             self.value = point
-        elif QQ.has_coerce_map_from(point.parent()):
+        elif QQ.has_coerce_map_from(parent):
             self.value = QQ.coerce(point)
-        elif QQbar.has_coerce_map_from(point.parent()):
-            self.value = QQbar.coerce(point).as_number_field_element()[1]
-        elif isinstance(point.parent(), RealField_class):
-            self.value = rings.RealIntervalField(point.prec())(point) # ???
-        elif isinstance(point.parent(), ComplexField_class):
-            self.value = rings.ComplexIntervalField(point.prec())(point) # ???
-        elif point.parent() is sage.symbolic.ring.SR:
+        # must come before QQbar, due to a bogus coerce map
+        elif parent is sage.symbolic.ring.SR:
             try:
                 self.value = RLF(point)
             except TypeError:
                 self.value = CLF(point)
+        elif QQbar.has_coerce_map_from(parent):
+            self.value = QQbar.coerce(point).as_number_field_element()[1]
+        elif isinstance(parent, RealField_class):
+            self.value = rings.RealIntervalField(point.prec())(point) # ???
+        elif isinstance(parent, ComplexField_class):
+            self.value = rings.ComplexIntervalField(point.prec())(point) # ???
         else:
             try:
                 self.value = RLF.coerce(point)
@@ -102,6 +114,15 @@ class Point(SageObject):
         self.keep_value = False
 
     def _repr_(self):
+        """
+        TESTS::
+
+            sage: from ore_algebra.analytic.ui import *
+            sage: from ore_algebra.analytic.path import Point
+            sage: Dops, x, Dx = Diffops()
+            sage: Point(10**20, Dx)
+            ~1.0000e20
+        """
         try:
             len = (self.value.numerator().real().numerator().nbits() +
                    self.value.numerator().imag().numerator().nbits() +
@@ -145,6 +166,21 @@ class Point(SageObject):
     # l'opérateur... s'ils ont encore une raison d'être...)
 
     def dist_to_sing(self):
+        """
+        TESTS::
+
+            sage: from ore_algebra.analytic.ui import *
+            sage: from ore_algebra.analytic.path import Point
+            sage: Dops, x, Dx = Diffops()
+            sage: dop = (x^2 + 1)*Dx^2 + 2*x*Dx
+            sage: Point(1, dop).dist_to_sing()
+            1.4142135623730950?
+            sage: Point(i, dop).dist_to_sing()
+            0
+            sage: Point(1+i, dop).dist_to_sing()
+            1
+
+        """
         dist = [(self.iv() - s).abs() for s in dop_singularities(self.dop, IC)]
         min_dist = IR('inf').min(*dist)
         if min_dist.contains_zero():
@@ -177,11 +213,10 @@ class Point(SageObject):
         r"""
         EXAMPLES::
 
-            sage: from ore_algebra import OreAlgebra
-            sage: QQi.<i> = QuadraticField(-1)
-            sage: Pol.<x> = QQ[]; Dop.<Dx> = OreAlgebra(Pol)
-
+            sage: from ore_algebra.analytic.ui import *
             sage: from ore_algebra.analytic.path import Point
+            sage: Dops, x, Dx = Diffops()
+
             sage: dop = (x^2 + 1)*Dx^2 + 2*x*Dx
             sage: type(Point(1, dop).classify())
             <class 'ore_algebra.analytic.path.OrdinaryPoint'>
@@ -289,19 +324,47 @@ class Path(SageObject):
     Note that any analytic continuation plan is not necessarily a path (we may
     use a given transition matrix several times after computing it!).
 
-    Provides:
+    EXAMPLES::
 
-        sage: path[i]
-        <step>
+        sage: from ore_algebra.analytic.ui import *
+        sage: from ore_algebra.analytic.path import Path
+        sage: Dops, x, Dx = Diffops()
+        sage: dop = (x^2 + 1)*Dx^2 + 2*x*Dx
+
+        sage: path = Path([0, 1+I, CIF(2*I)], dop)
+        sage: path
+        0 --> 1 + 1*I --> 2*I
+        sage: path[0]
+        0 --> 1 + 1*I
+        sage: path.vert[0]
+        0
         sage: len(path)
-        <#steps>
-        sage: path.vert[i]
-        <point>
+        2
         sage: path.dop
+        (x^2 + 1)*Dx^2 + 2*x*Dx
+
+        sage: path.check_singularity()
+        sage: path.check_convergence()
+        Traceback (most recent call last):
         ...
+        ValueError: Step 1 + 1*I --> 2*I escapes from the disk of (guaranteed)
+        convergence of the solutions at 1 + 1*I
     """
 
     def __init__(self, vert, dop, classify=False):
+        """
+        TESTS::
+
+            sage: from ore_algebra.analytic.ui import *
+            sage: from ore_algebra.analytic.path import Path
+            sage: Dops, x, Dx = Diffops()
+            sage: dop = (x^2 + 1)*Dx^2 + 2*x*Dx
+
+            sage: Path([], Dx)
+            Traceback (most recent call last):
+            ...
+            ValueError: empty path
+        """
         SageObject.__init__(self)
         self.dop = dop
         if not vert:
@@ -346,10 +409,48 @@ class Path(SageObject):
         return gr
 
     def check_singularity(self):
+        """
+        EXAMPLES::
+
+            sage: from ore_algebra.analytic.ui import *
+            sage: from ore_algebra.analytic.path import Path
+            sage: Dops, x, Dx = Diffops()
+            sage: QQi.<i> = QuadraticField(-1, 'i')
+            sage: dop = (x^2 + 1)*Dx^2 + 2*x*Dx
+
+            sage: Path([0], dop).check_singularity()
+            sage: Path([1,3], dop).check_singularity()
+
+            sage: Path([42, 1+i/2, -1+3*i/2], dop).check_singularity()
+            Traceback (most recent call last):
+            ...
+            ValueError: Step 1/2*i + 1 --> 3/2*i - 1 passes through or too close
+            to singular point 1*I 
+
+            sage: Path([0, i], dop).check_singularity()
+            Traceback (most recent call last):
+            ...
+            ValueError: Step 0 --> i passes through or too close to singular
+            point 1*I
+        """
         for step in self:
             step.check_singularity()
 
     def check_convergence(self):
+        """
+        EXAMPLES::
+
+            sage: from ore_algebra.analytic.ui import *
+            sage: from ore_algebra.analytic.path import Path
+            sage: Dops, x, Dx = Diffops()
+            sage: dop = (x^2 + 1)*Dx^2 + 2*x*Dx
+            sage: Path([0, 1], dop).check_convergence()
+            Traceback (most recent call last):
+            ...
+            ValueError: Step 0 --> 1 escapes from the disk of (guaranteed)
+            convergence of the solutions at 0
+            sage: Path([1, 0], dop).check_convergence()
+        """
         for step in self:
             step.check_convergence()
 
