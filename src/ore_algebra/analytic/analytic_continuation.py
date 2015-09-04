@@ -21,6 +21,8 @@ class Context(object):
 
     def __init__(self, dop, path, eps, keep="last",
             summation_algorithm=None):
+        if not dop:
+            raise ValueError("operator must be nonzero")
         self.dop = dop
         # XXX: allow the user to specify their own Path
         self.path = self.initial_path = Path(path, self.dop, classify=True)
