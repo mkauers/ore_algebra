@@ -59,12 +59,8 @@ def transition_matrix(dop, path, eps):
     """
     EXAMPLES::
 
-        sage: from ore_algebra import *
         sage: from ore_algebra.analytic.ui import *
-        sage: QQi.<i> = QuadraticField(-1)
-        sage: Pol.<x> = QQ[]
-        sage: Dop.<Dx> = OreAlgebra(Pol)
-
+        sage: Dops, i, x, Dx = Diffops()
         sage: dop = (x^2 + 1)*Dx^2 + 2*x*Dx
 
         sage: transition_matrix(dop, [0, 1], 1e-20)
@@ -107,3 +103,26 @@ def polynomial_approximation_on_interval(dop, ini, path, rad, eps):
 
 def make_proc(xxx): # ??? - ou object DFiniteFunction ?
     pass
+
+def Diffops(sx='x'):
+    """
+    Return the Ore algebra of differential operators with polynomial
+    coefficients over ℚ(i), along with objects representing i, x and d/dx.
+
+    EXAMPLE::
+
+        sage: from ore_algebra.analytic.ui import *
+        sage: Dops, i, x, Dx = Diffops()
+        sage: Dops
+        Univariate Ore algebra in Dx over Univariate Polynomial Ring in x over
+        Number Field in i with defining polynomial x^2 + 1
+        sage: (x - i)*Dx + 1
+        (x - i)*Dx + 1
+    """
+    from sage.rings.number_field.number_field import QuadraticField
+    from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
+    from ore_algebra.ore_algebra import OreAlgebra
+    QQi, i = QuadraticField(-1, 'i').objgen()
+    Pol, x = PolynomialRing(QQi, sx).objgen()
+    Dop, Dx = OreAlgebra(Pol, 'D' + sx).objgen()
+    return Dop, i, x, Dx
