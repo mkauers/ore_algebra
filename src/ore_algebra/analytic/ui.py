@@ -94,18 +94,27 @@ def transition_matrix(dop, path, eps=1e-16):
         sage: dop = (x^2 + 1)*Dx^2 + 2*x*Dx
 
         sage: transition_matrix(dop, [0, 1], 1e-20)
-        [                      1 0.7853981633974483096...]
-        [                      0 0.5000000000000000000...]
+        [  1 0.7853981633974483096...]
+        [  0 0.5000000000000000000...]
 
         sage: transition_matrix(dop, [0, 1+i], 1e-10)
-        [                              1 1.017221967... + 0.402359478...*I]
-        [                              0 0.200000000... - 0.400000000...*I]
+        [  1 1.017221967... + 0.402359478...*I]
+        [  0 0.200000000... - 0.400000000...*I]
 
         sage: transition_matrix(dop, [0, i], 1e-10)
         Traceback (most recent call last):
         ...
-        ValueError: Step 0 --> I passes through or too close to
+        ValueError: Step 0 --> 1*I passes through or too close to
         singular point 1*I
+
+    An operator annihilating `\exp + \arctan`::
+
+        sage: transition_matrix(
+        ....:       (x+1)*(x^2+1)*Dx^3-(x-1)*(x^2-3)*Dx^2-2*(x^2+2*x-1)*Dx,
+        ....:       [0, 1+i], 1e-20)
+        [ 1  1.017... + 0.402...*I   -1.09... + 3.77...*I]
+        [ 0  0.200... - 0.400...*I    2.53... + 5.37...*I]
+        [ 0 -0.040... + 0.280...*I   1.548... + 1.72...*I]
 
     TESTS::
 
@@ -223,13 +232,16 @@ def multi_eval_diffeq(dop, ini, path, eps=1e-16):
 
         sage: from ore_algebra.analytic.ui import *
         sage: Dops, x, Dx = Diffops()
+        sage: QQi.<i> = QuadraticField(-1, 'I')
 
     The logarithm::
 
         sage: multi_eval_diffeq(Dx*x*Dx, ini=[0, 1], path=[1, i, -1])
         [(1, 0),
-         (I, 0...e-17 + 1.570796326794896...*I),
+         (i, 0...e-17 + 1.570796326794896...*I),
          (-1, 0...e-16 + 3.14159265358979...*I)]
+
+    XXX: make similar examples work with points in RLF/CLF (bug with binsplit?)
 
     TESTS::
 
