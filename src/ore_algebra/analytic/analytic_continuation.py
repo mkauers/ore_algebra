@@ -121,9 +121,12 @@ def analytic_continuation(ctx, ini=None, post=None):
     XXX: coerce ini and post into the appropriate ring, adjust eps...
     """
     if isinstance(ini, list): # should this be here?
-        ini = matrix(ctx.dop.order(), 1, ini)
+        try:
+            ini = matrix(ctx.dop.order(), 1, ini)
+        except (TypeError, ValueError):
+            raise ValueError("incorrect initial values: {}".format(ini))
 
-    eps1 = (ctx.eps/len(ctx.path)) >> 2 # TBI
+    eps1 = (ctx.eps/(1 + len(ctx.path))) >> 2 # TBI
     prec = prec_from_eps(eps1) # TBI
     ring = (rings.RealIntervalField(prec) if ctx.real()
             else rings.ComplexIntervalField(prec))
@@ -136,7 +139,7 @@ def analytic_continuation(ctx, ini=None, post=None):
             if ini is not None:  value = value*ini
             if post is not None: value = post*value
             res.append((point.value, value))
-    store_value_if_wanted(ctx.path[0].start)
+    store_value_if_wanted(ctx.path.vert[0])
     for step in ctx.path:
         step_mat = step_transition_matrix(ctx, step, ring, eps1)
         path_mat = step_mat*path_mat

@@ -314,7 +314,7 @@ class Path(SageObject):
     def __getitem__(self, i):
         "Return the i-th step of self"
         if len(self.vert) < 2:
-            return None
+            raise IndexError
         else:
             return Step(self.vert[i], self.vert[i+1])
 
