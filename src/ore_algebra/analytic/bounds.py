@@ -56,8 +56,8 @@ class MajorantSeries(object):
         if not safe_le(rad, self.cvrad): # intervals!
             return IR(infinity)
         else:
-            return self._bound_doit(rad, **kwds)
-    def _bound_doit(self, rad):
+            return self._bound(rad, **kwds)
+    def _bound(self, rad):
         # pourrait en général renvoyer quelque chose de plus simple à calculer
         # que self(rad), ou être implémenté alors que __call__ ne l'est pas
         return self(rad)
@@ -154,7 +154,7 @@ class HyperexpMajorant(MajorantSeries):
         integrand = self.integrand(dummy)
         return self.rat.value() * integrand.integral(dummy, hold=True).exp()
 
-    def _bound_doit(self, rad, derivatives=1):
+    def _bound(self, rad, derivatives=1):
         """
         Bound the Frobenius norm of the vector
 
