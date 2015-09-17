@@ -5,9 +5,14 @@ Utilities
 (some of which could perhaps be upstreamed at some point)
 """
 
+import logging
+
 from sage.misc.cachefunc import cached_function
 from sage.misc.misc import cputime
 from sage.rings.qqbar import QQbar
+from sage.structure.element import parent
+
+logger = logging.getLogger(__name__)
 
 ######################################################################
 # Timing
@@ -40,6 +45,48 @@ class Stats(object):
                                     if isinstance(clock, Clock))
 
 ######################################################################
+# Safe comparisons
+######################################################################
+
+def _check_parents(a, b):
+    # comparison between different parent may be okay if the elements are
+    # instances of the same class (e.g., balls with different precisions)
+    if parent(a) is not parent(b) and type(a) is not type(b):
+        raise TypeError("unsafe comparison", parent(a), parent(b))
+
+def safe_lt(a, b):
+    _check_parents(a, b)
+    return a < b
+
+def safe_le(a, b):
+    _check_parents(a, b)
+    return a <= b
+
+def safe_gt(a, b):
+    _check_parents(a, b)
+    return a > b
+
+def safe_ge(a, b):
+    _check_parents(a, b)
+    return a >= b
+
+def safe_eq(a, b):
+    if parent(a) is not parent(b):
+        logger.debug("comparing elements of %s and %s",
+                     parent(a), parent(b))
+        return False
+    else:
+        return a == b
+
+def safe_ne(a, b):
+    if parent(a) is not parent(b):
+        logger.debug("comparing elements of %s and %s",
+                     parent(a), parent(b))
+        return True
+    else:
+        return a != b
+
+######################################################################
 # Differential operators
 ######################################################################
 
@@ -66,10 +113,3 @@ def is_interval_field(parent):
 
 def prec_from_eps(eps):
     return -eps.lower().log2().floor()
-
-def rad(iv):
-    "A version of rad/absolute_diameter that works uniformly for R/CIF(p)"
-    try:
-        return iv.absolute_diameter()/2  # exact div
-    except AttributeError:
-        return iv.diameter()/2  # exact div
