@@ -52,8 +52,6 @@ class MajorantSeries(object):
         self.cvrad = IR(cvrad)
     def __call__(self, z):
         raise NotImplementedError
-    def _repr_(self):
-        return repr(self(SR.var('z'))) # TBI: var name
     def bound(self, rad, **kwds):
         if not safe_le(rad, self.cvrad): # intervals!
             return IR(infinity)
@@ -102,7 +100,7 @@ class RationalMajorant(MajorantSeries):
         den = prod(lin(z)**mult for (lin, mult) in self.den)
         return self.pol(z) + self.num(z)/den
 
-    def _repr_(self):
+    def __repr__(self):
         res = ""
         if self.pol:
             Poly = self.pol.parent()
@@ -147,10 +145,11 @@ class HyperexpMajorant(MajorantSeries):
         else:
             raise TypeError
 
+    def __repr__(self):
+        return "({})*exp(int({}))".format(self.rat, self.integrand)
+
     def __call__(self, z):
         # TBI: variable names
-        # XXX: l'évaluation sur une variable de SR a pour effet
-        # indésirable de mettre le numérateur sous forme de Horner
         dummy = SR.var(z)
         integrand = self.integrand(dummy)
         return self.rat.value() * integrand.integral(dummy, hold=True).exp()
