@@ -100,10 +100,10 @@ class Point(SageObject):
         elif QQbar.has_coerce_map_from(parent):
             self.value = QQbar.coerce(point).as_number_field_element()[1]
         elif isinstance(parent, (RealField_class, RealIntervalField_class)):
-            self.value = rings.RealBallField(point.prec())(point)
+            self.value = RealBallField(point.prec())(point)
         elif isinstance(parent, (ComplexField_class,
                                  ComplexIntervalField_class)):
-            self.value = rings.ComplexBallField(point.prec())(point)
+            self.value = ComplexBallField(point.prec())(point)
         else:
             try:
                 self.value = RLF.coerce(point)
