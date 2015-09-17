@@ -19,6 +19,7 @@ from ore_algebra.ore_algebra import OreAlgebra
 from . import bounds, utilities
 
 from .bounds import bound_diffop
+from .utilities import safe_lt
 
 logger = logging.getLogger(__name__)
 
@@ -33,8 +34,19 @@ def series_sum_ordinary(dop, ini, pt, tgt_error,
     ordrec = rop.order()
     bwrec = [rop[ordrec-k](Pols.gen()-ordrec) for k in xrange(ordrec+1)]
 
+    if len(ini) != dop.order():
+        raise ValueError('need {} initial values'.format(dop.order()))
+    ini = Sequence(ini)
+
     if not isinstance(tgt_error, bounds.ErrorCriterion):
-        tgt_error = bounds.AbsoluteError(tgt_error)
+        input_is_precise = (
+                (pt.parent().is_exact()
+                    or safe_lt(bounds.IR(pt.rad()), tgt_error))
+                and all(safe_lt(bounds.IR(x.rad()), tgt_error) for x in ini))
+        tgt_error = bounds.AbsoluteError(tgt_error, input_is_precise)
+        if not input_is_precise:
+            logger.warn("input intervals too wide wrt request accuracy")
+
     rad = abs(bounds.IC(pt))
     if maj is None: # let's support calling this function directly...
         maj = bound_diffop(dop)
@@ -44,26 +56,32 @@ def series_sum_ordinary(dop, ini, pt, tgt_error,
     if isinstance(tgt_error, bounds.RelativeError) and derivatives > 1:
         raise TypeError("relative error only supported for derivatives == 0")
 
-    if len(ini) != dop.order():
-        raise ValueError('need {} initial values'.format(dop.order()))
-
-    return series_sum_ordinary_doit(bwrec, ini, pt, rad, tgt_error, maj,
-            derivatives, stride, record_bounds_in)
-
-def series_sum_ordinary_doit(bwrec, ini, pt, rad, tgt_error, maj, derivatives,
-        stride, record_bounds_in):
-
-    ordrec = len(bwrec) - 1
-    ini = Sequence(ini)
     Intervals = ini.universe()
-    last = collections.deque(itertools.repeat(Intervals.zero(), ordrec - len(ini) + 1))
-    last.extend(reversed(ini))
-    assert len(last) == ordrec + 1 # not ordrec!
+    while True:
+        try:
+            psum = series_sum_ordinary_doit(Intervals, bwrec, ini, pt, rad,
+                tgt_error, maj, derivatives, stride, record_bounds_in)
+            break
+        except bounds.PrecisionError:
+            new_prec = Intervals.precision()*2
+            logger.info("lost too much precision, restarting with %d bits",
+                        new_prec)
+            Intervals = type(Intervals)(new_prec)
+    return psum
 
-    pt = Intervals(pt) # ?????
+def series_sum_ordinary_doit(Intervals, bwrec, ini, pt, rad, tgt_error, maj,
+        derivatives, stride, record_bounds_in):
+
+    ini = Sequence(ini, universe = Intervals) # TBI ?
+    pt = Intervals(pt) # we might support parent(pt) != Intervals later on
     PertPols = PolynomialRing(pt.parent(), 'eta')
     Jets = PertPols.quo(PertPols.one() << derivatives) # Faster than genuine series
     pt = Jets([pt, 1])
+
+    ordrec = len(bwrec) - 1
+    last = collections.deque([Intervals.zero()]*(ordrec - len(ini) + 1))
+    last.extend(reversed(ini))
+    assert len(last) == ordrec + 1 # not ordrec!
 
     # Singular part. Not the most natural thing to do here, but hopefully
     # generalizes well to the regular singular case.
