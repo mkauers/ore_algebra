@@ -248,9 +248,13 @@ class Point(SageObject):
                 return RegularSingularPoint(self)
             else:
                 return IrregularSingularPoint(self)
-        elif is_interval_field(self.value.parent()):
-            if not self.dop.leading_coefficient()(self.value).contains_zero():
-                return OrdinaryPoint(self)
+        else:
+            val = self.dop.leading_coefficient()(self.value)
+            try:
+                if not val.contains_zero():
+                    return OrdinaryPoint(self)
+            except AttributeError:
+                pass
         return self
 
 class RegularPoint(Point):
