@@ -73,7 +73,7 @@ class Point(SageObject):
             sage: Dops, x, Dx = Diffops()
             sage: [Point(z, Dx) 
             ....:  for z in [1, 1/2, 1+I, QQbar(I), RIF(1/3), CIF(1/3), pi]]
-            [1, 1/2, 1 + 1*I, I, 0.3333333333333334?, 0.3333333333333334?,
+            [1, 1/2, 1 + 1*I, I, [0.333333333333333...], [0.333333333333333...],
             3.141592653589794?]
         """
         SageObject.__init__(self)
@@ -175,11 +175,11 @@ class Point(SageObject):
             sage: Dops, x, Dx = Diffops()
             sage: dop = (x^2 + 1)*Dx^2 + 2*x*Dx
             sage: Point(1, dop).dist_to_sing()
-            1.4142135623730950?
+            [1.41421356237309...]
             sage: Point(i, dop).dist_to_sing()
             0
             sage: Point(1+i, dop).dist_to_sing()
-            1
+            1.00...
 
         """
         # TODO - solve over CBF directly; perhaps with arb's own poly solver
@@ -336,12 +336,13 @@ class Path(SageObject):
 
         sage: from ore_algebra.analytic.ui import *
         sage: from ore_algebra.analytic.path import Path
+        sage: from sage.rings.complex_ball_acb import CBF
         sage: Dops, x, Dx = Diffops()
         sage: dop = (x^2 + 1)*Dx^2 + 2*x*Dx
 
-        sage: path = Path([0, 1+I, CIF(2*I)], dop)
+        sage: path = Path([0, 1+I, CBF(2*I)], dop)
         sage: path
-        0 --> 1 + 1*I --> 2*I
+        0 --> 1 + 1*I --> 2.000...*I
         sage: path[0]
         0 --> 1 + 1*I
         sage: path.vert[0]
@@ -355,8 +356,8 @@ class Path(SageObject):
         sage: path.check_convergence()
         Traceback (most recent call last):
         ...
-        ValueError: Step 1 + 1*I --> 2*I escapes from the disk of (guaranteed)
-        convergence of the solutions at 1 + 1*I
+        ValueError: Step 0 --> 1 + 1*I escapes from the disk of (guaranteed)
+        convergence of the solutions at 0
     """
 
     def __init__(self, vert, dop, classify=False):
