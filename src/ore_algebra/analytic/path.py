@@ -301,8 +301,8 @@ class Step(SageObject):
         # TODO: solve over CBF directly?
         sing = [IC(s) for s in dop_singularities(dop, CIF)]
         for s in sing:
-            t = (s - self.start.iv())/self.delta()
-            if t.imag().contains_zero() and t.real().overlaps(RBF(RIF(0,1))):
+            t = self.delta()/(s - self.start.iv())
+            if t.imag().contains_zero() and not safe_lt(t.real(), IR.one()):
                 raise ValueError(
                     "Step {} passes through or too close to singular point {} "
                     # "(to compute the connection to a singular point, specify "
