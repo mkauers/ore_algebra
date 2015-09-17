@@ -331,9 +331,8 @@ def fundamental_matrix_ordinary(dop, pt, ring, eps, rows, maj):
                 break
     mat = prod.partial_sums(ring, rows, dop.order())
     # Account for the dropped high-order terms in the intervals we return.
-    mag = tail_bound.magnitude()
-    tail_enclosure = ring((-mag, mag), (-mag, mag)) # XXX - see naive_sum
-    mat = mat.apply_map(lambda x: x + tail_enclosure) # XXX - overest
+    err = tail_bound.abs()
+    mat = mat.apply_map(lambda x: x.shake(err)) # XXX - overest
     err = bounds.IR(max(x.rad() for row in mat for x in row))
     logger.info("summed %d terms, tail <= %s, coeffwise error <= %s", n,
             tail_bound, err)

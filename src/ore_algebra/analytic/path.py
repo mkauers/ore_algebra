@@ -183,10 +183,9 @@ class Point(SageObject):
 
         """
         # TODO - solve over CBF directly; perhaps with arb's own poly solver
-        dist = [(CIF(self.iv()) - s).abs()
+        dist = [(self.iv() - IC(s)).abs()
                 for s in dop_singularities(self.dop, CIF)]
-        min_dist = RIF('inf').min(*dist)
-        min_dist = IR(min_dist)
+        min_dist = IR(rings.infinity).min(*dist)
         if min_dist.contains_zero():
             if self.dop.leading_coefficient()(self.value).is_zero():
                 return IR(0) # ?
@@ -303,7 +302,7 @@ class Step(SageObject):
         sing = [IC(s) for s in dop_singularities(dop, CIF)]
         for s in sing:
             t = (s - self.start.iv())/self.delta()
-            if t.imag().contains_zero() and t.real().overlaps(RIF(0,1)):
+            if t.imag().contains_zero() and t.real().overlaps(RBF(RIF(0,1))):
                 raise ValueError(
                     "Step {} passes through or too close to singular point {} "
                     # "(to compute the connection to a singular point, specify "

@@ -9,7 +9,7 @@ import logging
 
 from sage.misc.cachefunc import cached_function
 from sage.misc.misc import cputime
-from sage.rings.qqbar import QQbar
+from sage.rings.all import QQbar, CIF
 from sage.structure.element import parent
 
 logger = logging.getLogger(__name__)
@@ -99,7 +99,7 @@ def dop_singularities(dop, dom=QQbar):
 
 def sing_as_alg(dop, iv):
     pol = dop.leading_coefficient().radical()
-    return QQbar.polynomial_root(pol, iv)
+    return QQbar.polynomial_root(pol, CIF(iv))
 
 ######################################################################
 # Miscellaneous stuff

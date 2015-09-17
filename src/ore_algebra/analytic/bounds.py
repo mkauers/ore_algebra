@@ -50,6 +50,7 @@ class MajorantSeries(object):
     def __init__(self, cvrad=IR.zero()):
         "A formal power series with nonnegative coefficients"
         self.cvrad = IR(cvrad)
+        assert self.cvrad >= IR.zero()
     def __call__(self, z):
         raise NotImplementedError
     def bound(self, rad, **kwds):
@@ -69,8 +70,10 @@ def _pole_free_rad(fac):
     if isinstance(fac, Factorization):
         den = [pol for (pol, mult) in fac if mult < 0]
         if all(pol.is_monic() and pol.degree() == 1 for pol in den):
-            rad = IR(infinity).min(*(pol[0].abs() for pol in den))
-            return IR(rad.lower())
+            rad = RIF(infinity).min(*(RIF(pol[0].abs()) for pol in den))
+            rad = IR(rad.lower())
+            assert rad >= IR.zero()
+            return rad
     raise NotImplementedError  # pb dérivées???
 
 class RationalMajorant(MajorantSeries):
