@@ -30,16 +30,16 @@ import sage.rings.number_field.number_field_base as number_field_base
 import sage.symbolic.ring
 
 from sage.misc.cachefunc import cached_method
-from sage.rings.all import QQ, CC, RIF, QQbar, RLF, CLF
+from sage.rings.all import QQ, CC, RIF, CIF, QQbar, RLF, CLF
+from sage.rings.complex_ball_acb import CBF, ComplexBallField
+from sage.rings.real_arb import RBF, RealBallField
 from sage.structure.sage_object import SageObject
 
 from ore_algebra.analytic.utilities import *
 
 logger = logging.getLogger(__name__)
 
-IR = RIF # TBI
-IC = rings.CIF
-
+IR, IC = RBF, CBF # TBI
 QQi = number_field.QuadraticField(-1, 'i')
 
 ######################################################################
@@ -87,7 +87,7 @@ class Point(SageObject):
             self.value = point.value
         elif isinstance(parent, (
                 number_field_base.NumberField,
-                RealIntervalField_class, ComplexIntervalField_class)): # ?
+                RealBallField, ComplexBallField)):
             self.value = point
         elif QQ.has_coerce_map_from(parent):
             self.value = QQ.coerce(point)
@@ -99,10 +99,11 @@ class Point(SageObject):
                 self.value = CLF(point)
         elif QQbar.has_coerce_map_from(parent):
             self.value = QQbar.coerce(point).as_number_field_element()[1]
-        elif isinstance(parent, RealField_class):
-            self.value = rings.RealIntervalField(point.prec())(point) # ???
-        elif isinstance(parent, ComplexField_class):
-            self.value = rings.ComplexIntervalField(point.prec())(point) # ???
+        elif isinstance(parent, (RealField_class, RealIntervalField_class)):
+            self.value = rings.RealBallField(point.prec())(point)
+        elif isinstance(parent, (ComplexField_class,
+                                 ComplexIntervalField_class)):
+            self.value = rings.ComplexBallField(point.prec())(point)
         else:
             try:
                 self.value = RLF.coerce(point)
@@ -181,8 +182,11 @@ class Point(SageObject):
             1
 
         """
-        dist = [(self.iv() - s).abs() for s in dop_singularities(self.dop, IC)]
-        min_dist = IR('inf').min(*dist)
+        # TODO - solve over CBF directly; perhaps with arb's own poly solver
+        dist = [(CIF(self.iv()) - s).abs()
+                for s in dop_singularities(self.dop, CIF)]
+        min_dist = RIF('inf').min(*dist)
+        min_dist = IR(min_dist)
         if min_dist.contains_zero():
             if self.dop.leading_coefficient()(self.value).is_zero():
                 return IR(0) # ?
@@ -295,7 +299,8 @@ class Step(SageObject):
 
     def check_singularity(self):
         dop = self.start.dop
-        sing = dop_singularities(dop, IC)
+        # TODO: solve over CBF directly?
+        sing = [IC(s) for s in dop_singularities(dop, CIF)]
         for s in sing:
             t = (s - self.start.iv())/self.delta()
             if t.imag().contains_zero() and t.real().overlaps(RIF(0,1)):
@@ -306,7 +311,7 @@ class Step(SageObject):
                     .format(self, sing_as_alg(dop, s)))
 
     def check_convergence(self):
-        if self.delta().abs() >= self.start.dist_to_sing(): # not < ?
+        if self.length() >= self.start.dist_to_sing(): # not < ?
             raise ValueError("Step {} escapes from the disk of (guaranteed) "
                     "convergence of the solutions at {}"
                     .format(self, self.start))
@@ -477,10 +482,13 @@ class Path(SageObject):
                 # TBI
                 Step(cur, Point(interm, self.dop)).check_singularity()
                 if interm.imag().is_zero():
-                    interm = interm.real().simplest_rational()
+                    # interm = interm.real().simplest_rational()
+                    interm = interm.real().mid().exact_rational()
                 else:
-                    interm = QQi([interm.real().simplest_rational(),
-                                  interm.imag().simplest_rational()])
+                    # interm = QQi([interm.real().simplest_rational(),
+                    #               interm.imag().simplest_rational()])
+                    interm = QQi([interm.real().mid().exact_rational(),
+                                  interm.imag().mid().exact_rational()])
                 new.append(OrdinaryPoint(interm, self.dop))
         new = Path(new, self.dop)
         return new

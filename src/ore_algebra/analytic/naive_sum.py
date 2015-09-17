@@ -85,8 +85,8 @@ def series_sum_ordinary(dop, ini, pt, tgt_error,
                 record_bounds_in.append((n, psum, tail_bound))
             if tgt_error.reached(tail_bound, abs_sum):
                 break
-        last[0] = - Intervals(~bwrec[0](n))*sum(Intervals(bwrec[k](n))*last[k]
-                                     for k in xrange(1, ordrec+1))
+        comb = sum(Intervals(bwrec[k](n))*last[k] for k in xrange(1, ordrec+1))
+        last[0] = -Intervals(~bwrec[0](n))*comb
         # logger.debug("n = %s, [c(n), c(n-1), ...] = %s", n, list(last))
         term = Jets(last[0])*ptpow
         psum += term
@@ -95,12 +95,10 @@ def series_sum_ordinary(dop, ini, pt, tgt_error,
     # - Is this the right place do that?
     # - Overestimation: tail_bound is actually a bound on the Frobenius norm of
     #   the error! (TBI?)
-    mag = tail_bound.magnitude()
-    # XXX: works for both real and complex interval fields but just by chance
-    tail_enclosure = Intervals((-mag, mag), (-mag, mag))
-    res = vector(x + tail_enclosure for x in psum)
+    mag = tail_bound.abs()
+    res = vector(x.shake(mag) for x in psum)
     logger.info("summed %d terms, tail <= %s, coeffwise error <= %s", n,
-            tail_bound, bounds.IR(max(utilities.rad(x) for x in res)))
+            tail_bound, bounds.IR(max(x.rad() for x in res)))
     return res
 
 # XXX: drop the 'ring' parameter? pass ctx (→ real/complex?)?

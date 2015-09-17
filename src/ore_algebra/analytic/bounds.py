@@ -15,12 +15,14 @@ import sage.rings.polynomial.real_roots as real_roots
 
 from sage.misc.misc import cputime, verbose
 from sage.misc.misc_c import prod
+from sage.rings.complex_ball_acb import CBF, ComplexBallField
 from sage.rings.infinity import infinity
 from sage.rings.integer import Integer
 from sage.rings.polynomial.polynomial_element import Polynomial
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 from sage.rings.power_series_ring import PowerSeriesRing
 from sage.rings.rational_field import QQ
+from sage.rings.real_arb import RBF, RealBallField
 from sage.rings.real_mpfi import RIF
 from sage.rings.real_mpfr import RR
 from sage.structure.factorization import Factorization
@@ -30,11 +32,11 @@ from sage.symbolic.ring import SR
 from ore_algebra.ore_algebra import OreAlgebra
 
 from . import utilities
+from utilities import safe_gt, safe_le
 
 logger = logging.getLogger(__name__)
 
-IR = RIF # TBI
-IC = sage.rings.complex_interval_field.ComplexIntervalField()
+IR, IC = RBF, CBF # TBI
 
 class BoundPrecisionError(Exception):
     pass
@@ -53,8 +55,8 @@ class MajorantSeries(object):
     def _repr_(self):
         return repr(self(SR.var('z'))) # TBI: var name
     def bound(self, rad, **kwds):
-        if not rad <= self.cvrad: # intervals!
-            return infinity
+        if not safe_le(rad, self.cvrad): # intervals!
+            return IR(infinity)
         else:
             return self._bound_doit(rad, **kwds)
     def _bound_doit(self, rad):
@@ -67,7 +69,7 @@ class MajorantSeries(object):
 
 def _pole_free_rad(fac):
     if isinstance(fac, Factorization):
-        den = (pol for (pol, mult) in fac if mult < 0)
+        den = [pol for (pol, mult) in fac if mult < 0]
         if all(pol.is_monic() and pol.degree() == 1 for pol in den):
             rad = IR(infinity).min(*(pol[0].abs() for pol in den))
             return IR(rad.lower())
@@ -222,19 +224,19 @@ def abs_min_nonzero_root(pol, tol=RR(1e-2), ensure_larger_than=0.):
     deg = pol.degree()
     if deg == 0:
         return infinity
-    lg_target_rad = IR(ensure_larger_than).log2()
+    lg_target_rad = IR(ensure_larger_than).log(2)
     pol = pol.change_ring(IR.complex_field())
     pol = pol/pol[0]
     i = 0
-    encl = IR(1, 2*deg).log2()
-    lg_rad = IR(-infinity, infinity)
+    encl = RIF(1, 2*deg).log(2)
+    lg_rad = RIF(-infinity, infinity)
     while (lg_rad.lower() <= lg_target_rad
            or lg_rad.absolute_diameter() > tol/2): # log2(1+x) ≤ 2*x
         prev_lg_rad = lg_rad
         # The smallest root of the current pol is within 2^(-1-m) and
         # (2·deg)·2^(-1-m), cf. Davenport & Mignotte (1990), Grégoire (2012).
-        m = IR(-infinity).max(*(pol[k].abs().log2()/k
-                                for k in xrange(1, deg+1)))
+        m = RIF(-infinity).max(*(pol[k].abs().log(2)/k
+                                 for k in xrange(1, deg+1)))
         lg_rad = (-(1+m) + encl) >> i
         lg_rad = prev_lg_rad.intersection(lg_rad)
         if lg_rad.lower() == -infinity or cmp(lg_rad, prev_lg_rad) == 0:
@@ -301,7 +303,7 @@ class RatSeqBound(object):
             return step
         else:
             # TODO: avoid recomputing cst every time once it becomes <= next + ε?
-            val = self.num(n).abs()/self.den(n).abs()
+            val = IC(self.num(n)).abs()/IC(self.den(n)).abs()
             return step.max(val)
 
 def bound_real_roots(pol):
@@ -389,7 +391,7 @@ def nonneg_roots(pol):
             diam >>= 1
     return roots
 
-upper_inf = IR(infinity).upper()
+upper_inf = RIF(infinity).upper()
 
 def bound_ratio_large_n_solve(num, den, min_drop=IR(1.1), stats=None):
     """
@@ -461,7 +463,7 @@ def bound_polynomials(pols):
             abs(pols[k][n])/(order-1).binomial(k)
             for k in xrange(order)))
         for n in xrange(val, deg + 1) ])
-    maj = maj.map_coefficients(lambda iv: IR(iv.magnitude()))
+    maj = maj.map_coefficients(lambda iv: IR(iv.above_abs()))
     return maj
 
 class DiffOpBound(object):
@@ -610,10 +612,12 @@ class ErrorCriterion(object):
 class AbsoluteError(ErrorCriterion):
     def __init__(self, eps):
         self.eps = IR(eps)
-    def reached(self, err, abs_val=IR('nan')):
-        if utilities.rad(abs_val) > self.eps:
+    def reached(self, err, abs_val=None):
+        if (abs_val is not None
+                        and utilities.safe_gt(abs_val.rad_as_ball(), self.eps)):
             # no need to continue! (TBI...)
-            #raise PrecisionError
+            # raise PrecisionError
+            logger.warn("interval too wide wrt target accuracy (lost too much precision?)")
             return True
         return err.abs() < self.eps
     def __repr__(self):

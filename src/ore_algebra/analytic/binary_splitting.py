@@ -334,7 +334,7 @@ def fundamental_matrix_ordinary(dop, pt, ring, eps, rows, maj):
     mag = tail_bound.magnitude()
     tail_enclosure = ring((-mag, mag), (-mag, mag)) # XXX - see naive_sum
     mat = mat.apply_map(lambda x: x + tail_enclosure) # XXX - overest
-    err = bounds.IR(max(utilities.rad(x) for row in mat for x in row))
+    err = bounds.IR(max(x.rad() for row in mat for x in row))
     logger.info("summed %d terms, tail <= %s, coeffwise error <= %s", n,
             tail_bound, err)
     return mat

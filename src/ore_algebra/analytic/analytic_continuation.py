@@ -6,6 +6,8 @@ Evaluation of univariate D-finite functions by numerical analytic continuation
 import logging
 
 import sage.rings.all as rings
+import sage.rings.real_arb
+import sage.rings.complex_ball_acb
 
 from sage.matrix.constructor import identity_matrix, matrix
 from sage.rings.number_field.number_field_element import NumberFieldElement
@@ -128,8 +130,8 @@ def analytic_continuation(ctx, ini=None, post=None):
 
     eps1 = (ctx.eps/(1 + len(ctx.path))) >> 2 # TBI
     prec = prec_from_eps(eps1) # TBI
-    ring = (rings.RealIntervalField(prec) if ctx.real()
-            else rings.ComplexIntervalField(prec))
+    ring = (sage.rings.real_arb.RealBallField(prec) if ctx.real()
+            else sage.rings.complex_ball_acb.ComplexBallField(prec))
 
     res = []
     path_mat = identity_matrix(ring, ctx.dop.order())
