@@ -39,16 +39,27 @@ def series_sum_ordinary(dop, ini, pt, tgt_error,
     if maj is None: # let's support calling this function directly...
         maj = bound_diffop(dop)
 
+    if derivatives is None:
+        derivatives = dop.order()
+    if isinstance(tgt_error, bounds.RelativeError) and derivatives > 1:
+        raise TypeError("relative error only supported for derivatives == 0")
+
+    if len(ini) != dop.order():
+        raise ValueError('need {} initial values'.format(dop.order()))
+
+    return series_sum_ordinary_doit(bwrec, ini, pt, rad, tgt_error, maj,
+            derivatives, stride, record_bounds_in)
+
+def series_sum_ordinary_doit(bwrec, ini, pt, rad, tgt_error, maj, derivatives,
+        stride, record_bounds_in):
+
+    ordrec = len(bwrec) - 1
     ini = Sequence(ini)
     Intervals = ini.universe()
     last = collections.deque(itertools.repeat(Intervals.zero(), ordrec - len(ini) + 1))
     last.extend(reversed(ini))
     assert len(last) == ordrec + 1 # not ordrec!
 
-    if derivatives is None:
-        derivatives = dop.order()
-    if isinstance(tgt_error, bounds.RelativeError) and derivatives > 1:
-        raise TypeError("relative error only supported for derivatives == 0")
     pt = Intervals(pt) # ?????
     PertPols = PolynomialRing(pt.parent(), 'eta')
     Jets = PertPols.quo(PertPols.one() << derivatives) # Faster than genuine series
@@ -65,8 +76,6 @@ def series_sum_ordinary(dop, ini, pt, tgt_error,
         ptpow *= pt
 
     tail_bound = None
-    if len(ini) != dop.order():
-        raise ValueError('need {} initial values'.format(dop.order()))
     for n in itertools.count(len(ini)):
         last.rotate(1)
         #last[0] = None
