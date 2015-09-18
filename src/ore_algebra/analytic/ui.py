@@ -52,6 +52,20 @@ along the path at once::
     2/5, [      0 [0.8620689655...]]
     )
 
+Display some information on what is going on::
+
+    sage: import logging
+    sage: logging.basicConfig()
+    sage: logging.getLogger('ore_algebra.analytic').setLevel(logging.INFO)
+    sage: transition_matrix(dop, [0, 1], 1e-20)
+    INFO:ore_algebra.analytic.analytic_continuation:0 --> 1/2: ordinary case
+    INFO:ore_algebra.analytic.naive_sum:target error = [...]
+    INFO:ore_algebra.analytic.naive_sum:summed ... terms, ...
+    ...
+    [  1.00...  [0.7853981633974483096...]]
+    [         0 [0.5000000000000000000...]]
+    sage: logging.getLogger('ore_algebra.analytic').setLevel(logging.WARNING)
+
 Empty paths are not allowed::
 
     sage: transition_matrix(Dx - 1, path=[])
