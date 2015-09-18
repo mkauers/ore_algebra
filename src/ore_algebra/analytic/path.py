@@ -138,19 +138,39 @@ class Point(SageObject):
 
     @cached_method
     def iv(self):
+        """
+        sage: from ore_algebra.analytic.ui import *
+        sage: from ore_algebra.analytic.path import Point
+        sage: Dops, x, Dx = Diffops()
+        sage: [Point(z, Dx).iv()
+        ....: for z in [1, 1/2, 1+I, QQbar(I), RIF(1/3), CIF(1/3), pi]]
+        [1.000000000000000,
+        0.5000000000000000,
+        1.000000000000000 + 1.000000000000000*I,
+        1.000000000000000*I,
+        [0.333333333333333 +/- 3.99e-16],
+        [0.333333333333333 +/- 3.99e-16],
+        [3.141592653589793 +/- 7.83e-16]]
+        """
         # XXX: est-ce que je voudrais prendre une précision ici ?
         return IC(self.value)
 
     def exact(self):
+        r"""
+        sage: from ore_algebra.analytic.ui import *
+        sage: from ore_algebra.analytic.path import Point
+        sage: Dops, x, Dx = Diffops()
+        sage: QQi.<i> = QuadraticField(-1)
+        sage: [Point(z, Dx).exact() for z in [1, 1/2, 1+i, QQbar(I)]]
+        [1, 1/2, i + 1, I]
+        sage: Point(RIF(1/3), Dx).exact()
+        Traceback (most recent call last):
+        ...
+        ValueError
+        """
         if self.is_exact():
             return self
         raise ValueError
-
-    def n(self):
-        try:
-            return CC(self.value)
-        except TypeError: pass
-        return CC(self.value.center())
 
     ###
 
@@ -158,7 +178,8 @@ class Point(SageObject):
         return RIF.has_coerce_map_from(self.value.parent())
 
     def is_exact(self):
-        return isinstance(self.value, rings.NumberFieldElement)
+        return isinstance(self.value,
+                (rings.Integer, rings.Rational, rings.NumberFieldElement))
 
     # Autre modèle possible, peut-être mieux : Point pourrait être juste un
     # point du plan complexe (ne pas connaître l'opérateur), et ce serait alors
@@ -276,12 +297,58 @@ class IrregularSingularPoint(Point):
 ######################################################################
 
 class Step(SageObject):
+    r"""
+    EXAMPLES::
 
+        sage: from ore_algebra.analytic.ui import *
+        sage: from ore_algebra.analytic.path import Point, Step
+        sage: QQi.<i> = QuadraticField(-1)
+        sage: Dops, x, Dx = Diffops()
+
+        sage: s1 = Step(Point(0, x*Dx-1), Point(i/7, x*Dx-1))
+        sage: s2 = Step(Point(RIF(1/3), x*Dx-1), Point(pi, x*Dx-1))
+
+        sage: s1, s2
+        (0 --> 1/7*i, [0.333333333333333 +/- 3.99e-16] --> 3.141592653589794?)
+
+        sage: list(s1), list(s2)
+        ([0, 1/7*i], [[0.333333333333333 +/- 3.99e-16], 3.141592653589794?])
+
+        sage: s1.is_exact(), s2.is_exact()
+        (True, False)
+
+        sage: s1.delta(), s2.delta()
+        (1/7*i, [2.80825932025646 +/- 1.56e-15])
+
+        sage: s1.length(), s2.length()
+        ([0.1428571428571428 +/- 9.09e-17], [2.80825932025646 +/- 1.56e-15])
+
+        sage: s1.check_singularity()
+        Traceback (most recent call last):
+        ...
+        ValueError: Step 0 --> 1/7*i passes through or too close to singular point 0
+
+        sage: s2.check_singularity()
+
+        sage: s1.check_convergence()
+        Traceback (most recent call last):
+        ...
+        ValueError: Step 0 --> 1/7*i escapes from the disk of (guaranteed)
+        convergence of the solutions at 0
+
+        sage: s2.plot()
+        Graphics object consisting of 1 graphics primitive
+    """
     def __init__(self, start, end):
+        if not (isinstance(start, Point) and isinstance(end, Point)):
+            raise TypeError
         if start.dop != end.dop:
             raise ValueError
         self.start = start
         self.end = end
+
+    def _repr_(self):
+        return repr(self.start) + " --> " + repr(self.end)
 
     def __getitem__(self, i):
         if i == 0:
@@ -291,8 +358,8 @@ class Step(SageObject):
         else:
             raise IndexError
 
-    def _repr_(self):
-        return repr(self.start) + " --> " + repr(self.end)
+    def is_exact(self):
+        return self.start.is_exact() and self.end.is_exact()
 
     def delta(self):
         return self.end.value - self.start.value
@@ -305,8 +372,8 @@ class Step(SageObject):
         # TODO: solve over CBF directly?
         sing = [IC(s) for s in dop_singularities(dop, CIF)]
         for s in sing:
-            t = self.delta()/(s - self.start.iv())
-            if t.imag().contains_zero() and not safe_lt(t.real(), IR.one()):
+            t = (s - self.start.iv())/self.delta()
+            if t.overlaps(IC(RIF(0, 1), 0)):
                 raise ValueError(
                     "Step {} passes through or too close to singular point {} "
                     # "(to compute the connection to a singular point, specify "
@@ -320,10 +387,7 @@ class Step(SageObject):
                     .format(self, self.start))
 
     def plot(self):
-        return plot.arrow2d(self.start.n(), self.end.n())
-
-    def is_exact(self):
-        return self.start.is_exact() and self.end.is_exact()
+        return plot.arrow2d(self.start.iv().mid(), self.end.iv().mid())
 
 class Path(SageObject):
     """
@@ -408,7 +472,7 @@ class Path(SageObject):
         gr.set_aspect_ratio(1)
         if disks:
             for step in self:
-                z = step.start.n()
+                z = step.start.iv().mid()
                 gr += plot.circle((z.real(), z.imag()),
                                   step.start.dist_to_sing().lower(),
                                   linestyle='dotted', color='red')
