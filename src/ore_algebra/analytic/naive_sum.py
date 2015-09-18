@@ -24,8 +24,38 @@ from .utilities import safe_lt
 logger = logging.getLogger(__name__)
 
 def series_sum_ordinary(dop, ini, pt, tgt_error,
-        maj=None, derivatives=None, stride=50,
+        maj=None, derivatives=1, stride=50,
         record_bounds_in=None):
+    r"""
+    EXAMPLES::
+
+        sage: from ore_algebra.analytic.ui import *
+        sage: from ore_algebra.analytic.naive_sum import series_sum_ordinary
+        sage: Dops, x, Dx = Diffops()
+        sage: dop = ((4*x^2 + 3/58*x - 8)*Dx^10 + (2*x^2 - 2*x)*Dx^9 +
+        ....:       (x^2 - 1)*Dx^8 + (6*x^2 - 1/2*x + 4)*Dx^7 +
+        ....:       (3/2*x^2 + 2/5*x + 1)*Dx^6 + (-1/6*x^2 + x)*Dx^5 +
+        ....:       (-1/5*x^2 + 2*x - 1)*Dx^4 + (8*x^2 + x)*Dx^3 +
+        ....:       (-1/5*x^2 + 9/5*x + 5/2)*Dx^2 + (7/30*x - 12)*Dx +
+        ....:       8/7*x^2 - x - 2)
+        sage: ini = [CBF(-1/16, -2), CBF(-17/2, -1/2), CBF(-1, 1), CBF(5/2, 0),
+        ....:       CBF(1, 3/29), CBF(-1/2, -2), CBF(0, 0), CBF(80, -30),
+        ....:       CBF(1, -5), CBF(-1/2, 11)]
+
+    XXX: the radii look wrong in the following example (not cross-checked) --
+    sûrement que le calcul est relancé avec une prec plus grande et que c'est là
+    que ça déconne
+
+        sage: series_sum_ordinary(dop, ini, 1/2, RBF(1e-16))
+        ([-3.575140703474456...] + [-2.2884877202396862...]*I)
+
+        sage: import logging; logging.basicConfig()
+        sage: series_sum_ordinary(dop, ini, 1/2, RBF(1e-30))
+        WARNING:ore_algebra.analytic.naive_sum:input intervals too wide wrt
+        requested accuracy
+        ...
+        ([-3.575140703474...] + [-2.288487720239...]*I)
+        """
 
     logger.info("target error = %s", tgt_error)
     _, Pols, Scalars, dop = dop._normalize_base_ring()
@@ -45,17 +75,16 @@ def series_sum_ordinary(dop, ini, pt, tgt_error,
                 and all(safe_lt(bounds.IR(x.rad()), tgt_error) for x in ini))
         tgt_error = bounds.AbsoluteError(tgt_error, input_is_precise)
         if not input_is_precise:
-            logger.warn("input intervals too wide wrt request accuracy")
+            logger.warn("input intervals too wide wrt requested accuracy")
 
     rad = abs(bounds.IC(pt))
     if maj is None: # let's support calling this function directly...
         maj = bound_diffop(dop)
 
-    if derivatives is None:
-        derivatives = dop.order()
     if isinstance(tgt_error, bounds.RelativeError) and derivatives > 1:
-        raise TypeError("relative error only supported for derivatives == 0")
+        raise TypeError("relative error only supported for derivatives == 1")
 
+    # XXX: probably should support exact ini here...
     Intervals = ini.universe()
     while True:
         try:
