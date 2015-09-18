@@ -368,12 +368,49 @@ class Step(SageObject):
         return IC(self.delta()).abs()
 
     def check_singularity(self):
+        r"""
+        Raise an error if this step goes through a singular point or seems to do
+        so at our working precision.
+
+        TESTS::
+
+            sage: from ore_algebra.analytic.ui import *
+            sage: from ore_algebra.analytic.path import Point, Step
+            sage: Dops, x, Dx = Diffops(); i = QuadraticField(-1, 'i').gen()
+            sage: dop = (x^2 + 1)*Dx
+            sage: Step(Point(0, dop), Point(0, dop)).check_singularity()
+            sage: Step(Point(0, dop), Point(1, dop)).check_singularity()
+            sage: Step(Point(1, dop), Point(1, dop)).check_singularity()
+            sage: Step(Point(1, dop), Point(i, dop)).check_singularity()
+            Traceback (most recent call last):
+            ...
+            ValueError: Step 1 --> i passes through or too close to singular point 1*I
+            sage: Step(Point(i, dop), Point(0, dop)).check_singularity()
+            Traceback (most recent call last):
+            ...
+            ValueError: Step i --> 0 passes through or too close to singular point 1*I
+            sage: Step(Point(i, dop), Point(i, dop)).check_singularity()
+            Traceback (most recent call last):
+            ...
+            ValueError: Step i --> i passes through or too close to singular point 1*I
+            sage: Step(Point(2*i+1, dop), Point(-11/10, dop)).check_singularity()
+            sage: Step(Point(2*i, dop), Point(0, dop)).check_singularity()
+            Traceback (most recent call last):
+            ...
+            ValueError: Step 2*i --> 0 passes through or too close to singular point 1*I
+            sage: Step(Point(2*i+1, dop), Point(-1, dop)).check_singularity()
+            Traceback (most recent call last):
+            ...
+            ValueError: Step 2*i + 1 --> -1 passes through or too close to singular point 1*I
+        """
         dop = self.start.dop
         # TODO: solve over CBF directly?
         sing = [IC(s) for s in dop_singularities(dop, CIF)]
         for s in sing:
-            t = (s - self.start.iv())/self.delta()
-            if t.overlaps(IC(RIF(0, 1), 0)):
+            ds = s - self.start.iv()
+            t = self.delta()/ds
+            if (t.imag().contains_zero() and not safe_lt(t.real(), IR.one())
+                    or ds.contains_zero()):
                 raise ValueError(
                     "Step {} passes through or too close to singular point {} "
                     # "(to compute the connection to a singular point, specify "
