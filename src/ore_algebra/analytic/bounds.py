@@ -242,9 +242,71 @@ def graeffe(pol):
     graeffe_iterate = (-1)**deg * (pol_even**2 - (pol_odd**2).shift(1))
     return graeffe_iterate
 
-def abs_min_nonzero_root(pol, tol=RR(1e-2), ensure_larger_than=0.):
-    """
-    abs_min_nonzero_root(1/10*z^3 + z^2 + 1/7)
+def abs_min_nonzero_root(pol, tol=RR(1e-2), lg_larger_than=RR('-inf')):
+    r"""
+    Compute an enclosure of the absolute value of the nonzero complex root of
+    ``pol`` closest to the origin.
+
+    INPUT:
+
+    - ``pol`` -- Nonzero polynomial.
+
+    - ``tol`` -- An indication of the required relative accuracy (interval
+      width over exact value). It is currently *not* guaranteed that the
+      relative accuracy will be smaller than ``tol``.
+
+    - ``lg_larger_than`` -- A lower bound on the binary logarithm of acceptable
+      results. The function may loop if ``exact result <= 2^lg_larger_than``.
+
+    ALGORITHM:
+
+    Essentially the method of Davenport & Mignotte (1990).
+
+    LIMITATIONS:
+
+    The implementation currently works with a fixed precision. In extreme cases,
+    it may fail if that precision is not large enough.
+
+    EXAMPLES::
+
+        sage: from ore_algebra.analytic.bounds import abs_min_nonzero_root
+        sage: Pol.<z> = QQ[]
+        sage: pol = 1/10*z^3 + z^2 + 1/7
+        sage: sorted(z[0].abs() for z in pol.roots(CC))
+        [0.377695553183559, 0.377695553183559, 10.0142451007998]
+
+        sage: abs_min_nonzero_root(pol)
+        [0.38 +/- 3.31e-3]
+
+        sage: abs_min_nonzero_root(pol, tol=1e-10)
+        [0.3776955532 +/- 2.41e-11]
+
+        sage: abs_min_nonzero_root(pol, lg_larger_than=-1.4047042967)
+        [0.3776955532 +/- 2.41e-11]
+
+        sage: abs_min_nonzero_root(pol, lg_larger_than=-1.4047042966)
+        Traceback (most recent call last):
+        ...
+        ValueError: there is a root smaller than 2^(-1.40470429660000)
+
+        sage: abs_min_nonzero_root(pol, tol=1e-100)
+        Traceback (most recent call last):
+        ...
+        ArithmeticError: failed to bound the roots ...
+
+        sage: abs_min_nonzero_root(Pol.zero())
+        Traceback (most recent call last):
+        ...
+        ValueError: expected a nonzero polynomial
+
+    TESTS::
+
+        sage: abs_min_nonzero_root(CBF['x'].one())
+        +Infinity
+        sage: abs_min_nonzero_root(CBF['x'].gen())
+        +Infinity
+        sage: abs_min_nonzero_root(CBF['x'].gen() - 1/3)
+        [0.33 +/- 3.34e-3]
     """
     if pol.is_zero():
         raise ValueError("expected a nonzero polynomial")
@@ -252,35 +314,36 @@ def abs_min_nonzero_root(pol, tol=RR(1e-2), ensure_larger_than=0.):
     deg = pol.degree()
     if deg == 0:
         return infinity
-    lg_target_rad = IR(ensure_larger_than).log(2)
-    pol = pol.change_ring(IR.complex_field())
     pol = pol/pol[0]
+    pol = pol.change_ring(IR.complex_field())
     i = 0
-    encl = RIF(1, 2*deg).log(2)
-    lg_rad = RIF(-infinity, infinity)
-    while (lg_rad.lower() <= lg_target_rad
-           or lg_rad.absolute_diameter() > tol/2): # log2(1+x) ≤ 2*x
+    lg_rad = RIF(-infinity, infinity)          # left-right intervals because we
+    encl = RIF(1, 2*deg).log(2)                # compute intersections
+    while (safe_le(lg_rad.lower(rnd='RNDN'), lg_larger_than)
+              # *relative* error on 2^lg_rad
+           or safe_gt(lg_rad.absolute_diameter(), tol)):
         prev_lg_rad = lg_rad
-        # The smallest root of the current pol is within 2^(-1-m) and
+        # The smallest root of the current pol is between 2^(-1-m) and
         # (2·deg)·2^(-1-m), cf. Davenport & Mignotte (1990), Grégoire (2012).
-        m = RIF(-infinity).max(*(pol[k].abs().log(2)/k
-                                 for k in xrange(1, deg+1)))
-        lg_rad = (-(1+m) + encl) >> i
+        m = IR(-infinity).max(*(pol[k].abs().log(2)/k
+                                for k in xrange(1, deg+1)))
+        lg_rad = (-(1 + RIF(m)) + encl) >> i
         lg_rad = prev_lg_rad.intersection(lg_rad)
         if lg_rad.lower() == -infinity or cmp(lg_rad, prev_lg_rad) == 0:
-            raise ArithmeticError
-        verbose("i = {}\trad ∈ {}\tdiam={}"
-                .format(i, lg_rad.exp2().str(style='brackets'),
-                        lg_rad.absolute_diameter()),
-            level=10)
+            fmt = "failed to bound the roots of {} (insufficient precision?)"
+            raise ArithmeticError(fmt.format(pol)) # TODO: BoundPrecisionError?
+        logger.log(logging.DEBUG - 1, "i = %s\trad ∈ %s\tdiam=%s",
+                i, lg_rad.exp2().str(style='brackets'),
+                lg_rad.absolute_diameter())
         # detect gross input errors (this does not prevent all infinite loops)
-        if lg_rad < lg_target_rad:
-            raise ValueError("there is a root smaller than " + str(ensure_larger_than))
+        if safe_le(lg_rad.upper(rnd='RNDN'), lg_larger_than):
+            raise ValueError("there is a root smaller than 2^({})"
+                             .format(lg_larger_than))
         pol = graeffe(pol)
         i += 1
-    res = lg_rad.exp2()
-    assert(res.absolute_diameter().exact_rational()
-           /res.lower().exact_rational() < tol.exact_rational())
+    res = IR(2)**IR(lg_rad)
+    if not safe_le(2*res.rad_as_ball()/res, IR(tol)):
+        logger.debug("required tolerance may not be met")
     return res
 
 def bound_inverse_poly_simple(den):
@@ -288,8 +351,8 @@ def bound_inverse_poly_simple(den):
     if den.degree() <= 0:
         fac = Factorization([], unit=Poly(1))
     else:
-        # thin interval containing the lower bound
-        rad = IR(abs_min_nonzero_root(den).lower())
+        # thin interval
+        rad = abs_min_nonzero_root(den).below_abs(test_zero=True)
         fac = Factorization([(Poly([-rad, 1]), den.degree())])
     return ~abs(den.leading_coefficient()), fac
 
