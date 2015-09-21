@@ -42,9 +42,9 @@ def series_sum_ordinary(dop, ini, pt, tgt_error,
         ....:       CBF(1, 3/29), CBF(-1/2, -2), CBF(0, 0), CBF(80, -30),
         ....:       CBF(1, -5), CBF(-1/2, 11)]
 
-    XXX: the radii look wrong in the following example (not cross-checked) --
-    sûrement que le calcul est relancé avec une prec plus grande et que c'est là
-    que ça déconne
+    Funny: on the following example, both the evaluation point and most of the
+    initial values are exact, so that we end up with a significantly better
+    approximation than requested::
 
         sage: series_sum_ordinary(dop, ini, 1/2, RBF(1e-16))
         ([-3.575140703474456...] + [-2.2884877202396862...]*I)
