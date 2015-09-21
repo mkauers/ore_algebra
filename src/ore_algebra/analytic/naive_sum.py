@@ -132,6 +132,11 @@ def series_sum_ordinary(dop, ini, pt, tgt_error,
             Intervals = type(Intervals)(new_prec)
     return psum
 
+# TODO:
+# - add support for pt=x (polynomial indet)
+# - make it possible to specify a number of terms to sum rather than a target
+#   accuracy
+
 def series_sum_ordinary_doit(Intervals, bwrec, ini, pt, rad, tgt_error, maj,
         derivatives, stride, record_bounds_in):
 
@@ -202,6 +207,18 @@ def fundamental_matrix_ordinary(dop, pt, ring, eps, rows, maj):
     return matrix(cols).transpose().change_ring(ring)
 
 def plot_bounds(dop, ini, pt, eps, pplen=0):
+    r"""
+    EXAMPLES::
+
+        sage: from sage.rings.real_arb import RBF
+        sage: from sage.rings.complex_ball_acb import CBF
+        sage: from ore_algebra.analytic.ui import Diffops
+        sage: from ore_algebra.analytic import naive_sum
+        sage: Dops, x, Dx = Diffops()
+
+        sage: naive_sum.plot_bounds(Dx - 1, [CBF(1)], CBF(i)/2, RBF(1e-20))
+        Graphics object consisting of 2 graphics primitives
+    """
     import sage.plot.all as plot
     recd = []
     maj = bound_diffop(dop, pol_part_len=pplen)  # cache in ctx?
