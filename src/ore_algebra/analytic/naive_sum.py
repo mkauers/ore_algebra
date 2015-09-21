@@ -5,6 +5,11 @@ Evaluation of convergent D-finite series by direct summation
 NOTES:
 
 - cythonize?
+
+FIXME: silence deprecation warnings::
+
+    sage: def ignore(*args): pass
+    sage: sage.misc.superseded.warning=ignore
 """
 
 import collections, itertools, logging
@@ -16,10 +21,10 @@ from sage.structure.sequence import Sequence
 
 from ore_algebra.ore_algebra import OreAlgebra
 
-from . import bounds, utilities
-
-from .bounds import bound_diffop
-from .utilities import safe_lt
+# from . import bounds, utilities
+from ore_algebra.analytic import bounds, utilities
+from ore_algebra.analytic.bounds import bound_diffop
+from ore_algebra.analytic.utilities import safe_lt
 
 logger = logging.getLogger(__name__)
 
@@ -29,9 +34,14 @@ def series_sum_ordinary(dop, ini, pt, tgt_error,
     r"""
     EXAMPLES::
 
+        sage: from sage.rings.real_arb import RealBallField, RBF
+        sage: from sage.rings.complex_ball_acb import ComplexBallField, CBF
+        sage: QQi.<i> = QuadraticField(-1)
+
         sage: from ore_algebra.analytic.ui import *
         sage: from ore_algebra.analytic.naive_sum import series_sum_ordinary
         sage: Dops, x, Dx = Diffops()
+
         sage: dop = ((4*x^2 + 3/58*x - 8)*Dx^10 + (2*x^2 - 2*x)*Dx^9 +
         ....:       (x^2 - 1)*Dx^8 + (6*x^2 - 1/2*x + 4)*Dx^7 +
         ....:       (3/2*x^2 + 2/5*x + 1)*Dx^6 + (-1/6*x^2 + x)*Dx^5 +
@@ -55,7 +65,31 @@ def series_sum_ordinary(dop, ini, pt, tgt_error,
         requested accuracy
         ...
         ([-3.575140703474...] + [-2.288487720239...]*I)
-        """
+
+    TESTS::
+
+        sage: b = series_sum_ordinary((x^2 + 1)*Dx^2 + 2*x*Dx, [RBF(0), RBF(1)],
+        ....:                         7/10, RBF(1e-30))
+        sage: b.parent()
+        Vector space of dimension 1 over Real ball field with ... precision
+        sage: b[0].rad().exact_rational() < 10^(-30)
+        True
+        sage: b[0].overlaps(RealBallField(130)(7/10).arctan())
+        True
+
+        sage: b = series_sum_ordinary((x^2 + 1)*Dx^2 + 2*x*Dx, [RBF(0), RBF(1)],
+        ....:                         (i+1)/2, RBF(1e-30))
+        Traceback (most recent call last):
+            ...
+        TypeError: unable to convert 1/2*i + 1/2 to a RealBall
+
+        sage: b = series_sum_ordinary((x^2 + 1)*Dx^2 + 2*x*Dx, [CBF(0), CBF(1)],
+        ....:                         (i+1)/2, RBF(1e-30))
+        sage: b.parent()
+        Vector space of dimension 1 over Complex ball field with ... precision
+        sage: b[0].overlaps(ComplexBallField(130)((1+i)/2).arctan())
+        True
+    """
 
     logger.info("target error = %s", tgt_error.lower())
     _, Pols, Scalars, dop = dop._normalize_base_ring()
