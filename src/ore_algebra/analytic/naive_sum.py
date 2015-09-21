@@ -57,7 +57,7 @@ def series_sum_ordinary(dop, ini, pt, tgt_error,
         ([-3.575140703474...] + [-2.288487720239...]*I)
         """
 
-    logger.info("target error = %s", tgt_error)
+    logger.info("target error = %s", tgt_error.lower())
     _, Pols, Scalars, dop = dop._normalize_base_ring()
     Rops = OreAlgebra(PolynomialRing(Scalars, 'n'), 'Sn')
     rop = dop.to_S(Rops).primitive_part().numerator()
@@ -154,7 +154,7 @@ def series_sum_ordinary_doit(Intervals, bwrec, ini, pt, rad, tgt_error, maj,
     err = tail_bound.abs()
     res = vector(x.shake(err) for x in psum)
     logger.info("summed %d terms, tail <= %s, coeffwise error <= %s", n,
-            tail_bound, bounds.IR(max(x.rad() for x in res)))
+            tail_bound, max(x.rad() for x in res))
     return res
 
 # XXX: drop the 'ring' parameter? pass ctx (→ real/complex?)?
