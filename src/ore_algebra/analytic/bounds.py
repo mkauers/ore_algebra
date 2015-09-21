@@ -1,6 +1,11 @@
 # -*- coding: utf-8 - vim: tw=80
 """
 Error bounds
+
+FIXME: silence deprecation warnings::
+
+    sage: def ignore(*args): pass
+    sage: sage.misc.superseded.warning=ignore
 """
 
 # TODO:
@@ -31,8 +36,8 @@ from sage.symbolic.ring import SR
 
 from ore_algebra.ore_algebra import OreAlgebra
 
-from . import utilities
-from utilities import safe_gt, safe_le, safe_lt
+from ore_algebra.analytic import utilities
+from ore_algebra.analytic.utilities import safe_gt, safe_le, safe_lt
 
 logger = logging.getLogger(__name__)
 
@@ -209,6 +214,27 @@ def _check_maj(fun, maj, prec=50):
 ######################################################################
 
 def graeffe(pol):
+    r"""
+    EXAMPLES:
+
+        sage: from ore_algebra.analytic.bounds import graeffe
+        sage: Pol.<x> = QQ[]
+
+        sage: pol = 6*x^5 - 2*x^4 - 2*x^3 + 2*x^2 + 1/12*x^2^2
+        sage: sorted(graeffe(pol).roots(CC))
+        [(0.000000000000000, 2), (0.110618733062304 - 0.436710223946931*I, 1),
+        (0.110618733062304 + 0.436710223946931*I, 1), (0.547473953628478, 1)]
+        sage: sorted([(z^2, m) for z, m in pol.roots(CC)])
+        [(0.000000000000000, 2), (0.110618733062304 - 0.436710223946931*I, 1),
+        (0.110618733062304 + 0.436710223946931*I, 1), (0.547473953628478, 1)]
+
+    TESTS::
+
+        sage: graeffe(CIF['x'].zero())
+        0
+        sage: graeffe(RIF['x'](-1/3))
+        0.1111111111111111?
+    """
     deg = pol.degree()
     Parent = pol.parent()
     pol_even = Parent([pol[2*i]   for i in xrange(deg/2+1)])
