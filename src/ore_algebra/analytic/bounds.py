@@ -215,6 +215,8 @@ def _check_maj(fun, maj, prec=50):
 
 def graeffe(pol):
     r"""
+    Compute the Graeffe iterate of this polynomial.
+
     EXAMPLES:
 
         sage: from ore_algebra.analytic.bounds import graeffe
