@@ -349,6 +349,10 @@ def abs_min_nonzero_root(pol, tol=RR(1e-2), lg_larger_than=RR('-inf')):
     return res
 
 def bound_inverse_poly_simple(den):
+    """
+    Return a majorant series for ``1/den``, as a ``Factorization`` object with
+    linear factors.
+    """
     Poly = den.parent().change_ring(IR)
     if den.degree() <= 0:
         fac = Factorization([], unit=Poly(1))
@@ -364,7 +368,7 @@ def bound_inverse_poly_solve(den):
         fac = Factorization([], unit=Poly(1))
     else:
         poles = den.roots(IC)
-        # thin interval containing the lower bounds
+        # thin interval containing the lower bound
         fac = Factorization([
             (Poly(-[IR(iv.abs().lower()), 1]), mult)
             for iv, mult in poles])
@@ -377,27 +381,65 @@ bound_inverse_poly = bound_inverse_poly_simple
 ######################################################################
 
 class RatSeqBound(object):
+    r"""
+    A piecewise-constant-piecewise-rational nonincreasing sequence.
+
+    This is intended to represent a sequence b(n) such that |f(k)| <= b(n) for
+    all k >= n, for a certain (rational) sequence f(n) = num(n)/den(n). The
+    bound is defined by
+
+    - the two polynomials num, den, with deg(num) <= deg(den),
+
+    - and a list of pairs (n[i], v[i]) with n[i-1] <= n[i], n[-1] = ∞,
+      v[i-1] <= v[i], and such that
+
+          |f(k)| <= max(|f(n)|, v[i]) for n[i-1] < n <= k <= n[i].
+    """
+
     def __init__(self, num, den, stairs):
         self.num = num
         self.den = den
         self.stairs = stairs
+
     def __repr__(self):
-        fmt = "Bound on |({num})/({den})|: {stairs}"
-        r = fmt.format(num=self.num, den=self.den, stairs=self.stairs)
+        fmt = "max(\n  |({num})/({den})|,\n{stairs}\n)"
+        n = self.num.variable_name()
+        stairsstr = ',\n'.join("  {}\tfor  {} <= {}".format(val, n, edge)
+                                for edge, val in self.stairs)
+        r = fmt.format(num=self.num, den=self.den, stairs=stairsstr)
         return r
+
     def stairs_step(self, n):
-        for (pt, val) in self.stairs:
-            if n <= pt:
+        for (edge, val) in self.stairs:
+            if n <= edge:
                 return val
         assert False
+
     def __call__(self, n):
         step = self.stairs_step(n)
         if step.upper() == infinity: # TODO: arb is_finite?
             return step
         else:
             # TODO: avoid recomputing cst every time once it becomes <= next + ε?
-            val = IC(self.num(n)).abs()/IC(self.den(n)).abs()
+            val = (IC(self.num(n))/IC(self.den(n))).above_abs()
             return step.max(val)
+
+    def plot(self, n=30):
+        from sage.plot.plot import list_plot
+        rat = self.num/self.den
+        p1 = list_plot([RR(abs(rat(k))) if self.den(k) else RR('inf')
+                        for k in range(n)],
+                marker='o', plotjoined=True)
+        p2 = list_plot([self.stairs_step(k).upper() for k in range(n)],
+                plotjoined=True, linestyle=':', color='red')
+        p3 = list_plot([self(k).upper() for k in range(n)],
+                marker='o', plotjoined=True, color='red')
+        return p1 + p2 + p3
+
+    def _check(self, n=100):
+        for k in range(n):
+            if self(k) < IR(self.num(k)/self.den(k)).abs():
+                raise AssertionError
 
 def bound_real_roots(pol):
     if pol.is_zero(): # XXX: may not play well with intervals
@@ -416,7 +458,34 @@ def bound_ratio_large_n_nosolve(num, den):
 
     for all k >= n >= 0. Note that a may take infinite values.
 
-    This version should work with polynomials with interval coefficients.
+    This version accepts polynomials with interval coefficients, but yields less
+    tight bounds than ``bound_ratio_large_n_solve``.
+
+    EXAMPLES::
+
+        sage: from ore_algebra.analytic.bounds import bound_ratio_large_n_nosolve
+        sage: Pols.<n> = QQ[]
+
+        sage: num = (n^3-2/3*n^2-10*n+2)*(n^3-30*n+8)*(n^3-10/9*n+1/54)
+        sage: den = (n^3-5/2*n^2+n+2/5)*(n^3-1/2*n^2+3*n+2)*(n^3-81/5*n-14/15)
+        sage: bnd = bound_ratio_large_n_nosolve(num, den); bnd
+        max(
+          ...
+          [+/- inf]             for  n <= 0,
+          [22.77...]            for  n <= 23,
+          1.000000000000000     for  n <= +Infinity
+        )
+        sage: bnd.plot().show(ymax=30); bnd._check()
+
+        sage: from sage.rings.complex_ball_acb import CBF
+        sage: num, den = num.change_ring(CBF), den.change_ring(CBF)
+        sage: bound_ratio_large_n_nosolve(num, den)
+        max(
+          ...
+          [+/- inf]             for  n <= 0,
+          [22.77...]            for  n <= 23,
+          1.000000000000000     for  n <= +Infinity
+        )
     """
     if num.degree() > den.degree():
         raise ValueError("expected deg(num) <= deg(den)")
@@ -443,7 +512,7 @@ def bound_ratio_large_n_nosolve(num, den):
     last = 0
     nonincr_or_le_lim_from = None
     finite_from = 0
-    verbose("monotonic from {}, starting extended search".format(monotonic_from), level=9)
+    logger.debug("monotonic from %s, starting extended search", monotonic_from)
     tic = cputime()
     for n in xrange(monotonic_from, 0, -1):
         val = bound_term(n)
@@ -461,11 +530,10 @@ def bound_ratio_large_n_nosolve(num, den):
     ini_range = xrange(finite_from, nonincr_or_le_lim_from+1) # +1 for clarity when empty
     ini_bound = lim.max(*(bound_term(n) for n in ini_range))
 
-    verbose("finite from {}, ini_bound={}, ↘/≤lim from {}, lim={}"
-            .format(finite_from, ini_bound, nonincr_or_le_lim_from, lim),
-            level=9, t=tic)
+    logger.debug("finite from %s, ini_bound=%s, ↘/≤lim from %s, lim=%s (%s s)",
+            finite_from, ini_bound, nonincr_or_le_lim_from, lim, cputime()-tic)
 
-    stairs = [(finite_from, infinity), (nonincr_or_le_lim_from, ini_bound),
+    stairs = [(finite_from, IR(infinity)), (nonincr_or_le_lim_from, ini_bound),
               (infinity, lim)]
     return RatSeqBound(num, den, stairs)
 
@@ -476,9 +544,8 @@ def nonneg_roots(pol):
         diam = ~roots[-1][0][1]
         while any(rt - lt > QQ(10) for ((lt, rt), _) in roots):
             # max_diameter is a relative diameter --> pb for large roots
-            verbose("largest root diameter = {}, refining"
-                        .format(roots[-1][0][1] - roots[-1][0][0].n(10)),
-                    level=10)
+            logger.debug("largest root diameter = %s, refining",
+                    roots[-1][0][1] - roots[-1][0][0].n(10))
             roots = real_roots.real_roots(pol, bounds=(QQ(0), bound),
                                           max_diameter=diam)
             diam >>= 1
@@ -488,11 +555,63 @@ upper_inf = RIF(infinity).upper()
 
 def bound_ratio_large_n_solve(num, den, min_drop=IR(1.1), stats=None):
     """
-    Given two polynomials num and den, return a function a(n) such that
+    Given two polynomials num and den, return a function b(n) such that
 
-        0 < |num(k)| < a(n)·|den(k)|
+        0 < |num(k)| < b(n)·|den(k)|
 
-    for all k >= n >= 0. Note that a may take infinite values.
+    for all k >= n >= 0. Note that b may take infinite values.
+
+    EXAMPLES::
+
+        sage: from ore_algebra.analytic.bounds import bound_ratio_large_n_solve
+        sage: Pols.<n> = QQ[]
+
+        sage: num = (n^3-2/3*n^2-10*n+2)*(n^3-30*n+8)*(n^3-10/9*n+1/54)
+        sage: den = (n^3-5/2*n^2+n+2/5)*(n^3-1/2*n^2+3*n+2)*(n^3-81/5*n-14/15)
+        sage: bnd1 = bound_ratio_large_n_solve(num, den); bnd1
+        max(
+          |(n^9 + ([-0.66...])*n^8 + ([-41.1...])*n^7 + ...)/(n^9 - ...)|,
+          [22.77116...]     for  n <= 2,
+          [12.72438...]     for  n <= 4,
+          [1.052785...]     for  n <= +Infinity
+        )
+        sage: bnd1.plot(12)
+        Graphics object consisting of 3 graphics primitives
+
+        sage: num = (n^2-3/2*n-6/7)*(n^2+1/8*n+1/12)*(n^3-1/44*n^2+1/11*n+9/22)
+        sage: den = (n^3-1/2*n^2+1/13)*(n^3-28*n+35)*(n^3-31/5)
+        sage: bnd2 = bound_ratio_large_n_solve(num, den); bnd2
+        max(
+          ...
+          [0.231763...]   for  n <= 4,
+          [0.200420...]   for  n <= 5,
+          0               for  n <= +Infinity
+        )
+        sage: bnd2.plot()
+        Graphics object consisting of 3 graphics primitives
+
+    TESTS::
+
+        sage: bnd1._check()
+        sage: bnd2._check()
+
+        sage: bound_ratio_large_n_solve(n, Pols(1))
+        Traceback (most recent call last):
+        ...
+        ValueError: expected deg(num) <= deg(den)
+
+        sage: bound_ratio_large_n_solve(Pols(1), Pols(3))
+        max(
+        |(1.000000000000000)/(3.000000000000000)|,
+        [0.333...]     for  n <= +Infinity
+        )
+
+        sage: i = QuadraticField(-1).gen()
+        sage: bound_ratio_large_n_solve(n, n + i)
+        max(
+        |(n)/(n + I)|,
+        1.000000000000000     for  n <= +Infinity
+        )
     """
     if num.is_zero():
         return RatSeqBound(num, den, [(infinity, IR.zero())])
@@ -531,7 +650,7 @@ def bound_ratio_large_n_solve(num, den, min_drop=IR(1.1), stats=None):
         if val.upper() == upper_inf:
             break
     stairs.reverse()
-    verbose("done building staircase, size = {}".format(len(stairs)), level=10)
+    logger.debug("done building staircase, size = %s", len(stairs))
     if stats: stats.time_staircases.toc()
 
     return RatSeqBound(num, den, stairs)
