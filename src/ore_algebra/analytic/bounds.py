@@ -431,9 +431,9 @@ class RatSeqBound(object):
                         for k in range(n)],
                 marker='o', plotjoined=True)
         p2 = list_plot([self.stairs_step(k).upper() for k in range(n)],
-                plotjoined=True, linestyle=':', color='red')
+                plotjoined=True, linestyle=':', color='black')
         p3 = list_plot([self(k).upper() for k in range(n)],
-                marker='o', plotjoined=True, color='red')
+                marker='o', plotjoined=True, color='blue')
         return p1 + p2 + p3
 
     def _check(self, n=100):

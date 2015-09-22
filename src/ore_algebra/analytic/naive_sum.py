@@ -224,11 +224,12 @@ def plot_bounds(dop, ini, pt, eps, pplen=0):
     maj = bound_diffop(dop, pol_part_len=pplen)  # cache in ctx?
     ref_sum = series_sum_ordinary(dop, ini, pt, eps, stride=1, derivatives=1,
                                   record_bounds_in=recd, maj=maj)
+    underflow_guard = 2.**(-980)
     error_plot = plot.line(
             [(n, (psum[0]-ref_sum[0]).abs().lower())
              for n, psum, _ in recd],
-            color="black", scale="semilogy")
+            color="black", scale="semilogy", ymin=underflow_guard)
     bound_plot = plot.line([(n, bound.upper()) for n, _, bound in recd],
-                           color="blue", scale="semilogy")
+                        color="blue", scale="semilogy", ymin=underflow_guard)
     return error_plot + bound_plot
 
