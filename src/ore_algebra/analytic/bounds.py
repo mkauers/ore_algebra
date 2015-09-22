@@ -662,20 +662,37 @@ bound_ratio_large_n = bound_ratio_large_n_solve
 ################################################################################
 
 def bound_polynomials(pols):
-    # Returns a majorant, _not_ a polynomial with interval coefficients
-    # enclosing the absolute values or anything like that!
+    r"""
+    Compute a common majorant polynomial for the polynomials in ``pol``.
+
+    Note that this returns a _majorant_, not some kind of enclosure.
+
+    TESTS::
+
+        sage: from ore_algebra.analytic.bounds import bound_polynomials
+        sage: Pol.<z> = PolynomialRing(QuadraticField(-1, 'i'), sparse=True)
+        sage: bound_polynomials([(-1/3+z) << (10^10), (-2*z) << (10^10)])
+        2.000...*z^10000000001 + [0.333...]*z^10000000000
+        sage: bound_polynomials([Pol(0)])
+        0
+        sage: bound_polynomials([])
+        Traceback (most recent call last):
+        ...
+        IndexError: list index out of range
+    """
     PolyIC = pols[0].parent().change_ring(IC)
-    val = min(0, min(pol.valuation() for pol in pols))
     deg = max(pol.degree() for pol in pols)
+    val = min(deg, min(pol.valuation() for pol in pols))
     pols = [PolyIC(pol) for pol in pols] # TBI
     order = Integer(len(pols))
     PolyIR = PolyIC.change_ring(IR)
-    maj = PolyIR([
-        IR.zero().max(*(
-            abs(pols[k][n])/(order-1).binomial(k)
+    def coeff_bound(n):
+        return IR.zero().max(*(
+            pols[k][n].above_abs()
             for k in xrange(order)))
-        for n in xrange(val, deg + 1) ])
-    maj = maj.map_coefficients(lambda iv: IR(iv.above_abs()))
+    maj = PolyIR([coeff_bound(n)
+                  for n in xrange(val, deg + 1)])
+    maj <<= val
     return maj
 
 class DiffOpBound(object):
