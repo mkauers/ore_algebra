@@ -18,8 +18,8 @@ import logging
 import sage.rings.complex_interval_field
 import sage.rings.polynomial.real_roots as real_roots
 
-from sage.misc.misc import cputime, verbose
 from sage.misc.misc_c import prod
+from sage.rings.all import CIF
 from sage.rings.complex_ball_acb import CBF, ComplexBallField
 from sage.rings.infinity import infinity
 from sage.rings.integer import Integer
@@ -51,62 +51,141 @@ class BoundPrecisionError(Exception):
 ######################################################################
 
 class MajorantSeries(object):
+    r"""
+    A formal power series with nonnegative coefficients
+    """
 
-    def __init__(self, cvrad=IR.zero()):
-        "A formal power series with nonnegative coefficients"
+    def __init__(self, variable_name, cvrad=IR.zero()):
+        self.variable_name = variable_name
         self.cvrad = IR(cvrad)
         assert self.cvrad >= IR.zero()
-    def __call__(self, z):
+
+    def eval(self, ev):
+        r"""
+        Evaluate this majorant using the evaluator ``ev``.
+
+        Typically the evaluator is a converter to a parent that supports all the
+        basic operations (+*/, integral...) appearing in the expression of the
+        majorant.
+        """
         raise NotImplementedError
+
+    def __call__(self, z):
+        return self.eval(lambda obj: obj(z))
+
+    def series(self, prec=10):
+        Series = PowerSeriesRing(IR, self.variable_name, default_prec=prec)
+        return self.eval(Series).truncate_powerseries(prec)
+
     def bound(self, rad, **kwds):
         if not safe_le(rad, self.cvrad): # intervals!
             return IR(infinity)
         else:
             return self._bound(rad, **kwds)
+
     def _bound(self, rad):
-        # pourrait en général renvoyer quelque chose de plus simple à calculer
-        # que self(rad), ou être implémenté alors que __call__ ne l'est pas
         return self(rad)
-    def bound_tail(self, order, rad):
-        # TODO: implém générique (quid des dérivées ?)
-        raise NotImplementedError
+
+    def check(self, fun=0, prec=50):
+        r"""
+        Check that ``self`` is *plausibly* a majorant of ``fun``.
+
+        This function in intended for debugging purposes. It does *not* perform
+        a rigorous check that ``self`` is a majorant series of ``fun``, and may
+        yield false positives (but no false negatives).
+
+        The reference function ``fun`` should be convertible to a series with
+        complex ball coefficients. If ``fun`` is omitted, check that ``self``
+        has nonnegative coefficients.
+
+        TESTS::
+
+            sage: from ore_algebra.analytic.bounds import *
+            sage: from sage.rings.real_arb import RBF
+            sage: Pol.<z> = RBF[]
+            sage: maj = RationalMajorant(Pol(1), Factorization([(1-z,1)]), Pol(0))
+            sage: maj.check(11/10*z^30)
+            Traceback (most recent call last):
+            ...
+            AssertionError: (30, [-0.10000000000000 +/- 8.00e-16], '< 0')
+        """
+        Series = PowerSeriesRing(IR, self.variable_name, prec)
+        # CIF to work around problem with sage power series, should be IC
+        ComplexSeries = PowerSeriesRing(CIF, self.variable_name, prec)
+        maj = self.series(prec)
+        ref = Series([iv.abs() for iv in ComplexSeries(fun)])
+        delta = list(maj - ref)
+        if len(delta) < prec:
+            import warnings
+            warnings.warn("checking {} terms instead of {} (cancellation during"
+                    " series expansion?)".format(len(delta), prec))
+        for i, c in enumerate(delta):
+            # the lower endpoint of a coefficient of maj is not a bound in
+            # general, and the series expansion can overestimate the
+            # coefficients of ref
+            if c < IR.zero():
+                raise AssertionError(i, c, '< 0')
+        return delta
 
 def _pole_free_rad(fac):
     if isinstance(fac, Factorization):
         den = [pol for (pol, mult) in fac if mult < 0]
-        if all(pol.is_monic() and pol.degree() == 1 for pol in den):
-            rad = RIF(infinity).min(*(RIF(pol[0].abs()) for pol in den))
+        if all(pol.degree() == 1 and pol.leading_coefficient().abs().is_one()
+               for pol in den):
+            rad = IR(infinity).min(*(IR(pol[0].abs()) for pol in den))
             rad = IR(rad.lower())
             assert rad >= IR.zero()
             return rad
     raise NotImplementedError  # pb dérivées???
 
 class RationalMajorant(MajorantSeries):
+    """
+    A rational power series with nonnegative coefficients, represented in the
+    form pol + num/den.
 
-    def __init__(self, num, den, pol=0):
-        """
-        A rational power series with nonnegative coefficients, represented in
-        the form pol + num/den
-        """
+    TESTS::
+
+        sage: from ore_algebra.analytic.bounds import *
+        sage: from sage.rings.real_arb import RBF
+        sage: Pol.<z> = RBF[]
+        sage: den = Factorization([(1-z, 2), (2-z, 1)])
+        sage: maj = RationalMajorant(z^2, den, 1 + z); maj
+        1.000... + 1.000...*z + z^2/((-z + 2.000...) * (-z + 1.000...)^2)
+        sage: maj(z).parent()
+        Fraction Field of Univariate Polynomial Ring in z over Real ball field
+        with 53 bits precision
+        sage: maj(1/2)
+        [2.166...]
+        sage: maj*(z^10)
+        1.000...*z^10 + 1.000...*z^11 + z^12/((-z + 2.000...) * (-z + 1.000...)^2)
+        sage: maj.bound_antiderivative()
+        1.00...*z + 0.50...*z^2 + [0.33...]*z^3/((-z + 2.00...) * (-z + 1.00...)^2)
+        sage: maj.cvrad
+        1.000000000000000
+        sage: maj.series(4)
+        1.000... + 1.000...*z + 0.500...*z^2 + 1.250...*z^3 + O(z^4)
+        sage: _ = maj.check()
+        sage: maj.check(1 + z + z^2/((1-z)^2*(2-z)))
+        [0, 0, 0, ...]
+        sage: maj.check(1 + z + z^2/((1-z)*(2-z)))
+        [0, 0, 0, 0.5000000000000000, 1.250000000000000, ...]
+    """
+
+    def __init__(self, num, den, pol):
         if isinstance(num, Polynomial) and isinstance(den, Factorization):
             Poly = num.parent().change_ring(IR)
             if not den.unit().is_one():
-                raise ValueError("expected a monic denominator")
+                raise ValueError("expected a denominator with unit part 1")
+            assert num.valuation() > pol.degree()
             assert den.universe() is Poly or den.value() == 1
-            super(self.__class__, self).__init__(cvrad=_pole_free_rad(~den))
+            super(self.__class__, self).__init__(Poly.variable_name(),
+                    cvrad=_pole_free_rad(~den))
             self.num = Poly(num)
             self.pol = Poly(pol)
             self.den = den
             self.var = Poly.gen()
         else:
             raise TypeError
-
-    def __call__(self, z=None):
-        if z is None:
-            z = self.var
-        # better than den.value()(z) when z is inexact
-        den = prod(lin(z)**mult for (lin, mult) in self.den)
-        return self.pol(z) + self.num(z)/den
 
     def __repr__(self):
         res = ""
@@ -118,6 +197,11 @@ class RationalMajorant(MajorantSeries):
         if self.den:
             res += "/(" + repr(self.den) + ")"
         return res
+
+    def eval(self, ev): # XXX: à combiner ensuite avec __call__ ?...
+        # may by better than den.value()(z) in some cases
+        den = prod(ev(lin)**mult for (lin, mult) in self.den)
+        return ev(self.pol) + ev(self.num)/den
 
     def bound_antiderivative(self):
         # When u, v have nonneg coeffs, int(u·v) is majorized by int(u)·v.
@@ -139,15 +223,31 @@ class RationalMajorant(MajorantSeries):
             raise TypeError
 
 class HyperexpMajorant(MajorantSeries):
+    """
+    A formal power series of the form rat1(z) + exp(int(rat2(ζ), ζ=0..z)), with
+    nonnegative coefficients.
+
+    TESTS::
+
+        sage: from ore_algebra.analytic.bounds import *
+        sage: from sage.rings.real_arb import RBF
+        sage: Pol.<z> = RBF[]
+        sage: integrand = RationalMajorant(z^2, Factorization([(1-z,1)]), 4+4*z)
+        sage: rat = Factorization([(1/3-z, -1)])
+        sage: maj = HyperexpMajorant(integrand, rat); maj
+        ((-z + [0.333...])^-1)*exp(int(4.0... + 4.0...*z + z^2/(-z + 1.0...)))
+        sage: maj.cvrad
+        [0.333...]
+        sage: maj.series(4)
+        [3.000...] + [21.000...]*z + [93.000...]*z^2 + [336.000...]*z^3 + O(z^4)
+        sage: _ = maj.check()
+    """
 
     def __init__(self, integrand, rat):
-        """
-        A formal power series of the form rat1(z) + exp(int(rat2(ζ), ζ=0..z)),
-        with nonnegative coefficients.
-        """
-        if isinstance(integrand, RationalMajorant):
-            cvrad = integrand.cvrad.max(_pole_free_rad(rat))
-            super(self.__class__, self).__init__(cvrad)
+        if isinstance(integrand, RationalMajorant) and isinstance(rat,
+                Factorization):
+            cvrad = integrand.cvrad.min(_pole_free_rad(rat))
+            super(self.__class__, self).__init__(integrand.variable_name, cvrad)
             self.integrand = integrand
             self.rat = rat
         else:
@@ -156,11 +256,9 @@ class HyperexpMajorant(MajorantSeries):
     def __repr__(self):
         return "({})*exp(int({}))".format(self.rat, self.integrand)
 
-    def __call__(self, z):
-        # TBI: variable names
-        dummy = SR.var(z)
-        integrand = self.integrand(dummy)
-        return self.rat.value() * integrand.integral(dummy, hold=True).exp()
+    def eval(self, ev):
+        integrand = self.integrand.eval(ev)
+        return ev(self.rat.value()) * integrand.integral().exp()
 
     def _bound(self, rad, derivatives=1):
         """
@@ -185,10 +283,6 @@ class HyperexpMajorant(MajorantSeries):
         exp_part = (2*self.integrand.bound_antiderivative()(rad)).exp()
         return (rat_part*exp_part).sqrt() # XXX: sqrtpos?
 
-    # derivatives? fusionner avec bound ?
-    def bound_tail(self, order, rad):
-        raise NotImplementedError
-
     def __mul__(self, pol):
         """"
         Multiplication by a polynomial.
@@ -196,18 +290,6 @@ class HyperexpMajorant(MajorantSeries):
         Note that this does not change the radius of convergence.
         """
         return HyperexpMajorant(self.integrand, self.rat*pol)
-
-def _check_maj(fun, maj, prec=50):
-    Series = PowerSeriesRing(IR, 'z', default_prec=prec)
-    z = Series.gen()
-    delta = list(maj(z) - Series([iv.abs() for iv in list(fun(z))]))
-    # iv.upper as majcoef.lower() is not a bound in general, and
-    # funcoef.upper() can be overestimated during the series expansion
-    delta = [iv.upper() for iv in delta]
-    if all(c >= 0. for c in delta):
-        return delta
-    else:
-        raise ValueError(delta)
 
 ######################################################################
 # Majorants for reciprocals of polynomials ("denominators")
@@ -450,7 +532,7 @@ def bound_real_roots(pol):
     return bound
 
 # TODO: share code with the main implementation (if I keep both versions)
-def bound_ratio_large_n_nosolve(num, den):
+def bound_ratio_large_n_nosolve(num, den, stats=None):
     """
     Given two polynomials num and den, return a function a(n) such that
 
@@ -513,7 +595,7 @@ def bound_ratio_large_n_nosolve(num, den):
     nonincr_or_le_lim_from = None
     finite_from = 0
     logger.debug("monotonic from %s, starting extended search", monotonic_from)
-    tic = cputime()
+    if stats: stats.time_staircases.tic()
     for n in xrange(monotonic_from, 0, -1):
         val = bound_term(n)
         if (nonincr_or_le_lim_from is None
@@ -529,9 +611,10 @@ def bound_ratio_large_n_nosolve(num, den):
 
     ini_range = xrange(finite_from, nonincr_or_le_lim_from+1) # +1 for clarity when empty
     ini_bound = lim.max(*(bound_term(n) for n in ini_range))
+    if stats: stats.time_staircases.toc()
 
-    logger.debug("finite from %s, ini_bound=%s, ↘/≤lim from %s, lim=%s (%s s)",
-            finite_from, ini_bound, nonincr_or_le_lim_from, lim, cputime()-tic)
+    logger.debug("finite from %s, ini_bound=%s, ↘/≤lim from %s, lim=%s",
+            finite_from, ini_bound, nonincr_or_le_lim_from, lim)
 
     stairs = [(finite_from, IR(infinity)), (nonincr_or_le_lim_from, ini_bound),
               (infinity, lim)]
@@ -696,6 +779,17 @@ def bound_polynomials(pols):
     return maj
 
 class DiffOpBound(object):
+    r"""
+    A "bound on the inverse" of a differential operator.
+
+    XXX: Ce qui suit est à compléter et vérifier.
+
+    This represents a sequence of series v_n(z) with the property that if
+    * y(z) is a solution of dop·y = 0,
+    * ỹ(z) is a truncation of ỹ of degree at least N,
+    * and q = dop·y,
+    then v_N(z)*XXX is a majorant series of the tail y(z)-ỹ(z).
+    """
     def __init__(self, dop, cst, majseq_pol_part, majseq_num, maj_den):
         self.dop = dop
         self.Poly = dop.base_ring().change_ring(IR)
@@ -710,20 +804,25 @@ class DiffOpBound(object):
     def __call__(self, n):
         maj_pol_part = self.Poly([fun(n) for fun in self.majseq_pol_part])
         maj_num = (self.Poly([fun(n) for fun in self.majseq_num])
-                   >> len(self.majseq_pol_part))
+                >> len(self.majseq_pol_part))  # XXX: >> dans le bon sens ?
         rat_maj = RationalMajorant(self.cst*maj_num, self.maj_den, maj_pol_part)
         maj = HyperexpMajorant(rat_maj, ~self.maj_den)
         return maj
     def matrix_sol_tail_bound(self, n, rad, residuals, ord=None):
         if ord is None: ord=self.dop.order()
         abs_residual = bound_polynomials(residuals)
+        # XXX: pourquoi je n'ai ici ni le décalage via t, ni le dénom ? devait y
+        # avoir une astuce pour s'en débarrasser que j'ai un peu oubliée...
         maj = self(n)*abs_residual.integral()
         # Since (y[n:])' << maj => (y')[n:] << maj, this bound is valid for the
         # tails of a column of the form [y, y', y''/2, y'''/6, ...] or
         # [y, θy, θ²y/2, θ³y/6, ...].
         col_bound = maj.bound(rad, derivatives=ord)
-        # logger.debug("lc(abs_res) = %s, maj(n).bound() = %s, col_bound = %s",
-        #         abs_residual.leading_coefficient(), self(n).bound(rad), col_bound)
+        logger.debug("lc(abs_res) = %s", abs_residual.leading_coefficient())
+        logger.debug("maj(%s) = %s", n, self(n))
+        logger.debug("maj(%s).bound() = %s", n, self(n).bound(rad))
+        logger.debug("maj = %s", maj)
+        logger.debug("col_bound = %s", col_bound)
         return IR(ord).sqrt()*col_bound
 
 # Perhaps better: work with a "true" Ore algebra K[θ][z]. Use Euclidean
@@ -749,6 +848,9 @@ def _dop_rcoeffs_of_T(dop):
     return res
 
 class BoundDiffopStats(utilities.Stats):
+    """
+    Store timings for various parts of the bound computation algorithm.
+    """
     def __init__(self):
         super(self.__class__, self).__init__()
         self.time_roots = utilities.Clock("computing roots")
@@ -757,7 +859,6 @@ class BoundDiffopStats(utilities.Stats):
 
 def bound_diffop(dop, pol_part_len=0):
     stats = BoundDiffopStats()
-    verbose("bounding diff op...", level=5)
     _, Pols_z, _, dop = dop._normalize_base_ring()
     z = Pols_z.gen()
     lc = dop.leading_coefficient()
@@ -774,7 +875,7 @@ def bound_diffop(dop, pol_part_len=0):
                 for j, pol in enumerate(rcoeffs))
     first_nz = first.polynomial(z)
     first_zn = first.polynomial(n)
-    verbose("first: {}".format(first_nz), level=8)
+    logger.debug("first: %s", first_nz)
     assert first_nz[0] == dop.indicial_polynomial(z, n).monic()
     assert all(pol.degree() < dop.order() for pol in first_nz[1:])
 
@@ -782,15 +883,15 @@ def bound_diffop(dop, pol_part_len=0):
     dop_T = dop.to_T('T' + str(z)) # slow
     T = dop_T.parent().gen()
     pol_part = sum(T**j*pol for j, pol in enumerate(first_zn)) # slow
-    verbose("pol_part: {}".format(pol_part), level=8)
+    logger.debug("pol_part: %s", pol_part)
     rem_num = dop_T - pol_part*lc # inefficient in theory for large pol_part_len
-    verbose("rem_num: {}".format(rem_num), level=8)
+    logger.debug("rem_num: %s", rem_num)
     it = enumerate(_dop_rcoeffs_of_T(rem_num))
     rem_num_nz = MPol(sum(n**j*pol for j, pol in it)).polynomial(z)
     assert rem_num_nz.valuation() >= pol_part_len + 1
     rem_num_nz >>= pol_part_len + 1
     stats.time_decomp_op.toc()
-    verbose("rem_num_nz: {}".format(rem_num_nz), level=8)
+    logger.debug("rem_num_nz: %s", rem_num_nz)
 
     ind = first_nz[0]
     cst, maj_den = bound_inverse_poly(lc)
@@ -799,7 +900,7 @@ def bound_diffop(dop, pol_part_len=0):
     majseq_num = [bound_ratio_large_n(pol << 1, ind, stats=stats)
                   for pol in rem_num_nz]
     maj = DiffOpBound(dop, cst, majseq_pol_part, majseq_num, maj_den)
-    verbose("...done, time: {}".format(stats), level=5)
+    logger.debug("...done, time: %s", stats)
     return maj
 
 def residual(bwrec, n, last):

@@ -16,6 +16,7 @@ import collections, itertools, logging
 
 from sage.matrix.constructor import identity_matrix, matrix
 from sage.modules.free_module_element import vector
+from sage.rings.infinity import infinity
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 from sage.structure.sequence import Sequence
 
@@ -114,6 +115,7 @@ def series_sum_ordinary(dop, ini, pt, tgt_error,
     rad = abs(bounds.IC(pt))
     if maj is None: # let's support calling this function directly...
         maj = bound_diffop(dop)
+    logger.log(logging.DEBUG-1, "Majorant:\n%s", maj)
 
     if isinstance(tgt_error, bounds.RelativeError) and derivatives > 1:
         raise TypeError("relative error only supported for derivatives == 1")
@@ -161,7 +163,7 @@ def series_sum_ordinary_doit(Intervals, bwrec, ini, pt, rad, tgt_error, maj,
         psum += term
         ptpow *= pt
 
-    tail_bound = None
+    tail_bound = bounds.IR(infinity)
     for n in itertools.count(len(ini)):
         last.rotate(1)
         #last[0] = None
@@ -171,7 +173,7 @@ def series_sum_ordinary_doit(Intervals, bwrec, ini, pt, rad, tgt_error, maj,
         abs_sum = abs(psum[0])
         if n%stride == 0:
             logger.debug("n=%s, sum=%s, last tail_bound=%s",
-                         n, psum[0], tail_bound)
+                         n, psum[0], tail_bound.upper())
         if n%stride == 0 and (tgt_error.reached(term[0], abs_sum)
                               or record_bounds_in is not None):
             residual = bounds.residual(bwrec, n, list(last)[1:])
@@ -190,7 +192,9 @@ def series_sum_ordinary_doit(Intervals, bwrec, ini, pt, rad, tgt_error, maj,
     # - Is this the right place do that?
     # - Overestimation: tail_bound is actually a bound on the Frobenius norm of
     #   the error! (TBI?)
-    err = tail_bound.abs()
+    err = tail_bound.abs() ### XXX: à ce stade j'ai des bornes d'erreur fausses !
+                           ### (enfin, sur l'exemple de exp : en-dessous de
+                           ### l'erreur cible, mais néanmoins trop optimistes)
     res = vector(x.shake(err) for x in psum)
     logger.info("summed %d terms, tail <= %s, coeffwise error <= %s", n,
             tail_bound, max(x.rad() for x in res))
@@ -224,12 +228,17 @@ def plot_bounds(dop, ini, pt, eps, pplen=0):
     maj = bound_diffop(dop, pol_part_len=pplen)  # cache in ctx?
     ref_sum = series_sum_ordinary(dop, ini, pt, eps, stride=1, derivatives=1,
                                   record_bounds_in=recd, maj=maj)
-    underflow_guard = 2.**(-980)
+    # Note: this won't work well when the errors get close to the double
+    # precision underflow threshold.
+    error_plot = plot.line(
+            [(n, (psum[0]-ref_sum[0]).abs().upper())
+             for n, psum, _ in recd],
+            color="black", scale="semilogy")
     error_plot = plot.line(
             [(n, (psum[0]-ref_sum[0]).abs().lower())
              for n, psum, _ in recd],
-            color="black", scale="semilogy", ymin=underflow_guard)
+            color="black", scale="semilogy")
     bound_plot = plot.line([(n, bound.upper()) for n, _, bound in recd],
-                        color="blue", scale="semilogy", ymin=underflow_guard)
+                           color="blue", scale="semilogy")
     return error_plot + bound_plot
 

@@ -172,8 +172,6 @@ class Point(SageObject):
             return self
         raise ValueError
 
-    ###
-
     def is_real(self):
         return RIF.has_coerce_map_from(self.value.parent())
 

@@ -174,6 +174,8 @@ def _value_from_mat(mat):
     else:
         return mat.base_ring().zero()
 
+# XXX: ce qui suit devrait donner une erreur (crochets manquants)
+# eval_diffeq(dop, ini, 1/2, 1e-30)
 def eval_diffeq(dop, ini, path, eps=1e-16):
     """
     EXAMPLES::
