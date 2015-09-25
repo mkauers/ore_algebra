@@ -780,7 +780,7 @@ def bound_polynomials(pols):
 
 class DiffOpBound(object):
     r"""
-    A "bound on the inverse" of a differential operator.
+    A "bound on the inverse" of a differential operator at an ordinary point.
 
     XXX: Ce qui suit est à compléter et vérifier.
 
@@ -804,16 +804,25 @@ class DiffOpBound(object):
     def __call__(self, n):
         maj_pol_part = self.Poly([fun(n) for fun in self.majseq_pol_part])
         maj_num = (self.Poly([fun(n) for fun in self.majseq_num])
-                >> len(self.majseq_pol_part))  # XXX: >> dans le bon sens ?
+                >> len(self.majseq_pol_part))
         rat_maj = RationalMajorant(self.cst*maj_num, self.maj_den, maj_pol_part)
         maj = HyperexpMajorant(rat_maj, ~self.maj_den)
         return maj
     def matrix_sol_tail_bound(self, n, rad, residuals, ord=None):
         if ord is None: ord=self.dop.order()
         abs_residual = bound_polynomials(residuals)
-        # XXX: pourquoi je n'ai ici ni le décalage via t, ni le dénom ? devait y
-        # avoir une astuce pour s'en débarrasser que j'ai un peu oubliée...
-        maj = self(n)*abs_residual.integral()
+        # In general, a majorant series for the tails of order n is given by
+        # self(n)(z)*int(t⁻¹*qq(t)/self(n)(t)) where qq(t) is a polynomial s.t.
+        # |qq[k]| >= (k/indicial_eq(k))*abs_residual[k]. Since k/indicial_eq(k)
+        # <= 1 (ordinary point!), we can take qq = abs_residual. (We lose a
+        # factor of about n^(ordeq-1) on the final bound.) The resulting bound
+        # is still not very convenient to compute. But since self(n) has
+        # nonnegative coefficients and self(n)(0) = 1, we can even take qq =
+        # abs_residual*self(n), which yields a very simple (if less tight)
+        # bound. (XXX: How much do we lose in the second operation?)
+        assert self.dop.order() >= 1
+        assert abs_residual.valuation() >= 1
+        maj = self(n)*(abs_residual >> 1).integral()
         # Since (y[n:])' << maj => (y')[n:] << maj, this bound is valid for the
         # tails of a column of the form [y, y', y''/2, y'''/6, ...] or
         # [y, θy, θ²y/2, θ³y/6, ...].
@@ -903,6 +912,7 @@ def bound_diffop(dop, pol_part_len=0):
     logger.debug("...done, time: %s", stats)
     return maj
 
+# XXX: should probably be moved elsewhere
 def residual(bwrec, n, last, z):
     r"""
     Compute the polynomial residual, up to sign, obtained by a applying a diff
