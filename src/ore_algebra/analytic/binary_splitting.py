@@ -166,6 +166,8 @@ class MatrixRec(object):
         self.ordrec = recop.order()
         self.orddiff = self.ordrec - self.orddeq
 
+        self.zvar = diffop.base_ring().variable_name()
+
         self.rec_matrix_ring = MatrixSpace(AlgInts_rec, self.ordrec, self.ordrec)
         Pols_rec, n = PolynomialRing(AlgInts_rec, 'n').objgen()
         self.rec_coeffs = [-Pols_rec(recop[i])(n - self.orddiff)
@@ -297,7 +299,8 @@ class MatrixRec(object):
             last[i] = ~(rop[0](n-s+i))*sum(rop[k](n-s+i)*last[i+k]    # u(n-s+i)
                                            for k in xrange(1, s+1))
         # Now compute the residual
-        return bounds.residual(self.bwrec, n, list(reversed(last[:s])))
+        return bounds.residual(self.bwrec, n, list(reversed(last[:s])),
+                self.zvar)
 
     def residuals(self, prod, n):
         return [self.residual(prod, n, j) for j in xrange(self.orddeq)]

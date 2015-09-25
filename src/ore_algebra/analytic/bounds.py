@@ -903,20 +903,53 @@ def bound_diffop(dop, pol_part_len=0):
     logger.debug("...done, time: %s", stats)
     return maj
 
-def residual(bwrec, n, last):
+def residual(bwrec, n, last, z):
     r"""
-    Compute the polynomial residual (up to sign?) obtained by a applying a diff
+    Compute the polynomial residual, up to sign, obtained by a applying a diff
     op P to a partial sum of a power series solution y of P·y=0.
 
     INPUT:
 
     - ``bwrec`` -- list [b[0], ..., b[s]] of coefficients of the recurrence
-      operator associated to P, written in the form b[0](n) + b[1](n) S⁻¹ + ···
+      operator associated to P (by the direct substitution x |--> S⁻¹, θ |--> n;
+      no additional multiplication by x^k is allowed!), written in the form
+      b[0](n) + b[1](n) S⁻¹ + ···
 
     - ``n`` -- truncation order
 
     - ``last`` -- the last s+1 coefficients u[n-1], u[n-2], ... of the
-      truncated series (in that order).
+      truncated series, in that order
+
+    - ``z`` -- variable name for the result
+
+    EXAMPLES::
+
+        sage: from sage.rings.complex_ball_acb import CBF
+        sage: from ore_algebra import OreAlgebra
+        sage: from ore_algebra.analytic.bounds import *
+        sage: Pol_t.<t> = QQ[]; Pol_n.<n> = QQ[]
+        sage: Dop.<Dt> = OreAlgebra(Pol_t)
+
+        sage: trunc = t._exp_series(5); trunc
+        1/24*t^4 + 1/6*t^3 + 1/2*t^2 + t + 1
+        sage: residual([n, Pol_n(1)], 5, [trunc[4]], t)
+        ([0.0416666666666667 +/- 4.26e-17])*t^5
+        sage: (Dt - 1).to_T('Tt')(trunc).change_ring(CBF)
+        ([-0.0416666666666667 +/- 4.26e-17])*t^5
+
+    Note that using Dt -1 instead of θt - t makes a difference in the result,
+    since it amounts to a division by t::
+
+        sage: (Dt - 1)(trunc).change_ring(CBF)
+        ([-0.0416666666666667 +/- 4.26e-17])*t^4
+
+    ::
+
+        sage: trunc = t._sin_series(5) + t._cos_series(5)
+        sage: residual([n*(n-1), Pol_n(0), Pol_n(1)], 5, [trunc[4], trunc[3]], t)
+        ([0.041666...])*t^6 + ([-0.16666...])*t^5
+        sage: (Dt^2 + 1).to_T('Tt')(trunc).change_ring(CBF)
+        ([0.041666...])*t^6 + ([-0.16666...])*t^5
     """
     # NOTE: later on I may want to compute the residuals directly in each
     # implementation of summation, to avoid recomputing known quantities (as
@@ -926,7 +959,7 @@ def residual(bwrec, n, last):
         sum(IC(bwrec[i+k+1](n+i))*IC(last[k])
             for k in xrange(ordrec-i))
         for i in xrange(ordrec)]
-    IvPols = PolynomialRing(IC, bwrec[0].numerator().variable_name(), sparse=True)
+    IvPols = PolynomialRing(IC, z, sparse=True)
     return IvPols(rescoef) << n
 
 ######################################################################

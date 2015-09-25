@@ -176,7 +176,8 @@ def series_sum_ordinary_doit(Intervals, bwrec, ini, pt, rad, tgt_error, maj,
                          n, psum[0], tail_bound.upper())
         if n%stride == 0 and (tgt_error.reached(term[0], abs_sum)
                               or record_bounds_in is not None):
-            residual = bounds.residual(bwrec, n, list(last)[1:])
+            residual = bounds.residual(bwrec, n, list(last)[1:],
+                    maj.Poly.variable_name())
             tail_bound = maj.matrix_sol_tail_bound(n, rad, [residual], ord=derivatives)
             if record_bounds_in is not None:
                 record_bounds_in.append((n, psum, tail_bound))
