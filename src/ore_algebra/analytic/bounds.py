@@ -441,18 +441,18 @@ def bound_inverse_poly_simple(den):
     else:
         # thin interval
         rad = abs_min_nonzero_root(den).below_abs(test_zero=True)
-        fac = Factorization([(Poly([-rad, 1]), den.degree())])
+        fac = Factorization([(Poly([rad, -1]), den.degree())])
     return ~abs(den.leading_coefficient()), fac
 
 def bound_inverse_poly_solve(den):
-    Poly = den.parent().change_ring(IR)
+    Poly = den.parent().change_ring(CIF)
     if den.degree() <= 0:
         fac = Factorization([], unit=Poly(1))
     else:
-        poles = den.roots(IC)
+        poles = den.roots(CIF)
         # thin interval containing the lower bound
         fac = Factorization([
-            (Poly(-[IR(iv.abs().lower()), 1]), mult)
+            (Poly([IR(iv.abs().lower()), -1]), mult)
             for iv, mult in poles])
     return ~abs(den.leading_coefficient()), fac
 
@@ -808,6 +808,8 @@ class DiffOpBound(object):
         rat_maj = RationalMajorant(self.cst*maj_num, self.maj_den, maj_pol_part)
         maj = HyperexpMajorant(rat_maj, ~self.maj_den)
         return maj
+    # introduire une fonction séparée qui renvoie un majorant ? (pour les
+    # tests...)
     def matrix_sol_tail_bound(self, n, rad, residuals, ord=None):
         if ord is None: ord=self.dop.order()
         abs_residual = bound_polynomials(residuals)
@@ -820,7 +822,7 @@ class DiffOpBound(object):
         # nonnegative coefficients and self(n)(0) = 1, we can even take qq =
         # abs_residual*self(n), which yields a very simple (if less tight)
         # bound. (XXX: How much do we lose in the second operation?)
-        assert self.dop.order() >= 1
+        assert n >= self.dop.order() >= 1
         assert abs_residual.valuation() >= 1
         maj = self(n)*(abs_residual >> 1).integral()
         # Since (y[n:])' << maj => (y')[n:] << maj, this bound is valid for the
