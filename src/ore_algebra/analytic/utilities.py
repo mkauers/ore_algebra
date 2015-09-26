@@ -58,11 +58,5 @@ def sing_as_alg(dop, iv):
 # Miscellaneous stuff
 ######################################################################
 
-def is_interval_field(parent):
-    from sage.rings.real_mpfi import is_RealIntervalField
-    from sage.rings.complex_interval_field import is_ComplexIntervalField
-    # TODO: arb
-    return is_RealIntervalField(parent) or is_ComplexIntervalField(parent)
-
 def prec_from_eps(eps):
     return -eps.lower().log2().floor()
