@@ -36,6 +36,7 @@ from sage.rings.real_arb import RBF, RealBallField
 from sage.structure.sage_object import SageObject
 
 from ore_algebra.analytic.utilities import *
+from ore_algebra.analytic.safe_cmp import *
 
 logger = logging.getLogger(__name__)
 

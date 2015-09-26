@@ -21,7 +21,7 @@ from sage.rings.number_field.number_field import NumberField, is_NumberField
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 from sage.rings.power_series_ring import PowerSeriesRing
 
-from . import bounds, utilities
+from . import bounds
 
 logger = logging.getLogger(__name__)
 

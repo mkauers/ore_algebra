@@ -22,10 +22,8 @@ from sage.structure.sequence import Sequence
 
 from ore_algebra.ore_algebra import OreAlgebra
 
-# from . import bounds, utilities
-from ore_algebra.analytic import bounds, utilities
-from ore_algebra.analytic.bounds import bound_diffop
-from ore_algebra.analytic.utilities import safe_lt
+from ore_algebra.analytic import accuracy, bounds, utilities
+from ore_algebra.analytic.safe_cmp import safe_lt
 
 logger = logging.getLogger(__name__)
 
@@ -103,21 +101,21 @@ def series_sum_ordinary(dop, ini, pt, tgt_error,
         raise ValueError('need {} initial values'.format(dop.order()))
     ini = Sequence(ini)
 
-    if not isinstance(tgt_error, bounds.ErrorCriterion):
+    if not isinstance(tgt_error, accuracy.ErrorCriterion):
         input_is_precise = (
                 (pt.parent().is_exact()
                     or safe_lt(bounds.IR(pt.rad()), tgt_error))
                 and all(safe_lt(bounds.IR(x.rad()), tgt_error) for x in ini))
-        tgt_error = bounds.AbsoluteError(tgt_error, input_is_precise)
+        tgt_error = accuracy.AbsoluteError(tgt_error, input_is_precise)
         if not input_is_precise:
             logger.warn("input intervals too wide wrt requested accuracy")
 
     rad = abs(bounds.IC(pt))
     if maj is None: # let's support calling this function directly...
-        maj = bound_diffop(dop)
+        maj = bounds.bound_diffop(dop)
     logger.log(logging.DEBUG-1, "Majorant:\n%s", maj)
 
-    if isinstance(tgt_error, bounds.RelativeError) and derivatives > 1:
+    if isinstance(tgt_error, accuracy.RelativeError) and derivatives > 1:
         raise TypeError("relative error only supported for derivatives == 1")
 
     # XXX: probably should support exact ini here...
@@ -127,7 +125,7 @@ def series_sum_ordinary(dop, ini, pt, tgt_error,
             psum = series_sum_ordinary_doit(Intervals, bwrec, ini, pt, rad,
                 tgt_error, maj, derivatives, stride, record_bounds_in)
             break
-        except bounds.PrecisionError:
+        except accuracy.PrecisionError:
             new_prec = Intervals.precision()*2
             logger.info("lost too much precision, restarting with %d bits",
                         new_prec)
@@ -224,7 +222,7 @@ def plot_bounds(dop, ini, pt, eps, pplen=0):
     """
     import sage.plot.all as plot
     recd = []
-    maj = bound_diffop(dop, pol_part_len=pplen)  # cache in ctx?
+    maj = bounds.bound_diffop(dop, pol_part_len=pplen)  # cache in ctx?
     ref_sum = series_sum_ordinary(dop, ini, pt, eps, stride=1, derivatives=1,
                                   record_bounds_in=recd, maj=maj)
     # Note: this won't work well when the errors get close to the double
