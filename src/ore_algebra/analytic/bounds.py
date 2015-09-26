@@ -199,7 +199,7 @@ class RationalMajorant(MajorantSeries):
             res += "/(" + repr(self.den) + ")"
         return res
 
-    def eval(self, ev): # XXX: à combiner ensuite avec __call__ ?...
+    def eval(self, ev):
         # may by better than den.value()(z) in some cases
         den = prod(ev(lin)**mult for (lin, mult) in self.den)
         return ev(self.pol) + ev(self.num)/den
@@ -218,7 +218,7 @@ class RationalMajorant(MajorantSeries):
 
         Note that this does not change the radius of convergence.
         """
-        if pol.parent() == self.num.parent():
+        if pol.parent() is self.num.parent():
             return RationalMajorant(self.num*pol, self.den, self.pol*pol)
         else:
             raise TypeError
@@ -927,7 +927,6 @@ def bound_diffop(dop, pol_part_len=0):
     logger.debug("...done, time: %s", stats)
     return maj
 
-# XXX: should probably be moved elsewhere
 def residual(bwrec, n, last, z):
     r"""
     Compute the polynomial residual, up to sign, obtained by a applying a diff

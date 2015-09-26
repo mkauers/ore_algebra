@@ -193,9 +193,7 @@ def series_sum_ordinary_doit(Intervals, bwrec, ini, pt, rad, tgt_error, maj,
     # - Is this the right place do that?
     # - Overestimation: tail_bound is actually a bound on the Frobenius norm of
     #   the error! (TBI?)
-    err = tail_bound.abs() ### XXX: à ce stade j'ai des bornes d'erreur fausses !
-                           ### (enfin, sur l'exemple de exp : en-dessous de
-                           ### l'erreur cible, mais néanmoins trop optimistes)
+    err = tail_bound.abs()
     res = vector(x.shake(err) for x in psum)
     logger.info("summed %d terms, tail <= %s, coeffwise error <= %s", n,
             tail_bound, max(x.rad() for x in res))
