@@ -47,7 +47,7 @@ class StepMatrix(object):
         self.BigScalars = sums_row.base_ring()
         self.Mat_big_scalars = rec_mat.parent().change_ring(self.BigScalars)
 
-    def imulleft(low, high):
+    def imulleft(low, high): # pylint: disable=no-self-argument
         # TODO: Still very slow.
         # - use polynomials (mul_trunc and friends) rather than power series?
         # - rewrite everything using lower-level operations...
@@ -74,7 +74,7 @@ class StepMatrix(object):
         new.sums_row = copy.copy(self.sums_row)
         return new
 
-    def __mul__(high, low):
+    def __mul__(high, low): # pylint: disable=no-self-argument
         return low.copy().imulleft(high)
 
     def __repr__(self):
