@@ -65,7 +65,7 @@ def series_sum_ordinary(dop, ini, pt, tgt_error,
         WARNING:ore_algebra.analytic.naive_sum:input intervals too wide wrt
         requested accuracy
         ...
-        ([-3.575140703474...] + [-2.288487720239...]*I)
+        ([-3.5751407034...] + [-2.2884877202...]*I)
 
     TESTS::
 

@@ -86,7 +86,7 @@ class MajorantSeries(object):
     def _bound(self, rad):
         return self(rad)
 
-    def check(self, fun=0, prec=50):
+    def _check(self, fun=0, prec=50, return_difference=False):
         r"""
         Check that ``self`` is *plausibly* a majorant of ``fun``.
 
@@ -104,7 +104,7 @@ class MajorantSeries(object):
             sage: from sage.rings.real_arb import RBF
             sage: Pol.<z> = RBF[]
             sage: maj = RationalMajorant(Pol(1), Factorization([(1-z,1)]), Pol(0))
-            sage: maj.check(11/10*z^30)
+            sage: maj._check(11/10*z^30)
             Traceback (most recent call last):
             ...
             AssertionError: (30, [-0.10000000000000 +/- 8.00e-16], '< 0')
@@ -113,19 +113,20 @@ class MajorantSeries(object):
         # CIF to work around problem with sage power series, should be IC
         ComplexSeries = PowerSeriesRing(CIF, self.variable_name, prec)
         maj = self.series(prec)
-        ref = Series([iv.abs() for iv in ComplexSeries(fun)])
-        delta = list(maj - ref)
+        ref = Series([iv.abs() for iv in ComplexSeries(fun)], prec=prec)
+        delta = (maj - ref).padded_list()
         if len(delta) < prec:
             import warnings
-            warnings.warn("checking {} terms instead of {} (cancellation during"
-                    " series expansion?)".format(len(delta), prec))
+            warnings.warn("checking {} term(s) instead of {} (cancellation"
+                    " during series expansion?)".format(len(delta), prec))
         for i, c in enumerate(delta):
             # the lower endpoint of a coefficient of maj is not a bound in
             # general, and the series expansion can overestimate the
             # coefficients of ref
             if c < IR.zero():
                 raise AssertionError(i, c, '< 0')
-        return delta
+        if return_difference:
+            return delta
 
 def _pole_free_rad(fac):
     if isinstance(fac, Factorization):
@@ -164,10 +165,10 @@ class RationalMajorant(MajorantSeries):
         1.000000000000000
         sage: maj.series(4)
         1.000... + 1.000...*z + 0.500...*z^2 + 1.250...*z^3 + O(z^4)
-        sage: _ = maj.check()
-        sage: maj.check(1 + z + z^2/((1-z)^2*(2-z)))
+        sage: maj._check()
+        sage: maj._check(1 + z + z^2/((1-z)^2*(2-z)), return_difference=True)
         [0, 0, 0, ...]
-        sage: maj.check(1 + z + z^2/((1-z)*(2-z)))
+        sage: maj._check(1 + z + z^2/((1-z)*(2-z)), return_difference=True)
         [0, 0, 0, 0.5000000000000000, 1.250000000000000, ...]
     """
 
@@ -240,7 +241,7 @@ class HyperexpMajorant(MajorantSeries):
         [0.333...]
         sage: maj.series(4)
         [3.000...] + [21.000...]*z + [93.000...]*z^2 + [336.000...]*z^3 + O(z^4)
-        sage: _ = maj.check()
+        sage: maj._check()
     """
 
     def __init__(self, integrand, rat):
@@ -430,33 +431,45 @@ def abs_min_nonzero_root(pol, tol=RR(1e-2), lg_larger_than=RR('-inf')):
         logger.debug("required tolerance may not be met")
     return res
 
-def bound_inverse_poly_simple(den):
+def bound_inverse_poly(den, algorithm="simple"):
     """
-    Return a majorant series for ``1/den``, as a ``Factorization`` object with
-    linear factors.
+    Return a majorant series ``cst/fac`` for ``1/den``, as a pair ``(cst, fac)``
+    where ``fac`` is a ``Factorization`` object with linear factors.
+
+    EXAMPLES::
+
+        sage: from ore_algebra.analytic.bounds import *
+        sage: Pol.<x> = QQ[]
+        sage: pol = 2*x + 1
+        sage: cst, den = bound_inverse_poly(pol)
+        sage: maj = RationalMajorant(Pol(cst), den, Pol(0)); maj
+        0.5000000000000000/(-x + [0.4972960558102933 +/- 4.71e-17])
+        sage: maj._check(1/pol)
+
+    TESTS::
+
+        sage: for pol in [Pol(1), Pol(-42), 2*x+1, x^3 + x^2 + x + 1, 5*x^2-7]:
+        ....:     for algo in ['simple', 'solve']:
+        ....:         cst, den = bound_inverse_poly(pol, algorithm=algo)
+        ....:         maj = RationalMajorant(Pol(0)+cst, den, Pol(0))
+        ....:         maj._check(1/pol)
     """
     Poly = den.parent().change_ring(IR)
     if den.degree() <= 0:
-        fac = Factorization([], unit=Poly(1))
+        factors = []
     else:
-        # thin interval
-        rad = abs_min_nonzero_root(den).below_abs(test_zero=True)
-        fac = Factorization([(Poly([rad, -1]), den.degree())])
-    return ~abs(den.leading_coefficient()), fac
-
-def bound_inverse_poly_solve(den):
-    Poly = den.parent().change_ring(CIF)
-    if den.degree() <= 0:
-        fac = Factorization([], unit=Poly(1))
-    else:
-        poles = den.roots(CIF)
-        # thin interval containing the lower bound
-        fac = Factorization([
-            (Poly([IR(iv.abs().lower()), -1]), mult)
-            for iv, mult in poles])
-    return ~abs(den.leading_coefficient()), fac
-
-bound_inverse_poly = bound_inverse_poly_simple
+        # below_abs()/lower() to get thin intervals
+        if algorithm == "simple":
+            rad = abs_min_nonzero_root(den).below_abs(test_zero=True)
+            factors = [(Poly([rad, -1]), den.degree())]
+        elif algorithm == "solve":
+            poles = den.roots(CIF)
+            factors = [(Poly([IR(iv.abs().lower()), -1]), mult)
+                        for iv, mult in poles]
+        else:
+            raise ValueError("algorithm")
+    num = ~abs(IC(den.leading_coefficient()))
+    return num, Factorization(factors, unit=Poly(1))
 
 ######################################################################
 # Bounds on rational functions of n
