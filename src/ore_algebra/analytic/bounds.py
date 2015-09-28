@@ -798,14 +798,57 @@ class DiffOpBound(object):
     r"""
     A "bound on the inverse" of a differential operator at an ordinary point.
 
-    XXX: Ce qui suit est à compléter et vérifier.
+    This is an object that, given a residual q = dop·ỹ where ỹ(z) = c·z^N + ···
+    is the truncation of degree N of a solution y of dop·y = 0, is able to
+    compute a majorant series of the tail y(z) - ỹ(z). The majorant series of
+    the tail is represented by a HyperexpMajorant.
 
-    This represents a sequence of series v_n(z) with the property that if
-    * y(z) is a solution of dop·y = 0,
-    * ỹ(z) is a truncation of ỹ of degree at least N,
-    * and q = dop·y,
-    then v_N(z)*XXX is a majorant series of the tail y(z)-ỹ(z).
+    More precisely, a DiffOpBound represents a *sequence* v[n](z) of formal
+    power series with the property that if N and ỹ are as above with N >= n,
+    then v[n](z)·B(q)(z), for some polynomial B(q) derived from q, is a majorant
+    of y(z) - ỹ(z). Here B(q) can be taken to be any majorant polynomial of q,
+    but tighter choices are possible (see below for details).
+
+    The sequence v[n](z) is of the form
+
+        1/den(z) * exp(int(cst*num[n](z)/den(z) + pol[n](z)))
+
+    where
+
+    * num[n](z) and pol[n](z) are polynomials with coefficients depending on n
+      (given by RatSeqBound objects),
+
+    * den(z) is a polynomial (with constant, i.e. ball, coefficients),
+
+    * cst is a constant (a ball).
+
+    EXAMPLES::
+
+        sage: from ore_algebra.analytic.ui import *
+        sage: from ore_algebra.analytic.bounds import *
+        sage: Dops, x, Dx = Diffops()
+
+    A majorant sequence::
+
+        sage: maj = bound_diffop((x^2 + 1)*Dx^2 + 2*x*Dx); maj
+        1/((-x + [0.994...])^2)*exp(int(1.000...*NUM/(-x + [0.994...])^2+POL))
+        where
+        NUM=max(
+          |(0)/(1)|,
+          0     for  n <= +Infinity
+        )*z^0 + max(
+          |(-2.000...*n - 2.000...)/(n - 1.000...)|,
+          [+/- inf]     for  n <= 1,
+          2.000...     for  n <= +Infinity
+        )*z^1
+        POL=
+
+    A majorant series extracted from that sequence::
+
+        sage: maj(3)
+        ((-x + [0.994...])^-2)*exp(int(4.000...])^2)))
     """
+
     def __init__(self, dop, cst, majseq_pol_part, majseq_num, maj_den):
         self.dop = dop
         self.Poly = dop.base_ring().change_ring(IR)
@@ -813,17 +856,28 @@ class DiffOpBound(object):
         self.majseq_pol_part = majseq_pol_part
         self.majseq_num = majseq_num
         self.maj_den = maj_den
+
     def __repr__(self):
-        return "Cst: {}\nPolPart: {}\nNum: {}\nDen: {}".format(
-                self.cst, self.majseq_pol_part, self.majseq_num,
-                self.maj_den)
+        fmt = ("1/({den})*exp(int({cst}*NUM/{den}+POL))\n"
+               "where\n"
+               "NUM={num}\n"
+               "POL={pol}")
+        def pol_repr(ratseqbounds):
+            return " + ".join("{}*z^{}".format(c, n)
+                              for n, c in enumerate(ratseqbounds))
+        return fmt.format(
+                cst=self.cst, den=self.maj_den,
+                num=pol_repr(self.majseq_num),
+                pol=pol_repr(self.majseq_pol_part))
+
     def __call__(self, n):
         maj_pol_part = self.Poly([fun(n) for fun in self.majseq_pol_part])
         maj_num = (self.Poly([fun(n) for fun in self.majseq_num])
                 >> len(self.majseq_pol_part))
         rat_maj = RationalMajorant(self.cst*maj_num, self.maj_den, maj_pol_part)
-        maj = HyperexpMajorant(rat_maj, ~self.maj_den)
+        maj = HyperexpMajorant(integrand=rat_maj, rat=~self.maj_den)
         return maj
+
     # introduire une fonction séparée qui renvoie un majorant ? (pour les
     # tests...)
     def matrix_sol_tail_bound(self, n, rad, residuals, ord=None):
