@@ -819,11 +819,11 @@ class DiffOpBound(object):
     where
 
     * num[n](z) and pol[n](z) are polynomials with coefficients depending on n
-      (given by RatSeqBound objects),
+      (given by RatSeqBound objects), with val(num[n]) >= deg(pol[n]),
 
-    * den(z) is a polynomial (with constant, i.e. ball, coefficients),
+    * den(z) is a polynomial (with constant coefficients),
 
-    * cst is a constant (a ball).
+    * cst is a constant.
 
     EXAMPLES::
 
@@ -853,6 +853,21 @@ class DiffOpBound(object):
     """
 
     def __init__(self, dop, cst, majseq_pol_part, majseq_num, maj_den):
+        r"""
+        INPUT:
+
+        - ``dop`` - the operator to which the bound applies (and which should be
+          used to compute the residuals),
+
+        - ``cst`` - constant (real ball),
+
+        - ``majseq_pol_part`` - *list* of coefficients of ``pol_part``,
+
+        - ``majseq_num`` - *list* of coefficients [c[d], c[d+1], ...] of
+          ``num``, starting at degree d = deg(pol_part) + 1,
+
+        - ``maj_den`` - ``Factorization``.
+        """
         self.dop = dop
         self.Poly = dop.base_ring().change_ring(IR)
         self.cst = cst
@@ -865,18 +880,18 @@ class DiffOpBound(object):
                "where\n"
                "NUM={num}\n"
                "POL={pol}")
-        def pol_repr(ratseqbounds):
-            return " + ".join("{}*z^{}".format(c, n)
+        def pol_repr(ratseqbounds, shift=0):
+            return " + ".join("{}*z^{}".format(c, n + shift)
                               for n, c in enumerate(ratseqbounds))
         return fmt.format(
                 cst=self.cst, den=self.maj_den,
-                num=pol_repr(self.majseq_num),
+                num=pol_repr(self.majseq_num, shift=len(self.majseq_pol_part)),
                 pol=pol_repr(self.majseq_pol_part))
 
     def __call__(self, n):
         maj_pol_part = self.Poly([fun(n) for fun in self.majseq_pol_part])
         maj_num = (self.Poly([fun(n) for fun in self.majseq_num])
-                >> len(self.majseq_pol_part))
+                << len(self.majseq_pol_part))
         rat_maj = RationalMajorant(self.cst*maj_num, self.maj_den, maj_pol_part)
         maj = HyperexpMajorant(integrand=rat_maj, rat=~self.maj_den)
         return maj
@@ -985,16 +1000,22 @@ def bound_diffop(dop, pol_part_len=0):
     it = enumerate(_dop_rcoeffs_of_T(rem_num))
     rem_num_nz = MPol(sum(n**j*pol for j, pol in it)).polynomial(z)
     assert rem_num_nz.valuation() >= pol_part_len + 1
-    rem_num_nz >>= pol_part_len + 1
+    rem_num_nz >>= (pol_part_len + 1)
     stats.time_decomp_op.toc()
     logger.debug("rem_num_nz: %s", rem_num_nz)
 
     ind = first_nz[0]
     cst, maj_den = bound_inverse_poly(lc)
-    majseq_pol_part = [bound_ratio_large_n(pol << 1, ind, stats=stats)
-                       for pol in first_nz[1:]]
+    # Note that here we ignore the coefficient first_nz[0], which amounts to
+    # multiplying the integrand of the DiffOpBound by z⁻¹, as prescribed by the
+    # theory. Since majseq_num starts by definition at the degree following that
+    # of majseq_pol_part, it gets shifted as well. The "<< 1" in the next few
+    # lines have nothing to do with that, they are multiplications by *n*.
+    majseq_pol_part = [bound_ratio_large_n(first_nz[i] << 1, ind, stats=stats)
+                       for i in xrange(1, pol_part_len + 1)]
     majseq_num = [bound_ratio_large_n(pol << 1, ind, stats=stats)
                   for pol in rem_num_nz]
+    assert len(majseq_pol_part) == pol_part_len
     maj = DiffOpBound(dop_T, cst, majseq_pol_part, majseq_num, maj_den)
     logger.debug("...done, time: %s", stats)
     return maj
