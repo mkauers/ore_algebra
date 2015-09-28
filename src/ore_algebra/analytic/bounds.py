@@ -579,6 +579,9 @@ def bound_ratio_large_n_nosolve(num, den, stats=None):
           1.000000000000000     for  n <= +Infinity
         )
     """
+    rat = num/den
+    num, den = rat.numerator(), rat.denominator()
+
     if num.degree() > den.degree():
         raise ValueError("expected deg(num) <= deg(den)")
 
@@ -695,17 +698,20 @@ def bound_ratio_large_n_solve(num, den, min_drop=IR(1.1), stats=None):
 
         sage: bound_ratio_large_n_solve(Pols(1), Pols(3))
         max(
-        |(1.000000000000000)/(3.000000000000000)|,
-        [0.333...]     for  n <= +Infinity
+          |([0.333...])/(1.000...)|,
+          [0.333...]     for  n <= +Infinity
         )
 
         sage: i = QuadraticField(-1).gen()
         sage: bound_ratio_large_n_solve(n, n + i)
         max(
-        |(n)/(n + I)|,
-        1.000000000000000     for  n <= +Infinity
+          |(n)/(n + I)|,
+          1.000000000000000     for  n <= +Infinity
         )
     """
+    rat = num/den
+    num, den = rat.numerator(), rat.denominator()
+
     if num.is_zero():
         return RatSeqBound(num, den, [(infinity, IR.zero())])
     if num.degree() > den.degree():
