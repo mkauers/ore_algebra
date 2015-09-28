@@ -878,10 +878,7 @@ class DiffOpBound(object):
         maj = HyperexpMajorant(integrand=rat_maj, rat=~self.maj_den)
         return maj
 
-    # introduire une fonction séparée qui renvoie un majorant ? (pour les
-    # tests...)
-    def matrix_sol_tail_bound(self, n, rad, residuals, ord=None):
-        if ord is None: ord=self.dop.order()
+    def tail_majorant(self, n, residuals):
         abs_residual = bound_polynomials(residuals)
         # In general, a majorant series for the tails of order n is given by
         # self(n)(z)*int(t⁻¹*qq(t)/self(n)(t)) where qq(t) is a polynomial s.t.
@@ -895,14 +892,19 @@ class DiffOpBound(object):
         assert n >= self.dop.order() >= 1
         assert abs_residual.valuation() >= 1
         maj = self(n)*(abs_residual >> 1).integral()
+        logger.debug("lc(abs_res) = %s", abs_residual.leading_coefficient())
+        logger.debug("maj(%s) = %s", n, self(n))
+        logger.debug("maj = %s", maj)
+        return maj
+
+    def matrix_sol_tail_bound(self, n, rad, residuals, ord=None):
+        if ord is None: ord=self.dop.order()
+        maj = self.tail_majorant(n, residuals)
         # Since (y[n:])' << maj => (y')[n:] << maj, this bound is valid for the
         # tails of a column of the form [y, y', y''/2, y'''/6, ...] or
         # [y, θy, θ²y/2, θ³y/6, ...].
         col_bound = maj.bound(rad, derivatives=ord)
-        logger.debug("lc(abs_res) = %s", abs_residual.leading_coefficient())
-        logger.debug("maj(%s) = %s", n, self(n))
         logger.debug("maj(%s).bound() = %s", n, self(n).bound(rad))
-        logger.debug("maj = %s", maj)
         logger.debug("col_bound = %s", col_bound)
         return IR(ord).sqrt()*col_bound
 
