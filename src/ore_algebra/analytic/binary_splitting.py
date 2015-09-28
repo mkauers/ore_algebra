@@ -298,7 +298,9 @@ class MatrixRec(object):
         for i in xrange(r-1, -1, -1): # compute u(n-s+i)
             last[i] = ~(rop[0](n-s+i))*sum(rop[k](n-s+i)*last[i+k]    # u(n-s+i)
                                            for k in xrange(1, s+1))
-        # Now compute the residual
+        # Now compute the residual. WARNING: this residual must correspond to
+        # the operator stored in maj.dop, which typically isn't self.diffop (but
+        # an operator in θx equal to x^k·self.diffop for some k).
         return bounds.residual(self.bwrec, n, list(reversed(last[:s])),
                 self.zvar)
 

@@ -779,6 +779,7 @@ def bound_polynomials(pols):
         ...
         IndexError: list index out of range
     """
+    assert isinstance(pols, list)
     PolyIC = pols[0].parent().change_ring(IC)
     deg = max(pol.degree() for pol in pols)
     val = min(deg, min(pol.valuation() for pol in pols))
@@ -802,6 +803,8 @@ class DiffOpBound(object):
     is the truncation of degree N of a solution y of dop·y = 0, is able to
     compute a majorant series of the tail y(z) - ỹ(z). The majorant series of
     the tail is represented by a HyperexpMajorant.
+
+    Note that multiplying dop by a rational function changes the residual.
 
     More precisely, a DiffOpBound represents a *sequence* v[n](z) of formal
     power series with the property that if N and ỹ are as above with N >= n,
@@ -941,6 +944,16 @@ class BoundDiffopStats(utilities.Stats):
         self.time_decomp_op = utilities.Clock("decomposing op")
 
 def bound_diffop(dop, pol_part_len=0):
+    r"""
+    Compute a :class:`DiffOpBound` object that can be used to bound the tails of
+    power series solutions of ``dop``.
+
+    .. WARNING::
+
+        The bounds depend on residuals computed using not ``dop`` itself, but a
+        “normalized” operator obtained by multiplying it by a power of x. The
+        normalized operator is returned in the ``dop`` field of the result.
+    """
     stats = BoundDiffopStats()
     _, Pols_z, _, dop = dop._normalize_base_ring()
     z = Pols_z.gen()
@@ -982,7 +995,7 @@ def bound_diffop(dop, pol_part_len=0):
                        for pol in first_nz[1:]]
     majseq_num = [bound_ratio_large_n(pol << 1, ind, stats=stats)
                   for pol in rem_num_nz]
-    maj = DiffOpBound(dop, cst, majseq_pol_part, majseq_num, maj_den)
+    maj = DiffOpBound(dop_T, cst, majseq_pol_part, majseq_num, maj_den)
     logger.debug("...done, time: %s", stats)
     return maj
 

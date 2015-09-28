@@ -174,6 +174,10 @@ def series_sum_ordinary_doit(Intervals, bwrec, ini, pt, rad, tgt_error, maj,
                          n, psum[0], tail_bound.upper())
         if n%stride == 0 and (tgt_error.reached(term[0], abs_sum)
                               or record_bounds_in is not None):
+            # Warning: this residual must correspond to the operator stored in
+            # maj.dop, which typically isn't the operator series_sum_ordinary
+            # was called on (but the result of its conversion to an operator
+            # in θx, i.e. its product by a power of x).
             residual = bounds.residual(bwrec, n, list(last)[1:],
                     maj.Poly.variable_name())
             tail_bound = maj.matrix_sol_tail_bound(n, rad, [residual], ord=derivatives)
