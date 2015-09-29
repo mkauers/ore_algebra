@@ -17,10 +17,10 @@ logger = logging.getLogger(__name__)
 class PrecisionError(Exception):
     pass
 
-class ErrorCriterion(object):
+class StoppingCriterion(object):
     pass
 
-class AbsoluteError(ErrorCriterion):
+class AbsoluteError(StoppingCriterion):
 
     def __init__(self, eps, precise=False):
         self.eps = IR(eps)
@@ -40,7 +40,7 @@ class AbsoluteError(ErrorCriterion):
     def __repr__(self):
         return str(self.eps) + " (absolute)"
 
-class RelativeError(ErrorCriterion):
+class RelativeError(StoppingCriterion):
     def __init__(self, eps, cutoff=None):
         self.eps = IR(eps)
         self.cutoff = eps if cutoff is None else IR(cutoff)

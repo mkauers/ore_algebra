@@ -76,6 +76,7 @@ class Context(object):
                 and all(v.is_real() for v in self.path.vert))
 
 def ordinary_step_transition_matrix(ctx, step, ring, eps, rows, pplen=2):
+    # TODO: adjust pplen automatically?
     ldop = step.start.local_diffop()
     maj = bounds.bound_diffop(ldop, pol_part_len=pplen)  # cache in ctx?
     if ctx.fundamental_matrix_ordinary is not None:

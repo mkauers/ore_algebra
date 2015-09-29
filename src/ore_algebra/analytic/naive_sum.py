@@ -101,7 +101,7 @@ def series_sum_ordinary(dop, ini, pt, tgt_error,
         raise ValueError('need {} initial values'.format(dop.order()))
     ini = Sequence(ini)
 
-    if not isinstance(tgt_error, accuracy.ErrorCriterion):
+    if not isinstance(tgt_error, accuracy.StoppingCriterion):
         input_is_precise = (
                 (pt.parent().is_exact()
                     or safe_lt(bounds.IR(pt.rad()), tgt_error))
