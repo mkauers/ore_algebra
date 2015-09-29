@@ -13,7 +13,7 @@ FIXME: silence deprecation warnings::
 # essentially rational fractions (QuotientRingElements, Factorizations, and
 # Rational Majorants) --> simplify?
 
-import logging
+import logging, warnings
 
 import sage.rings.polynomial.real_roots as real_roots
 
@@ -113,7 +113,6 @@ class MajorantSeries(object):
         ref = Series([iv.abs() for iv in ComplexSeries(fun)], prec=prec)
         delta = (maj - ref).padded_list()
         if len(delta) < prec:
-            import warnings
             warnings.warn("checking {} term(s) instead of {} (cancellation"
                     " during series expansion?)".format(len(delta), prec))
         for i, c in enumerate(delta):
@@ -926,6 +925,39 @@ class DiffOpBound(object):
         logger.debug("col_bound = %s", col_bound)
         return IR(ord).sqrt()*col_bound
 
+    def _test(self, ini=None, prec=50):
+        r"""
+        Check that the majorants produced by this DiffOpBound bound the tails of
+        the solutions of the associated operator.
+
+        This is a heuristic check for testing purposes, nothing rigorous!
+
+        EXAMPLES::
+
+            sage: from ore_algebra.analytic.ui import *
+            sage: from ore_algebra.analytic.bounds import *
+            sage: Dops, x, Dx = Diffops()
+            sage: maj = bound_diffop(Dx - 1)
+            sage: maj._test()
+            sage: maj._test([3], 200)
+        """
+        ord = self.dop.order()
+        if ini is None:
+            from sage.rings.number_field.number_field import QuadraticField
+            QQi = QuadraticField(-1)
+            ini = [QQi.random_element() for _ in xrange(ord)]
+        sol = self.dop.power_series_solutions(prec)
+        Series = PowerSeriesRing(CBF, self.dop.base_ring().variable_name())
+        ref = sum((ini[k]*sol[k] for k in xrange(ord)), Series(0)).polynomial()
+        for n in [ord, ord + 1, ord + 2, ord + 10]:
+            logger.info("truncation order = %d", n)
+            if n + 5 >= prec:
+                warnings.warn("insufficient precision")
+            resid = self.dop(ref[:n])
+            maj = self.tail_majorant(n, [resid])
+            logger.info("%s << %s", Series(ref[n:], n+5), maj.series(n+5))
+            maj._test(ref[n:])
+
 # Perhaps better: work with a "true" Ore algebra K[θ][z]. Use Euclidean
 # division to compute the truncation. Extracting the Qj(θ) would then be easy,
 # and I may no longer need the coefficients of θ "on the right".
@@ -963,18 +995,78 @@ def bound_diffop(dop, pol_part_len=0):
     Compute a :class:`DiffOpBound` object that can be used to bound the tails of
     power series solutions of ``dop``.
 
+    See the docstring of :class:`DiffOpBound` for more information.
+
     .. WARNING::
 
         The bounds depend on residuals computed using not ``dop`` itself, but a
         “normalized” operator obtained by multiplying it by a power of x. The
         normalized operator is returned in the ``dop`` field of the result.
+
+    EXAMPLES::
+
+        sage: from ore_algebra.analytic.ui import *
+        sage: from ore_algebra.analytic.bounds import bound_diffop, _test_bound_diffop
+        sage: Dops, x, Dx = Diffops()
+
+        sage: bound_diffop(Dx - 1)
+        1/(1.000...)*exp(int(1.000...*NUM/1.000...+POL))
+        where
+        NUM=max(
+        |(-1.000...)/(1.000...)|,
+        1.000...     for  n <= +Infinity
+        )*z^0
+        POL=
+
+        sage: dop = (x+1)*(x^2+1)*Dx^3-(x-1)*(x^2-3)*Dx^2-2*(x^2+2*x-1)*Dx
+        sage: bound_diffop(dop, pol_part_len=3) # not tested
+        1/((-x + [0.9965035284306323 +/- 2.07e-17])^3)*
+        exp(int(1.000...*NUM/(-x + [0.9965035284306323 +/- 2.07e-17])^3+POL))
+        where
+        NUM=max(
+          |(-5.000...*n^2 - 7.000...*n - 2.000...)/(n^2 - 3.000...*n + 2.000...)|,
+          [+/- inf]     for  n <= 2,
+          34.000...     for  n <= 3,
+          5.000...     for  n <= +Infinity
+        )*z^2 + max(
+          |(2.000...*n^2 + 8.000...*n + 4.000...)/(n^2 - 3.000...*n + 2.000...)|,
+          [+/- inf]     for  n <= 2,
+          23.000...     for  n <= 3,
+          2.000...     for  n <= +Infinity
+        )*z^3 + max(
+          |(-3.000...*n^2 - 11.000...*n - 8.000...)/(n^2 - 3.000...*n + 2.000...)|,
+          [+/- inf]     for  n <= 2,
+          34.000...     for  n <= 3,
+          3.000...     for  n <= +Infinity
+        )*z^4
+        POL=max(
+          |(-6.000...)/(1.000...)|,
+          6.000...     for  n <= +Infinity
+        )*z^0 + max(
+          |(3.000...*n - 1.000...)/(n - 1.000...)|,
+          [+/- inf]     for  n <= 1,
+          3.000...     for  n <= +Infinity
+        )*z^1
+
+    TESTS::
+
+        sage: QQi.<i> = QuadraticField(-1)
+        sage: for dop in [
+        ....:     # orders <= 1 are not supported
+        ....:     Dx, Dx - 1, i*Dx, Dx + i, Dx^2,
+        ....:     (x^2 + 1)*Dx^2 + 2*x*Dx,
+        ....:     Dx^2 - x*Dx
+        ....: ]:
+        ....:     bound_diffop(dop)._test()
+
+        sage: _test_bound_diffop()
     """
     stats = BoundDiffopStats()
     _, Pols_z, _, dop = dop._normalize_base_ring()
     z = Pols_z.gen()
     lc = dop.leading_coefficient()
     if lc.is_term() and not lc.is_constant():
-        raise ValueError("irregular singular operator")
+        raise ValueError("irregular singular operator", dop)
     rcoeffs = _dop_rcoeffs_of_T(dop)
     Trunc = Pols_z.quo(z**(pol_part_len+1))
     inv = ~Trunc(lc)
@@ -1019,6 +1111,41 @@ def bound_diffop(dop, pol_part_len=0):
     maj = DiffOpBound(dop_T, cst, majseq_pol_part, majseq_num, maj_den)
     logger.debug("...done, time: %s", stats)
     return maj
+
+def _test_bound_diffop(
+        ords=xrange(1, 5),
+        degs=xrange(5),
+        pplens=[1, 2, 5],
+        prec=50
+    ):
+    r"""
+    Randomized testing of :func:`bound_diffop`.
+
+    EXAMPLES::
+
+        sage: import logging; logging.basicConfig(level=logging.INFO)
+        sage: from ore_algebra.analytic.bounds import _test_bound_diffop
+        sage: _test_bound_diffop() # not tested
+        INFO:ore_algebra.analytic.bounds:testing operator: (-i + 2)*Dx + i - 1
+        ...
+    """
+    from sage.rings.number_field.number_field import QuadraticField
+    from ore_algebra import OreAlgebra
+
+    QQi = QuadraticField(-1, 'i')
+    Pols, x = PolynomialRing(QQi, 'x').objgen()
+    Dops, Dx = OreAlgebra(Pols, 'Dx').objgen()
+
+    for ord in ords:
+        for deg in degs:
+            dop = Dops(0)
+            while dop.leading_coefficient()(0).is_zero():
+                dop = Dops([Pols.random_element(degree=(0, deg))
+                            for _ in xrange(ord + 1)])
+            logger.info("testing operator: %s", dop)
+            for pplen in pplens:
+                maj = bound_diffop(dop, pol_part_len=pplen)
+                maj._test(prec=prec)
 
 def residual(bwrec, n, last, z):
     r"""
