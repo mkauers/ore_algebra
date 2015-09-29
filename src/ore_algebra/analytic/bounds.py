@@ -83,7 +83,7 @@ class MajorantSeries(object):
     def _bound(self, rad):
         return self(rad)
 
-    def _check(self, fun=0, prec=50, return_difference=False):
+    def _test(self, fun=0, prec=50, return_difference=False):
         r"""
         Check that ``self`` is *plausibly* a majorant of ``fun``.
 
@@ -101,7 +101,7 @@ class MajorantSeries(object):
             sage: from sage.rings.real_arb import RBF
             sage: Pol.<z> = RBF[]
             sage: maj = RationalMajorant(Pol(1), Factorization([(1-z,1)]), Pol(0))
-            sage: maj._check(11/10*z^30)
+            sage: maj._test(11/10*z^30)
             Traceback (most recent call last):
             ...
             AssertionError: (30, [-0.10000000000000 +/- 8.00e-16], '< 0')
@@ -162,10 +162,10 @@ class RationalMajorant(MajorantSeries):
         1.000000000000000
         sage: maj.series(4)
         1.000... + 1.000...*z + 0.500...*z^2 + 1.250...*z^3 + O(z^4)
-        sage: maj._check()
-        sage: maj._check(1 + z + z^2/((1-z)^2*(2-z)), return_difference=True)
+        sage: maj._test()
+        sage: maj._test(1 + z + z^2/((1-z)^2*(2-z)), return_difference=True)
         [0, 0, 0, ...]
-        sage: maj._check(1 + z + z^2/((1-z)*(2-z)), return_difference=True)
+        sage: maj._test(1 + z + z^2/((1-z)*(2-z)), return_difference=True)
         [0, 0, 0, 0.5000000000000000, 1.250000000000000, ...]
     """
 
@@ -238,7 +238,7 @@ class HyperexpMajorant(MajorantSeries):
         [0.333...]
         sage: maj.series(4)
         [3.000...] + [21.000...]*z + [93.000...]*z^2 + [336.000...]*z^3 + O(z^4)
-        sage: maj._check()
+        sage: maj._test()
     """
 
     def __init__(self, integrand, rat):
@@ -441,7 +441,7 @@ def bound_inverse_poly(den, algorithm="simple"):
         sage: cst, den = bound_inverse_poly(pol)
         sage: maj = RationalMajorant(Pol(cst), den, Pol(0)); maj
         0.5000000000000000/(-x + [0.4972960558102933 +/- 4.71e-17])
-        sage: maj._check(1/pol)
+        sage: maj._test(1/pol)
 
     TESTS::
 
@@ -449,7 +449,7 @@ def bound_inverse_poly(den, algorithm="simple"):
         ....:     for algo in ['simple', 'solve']:
         ....:         cst, den = bound_inverse_poly(pol, algorithm=algo)
         ....:         maj = RationalMajorant(Pol(0)+cst, den, Pol(0))
-        ....:         maj._check(1/pol)
+        ....:         maj._test(1/pol)
     """
     Poly = den.parent().change_ring(IR)
     if den.degree() <= 0:
@@ -528,7 +528,7 @@ class RatSeqBound(object):
                 marker='o', plotjoined=True, color='blue')
         return p1 + p2 + p3
 
-    def _check(self, n=100):
+    def _test(self, n=100):
         for k in range(n):
             if self(k) < IR(self.num(k)/self.den(k)).abs():
                 raise AssertionError
@@ -567,7 +567,7 @@ def bound_ratio_large_n_nosolve(num, den, stats=None):
           [22.77...]            for  n <= 23,
           1.000000000000000     for  n <= +Infinity
         )
-        sage: bnd.plot().show(ymax=30); bnd._check()
+        sage: bnd.plot().show(ymax=30); bnd._test()
 
         sage: from sage.rings.complex_ball_acb import CBF
         sage: num, den = num.change_ring(CBF), den.change_ring(CBF)
@@ -688,8 +688,8 @@ def bound_ratio_large_n_solve(num, den, min_drop=IR(1.1), stats=None):
 
     TESTS::
 
-        sage: bnd1._check()
-        sage: bnd2._check()
+        sage: bnd1._test()
+        sage: bnd2._test()
 
         sage: bound_ratio_large_n_solve(n, Pols(1))
         Traceback (most recent call last):
