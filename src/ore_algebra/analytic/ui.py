@@ -97,8 +97,8 @@ TESTS::
 #
 #     SAGE_PATH="$PWD" sage -t ore_algebra/analytic/ui.py
 
-# from . import analytic_continuation as ancont
 from ore_algebra.analytic import analytic_continuation as ancont
+from ore_algebra.analytic import polynomial_approximation as polapprox
 
 def transition_matrix(dop, path, eps=1e-16):
     r"""
@@ -267,11 +267,8 @@ def multi_eval_diffeq(dop, ini, path, eps=1e-16):
     pairs = ancont.analytic_continuation(ctx, ini=ini)
     return [(point, _value_from_mat(mat)) for point, mat in pairs]
 
-def polynomial_approximation_on_disk(dop, ini, path, rad, eps):
-    raise NotImplementedError
-
-def polynomial_approximation_on_interval(dop, ini, path, rad, eps):
-    raise NotImplementedError
+polynomial_approximation_on_disk = polapprox.on_disk
+polynomial_approximation_on_interval = polapprox.on_interval
 
 def make_proc(xxx): # ??? - ou object DFiniteFunction ?
     pass

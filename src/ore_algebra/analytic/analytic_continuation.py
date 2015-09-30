@@ -129,7 +129,7 @@ def analytic_continuation(ctx, ini=None, post=None):
         except (TypeError, ValueError):
             raise ValueError("incorrect initial values: {}".format(ini))
 
-    eps1 = (ctx.eps/(1 + len(ctx.path))) >> 2 # TBI
+    eps1 = (ctx.eps/(1 + len(ctx.path))) >> 2 # TBI, +: move to ctx?
     prec = prec_from_eps(eps1) # TBI
     ring = (sage.rings.real_arb.RealBallField(prec) if ctx.real()
             else sage.rings.complex_ball_acb.ComplexBallField(prec))
