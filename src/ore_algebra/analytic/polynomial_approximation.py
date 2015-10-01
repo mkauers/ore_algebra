@@ -69,8 +69,90 @@ def taylor_economization(pol, eps):
     CPol = pol.parent().change_ring(Coefs.complex_field())
     return CPol(coef)
 
-def chebyshev_economization():
-    pass
+def chebyshev_polynomials(ring, n):
+    r"""
+    Return the list of the Chebyshev polynomials T[0], ..., T[``n``-1] as
+    elements of ``ring``.
+
+    EXAMPLES::
+
+        sage: from ore_algebra.analytic.polynomial_approximation import chebyshev_polynomials
+        sage: chebyshev_polynomials(ZZ['x'], 3)
+        [1, x, 2*x^2 - 1]
+
+    TESTS::
+
+        sage: chebyshev_polynomials(QQ['x'], 0)
+        []
+    """
+    x = ring.gen()
+    cheb_T = [None]*n
+    if n >= 1:
+        cheb_T[0] = ring.one()
+    if n >= 2:
+        cheb_T[1] = x
+    for k in xrange(1, n - 1):
+        cheb_T[k+1] = 2*x*cheb_T[k] - cheb_T[k-1]
+    return cheb_T
+
+def general_economization(economization_polynomials, pol, eps):
+    r"""
+    Decrease the degree of ``pol`` by subtracting a linear combination of the
+    polynomials produced by ``economization_polynomials``.
+
+    INPUT:
+
+    - ``economization_polynomials(ring, n)`` - function returning a list
+      [E[0], ..., E[n-1]] of ``n`` elements of ``ring``; it is assumed that E[k]
+      is a polynomial of degree exactly ``k`` such that |E[k](x)| ≤ 1 when x
+      lies in some domain of interest;
+
+    - ``pol`` - polynomial with real or complex ball coefficients;
+
+    - ``eps`` - real ball, maximum error that may be added to the polynomial
+      (see below).
+
+    OUTPUT:
+
+    A polynomial with the same parent as ``pol``. A bound on the linear
+    combination of economization polynomials is added to the constant term.
+    For *real* x in the domain where they are all bounded by 1, the value of the
+    result at x contains that of ``pol``. This also holds true for complex x
+    when ``pol`` has complex coefficients, but *not* in general for the
+    evaluation at complex points of polynomials with real coefficients.
+    """
+    ecopol = economization_polynomials(pol.parent(), pol.degree() + 1)
+    delta_bound = eps.parent().zero()
+    newpol = pol
+    for k in xrange(pol.degree(), -1, -1):
+        c = newpol[k]/ecopol[k].leading_coefficient()
+        tmp_bound = delta_bound + abs(c)
+        if safe_lt(tmp_bound, eps):
+            delta_bound = tmp_bound
+            newpol = newpol[:k] - c*ecopol[k][:k] # lc → exact zero
+    newpol = newpol[0].add_error(delta_bound) + newpol[1:]
+    return newpol
+
+def chebyshev_economization(pol, eps):
+    r"""
+    Decrease the degree of ``pol`` in such a way that its value on the real
+    segment [-1, 1] changes at most by ``eps``.
+
+    EXAMPLES::
+
+        sage: from sage.rings.real_arb import RBF
+        sage: from ore_algebra.analytic.polynomial_approximation import taylor_economization
+        sage: pol = polygen(QQ, 'x')._exp_series(10).change_ring(RBF)
+        sage: newpol = chebyshev_economization(pol, RBF(1e-3)); newpol
+        [0.04379...]*x^4 + [0.17734...]*x^3 + [0.49919...]*x^2 + [0.9973...]*x +
+        [1.000 +/- 6...e-4]
+
+    TESTS::
+
+        sage: from ore_algebra.analytic.polynomial_approximation import _test_fun_approx
+        sage: _test_fun_approx(newpol, pol, interval_rad=1)
+    """
+    return general_economization(chebyshev_polynomials, pol, eps)
 
 def mixed_economization(): # ?
     pass
