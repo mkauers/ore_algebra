@@ -83,7 +83,10 @@ class Point(SageObject):
         from sage.rings.complex_field import ComplexField_class
         from sage.rings.real_mpfi import RealIntervalField_class
         from sage.rings.complex_interval_field import ComplexIntervalField_class
-        parent = point.parent()
+        try:
+            parent = point.parent()
+        except AttributeError:
+            raise TypeError("unexpected value for point", point)
         if isinstance(point, Point):
             self.value = point.value
         elif isinstance(parent, (

@@ -209,8 +209,48 @@ def on_disk(dop, ini, path, rad, eps):
     """
     return doit(dop, ini, path, rad, eps, 1, taylor_economization)[0]
 
-def on_interval():
-    pass
+def on_interval(dop, ini, path, eps, rad=None):
+    r"""
+    EXAMPLES::
+
+        sage: from ore_algebra.analytic.ui import *
+        sage: from ore_algebra.analytic import polynomial_approximation as polapprox
+        sage: Dops, x, Dx = Diffops()
+
+        sage: pol1 = polapprox.on_interval(Dx - 1, [1], [0], 1e-3, rad=1); pol1
+        [0.0087 +/- 4.65e-5]*x^5 + [0.044 +/- 3.75e-4]*x^4 +
+        [0.166 +/- 7.80e-4]*x^3 + [0.499 +/- 7.59e-4]*x^2 + [1.0 +/- 1.47e-3]*x
+        + [1.0 +/- 1.52e-3]
+
+        sage: pol2 = polapprox.on_interval(Dx - 1, [1], [0, [1, 2]], 1e-3); pol2
+        [0.189 +/- 5.83e-4]*x^4 + [0.76 +/- 4.40e-3]*x^3 +
+        [2.24 +/- 7.83e-3]*x^2 + [4.5 +/- 0.0435]*x + [4.5 +/- 0.0358]
+
+    TESTS::
+
+        sage: from ore_algebra.analytic.polynomial_approximation import _test_fun_approx
+        sage: _test_fun_approx(pol1, lambda b: b.exp(), interval_rad=1)
+        sage: _test_fun_approx(pol2, lambda b: (3/2 + b).exp(), interval_rad=.5)
+        sage: polapprox.on_interval(Dx - 1, [1], [0, [1, 2]], 1e-3, rad=1)
+        Traceback (most recent call last):
+        ...
+        TypeError: ('unexpected value for point', [1, 2])
+        sage: polapprox.on_interval(Dx - 1, [1], [0], 1e-3)
+        Traceback (most recent call last):
+        ...
+        TypeError: missing radius
+    """
+    if rad is None:
+        try:
+            left, right = path[-1]
+        except TypeError:
+            raise TypeError("missing radius")
+        mid = (left + right)/2
+        rad = (right - left)/2
+        mypath = path[:-1] + [mid]
+    else:
+        mypath = path
+    return doit(dop, ini, mypath, rad, eps, 1, chebyshev_economization)[0]
 
 def _test_fun_approx(pol, ref, disk_rad=None, interval_rad=None,
         prec=53, test_count=100):
