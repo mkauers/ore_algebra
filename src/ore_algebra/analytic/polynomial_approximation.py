@@ -12,6 +12,8 @@ FIXME: silence deprecation warnings::
 # - currently we can compute the first few derivatives all at once, but there is
 #   no support for computing a remote derivative using Dx^k mod dop (nor an
 #   arbitrary combination of derivatives)
+# - support returning polynomials with point interval or non-interval
+#   coefficients
 
 import logging
 logger = logging.getLogger(__name__)
@@ -25,9 +27,47 @@ import ore_algebra.analytic.bounds as bounds
 import ore_algebra.analytic.utilities as utilities
 
 from ore_algebra.analytic.naive_sum import series_sum_ordinary
+from ore_algebra.analytic.safe_cmp import *
 
-def taylor_economization():
-    pass
+def taylor_economization(pol, eps):
+    r"""
+    Remove terms from the polynomial ``pol``, starting with the high-order
+    terms, in such a way that its value on the disk |z| < 1 changes at most
+    by ``eps``.
+
+    A bound on the difference between the result and the input polynomial is
+    added to the constant term, so that, for any complex number z with |z| < 1,
+    the value of the result at z contains that of ``pol``.
+
+    EXAMPLES::
+
+        sage: from sage.rings.real_arb import RBF
+        sage: from ore_algebra.analytic.polynomial_approximation import taylor_economization
+        sage: pol = polygen(QQ, 'x')._exp_series(10).change_ring(RBF); pol
+        [2.755...e-6 +/- 5.96e-22]*x^9 + [2.480...e-5 +/- 4.96e-21]*x^8
+        + [0.0001... +/- 3.97e-20]*x^7 + [0.0013... +/- 4.92e-19]*x^6 + ... +
+        x + 1.000000000000000
+        sage: newpol = taylor_economization(pol, RBF(1e-3)); newpol
+        ([0.0013... +/- 4.92e-19])*x^6 + ... + x +
+        [1.000 +/- 2.26e-4] + [+/- 2.26e-4]*I
+
+    TESTS::
+
+        sage: from ore_algebra.analytic.polynomial_approximation import _test_fun_approx
+        sage: _test_fun_approx(newpol, pol, disk_rad=1)
+    """
+    Coefs = pol.base_ring()
+    coef = list(pol)
+    delta_bound = eps.parent().zero()
+    zero = Coefs.zero()
+    for i in xrange(pol.degree(), -1, -1):
+        tmp_bound = delta_bound + abs(pol[i])
+        if safe_lt(tmp_bound, eps):
+            delta_bound = tmp_bound
+            coef[i] = zero
+    coef[0] = Coefs.complex_field()(coef[0]).add_error(delta_bound)
+    CPol = pol.parent().change_ring(Coefs.complex_field())
+    return CPol(coef)
 
 def chebyshev_economization():
     pass
@@ -35,30 +75,32 @@ def chebyshev_economization():
 def mixed_economization(): # ?
     pass
 
-def doit(dop, ini, path, rad, eps, derivatives):
+def doit(dop, ini, path, rad, eps, derivatives, economization):
 
     # Merge with analytic_continuation.analytic_continuation()???
 
-    eps = bounds.IR(eps)
+    eps1 = bounds.IR(eps)/2
     rad = bounds.IR(rad) # TBI
     ctx = ancont.Context(dop, path, eps/2)
 
     pairs = ancont.analytic_continuation(ctx, ini=ini)
     local_ini = pairs[0][1]
 
-    prec = utilities.prec_from_eps(eps/2) # TBI
+    prec = utilities.prec_from_eps(eps1) # TBI
     Scalars = (sage.rings.real_arb.RealBallField(prec) if ctx.real()
                else sage.rings.complex_ball_acb.ComplexBallField(prec))
     x = dop.base_ring().change_ring(Scalars).gen()
 
     local_dop = ctx.path.vert[-1].local_diffop()
     polys = series_sum_ordinary(local_dop, local_ini.column(0), x,
-                                accuracy.AbsoluteError(eps/2),
+                                accuracy.AbsoluteError(eps1),
                                 stride=5, rad=rad, derivatives=derivatives)
 
-    # TODO: postprocess
+    def postprocess(pol):
+        return economization(pol(rad*x), eps1)(x/rad)
+    new_polys = polys.apply_map(postprocess)
 
-    return polys
+    return new_polys
 
 def on_disk(dop, ini, path, rad, eps):
     r"""
@@ -69,6 +111,11 @@ def on_disk(dop, ini, path, rad, eps):
         sage: QQi.<i> = QuadraticField(-1, 'I')
         sage: Dops, x, Dx = Diffops()
 
+        sage: polapprox.on_disk(Dx - 1, [1], [0], 1, 1e-3)
+        ([0.00139 +/- 4.64e-6])*x^6 + ([0.00833 +/- 6.01e-6])*x^5 +
+        ([0.0417 +/- 8.17e-5])*x^4 + ([0.167 +/- 5.27e-4])*x^3 + 0.500*x^2 + x +
+        [1.00 +/- 2.27e-4] + [+/- 2.27e-4]*I
+
     TESTS::
 
         sage: from sage.rings.real_arb import RBF
@@ -78,7 +125,7 @@ def on_disk(dop, ini, path, rad, eps):
         sage: pol = polapprox.on_disk(Dx^2 + 2*x*Dx, [0, 2/sqrt(RBF(pi))], [0], 2, 1e-10)
         sage: _test_fun_approx(pol, lambda x: x.erf(), disk_rad=1)
     """
-    return doit(dop, ini, path, rad, eps, 1)[0]
+    return doit(dop, ini, path, rad, eps, 1, taylor_economization)[0]
 
 def on_interval():
     pass
