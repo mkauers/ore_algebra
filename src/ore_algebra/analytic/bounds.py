@@ -806,7 +806,7 @@ class DiffOpBound(object):
     Note that multiplying dop by a rational function changes the residual.
 
     More precisely, a DiffOpBound represents a *sequence* v[n](z) of formal
-    power series with the property that if N and ỹ are as above with N >= n,
+    power series with the property that, if N and ỹ are as above with N >= n,
     then v[n](z)·B(q)(z), for some polynomial B(q) derived from q, is a majorant
     of y(z) - ỹ(z). Here B(q) can be taken to be any majorant polynomial of q,
     but tighter choices are possible (see below for details).
@@ -888,6 +888,9 @@ class DiffOpBound(object):
                 pol=pol_repr(self.majseq_pol_part))
 
     def __call__(self, n):
+        r"""
+        Return a term of the majorant sequence.
+        """
         maj_pol_part = self.Poly([fun(n) for fun in self.majseq_pol_part])
         maj_num = (self.Poly([fun(n) for fun in self.majseq_num])
                 << len(self.majseq_pol_part))
@@ -896,6 +899,23 @@ class DiffOpBound(object):
         return maj
 
     def tail_majorant(self, n, residuals):
+        r"""
+        Bound the tails of order ``N`` of solutions of ``self.dop(y) == 0``.
+
+        INPUT:
+
+        - ``n`` - integer, ``n <= N``, typically ``n == N``. (Technically, this
+          function should work for ``n < N `` too, but this is unused, untested,
+          and not very useful with the current code structure.)
+
+        - ``residuals`` - list of polynomials of the form ``self.dop(y[:N])``
+          where y satisfies ``self.dop(y) == 0``.
+
+        OUTPUT:
+
+        A (common) majorant series of the tails ``y[N:](z)`` of the solutions
+        corresponding to the elements of ``residuals``.
+        """
         abs_residual = bound_polynomials(residuals)
         # In general, a majorant series for the tails of order n is given by
         # self(n)(z)*int(t⁻¹*qq(t)/self(n)(t)) where qq(t) is a polynomial s.t.
@@ -906,8 +926,7 @@ class DiffOpBound(object):
         # nonnegative coefficients and self(n)(0) = 1, we can even take qq =
         # abs_residual*self(n), which yields a very simple (if less tight)
         # bound. (XXX: How much do we lose in the second operation?)
-        assert n >= self.dop.order() >= 1
-        assert abs_residual.valuation() >= 1
+        assert abs_residual.valuation() >= n >= self.dop.order() >= 1
         maj = self(n)*(abs_residual >> 1).integral()
         logger.debug("lc(abs_res) = %s", abs_residual.leading_coefficient())
         logger.debug("maj(%s) = %s", n, self(n))
@@ -915,6 +934,12 @@ class DiffOpBound(object):
         return maj
 
     def matrix_sol_tail_bound(self, n, rad, residuals, ord=None):
+        r"""
+        Bound the Frobenius norm of the tail starting of order ``n`` of the
+        series expansion of the matrix ``(y_j^(i)(z)/i!)_{i,j}`` where the
+        ``y_j`` are the solutions associated to the elements of ``residuals``,
+        and ``0 ≤ j < ord``. The bound is valid for ``|z| < rad``.
+        """
         if ord is None: ord=self.dop.order()
         maj = self.tail_majorant(n, residuals)
         # Since (y[n:])' << maj => (y')[n:] << maj, this bound is valid for the
@@ -954,6 +979,10 @@ class DiffOpBound(object):
             if n + 5 >= prec:
                 warnings.warn("insufficient precision")
             resid = self.dop(ref[:n])
+            # we know a priori that val(resid) >= n mathematically, but interval
+            # computations may give inexact zeros for some of the coefficients
+            assert all(c.contains_zero() for c in resid[:n])
+            resid = resid[n:]
             maj = self.tail_majorant(n, [resid])
             logger.info("%s << %s", Series(ref[n:], n+5), maj.series(n+5))
             maj._test(ref[n:])
