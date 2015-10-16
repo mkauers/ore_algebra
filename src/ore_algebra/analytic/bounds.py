@@ -851,7 +851,7 @@ class DiffOpBound(object):
         ((-x + [0.994...])^-2)*exp(int(4.000...])^2)))
     """
 
-    def __init__(self, dop, cst, majseq_pol_part, majseq_num, maj_den):
+    def __init__(self, dop, cst, majseq_pol_part, majseq_num, maj_den, ind):
         r"""
         INPUT:
 
@@ -865,7 +865,10 @@ class DiffOpBound(object):
         - ``majseq_num`` - *list* of coefficients [c[d], c[d+1], ...] of
           ``num``, starting at degree d = deg(pol_part) + 1,
 
-        - ``maj_den`` - ``Factorization``.
+        - ``maj_den`` - ``Factorization``,
+
+        - ``ind`` - polynomial to be used in the computation of tail bounds
+          from residuals, typically the indicial polynomial of ``dop``.
         """
         self.dop = dop
         self.Poly = dop.base_ring().change_ring(IR)
@@ -873,6 +876,7 @@ class DiffOpBound(object):
         self.majseq_pol_part = majseq_pol_part
         self.majseq_num = majseq_num
         self.maj_den = maj_den
+        self.ind = ind
 
     def __repr__(self):
         fmt = ("1/({den})*exp(int({cst}*NUM/{den}+POL))\n"
@@ -918,16 +922,20 @@ class DiffOpBound(object):
         """
         abs_residual = bound_polynomials(residuals)
         # In general, a majorant series for the tails of order n is given by
-        # self(n)(z)*int(t⁻¹*qq(t)/self(n)(t)) where qq(t) is a polynomial s.t.
-        # |qq[k]| >= (k/indicial_eq(k))*abs_residual[k]. Since k/indicial_eq(k)
-        # <= 1 (ordinary point!), we can take qq = abs_residual. (We lose a
-        # factor of about n^(ordeq-1) on the final bound.) The resulting bound
-        # is still not very convenient to compute. But since self(n) has
-        # nonnegative coefficients and self(n)(0) = 1, we can even take qq =
-        # abs_residual*self(n), which yields a very simple (if less tight)
-        # bound. (XXX: How much do we lose in the second operation?)
+        # self(n)(z)*int(t⁻¹*aux(t)/self(n)(t)) where aux(t) is a polynomial
+        # s.t. |aux[k]| >= (k/indicial_eq(k))*abs_residual[k]. This bound is not
+        # very convenient to compute. But since self(n) has nonnegative
+        # coefficients and self(n)(0) = 1, we can replace aux by aux*self(n) in
+        # the formula. (XXX: How much do we lose?) Since k/indicial_eq(k) <= 1
+        # (ordinary point!), we could in fact take aux = abs_residual*self(n),
+        # yielding a very simple bound. (We would lose an additional factor of
+        # about n^(ordeq-1).)
         assert abs_residual.valuation() >= n >= self.dop.order() >= 1
-        maj = self(n)*(abs_residual >> 1).integral()
+        Pols = abs_residual.parent()
+        aux = Pols(dict(
+            (k, (c*k/self.ind(k)).above_abs())
+            for k, c in abs_residual.dict().iteritems()))
+        maj = self(n)*(aux >> 1).integral()
         logger.debug("lc(abs_res) = %s", abs_residual.leading_coefficient())
         logger.debug("maj(%s) = %s", n, self(n))
         logger.debug("maj = %s", maj)
@@ -1137,7 +1145,7 @@ def bound_diffop(dop, pol_part_len=0):
     majseq_num = [bound_ratio_large_n(pol << 1, ind, stats=stats)
                   for pol in rem_num_nz]
     assert len(majseq_pol_part) == pol_part_len
-    maj = DiffOpBound(dop_T, cst, majseq_pol_part, majseq_num, maj_den)
+    maj = DiffOpBound(dop_T, cst, majseq_pol_part, majseq_num, maj_den, ind)
     logger.debug("...done, time: %s", stats)
     return maj
 
