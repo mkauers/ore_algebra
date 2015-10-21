@@ -141,6 +141,8 @@ def series_sum_ordinary(dop, ini, pt, tgt_error,
             logger.info("lost too much precision, restarting with %d bits",
                         new_prec)
             Intervals = type(Intervals)(new_prec)
+            if record_bounds_in:
+                record_bounds_in[:] = []
     return psum
 
 def series_sum_ordinary_doit(Intervals, bwrec, ini, pt, rad, tgt_error, maj,
@@ -233,7 +235,7 @@ def fundamental_matrix_ordinary(dop, pt, ring, eps, rows, maj):
         for ini in identity_matrix(my_ring, dop.order())]
     return matrix(cols).transpose().change_ring(ring)
 
-def plot_bounds(dop, ini, pt, eps, pplen=0):
+def plot_bounds(dop, ini=None, pt=None, eps=None, pplen=0):
     r"""
     EXAMPLES::
 
@@ -244,24 +246,49 @@ def plot_bounds(dop, ini, pt, eps, pplen=0):
         sage: Dops, x, Dx = Diffops()
 
         sage: naive_sum.plot_bounds(Dx - 1, [CBF(1)], CBF(i)/2, RBF(1e-20))
-        Graphics object consisting of 2 graphics primitives
+        Graphics object consisting of 5 graphics primitives
     """
     import sage.plot.all as plot
+    from sage.rings.real_arb import RealBallField, RBF
+    from sage.rings.complex_ball_acb import CBF
+    from sage.all import VectorSpace, QQ, RIF
+    from ore_algebra.analytic.bounds import abs_min_nonzero_root
+    if ini is None:
+        ini = VectorSpace(QQ, dop.order()).random_element()
+    ini = map(RealBallField(400), ini)
+    if pt is None:
+        lc = dop.leading_coefficient()
+        if lc.degree() == 0:
+            pt = QQ(2)
+        else:
+            pt = RIF(abs_min_nonzero_root(lc)/2).simplest_rational()
+    if eps is None:
+        eps = RBF(1e-50)
     recd = []
     maj = bounds.bound_diffop(dop, pol_part_len=pplen)  # cache in ctx?
     ref_sum = series_sum_ordinary(dop, ini, pt, eps, stride=1, derivatives=1,
                                   record_bounds_in=recd, maj=maj)
     # Note: this won't work well when the errors get close to the double
     # precision underflow threshold.
-    error_plot = plot.line(
+    error_plot_upper = plot.line(
             [(n, (psum[0]-ref_sum[0]).abs().upper())
              for n, psum, _ in recd],
-            color="black", scale="semilogy")
+            color="lightgray", scale="semilogy")
     error_plot = plot.line(
             [(n, (psum[0]-ref_sum[0]).abs().lower())
              for n, psum, _ in recd],
             color="black", scale="semilogy")
+    bound_plot_lower = plot.line([(n, bound.lower()) for n, _, bound in recd],
+                           color="lightblue", scale="semilogy")
     bound_plot = plot.line([(n, bound.upper()) for n, _, bound in recd],
                            color="blue", scale="semilogy")
-    return error_plot + bound_plot
+    title = repr(dop) + " @ x=" + repr(pt)
+    title = title if len(title) < 80 else title[:77]+"..."
+    myplot = error_plot_upper + error_plot + bound_plot_lower + bound_plot
+    ymax = myplot.ymax()
+    if ymax < float('inf'):
+        txt = plot.text(title, (myplot.xmax(), ymax),
+                        horizontal_alignment='right', vertical_alignment='top')
+        myplot += txt
+    return myplot
 
