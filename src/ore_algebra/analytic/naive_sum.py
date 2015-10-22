@@ -102,7 +102,10 @@ def series_sum_ordinary(dop, ini, pt, tgt_error,
     _, Pols, Scalars, dop = dop._normalize_base_ring()
     Pols_n = PolynomialRing(Scalars, 'n')
     Rops = OreAlgebra(Pols_n, 'Sn')
-    rop = dop.to_S(Rops).primitive_part().numerator()
+    # Using the primitive part here would break the computation of residuals!
+    # TODO: add test (arctan); better fix?
+    # rop = dop.to_S(Rops).primitive_part().numerator()
+    rop = dop.to_S(Rops)
     ordrec = rop.order()
     bwrec = [rop[ordrec-k](Pols_n.gen()-ordrec) for k in xrange(ordrec+1)]
 
