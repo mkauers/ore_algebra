@@ -958,7 +958,7 @@ class DiffOpBound(object):
         logger.debug("col_bound = %s", col_bound)
         return IR(ord).sqrt()*col_bound
 
-    def _test(self, ini=None, prec=50):
+    def _test(self, ini=None, prec=100):
         r"""
         Check that the majorants produced by this DiffOpBound bound the tails of
         the solutions of the associated operator.
@@ -982,9 +982,9 @@ class DiffOpBound(object):
         sol = self.dop.power_series_solutions(prec)
         Series = PowerSeriesRing(CBF, self.dop.base_ring().variable_name())
         ref = sum((ini[k]*sol[k] for k in xrange(ord)), Series(0)).polynomial()
-        for n in [ord, ord + 1, ord + 2, ord + 10]:
+        for n in [ord, ord + 1, ord + 2, ord + 50]:
             logger.info("truncation order = %d", n)
-            if n + 5 >= prec:
+            if n + 30 >= prec:
                 warnings.warn("insufficient precision")
             resid = self.dop(ref[:n])
             # we know a priori that val(resid) >= n mathematically, but interval
@@ -992,7 +992,7 @@ class DiffOpBound(object):
             assert all(c.contains_zero() for c in resid[:n])
             resid = resid[n:]
             maj = self.tail_majorant(n, [resid])
-            logger.info("%s << %s", Series(ref[n:], n+5), maj.series(n+5))
+            logger.info("%s << %s", Series(ref[n:], n+30), maj.series(n+30))
             maj._test(ref[n:])
 
 # Perhaps better: work with a "true" Ore algebra K[θ][z]. Use Euclidean
@@ -1153,7 +1153,7 @@ def _test_bound_diffop(
         ords=xrange(1, 5),
         degs=xrange(5),
         pplens=[1, 2, 5],
-        prec=50
+        prec=100
     ):
     r"""
     Randomized testing of :func:`bound_diffop`.
