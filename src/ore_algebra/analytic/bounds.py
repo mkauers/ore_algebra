@@ -921,7 +921,7 @@ class DiffOpBound(object):
         corresponding to the elements of ``residuals``.
         """
         abs_residual = bound_polynomials(residuals)
-        # In general, a majorant series for the tails of order n is given by
+        # In general, a majorant series for the tail of order n is given by
         # self(n)(z)*int(t⁻¹*aux(t)/self(n)(t)) where aux(t) is a polynomial
         # s.t. |aux[k]| >= (k/indicial_eq(k))*abs_residual[k]. This bound is not
         # very convenient to compute. But since self(n) has nonnegative
