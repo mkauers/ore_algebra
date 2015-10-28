@@ -153,7 +153,6 @@ class Point(SageObject):
         [0.333333333333333 +/- 3.99e-16],
         [3.141592653589793 +/- 7.83e-16]]
         """
-        # XXX: est-ce que je voudrais prendre une précision ici ?
         return IC(self.value)
 
     def exact(self):
@@ -180,11 +179,7 @@ class Point(SageObject):
         return isinstance(self.value,
                 (rings.Integer, rings.Rational, rings.NumberFieldElement))
 
-    # Autre modèle possible, peut-être mieux : Point pourrait être juste un
-    # point du plan complexe (ne pas connaître l'opérateur), et ce serait alors
-    # les contextes de prolongement analytique qui auraient les méthodes qui
-    # suivent. (Les points classifiés pourraient éventuellement connaître
-    # l'opérateur... s'ils ont encore une raison d'être...)
+    ### Methods that depend on dop
 
     def dist_to_sing(self):
         """

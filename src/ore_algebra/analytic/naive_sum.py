@@ -2,15 +2,16 @@
 """
 Evaluation of convergent D-finite series by direct summation
 
-NOTES:
-
-- cythonize?
-
 FIXME: silence deprecation warnings::
 
     sage: def ignore(*args): pass
     sage: sage.misc.superseded.warning=ignore
 """
+
+# TODO:
+# - support summing a given number of terms rather than until a target accuracy
+# is reached?
+# - cythonize critical parts?
 
 import collections, itertools, logging
 
@@ -141,10 +142,6 @@ def series_sum_ordinary(dop, ini, pt, tgt_error,
                         new_prec)
             Intervals = type(Intervals)(new_prec)
     return psum
-
-# TODO:
-# - make it possible to specify a number of terms to sum rather than a target
-#   accuracy?
 
 def series_sum_ordinary_doit(Intervals, bwrec, ini, pt, rad, tgt_error, maj,
         derivatives, stride, record_bounds_in):
