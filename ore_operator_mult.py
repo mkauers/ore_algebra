@@ -43,7 +43,32 @@ class MultivariateOreOperator(OreOperator):
     # action
 
     def __call__(self, f, **kwds):
-        raise NotImplementedError
+        
+        A = self.parent()
+        gens = A.gens()
+        make_der = lambda x, e=1: (lambda u: u.derivative(x, e))
+        for d in gens:
+            if str(d) not in kwds:
+                if A.is_D(d):
+                    kwds[str(d)] = make_der(A.is_D(d))
+                else:
+                    raise NotImplementedError
+
+        terms = self.__poly.dict()
+        out = 0
+        for e in terms:
+            u = f
+            for i in range(len(gens)):
+                d = kwds[str(gens[i])]
+                if e[i] > 0:
+                    try:
+                        u = d(u, e[i])
+                    except:
+                        for j in range(e[i]):
+                            u = d(u)
+            out += terms[e]*u
+            
+        return out
 
     # tests
 
