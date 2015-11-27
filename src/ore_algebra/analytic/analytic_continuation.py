@@ -7,7 +7,7 @@ import logging
 
 import sage.rings.all as rings
 import sage.rings.real_arb
-import sage.rings.complex_ball_acb
+import sage.rings.complex_arb
 
 from sage.matrix.constructor import identity_matrix, matrix
 from sage.rings.number_field.number_field_element import NumberFieldElement
@@ -132,7 +132,7 @@ def analytic_continuation(ctx, ini=None, post=None):
     eps1 = (ctx.eps/(1 + len(ctx.path))) >> 2 # TBI, +: move to ctx?
     prec = prec_from_eps(eps1) # TBI
     ring = (sage.rings.real_arb.RealBallField(prec) if ctx.real()
-            else sage.rings.complex_ball_acb.ComplexBallField(prec))
+            else sage.rings.complex_arb.ComplexBallField(prec))
 
     res = []
     path_mat = identity_matrix(ring, ctx.dop.order())

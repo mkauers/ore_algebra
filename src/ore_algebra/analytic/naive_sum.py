@@ -36,7 +36,7 @@ def series_sum_ordinary(dop, ini, pt, tgt_error,
     EXAMPLES::
 
         sage: from sage.rings.real_arb import RealBallField, RBF
-        sage: from sage.rings.complex_ball_acb import ComplexBallField, CBF
+        sage: from sage.rings.complex_arb import ComplexBallField, CBF
         sage: QQi.<i> = QuadraticField(-1)
 
         sage: from ore_algebra.analytic.ui import *
@@ -243,7 +243,7 @@ def plot_bounds(dop, ini=None, pt=None, eps=None, pplen=0):
     EXAMPLES::
 
         sage: from sage.rings.real_arb import RBF
-        sage: from sage.rings.complex_ball_acb import CBF
+        sage: from sage.rings.complex_arb import CBF
         sage: from ore_algebra.analytic.ui import Diffops
         sage: from ore_algebra.analytic import naive_sum
         sage: Dops, x, Dx = Diffops()
@@ -253,7 +253,7 @@ def plot_bounds(dop, ini=None, pt=None, eps=None, pplen=0):
     """
     import sage.plot.all as plot
     from sage.rings.real_arb import RealBallField, RBF
-    from sage.rings.complex_ball_acb import CBF
+    from sage.rings.complex_arb import CBF
     from sage.all import VectorSpace, QQ, RIF
     from ore_algebra.analytic.bounds import abs_min_nonzero_root
     if ini is None:

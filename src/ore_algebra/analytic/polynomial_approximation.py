@@ -19,7 +19,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 import sage.rings.real_arb
-import sage.rings.complex_ball_acb
+import sage.rings.complex_arb
 
 import ore_algebra.analytic.accuracy as accuracy
 import ore_algebra.analytic.analytic_continuation as ancont
@@ -170,7 +170,7 @@ def doit(dop, ini, path, rad, eps, derivatives, economization):
 
     prec = utilities.prec_from_eps(eps1) # TBI
     Scalars = (sage.rings.real_arb.RealBallField(prec) if ctx.real()
-               else sage.rings.complex_ball_acb.ComplexBallField(prec))
+               else sage.rings.complex_arb.ComplexBallField(prec))
     x = dop.base_ring().change_ring(Scalars).gen()
 
     local_dop = ctx.path.vert[-1].local_diffop()
@@ -266,7 +266,7 @@ def _test_fun_approx(pol, ref, disk_rad=None, interval_rad=None,
     """
     from sage.rings.real_mpfr import RealField
     from sage.rings.real_arb import RealBallField
-    from sage.rings.complex_ball_acb import ComplexBallField
+    from sage.rings.complex_arb import ComplexBallField
     my_RR = RealField(prec)
     my_RBF = RealBallField(prec)
     my_CBF = ComplexBallField(prec)

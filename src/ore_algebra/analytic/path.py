@@ -31,7 +31,7 @@ import sage.symbolic.ring
 
 from sage.misc.cachefunc import cached_method
 from sage.rings.all import QQ, CC, RIF, CIF, QQbar, RLF, CLF
-from sage.rings.complex_ball_acb import CBF, ComplexBallField
+from sage.rings.complex_arb import CBF, ComplexBallField
 from sage.rings.real_arb import RBF, RealBallField
 from sage.structure.sage_object import SageObject
 
@@ -434,7 +434,7 @@ class Path(SageObject):
 
         sage: from ore_algebra.analytic.ui import *
         sage: from ore_algebra.analytic.path import Path
-        sage: from sage.rings.complex_ball_acb import CBF
+        sage: from sage.rings.complex_arb import CBF
         sage: Dops, x, Dx = Diffops()
         sage: dop = (x^2 + 1)*Dx^2 + 2*x*Dx
 

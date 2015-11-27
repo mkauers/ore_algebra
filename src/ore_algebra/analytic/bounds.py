@@ -19,7 +19,7 @@ import sage.rings.polynomial.real_roots as real_roots
 
 from sage.misc.misc_c import prod
 from sage.rings.all import CIF
-from sage.rings.complex_ball_acb import CBF
+from sage.rings.complex_arb import CBF
 from sage.rings.infinity import infinity
 from sage.rings.integer import Integer
 from sage.rings.polynomial.polynomial_element import Polynomial
@@ -568,7 +568,7 @@ def bound_ratio_large_n_nosolve(num, den, stats=None):
         )
         sage: bnd.plot().show(ymax=30); bnd._test()
 
-        sage: from sage.rings.complex_ball_acb import CBF
+        sage: from sage.rings.complex_arb import CBF
         sage: num, den = num.change_ring(CBF), den.change_ring(CBF)
         sage: bound_ratio_large_n_nosolve(num, den)
         max(
@@ -1205,7 +1205,7 @@ def residual(bwrec, n, last, z):
 
     EXAMPLES::
 
-        sage: from sage.rings.complex_ball_acb import CBF
+        sage: from sage.rings.complex_arb import CBF
         sage: from ore_algebra import OreAlgebra
         sage: from ore_algebra.analytic.bounds import *
         sage: Pol_t.<t> = QQ[]; Pol_n.<n> = QQ[]
