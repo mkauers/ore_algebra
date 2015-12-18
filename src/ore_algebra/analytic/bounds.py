@@ -22,6 +22,7 @@ from sage.rings.all import CIF
 from sage.rings.complex_arb import CBF
 from sage.rings.infinity import infinity
 from sage.rings.integer import Integer
+from sage.rings.integer_ring import ZZ
 from sage.rings.polynomial.polynomial_element import Polynomial
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 from sage.rings.power_series_ring import PowerSeriesRing
@@ -471,7 +472,11 @@ def bound_inverse_poly(den, algorithm="simple"):
 # Bounds on rational functions of n
 ######################################################################
 
-class RatSeqBound(object):
+class SeqBound(object):
+    # XXX: try to simplify *SeqBound...
+    pass
+
+class RatSeqBound(SeqBound):
     r"""
     A piecewise-constant-piecewise-rational nonincreasing sequence.
 
@@ -482,7 +487,7 @@ class RatSeqBound(object):
     - the two polynomials num, den, with deg(num) <= deg(den),
 
     - and a list of pairs (n[i], v[i]) with n[i-1] <= n[i], n[-1] = ∞,
-      v[i-1] <= v[i], and such that
+      v[i-1] >= v[i], and such that
 
           |f(k)| <= max(|f(n)|, v[i]) for n[i-1] < n <= k <= n[i].
     """
@@ -532,6 +537,20 @@ class RatSeqBound(object):
             if self(k) < IR(self.num(k)/self.den(k)).abs():
                 raise AssertionError
 
+class SumSeqBound(SeqBound):
+    r"""
+    A sum of :class:`SeqBound`s.
+    """
+
+    def __init__(self, terms):
+        self.terms = terms
+
+    def __repr__(self):
+        return '(' + ' + '.join(repr(term) for term in self.terms) + ')'
+
+    def __call__(self, n):
+        return sum(term(n) for term in self.terms)
+
 def bound_real_roots(pol):
     if pol.is_zero(): # XXX: may not play well with intervals
         return -infinity
@@ -539,98 +558,6 @@ def bound_real_roots(pol):
     bound = RIF._upper_field()(bound) # work around weakness of cl_maximum_root
     bound = bound.nextabove().ceil()
     return bound
-
-# TODO: share code with the main implementation (if I keep both versions)
-def bound_ratio_large_n_nosolve(num, den, stats=None):
-    """
-    Given two polynomials num and den, return a function a(n) such that
-
-        0 < |num(k)| < a(n)·|den(k)|
-
-    for all k >= n >= 0. Note that a may take infinite values.
-
-    This version accepts polynomials with interval coefficients, but yields less
-    tight bounds than ``bound_ratio_large_n_solve``.
-
-    EXAMPLES::
-
-        sage: from ore_algebra.analytic.bounds import bound_ratio_large_n_nosolve
-        sage: Pols.<n> = QQ[]
-
-        sage: num = (n^3-2/3*n^2-10*n+2)*(n^3-30*n+8)*(n^3-10/9*n+1/54)
-        sage: den = (n^3-5/2*n^2+n+2/5)*(n^3-1/2*n^2+3*n+2)*(n^3-81/5*n-14/15)
-        sage: bnd = bound_ratio_large_n_nosolve(num, den); bnd
-        max(
-          ...
-          [+/- inf]             for  n <= 0,
-          [22.77...]            for  n <= 23,
-          1.000000000000000     for  n <= +Infinity
-        )
-        sage: bnd.plot().show(ymax=30); bnd._test()
-
-        sage: from sage.rings.complex_arb import CBF
-        sage: num, den = num.change_ring(CBF), den.change_ring(CBF)
-        sage: bound_ratio_large_n_nosolve(num, den)
-        max(
-          ...
-          [+/- inf]             for  n <= 0,
-          [22.77...]            for  n <= 23,
-          1.000000000000000     for  n <= +Infinity
-        )
-    """
-    rat = num/den
-    num, den = rat.numerator(), rat.denominator()
-
-    if num.degree() > den.degree():
-        raise ValueError("expected deg(num) <= deg(den)")
-
-    def sqn(pol):
-        RealScalars = num.base_ring().base_ring()
-        re, im = (pol.map_coefficients(which, new_base_ring=RealScalars)
-                  for which in (lambda coef: coef.real(),
-                                lambda coef: coef.imag()))
-        return re**2 + im**2
-    sqn_num, sqn_den = sqn(num), sqn(den)
-    crit = sqn_num.diff()*sqn_den - sqn_den.diff()*sqn_num
-
-    finite_from = max(2, bound_real_roots(sqn_den))
-    monotonic_from = max(finite_from, bound_real_roots(crit))
-
-    orig_den = den
-    num = num.change_ring(IC)
-    den = den.change_ring(IC)
-    def bound_term(n): return num(n).abs()/den(n).abs()
-    lim = (num[den.degree()]/den.leading_coefficient()).abs()
-
-    # We would compute these later anyway (unless we are more clever here)
-    last = 0
-    nonincr_or_le_lim_from = None
-    finite_from = 0
-    logger.debug("monotonic from %s, starting extended search", monotonic_from)
-    if stats: stats.time_staircases.tic()
-    for n in xrange(monotonic_from, 0, -1):
-        val = bound_term(n)
-        if (nonincr_or_le_lim_from is None
-                and not (val <= lim)
-                and not (val >= last)): # interval comparisons
-            nonincr_or_le_lim_from = n + 1
-        if not orig_den(n):
-            finite_from = n + 1
-            break
-        last = val
-    if nonincr_or_le_lim_from is None:
-        nonincr_or_le_lim_from = finite_from # TBI?
-
-    ini_range = xrange(finite_from, nonincr_or_le_lim_from+1) # +1 for clarity when empty
-    ini_bound = lim.max(*(bound_term(n) for n in ini_range))
-    if stats: stats.time_staircases.toc()
-
-    logger.debug("finite from %s, ini_bound=%s, ↘/≤lim from %s, lim=%s",
-            finite_from, ini_bound, nonincr_or_le_lim_from, lim)
-
-    stairs = [(finite_from, IR(infinity)), (nonincr_or_le_lim_from, ini_bound),
-              (infinity, lim)]
-    return RatSeqBound(num, den, stairs)
 
 def nonneg_roots(pol):
     bound = bound_real_roots(pol)
@@ -648,22 +575,28 @@ def nonneg_roots(pol):
 
 upper_inf = RIF(infinity).upper()
 
-def bound_ratio_large_n_solve(num, den, min_drop=IR(1.1), stats=None):
+# TODO: computation of roots should be shared between calls corresponding to
+# different shift equivalence classes...
+def bound_ratio_large_n(num, den, exceptions={}, min_drop=IR(1.1), stats=None):
     """
-    Given two polynomials num and den, return a function b(n) such that
+    Given two polynomials num and den with complex coefficients, return a
+    function b: ℕ → [0, ∞] such that
 
-        0 < |num(k)| < b(n)·|den(k)|
+        b(n) >= min(|num(k)/den(k)|, exceptions[k])
 
-    for all k >= n >= 0. Note that b may take infinite values.
+    for all n, k ∈ ℕ with 0 <= n <= k. (The idea is that exceptions[k] will
+    typically be specified only when den(k) = 0, but may be omitted even in
+    this case if one is willing to accept that b(n) = ∞ up to the largest
+    integer root of den.)
 
     EXAMPLES::
 
-        sage: from ore_algebra.analytic.bounds import bound_ratio_large_n_solve
+        sage: from ore_algebra.analytic.bounds import bound_ratio_large_n
         sage: Pols.<n> = QQ[]
 
         sage: num = (n^3-2/3*n^2-10*n+2)*(n^3-30*n+8)*(n^3-10/9*n+1/54)
         sage: den = (n^3-5/2*n^2+n+2/5)*(n^3-1/2*n^2+3*n+2)*(n^3-81/5*n-14/15)
-        sage: bnd1 = bound_ratio_large_n_solve(num, den); bnd1
+        sage: bnd1 = bound_ratio_large_n(num, den); bnd1
         max(
           |(n^9 + ([-0.66...])*n^8 + ([-41.1...])*n^7 + ...)/(n^9 - ...)|,
           [22.77116...]     for  n <= 2,
@@ -675,7 +608,7 @@ def bound_ratio_large_n_solve(num, den, min_drop=IR(1.1), stats=None):
 
         sage: num = (n^2-3/2*n-6/7)*(n^2+1/8*n+1/12)*(n^3-1/44*n^2+1/11*n+9/22)
         sage: den = (n^3-1/2*n^2+1/13)*(n^3-28*n+35)*(n^3-31/5)
-        sage: bnd2 = bound_ratio_large_n_solve(num, den); bnd2
+        sage: bnd2 = bound_ratio_large_n(num, den); bnd2
         max(
           ...
           [0.231763...]   for  n <= 4,
@@ -690,19 +623,19 @@ def bound_ratio_large_n_solve(num, den, min_drop=IR(1.1), stats=None):
         sage: bnd1._test()
         sage: bnd2._test()
 
-        sage: bound_ratio_large_n_solve(n, Pols(1))
+        sage: bound_ratio_large_n(n, Pols(1))
         Traceback (most recent call last):
         ...
         ValueError: expected deg(num) <= deg(den)
 
-        sage: bound_ratio_large_n_solve(Pols(1), Pols(3))
+        sage: bound_ratio_large_n(Pols(1), Pols(3))
         max(
           |([0.333...])/(1.000...)|,
           [0.333...]     for  n <= +Infinity
         )
 
         sage: i = QuadraticField(-1).gen()
-        sage: bound_ratio_large_n_solve(n, n + i)
+        sage: bound_ratio_large_n(n, n + i)
         max(
           |(n)/(n + I)|,
           1.000000000000000     for  n <= +Infinity
@@ -736,7 +669,9 @@ def bound_ratio_large_n_solve(num, den, min_drop=IR(1.1), stats=None):
     thrs = set(n for iv in roots for n in xrange(iv[0].floor(), iv[1].ceil()))
     thrs = list(thrs)
     thrs.sort(reverse=True)
-    thr_vals = [(n, num(n).abs()/den(n).abs()) for n in thrs]
+    thr_vals = [(n, (exceptions[n] if n in exceptions
+                     else num(n).abs()/den(n).abs()))
+                for n in thrs]
     lim = (num[den.degree()]/den.leading_coefficient()).abs()
     stairs = [(infinity, lim)]
     for (n, val) in thr_vals:
@@ -753,7 +688,43 @@ def bound_ratio_large_n_solve(num, den, min_drop=IR(1.1), stats=None):
 
     return RatSeqBound(num, den, stairs)
 
-bound_ratio_large_n = bound_ratio_large_n_solve
+def bound_ratio_derivatives(num, den, nat_poles, stats=None):
+    r"""
+    Compute a bound on sum(n·|f^(t)(n)/t!|, t=0..derivatives-1) similar to the
+    one returned by bound_ratio_large_n. XXX: update descr
+
+    The variable of num, den represents an integer index shift.
+    """
+    Pol = num.parent()
+
+    max_mult = max(mult for _, mult in nat_poles) if nat_poles else 0
+    derivatives = 1 + sum(mult for _, mult in nat_poles)
+    Jets = utilities.jets(IC, 'X', derivatives + max_mult)
+    # Sage won't return Laurent series here. Even this version currently doesn't
+    # work with the mainline (coercions involving quotients polynomial rings for
+    # which factor() is not implemented are broken).
+    ex_series = {}
+    for n, mult in nat_poles:
+        pert = Jets([n, 1]) # n + X
+        # den has a root of order mult at n, so den(pert) = O(X^mult), but the
+        # computed value might include terms of degree < mult with interval
+        # coefficients containing zero
+        ex_series[n] = n*num(pert)/Jets(den(pert).lift() >> mult)
+
+    rat = num/den
+    denpow = den
+    terms = []
+    for t in range(derivatives):
+        ex = {n: ser[t].abs() for n, ser in ex_series.iteritems()}
+        bnd = bound_ratio_large_n(num << 1, denpow, exceptions=ex, stats=stats)
+        terms.append(bnd)
+        rat = rat.derivative()/(t + 1)
+        denpow *= den
+        num = Pol(rat*denpow)
+    if len(terms) == 1:
+        return terms[0]
+    else:
+        return SumSeqBound(terms)
 
 ################################################################################
 # Bounds for differential equations
@@ -798,18 +769,20 @@ class DiffOpBound(object):
     r"""
     A "bound on the inverse" of a differential operator at an ordinary point.
 
-    This is an object that, given a residual q = dop·ỹ where ỹ(z) = c·z^N + ···
-    is the truncation of degree N of a solution y of dop·y = 0, is able to
-    compute a majorant series of the tail y(z) - ỹ(z). The majorant series of
-    the tail is represented by a HyperexpMajorant.
+    This is an object that, given a residual q = dop·ỹ where ỹ(z) = y[:N](z) is
+    the deg-N truncation of a (logarithmic) solution y of dop·y = 0, is able
+    to compute a majorant series of the coefficients u[0], u[1], ... of the tail
+        y(z) - ỹ(z) = u[0](z) + u[1](z)·log(z) + u[2](z)·log(z)² + ···.
+    That majorant series of the tail is represented by a HyperexpMajorant.
 
     Note that multiplying dop by a rational function changes the residual.
 
-    More precisely, a DiffOpBound represents a *sequence* v[n](z) of formal
-    power series with the property that, if N and ỹ are as above with N >= n,
-    then v[n](z)·B(q)(z), for some polynomial B(q) derived from q, is a majorant
-    of y(z) - ỹ(z). Here B(q) can be taken to be any majorant polynomial of q,
-    but tighter choices are possible (see below for details).
+    More precisely, a DiffOpBound represents a *parametrized* formal power
+    series v[n](z) with the property that, if N and ỹ are as above with
+    N - n ∈ ℕ, then v[n](z)·B(q)(z), for some logarithmic polynomial B(q)
+    derived from q, is a majorant of y(z) - ỹ(z).
+    XXX: Here B(q) can be taken to be any majorant polynomial of q, but tighter
+    choices are possible (see below for details).
 
     The sequence v[n](z) is of the form
 
@@ -818,7 +791,7 @@ class DiffOpBound(object):
     where
 
     * num[n](z) and pol[n](z) are polynomials with coefficients depending on n
-      (given by RatSeqBound objects), with val(num[n]) >= deg(pol[n]),
+      (given by SeqBound objects), with val(num[n]) >= deg(pol[n]),
 
     * den(z) is a polynomial (with constant coefficients),
 
@@ -902,6 +875,8 @@ class DiffOpBound(object):
         maj = HyperexpMajorant(integrand=rat_maj, rat=~self.maj_den)
         return maj
 
+    # XXX: make interval evaluation more precise? (not crucial as we only need
+    # an upper bound, but...)
     def tail_majorant(self, n, residuals):
         r"""
         Bound the tails of order ``N`` of solutions of ``self.dop(y) == 0``.
@@ -1014,7 +989,6 @@ def _dop_rcoeffs_of_T(dop):
     val = min(pol.valuation() for pol in dop.coefficients()
               + [Pols_z.zero()]) # TBI; 0 to handle dop=0
     res = [Pols_z(c) << val for c in bwd_rop_rcoeffof_n]
-    assert dop.is_zero() or dop.leading_coefficient() == res[-1]
     return res
 
 class BoundDiffopStats(utilities.Stats):
@@ -1027,18 +1001,25 @@ class BoundDiffopStats(utilities.Stats):
         self.time_staircases = utilities.Clock("building staircases")
         self.time_decomp_op = utilities.Clock("decomposing op")
 
-def bound_diffop(dop, pol_part_len=0):
+def bound_diffop(dop, leftmost=ZZ.zero(), special_shifts=[],
+        pol_part_len=0, bound_inverse="simple" # TBI
+    ):
     r"""
     Compute a :class:`DiffOpBound` object that can be used to bound the tails of
-    power series solutions of ``dop``.
+    logarithmic power series solutions of ``dop`` with terms supported by
+    leftmost + ℕ.
+
+    special_shifts: list of nonneg integers n s.t. leftmost+n is a root of the
+    indicial equation where we are interested in "new" powers of log that may
+    appear, with associated multiplicities
 
     See the docstring of :class:`DiffOpBound` for more information.
 
     .. WARNING::
 
-        The bounds depend on residuals computed using not ``dop`` itself, but a
-        “normalized” operator obtained by multiplying it by a power of x. The
-        normalized operator is returned in the ``dop`` field of the result.
+        The bounds depend on residuals computed using (not ``dop`` itself but) a
+        “normalized” operator obtained by multiplying ``dop`` by a power of x.
+        The normalized operator is returned in the ``dop`` field of the result.
 
     EXAMPLES::
 
@@ -1098,29 +1079,31 @@ def bound_diffop(dop, pol_part_len=0):
 
         sage: _test_bound_diffop()
     """
-    stats = BoundDiffopStats()
+    # TODO simplify
+    assert dop.parent().is_D()
     _, Pols_z, _, dop = dop._normalize_base_ring()
     z = Pols_z.gen()
-    lc = dop.leading_coefficient()
+    dop_T = dop.to_T('T' + str(z)) # slow
+
+    stats = BoundDiffopStats()
+    lc = dop_T.leading_coefficient()
     if lc.is_term() and not lc.is_constant():
         raise ValueError("irregular singular operator", dop)
-    rcoeffs = _dop_rcoeffs_of_T(dop)
+    rcoeffs = _dop_rcoeffs_of_T(dop_T)
     Trunc = Pols_z.quo(z**(pol_part_len+1))
     inv = ~Trunc(lc)
     MPol, (z, n) = Pols_z.extend_variables('n').objgens()
-    # Including rcoeffs[-1] here is actually redundant, as by construction the
-    # only term in first to involve n^ordeq will be 1·n^ordeq·z^0. But I find
-    # the code easier to understand this way.
+    # Including rcoeffs[-1] here actually is redundant, as, by construction, the
+    # only term in first to involve n^ordeq will be 1·n^ordeq·z^0.
     first = sum(n**j*(Trunc(pol)*inv).lift()
                 for j, pol in enumerate(rcoeffs))
     first_nz = first.polynomial(z)
     first_zn = first.polynomial(n)
     logger.debug("first: %s", first_nz)
     assert first_nz[0] == dop.indicial_polynomial(z, n).monic()
-    assert all(pol.degree() < dop.order() for pol in first_nz[1:])
+    assert all(pol.degree() < dop_T.order() for pol in first_nz[1:])
 
     stats.time_decomp_op.tic()
-    dop_T = dop.to_T('T' + str(z)) # slow
     T = dop_T.parent().gen()
     pol_part = sum(T**j*pol for j, pol in enumerate(first_zn)) # slow
     logger.debug("pol_part: %s", pol_part)
@@ -1130,21 +1113,27 @@ def bound_diffop(dop, pol_part_len=0):
     rem_num_nz = MPol(sum(n**j*pol for j, pol in it)).polynomial(z)
     assert rem_num_nz.valuation() >= pol_part_len + 1
     rem_num_nz >>= (pol_part_len + 1)
-    stats.time_decomp_op.toc()
     logger.debug("rem_num_nz: %s", rem_num_nz)
+    stats.time_decomp_op.toc()
 
-    ind = first_nz[0]
-    cst, maj_den = bound_inverse_poly(lc)
-    # Note that here we ignore the coefficient first_nz[0], which amounts to
-    # multiplying the integrand of the DiffOpBound by z⁻¹, as prescribed by the
-    # theory. Since majseq_num starts by definition at the degree following that
-    # of majseq_pol_part, it gets shifted as well. The "<< 1" in the next few
-    # lines have nothing to do with that, they are multiplications by *n*.
-    majseq_pol_part = [bound_ratio_large_n(first_nz[i] << 1, ind, stats=stats)
-                       for i in xrange(1, pol_part_len + 1)]
-    majseq_num = [bound_ratio_large_n(pol << 1, ind, stats=stats)
-                  for pol in rem_num_nz]
+    alg_idx = leftmost + first_nz.base_ring().gen()
+    ind = first_nz[0](alg_idx)
+    cst, maj_den = bound_inverse_poly(lc, algorithm=bound_inverse)
+    # We ignore the coefficient first_nz[0], which amounts to multiplying the
+    # integrand of the DiffOpBound by z⁻¹, as prescribed by the theory. Since,
+    # by definition, majseq_num starts at the degree following that of
+    # majseq_pol_part, it gets shifted as well. The "<< 1" in the next few lines
+    # have nothing to do with that, they are multiplications by *n*.
+    majseq_pol_part = [
+            bound_ratio_derivatives(first_nz[i](alg_idx), ind, special_shifts,
+                                    stats=stats)
+            for i in xrange(1, pol_part_len + 1)]
+    majseq_num = [
+            bound_ratio_derivatives(pol(alg_idx), ind, special_shifts,
+                                    stats=stats)
+            for pol in rem_num_nz]
     assert len(majseq_pol_part) == pol_part_len
+    # XXX: check if ind needs to be shifted (ind(n ± leftmost))
     maj = DiffOpBound(dop_T, cst, majseq_pol_part, majseq_num, maj_den, ind)
     logger.debug("...done, time: %s", stats)
     return maj
@@ -1242,4 +1231,32 @@ def residual(bwrec, n, last, z):
         for i in xrange(ordrec)]
     IvPols = PolynomialRing(IC, z, sparse=True)
     return IvPols(rescoef) << n
+
+def bound_residual_with_logs(bwrec, n, last, z, logs, RecJets):
+    ordrec = len(bwrec) - 1
+    # Compute the coefficients of the residual:
+    # residual = z^(lambda + n)·(sum(rescoef[i][j]·z^i·log^j(z)/j!)
+    rescoef = [[None]*logs for _ in xrange(ordrec)]
+    for i in xrange(ordrec):
+        for j in xrange(logs):
+            idx_pert = RecJets([n + i, 1])
+            bwrec_i = [b(idx_pert) for b in bwrec]
+            rescoef[i][j] = sum(
+                    IC(bwrec_i[i+k+1][p])*IC(last[k][j+p])
+                    for k in xrange(ordrec - i)
+                    for p in xrange(logs - j))
+    # For lack of a convenient data structure to return these coefficients,
+    # compute a “majorant” polynomial right away. Here for simplicity we only
+    # handle the generic case.
+    idx_pert = RecJets([n, 1])
+    invlc = ~(bwrec[0](idx_pert)) # sum(1/t!·(1/Q0)^(t)(λ + n)·Sk^t)
+    invlcmaj = sum(IC(t).abs() for t in invlc)
+    polcoef = [(n + i)*invlcmaj*max(t.abs() for t in rescoef[i])
+               for i in xrange(ordrec)]
+    IvPols = PolynomialRing(IC, z, sparse=True)
+    return IvPols(polcoef) << n
+
+
+
+
 

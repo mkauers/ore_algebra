@@ -8,6 +8,7 @@ Utilities
 from sage.misc.cachefunc import cached_function
 from sage.misc.misc import cputime
 from sage.rings.all import QQbar, CIF
+from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 
 ######################################################################
 # Timing
@@ -60,3 +61,8 @@ def sing_as_alg(dop, iv):
 
 def prec_from_eps(eps):
     return -eps.lower().log2().floor()
+
+def jets(base, var_name, order):
+    Pols = PolynomialRing(base, var_name)
+    return Pols.quo(Pols.one() << order)
+

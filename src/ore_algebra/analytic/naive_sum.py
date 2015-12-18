@@ -30,6 +30,8 @@ from ore_algebra.analytic.safe_cmp import safe_lt
 
 logger = logging.getLogger(__name__)
 
+# XXX: perhaps introduce a specific object type (with support for exceptional
+# indices and RecJets; see also bound_residual_with_logs)
 def backward_rec(dop):
     Pols_n = PolynomialRing(dop.base_ring().base_ring(), 'n') # XXX: name
     Rops = OreAlgebra(Pols_n, 'Sn')
@@ -92,9 +94,9 @@ def series_sum_ordinary(dop, ini, pt, tgt_error,
         sage: series_sum_ordinary(Dx - 1, [RBF(1)], x.change_ring(RBF),
         ....:         AbsoluteError(1e-3), stride=1, rad=RBF(1), derivatives=2)
         (... + [0.0083...]*x^5 + [0.0416...]*x^4 + [0.1666...]*x^3
-        + 0.5000...*x^2 + x + [1.000 +/- 1...e-4],
+        + 0.5000...*x^2 + x + [1.000 +/- ...e-4],
         ... + [0.0083...]*x^5 + [0.0416...]*x^4 + [0.1666...]*x^3
-        + [0.5000...]*x^2 + x + [1.000 +/- 1...e-4])
+        + [0.5000...]*x^2 + x + [1.000 +/- ...e-4])
 
     TESTS::
 
@@ -160,6 +162,7 @@ def series_sum_ordinary(dop, ini, pt, tgt_error,
 def series_sum_ordinary_doit(Intervals, bwrec, ini, pt, derivatives,
         rad, tgt_error, maj, stride, record_bounds_in):
 
+    # XXX: j'ai l'impression qu'une partie de ceci devrait bouger ailleurs...
     ini = Sequence(ini, universe = Intervals) # TBI ?
     try: # TBI - genuinely support parent(pt) != Intervals?
         pt = Intervals.coerce(pt)
@@ -198,7 +201,9 @@ def series_sum_ordinary_doit(Intervals, bwrec, ini, pt, derivatives,
             logger.debug("n=%s, sum=%s, last tail_bound=%s",
                          n, psum[0], tail_bound.upper())
             abs_sum = psum[0].abs() if pt_is_interval else None
-            if (tgt_error.reached(abs(last[0])*radpow, abs_sum)
+            # last[-1] since last[0] may still be "undefined" and last[1] may
+            # not exist in degenerate cases
+            if (tgt_error.reached(abs(last[-1])*radpow, abs_sum)
                                 or record_bounds_in is not None):
                 # Warning: this residual must correspond to the operator stored
                 # in maj.dop, which typically isn't the operator
@@ -275,7 +280,7 @@ def my_shiftless_decomposition(pol):
 # TODO: move parts not specific to the naïve summation algo elsewhere
 # def fundamental_matrix_regsing(dop, pt, ring, eps, rows, maj):
 # TODO: test with algebraic valuations
-def fundamental_matrix_regsing(dop, pt, ring, eps, rows, terms):
+def fundamental_matrix_regsing(dop, pt, ring, eps, rows, pplen=0):
     r"""
     TESTS::
 
@@ -283,28 +288,31 @@ def fundamental_matrix_regsing(dop, pt, ring, eps, rows, terms):
         sage: from ore_algebra.analytic.naive_sum import *
         sage: Dops, x, Dx = Diffops()
 
-        sage: fundamental_matrix_regsing(x*Dx^2 + (1-x)*Dx, 1, RBF, Ellipsis, 2, 20)
+        sage: fundamental_matrix_regsing(x*Dx^2 + (1-x)*Dx, 1, RBF, RBF(1e-10), 2)
         [[1.317902...] 1.000000...]
         [[2.718281...]           0]
 
         sage: dop = (x+1)*(x^2+1)*Dx^3-(x-1)*(x^2-3)*Dx^2-2*(x^2+2*x-1)*Dx
-        sage: fundamental_matrix_regsing(dop, 1/3, RBF, Ellipsis, 3, 50)
+        sage: fundamental_matrix_regsing(dop, 1/3, RBF, RBF(1e-10), 3)
         [ 1.0000000...  [0.321750...]  [0.147723...]]
         [            0  [0.900000...]  [0.991224...]]
-        [            0 [-0.270000...]  [1.935612...]]
+        [            0  [-0.2...]      [1.935612...]]
 
         sage: dop = (
         ....:     (2*x^6 - x^5 - 3*x^4 - x^3 + x^2)*Dx^4
         ....:     + (-2*x^6 + 5*x^5 - 11*x^3 - 6*x^2 + 6*x)*Dx^3
         ....:     + (2*x^6 - 3*x^5 - 6*x^4 + 7*x^3 + 8*x^2 - 6*x + 6)*Dx^2
-        ....:     + (-2*x^6 + 3*x^5 + 5*x^4 - 2*x^3 - 9*x^2 + 9*x)*Dx
-        sage: fundamental_matrix_regsing(dop, RBF(1/3), RBF, 42, 4, 10)
+        ....:     + (-2*x^6 + 3*x^5 + 5*x^4 - 2*x^3 - 9*x^2 + 9*x)*Dx)
+        sage: fundamental_matrix_regsing(dop, RBF(1/3), RBF, RBF(1e-10), 4, pplen=20)
         [ [3.178847...] [-1.064032...]  [1.000...] [0.3287250...]]
         [ [-8.98193...] [3.2281834...]       [...] [0.9586537...]]
         [ [26.18828...] [-4.063756...]       [...] [-0.123080...]]
-        [ [-80.2467...] [9.1907405...]       [...] [-0.119259...]]
+        [ [-80.2467...] [9.1907404...]       [...] [-0.119259...]]
     """
     from sage.rings.qqbar import QQbar
+
+    eps_col = bounds.IR(eps)/bounds.IR(dop.order()).sqrt()
+
     bwrec = backward_rec(dop)
     ind = bwrec[0]
     n = ind.parent().gen()
@@ -322,6 +330,8 @@ def fundamental_matrix_regsing(dop, pt, ring, eps, rows, terms):
                 _, leftmost, _ = leftmost.as_number_field_element()
                 # logger.debug("leftmost=%s", leftmost)
                 emb_bwrec = [pol(leftmost + n) for pol in bwrec]
+                maj = bounds.bound_diffop(dop, leftmost, shifts,
+                        pol_part_len=pplen, bound_inverse="solve")
                 for shift, mult in shifts:
                     for log_power in xrange(mult):
                         ini = {s: tuple(ring.one()
@@ -331,8 +341,8 @@ def fundamental_matrix_regsing(dop, pt, ring, eps, rows, terms):
                                for s, m in shifts}
                         # logger.debug("ini=%s", ini)
                         # XXX: inefficient if shift >> 0
-                        value = series_sum_regsing(ring, emb_bwrec, leftmost,
-                                                   ini, pt, rows, terms)
+                        value = series_sum_regsing(ring, dop, emb_bwrec, leftmost,
+                                                   ini, pt, eps_col, maj, rows)
                         sol = FundamentalSolution(
                             valuation = leftmost + shift,
                             log_power = log_power,
@@ -342,27 +352,28 @@ def fundamental_matrix_regsing(dop, pt, ring, eps, rows, terms):
     cols.sort(key=sort_key_by_asympt)
     return matrix([sol.value for sol in cols]).transpose().change_ring(ring)
 
-def jets(base, var_name, order):
-    Pols = PolynomialRing(base, var_name)
-    return Pols.quo(Pols.one() << order)
-
 # This function only handles the case of a “single” series, i.e. a series where
 # all indices differ from each other by integers. But since we need logic to go
 # past singular indices anyway, we can allow for general initial conditions (at
 # roots of the indicial equation belonging to the same shift-equivalence class),
 # not just initial conditions associated to canonical solutions.
-def series_sum_regsing(Intervals, bwrec, expo, ini, pt, derivatives, terms):
+def series_sum_regsing(Intervals, dop, bwrec, expo, ini, pt, eps, maj,
+        derivatives, stride=50):
+
+    orddeq = dop.order()
 
     # XXX: distinguish between points and coefficients?
     # would be useful for symbolic points (→ poly approx)!
-    Jets = jets(Intervals, 'eta', derivatives)
+    Jets = utilities.jets(Intervals, 'eta', derivatives)
+    rad = bounds.IC(pt).abs()
     pt = Jets([pt, 1])
     ptpow = Jets.one()
+    radpow = bounds.IR.one() # XXX: shouldn't this be rad^leftmost?
 
     log_prec = sum(len(v) for v in ini.itervalues()) # ini: dict(n -> (c0, ...))
     ordrec = len(bwrec) - 1
-    RecJets = jets(bwrec[0].base_ring(), 'Sk', log_prec)
-    last = collections.deque([vector(Jets, log_prec)
+    RecJets = utilities.jets(bwrec[0].base_ring(), 'Sk', log_prec)
+    last = collections.deque([vector(Intervals, log_prec)
                               for _ in xrange(ordrec + 1)])
 
     psum = vector(Jets, log_prec)
@@ -370,14 +381,26 @@ def series_sum_regsing(Intervals, bwrec, expo, ini, pt, derivatives, terms):
     for n in itertools.count():
         last.rotate(1)
         # logger.debug("n=%s, sum=%s", n, psum)
-        if n >= terms: # TODO: convergence test
-            break
+        mult = len(ini.get(n, ()))
+
+        if abs(last[-1][0])*radpow < eps and mult == 0 and n > orddeq and n%stride == 0:
+            residual_bound = bounds.bound_residual_with_logs(bwrec, n,
+                    list(last)[1:], maj.Poly.variable_name(), log_prec, RecJets)
+            # XXX: check that residual_bound (as computed by
+            # bound_residual_with_logs) really is what tail_bound expects
+            tail_bound = maj.matrix_sol_tail_bound(n, rad, [residual_bound],
+                                                            ord=derivatives)
+            logger.debug("n=%d, est=%s*%s=%s, res_bnd=%s, tail_bnd=%s",
+                    n, abs(last[0][0]), radpow, abs(last[0][0])*radpow,
+                    residual_bound, tail_bound)
+            if tail_bound < eps:
+                break
+
         n_pert = RecJets([n, 1])
         bwrec_n = [b(n_pert).lift().change_ring(Intervals) for b in bwrec]
         # logger.debug("bwrec_nn=%s", bwrec_n)
         # for i in range(0, ordrec +1):
         #    logger.debug("last[%d]=%s", i, last[i])
-        mult = len(ini.get(n, ()))
         for p in range(log_prec - mult - 1, -1, -1):
             combin  = sum(bwrec_n[i][j]*last[i][p+j]
                           for j in xrange(log_prec - p)
@@ -389,9 +412,10 @@ def series_sum_regsing(Intervals, bwrec, expo, ini, pt, derivatives, terms):
         for p in xrange(mult - 1, -1, -1):
             last[0][p] = ini[n][p]
             # logger.debug("n=%s, computed last[0][%d]=%s via ini", n, p, last[0][p])
-        term = last[0]*ptpow
+        term = last[0].change_ring(Jets)*ptpow # suboptimal...
         psum += term
         ptpow *= pt
+        radpow *= rad
 
     # hardcoded series expansions of log(pt) = log(a+η) and pt^λ = (a+η)^λ (too
     # cumbersome to compute directly in Sage at the moment)
