@@ -916,6 +916,7 @@ class DiffOpBound(object):
         logger.debug("maj = %s", maj)
         return maj
 
+    # XXX: rename ord to rows?
     def matrix_sol_tail_bound(self, n, rad, residuals, ord=None):
         r"""
         Bound the Frobenius norm of the tail starting of order ``n`` of the
