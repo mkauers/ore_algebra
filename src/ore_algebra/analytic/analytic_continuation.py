@@ -14,7 +14,7 @@ from sage.rings.number_field.number_field_element import NumberFieldElement
 
 from . import bounds
 
-from .path import Path, OrdinaryPoint, RegularPoint
+from .path import Path, OrdinaryPoint, RegularPoint, Step
 from .utilities import prec_from_eps
 
 logger = logging.getLogger(__name__)
@@ -88,11 +88,16 @@ def ordinary_step_transition_matrix(ctx, step, ring, eps, rows, pplen=2):
     mat = fundamental_matrix_ordinary(ldop, step.delta(), ring, eps, rows, maj)
     return mat
 
-def singular_step_transition_matrix(ctx, step, eps, rows):
-    raise NotImplementedError
+def singular_step_transition_matrix(ctx, step, ring, eps, rows, pplen=2):
+    from .naive_sum import fundamental_matrix_regsing
+    ldop = step.start.local_diffop()
+    mat = fundamental_matrix_regsing(ldop, step.delta(), ring, eps, rows, pplen)
+    return mat
 
-def inverse_singular_step_transition_matrix(ctx, step, eps, rows):
-    raise NotImplementedError
+def inverse_singular_step_transition_matrix(ctx, step, ring, eps, rows):
+    rev_step = Step(step.end, step.start)
+    mat = singular_step_transition_matrix(ctx, rev_step, ring, eps/2, rows)
+    return ~mat
 
 def step_transition_matrix(ctx, step, ring, eps, rows=None):
     if rows is None:

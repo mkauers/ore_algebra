@@ -66,3 +66,8 @@ def jets(base, var_name, order):
     Pols = PolynomialRing(base, var_name)
     return Pols.quo(Pols.one() << order)
 
+def split(cond, objs):
+    matching, not_matching = [], []
+    for x in objs:
+        (matching if cond(x) else not_matching).append(x)
+    return matching, not_matching

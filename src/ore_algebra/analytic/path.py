@@ -186,6 +186,8 @@ class Point(SageObject):
 
     def dist_to_sing(self):
         """
+        Distance of self to the singularities of self.dop *other than self*.
+
         TESTS::
 
             sage: from ore_algebra.analytic.ui import *
@@ -201,14 +203,16 @@ class Point(SageObject):
 
         """
         # TODO - solve over CBF directly; perhaps with arb's own poly solver
-        dist = [(self.iv() - IC(s)).abs()
-                for s in dop_singularities(self.dop, CIF)]
+        sing = dop_singularities(self.dop, CIF)
+        sing = [IC(s) for s in sing]
+        close, distant = split(lambda s: s.overlaps(self.iv()), sing)
+        if (len(close) >= 2 or len(close) == 1 and
+                not self.dop.leading_coefficient()(self.value).is_zero()):
+            raise NotImplementedError # refine?
+        dist = [(self.iv() - s).abs() for s in distant]
         min_dist = IR(rings.infinity).min(*dist)
         if min_dist.contains_zero():
-            if self.dop.leading_coefficient()(self.value).is_zero():
-                return IR(0) # ?
-            else:
-                raise NotImplementedError # refine???
+            raise NotImplementedError # refine???
         return IR(min_dist.lower())
 
     def local_diffop(self): # ?
@@ -293,6 +297,8 @@ class IrregularSingularPoint(Point):
 # Paths
 ######################################################################
 
+# XXX: do we need special *Steps* (instead of or in addition to special Points)
+# for connections to singular points?
 class Step(SageObject):
     r"""
     EXAMPLES::
@@ -364,6 +370,7 @@ class Step(SageObject):
     def length(self):
         return IC(self.delta()).abs()
 
+    # XXX: how should we handle connections to singular points?
     def check_singularity(self):
         r"""
         Raise an error if this step goes through a singular point or seems to do
@@ -406,19 +413,22 @@ class Step(SageObject):
         for s in sing:
             ds = s - self.start.iv()
             t = self.delta()/ds
-            if (t.imag().contains_zero() and not safe_lt(t.real(), IR.one())
+            if (t.imag().contains_zero() and #not safe_lt(t.real(), IR.one())
+                                             safe_gt(t.real(), IR.one()) # TBI
                     or ds.contains_zero()):
                 raise ValueError(
                     "Step {} passes through or too close to singular point {} "
-                    # "(to compute the connection to a singular point, specify "
-                    # "it explicitly as a vertex)"
+                    "(to compute the connection to a singular point, make it "
+                    "a vertex of the path)"
                     .format(self, sing_as_alg(dop, s)))
 
     def check_convergence(self):
-        if self.length() >= self.start.dist_to_sing(): # not < ?
+        ref = (self.end if isinstance(self.end, RegularSingularPoint)
+               else self.start)
+        if self.length() >= ref.dist_to_sing(): # not < ?
             raise ValueError("Step {} escapes from the disk of (guaranteed) "
                     "convergence of the solutions at {}"
-                    .format(self, self.start))
+                    .format(self, ref))
 
     def plot(self):
         return plot.arrow2d(self.start.iv().mid(), self.end.iv().mid())
@@ -575,7 +585,11 @@ class Path(SageObject):
             cur, next = new[-1], self.vert[i]
             rad = cur.dist_to_sing()
             dist_to_next = (next.iv() - cur.iv()).abs()
-            if dist_to_next <= threshold*rad:
+            if (isinstance(next, OrdinaryPoint)
+                    and dist_to_next <= threshold*rad
+                or isinstance(cur, OrdinaryPoint)
+                    and isinstance(next, RegularSingularPoint)
+                    and dist_to_next <= threshold*next.dist_to_sing()):
                 new.append(next)
                 i += 1
             else:

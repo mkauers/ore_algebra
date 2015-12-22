@@ -116,12 +116,6 @@ def transition_matrix(dop, path, eps=1e-16):
         [  1.0... [1.017221967...] + [0.402359478...]*I]
         [       0 [0.200000000...] + [-0.40000000...]*I]
 
-        sage: transition_matrix(dop, [0, i], 1e-10)
-        Traceback (most recent call last):
-        ...
-        ValueError: Step 0 --> 1*I passes through or too close to
-        singular point 1*I
-
     An operator annihilating `\exp + \arctan`::
 
         sage: transition_matrix(
