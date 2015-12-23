@@ -23,9 +23,11 @@ from sage.rings.complex_arb import CBF
 from sage.rings.infinity import infinity
 from sage.rings.integer import Integer
 from sage.rings.integer_ring import ZZ
+from sage.rings.number_field.number_field import NumberField_quadratic
 from sage.rings.polynomial.polynomial_element import Polynomial
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 from sage.rings.power_series_ring import PowerSeriesRing
+from sage.rings.qqbar import QQbar, AA
 from sage.rings.rational_field import QQ
 from sage.rings.real_arb import RBF
 from sage.rings.real_mpfi import RIF
@@ -460,7 +462,10 @@ def bound_inverse_poly(den, algorithm="simple"):
             rad = abs_min_nonzero_root(den).below_abs(test_zero=True)
             factors = [(Poly([rad, -1]), den.degree())]
         elif algorithm == "solve":
-            poles = den.roots(CIF)
+            try:
+                poles = den.roots(CIF)
+            except NotImplementedError:
+                poles = den.change_ring(QQbar).roots(CIF)
             factors = [(Poly([IR(iv.abs().lower()), -1]), mult)
                         for iv, mult in poles]
         else:
@@ -560,16 +565,17 @@ def bound_real_roots(pol):
     return bound
 
 def nonneg_roots(pol):
-    bound = bound_real_roots(pol)
-    roots = real_roots.real_roots(pol, bounds=(QQ(0), bound))
+    bounds = None
+    if pol.base_ring() is not AA:
+        bounds = (QQ.zero(), bound_real_roots(pol))
+    roots = real_roots.real_roots(pol, bounds=bounds)
     if roots and roots[-1][0][1]:
         diam = ~roots[-1][0][1]
         while any(rt - lt > QQ(10) for ((lt, rt), _) in roots):
             # max_diameter is a relative diameter --> pb for large roots
             logger.debug("largest root diameter = %s, refining",
                     roots[-1][0][1] - roots[-1][0][0].n(10))
-            roots = real_roots.real_roots(pol, bounds=(QQ(0), bound),
-                                          max_diameter=diam)
+            roots = real_roots.real_roots(pol, bounds=bounds, max_diameter=diam)
             diam >>= 1
     return roots
 
@@ -649,8 +655,14 @@ def bound_ratio_large_n(num, den, exceptions={}, min_drop=IR(1.1), stats=None):
     if num.degree() > den.degree():
         raise ValueError("expected deg(num) <= deg(den)")
 
+    Scalars = num.base_ring()
+    if (Scalars is QQ or isinstance(Scalars, NumberField_quadratic)
+                         and Scalars.gen()**2 == -1):
+        RealScalars = QQ
+    else:
+        num, den = num.change_ring(QQbar), den.change_ring(QQbar)
+        RealScalars = AA
     def sqn(pol):
-        RealScalars = num.base_ring().base_ring()
         re, im = (pol.map_coefficients(which, new_base_ring=RealScalars)
                   for which in (lambda coef: coef.real(),
                                 lambda coef: coef.imag()))

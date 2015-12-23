@@ -115,9 +115,11 @@ def step_transition_matrix(ctx, step, ring, eps, rows=None):
     elif isinstance(z0, RegularPoint) and isinstance(z1, OrdinaryPoint):
         logger.info("%s: regular singular case (going out)", step)
         fun = singular_step_transition_matrix
+        ring = ring.complex_field() # TBI
     elif isinstance(z0, OrdinaryPoint) and isinstance(z1, RegularPoint):
         logger.info("%s: regular singular case (going in)", step)
         fun = inverse_singular_step_transition_matrix
+        ring = ring.complex_field() # TBI
     else:
         raise TypeError(type(z0), type(z1))
     return fun(ctx, step, ring, eps, rows)

@@ -66,6 +66,13 @@ Display some information on what is going on::
     [         0 [0.5000000000000000000...]]
     sage: logging.getLogger('ore_algebra.analytic').setLevel(logging.WARNING)
 
+Connection to a singular point::
+
+    sage: NF.<sqrt2> = QuadraticField(2)
+    sage: transition_matrix((x^2 - 2)*Dx^2 + x + 1, [0, 1, sqrt2], 1e-10)
+    [ [2.49388...] + [...]*I  [2.40894...] + [...]*I]
+    [[-0.20354...] + [...]*I  [0.20437...] + [6.45961...]*I]
+
 Empty paths are not allowed::
 
     sage: transition_matrix(Dx - 1, path=[])

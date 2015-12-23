@@ -316,7 +316,8 @@ def fundamental_matrix_regsing(dop, pt, ring, eps, rows, pplen=0):
     bwrec = backward_rec(dop)
     ind = bwrec[0]
     n = ind.parent().gen()
-    # logger.debug("ind=%s", ind)
+    logger.debug("indicial polynomial = %s ~~> %s", ind,
+            my_shiftless_decomposition(ind))
 
     cols = []
     for sl_factor, shifts in my_shiftless_decomposition(ind):
@@ -328,18 +329,18 @@ def fundamental_matrix_regsing(dop, pt, ring, eps, rows, pplen=0):
             #irred_bwrec = [pol(irred_leftmost + n) for pol in bwrec]
             for leftmost, _ in irred_factor.roots(QQbar):
                 _, leftmost, _ = leftmost.as_number_field_element()
-                # logger.debug("leftmost=%s", leftmost)
                 emb_bwrec = [pol(leftmost + n) for pol in bwrec]
                 maj = bounds.bound_diffop(dop, leftmost, shifts,
                         pol_part_len=pplen, bound_inverse="solve")
                 for shift, mult in shifts:
                     for log_power in xrange(mult):
+                        logger.info("solution z^(%s+%s)·log(z)^%s/%s! + ···",
+                                    leftmost, shift, log_power, log_power)
                         ini = {s: tuple(ring.one()
                                         if (s, p) == (shift, log_power)
                                         else ring.zero()
                                         for p in xrange(m))
                                for s, m in shifts}
-                        # logger.debug("ini=%s", ini)
                         # XXX: inefficient if shift >> 0
                         value = series_sum_regsing(ring, dop, emb_bwrec, leftmost,
                                                    ini, pt, eps_col, maj, rows)
@@ -424,7 +425,7 @@ def series_sum_regsing(Intervals, dop, bwrec, expo, ini, pt, eps, maj,
     aux = Jets(logpt[1:]*expo)
     inipow = a**expo*sum(aux**k/Integer(k).factorial()
                          for k in xrange(log_prec))
-    # logger.debug("psum=%s, inipow=%s, logpt=%s", psum, inipow, logpt)
+    logger.debug("pt=%s, psum=%s, inipow=%s, logpt=%s", pt, psum, inipow, logpt)
     # XXX: why do I need an explicit conversion here?!
     val = inipow*sum(Jets(psum[p])*logpt**p/Integer(p).factorial()
                      for p in xrange(log_prec))
