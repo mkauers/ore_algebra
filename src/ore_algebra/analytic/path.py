@@ -138,6 +138,9 @@ class Point(SageObject):
             pass
         return repr(self.value)
 
+    def descr(self):
+        return self._repr_()
+
     # Numeric representations
 
     @cached_method
@@ -197,7 +200,7 @@ class Point(SageObject):
             sage: Point(1, dop).dist_to_sing()
             [1.41421356237309...]
             sage: Point(i, dop).dist_to_sing()
-            0
+            2.00...
             sage: Point(1+i, dop).dist_to_sing()
             1.00...
 
@@ -288,10 +291,14 @@ class OrdinaryPoint(RegularPoint):
     pass
 
 class RegularSingularPoint(RegularPoint):
-    pass
+
+    def descr(self):
+        return "regular singular point " + self._repr_()
 
 class IrregularSingularPoint(Point):
-    pass
+
+    def descr(self):
+        return "irregular singular point " + self._repr_()
 
 ######################################################################
 # Paths
@@ -310,6 +317,7 @@ class Step(SageObject):
 
         sage: s1 = Step(Point(0, x*Dx-1), Point(i/7, x*Dx-1))
         sage: s2 = Step(Point(RIF(1/3), x*Dx-1), Point(pi, x*Dx-1))
+        sage: s3 = Step(Point(-i, x*Dx-1), Point(i, x*Dx-1))
 
         sage: s1, s2
         (0 --> 1/7*i, [0.333333333333333 +/- 3.99e-16] --> 3.141592653589794?)
@@ -327,17 +335,19 @@ class Step(SageObject):
         ([0.1428571428571428 +/- 9.09e-17], [2.80825932025646 +/- 1.56e-15])
 
         sage: s1.check_singularity()
-        Traceback (most recent call last):
-        ...
-        ValueError: Step 0 --> 1/7*i passes through or too close to singular point 0
-
         sage: s2.check_singularity()
-
-        sage: s1.check_convergence()
+        sage: s3.check_singularity()
         Traceback (most recent call last):
         ...
-        ValueError: Step 0 --> 1/7*i escapes from the disk of (guaranteed)
-        convergence of the solutions at 0
+        ValueError: Step -i --> i passes through or too close to singular point
+        0 (to compute the connection to a singular point, make it a vertex of
+        the path)
+
+        sage: s2.check_convergence()
+        Traceback (most recent call last):
+        ...
+        ValueError: Step ... escapes from the disk of (guaranteed)
+        convergence of the solutions at ...
 
         sage: s2.plot()
         Graphics object consisting of 1 graphics primitive
@@ -386,36 +396,31 @@ class Step(SageObject):
             sage: Step(Point(0, dop), Point(1, dop)).check_singularity()
             sage: Step(Point(1, dop), Point(1, dop)).check_singularity()
             sage: Step(Point(1, dop), Point(i, dop)).check_singularity()
-            Traceback (most recent call last):
-            ...
-            ValueError: Step 1 --> i passes through or too close to singular point 1*I
             sage: Step(Point(i, dop), Point(0, dop)).check_singularity()
-            Traceback (most recent call last):
-            ...
-            ValueError: Step i --> 0 passes through or too close to singular point 1*I
             sage: Step(Point(i, dop), Point(i, dop)).check_singularity()
-            Traceback (most recent call last):
-            ...
-            ValueError: Step i --> i passes through or too close to singular point 1*I
             sage: Step(Point(2*i+1, dop), Point(-11/10, dop)).check_singularity()
             sage: Step(Point(2*i, dop), Point(0, dop)).check_singularity()
             Traceback (most recent call last):
             ...
-            ValueError: Step 2*i --> 0 passes through or too close to singular point 1*I
+            ValueError: Step 2*i --> 0 passes through or too close to singular
+            point 1*I (to compute the connection to a singular point, make it a
+            vertex of the path)
             sage: Step(Point(2*i+1, dop), Point(-1, dop)).check_singularity()
             Traceback (most recent call last):
             ...
-            ValueError: Step 2*i + 1 --> -1 passes through or too close to singular point 1*I
+            ValueError: Step 2*i + 1 --> -1 passes through or too close to
+            singular point 1*I (to compute the connection to a singular point,
+            make it a vertex of the path)
         """
         dop = self.start.dop
         # TODO: solve over CBF directly?
-        sing = [IC(s) for s in dop_singularities(dop, CIF)]
+        sing = [IC(s) for s in dop_singularities(dop, CIF)
+                      if s != self.start.value and s != self.end.value]
         for s in sing:
             ds = s - self.start.iv()
             t = self.delta()/ds
-            if (t.imag().contains_zero() and #not safe_lt(t.real(), IR.one())
-                                             safe_gt(t.real(), IR.one()) # TBI
-                    or ds.contains_zero()):
+            if (ds.contains_zero() or t.imag().contains_zero()
+                    and not safe_lt(t.real(), IR.one())):
                 raise ValueError(
                     "Step {} passes through or too close to singular point {} "
                     "(to compute the connection to a singular point, make it "
@@ -423,12 +428,31 @@ class Step(SageObject):
                     .format(self, sing_as_alg(dop, s)))
 
     def check_convergence(self):
+        r"""
+        TESTS::
+
+            sage: from ore_algebra.analytic.ui import *
+            sage: from ore_algebra.analytic.path import *
+            sage: Dops, x, Dx = Diffops()
+
+            sage: Path([0, 1], x*(x^2+1)*Dx, classify=True).check_convergence()
+            Traceback (most recent call last):
+            ...
+            ValueError: Step 0 --> 1 escapes from the disk of (guaranteed)
+            convergence of the solutions at regular singular point 0
+
+            sage: Path([1, 0], x*(x^2+1)*Dx, classify=True).check_convergence()
+            Traceback (most recent call last):
+            ...
+            ValueError: Step 1 --> 0 escapes from the disk of (guaranteed)
+            convergence of the solutions at regular singular point 0
+        """
         ref = (self.end if isinstance(self.end, RegularSingularPoint)
                else self.start)
         if self.length() >= ref.dist_to_sing(): # not < ?
             raise ValueError("Step {} escapes from the disk of (guaranteed) "
                     "convergence of the solutions at {}"
-                    .format(self, ref))
+                    .format(self, ref.descr()))
 
     def plot(self):
         return plot.arrow2d(self.start.iv().mid(), self.end.iv().mid())
@@ -537,18 +561,14 @@ class Path(SageObject):
 
             sage: Path([0], dop).check_singularity()
             sage: Path([1,3], dop).check_singularity()
+            sage: Path([0, i], dop).check_singularity()
 
             sage: Path([42, 1+i/2, -1+3*i/2], dop).check_singularity()
             Traceback (most recent call last):
             ...
             ValueError: Step 1/2*i + 1 --> 3/2*i - 1 passes through or too close
-            to singular point 1*I 
-
-            sage: Path([0, i], dop).check_singularity()
-            Traceback (most recent call last):
-            ...
-            ValueError: Step 0 --> i passes through or too close to singular
-            point 1*I
+            to singular point 1*I (to compute the connection to a singular
+            point, make it a vertex of the path)
         """
         for step in self:
             step.check_singularity()
@@ -585,11 +605,10 @@ class Path(SageObject):
             cur, next = new[-1], self.vert[i]
             rad = cur.dist_to_sing()
             dist_to_next = (next.iv() - cur.iv()).abs()
-            if (isinstance(next, OrdinaryPoint)
-                    and dist_to_next <= threshold*rad
-                or isinstance(cur, OrdinaryPoint)
-                    and isinstance(next, RegularSingularPoint)
-                    and dist_to_next <= threshold*next.dist_to_sing()):
+            if (dist_to_next <= threshold*rad if isinstance(next, OrdinaryPoint)
+                else (cur.value == next.value
+                      or isinstance(cur, OrdinaryPoint)
+                         and dist_to_next <= threshold*next.dist_to_sing())):
                 new.append(next)
                 i += 1
             else:

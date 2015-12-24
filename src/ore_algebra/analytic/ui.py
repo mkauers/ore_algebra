@@ -98,6 +98,19 @@ TESTS::
     sage: Dx_C = OreAlgebra(QQi['x'], 'Dx').gen()
     sage: transition_matrix(Dx_C, [0, 1], 1e-10)[0,0].parent()
     Complex ball field with 3... bits precision
+
+    sage: transition_matrix(x*Dx + 1, [0, 1], 1e-10)
+    [1.00...]
+
+    sage: transition_matrix(x*Dx + 1, [0, 0], 1e-10)
+    [1.00...]
+
+    sage: transition_matrix(x^2*Dx + 1, [1, 0], 1e-10)
+    Traceback (most recent call last):
+    ...
+    NotImplementedError: analytic continuation through irregular singular points
+    is not supported
+
 """
 
 # NOTE: to run the tests, use something like

@@ -14,7 +14,7 @@ from sage.rings.number_field.number_field_element import NumberFieldElement
 
 from . import bounds
 
-from .path import Path, OrdinaryPoint, RegularPoint, Step
+from .path import Path, OrdinaryPoint, RegularPoint, IrregularSingularPoint, Step
 from .utilities import prec_from_eps
 
 logger = logging.getLogger(__name__)
@@ -29,6 +29,9 @@ class Context(object):
         # XXX: allow the user to specify their own Path
         self.path = self.initial_path = Path(path, self.dop, classify=True)
         self.initial_path.check_singularity()
+        if any(isinstance(x, IrregularSingularPoint) for x in self.path.vert):
+            raise NotImplementedError("analytic continuation through irregular "
+                                             "singular points is not supported")
         if keep == "all":
             for v in self.path.vert:
                 v.keep_value = True
