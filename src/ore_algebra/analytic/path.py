@@ -102,7 +102,12 @@ class Point(SageObject):
             except TypeError:
                 self.value = CLF(point)
         elif QQbar.has_coerce_map_from(parent):
-            self.value = QQbar.coerce(point).as_number_field_element()[1]
+            alg = QQbar.coerce(point)
+            NF, val, hom = alg.as_number_field_element()
+            embNF = number_field.NumberField(NF.polynomial(),
+                                             NF.variable_name(),
+                                             embedding=hom(NF.gen()))
+            self.value = val.polynomial()(embNF.gen())
         elif isinstance(parent, (RealField_class, RealIntervalField_class)):
             self.value = RealBallField(point.prec())(point)
         elif isinstance(parent, (ComplexField_class,
