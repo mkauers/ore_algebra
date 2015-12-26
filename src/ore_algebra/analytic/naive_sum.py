@@ -353,13 +353,27 @@ def fundamental_matrix_regsing(dop, pt, ring, eps, rows, pplen=0):
     cols.sort(key=sort_key_by_asympt)
     return matrix([sol.value for sol in cols]).transpose().change_ring(ring)
 
+def log_series_value(Jets, expo, psum, pt):
+    log_prec = psum.length()
+    # hardcoded series expansions of log(pt) = log(a+η) and pt^λ = (a+η)^λ (too
+    # cumbersome to compute directly in Sage at the moment)
+    logpt = Jets([pt.log()] + [(-1)**(k+1)*~pt**k/k for k in xrange(1, log_prec)])
+    aux = Jets(logpt[1:]*expo)
+    inipow = pt**expo*sum(aux**k/Integer(k).factorial()
+                         for k in xrange(log_prec))
+    logger.debug("pt=%s, psum=%s, inipow=%s, logpt=%s", pt, psum, inipow, logpt)
+    # XXX: why do I need an explicit conversion here?!
+    val = inipow*sum(Jets(psum[p])*logpt**p/Integer(p).factorial()
+                     for p in xrange(log_prec))
+    return val
+
 # This function only handles the case of a “single” series, i.e. a series where
 # all indices differ from each other by integers. But since we need logic to go
 # past singular indices anyway, we can allow for general initial conditions (at
 # roots of the indicial equation belonging to the same shift-equivalence class),
 # not just initial conditions associated to canonical solutions.
-def series_sum_regsing(Intervals, dop, bwrec, expo, ini, pt, eps, maj,
-        derivatives, stride=50):
+def series_sum_regsing(Intervals, dop, bwrec, expo, ini, pt, eps,
+        maj, derivatives, stride=50):
 
     orddeq = dop.order()
 
@@ -369,14 +383,13 @@ def series_sum_regsing(Intervals, dop, bwrec, expo, ini, pt, eps, maj,
     rad = bounds.IC(pt).abs()
     pt = Jets([pt, 1])
     ptpow = Jets.one()
-    radpow = bounds.IR.one() # XXX: shouldn't this be rad^leftmost?
+    radpow = bounds.IR.one() # XXX: should this be rad^leftmost?
 
     log_prec = sum(len(v) for v in ini.itervalues()) # ini: dict(n -> (c0, ...))
     ordrec = len(bwrec) - 1
     RecJets = utilities.jets(bwrec[0].base_ring(), 'Sk', log_prec)
     last = collections.deque([vector(Intervals, log_prec)
                               for _ in xrange(ordrec + 1)])
-
     psum = vector(Jets, log_prec)
 
     for n in itertools.count():
@@ -402,36 +415,22 @@ def series_sum_regsing(Intervals, dop, bwrec, expo, ini, pt, eps, maj,
         # logger.debug("bwrec_nn=%s", bwrec_n)
         # for i in range(0, ordrec +1):
         #    logger.debug("last[%d]=%s", i, last[i])
-        for p in range(log_prec - mult - 1, -1, -1):
+        for p in xrange(log_prec - mult - 1, -1, -1):
             combin  = sum(bwrec_n[i][j]*last[i][p+j]
                           for j in xrange(log_prec - p)
                           for i in xrange(ordrec, 0, -1))
             combin += sum(bwrec_n[0][j]*last[0][p+j]
                           for j in xrange(mult + 1, log_prec - p))
             last[0][mult + p] = - ~bwrec_n[0][mult] * combin
-            # logger.debug("n=%s, computed last[0][%d]=%s via combin", n, p, last[0][p])
         for p in xrange(mult - 1, -1, -1):
             last[0][p] = ini[n][p]
-            # logger.debug("n=%s, computed last[0][%d]=%s via ini", n, p, last[0][p])
-        term = last[0].change_ring(Jets)*ptpow # suboptimal...
-        psum += term
+        psum += last[0].change_ring(Jets)*ptpow # suboptimal
         ptpow *= pt
         radpow *= rad
 
-    # hardcoded series expansions of log(pt) = log(a+η) and pt^λ = (a+η)^λ (too
-    # cumbersome to compute directly in Sage at the moment)
-    a = pt[0]
-    logpt = Jets([a.log()] + [(-1)**(k+1)*~a**k/k for k in xrange(1, log_prec)])
-    aux = Jets(logpt[1:]*expo)
-    inipow = a**expo*sum(aux**k/Integer(k).factorial()
-                         for k in xrange(log_prec))
-    logger.debug("pt=%s, psum=%s, inipow=%s, logpt=%s", pt, psum, inipow, logpt)
-    # XXX: why do I need an explicit conversion here?!
-    val = inipow*sum(Jets(psum[p])*logpt**p/Integer(p).factorial()
-                     for p in xrange(log_prec))
-
-    res = vector(x for x in val)
-    return res
+    val = log_series_value(Jets, expo, psum, pt[0])
+    # TODO: add_error (before or after singular part?)
+    return vector(x for x in val)
 
 ################################################################################
 # Miscellaneous utilities
