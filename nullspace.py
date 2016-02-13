@@ -176,7 +176,7 @@ testsuite
 
 from sage.rings.arith import previous_prime as pp
 from sage.rings.arith import CRT_basis, xgcd, gcd, lcm
-from sage.misc.misc import prod
+from sage.misc.all import prod
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 from sage.rings.fraction_field import FractionField
 from sage.rings.integer_ring import ZZ
@@ -210,12 +210,18 @@ def heuristic_row_content(row, ring):
     if n == 0:
         return ring.zero()
     elif n <= 5:
-        return gcd(row)
+        try:
+            return gcd(row)
+        except:
+            return ring.one()
 
     degrees = [p.degree() for p in row]
 
     if sum(degrees) < 100*n:
-        return gcd(row)
+        try:
+            return gcd(row)
+        except:
+            return ring.one()
 
     # taking gcd of least-degree element, the second-least-element element,
     # the sum of elements at odd indices, and the sum of the other elements
@@ -227,11 +233,12 @@ def heuristic_row_content(row, ring):
             m2, d2 = row[i], degrees[i]
             if d2 < d1:
                 m1, m2, d1, d2 = m2, m1, d2, d1
-    
-    g = gcd([m1, m2, sum(row[i] for i in xrange(n) if i%2==0),
-                sum(row[i] for i in xrange(n) if i%2==1)])
-    
-    return g
+
+    try:
+        return gcd([m1, m2, sum(row[i] for i in xrange(n) if i%2==0),
+                 sum(row[i] for i in xrange(n) if i%2==1)])
+    except:
+        return ring.one()
 
 ### good pivot selection strategy:
 #  1. measure nz_fillin by rows^EXPONENT*cols
@@ -560,10 +567,13 @@ def _gauss(pivot, ncpus, fun, mat, degrees, infolevel):
         for i in xrange(r + 1, n):
             if mat[i][c] != zero:
                 affected_rows.append(i); matr = mat[r]; piv = matr[c]; mati = mat[i]; elim = mati[c]
-                g = gcd(piv, elim)
-                if g != one:
-                    piv //= g; elim //= g
-                del g
+                try: 
+                    g = gcd(piv, elim)
+                    if g != one:
+                        piv //= g; elim //= g
+                    del g
+                except:
+                    pass
                 for j in xrange(c + 1, m):
                     mati[j] = (piv*mati[j] - elim*matr[j])
                 mati[c] = zero
@@ -611,10 +621,13 @@ def _gauss(pivot, ncpus, fun, mat, degrees, infolevel):
                 continue
             den = mati[i] 
             # now solj[i] = num/den, but we do it without rational functions
-            g = gcd(num, den)
-            if g != one:
-                num //= g; den //= g
-            del g
+            try:
+                g = gcd(num, den)
+                if g != one:
+                    num //= g; den //= g
+                del g
+            except:
+                pass
             if den == -one:
                 den = one; num = -num
             if den != one:
@@ -1205,9 +1218,6 @@ def galois(subsolver, max_modulus=MAX_MODULUS, proof=False):
        sage: K.<a> = NumberField(x^3-2, 'a')
        sage: A = MatrixSpace(K['x'], 4, 5).random_element(degree=3)
        sage: my_solver = galois(gauss())
-       sage: ##V = my_solver(A) 
-       sage: ##A*V[0]
-       ##(0, 0, 0, 0)
 
     ALGORITHM:
 
@@ -1223,7 +1233,7 @@ def galois(subsolver, max_modulus=MAX_MODULUS, proof=False):
     #. If this solution candidate is correct, return it and stop. If ``proof`` is set to ``True``, this check
        is performed rigorously, otherwise (default) only modulo some new prime.
     #. If the solution candidate is not correct, consider some more primes and try again.
-
+    
     """
     def galois_solver(mat, degrees=[], infolevel=0):
         """See docstring of galois() for further information."""
@@ -1231,7 +1241,7 @@ def galois(subsolver, max_modulus=MAX_MODULUS, proof=False):
     return galois_solver
 
 def _galois(subsolver, max_modulus, proof, mat, degrees, infolevel):
-    raise NotImplementedError    
+    raise NotImplementedError
 
 def cra(subsolver, max_modulus=MAX_MODULUS, proof=False, ncpus=1):
     r"""
@@ -1260,7 +1270,7 @@ def cra(subsolver, max_modulus=MAX_MODULUS, proof=False, ncpus=1):
 
        sage: A = MatrixSpace(ZZ['x', 'y'], 4, 7).random_element(degree=3)
        sage: my_solver = cra(kronecker(gauss()))
-       sage: V = my_solver(A)
+       sage: V = my_solver(A) ## fails in sage 6.8 because (GF(3037000453)['x','y'].zero()).degree(GF(3037000453)['x','y'].gen(0))
        sage: A*V[0]
        (0, 0, 0, 0)
 
@@ -1345,16 +1355,8 @@ def _cra(subsolver, max_modulus, proof, ncpus, mat, degrees, infolevel):
         if len(x) == 1:
             true_degrees = [max(max(e.degree() for e in v) for v in Vp)]
         else:
-            print "==="
-            for x0 in x:
-                print x0.parent()
-            print "---"
-            for v in Vp:
-                for e in v:
-                    print e.parent()
-            print "==="
             true_degrees = [max(max(e.degree(x0) for e in v) for v in Vp) for x0 in x]
-            
+
         if len(degrees) != len(x):
             degrees = [-1 for i in x]
         
@@ -1388,7 +1390,7 @@ def _cra(subsolver, max_modulus, proof, ncpus, mat, degrees, infolevel):
                 for e in v:
                     for c in e.coefficients():
                         d *= (d*c).rational_reconstruction(M).denominator()
-                w = vector(R, [e.map_coefficients( lambda c: ((d*c + m) % M) - m , ZZ ) for e in v ])
+                w = vector(R, [e.map_coefficients( lambda c: ((d*c + m) % M) - m, ZZ ) for e in v ])
                 if (not proof and any(check_mat * vector(check_field, [e.substitute(check_eval) for e in w]))) or \
                        (proof and any(mat * w) ):
                     raise ArithmeticError # more primes needed
@@ -1487,11 +1489,11 @@ def _newton(subsolver, inverse, mat, degrees, infolevel):
     while k < bound:
         _info(infolevel, "lifting completed mod ", xk, alter = -1)
         #Ainv -= (Ainv*(A*Ainv).apply_map(lambda p: p.shift(-k))).apply_map(lambda p: (p%xk).shift(k))
-        U = A._mul_(Ainv) # MOST COSTLY STEP
+        U = A*Ainv # MOST COSTLY STEP
         for i in xrange(rank):
             for j in xrange(rank):
                 U[i,j] = U[i,j].shift(-k)
-        U = Ainv._mul_(U) # MOST COSTLY STEP
+        U = Ainv*U # MOST COSTLY STEP
         for i in xrange(rank):
             for j in xrange(rank):
                 Ainv[i,j] -= (U[i,j]%xk).shift(k)        
@@ -1499,7 +1501,7 @@ def _newton(subsolver, inverse, mat, degrees, infolevel):
     _info(infolevel, "lifting completed.", alter = -1)
 
     # solution of the system
-    X = -Ainv._mul_(B)
+    X = -Ainv*B
     
     # put back unit vectors
     zero = R.zero(); one = R.one(); V = [ [zero for i in xrange(m)] for j in xrange(dim) ]
@@ -1669,17 +1671,15 @@ def _merge(subsolver, mat, degrees, infolevel):
     try: 
 
         R = mat.parent().base_ring()
-
         B = R; field = B.is_field()
         upper_gens = B.gens()
         B = B.base_ring()
         field = field or B.is_field()
         lower_gens = B.gens()
-
         B = PolynomialRing(B.base_ring(), lower_gens + upper_gens)
 
         if field:
-            B = B.fraction_field()
+            B = B.fraction_field() ### Sage 6.8: cast F(ZZ[x])[y] -> F(ZZ[x,y]) no longer works
 
         mat = mat.change_ring(B)
 
