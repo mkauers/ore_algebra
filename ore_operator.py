@@ -671,7 +671,7 @@ class UnivariateOreOperator(OreOperator):
         else:
             D = lambda p:p
 
-        coeffs = self.coeffs()
+        coeffs = self.coefficients(sparse=False)
         R = f.parent(); Dif = f; result = R(coeffs[0])*f; 
         for i in xrange(1, self.order() + 1):
             Dif = D(Dif)
@@ -757,7 +757,7 @@ class UnivariateOreOperator(OreOperator):
         if self.is_zero(): return self
         if right.is_zero(): return right
 
-        coeffs = self.coeffs()
+        coeffs = self.coefficients(sparse=False)
         DiB = right.polynomial() # D^i * B, for i=0,1,2,...
 
         R = self.parent() # Ore algebra
@@ -1112,13 +1112,13 @@ class UnivariateOreOperator(OreOperator):
         if solver == None:
             solver = A.parent()._solver()
 
-        sys = Matrix(map(lambda p: p.coeffs(padd=t), rowsA + rowsB)).transpose()
+        sys = Matrix(map(lambda p: p.coefficients(sparse=False,padd=t), rowsA + rowsB)).transpose()
         sol = solver(sys)
 
         while len(sol) == 0:
             t += 1
             rowsA.append(D*rowsA[-1]); rowsB.append(D*rowsB[-1])
-            sys = Matrix(map(lambda p: p.coeffs(padd=t), rowsA + rowsB)).transpose()
+            sys = Matrix(map(lambda p: p.coefficients(sparse=False,padd=t), rowsA + rowsB)).transpose()
             sol = solver(sys)
 
         U = A.parent()(list(sol[0])[:t+1-r])
@@ -1258,7 +1258,7 @@ class UnivariateOreOperator(OreOperator):
         # for better performance, we don't use the sylvester matrix 
         for i in xrange(m):
             A = self if A == None else D*A
-            mat.append((A % other).coeffs(padd=m-1))
+            mat.append((A % other).coefficients(sparse=False,padd=m-1))
 
         from sage.matrix.constructor import matrix      
         return s.factorial(other.leading_coefficient(), n) * matrix(Alg.base_ring().fraction_field(), mat).det()
@@ -1374,7 +1374,7 @@ class UnivariateOreOperator(OreOperator):
             p = pr[1] + pr[2]*g; q = pr[0] + pr[1]*g
 
             # calculate L with L(u*v)=0 iff A(v)=0 and B(u)=0 using A(1/u * u*v) = 0
-            coeffs = A.coeffs(); L = coeffs[0]; Dk = A.parent().one()
+            coeffs = A.coefficients(sparse=False); L = coeffs[0]; Dk = A.parent().one()
             for i in xrange(1, A.order() + 1):
                 #Dk = Dk.map_coefficients(sigma_u)*D + Dk.map_coefficients(delta_u) [[buggy??]]
                 Dk = (p*D + q)*Dk
@@ -1503,14 +1503,14 @@ class UnivariateOreOperator(OreOperator):
         if solver == None:
             solver = A.parent()._solver()
 
-        mat = [B.coeffs(padd=a-1)]
+        mat = [B.coefficients(sparse=False,padd=a-1)]
 
         from sage.matrix.constructor import Matrix
         sol = solver(Matrix(mat).transpose())
 
         while len(sol) == 0:
             B = (D*B) % A
-            mat.append(B.coeffs(padd=a-1))
+            mat.append(B.coefficients(sparse=False,padd=a-1))
             sol = solver(Matrix(mat).transpose())
 
         L = A.parent()(list(sol[0]))
@@ -1701,7 +1701,7 @@ class UnivariateOreOperator(OreOperator):
         """
         A = self.parent(); sinv = A.sigma().inverse(); delta = A.delta(); out = A.zero(); r = self.order(); D = A.gen()
 
-        for c in reversed(self.coeffs()):
+        for c in reversed(self.coefficients(sparse=False)):
             out = c + out.map_coefficients(sinv)*D - out.map_coefficients(sinv).map_coefficients(delta)
 
         # at this point, out is the desired operator as element of k(x)[D, sinv, -(delta o sinv)]. 
@@ -1760,33 +1760,32 @@ class UnivariateOreOperator(OreOperator):
         else:
             return self.parent().base_extend(new_base_ring)(poly)
 
-    def coeffs(self, padd=-1):
+    def coefficients(self, **args):
         """
         Return the coefficient vector of this operator.
 
         If the degree is less than the number given in the optional
-        argument, the list is padded with zeros so as to ensure that
-        the output has length ``padd`` + 1.
+        argument ``padd``, the list is padded with zeros so as to ensure 
+        that the output has length ``padd`` + 1. Any further 
 
         EXAMPLES::
 
            sage: A.<Sx> = OreAlgebra(ZZ['x'], 'Sx')
-           sage: (5*Sx^3-4).coeffs()
+           sage: (5*Sx^3-4).coefficients(sparse=False)
            [-4, 0, 0, 5]
-           sage: (5*Sx^3-4).coeffs(padd=5)
+           sage: (5*Sx^3-4).coefficients(sparse=False,padd=5)
            [-4, 0, 0, 5, 0, 0]
-           sage: (5*Sx^3-4).coeffs(padd=1)
+           sage: (5*Sx^3-4).coefficients(sparse=False,padd=1)
            [-4, 0, 0, 5]
         
         """
-        c = self.polynomial().coeffs()
+        padd = args.setdefault("padd", -1)
+        args['padd'] = 0; del args['padd']
+        c = self.polynomial().coefficients(**args)
         if len(c) <= padd:
             z = self.base_ring().zero()
             c = c + [z for i in xrange(padd + 1 - len(c))]
         return c
-
-    def coefficients(self):
-        return self.polynomial().coefficients()
 
     def exponents(self):
         return self.polynomial().exponents()

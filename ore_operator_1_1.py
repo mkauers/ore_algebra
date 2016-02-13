@@ -399,7 +399,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         """
         assert(not self.is_zero())
 
-        coeffs = self.change_ring(self.parent().base_ring().fraction_field().ring()).normalize().coeffs()
+        coeffs = self.change_ring(self.parent().base_ring().fraction_field().ring()).normalize().coefficients(sparse=False)
         x = coeffs[0].parent().gen()
 
         if (x*p).is_one():
@@ -669,14 +669,14 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
             if not D == S - A.one():
                 raise NotImplementedError, "unsupported choice of D: " + str(D)
             # adjoint = sum( (sigma^(-1) - 1)^i * a[i] ), where a[i] is the coeff of D^i in P
-            adjoint = A.zero(); coeffs = P.to_F('F').coeffs(); r = P.order()
+            adjoint = A.zero(); coeffs = P.to_F('F').coefficients(sparse=False); r = P.order()
             for i in xrange(len(coeffs)):
                 adjoint += S**(r-i)*(A.one() - S)**i * coeffs[i]
         elif A.is_D() is not False or A.is_T() is not False:
             if D != A.gen():
                 raise NotImplementedError, "unsupported choice of D: " + str(D)
             # adjoint = sum( (-D)^i * a[i] ), where a[i] is the coeff of D in P
-            adjoint = A.zero(); coeffs = P.coeffs()
+            adjoint = A.zero(); coeffs = P.coefficients(sparse=False)
             for i in xrange(len(coeffs)):
                 adjoint += (-D)**i * coeffs[i]
         else:
@@ -728,8 +728,8 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         L = reduce(lambda x,y: x+y,[reduce(lambda x,y: x+y,[R2.base_ring().base_ring().gens()[i+j*dBound]*R2.base_ring().gen()**i for i in xrange(dBound)])*R2.gen()**j for j in xrange(oBound)])
         C=L*self-self*L
         SYS=[]
-        for sC in C.coeffs():
-            for nC in sC.coeffs():
+        for sC in C.coefficients(sparse=False):
+            for nC in sC.coefficients(sparse=False):
                 l=[]
                 for cC in R2.base_ring().base_ring().gens():
                     l.append(Q(nC.coefficient(cC)))
@@ -841,7 +841,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         assert(not L.is_zero())
 
         sigma = L.parent().sigma()
-        coeffs = L.coeffs()
+        coeffs = L.coefficients(sparse=False)
         while coeffs[0].is_zero(): # make trailing coefficient nonzero
             coeffs = [sigma(coeffs[i], -1) for i in xrange(1, len(coeffs))]
         L = L.parent()(coeffs)
@@ -909,7 +909,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
             R = LaurentSeriesRing(C, str(A.base_ring().gen()), default_prec=val_range_bound)
 
             # A. GOING FROM LEFT TO RIGHT
-            coeffs = map(change_of_variables(C, xi, r), L.coeffs())
+            coeffs = map(change_of_variables(C, xi, r), L.coefficients(sparse=False))
             coeffs.reverse()
             coeffs[0] = -coeffs[0]
 
@@ -937,7 +937,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
                 den *= sigma(pol, e[-1][0] - n + r)**max(0, (-k + (vg_min if n > len(sols[0]) - r else 0)))
 
             # B. GOING FROM RIGHT TO LEFT
-            coeffs = map(change_of_variables(C, xi, 0), L.coeffs())
+            coeffs = map(change_of_variables(C, xi, 0), L.coefficients(sparse=False))
             coeffs[0] = -coeffs[0]
 
             sols = []
@@ -1037,7 +1037,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         if order > 1:
             raise NotImplementedError
 
-        coeffs = self.normalize().coeffs()
+        coeffs = self.normalize().coefficients(sparse=False)
         R = self.base_ring().fraction_field().base()
         R = R.change_ring(R.base_ring().fraction_field()).fraction_field()
         A = self.parent().change_ring(R)
@@ -1388,7 +1388,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         R = alg.base_ring().fraction_field(); alg2 = alg.change_ring(R); x = R.gen()
 
         theta = (1/x)*alg2.gen(); theta_k = alg2.one();
-        c = self.coeffs(); out = alg2(R(c[0]))
+        c = self.coefficients(sparse=False); out = alg2(R(c[0]))
 
         for i in xrange(self.order()):
             
@@ -1472,7 +1472,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
 
         # self's coefficients with x replaced by a, denominators cleared, and reduced by minpoly.
         # have: (D^r f)(a) == sum( red[i]*(D^i f)a, i=0..len(red)-1 ) and each red[i] is a poly in Y of deg <= d.
-        red = [ R(p.numerator().coeffs()) for p in self.numerator().change_ring(K).coeffs() ]
+        red = [ R(p.numerator().coefficients(sparse=False)) for p in self.numerator().change_ring(K).coefficients(sparse=False) ]
         lc = -minpoly.xgcd(red[-1])[2]
         red = [ (red[i]*lc) % minpoly for i in xrange(r) ]
 
@@ -1662,7 +1662,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         if exp > 0:
 
             points = []
-            c = self.coeffs()
+            c = self.coefficients(sparse=False)
             for i in xrange(self.order() + 1):
                 if not c[i].is_zero():
                     points.append((QQ(i), QQ(c[i].valuation())))
@@ -1853,7 +1853,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         return m
 
     def _coeff_list_for_indicial_polynomial(self):
-        return self.coeffs()
+        return self.coefficients(sparse=False)
 
     def spread(self, p=0):
         L = self.numerator()
@@ -1925,7 +1925,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
             R = self.parent().base_ring()
             K = R.base_ring()
             z = K.zero()
-            c = self.numerator().coeffs()
+            c = self.numerator().coefficients(sparse=False)
             d = self.denominator()
 
             def fun(n):
@@ -1988,10 +1988,10 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
         alg_theta = alg.change_var_sigma_delta('T', {}, {x:x}).change_ring(R)
 
         S = alg_theta(~x); out = alg_theta.zero()
-        coeffs = self.numerator().coeffs()
+        coeffs = self.numerator().coefficients(sparse=False)
 
         for i in xrange(len(coeffs)):
-            out += alg_theta([R(p) for p in coeffs[i].coeffs()])*(S**i)
+            out += alg_theta([R(p) for p in coeffs[i].coefficients(sparse=False)])*(S**i)
 
         out = out.numerator().change_ring(alg.base_ring()).to_D(alg)
         out = alg.gen()**(len(coeffs)-1)*out
@@ -2033,7 +2033,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
             return alg.zero()
 
         delta = alg.gen() + alg.one(); delta_k = alg.one(); R = alg.base_ring()
-        c = self.coeffs(); out = alg(R(c[0]))
+        c = self.coefficients(sparse=False); out = alg(R(c[0]))
 
         for i in xrange(self.order()):
             
@@ -2431,7 +2431,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
         elif u == 1:
             return self
         elif u < 0:
-            c = [ p(-r - x) for p in self.coeffs() ]; c.reverse()
+            c = [ p(-r - x) for p in self.coefficients(sparse=False) ]; c.reverse()
             return A(c).annihilator_of_composition(-u*x)
 
         # now a = u*x where u > 1 is an integer. 
@@ -2442,12 +2442,12 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
         L = A(self)
 
         p = A.one(); Su = A.gen()**u # possible improvement: multiplication matrix. 
-        mat = [ p.coeffs(padd=r) ]; sol = []
+        mat = [ p.coefficients(sparse=False, padd=r) ]; sol = []
 
         while len(sol) == 0:
 
             p = (Su*p) % L
-            mat.append( p.coeffs(padd=r) )
+            mat.append( p.coefficients(sparse=False, padd=r) )
             sol = solver(Matrix(mat).transpose())
 
         return self.parent()(list(sol[0])).map_coefficients(lambda p: p(u*x))
@@ -2495,9 +2495,9 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
         if d > max(20, r + 2):
             # throw away coefficients which have no chance to influence the indicial polynomial
             q = self.base_ring().gen()**(d - (r + 2))
-            return self.map_coefficients(lambda p: p // q).to_F('F').coeffs()
+            return self.map_coefficients(lambda p: p // q).to_F('F').coefficients(sparse=False)
         else:
-            return self.to_F('F').coeffs()
+            return self.to_F('F').coefficients(sparse=False)
 
     def spread(self, p=0):
         """
@@ -2638,7 +2638,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
         K = QQbar
 
         try:
-            origcoeffs = coeffs = [c.change_ring(K) for c in self.numerator().primitive_part().coeffs() ]
+            origcoeffs = coeffs = [c.change_ring(K) for c in self.numerator().primitive_part().coefficients(sparse=False) ]
         except:
             raise TypeError, "unexpected coefficient domain: " + str(self.base_ring().base_ring())
 
@@ -2855,7 +2855,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
         return refined_solutions
 
     def _powerIndicator(self):
-        return self.coeffs()[0]
+        return self.coefficients(sparse=False)[0]
 
     def _infinite_singularity(self):
         """
@@ -2882,7 +2882,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
 
         S = self.parent().gen(); n = self.parent().base_ring().gen()
         R = self.base_ring().base_ring().fraction_field()[n]
-        coeffs = map(R, self.normalize().coeffs())
+        coeffs = map(R, self.normalize().coefficients(sparse=False))
         r = self.order()
 
         # determine the possible values of gamma and phi
@@ -2924,7 +2924,7 @@ class UnivariateQRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverU
             _, q = self.parent().is_Q()
             K = R.base_ring()
             z = K.zero()
-            c = self.numerator().coeffs()
+            c = self.numerator().coefficients(sparse=False)
             d = self.denominator()
 
             def fun(n):
@@ -2988,12 +2988,12 @@ class UnivariateQRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverU
         alg = alg.change_ring(R);
 
         Q = alg(~x); out = alg.zero()
-        coeffs = self.numerator().coeffs()
+        coeffs = self.numerator().coefficients(sparse=False)
         x_pows = {0 : alg.one(), 1 : ((q - R.one())*x)*alg.gen() + alg.one()}
 
         for i in xrange(len(coeffs)):
             term = alg.zero()
-            c = coeffs[i].coeffs()
+            c = coeffs[i].coefficients(sparse=False)
             for j in xrange(len(c)):
                 if not x_pows.has_key(j):
                     x_pows[j] = x_pows[j - 1]*x_pows[1]
@@ -3121,7 +3121,7 @@ class UnivariateQRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverU
         elif u == 1:
             return self
         elif u < 0:
-            c = [ p(q**(-r)/x) for p in self.coeffs() ]; c.reverse()
+            c = [ p(q**(-r)/x) for p in self.coefficients(sparse=False) ]; c.reverse()
             return A(c).numerator().annihilator_of_composition(-u*x)
 
         # now a = u*x where u > 1 
@@ -3130,12 +3130,12 @@ class UnivariateQRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverU
             solver = A._solver()
 
         p = A.one(); Qu = A.gen()**u # possible improvement: multiplication matrix. 
-        mat = [ p.coeffs(padd=r) ]; sol = []
+        mat = [ p.coefficients(sparse=False, padd=r) ]; sol = []
 
         while len(sol) == 0:
 
             p = (Qu*p) % L
-            mat.append( p.coeffs(padd=r) )
+            mat.append( p.coefficients(sparse=False, padd=r) )
             sol = solver(Matrix(mat).transpose())
 
         return self.parent()(list(sol[0])).map_coefficients(lambda p: p(x**u))
@@ -3200,7 +3200,7 @@ class UnivariateQRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverU
             return A.zero()
 
         Q = (q - 1)*x*A.gen() + 1; Q_pow = A.one(); 
-        c = self.coeffs(); out = A(R(c[0]))
+        c = self.coefficients(sparse=False); out = A(R(c[0]))
 
         for i in xrange(self.order()):
 
@@ -3210,7 +3210,7 @@ class UnivariateQRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverU
         return out
 
     def _coeff_list_for_indicial_polynomial(self):
-        return self.__to_J_literally().coeffs()
+        return self.__to_J_literally().coefficients(sparse=False)
 
     def _denominator_bound(self):
 
@@ -3236,7 +3236,7 @@ class UnivariateQRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverU
         return (quo*x + rem)*x**(-e)
 
     def _powerIndicator(self):
-        return self.coeffs()[0]
+        return self.coefficients(sparse=False)[0]
 
     def _local_data_at_special_points(self):
         """
@@ -3337,7 +3337,7 @@ class UnivariateQDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOve
 
         Q = alg.gen(); J = ((q*x - R.one())/(q - R.one()))*Q; J_pow = alg.one()
         out = alg.zero(); 
-        coeffs = self.numerator().coeffs()
+        coeffs = self.numerator().coefficients(sparse=False)
         d = max( c.degree() for c in coeffs )
 
         for i in xrange(len(coeffs)):
@@ -3412,7 +3412,7 @@ class UnivariateQDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOve
             return alg.zero()
 
         J = ~(q-1)*(~x)*(alg.gen() - alg.one()); J_k = alg.one(); R = alg.base_ring()
-        c = self.coeffs(); out = alg(R(c[0]))
+        c = self.coefficients(sparse=False); out = alg(R(c[0]))
 
         for i in xrange(self.order()):
             
@@ -3427,7 +3427,7 @@ class UnivariateQDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOve
     spread.__doc__ = UnivariateOreOperatorOverUnivariateRing.spread.__doc__
 
     def _coeff_list_for_indicial_polynomial(self):
-        return self.coeffs()
+        return self.coefficients(sparse=False)
 
     def _denominator_bound(self):
         return self.__to_Q_literally()._denominator_bound()
@@ -3447,7 +3447,7 @@ class UnivariateQDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOve
         C = C._UnivariateQRecurrenceOperatorOverUnivariateRing__to_J_literally(str(self.parent().gen()))
 
         try:
-            return self.parent()(C.numerator().coeffs())
+            return self.parent()(C.numerator().coefficients(sparse=False))
         except:
             return C
 
@@ -3509,7 +3509,7 @@ class UnivariateDifferenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
             return alg.zero()
 
         delta = alg.gen() - alg.one(); delta_k = alg.one(); R = alg.base_ring()
-        c = self.coeffs(); out = alg(R(c[0]))
+        c = self.coefficients(sparse=False); out = alg(R(c[0]))
 
         for i in xrange(self.order()):
             
@@ -3595,7 +3595,7 @@ class UnivariateDifferenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
     spread.__doc__ = UnivariateRecurrenceOperatorOverUnivariateRing.spread.__doc__
 
     def _coeff_list_for_indicial_polynomial(self):
-        return self.coeffs()
+        return self.coefficients(sparse=False)
 
     def _denominator_bound(self):
         return self.to_S()._denominator_bound()
@@ -3667,7 +3667,7 @@ class UnivariateEulerDifferentialOperatorOverUnivariateRing(UnivariateOreOperato
             return alg.zero()
 
         R = alg.base_ring(); theta = R.gen()*alg.gen(); theta_k = alg.one(); 
-        c = self.coeffs(); out = alg(R(c[0]))
+        c = self.coefficients(sparse=False); out = alg(R(c[0]))
 
         for i in xrange(self.order()):
             
@@ -3807,7 +3807,7 @@ def _rec2list(L, init, n, start, append, padd, deform, singularity_handler=None)
         if terms[-i - 1] not in K:
             raise TypeError, "illegal initial value object"
 
-    rec = L.numerator().coeffs(); sigma = L.parent().sigma()
+    rec = L.numerator().coefficients(sparse=False); sigma = L.parent().sigma()
     rec = tuple( -sigma(p, -r) for p in rec )
     lc = -rec[-1]
 
@@ -3900,9 +3900,9 @@ def _orePowerSolver(P):
     gens = list(K.gens())
     c = gens.pop()
     for i in xrange(P.order()+1):
-        cS = P.coeffs()[P.order()-i]
+        cS = P.coefficients(sparse=False)[P.order()-i]
         for j in xrange(cS.degree()+1):
-            cN = cS.coeffs()[cS.degree()-j]
+            cN = cS.coefficients(sparse=False)[cS.degree()-j]
             if (cN.degree()==0): return []
             if (len(gens)==0) or (cN.degree(c) == cN.total_degree()):
                 sols=PolynomialRing(Q,c)(cN).roots()

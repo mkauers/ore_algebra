@@ -805,7 +805,7 @@ def _hermite_rec(early_termination, R, A, cut, offset, infolevel):
     if cut <= 64:
         # B = low degree coeffs of A.
         _info(infolevel, "base case: switching to direct method.")
-        B = [ [ A[i,j].coeffs()[:cut] for j in xrange(A.ncols()) ] for i in xrange(A.nrows()) ]
+        B = [ [ A[i,j].coefficients(sparse=False)[:cut] for j in xrange(A.ncols()) ] for i in xrange(A.nrows()) ]
         z = R.base_ring().zero()
         for row in B:
             for pol in row:
@@ -936,7 +936,7 @@ def _kronecker(subsolver, presolver, mat, degrees, infolevel):
     unshift = {x[0] : R(x[0] + 5556)}
     def unphi(p):
         exp = [0 for i in xrange(len(x))]; d = {}
-        for c in p.coeffs():
+        for c in p.coefficients(sparse=False):
             if c != z:
                 d[tuple(exp)] = c
             exp[0] += 1
@@ -1606,7 +1606,7 @@ def _clear(subsolver, mat, degrees, infolevel):
             den = newK.one()
             try:
                 for p in row:
-                    for c in p.coeffs():
+                    for c in p.coefficients(sparse=False):
                         den = den.lcm(c.denominator())
             except AttributeError:
                 for p in row:
