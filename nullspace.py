@@ -457,9 +457,7 @@ def sage_native(mat, degrees=[], infolevel=0):
     
     - a list of vectors that form a basis of the right kernel of ``mat``
 
-    EXAMPLES:
-
-    ::
+    EXAMPLES::
 
        sage: A = MatrixSpace(GF(1093)['x'], 4, 7).random_element(degree=3)
        sage: V = sage_native(A)
@@ -499,9 +497,7 @@ def gauss(pivot=_pivot, ncpus=1, fun=None):
 
     - A solver based on fraction free gaussian elimination.
 
-    EXAMPLES:
-
-    ::
+    EXAMPLES::
 
        sage: A = MatrixSpace(GF(1093)['x'], 4, 7).random_element(degree=3)
        sage: my_solver = gauss()
@@ -664,9 +660,7 @@ def hermite(early_termination=True):
 
     - A solver based on Hermite-Pade approximation
 
-    EXAMPLES:
-
-    ::
+    EXAMPLES::
 
        sage: A = MatrixSpace(GF(1093)['x'], 4, 7).random_element(degree=3)
        sage: my_solver = hermite()
@@ -866,9 +860,7 @@ def kronecker(subsolver, presolver=None):
       matrices with entries in `GF(p)[x]` to determine the degrees. In this case if `K` is not
       a prime field, its elements must allow for coercion to prime field elements.
 
-    EXAMPLE:
-
-    ::
+    EXAMPLES::
 
        sage: A = MatrixSpace(GF(1093)['x','y'], 4, 7).random_element(degree=3)
        sage: mysolver = kronecker(gauss())
@@ -991,9 +983,7 @@ def lagrange(subsolver, start_point=10, ncpus=1):
     - a solver for matrices with entries in `K[x]` or `K(x)` where K is some field such that the
       given ``subsolver`` can solve matrices with entries in `K`.
 
-    EXAMPLE:
-
-    ::
+    EXAMPLES::
 
        sage: A = MatrixSpace(GF(1093)['x'], 4, 7).random_element(degree=3)
        sage: my_solver = lagrange(sage_native)
@@ -1210,9 +1200,7 @@ def galois(subsolver, max_modulus=MAX_MODULUS, proof=False):
     - a solver for matrices with entries in `QQ(\alpha)[x,...]` based on a ``subsolver`` for matrices with
       entries in `GF(p)[x,...]`.
 
-    EXAMPLES:
-
-    ::
+    EXAMPLES::
 
        sage: R.<x> = QQ['x']
        sage: K.<a> = NumberField(x^3-2, 'a')
@@ -1264,9 +1252,7 @@ def cra(subsolver, max_modulus=MAX_MODULUS, proof=False, ncpus=1):
     - a solver for matrices with entries in `K[x,...]` based on a ``subsolver`` for matrices with
       entries in `GF(p)[x,...]`.
 
-    EXAMPLES:
-
-    ::
+    EXAMPLES::
 
        sage: A = MatrixSpace(ZZ['x', 'y'], 4, 7).random_element(degree=3)
        sage: my_solver = cra(kronecker(gauss()))
@@ -1414,9 +1400,7 @@ def newton(subsolver, inverse=lambda mat:mat.inverse()):
     - a solver for matrices with entries in `K[x]` based on a ``subsolver`` for matrices with
       entries in `K`.
 
-    EXAMPLES:
-
-    ::
+    EXAMPLES::
 
        sage: A = MatrixSpace(GF(1093)['x'], 4, 7).random_element(degree=3)
        sage: my_solver = newton(sage_native)
@@ -1540,9 +1524,7 @@ def clear(subsolver):
 
     - a solver for matrices over `FF(R)[x..]` or `FF(R[x..])`
 
-    EXAMPLE:
-
-    ::
+    EXAMPLES::
 
        sage: A = MatrixSpace(ZZ['x'].fraction_field(), 4, 5).random_element()
        sage: my_solver = clear(gauss())
@@ -1707,7 +1689,7 @@ def quick_check(subsolver, modsolver=sage_native, modulus=MAX_MODULUS):
     - a solver for matrices over `K[x..]` or `K(x..)` with `K` one of `ZZ`, `QQ`, `GF(p)`, and which
       can be handled by the given subsolver.
 
-    EXAMPLE::
+    EXAMPLES::
 
        sage: A = MatrixSpace(ZZ['x'], 4, 5).random_element()
        sage: my_solver = quick_check(gauss())
@@ -1768,9 +1750,7 @@ def compress(subsolver, presolver=sage_native, modulus=MAX_MODULUS):
 
     - a solver for matrices over `R[x..]`
 
-    EXAMPLE:
-
-    ::
+    EXAMPLES::
 
        sage: A = MatrixSpace(ZZ['x'], 7, 4).random_element()*MatrixSpace(ZZ['x'], 4, 5).random_element()
        sage: my_solver = compress(gauss())
@@ -1874,9 +1854,7 @@ def wiedemann():
 
     - a solver for matrices over `R[x..]`
 
-    EXAMPLE:
-
-    ::
+    EXAMPLES::
 
        sage: A = MatrixSpace(ZZ['x'], 4, 5).random_element()
        sage: my_solver = wiedemann()

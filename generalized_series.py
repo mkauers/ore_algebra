@@ -814,7 +814,7 @@ class ContinuousGeneralizedSeries(RingElement):
 
         An alternative reference set can be specified as optional argument.
 
-        EXAMPLE::
+        EXAMPLES::
 
           sage: G = GeneralizedSeriesMonoid(QQ, 'x')
           sage: A = G(1+x+x^2, exp=1+x+x^2, ramification=2)
@@ -905,7 +905,7 @@ class ContinuousGeneralizedSeries(RingElement):
         """
         Returns the derivative of ``self``
 
-        EXAMPLE::
+        EXAMPLES::
 
            sage: G = GeneralizedSeriesMonoid(QQ, 'x')
            sage: G(1+x+x^2, exp=1+x+x^2, ramification=2)
