@@ -97,6 +97,7 @@ class MultivariateOreOperator(OreOperator):
         EXAMPLES::
 
           sage: R.<x> = QQ['x']
+          sage: from ore_algebra import *
           sage: A.<Dx> = OreAlgebra(R, 'Dx')
           sage: op = Dx^2 + 5*x*Dx + 1
           sage: op.parent()

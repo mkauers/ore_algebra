@@ -37,8 +37,10 @@ from sage.matrix.constructor import Matrix, matrix
 from sage.rings.arith import xgcd
 from sage.parallel.decorate import parallel
 from sage.rings.polynomial.polynomial_ring import is_PolynomialRing
+from sage.modules.free_module_element import vector
 
 from ore_algebra import *
+from ideal import * ## doctest needs this for some reason. 
 
 from datetime import datetime
 import nullspace
@@ -132,13 +134,14 @@ def guess(data, algebra, **kwargs):
 
     EXAMPLES::
 
+      sage: from ore_algebra import *
       sage: rec = guess([(2*i+1)^15 * (1 + 2^i + 3^i)^2 for i in xrange(1000)], OreAlgebra(ZZ['n'], 'Sn'))
       sage: rec.order(), rec.degree()
       (6, 90)
       sage: R.<t> = QQ['t']
       sage: rec = guess([1/(i+t) + t^i for i in xrange(100)], OreAlgebra(R['n'], 'Sn'))
       sage: rec
-      ((t - 1)*n^2 + (2*t^2 + t - 2)*n + t^3 + 2*t^2)*Sn^2 + ((-t^2 + 1)*n^2 + (-2*t^3 - 3*t^2 + 2*t + 1)*n - t^4 - 3*t^3 - t^2 + t)*Sn + (t^2 - t)*n^2 + (2*t^3 - t)*n + t^4 + t^3 - t^2
+      ((-t + 1)*n^2 + (-2*t^2 - t + 2)*n - t^3 - 2*t^2)*Sn^2 + ((t^2 - 1)*n^2 + (2*t^3 + 3*t^2 - 2*t - 1)*n + t^4 + 3*t^3 + t^2 - t)*Sn + (-t^2 + t)*n^2 + (-2*t^3 + t)*n - t^4 - t^3 + t^2
     
     """
 
@@ -267,6 +270,7 @@ def guess_raw(data, A, order=-1, degree=-1, lift=None, solver=None, cut=25, ensu
 
     EXAMPLES::
 
+      sage: from ore_algebra import *
       sage: K = GF(1091); R.<n> = K['n']; A = OreAlgebra(R, 'Sn')
       sage: data = [(5*n+3)/(3*n+4)*fibonacci(n)^3 for n in xrange(200)]
       sage: guess_raw(data, A, order=5, degree=3, lift=K)
@@ -405,6 +409,7 @@ def guess_hp(data, A, order=-1, degree=-1, lift=None, cut=25, ensure=0, infoleve
 
     EXAMPLES::
 
+      sage: from ore_algebra import *
       sage: K = GF(1091); R.<x> = K['x']; 
       sage: data = [binomial(2*n, n)*fibonacci(n)^3 for n in xrange(2000)]
       sage: guess_hp(data, OreAlgebra(R, 'Dx'), order=4, degree=4, lift=K)
@@ -1162,8 +1167,17 @@ def guess_mult(data, algebra, **kwargs):
 
     EXAMPLES::
 
-      sage: 
-    
+      sage: from ore_algebra import *
+      sage: data = [[binomial(n,k) for n in range(10)] for k in range(10)]
+      sage: guess_mult(data, OreAlgebra(ZZ['n','k'], 'Sn', 'Sk'), order=1, degree=0)
+      Left Ideal (Sn*Sk - Sn - 1) of Multivariate Ore algebra in Sn, Sk over Multivariate Polynomial Ring in n, k over Integer Ring
+      sage: guess_mult(data, OreAlgebra(ZZ['x','y'], 'Dx', 'Dy'), order=1, degree=1)
+      Left Ideal ((x + 1)*Dx + (-y)*Dy) of Multivariate Ore algebra in Dx, Dy over Multivariate Polynomial Ring in x, y over Integer Ring
+      sage: guess_mult(data, OreAlgebra(ZZ['n','y'], 'Sn', 'Dy'), order=1, degree=1)
+      Left Ideal ((-y + 1)*Sn*Dy - Sn + (-y)*Dy - 1, (-n - 1)*Sn + y*Dy - n, (-y + 1)*Sn - y) of Multivariate Ore algebra in Sn, Dy over Multivariate Polynomial Ring in n, y over Integer Ring
+      sage: guess_mult(data, OreAlgebra(ZZ['x','k'], 'Dx', 'Sk'), order=1, degree=1)
+      Left Ideal (Dx*Sk + (-x - 1)*Dx - 1, x*Dx*Sk + (x + 1)*Dx + (-k)*Sk - x, (x + 1)*Dx - k, (x + 1)*Dx*Sk + (-k - 1)*Sk) of Multivariate Ore algebra in Dx, Sk over Multivariate Polynomial Ring in x, k over Integer Ring
+
     """
 
     infolevel = kwargs.setdefault('infolevel', 0)
@@ -1239,7 +1253,7 @@ def guess_mult(data, algebra, **kwargs):
 
     C = algebra.base_ring().base_ring().fraction_field() ### constant field 
 
-    if C is GF(C.characteristic()): ### constant field is GF(p) --> raw guessing
+    if C.characteristic() in Primes() and C is GF(C.characteristic()): ### constant field is GF(p) --> raw guessing
 
         power = []
         for i in range_dim:
