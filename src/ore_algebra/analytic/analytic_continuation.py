@@ -92,9 +92,9 @@ def ordinary_step_transition_matrix(ctx, step, ring, eps, rows, pplen=2):
     return mat
 
 def singular_step_transition_matrix(ctx, step, ring, eps, rows, pplen=2):
-    from .naive_sum import fundamental_matrix_regsing
+    from .naive_sum import fundamental_matrix_regular
     ldop = step.start.local_diffop()
-    mat = fundamental_matrix_regsing(ldop, step.delta(), ring, eps, rows, pplen)
+    mat = fundamental_matrix_regular(ldop, step.delta(), ring, eps, rows, pplen)
     return mat
 
 def inverse_singular_step_transition_matrix(ctx, step, ring, eps, rows):

@@ -278,9 +278,9 @@ def my_shiftless_decomposition(pol):
             for sl_class, _ in fac]
 
 # TODO: move parts not specific to the naïve summation algo elsewhere
-# def fundamental_matrix_regsing(dop, pt, ring, eps, rows, maj):
+# def fundamental_matrix_regular(dop, pt, ring, eps, rows, maj):
 # TODO: test with algebraic valuations
-def fundamental_matrix_regsing(dop, pt, ring, eps, rows, pplen=0):
+def fundamental_matrix_regular(dop, pt, ring, eps, rows, pplen=0):
     r"""
     TESTS::
 
@@ -288,12 +288,12 @@ def fundamental_matrix_regsing(dop, pt, ring, eps, rows, pplen=0):
         sage: from ore_algebra.analytic.naive_sum import *
         sage: Dops, x, Dx = Diffops()
 
-        sage: fundamental_matrix_regsing(x*Dx^2 + (1-x)*Dx, 1, RBF, RBF(1e-10), 2)
+        sage: fundamental_matrix_regular(x*Dx^2 + (1-x)*Dx, 1, RBF, RBF(1e-10), 2)
         [[1.317902...] 1.000000...]
         [[2.718281...]           0]
 
         sage: dop = (x+1)*(x^2+1)*Dx^3-(x-1)*(x^2-3)*Dx^2-2*(x^2+2*x-1)*Dx
-        sage: fundamental_matrix_regsing(dop, 1/3, RBF, RBF(1e-10), 3)
+        sage: fundamental_matrix_regular(dop, 1/3, RBF, RBF(1e-10), 3)
         [ 1.0000000...  [0.321750...]  [0.147723...]]
         [            0  [0.900000...]  [0.991224...]]
         [            0  [-0.2...]      [1.935612...]]
@@ -303,7 +303,7 @@ def fundamental_matrix_regsing(dop, pt, ring, eps, rows, pplen=0):
         ....:     + (-2*x^6 + 5*x^5 - 11*x^3 - 6*x^2 + 6*x)*Dx^3
         ....:     + (2*x^6 - 3*x^5 - 6*x^4 + 7*x^3 + 8*x^2 - 6*x + 6)*Dx^2
         ....:     + (-2*x^6 + 3*x^5 + 5*x^4 - 2*x^3 - 9*x^2 + 9*x)*Dx)
-        sage: fundamental_matrix_regsing(dop, RBF(1/3), RBF, RBF(1e-10), 4, pplen=20)
+        sage: fundamental_matrix_regular(dop, RBF(1/3), RBF, RBF(1e-10), 4, pplen=20)
         [ [3.178847...] [-1.064032...]  [1.000...] [0.3287250...]]
         [ [-8.98193...] [3.2281834...]       [...] [0.9586537...]]
         [ [26.18828...] [-4.063756...]       [...] [-0.123080...]]
@@ -313,6 +313,9 @@ def fundamental_matrix_regsing(dop, pt, ring, eps, rows, pplen=0):
 
     eps_col = bounds.IR(eps)/bounds.IR(dop.order()).sqrt()
 
+    # XXX: probably should not use the same domain (ring == Intervals ==
+    # Jets.base_ring()) for points and for coefficients
+    Jets = utilities.jets(ring, 'eta', rows)
     bwrec = backward_rec(dop)
     ind = bwrec[0]
     n = ind.parent().gen()
@@ -342,8 +345,8 @@ def fundamental_matrix_regsing(dop, pt, ring, eps, rows, pplen=0):
                                         for p in xrange(m))
                                for s, m in shifts}
                         # XXX: inefficient if shift >> 0
-                        value = series_sum_regsing(ring, dop, emb_bwrec, leftmost,
-                                                   ini, pt, eps_col, maj, rows)
+                        value = series_sum_regular(ring, dop, emb_bwrec, leftmost,
+                                                   ini, Jets([pt, 1]), eps_col, maj)
                         sol = FundamentalSolution(
                             valuation = leftmost + shift,
                             log_power = log_power,
@@ -372,17 +375,15 @@ def log_series_value(Jets, expo, psum, pt):
 # past singular indices anyway, we can allow for general initial conditions (at
 # roots of the indicial equation belonging to the same shift-equivalence class),
 # not just initial conditions associated to canonical solutions.
-def series_sum_regsing(Intervals, dop, bwrec, expo, ini, pt, eps,
-        maj, derivatives, stride=50):
+def series_sum_regular(Intervals, dop, bwrec, expo, ini, pt, eps,
+        maj, stride=50):
 
     orddeq = dop.order()
 
-    # XXX: distinguish between points and coefficients?
-    # would be useful for symbolic points (→ poly approx)!
-    Jets = utilities.jets(Intervals, 'eta', derivatives)
-    rad = bounds.IC(pt).abs()
-    pt = Jets([pt, 1])
+    Jets = pt.parent()
+    derivatives = Jets.modulus().degree()
     ptpow = Jets.one()
+    rad = bounds.IC(pt[0]).abs()
     radpow = bounds.IR.one() # XXX: should this be rad^leftmost?
 
     log_prec = sum(len(v) for v in ini.itervalues()) # ini: dict(n -> (c0, ...))
@@ -394,7 +395,7 @@ def series_sum_regsing(Intervals, dop, bwrec, expo, ini, pt, eps,
 
     for n in itertools.count():
         last.rotate(1)
-        # logger.debug("n=%s, sum=%s", n, psum)
+        logger.debug("n=%s, sum=%s", n, psum)
         mult = len(ini.get(n, ()))
 
         if abs(last[-1][0])*radpow < eps and mult == 0 and n > orddeq and n%stride == 0:
