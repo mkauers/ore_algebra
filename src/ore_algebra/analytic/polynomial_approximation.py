@@ -21,7 +21,7 @@ import ore_algebra.analytic.analytic_continuation as ancont
 import ore_algebra.analytic.bounds as bounds
 import ore_algebra.analytic.utilities as utilities
 
-from ore_algebra.analytic.naive_sum import series_sum_ordinary
+from ore_algebra.analytic.naive_sum import series_sum_ordinary, EvaluationPoint
 from ore_algebra.analytic.safe_cmp import *
 
 def taylor_economization(pol, eps):
@@ -169,9 +169,10 @@ def doit(dop, ini, path, rad, eps, derivatives, economization):
     x = dop.base_ring().change_ring(Scalars).gen()
 
     local_dop = ctx.path.vert[-1].local_diffop()
-    polys = series_sum_ordinary(local_dop, local_ini.column(0), x,
+    evpt = EvaluationPoint(x, rad=rad, jet_order=derivatives)
+    polys = series_sum_ordinary(local_dop, local_ini.column(0), evpt,
                                 accuracy.AbsoluteError(eps1),
-                                stride=5, rad=rad, derivatives=derivatives)
+                                stride=5)
 
     def postprocess(pol):
         return economization(pol(rad*x), eps1)(x/rad)
@@ -189,9 +190,9 @@ def on_disk(dop, ini, path, rad, eps):
         sage: Dops, x, Dx = Diffops()
 
         sage: polapprox.on_disk(Dx - 1, [1], [0], 1, 1e-3)
-        ([0.00139 +/- 4.64e-6])*x^6 + ([0.00833 +/- 6.01e-6])*x^5 +
-        ([0.0417 +/- 8.17e-5])*x^4 + ([0.167 +/- 5.27e-4])*x^3 + 0.500*x^2 + x +
-        [1.00 +/- 2.27e-4] + [+/- 2.27e-4]*I
+        ([0.00139 +/- 2.41e-6])*x^6 + ([0.00833 +/- 8.94e-6])*x^5
+        + ([0.0417 +/- 7.41e-5])*x^4 + ([0.167 +/- 4.97e-4])*x^3 + 0.500*x^2 + x
+        + [1.00 +/- 2.27e-4] + [+/- 2.27e-4]*I
 
     TESTS::
 
@@ -213,13 +214,13 @@ def on_interval(dop, ini, path, eps, rad=None):
         sage: Dops, x, Dx = Diffops()
 
         sage: pol1 = polapprox.on_interval(Dx - 1, [1], [0], 1e-3, rad=1); pol1
-        [0.0087 +/- 4.65e-5]*x^5 + [0.044 +/- 3.75e-4]*x^4 +
-        [0.166 +/- 7.80e-4]*x^3 + [0.499 +/- 7.59e-4]*x^2 + [1.0 +/- 1.47e-3]*x
+        [0.0087 +/- 4.90e-5]*x^5 + [0.044 +/- 3.62e-4]*x^4
+        + [0.166 +/- 7.49e-4]*x^3 + [0.499 +/- 7.57e-4]*x^2 + [1.0 +/- 1.47e-3]*x
         + [1.0 +/- 1.52e-3]
 
         sage: pol2 = polapprox.on_interval(Dx - 1, [1], [0, [1, 2]], 1e-3); pol2
-        [0.189 +/- 5.83e-4]*x^4 + [0.76 +/- 4.40e-3]*x^3 +
-        [2.24 +/- 7.83e-3]*x^2 + [4.5 +/- 0.0435]*x + [4.5 +/- 0.0358]
+        [0.189 +/- 5.50e-4]*x^4 + [0.76 +/- 4.27e-3]*x^3
+        + [2.24 +/- 7.83e-3]*x^2 + [4.5 +/- 0.0435]*x + [4.5 +/- 0.0358]
 
     TESTS::
 

@@ -63,6 +63,7 @@ def prec_from_eps(eps):
     return -eps.lower().log2().floor()
 
 def jets(base, var_name, order):
+    # Polynomial quotient ring elements are faster than power series
     Pols = PolynomialRing(base, var_name)
     return Pols.quo(Pols.one() << order)
 

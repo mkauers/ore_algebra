@@ -12,10 +12,13 @@ import collections, itertools, logging
 
 from sage.matrix.constructor import identity_matrix, matrix
 from sage.modules.free_module_element import vector
+from sage.rings.complex_arb import ComplexBallField
 from sage.rings.infinity import infinity
 from sage.rings.integer import Integer
 from sage.rings.polynomial import polynomial_element
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
+from sage.rings.qqbar import QQbar
+from sage.rings.real_arb import RealBallField
 from sage.structure.sequence import Sequence
 
 from ore_algebra.ore_algebra import OreAlgebra
@@ -24,6 +27,10 @@ from ore_algebra.analytic import accuracy, bounds, utilities
 from ore_algebra.analytic.safe_cmp import safe_lt
 
 logger = logging.getLogger(__name__)
+
+################################################################################
+# Argument processing etc. (common to the ordinary and the regular case)
+################################################################################
 
 # XXX: perhaps introduce a specific object type (with support for exceptional
 # indices and RecJets; see also bound_residual_with_logs)
@@ -38,13 +45,73 @@ def backward_rec(dop):
     bwrec = [rop[ordrec-k](Pols_n.gen()-ordrec) for k in xrange(ordrec+1)]
     return bwrec
 
-################################################################################
-# Ordinary points
-################################################################################
+class EvaluationPoint(object):
+    r"""
+    A ring element (a complex number, a polynomial indeterminate, perhaps
+    someday a matrix) where to evaluate the partial sum of a series, along with
+    a “jet order” used to compute derivatives and a bound on the norm of the
+    mathematical quantity it represents that can be used to bound the truncation
+    error.
+    """
 
-def series_sum_ordinary(dop, ini, pt, tgt_error,
-        maj=None, rad=None, derivatives=1, stride=50,
-        record_bounds_in=None):
+    # XXX: choose a single place to set the default value for jet_order
+    def __init__(self, pt, rad=None, jet_order=1):
+        self.pt = pt
+        self.rad = (bounds.IR.coerce(rad) if rad is not None
+                    else bounds.IC(pt).above_abs())
+        self.jet_order = jet_order
+
+        self.is_numeric = ComplexBallField(2).has_coerce_map_from(pt.parent())
+        self.is_real = RealBallField(2).has_coerce_map_from(pt.parent())
+
+    def jet(self, Intervals):
+        base_ring = Intervals if self.is_numeric else self.pt.parent()
+        Jets = utilities.jets(base_ring, 'eta', self.jet_order)
+        return Jets([self.pt, 1])
+
+    def is_precise(self, eps):
+        if self.pt.parent().is_exact():
+            return True
+        elif isinstance(self.pt.parent(), (RealBallField, ComplexBallField)):
+            return safe_lt(bounds.IR(self.pt.rad()), eps)
+
+class LogSeriesInitialValues(object):
+    r"""
+    Initial values defining a logarithmic series.
+
+    - ``expo`` is the algebraic “valuation”,
+    - ``shift`` is a dictionary mapping an integer shift s to a tuple of
+      initial values corresponding to the coefficients of x^s, x^s·log(x), ...,
+      x^s·log(x)^k/k! for some k
+    """
+
+    def __init__(self, expo, values):
+        self.expo = QQbar.coerce(expo)
+        if isinstance(values, dict):
+            all_values = sum(values.values(), ()) # concatenation of tuples
+        else:
+            all_values = values
+            values = dict((n, (values[n],)) for n in xrange(len(values)))
+        self.universe = Sequence(all_values).universe()
+        if not ComplexBallField(2).has_coerce_map_from(self.universe):
+            raise ValueError("initial values must coerce into a ball field")
+        self.shift = { s: tuple(self.universe(a) for a in ini)
+                       for s, ini in values.iteritems() }
+
+        self.is_real = RealBallField(2).has_coerce_map_from(self.universe)
+
+    def is_precise(self, eps):
+        if self.universe.is_exact():
+            return True
+        elif isinstance(self.universe, (RealBallField, ComplexBallField)):
+            return all(safe_lt(bounds.IR(x.rad()), eps)
+                       for val in self.shift.itervalues()
+                       for x in val)
+        else:
+            return False
+
+def series_sum_ordinary(dop, ini, pt, tgt_error, maj=None,
+        stride=50, record_bounds_in=None):
     r"""
     EXAMPLES::
 
@@ -53,7 +120,7 @@ def series_sum_ordinary(dop, ini, pt, tgt_error,
         sage: QQi.<i> = QuadraticField(-1)
 
         sage: from ore_algebra.analytic.ui import *
-        sage: from ore_algebra.analytic.naive_sum import series_sum_ordinary
+        sage: from ore_algebra.analytic.naive_sum import series_sum_ordinary, EvaluationPoint
         sage: Dops, x, Dx = Diffops()
 
         sage: dop = ((4*x^2 + 3/58*x - 8)*Dx^10 + (2*x^2 - 2*x)*Dx^9 +
@@ -75,7 +142,7 @@ def series_sum_ordinary(dop, ini, pt, tgt_error,
 
         sage: import logging; logging.basicConfig()
         sage: series_sum_ordinary(dop, ini, 1/2, RBF(1e-30))
-        WARNING:ore_algebra.analytic.naive_sum:input intervals too wide wrt
+        WARNING:ore_algebra.analytic.naive_sum:input intervals too wide for
         requested accuracy
         ...
         ([-3.5751407034...] + [-2.2884877202...]*I)
@@ -86,8 +153,9 @@ def series_sum_ordinary(dop, ini, pt, tgt_error,
     anything else that works does so more or less by accident.) ::
 
         sage: from ore_algebra.analytic.accuracy import AbsoluteError
-        sage: series_sum_ordinary(Dx - 1, [RBF(1)], x.change_ring(RBF),
-        ....:         AbsoluteError(1e-3), stride=1, rad=RBF(1), derivatives=2)
+        sage: series_sum_ordinary(Dx - 1, [RBF(1)],
+        ....:         EvaluationPoint(x.change_ring(RBF), rad=RBF(1), jet_order=2),
+        ....:         AbsoluteError(1e-3), stride=1)
         (... + [0.0083...]*x^5 + [0.0416...]*x^4 + [0.1666...]*x^3
         + 0.5000...*x^2 + x + [1.000 +/- ...e-4],
         ... + [0.0083...]*x^5 + [0.0416...]*x^4 + [0.1666...]*x^3
@@ -112,81 +180,84 @@ def series_sum_ordinary(dop, ini, pt, tgt_error,
         True
     """
 
-    _, _, _, dop = dop._normalize_base_ring()
-    bwrec = backward_rec(dop)
+    # The code that depends neither on the numeric precision nor on the
+    # ordinary/regsing dichotomy goes here.
 
-    if len(ini) != dop.order():
-        raise ValueError('need {} initial values'.format(dop.order()))
-    ini = Sequence(ini)
+    if not isinstance(ini, LogSeriesInitialValues):
+        ini = LogSeriesInitialValues(0, ini)
 
+    if not isinstance(pt, EvaluationPoint):
+        pt = EvaluationPoint(pt)
+
+    if isinstance(tgt_error, accuracy.RelativeError) and pt.jet_order > 1:
+        raise TypeError("relative error not supported when computing derivatives")
     if not isinstance(tgt_error, accuracy.StoppingCriterion):
-        logger.info("target error = %s", tgt_error.lower())
-        input_is_precise = (
-                (pt.parent().is_exact()
-                    or safe_lt(bounds.IR(pt.rad()), tgt_error))
-                and all(safe_lt(bounds.IR(x.rad()), tgt_error) for x in ini))
-        tgt_error = accuracy.AbsoluteError(tgt_error, input_is_precise)
+        input_is_precise = pt.is_precise(tgt_error) and ini.is_precise(tgt_error)
         if not input_is_precise:
-            logger.warn("input intervals too wide wrt requested accuracy")
+            logger.warn("input intervals too wide for requested accuracy")
+        tgt_error = accuracy.AbsoluteError(tgt_error, input_is_precise)
+    logger.info("target error = %s", tgt_error)
 
-    if rad is None:
-        rad = abs(bounds.IC(pt))
-    if maj is None: # let's support calling this function directly...
-        maj = bounds.bound_diffop(dop)
+    if maj is None:
+        if dop.leading_coefficient().valuation() == 0:
+            maj = bounds.bound_diffop(dop)
+        else:
+            raise TypeError("singular operator, please specify a majorant")
     logger.log(logging.DEBUG-1, "Majorant:\n%s", maj)
 
-    if isinstance(tgt_error, accuracy.RelativeError) and derivatives > 1:
-        raise TypeError("relative error only supported for derivatives == 1")
+    bwrec = backward_rec(dop)
+    ivs = (RealBallField if ini.is_real and (pt.is_real or not pt.is_numeric)
+           else ComplexBallField)
 
-    # XXX: probably should support exact ini here...
-    Intervals = ini.universe()
+    # Now do the actual computation, automatically increasing the precision as
+    # necessary
+
+    bit_prec = utilities.prec_from_eps(tgt_error.eps)
+    bit_prec += 3*bit_prec.nbits()
     while True:
         try:
-            psum = series_sum_ordinary_doit(Intervals, bwrec, ini, pt,
-                    derivatives, rad, tgt_error, maj, stride, record_bounds_in)
-            break
+            psum = series_sum_ordinary_doit(ivs(bit_prec), dop, bwrec, ini, pt,
+                    tgt_error, maj, stride, record_bounds_in)
+            return psum
         except accuracy.PrecisionError:
-            new_prec = Intervals.precision()*2
+            bit_prec *= 2
             logger.info("lost too much precision, restarting with %d bits",
-                        new_prec)
-            Intervals = type(Intervals)(new_prec)
-            if record_bounds_in:
-                record_bounds_in[:] = []
-    return psum
+                        bit_prec)
 
-def series_sum_ordinary_doit(Intervals, bwrec, ini, pt, derivatives,
-        rad, tgt_error, maj, stride, record_bounds_in):
+################################################################################
+# Ordinary points
+################################################################################
 
-    # XXX: j'ai l'impression qu'une partie de ceci devrait bouger ailleurs...
-    ini = Sequence(ini, universe = Intervals) # TBI ?
-    try: # TBI - genuinely support parent(pt) != Intervals?
-        pt = Intervals.coerce(pt)
-        pt_is_interval = True
-    except TypeError:
-        pt_is_interval = False
-    PertPols = PolynomialRing(pt.parent(), 'eta')
-    Jets = PertPols.quo(PertPols.one() << derivatives) # Faster than genuine series
-    pt = Jets([pt, 1])
+def series_sum_ordinary_doit(Intervals, bwrec, ini, pt,
+        tgt_error, maj, stride, record_bounds_in):
+
+    if record_bounds_in:
+        record_bounds_in[:] = []
+
+    jet = pt.jet(Intervals)
+    Jets = jet.parent()
+    jetpow = Jets.one()
+    radpow = bounds.IR.one()
 
     ordrec = len(bwrec) - 1
-    last = collections.deque([Intervals.zero()]*(ordrec - len(ini) + 1))
-    last.extend(reversed(ini))
+    assert ini.expo.is_zero()
+    last = collections.deque([Intervals.zero()]*(ordrec - dop.order() + 1))
+    last.extend(Intervals(ini.shift[n][0])
+                for n in xrange(dop.order() - 1, -1, -1))
     assert len(last) == ordrec + 1 # not ordrec!
 
     # Singular part. Not the most natural thing to do here, but hopefully
     # generalizes well to the regular singular case.
-    ptpow = pt.parent().one()
-    radpow = bounds.IR.one()
-    psum = Intervals.zero() # XXX: Jets ?
-    for n in range(len(ini)):
+    psum = Jets.zero()
+    for n in range(dop.order()):
         last.rotate(1)
-        term = Jets(last[0])*ptpow
+        term = Jets(last[0])*jetpow
         psum += term
-        ptpow *= pt
-        radpow *=rad
+        jetpow *= jet
+        radpow *= pt.rad
 
     tail_bound = bounds.IR(infinity)
-    for n in itertools.count(len(ini)):
+    for n in itertools.count(dop.order()):
         last.rotate(1)
         #last[0] = None
         # At this point last[0] should be considered undefined (it will hold
@@ -195,7 +266,7 @@ def series_sum_ordinary_doit(Intervals, bwrec, ini, pt, derivatives,
         if n%stride == 0:
             logger.debug("n=%s, sum=%s, last tail_bound=%s",
                          n, psum[0], tail_bound.upper())
-            abs_sum = psum[0].abs() if pt_is_interval else None
+            abs_sum = abs(psum[0]) if pt.is_numeric else None
             # last[-1] since last[0] may still be "undefined" and last[1] may
             # not exist in degenerate cases
             if (tgt_error.reached(abs(last[-1])*radpow, abs_sum)
@@ -206,8 +277,8 @@ def series_sum_ordinary_doit(Intervals, bwrec, ini, pt, derivatives,
                 # conversion via to_T, i.e. its product by a power of x).
                 residual = bounds.residual(bwrec, n, list(last)[1:],
                                                        maj.Poly.variable_name())
-                tail_bound = maj.matrix_sol_tail_bound(n, rad, [residual],
-                                                                ord=derivatives)
+                tail_bound = maj.matrix_sol_tail_bound(n, pt.rad, [residual],
+                                                               ord=pt.jet_order)
                 if record_bounds_in is not None:
                     record_bounds_in.append((n, psum, tail_bound))
                 if tgt_error.reached(tail_bound, abs_sum):
@@ -215,10 +286,10 @@ def series_sum_ordinary_doit(Intervals, bwrec, ini, pt, derivatives,
         comb = sum(Intervals(bwrec[k](n))*last[k] for k in xrange(1, ordrec+1))
         last[0] = -Intervals(~bwrec[0](n))*comb
         # logger.debug("n = %s, [c(n), c(n-1), ...] = %s", n, list(last))
-        term = Jets(last[0])*ptpow
+        term = Jets(last[0])*jetpow
         psum += term
-        ptpow *= pt
-        radpow *=rad
+        jetpow *= jet
+        radpow *= pt.rad
     # Account for the dropped high-order terms in the intervals we return.
     # - Is this the right place do that?
     # - Overestimation: tail_bound is actually a bound on the Frobenius norm of
@@ -226,35 +297,21 @@ def series_sum_ordinary_doit(Intervals, bwrec, ini, pt, derivatives,
     res = vector(_add_error(x, tail_bound.abs()) for x in psum)
     logger.info("summed %d terms, tail <= %s, coeffwise error <= %s", n,
             tail_bound,
-            max(x.rad() for x in res) if pt_is_interval else "n/a")
+            max(x.rad() for x in res) if pt.is_numeric else "n/a")
     return res
-
-# Temporary: later on, polynomials with ball coefficients could implement
-# add_error themselves.
-def _add_error(approx, error):
-    if isinstance(approx, polynomial_element.Polynomial):
-        return approx[0].add_error(error) + approx[1:]
-    else:
-        return approx.add_error(error)
 
 # XXX: drop the 'ring' parameter? pass ctx (→ real/complex?)?
 def fundamental_matrix_ordinary(dop, pt, ring, eps, rows, maj):
     eps_col = bounds.IR(eps)/bounds.IR(dop.order()).sqrt()
-    prec = utilities.prec_from_eps(eps)
-    my_ring = type(ring)(prec + 3*prec.nbits() + 5) # TBI!!!
+    evpt = EvaluationPoint(pt, jet_order=rows)
     cols = [
-        series_sum_ordinary(dop, ini, pt, eps_col, maj=maj, derivatives=rows)
-        for ini in identity_matrix(my_ring, dop.order())]
+        series_sum_ordinary(dop, ini, evpt, eps_col, maj=maj)
+        for ini in identity_matrix(dop.order())]
     return matrix(cols).transpose().change_ring(ring)
 
 ################################################################################
 # Regular singular points
 ################################################################################
-
-LogSeriesInitialValues = collections.namedtuple(
-    'LogSeriesInitialValues',
-    ['expo', 'shift'] # shift: dict(n -> (c0, ...)))
-)
 
 FundamentalSolution = collections.namedtuple(
     'FundamentalSolution',
@@ -309,8 +366,6 @@ def fundamental_matrix_regular(dop, pt, ring, eps, rows, pplen=0):
         [ [26.18828...] [-4.063756...]       [...] [-0.123080...]]
         [ [-80.2467...] [9.1907404...]       [...] [-0.119259...]]
     """
-    from sage.rings.qqbar import QQbar
-
     eps_col = bounds.IR(eps)/bounds.IR(dop.order()).sqrt()
 
     # XXX: probably should not use the same domain (ring == Intervals ==
@@ -326,8 +381,8 @@ def fundamental_matrix_regular(dop, pt, ring, eps, rows, pplen=0):
     for sl_factor, shifts in my_shiftless_decomposition(ind):
         for irred_factor, irred_mult in sl_factor.factor():
             assert irred_mult == 1
-            irred_nf = irred_factor.root_field("leftmost")
             # Complicated to do here and specialize, for little benefit
+            #irred_nf = irred_factor.root_field("leftmost")
             #irred_leftmost = irred_nf.gen()
             #irred_bwrec = [pol(irred_leftmost + n) for pol in bwrec]
             for leftmost, _ in irred_factor.roots(QQbar):
@@ -341,11 +396,11 @@ def fundamental_matrix_regular(dop, pt, ring, eps, rows, pplen=0):
                                     leftmost, shift, log_power, log_power)
                         ini = LogSeriesInitialValues(
                             expo = leftmost,
-                            shift = {s: tuple(ring.one()
+                            values = {s: tuple(ring.one()
                                               if (s, p) == (shift, log_power)
                                               else ring.zero()
                                               for p in xrange(m))
-                                    for s, m in shifts})
+                                      for s, m in shifts})
                         # XXX: inefficient if shift >> 0
                         value = series_sum_regular(ring, dop, emb_bwrec,
                                                    ini, Jets([pt, 1]), eps_col, maj)
@@ -439,6 +494,14 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, eps,
 # Miscellaneous utilities
 ################################################################################
 
+# Temporary: later on, polynomials with ball coefficients could implement
+# add_error themselves.
+def _add_error(approx, error):
+    if isinstance(approx, polynomial_element.Polynomial):
+        return approx[0].add_error(error) + approx[1:]
+    else:
+        return approx.add_error(error)
+
 def plot_bounds(dop, ini=None, pt=None, eps=None, pplen=0):
     r"""
     EXAMPLES::
@@ -470,7 +533,7 @@ def plot_bounds(dop, ini=None, pt=None, eps=None, pplen=0):
         eps = RBF(1e-50)
     recd = []
     maj = bounds.bound_diffop(dop, pol_part_len=pplen)  # cache in ctx?
-    ref_sum = series_sum_ordinary(dop, ini, pt, eps, stride=1, derivatives=1,
+    ref_sum = series_sum_ordinary(dop, ini, pt, eps, stride=1,
                                   record_bounds_in=recd, maj=maj)
     # Note: this won't work well when the errors get close to the double
     # precision underflow threshold.
