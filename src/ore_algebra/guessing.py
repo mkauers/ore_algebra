@@ -37,8 +37,10 @@ from sage.matrix.constructor import Matrix, matrix
 from sage.rings.arith import xgcd
 from sage.parallel.decorate import parallel
 from sage.rings.polynomial.polynomial_ring import is_PolynomialRing
+from sage.modules.free_module_element import vector
 
 from ore_algebra import *
+from ideal import * ## doctest needs this for some reason. 
 
 from datetime import datetime
 import nullspace
@@ -132,13 +134,14 @@ def guess(data, algebra, **kwargs):
 
     EXAMPLES::
 
+      sage: from ore_algebra import *
       sage: rec = guess([(2*i+1)^15 * (1 + 2^i + 3^i)^2 for i in xrange(1000)], OreAlgebra(ZZ['n'], 'Sn'))
       sage: rec.order(), rec.degree()
       (6, 90)
       sage: R.<t> = QQ['t']
       sage: rec = guess([1/(i+t) + t^i for i in xrange(100)], OreAlgebra(R['n'], 'Sn'))
       sage: rec
-      ((t - 1)*n^2 + (2*t^2 + t - 2)*n + t^3 + 2*t^2)*Sn^2 + ((-t^2 + 1)*n^2 + (-2*t^3 - 3*t^2 + 2*t + 1)*n - t^4 - 3*t^3 - t^2 + t)*Sn + (t^2 - t)*n^2 + (2*t^3 - t)*n + t^4 + t^3 - t^2
+      ((-t + 1)*n^2 + (-2*t^2 - t + 2)*n - t^3 - 2*t^2)*Sn^2 + ((t^2 - 1)*n^2 + (2*t^3 + 3*t^2 - 2*t - 1)*n + t^4 + 3*t^3 + t^2 - t)*Sn + (-t^2 + t)*n^2 + (-2*t^3 + t)*n - t^4 - t^3 + t^2
     
     """
 
@@ -267,6 +270,7 @@ def guess_raw(data, A, order=-1, degree=-1, lift=None, solver=None, cut=25, ensu
 
     EXAMPLES::
 
+      sage: from ore_algebra import *
       sage: K = GF(1091); R.<n> = K['n']; A = OreAlgebra(R, 'Sn')
       sage: data = [(5*n+3)/(3*n+4)*fibonacci(n)^3 for n in xrange(200)]
       sage: guess_raw(data, A, order=5, degree=3, lift=K)
@@ -405,6 +409,7 @@ def guess_hp(data, A, order=-1, degree=-1, lift=None, cut=25, ensure=0, infoleve
 
     EXAMPLES::
 
+      sage: from ore_algebra import *
       sage: K = GF(1091); R.<x> = K['x']; 
       sage: data = [binomial(2*n, n)*fibonacci(n)^3 for n in xrange(2000)]
       sage: guess_hp(data, OreAlgebra(R, 'Dx'), order=4, degree=4, lift=K)
@@ -518,6 +523,22 @@ def _guess_via_hom(data, A, modulus, to_hom, **kwargs):
     nn = 0; path = []; ncpus = 1
     return_short_path = kwargs.has_key('return_short_path') and kwargs['return_short_path'] is True
 
+    def op2vec(L, r, d):
+        # convert an operator L of order <=r and degree <=d to a vector of dimension (r+1)*(d+1).
+        c = []
+        for i in range(r + 1):
+            p = L[i]
+            for j in range(d + 1):
+                c.append(p[j])
+        return vector(K, c)
+
+    def vec2op(v, r, d):
+        # convert a vector of dimension (r+1)*(d+1) into an operator of order <=r and degree <=d.
+        c = []
+        for i in range(r + 1):
+            c.append(R([v[(d + 1)*i + j] for j in range(d + 1)]))
+        return A(c)
+
     while mod != 0:
 
         nn += 1 # iteration counter
@@ -574,6 +595,7 @@ def _guess_via_hom(data, A, modulus, to_hom, **kwargs):
                 else:
                     qq = hom(qq[1])
                     Lp = guess(data_mod, OreAlgebra(hom(K.one()).parent()[x], (A.var(), {x:qq*x}, {}), q=qq), **kwargs)
+
                 if type(Lp) is tuple and len(Lp) == 2:  ## this implies nn < 3  
                     Lp, path = Lp
                     kwargs['path'] = path
@@ -582,11 +604,13 @@ def _guess_via_hom(data, A, modulus, to_hom, **kwargs):
 
             if len(imgs) == 1:
                 Lp, p = imgs[0]
+                r = Lp.order(); d = Lp.degree()
             else:
                 Lp = A.zero(); p = K.one()
                 for (Lpp, pp) in imgs:
                     try:
-                        Lp, p = _merge_homomorphic_images(Lp, p, Lpp, pp, reconstruct=False)
+                        Lp, p = _merge_homomorphic_images(op2vec(Lp, r, d), p, op2vec(Lpp, r, d), pp, reconstruct=False)
+                        Lp = vec2op(Lp, r, d)
                     except:
                         info(2, "unlucky modulus " + str(pp) + " discarded")
 
@@ -601,12 +625,14 @@ def _guess_via_hom(data, A, modulus, to_hom, **kwargs):
             for (pp, alg, Lpp) in out:
                 Lpp = alg(Lpp)
                 try:
-                    Lp, p = _merge_homomorphic_images(Lp, p, Lpp, pp, reconstruct=False)
+                    Lp, p = _merge_homomorphic_images(op2vec(Lp, r, d), p, vec2op(Lpp, r, d), pp, reconstruct=False)
+                    Lp = vec2op(Lp, r, d)
                 except:
                     info(2, "unlucky modulus " + str(pp) + " discarded")
 
         if nn == 1:
-            info(2, "solution of order " + str(Lp.order()) + " and degree " + str(Lp.degree()) + " predicted")
+            r = Lp.order(); d = Lp.degree()
+            info(2, "solution of order " + str(r) + " and degree " + str(d) + " predicted")
 
         elif nn == 2 and kwargs.has_key('ncpus') and kwargs['ncpus'] > 1:
             info(2, "Switching to multiprocessor code.")
@@ -633,9 +659,10 @@ def _guess_via_hom(data, A, modulus, to_hom, **kwargs):
                         order_adjustment = Lp.order() // ZZ(2)
                     Lp = Lp.map_coefficients(lambda p: s(p, -order_adjustment))
                 except:
-                    L = A.zero(); mod = ZZ.zero(); order_adjustment = 0
+                    L = A.zero(); mod = K.one() if atomic else ZZ.one(); order_adjustment = 0
 
-            L, mod = _merge_homomorphic_images(L, mod, Lp, p)
+            L, mod = _merge_homomorphic_images(op2vec(L, r, d), mod, op2vec(Lp, r, d), p)
+            L = vec2op(L, r, d)
 
     if order_adjustment > 0:
         s = L.parent().sigma()
@@ -827,19 +854,19 @@ def _linear_polys(x, init=7, bound=None):
 
 ###########################################################################################
 
-def _merge_homomorphic_images(L, mod, Lp, p, reconstruct=True):
+def _merge_homomorphic_images(v, mod, vp, p, reconstruct=True):
     """
     Interpolation or chinese remaindering on the coefficients of operators.
 
     INPUT:
 
-    - ``L`` -- an operator in R[x][X]
+    - ``v`` -- a vector over R
     - ``mod`` -- an element of R such that there is some hypothetical
-      operator in R[x][X] of which ``L`` can be obtained by taking its
+      vector over of which ``v`` can be obtained by taking its
       coefficients mod ``mod``.
-    - ``Lp`` -- an operator in r[x][X]
-    - ``p`` -- an element of R such that the hypothetical operator
-      gives `Lp` when its coeffs are reduced mod ``p``.
+    - ``vp`` -- an vector over r
+    - ``p`` -- an element of R such that the hypothetical vector
+      gives `vp` when its coeffs are reduced mod ``p``.
     - ``reconstruct`` (default: ``True``) -- if set to ``False``, only 
       do Chinese remaindering, but no rational reconstruction.       
 
@@ -847,39 +874,40 @@ def _merge_homomorphic_images(L, mod, Lp, p, reconstruct=True):
 
     A pair `(M, m)` where
 
-    - `M` is in R[x][X] and obtained from `L` and `Lp`
+    - `M` is a vector over R and obtained from `L` and `Lp`
       by chinese remindering or interpolation, possibly followed by rational
       reconstruction.
     - `m` is either `mod*p` or `0`, depending on whether rational reconstruction
       succeeded.
 
-    If `L` is the zero operator, the method returns ``(Lp, p)``. Otherwise, if
-    orders and degrees of `L` and `Lp` don't match, an exception is raised. 
+    If `v` is the zero vector, the method returns ``(Lp, p)``. Otherwise, if
+    the dimensions of `v` and `vp` don't match, an exception is raised. An 
+    exception is also raised if `vp` is zero. 
 
     Possible ground rings:
 
-    - R=ZZ, r=GF(p). The method will apply chinese remaindering on the coefficients. 
-    - R=ZZ[q], r=GF(p)[q]. The method will apply chinese remaindering on the coefficients of the coefficients. 
-    - R=GF(p)[q], r=GF(p)[q]. The method will apply interpolation on the coefficients.
+    - R=ZZ, r=GF(p). The method will apply chinese remaindering 
+    - R=ZZ[q], r=GF(p)[q]. The method will apply chinese remaindering on the coefficients 
+    - R=GF(p)[q], r=GF(p)[q]. The method will apply interpolation 
 
     """
 
-    B = L.base_ring().base_ring()
+    B = v.base_ring()
     R = mod.parent()
-    r = Lp.base_ring().base_ring()
-    if r is not R:
-        Lp = Lp.change_ring(L.base_ring())
+    r = vp.base_ring()
+    if r is not B:
+        vp = vp.change_ring(B)
 
     atomic = (B is ZZ) or (B.characteristic() > 0)
     poly = not atomic     
 
     if mod == 0:
-        return L, R.zero()
+        return v, R.zero()
 
-    elif L.is_zero():
-        Lmod, mod = Lp, R(p)
+    elif v.is_zero():
+        vmod, mod = vp, R(p)
 
-    elif (L.order(), L.degree()) != (Lp.order(), Lp.degree()):
+    elif len(v) != len(vp) or vp.is_zero():
         raise ValueError
 
     else:
@@ -890,61 +918,53 @@ def _merge_homomorphic_images(L, mod, Lp, p, reconstruct=True):
             mod = R.base_ring()(mod)
 
         # cra / interpolation
-    
+
         (_, mod0, p0) = p.xgcd(mod)
         mod0 = R(mod0*p); p0 = R(p0*mod)
 
-        coeffs = []
-        
-        for i in xrange(L.order() + 1):
-            cL = L[i]; cLp = Lp[i]; c = []; coeffs.append(c)
-            for j in xrange(max(cL.degree(), cLp.degree()) + 1):
-                c.append(mod0*cL[j] + p0*B(cLp[j]))
+        coords = []
+        for i in xrange(len(v)):
+            coords.append(mod0*v[i] + p0*B(vp[i]))
 
-        Lmod = L.parent()(coeffs)
+        vmod = vector(R, coords)
         mod *= p
 
     if not reconstruct:
-        return Lmod, mod
+        return vmod, mod
 
     # rational reconstruction attempt
-    
+
     if R.characteristic() == 0:
         mod2 = mod // ZZ(2)
         adjust = lambda c : ((c + mod2) % mod) - mod2 
     else:
         if mod.degree() <= 5: # require at least 5 evaluation points
-            return Lmod, mod        
+            return vmod, mod        
         adjust = lambda c : c % mod
 
-    coeffs = Lmod.coeffs()
+    coords = list(vmod)
 
     try:
         d = R.one()
-        for i in xrange(len(coeffs), 0, -1):
-            c = coeffs[i - 1]
-            for j in xrange(c.degree(), -1, -1):
-                if poly:
-                    cc = c[j]
-                    for l in xrange(cc.degree(), -1, -1): 
-                        d *= _rat_recon(d*cc[l], mod)[1]
-                else:
-                    d *= _rat_recon(d*c[j], mod)[1]
+        for i in xrange(len(coords) - 1, -1, -1):
+            c = coords[i]
+            if poly:
+                for l in xrange(c.degree(), -1, -1): 
+                    d *= _rat_recon(d*c[l], mod)[1]
+            else:
+                d *= _rat_recon(d*c, mod)[1]
     except (ArithmeticError, ValueError):
-        return Lmod, mod # reconstruction failed
+        return vmod, mod # reconstruction failed
 
     # rat recon succeeded, the common denominator is d. clear it and normalize numerators.
 
-    for i in xrange(len(coeffs)):
-        c = d*coeffs[i]
+    for i in xrange(len(coords)):
+        c = d*coords[i]
         if adjust is not None:
-            if poly:
-                c = c.parent()([ cc.map_coefficients(adjust) for cc in c.coeffs() ])
-            else:
-                c = c.map_coefficients(adjust)
-        coeffs[i] = c
+            c = c.map_coefficients(adjust) if poly else adjust(c)
+        coords[i] = c
 
-    return L.parent()(coeffs), R.zero()
+    return v.parent()(coords), R.zero()
 
 ###########################################################################################
 
@@ -1025,3 +1045,418 @@ def _rat_recon(a, m, u=None):
 
 ###########################################################################################
 
+_ff_cache = dict()
+def _ff_factory(domain):
+    characteristic = domain.characteristic() # that's the only information that matters here
+    try:
+        return _ff_cache[characteristic]
+    except:
+        characteristic = int(characteristic)
+        c = dict()
+        if characteristic == 0: 
+            one = ZZ.one()
+            def ff(u, v): ## computation in ZZ; first argument must be integer too!
+                try:
+                    return c[u, v]
+                except:
+                    if v == 0:
+                        return one
+                    else:
+                        cc = ZZ(u*ff(u - 1, v - 1))
+                        c[u, v] = cc
+                        return cc
+        else:                
+            def ff(u, v): ## computations with Python integers
+                try:
+                    return c[u, v]
+                except:
+                    if v == 0:
+                        return 1
+                    else:
+                        cc = int((int(u)*ff(u - 1, v - 1)) % characteristic)
+                        c[u, v] = cc
+                        return cc
+        _ff_cache[characteristic] = ff
+        return ff
+
+_power_cache = dict()
+def _power_factory(domain):
+    try:
+        return _power_cache[domain]
+    except:
+        c = dict()
+        domain = domain.fraction_field()
+        if domain.characteristic() > 0: 
+            characteristic = domain.characteristic()
+            def power(u, v): # using Python integers
+                try:
+                    return c[u, v]
+                except:
+                    if v == 0:
+                        return 1
+                    elif v < 0:
+                        return int(~(GF(characteristic)(power(u, -v))))
+                    else:
+                        cc = (int(u)*power(u, v - 1)) % characteristic
+                        c[u, v] = cc
+                        return cc
+        else:
+            one = domain.one()
+            def power(u, v): # using the actual domain (because u might contain q)
+                try:
+                    return c[u, v]
+                except:
+                    if v == 0:
+                        return one
+                    elif v < 0:
+                        return ~domain(power(u, -v))
+                    else:
+                        cc = domain(u)*power(u, v - 1)
+                        c[u, v] = cc
+                        return cc
+        _power_cache[domain] = power
+        return power    
+
+###########################################################################################
+
+def guess_mult(data, algebra, **kwargs):
+    """
+    Searches for elements of the algebra which annihilates the given data.
+
+    INPUT:
+
+    - ``data`` -- a nested list of elements of the algebra's base ring's base ring `K` (or at least
+      of objects which can be casted into this ring). 
+      The depth of the nesting must match the number of generators of the algebra.
+    - ``algebra`` -- an Ore algebra over a polynomial ring all of whose generators are
+      the standard derivation, the standard shift, or a q-shift. 
+
+    Optional arguments: 
+
+    - ``cut`` -- if `N` is the minimum number of terms needed for some particular
+      choice of order and degree, and if ``len(data)`` is more than ``N+cut``,
+      use ``data[:N+cut]`` instead of ``data``. This must be a nonnegative integer
+      or ``None``. Default: 100.
+    - ``ensure`` -- if `N` is the minimum number of terms needed for some particular
+      choice of order and degree, and if ``len(data)`` is less than ``N+ensure``,
+      raise an error. This must be a nonnegative integer. Default: 0.
+    - ``order`` -- maximum degree of the algebra generators in the sought operators. 
+      Alternatively: a list or tuple specifying individual degree bounds for each 
+      generator of the algebra. Default: 2
+    - ``degree`` -- maximum total degree of the polynomial coefficients in the sought 
+      operators. Default: 3
+    - ``point_filter`` -- a callable such that index tuples of data array for which 
+      the callable returns 'False' will not be used. Default: None (everything allowed).
+    - ``term_filter`` -- a callable such that operators containing power products of 
+      the algebra generators for which the callable returns 'False' are excluded.
+      Default: None (everything allowed).
+    - ``solver`` -- function to be used for computing the right kernel of a matrix
+      with elements in `K`. 
+    - ``infolevel`` -- an integer specifying the level of details of progress
+      reports during the calculation. 
+
+    OUTPUT:
+
+    - The left ideal of ``algebra`` generated by all the operators of the specified order and degree
+      that annihilate the given ``data``. It may be the zero ideal. 
+
+    .. NOTE::
+
+    - This method is designed to find equations for D-finite objects. It may exhibit strange
+      behaviour for objects which are holonomic but not D-finite. 
+
+    EXAMPLES::
+
+      sage: from ore_algebra import *
+      sage: data = [[binomial(n,k) for n in range(10)] for k in range(10)]
+      sage: guess_mult(data, OreAlgebra(ZZ['n','k'], 'Sn', 'Sk'), order=1, degree=0)
+      Left Ideal (Sn*Sk - Sn - 1) of Multivariate Ore algebra in Sn, Sk over Multivariate Polynomial Ring in n, k over Integer Ring
+      sage: guess_mult(data, OreAlgebra(ZZ['x','y'], 'Dx', 'Dy'), order=1, degree=1)
+      Left Ideal ((x + 1)*Dx + (-y)*Dy) of Multivariate Ore algebra in Dx, Dy over Multivariate Polynomial Ring in x, y over Integer Ring
+      sage: guess_mult(data, OreAlgebra(ZZ['n','y'], 'Sn', 'Dy'), order=1, degree=1)
+      Left Ideal ((-y + 1)*Sn*Dy - Sn + (-y)*Dy - 1, (-n - 1)*Sn + y*Dy - n, (-y + 1)*Sn - y) of Multivariate Ore algebra in Sn, Dy over Multivariate Polynomial Ring in n, y over Integer Ring
+      sage: guess_mult(data, OreAlgebra(ZZ['x','k'], 'Dx', 'Sk'), order=1, degree=1)
+      Left Ideal (Dx*Sk + (-x - 1)*Dx - 1, x*Dx*Sk + (x + 1)*Dx + (-k)*Sk - x, (x + 1)*Dx - k, (x + 1)*Dx*Sk + (-k - 1)*Sk) of Multivariate Ore algebra in Dx, Sk over Multivariate Polynomial Ring in x, k over Integer Ring
+
+    """
+
+    infolevel = kwargs.setdefault('infolevel', 0)
+    def info(bound, msg):
+        if bound <= infolevel:
+            print msg
+
+    # 1. extract configuration from options and check input for plausibility
+    l = data; dims = []
+    while type(l) in (list, tuple):
+        dims.append(len(l))
+        l = l[0]
+    dim = len(dims)
+    range_dim = range(dim)
+
+    deg = kwargs.setdefault('degree', 3)
+    ord = kwargs.setdefault('order', 2)
+    if ord in ZZ: 
+        ord = [ord for i in range_dim]
+    assert(dim == len(ord))
+
+    gens = list(algebra.gens()); vars = algebra.base_ring().gens(); assert(dim == len(vars) == len(gens))
+
+    info(1, datetime.today().ctime() + ": multivariate guessing started.")
+    info(1, "dim(data)=" + str(dim) + ", algebra=" + str(algebra._latex_()))
+
+    # 2. prepare polynomial terms, operator terms (structure set), and all terms
+    from itertools import combinations_with_replacement, product
+    pol_terms = [tuple(0 for i in range_dim)] # exponent vector (0,...,0)
+    for d in xrange(1, deg + 1): # create exponent vectors for terms of total degree d
+        for p in combinations_with_replacement(vars, d): 
+            pol_terms.append( tuple(p.count(x) for x in vars) )
+
+    op_terms = []
+    f = kwargs.setdefault('term_filter', lambda x: True)
+    for o in apply(product, [range(ord[i] + 1) for i in range_dim]):
+        if f(o) or f(prod(gens[i]**o[i] for i in range_dim)):
+            op_terms.append(o)
+
+    terms = [(p, o) for o in op_terms for p in pol_terms]
+    info(1, str(len(terms)) + " terms.")
+
+    offset = [0]*dim # left offset needed in the index space
+    A = [] # A(n,u,v)
+    B = [] # B(n,u,v)
+    ## e.g.: [x^n] x^u D^v sum(a[n]x^n, n=0..infty) = power(*A(n,u,v)) * a[B(n,u,v)]
+    ##        n^u S^v a[n] = power(*A(n,u,v)) a[B[n,u,v]]
+
+    for i in range_dim:
+        if algebra.is_D(i):
+            offset[i] = -ord[i]; A.append(lambda n, u, v: (n - u + v, v)); B.append(lambda n, u, v: n - u + v)
+        elif algebra.is_S(i):
+            A.append(lambda n, u, v: (n, u)); B.append(lambda n, u, v: n + v)
+        elif algebra.is_Q(i):
+            _, q = algebra.is_Q(i); A.append(lambda n, u, v: (q, n*u)); B.append(lambda n, u, v: n + v)
+        else:
+            raise TypeError, "unexpected algebra generator: " + str(gens[i])
+
+    # 3. prepare evaluation points
+    f = kwargs.setdefault('point_filter', lambda *x: True)
+    points = [p for p in apply(product, [range(offset[i], dims[i] - ord[i]) for i in range_dim]) if f(*p)]
+    info(1, str(len(points)) + " points.")
+
+    cut = kwargs.setdefault("cut", 100)
+    if cut is not None and len(points) > len(terms) + cut:
+        points = points[:len(terms) + cut]
+        info(1, "keeping " + str(len(points)) + " points.")
+    else:
+        info(1, "keeping all " + str(len(points)) + " points.")
+
+    if len(terms) + kwargs.setdefault("ensure", 0) >= len(points):
+        raise ValueError, "not enough data"    
+
+    C = algebra.base_ring().base_ring().fraction_field() ### constant field 
+
+    if C.characteristic() in Primes() and C is GF(C.characteristic()): ### constant field is GF(p) --> raw guessing
+
+        power = []
+        for i in range_dim:
+            if algebra.is_D(i):
+                power.append(_ff_factory(C)); 
+            elif algebra.is_S(i):
+                power.append(_power_factory(C))
+            elif algebra.is_Q(i):
+                power.append(_power_factory(C))
+
+        sol = guess_mult_raw(C, data, terms, points, power, A, B, **kwargs)
+
+    elif C is QQ or is_PolynomialRing(C.base()) and len(C.base().gens()) == 1 and C.base_ring() is GF(C.characteristic()): 
+        ### C == QQ or C == GF(p)(t) --> plain chinese remaindering (resp interpolation) plus rational reconstruction
+
+        modulus_generator = _word_size_primes() if C is QQ else _linear_polys(C.base().gen(), 7, C.characteristic())
+        to_hom = ( lambda mod : GF(mod) ) if C is QQ else ( lambda mod : (lambda pol: C(pol)(-mod[0])) )
+        R = ZZ if C is QQ else C.base()
+        mod = [R.one()]
+        sol = None
+        power = [None]*dim
+        imgs = []
+        kwargs['infolevel'] = infolevel - 2 
+
+        while not all(m.is_zero() for m in mod):
+
+            p = modulus_generator.next()
+            info(1, "modulus = " + str(p))
+            C_mod = GF(p) if C is QQ else C.base_ring()
+            phi = to_hom(p)
+            
+            for i in range_dim:
+                if algebra.is_D(i):
+                    power[i] = _ff_factory(C_mod)
+                elif algebra.is_S(i):
+                    power[i] = _power_factory(C_mod)
+                elif algebra.is_Q(i):
+                    _, q = algebra.is_Q(i); A[i] = lambda n, u, v: (phi(q), n*u)
+                    power[i] = _power_factory(C_mod)
+
+            ## compute modular image 
+            kwargs['phi'] = phi
+            solp = guess_mult_raw(C_mod, data, terms, points, power, A, B, **kwargs)
+            del kwargs['phi']
+
+            if sol is None: ## initialization
+
+                ## early termination check
+                if len(solp) == 0:
+                    info(1, datetime.today().ctime() + " : multivariate guessing completed by early termination.")
+                    return algebra.ideal([])
+                
+                ## extract support of solutions
+                for i in xrange(len(terms)):
+                    if all(v[i].is_zero() for v in solp):
+                        terms[i] = None
+
+                sol = [[] for i in range(len(solp))]
+                new_terms = []
+                for i in xrange(len(terms)):
+                    if terms[i] is not None:
+                        new_terms.append(terms[i])
+                        for j in range(len(solp)):
+                            sol[j].append(R(solp[j][i]))
+                terms = new_terms
+                sol = [vector(R, s) for s in sol]
+                mod = [p]*len(sol)
+
+                if cut is not None and len(points) > len(terms) + cut:
+                    points = points[:len(terms) + cut]
+
+            else: ## subsequent iterations
+
+                try: ## save
+                    imgs[imgs.index(None)] = ([vector(R, s) for s in solp], p)
+                except: ## merge, merge, and reconstruct
+
+                    p = [p]*len(solp); solp = [vector(R, s) for s in solp]
+                    for (solpp, pp) in imgs:
+                        for i in range(len(solp)):
+                            try:
+                                solp[i], p[i] = _merge_homomorphic_images(solp[i], p[i], solpp[i], pp, reconstruct=False)
+                            except:
+                                info(2, "unlucky modulus " + str(pp) + " discarded")
+
+                    imgs = [None]*(len(imgs) + 1)
+
+                    for i in range(len(sol)):
+                        try:
+                            # if all mod[i] are zero in the end, this will terminate the while loop
+                            sol[i], mod[i] = _merge_homomorphic_images(sol[i], mod[i], solp[i], p[i], reconstruct=True)
+                        except:
+                            info(2, "unlucky modulus " + str(p[i]) + " discarded")
+
+    elif C.base_ring().fraction_field() is QQ and is_PolynomialRing(C.base()) and len(C.base().gens()) == 1:
+        ### C = QQ(t)
+
+        raise NotImplementedError 
+        
+    else: 
+        raise NotImplementedError, "unexpected constant domain"
+        
+    info(1, datetime.today().ctime() + " : " + str(len(sol)) + " solutions.")
+
+    if kwargs.setdefault('_return_raw_vectors', False):
+        return sol
+
+    # 5. convert to operators
+    basis = []; 
+    R = algebra.base_ring(); C = R.base_ring().fraction_field().base(); R1 = PolynomialRing(C.fraction_field(), R.gens())
+    for v in sol:
+        coeffs = dict( (o, dict()) for o in op_terms )
+        d = C.one()
+        for i in xrange(len(terms)):
+            coeffs[terms[i][1]][terms[i][0]] = v[i]
+            try:
+                d = lcm(d, C(v[i].denominator()))
+            except:
+                pass
+        for o in op_terms:
+            coeffs[o] = R(d*R1(coeffs[o]))
+        basis.append(algebra(coeffs))
+
+    info(1, datetime.today().ctime() + " : multivariate guessing completed.")
+    return algebra.ideal(basis)
+
+def guess_mult_raw(C, data, terms, points, power, A, B, **kwargs):
+    """
+    Low-level multivariate guessing function. Do not call this method unless you know what you are doing.
+    In most situations, you will want to call the function `guess` instead.
+    
+    INPUT:
+
+    - `data` -- a nested list of elements of C
+    - `terms` -- a list of pairs of tuples (u, v) specifying exponent vectors u, v representing terms x^u D^v
+    - `points` -- a list of tuples specifying indices of the data array
+    - `power` -- a list of functions f mapping triples (n, u, v) of nonnegative integers to elements of C
+    - `A` -- a list of functions mapping triples (n, u, v) to integers
+    - `B` -- a list of functions mapping triples (n, u, v) to integers
+
+    OUTPUT:
+    
+    A list of vectors generating the space of all vectors in C^len(terms) for which 
+    all(sum(prod(f[i][A[i][n[i],u[i],v[i]]]*a[B[i][n[i],u[i],v[i]]] for i in range(len(A))) 
+    for (u,v) in terms) == 0 for n in points)
+
+    SIDE EFFECT: 
+
+    Elements of the list `points` which lead to a zero equation will be discarded.
+    """
+
+    infolevel = kwargs.setdefault('infolevel', 0)
+    def info(bound, msg):
+        if bound <= infolevel:
+            print msg
+
+    phi = kwargs.setdefault('phi', lambda x: x)
+    C = C.fraction_field()
+    mat = []
+    info(1, datetime.today().ctime() + " : setting up modular system...")
+    monomial_cache = dict()
+    range_dim = range(len(A))
+
+    for k, n in enumerate(points):
+
+        row = []
+        for u, v in terms:
+
+            idx = tuple(B[i](n[i], u[i], v[i]) for i in range_dim)
+            if min(idx) < 0:
+                row.append(phi(C.zero()))
+            else:
+                exp = tuple(A[i](n[i], u[i], v[i]) for i in range_dim)
+                d = data
+                try:
+                    factor = monomial_cache[exp]
+                    for i in idx: 
+                        d = d[i]
+                except KeyError:
+                    factor = phi(C.one())
+                    for p, i, e in zip(*(power, idx, exp)):
+                        d = d[i]
+                        factor *= p(e[0], e[1])
+                    monomial_cache[exp] = factor
+                row.append(phi(d) * factor)
+
+        if all(e.is_zero() for e in row):
+            points[k] = None
+        else:
+            mat.append(row)
+
+    try:
+        while True:
+            points.remove(None) # in place
+    except ValueError:
+        pass
+
+    monomial_cache.clear()
+    if len(terms) + kwargs.setdefault('ensure') >= len(mat):
+        raise ValueError, "not enough data, or too many zeros"
+
+    info(1, datetime.today().ctime() + " : solving modular system...")
+    sol = MatrixSpace(C, len(points), len(terms))(mat).right_kernel().basis()
+
+    info(1, datetime.today().ctime() + " : " + str(len(sol)) + " solutions detected.")
+    return sol

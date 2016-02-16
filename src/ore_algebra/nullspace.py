@@ -176,7 +176,7 @@ testsuite
 
 from sage.rings.arith import previous_prime as pp
 from sage.rings.arith import CRT_basis, xgcd, gcd, lcm
-from sage.misc.misc import prod
+from sage.misc.all import prod
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 from sage.rings.fraction_field import FractionField
 from sage.rings.integer_ring import ZZ
@@ -210,12 +210,18 @@ def heuristic_row_content(row, ring):
     if n == 0:
         return ring.zero()
     elif n <= 5:
-        return gcd(row)
+        try:
+            return gcd(row)
+        except:
+            return ring.one()
 
     degrees = [p.degree() for p in row]
 
     if sum(degrees) < 100*n:
-        return gcd(row)
+        try:
+            return gcd(row)
+        except:
+            return ring.one()
 
     # taking gcd of least-degree element, the second-least-element element,
     # the sum of elements at odd indices, and the sum of the other elements
@@ -227,11 +233,12 @@ def heuristic_row_content(row, ring):
             m2, d2 = row[i], degrees[i]
             if d2 < d1:
                 m1, m2, d1, d2 = m2, m1, d2, d1
-    
-    g = gcd([m1, m2, sum(row[i] for i in xrange(n) if i%2==0),
-                sum(row[i] for i in xrange(n) if i%2==1)])
-    
-    return g
+
+    try:
+        return gcd([m1, m2, sum(row[i] for i in xrange(n) if i%2==0),
+                 sum(row[i] for i in xrange(n) if i%2==1)])
+    except:
+        return ring.one()
 
 ### good pivot selection strategy:
 #  1. measure nz_fillin by rows^EXPONENT*cols
@@ -450,9 +457,7 @@ def sage_native(mat, degrees=[], infolevel=0):
     
     - a list of vectors that form a basis of the right kernel of ``mat``
 
-    EXAMPLES:
-
-    ::
+    EXAMPLES::
 
        sage: A = MatrixSpace(GF(1093)['x'], 4, 7).random_element(degree=3)
        sage: V = sage_native(A)
@@ -492,9 +497,7 @@ def gauss(pivot=_pivot, ncpus=1, fun=None):
 
     - A solver based on fraction free gaussian elimination.
 
-    EXAMPLES:
-
-    ::
+    EXAMPLES::
 
        sage: A = MatrixSpace(GF(1093)['x'], 4, 7).random_element(degree=3)
        sage: my_solver = gauss()
@@ -560,10 +563,13 @@ def _gauss(pivot, ncpus, fun, mat, degrees, infolevel):
         for i in xrange(r + 1, n):
             if mat[i][c] != zero:
                 affected_rows.append(i); matr = mat[r]; piv = matr[c]; mati = mat[i]; elim = mati[c]
-                g = gcd(piv, elim)
-                if g != one:
-                    piv //= g; elim //= g
-                del g
+                try: 
+                    g = gcd(piv, elim)
+                    if g != one:
+                        piv //= g; elim //= g
+                    del g
+                except:
+                    pass
                 for j in xrange(c + 1, m):
                     mati[j] = (piv*mati[j] - elim*matr[j])
                 mati[c] = zero
@@ -597,7 +603,7 @@ def _gauss(pivot, ncpus, fun, mat, degrees, infolevel):
 
     _info(infolevel, "Constructing", dim, "nullspace basis vectors.", alter = -1)
 
-    sol = [[ zero for i in xrange(m) ] for  j in xrange(dim) ]
+    sol = [[ zero for i in xrange(m) ] for j in xrange(dim) ]
     for i in xrange(dim):
         sol[-i-1][-i-1] = one
 
@@ -611,10 +617,13 @@ def _gauss(pivot, ncpus, fun, mat, degrees, infolevel):
                 continue
             den = mati[i] 
             # now solj[i] = num/den, but we do it without rational functions
-            g = gcd(num, den)
-            if g != one:
-                num //= g; den //= g
-            del g
+            try:
+                g = gcd(num, den)
+                if g != one:
+                    num //= g; den //= g
+                del g
+            except:
+                pass
             if den == -one:
                 den = one; num = -num
             if den != one:
@@ -651,9 +660,7 @@ def hermite(early_termination=True):
 
     - A solver based on Hermite-Pade approximation
 
-    EXAMPLES:
-
-    ::
+    EXAMPLES::
 
        sage: A = MatrixSpace(GF(1093)['x'], 4, 7).random_element(degree=3)
        sage: my_solver = hermite()
@@ -805,7 +812,7 @@ def _hermite_rec(early_termination, R, A, cut, offset, infolevel):
     if cut <= 64:
         # B = low degree coeffs of A.
         _info(infolevel, "base case: switching to direct method.")
-        B = [ [ A[i,j].coeffs()[:cut] for j in xrange(A.ncols()) ] for i in xrange(A.nrows()) ]
+        B = [ [ A[i,j].coefficients(sparse=False)[:cut] for j in xrange(A.ncols()) ] for i in xrange(A.nrows()) ]
         z = R.base_ring().zero()
         for row in B:
             for pol in row:
@@ -853,9 +860,7 @@ def kronecker(subsolver, presolver=None):
       matrices with entries in `GF(p)[x]` to determine the degrees. In this case if `K` is not
       a prime field, its elements must allow for coercion to prime field elements.
 
-    EXAMPLE:
-
-    ::
+    EXAMPLES::
 
        sage: A = MatrixSpace(GF(1093)['x','y'], 4, 7).random_element(degree=3)
        sage: mysolver = kronecker(gauss())
@@ -895,7 +900,7 @@ def _kronecker(subsolver, presolver, mat, degrees, infolevel):
     if not R == PolynomialRing(K, x):
         raise TypeError 
     
-    # 1. for each variable (except the last), determine the maximal degree of the nullspace basis
+    # 1. for each variable, determine the maximal degree of the nullspace basis
     Kimg = GF(pp(MAX_MODULUS)) if K.characteristic() == 0 else K
     Rimg = Kimg[x0]
     if len(degrees) < len(x) - 1:
@@ -928,6 +933,7 @@ def _kronecker(subsolver, presolver, mat, degrees, infolevel):
         return Rimg(terms)
     
     # 3. subsolver in k[x]
+    from sage.misc.all import prod
     sol = subsolver(mat.apply_map(phi, Rimg), degrees=[prod(degrees)], infolevel=_alter_infolevel(infolevel, -1, 1))
 
     # 4. undo kronecker substitution x^u |--> prod(x[i]^(u quo degprod[i-1] rem deg[i]), i=0..len(x))
@@ -935,7 +941,7 @@ def _kronecker(subsolver, presolver, mat, degrees, infolevel):
     unshift = {x[0] : R(x[0] + 5556)}
     def unphi(p):
         exp = [0 for i in xrange(len(x))]; d = {}
-        for c in p.coeffs():
+        for c in p.coefficients(sparse=False):
             if c != z:
                 d[tuple(exp)] = c
             exp[0] += 1
@@ -977,9 +983,7 @@ def lagrange(subsolver, start_point=10, ncpus=1):
     - a solver for matrices with entries in `K[x]` or `K(x)` where K is some field such that the
       given ``subsolver`` can solve matrices with entries in `K`.
 
-    EXAMPLE:
-
-    ::
+    EXAMPLES::
 
        sage: A = MatrixSpace(GF(1093)['x'], 4, 7).random_element(degree=3)
        sage: my_solver = lagrange(sage_native)
@@ -1196,17 +1200,12 @@ def galois(subsolver, max_modulus=MAX_MODULUS, proof=False):
     - a solver for matrices with entries in `QQ(\alpha)[x,...]` based on a ``subsolver`` for matrices with
       entries in `GF(p)[x,...]`.
 
-    EXAMPLES:
-
-    ::
+    EXAMPLES::
 
        sage: R.<x> = QQ['x']
        sage: K.<a> = NumberField(x^3-2, 'a')
        sage: A = MatrixSpace(K['x'], 4, 5).random_element(degree=3)
        sage: my_solver = galois(gauss())
-       sage: ##V = my_solver(A) 
-       sage: ##A*V[0]
-       ##(0, 0, 0, 0)
 
     ALGORITHM:
 
@@ -1222,7 +1221,7 @@ def galois(subsolver, max_modulus=MAX_MODULUS, proof=False):
     #. If this solution candidate is correct, return it and stop. If ``proof`` is set to ``True``, this check
        is performed rigorously, otherwise (default) only modulo some new prime.
     #. If the solution candidate is not correct, consider some more primes and try again.
-
+    
     """
     def galois_solver(mat, degrees=[], infolevel=0):
         """See docstring of galois() for further information."""
@@ -1230,7 +1229,7 @@ def galois(subsolver, max_modulus=MAX_MODULUS, proof=False):
     return galois_solver
 
 def _galois(subsolver, max_modulus, proof, mat, degrees, infolevel):
-    raise NotImplementedError    
+    raise NotImplementedError
 
 def cra(subsolver, max_modulus=MAX_MODULUS, proof=False, ncpus=1):
     r"""
@@ -1253,13 +1252,11 @@ def cra(subsolver, max_modulus=MAX_MODULUS, proof=False, ncpus=1):
     - a solver for matrices with entries in `K[x,...]` based on a ``subsolver`` for matrices with
       entries in `GF(p)[x,...]`.
 
-    EXAMPLES:
-
-    ::
+    EXAMPLES::
 
        sage: A = MatrixSpace(ZZ['x', 'y'], 4, 7).random_element(degree=3)
        sage: my_solver = cra(kronecker(gauss()))
-       sage: V = my_solver(A)
+       sage: V = my_solver(A) ## fails in sage 6.8 because (GF(3037000453)['x','y'].zero()).degree(GF(3037000453)['x','y'].gen(0))
        sage: A*V[0]
        (0, 0, 0, 0)
 
@@ -1345,7 +1342,7 @@ def _cra(subsolver, max_modulus, proof, ncpus, mat, degrees, infolevel):
             true_degrees = [max(max(e.degree() for e in v) for v in Vp)]
         else:
             true_degrees = [max(max(e.degree(x0) for e in v) for v in Vp) for x0 in x]
-            
+
         if len(degrees) != len(x):
             degrees = [-1 for i in x]
         
@@ -1379,7 +1376,7 @@ def _cra(subsolver, max_modulus, proof, ncpus, mat, degrees, infolevel):
                 for e in v:
                     for c in e.coefficients():
                         d *= (d*c).rational_reconstruction(M).denominator()
-                w = vector(R, [e.map_coefficients( lambda c: ((d*c + m) % M) - m , ZZ ) for e in v ])
+                w = vector(R, [e.map_coefficients( lambda c: ((d*c + m) % M) - m, ZZ ) for e in v ])
                 if (not proof and any(check_mat * vector(check_field, [e.substitute(check_eval) for e in w]))) or \
                        (proof and any(mat * w) ):
                     raise ArithmeticError # more primes needed
@@ -1403,9 +1400,7 @@ def newton(subsolver, inverse=lambda mat:mat.inverse()):
     - a solver for matrices with entries in `K[x]` based on a ``subsolver`` for matrices with
       entries in `K`.
 
-    EXAMPLES:
-
-    ::
+    EXAMPLES::
 
        sage: A = MatrixSpace(GF(1093)['x'], 4, 7).random_element(degree=3)
        sage: my_solver = newton(sage_native)
@@ -1478,11 +1473,11 @@ def _newton(subsolver, inverse, mat, degrees, infolevel):
     while k < bound:
         _info(infolevel, "lifting completed mod ", xk, alter = -1)
         #Ainv -= (Ainv*(A*Ainv).apply_map(lambda p: p.shift(-k))).apply_map(lambda p: (p%xk).shift(k))
-        U = A._mul_(Ainv) # MOST COSTLY STEP
+        U = A*Ainv # MOST COSTLY STEP
         for i in xrange(rank):
             for j in xrange(rank):
                 U[i,j] = U[i,j].shift(-k)
-        U = Ainv._mul_(U) # MOST COSTLY STEP
+        U = Ainv*U # MOST COSTLY STEP
         for i in xrange(rank):
             for j in xrange(rank):
                 Ainv[i,j] -= (U[i,j]%xk).shift(k)        
@@ -1490,7 +1485,7 @@ def _newton(subsolver, inverse, mat, degrees, infolevel):
     _info(infolevel, "lifting completed.", alter = -1)
 
     # solution of the system
-    X = -Ainv._mul_(B)
+    X = -Ainv*B
     
     # put back unit vectors
     zero = R.zero(); one = R.one(); V = [ [zero for i in xrange(m)] for j in xrange(dim) ]
@@ -1529,9 +1524,7 @@ def clear(subsolver):
 
     - a solver for matrices over `FF(R)[x..]` or `FF(R[x..])`
 
-    EXAMPLE:
-
-    ::
+    EXAMPLES::
 
        sage: A = MatrixSpace(ZZ['x'].fraction_field(), 4, 5).random_element()
        sage: my_solver = clear(gauss())
@@ -1597,7 +1590,7 @@ def _clear(subsolver, mat, degrees, infolevel):
             den = newK.one()
             try:
                 for p in row:
-                    for c in p.coeffs():
+                    for c in p.coefficients(sparse=False):
                         den = den.lcm(c.denominator())
             except AttributeError:
                 for p in row:
@@ -1660,17 +1653,15 @@ def _merge(subsolver, mat, degrees, infolevel):
     try: 
 
         R = mat.parent().base_ring()
-
         B = R; field = B.is_field()
         upper_gens = B.gens()
         B = B.base_ring()
         field = field or B.is_field()
         lower_gens = B.gens()
-
         B = PolynomialRing(B.base_ring(), lower_gens + upper_gens)
 
         if field:
-            B = B.fraction_field()
+            B = B.fraction_field() ### Sage 6.8: cast F(ZZ[x])[y] -> F(ZZ[x,y]) no longer works
 
         mat = mat.change_ring(B)
 
@@ -1698,7 +1689,7 @@ def quick_check(subsolver, modsolver=sage_native, modulus=MAX_MODULUS):
     - a solver for matrices over `K[x..]` or `K(x..)` with `K` one of `ZZ`, `QQ`, `GF(p)`, and which
       can be handled by the given subsolver.
 
-    EXAMPLE::
+    EXAMPLES::
 
        sage: A = MatrixSpace(ZZ['x'], 4, 5).random_element()
        sage: my_solver = quick_check(gauss())
@@ -1759,9 +1750,7 @@ def compress(subsolver, presolver=sage_native, modulus=MAX_MODULUS):
 
     - a solver for matrices over `R[x..]`
 
-    EXAMPLE:
-
-    ::
+    EXAMPLES::
 
        sage: A = MatrixSpace(ZZ['x'], 7, 4).random_element()*MatrixSpace(ZZ['x'], 4, 5).random_element()
        sage: my_solver = compress(gauss())
@@ -1865,9 +1854,7 @@ def wiedemann():
 
     - a solver for matrices over `R[x..]`
 
-    EXAMPLE:
-
-    ::
+    EXAMPLES::
 
        sage: A = MatrixSpace(ZZ['x'], 4, 5).random_element()
        sage: my_solver = wiedemann()

@@ -401,7 +401,7 @@ class ContinuousGeneralizedSeries(RingElement):
                 exp = exp.parent()(exp_new) # exp = exp(x^(1/quo))
 
                 p_new = []
-                for c in p.coeffs():
+                for c in p.coefficients(sparse=False):
                     c_new = dict()
                     for e in c.exponents():
                         c_new[int(e/quo)] = c[e]
@@ -814,7 +814,7 @@ class ContinuousGeneralizedSeries(RingElement):
 
         An alternative reference set can be specified as optional argument.
 
-        EXAMPLE::
+        EXAMPLES::
 
           sage: G = GeneralizedSeriesMonoid(QQ, 'x')
           sage: A = G(1+x+x^2, exp=1+x+x^2, ramification=2)
@@ -905,7 +905,7 @@ class ContinuousGeneralizedSeries(RingElement):
         """
         Returns the derivative of ``self``
 
-        EXAMPLE::
+        EXAMPLES::
 
            sage: G = GeneralizedSeriesMonoid(QQ, 'x')
            sage: G(1+x+x^2, exp=1+x+x^2, ramification=2)
@@ -1022,7 +1022,7 @@ class DiscreteGeneralizedSeries(RingElement):
 
         # normalize alpha
         x = PS.gen()
-        diff = min(c.valuation() for c in self.__expansion.coeffs())
+        diff = min(c.valuation() for c in self.__expansion.coefficients(sparse=False))
         if diff != 0:
             self.__alpha -= diff/self.__ramification
             self.__expansion = self.__expansion.map_coefficients(lambda p: p/(x**diff))
@@ -1044,7 +1044,7 @@ class DiscreteGeneralizedSeries(RingElement):
             self.__subexp = self.__subexp.parent()(subexp_new) 
 
             expansion_new = []
-            for c in self.__expansion.coeffs():
+            for c in self.__expansion.coefficients(sparse=False):
                 c_new = dict()
                 for e in c.exponents():
                     c_new[int(e/quo)] = c[e]
