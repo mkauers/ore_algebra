@@ -255,6 +255,11 @@ FundamentalSolution = collections.namedtuple(
     'FundamentalSolution',
     ['valuation', 'log_power', 'value'])
 
+LogSeriesInitialValues = collections.namedtuple(
+    'LogSeriesInitialValues',
+    ['expo', 'shift'] # shift: dict(n -> (c0, ...)))
+)
+
 def sort_key_by_asympt(foo):
     return foo.valuation.real(), -foo.log_power, foo.valuation.imag()
 
@@ -334,13 +339,15 @@ def fundamental_matrix_regular(dop, pt, ring, eps, rows, pplen=0):
                     for log_power in xrange(mult):
                         logger.info("solution z^(%s+%s)·log(z)^%s/%s! + ···",
                                     leftmost, shift, log_power, log_power)
-                        ini = {s: tuple(ring.one()
-                                        if (s, p) == (shift, log_power)
-                                        else ring.zero()
-                                        for p in xrange(m))
-                               for s, m in shifts}
+                        ini = LogSeriesInitialValues(
+                            expo = leftmost,
+                            shift = {s: tuple(ring.one()
+                                              if (s, p) == (shift, log_power)
+                                              else ring.zero()
+                                              for p in xrange(m))
+                                    for s, m in shifts})
                         # XXX: inefficient if shift >> 0
-                        value = series_sum_regular(ring, dop, emb_bwrec, leftmost,
+                        value = series_sum_regular(ring, dop, emb_bwrec,
                                                    ini, Jets([pt, 1]), eps_col, maj)
                         sol = FundamentalSolution(
                             valuation = leftmost + shift,
@@ -370,7 +377,7 @@ def log_series_value(Jets, expo, psum, pt):
 # past singular indices anyway, we can allow for general initial conditions (at
 # roots of the indicial equation belonging to the same shift-equivalence class),
 # not just initial conditions associated to canonical solutions.
-def series_sum_regular(Intervals, dop, bwrec, expo, ini, pt, eps,
+def series_sum_regular(Intervals, dop, bwrec, ini, pt, eps,
         maj, stride=50):
 
     orddeq = dop.order()
@@ -381,7 +388,7 @@ def series_sum_regular(Intervals, dop, bwrec, expo, ini, pt, eps,
     rad = bounds.IC(pt[0]).abs()
     radpow = bounds.IR.one() # XXX: should this be rad^leftmost?
 
-    log_prec = sum(len(v) for v in ini.itervalues()) # ini: dict(n -> (c0, ...))
+    log_prec = sum(len(v) for v in ini.shift.itervalues())
     ordrec = len(bwrec) - 1
     RecJets = utilities.jets(bwrec[0].base_ring(), 'Sk', log_prec)
     last = collections.deque([vector(Intervals, log_prec)
@@ -391,7 +398,7 @@ def series_sum_regular(Intervals, dop, bwrec, expo, ini, pt, eps,
     for n in itertools.count():
         last.rotate(1)
         logger.debug("n=%s, sum=%s", n, psum)
-        mult = len(ini.get(n, ()))
+        mult = len(ini.shift.get(n, ()))
 
         if abs(last[-1][0])*radpow < eps and mult == 0 and n > orddeq and n%stride == 0:
             residual_bound = bounds.bound_residual_with_logs(bwrec, n,
@@ -419,12 +426,12 @@ def series_sum_regular(Intervals, dop, bwrec, expo, ini, pt, eps,
                           for j in xrange(mult + 1, log_prec - p))
             last[0][mult + p] = - ~bwrec_n[0][mult] * combin
         for p in xrange(mult - 1, -1, -1):
-            last[0][p] = ini[n][p]
+            last[0][p] = ini.shift[n][p]
         psum += last[0].change_ring(Jets)*ptpow # suboptimal
         ptpow *= pt
         radpow *= rad
 
-    val = log_series_value(Jets, expo, psum, pt[0])
+    val = log_series_value(Jets, ini.expo, psum, pt[0])
     # TODO: add_error (before or after singular part?)
     return vector(x for x in val)
 
