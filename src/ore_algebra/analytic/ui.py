@@ -66,6 +66,24 @@ Connection to a singular point::
     [ [2.49388...] + [...]*I  [2.40894...] + [...]*I]
     [[-0.20354...] + [...]*I  [0.20437...] + [6.45961...]*I]
 
+The constant factor in the asymptotic expansion of Apéry numbers (compare M. D.
+Hirschhorn, Estimating the Apéry numbers, Fibonacci Quart. 50, 2012, 129--131),
+computed as a connection constant::
+
+    sage: Dops, z, Dz = Diffops("z")
+    sage: dop = (z^2*(z^2-34*z+1)*Dz^3 + 3*z*(2*z^2-51*z+1)*Dz^2
+    ....:       + (7*z^2-112*z+1)*Dz + (z-5))
+    sage: roots = dop.leading_coefficient().roots(AA)
+    sage: roots
+    [(0, 2), (0.02943725152285942?, 1), (33.97056274847714?, 1)]
+    sage: mat = transition_matrix(dop, [0, roots[1][0]], 1e-10); mat
+    [ [4.84605...]   + [...]*I [-3.77845...] + [...]*I [1.47302...]   + [...]*I]
+    [ [...] + [-14.95697...]*I         [...] + [...]*I [...]  + [4.546376...]*I]
+    [ [-59.90069...] + [...]*I [28.70759...] + [...]*I [-18.20762...] + [...]*I]
+    sage: cst = -((1/4)*I)*(1+2^(1/2))^2*2^(3/4)/(pi*(2*2^(1/2)-3))
+    sage: mat[1][2].overlaps(CBF(cst))
+    True
+
 Empty paths are not allowed::
 
     sage: transition_matrix(Dx - 1, path=[])
