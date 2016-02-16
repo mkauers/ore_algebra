@@ -12,10 +12,10 @@ import sage.rings.complex_arb
 from sage.matrix.constructor import identity_matrix, matrix
 from sage.rings.number_field.number_field_element import NumberFieldElement
 
-from . import bounds
+from ore_algebra.analytic import bounds
 
-from .path import Path, OrdinaryPoint, RegularPoint, IrregularSingularPoint, Step
-from .utilities import prec_from_eps
+from ore_algebra.analytic.path import Path, OrdinaryPoint, RegularPoint, IrregularSingularPoint, Step
+from ore_algebra.analytic.utilities import prec_from_eps
 
 logger = logging.getLogger(__name__)
 
