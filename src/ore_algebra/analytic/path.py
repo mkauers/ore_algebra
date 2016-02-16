@@ -72,7 +72,7 @@ class Point(SageObject):
             sage: from ore_algebra.analytic.ui import *
             sage: from ore_algebra.analytic.path import Point
             sage: Dops, x, Dx = Diffops()
-            sage: [Point(z, Dx) 
+            sage: [Point(z, Dx)
             ....:  for z in [1, 1/2, 1+I, QQbar(I), RIF(1/3), CIF(1/3), pi]]
             [1, 1/2, 1 + 1*I, I, [0.333333333333333...], [0.333333333333333...],
             3.141592653589794?]
@@ -357,6 +357,7 @@ class Step(SageObject):
         sage: s2.plot()
         Graphics object consisting of 1 graphics primitive
     """
+
     def __init__(self, start, end):
         if not (isinstance(start, Point) and isinstance(end, Point)):
             raise TypeError
@@ -466,8 +467,8 @@ class Path(SageObject):
     """
     A path in ℂ or on the Riemann surface of some operator.
 
-    Note that any analytic continuation plan is not necessarily a path (we may
-    use a given transition matrix several times after computing it!).
+    Note that paths are not the only potentially interesting analytic
+    continuation plans: we may reuse already computed transition matrices!
 
     EXAMPLES::
 
@@ -630,6 +631,7 @@ class Path(SageObject):
                     interm = QQi([interm.real().mid().exact_rational(),
                                   interm.imag().mid().exact_rational()])
                 new.append(OrdinaryPoint(interm, self.dop))
+                logger.debug("subdividing %s -> %s", cur, next)
         new = Path(new, self.dop)
         return new
 
