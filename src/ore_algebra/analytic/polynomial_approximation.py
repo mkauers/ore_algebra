@@ -1,11 +1,6 @@
 # -*- coding: utf-8 - vim: tw=80
 """
 Rigorous approximation of D-finite functions by polynomials
-
-FIXME: silence deprecation warnings::
-
-    sage: def ignore(*args): pass
-    sage: sage.misc.superseded.warning=ignore
 """
 
 # TODO:

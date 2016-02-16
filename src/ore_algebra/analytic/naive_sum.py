@@ -1,11 +1,6 @@
 # -*- coding: utf-8 - vim: tw=80
 """
 Evaluation of convergent D-finite series by direct summation
-
-FIXME: silence deprecation warnings::
-
-    sage: def ignore(*args): pass
-    sage: sage.misc.superseded.warning=ignore
 """
 
 # TODO:

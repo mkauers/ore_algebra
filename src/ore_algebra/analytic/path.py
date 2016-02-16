@@ -13,11 +13,6 @@ IrregularSingularPoint.
 points as well even when a more specialized version exists. One could have
 QuasiRegularPoints too, but combined with SingularPoints that would make the
 whole thing too complicated.)
-
-FIXME: silence deprecation warnings::
-
-    sage: def ignore(*args): pass
-    sage: sage.misc.superseded.warning=ignore
 """
 
 import logging

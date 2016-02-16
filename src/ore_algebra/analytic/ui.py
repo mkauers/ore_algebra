@@ -5,12 +5,6 @@ Some convenience functions for direct use of the features of this package
 Ultimately, the typical way to use it should be through methods of objects such
 as differential operators and D-finite functions, not through this module!
 
-
-FIXME: silence deprecation warnings::
-
-    sage: def ignore(*args): pass
-    sage: sage.misc.superseded.warning=ignore
-
 EXAMPLES::
 
     sage: from ore_algebra import *
