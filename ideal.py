@@ -19,15 +19,17 @@ import nullspace
 
 from datetime import datetime
 from sage.rings.noncommutative_ideals import *
-from sage.misc.all import prod
+from sage.misc.all import prod, add
 from sage.rings.rational_field import QQ
+from sage.modules.free_module_element import vector
+from sage.matrix.constructor import Matrix, matrix
 
 class OreLeftIdeal(Ideal_nc):
 
     def __init__(self, ring, gens, coerce=True, is_known_to_be_a_groebner_basis=False):
         if not ring.base_ring().is_field():
             ring = ring.change_ring(ring.base_ring().fraction_field())
-        gens = tuple([g.numerator() for g in gens])
+        gens = tuple([ring(g).numerator() for g in gens])
         if is_known_to_be_a_groebner_basis:
             self.__gb = gens        
         Ideal_nc.__init__(self, ring, gens, coerce, "left")
@@ -134,23 +136,23 @@ class OreLeftIdeal(Ideal_nc):
            [3]
            sage: id = A.ideal([Dx + (2*x + 2*y - 1)*Dy - 1, (2*x + 2*y)*Dy^2 + Dy])
            sage: id.multiplication_matrix(Dx)
-           [               1   -2*x - 2*y + 1]
-           [               0 (-1)/(2*x + 2*y)]
+           [               1                0]
+           [  -2*x - 2*y + 1 (-1)/(2*x + 2*y)]
            sage: id.multiplication_matrix(Dy)
-           [               0                1]
-           [               0 (-1)/(2*x + 2*y)]
+           [               0                0]
+           [               1 (-1)/(2*x + 2*y)]
 
            sage: R.<n,k> = ZZ[]
            sage: A.<Sn,Sk> = OreAlgebra(R)
            sage: id = A.ideal([1 + 6*k + 6*n + (10 - 8*k - 8*n)*Sk + (-3 + 2*k + 2*n)*Sk^2 - 4*Sn, 1 - Sk - Sn + Sk*Sn,  1 - 4*k - 4*n + Sk + (-7 + 6*k + 6*n)*Sn + (3 - 2*k - 2*n)*Sn^2])
            sage: id.multiplication_matrix(Sn)
-           [                                0                                 0                                 1]
-           [                               -1                                 1                                 1]
-           [ (4*n + 4*k - 1)/(-2*n - 2*k + 3)             (-1)/(-2*n - 2*k + 3) (-6*n - 6*k + 7)/(-2*n - 2*k + 3)]
+           [                                0                                -1  (4*n + 4*k - 1)/(-2*n - 2*k + 3)]
+           [                                0                                 1             (-1)/(-2*n - 2*k + 3)]
+           [                                1                                 1 (-6*n - 6*k + 7)/(-2*n - 2*k + 3)]
            sage: id.multiplication_matrix(Sk)
-           [                               0                                1                                0]
-           [(-6*n - 6*k - 1)/(2*n + 2*k - 3) (8*n + 8*k - 10)/(2*n + 2*k - 3)                4/(2*n + 2*k - 3)]
-           [                              -1                                1                                1]
+           [                               0 (-6*n - 6*k - 1)/(2*n + 2*k - 3)                               -1]
+           [                               1 (8*n + 8*k - 10)/(2*n + 2*k - 3)                                1]
+           [                               0                4/(2*n + 2*k - 3)                                1]
 
         """
         D = self.ring().gen(self.ring()._gen_to_idx(idx))
@@ -159,7 +161,7 @@ class OreLeftIdeal(Ideal_nc):
 
         mat = [(D*b).reduce(G) for b in B]
         mat = [[m[b.exp()] for b in B] for m in mat]
-        return matrix(self.ring(), mat)
+        return matrix(self.ring().base_ring(), mat).transpose()
         
     def groebner_basis(self, infolevel=0, update_hook=None):
         """
@@ -289,6 +291,51 @@ class OreLeftIdeal(Ideal_nc):
         self.__gb = tuple(G)
         return G
 
+    def intersection(self, other, infolevel=0, solver=None):
+        """
+        Computes the intersection of self with the other ideal.
+
+        INPUT:
+
+           other -- a left ideal with the same ambient ring as self
+           infolevel (optional) -- verbosity of progress reports
+           solver (optional) -- callable to be used for finding right kernels of matrices over the ambient algebra's base ring
+
+        OUTPUT:
+
+           The intersection of self with other. 
+
+        EXAMPLES::
+
+           sage: from ore_algebra import *
+           sage:
+
+        """
+        if self.dimension() + other.dimension() != 0:
+            raise NotImplementedError
+
+        n = self.vector_space_dimension()
+        m = other.vector_space_dimension()
+
+        if n == 0:
+            return other
+        elif m == 0:
+            return self
+
+        A = self.ring()
+        gen_matrices = {}
+        self_zero = matrix(A.base_ring(), n, m); other_zero = matrix(A.base_ring(), m, n)
+        for X in A.gens():
+            # [ M_self     0    ] 
+            # [  0      M_other ]
+            gen_matrices[X] = other_zero.augment(other.multiplication_matrix(X).transpose()).transpose()
+            gen_matrices[X] = self.multiplication_matrix(X).transpose().augment(self_zero).transpose().augment(gen_matrices[X])
+            
+
+        return A.ideal(fglm(A, vector(A.base_ring(), [1] + [0]*(n-1) + [1] + [0]*(m - 1)), \
+                            gen_matrices, infolevel=infolevel, solver=solver), is_known_to_be_a_groebner_basis=True)
+            
+    
 class MonomialIterator(object):
     """
     Iterate in increasing order over the monomials that are below some staircase that is determined in parallel to the iteration.
@@ -339,27 +386,79 @@ class MonomialIterator(object):
             prev = tau
         self.__pool = [tau for tau in self.__pool if tau is not None]
 
-def fglm(algebra, one_vector, gen_matrices):
+def fglm(algebra, one_vector, gen_matrices, infolevel=0, solver=None):
+    """
+    Constructs a Groebner basis using linear algebra.
+
+    INPUT:
+
+      algebra -- target algebra A = K(x,...)[X,...]
+      one_vector -- a vector in K(x,...)^n corresponding to the term 1
+      gen_matrices -- a dictionary mapping the generators of A to multiplication matrices
+      solver -- callable to be used to determine bases of right kernels of matrices over K(x,...)
+
+    OUTPUT:
+
+      The one_vector and the gen_matrices together with the sigma's and delta's of A
+      turn K(x,...)^n into a left-A-module. The output of this function is the Groebner
+      basis of the kernel of the natural homomorphism A --> K(x,...)^n.
+
+    EXAMPLES::
+
+      sage: from ore_algebra import *
+      sage: R.<n,k> = ZZ[]
+      sage: A.<Sn,Sk> = OreAlgebra(R)
+      sage: id1 = A.ideal([Sk-2*k,Sn-3])
+      sage: id2 = A.ideal([Sk-3,Sn-n])
+      sage: id1.intersection(id2)
+      Left Ideal ((-2*k + 3)*Sn + (-n + 3)*Sk + 2*n*k - 9, (-2*k + 3)*Sk^2 + (4*k^2 + 4*k - 9)*Sk - 12*k^2 + 6*k) of Multivariate Ore algebra in Sn, Sk over Fraction Field of Multivariate Polynomial Ring in n, k over Integer Ring
+      sage: _.intersection(_)
+      Left Ideal ((-2*k + 3)*Sn + (-n + 3)*Sk + 2*n*k - 9, (-2*k + 3)*Sk^2 + (4*k^2 + 4*k - 9)*Sk - 12*k^2 + 6*k) of Multivariate Ore algebra in Sn, Sk over Fraction Field of Multivariate Polynomial Ring in n, k over Integer Ring
+
+      sage: R.<x, y> = ZZ[]
+      sage: A.<Dx,Dy> = OreAlgebra(R)
+      sage: id1 = A.ideal([2*Dx-Dy, (x+2*y)*Dy^2 + Dy])
+      sage: id2 = A.ideal([Dy - x, Dx - y])
+      sage: id1.intersection(id2)
+      Left Ideal ((x^2 - 4*y^2)*Dy^2 + (2*x^3 + 4*x^2*y + 2*x)*Dx + (-x^3 - 2*x^2*y - 2*y)*Dy, (x^2 - 4*y^2)*Dx*Dy + (2*x^2*y + 4*x*y^2 + 3*x + 4*y)*Dx + (-x^2*y - 2*x*y^2 - x - 3*y)*Dy, (2*x^2 - 8*y^2)*Dx^2 + (4*x*y^2 + 8*y^3 + x)*Dx + (-2*x*y^2 - 4*y^3 - y)*Dy) of Multivariate Ore algebra in Dx, Dy over Fraction Field of Multivariate Polynomial Ring in x, y over Integer Ring
+      sage: _.intersection(_)
+      Left Ideal ((x^2 - 4*y^2)*Dy^2 + (2*x^3 + 4*x^2*y + 2*x)*Dx + (-x^3 - 2*x^2*y - 2*y)*Dy, (x^2 - 4*y^2)*Dx*Dy + (2*x^2*y + 4*x*y^2 + 3*x + 4*y)*Dx + (-x^2*y - 2*x*y^2 - x - 3*y)*Dy, (2*x^2 - 8*y^2)*Dx^2 + (4*x*y^2 + 8*y^3 + x)*Dx + (-2*x*y^2 - 4*y^3 - y)*Dy) of Multivariate Ore algebra in Dx, Dy over Fraction Field of Multivariate Polynomial Ring in x, y over Integer Ring
+
+    """
 
     if one_vector.is_zero():
         return [algebra.one()]
+
+    def info(i, msg):
+        if infolevel >= i:
+            print msg
     
     basis = []; terms = {}
     sigma = dict( (d, algebra.sigma(d)) for d in algebra.gens() )
     delta = dict( (d, algebra.delta(d)) for d in algebra.gens() )
 
     iterator = MonomialIterator(algebra)
-    terms[iterator.next()[0]] = one_vector
+    terms[iterator.next()[0]] = one_vector ## map terms->vectors
 
+    B = [algebra.one()] ## terms under the stairs
+    M = matrix(algebra.base_ring(), len(one_vector), 1, one_vector) ## matrix whose columns are the vectors corresponding to B
+
+    if solver is None:
+        solver = algebra._solver()
+    
     try:
-        tau, d = iterator.next()
-        terms[tau*d] = get_matrices[d]*terms[tau].map_coefficients(sigma[d]) + terms[tau].map_coefficients(delta[d])
-        if """vectors associated to the terms are linearely dependent""": ### todo
-            iterator.declare_step()
-            basis.append("""operator corresponding to the relation""") ### todo
-            del terms[tau*d]
+        while True:
+            tau, d = iterator.next() # current term
+            info(1, "next monomial: " + str(tau*d))
+            terms[tau*d] = gen_matrices[d]*terms[tau].apply_map(sigma[d]) + terms[tau].apply_map(delta[d]) # corresponding vector
+            B.append(tau*d); Mold = M; M = M.augment(terms[tau*d])
+            ker = solver(M) 
+            if len(ker) > 0:
+                info(2, "relation found.")
+                basis.append(add([ker[0][i]*B[i] for i in range(len(B))])) ## new basis element
+                B.pop(); M = Mold; iterator.declare_step() ## current term is not under the stairs
+                del terms[tau*d] # no longer needed -- hint to garbage collector
     except StopIteration:
         pass
 
     return basis
-    

@@ -24,8 +24,13 @@ from sage.rings.rational_field import QQ
 from sage.rings.integer_ring import ZZ
 from sage.rings.infinity import infinity
 
+from sage.misc.all import prod, add
+
 from ore_operator import *
 from datetime import datetime
+
+from sage.modules.free_module_element import vector
+from sage.matrix.constructor import Matrix, matrix
 
 class MultivariateOreOperator(OreOperator):
     """
