@@ -64,6 +64,8 @@ Connection to a singular point::
 
     sage: NF.<sqrt2> = QuadraticField(2)
     sage: transition_matrix((x^2 - 2)*Dx^2 + x + 1, [0, 1, sqrt2], 1e-10)
+    WARNING:ore_algebra.analytic.accuracy:interval too wide wrt target accuracy (lost too much precision?)
+    WARNING:ore_algebra.analytic.accuracy:interval too wide wrt target accuracy (lost too much precision?)
     [ [2.49388...] + [...]*I  [2.40894...] + [...]*I]
     [[-0.20354...] + [...]*I  [0.20437...] + [6.45961...]*I]
 

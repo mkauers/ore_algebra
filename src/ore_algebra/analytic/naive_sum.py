@@ -367,6 +367,8 @@ def fundamental_matrix_regular(dop, pt, ring, eps, rows, pplen=0):
         [ [-80.2467...] [9.1907404...]       [...] [-0.119259...]]
     """
     eps_col = bounds.IR(eps)/bounds.IR(dop.order()).sqrt()
+    # XXX: switch to precise=True once we can catch PrecisionError's
+    col_tgt_error = accuracy.AbsoluteError(eps_col, precise=False)
 
     # XXX: probably should not use the same domain (ring == Intervals ==
     # Jets.base_ring()) for points and for coefficients
@@ -403,7 +405,7 @@ def fundamental_matrix_regular(dop, pt, ring, eps, rows, pplen=0):
                                       for s, m in shifts})
                         # XXX: inefficient if shift >> 0
                         value = series_sum_regular(ring, dop, emb_bwrec,
-                                                   ini, Jets([pt, 1]), eps_col, maj)
+                                ini, Jets([pt, 1]), col_tgt_error, maj)
                         sol = FundamentalSolution(
                             valuation = leftmost + shift,
                             log_power = log_power,
@@ -432,7 +434,7 @@ def log_series_value(Jets, expo, psum, pt):
 # past singular indices anyway, we can allow for general initial conditions (at
 # roots of the indicial equation belonging to the same shift-equivalence class),
 # not just initial conditions associated to canonical solutions.
-def series_sum_regular(Intervals, dop, bwrec, ini, pt, eps,
+def series_sum_regular(Intervals, dop, bwrec, ini, pt, tgt_error,
         maj, stride=50):
 
     orddeq = dop.order()
@@ -455,7 +457,14 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, eps,
         logger.debug("n=%s, sum=%s", n, psum)
         mult = len(ini.shift.get(n, ()))
 
-        if abs(last[-1][0])*radpow < eps and mult == 0 and n > orddeq and n%stride == 0:
+        # Every few iterations, heuristically check if we have converged and if
+        # we still have enough precision. If it looks like the target error may
+        # be reached (and unless we're at a “special” index where the stopping
+        # criterion may be more complicated), perform a rigorous check.
+        cond = (n%stride == 0
+            and tgt_error.reached(abs(last[-1][0])*radpow, abs(psum[0][0]))
+            and n > orddeq and mult == 0)
+        if (cond):
             residual_bound = bounds.bound_residual_with_logs(bwrec, n,
                     list(last)[1:], maj.Poly.variable_name(), log_prec, RecJets)
             # XXX: check that residual_bound (as computed by
@@ -465,7 +474,7 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, eps,
             logger.debug("n=%d, est=%s*%s=%s, res_bnd=%s, tail_bnd=%s",
                     n, abs(last[0][0]), radpow, abs(last[0][0])*radpow,
                     residual_bound, tail_bound)
-            if tail_bound < eps:
+            if tgt_error.reached(tail_bound):
                 break
 
         n_pert = RecJets([n, 1])
