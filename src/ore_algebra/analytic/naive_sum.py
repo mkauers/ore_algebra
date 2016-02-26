@@ -251,17 +251,17 @@ def fundamental_matrix_ordinary(dop, pt, ring, eps, rows, maj):
 # Regular singular points
 ################################################################################
 
-FundamentalSolution = collections.namedtuple(
-    'FundamentalSolution',
-    ['valuation', 'log_power', 'value'])
-
 LogSeriesInitialValues = collections.namedtuple(
     'LogSeriesInitialValues',
     ['expo', 'shift'] # shift: dict(n -> (c0, ...)))
 )
 
-def sort_key_by_asympt(foo):
-    return foo.valuation.real(), -foo.log_power, foo.valuation.imag()
+FundamentalSolution = collections.namedtuple(
+    'FundamentalSolution',
+    ['valuation', 'log_power', 'value'])
+
+def sort_key_by_asympt(sol):
+    return sol.valuation.real(), -sol.log_power, sol.valuation.imag()
 
 # XXX: this should be easier to do!
 def my_embeddings(nf):
