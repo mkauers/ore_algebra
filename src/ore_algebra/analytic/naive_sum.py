@@ -228,7 +228,7 @@ def series_sum_ordinary(dop, ini, pt, tgt_error, maj=None,
 # Ordinary points
 ################################################################################
 
-def series_sum_ordinary_doit(Intervals, bwrec, ini, pt,
+def series_sum_ordinary_doit(Intervals, dop, bwrec, ini, pt,
         tgt_error, maj, stride, record_bounds_in):
 
     if record_bounds_in:
@@ -435,7 +435,7 @@ def log_series_value(Jets, expo, psum, pt):
 # roots of the indicial equation belonging to the same shift-equivalence class),
 # not just initial conditions associated to canonical solutions.
 def series_sum_regular(Intervals, dop, bwrec, ini, pt, tgt_error,
-        maj, stride=50):
+        maj, stride=50, record_bounds_in=None):
 
     orddeq = dop.order()
 
@@ -459,10 +459,11 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, tgt_error,
 
         # Every few iterations, heuristically check if we have converged and if
         # we still have enough precision. If it looks like the target error may
-        # be reached (and unless we're at a “special” index where the stopping
+        # be reached (unless we're at a “special” index where the stopping
         # criterion may be more complicated), perform a rigorous check.
         cond = (n%stride == 0
-            and tgt_error.reached(abs(last[-1][0])*radpow, abs(psum[0][0]))
+            and (tgt_error.reached(abs(last[-1][0])*radpow, abs(psum[0][0]))
+                or record_bounds_in is not None)
             and n > orddeq and mult == 0)
         if (cond):
             residual_bound = bounds.bound_residual_with_logs(bwrec, n,
@@ -471,6 +472,8 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, tgt_error,
             # bound_residual_with_logs) really is what tail_bound expects
             tail_bound = maj.matrix_sol_tail_bound(n, rad, [residual_bound],
                                                             ord=derivatives)
+            if record_bounds_in is not None:
+                record_bounds_in.append((n, psum, tail_bound))
             logger.debug("n=%d, est=%s*%s=%s, res_bnd=%s, tail_bnd=%s",
                     n, abs(last[0][0]), radpow, abs(last[0][0])*radpow,
                     residual_bound, tail_bound)
