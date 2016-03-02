@@ -110,7 +110,7 @@ class LogSeriesInitialValues(object):
         else:
             return False
 
-def series_sum(dop, ini, pt, tgt_error, maj=None,
+def series_sum(dop, ini, pt, tgt_error, maj=None, bwrec=None,
         stride=50, record_bounds_in=None):
     r"""
     EXAMPLES::
@@ -205,9 +205,13 @@ def series_sum(dop, ini, pt, tgt_error, maj=None,
             raise TypeError("singular operator, please specify a majorant")
     logger.log(logging.DEBUG-1, "Majorant:\n%s", maj)
 
-    bwrec = backward_rec(dop)
+    if bwrec is None:
+        bwrec = backward_rec(dop)
+
     ivs = (RealBallField if ini.is_real and (pt.is_real or not pt.is_numeric)
            else ComplexBallField)
+    doit = (series_sum_ordinary if dop.leading_coefficient().valuation() == 0
+            else series_sum_regular)
 
     # Now do the actual computation, automatically increasing the precision as
     # necessary
@@ -216,7 +220,7 @@ def series_sum(dop, ini, pt, tgt_error, maj=None,
     bit_prec += 3*bit_prec.nbits()
     while True:
         try:
-            psum = series_sum_ordinary_doit(ivs(bit_prec), dop, bwrec, ini, pt,
+            psum = doit(ivs(bit_prec), dop, bwrec, ini, pt,
                     tgt_error, maj, stride, record_bounds_in)
             return psum
         except accuracy.PrecisionError:
@@ -228,7 +232,7 @@ def series_sum(dop, ini, pt, tgt_error, maj=None,
 # Ordinary points
 ################################################################################
 
-def series_sum_ordinary_doit(Intervals, dop, bwrec, ini, pt,
+def series_sum_ordinary(Intervals, dop, bwrec, ini, pt,
         tgt_error, maj, stride, record_bounds_in):
 
     if record_bounds_in:
@@ -367,12 +371,11 @@ def fundamental_matrix_regular(dop, pt, ring, eps, rows, pplen=0):
         [ [-80.2467...] [9.1907404...]       [...] [-0.119259...]]
     """
     eps_col = bounds.IR(eps)/bounds.IR(dop.order()).sqrt()
-    # XXX: switch to precise=True once we can catch PrecisionError's
-    col_tgt_error = accuracy.AbsoluteError(eps_col, precise=False)
+    col_tgt_error = accuracy.AbsoluteError(eps_col, precise=True)
 
     # XXX: probably should not use the same domain (ring == Intervals ==
     # Jets.base_ring()) for points and for coefficients
-    Jets = utilities.jets(ring, 'eta', rows)
+    evpt = EvaluationPoint(pt, jet_order=rows)
     bwrec = backward_rec(dop)
     ind = bwrec[0]
     n = ind.parent().gen()
@@ -404,8 +407,8 @@ def fundamental_matrix_regular(dop, pt, ring, eps, rows, pplen=0):
                                               for p in xrange(m))
                                       for s, m in shifts})
                         # XXX: inefficient if shift >> 0
-                        value = series_sum_regular(ring, dop, emb_bwrec,
-                                ini, Jets([pt, 1]), col_tgt_error, maj)
+                        value = series_sum(dop, ini, evpt, col_tgt_error,
+                                maj=maj, bwrec=emb_bwrec)
                         sol = FundamentalSolution(
                             valuation = leftmost + shift,
                             log_power = log_power,
@@ -437,12 +440,9 @@ def log_series_value(Jets, expo, psum, pt):
 def series_sum_regular(Intervals, dop, bwrec, ini, pt, tgt_error,
         maj, stride=50, record_bounds_in=None):
 
-    orddeq = dop.order()
-
-    Jets = pt.parent()
-    derivatives = Jets.modulus().degree()
-    ptpow = Jets.one()
-    rad = bounds.IC(pt[0]).abs()
+    jet = pt.jet(Intervals)
+    Jets = jet.parent()
+    jetpow = Jets.one()
     radpow = bounds.IR.one() # XXX: should this be rad^leftmost?
 
     log_prec = sum(len(v) for v in ini.shift.itervalues())
@@ -464,14 +464,14 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, tgt_error,
         cond = (n%stride == 0
             and (tgt_error.reached(abs(last[-1][0])*radpow, abs(psum[0][0]))
                 or record_bounds_in is not None)
-            and n > orddeq and mult == 0)
+            and n > dop.order() and mult == 0)
         if (cond):
             residual_bound = bounds.bound_residual_with_logs(bwrec, n,
                     list(last)[1:], maj.Poly.variable_name(), log_prec, RecJets)
             # XXX: check that residual_bound (as computed by
             # bound_residual_with_logs) really is what tail_bound expects
-            tail_bound = maj.matrix_sol_tail_bound(n, rad, [residual_bound],
-                                                            ord=derivatives)
+            tail_bound = maj.matrix_sol_tail_bound(n, pt.rad, [residual_bound],
+                                                               ord=pt.jet_order)
             if record_bounds_in is not None:
                 record_bounds_in.append((n, psum, tail_bound))
             logger.debug("n=%d, est=%s*%s=%s, res_bnd=%s, tail_bnd=%s",
@@ -494,11 +494,11 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, tgt_error,
             last[0][mult + p] = - ~bwrec_n[0][mult] * combin
         for p in xrange(mult - 1, -1, -1):
             last[0][p] = ini.shift[n][p]
-        psum += last[0].change_ring(Jets)*ptpow # suboptimal
-        ptpow *= pt
-        radpow *= rad
+        psum += last[0].change_ring(Jets)*jetpow # suboptimal
+        jetpow *= jet
+        radpow *= pt.rad
 
-    val = log_series_value(Jets, ini.expo, psum, pt[0])
+    val = log_series_value(Jets, ini.expo, psum, jet[0])
     # TODO: add_error (before or after singular part?)
     return vector(x for x in val)
 
