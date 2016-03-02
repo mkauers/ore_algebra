@@ -110,7 +110,7 @@ class LogSeriesInitialValues(object):
         else:
             return False
 
-def series_sum_ordinary(dop, ini, pt, tgt_error, maj=None,
+def series_sum(dop, ini, pt, tgt_error, maj=None,
         stride=50, record_bounds_in=None):
     r"""
     EXAMPLES::
@@ -120,7 +120,7 @@ def series_sum_ordinary(dop, ini, pt, tgt_error, maj=None,
         sage: QQi.<i> = QuadraticField(-1)
 
         sage: from ore_algebra.analytic.ui import *
-        sage: from ore_algebra.analytic.naive_sum import series_sum_ordinary, EvaluationPoint
+        sage: from ore_algebra.analytic.naive_sum import series_sum, EvaluationPoint
         sage: Dops, x, Dx = Diffops()
 
         sage: dop = ((4*x^2 + 3/58*x - 8)*Dx^10 + (2*x^2 - 2*x)*Dx^9 +
@@ -137,11 +137,11 @@ def series_sum_ordinary(dop, ini, pt, tgt_error, maj=None,
     initial values are exact, so that we end up with a significantly better
     approximation than requested::
 
-        sage: series_sum_ordinary(dop, ini, 1/2, RBF(1e-16))
+        sage: series_sum(dop, ini, 1/2, RBF(1e-16))
         ([-3.575140703474456...] + [-2.2884877202396862...]*I)
 
         sage: import logging; logging.basicConfig()
-        sage: series_sum_ordinary(dop, ini, 1/2, RBF(1e-30))
+        sage: series_sum(dop, ini, 1/2, RBF(1e-30))
         WARNING:ore_algebra.analytic.naive_sum:input intervals too wide for
         requested accuracy
         ...
@@ -153,7 +153,7 @@ def series_sum_ordinary(dop, ini, pt, tgt_error, maj=None,
     anything else that works does so more or less by accident.) ::
 
         sage: from ore_algebra.analytic.accuracy import AbsoluteError
-        sage: series_sum_ordinary(Dx - 1, [RBF(1)],
+        sage: series_sum(Dx - 1, [RBF(1)],
         ....:         EvaluationPoint(x.change_ring(RBF), rad=RBF(1), jet_order=2),
         ....:         AbsoluteError(1e-3), stride=1)
         (... + [0.0083...]*x^5 + [0.0416...]*x^4 + [0.1666...]*x^3
@@ -163,7 +163,7 @@ def series_sum_ordinary(dop, ini, pt, tgt_error, maj=None,
 
     TESTS::
 
-        sage: b = series_sum_ordinary((x^2 + 1)*Dx^2 + 2*x*Dx, [RBF(0), RBF(1)],
+        sage: b = series_sum((x^2 + 1)*Dx^2 + 2*x*Dx, [RBF(0), RBF(1)],
         ....:                         7/10, RBF(1e-30))
         sage: b.parent()
         Vector space of dimension 1 over Real ball field with ... precision
@@ -172,7 +172,7 @@ def series_sum_ordinary(dop, ini, pt, tgt_error, maj=None,
         sage: b[0].overlaps(RealBallField(130)(7/10).arctan())
         True
 
-        sage: b = series_sum_ordinary((x^2 + 1)*Dx^2 + 2*x*Dx, [CBF(0), CBF(1)],
+        sage: b = series_sum((x^2 + 1)*Dx^2 + 2*x*Dx, [CBF(0), CBF(1)],
         ....:                         (i+1)/2, RBF(1e-30))
         sage: b.parent()
         Vector space of dimension 1 over Complex ball field with ... precision
@@ -273,7 +273,7 @@ def series_sum_ordinary_doit(Intervals, dop, bwrec, ini, pt,
                                 or record_bounds_in is not None):
                 # Warning: this residual must correspond to the operator stored
                 # in maj.dop, which typically isn't the operator
-                # series_sum_ordinary was called on (but the result of its
+                # series_sum was called on (but the result of its
                 # conversion via to_T, i.e. its product by a power of x).
                 residual = bounds.residual(bwrec, n, list(last)[1:],
                                                        maj.Poly.variable_name())
@@ -305,7 +305,7 @@ def fundamental_matrix_ordinary(dop, pt, ring, eps, rows, maj):
     eps_col = bounds.IR(eps)/bounds.IR(dop.order()).sqrt()
     evpt = EvaluationPoint(pt, jet_order=rows)
     cols = [
-        series_sum_ordinary(dop, ini, evpt, eps_col, maj=maj)
+        series_sum(dop, ini, evpt, eps_col, maj=maj)
         for ini in identity_matrix(dop.order())]
     return matrix(cols).transpose().change_ring(ring)
 
@@ -545,7 +545,7 @@ def plot_bounds(dop, ini=None, pt=None, eps=None, pplen=0):
         eps = RBF(1e-50)
     recd = []
     maj = bounds.bound_diffop(dop, pol_part_len=pplen)  # cache in ctx?
-    ref_sum = series_sum_ordinary(dop, ini, pt, eps, stride=1,
+    ref_sum = series_sum(dop, ini, pt, eps, stride=1,
                                   record_bounds_in=recd, maj=maj)
     # Note: this won't work well when the errors get close to the double
     # precision underflow threshold.

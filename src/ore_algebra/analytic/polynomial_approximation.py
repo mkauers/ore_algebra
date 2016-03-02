@@ -21,7 +21,7 @@ import ore_algebra.analytic.analytic_continuation as ancont
 import ore_algebra.analytic.bounds as bounds
 import ore_algebra.analytic.utilities as utilities
 
-from ore_algebra.analytic.naive_sum import series_sum_ordinary, EvaluationPoint
+from ore_algebra.analytic.naive_sum import series_sum, EvaluationPoint
 from ore_algebra.analytic.safe_cmp import *
 
 def taylor_economization(pol, eps):
@@ -170,7 +170,7 @@ def doit(dop, ini, path, rad, eps, derivatives, economization):
 
     local_dop = ctx.path.vert[-1].local_diffop()
     evpt = EvaluationPoint(x, rad=rad, jet_order=derivatives)
-    polys = series_sum_ordinary(local_dop, local_ini.column(0), evpt,
+    polys = series_sum(local_dop, local_ini.column(0), evpt,
                                 accuracy.AbsoluteError(eps1),
                                 stride=5)
 
