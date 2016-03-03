@@ -1094,6 +1094,7 @@ def bound_diffop(dop, leftmost=ZZ.zero(), special_shifts=[],
     dop_T = dop.to_T('T' + str(z)) # slow
 
     stats = BoundDiffopStats()
+    logger.info("computing a majorant...")
     lc = dop_T.leading_coefficient()
     if lc.is_term() and not lc.is_constant():
         raise ValueError("irregular singular operator", dop)
@@ -1143,7 +1144,7 @@ def bound_diffop(dop, leftmost=ZZ.zero(), special_shifts=[],
     assert len(majseq_pol_part) == pol_part_len
     # XXX: check if ind needs to be shifted (ind(n ± leftmost))
     maj = DiffOpBound(dop_T, cst, majseq_pol_part, majseq_num, maj_den, ind)
-    logger.debug("...done, time: %s", stats)
+    logger.info("...done, time: %s", stats)
     return maj
 
 def _test_bound_diffop(

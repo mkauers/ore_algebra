@@ -197,7 +197,7 @@ def series_sum(dop, ini, pt, tgt_error, maj=None, bwrec=None,
         if not input_is_precise:
             logger.warn("input intervals too wide for requested accuracy")
         tgt_error = accuracy.AbsoluteError(tgt_error, input_is_precise)
-    logger.info("target error = %s", tgt_error)
+    logger.log(logging.INFO - 1, "target error = %s", tgt_error)
 
     if maj is None:
         if dop.leading_coefficient().valuation() == 0:
@@ -449,7 +449,8 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, tgt_error,
 
     for n in itertools.count():
         last.rotate(1)
-        logger.debug("n=%s, sum=%s", n, psum)
+        logger.log(logging.DEBUG - 2, "n = %s, [c(n), c(n-1), ...] = %s", n, list(last))
+        logger.log(logging.DEBUG - 1, "n = %s, sum = %s", n, psum)
         mult = len(ini.shift.get(n, ()))
 
         # Every few iterations, heuristically check if we have converged and if
@@ -469,7 +470,8 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, tgt_error,
                                                                ord=pt.jet_order)
             if record_bounds_in is not None:
                 record_bounds_in.append((n, psum, tail_bound))
-            logger.debug("n=%d, est=%s*%s=%s, res_bnd=%s, tail_bnd=%s",
+            logger.log(logging.DEBUG - 1,
+                    "n=%d, est=%s*%s=%s, res_bnd=%s, tail_bnd=%s",
                     n, abs(last[0][0]), radpow, abs(last[0][0])*radpow,
                     residual_bound, tail_bound)
             if tgt_error.reached(tail_bound):
@@ -492,6 +494,7 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, tgt_error,
         psum += last[0].change_ring(Jets)*jetpow # suboptimal
         jetpow *= jet
         radpow *= pt.rad
+    logger.info("summed %d terms, tail <= %s", n, tail_bound)
 
     val = log_series_value(Jets, ini.expo, psum, jet[0])
     # TODO: add_error (before or after singular part?)
