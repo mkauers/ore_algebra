@@ -25,6 +25,7 @@ from ore_algebra.ore_algebra import OreAlgebra
 
 from ore_algebra.analytic import accuracy, bounds, utilities
 from ore_algebra.analytic.safe_cmp import safe_lt
+from ore_algebra.analytic.shiftless import my_shiftless_decomposition
 
 logger = logging.getLogger(__name__)
 
@@ -331,12 +332,6 @@ def my_embeddings(nf):
         emb_nf = NumberField(nf.polynomial(), nf.variable_name(),
                              embedding=emb(alg))
         yield nf.embeddings(emb_nf)[0]
-
-def my_shiftless_decomposition(pol):
-    x = pol.parent().gen()
-    fac = pol(-x).shiftless_decomposition()
-    return [(sl_class.polynomial()(-x), sl_class.shifts())
-            for sl_class, _ in fac]
 
 # TODO: move parts not specific to the naïve summation algo elsewhere
 # def fundamental_matrix_regular(dop, pt, ring, eps, rows, maj):
