@@ -560,19 +560,26 @@ def bound_real_roots(pol):
     return bound
 
 def nonneg_roots(pol):
-    bounds = None
-    if pol.base_ring() is not AA:
-        bounds = (QQ.zero(), bound_real_roots(pol))
+    r"""
+    Return a list of intervals with rational endpoints (represented by pairs)
+    containing all nonnegative roots of pol.
+    """
+    bounds = (QQ.zero(), bound_real_roots(pol))
+    if pol.base_ring() is AA:
+        if bounds[1] < QQ(20):
+            # don't bother with computing the roots (too slow)
+            return [bounds]
+        bounds = None
     roots = real_roots.real_roots(pol, bounds=bounds)
     if roots and roots[-1][0][1]:
         diam = ~roots[-1][0][1]
-        while any(rt - lt > QQ(10) for ((lt, rt), _) in roots):
+        while any(rt >= QQ.zero() and rt - lt > QQ(10)
+                  for ((lt, rt), _) in roots):
             # max_diameter is a relative diameter --> pb for large roots
-            logger.debug("largest root diameter = %s, refining",
-                    roots[-1][0][1] - roots[-1][0][0].n(10))
+            logger.debug("refining roots")
             roots = real_roots.real_roots(pol, bounds=bounds, max_diameter=diam)
             diam >>= 1
-    return roots
+    return [root for (root, mult) in roots if root[1] >= QQ.zero()]
 
 upper_inf = RIF(infinity).upper()
 
@@ -644,6 +651,7 @@ def bound_ratio_large_n(num, den, exceptions={}, min_drop=IR(1.1), stats=None):
     """
     rat = num/den
     num, den = rat.numerator(), rat.denominator()
+    logger.debug("bounding rational function %s", rat)
 
     if num.is_zero():
         return RatSeqBound(num, den, [(infinity, IR.zero())])
@@ -665,12 +673,14 @@ def bound_ratio_large_n(num, den, exceptions={}, min_drop=IR(1.1), stats=None):
     sqn_num, sqn_den = sqn(num), sqn(den)
     crit = sqn_num.diff()*sqn_den - sqn_den.diff()*sqn_num
 
+    logger.debug("computing roots, degrees=(%s, %s)...",
+            sqn_den.degree(), crit.degree())
     if stats: stats.time_roots.tic()
     roots = nonneg_roots(sqn_den) # we want real coefficients
     roots.extend(nonneg_roots(crit))
-    roots = [descr[0] for descr in roots] # throw away mults
     if stats: stats.time_roots.toc()
 
+    logger.debug("found %s roots, now building staircase...", len(roots))
     if stats: stats.time_staircases.tic()
     num, den = num.change_ring(IC), den.change_ring(IC)
     thrs = set(n for iv in roots for n in xrange(iv[0].floor(), iv[1].ceil()))
@@ -690,7 +700,7 @@ def bound_ratio_large_n(num, den, exceptions={}, min_drop=IR(1.1), stats=None):
         if val.upper() == upper_inf:
             break
     stairs.reverse()
-    logger.debug("done building staircase, size = %s", len(stairs))
+    logger.log(logging.INFO-1, "done building staircase, size=%s", len(stairs))
     if stats: stats.time_staircases.toc()
 
     return RatSeqBound(num, den, stairs)
@@ -1094,7 +1104,7 @@ def bound_diffop(dop, leftmost=ZZ.zero(), special_shifts=[],
     dop_T = dop.to_T('T' + str(z)) # slow
 
     stats = BoundDiffopStats()
-    logger.info("computing a majorant...")
+    logger.info("bounding local operator...")
     lc = dop_T.leading_coefficient()
     if lc.is_term() and not lc.is_constant():
         raise ValueError("irregular singular operator", dop)
