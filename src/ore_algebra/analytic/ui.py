@@ -5,10 +5,14 @@ Some convenience functions for direct use of the features of this package
 Ultimately, the typical way to use it should be through methods of objects such
 as differential operators and D-finite functions, not through this module!
 
-EXAMPLES::
+EXAMPLES:
+
+As a basic example, we compute exp(1) as the only entry of the transition matrix
+from 0 to 1 for the differential equation y' = y::
 
     sage: from ore_algebra import *
     sage: from ore_algebra.analytic.ui import *
+
     sage: Pol.<x> = QQ[]
     sage: Dop.<Dx> = OreAlgebra(Pol)
     sage: QQi.<i> = QuadraticField(-1)
@@ -16,9 +20,12 @@ EXAMPLES::
     sage: transition_matrix(Dx - 1, [0, 1], 1e-10)
     [[2.718281828...]]
 
+We can do evaluations at complex points as well::
+
     sage: transition_matrix(Dx - 1, [0, i], 1e-10)
     [[0.540302305...] + [0.8414709848...]*I]
 
+An operator of order 2 annihilating arctan(x) and the constants::
 
     sage: dop = (x^2 + 1)*Dx^2 + 2*x*Dx
 
@@ -28,6 +35,19 @@ EXAMPLES::
     sage: transition_matrix(dop, [0, 1+i], 1e-10)
     [ 1.00...  [1.017221967...] + [0.402359478...]*I]
     [       0 [0.200000000...] + [-0.400000000...]*I]
+
+A loop around a singular point::
+
+    sage: transition_matrix(dop, [0, 1+i, 2*i, i-1, 0], 1e-10)
+    [  1.00000000000 [3.1415926...] + [+/- ...]*I]
+    [              0 [1.0000000...] + [+/- ...]*I]
+
+Empty paths are not allowed::
+
+    sage: transition_matrix(Dx - 1, path=[])
+    Traceback (most recent call last):
+    ...
+    ValueError: empty path
 
 Return the values (resp. transition matrices) corresponding to several points
 along the path at once::
@@ -68,9 +88,58 @@ Connection to a singular point::
     [ [2.49388...] + [...]*I  [2.40894...] + [...]*I]
     [[-0.20354...] + [...]*I  [0.20437...] + [6.45961...]*I]
 
-The constant factor in the asymptotic expansion of Apéry numbers (compare M. D.
-Hirschhorn, Estimating the Apéry numbers, Fibonacci Quart. 50, 2012, 129--131),
-computed as a connection constant::
+This kind of connection matrices linking ordinary points to regular singular
+points can be used to compute classical special functions, like Bessel
+functions::
+
+    sage: alg = QQbar(-20)^(1/3)
+    sage: transition_matrix(x*Dx^2 + Dx + x, [0, alg], 1e-8)
+    [ [3.7849872...] +  [1.7263190...]*I  [1.3140884...] + [-2.3112610...]*I]
+    [ [1.0831414...] + [-3.3595150...]*I  [-2.0854436...] + [-0.7923237...]*I]
+
+    sage: t = SR.var('t')
+    sage: f1 = (ln(2) - euler_gamma - I*pi/2)*bessel_J(0, t) - bessel_K(0, I*t)
+    sage: f2 = bessel_J(0, t)
+    sage: matrix([[f1, f2], [diff(f1, t), diff(f2, t)]]).subs(t=alg.n()).n()
+    [ 3.7849872... + 1.7263190...*I    1.3140884... - 2.3112610...*I]
+    [ 1.0831414... - 3.3595150...*I   -2.0854436... - 0.7923237...*I]
+
+or the cosine integral::
+
+    sage: dop = x*Dx^3 + 2*Dx^2 + x*Dx
+    sage: ini = [1, CBF(euler_gamma), 0]
+
+    sage: eval_diffeq(dop, ini, path=[0, sqrt(2)])
+    [0.46365280236686...]
+    sage: CBF(sqrt(2)).ci()
+    [0.46365280236686...]
+
+    sage: eval_diffeq(dop, ini, path=[0, 456/123*i+1])
+    [6.1267878728616...] + [-3.39197789100074...]*I
+    sage: CBF(456/123*I + 1).ci()
+    [6.126787872861...] + [-3.391977891000...]*I
+
+The slightly less classical Whittaker functions are an interesting test case as
+these involve irrational exponents. The following example was checked against
+NumGfun::
+
+    sage: transition_matrix(4*x^2*Dx^2 + (-x^2+8*x-11), [0, 10])
+    [[-3.829367993175840...]  [7.857756823216673...]]
+    [[-1.135875563239369...]  [1.426170676718429...]]
+
+This one (checked against NumGfun too) has both algebraic exponents and an
+algebraic evaluation point::
+
+    sage: alg = NumberField(x^6+86*x^5+71*x^4-80*x^3+2*x^2+7*x+24, 'alg', embedding=CC(0.6515637 + 0.3731162*I)).gen()
+    sage: transition_matrix(4*x^2*Dx^2 + (-x^2+8*x-11), [0, alg])
+    [ [2.503339393562986...] + [-0.714903133441901...]*I [0.2144377477885843...] + [0.3310657638490197...]*I]
+    [[-0.4755983564143503...] + [2.154602091528463...]*I [0.9461935691709922...] + [0.3918807160953653...]*I]
+
+Another use of “singular” transition matrices is in combinatorics, in relation
+with singularity analysis. Here is the constant factor in the asymptotic
+expansion of Apéry numbers (compare M. D. Hirschhorn, Estimating the Apéry
+numbers, Fibonacci Quart. 50, 2012, 129--131), computed as a connection
+constant::
 
     sage: Dops, z, Dz = Diffops("z")
     sage: dop = (z^2*(z^2-34*z+1)*Dz^3 + 3*z*(2*z^2-51*z+1)*Dz^2
@@ -86,12 +155,6 @@ computed as a connection constant::
     sage: mat[1][2].overlaps(CBF(cst))
     True
 
-Empty paths are not allowed::
-
-    sage: transition_matrix(Dx - 1, path=[])
-    Traceback (most recent call last):
-    ...
-    ValueError: empty path
 
 TESTS::
 
@@ -124,6 +187,10 @@ TESTS::
     NotImplementedError: analytic continuation through irregular singular points
     is not supported
 
+    sage: mat = (transition_matrix(x*Dx^3 + 2*Dx^2 + x*Dx, [-1, 0, i, -1])
+    ....:       - identity_matrix(3))
+    sage: all(y.rad() < 1e-13 for row in mat for y in row)
+    True
 """
 
 # NOTE: to run the tests, use something like

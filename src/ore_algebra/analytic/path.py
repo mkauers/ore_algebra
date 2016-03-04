@@ -570,6 +570,18 @@ class Path(SageObject):
             ValueError: Step 1/2*i + 1 --> 3/2*i - 1 passes through or too close
             to singular point 1*I (to compute the connection to a singular
             point, make it a vertex of the path)
+
+        TESTS:
+
+        Check that we detect additional singular points on path segments with
+        regular singular endpoints. Adapted from a NumGfun bug found by
+        Christoph Koutschan. ::
+
+            sage: transition_matrix((-8*x^3+4*x^4+5*x^2-x)*Dx
+            ....:                   + 10*x^2-4*x-8*x^3+1, [0,1])
+            Traceback (most recent call last):
+            ...
+            ValueError: ...
         """
         for step in self:
             step.check_singularity()
