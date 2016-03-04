@@ -608,10 +608,10 @@ class Path(SageObject):
     # - On veut garder le chemin initial et le chemin optimisé. Je ne sais pas
     #   si on veut optimiser en place ou faire une copie.
 
-    def subdivide(self, threshold=IR(0.75), factor=IR(0.5)):
+    def subdivide(self, threshold=IR(0.75), factor=IR(0.6)):
         # TODO:
         # - support paths passing very close to singular points
-        # - create intermediate points of smaller bit size
+        from sage.rings.real_mpfi import RealIntervalField
         new = [self.vert[0]]
         i = 1
         while i < len(self.vert):
@@ -627,16 +627,15 @@ class Path(SageObject):
             else:
                 dir = (next.iv() - cur.iv())/dist_to_next
                 interm = cur.iv() + factor*rad*dir
-                # TBI
-                Step(cur, Point(interm, self.dop)).check_singularity()
-                if interm.imag().is_zero():
-                    # interm = interm.real().simplest_rational()
-                    interm = interm.real().mid().exact_rational()
+                is_real = interm.imag().is_zero()
+                interm = interm.add_error(rad/8)
+                Step(cur, Point(interm, self.dop)).check_singularity() # TBI
+                my_RIF = RealIntervalField(interm.real().parent().precision())
+                if is_real:
+                    interm = my_RIF(interm.real()).simplest_rational()
                 else:
-                    # interm = QQi([interm.real().simplest_rational(),
-                    #               interm.imag().simplest_rational()])
-                    interm = QQi([interm.real().mid().exact_rational(),
-                                  interm.imag().mid().exact_rational()])
+                    interm = QQi([my_RIF(interm.real()).simplest_rational(),
+                                  my_RIF(interm.imag()).simplest_rational()])
                 new.append(OrdinaryPoint(interm, self.dop))
                 logger.debug("subdividing %s -> %s", cur, next)
         new = Path(new, self.dop)
