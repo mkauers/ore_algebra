@@ -408,22 +408,27 @@ def fundamental_matrix_regular(dop, pt, ring, eps, rows, pplen=0):
                             valuation = leftmost + shift,
                             log_power = log_power,
                             value = value)
-                        # logger.debug("sol=%s\n\n", sol)
+                        logger.debug("sol=%s\n\n", sol)
                         cols.append(sol)
     cols.sort(key=sort_key_by_asympt)
     return matrix([sol.value for sol in cols]).transpose().change_ring(ring)
 
 def log_series_value(Jets, expo, psum, pt):
     log_prec = psum.length()
+    derivatives = Jets.modulus().degree()
     # hardcoded series expansions of log(pt) = log(a+η) and pt^λ = (a+η)^λ (too
     # cumbersome to compute directly in Sage at the moment)
-    logpt = Jets([pt.log()] + [(-1)**(k+1)*~pt**k/k for k in xrange(1, log_prec)])
+    logpt = Jets(
+            [pt.log()] +
+            [(-1)**(k+1)*~pt**k/k
+                for k in xrange(1, derivatives)])
+    logger.debug("logpt=%s", logpt)
     aux = Jets(logpt[1:]*expo)
+    logger.debug("aux=%s", aux)
     inipow = pt**expo*sum(aux**k/Integer(k).factorial()
-                         for k in xrange(log_prec))
-    logger.debug("pt=%s, psum=%s, inipow=%s, logpt=%s", pt, psum, inipow, logpt)
-    # XXX: why do I need an explicit conversion here?!
-    val = inipow*sum(Jets(psum[p])*logpt**p/Integer(p).factorial()
+                          for k in xrange(derivatives))
+    logger.debug("inipow=%s", inipow)
+    val = inipow*sum(psum[p]*logpt**p/Integer(p).factorial()
                      for p in xrange(log_prec))
     return val
 
