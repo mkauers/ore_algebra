@@ -414,6 +414,17 @@ def fundamental_matrix_regular(dop, pt, ring, eps, rows, pplen=0):
     cols.sort(key=sort_key_by_asympt)
     return matrix([sol.value for sol in cols]).transpose().change_ring(ring)
 
+# the generic power implem won't always work due to the mess with equality
+def _mypow(a, n):
+    pow = a.parent().one()
+    pow2k = a
+    while n:
+        if n & 1:
+            pow *= pow2k
+        pow2k = pow2k*pow2k
+        n = n >> 1
+    return pow
+
 def log_series_value(Jets, expo, psum, pt):
     log_prec = psum.length()
     derivatives = Jets.modulus().degree()
@@ -426,10 +437,10 @@ def log_series_value(Jets, expo, psum, pt):
     logger.debug("logpt=%s", logpt)
     aux = Jets(logpt[1:]*expo)
     logger.debug("aux=%s", aux)
-    inipow = pt**expo*sum(aux**k/Integer(k).factorial()
+    inipow = pt**expo*sum(_mypow(aux, k)/Integer(k).factorial()
                           for k in xrange(derivatives))
     logger.debug("inipow=%s", inipow)
-    val = inipow*sum(psum[p]*logpt**p/Integer(p).factorial()
+    val = inipow*sum(psum[p]*_mypow(logpt, p)/Integer(p).factorial()
                      for p in xrange(log_prec))
     return val
 
