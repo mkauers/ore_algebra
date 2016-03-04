@@ -7,7 +7,7 @@ Utilities
 
 from sage.misc.cachefunc import cached_function
 from sage.misc.misc import cputime
-from sage.rings.all import QQbar, CIF
+from sage.rings.all import QQ, QQbar, CIF
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 
 ######################################################################
@@ -72,3 +72,15 @@ def split(cond, objs):
     for x in objs:
         (matching if cond(x) else not_matching).append(x)
     return matching, not_matching
+
+def as_embedded_number_field_element(alg):
+    from sage.rings.number_field.number_field import NumberField
+    nf, elt, emb = alg.as_number_field_element()
+    if nf is QQ:
+        res = elt
+    else:
+        embnf = NumberField(nf.polynomial(), nf.variable_name(),
+                    embedding=emb(nf.gen()))
+        res = elt.polynomial()(embnf.gen())
+    assert QQbar.coerce(res) == alg
+    return res

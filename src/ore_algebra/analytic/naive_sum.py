@@ -386,7 +386,8 @@ def fundamental_matrix_regular(dop, pt, ring, eps, rows, pplen=0):
             #irred_leftmost = irred_nf.gen()
             #irred_bwrec = [pol(irred_leftmost + n) for pol in bwrec]
             for leftmost, _ in irred_factor.roots(QQbar):
-                _, leftmost, _ = leftmost.as_number_field_element()
+                from utilities import as_embedded_number_field_element
+                leftmost = as_embedded_number_field_element(leftmost)
                 emb_bwrec = [pol(leftmost + n) for pol in bwrec]
                 maj = bounds.bound_diffop(dop, leftmost, shifts,
                         pol_part_len=pplen, bound_inverse="solve")
