@@ -504,6 +504,28 @@ class RatSeqBound(SeqBound):
         r = fmt.format(num=self.num, den=self.den, stairs=stairsstr)
         return r
 
+    def asympt_repr(self):
+        deg = self.num.degree() - self.den.degree()
+        steplim = self.stairs[-1][1]
+        ratlim = IC(self.num().leading_coefficient()
+                    /self.den.leading_coefficient())
+        if deg == 0:
+            return "~{}".format(max(abs(steplim), abs(ratlim)).mid())
+        else:
+            return "~max({}, {}*n^{})".format(steplim.mid(), ratlim.mid(), deg)
+
+    def lim(self):
+        deg = self.num.degree() - self.den.degree()
+        steplim = abs(self.stairs[-1][1])
+        if deg < 0:
+            return steplim
+        elif deg == 0:
+            ratlim = IC(self.num().leading_coefficient()
+                        /self.den.leading_coefficient())
+            return max(abs(ratlim), steplim)
+        else:
+            assert False
+
     def stairs_step(self, n):
         for (edge, val) in self.stairs:
             if n <= edge:
@@ -547,6 +569,18 @@ class SumSeqBound(SeqBound):
     def __repr__(self):
         return '(' + ' + '.join(repr(term) for term in self.terms) + ')'
 
+    def asympt_repr(self):
+        deg = max(t.num.degree() - t.den.degree() for t in self.terms)
+        if deg == 0:
+            return "~{}".format(sum(t.lim() for t in self.terms).mid())
+        else:
+            return "~max({}, {}·n^{})".format(
+                sum(t.lim() for t in self.terms).mid(),
+                sum(t.num().leading_coefficient()/t.den.leading_coefficient()
+                    for t in self.terms
+                    if t.num.degree() - t.den.degree() == deg).mid(),
+                deg)
+
     def __call__(self, n):
         return sum(term(n) for term in self.terms)
 
@@ -575,7 +609,7 @@ def nonneg_roots(pol):
         while any(rt >= QQ.zero() and rt - lt > QQ(10)
                   for ((lt, rt), _) in roots):
             # max_diameter is a relative diameter --> pb for large roots
-            logger.debug("refining roots")
+            logger.debug("refining (diam=%s)...", diam)
             roots = real_roots.real_roots(pol, bounds=bounds, max_diameter=diam)
             diam >>= 1
     return [root for (root, mult) in roots if root[1] >= QQ.zero()]
@@ -650,7 +684,8 @@ def bound_ratio_large_n(num, den, exceptions={}, min_drop=IR(1.1), stats=None):
     """
     rat = num/den
     num, den = rat.numerator(), rat.denominator()
-    logger.debug("bounding rational function %s", rat)
+    logger.debug("bounding rational function ~%s/%s",
+            num.change_ring(CBF), den.change_ring(CBF))
 
     if num.is_zero():
         return RatSeqBound(num, den, [(infinity, IR.zero())])
@@ -699,7 +734,7 @@ def bound_ratio_large_n(num, den, exceptions={}, min_drop=IR(1.1), stats=None):
         if val.upper() == upper_inf:
             break
     stairs.reverse()
-    logger.log(logging.INFO-1, "done building staircase, size=%s", len(stairs))
+    logger.log(logging.INFO-2, "done building staircase, size=%s", len(stairs))
     if stats: stats.time_staircases.toc()
 
     return RatSeqBound(num, den, stairs)
@@ -821,9 +856,11 @@ class DiffOpBound(object):
 
     A majorant sequence::
 
-        sage: maj = bound_diffop((x^2 + 1)*Dx^2 + 2*x*Dx); maj
-        1/((-x + [0.994...])^2)*exp(int(1.000...*NUM/(-x + [0.994...])^2+POL))
+        sage: maj = bound_diffop((x^2 + 1)*Dx^2 + 2*x*Dx)
+        sage: print(maj.__repr__(asympt=False))
+        1/((-x + [0.994...])^2)*exp(int(POL+1.000...*NUM/(-x + [0.994...])^2))
         where
+        POL=0,
         NUM=max(
           |(0)/(1)|,
           0     for  n <= +Infinity
@@ -832,7 +869,6 @@ class DiffOpBound(object):
           [+/- inf]     for  n <= 1,
           2.000...     for  n <= +Infinity
         )*z^1
-        POL=
 
     A majorant series extracted from that sequence::
 
@@ -867,14 +903,19 @@ class DiffOpBound(object):
         self.maj_den = maj_den
         self.ind = ind
 
-    def __repr__(self):
-        fmt = ("1/({den})*exp(int({cst}*NUM/{den}+POL))\n"
-               "where\n"
-               "NUM={num}\n"
-               "POL={pol}")
+    def __repr__(self, asympt=True):
+        fmt = ("1/({den})*exp(int(POL+{cst}*NUM/{den})) where\n"
+               "POL={pol},\n"
+               "NUM={num}\n")
         def pol_repr(ratseqbounds, shift=0):
-            return " + ".join("{}*z^{}".format(c, n + shift)
-                              for n, c in enumerate(ratseqbounds))
+            if len(ratseqbounds):
+                return " + ".join(
+                        "{}*z^{}".format(
+                            c.asympt_repr() if asympt else c,
+                            n + shift)
+                        for n, c in enumerate(ratseqbounds))
+            else:
+                return 0
         return fmt.format(
                 cst=self.cst, den=self.maj_den,
                 num=pol_repr(self.majseq_num, shift=len(self.majseq_pol_part)),
@@ -1044,44 +1085,20 @@ def bound_diffop(dop, leftmost=ZZ.zero(), special_shifts=[],
         sage: from ore_algebra.analytic.bounds import bound_diffop, _test_bound_diffop
         sage: Dops, x, Dx = Diffops()
 
-        sage: bound_diffop(Dx - 1)
-        1/(1.000...)*exp(int(1.000...*NUM/1.000...+POL))
+        sage: print(bound_diffop(Dx - 1).__repr__(asympt=False))
+        1/(1.000...)*exp(int(POL+1.000...*NUM/1.000...))
         where
+        POL=0,
         NUM=max(
         |(-1.000...)/(1.000...)|,
         1.000...     for  n <= +Infinity
         )*z^0
-        POL=
 
         sage: dop = (x+1)*(x^2+1)*Dx^3-(x-1)*(x^2-3)*Dx^2-2*(x^2+2*x-1)*Dx
-        sage: bound_diffop(dop, pol_part_len=3) # not tested
-        1/((-x + [0.9965035284306323 +/- 2.07e-17])^3)*
-        exp(int(1.000...*NUM/(-x + [0.9965035284306323 +/- 2.07e-17])^3+POL))
-        where
-        NUM=max(
-          |(-5.000...*n^2 - 7.000...*n - 2.000...)/(n^2 - 3.000...*n + 2.000...)|,
-          [+/- inf]     for  n <= 2,
-          34.000...     for  n <= 3,
-          5.000...     for  n <= +Infinity
-        )*z^2 + max(
-          |(2.000...*n^2 + 8.000...*n + 4.000...)/(n^2 - 3.000...*n + 2.000...)|,
-          [+/- inf]     for  n <= 2,
-          23.000...     for  n <= 3,
-          2.000...     for  n <= +Infinity
-        )*z^3 + max(
-          |(-3.000...*n^2 - 11.000...*n - 8.000...)/(n^2 - 3.000...*n + 2.000...)|,
-          [+/- inf]     for  n <= 2,
-          34.000...     for  n <= 3,
-          3.000...     for  n <= +Infinity
-        )*z^4
-        POL=max(
-          |(-6.000...)/(1.000...)|,
-          6.000...     for  n <= +Infinity
-        )*z^0 + max(
-          |(3.000...*n - 1.000...)/(n - 1.000...)|,
-          [+/- inf]     for  n <= 1,
-          3.000...     for  n <= +Infinity
-        )*z^1
+        sage: bound_diffop(dop, pol_part_len=3)
+        1/((-x + [0.9965035284306323 +/- 2.07e-17])^3)*exp(int(POL+1.000...*NUM/(-x + [0.9965035284306323 +/- 2.07e-17])^3)) where
+        POL=~6.00000000000000*z^0 + ~3.00000000000000*z^1 + ~5.00000000000000*z^2,
+        NUM=~7.00000000000000*z^3 + ~2.00000000000000*z^4 + ~5.00000000000000*z^5
 
     TESTS::
 
@@ -1117,7 +1134,7 @@ def bound_diffop(dop, leftmost=ZZ.zero(), special_shifts=[],
                 for j, pol in enumerate(rcoeffs))
     first_nz = first.polynomial(z)
     first_zn = first.polynomial(n)
-    logger.debug("first: %s", first_nz)
+    logger.log(logging.DEBUG - 1, "first: %s", first_nz)
     assert first_nz[0] == dop.indicial_polynomial(z, n).monic()
     assert all(pol.degree() < dop_T.order() for pol in first_nz[1:])
 
@@ -1126,12 +1143,12 @@ def bound_diffop(dop, leftmost=ZZ.zero(), special_shifts=[],
     pol_part = sum(T**j*pol for j, pol in enumerate(first_zn)) # slow
     logger.debug("pol_part: %s", pol_part)
     rem_num = dop_T - pol_part*lc # inefficient in theory for large pol_part_len
-    logger.debug("rem_num: %s", rem_num)
+    logger.log(logging.DEBUG - 1, "rem_num: %s", rem_num)
     it = enumerate(_dop_rcoeffs_of_T(rem_num))
     rem_num_nz = MPol(sum(n**j*pol for j, pol in it)).polynomial(z)
     assert rem_num_nz.valuation() >= pol_part_len + 1
     rem_num_nz >>= (pol_part_len + 1)
-    logger.debug("rem_num_nz: %s", rem_num_nz)
+    logger.log(logging.DEBUG - 1, "rem_num_nz: %s", rem_num_nz)
     stats.time_decomp_op.toc()
 
     alg_idx = leftmost + first_nz.base_ring().gen()

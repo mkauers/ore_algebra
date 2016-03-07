@@ -204,7 +204,7 @@ def series_sum(dop, ini, pt, tgt_error, maj=None, bwrec=None,
             maj = bounds.bound_diffop(dop)
         else:
             raise TypeError("singular operator, please specify a majorant")
-    logger.log(logging.DEBUG-1, "Majorant:\n%s", maj)
+    logger.log(logging.INFO-1, "Majorant:\n%s", maj)
 
     if bwrec is None:
         bwrec = backward_rec(dop)
@@ -270,7 +270,7 @@ def series_sum_ordinary(Intervals, dop, bwrec, ini, pt,
         # last[ordrec] are the coefficients of z^(n-1), ..., z^(n-ordrec)
         if n%stride == 0:
             logger.debug("n=%s, sum=%s, last tail_bound=%s",
-                         n, psum[0], tail_bound.upper())
+                         n, psum[0], tail_bound)
             abs_sum = abs(psum[0]) if pt.is_numeric else None
             # last[-1] since last[0] may still be "undefined" and last[1] may
             # not exist in degenerate cases
