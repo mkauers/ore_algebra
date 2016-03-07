@@ -469,7 +469,6 @@ class Path(SageObject):
 
         sage: from ore_algebra.analytic.ui import *
         sage: from ore_algebra.analytic.path import Path
-        sage: from sage.rings.complex_arb import CBF
         sage: Dops, x, Dx = Diffops()
         sage: dop = (x^2 + 1)*Dx^2 + 2*x*Dx
 

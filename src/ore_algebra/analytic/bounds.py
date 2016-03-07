@@ -96,7 +96,6 @@ class MajorantSeries(object):
         TESTS::
 
             sage: from ore_algebra.analytic.bounds import *
-            sage: from sage.rings.real_arb import RBF
             sage: Pol.<z> = RBF[]
             sage: maj = RationalMajorant(Pol(1), Factorization([(1-z,1)]), Pol(0))
             sage: maj._test(11/10*z^30)
@@ -141,7 +140,6 @@ class RationalMajorant(MajorantSeries):
     TESTS::
 
         sage: from ore_algebra.analytic.bounds import *
-        sage: from sage.rings.real_arb import RBF
         sage: Pol.<z> = RBF[]
         sage: den = Factorization([(1-z, 2), (2-z, 1)])
         sage: maj = RationalMajorant(z^2, den, 1 + z); maj
@@ -225,7 +223,6 @@ class HyperexpMajorant(MajorantSeries):
     TESTS::
 
         sage: from ore_algebra.analytic.bounds import *
-        sage: from sage.rings.real_arb import RBF
         sage: Pol.<z> = RBF[]
         sage: integrand = RationalMajorant(z^2, Factorization([(1-z,1)]), 4+4*z)
         sage: rat = Factorization([(1/3-z, -1)])
@@ -1229,7 +1226,6 @@ def residual(bwrec, n, last, z):
 
     EXAMPLES::
 
-        sage: from sage.rings.complex_arb import CBF
         sage: from ore_algebra import OreAlgebra
         sage: from ore_algebra.analytic.bounds import *
         sage: Pol_t.<t> = QQ[]; Pol_n.<n> = QQ[]

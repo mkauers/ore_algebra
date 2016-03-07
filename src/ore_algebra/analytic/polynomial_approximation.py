@@ -36,7 +36,6 @@ def taylor_economization(pol, eps):
 
     EXAMPLES::
 
-        sage: from sage.rings.real_arb import RBF
         sage: from ore_algebra.analytic.polynomial_approximation import taylor_economization
         sage: pol = polygen(QQ, 'x')._exp_series(10).change_ring(RBF); pol
         [2.755...e-6 +/- 5.96e-22]*x^9 + [2.480...e-5 +/- 4.96e-21]*x^8
@@ -135,7 +134,6 @@ def chebyshev_economization(pol, eps):
 
     EXAMPLES::
 
-        sage: from sage.rings.real_arb import RBF
         sage: from ore_algebra.analytic.polynomial_approximation import taylor_economization
         sage: pol = polygen(QQ, 'x')._exp_series(10).change_ring(RBF)
         sage: newpol = chebyshev_economization(pol, RBF(1e-3)); newpol
@@ -196,7 +194,6 @@ def on_disk(dop, ini, path, rad, eps):
 
     TESTS::
 
-        sage: from sage.rings.real_arb import RBF
         sage: from ore_algebra.analytic.polynomial_approximation import _test_fun_approx
         sage: pol = polapprox.on_disk(Dx - 1, [1], [0, i], 1, 1e-20)
         sage: _test_fun_approx(pol, lambda b: (i + b).exp(), disk_rad=1, prec=200)

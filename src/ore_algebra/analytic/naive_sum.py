@@ -533,8 +533,6 @@ def plot_bounds(dop, ini=None, pt=None, eps=None, pplen=0):
     r"""
     EXAMPLES::
 
-        sage: from sage.rings.real_arb import RBF
-        sage: from sage.rings.complex_arb import CBF
         sage: from ore_algebra.analytic.ui import Diffops
         sage: from ore_algebra.analytic import naive_sum
         sage: Dops, x, Dx = Diffops()
