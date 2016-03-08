@@ -30,8 +30,9 @@ from sage.rings.complex_arb import CBF, ComplexBallField
 from sage.rings.real_arb import RBF, RealBallField
 from sage.structure.sage_object import SageObject
 
-from ore_algebra.analytic.utilities import *
+from ore_algebra.analytic.local_solutions import *
 from ore_algebra.analytic.safe_cmp import *
+from ore_algebra.analytic.utilities import *
 
 logger = logging.getLogger(__name__)
 
@@ -286,6 +287,31 @@ class RegularPoint(Point):
 
     def connect_to_ordinary(self):
         raise NotImplementedError
+
+    def local_basis_structure(self):
+        r"""
+        EXAMPLES::
+
+            sage: from ore_algebra.analytic.ui import *
+            sage: Dops, x, Dx = Diffops()
+            sage: Point(0, x*Dx^2 + Dx + x).classify().local_basis_structure()
+            [FundamentalSolution(valuation=0, log_power=1, value=None),
+             FundamentalSolution(valuation=0, log_power=0, value=None)]
+            sage: Point(0, Dx^3 + x*Dx + x).classify().local_basis_structure()
+            [FundamentalSolution(valuation=0, log_power=0, value=None),
+             FundamentalSolution(valuation=1, log_power=0, value=None),
+             FundamentalSolution(valuation=2, log_power=0, value=None)]
+        """
+        # TODO: provide a way to compute the first terms of the series. First
+        # need a good way to share code with fundamental_matrix_regular.
+        ldop = self.local_diffop()
+        x = ldop.base_ring().gen()
+        roots = ldop.indicial_polynomial(x).roots(QQbar)
+        sols = [FundamentalSolution(expo, log_power, None)
+                for expo, mult in roots
+                for log_power in xrange(mult)]
+        sols.sort(key=sort_key_by_asympt)
+        return sols
 
 class OrdinaryPoint(RegularPoint):
     pass

@@ -24,6 +24,7 @@ from sage.structure.sequence import Sequence
 from ore_algebra.ore_algebra import OreAlgebra
 
 from ore_algebra.analytic import accuracy, bounds, utilities
+from ore_algebra.analytic.local_solutions import *
 from ore_algebra.analytic.safe_cmp import safe_lt
 from ore_algebra.analytic.shiftless import my_shiftless_decomposition
 
@@ -317,13 +318,6 @@ def fundamental_matrix_ordinary(dop, pt, ring, eps, rows, maj):
 ################################################################################
 # Regular singular points
 ################################################################################
-
-FundamentalSolution = collections.namedtuple(
-    'FundamentalSolution',
-    ['valuation', 'log_power', 'value'])
-
-def sort_key_by_asympt(sol):
-    return sol.valuation.real(), -sol.log_power, sol.valuation.imag()
 
 # XXX: this should be easier to do!
 def my_embeddings(nf):
