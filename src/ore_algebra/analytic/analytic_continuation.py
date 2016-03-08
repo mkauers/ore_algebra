@@ -10,7 +10,11 @@ import sage.rings.real_arb
 import sage.rings.complex_arb
 
 from sage.matrix.constructor import identity_matrix, matrix
+from sage.rings.complex_arb import ComplexBallField
+from sage.rings.integer_ring import ZZ
 from sage.rings.number_field.number_field_element import NumberFieldElement
+from sage.rings.real_arb import RealBallField
+from sage.structure.sequence import Sequence
 
 from ore_algebra.analytic import bounds
 
@@ -78,7 +82,7 @@ class Context(object):
         return (rings.RIF.has_coerce_map_from(self.dop.base_ring().base_ring())
                 and all(v.is_real() for v in self.path.vert))
 
-def ordinary_step_transition_matrix(ctx, step, ring, eps, rows, pplen=2):
+def ordinary_step_transition_matrix(ctx, step, eps, rows, pplen=2):
     # TODO: adjust pplen automatically?
     ldop = step.start.local_diffop()
     maj = bounds.bound_diffop(ldop, pol_part_len=pplen)  # cache in ctx?
@@ -88,44 +92,42 @@ def ordinary_step_transition_matrix(ctx, step, ring, eps, rows, pplen=2):
         from .binary_splitting import fundamental_matrix_ordinary
     else:
         from .naive_sum import fundamental_matrix_ordinary
-    mat = fundamental_matrix_ordinary(ldop, step.delta(), ring, eps, rows, maj)
+    mat = fundamental_matrix_ordinary(ldop, step.delta(), eps, rows, maj)
     return mat
 
-def singular_step_transition_matrix(ctx, step, ring, eps, rows, pplen=2):
+def singular_step_transition_matrix(ctx, step, eps, rows, pplen=2):
     from .naive_sum import fundamental_matrix_regular
     ldop = step.start.local_diffop()
-    mat = fundamental_matrix_regular(ldop, step.delta(), ring, eps, rows, pplen)
+    mat = fundamental_matrix_regular(ldop, step.delta(), eps, rows, pplen)
     return mat
 
-def inverse_singular_step_transition_matrix(ctx, step, ring, eps, rows):
+def inverse_singular_step_transition_matrix(ctx, step, eps, rows):
     rev_step = Step(step.end, step.start)
-    mat = singular_step_transition_matrix(ctx, rev_step, ring, eps/2, rows)
+    mat = singular_step_transition_matrix(ctx, rev_step, eps/2, rows)
     return ~mat
 
-def step_transition_matrix(ctx, step, ring, eps, rows=None):
+def step_transition_matrix(ctx, step, eps, rows=None):
     if rows is None:
         rows = ctx.dop.order()
     z0, z1 = step
     if ctx.dop.order() == 0:
         logger.info("%s: trivial case", step)
-        return matrix(ring) # 0 by 0
+        return matrix(ZZ) # 0 by 0
     elif z0.value == z1.value:
         logger.info("%s: trivial case", step)
-        return identity_matrix(ring, ctx.dop.order())[:rows]
+        return identity_matrix(ZZ, ctx.dop.order())[:rows]
     elif isinstance(z0, OrdinaryPoint) and isinstance(z1, OrdinaryPoint):
         logger.info("%s: ordinary case", step)
         fun = ordinary_step_transition_matrix
     elif isinstance(z0, RegularPoint) and isinstance(z1, OrdinaryPoint):
         logger.info("%s: regular singular case (going out)", step)
         fun = singular_step_transition_matrix
-        ring = ring.complex_field() # TBI
     elif isinstance(z0, OrdinaryPoint) and isinstance(z1, RegularPoint):
         logger.info("%s: regular singular case (going in)", step)
         fun = inverse_singular_step_transition_matrix
-        ring = ring.complex_field() # TBI
     else:
         raise TypeError(type(z0), type(z1))
-    return fun(ctx, step, ring, eps, rows)
+    return fun(ctx, step, eps, rows)
 
 def analytic_continuation(ctx, ini=None, post=None):
     """
@@ -138,14 +140,9 @@ def analytic_continuation(ctx, ini=None, post=None):
             ini = matrix(ctx.dop.order(), 1, ini)
         except (TypeError, ValueError):
             raise ValueError("incorrect initial values: {}".format(ini))
-
     eps1 = (ctx.eps/(1 + len(ctx.path))) >> 2 # TBI, +: move to ctx?
-    prec = prec_from_eps(eps1) # TBI
-    ring = (sage.rings.real_arb.RealBallField(prec) if ctx.real()
-            else sage.rings.complex_arb.ComplexBallField(prec))
-
     res = []
-    path_mat = identity_matrix(ring, ctx.dop.order())
+    path_mat = identity_matrix(ZZ, ctx.dop.order())
     def store_value_if_wanted(point):
         if point.keep_value:
             value = path_mat
@@ -154,8 +151,12 @@ def analytic_continuation(ctx, ini=None, post=None):
             res.append((point.value, value))
     store_value_if_wanted(ctx.path.vert[0])
     for step in ctx.path:
-        step_mat = step_transition_matrix(ctx, step, ring, eps1)
+        step_mat = step_transition_matrix(ctx, step, eps1)
         path_mat = step_mat*path_mat
         store_value_if_wanted(step.end)
-
-    return res
+    cm = sage.structure.element.get_coercion_model()
+    output_prec = prec_from_eps(ctx.eps)
+    OutputIntervals = cm.common_parent(
+            (RealBallField if ctx.real() else ComplexBallField)(output_prec),
+            *[mat.base_ring() for pt, mat in res])
+    return [(pt, mat.change_ring(OutputIntervals)) for pt, mat in res]

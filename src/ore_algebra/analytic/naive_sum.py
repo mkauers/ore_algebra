@@ -15,6 +15,7 @@ from sage.modules.free_module_element import vector
 from sage.rings.complex_arb import ComplexBallField
 from sage.rings.infinity import infinity
 from sage.rings.integer import Integer
+from sage.rings.integer_ring import ZZ
 from sage.rings.polynomial import polynomial_element
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 from sage.rings.qqbar import QQbar
@@ -306,14 +307,14 @@ def series_sum_ordinary(Intervals, dop, bwrec, ini, pt,
             max(x.rad() for x in res) if pt.is_numeric else "n/a")
     return res
 
-# XXX: drop the 'ring' parameter? pass ctx (→ real/complex?)?
-def fundamental_matrix_ordinary(dop, pt, ring, eps, rows, maj):
+# XXX: pass ctx (→ real/complex?)?
+def fundamental_matrix_ordinary(dop, pt, eps, rows, maj):
     eps_col = bounds.IR(eps)/bounds.IR(dop.order()).sqrt()
     evpt = EvaluationPoint(pt, jet_order=rows)
     cols = [
         series_sum(dop, ini, evpt, eps_col, maj=maj)
         for ini in identity_matrix(dop.order())]
-    return matrix(cols).transpose().change_ring(ring)
+    return matrix(cols).transpose()
 
 ################################################################################
 # Regular singular points
@@ -330,7 +331,7 @@ def my_embeddings(nf):
 # TODO: move parts not specific to the naïve summation algo elsewhere
 # def fundamental_matrix_regular(dop, pt, ring, eps, rows, maj):
 # TODO: test with algebraic valuations
-def fundamental_matrix_regular(dop, pt, ring, eps, rows, pplen=0):
+def fundamental_matrix_regular(dop, pt, eps, rows, pplen=0):
     r"""
     TESTS::
 
@@ -338,12 +339,12 @@ def fundamental_matrix_regular(dop, pt, ring, eps, rows, pplen=0):
         sage: from ore_algebra.analytic.naive_sum import *
         sage: Dops, x, Dx = Diffops()
 
-        sage: fundamental_matrix_regular(x*Dx^2 + (1-x)*Dx, 1, RBF, RBF(1e-10), 2)
+        sage: fundamental_matrix_regular(x*Dx^2 + (1-x)*Dx, 1, RBF(1e-10), 2)
         [[1.317902...] 1.000000...]
         [[2.718281...]           0]
 
         sage: dop = (x+1)*(x^2+1)*Dx^3-(x-1)*(x^2-3)*Dx^2-2*(x^2+2*x-1)*Dx
-        sage: fundamental_matrix_regular(dop, 1/3, RBF, RBF(1e-10), 3)
+        sage: fundamental_matrix_regular(dop, 1/3, RBF(1e-10), 3)
         [ 1.0000000...  [0.321750...]  [0.147723...]]
         [            0  [0.900000...]  [0.991224...]]
         [            0  [-0.2...]      [1.935612...]]
@@ -353,7 +354,7 @@ def fundamental_matrix_regular(dop, pt, ring, eps, rows, pplen=0):
         ....:     + (-2*x^6 + 5*x^5 - 11*x^3 - 6*x^2 + 6*x)*Dx^3
         ....:     + (2*x^6 - 3*x^5 - 6*x^4 + 7*x^3 + 8*x^2 - 6*x + 6)*Dx^2
         ....:     + (-2*x^6 + 3*x^5 + 5*x^4 - 2*x^3 - 9*x^2 + 9*x)*Dx)
-        sage: fundamental_matrix_regular(dop, RBF(1/3), RBF, RBF(1e-10), 4, pplen=20)
+        sage: fundamental_matrix_regular(dop, RBF(1/3), RBF(1e-10), 4, pplen=20)
         [ [3.178847...] [-1.064032...]  [1.000...] [0.3287250...]]
         [ [-8.98193...] [3.2281834...]       [...] [0.9586537...]]
         [ [26.18828...] [-4.063756...]       [...] [-0.123080...]]
@@ -391,9 +392,9 @@ def fundamental_matrix_regular(dop, pt, ring, eps, rows, pplen=0):
                                     leftmost, shift, log_power, log_power)
                         ini = LogSeriesInitialValues(
                             expo = leftmost,
-                            values = {s: tuple(ring.one()
+                            values = {s: tuple(ZZ.one()
                                               if (s, p) == (shift, log_power)
-                                              else ring.zero()
+                                              else ZZ.zero()
                                               for p in xrange(m))
                                       for s, m in shifts})
                         # XXX: inefficient if shift >> 0
@@ -406,7 +407,7 @@ def fundamental_matrix_regular(dop, pt, ring, eps, rows, pplen=0):
                         logger.debug("sol=%s\n\n", sol)
                         cols.append(sol)
     cols.sort(key=sort_key_by_asympt)
-    return matrix([sol.value for sol in cols]).transpose().change_ring(ring)
+    return matrix([sol.value for sol in cols]).transpose()
 
 # the generic power implem won't always work due to the mess with equality
 def _mypow(a, n):
@@ -422,6 +423,12 @@ def _mypow(a, n):
 def log_series_value(Jets, expo, psum, pt):
     log_prec = psum.length()
     derivatives = Jets.modulus().degree()
+    if log_prec > 1 or expo not in ZZ:
+        pt = pt.parent().complex_field()(pt)
+        Jets = utilities.jets(
+                Jets.base_ring().complex_field(),
+                Jets.cover_ring().variable_name(),
+                Jets.modulus().degree())
     # hardcoded series expansions of log(pt) = log(a+η) and pt^λ = (a+η)^λ (too
     # cumbersome to compute directly in Sage at the moment)
     logpt = Jets(

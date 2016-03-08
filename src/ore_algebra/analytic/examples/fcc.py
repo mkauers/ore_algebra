@@ -27,7 +27,7 @@ from there the return probability of the lattice)::
 
     sage: eval_diffeq(dop4, [0, 0, 0, 1], [0, 1], 1e-60)
     [1.10584379792120476018299547088585107443954623663875285836499...]
-    + [+/- ...e-60]*I
+    + [+/- ...]*I
 
 (The result is complex even though that particular solution is real-valued
 because some local solutions involve logarithms.)

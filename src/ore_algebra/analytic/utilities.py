@@ -60,7 +60,7 @@ def sing_as_alg(dop, iv):
 ######################################################################
 
 def prec_from_eps(eps):
-    return -eps.lower().log2().floor()
+    return -eps.lower().log2().floor() + 4
 
 def jets(base, var_name, order):
     # Polynomial quotient ring elements are faster than power series

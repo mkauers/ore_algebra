@@ -15,13 +15,15 @@ import ore_algebra
 from sage.matrix.constructor import matrix
 from sage.matrix.matrix_space import MatrixSpace
 from sage.rings.arith import lcm
+from sage.rings.complex_arb import ComplexBallField
 from sage.rings.integer_ring import ZZ
 from sage.rings.rational_field import QQ
 from sage.rings.number_field.number_field import NumberField, is_NumberField
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 from sage.rings.power_series_ring import PowerSeriesRing
+from sage.rings.real_arb import RealBallField
 
-from ore_algebra.analytic import bounds
+from ore_algebra.analytic import bounds, utilities
 
 logger = logging.getLogger(__name__)
 
@@ -314,7 +316,7 @@ def binsplit_step_seq(first_step=64):
         yield (low, high)
         low, high = high, 2*high
 
-def fundamental_matrix_ordinary(dop, pt, ring, eps, rows, maj):
+def fundamental_matrix_ordinary(dop, pt, eps, rows, maj):
     r"""
     INPUT:
 
@@ -334,7 +336,9 @@ def fundamental_matrix_ordinary(dop, pt, ring, eps, rows, maj):
                                              rec.residuals(prod, n), ord=rows)
             if tail_bound < eps: # XXX: clarify stopping criterion
                 break
-    mat = prod.partial_sums(ring, rows, dop.order())
+    bit_prec = utilities.prec_from_eps(tgt_error.eps)
+    Intervals = RealBallField if pt.is_real else ComplexBallField
+    mat = prod.partial_sums(Intervals(bit_prec), rows, dop.order())
     # Account for the dropped high-order terms in the intervals we return.
     err = tail_bound.abs()
     mat = mat.apply_map(lambda x: x.add_error(err)) # XXX - overest

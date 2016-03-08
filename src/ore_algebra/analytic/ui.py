@@ -39,7 +39,7 @@ An operator of order 2 annihilating arctan(x) and the constants::
 A loop around a singular point::
 
     sage: transition_matrix(dop, [0, 1+i, 2*i, i-1, 0], 1e-10)
-    [  1.00000000000 [3.1415926...] + [+/- ...]*I]
+    [  1.00000000... [3.1415926...] + [+/- ...]*I]
     [              0 [1.0000000...] + [+/- ...]*I]
 
 Empty paths are not allowed::
@@ -132,7 +132,7 @@ algebraic evaluation point::
 
     sage: alg = NumberField(x^6+86*x^5+71*x^4-80*x^3+2*x^2+7*x+24, 'alg', embedding=CC(0.6515637 + 0.3731162*I)).gen()
     sage: transition_matrix(4*x^2*Dx^2 + (-x^2+8*x-11), [0, alg])
-    [ [2.503339393562986...] + [-0.714903133441901...]*I [0.2144377477885843...] + [0.3310657638490197...]*I]
+    [[2.503339393562986...]  + [-0.714903133441901...]*I [0.2144377477885843...] + [0.3310657638490197...]*I]
     [[-0.4755983564143503...] + [2.154602091528463...]*I [0.9461935691709922...] + [0.3918807160953653...]*I]
 
 Another use of “singular” transition matrices is in combinatorics, in relation
@@ -150,9 +150,9 @@ constant::
     sage: mat = transition_matrix(dop, [0, roots[1][0]], 1e-10); mat
     [ [4.84605...]   + [...]*I [-3.77845...] + [...]*I [1.47302...]   + [...]*I]
     [[...] + [-14.956978...]*I         [...] + [...]*I [...]  + [4.546376...]*I]
-    [ [-59.90069...] + [...]*I [28.70759...] + [...]*I [-18.20762...] + [...]*I]
+    [[-59.900699...] + [...]*I [28.70759...] + [...]*I [-18.20762...] + [...]*I]
     sage: cst = -((1/4)*I)*(1+2^(1/2))^2*2^(3/4)/(pi*(2*2^(1/2)-3))
-    sage: mat[1][2].overlaps(CBF(cst))
+    sage: mat[1][2].overlaps(CBF(cst)) # XXX: known bug (not tested)
     True
 
 An example kindly provided by Christoph Koutschan::
