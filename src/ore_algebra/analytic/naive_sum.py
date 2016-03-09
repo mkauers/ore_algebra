@@ -12,14 +12,14 @@ import collections, itertools, logging
 
 from sage.matrix.constructor import identity_matrix, matrix
 from sage.modules.free_module_element import vector
-from sage.rings.complex_arb import ComplexBallField
+from sage.rings.complex_arb import ComplexBallField, CBF
 from sage.rings.infinity import infinity
 from sage.rings.integer import Integer
 from sage.rings.integer_ring import ZZ
 from sage.rings.polynomial import polynomial_element
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 from sage.rings.qqbar import QQbar
-from sage.rings.real_arb import RealBallField
+from sage.rings.real_arb import RealBallField, RBF
 from sage.structure.sequence import Sequence
 
 from ore_algebra.ore_algebra import OreAlgebra
@@ -542,8 +542,6 @@ def plot_bounds(dop, ini=None, pt=None, eps=None, pplen=0):
         Graphics object consisting of 5 graphics primitives
     """
     import sage.plot.all as plot
-    from sage.rings.real_arb import RealBallField, RBF
-    from sage.rings.complex_arb import CBF
     from sage.all import VectorSpace, QQ, RIF
     from ore_algebra.analytic.bounds import abs_min_nonzero_root
     if ini is None:
