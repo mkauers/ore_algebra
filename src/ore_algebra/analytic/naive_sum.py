@@ -88,7 +88,7 @@ class LogSeriesInitialValues(object):
       x^s·log(x)^k/k! for some k
     """
 
-    def __init__(self, expo, values):
+    def __init__(self, expo, values, dop=None):
         self.expo = QQbar.coerce(expo)
         if isinstance(values, dict):
             all_values = sum(values.values(), ()) # concatenation of tuples
@@ -101,7 +101,26 @@ class LogSeriesInitialValues(object):
         self.shift = { s: tuple(self.universe(a) for a in ini)
                        for s, ini in values.iteritems() }
 
+        try:
+            if dop is not None and not self.valid_for(dop):
+                raise ValueError("invalid initial data for {} at 0".format(dop))
+        except TypeError: # coercion problems btw QQbar and number fields
+            pass
+
         self.is_real = RealBallField(2).has_coerce_map_from(self.universe)
+
+    def valid_for(self, dop):
+        ind = dop.indicial_polynomial(dop.base_ring().gen())
+        for sl_factor, shifts in my_shiftless_decomposition(ind):
+            for k, (val_shift, _) in enumerate(shifts):
+                if sl_factor(self.expo - val_shift).is_zero():
+                    if len(self.shift) != len(shifts) - k:
+                        return False
+                    for shift, mult in shifts[k:]:
+                        if len(self.shift.get(shift - val_shift, ())) != mult:
+                            return False
+                    return True
+        return False
 
     def is_precise(self, eps):
         if self.universe.is_exact():
@@ -187,7 +206,7 @@ def series_sum(dop, ini, pt, tgt_error, maj=None, bwrec=None,
     # ordinary/regsing dichotomy goes here.
 
     if not isinstance(ini, LogSeriesInitialValues):
-        ini = LogSeriesInitialValues(0, ini)
+        ini = LogSeriesInitialValues(0, ini, dop)
 
     if not isinstance(pt, EvaluationPoint):
         pt = EvaluationPoint(pt)
@@ -388,6 +407,7 @@ def fundamental_matrix_regular(dop, pt, eps, rows, pplen=0):
                         logger.info("solution z^(%s+%s)·log(z)^%s/%s! + ···",
                                     leftmost, shift, log_power, log_power)
                         ini = LogSeriesInitialValues(
+                            dop = dop,
                             expo = leftmost,
                             values = {s: tuple(ZZ.one()
                                                if (s, p) == (shift, log_power)
