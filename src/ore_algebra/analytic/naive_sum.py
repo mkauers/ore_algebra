@@ -220,15 +220,11 @@ def series_sum(dop, ini, pt, tgt_error, maj=None, bwrec=None,
         tgt_error = accuracy.AbsoluteError(tgt_error, input_is_precise)
     logger.log(logging.INFO - 1, "target error = %s", tgt_error)
 
-    if maj is None:
-        if dop.leading_coefficient().valuation() == 0:
+    if dop.leading_coefficient().valuation() == 0:
+        if maj is None:
             maj = bounds.bound_diffop(dop)
-        else:
-            raise TypeError("singular operator, please specify a majorant")
-    logger.log(logging.INFO-1, "Majorant:\n%s", maj)
-
-    if bwrec is None:
-        bwrec = backward_rec(dop) # XXX: won't work in the regsing case
+        if bwrec is None:
+            bwrec = backward_rec(dop)
 
     ivs = (RealBallField if ini.is_real and (pt.is_real or not pt.is_numeric)
            else ComplexBallField)
