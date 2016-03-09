@@ -37,7 +37,7 @@ logger = logging.getLogger(__name__)
 
 # XXX: perhaps introduce a specific object type (with support for exceptional
 # indices and RecJets; see also bound_residual_with_logs)
-def backward_rec(dop):
+def backward_rec(dop, shift=ZZ.zero()):
     Pols_n = PolynomialRing(dop.base_ring().base_ring(), 'n') # XXX: name
     Rops = OreAlgebra(Pols_n, 'Sn')
     # Using the primitive part here would break the computation of residuals!
@@ -45,7 +45,8 @@ def backward_rec(dop):
     # rop = dop.to_S(Rops).primitive_part().numerator()
     rop = dop.to_S(Rops)
     ordrec = rop.order()
-    bwrec = [rop[ordrec-k](Pols_n.gen()-ordrec) for k in xrange(ordrec+1)]
+    bwrec = [rop[ordrec-k](Pols_n.gen()-ordrec+shift)
+             for k in xrange(ordrec+1)]
     return bwrec
 
 class EvaluationPoint(object):
@@ -89,7 +90,10 @@ class LogSeriesInitialValues(object):
     """
 
     def __init__(self, expo, values, dop=None):
-        self.expo = QQbar.coerce(expo)
+        try:
+            self.expo = ZZ.coerce(expo)
+        except TypeError:
+            self.expo = QQbar.coerce(expo)
         if isinstance(values, dict):
             all_values = sum(values.values(), ()) # concatenation of tuples
         else:
@@ -108,6 +112,13 @@ class LogSeriesInitialValues(object):
             pass
 
         self.is_real = RealBallField(2).has_coerce_map_from(self.universe)
+
+    def __repr__(self):
+        return ", ".join(
+            "[z^({expo}+{shift})·log(z)^{log_power}/{log_power}! = {val}"
+            .format(expo=self.expo, shift=s, log_power=log_power, val=val)
+            for s, ini in self.shift.iteritems()
+            for log_power, val in enumerate(ini))
 
     def valid_for(self, dop):
         ind = dop.indicial_polynomial(dop.base_ring().gen())
@@ -223,8 +234,9 @@ def series_sum(dop, ini, pt, tgt_error, maj=None, bwrec=None,
     if dop.leading_coefficient().valuation() == 0:
         if maj is None:
             maj = bounds.bound_diffop(dop)
-        if bwrec is None:
-            bwrec = backward_rec(dop)
+
+    if bwrec is None:
+        bwrec = backward_rec(dop, shift=ini.expo)
 
     ivs = (RealBallField if ini.is_real and (pt.is_real or not pt.is_numeric)
            else ComplexBallField)
@@ -500,7 +512,8 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, tgt_error,
             tail_bound = maj.matrix_sol_tail_bound(n, pt.rad, [residual_bound],
                                                                ord=pt.jet_order)
             if record_bounds_in is not None:
-                record_bounds_in.append((n, psum, tail_bound))
+                val = log_series_value(Jets, ini.expo, psum, jet[0])
+                record_bounds_in.append((n, val, tail_bound))
             logger.log(logging.DEBUG - 1,
                     "n=%d, est=%s*%s=%s, res_bnd=%s, tail_bnd=%s",
                     n, abs(last[0][0]), radpow, abs(last[0][0])*radpow,
@@ -543,6 +556,19 @@ def _add_error(approx, error):
     else:
         return approx.add_error(error)
 
+def _random_ini(dop):
+    import random
+    from sage.all import VectorSpace, QQ
+    ind = dop.indicial_polynomial(dop.base_ring().gen())
+    sl_decomp = my_shiftless_decomposition(ind)
+    pol, shifts = random.choice(sl_decomp)
+    expo = random.choice(pol.roots(QQbar))[0]
+    values = {
+        shift: tuple(VectorSpace(QQ, mult).random_element())
+        for shift, mult in shifts
+    }
+    return LogSeriesInitialValues(expo, values, dop)
+
 def plot_bounds(dop, ini=None, pt=None, eps=None, pplen=0):
     r"""
     EXAMPLES::
@@ -558,15 +584,13 @@ def plot_bounds(dop, ini=None, pt=None, eps=None, pplen=0):
     from sage.all import VectorSpace, QQ, RIF
     from ore_algebra.analytic.bounds import abs_min_nonzero_root
     if ini is None:
-        ini = VectorSpace(QQ, dop.order()).random_element()
+        ini = _random_ini(dop)
     if pt is None:
-        lc = dop.leading_coefficient()
-        if lc.degree() == 0:
-            pt = QQ(2)
-        else:
-            pt = RIF(abs_min_nonzero_root(lc)/2).simplest_rational()
+        rad = abs_min_nonzero_root(dop.leading_coefficient())
+        pt = QQ(2) if rad == infinity else RIF(rad/2).simplest_rational()
     if eps is None:
         eps = RBF(1e-50)
+    logger.info("initial values: %s", ini)
     recd = []
     maj = bounds.bound_diffop(dop, pol_part_len=pplen)
     ref_sum = series_sum(dop, ini, pt, eps, stride=1,
