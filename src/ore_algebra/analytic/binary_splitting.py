@@ -336,9 +336,10 @@ def fundamental_matrix_ordinary(dop, pt, eps, rows, maj):
                                              rec.residuals(prod, n), ord=rows)
             if tail_bound < eps: # XXX: clarify stopping criterion
                 break
-    bit_prec = utilities.prec_from_eps(tgt_error.eps)
-    Intervals = RealBallField if pt.is_real else ComplexBallField
-    mat = prod.partial_sums(Intervals(bit_prec), rows, dop.order())
+            maj.maybe_refine()
+    is_real = RealBallField(2).has_coerce_map_from(pt.parent())
+    Intervals = utilities.ball_field(eps, is_real)
+    mat = prod.partial_sums(Intervals, rows, dop.order())
     # Account for the dropped high-order terms in the intervals we return.
     err = tail_bound.abs()
     mat = mat.apply_map(lambda x: x.add_error(err)) # XXX - overest

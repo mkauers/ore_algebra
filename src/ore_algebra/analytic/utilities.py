@@ -5,6 +5,9 @@ Utilities
 (some of which could perhaps be upstreamed at some point)
 """
 
+import sage.rings.complex_arb
+import sage.rings.real_arb
+
 from sage.misc.cachefunc import cached_function
 from sage.misc.misc import cputime
 from sage.rings.all import QQ, QQbar, CIF
@@ -61,6 +64,13 @@ def sing_as_alg(dop, iv):
 
 def prec_from_eps(eps):
     return -eps.lower().log2().floor() + 4
+
+def ball_field(eps, real):
+    prec = prec_from_eps(eps)
+    if real:
+        return sage.rings.real_arb.RealBallField(prec)
+    else:
+        return sage.rings.complex_arb.ComplexBallField(prec)
 
 def jets(base, var_name, order):
     # Polynomial quotient ring elements are faster than power series

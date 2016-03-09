@@ -19,7 +19,7 @@ from sage.structure.sequence import Sequence
 from ore_algebra.analytic import bounds
 
 from ore_algebra.analytic.path import Path, OrdinaryPoint, RegularPoint, IrregularSingularPoint, Step
-from ore_algebra.analytic.utilities import prec_from_eps
+from ore_algebra.analytic.utilities import *
 
 logger = logging.getLogger(__name__)
 
@@ -155,8 +155,7 @@ def analytic_continuation(ctx, ini=None, post=None):
         path_mat = step_mat*path_mat
         store_value_if_wanted(step.end)
     cm = sage.structure.element.get_coercion_model()
-    output_prec = prec_from_eps(ctx.eps)
     OutputIntervals = cm.common_parent(
-            (RealBallField if ctx.real() else ComplexBallField)(output_prec),
+            ball_field(ctx.eps, ctx.real()),
             *[mat.base_ring() for pt, mat in res])
     return [(pt, mat.change_ring(OutputIntervals)) for pt, mat in res]

@@ -23,6 +23,7 @@ import ore_algebra.analytic.utilities as utilities
 
 from ore_algebra.analytic.naive_sum import series_sum, EvaluationPoint
 from ore_algebra.analytic.safe_cmp import *
+from ore_algebra.analytic.utilities import *
 
 def taylor_economization(pol, eps):
     r"""
@@ -161,9 +162,7 @@ def doit(dop, ini, path, rad, eps, derivatives, economization):
     pairs = ancont.analytic_continuation(ctx, ini=ini)
     local_ini = pairs[0][1]
 
-    prec = utilities.prec_from_eps(eps1) # TBI
-    Scalars = (sage.rings.real_arb.RealBallField(prec) if ctx.real()
-               else sage.rings.complex_arb.ComplexBallField(prec))
+    Scalars = ball_field(eps1, ctx.real())
     x = dop.base_ring().change_ring(Scalars).gen()
 
     local_dop = ctx.path.vert[-1].local_diffop()
