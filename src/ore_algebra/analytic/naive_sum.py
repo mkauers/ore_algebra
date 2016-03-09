@@ -209,7 +209,7 @@ def series_sum(dop, ini, pt, tgt_error, maj=None, bwrec=None,
     logger.log(logging.INFO-1, "Majorant:\n%s", maj)
 
     if bwrec is None:
-        bwrec = backward_rec(dop)
+        bwrec = backward_rec(dop) # XXX: won't work in the regsing case
 
     ivs = (RealBallField if ini.is_real and (pt.is_real or not pt.is_numeric)
            else ComplexBallField)
@@ -363,17 +363,15 @@ def fundamental_matrix_regular(dop, pt, eps, rows, pplen=0):
     eps_col = bounds.IR(eps)/bounds.IR(dop.order()).sqrt()
     col_tgt_error = accuracy.AbsoluteError(eps_col, precise=True)
 
-    # XXX: probably should not use the same domain (ring == Intervals ==
-    # Jets.base_ring()) for points and for coefficients
     evpt = EvaluationPoint(pt, jet_order=rows)
     bwrec = backward_rec(dop)
     ind = bwrec[0]
     n = ind.parent().gen()
-    logger.debug("indicial polynomial = %s ~~> %s", ind,
-            my_shiftless_decomposition(ind))
+    sl_decomp = my_shiftless_decomposition(ind)
+    logger.debug("indicial polynomial = %s ~~> %s", ind, sl_decomp)
 
     cols = []
-    for sl_factor, shifts in my_shiftless_decomposition(ind):
+    for sl_factor, shifts in sl_decomp:
         for irred_factor, irred_mult in sl_factor.factor():
             assert irred_mult == 1
             # Complicated to do here and specialize, for little benefit
@@ -381,8 +379,7 @@ def fundamental_matrix_regular(dop, pt, eps, rows, pplen=0):
             #irred_leftmost = irred_nf.gen()
             #irred_bwrec = [pol(irred_leftmost + n) for pol in bwrec]
             for leftmost, _ in irred_factor.roots(QQbar):
-                from utilities import as_embedded_number_field_element
-                leftmost = as_embedded_number_field_element(leftmost)
+                leftmost = utilities.as_embedded_number_field_element(leftmost)
                 emb_bwrec = [pol(leftmost + n) for pol in bwrec]
                 maj = bounds.bound_diffop(dop, leftmost, shifts,
                         pol_part_len=pplen, bound_inverse="solve")
@@ -393,9 +390,9 @@ def fundamental_matrix_regular(dop, pt, eps, rows, pplen=0):
                         ini = LogSeriesInitialValues(
                             expo = leftmost,
                             values = {s: tuple(ZZ.one()
-                                              if (s, p) == (shift, log_power)
-                                              else ZZ.zero()
-                                              for p in xrange(m))
+                                               if (s, p) == (shift, log_power)
+                                               else ZZ.zero()
+                                               for p in xrange(m))
                                       for s, m in shifts})
                         # XXX: inefficient if shift >> 0
                         value = series_sum(dop, ini, evpt, col_tgt_error,
@@ -546,7 +543,6 @@ def plot_bounds(dop, ini=None, pt=None, eps=None, pplen=0):
     from ore_algebra.analytic.bounds import abs_min_nonzero_root
     if ini is None:
         ini = VectorSpace(QQ, dop.order()).random_element()
-    ini = map(RealBallField(400), ini)
     if pt is None:
         lc = dop.leading_coefficient()
         if lc.degree() == 0:
@@ -556,7 +552,7 @@ def plot_bounds(dop, ini=None, pt=None, eps=None, pplen=0):
     if eps is None:
         eps = RBF(1e-50)
     recd = []
-    maj = bounds.bound_diffop(dop, pol_part_len=pplen)  # cache in ctx?
+    maj = bounds.bound_diffop(dop, pol_part_len=pplen)
     ref_sum = series_sum(dop, ini, pt, eps, stride=1,
                                   record_bounds_in=recd, maj=maj)
     # Note: this won't work well when the errors get close to the double
