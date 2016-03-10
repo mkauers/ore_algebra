@@ -83,13 +83,23 @@ class LogSeriesInitialValues(object):
     r"""
     Initial values defining a logarithmic series.
 
-    - ``expo`` is the algebraic “valuation”,
-    - ``shift`` is a dictionary mapping an integer shift s to a tuple of
+    - ``self.expo`` is the algebraic “valuation”,
+    - ``self.shift`` is a dictionary mapping an integer shift s to a tuple of
       initial values corresponding to the coefficients of x^s, x^s·log(x), ...,
       x^s·log(x)^k/k! for some k
     """
 
     def __init__(self, expo, values, dop=None):
+        r"""
+        TESTS::
+
+            sage: from ore_algebra.analytic.ui import Diffops
+            sage: Dops, x, Dx = Diffops()
+            sage: LogSeriesInitialValues(0, {0: (1, 0)}, x*Dx^3 + 2*Dx^2 + x*Dx)
+            Traceback (most recent call last):
+            ...
+            ValueError: invalid initial data for x*Dx^3 + 2*Dx^2 + x*Dx at 0
+        """
         try:
             self.expo = ZZ.coerce(expo)
         except TypeError:
@@ -211,6 +221,11 @@ def series_sum(dop, ini, pt, tgt_error, maj=None, bwrec=None,
         Vector space of dimension 1 over Complex ball field with ... precision
         sage: b[0].overlaps(ComplexBallField(130)((1+i)/2).arctan())
         True
+
+        sage: series_sum(x*Dx^2 + Dx + x, [0], 1/2, 1e-10)
+        Traceback (most recent call last):
+        ...
+        ValueError: invalid initial data for x*Dx^2 + Dx + x at 0
     """
 
     # The code that depends neither on the numeric precision nor on the
@@ -577,6 +592,14 @@ def plot_bounds(dop, ini=None, pt=None, eps=None, pplen=0):
         sage: Dops, x, Dx = Diffops()
 
         sage: naive_sum.plot_bounds(Dx - 1, [CBF(1)], CBF(i)/2, RBF(1e-20))
+        Graphics object consisting of 5 graphics primitives
+
+        sage: plot_bounds(x*Dx^3 + 2*Dx^2 + x*Dx, eps=1e-8)
+        Graphics object consisting of 5 graphics primitives
+
+        sage: dop = x*Dx^2 + Dx + x
+        sage: plot_bounds(dop, eps=1e-8,
+        ....:       ini=LogSeriesInitialValues(0, {0: (1, 0)}, dop))
         Graphics object consisting of 5 graphics primitives
     """
     import sage.plot.all as plot
