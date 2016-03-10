@@ -311,7 +311,8 @@ def series_sum_ordinary(Intervals, dop, bwrec, ini, pt,
                 # conversion via to_T, i.e. its product by a power of x).
                 residual = bounds.residual(bwrec, n, list(last)[1:],
                                                        maj.Poly.variable_name())
-                tail_bound = maj.matrix_sol_tail_bound(n, pt.rad, [residual],
+                majeqrhs = maj.maj_eq_rhs([residual])
+                tail_bound = maj.matrix_sol_tail_bound(n, pt.rad, majeqrhs,
                                                                ord=pt.jet_order)
                 if record_bounds_in is not None:
                     record_bounds_in.append((n, psum, tail_bound))
@@ -505,11 +506,9 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, tgt_error,
                 or record_bounds_in is not None)
             and n > dop.order() and mult == 0)
         if (cond):
-            residual_bound = bounds.bound_residual_with_logs(bwrec, n,
+            majeqrhs = bounds.maj_eq_rhs_with_logs(bwrec, n,
                     list(last)[1:], maj.Poly.variable_name(), log_prec, RecJets)
-            # XXX: check that residual_bound (as computed by
-            # bound_residual_with_logs) really is what tail_bound expects
-            tail_bound = maj.matrix_sol_tail_bound(n, pt.rad, [residual_bound],
+            tail_bound = maj.matrix_sol_tail_bound(n, pt.rad, majeqrhs,
                                                                ord=pt.jet_order)
             if record_bounds_in is not None:
                 val = log_series_value(Jets, ini.expo, psum, jet[0])
@@ -517,7 +516,7 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, tgt_error,
             logger.log(logging.DEBUG - 1,
                     "n=%d, est=%s*%s=%s, res_bnd=%s, tail_bnd=%s",
                     n, abs(last[0][0]), radpow, abs(last[0][0])*radpow,
-                    residual_bound, tail_bound)
+                    majeqrhs, tail_bound)
             if tgt_error.reached(tail_bound):
                 break
 
@@ -590,6 +589,7 @@ def plot_bounds(dop, ini=None, pt=None, eps=None, pplen=0):
         pt = QQ(2) if rad == infinity else RIF(rad/2).simplest_rational()
     if eps is None:
         eps = RBF(1e-50)
+    logger.info("point: %s", pt)
     logger.info("initial values: %s", ini)
     recd = []
     maj = bounds.bound_diffop(dop, pol_part_len=pplen)

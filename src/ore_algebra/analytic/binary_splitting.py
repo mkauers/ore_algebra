@@ -332,8 +332,9 @@ def fundamental_matrix_ordinary(dop, pt, eps, rows, maj):
         logger.debug("n = %d, tail bound = %s", n, tail_bound)
         a_term = prod.term(bounds.IC, dop.order(), 0)
         if a_term.abs() < eps: # use bounds.AbsoluteError???
+            majeqrhs = maj.maj_eq_rhs(rec.residuals(prod, n))
             tail_bound = maj.matrix_sol_tail_bound(n, bounds.IC(pt).abs(),
-                                             rec.residuals(prod, n), ord=rows)
+                                                   majeqrhs, ord=rows)
             if tail_bound < eps: # XXX: clarify stopping criterion
                 break
             maj.maybe_refine()

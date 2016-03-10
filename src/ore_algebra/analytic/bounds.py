@@ -273,7 +273,7 @@ class HyperexpMajorant(MajorantSeries):
         ser = rat(pert_rad)*self.integrand(pert_rad).integral().exp()
         rat_part = sum(coeff**2 for coeff in ser.truncate(derivatives))
         exp_part = (2*self.integrand.bound_antiderivative()(rad)).exp()
-        return (rat_part*exp_part).sqrt() # XXX: sqrtpos?
+        return (rat_part*exp_part).sqrtpos()
 
     def __mul__(self, pol):
         """"
@@ -929,9 +929,29 @@ class DiffOpBound(object):
         maj = HyperexpMajorant(integrand=rat_maj, rat=~self.maj_den)
         return maj
 
+    # Extracted from tail_majorant for (partial) compatibility with the regular
+    # singular case.
+    def maj_eq_rhs(self, residuals):
+        abs_residual = bound_polynomials(residuals)
+        logger.debug("lc(abs_res) = %s", abs_residual.leading_coefficient())
+        # In general, a majorant series for the tail of order n is given by
+        # self(n)(z)*int(t⁻¹*aux(t)/self(n)(t)) where aux(t) is a polynomial
+        # s.t. |aux[k]| >= (k/indicial_eq(k))*abs_residual[k]. This bound is not
+        # very convenient to compute. But since self(n) has nonnegative
+        # coefficients and self(n)(0) = 1, we can replace aux by aux*self(n) in
+        # the formula. (XXX: How much do we lose?) Since k/indicial_eq(k) <= 1
+        # (ordinary point!), we could in fact take aux = abs_residual*self(n),
+        # yielding a very simple bound. (We would lose an additional factor of
+        # about n^(ordeq-1).)
+        Pols = abs_residual.parent()
+        aux = Pols(dict(
+            (k, (c*k/self.ind(k)).above_abs())
+            for k, c in abs_residual.dict().iteritems()))
+        return aux
+
     # XXX: make interval evaluation more precise? (not crucial as we only need
     # an upper bound, but...)
-    def tail_majorant(self, n, residuals):
+    def tail_majorant(self, n, majeqrhs):
         r"""
         Bound the tails of order ``N`` of solutions of ``self.dop(y) == 0``.
 
@@ -949,29 +969,14 @@ class DiffOpBound(object):
         A (common) majorant series of the tails ``y[N:](z)`` of the solutions
         corresponding to the elements of ``residuals``.
         """
-        abs_residual = bound_polynomials(residuals)
-        # In general, a majorant series for the tail of order n is given by
-        # self(n)(z)*int(t⁻¹*aux(t)/self(n)(t)) where aux(t) is a polynomial
-        # s.t. |aux[k]| >= (k/indicial_eq(k))*abs_residual[k]. This bound is not
-        # very convenient to compute. But since self(n) has nonnegative
-        # coefficients and self(n)(0) = 1, we can replace aux by aux*self(n) in
-        # the formula. (XXX: How much do we lose?) Since k/indicial_eq(k) <= 1
-        # (ordinary point!), we could in fact take aux = abs_residual*self(n),
-        # yielding a very simple bound. (We would lose an additional factor of
-        # about n^(ordeq-1).)
-        assert abs_residual.valuation() >= n >= self.dop.order() >= 1
-        Pols = abs_residual.parent()
-        aux = Pols(dict(
-            (k, (c*k/self.ind(k)).above_abs())
-            for k, c in abs_residual.dict().iteritems()))
-        maj = self(n)*(aux >> 1).integral()
-        logger.debug("lc(abs_res) = %s", abs_residual.leading_coefficient())
+        assert majeqrhs.valuation() >= n >= self.dop.order() >= 1
+        maj = self(n)*(majeqrhs >> 1).integral()
         logger.debug("maj(%s) = %s", n, self(n))
         logger.debug("maj = %s", maj)
         return maj
 
     # XXX: rename ord to rows?
-    def matrix_sol_tail_bound(self, n, rad, residuals, ord=None):
+    def matrix_sol_tail_bound(self, n, rad, majeqrhs, ord=None):
         r"""
         Bound the Frobenius norm of the tail starting of order ``n`` of the
         series expansion of the matrix ``(y_j^(i)(z)/i!)_{i,j}`` where the
@@ -979,7 +984,7 @@ class DiffOpBound(object):
         and ``0 ≤ j < ord``. The bound is valid for ``|z| < rad``.
         """
         if ord is None: ord=self.dop.order()
-        maj = self.tail_majorant(n, residuals)
+        maj = self.tail_majorant(n, majeqrhs)
         # Since (y[n:])' << maj => (y')[n:] << maj, this bound is valid for the
         # tails of a column of the form [y, y', y''/2, y'''/6, ...] or
         # [y, θy, θ²y/2, θ³y/6, ...].
@@ -1021,7 +1026,7 @@ class DiffOpBound(object):
             # computations may give inexact zeros for some of the coefficients
             assert all(c.contains_zero() for c in resid[:n])
             resid = resid[n:]
-            maj = self.tail_majorant(n, [resid])
+            maj = self.tail_majorant(n, self.maj_eq_rhs([resid]))
             logger.info("%s << %s", Series(ref[n:], n+30), maj.series(n+30))
             maj._test(ref[n:])
 
@@ -1238,7 +1243,7 @@ def residual(bwrec, n, last, z):
         sage: (Dt - 1).to_T('Tt')(trunc).change_ring(CBF)
         ([-0.0416666666666667 +/- 4.26e-17])*t^5
 
-    Note that using Dt -1 instead of θt - t makes a difference in the result,
+    Note that using Dt - 1 instead of θt - t makes a difference in the result,
     since it amounts to a division by t::
 
         sage: (Dt - 1)(trunc).change_ring(CBF)
@@ -1263,7 +1268,9 @@ def residual(bwrec, n, last, z):
     IvPols = PolynomialRing(IC, z, sparse=True)
     return IvPols(rescoef) << n
 
-def bound_residual_with_logs(bwrec, n, last, z, logs, RecJets):
+# This roughly corresponds to residual() followed by maj.maj_eq_rhs() in the
+# ordinary case. TODO: more consistent interface.
+def maj_eq_rhs_with_logs(bwrec, n, last, z, logs, RecJets):
     ordrec = len(bwrec) - 1
     # Compute the coefficients of the residual:
     # residual = z^(lambda + n)·(sum(rescoef[i][j]·z^i·log^j(z)/j!)
@@ -1272,6 +1279,7 @@ def bound_residual_with_logs(bwrec, n, last, z, logs, RecJets):
         for j in xrange(logs):
             idx_pert = RecJets([n + i, 1])
             bwrec_i = [b(idx_pert) for b in bwrec]
+            # significant overestimation here (apparently not too problematic)
             rescoef[i][j] = sum(
                     IC(bwrec_i[i+k+1][p])*IC(last[k][j+p])
                     for k in xrange(ordrec - i)
@@ -1284,7 +1292,7 @@ def bound_residual_with_logs(bwrec, n, last, z, logs, RecJets):
     invlcmaj = sum(IC(t).abs() for t in invlc)
     polcoef = [(n + i)*invlcmaj*max(t.abs() for t in rescoef[i])
                for i in xrange(ordrec)]
-    IvPols = PolynomialRing(IC, z, sparse=True)
+    IvPols = PolynomialRing(IR, z, sparse=True)
     return IvPols(polcoef) << n
 
 
