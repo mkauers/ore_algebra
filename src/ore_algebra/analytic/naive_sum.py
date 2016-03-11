@@ -583,7 +583,7 @@ def _random_ini(dop):
     }
     return LogSeriesInitialValues(expo, values, dop)
 
-def plot_bounds(dop, ini=None, pt=None, eps=None, pplen=0):
+def plot_bounds(dop, ini=None, pt=None, eps=None, pplen=0, bound_inverse=None):
     r"""
     EXAMPLES::
 
@@ -615,7 +615,8 @@ def plot_bounds(dop, ini=None, pt=None, eps=None, pplen=0):
     logger.info("point: %s", pt)
     logger.info("initial values: %s", ini)
     recd = []
-    maj = bounds.bound_diffop(dop, pol_part_len=pplen)
+    maj = bounds.bound_diffop(dop, pol_part_len=pplen,
+            bound_inverse=bound_inverse)
     ref_sum = series_sum(dop, ini, pt, eps, stride=1,
                                   record_bounds_in=recd, maj=maj)
     # Note: this won't work well when the errors get close to the double
