@@ -85,7 +85,7 @@ class Context(object):
 def ordinary_step_transition_matrix(ctx, step, eps, rows, pplen=2):
     # TODO: adjust pplen automatically?
     ldop = step.start.local_diffop()
-    maj = bounds.bound_diffop(ldop, pol_part_len=pplen)  # cache in ctx?
+    maj = bounds.DiffOpBound(ldop, pol_part_len=pplen)  # cache in ctx?
     if ctx.fundamental_matrix_ordinary is not None:
         fundamental_matrix_ordinary = ctx.fundamental_matrix_ordinary
     elif step.is_exact() and eps < ctx.binary_splitting_eps_threshold:

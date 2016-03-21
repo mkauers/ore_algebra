@@ -248,7 +248,7 @@ def series_sum(dop, ini, pt, tgt_error, maj=None, bwrec=None,
 
     if dop.leading_coefficient().valuation() == 0:
         if maj is None:
-            maj = bounds.bound_diffop(dop)
+            maj = bounds.DiffOpBound(dop)
 
     if bwrec is None:
         bwrec = backward_rec(dop, shift=ini.expo)
@@ -426,7 +426,7 @@ def fundamental_matrix_regular(dop, pt, eps, rows, pplen=0):
             for leftmost, _ in irred_factor.roots(QQbar):
                 leftmost = utilities.as_embedded_number_field_element(leftmost)
                 emb_bwrec = [pol(leftmost + n) for pol in bwrec]
-                maj = bounds.bound_diffop(dop, leftmost, shifts,
+                maj = bounds.DiffOpBound(dop, leftmost, shifts,
                         pol_part_len=pplen, bound_inverse="solve")
                 for shift, mult in shifts:
                     for log_power in xrange(mult):
@@ -618,7 +618,7 @@ def plot_bounds(dop, ini=None, pt=None, eps=None, pplen=0, bound_inverse=None):
     logger.info("point: %s", pt)
     logger.info("initial values: %s", ini)
     recd = []
-    maj = bounds.bound_diffop(dop, pol_part_len=pplen,
+    maj = bounds.DiffOpBound(dop, pol_part_len=pplen,
             bound_inverse=bound_inverse)
     ref_sum = series_sum(dop, ini, pt, eps, stride=1,
                                   record_bounds_in=recd, maj=maj)

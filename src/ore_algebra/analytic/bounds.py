@@ -876,7 +876,7 @@ class DiffOpBound(object):
 
     A majorant sequence::
 
-        sage: maj = bound_diffop((x^2 + 1)*Dx^2 + 2*x*Dx)
+        sage: maj = DiffOpBound((x^2 + 1)*Dx^2 + 2*x*Dx)
         sage: print(maj.__repr__(asympt=False))
         1/((-x + [0.994...])^2)*exp(int(POL+1.000...*NUM/(-x + [0.994...])^2))
         where
@@ -894,6 +894,36 @@ class DiffOpBound(object):
 
         sage: maj(3)
         ((-x + [0.994...])^-2)*exp(int(4.000...])^2)))
+        sage: print(DiffOpBound(Dx - 1).__repr__(asympt=False))
+        1/(1.000...)*exp(int(POL+1.000...*NUM/1.000...))
+        where
+        POL=0,
+        NUM=max(
+        |(-1.000...)/(1.000...)|,
+        1.000...     for  n <= +Infinity
+        )*z^0
+
+    An example with an effort parameter::
+
+        sage: dop = (x+1)*(x^2+1)*Dx^3-(x-1)*(x^2-3)*Dx^2-2*(x^2+2*x-1)*Dx
+        sage: DiffOpBound(dop, pol_part_len=3)
+        1/((-x + [0.9965035284306323 +/- 2.07e-17])^3)*exp(int(POL+1.000...*NUM/(-x + [0.9965035284306323 +/- 2.07e-17])^3)) where
+        POL=~6.00000000000000*z^0 + ~3.00000000000000*z^1 + ~5.00000000000000*z^2,
+        NUM=~7.00000000000000*z^3 + ~2.00000000000000*z^4 + ~5.00000000000000*z^5
+
+    TESTS::
+
+        sage: QQi.<i> = QuadraticField(-1)
+        sage: for dop in [
+        ....:     # orders <= 1 are not supported
+        ....:     Dx, Dx - 1, i*Dx, Dx + i, Dx^2,
+        ....:     (x^2 + 1)*Dx^2 + 2*x*Dx,
+        ....:     Dx^2 - x*Dx
+        ....: ]:
+        ....:     DiffOpBound(dop)._test()
+
+        sage: from ore_algebra.analytic.bounds import _test_diffop_bound
+        sage: _test_diffop_bound()
     """
 
     def __init__(self, dop, leftmost=ZZ.zero(), special_shifts=[],
@@ -1133,7 +1163,7 @@ class DiffOpBound(object):
             sage: from ore_algebra.analytic.ui import *
             sage: from ore_algebra.analytic.bounds import *
             sage: Dops, x, Dx = Diffops()
-            sage: maj = bound_diffop(Dx - 1)
+            sage: maj = DiffOpBound(Dx - 1)
             sage: maj._test()
             sage: maj._test([3], 200)
         """
@@ -1190,61 +1220,21 @@ class BoundDiffopStats(utilities.Stats):
         self.time_staircases = utilities.Clock("building staircases")
         self.time_decomp_op = utilities.Clock("decomposing op")
 
-def bound_diffop(dop, leftmost=ZZ.zero(), special_shifts=[],
-        pol_part_len=0, bound_inverse="simple" # TBI
-    ):
-    r"""
-    EXAMPLES::
 
-        sage: from ore_algebra.analytic.ui import *
-        sage: from ore_algebra.analytic.bounds import bound_diffop, _test_bound_diffop
-        sage: Dops, x, Dx = Diffops()
-
-        sage: print(bound_diffop(Dx - 1).__repr__(asympt=False))
-        1/(1.000...)*exp(int(POL+1.000...*NUM/1.000...))
-        where
-        POL=0,
-        NUM=max(
-        |(-1.000...)/(1.000...)|,
-        1.000...     for  n <= +Infinity
-        )*z^0
-
-        sage: dop = (x+1)*(x^2+1)*Dx^3-(x-1)*(x^2-3)*Dx^2-2*(x^2+2*x-1)*Dx
-        sage: bound_diffop(dop, pol_part_len=3)
-        1/((-x + [0.9965035284306323 +/- 2.07e-17])^3)*exp(int(POL+1.000...*NUM/(-x + [0.9965035284306323 +/- 2.07e-17])^3)) where
-        POL=~6.00000000000000*z^0 + ~3.00000000000000*z^1 + ~5.00000000000000*z^2,
-        NUM=~7.00000000000000*z^3 + ~2.00000000000000*z^4 + ~5.00000000000000*z^5
-
-    TESTS::
-
-        sage: QQi.<i> = QuadraticField(-1)
-        sage: for dop in [
-        ....:     # orders <= 1 are not supported
-        ....:     Dx, Dx - 1, i*Dx, Dx + i, Dx^2,
-        ....:     (x^2 + 1)*Dx^2 + 2*x*Dx,
-        ....:     Dx^2 - x*Dx
-        ....: ]:
-        ....:     bound_diffop(dop)._test()
-
-        sage: _test_bound_diffop()
-    """
-    return DiffOpBound(dop, leftmost, special_shifts, pol_part_len,
-            bound_inverse)
-
-def _test_bound_diffop(
+def _test_diffop_bound(
         ords=xrange(1, 5),
         degs=xrange(5),
         pplens=[1, 2, 5],
         prec=100
     ):
     r"""
-    Randomized testing of :func:`bound_diffop`.
+    Randomized testing of :func:`DiffOpBound`.
 
     EXAMPLES::
 
         sage: import logging; logging.basicConfig(level=logging.INFO)
-        sage: from ore_algebra.analytic.bounds import _test_bound_diffop
-        sage: _test_bound_diffop() # not tested
+        sage: from ore_algebra.analytic.bounds import _test_diffop_bound
+        sage: _test_diffop_bound() # not tested
         INFO:ore_algebra.analytic.bounds:testing operator: (-i + 2)*Dx + i - 1
         ...
     """
@@ -1263,7 +1253,7 @@ def _test_bound_diffop(
                             for _ in xrange(ord + 1)])
             logger.info("testing operator: %s", dop)
             for pplen in pplens:
-                maj = bound_diffop(dop, pol_part_len=pplen)
+                maj = DiffOpBound(dop, pol_part_len=pplen)
                 maj._test(prec=prec)
 
 def residual(bwrec, n, last, z):
