@@ -815,12 +815,16 @@ def bound_polynomials(pols):
 
 class DiffOpBound(object):
     r"""
-    A "bound on the inverse" of a differential operator at an ordinary point.
+    A "bound on the inverse" of a differential operator at a regular point.
 
-    This is an object that, given a residual q = dop·ỹ where ỹ(z) = y[:N](z) is
-    the deg-N truncation of a (logarithmic) solution y of dop·y = 0, is able
+    This is an object that can be used to bound the tails of logarithmic power
+    series solutions with terms supported by leftmost + ℕ of a differential
+    operator. Given a residual q = dop·ỹ where ỹ(z) = y[:N](z) is the truncation
+    at order N of some (logarithmic) solution y of dop·y = 0, it can be used
     to compute a majorant series of the coefficients u[0], u[1], ... of the tail
+
         y(z) - ỹ(z) = u[0](z) + u[1](z)·log(z) + u[2](z)·log(z)² + ···.
+
     That majorant series of the tail is represented by a HyperexpMajorant.
 
     Note that multiplying dop by a rational function changes the residual.
@@ -844,6 +848,25 @@ class DiffOpBound(object):
     * den(z) is a polynomial (with constant coefficients),
 
     * cst is a constant.
+
+    XXX: DiffOpBounds are refinable.
+
+    DATA:
+
+    - ``dop`` - the operator to which the bound applies (and which should be
+        used to compute the residuals),
+
+    - ``cst`` - constant (real ball),
+
+    - ``majseq_pol_part`` - *list* of coefficients of ``pol_part``,
+
+    - ``majseq_num`` - *list* of coefficients [c[d], c[d+1], ...] of
+        ``num``, starting at degree d = deg(pol_part) + 1,
+
+    - ``maj_den`` - ``Factorization``,
+
+    - ``ind`` - polynomial to be used in the computation of tail bounds
+        from residuals, typically the indicial polynomial of ``dop``.
 
     EXAMPLES::
 
@@ -873,32 +896,56 @@ class DiffOpBound(object):
         ((-x + [0.994...])^-2)*exp(int(4.000...])^2)))
     """
 
-    def __init__(self, dop, cst, majseq_pol_part, majseq_num, maj_den, ind):
+    def __init__(self, dop, leftmost=ZZ.zero(), special_shifts=[],
+            pol_part_len=0, bound_inverse="simple"):
         r"""
         INPUT:
 
-        - ``dop`` - the operator to which the bound applies (and which should be
-          used to compute the residuals),
+        * special_shifts: list of nonneg integers n s.t. leftmost+n is a root of
+          the indicial equation where we are interested in "new" powers of log
+          that may appear, with associated multiplicities
 
-        - ``cst`` - constant (real ball),
+        .. WARNING::
 
-        - ``majseq_pol_part`` - *list* of coefficients of ``pol_part``,
+            The bounds depend on residuals computed using the “normalized”
+            operator ``self.dop``, not the operator ``dop`` given as input to
+            ``__init__``. The normalized operator is the product of ``dop`` by a
+            power of x.
 
-        - ``majseq_num`` - *list* of coefficients [c[d], c[d+1], ...] of
-          ``num``, starting at degree d = deg(pol_part) + 1,
-
-        - ``maj_den`` - ``Factorization``,
-
-        - ``ind`` - polynomial to be used in the computation of tail bounds
-          from residuals, typically the indicial polynomial of ``dop``.
         """
-        self.dop = dop
-        self.Poly = dop.base_ring().change_ring(IR)
-        self.cst = cst
-        self.majseq_pol_part = majseq_pol_part
-        self.majseq_num = majseq_num
-        self.maj_den = maj_den
-        self.ind = ind
+
+        logger.info("bounding local operator...")
+
+        self.stats = BoundDiffopStats()
+        self.stats.time_total.tic()
+
+        if not dop.parent().is_D():
+            raise ValueError("expected an operator in K(x)[D]")
+        _, Pols_z, _, dop = dop._normalize_base_ring()
+        self._dop_D = dop
+        self.dop = dop_T = dop.to_T('T' + Pols_z.variable_name()) # slow
+        self._rcoeffs = _dop_rcoeffs_of_T(dop_T)
+
+        self.Poly = Pols_z.change_ring(IR) # TBI
+
+        lc = dop_T.leading_coefficient()
+        if lc.is_term() and not lc.is_constant():
+            raise ValueError("irregular singular operator", dop)
+
+        self.leftmost = leftmost
+        self.special_shifts = special_shifts
+
+        self.bound_inverse = bound_inverse
+        self.pol_part_len = pol_part_len
+        self._effort = 0
+        self._refine_interval = 2
+        self._maybe_refine_called = 0
+
+        self._update_den_bound()
+        self._update_num_bound()
+
+        self.stats.time_total.toc()
+        logger.info("...done, time: %s", self.stats)
 
     def __repr__(self, asympt=True):
         fmt = ("1/({den})*exp(int(POL+{cst}*NUM/{den})) where\n"
@@ -917,6 +964,87 @@ class DiffOpBound(object):
                 cst=self.cst, den=self.maj_den,
                 num=pol_repr(self.majseq_num, shift=len(self.majseq_pol_part)),
                 pol=pol_repr(self.majseq_pol_part))
+
+    def _update_den_bound(self):
+        lc = self.dop.leading_coefficient()
+        self.cst, self.maj_den = bound_inverse_poly(lc,
+                algorithm=self.bound_inverse)
+
+    def _update_num_bound(self):
+
+        pol_part_len = self.pol_part_len
+
+        Pols_z, z = self.dop.base_ring().objgen()
+        Trunc = Pols_z.quo(z**(pol_part_len+1))
+        lc = self.dop.leading_coefficient()
+        inv = ~Trunc(lc)
+        MPol, (z, n) = Pols_z.extend_variables('n').objgens()
+        # Including rcoeffs[-1] here actually is redundant, as, by construction,
+        # the only term in first to involve n^ordeq will be 1·n^ordeq·z^0.
+        first = sum(n**j*(Trunc(pol)*inv).lift()
+                    for j, pol in enumerate(self._rcoeffs))
+        first_nz = first.polynomial(z)
+        first_zn = first.polynomial(n)
+        logger.log(logging.DEBUG - 1, "first: %s", first_nz)
+        assert first_nz[0] == self._dop_D.indicial_polynomial(z, n).monic()
+        assert all(pol.degree() < self.dop.order() for pol in first_nz[1:])
+
+        self.stats.time_decomp_op.tic()
+        T = self.dop.parent().gen()
+        pol_part = sum(T**j*pol for j, pol in enumerate(first_zn)) # slow
+        logger.debug("pol_part: %s", pol_part)
+        rem_num = self.dop - pol_part*lc # in theory, slow for large pol_part_len
+        logger.log(logging.DEBUG - 1, "rem_num: %s", rem_num)
+        it = enumerate(_dop_rcoeffs_of_T(rem_num))
+        rem_num_nz = MPol(sum(n**j*pol for j, pol in it)).polynomial(z)
+        assert rem_num_nz.valuation() >= pol_part_len + 1
+        rem_num_nz >>= (pol_part_len + 1)
+        logger.log(logging.DEBUG - 1, "rem_num_nz: %s", rem_num_nz)
+        self.stats.time_decomp_op.toc()
+
+        # XXX: make this independent of pol_part_len?
+        alg_idx = self.leftmost + first_nz.base_ring().gen()
+        # XXX: check if ind needs to be shifted (ind(n ± leftmost))
+        self.ind = first_nz[0](alg_idx)
+
+        # We ignore the coefficient first_nz[0], which amounts to multiplying
+        # the integrand by z⁻¹, as prescribed by the theory. Since, by
+        # definition, majseq_num starts at the degree following that of
+        # majseq_pol_part, it gets shifted as well. The "<< 1" in the next few
+        # lines have nothing to do with that, they are multiplications by *n*.
+        self.majseq_pol_part = [
+                bound_ratio_derivatives(first_nz[i](alg_idx), self.ind,
+                                        self.special_shifts, stats=self.stats)
+                for i in xrange(1, pol_part_len + 1)]
+        self.majseq_num = [
+                bound_ratio_derivatives(pol(alg_idx), self.ind,
+                                        self.special_shifts, stats=self.stats)
+                for pol in rem_num_nz]
+        assert len(self.majseq_pol_part) == pol_part_len
+
+    def refine(self):
+        # XXX: make it possible to increase the precision of IR, IC
+        self._effort += 1
+        logger.info("refining majorant (effort = %s)...", self._effort)
+        self.stats.time_total.tic()
+        if self.bound_inverse == 'simple':
+            self.bound_inverse = 'solve'
+            self._update_den_bound()
+        else:
+            self.pol_part_len = max(2, 2*self.pol_part_len)
+            self._update_num_bound()
+        self.stats.time_total.toc()
+        logger.info("...done, cumulative time: %s", self.stats)
+
+    def maybe_refine(self):
+        self._maybe_refine_called += 1
+        if self._maybe_refine_called >= self._refine_interval:
+            self.refine()
+            self._maybe_refine_called = 0
+            self._refine_interval *= 2
+
+    def reset_refinment_counter(self):
+        self._maybe_refine_called = 0
 
     def __call__(self, n):
         r"""
@@ -1057,6 +1185,7 @@ class BoundDiffopStats(utilities.Stats):
     """
     def __init__(self):
         super(self.__class__, self).__init__()
+        self.time_total = utilities.Clock("total")
         self.time_roots = utilities.Clock("computing roots")
         self.time_staircases = utilities.Clock("building staircases")
         self.time_decomp_op = utilities.Clock("decomposing op")
@@ -1065,22 +1194,6 @@ def bound_diffop(dop, leftmost=ZZ.zero(), special_shifts=[],
         pol_part_len=0, bound_inverse="simple" # TBI
     ):
     r"""
-    Compute a :class:`DiffOpBound` object that can be used to bound the tails of
-    logarithmic power series solutions of ``dop`` with terms supported by
-    leftmost + ℕ.
-
-    special_shifts: list of nonneg integers n s.t. leftmost+n is a root of the
-    indicial equation where we are interested in "new" powers of log that may
-    appear, with associated multiplicities
-
-    See the docstring of :class:`DiffOpBound` for more information.
-
-    .. WARNING::
-
-        The bounds depend on residuals computed using (not ``dop`` itself but) a
-        “normalized” operator obtained by multiplying ``dop`` by a power of x.
-        The normalized operator is returned in the ``dop`` field of the result.
-
     EXAMPLES::
 
         sage: from ore_algebra.analytic.ui import *
@@ -1115,65 +1228,8 @@ def bound_diffop(dop, leftmost=ZZ.zero(), special_shifts=[],
 
         sage: _test_bound_diffop()
     """
-    # TODO simplify
-    assert dop.parent().is_D()
-    _, Pols_z, _, dop = dop._normalize_base_ring()
-    z = Pols_z.gen()
-    dop_T = dop.to_T('T' + str(z)) # slow
-
-    stats = BoundDiffopStats()
-    logger.info("bounding local operator...")
-    lc = dop_T.leading_coefficient()
-    if lc.is_term() and not lc.is_constant():
-        raise ValueError("irregular singular operator", dop)
-    rcoeffs = _dop_rcoeffs_of_T(dop_T)
-    Trunc = Pols_z.quo(z**(pol_part_len+1))
-    inv = ~Trunc(lc)
-    MPol, (z, n) = Pols_z.extend_variables('n').objgens()
-    # Including rcoeffs[-1] here actually is redundant, as, by construction, the
-    # only term in first to involve n^ordeq will be 1·n^ordeq·z^0.
-    first = sum(n**j*(Trunc(pol)*inv).lift()
-                for j, pol in enumerate(rcoeffs))
-    first_nz = first.polynomial(z)
-    first_zn = first.polynomial(n)
-    logger.log(logging.DEBUG - 1, "first: %s", first_nz)
-    assert first_nz[0] == dop.indicial_polynomial(z, n).monic()
-    assert all(pol.degree() < dop_T.order() for pol in first_nz[1:])
-
-    stats.time_decomp_op.tic()
-    T = dop_T.parent().gen()
-    pol_part = sum(T**j*pol for j, pol in enumerate(first_zn)) # slow
-    logger.debug("pol_part: %s", pol_part)
-    rem_num = dop_T - pol_part*lc # inefficient in theory for large pol_part_len
-    logger.log(logging.DEBUG - 1, "rem_num: %s", rem_num)
-    it = enumerate(_dop_rcoeffs_of_T(rem_num))
-    rem_num_nz = MPol(sum(n**j*pol for j, pol in it)).polynomial(z)
-    assert rem_num_nz.valuation() >= pol_part_len + 1
-    rem_num_nz >>= (pol_part_len + 1)
-    logger.log(logging.DEBUG - 1, "rem_num_nz: %s", rem_num_nz)
-    stats.time_decomp_op.toc()
-
-    alg_idx = leftmost + first_nz.base_ring().gen()
-    ind = first_nz[0](alg_idx)
-    cst, maj_den = bound_inverse_poly(lc, algorithm=bound_inverse)
-    # We ignore the coefficient first_nz[0], which amounts to multiplying the
-    # integrand of the DiffOpBound by z⁻¹, as prescribed by the theory. Since,
-    # by definition, majseq_num starts at the degree following that of
-    # majseq_pol_part, it gets shifted as well. The "<< 1" in the next few lines
-    # have nothing to do with that, they are multiplications by *n*.
-    majseq_pol_part = [
-            bound_ratio_derivatives(first_nz[i](alg_idx), ind, special_shifts,
-                                    stats=stats)
-            for i in xrange(1, pol_part_len + 1)]
-    majseq_num = [
-            bound_ratio_derivatives(pol(alg_idx), ind, special_shifts,
-                                    stats=stats)
-            for pol in rem_num_nz]
-    assert len(majseq_pol_part) == pol_part_len
-    # XXX: check if ind needs to be shifted (ind(n ± leftmost))
-    maj = DiffOpBound(dop_T, cst, majseq_pol_part, majseq_num, maj_den, ind)
-    logger.info("...done, time: %s", stats)
-    return maj
+    return DiffOpBound(dop, leftmost, special_shifts, pol_part_len,
+            bound_inverse)
 
 def _test_bound_diffop(
         ords=xrange(1, 5),

@@ -36,9 +36,6 @@ class Clock(object):
         self._tic = None
 
 class Stats(object):
-    def __init__(self):
-        self.time_total = Clock("total")
-        self.time_total.tic()
     def __repr__(self):
         return ", ".join(str(clock) for clock in self.__dict__.values()
                                     if isinstance(clock, Clock))

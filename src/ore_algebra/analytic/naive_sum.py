@@ -265,6 +265,7 @@ def series_sum(dop, ini, pt, tgt_error, maj=None, bwrec=None,
     bit_prec += 3*bit_prec.nbits()
     while True:
         try:
+            maj.reset_refinment_counter()
             psum = doit(ivs(bit_prec), dop, bwrec, ini, pt,
                     tgt_error, maj, stride, record_bounds_in)
             return psum
@@ -333,6 +334,7 @@ def series_sum_ordinary(Intervals, dop, bwrec, ini, pt,
                     record_bounds_in.append((n, psum, tail_bound))
                 if tgt_error.reached(tail_bound, abs_sum):
                     break
+                maj.maybe_refine()
         comb = sum(Intervals(bwrec[k](n))*last[k] for k in xrange(1, ordrec+1))
         last[0] = -Intervals(~bwrec[0](n))*comb
         # logger.debug("n = %s, [c(n), c(n-1), ...] = %s", n, list(last))
@@ -534,6 +536,7 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, tgt_error,
                     majeqrhs, tail_bound)
             if tgt_error.reached(tail_bound):
                 break
+            maj.maybe_refine()
 
         n_pert = RecJets([n, 1])
         bwrec_n = [b(n_pert).lift().change_ring(Intervals) for b in bwrec]

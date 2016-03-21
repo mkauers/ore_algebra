@@ -337,7 +337,7 @@ def fundamental_matrix_ordinary(dop, pt, eps, rows, maj):
                                                    majeqrhs, ord=rows)
             if tail_bound < eps: # XXX: clarify stopping criterion
                 break
-            maj.maybe_refine()
+            maj.refine()
     is_real = RealBallField(2).has_coerce_map_from(pt.parent())
     Intervals = utilities.ball_field(eps, is_real)
     mat = prod.partial_sums(Intervals, rows, dop.order())
