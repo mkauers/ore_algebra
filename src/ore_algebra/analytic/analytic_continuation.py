@@ -82,10 +82,9 @@ class Context(object):
         return (rings.RIF.has_coerce_map_from(self.dop.base_ring().base_ring())
                 and all(v.is_real() for v in self.path.vert))
 
-def ordinary_step_transition_matrix(ctx, step, eps, rows, pplen=2):
-    # TODO: adjust pplen automatically?
+def ordinary_step_transition_matrix(ctx, step, eps, rows):
     ldop = step.start.local_diffop()
-    maj = bounds.DiffOpBound(ldop, pol_part_len=pplen)  # cache in ctx?
+    maj = bounds.DiffOpBound(ldop)  # cache in ctx?
     if ctx.fundamental_matrix_ordinary is not None:
         fundamental_matrix_ordinary = ctx.fundamental_matrix_ordinary
     elif step.is_exact() and eps < ctx.binary_splitting_eps_threshold:
@@ -95,10 +94,10 @@ def ordinary_step_transition_matrix(ctx, step, eps, rows, pplen=2):
     mat = fundamental_matrix_ordinary(ldop, step.delta(), eps, rows, maj)
     return mat
 
-def singular_step_transition_matrix(ctx, step, eps, rows, pplen=2):
+def singular_step_transition_matrix(ctx, step, eps, rows):
     from .naive_sum import fundamental_matrix_regular
     ldop = step.start.local_diffop()
-    mat = fundamental_matrix_regular(ldop, step.delta(), eps, rows, pplen)
+    mat = fundamental_matrix_regular(ldop, step.delta(), eps, rows)
     return mat
 
 def inverse_singular_step_transition_matrix(ctx, step, eps, rows):

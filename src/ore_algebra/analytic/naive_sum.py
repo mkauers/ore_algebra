@@ -376,7 +376,7 @@ def my_embeddings(nf):
 # TODO: move parts not specific to the naïve summation algo elsewhere
 # def fundamental_matrix_regular(dop, pt, ring, eps, rows, maj):
 # TODO: test with algebraic valuations
-def fundamental_matrix_regular(dop, pt, eps, rows, pplen=0):
+def fundamental_matrix_regular(dop, pt, eps, rows):
     r"""
     TESTS::
 
@@ -399,7 +399,7 @@ def fundamental_matrix_regular(dop, pt, eps, rows, pplen=0):
         ....:     + (-2*x^6 + 5*x^5 - 11*x^3 - 6*x^2 + 6*x)*Dx^3
         ....:     + (2*x^6 - 3*x^5 - 6*x^4 + 7*x^3 + 8*x^2 - 6*x + 6)*Dx^2
         ....:     + (-2*x^6 + 3*x^5 + 5*x^4 - 2*x^3 - 9*x^2 + 9*x)*Dx)
-        sage: fundamental_matrix_regular(dop, RBF(1/3), RBF(1e-10), 4, pplen=20)
+        sage: fundamental_matrix_regular(dop, RBF(1/3), RBF(1e-10), 4)
         [ [3.178847...] [-1.064032...]  [1.000...] [0.3287250...]]
         [ [-8.98193...] [3.2281834...]       [...] [0.9586537...]]
         [ [26.18828...] [-4.063756...]       [...] [-0.123080...]]
@@ -426,8 +426,7 @@ def fundamental_matrix_regular(dop, pt, eps, rows, pplen=0):
             for leftmost, _ in irred_factor.roots(QQbar):
                 leftmost = utilities.as_embedded_number_field_element(leftmost)
                 emb_bwrec = [pol(leftmost + n) for pol in bwrec]
-                maj = bounds.DiffOpBound(dop, leftmost, shifts,
-                        pol_part_len=pplen, bound_inverse="solve")
+                maj = bounds.DiffOpBound(dop, leftmost, shifts)
                 for shift, mult in shifts:
                     for log_power in xrange(mult):
                         logger.info("solution z^(%s+%s)·log(z)^%s/%s! + ···",
@@ -586,15 +585,14 @@ def _random_ini(dop):
     }
     return LogSeriesInitialValues(expo, values, dop)
 
-def plot_bounds(dop, ini=None, pt=None, eps=None, pplen=0, bound_inverse=None):
+def plot_bounds(dop, ini=None, pt=None, eps=None, **kwds):
     r"""
     EXAMPLES::
 
         sage: from ore_algebra.analytic.ui import Diffops
-        sage: from ore_algebra.analytic import naive_sum
         sage: Dops, x, Dx = Diffops()
 
-        sage: naive_sum.plot_bounds(Dx - 1, [CBF(1)], CBF(i)/2, RBF(1e-20))
+        sage: plot_bounds(Dx - 1, [CBF(1)], CBF(i)/2, RBF(1e-20))
         Graphics object consisting of 5 graphics primitives
 
         sage: plot_bounds(x*Dx^3 + 2*Dx^2 + x*Dx, eps=1e-8)
@@ -618,8 +616,7 @@ def plot_bounds(dop, ini=None, pt=None, eps=None, pplen=0, bound_inverse=None):
     logger.info("point: %s", pt)
     logger.info("initial values: %s", ini)
     recd = []
-    maj = bounds.DiffOpBound(dop, pol_part_len=pplen,
-            bound_inverse=bound_inverse)
+    maj = bounds.DiffOpBound(dop, refinable=False, **kwds)
     ref_sum = series_sum(dop, ini, pt, eps, stride=1,
                                   record_bounds_in=recd, maj=maj)
     # Note: this won't work well when the errors get close to the double

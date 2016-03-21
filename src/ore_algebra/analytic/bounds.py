@@ -876,7 +876,7 @@ class DiffOpBound(object):
 
     A majorant sequence::
 
-        sage: maj = DiffOpBound((x^2 + 1)*Dx^2 + 2*x*Dx)
+        sage: maj = DiffOpBound((x^2 + 1)*Dx^2 + 2*x*Dx, pol_part_len=0)
         sage: print(maj.__repr__(asympt=False))
         1/((-x + [0.994...])^2)*exp(int(POL+1.000...*NUM/(-x + [0.994...])^2))
         where
@@ -894,16 +894,8 @@ class DiffOpBound(object):
 
         sage: maj(3)
         ((-x + [0.994...])^-2)*exp(int(4.000...])^2)))
-        sage: print(DiffOpBound(Dx - 1).__repr__(asympt=False))
-        1/(1.000...)*exp(int(POL+1.000...*NUM/1.000...))
-        where
-        POL=0,
-        NUM=max(
-        |(-1.000...)/(1.000...)|,
-        1.000...     for  n <= +Infinity
-        )*z^0
 
-    An example with an effort parameter::
+    An example with a nontrivial polynomial part::
 
         sage: dop = (x+1)*(x^2+1)*Dx^3-(x-1)*(x^2-3)*Dx^2-2*(x^2+2*x-1)*Dx
         sage: DiffOpBound(dop, pol_part_len=3)
@@ -912,6 +904,15 @@ class DiffOpBound(object):
         NUM=~7.00000000000000*z^3 + ~2.00000000000000*z^4 + ~5.00000000000000*z^5
 
     TESTS::
+
+        sage: print(DiffOpBound(Dx - 1, pol_part_len=0).__repr__(asympt=False))
+        1/(1.000...)*exp(int(POL+1.000...*NUM/1.000...))
+        where
+        POL=0,
+        NUM=max(
+        |(-1.000...)/(1.000...)|,
+        1.000...     for  n <= +Infinity
+        )*z^0
 
         sage: QQi.<i> = QuadraticField(-1)
         sage: for dop in [
@@ -927,7 +928,7 @@ class DiffOpBound(object):
     """
 
     def __init__(self, dop, leftmost=ZZ.zero(), special_shifts=[],
-            pol_part_len=0, bound_inverse="simple"):
+            refinable=True, pol_part_len=2, bound_inverse="simple"):
         r"""
         INPUT:
 
@@ -967,6 +968,7 @@ class DiffOpBound(object):
 
         self.bound_inverse = bound_inverse
         self.pol_part_len = pol_part_len
+        self.refinable = refinable
         self._effort = 0
         self._refine_interval = 2
         self._maybe_refine_called = 0
@@ -1054,6 +1056,9 @@ class DiffOpBound(object):
 
     def refine(self):
         # XXX: make it possible to increase the precision of IR, IC
+        if not self.refinable:
+            logger.debug("refining disabled")
+            return
         self._effort += 1
         logger.info("refining majorant (effort = %s)...", self._effort)
         self.stats.time_total.tic()
