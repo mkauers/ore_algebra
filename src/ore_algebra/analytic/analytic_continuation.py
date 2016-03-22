@@ -16,7 +16,7 @@ from sage.rings.number_field.number_field_element import NumberFieldElement
 from sage.rings.real_arb import RealBallField
 from sage.structure.sequence import Sequence
 
-from ore_algebra.analytic import bounds
+from ore_algebra.analytic import accuracy, bounds
 
 from ore_algebra.analytic.path import Path, OrdinaryPoint, RegularPoint, IrregularSingularPoint, Step
 from ore_algebra.analytic.utilities import *
@@ -83,15 +83,23 @@ class Context(object):
                 and all(v.is_real() for v in self.path.vert))
 
 def ordinary_step_transition_matrix(ctx, step, eps, rows):
+    from . import naive_sum, binary_splitting
     ldop = step.start.local_diffop()
     maj = bounds.DiffOpBound(ldop)  # cache in ctx?
     if ctx.fundamental_matrix_ordinary is not None:
         fundamental_matrix_ordinary = ctx.fundamental_matrix_ordinary
-    elif step.is_exact() and eps < ctx.binary_splitting_eps_threshold:
-        from .binary_splitting import fundamental_matrix_ordinary
+    elif step.is_exact():
+        if eps > ctx.binary_splitting_eps_threshold:
+            try:
+                mat = naive_sum.fundamental_matrix_ordinary(
+                        ldop, step.delta(), eps, rows, maj,
+                        max_prec_increase=5)
+            except accuracy.PrecisionError:
+                mat = binary_splitting.fundamental_matrix_ordinary(
+                        ldop, step.delta(), eps, rows, maj)
     else:
-        from .naive_sum import fundamental_matrix_ordinary
-    mat = fundamental_matrix_ordinary(ldop, step.delta(), eps, rows, maj)
+        mat = naive_sum.fundamental_matrix_ordinary(
+                ldop, step.delta(), eps, rows, maj)
     return mat
 
 def singular_step_transition_matrix(ctx, step, eps, rows):

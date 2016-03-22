@@ -154,7 +154,7 @@ class LogSeriesInitialValues(object):
             return False
 
 def series_sum(dop, ini, pt, tgt_error, maj=None, bwrec=None,
-        stride=50, record_bounds_in=None):
+        stride=50, record_bounds_in=None, max_prec_increase=1000):
     r"""
     EXAMPLES::
 
@@ -261,6 +261,7 @@ def series_sum(dop, ini, pt, tgt_error, maj=None, bwrec=None,
     # Now do the actual computation, automatically increasing the precision as
     # necessary
 
+    prec_increase_count = 0
     bit_prec = utilities.prec_from_eps(tgt_error.eps)
     bit_prec += 3*bit_prec.nbits()
     while True:
@@ -270,6 +271,10 @@ def series_sum(dop, ini, pt, tgt_error, maj=None, bwrec=None,
                     tgt_error, maj, stride, record_bounds_in)
             return psum
         except accuracy.PrecisionError:
+            prec_increase_count += 1
+            if prec_increase_count > max_prec_increase:
+                logger.info("lost too much precision, giving up")
+                raise
             bit_prec *= 2
             logger.info("lost too much precision, restarting with %d bits",
                         bit_prec)
@@ -353,11 +358,13 @@ def series_sum_ordinary(Intervals, dop, bwrec, ini, pt,
     return res
 
 # XXX: pass ctx (→ real/complex?)?
-def fundamental_matrix_ordinary(dop, pt, eps, rows, maj):
+def fundamental_matrix_ordinary(dop, pt, eps, rows, maj,
+                                max_prec_increase=1000):
     eps_col = bounds.IR(eps)/bounds.IR(dop.order()).sqrt()
     evpt = EvaluationPoint(pt, jet_order=rows)
     cols = [
-        series_sum(dop, ini, evpt, eps_col, maj=maj)
+        series_sum(dop, ini, evpt, eps_col, maj=maj,
+            max_prec_increase=max_prec_increase)
         for ini in identity_matrix(dop.order())]
     return matrix(cols).transpose()
 
