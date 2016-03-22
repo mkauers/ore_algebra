@@ -385,6 +385,13 @@ def abs_min_nonzero_root(pol, tol=RR(1e-2), lg_larger_than=RR('-inf'),
         +Infinity
         sage: abs_min_nonzero_root(CBF['x'].gen() - 1/3)
         [0.33 +/- 3.34e-3]
+
+    An example where the ability to increase the precision is used::
+
+        sage: from ore_algebra.analytic.ui import *
+        sage: Dops, x, Dx = Diffops()
+        sage: eval_diffeq((x^2 + 10*x + 50)*Dx^2 + Dx + 1, [-1,1], [0, 1/10])
+        [-0.90000329853426...]
     """
     myIR = type(IR)(prec)
     myRIF = type(RIF)(prec)

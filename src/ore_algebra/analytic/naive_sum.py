@@ -623,6 +623,19 @@ def plot_bounds(dop, ini=None, pt=None, eps=None, **kwds):
         sage: plot_bounds(dop, eps=1e-8,
         ....:       ini=LogSeriesInitialValues(0, {0: (1, 0)}, dop))
         Graphics object consisting of 5 graphics primitives
+
+    The following example partially works, but causes overflows, so that we lose
+    one of the curves::
+
+        sage: dop = ((x^2 + 10*x + 50)*Dx^10 + (5/9*x^2 + 50/9*x + 155/9)*Dx^9
+        ....: + (-10/3*x^2 - 100/3*x - 190/3)*Dx^8 + (30*x^2 + 300*x + 815)*Dx^7
+        ....: + (145*x^2 + 1445*x + 3605)*Dx^6 + (5/2*x^2 + 25*x + 115/2)*Dx^5
+        ....: + (20*x^2 + 395/2*x + 1975/4)*Dx^4 + (-5*x^2 - 50*x - 130)*Dx^3
+        ....: + (5/4*x^2 + 25/2*x + 105/4)*Dx^2 + (-20*x^2 - 195*x - 480)*Dx
+        ....: + 5*x - 10)
+        sage: plot_bounds(dop, pol_part_len=2, bound_inverse="solve", eps=1e-10)
+        doctest:...
+        Graphics object consisting of 4 graphics primitives
     """
     import sage.plot.all as plot
     from sage.all import VectorSpace, QQ, RIF
