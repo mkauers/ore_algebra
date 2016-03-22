@@ -283,6 +283,14 @@ def series_sum(dop, ini, pt, tgt_error, maj=None, bwrec=None,
 # Ordinary points
 ################################################################################
 
+# temporary hack to speed up at least computations involving QQi while coercions
+# from number fields to complex ball fields are slow
+def _iv_builder(Intervals):
+    if isinstance(Intervals, ComplexBallField):
+        return lambda z: Intervals(z.real(), z.imag())
+    else:
+        return Intervals
+
 def series_sum_ordinary(Intervals, dop, bwrec, ini, pt,
         tgt_error, maj, stride, record_bounds_in):
 
@@ -300,6 +308,8 @@ def series_sum_ordinary(Intervals, dop, bwrec, ini, pt,
     last.extend(Intervals(ini.shift[n][0])
                 for n in xrange(dop.order() - 1, -1, -1))
     assert len(last) == ordrec + 1 # not ordrec!
+
+    to_iv = _iv_builder(Intervals)
 
     # Singular part. Not the most natural thing to do here, but hopefully
     # generalizes well to the regular singular case.
@@ -340,8 +350,8 @@ def series_sum_ordinary(Intervals, dop, bwrec, ini, pt,
                 if tgt_error.reached(tail_bound, abs_sum):
                     break
                 maj.maybe_refine()
-        comb = sum(Intervals(bwrec[k](n))*last[k] for k in xrange(1, ordrec+1))
-        last[0] = -Intervals(~bwrec[0](n))*comb
+        comb = sum(to_iv(bwrec[k](n))*last[k] for k in xrange(1, ordrec+1))
+        last[0] = -to_iv(~bwrec[0](n))*comb
         # logger.debug("n = %s, [c(n), c(n-1), ...] = %s", n, list(last))
         term = Jets(last[0])*jetpow
         psum += term
@@ -514,6 +524,8 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, tgt_error,
                               for _ in xrange(ordrec + 1)])
     psum = vector(Jets, log_prec)
 
+    to_iv = _iv_builder(Intervals)
+
     for n in itertools.count():
         last.rotate(1)
         logger.log(logging.DEBUG - 2, "n = %s, [c(n), c(n-1), ...] = %s", n, list(last))
@@ -545,7 +557,9 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, tgt_error,
             maj.maybe_refine()
 
         n_pert = RecJets([n, 1])
-        bwrec_n = [b(n_pert).lift().change_ring(Intervals) for b in bwrec]
+        # bwrec_n = [b(n_pert).lift().change_ring(Intervals) for b in bwrec]
+        bwrec_n = [ [to_iv(b(n_pert).lift()[i]) for i in xrange(log_prec)]
+                    for b in bwrec ]
         # logger.debug("bwrec_nn=%s", bwrec_n)
         # for i in range(0, ordrec +1):
         #    logger.debug("last[%d]=%s", i, last[i])

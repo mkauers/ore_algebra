@@ -19,6 +19,7 @@ from sage.rings.infinity import infinity
 from sage.rings.integer import Integer
 from sage.rings.integer_ring import ZZ
 from sage.rings.number_field.number_field import NumberField_quadratic
+from sage.rings.number_field.number_field_element import NumberFieldElement
 from sage.rings.polynomial.polynomial_element import Polynomial
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 from sage.rings.power_series_ring import PowerSeriesRing
@@ -37,6 +38,13 @@ from ore_algebra.analytic.safe_cmp import *
 logger = logging.getLogger(__name__)
 
 IR, IC = RBF, CBF # TBI
+
+# temporary hack
+def to_IC(z):
+    if isinstance(z, NumberFieldElement):
+        return IC(z.real(), z.imag())
+    else:
+        return IC(z)
 
 class BoundPrecisionError(Exception):
     pass
@@ -461,7 +469,7 @@ def bound_inverse_poly(den, algorithm="simple"):
                         for iv, mult in poles]
         else:
             raise ValueError("algorithm")
-    num = ~abs(IC(den.leading_coefficient()))
+    num = ~abs(to_IC(den.leading_coefficient()))
     return num, Factorization(factors, unit=Poly(1))
 
 ######################################################################
@@ -517,8 +525,8 @@ class RatSeqBound(SeqBound):
         if deg < 0:
             return steplim
         elif deg == 0:
-            ratlim = IC(self.num().leading_coefficient()
-                        /self.den.leading_coefficient())
+            ratlim = to_IC(self.num().leading_coefficient()
+                           /self.den.leading_coefficient())
             return max(abs(ratlim), steplim)
         else:
             assert False
@@ -535,7 +543,7 @@ class RatSeqBound(SeqBound):
             return step
         else:
             # TODO: avoid recomputing cst every time once it becomes <= next + ε?
-            val = (IC(self.num(n))/IC(self.den(n))).above_abs()
+            val = (to_IC(self.num(n))/to_IC(self.den(n))).above_abs()
             return step.max(val)
 
     def plot(self, n=30):
@@ -1314,7 +1322,7 @@ def residual(bwrec, n, last, z):
     # this function currently does)
     ordrec = len(bwrec) - 1
     rescoef = [
-        sum(IC(bwrec[i+k+1](n+i))*IC(last[k])
+        sum(to_IC(bwrec[i+k+1](n+i))*to_IC(last[k])
             for k in xrange(ordrec-i))
         for i in xrange(ordrec)]
     IvPols = PolynomialRing(IC, z, sparse=True)
@@ -1333,7 +1341,7 @@ def maj_eq_rhs_with_logs(bwrec, n, last, z, logs, RecJets):
             bwrec_i = [b(idx_pert) for b in bwrec]
             # significant overestimation here (apparently not too problematic)
             rescoef[i][j] = sum(
-                    IC(bwrec_i[i+k+1][p])*IC(last[k][j+p])
+                    to_IC(bwrec_i[i+k+1][p])*IC(last[k][j+p])
                     for k in xrange(ordrec - i)
                     for p in xrange(logs - j))
     # For lack of a convenient data structure to return these coefficients,
@@ -1341,7 +1349,7 @@ def maj_eq_rhs_with_logs(bwrec, n, last, z, logs, RecJets):
     # handle the generic case.
     idx_pert = RecJets([n, 1])
     invlc = ~(bwrec[0](idx_pert)) # sum(1/t!·(1/Q0)^(t)(λ + n)·Sk^t)
-    invlcmaj = sum(IC(t).abs() for t in invlc)
+    invlcmaj = sum(to_IC(t).abs() for t in invlc)
     polcoef = [(n + i)*invlcmaj*max(t.abs() for t in rescoef[i])
                for i in xrange(ordrec)]
     IvPols = PolynomialRing(IR, z, sparse=True)
