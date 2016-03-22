@@ -70,7 +70,7 @@ class Point(SageObject):
             sage: Dops, x, Dx = Diffops()
             sage: [Point(z, Dx)
             ....:  for z in [1, 1/2, 1+I, QQbar(I), RIF(1/3), CIF(1/3), pi]]
-            [1, 1/2, 1 + 1*I, I, [0.333333333333333...], [0.333333333333333...],
+            [1, 1/2, I + 1, I, [0.333333333333333...], [0.333333333333333...],
             3.141592653589794?]
         """
         SageObject.__init__(self)
@@ -93,6 +93,10 @@ class Point(SageObject):
             self.value = QQ.coerce(point)
         # must come before QQbar, due to a bogus coerce map
         elif parent is sage.symbolic.ring.SR:
+            try:
+                return self.__init__(point.pyobject(), dop)
+            except TypeError:
+                pass
             try:
                 self.value = RLF(point)
             except TypeError:
@@ -500,9 +504,9 @@ class Path(SageObject):
 
         sage: path = Path([0, 1+I, CBF(2*I)], dop)
         sage: path
-        0 --> 1 + 1*I --> 2.000...*I
+        0 --> I + 1 --> 2.000...*I
         sage: path[0]
-        0 --> 1 + 1*I
+        0 --> I + 1
         sage: path.vert[0]
         0
         sage: len(path)
@@ -514,7 +518,7 @@ class Path(SageObject):
         sage: path.check_convergence()
         Traceback (most recent call last):
         ...
-        ValueError: Step 0 --> 1 + 1*I escapes from the disk of (guaranteed)
+        ValueError: Step 0 --> I + 1 escapes from the disk of (guaranteed)
         convergence of the solutions at 0
     """
 
