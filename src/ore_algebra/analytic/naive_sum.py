@@ -421,11 +421,15 @@ def fundamental_matrix_regular(dop, pt, eps, rows):
         [ [-8.98193...] [3.2281834...]       [...] [0.9586537...]]
         [ [26.18828...] [-4.063756...]       [...] [-0.123080...]]
         [ [-80.2467...] [9.1907404...]       [...] [-0.119259...]]
-    """
-    eps_col = bounds.IR(eps)/bounds.IR(dop.order()).sqrt()
-    col_tgt_error = accuracy.AbsoluteError(eps_col, precise=True)
 
+        sage: dop = x*Dx^3 + 2*Dx^2 + x*Dx
+        sage: ini = [1, CBF(euler_gamma), 0]
+        sage: eval_diffeq(dop, ini, [0, RBF(1/3)], 1e-14)
+        [-0.549046117782...]
+    """
     evpt = EvaluationPoint(pt, jet_order=rows)
+    eps_col = bounds.IR(eps)/bounds.IR(dop.order()).sqrt()
+    col_tgt_error = accuracy.AbsoluteError(eps_col, evpt.is_precise(eps))
     bwrec = backward_rec(dop)
     ind = bwrec[0]
     n = ind.parent().gen()
