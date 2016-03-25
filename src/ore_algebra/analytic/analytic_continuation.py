@@ -134,6 +134,7 @@ def analytic_continuation(ctx, ini=None, post=None):
 
     XXX: coerce ini and post into the appropriate ring, adjust eps...
     """
+    logger.info("path: %s", ctx.path)
     if isinstance(ini, list): # should this be here?
         try:
             ini = matrix(ctx.dop.order(), 1, ini)

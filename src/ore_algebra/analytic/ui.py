@@ -72,6 +72,7 @@ Display some information on what is going on::
     sage: logging.basicConfig()
     sage: logging.getLogger('ore_algebra.analytic').setLevel(logging.INFO)
     sage: transition_matrix(dop, [0, 1], 1e-20)
+    INFO:ore_algebra.analytic.analytic_continuation:path: 0 --> 1/2 --> 1
     INFO:ore_algebra.analytic.analytic_continuation:0 --> 1/2: ordinary case
     INFO:ore_algebra.analytic.bounds:bounding local operator...
     ...

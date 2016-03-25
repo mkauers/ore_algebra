@@ -1007,6 +1007,8 @@ class DiffOpBound(object):
         pol_part_len = self.pol_part_len
 
         Pols_z, z = self.dop.base_ring().objgen()
+
+        self.stats.time_decomp_op.tic()
         Trunc = Pols_z.quo(z**(pol_part_len+1))
         lc = self.dop.leading_coefficient()
         inv = ~Trunc(lc)
@@ -1021,7 +1023,6 @@ class DiffOpBound(object):
         assert first_nz[0] == self._dop_D.indicial_polynomial(z, n).monic()
         assert all(pol.degree() < self.dop.order() for pol in first_nz[1:])
 
-        self.stats.time_decomp_op.tic()
         T = self.dop.parent().gen()
         pol_part = sum(T**j*pol for j, pol in enumerate(first_zn)) # slow
         logger.debug("pol_part: %s", pol_part)
