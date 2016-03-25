@@ -1034,7 +1034,7 @@ class DiffOpBound(object):
         first_zn = first.polynomial(n)
         logger.log(logging.DEBUG - 1, "first: %s", first_nz)
         assert first_nz[0] == self._dop_D.indicial_polynomial(z, n).monic()
-        assert all(pol.degree() < self.dop.order() for pol in first_nz[1:])
+        assert all(pol.degree() < self.dop.order() for pol in first_nz >> 1)
 
         T = self.dop.parent().gen()
         pol_part = sum(T**j*pol for j, pol in enumerate(first_zn)) # slow
@@ -1202,10 +1202,11 @@ class DiffOpBound(object):
             # we know a priori that val(resid) >= n mathematically, but interval
             # computations may give inexact zeros for some of the coefficients
             assert all(c.contains_zero() for c in resid[:n])
-            resid = resid[n:]
+            resid = (resid >> n) << n
             maj = self.tail_majorant(n, self.maj_eq_rhs([resid]))
-            logger.info("%s << %s", Series(ref[n:], n+30), maj.series(n+30))
-            maj._test(ref[n:])
+            tail = (ref >> n) << n
+            logger.info("%s << %s", Series(tail, n+30), maj.series(n+30))
+            maj._test(tail)
 
 def _dop_rcoeffs_of_T(dop):
     """

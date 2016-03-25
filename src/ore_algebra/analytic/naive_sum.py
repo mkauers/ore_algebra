@@ -486,12 +486,11 @@ def log_series_value(Jets, expo, psum, pt):
                 Jets.modulus().degree())
     # hardcoded series expansions of log(pt) = log(a+η) and pt^λ = (a+η)^λ (too
     # cumbersome to compute directly in Sage at the moment)
-    logpt = Jets(
-            [pt.log()] +
-            [(-1)**(k+1)*~pt**k/k
-                for k in xrange(1, derivatives)])
+    high = Jets([0] + [(-1)**(k+1)*~pt**k/k
+                       for k in xrange(1, derivatives)])
+    logpt = Jets([pt.log()]) + high
     logger.debug("logpt=%s", logpt)
-    aux = Jets(logpt[1:]*expo)
+    aux = Jets(high*expo)
     logger.debug("aux=%s", aux)
     inipow = pt**expo*sum(_mypow(aux, k)/Integer(k).factorial()
                           for k in xrange(derivatives))
@@ -585,7 +584,7 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, tgt_error,
 # add_error themselves.
 def _add_error(approx, error):
     if isinstance(approx, polynomial_element.Polynomial):
-        return approx[0].add_error(error) + approx[1:]
+        return approx[0].add_error(error) + ((approx >> 1) << 1)
     else:
         return approx.add_error(error)
 

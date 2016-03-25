@@ -125,7 +125,7 @@ def general_economization(economization_polynomials, pol, eps):
         if safe_lt(tmp_bound, eps):
             delta_bound = tmp_bound
             newpol = newpol[:k] - c*ecopol[k][:k] # lc → exact zero
-    newpol = newpol[0].add_error(delta_bound) + newpol[1:]
+    newpol = newpol[0].add_error(delta_bound) + ((newpol >> 1) << 1)
     return newpol
 
 def chebyshev_economization(pol, eps):
