@@ -19,7 +19,7 @@ collection of auxiliary functions.
 #############################################################################
 
 from sage.structure.element import RingElement, canonical_coercion
-from sage.rings.arith import gcd, lcm, previous_prime as pp
+from sage.arith.all import gcd, lcm, previous_prime as pp
 from sage.rings.qqbar import QQbar
 from sage.rings.rational_field import QQ
 from sage.rings.integer_ring import ZZ

@@ -174,8 +174,8 @@ testsuite
 
 """
 
+from sage.arith.all import CRT_basis, xgcd, gcd, lcm
 from sage.rings.arith import previous_prime as pp
-from sage.rings.arith import CRT_basis, xgcd, gcd, lcm
 from sage.misc.all import prod
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 from sage.rings.fraction_field import FractionField
