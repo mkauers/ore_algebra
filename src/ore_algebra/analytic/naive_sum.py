@@ -83,7 +83,8 @@ class LogSeriesInitialValues(object):
     r"""
     Initial values defining a logarithmic series.
 
-    - ``self.expo`` is the algebraic “valuation”,
+    - ``self.expo`` is an algebraic number representing the “valuation” of the
+      log-series,
     - ``self.shift`` is a dictionary mapping an integer shift s to a tuple of
       initial values corresponding to the coefficients of x^s, x^s·log(x), ...,
       x^s·log(x)^k/k! for some k
@@ -116,7 +117,7 @@ class LogSeriesInitialValues(object):
                        for s, ini in values.iteritems() }
 
         try:
-            if dop is not None and not self.valid_for(dop):
+            if dop is not None and not self.is_valid_for(dop):
                 raise ValueError("invalid initial data for {} at 0".format(dop))
         except TypeError: # coercion problems btw QQbar and number fields
             pass
@@ -130,7 +131,7 @@ class LogSeriesInitialValues(object):
             for s, ini in self.shift.iteritems()
             for log_power, val in enumerate(ini))
 
-    def valid_for(self, dop):
+    def is_valid_for(self, dop):
         ind = dop.indicial_polynomial(dop.base_ring().gen())
         for sl_factor, shifts in my_shiftless_decomposition(ind):
             for k, (val_shift, _) in enumerate(shifts):
@@ -190,10 +191,11 @@ def series_sum(dop, ini, pt, tgt_error, maj=None, bwrec=None,
         ...
         ([-3.5751407034...] + [-2.2884877202...]*I)
 
-    In normal usage ``pt`` should be an object coercible into a complex ball.
-    Polynomial with ball coefficients are also supported, albeit with some
-    restrictions. (This is intended to be used for polynomial indeterminates,
-    anything else that works does so more or less by accident.) ::
+    In normal usage ``pt`` should be an object coercible to a complex ball or an
+    :class:`EvaluationPoint` that wraps such an object. Polynomial with ball
+    coefficients (wrapped in EvaluationPoints) are also supported to some extent
+    (essentially, this is intended for use with polynomial indeterminates, and
+    anything else that works does so by accident). ::
 
         sage: from ore_algebra.analytic.accuracy import AbsoluteError
         sage: series_sum(Dx - 1, [RBF(1)],
@@ -382,17 +384,7 @@ def fundamental_matrix_ordinary(dop, pt, eps, rows, maj,
 # Regular singular points
 ################################################################################
 
-# XXX: this should be easier to do!
-def my_embeddings(nf):
-    alg = nf.gen()
-    for emb in nf.complex_embeddings():
-        emb_nf = NumberField(nf.polynomial(), nf.variable_name(),
-                             embedding=emb(alg))
-        yield nf.embeddings(emb_nf)[0]
-
 # TODO: move parts not specific to the naïve summation algo elsewhere
-# def fundamental_matrix_regular(dop, pt, ring, eps, rows, maj):
-# TODO: test with algebraic valuations
 def fundamental_matrix_regular(dop, pt, eps, rows):
     r"""
     TESTS::

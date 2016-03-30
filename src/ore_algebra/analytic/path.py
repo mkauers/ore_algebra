@@ -1,18 +1,6 @@
 # -*- coding: utf-8 - vim: tw=80
 """
 Analytic continuation paths
-
-Main class hierarchy for points:
-
-    Point > RegularPoint > OrdinaryPoint
-
-Auxiliary classes, for classification purposes: RegularSingularPoint,
-IrregularSingularPoint.
-
-(Algorithms for, say, regular singular points should typically work for ordinary
-points as well even when a more specialized version exists. One could have
-QuasiRegularPoints too, but combined with SingularPoints that would make the
-whole thing too complicated.)
 """
 
 import logging
@@ -42,6 +30,18 @@ QQi = number_field.QuadraticField(-1, 'i')
 ######################################################################
 # Points
 ######################################################################
+
+# Main class hierarchy for points:
+#
+#     Point > RegularPoint > OrdinaryPoint
+#
+# Auxiliary classes, for classification purposes: RegularSingularPoint,
+# IrregularSingularPoint.
+#
+# (Algorithms for, say, regular singular points should typically work for
+# ordinary points as well even when a more specialized version exists. One could
+# have QuasiRegularPoints too, but combined with SingularPoints that would make
+# the whole thing too complicated.)
 
 class Point(SageObject):
     r"""
@@ -91,7 +91,7 @@ class Point(SageObject):
             self.value = point
         elif QQ.has_coerce_map_from(parent):
             self.value = QQ.coerce(point)
-        # must come before QQbar, due to a bogus coerce map
+        # must come before QQbar, due to a bogus coerce map (#14485)
         elif parent is sage.symbolic.ring.SR:
             try:
                 return self.__init__(point.pyobject(), dop)
@@ -411,7 +411,6 @@ class Step(SageObject):
     def length(self):
         return IC(self.delta()).abs()
 
-    # XXX: how should we handle connections to singular points?
     def check_singularity(self):
         r"""
         Raise an error if this step goes through a singular point or seems to do
@@ -523,7 +522,7 @@ class Path(SageObject):
     """
 
     def __init__(self, vert, dop, classify=False):
-        """
+        r"""
         TESTS::
 
             sage: from ore_algebra.analytic.ui import *
@@ -546,7 +545,9 @@ class Path(SageObject):
             self.vert = [v.classify() for v in self.vert]
 
     def __getitem__(self, i):
-        "Return the i-th step of self"
+        r"""
+        Return the i-th step of self
+        """
         if len(self.vert) < 2:
             raise IndexError
         else:
@@ -634,8 +635,6 @@ class Path(SageObject):
             step.check_convergence()
 
     # Path rewriting
-    # - On veut garder le chemin initial et le chemin optimisé. Je ne sais pas
-    #   si on veut optimiser en place ou faire une copie.
 
     def subdivide(self, threshold=IR(0.75), factor=IR(0.6)):
         # TODO:

@@ -20,7 +20,7 @@ from 0 to 1 for the differential equation y' = y::
     sage: transition_matrix(Dx - 1, [0, 1], 1e-10)
     [[2.718281828...]]
 
-We can do evaluations at complex points as well::
+We can perform evaluations at complex points as well::
 
     sage: transition_matrix(Dx - 1, [0, i], 1e-10)
     [[0.540302305...] + [0.8414709848...]*I]
@@ -121,7 +121,7 @@ or the cosine integral::
     [6.126787872861...] + [-3.391977891000...]*I
 
 The slightly less classical Whittaker functions are an interesting test case as
-these involve irrational exponents. The following example was checked against
+they involve irrational exponents. The following example was checked against
 NumGfun::
 
     sage: transition_matrix(4*x^2*Dx^2 + (-x^2+8*x-11), [0, 10])
@@ -139,7 +139,7 @@ algebraic evaluation point::
 Another use of “singular” transition matrices is in combinatorics, in relation
 with singularity analysis. Here is the constant factor in the asymptotic
 expansion of Apéry numbers (compare M. D. Hirschhorn, Estimating the Apéry
-numbers, Fibonacci Quart. 50, 2012, 129--131), computed as a connection
+numbers, *Fibonacci Quart.* 50, 2012, 129--131), computed as a connection
 constant::
 
     sage: Dops, z, Dz = Diffops("z")
@@ -206,10 +206,6 @@ TESTS::
     sage: all(y.rad() < 1e-13 for row in mat for y in row)
     True
 """
-
-# NOTE: to run the tests, use something like
-#
-#     SAGE_PATH="$PWD" sage -t ore_algebra/analytic/ui.py
 
 from ore_algebra.analytic import analytic_continuation as ancont
 from ore_algebra.analytic import polynomial_approximation as polapprox
@@ -395,7 +391,7 @@ def multi_eval_diffeq(dop, ini, path, eps=1e-16):
 polynomial_approximation_on_disk = polapprox.on_disk
 polynomial_approximation_on_interval = polapprox.on_interval
 
-def make_proc(xxx): # ??? - ou object DFiniteFunction ?
+def make_proc(xxx): # ???
     pass
 
 def Diffops(sx='x'):

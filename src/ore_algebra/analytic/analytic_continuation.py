@@ -23,6 +23,7 @@ from ore_algebra.analytic.utilities import *
 
 logger = logging.getLogger(__name__)
 
+# TODO: clean up and reorganize
 class Context(object):
 
     def __init__(self, dop, path, eps, keep="last",
@@ -139,8 +140,6 @@ def step_transition_matrix(ctx, step, eps, rows=None):
 def analytic_continuation(ctx, ini=None, post=None):
     """
     Here ini and post both are matrices.
-
-    XXX: coerce ini and post into the appropriate ring, adjust eps...
     """
     logger.info("path: %s", ctx.path)
     if isinstance(ini, list): # should this be here?

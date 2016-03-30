@@ -1,8 +1,6 @@
 # -*- coding: utf-8 - vim: tw=80
 """
-Utilities
-
-(some of which could perhaps be upstreamed at some point)
+Miscellaneous utilities
 """
 
 import sage.rings.complex_arb

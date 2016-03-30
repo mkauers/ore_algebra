@@ -138,7 +138,7 @@ def _pole_free_rad(fac):
             rad = IR(rad.lower())
             assert rad >= IR.zero()
             return rad
-    raise NotImplementedError  # pb dérivées???
+    raise NotImplementedError
 
 class RationalMajorant(MajorantSeries):
     """
@@ -200,7 +200,7 @@ class RationalMajorant(MajorantSeries):
         return res
 
     def eval(self, ev):
-        # may by better than den.value()(z) in some cases
+        # may be better than den.value()(z) in some cases
         den = prod(ev(lin)**mult for (lin, mult) in self.den)
         return ev(self.pol) + ev(self.num)/den
 
@@ -626,7 +626,7 @@ def nonneg_roots(pol):
             diam >>= 1
     return [root for (root, mult) in roots if root[1] >= QQ.zero()]
 
-upper_inf = RIF(infinity).upper()
+_upper_inf = RIF(infinity).upper()
 
 # TODO: computation of roots should be shared between calls corresponding to
 # different shift equivalence classes...
@@ -743,7 +743,7 @@ def bound_ratio_large_n(num, den, exceptions={}, min_drop=IR(1.1), stats=None):
         elif val.upper() > stairs[-1][1].upper():
             # avoid unnecessarily large staircases
             stairs[-1] = (stairs[-1][0], val)
-        if val.upper() == upper_inf:
+        if val.upper() == _upper_inf:
             break
     stairs.reverse()
     logger.log(logging.INFO-2, "done building staircase, size=%s", len(stairs))
@@ -763,9 +763,7 @@ def bound_ratio_derivatives(num, den, nat_poles, stats=None):
     max_mult = max(mult for _, mult in nat_poles) if nat_poles else 0
     derivatives = 1 + sum(mult for _, mult in nat_poles)
     Jets = utilities.jets(IC, 'X', derivatives + max_mult)
-    # Sage won't return Laurent series here. Even this version currently doesn't
-    # work with the mainline (coercions involving quotients polynomial rings for
-    # which factor() is not implemented are broken).
+    # Sage won't return Laurent series here.
     ex_series = {}
     for n, mult in nat_poles:
         pert = Jets([n, 1]) # n + X
@@ -1209,14 +1207,14 @@ class DiffOpBound(object):
             logger.info("%s << %s", Series(ref[n:], n+30), maj.series(n+30))
             maj._test(ref[n:])
 
-# Perhaps better: work with a "true" Ore algebra K[θ][z]. Use Euclidean
-# division to compute the truncation. Extracting the Qj(θ) would then be easy,
-# and I may no longer need the coefficients of θ "on the right".
-
 def _dop_rcoeffs_of_T(dop):
     """
     Compute the coefficients of dop as an operator in θ but with θ on the left.
     """
+    # Perhaps better: work with a "true" Ore algebra K[θ][z]. Use Euclidean
+    # division to compute the truncation in DiffOpBound._update_num_bound.
+    # Extracting the Qj(θ) would then be easy, and I may no longer need the
+    # coefficients of θ "on the right".
     Pols_z = dop.base_ring()
     Pols_n, n = Pols_z.change_var('n').objgen()
     Rops = OreAlgebra(Pols_n, 'Sn')
@@ -1240,7 +1238,6 @@ class BoundDiffopStats(utilities.Stats):
         self.time_roots = utilities.Clock("computing roots")
         self.time_staircases = utilities.Clock("building staircases")
         self.time_decomp_op = utilities.Clock("decomposing op")
-
 
 def _test_diffop_bound(
         ords=xrange(1, 5),
