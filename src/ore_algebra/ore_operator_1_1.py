@@ -21,8 +21,8 @@ one generator.
 #############################################################################
 
 from sage.structure.element import RingElement, canonical_coercion
-from sage.rings.arith import previous_prime as pp
-from sage.rings.arith import gcd, lcm
+from sage.arith.all import previous_prime as pp
+from sage.arith.all import gcd, lcm
 from sage.rings.rational_field import QQ
 from sage.rings.integer_ring import ZZ
 from sage.rings.infinity import infinity
