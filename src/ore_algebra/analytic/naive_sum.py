@@ -507,6 +507,32 @@ def log_series_value(Jets, expo, psum, pt):
 # not just initial conditions associated to canonical solutions.
 def series_sum_regular(Intervals, dop, bwrec, ini, pt, tgt_error,
         maj, stride=50, record_bounds_in=None):
+    r"""
+    TESTS::
+
+        sage: from ore_algebra.analytic.ui import *
+        sage: from ore_algebra.analytic.naive_sum import *
+        sage: Dops, x, Dx = Diffops()
+
+    Test that we don't compute the zero solution when the valuation is large,
+    but that, when there are several solutions with very different valuations,
+    we can stop before reaching the largest one if the initial values there are
+    zero. ::
+
+        sage: #dop = (Dx-1).lclm(x*Dx-1000)
+        sage: dop = (x^2-1000*x)*Dx^2 + (-x^2+999000)*Dx + 1000*x - 999000
+        sage: logger = logging.getLogger('ore_algebra.analytic.naive_sum')
+        sage: logger.setLevel(logging.INFO) # TBI
+        sage: transition_matrix(dop, [0,1])
+        INFO:ore_algebra.analytic.naive_sum:solution z^(0+0)·log(z)^0/0! + ···
+        INFO:ore_algebra.analytic.naive_sum:summed 50 terms, tail <= ...
+        ...
+        [[2.7182818284590...] 1.0000000000000000]
+        [[2.7182818284590...] 1000.0000000000000]
+        sage: logger.setLevel(logging.WARNING)
+        sage: series_sum(dop, {0: (1,), 1000: (1/1000,)}, 1, 1e-10)
+        ([2.719281828459...])
+    """
 
     jet = pt.jet(Intervals)
     Jets = jet.parent()
@@ -514,6 +540,8 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, tgt_error,
     radpow = bounds.IR.one() # XXX: should this be rad^leftmost?
 
     log_prec = sum(len(v) for v in ini.shift.itervalues())
+    last_index_with_ini = max(0, *[s for s, vals in ini.shift.iteritems()
+                                   if not all(v.is_zero() for v in vals)])
     ordrec = len(bwrec) - 1
     RecJets = utilities.jets(bwrec[0].base_ring(), 'Sk', log_prec)
     last = collections.deque([vector(Intervals, log_prec)
@@ -530,9 +558,14 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, tgt_error,
 
         # Every few iterations, heuristically check if we have converged and if
         # we still have enough precision. If it looks like the target error may
-        # be reached (unless we're at a “special” index where the stopping
-        # criterion may be more complicated), perform a rigorous check.
-        cond = (n%stride == 0
+        # be reached, perform a rigorous check. Our stopping criterion currently
+        # (1) only works at “generic” indices, and (2) assumes that the initial
+        # values at exceptional indices larger than n are zero, so we also
+        # ensure that we are in this case. (Both assumptions could be lifted,
+        # (1) by using a slightly more complicated formula for the tail bound,
+        # and (2) if we had code to compute lower bounds on coefficients of
+        # series expansions of majorants.)
+        cond = (n%stride == 0 and n > last_index_with_ini
             and (tgt_error.reached(abs(last[-1][0])*radpow, abs(psum[0][0]))
                 or record_bounds_in is not None)
             and n > dop.order() and mult == 0)
