@@ -234,7 +234,7 @@ def series_sum(dop, ini, pt, tgt_error, maj=None, bwrec=None,
     # ordinary/regsing dichotomy goes here.
 
     if not isinstance(ini, LogSeriesInitialValues):
-        ini = LogSeriesInitialValues(0, ini, dop)
+        ini = LogSeriesInitialValues(ZZ.zero(), ini, dop)
 
     if not isinstance(pt, EvaluationPoint):
         pt = EvaluationPoint(pt)
@@ -248,9 +248,10 @@ def series_sum(dop, ini, pt, tgt_error, maj=None, bwrec=None,
         tgt_error = accuracy.AbsoluteError(tgt_error, input_is_precise)
     logger.log(logging.INFO - 1, "target error = %s", tgt_error)
 
-    if dop.leading_coefficient().valuation() == 0:
-        if maj is None:
-            maj = bounds.DiffOpBound(dop)
+    if maj is None:
+        maj = bounds.DiffOpBound(dop, ini.expo,
+                [] if dop.leading_coefficient().valuation() == 0
+                else [(s, len(v)) for s, v in ini.shift.iteritems()])
 
     if bwrec is None:
         bwrec = backward_rec(dop, shift=ini.expo)
