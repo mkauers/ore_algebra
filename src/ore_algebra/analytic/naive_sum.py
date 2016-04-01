@@ -554,6 +554,43 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, tgt_error,
         sage: logger.setLevel(logging.WARNING)
         sage: series_sum(dop, {0: (1,), 1000: (1/1000,)}, 1, 1e-10)
         ([2.719281828459...])
+
+    Some simple tests involving large non-integer valuations::
+
+        sage: dop = (x*Dx-1001/2).symmetric_product(Dx-1)
+        sage: dop = dop._normalize_base_ring()[-1]
+        sage: (exp(CBF(1/2))/RBF(2)^(1001/2)).overlaps(transition_matrix(dop, [0, 1/2], 1e-10)[0,0])
+        True
+        sage: (exp(CBF(2))/RBF(1/2)^(1001/2)).overlaps(transition_matrix(dop, [0, 2], 1e-10)[0,0])
+        True
+
+        sage: dop = (x*Dx+1001/2).symmetric_product(Dx-1)
+        sage: dop = dop._normalize_base_ring()[-1]
+        sage: (CBF(1/2)^(-1001/2)*exp(CBF(1/2))).overlaps(transition_matrix(dop, [0, 1/2], 1e-10)[0,0])
+        True
+        sage: (CBF(2)^(-1001/2)*exp(CBF(2))).overlaps(transition_matrix(dop, [0, 2], 1e-10)[0,0])
+        True
+
+        sage: #dop = (Dx-1).lclm(x^2*Dx^2 - x*(2*x+1999)*Dx + (x^2 + 1999*x + 1000^2))
+        sage: dop = x^2*Dx^3 + (-3*x^2 - 1997*x)*Dx^2 + (3*x^2 + 3994*x + 998001)*Dx - x^2 - 1997*x - 998001
+        sage: mat = transition_matrix(dop, [0,1/2], 1e-5)
+        sage: h = CBF(1/2)
+        sage: mat[0,0].overlaps(exp(h))
+        True
+        sage: mat[0,1].overlaps(exp(h)*h^1000*log(h))
+        True
+        sage: mat[0,2].overlaps(exp(h)*h^1000)
+        True
+
+        sage: dop = (x^3 + x^2)*Dx^3 + (-1994*x^2 - 1997*x)*Dx^2 + (994007*x + 998001)*Dx + 998001
+        sage: mat = transition_matrix(dop, [0, 1/2], 1e-5)
+        sage: mat[0,0].overlaps(1/(1+h))
+        True
+        sage: mat[0,1].overlaps(h^1000/(1+h)*log(h))
+        True
+        sage: mat[0,2].overlaps(h^1000/(1+h))
+        True
+
     """
 
     jet = pt.jet(Intervals)
