@@ -126,7 +126,7 @@ class LogSeriesInitialValues(object):
 
     def __repr__(self):
         return ", ".join(
-            "[z^({expo}+{shift})·log(z)^{log_power}/{log_power}! = {val}"
+            "[z^({expo}+{shift})·log(z)^{log_power}/{log_power}!] = {val}"
             .format(expo=self.expo, shift=s, log_power=log_power, val=val)
             for s, ini in self.shift.iteritems()
             for log_power, val in enumerate(ini))
