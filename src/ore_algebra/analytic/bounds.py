@@ -1333,12 +1333,38 @@ def residual(bwrec, n, last, z):
     IvPols = PolynomialRing(IC, z, sparse=True)
     return IvPols(rescoef) << n
 
-# This roughly corresponds to residual() followed by maj.maj_eq_rhs() in the
-# ordinary case. TODO: more consistent interface.
 def maj_eq_rhs_with_logs(bwrec, n, last, z, logs, RecJets):
+    r"""
+    Compute the rhs of a majorant equation for the tail from the last terms of a
+    truncated series.
+
+    This roughly corresponds to residual() followed by maj.maj_eq_rhs() in the
+    ordinary case. TODO: more consistent interface.
+
+    INPUT:
+
+    - ``bwrec``: a recurrence *“in n”*, i.e. already shifted by λ
+    - ``n``: int index where to evaluate the rec to compute the residual, must
+      be an *generic* index (i.e. QO(λ+n)≠0, where Q0 = indicial poly)
+    - ``last``: coefficients of λ+n-1, λ+n-2, ... of the solution
+    - ...
+
+    OUTPUT:
+
+    A *polynomial* q̂ of valuation at least ``n`` (i.e., *not* shifted by λ) s.t.
+
+        (n+i) · |∑[t=0..logs-1] ((d/dX)^t(Q0⁻¹))(λ+n+i)/t!|
+              · max[k](|q[λ+n+i, k]|)                                   (*)
+        ≤ q̂[n+i]
+
+    for all i ≥ n and all k, where q[λ+j,t] is the coefficient of
+    z^(λ+j)·log(z)^t/t! in the residual. Note that (*) implies
+
+        |∑[t=0..logs-1] (n+i)/t!·((d/dX)^t(Q0⁻¹))(λ+n+i)·q[λ+n+i,k+t]| ≤ q̂[n+i].
+    """
     ordrec = len(bwrec) - 1
     # Compute the coefficients of the residual:
-    # residual = z^(lambda + n)·(sum(rescoef[i][j]·z^i·log^j(z)/j!)
+    # residual = z^(λ + n)·(sum(rescoef[i][j]·z^i·log^j(z)/j!)
     rescoef = [[None]*logs for _ in xrange(ordrec)]
     for i in xrange(ordrec):
         for j in xrange(logs):
@@ -1350,12 +1376,13 @@ def maj_eq_rhs_with_logs(bwrec, n, last, z, logs, RecJets):
                     for k in xrange(ordrec - i)
                     for p in xrange(logs - j))
     # For lack of a convenient data structure to return these coefficients,
-    # compute a “majorant” polynomial right away. Here for simplicity we only
-    # handle the generic case.
-    idx_pert = RecJets([n, 1])
-    invlc = ~(bwrec[0](idx_pert)) # sum(1/t!·(1/Q0)^(t)(λ + n)·Sk^t)
-    invlcmaj = sum(to_IC(t).abs() for t in invlc)
-    polcoef = [(n + i)*invlcmaj*max(t.abs() for t in rescoef[i])
+    # compute a “majorant” polynomial right away. For simplicity, we only handle
+    # the generic case.
+    def invlcmaj(i):
+        idx_pert = RecJets([n+i, 1])
+        invlc = ~(bwrec[0](idx_pert)) # sum(1/t!·(1/Q0)^(t)(λ + n + i)·Sk^t)
+        return sum(to_IC(t).abs() for t in invlc)
+    polcoef = [(n + i)*invlcmaj(i)*max(t.abs() for t in rescoef[i])
                for i in xrange(ordrec)]
     IvPols = PolynomialRing(IR, z, sparse=True)
     return IvPols(polcoef) << n
