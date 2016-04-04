@@ -382,11 +382,11 @@ def series_sum_ordinary(Intervals, dop, bwrec, ini, pt,
         psum += term
         jetpow *= jet
         radpow *= pt.rad
-    # Account for the dropped high-order terms in the intervals we return.
-    # - Is this the right place do that?
-    # - Overestimation: tail_bound is actually a bound on the Frobenius norm of
-    #   the error! (TBI?)
-    res = vector(_add_error(x, tail_bound.abs()) for x in psum)
+    # Account for the dropped high-order terms in the intervals we return
+    # (tail_bound is actually a bound on the Frobenius norm of the error matrix,
+    # so there is some overestimation).
+    tail_bound = tail_bound.abs()
+    res = vector(_add_error(x, tail_bound) for x in psum)
     logger.info("summed %d terms, tail <= %s, coeffwise error <= %s", n,
             tail_bound,
             max(x.rad() for x in res) if pt.is_numeric else "n/a")
@@ -432,10 +432,10 @@ def fundamental_matrix_regular(dop, pt, eps, rows):
         ....:     + (2*x^6 - 3*x^5 - 6*x^4 + 7*x^3 + 8*x^2 - 6*x + 6)*Dx^2
         ....:     + (-2*x^6 + 3*x^5 + 5*x^4 - 2*x^3 - 9*x^2 + 9*x)*Dx)
         sage: fundamental_matrix_regular(dop, RBF(1/3), RBF(1e-10), 4)
-        [ [3.178847...] [-1.064032...]  [1.000...] [0.3287250...]]
-        [ [-8.98193...] [3.2281834...]       [...] [0.9586537...]]
-        [ [26.18828...] [-4.063756...]       [...] [-0.123080...]]
-        [ [-80.2467...] [9.1907404...]       [...] [-0.119259...]]
+        [[3.178847...] [-1.064032...]  [1.000...] [0.3287250...]]
+        [[-8.98193...] [3.2281834...]    [+/-...] [0.9586537...]]
+        [[26.18828...] [-4.063756...]    [+/-...] [-0.123080...]]
+        [[-80.2467...]  [9.190740...]    [+/-...] [-0.119259...]]
 
         sage: dop = x*Dx^3 + 2*Dx^2 + x*Dx
         sage: ini = [1, CBF(euler_gamma), 0]
@@ -596,11 +596,12 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, tgt_error,
     jet = pt.jet(Intervals)
     Jets = jet.parent()
     jetpow = Jets.one()
-    radpow = bounds.IR.one() # XXX: should this be rad^leftmost?
+    radpow = bounds.IR.one() # bound on abs(pt)^n in the series part (=> starts
+                             # at 1 regardless of ini.expo)
 
     log_prec = sum(len(v) for v in ini.shift.itervalues())
-    last_index_with_ini = max(0, *[s for s, vals in ini.shift.iteritems()
-                                   if not all(v.is_zero() for v in vals)])
+    last_index_with_ini = max([0] + [s for s, vals in ini.shift.iteritems()
+                                     if not all(v.is_zero() for v in vals)])
     ordrec = len(bwrec) - 1
     RecJets = utilities.jets(bwrec[0].base_ring(), 'Sk', log_prec)
     last = collections.deque([vector(Intervals, log_prec)
@@ -625,6 +626,9 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, tgt_error,
         # and (2) if we had code to compute lower bounds on coefficients of
         # series expansions of majorants.)
         cond = (n%stride == 0 and n > last_index_with_ini
+            # TODO: improve the automatic increase of precision for large x^λ:
+            # currently we only check the series part (which would sort of make
+            # sense in a relative error setting)
             and (tgt_error.reached(abs(last[-1][0])*radpow, abs(psum[0][0]))
                 or record_bounds_in is not None)
             and n > dop.order() and mult == 0)
@@ -634,13 +638,14 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, tgt_error,
             tail_bound = maj.matrix_sol_tail_bound(n, pt.rad, majeqrhs,
                                                                ord=pt.jet_order)
             if record_bounds_in is not None:
-                val = log_series_value(Jets, ini.expo, psum, jet[0])
-                record_bounds_in.append((n, val, tail_bound))
+                # TODO: record all partial sums, not just [log(z)^0]
+                # (requires improvements to plot_bounds)
+                record_bounds_in.append((n, psum[0], tail_bound))
             logger.log(logging.DEBUG - 1,
                     "n=%d, est=%s*%s=%s, res_bnd=%s, tail_bnd=%s",
                     n, abs(last[0][0]), radpow, abs(last[0][0])*radpow,
                     majeqrhs, tail_bound)
-            if tgt_error.reached(tail_bound):
+            if tgt_error.reached(tail_bound, abs(psum[0][0])):
                 break
             maj.maybe_refine()
 
@@ -665,8 +670,13 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, tgt_error,
         radpow *= pt.rad
     logger.info("summed %d terms, tail <= %s", n, tail_bound)
 
+    # Add error terms accounting for the truncation (for each power of log and
+    # each derivative), combine the series corresponding to each power of log,
+    # return the vector of successive derivatives.
+    tail_bound = tail_bound.abs()
+    psum = vector(Jets, [[c.add_error(tail_bound) for c in t]
+                         for t in psum])
     val = log_series_value(Jets, ini.expo, psum, jet[0])
-    # TODO: add_error (before or after singular part?)
     return vector(x for x in val)
 
 ################################################################################
@@ -689,7 +699,7 @@ def _random_ini(dop):
     pol, shifts = random.choice(sl_decomp)
     expo = random.choice(pol.roots(QQbar))[0]
     values = {
-        shift: tuple(VectorSpace(QQ, mult).random_element())
+        shift: tuple(VectorSpace(QQ, mult).random_element(10))
         for shift, mult in shifts
     }
     return LogSeriesInitialValues(expo, values, dop)
@@ -739,17 +749,18 @@ def plot_bounds(dop, ini=None, pt=None, eps=None, **kwds):
     logger.info("initial values: %s", ini)
     recd = []
     maj = bounds.DiffOpBound(dop, refinable=False, **kwds)
-    ref_sum = series_sum(dop, ini, pt, eps, stride=1,
-                                  record_bounds_in=recd, maj=maj)
+    series_sum(dop, ini, pt, eps, stride=1, record_bounds_in=recd, maj=maj)
+    ref_sum = recd[-1][1][0].add_error(recd[-1][2])
+    recd[-1:] = []
     # Note: this won't work well when the errors get close to the double
     # precision underflow threshold.
     error_plot_upper = plot.line(
-            [(n, (psum[0]-ref_sum[0]).abs().upper())
+            [(n, (psum[0]-ref_sum).abs().upper())
              for n, psum, _ in recd],
             color="lightgray", scale="semilogy")
     error_plot = plot.line(
-            [(n, (psum[0]-ref_sum[0]).abs().lower())
-             for n, psum, _ in recd],
+            [(n, (psum[0]-ref_sum).abs().lower())
+                for n, psum, _ in recd],
             color="black", scale="semilogy")
     bound_plot_lower = plot.line([(n, bound.lower()) for n, _, bound in recd],
                            color="lightblue", scale="semilogy")
