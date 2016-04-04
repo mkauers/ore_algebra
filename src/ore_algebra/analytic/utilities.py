@@ -54,6 +54,19 @@ def sing_as_alg(dop, iv):
     return QQbar.polynomial_root(pol, CIF(iv))
 
 ######################################################################
+# Numeric fields
+######################################################################
+
+_RBFmin = sage.rings.real_arb.RealBallField(2)
+_CBFmin = sage.rings.complex_arb.ComplexBallField(2)
+
+def is_numeric_parent(parent):
+    return _CBFmin.has_coerce_map_from(parent)
+
+def is_real_parent(parent):
+    return _RBFmin.has_coerce_map_from(parent)
+
+######################################################################
 # Miscellaneous stuff
 ######################################################################
 

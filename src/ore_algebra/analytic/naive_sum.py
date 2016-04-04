@@ -65,13 +65,15 @@ class EvaluationPoint(object):
                     else bounds.IC(pt).above_abs())
         self.jet_order = jet_order
 
-        self.is_numeric = ComplexBallField(2).has_coerce_map_from(pt.parent())
-        self.is_real = RealBallField(2).has_coerce_map_from(pt.parent())
+        self.is_numeric = utilities.is_numeric_parent(pt.parent())
 
     def jet(self, Intervals):
         base_ring = Intervals if self.is_numeric else self.pt.parent()
         Jets = utilities.jets(base_ring, 'eta', self.jet_order)
         return Jets([self.pt, 1])
+
+    def is_real(self):
+        return utilities.is_real_parent(self.pt.parent())
 
     def is_precise(self, eps):
         if self.pt.parent().is_exact():
@@ -111,7 +113,7 @@ class LogSeriesInitialValues(object):
             all_values = values
             values = dict((n, (values[n],)) for n in xrange(len(values)))
         self.universe = Sequence(all_values).universe()
-        if not ComplexBallField(2).has_coerce_map_from(self.universe):
+        if not utilities.is_numeric_parent(self.universe):
             raise ValueError("initial values must coerce into a ball field")
         self.shift = { s: tuple(self.universe(a) for a in ini)
                        for s, ini in values.iteritems() }
@@ -121,8 +123,6 @@ class LogSeriesInitialValues(object):
                 raise ValueError("invalid initial data for {} at 0".format(dop))
         except TypeError: # coercion problems btw QQbar and number fields
             pass
-
-        self.is_real = RealBallField(2).has_coerce_map_from(self.universe)
 
     def __repr__(self):
         return ", ".join(
@@ -143,6 +143,27 @@ class LogSeriesInitialValues(object):
                             return False
                     return True
         return False
+
+    def is_real(self, dop):
+        r"""
+        Try to detect cases where the coefficients of the series will be real.
+
+        TESTS::
+
+            sage: from ore_algebra.analytic.ui import *
+            sage: Dops, x, Dx = Diffops()
+            sage: i = QuadraticField(-1, 'i').gen()
+            sage: transition_matrix(x^2*Dx^2 + x*Dx + 1, [0, 1/2])
+            [ [0.769238901363972...] + [0.638961276313634...]*I [0.769238901363972...] + [-0.6389612763136...]*I]
+            sage: transition_matrix(Dx-i, [0,1])
+            [[0.540302305868139...] + [0.841470984807896...]*I]
+        """
+        # We check that the exponent is real to ensure that the coefficients
+        # will stay real. Note however that we don't need to make sure that
+        # pt^expo*log(z)^k is real.
+        return (utilities.is_real_parent(dop.base_ring().base_ring())
+                and utilities.is_real_parent(self.universe)
+                and self.expo.imag().is_zero())
 
     def is_precise(self, eps):
         if self.universe.is_exact():
@@ -256,7 +277,8 @@ def series_sum(dop, ini, pt, tgt_error, maj=None, bwrec=None,
     if bwrec is None:
         bwrec = backward_rec(dop, shift=ini.expo)
 
-    ivs = (RealBallField if ini.is_real and (pt.is_real or not pt.is_numeric)
+    ivs = (RealBallField
+           if ini.is_real(dop) and (pt.is_real() or not pt.is_numeric)
            else ComplexBallField)
     doit = (series_sum_ordinary if dop.leading_coefficient().valuation() == 0
             else series_sum_regular)
