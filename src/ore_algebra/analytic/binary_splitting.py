@@ -14,7 +14,7 @@ import ore_algebra
 
 from sage.matrix.constructor import matrix
 from sage.matrix.matrix_space import MatrixSpace
-from sage.rings.arith import lcm
+from sage.arith.all import lcm
 from sage.rings.complex_arb import ComplexBallField
 from sage.rings.integer_ring import ZZ
 from sage.rings.rational_field import QQ
