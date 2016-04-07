@@ -88,20 +88,21 @@ def ordinary_step_transition_matrix(ctx, step, eps, rows):
     ldop = step.start.local_diffop()
     maj = bounds.DiffOpBound(ldop)  # cache in ctx?
     if ctx.fundamental_matrix_ordinary is not None:
-        fundamental_matrix_ordinary = ctx.fundamental_matrix_ordinary
+        return ctx.fundamental_matrix_ordinary(
+                ldop, step.delta(), eps, rows, maj)
     elif step.is_exact():
         if eps > ctx.binary_splitting_eps_threshold:
             try:
-                mat = naive_sum.fundamental_matrix_ordinary(
+                return naive_sum.fundamental_matrix_ordinary(
                         ldop, step.delta(), eps, rows, maj,
                         max_prec_increase=5)
             except accuracy.PrecisionError:
-                mat = binary_splitting.fundamental_matrix_ordinary(
-                        ldop, step.delta(), eps, rows, maj)
-    else:
-        mat = naive_sum.fundamental_matrix_ordinary(
+                pass
+        return binary_splitting.fundamental_matrix_ordinary(
                 ldop, step.delta(), eps, rows, maj)
-    return mat
+    else:
+        return naive_sum.fundamental_matrix_ordinary(
+                ldop, step.delta(), eps, rows, maj)
 
 def singular_step_transition_matrix(ctx, step, eps, rows):
     from .naive_sum import fundamental_matrix_regular
