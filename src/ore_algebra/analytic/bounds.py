@@ -937,7 +937,7 @@ class DiffOpBound(object):
         ....:     DiffOpBound(dop)._test()
 
         sage: from ore_algebra.analytic.bounds import _test_diffop_bound
-        sage: _test_diffop_bound()
+        sage: _test_diffop_bound() # long time
     """
 
     def __init__(self, dop, leftmost=ZZ.zero(), special_shifts=[],
@@ -1253,7 +1253,7 @@ def _test_diffop_bound(
 
         sage: import logging; logging.basicConfig(level=logging.INFO)
         sage: from ore_algebra.analytic.bounds import _test_diffop_bound
-        sage: _test_diffop_bound() # not tested
+        sage: _test_diffop_bound() # not tested - done in DiffOpBound
         INFO:ore_algebra.analytic.bounds:testing operator: (-i + 2)*Dx + i - 1
         ...
     """

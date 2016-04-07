@@ -571,10 +571,10 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, tgt_error,
         sage: (CBF(2)^(-1001/2)*exp(CBF(2))).overlaps(transition_matrix(dop, [0, 2], 1e-10)[0,0])
         True
 
+        sage: h = CBF(1/2)
         sage: #dop = (Dx-1).lclm(x^2*Dx^2 - x*(2*x+1999)*Dx + (x^2 + 1999*x + 1000^2))
         sage: dop = x^2*Dx^3 + (-3*x^2 - 1997*x)*Dx^2 + (3*x^2 + 3994*x + 998001)*Dx - x^2 - 1997*x - 998001
         sage: mat = transition_matrix(dop, [0,1/2], 1e-5)
-        sage: h = CBF(1/2)
         sage: mat[0,0].overlaps(exp(h))
         True
         sage: mat[0,1].overlaps(exp(h)*h^1000*log(h))
