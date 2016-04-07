@@ -153,7 +153,7 @@ constant::
     [[+/-...] + [-14.9569783...]*I         [+/-...] + [+/-...]*I  [+/-...] + [4.54637624...]*I]
     [[-59.9006990...] + [+/-...]*I  [28.7075916...] + [+/-...]*I [-18.2076291...] + [+/-...]*I]
     sage: cst = -((1/4)*I)*(1+2^(1/2))^2*2^(3/4)/(pi*(2*2^(1/2)-3))
-    sage: mat[1][2].overlaps(CBF(cst)) # XXX: known bug (not tested)
+    sage: mat[1][2].overlaps(CBF(cst))
     True
 
 An example kindly provided by Christoph Koutschan::
