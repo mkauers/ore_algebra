@@ -1035,7 +1035,7 @@ class DiffOpBound(object):
 
         T = self.dop.parent().gen()
         pol_part = sum(T**j*pol for j, pol in enumerate(first_zn)) # slow
-        logger.debug("pol_part: %s", pol_part)
+        # logger.debug("pol_part: %s", pol_part)
         rem_num = self.dop - pol_part*lc # in theory, slow for large pol_part_len
         logger.log(logging.DEBUG - 1, "rem_num: %s", rem_num)
         it = enumerate(_dop_rcoeffs_of_T(rem_num))
@@ -1145,8 +1145,8 @@ class DiffOpBound(object):
         """
         assert majeqrhs.valuation() >= n >= self.dop.order() >= 1
         maj = self(n)*(majeqrhs >> 1).integral()
-        logger.debug("maj(%s) = %s", n, self(n))
-        logger.debug("maj = %s", maj)
+        # logger.debug("maj(%s) = %s", n, self(n))
+        # logger.debug("maj = %s", maj)
         return maj
 
     # XXX: rename ord to rows?
@@ -1163,8 +1163,8 @@ class DiffOpBound(object):
         # tails of a column of the form [y, y', y''/2, y'''/6, ...] or
         # [y, θy, θ²y/2, θ³y/6, ...].
         col_bound = maj.bound(rad, derivatives=ord)
-        logger.debug("maj(%s).bound() = %s", n, self(n).bound(rad))
-        logger.debug("col_bound = %s", col_bound)
+        # logger.debug("maj(%s).bound() = %s", n, self(n).bound(rad))
+        logger.debug("n = %s, col_bound = %s", n, col_bound)
         return IR(ord).sqrt()*col_bound
 
     def _test(self, ini=None, prec=100):

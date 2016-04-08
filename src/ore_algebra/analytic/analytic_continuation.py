@@ -127,12 +127,15 @@ def step_transition_matrix(ctx, step, eps, rows=None):
         return identity_matrix(ZZ, ctx.dop.order())[:rows]
     elif isinstance(z0, OrdinaryPoint) and isinstance(z1, OrdinaryPoint):
         logger.info("%s: ordinary case", step)
+        logger.debug("fraction of cvrad: %s/%s", step.length(), z0.dist_to_sing())
         fun = ordinary_step_transition_matrix
     elif isinstance(z0, RegularPoint) and isinstance(z1, OrdinaryPoint):
         logger.info("%s: regular singular case (going out)", step)
+        logger.debug("fraction of cvrad: %s/%s", step.length(), z0.dist_to_sing())
         fun = singular_step_transition_matrix
     elif isinstance(z0, OrdinaryPoint) and isinstance(z1, RegularPoint):
         logger.info("%s: regular singular case (going in)", step)
+        logger.debug("fraction of cvrad: %s/%s", step.length(), z1.dist_to_sing())
         fun = inverse_singular_step_transition_matrix
     else:
         raise TypeError(type(z0), type(z1))
