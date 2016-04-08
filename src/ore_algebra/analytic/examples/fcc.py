@@ -25,7 +25,7 @@ face-centered cubic is annihilated be the following operator::
 Using this differential equation, he computes the value of the LGF at z=1 (and
 from there the return probability of the lattice)::
 
-    sage: eval_diffeq(dop4, [0, 0, 0, 1], [0, 1], 1e-60) # long time (33.2s)
+    sage: eval_diffeq(dop4, [0, 0, 0, 1], [0, 1], 1e-60) # long time (9.5 s)
     [1.10584379792120476018299547088585107443954623663875285836499...]
     + [+/- ...]*I
 
@@ -79,7 +79,7 @@ In this case, the segment [0, 1] contains a singularity of the operator::
 We can nevertheless evaluate the solution of interest using an integration path
 that passes above the singular point::
 
-    sage: eval_diffeq(dop5, [0, 0, 0, 0, 1, 0], [0, 1/5+i/2, 1], 1e-60) # long time (170 s)
+    sage: eval_diffeq(dop5, [0, 0, 0, 0, 1, 0], [0, 1/5+i/2, 1], 1e-60) # long time (92 s)
     [1.04885235135491485162956376369999275945402550465206640313845...] + [+/-...]*I
 
 In the six-dimensional case, Koutschan gives the following operator::
