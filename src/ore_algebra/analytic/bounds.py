@@ -12,6 +12,7 @@ import logging, warnings
 
 import sage.rings.polynomial.real_roots as real_roots
 
+from sage.misc.cachefunc import cached_function
 from sage.misc.misc_c import prod
 from sage.rings.all import CIF
 from sage.rings.complex_arb import CBF
@@ -34,6 +35,7 @@ from ore_algebra.ore_algebra import OreAlgebra
 
 from ore_algebra.analytic import utilities
 from ore_algebra.analytic.safe_cmp import *
+from ore_algebra.analytic.shiftless import squarefree_part
 
 logger = logging.getLogger(__name__)
 
@@ -597,40 +599,50 @@ class SumSeqBound(SeqBound):
         return sum(term(n) for term in self.terms)
 
 def bound_real_roots(pol):
-    if pol.is_zero(): # XXX: may not play well with intervals
-        return -infinity
+    if pol.is_zero():
+        raise ValueError("pol == 0")
     bound = real_roots.cl_maximum_root(pol.change_ring(RIF).list())
     bound = RIF._upper_field()(bound) # work around weakness of cl_maximum_root
     bound = bound.nextabove().ceil()
     return bound
 
+@cached_function
 def nonneg_roots(pol):
     r"""
-    Return a list of intervals with rational endpoints (represented by pairs)
-    containing all nonnegative roots of pol.
+    If pol ≠ 0, return a list of intervals with rational endpoints (represented
+    by pairs) containing all nonnegative roots of pol. If pol = 0, return [].
     """
+    if pol.degree() <= 0:
+        return []
     bounds = (QQ.zero(), bound_real_roots(pol))
     if pol.base_ring() is AA:
         if bounds[1] < QQ(20):
             # don't bother with computing the roots (too slow)
             return [bounds]
         bounds = None
+    pol = squarefree_part(pol)
     try:
-        roots = real_roots.real_roots(pol, bounds=bounds)
+        roots = real_roots.real_roots(pol, bounds=bounds, skip_squarefree=True)
     except AssertionError:
         bounds = None
-        roots = real_roots.real_roots(pol)
+        roots = real_roots.real_roots(pol, skip_squarefree=True)
     if roots and roots[-1][0][1]:
         diam = ~roots[-1][0][1]
         while any(rt >= QQ.zero() and rt - lt > QQ(10)
                   for ((lt, rt), _) in roots):
             # max_diameter is a relative diameter --> pb for large roots
             logger.debug("refining (diam=%s)...", diam)
-            roots = real_roots.real_roots(pol, bounds=bounds, max_diameter=diam)
+            roots = real_roots.real_roots(pol, bounds=bounds, max_diameter=diam,
+                                                           skip_squarefree=True)
             diam >>= 1
     return [root for (root, mult) in roots if root[1] >= QQ.zero()]
 
 _upper_inf = RIF(infinity).upper()
+
+def _re_im(pol, RealScalars):
+    return (pol.map_coefficients(which, new_base_ring=RealScalars)
+            for which in (lambda coef: coef.real(),
+                            lambda coef: coef.imag()))
 
 # TODO: computation of roots should be shared between calls corresponding to
 # different shift equivalence classes...
@@ -700,8 +712,6 @@ def bound_ratio_large_n(num, den, exceptions={}, min_drop=IR(1.1), stats=None):
     """
     rat = num/den
     num, den = rat.numerator(), rat.denominator()
-    logger.debug("bounding rational function ~%s/%s",
-            num.change_ring(CBF), den.change_ring(CBF))
 
     if num.is_zero():
         return RatSeqBound(num, den, [(infinity, IR.zero())])
@@ -709,30 +719,32 @@ def bound_ratio_large_n(num, den, exceptions={}, min_drop=IR(1.1), stats=None):
         raise ValueError("expected deg(num) <= deg(den)")
 
     Scalars = num.base_ring()
-    if (Scalars is QQ or isinstance(Scalars, NumberField_quadratic)
-                         and Scalars.gen()**2 == -1):
-        RealScalars = QQ
+    if Scalars is QQ:
+        crit = num.diff()*den - num*den.diff()
+        dden = den
     else:
-        num, den = num.change_ring(QQbar), den.change_ring(QQbar)
-        RealScalars = AA
-    def sqn(pol):
-        re, im = (pol.map_coefficients(which, new_base_ring=RealScalars)
-                  for which in (lambda coef: coef.real(),
-                                lambda coef: coef.imag()))
-        return re**2 + im**2
-    sqn_num, sqn_den = sqn(num), sqn(den)
-    crit = sqn_num.diff()*sqn_den - sqn_den.diff()*sqn_num
+        if isinstance(Scalars, NumberField_quadratic) and Scalars.gen()**2==-1:
+            RealScalars = QQ
+        else: # improvable
+            num, den = num.change_ring(QQbar), den.change_ring(QQbar)
+            RealScalars = AA
+        num_re, num_im = _re_im(num, RealScalars) # improvable: we might want
+        den_re, den_im = _re_im(den, RealScalars) # to detect when some are 0
+        sqn_num = num_re**2 + num_im**2
+        sqn_den = den_re**2 + den_im**2
+        crit = sqn_den.diff()*sqn_num - sqn_num.diff()*sqn_den
+        dden = den_re.gcd(den_im)
 
-    logger.debug("computing roots, degrees=(%s, %s)...",
-            sqn_den.degree(), crit.degree())
     if stats: stats.time_roots.tic()
-    roots = nonneg_roots(sqn_den) # we want real coefficients
+    roots = nonneg_roots(dden)
     roots.extend(nonneg_roots(crit))
     if stats: stats.time_roots.toc()
 
     logger.debug("found %s roots, now building staircase...", len(roots))
     if stats: stats.time_staircases.tic()
-    num, den = num.change_ring(IC), den.change_ring(IC)
+    Pol = num.parent().change_ring(IC)
+    num = Pol([IC(c.real(), c.imag()) for c in list(num)])
+    den = Pol([IC(c.real(), c.imag()) for c in list(den)])
     thrs = set(n for iv in roots for n in xrange(iv[0].floor(), iv[1].ceil()))
     thrs = list(thrs)
     thrs.sort(reverse=True)
