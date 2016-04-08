@@ -322,8 +322,9 @@ def series_sum_ordinary(Intervals, dop, bwrec, ini, pt,
     if record_bounds_in:
         record_bounds_in[:] = []
 
-    jet = pt.jet(Intervals)
-    Jets = jet.parent()
+    jet = pt.jet(Intervals).lift()
+    Jets = jet.parent() # polynomial ring!
+    ord = pt.jet_order
     jetpow = Jets.one()
     radpow = bounds.IR.one()
 
@@ -341,9 +342,9 @@ def series_sum_ordinary(Intervals, dop, bwrec, ini, pt,
     psum = Jets.zero()
     for n in range(dop.order()):
         last.rotate(1)
-        term = Jets(last[0])*jetpow
+        term = Jets(last[0])._mul_trunc_(jetpow, ord)
         psum += term
-        jetpow *= jet
+        jetpow = jetpow._mul_trunc_(jet, ord)
         radpow *= pt.rad
 
     tail_bound = bounds.IR(infinity)
@@ -368,8 +369,7 @@ def series_sum_ordinary(Intervals, dop, bwrec, ini, pt,
                 residual = bounds.residual(bwrec, n, list(last)[1:],
                                                        maj.Poly.variable_name())
                 majeqrhs = maj.maj_eq_rhs([residual])
-                tail_bound = maj.matrix_sol_tail_bound(n, pt.rad, majeqrhs,
-                                                               ord=pt.jet_order)
+                tail_bound = maj.matrix_sol_tail_bound(n, pt.rad, majeqrhs, ord)
                 if record_bounds_in is not None:
                     record_bounds_in.append((n, psum, tail_bound))
                 if tgt_error.reached(tail_bound, abs_sum):
@@ -378,15 +378,15 @@ def series_sum_ordinary(Intervals, dop, bwrec, ini, pt,
         comb = sum(to_iv(bwrec[k](n))*last[k] for k in xrange(1, ordrec+1))
         last[0] = -to_iv(~bwrec[0](n))*comb
         # logger.debug("n = %s, [c(n), c(n-1), ...] = %s", n, list(last))
-        term = Jets(last[0])*jetpow
+        term = Jets(last[0])._mul_trunc_(jetpow, ord)
         psum += term
-        jetpow *= jet
+        jetpow = jetpow._mul_trunc_(jet, ord)
         radpow *= pt.rad
     # Account for the dropped high-order terms in the intervals we return
     # (tail_bound is actually a bound on the Frobenius norm of the error matrix,
     # so there is some overestimation).
     tail_bound = tail_bound.abs()
-    res = vector(_add_error(x, tail_bound) for x in psum)
+    res = vector(_add_error(psum[i], tail_bound) for i in xrange(ord))
     logger.info("summed %d terms, tail <= %s, coeffwise error <= %s", n,
             tail_bound,
             max(x.rad() for x in res) if pt.is_numeric else "n/a")
