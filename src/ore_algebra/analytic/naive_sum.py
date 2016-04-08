@@ -608,7 +608,12 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, tgt_error,
                               for _ in xrange(ordrec + 1)])
     psum = vector(Jets, log_prec)
 
+    # bugware to work around various inefficiencies in sage
     to_iv = _iv_builder(Intervals)
+    bwrec_series = [[b] for b in bwrec]
+    for b_series in bwrec_series:
+        for i in xrange(1, log_prec):
+            b_series.append(b_series[i-1].diff()/i)
 
     for n in itertools.count():
         last.rotate(1)
@@ -633,7 +638,7 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, tgt_error,
                 or record_bounds_in is not None)
             and n > dop.order() and mult == 0)
         if (cond):
-            majeqrhs = bounds.maj_eq_rhs_with_logs(bwrec, n,
+            majeqrhs = bounds.maj_eq_rhs_with_logs(bwrec, n, # slow
                     list(last)[1:], maj.Poly.variable_name(), log_prec, RecJets)
             tail_bound = maj.matrix_sol_tail_bound(n, pt.rad, majeqrhs,
                                                                ord=pt.jet_order)
@@ -649,10 +654,8 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, tgt_error,
                 break
             maj.maybe_refine()
 
-        n_pert = RecJets([n, 1])
-        # bwrec_n = [b(n_pert).lift().change_ring(Intervals) for b in bwrec]
-        bwrec_n = [ [to_iv(b(n_pert).lift()[i]) for i in xrange(log_prec)]
-                    for b in bwrec ]
+        bwrec_n = [ [to_iv(b(n)) for b in b_series]
+                    for b_series in bwrec_series ]
         # logger.debug("bwrec_nn=%s", bwrec_n)
         # for i in range(0, ordrec +1):
         #    logger.debug("last[%d]=%s", i, last[i])
@@ -665,7 +668,7 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, tgt_error,
             last[0][mult + p] = - ~bwrec_n[0][mult] * combin
         for p in xrange(mult - 1, -1, -1):
             last[0][p] = ini.shift[n][p]
-        psum += last[0].change_ring(Jets)*jetpow # suboptimal
+        psum += last[0].change_ring(Jets)*jetpow # slow
         jetpow *= jet
         radpow *= pt.rad
     logger.info("summed %d terms, tail <= %s", n, tail_bound)
