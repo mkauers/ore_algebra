@@ -12,14 +12,16 @@ import collections, itertools, logging
 
 from sage.matrix.constructor import identity_matrix, matrix
 from sage.modules.free_module_element import vector
-from sage.rings.complex_arb import ComplexBallField, CBF
+from sage.rings.complex_arb import ComplexBallField, CBF, ComplexBall
 from sage.rings.infinity import infinity
 from sage.rings.integer import Integer
 from sage.rings.integer_ring import ZZ
+from sage.rings.number_field.number_field import NumberField_quadratic
 from sage.rings.polynomial import polynomial_element
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 from sage.rings.qqbar import QQbar
-from sage.rings.real_arb import RealBallField, RBF
+from sage.rings.rational_field import QQ
+from sage.rings.real_arb import RealBallField, RBF, RealBall
 from sage.structure.sequence import Sequence
 
 from ore_algebra.ore_algebra import OreAlgebra
@@ -310,9 +312,22 @@ def series_sum(dop, ini, pt, tgt_error, maj=None, bwrec=None,
 
 # temporary hack to speed up at least computations involving QQi while coercions
 # from number fields to complex ball fields are slow
-def _iv_builder(Intervals):
+def _iv_builder(Intervals, Source):
     if isinstance(Intervals, ComplexBallField):
-        return lambda z: Intervals(z.real(), z.imag())
+        if (isinstance(Source, NumberField_quadratic)
+            and list(Source.polynomial()) == [1, 0, 1]):
+            RealIntervals = Intervals.base_ring()
+            def to_iv(z):
+                c = z._coefficients()
+                c.append(ZZ.zero())
+                c.append(ZZ.zero())
+                return ComplexBall(Intervals, RealBall(RealIntervals, c[0]),
+                                              RealBall(RealIntervals, c[1]))
+            return to_iv
+        elif Source is QQ:
+            return lambda z: ComplexBall(Intervals, z)
+        else:
+            return lambda z: Intervals(z.real(), z.imag())
     else:
         return Intervals
 
@@ -335,7 +350,7 @@ def series_sum_ordinary(Intervals, dop, bwrec, ini, pt,
                 for n in xrange(dop.order() - 1, -1, -1))
     assert len(last) == ordrec + 1 # not ordrec!
 
-    to_iv = _iv_builder(Intervals)
+    to_iv = _iv_builder(Intervals, bwrec[0].base_ring())
 
     # Singular part. Not the most natural thing to do here, but hopefully
     # generalizes well to the regular singular case.
@@ -609,7 +624,7 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, tgt_error,
     psum = vector(Jets, log_prec)
 
     # bugware to work around various inefficiencies in sage
-    to_iv = _iv_builder(Intervals)
+    to_iv = _iv_builder(Intervals, bwrec[0].base_ring())
     bwrec_series = [[b] for b in bwrec]
     for b_series in bwrec_series:
         for i in xrange(1, log_prec):
