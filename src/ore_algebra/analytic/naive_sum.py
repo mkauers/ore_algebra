@@ -618,7 +618,6 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, tgt_error,
     last_index_with_ini = max([0] + [s for s, vals in ini.shift.iteritems()
                                      if not all(v.is_zero() for v in vals)])
     ordrec = len(bwrec) - 1
-    RecJets = utilities.jets(bwrec[0].base_ring(), 'Sk', log_prec)
     last = collections.deque([vector(Intervals, log_prec)
                               for _ in xrange(ordrec + 1)])
     psum = vector(Jets, log_prec)
@@ -653,8 +652,8 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, tgt_error,
                 or record_bounds_in is not None)
             and n > dop.order() and mult == 0)
         if (cond):
-            majeqrhs = bounds.maj_eq_rhs_with_logs(bwrec, n, # slow
-                    list(last)[1:], maj.Poly.variable_name(), log_prec, RecJets)
+            majeqrhs = bounds.maj_eq_rhs_with_logs(bwrec_series, n,
+                    list(last)[1:], maj.Poly.variable_name(), log_prec)
             tail_bound = maj.matrix_sol_tail_bound(n, pt.rad, majeqrhs,
                                                                ord=pt.jet_order)
             if record_bounds_in is not None:

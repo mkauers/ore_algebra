@@ -1330,7 +1330,7 @@ def residual(bwrec, n, last, z):
     IvPols = PolynomialRing(IC, z, sparse=True)
     return IvPols(rescoef) << n
 
-def maj_eq_rhs_with_logs(bwrec, n, last, z, logs, RecJets):
+def maj_eq_rhs_with_logs(bwrec_series, n, last, z, logs):
     r"""
     Compute the rhs of a majorant equation for the tail from the last terms of a
     truncated series.
@@ -1359,25 +1359,26 @@ def maj_eq_rhs_with_logs(bwrec, n, last, z, logs, RecJets):
 
         |∑[t=0..logs-1] (n+i)/t!·((d/dX)^t(Q0⁻¹))(λ+n+i)·q[λ+n+i,k+t]| ≤ q̂[n+i].
     """
-    ordrec = len(bwrec) - 1
+    ordrec = len(bwrec_series) - 1
+    bwrec_ii = [[[b(n + i) for b in b_series]
+                for b_series in bwrec_series]
+                for i in xrange(ordrec)]
     # Compute the coefficients of the residual:
     # residual = z^(λ + n)·(sum(rescoef[i][j]·z^i·log^j(z)/j!)
     rescoef = [[None]*logs for _ in xrange(ordrec)]
     for i in xrange(ordrec):
         for j in xrange(logs):
-            idx_pert = RecJets([n + i, 1])
-            bwrec_i = [b(idx_pert) for b in bwrec]
             # significant overestimation here (apparently not too problematic)
             rescoef[i][j] = sum(
-                    to_IC(bwrec_i[i+k+1][p])*IC(last[k][j+p])
+                    to_IC(bwrec_ii[i][i+k+1][p])*IC(last[k][j+p])
                     for k in xrange(ordrec - i)
                     for p in xrange(logs - j))
     # For lack of a convenient data structure to return these coefficients,
     # compute a “majorant” polynomial right away. For simplicity, we only handle
     # the generic case.
+    RecJets = PolynomialRing(bwrec_series[0][0].base_ring(), 'Sk')
     def invlcmaj(i):
-        idx_pert = RecJets([n+i, 1])
-        invlc = ~(bwrec[0](idx_pert)) # sum(1/t!·(1/Q0)^(t)(λ + n + i)·Sk^t)
+        invlc = RecJets(bwrec_ii[i][0]).inverse_series_trunc(logs) # sum(1/t!·(1/Q0)^(t)(λ + n + i)·Sk^t)
         return sum(to_IC(t).abs() for t in invlc)
     polcoef = [(n + i)*invlcmaj(i)*max(t.abs() for t in rescoef[i])
                for i in xrange(ordrec)]
