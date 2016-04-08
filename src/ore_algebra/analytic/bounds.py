@@ -1019,16 +1019,13 @@ class DiffOpBound(object):
 
         pol_part_len = self.pol_part_len
 
-        Pols_z, z = self.dop.base_ring().objgen()
-
         self.stats.time_decomp_op.tic()
-        Trunc = Pols_z.quo(z**(pol_part_len+1))
         lc = self.dop.leading_coefficient()
-        inv = ~Trunc(lc)
-        MPol, (z, n) = Pols_z.extend_variables('n').objgens()
+        inv = lc.inverse_series_trunc(pol_part_len + 1)
+        MPol, (z, n) = self.dop.base_ring().extend_variables('n').objgens()
         # Including rcoeffs[-1] here actually is redundant, as, by construction,
         # the only term in first to involve n^ordeq will be 1·n^ordeq·z^0.
-        first = sum(n**j*(Trunc(pol)*inv).lift()
+        first = sum(n**j*pol._mul_trunc_(inv, pol_part_len + 1)
                     for j, pol in enumerate(self._rcoeffs))
         first_nz = first.polynomial(z)
         first_zn = first.polynomial(n)
