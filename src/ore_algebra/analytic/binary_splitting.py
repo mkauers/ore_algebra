@@ -40,12 +40,13 @@ class StepMatrix(object):
     # NOTES:
     # - store the indices the StepMatrix covers?
 
-    def __init__(self, rec_mat, rec_den, pow_num, pow_den, sums_row):
+    def __init__(self, rec_mat, rec_den, pow_num, pow_den, sums_row, ord):
         self.rec_mat = rec_mat
         self.rec_den = rec_den
         self.pow_num = pow_num
         self.pow_den = ZZ(pow_den)
         self.sums_row = sums_row
+        self.ord = ord
         self.BigScalars = sums_row.base_ring()
         self.Mat_big_scalars = rec_mat.parent().change_ring(self.BigScalars)
 
@@ -59,13 +60,17 @@ class StepMatrix(object):
                  for x in low.rec_mat.list()],
                 coerce=False)
         low.rec_mat = high.rec_mat*low.rec_mat       # Mat(rec_Ints)
-        low.sums_row = (                             # Vec(sums_Ints[[δ]]/<δ^k>)
-                high.sums_row * mat * low.pow_num +  # costly step
-                high.rec_den * high.pow_den * low.sums_row)
+        tmp = high.sums_row*mat                      # Vec(sums_Ints[[δ]]/<δ^k>)
+        for i in xrange(mat.nrows()):
+            tmp[0,i] = tmp[0,i]._mul_trunc_(low.pow_num, low.ord)
+        assert tmp[0][0].degree() < low.ord
+        low.sums_row = tmp + high.rec_den * high.pow_den * low.sums_row
+        assert low.sums_row[0][0].degree() < low.ord
         # TODO: try caching the powers of (pow_num/pow_den)? this will probably
         # not change anything for algebraic evaluation points, but it might
         # make a difference when the evaluation point is more complicated
-        low.pow_num *= high.pow_num                  # pow_Ints[[δ]]/<δ^k>
+        low.pow_num = low.pow_num._mul_trunc_(high.pow_num, low.ord)
+                                                           # pow_Ints[[δ]]/<δ^k>
         low.pow_den *= high.pow_den                  # ZZ
         low.rec_den *= high.rec_den                  # rec_Ints
         return low
@@ -167,6 +172,7 @@ class MatrixRec(object):
         self.orddeq = diffop.order()
         self.ordrec = recop.order()
         self.orddiff = self.ordrec - self.orddeq
+        self.derivatives = derivatives
 
         self.zvar = diffop.base_ring().variable_name()
 
@@ -211,8 +217,8 @@ class MatrixRec(object):
         # number fields, it would probably make more sense to move this into
         # the caller. --> support dz in non-com ring (mat)? power series work
         # only over com rings
-        Series_pow = PowerSeriesRing(AlgInts_pow, 'delta')
-        pow_num = Series_pow([pow_den*dz, pow_den], derivatives)
+        Series_pow = PolynomialRing(AlgInts_pow, 'delta')
+        pow_num = Series_pow([pow_den*dz, pow_den])
 
         # Partial sums
 
@@ -232,7 +238,7 @@ class MatrixRec(object):
         assert AlgInts_sums is AlgInts_rec or AlgInts_sums != AlgInts_rec
         assert AlgInts_sums is AlgInts_pow or AlgInts_sums != AlgInts_pow
 
-        Series_sums = PowerSeriesRing(AlgInts_sums, 'delta')
+        Series_sums = PolynomialRing(AlgInts_sums, 'delta')
         assert Series_sums.base_ring() is AlgInts_sums
         # for speed
         self.Series_sums = Series_sums
@@ -244,7 +250,8 @@ class MatrixRec(object):
                 rec_den=None, # 1
                 pow_num=pow_num,
                 pow_den=ZZ(pow_den),
-                sums_row=MatrixSpace(Series_sums, 1, self.ordrec).zero_matrix())
+                sums_row=MatrixSpace(Series_sums, 1, self.ordrec).zero_matrix(),
+                ord=derivatives)
         assert self._eval_template.rec_mat.base_ring() is AlgInts_rec
 
     def __call__(self, n):
@@ -267,7 +274,8 @@ class MatrixRec(object):
     def one(self):
         id = self._eval_template.rec_mat.parent().identity_matrix()
         zero_row = self._eval_template.sums_row.parent().zero_matrix()
-        return StepMatrix(id, ZZ(1), ZZ(1), ZZ(1), zero_row)
+        one_num = self._eval_template.pow_num.parent()(1)
+        return StepMatrix(id, ZZ(1), one_num, ZZ(1), zero_row, self.derivatives)
 
     def binsplit(self, low, high, threshold=64):
         if high - low <= threshold:
