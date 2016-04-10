@@ -615,7 +615,11 @@ def nonneg_roots(pol):
             # don't bother with computing the roots (too slow)
             return [bounds]
         bounds = None
-    roots = real_roots.real_roots(pol, bounds=bounds)
+    try:
+        roots = real_roots.real_roots(pol, bounds=bounds)
+    except AssertionError:
+        bounds = None
+        roots = real_roots.real_roots(pol)
     if roots and roots[-1][0][1]:
         diam = ~roots[-1][0][1]
         while any(rt >= QQ.zero() and rt - lt > QQ(10)
@@ -1145,8 +1149,8 @@ class DiffOpBound(object):
         """
         assert majeqrhs.valuation() >= n >= self.dop.order() >= 1
         maj = self(n)*(majeqrhs >> 1).integral()
-        # logger.debug("maj(%s) = %s", n, self(n))
-        # logger.debug("maj = %s", maj)
+        logger.debug("maj(%s) = %s", n, self(n))
+        logger.debug("maj = %s", maj)
         return maj
 
     # XXX: rename ord to rows?
@@ -1163,7 +1167,7 @@ class DiffOpBound(object):
         # tails of a column of the form [y, y', y''/2, y'''/6, ...] or
         # [y, θy, θ²y/2, θ³y/6, ...].
         col_bound = maj.bound(rad, derivatives=ord)
-        # logger.debug("maj(%s).bound() = %s", n, self(n).bound(rad))
+        logger.debug("maj(%s).bound() = %s", n, self(n).bound(rad))
         logger.debug("n = %s, col_bound = %s", n, col_bound)
         return IR(ord).sqrt()*col_bound
 

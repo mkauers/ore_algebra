@@ -327,17 +327,23 @@ def fundamental_matrix_ordinary(dop, pt, eps, rows, maj):
     rec = MatrixRec(dop, pt, rows)
     prod = rec.one()
     tail_bound = n = None
+    done = False
     for last, n in binsplit_step_seq():
         prod = rec.binsplit(last, n) * prod
         logger.debug("n = %d, tail bound = %s", n, tail_bound)
-        a_term = prod.term(bounds.IC, dop.order(), 0)
-        if a_term.abs() < eps: # use bounds.AbsoluteError???
+        est = prod.term(bounds.IC, dop.order(), 0).abs()
+        if est < eps: # use bounds.AbsoluteError???
             majeqrhs = maj.maj_eq_rhs(rec.residuals(prod, n))
-            tail_bound = maj.matrix_sol_tail_bound(n, bounds.IC(pt).abs(),
-                                                   majeqrhs, ord=rows)
-            if tail_bound < eps: # XXX: clarify stopping criterion
-                break
-            maj.refine()
+            for i in xrange(5):
+                tail_bound = maj.matrix_sol_tail_bound(n, bounds.IC(pt).abs(),
+                                                             majeqrhs, ord=rows)
+                if tail_bound < eps: # XXX: clarify stopping criterion
+                    done = True
+                    break
+                # note that we may get a majorant that has already been refined
+                if n > 64*2**maj._effort:
+                    maj.refine()
+            if done: break
     is_real = RealBallField(2).has_coerce_map_from(pt.parent())
     Intervals = utilities.ball_field(eps, is_real)
     mat = prod.partial_sums(Intervals, rows, dop.order())

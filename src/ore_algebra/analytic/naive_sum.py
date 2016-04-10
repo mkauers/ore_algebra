@@ -363,6 +363,37 @@ def series_sum_ordinary(Intervals, dop, bwrec, ini, pt,
         radpow *= pt.rad
 
     tail_bound = bounds.IR(infinity)
+    def check_convergence(prev_tail_bound):
+        # last[-1] since last[0] may still be "undefined" and last[1] may
+        # not exist in degenerate cases
+        est = (abs(last[-1])*radpow).above_abs()
+        abs_sum = abs(psum[0]) if pt.is_numeric else None
+        if not tgt_error.reached(est, abs_sum) and record_bounds_in is None:
+            return False, bounds.IR(infinity)
+        # Warning: this residual must correspond to the operator stored in
+        # maj.dop, which typically isn't the operator series_sum was called on
+        # (but its to_T(), i.e. its product by a power of x).
+        residual = bounds.residual(bwrec, n, list(last)[1:],
+                                                       maj.Poly.variable_name())
+        majeqrhs = maj.maj_eq_rhs([residual])
+        for i in xrange(5):
+            tail_bound = maj.matrix_sol_tail_bound(n, pt.rad, majeqrhs, ord)
+            logger.debug("n=%s, sum=%s, est=%s, rhs[.]=%s, tail_bound=%s",
+                            n, psum[0], est, majeqrhs[0], tail_bound)
+            if record_bounds_in is not None:
+                record_bounds_in.append((n, psum, tail_bound))
+            if tgt_error.reached(tail_bound, abs_sum):
+                return True, tail_bound
+            elif (i == 1 and tail_bound.is_finite()
+                    and not tail_bound < prev_tail_bound.above_abs()):
+                raise accuracy.PrecisionError
+            elif not tgt_error.reached(tail_bound*
+                    est**(QQ((maj._effort**2 + 2)*stride)/n)):
+                maj.refine()
+                continue
+            break
+        return False, tail_bound
+
     for n in itertools.count(dop.order()):
         last.rotate(1)
         #last[0] = None
@@ -370,26 +401,8 @@ def series_sum_ordinary(Intervals, dop, bwrec, ini, pt,
         # the coefficient of z^n later in the loop body) and last[1], ...
         # last[ordrec] are the coefficients of z^(n-1), ..., z^(n-ordrec)
         if n%stride == 0:
-            logger.debug("n=%s, sum=%s, last tail_bound=%s",
-                         n, psum[0], tail_bound)
-            abs_sum = abs(psum[0]) if pt.is_numeric else None
-            # last[-1] since last[0] may still be "undefined" and last[1] may
-            # not exist in degenerate cases
-            if (tgt_error.reached(abs(last[-1])*radpow, abs_sum)
-                                or record_bounds_in is not None):
-                # Warning: this residual must correspond to the operator stored
-                # in maj.dop, which typically isn't the operator
-                # series_sum was called on (but the result of its
-                # conversion via to_T, i.e. its product by a power of x).
-                residual = bounds.residual(bwrec, n, list(last)[1:],
-                                                       maj.Poly.variable_name())
-                majeqrhs = maj.maj_eq_rhs([residual])
-                tail_bound = maj.matrix_sol_tail_bound(n, pt.rad, majeqrhs, ord)
-                if record_bounds_in is not None:
-                    record_bounds_in.append((n, psum, tail_bound))
-                if tgt_error.reached(tail_bound, abs_sum):
-                    break
-                maj.maybe_refine()
+            done, tail_bound = check_convergence(tail_bound)
+            if done: break
         comb = sum(to_iv(bwrec[k](n))*last[k] for k in xrange(1, ordrec+1))
         last[0] = -to_iv(~bwrec[0](n))*comb
         # logger.debug("n = %s, [c(n), c(n-1), ...] = %s", n, list(last))
@@ -447,10 +460,10 @@ def fundamental_matrix_regular(dop, pt, eps, rows):
         ....:     + (2*x^6 - 3*x^5 - 6*x^4 + 7*x^3 + 8*x^2 - 6*x + 6)*Dx^2
         ....:     + (-2*x^6 + 3*x^5 + 5*x^4 - 2*x^3 - 9*x^2 + 9*x)*Dx)
         sage: fundamental_matrix_regular(dop, RBF(1/3), RBF(1e-10), 4)
-        [[3.178847...] [-1.064032...]  [1.000...] [0.3287250...]]
-        [[-8.98193...] [3.2281834...]    [+/-...] [0.9586537...]]
-        [[26.18828...] [-4.063756...]    [+/-...] [-0.123080...]]
-        [[-80.2467...]  [9.190740...]    [+/-...] [-0.119259...]]
+        [ [3.178847...] [-1.064032...]  [1.000...] [0.3287250...]]
+        [ [-8.98193...] [3.2281834...]    [+/-...] [0.9586537...]]
+        [ [26.18828...] [-4.063756...]    [+/-...] [-0.123080...]]
+        [ [-80.2467...]  [9.190740...]    [+/-...] [-0.119259...]]
 
         sage: dop = x*Dx^3 + 2*Dx^2 + x*Dx
         sage: ini = [1, CBF(euler_gamma), 0]
@@ -615,8 +628,10 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, tgt_error,
                              # at 1 regardless of ini.expo)
 
     log_prec = sum(len(v) for v in ini.shift.itervalues())
-    last_index_with_ini = max([0] + [s for s, vals in ini.shift.iteritems()
-                                     if not all(v.is_zero() for v in vals)])
+    last_special_index = max(ini.shift)
+    last_index_with_ini = max([dop.order()]
+            + [s for s, vals in ini.shift.iteritems()
+                 if not all(v.is_zero() for v in vals)])
     ordrec = len(bwrec) - 1
     last = collections.deque([vector(Intervals, log_prec)
                               for _ in xrange(ordrec + 1)])
@@ -629,44 +644,65 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, tgt_error,
         for i in xrange(1, log_prec):
             b_series.append(b_series[i-1].diff()/i)
 
+    # Every few iterations, heuristically check if we have converged and if
+    # we still have enough precision. If it looks like the target error may
+    # be reached, perform a rigorous check. Our stopping criterion currently
+    # (1) only works at “generic” indices, and (2) assumes that the initial
+    # values at exceptional indices larger than n are zero, so we also
+    # ensure that we are in this case. (Both assumptions could be lifted,
+    # (1) by using a slightly more complicated formula for the tail bound,
+    # and (2) if we had code to compute lower bounds on coefficients of
+    # series expansions of majorants.)
+    tail_bound = bounds.IR(infinity)
+    def check_convergence(prev_tail_bound):
+        if n <= last_index_with_ini or mult > 0:
+            return False, bounds.IR(infinity)
+        est = (abs(last[-1][0])*radpow).above_abs()
+        sum_est = bounds.IR(abs(psum[0][0]))
+        # TODO: improve the automatic increase of precision for large x^λ:
+        # currently we only check the series part (which would sort of make
+        # sense in a relative error setting)
+        if not tgt_error.reached(est, sum_est) and record_bounds_in is None:
+            return False, bounds.IR(infinity)
+        majeqrhs = bounds.maj_eq_rhs_with_logs(bwrec_series, n, list(last)[1:],
+                maj.Poly.variable_name(), log_prec)
+        for i in xrange(5):
+            tail_bound = maj.matrix_sol_tail_bound(n, pt.rad, majeqrhs,
+                                                        ord=pt.jet_order)
+            logger.debug("n=%d, sum[.]=%s, est=%s, rhs[.]=%s, tail_bound=%s",
+                    n, psum[0][0], est, majeqrhs[0], tail_bound)
+            if record_bounds_in is not None:
+                # TODO: record all partial sums, not just [log(z)^0]
+                # (requires improvements to plot_bounds)
+                record_bounds_in.append((n, psum[0], tail_bound))
+            if tgt_error.reached(tail_bound, sum_est):
+                return True, tail_bound
+            elif n < last_special_index: # some really bad bounds in this case
+                break
+            elif (i == 1 and tail_bound.is_finite()
+                         and not tail_bound < prev_tail_bound.above_abs()):
+                # We likely lost all precision on the coefficients.
+                raise accuracy.PrecisionError
+            else:
+                # We don't want to go too far beyond the optimal truncation to
+                # improve tail_bound (we would lose too much precision), but
+                # refining many times is really expensive.
+                bound_est = tail_bound*est**(QQ((maj._effort**2 + 2)*stride)/n)
+                if not tgt_error.reached(bound_est):
+                    maj.refine()
+                    continue
+            break
+        return False, tail_bound
+
     for n in itertools.count():
         last.rotate(1)
         logger.log(logging.DEBUG - 2, "n = %s, [c(n), c(n-1), ...] = %s", n, list(last))
         logger.log(logging.DEBUG - 1, "n = %s, sum = %s", n, psum)
         mult = len(ini.shift.get(n, ()))
 
-        # Every few iterations, heuristically check if we have converged and if
-        # we still have enough precision. If it looks like the target error may
-        # be reached, perform a rigorous check. Our stopping criterion currently
-        # (1) only works at “generic” indices, and (2) assumes that the initial
-        # values at exceptional indices larger than n are zero, so we also
-        # ensure that we are in this case. (Both assumptions could be lifted,
-        # (1) by using a slightly more complicated formula for the tail bound,
-        # and (2) if we had code to compute lower bounds on coefficients of
-        # series expansions of majorants.)
-        cond = (n%stride == 0 and n > last_index_with_ini
-            # TODO: improve the automatic increase of precision for large x^λ:
-            # currently we only check the series part (which would sort of make
-            # sense in a relative error setting)
-            and (tgt_error.reached(abs(last[-1][0])*radpow, abs(psum[0][0]))
-                or record_bounds_in is not None)
-            and n > dop.order() and mult == 0)
-        if (cond):
-            majeqrhs = bounds.maj_eq_rhs_with_logs(bwrec_series, n,
-                    list(last)[1:], maj.Poly.variable_name(), log_prec)
-            tail_bound = maj.matrix_sol_tail_bound(n, pt.rad, majeqrhs,
-                                                               ord=pt.jet_order)
-            if record_bounds_in is not None:
-                # TODO: record all partial sums, not just [log(z)^0]
-                # (requires improvements to plot_bounds)
-                record_bounds_in.append((n, psum[0], tail_bound))
-            logger.log(logging.DEBUG - 1,
-                    "n=%d, est=%s*%s=%s, res_bnd=%s, tail_bnd=%s",
-                    n, abs(last[0][0]), radpow, abs(last[0][0])*radpow,
-                    majeqrhs, tail_bound)
-            if tgt_error.reached(tail_bound, abs(psum[0][0])):
-                break
-            maj.maybe_refine()
+        if n%stride == 0:
+            done, tail_bound = check_convergence(tail_bound)
+            if done: break
 
         bwrec_n = [ [to_iv(b(n)) for b in b_series]
                     for b_series in bwrec_series ]
