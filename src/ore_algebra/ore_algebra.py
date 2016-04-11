@@ -1,4 +1,4 @@
-
+# coding: utf-8
 """
 ore_algebra
 ===========
@@ -962,6 +962,40 @@ def OreAlgebra(base_ring, *generators, **kwargs):
     # It's new. register it and return it. 
     _list_of_ore_algebras.append(alg)    
     return alg
+
+def DifferentialOperators(base=QQ, var='x'):
+    r"""
+    Shorthand to construct an Ore algebra of differential operators.
+
+    Return an Ore algebra of differential operators with polynomial
+    coefficients, along with objects representing, x and d/dx.
+
+    .. seealso:: :func:`OreAlgebra`
+
+    INPUT:
+
+    * ``base`` (default ``QQ``) - base ring of the polynomial coefficients
+    * ``var`` (default ``x``) - variable name
+
+    EXAMPLE::
+
+        sage: Dops, x, Dx = DifferentialOperators()
+        sage: Dops
+        Univariate Ore algebra in Dx over Univariate Polynomial Ring in x over
+        Rational Field
+        sage: x*Dx + 1
+        x*Dx + 1
+
+        sage: DifferentialOperators(GF(2), 't')
+        (Univariate Ore algebra in Dt over Univariate Polynomial Ring in t over
+        Finite Field of size 2 (using NTL),
+        t,
+ Dt)
+    """
+    var = str(var)
+    Pol, x = PolynomialRing(base, var).objgen()
+    Dop, Dx = OreAlgebra(Pol, 'D' + var).objgen()
+    return Dop, x, Dx
 
 _list_of_ore_algebras = []
 

@@ -10,7 +10,7 @@
 #############################################################################
 
 
-from ore_algebra import OreAlgebra
+from ore_algebra import OreAlgebra, DifferentialOperators
 from guessing import guess, guess_raw
 
 """
