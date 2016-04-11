@@ -515,39 +515,38 @@ def fundamental_matrix_regular(dop, pt, eps, rows):
     cols.sort(key=sort_key_by_asympt)
     return matrix([sol.value for sol in cols]).transpose()
 
-# the generic power implem won't always work due to the mess with equality
-def _mypow(a, n):
+def _pow_trunc(a, n, ord):
     pow = a.parent().one()
     pow2k = a
     while n:
         if n & 1:
-            pow *= pow2k
-        pow2k = pow2k*pow2k
+            pow = pow._mul_trunc_(pow2k, ord)
+        pow2k = pow2k._mul_trunc_(pow2k, ord)
         n = n >> 1
     return pow
 
-def log_series_value(Jets, expo, psum, pt):
+def log_series_value(Jets, derivatives, expo, psum, pt):
     log_prec = psum.length()
-    derivatives = Jets.modulus().degree()
     if log_prec > 1 or expo not in ZZ:
         pt = pt.parent().complex_field()(pt)
-        Jets = utilities.jets(
-                Jets.base_ring().complex_field(),
-                Jets.cover_ring().variable_name(),
-                Jets.modulus().degree())
+        Jets = Jets.change_ring(Jets.base_ring().complex_field())
+        psum = psum.change_ring(Jets)
     # hardcoded series expansions of log(pt) = log(a+η) and pt^λ = (a+η)^λ (too
     # cumbersome to compute directly in Sage at the moment)
     high = Jets([0] + [(-1)**(k+1)*~pt**k/k
                        for k in xrange(1, derivatives)])
     logpt = Jets([pt.log()]) + high
     logger.debug("logpt=%s", logpt)
-    aux = Jets(high*expo)
+    aux = high*expo
     logger.debug("aux=%s", aux)
-    inipow = pt**expo*sum(_mypow(aux, k)/Integer(k).factorial()
+    inipow = pt**expo*sum(_pow_trunc(aux, k, derivatives)/Integer(k).factorial()
                           for k in xrange(derivatives))
     logger.debug("inipow=%s", inipow)
-    val = inipow*sum(psum[p]*_mypow(logpt, p)/Integer(p).factorial()
-                     for p in xrange(log_prec))
+    val = inipow._mul_trunc_(
+            sum(psum[p]._mul_trunc_(_pow_trunc(logpt, p, derivatives), derivatives)
+                        /Integer(p).factorial()
+                for p in xrange(log_prec)),
+            derivatives)
     return val
 
 # This function only handles the case of a “single” series, i.e. a series where
@@ -621,8 +620,9 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, tgt_error,
 
     """
 
-    jet = pt.jet(Intervals)
+    jet = pt.jet(Intervals).lift()
     Jets = jet.parent()
+    ord = pt.jet_order
     jetpow = Jets.one()
     radpow = bounds.IR.one() # bound on abs(pt)^n in the series part (=> starts
                              # at 1 regardless of ini.expo)
@@ -718,8 +718,8 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, tgt_error,
             last[0][mult + p] = - ~bwrec_n[0][mult] * combin
         for p in xrange(mult - 1, -1, -1):
             last[0][p] = ini.shift[n][p]
-        psum += last[0].change_ring(Jets)*jetpow # slow
-        jetpow *= jet
+        psum += last[0]*jetpow
+        jetpow = jetpow._mul_trunc_(jet, ord)
         radpow *= pt.rad
     logger.info("summed %d terms, tail <= %s", n, tail_bound)
 
@@ -729,8 +729,8 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, tgt_error,
     tail_bound = tail_bound.abs()
     psum = vector(Jets, [[c.add_error(tail_bound) for c in t]
                          for t in psum])
-    val = log_series_value(Jets, ini.expo, psum, jet[0])
-    return vector(x for x in val)
+    val = log_series_value(Jets, ord, ini.expo, psum, jet[0])
+    return vector(val[i] for i in xrange(ord))
 
 ################################################################################
 # Miscellaneous utilities
