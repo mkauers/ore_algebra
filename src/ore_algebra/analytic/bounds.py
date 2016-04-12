@@ -420,7 +420,7 @@ def abs_min_nonzero_root(pol, tol=RR(1e-2), lg_larger_than=RR('-inf'),
         lg_rad = prev_lg_rad.intersection(lg_rad)
         if lg_rad.lower() == -infinity or cmp(lg_rad, prev_lg_rad) == 0:
             prec *= 2
-            logger.info("failed to bound the roots of %s, "
+            logger.debug("failed to bound the roots of %s, "
                     "retrying with prec=%s bits", mypol, prec)
             return abs_min_nonzero_root(pol, RealField(prec)(tol),
                                         lg_larger_than, prec)
