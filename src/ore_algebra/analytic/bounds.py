@@ -745,6 +745,7 @@ def bound_ratio_large_n(num, den, exceptions={}, min_drop=IR(1.1), stats=None):
     Pol = num.parent().change_ring(IC)
     num = Pol([IC(c.real(), c.imag()) for c in list(num)])
     den = Pol([IC(c.real(), c.imag()) for c in list(den)])
+    # next line slow on large instances
     thrs = set(n for iv in roots for n in xrange(iv[0].floor(), iv[1].ceil()))
     thrs = list(thrs)
     thrs.sort(reverse=True)
@@ -1071,6 +1072,9 @@ class DiffOpBound(object):
         # definition, majseq_num starts at the degree following that of
         # majseq_pol_part, it gets shifted as well. The "<< 1" in the next few
         # lines have nothing to do with that, they are multiplications by *n*.
+        # XXX: Extend the previously computed pol part instead of restarting
+        # from the first term. Consider using a faster algorithm for the pol
+        # part.
         self.majseq_pol_part = [
                 bound_ratio_derivatives(first_nz[i](alg_idx), self.ind,
                                         self.special_shifts, stats=self.stats)
