@@ -29,8 +29,8 @@ from there the return probability of the lattice)::
     [1.10584379792120476018299547088585107443954623663875285836499...]
     + [+/- ...]*I
 
-(The result is complex even though that particular solution is real-valued
-because some local solutions involve logarithms.)
+Note that the result is complex even though that particular solution is
+real-valued because some local solutions involve logarithms.
 
 Similarly, in dimension five, Koutschan obtains::
 
@@ -379,9 +379,8 @@ In the six-dimensional case, Koutschan gives the following operator::
     ....: 3823803744461234343*z^21 + 149102740118852712*z^22 +
     ....: 3764987488054392*z^23 + 51659233261888*z^24 + 242161043152*z^25)*Dz^8)
 
-Unfortunately, this operator is a bit too large for us at this point! ::
-
-    sage: eval_diffeq(dop6, XXX, [0, 1]) # not tested
-    [1.02774910062749883985936367927396850209243990900114872425172...]
+    sage: ini = [0, 0, 0, 0, 0, 1, 0, 0]
+    sage: eval_diffeq(dop6, ini, [0, 3/2 + i, 1], 1e-60) # not tested (16 min)
+    [1.02774910062749883985936367927396850209243990900114872425...]
 """
 
