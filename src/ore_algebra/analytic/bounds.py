@@ -728,12 +728,16 @@ def bound_ratio_large_n(num, den, exceptions={}, min_drop=IR(1.1), stats=None):
         else: # improvable
             num, den = num.change_ring(QQbar), den.change_ring(QQbar)
             RealScalars = AA
-        num_re, num_im = _re_im(num, RealScalars) # improvable: we might want
-        den_re, den_im = _re_im(den, RealScalars) # to detect when some are 0
+        num_re, num_im = _re_im(num, RealScalars)
+        den_re, den_im = _re_im(den, RealScalars)
         sqn_num = num_re**2 + num_im**2
-        sqn_den = den_re**2 + den_im**2
-        crit = sqn_den.diff()*sqn_num - sqn_num.diff()*sqn_den
-        dden = den_re.gcd(den_im)
+        if den_im.is_zero(): # this is the case at ordinary points
+            crit = sqn_num.diff()*den_re - sqn_num*den_re.diff()
+            dden = den_re
+        else:
+            sqn_den = den_re**2 + den_im**2
+            crit = sqn_num.diff()*sqn_den - sqn_den.diff()*sqn_num
+            dden = den_re.gcd(den_im)
 
     if stats: stats.time_roots.tic()
     roots = nonneg_roots(dden)
