@@ -70,8 +70,6 @@ class Context(object):
         self.path.check_singularity()
         self.path.check_convergence()
 
-        self.binary_splitting_eps_threshold = bounds.IR(1e-100)
-
         # XXX: self.ring
         self.eps = bounds.IR(eps)
 
@@ -91,11 +89,11 @@ def ordinary_step_transition_matrix(ctx, step, eps, rows):
         return ctx.fundamental_matrix_ordinary(
                 ldop, step.delta(), eps, rows, maj)
     elif step.is_exact():
-        if eps > ctx.binary_splitting_eps_threshold:
+        if eps > bounds.IR(1) >> (256 + 32*ldop.degree()):
             try:
                 return naive_sum.fundamental_matrix_ordinary(
                         ldop, step.delta(), eps, rows, maj,
-                        max_prec_increase=5)
+                        max_prec_increase=2+3*ldop.degree())
             except accuracy.PrecisionError:
                 pass
         return binary_splitting.fundamental_matrix_ordinary(

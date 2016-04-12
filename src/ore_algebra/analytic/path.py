@@ -636,7 +636,7 @@ class Path(SageObject):
 
     # Path rewriting
 
-    def subdivide(self, threshold=IR(0.75), factor=IR(0.6)):
+    def subdivide(self, threshold=IR(0.6), factor=IR(0.5)):
         # TODO:
         # - support paths passing very close to singular points
         from sage.rings.real_mpfi import RealIntervalField
