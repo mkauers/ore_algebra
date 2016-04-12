@@ -380,7 +380,7 @@ In the six-dimensional case, Koutschan gives the following operator::
     ....: 3764987488054392*z^23 + 51659233261888*z^24 + 242161043152*z^25)*Dz^8)
 
     sage: ini = [0, 0, 0, 0, 0, 1, 0, 0]
-    sage: eval_diffeq(dop6, ini, [0, 3/2 + i, 1], 1e-60) # not tested (16 min)
+    sage: eval_diffeq(dop6, ini, [0, 3/2 + i, 1], 1e-60) # not tested (14 min 20 s)
     [1.02774910062749883985936367927396850209243990900114872425...]
 """
 

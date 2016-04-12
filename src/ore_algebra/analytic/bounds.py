@@ -699,7 +699,7 @@ def bound_ratio_large_n(num, den, exceptions={}, min_drop=IR(1.1), stats=None):
 
         sage: bound_ratio_large_n(Pols(1), Pols(3))
         max(
-          |([0.333...])/(1.000...)|,
+          |(1.000...)/(3.000...)|,
           [0.333...]     for  n <= +Infinity
         )
 
@@ -710,11 +710,10 @@ def bound_ratio_large_n(num, den, exceptions={}, min_drop=IR(1.1), stats=None):
           1.000000000000000     for  n <= +Infinity
         )
     """
-    rat = num/den
-    num, den = rat.numerator(), rat.denominator()
+    num = den.parent().coerce(num)
 
     if num.is_zero():
-        return RatSeqBound(num, den, [(infinity, IR.zero())])
+        return RatSeqBound(num, den.parent().one(), [(infinity, IR.zero())])
     if num.degree() > den.degree():
         raise ValueError("expected deg(num) <= deg(den)")
 
@@ -749,13 +748,16 @@ def bound_ratio_large_n(num, den, exceptions={}, min_drop=IR(1.1), stats=None):
     Pol = num.parent().change_ring(IC)
     num = Pol([IC(c.real(), c.imag()) for c in list(num)])
     den = Pol([IC(c.real(), c.imag()) for c in list(den)])
-    # next line slow on large instances
-    thrs = set(n for iv in roots for n in xrange(iv[0].floor(), iv[1].ceil()))
-    thrs = list(thrs)
+    thrs = list(n for iv in roots for n in xrange(iv[0].floor(), iv[1].ceil()))
     thrs.sort(reverse=True)
-    thr_vals = [(n, (exceptions[n] if n in exceptions
-                     else num(n).abs()/den(n).abs()))
-                for n in thrs]
+    thr_vals = []
+    prev_n = None
+    for n in thrs:
+        if n != prev_n:
+            thr_vals.append(
+                    (n, (exceptions[n] if n in exceptions
+                     else num(n).abs()/den(n).abs())))
+        prev_n = n
     lim = (num[den.degree()]/den.leading_coefficient()).abs()
     stairs = [(infinity, lim)]
     for (n, val) in thr_vals:
@@ -793,16 +795,16 @@ def bound_ratio_derivatives(num, den, nat_poles, stats=None):
         # coefficients containing zero
         ex_series[n] = n*num(pert)/Jets(den(pert).lift() >> mult)
 
-    rat = num/den
     denpow = den
+    dendiff = den.derivative()
     terms = []
     for t in range(derivatives):
+        # at this point denpow = den^(t+1) and num/denpow = D^t(orig num/den)/t!
         ex = {n: ser[t].abs() for n, ser in ex_series.iteritems()}
         bnd = bound_ratio_large_n(num << 1, denpow, exceptions=ex, stats=stats)
         terms.append(bnd)
-        rat = rat.derivative()/(t + 1)
+        num = num.derivative()*den/(t + 1) - num*dendiff
         denpow *= den
-        num = Pol(rat*denpow)
     if len(terms) == 1:
         return terms[0]
     else:
@@ -919,7 +921,7 @@ class DiffOpBound(object):
           |(0)/(1)|,
           0     for  n <= +Infinity
         )*z^0 + max(
-          |(-2.000...*n - 2.000...)/(n - 1.000...)|,
+          |(-2.000...*n^2 - 2.000...*n)/(n^2 - n)|,
           [+/- inf]     for  n <= 1,
           2.000...     for  n <= +Infinity
         )*z^1
@@ -944,7 +946,7 @@ class DiffOpBound(object):
         where
         POL=0,
         NUM=max(
-        |(-1.000...)/(1.000...)|,
+        |(-n)/(n)|,
         1.000...     for  n <= +Infinity
         )*z^0
 
@@ -1001,14 +1003,14 @@ class DiffOpBound(object):
         self.special_shifts = special_shifts
 
         self.bound_inverse = bound_inverse
-        self.pol_part_len = pol_part_len
+        self.majseq_pol_part = []
         self.refinable = refinable
         self._effort = 0
         self._refine_interval = 2
         self._maybe_refine_called = 0
 
         self._update_den_bound()
-        self._update_num_bound()
+        self._update_num_bound(pol_part_len)
 
         self.stats.time_total.toc()
         logger.info("...done, time: %s", self.stats)
@@ -1036,13 +1038,11 @@ class DiffOpBound(object):
         self.cst, self.maj_den = bound_inverse_poly(lc,
                 algorithm=self.bound_inverse)
 
-    def _update_num_bound(self):
-
-        pol_part_len = self.pol_part_len
+    def _update_num_bound(self, pol_part_len):
 
         self.stats.time_decomp_op.tic()
         lc = self.dop.leading_coefficient()
-        inv = lc.inverse_series_trunc(pol_part_len + 1)
+        inv = lc.inverse_series_trunc(pol_part_len + 1) # XXX: incremental Newton ?
         MPol, (z, n) = self.dop.base_ring().extend_variables('n').objgens()
         # Including rcoeffs[-1] here actually is redundant, as, by construction,
         # the only term in first to involve n^ordeq will be 1·n^ordeq·z^0.
@@ -1079,15 +1079,16 @@ class DiffOpBound(object):
         # XXX: Extend the previously computed pol part instead of restarting
         # from the first term. Consider using a faster algorithm for the pol
         # part.
-        self.majseq_pol_part = [
+        old_pol_part_len = len(self.majseq_pol_part)
+        self.majseq_pol_part.extend([
                 bound_ratio_derivatives(first_nz[i](alg_idx), self.ind,
                                         self.special_shifts, stats=self.stats)
-                for i in xrange(1, pol_part_len + 1)]
+                for i in xrange(old_pol_part_len + 1, pol_part_len + 1)])
+        assert len(self.majseq_pol_part) == pol_part_len
         self.majseq_num = [
                 bound_ratio_derivatives(pol(alg_idx), self.ind,
                                         self.special_shifts, stats=self.stats)
                 for pol in rem_num_nz]
-        assert len(self.majseq_pol_part) == pol_part_len
 
     def refine(self):
         # XXX: make it possible to increase the precision of IR, IC
@@ -1101,10 +1102,12 @@ class DiffOpBound(object):
             self.bound_inverse = 'solve'
             self._update_den_bound()
         else:
-            self.pol_part_len = max(2, 2*self.pol_part_len)
-            self._update_num_bound()
+            self._update_num_bound(max(2, 2*self.pol_part_len()))
         self.stats.time_total.toc()
         logger.info("...done, cumulative time: %s", self.stats)
+
+    def pol_part_len(self):
+        return len(self.majseq_pol_part)
 
     def maybe_refine(self):
         self._maybe_refine_called += 1
