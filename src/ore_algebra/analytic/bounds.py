@@ -1006,8 +1006,6 @@ class DiffOpBound(object):
         self.majseq_pol_part = []
         self.refinable = refinable
         self._effort = 0
-        self._refine_interval = 2
-        self._maybe_refine_called = 0
 
         self._update_den_bound()
         self._update_num_bound(pol_part_len)
@@ -1108,16 +1106,6 @@ class DiffOpBound(object):
 
     def pol_part_len(self):
         return len(self.majseq_pol_part)
-
-    def maybe_refine(self):
-        self._maybe_refine_called += 1
-        if self._maybe_refine_called >= self._refine_interval:
-            self.refine()
-            self._maybe_refine_called = 0
-            self._refine_interval *= 2
-
-    def reset_refinment_counter(self):
-        self._maybe_refine_called = 0
 
     def __call__(self, n):
         r"""

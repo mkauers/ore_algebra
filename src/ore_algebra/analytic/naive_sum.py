@@ -293,7 +293,6 @@ def series_sum(dop, ini, pt, tgt_error, maj=None, bwrec=None,
     bit_prec += 3*bit_prec.nbits()
     while True:
         try:
-            maj.reset_refinment_counter()
             psum = doit(ivs(bit_prec), dop, bwrec, ini, pt,
                     tgt_error, maj, stride, record_bounds_in)
             return psum
