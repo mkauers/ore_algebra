@@ -309,24 +309,6 @@ def series_sum(dop, ini, pt, tgt_error, maj=None, bwrec=None,
 # Ordinary points
 ################################################################################
 
-# temporary hack to speed up at least computations involving QQi while coercions
-# from number fields to complex ball fields are slow
-def _iv_builder(Intervals, Source):
-    if isinstance(Intervals, ComplexBallField):
-        if (isinstance(Source, NumberField_quadratic)
-            and list(Source.polynomial()) == [1, 0, 1]):
-            RealIntervals = Intervals.base_ring()
-            def to_iv(z):
-                c = z._coefficients()
-                c.append(ZZ.zero())
-                c.append(ZZ.zero())
-                return ComplexBall(Intervals, RealBall(RealIntervals, c[0]),
-                                              RealBall(RealIntervals, c[1]))
-            return to_iv
-        elif Source is QQ:
-            return lambda z: ComplexBall(Intervals, z)
-    return Intervals
-
 def series_sum_ordinary(Intervals, dop, bwrec, ini, pt,
         tgt_error, maj, stride, record_bounds_in):
 
@@ -345,8 +327,6 @@ def series_sum_ordinary(Intervals, dop, bwrec, ini, pt,
     last.extend(Intervals(ini.shift[n][0])
                 for n in xrange(dop.order() - 1, -1, -1))
     assert len(last) == ordrec + 1 # not ordrec!
-
-    to_iv = _iv_builder(Intervals, bwrec[0].base_ring())
 
     # Singular part. Not the most natural thing to do here, but hopefully
     # generalizes well to the regular singular case.
@@ -399,8 +379,8 @@ def series_sum_ordinary(Intervals, dop, bwrec, ini, pt,
         if n%stride == 0:
             done, tail_bound = check_convergence(tail_bound)
             if done: break
-        comb = sum(to_iv(bwrec[k](n))*last[k] for k in xrange(1, ordrec+1))
-        last[0] = -to_iv(~bwrec[0](n))*comb
+        comb = sum(Intervals(bwrec[k](n))*last[k] for k in xrange(1, ordrec+1))
+        last[0] = -Intervals(~bwrec[0](n))*comb
         # logger.debug("n = %s, [c(n), c(n-1), ...] = %s", n, list(last))
         term = Jets(last[0])._mul_trunc_(jetpow, ord)
         psum += term
@@ -634,7 +614,6 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, tgt_error,
     psum = vector(Jets, log_prec)
 
     # bugware to work around various inefficiencies in sage
-    to_iv = _iv_builder(Intervals, bwrec[0].base_ring())
     bwrec_series = [[b] for b in bwrec]
     for b_series in bwrec_series:
         for i in xrange(1, log_prec):
@@ -700,7 +679,7 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, tgt_error,
             done, tail_bound = check_convergence(tail_bound)
             if done: break
 
-        bwrec_n = [ [to_iv(b(n)) for b in b_series]
+        bwrec_n = [ [Intervals(b(n)) for b in b_series]
                     for b_series in bwrec_series ]
         # logger.debug("bwrec_nn=%s", bwrec_n)
         # for i in range(0, ordrec +1):

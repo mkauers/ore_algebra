@@ -41,13 +41,6 @@ logger = logging.getLogger(__name__)
 
 IR, IC = RBF, CBF # TBI
 
-# temporary hack
-def to_IC(z):
-    if isinstance(z, NumberFieldElement_quadratic):
-        return IC(z.real(), z.imag())
-    else:
-        return IC(z)
-
 class BoundPrecisionError(Exception):
     pass
 
@@ -478,7 +471,7 @@ def bound_inverse_poly(den, algorithm="simple"):
                         for iv, mult in poles]
         else:
             raise ValueError("algorithm")
-    num = ~abs(to_IC(den.leading_coefficient()))
+    num = ~abs(IC(den.leading_coefficient()))
     return num, Factorization(factors, unit=Poly(1))
 
 ######################################################################
@@ -534,8 +527,8 @@ class RatSeqBound(SeqBound):
         if deg < 0:
             return steplim
         elif deg == 0:
-            ratlim = to_IC(self.num().leading_coefficient()
-                           /self.den.leading_coefficient())
+            ratlim = IC(self.num().leading_coefficient()
+                        /self.den.leading_coefficient())
             return max(abs(ratlim), steplim)
         else:
             assert False
@@ -552,7 +545,7 @@ class RatSeqBound(SeqBound):
             return step
         else:
             # TODO: avoid recomputing cst every time once it becomes <= next + ε?
-            val = (to_IC(self.num(n))/to_IC(self.den(n))).above_abs()
+            val = (IC(self.num(n))/IC(self.den(n))).above_abs()
             return step.max(val)
 
     def plot(self, n=30):
@@ -1338,7 +1331,7 @@ def residual(bwrec, n, last, z):
     # this function currently does)
     ordrec = len(bwrec) - 1
     rescoef = [
-        sum(to_IC(bwrec[i+k+1](n+i))*to_IC(last[k])
+        sum(IC(bwrec[i+k+1](n+i))*IC(last[k])
             for k in xrange(ordrec-i))
         for i in xrange(ordrec)]
     IvPols = PolynomialRing(IC, z, sparse=True)
@@ -1384,7 +1377,7 @@ def maj_eq_rhs_with_logs(bwrec_series, n, last, z, logs):
         for j in xrange(logs):
             # significant overestimation here (apparently not too problematic)
             rescoef[i][j] = sum(
-                    to_IC(bwrec_ii[i][i+k+1][p])*IC(last[k][j+p])
+                    IC(bwrec_ii[i][i+k+1][p])*IC(last[k][j+p])
                     for k in xrange(ordrec - i)
                     for p in xrange(logs - j))
     # For lack of a convenient data structure to return these coefficients,
@@ -1393,7 +1386,7 @@ def maj_eq_rhs_with_logs(bwrec_series, n, last, z, logs):
     RecJets = PolynomialRing(bwrec_series[0][0].base_ring(), 'Sk')
     def invlcmaj(i):
         invlc = RecJets(bwrec_ii[i][0]).inverse_series_trunc(logs) # sum(1/t!·(1/Q0)^(t)(λ + n + i)·Sk^t)
-        return sum(to_IC(t).abs() for t in invlc)
+        return sum(IC(t).abs() for t in invlc)
     polcoef = [(n + i)*invlcmaj(i)*max(t.abs() for t in rescoef[i])
                for i in xrange(ordrec)]
     IvPols = PolynomialRing(IR, z, sparse=True)
