@@ -24,7 +24,7 @@ from sage.rings.rational_field import QQ
 from sage.rings.real_arb import RealBallField, RBF, RealBall
 from sage.structure.sequence import Sequence
 
-from ore_algebra.ore_algebra import OreAlgebra
+import ore_algebra.ore_algebra as ore_algebra
 
 from ore_algebra.analytic import accuracy, bounds, utilities
 from ore_algebra.analytic.local_solutions import *
@@ -41,7 +41,7 @@ logger = logging.getLogger(__name__)
 # indices and RecJets; see also bound_residual_with_logs)
 def backward_rec(dop, shift=ZZ.zero()):
     Pols_n = PolynomialRing(dop.base_ring().base_ring(), 'n') # XXX: name
-    Rops = OreAlgebra(Pols_n, 'Sn')
+    Rops = ore_algebra.OreAlgebra(Pols_n, 'Sn')
     # Using the primitive part here would break the computation of residuals!
     # TODO: add test (arctan); better fix?
     # rop = dop.to_S(Rops).primitive_part().numerator()

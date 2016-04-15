@@ -10,7 +10,9 @@ import pprint
 import sage.categories.pushout
 import sage.structure.coerce_exceptions
 
-import ore_algebra
+import ore_algebra.ore_algebra as ore_algebra
+import ore_algebra.analytic.bounds as bounds
+import ore_algebra.analytic.utilities as utilities
 
 from sage.matrix.constructor import matrix
 from sage.matrix.matrix_space import MatrixSpace
@@ -22,8 +24,6 @@ from sage.rings.number_field.number_field import NumberField, is_NumberField
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 from sage.rings.power_series_ring import PowerSeriesRing
 from sage.rings.real_arb import RealBallField
-
-from ore_algebra.analytic import bounds, utilities
 
 logger = logging.getLogger(__name__)
 

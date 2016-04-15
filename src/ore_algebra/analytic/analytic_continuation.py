@@ -9,14 +9,15 @@ import sage.rings.all as rings
 import sage.rings.real_arb
 import sage.rings.complex_arb
 
+import ore_algebra.analytic.accuracy as accuracy
+import ore_algebra.analytic.bounds as bounds
+
 from sage.matrix.constructor import identity_matrix, matrix
 from sage.rings.complex_arb import ComplexBallField
 from sage.rings.integer_ring import ZZ
 from sage.rings.number_field.number_field_element import NumberFieldElement
 from sage.rings.real_arb import RealBallField
 from sage.structure.sequence import Sequence
-
-from ore_algebra.analytic import accuracy, bounds
 
 from ore_algebra.analytic.path import Path, OrdinaryPoint, RegularPoint, IrregularSingularPoint, Step
 from ore_algebra.analytic.utilities import *

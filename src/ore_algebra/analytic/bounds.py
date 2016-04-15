@@ -31,9 +31,9 @@ from sage.rings.real_mpfi import RIF
 from sage.rings.real_mpfr import RealField, RR
 from sage.structure.factorization import Factorization
 
-from ore_algebra.ore_algebra import OreAlgebra
+import ore_algebra.ore_algebra as ore_algebra
+import ore_algebra.analytic.utilities as utilities
 
-from ore_algebra.analytic import utilities
 from ore_algebra.analytic.safe_cmp import *
 from ore_algebra.analytic.shiftless import squarefree_part
 
@@ -1230,7 +1230,7 @@ def _dop_rcoeffs_of_T(dop):
     # coefficients of θ "on the right".
     Pols_z = dop.base_ring()
     Pols_n, n = Pols_z.change_var('n').objgen()
-    Rops = OreAlgebra(Pols_n, 'Sn')
+    Rops = ore_algebra.OreAlgebra(Pols_n, 'Sn')
     rop = dop.to_S(Rops) if dop else Rops(0)
     bwd_rop_as_pol = (rop.polynomial().reverse().change_variable_name('Bn')
                          .map_coefficients(lambda pol: pol(n-rop.order())))
@@ -1270,11 +1270,10 @@ def _test_diffop_bound(
         ...
     """
     from sage.rings.number_field.number_field import QuadraticField
-    from ore_algebra import OreAlgebra
 
     QQi = QuadraticField(-1, 'i')
     Pols, x = PolynomialRing(QQi, 'x').objgen()
-    Dops, Dx = OreAlgebra(Pols, 'Dx').objgen()
+    Dops, Dx = ore_algebra.OreAlgebra(Pols, 'Dx').objgen()
 
     for ord in ords:
         for deg in degs:
