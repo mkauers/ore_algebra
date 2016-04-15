@@ -42,6 +42,8 @@ QQi = number_field.QuadraticField(-1, 'i')
 # ordinary points as well even when a more specialized version exists. One could
 # have QuasiRegularPoints too, but combined with SingularPoints that would make
 # the whole thing too complicated.)
+#
+# TODO: simplify this complicated designed that turned out not to be useful
 
 class Point(SageObject):
     r"""
@@ -307,7 +309,9 @@ class RegularPoint(Point):
              FundamentalSolution(valuation=2, log_power=0, value=None)]
         """
         # TODO: provide a way to compute the first terms of the series. First
-        # need a good way to share code with fundamental_matrix_regular.
+        # need a good way to share code with fundamental_matrix_regular. Or
+        # perhaps modify generalized_series_solutions() to agree with our
+        # definition of the basis?
         ldop = self.local_diffop()
         x = ldop.base_ring().gen()
         roots = ldop.indicial_polynomial(x).roots(QQbar)
