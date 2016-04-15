@@ -1,4 +1,4 @@
-
+# coding: utf-8
 """
 ore_operator_1_1
 ================
@@ -20,6 +20,8 @@ one generator.
 #  http://www.gnu.org/licenses/                                             #
 #############################################################################
 
+import sage.functions.log as symbolic_log
+
 from sage.structure.element import RingElement, canonical_coercion
 from sage.arith.all import previous_prime as pp
 from sage.arith.all import gcd, lcm
@@ -28,6 +30,7 @@ from sage.rings.integer_ring import ZZ
 from sage.rings.infinity import infinity
 from sage.rings.qqbar import QQbar
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
+from sage.symbolic.all import SR
 from sage.misc.all import prod, union
 
 from tools import *
@@ -1880,7 +1883,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             return []
 
     spread.__doc__ = UnivariateOreOperatorOverUnivariateRing.spread.__doc__
-    
+
     def _denominator_bound(self):
         """
         Denominator bounding based on indicial polynomial. 
@@ -1921,6 +1924,309 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         raise NotImplementedError
 
     finite_singularities.__doc__ = UnivariateOreOperatorOverUnivariateRing.finite_singularities.__doc__
+
+    def local_basis_monomials(self, point):
+        r"""
+        Return the leading logarithmic monomials of a local basis of solutions.
+
+        INPUT:
+
+        ``point`` - a regular point of this operator
+
+        OUTPUT:
+
+        A list of expressions of the form ``(x-point)^λ*log(x-point)^k/k!``
+        where ``λ`` is a root of the :meth:`indicial polynomial <indicial_polynomial>`
+        of the operator at ``point``, and ``k`` is a nonnegative integer less
+        than the multiplicity of that root.
+
+        If ``point`` is an ordinary point, the output is ``[1, x, x^2, ...]``.
+        More generally, a solution of the operator is characterized by the
+        coefficients in its logarithmic power series expansion at ``point`` of
+        the monomials returned by this method. The basis of solutions consisting
+        of the local solutions in which exactly one of the monomials appears
+        (with a coefficient equal to one), ordered as in the output of this
+        method, is used in several functions of this package to specify vectors
+        of “generalized initial values” at regular singular points. (The order
+        is essentially that of asymptotic dominance as ``x`` tends to
+        ``point``.) Note however that this basis may not coincide with the one
+        computed by :meth:`generalized_series_solutions`.
+
+        .. seealso::
+
+            :meth:`numerical_solution`,
+            :meth:`numerical_transition_matrix`
+
+        EXAMPLES::
+
+            sage: from ore_algebra import DifferentialOperators
+            sage: Dops, x, Dx = DifferentialOperators()
+            sage: ((x+1)*Dx^4+Dx-x).local_basis_monomials(0)
+            [1, x, x^2, x^3]
+            sage: ((x^2 + 1)*Dx^2 + 2*x*Dx).local_basis_monomials(i)
+            [log(x - I), 1]
+            sage: (4*x^2*Dx^2 + (-x^2+8*x-11)).local_basis_monomials(0)
+            [x^(-1.232050807568878?), x^2.232050807568878?]
+            sage: (x^3*Dx^4+3*x^2*Dx^3+x*Dx^2+x*Dx+1).local_basis_monomials(0)
+            [1, 1/2*x*log(x)^2, x*log(x), x]
+        """
+        from analytic.path import Point
+        point = Point(point, self).classify()
+        struct = point.local_basis_structure()
+        x = SR(self.base_ring().gen()) - point.exact().value
+        return [x**sol.valuation*symbolic_log.log(x, hold=True)**sol.log_power
+                                                      /sol.log_power.factorial()
+                for sol in struct]
+
+    def numerical_solution(self, ini, path, eps=1e-16):
+        r"""
+        Evaluate an analytic solution of this operator at a point of its Riemann
+        surface.
+
+        INPUT:
+
+        - ``ini`` (iterable) - initial values, in number equal to the order `r`
+          of the operator
+        - ``path`` - a path on the complex plane, specified as a list of
+          vertices `z_0, \dots, z_n`
+        - ``eps`` (floating-point number or ball) - target accuracy
+
+        OUTPUT:
+
+        A real or complex ball enclosing the value at `z_n` of the solution `y`
+        defined in the neighborhood of `z_0` by the initial values ``ini`` and
+        extended by analytic continuation along ``path``.
+
+        When `z_0` is an ordinary point, the initial values are defined as the
+        first `r` coefficients of the power series expansion at `z_0` of the
+        desired solution `f`. In other words, ``ini`` should contain
+
+        .. math:: `f(z_0), f'(z_0), f''(z_0)/2, \dots, f^{(r-1)}(z_0)/(r-1)!`.
+
+        Generalized initial conditions at regular singular points are also
+        supported. If `z_0` is a regular point, the entries of ``ini`` are
+        interpreted as the coefficients of the monomials `(z-z_0)^n
+        \log(z_z_0)^k/k!` returned by :meth:`local_basis_monomials` in the
+        logarithmic series expansion of `f` at `z_0`. This definition reduces
+        to the previous one when `z_0` is an ordinary point.
+
+        The accuracy parameter ``eps`` is used as an indication of the
+        *absolute* error the code should aim for. The diameter of the result
+        will typically be of the order of magnitude of ``eps``, but this is not
+        guaranteed to be the case.
+
+        See :mod:`ore_algebra.analytic` for more information.
+
+        .. seealso:: :meth:`numerical_transition_matrix`
+
+        EXAMPLES:
+
+        First a very simple example::
+
+            sage: from ore_algebra import DifferentialOperators
+            sage: Dops, x, Dx = DifferentialOperators()
+            sage: (Dx - 1).numerical_solution(ini=[1], path=[0, 1], eps=1e-50)
+            [2.7182818284590452353602874713526624977572470936999...]
+
+        Evaluation points can be complex and can depend on symbolic constants::
+
+            sage: (Dx - 1).numerical_solution([1], [0, i + pi])
+            [12.5029695888765...] + [19.4722214188416...]*I
+
+        Here, we use a more complex analytic continuation path in order to
+        evaluate the branch of the complex arctangent function obtained by
+        turning around its singularity at `i` once::
+
+            sage: dop = (x^2 + 1)*Dx^2 + 2*x*Dx
+            sage: dop.numerical_solution([0, 1], [0, i+1, 2*i, i-1, 0])
+            [3.14159265358979...] + [+/- ...]*I
+
+        Some notable examples of incorrect input::
+
+            sage: (Dx - 1).numerical_solution([1], [])
+            Traceback (most recent call last):
+            ...
+            ValueError: empty path
+
+            sage: ((x - 1)*Dx + 1).numerical_solution([1], [0, 2])
+            Traceback (most recent call last):
+            ...
+            ValueError: Step 0 --> 2 passes through or too close to singular
+            point 1 (to compute the connection to a singular point, make it a
+            vertex of the path)
+
+            sage: Dops.zero().numerical_solution([], 1)
+            Traceback (most recent call last):
+            ...
+            ValueError: operator must be nonzero
+
+            sage: (Dx - 1).numerical_solution(ini=[], path=[0, 1])
+            Traceback (most recent call last):
+            ...
+            ValueError: incorrect initial values: []
+
+            sage: (Dx - 1).numerical_solution([1], ["a"])
+            Traceback (most recent call last):
+            ...
+            TypeError: unexpected value for point: 'a'
+
+        TESTS::
+
+            sage: Dops(x).numerical_solution([], [0, 1])
+            0
+            sage: (Dx - 1).numerical_solution([42], [1])
+            42.000000000000000
+            sage: Dx.numerical_solution([1], [0, 1], 1e-10).parent()
+            Real ball field with 3... bits precision
+        """
+        import analytic.analytic_continuation as ancont
+        import analytic.path as anpath
+        ctx = ancont.Context(self, path, eps)
+        if isinstance(ctx.path.vert[-1], anpath.RegularSingularPoint):
+            raise ValueError("the evaluation point is a regular singular "
+                    "point (try using numerical_transition_matrix())")
+        pairs = ancont.analytic_continuation(ctx, ini=ini)
+        assert len(pairs) == 1
+        _, mat = pairs[0]
+        if mat.nrows() > 0:
+            return mat[0][0]
+        else:
+            return mat.base_ring().zero()
+
+    def numerical_transition_matrix(self, path, eps=1e-16):
+        r"""
+        Compute a transition matrix along a path drawn in the complex plane.
+
+        INPUT:
+
+        - ``path`` - a path on the complex plane, specified as a list of
+          vertices `z_0, \dots, z_n`
+        - ``eps`` (floating-point number or ball) - target accuracy
+
+        OUTPUT:
+
+        When ``self`` is an operator of order `r`, this method returns an `r×r`
+        matrix of real or complex balls. The returned matrix sends a vector of
+        “initial values at `z_0`” (i.e., the coefficients of the decomposition
+        of a solution in a certain canonical local basis at `z_0`) to “initial
+        values at `z_n`” that define the same solution, analytically continued
+        along ``path``.
+
+        These “initial values” are the coefficients of the monomials returned by
+        :meth:`local_basis_monomials` in the local logarithmic power series
+        expansions of the solution at the corresponding point. When `z_i` is an
+        ordinary point, the corresponding vector of initial values is simply
+
+        .. math:: `[f(z_i), f'(z_i), f''(z_i)/2, \dots, f^{(r-1)}(z_i)/(r-1)!]`.
+
+        The accuracy parameter ``eps`` is used as an indication of the
+        *absolute* error the code should aim for. The diameter of each entry of
+        the result will typically be of the order of magnitude of ``eps``, but
+        this is not guaranteed to be the case.
+
+        See :mod:`ore_algebra.analytic` for more information.
+
+        .. seealso:: :meth:`numerical_solution`
+
+        EXAMPLES:
+
+        We can compute `\exp(1)` as the only entry of the transition matrix from
+        `0` to `1` for the differential equation `y' = y`::
+
+            sage: from ore_algebra import DifferentialOperators
+            sage: Dops, x, Dx = DifferentialOperators()
+            sage: (Dx - 1).numerical_transition_matrix([0, 1])
+            [[2.7182818284590452 +/- 3.54e-17]]
+
+        Now consider a second-operator that annihilates `\arctan(x)` and the
+        constants. A basis of solutions is formed of the constant `1`, of the
+        form `1 + O(x^2)` as `x \to 0`, and the arctangent function, of the form
+        `x + O(x^2)`. Accordingly, the entries of the transition matrix from the
+        origin to `1 + i` are the values of these two functions and their first
+        derivatives::
+
+            sage: dop = (x^2 + 1)*Dx^2 + 2*x*Dx
+            sage: dop.numerical_transition_matrix([0, 1+i], 1e-10)
+            [ 1.0000000000 [1.017221967...] + [0.4023594781...]*I]
+            [            0 [0.200000000...] + [-0.400000000...]*I]
+
+        By making loops around singular points, we can compute local monodromy
+        matrices::
+
+            sage: dop.numerical_transition_matrix([0, i + 1, 2*i, i - 1, 0])
+            [ 1.0000000000000000  [3.141592653589793...] + [+/-...]*I]
+            [                  0  [1.000000000000000...] + [+/-...]*I]
+
+        Then we compute a connection matrix to the singularity itself::
+
+            sage: dop.numerical_transition_matrix([0, i], 1e-10)
+            [      [+/-...] + [+/-...]*I          [+/-...] + [-0.50000000...]*I]
+            [ [1.000000...] + [+/-...]*I [0.7853981634...] + [0.346573590...]*I]
+
+        Note that a path that crosses the branch cut of the complex logarithm
+        yields a different result::
+
+            sage: dop.numerical_transition_matrix([0, i - 1, i], 1e-10)
+            [     [+/-...] + [+/-...]*I         [+/-...] + [-0.5000000000...]*I]
+            [ [1.00000...] + [+/-...]*I [-2.356194490...] + [0.3465735902...]*I]
+
+        In general, if the operator has rational coefficients, its singular
+        points are algebraic numbers. In connection problems such as the above,
+        they need to be specified exactly. Here is a way to do it::
+
+            sage: dop = (x^2 - 2)*Dx^2 + x + 1
+            sage: dop.numerical_transition_matrix([0, 1, QQbar(sqrt(2))], 1e-10)
+            [         [2.49388146...] + [+/-...]*I          [2.40894178...] + [+/-...]*I]
+            [[-0.203541775...] + [6.68738570...]*I  [0.204372067...] + [6.45961849...]*I]
+
+        The operator itself may be defined over a number field (with a complex
+        embedding)::
+
+            sage: K.<zeta7> = CyclotomicField(7)
+            sage: (Dx - zeta7).numerical_transition_matrix([0, 1])
+            [[1.32375209616333...] + [1.31434281345999...]*I]
+
+        Some notable examples of incorrect input::
+
+            sage: (Dx - 1).numerical_transition_matrix([])
+            Traceback (most recent call last):
+            ...
+            ValueError: empty path
+
+            sage: ((x - 1)*Dx + 1).numerical_transition_matrix([0, 2])
+            Traceback (most recent call last):
+            ...
+            ValueError: Step 0 --> 2 passes through or too close to singular
+            point 1 (to compute the connection to a singular point, make it a
+            vertex of the path)
+
+            sage: Dops.zero().numerical_transition_matrix([0, 1])
+            Traceback (most recent call last):
+            ...
+            ValueError: operator must be nonzero
+
+        TESTS::
+
+            sage: (Dx^2 - 1).numerical_transition_matrix([1, 1])
+            [1.0000000000000000                  0]
+            [                 0 1.0000000000000000]
+            sage: Dops(x).numerical_transition_matrix([0, 1])
+            []
+            sage: _, y, Dy = DifferentialOperators(QuadraticField(-2))
+            sage: Dy.numerical_transition_matrix([0]).parent()
+            Full MatrixSpace of 1 by 1 dense matrices over Complex ball field...
+
+            sage: (x^2*Dx + 1).numerical_solution([1], [-1, 0])
+            Traceback (most recent call last):
+            ...
+            NotImplementedError: analytic continuation through irregular
+            singular points is not supported
+        """
+        import analytic.analytic_continuation as ancont
+        ctx = ancont.Context(self, path, eps)
+        pairs = ancont.analytic_continuation(ctx)
+        assert len(pairs) == 1
+        return pairs[0][1]
 
 #############################################################################################################
 

@@ -17,24 +17,9 @@ from 0 to 1 for the differential equation y' = y::
     sage: Dop.<Dx> = OreAlgebra(Pol)
     sage: QQi.<i> = QuadraticField(-1)
 
-We can perform evaluations at complex points as well::
-
-    sage: transition_matrix(Dx - 1, [0, i], 1e-10)
-    [[0.540302305...] + [0.8414709848...]*I]
-
 An operator of order 2 annihilating arctan(x) and the constants::
 
     sage: dop = (x^2 + 1)*Dx^2 + 2*x*Dx
-
-    sage: eval_diffeq(dop, [0, 1], [0, 1+i], 1e-30)
-    [1.01722196789785136772278896...] + [0.40235947810852509365018983...]*I
-
-Empty paths are not allowed::
-
-    sage: transition_matrix(Dx - 1, path=[])
-    Traceback (most recent call last):
-    ...
-    ValueError: empty path
 
 Return the values (resp. transition matrices) corresponding to several points
 along the path at once::
@@ -159,34 +144,11 @@ An example kindly provided by Christoph Koutschan::
 
 TESTS::
 
-    sage: transition_matrix(dop, [], 1e-10)
-    Traceback (most recent call last):
-    ...
-    ValueError: empty path
-
-    sage: transition_matrix(Dop.zero(), [0,1], 1e-10)
-    Traceback (most recent call last):
-    ...
-    ValueError: operator must be nonzero
-
-    sage: transition_matrix(Dx, [0, 1], 1e-10)[0,0].parent()
-    Real ball field with 3... bits precision
-
-    sage: Dx_C = OreAlgebra(QQi['x'], 'Dx').gen()
-    sage: transition_matrix(Dx_C, [0, 1], 1e-10)[0,0].parent()
-    Complex ball field with 3... bits precision
-
     sage: transition_matrix(x*Dx + 1, [0, 1], 1e-10)
     [1.00...]
 
     sage: transition_matrix(x*Dx + 1, [0, 0], 1e-10)
     [1.00...]
-
-    sage: transition_matrix(x^2*Dx + 1, [1, 0], 1e-10)
-    Traceback (most recent call last):
-    ...
-    NotImplementedError: analytic continuation through irregular singular points
-    is not supported
 
     sage: mat = (transition_matrix(x*Dx^3 + 2*Dx^2 + x*Dx, [-1, 0, i, -1])
     ....:       - identity_matrix(3))
@@ -223,18 +185,6 @@ def transition_matrix(dop, path, eps=1e-16):
         [      0 [-0.04000000...] + [0.280000000...]*I  [1.5486939...] + [1.72735528...]*I]
 
     TESTS::
-
-        sage: transition_matrix(dop, [0, 0])
-        [1.00...        0]
-        [      0  1.00...]
-        sage: transition_matrix(Dops(1), [0, 1])
-        []
-        sage: transition_matrix(Dx, [0, 1])
-        [1.00...]
-        sage: transition_matrix(Dx - 1, path=[1/3])
-        [1.00...]
-        sage: transition_matrix(Dx - 1, path=[1, 0])
-        [[0.3678794411714423...]]
 
         sage: Dops, z, Dz = Diffops()
         sage: dop = ((-1/8*z^2 + 5/21*z - 1/4)*Dz^10 + (5/4*z + 5)*Dz^9
@@ -284,39 +234,13 @@ def _value_from_mat(mat):
 
 def eval_diffeq(dop, ini, path, eps=1e-16):
     """
-    EXAMPLES::
-
-        sage: from ore_algebra.analytic.ui import *
-        sage: Dops, x, Dx = Diffops()
-
-        sage: eval_diffeq(Dx - 1, ini=[1], path=[0,1], eps=1e-50)
-        [2.7182818284590452353602874713526624977572470936999...]
-
-        sage: eval_diffeq((x^2 + 1)*Dx^2 + 2*x*Dx, ini=[0, 1], path=[0, 1+i])
-        [1.017221967897851...] + [0.402359478108525...]*I
-
-        sage: eval_diffeq(Dx - 1, ini=[], path=[0, 1])
-        Traceback (most recent call last):
-        ...
-        ValueError: incorrect initial values: []
 
     TESTS:
 
-    Trivial cases::
-
-        sage: eval_diffeq(Dx, ini=[0], path=[0, 1+i])
-        0
-        sage: eval_diffeq(Dx, ini=[42], path=[0, 1+i])
-        42.00...
-        sage: eval_diffeq(Dops(1), ini=[], path=[0, 1+i])
-        0
-        sage: eval_diffeq(Dops(x+1), ini=[], path=[0, 1+i])
-        0
-        sage: eval_diffeq(Dx - 1, ini=[42], path=[1])
-        42.00...
-
     A recurrence with constant coefficients::
 
+        sage: from ore_algebra.analytic.ui import *
+        sage: Dops, x, Dx = Diffops()
         sage: eval_diffeq(Dx - (x - 1), ini=[1], path=[0, i/30])
         [0.99888940314741...] + [-0.03330865088952795...]*I
 
@@ -330,17 +254,6 @@ def eval_diffeq(dop, ini, path, eps=1e-16):
         sage: eval_diffeq(dop, [0,i,0], path, 1e-150) # long time (6.5 s)
         [-1.5598481440603221187326507993405933893413346644879595004537063375459901302359572361012065551669069...] +
         [-0.7107764943512671843673286878693314397759047479618104045777076954591551406949345143368742955333566...]*I
-
-    Errors::
-
-        sage: eval_diffeq(Dx - 1, ini=[1, 2], path=[0, 1])
-        Traceback (most recent call last):
-        ...
-        ValueError: incorrect initial values: [1, 2]
-        sage: eval_diffeq(Dx - 1, ini=["a"], path=[0, 1])
-        Traceback (most recent call last):
-        ...
-        ValueError: incorrect initial values: ['a']
 
     """
     ctx = ancont.Context(dop, path, eps)
