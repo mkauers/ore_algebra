@@ -17,9 +17,6 @@ from 0 to 1 for the differential equation y' = y::
     sage: Dop.<Dx> = OreAlgebra(Pol)
     sage: QQi.<i> = QuadraticField(-1)
 
-    sage: transition_matrix(Dx - 1, [0, 1], 1e-10)
-    [[2.718281828...]]
-
 We can perform evaluations at complex points as well::
 
     sage: transition_matrix(Dx - 1, [0, i], 1e-10)
@@ -31,16 +28,6 @@ An operator of order 2 annihilating arctan(x) and the constants::
 
     sage: eval_diffeq(dop, [0, 1], [0, 1+i], 1e-30)
     [1.01722196789785136772278896...] + [0.40235947810852509365018983...]*I
-
-    sage: transition_matrix(dop, [0, 1+i], 1e-10)
-    [ 1.00...  [1.017221967...] + [0.402359478...]*I]
-    [       0 [0.200000000...] + [-0.400000000...]*I]
-
-A loop around a singular point::
-
-    sage: transition_matrix(dop, [0, 1+i, 2*i, i-1, 0], 1e-10)
-    [  1.00000000... [3.1415926...] + [+/- ...]*I]
-    [              0 [1.0000000...] + [+/- ...]*I]
 
 Empty paths are not allowed::
 

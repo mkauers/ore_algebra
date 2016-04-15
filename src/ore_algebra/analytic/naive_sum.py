@@ -325,10 +325,7 @@ def _iv_builder(Intervals, Source):
             return to_iv
         elif Source is QQ:
             return lambda z: ComplexBall(Intervals, z)
-        else:
-            return lambda z: Intervals(z.real(), z.imag())
-    else:
-        return Intervals
+    return Intervals
 
 def series_sum_ordinary(Intervals, dop, bwrec, ini, pt,
         tgt_error, maj, stride, record_bounds_in):
