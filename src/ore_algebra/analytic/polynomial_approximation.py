@@ -223,7 +223,7 @@ def on_interval(dop, ini, path, eps, rad=None):
         sage: polapprox.on_interval(Dx - 1, [1], [0, [1, 2]], 1e-3, rad=1)
         Traceback (most recent call last):
         ...
-        TypeError: ('unexpected value for point', [1, 2])
+        TypeError: unexpected value for point: [1, 2]
         sage: polapprox.on_interval(Dx - 1, [1], [0], 1e-3)
         Traceback (most recent call last):
         ...

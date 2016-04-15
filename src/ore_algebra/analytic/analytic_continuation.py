@@ -31,7 +31,7 @@ class Context(object):
             summation_algorithm=None):
         if not dop:
             raise ValueError("operator must be nonzero")
-        self.dop = dop
+        _, _, _, self.dop = dop._normalize_base_ring()
         # XXX: allow the user to specify their own Path
         self.path = self.initial_path = Path(path, self.dop, classify=True)
         self.initial_path.check_singularity()

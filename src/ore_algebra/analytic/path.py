@@ -13,7 +13,7 @@ import sage.rings.number_field.number_field_base as number_field_base
 import sage.symbolic.ring
 
 from sage.misc.cachefunc import cached_method
-from sage.rings.all import QQ, CC, RIF, CIF, QQbar, RLF, CLF
+from sage.rings.all import QQ, CC, RIF, CIF, QQbar, RLF, CLF, Integer
 from sage.rings.complex_arb import CBF, ComplexBallField
 from sage.rings.real_arb import RBF, RealBallField
 from sage.structure.sage_object import SageObject
@@ -82,7 +82,7 @@ class Point(SageObject):
         try:
             parent = point.parent()
         except AttributeError:
-            raise TypeError("unexpected value for point", point)
+            raise TypeError("unexpected value for point: " + repr(point))
         if isinstance(point, Point):
             self.value = point.value
         elif isinstance(parent, (
@@ -311,7 +311,7 @@ class RegularPoint(Point):
         ldop = self.local_diffop()
         x = ldop.base_ring().gen()
         roots = ldop.indicial_polynomial(x).roots(QQbar)
-        sols = [FundamentalSolution(expo, log_power, None)
+        sols = [FundamentalSolution(expo, Integer(log_power), None)
                 for expo, mult in roots
                 for log_power in xrange(mult)]
         sols.sort(key=sort_key_by_asympt)
