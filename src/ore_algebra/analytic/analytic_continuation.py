@@ -11,6 +11,7 @@ import sage.rings.complex_arb
 
 import ore_algebra.analytic.accuracy as accuracy
 import ore_algebra.analytic.bounds as bounds
+import ore_algebra.analytic.utilities as utilities
 
 from sage.matrix.constructor import identity_matrix, matrix
 from sage.rings.complex_arb import ComplexBallField
@@ -143,6 +144,13 @@ def step_transition_matrix(ctx, step, eps, rows=None):
 def analytic_continuation(ctx, ini=None, post=None):
     """
     Here ini and post both are matrices.
+
+    TESTS::
+
+        sage: from ore_algebra import DifferentialOperators
+        sage: _, x, Dx = DifferentialOperators()
+        sage: (Dx^2 + 2*x*Dx).numerical_solution([0, 2/sqrt(pi)], [0,i])
+        [+/- ...] + [1.65042575879754...]*I
     """
     logger.info("path: %s", ctx.path)
     if isinstance(ini, list): # should this be here?
@@ -151,6 +159,12 @@ def analytic_continuation(ctx, ini=None, post=None):
         except (TypeError, ValueError):
             raise ValueError("incorrect initial values: {}".format(ini))
     eps1 = (ctx.eps/(1 + len(ctx.path))) >> 2 # TBI, +: move to ctx?
+    prec = utilities.prec_from_eps(eps1)
+    if ini is not None:
+        try:
+            ini = ini.change_ring(RealBallField(prec))
+        except ValueError:
+            ini = ini.change_ring(ComplexBallField(prec))
     res = []
     path_mat = identity_matrix(ZZ, ctx.dop.order())
     def store_value_if_wanted(point):
