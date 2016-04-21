@@ -1971,9 +1971,8 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             [1, 1/2*x*log(x)^2, x*log(x), x]
         """
         from analytic.path import Point
-        point = Point(point, self).classify()
-        struct = point.local_basis_structure()
-        x = SR(self.base_ring().gen()) - point.exact().value
+        struct = Point(point, self).classify().local_basis_structure()
+        x = SR(self.base_ring().gen()) - point
         return [x**sol.valuation*symbolic_log.log(x, hold=True)**sol.log_power
                                                       /sol.log_power.factorial()
                 for sol in struct]
