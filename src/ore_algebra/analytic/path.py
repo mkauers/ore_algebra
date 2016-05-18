@@ -366,7 +366,7 @@ class Step(SageObject):
         (1/7*i, [2.80825932025646 +/- 1.56e-15])
 
         sage: s1.length(), s2.length()
-        ([0.1428571428571428 +/- 9.09e-17], [2.80825932025646 +/- 1.56e-15])
+        ([0.142857142857142...], [2.8082593202564...])
 
         sage: s1.check_singularity()
         sage: s2.check_singularity()
