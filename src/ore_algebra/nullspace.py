@@ -174,8 +174,7 @@ testsuite
 
 """
 
-from sage.arith.all import CRT_basis, xgcd, gcd, lcm
-from sage.rings.arith import previous_prime as pp
+from sage.arith.all import CRT_basis, xgcd, gcd, lcm, previous_prime as pp
 from sage.misc.all import prod
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 from sage.rings.fraction_field import FractionField
@@ -183,7 +182,7 @@ from sage.rings.integer_ring import ZZ
 from sage.rings.rational_field import QQ
 from sage.rings.finite_rings.all import GF
 from sage.matrix.berlekamp_massey import berlekamp_massey
-from sage.ext.multi_modular import MAX_MODULUS 
+from sage.arith.multi_modular import MAX_MODULUS
 from sage.parallel.decorate import parallel
 from sage.matrix.constructor import Matrix, matrix
 from sage.modules.free_module_element import vector

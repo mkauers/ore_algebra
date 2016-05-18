@@ -829,8 +829,8 @@ def _guess_via_gcrd(data, A, **kwargs):
 
 ###########################################################################################
 
-from sage.ext.multi_modular import MAX_MODULUS
-from sage.rings.arith import previous_prime as pp
+from sage.arith.multi_modular import MAX_MODULUS
+from sage.arith.all import previous_prime as pp
 
 def _word_size_primes(init=2**23, bound=1000):
     """
