@@ -33,20 +33,14 @@ QQi = number_field.QuadraticField(-1, 'i')
 
 class Point(SageObject):
     r"""
-    A point on the complex plane, in relation with a differential operator.
-
-    Though a differential operator is part of the definition of an instance,
-    this class represents a point on the complex plane, not on the Riemann
-    surface of the operator.
+    A point on the complex plane with an associated differential operator.
 
     A point can be exact (a number field element) or inexact (a real or complex
-    interval or ball).
-
-    It can be classified as ordinary, regular singular, etc.
-
-    NOTES:
-
-    - Decouple pure complex points from things that depend on the operator?
+    interval or ball). It can be classified as ordinary, regular singular, etc.
+    The main reason for making the operator part of the definition of Points is
+    that this gives a convenient place to cache information that depend on both,
+    with an appropriate lifetime. Note however that the point is considered to
+    lie on the complex plane, not on the Riemann surface of the operator.
     """
 
     def __init__(self, point, dop=None):
@@ -668,13 +662,7 @@ class Path(SageObject):
     def optimize_by_homotopy(self):
         raise NotImplementedError
 
-    def remove_duplicates(self):
-        raise NotImplementedError
-
     def bit_burst(self, z0, z1):
-        raise NotImplementedError
-
-    def connect_sing(self, XXX): # ???
         raise NotImplementedError
 
 def local_monodromy_path(sing):
