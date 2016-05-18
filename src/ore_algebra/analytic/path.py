@@ -31,20 +31,6 @@ QQi = number_field.QuadraticField(-1, 'i')
 # Points
 ######################################################################
 
-# Main class hierarchy for points:
-#
-#     Point > RegularPoint > OrdinaryPoint
-#
-# Auxiliary classes, for classification purposes: RegularSingularPoint,
-# IrregularSingularPoint.
-#
-# (Algorithms for, say, regular singular points should typically work for
-# ordinary points as well even when a more specialized version exists. One could
-# have QuasiRegularPoints too, but combined with SingularPoints that would make
-# the whole thing too complicated.)
-#
-# TODO: simplify this complicated designed that turned out not to be useful
-
 class Point(SageObject):
     r"""
     A point on the complex plane, in relation with a differential operator.
@@ -145,9 +131,6 @@ class Point(SageObject):
             pass
         return repr(self.value)
 
-    def descr(self):
-        return self._repr_()
-
     # Numeric representations
 
     @cached_method
@@ -193,6 +176,77 @@ class Point(SageObject):
                 (rings.Integer, rings.Rational, rings.NumberFieldElement))
 
     ### Methods that depend on dop
+
+    @cached_method
+    def is_ordinary(self):
+        lc = self.dop.leading_coefficient()
+        if self.is_exact():
+            return bool(lc(self.value))
+        elif not lc(self.iv()).contains_zero():
+            return True
+        else:
+            raise ValueError("can't tell if inexact point is singular")
+
+    def is_singular(self):
+        return not is_ordinary(self)
+
+    @cached_method
+    def is_regular(self):
+        try:
+            if self.is_ordinary():
+                return True
+        except ValueError:
+            # we could handle balls containing no irregular singular point...
+            raise NotImplementedError("can't tell if inexact point is regular")
+        assert self.is_exact()
+        # Fuchs criterion
+        Pols = self.dop.base_ring().change_ring(self.value.parent())
+        def val(pol):
+            return Pols(pol).valuation(Pols([self.value, -1]))
+        ref = val(self.dop.leading_coefficient()) - self.dop.order()
+        return all(val(coef) - k >= ref for k, coef in enumerate(self.dop))
+
+    def is_regular_singular(self):
+        return not self.is_ordinary() and self.is_regular()
+
+    def is_irregular(self):
+        return not is_regular(self)
+
+    def singularity_type(self, short=False):
+        r"""
+        EXAMPLES::
+
+            sage: from ore_algebra import *
+            sage: Dops, x, Dx = DifferentialOperators()
+
+            sage: dop = (x^2 + 1)*Dx^2 + 2*x*Dx
+            sage: Point(1, dop).singularity_type()
+            'ordinary point'
+            sage: Point(i, dop).singularity_type()
+            'regular singular point'
+            sage: Point(0, x^2*Dx + 1).singularity_type()
+            'irregular singular point'
+            sage: Point(CIF(1/3), x^2*Dx + 1).singularity_type()
+            'ordinary point'
+            sage: Point(CIF(1/3)-1/3, x^2*Dx + 1).singularity_type()
+            'point of unknown singularity type'
+        """
+        try:
+            if self.is_ordinary():
+                return "" if short else "ordinary point"
+            elif self.is_regular():
+                return "regular singular point"
+            else:
+                return "irregular singular point"
+        except (ValueError, NotImplementedError):
+            return "point of unknown singularity type"
+
+    def descr(self):
+        t = self.singularity_type(short=True)
+        if t == "":
+            return repr(self)
+        else:
+            return t + " " + repr(self)
 
     def dist_to_sing(self):
         """
@@ -244,66 +298,16 @@ class Point(SageObject):
         dop_P = self.dop.change_ring(Pols)
         return dop_P.annihilator_of_composition(Pols([self.value, 1]))
 
-    def classify(self):
-        r"""
-        EXAMPLES::
-
-            sage: from ore_algebra.analytic.ui import *
-            sage: from ore_algebra.analytic.path import Point
-            sage: Dops, x, Dx = Diffops()
-
-            sage: dop = (x^2 + 1)*Dx^2 + 2*x*Dx
-            sage: type(Point(1, dop).classify())
-            <class 'ore_algebra.analytic.path.OrdinaryPoint'>
-            sage: type(Point(i, dop).classify())
-            <class 'ore_algebra.analytic.path.RegularSingularPoint'>
-            sage: type(Point(0, x^2*Dx + 1).classify())
-            <class 'ore_algebra.analytic.path.IrregularSingularPoint'>
-
-        TESTS::
-
-            sage: type(Point(CIF(1/3), x^2*Dx + 1).classify())
-            <class 'ore_algebra.analytic.path.OrdinaryPoint'>
-            sage: type(Point(CIF(1/3)-1/3, x^2*Dx + 1).classify())
-            <class 'ore_algebra.analytic.path.Point'>
-        """
-        if self.value.parent().is_exact():
-            if self.dop.leading_coefficient()(self.value):
-                return OrdinaryPoint(self)
-            # Fuchs criterion
-            Pols = self.dop.base_ring().change_ring(self.value.parent())
-            def val(pol):
-                return Pols(pol).valuation(Pols([self.value, -1]))
-            ref = val(self.dop.leading_coefficient()) - self.dop.order()
-            if all(val(coef) - k >= ref
-                   for k, coef in enumerate(self.dop)):
-                return RegularSingularPoint(self)
-            else:
-                return IrregularSingularPoint(self)
-        else:
-            val = self.dop.leading_coefficient()(self.value)
-            try:
-                if not val.contains_zero():
-                    return OrdinaryPoint(self)
-            except AttributeError:
-                pass
-        return self
-
-class RegularPoint(Point):
-
-    def connect_to_ordinary(self):
-        raise NotImplementedError
-
     def local_basis_structure(self):
         r"""
         EXAMPLES::
 
             sage: from ore_algebra.analytic.ui import *
             sage: Dops, x, Dx = Diffops()
-            sage: Point(0, x*Dx^2 + Dx + x).classify().local_basis_structure()
+            sage: Point(0, x*Dx^2 + Dx + x).local_basis_structure()
             [FundamentalSolution(valuation=0, log_power=1, value=None),
              FundamentalSolution(valuation=0, log_power=0, value=None)]
-            sage: Point(0, Dx^3 + x*Dx + x).classify().local_basis_structure()
+            sage: Point(0, Dx^3 + x*Dx + x).local_basis_structure()
             [FundamentalSolution(valuation=0, log_power=0, value=None),
              FundamentalSolution(valuation=1, log_power=0, value=None),
              FundamentalSolution(valuation=2, log_power=0, value=None)]
@@ -312,6 +316,8 @@ class RegularPoint(Point):
         # need a good way to share code with fundamental_matrix_regular. Or
         # perhaps modify generalized_series_solutions() to agree with our
         # definition of the basis?
+        if not self.is_regular():
+            raise NotImplementedError("irregular singular point")
         ldop = self.local_diffop()
         x = ldop.base_ring().gen()
         roots = ldop.indicial_polynomial(x).roots(QQbar)
@@ -321,25 +327,11 @@ class RegularPoint(Point):
         sols.sort(key=sort_key_by_asympt)
         return sols
 
-class OrdinaryPoint(RegularPoint):
-    pass
-
-class RegularSingularPoint(RegularPoint):
-
-    def descr(self):
-        return "regular singular point " + self._repr_()
-
-class IrregularSingularPoint(Point):
-
-    def descr(self):
-        return "irregular singular point " + self._repr_()
-
 ######################################################################
 # Paths
 ######################################################################
 
-# XXX: do we need special *Steps* (instead of or in addition to special Points)
-# for connections to singular points?
+# XXX: do we need special *Steps* for connections to singular points?
 class Step(SageObject):
     r"""
     EXAMPLES::
@@ -469,20 +461,19 @@ class Step(SageObject):
             sage: from ore_algebra.analytic.path import *
             sage: Dops, x, Dx = Diffops()
 
-            sage: Path([0, 1], x*(x^2+1)*Dx, classify=True).check_convergence()
+            sage: Path([0, 1], x*(x^2+1)*Dx).check_convergence()
             Traceback (most recent call last):
             ...
             ValueError: Step 0 --> 1 escapes from the disk of (guaranteed)
             convergence of the solutions at regular singular point 0
 
-            sage: Path([1, 0], x*(x^2+1)*Dx, classify=True).check_convergence()
+            sage: Path([1, 0], x*(x^2+1)*Dx).check_convergence()
             Traceback (most recent call last):
             ...
             ValueError: Step 1 --> 0 escapes from the disk of (guaranteed)
             convergence of the solutions at regular singular point 0
         """
-        ref = (self.end if isinstance(self.end, RegularSingularPoint)
-               else self.start)
+        ref = self.end if self.end.is_regular_singular() else self.start
         if self.length() >= ref.dist_to_sing(): # not < ?
             raise ValueError("Step {} escapes from the disk of (guaranteed) "
                     "convergence of the solutions at {}"
@@ -525,7 +516,7 @@ class Path(SageObject):
         convergence of the solutions at 0
     """
 
-    def __init__(self, vert, dop, classify=False):
+    def __init__(self, vert, dop):
         r"""
         TESTS::
 
@@ -545,8 +536,6 @@ class Path(SageObject):
             raise ValueError("empty path")
         self.vert = [v if isinstance(v, Point) else Point(v, dop)
                      for v in vert]
-        if classify:
-            self.vert = [v.classify() for v in self.vert]
 
     def __getitem__(self, i):
         r"""
@@ -650,9 +639,9 @@ class Path(SageObject):
             cur, next = new[-1], self.vert[i]
             rad = cur.dist_to_sing()
             dist_to_next = (next.iv() - cur.iv()).abs()
-            if (dist_to_next <= threshold*rad if isinstance(next, OrdinaryPoint)
+            if (dist_to_next <= threshold*rad if next.is_ordinary()
                 else (cur.value == next.value
-                      or isinstance(cur, OrdinaryPoint)
+                      or cur.is_ordinary()
                          and dist_to_next <= threshold*next.dist_to_sing())):
                 new.append(next)
                 i += 1
@@ -668,7 +657,7 @@ class Path(SageObject):
                 else:
                     interm = QQi([my_RIF(interm.real()).simplest_rational(),
                                   my_RIF(interm.imag()).simplest_rational()])
-                new.append(OrdinaryPoint(interm, self.dop))
+                new.append(Point(interm, self.dop))
                 logger.debug("subdividing %s -> %s", cur, next)
         new = Path(new, self.dop)
         return new

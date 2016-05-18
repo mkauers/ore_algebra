@@ -1971,7 +1971,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             [1, 1/2*x*log(x)^2, x*log(x), x]
         """
         from analytic.path import Point
-        struct = Point(point, self).classify().local_basis_structure()
+        struct = Point(point, self).local_basis_structure()
         x = SR(self.base_ring().gen()) - point
         return [x**sol.valuation*symbolic_log.log(x, hold=True)**sol.log_power
                                                       /sol.log_power.factorial()
@@ -2079,9 +2079,8 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             Real ball field with 3... bits precision
         """
         import analytic.analytic_continuation as ancont
-        import analytic.path as anpath
         ctx = ancont.Context(self, path, eps)
-        if isinstance(ctx.path.vert[-1], anpath.RegularSingularPoint):
+        if ctx.path.vert[-1].is_regular_singular():
             raise ValueError("the evaluation point is a regular singular "
                     "point (try using numerical_transition_matrix())")
         pairs = ancont.analytic_continuation(ctx, ini=ini)

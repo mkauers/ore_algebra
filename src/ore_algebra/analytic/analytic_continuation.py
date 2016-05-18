@@ -20,7 +20,7 @@ from sage.rings.number_field.number_field_element import NumberFieldElement
 from sage.rings.real_arb import RealBallField
 from sage.structure.sequence import Sequence
 
-from ore_algebra.analytic.path import Path, OrdinaryPoint, RegularPoint, IrregularSingularPoint, Step
+from ore_algebra.analytic.path import Path, Step
 from ore_algebra.analytic.utilities import *
 
 logger = logging.getLogger(__name__)
@@ -34,9 +34,9 @@ class Context(object):
             raise ValueError("operator must be nonzero")
         _, _, _, self.dop = dop._normalize_base_ring()
         # XXX: allow the user to specify their own Path
-        self.path = self.initial_path = Path(path, self.dop, classify=True)
+        self.path = self.initial_path = Path(path, self.dop)
         self.initial_path.check_singularity()
-        if any(isinstance(x, IrregularSingularPoint) for x in self.path.vert):
+        if not all(x.is_regular() for x in self.path.vert):
             raise NotImplementedError("analytic continuation through irregular "
                                              "singular points is not supported")
         if keep == "all":
@@ -125,15 +125,15 @@ def step_transition_matrix(ctx, step, eps, rows=None):
     elif z0.value == z1.value:
         logger.info("%s: trivial case", step)
         return identity_matrix(ZZ, ctx.dop.order())[:rows]
-    elif isinstance(z0, OrdinaryPoint) and isinstance(z1, OrdinaryPoint):
+    elif z0.is_ordinary() and z1.is_ordinary():
         logger.info("%s: ordinary case", step)
         logger.debug("fraction of cvrad: %s/%s", step.length(), z0.dist_to_sing())
         fun = ordinary_step_transition_matrix
-    elif isinstance(z0, RegularPoint) and isinstance(z1, OrdinaryPoint):
+    elif z0.is_regular() and z1.is_ordinary():
         logger.info("%s: regular singular case (going out)", step)
         logger.debug("fraction of cvrad: %s/%s", step.length(), z0.dist_to_sing())
         fun = singular_step_transition_matrix
-    elif isinstance(z0, OrdinaryPoint) and isinstance(z1, RegularPoint):
+    elif z0.is_ordinary() and z1.is_regular():
         logger.info("%s: regular singular case (going in)", step)
         logger.debug("fraction of cvrad: %s/%s", step.length(), z1.dist_to_sing())
         fun = inverse_singular_step_transition_matrix
