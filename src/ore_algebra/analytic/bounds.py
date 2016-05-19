@@ -739,8 +739,7 @@ def bound_ratio_large_n(num, den, exceptions={}, min_drop=IR(1.1), stats=None):
     logger.debug("found %s roots, now building staircase...", len(roots))
     if stats: stats.time_staircases.tic()
     Pol = num.parent().change_ring(IC)
-    num = Pol([IC(c.real(), c.imag()) for c in list(num)])
-    den = Pol([IC(c.real(), c.imag()) for c in list(den)])
+    num, den = num.change_ring(IC), den.change_ring(IC)
     thrs = list(n for iv in roots for n in xrange(iv[0].floor(), iv[1].ceil()))
     thrs.sort(reverse=True)
     thr_vals = []
