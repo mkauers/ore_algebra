@@ -724,7 +724,7 @@ def bound_ratio_large_n(num, den, exceptions={}, min_drop=IR(1.1), stats=None):
         den_re, den_im = _re_im(den, RealScalars)
         sqn_num = num_re**2 + num_im**2
         if den_im.is_zero(): # this is the case at ordinary points
-            crit = sqn_num.diff()*den_re - sqn_num*den_re.diff()
+            crit = sqn_num.diff()*den_re - 2*sqn_num*den_re.diff()
             dden = den_re
         else:
             sqn_den = den_re**2 + den_im**2
