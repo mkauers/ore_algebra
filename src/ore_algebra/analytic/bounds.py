@@ -730,6 +730,7 @@ def bound_ratio_large_n(num, den, exceptions={}, min_drop=IR(1.1), stats=None):
             sqn_den = den_re**2 + den_im**2
             crit = sqn_num.diff()*sqn_den - sqn_den.diff()*sqn_num
             dden = den_re.gcd(den_im)
+        crit //= crit.gcd(dden)
 
     if stats: stats.time_roots.tic()
     roots = nonneg_roots(dden)
