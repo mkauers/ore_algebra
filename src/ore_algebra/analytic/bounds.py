@@ -600,16 +600,21 @@ def bound_real_roots(pol):
     return bound
 
 @cached_function
-def nonneg_roots(pol):
+def real_roots_right_of(pol, xmin):
     r"""
     If pol ≠ 0, return a list of intervals with rational endpoints (represented
-    by pairs) containing all nonnegative roots of pol. If pol = 0, return [].
+    by pairs) containing all real roots x of pol with x >= xmin. Return [] if
+    pol = 0.
     """
     if pol.degree() <= 0:
         return []
-    bounds = (QQ.zero(), bound_real_roots(pol))
+    xmin = QQ(xmin)
+    xmax = bound_real_roots(pol)
+    if xmin > xmax:
+        return []
+    bounds = (xmin, xmax)
     if pol.base_ring() is AA:
-        if bounds[1] < QQ(20):
+        if xmax < QQ(xmin + 20):
             # don't bother with computing the roots (too slow)
             return [bounds]
         bounds = None
@@ -621,14 +626,14 @@ def nonneg_roots(pol):
         roots = real_roots.real_roots(pol, skip_squarefree=True)
     if roots and roots[-1][0][1]:
         diam = ~roots[-1][0][1]
-        while any(rt >= QQ.zero() and rt - lt > QQ(10)
+        while any(rt >= xmin and rt - lt > QQ(10)
                   for ((lt, rt), _) in roots):
             # max_diameter is a relative diameter --> pb for large roots
             logger.debug("refining (diam=%s)...", diam)
             roots = real_roots.real_roots(pol, bounds=bounds, max_diameter=diam,
                                                            skip_squarefree=True)
             diam >>= 1
-    return [root for (root, mult) in roots if root[1] >= QQ.zero()]
+    return [root for (root, mult) in roots if root[1] >= xmin]
 
 _upper_inf = RIF(infinity).upper()
 
@@ -639,7 +644,9 @@ def _re_im(pol, RealScalars):
 
 # TODO: computation of roots should be shared between calls corresponding to
 # different shift equivalence classes...
-def bound_ratio_large_n(num, den, exceptions={}, min_drop=IR(1.1), stats=None):
+# XXX: j'ai l'impression qu'on pourrait aussi ne le faire que pour les n qui
+# nous intéressent vraiment...
+def bound_ratio_large_n(num, den, nmin, exceptions={}, min_drop=IR(1.1), stats=None):
     """
     Given two polynomials num and den with complex coefficients, return a
     function b: ℕ → [0, ∞] such that
@@ -651,6 +658,8 @@ def bound_ratio_large_n(num, den, exceptions={}, min_drop=IR(1.1), stats=None):
     this case if one is willing to accept that b(n) = ∞ up to the largest
     integer root of den.)
 
+    Don't bother with returning a tight or even finite bound for n < nmin.
+
     EXAMPLES::
 
         sage: from ore_algebra.analytic.bounds import bound_ratio_large_n
@@ -658,7 +667,7 @@ def bound_ratio_large_n(num, den, exceptions={}, min_drop=IR(1.1), stats=None):
 
         sage: num = (n^3-2/3*n^2-10*n+2)*(n^3-30*n+8)*(n^3-10/9*n+1/54)
         sage: den = (n^3-5/2*n^2+n+2/5)*(n^3-1/2*n^2+3*n+2)*(n^3-81/5*n-14/15)
-        sage: bnd1 = bound_ratio_large_n(num, den); bnd1
+        sage: bnd1 = bound_ratio_large_n(num, den, 0); bnd1
         max(
           |(n^9 + ([-0.66...])*n^8 + ([-41.1...])*n^7 + ...)/(n^9 - ...)|,
           [22.77116...]     for  n <= 2,
@@ -670,7 +679,7 @@ def bound_ratio_large_n(num, den, exceptions={}, min_drop=IR(1.1), stats=None):
 
         sage: num = (n^2-3/2*n-6/7)*(n^2+1/8*n+1/12)*(n^3-1/44*n^2+1/11*n+9/22)
         sage: den = (n^3-1/2*n^2+1/13)*(n^3-28*n+35)*(n^3-31/5)
-        sage: bnd2 = bound_ratio_large_n(num, den); bnd2
+        sage: bnd2 = bound_ratio_large_n(num, den, 0); bnd2
         max(
           ...
           [0.231763...]   for  n <= 4,
@@ -685,19 +694,19 @@ def bound_ratio_large_n(num, den, exceptions={}, min_drop=IR(1.1), stats=None):
         sage: bnd1._test()
         sage: bnd2._test()
 
-        sage: bound_ratio_large_n(n, Pols(1))
+        sage: bound_ratio_large_n(n, Pols(1), 0)
         Traceback (most recent call last):
         ...
         ValueError: expected deg(num) <= deg(den)
 
-        sage: bound_ratio_large_n(Pols(1), Pols(3))
+        sage: bound_ratio_large_n(Pols(1), Pols(3), 0)
         max(
           |(1.000...)/(3.000...)|,
           [0.333...]     for  n <= +Infinity
         )
 
         sage: i = QuadraticField(-1).gen()
-        sage: bound_ratio_large_n(n, n + i)
+        sage: bound_ratio_large_n(n, n + i, 0)
         max(
           |(n)/(n + I)|,
           1.000000000000000     for  n <= +Infinity
@@ -733,8 +742,8 @@ def bound_ratio_large_n(num, den, exceptions={}, min_drop=IR(1.1), stats=None):
         crit //= crit.gcd(dden)
 
     if stats: stats.time_roots.tic()
-    roots = nonneg_roots(dden)
-    roots.extend(nonneg_roots(crit))
+    roots = real_roots_right_of(dden, nmin)
+    roots.extend(real_roots_right_of(crit, nmin))
     if stats: stats.time_roots.toc()
 
     logger.debug("found %s roots, now building staircase...", len(roots))
@@ -767,7 +776,7 @@ def bound_ratio_large_n(num, den, exceptions={}, min_drop=IR(1.1), stats=None):
 
     return RatSeqBound(num, den, stairs)
 
-def bound_ratio_derivatives(num, den, nat_poles, stats=None):
+def bound_ratio_derivatives(num, den, nmin, nat_poles, stats=None):
     r"""
     Compute a bound on sum(n·|f^(t)(n)/t!|, t=0..derivatives-1) similar to the
     one returned by bound_ratio_large_n. XXX: update descr
@@ -794,7 +803,7 @@ def bound_ratio_derivatives(num, den, nat_poles, stats=None):
     for t in range(derivatives):
         # at this point denpow = den^(t+1) and num/denpow = D^t(orig num/den)/t!
         ex = {n: ser[t].abs() for n, ser in ex_series.iteritems()}
-        bnd = bound_ratio_large_n(num << 1, denpow, exceptions=ex, stats=stats)
+        bnd = bound_ratio_large_n(num << 1, denpow, nmin, exceptions=ex, stats=stats)
         terms.append(bnd)
         num = num.derivative()*den/(t + 1) - num*dendiff
         denpow *= den
@@ -1001,7 +1010,7 @@ class DiffOpBound(object):
         self._effort = 0
 
         self._update_den_bound()
-        self._update_num_bound(pol_part_len)
+        self._update_num_bound(pol_part_len, 0)
 
         self.stats.time_total.toc()
         logger.info("...done, time: %s", self.stats)
@@ -1029,7 +1038,7 @@ class DiffOpBound(object):
         self.cst, self.maj_den = bound_inverse_poly(lc,
                 algorithm=self.bound_inverse)
 
-    def _update_num_bound(self, pol_part_len):
+    def _update_num_bound(self, pol_part_len, nmin):
 
         self.stats.time_decomp_op.tic()
         lc = self.dop.leading_coefficient()
@@ -1072,16 +1081,16 @@ class DiffOpBound(object):
         # part.
         old_pol_part_len = len(self.majseq_pol_part)
         self.majseq_pol_part.extend([
-                bound_ratio_derivatives(first_nz[i](alg_idx), self.ind,
+                bound_ratio_derivatives(first_nz[i](alg_idx), self.ind, nmin,
                                         self.special_shifts, stats=self.stats)
                 for i in xrange(old_pol_part_len + 1, pol_part_len + 1)])
         assert len(self.majseq_pol_part) == pol_part_len
         self.majseq_num = [
-                bound_ratio_derivatives(pol(alg_idx), self.ind,
+                bound_ratio_derivatives(pol(alg_idx), self.ind, nmin,
                                         self.special_shifts, stats=self.stats)
                 for pol in rem_num_nz]
 
-    def refine(self):
+    def refine(self, nmin=0):
         # XXX: make it possible to increase the precision of IR, IC
         if not self.refinable:
             logger.debug("refining disabled")
@@ -1093,7 +1102,7 @@ class DiffOpBound(object):
             self.bound_inverse = 'solve'
             self._update_den_bound()
         else:
-            self._update_num_bound(max(2, 2*self.pol_part_len()))
+            self._update_num_bound(max(2, 2*self.pol_part_len()), nmin)
         self.stats.time_total.toc()
         logger.info("...done, cumulative time: %s", self.stats)
 

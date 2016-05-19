@@ -365,7 +365,7 @@ def series_sum_ordinary(Intervals, dop, bwrec, ini, pt,
                 raise accuracy.PrecisionError
             elif not tgt_error.reached(tail_bound*
                     est**(QQ((maj._effort**2 + 2)*stride)/n)):
-                maj.refine()
+                maj.refine(n)
                 continue
             break
         return False, tail_bound
