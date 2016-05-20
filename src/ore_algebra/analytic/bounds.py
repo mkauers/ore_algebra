@@ -12,7 +12,7 @@ import logging, warnings
 
 import sage.rings.polynomial.real_roots as real_roots
 
-from sage.misc.cachefunc import cached_function
+from sage.misc.cachefunc import cached_function, cached_method
 from sage.misc.misc_c import prod
 from sage.rings.all import CIF
 from sage.rings.complex_arb import CBF
@@ -430,49 +430,6 @@ def abs_min_nonzero_root(pol, tol=RR(1e-2), lg_larger_than=RR('-inf'),
     if not safe_le(2*res.rad_as_ball()/res, myIR(tol)):
         logger.debug("required tolerance may not be met")
     return res
-
-def bound_inverse_poly(den, algorithm="simple"):
-    """
-    Return a majorant series ``cst/fac`` for ``1/den``, as a pair ``(cst, fac)``
-    where ``fac`` is a ``Factorization`` object with linear factors.
-
-    EXAMPLES::
-
-        sage: from ore_algebra.analytic.bounds import *
-        sage: Pol.<x> = QQ[]
-        sage: pol = 2*x + 1
-        sage: cst, den = bound_inverse_poly(pol)
-        sage: maj = RationalMajorant(Pol(cst), den, Pol(0)); maj
-        0.5000000000000000/(-x + [0.4972960558102933 +/- 4.71e-17])
-        sage: maj._test(1/pol)
-
-    TESTS::
-
-        sage: for pol in [Pol(1), Pol(-42), 2*x+1, x^3 + x^2 + x + 1, 5*x^2-7]:
-        ....:     for algo in ['simple', 'solve']:
-        ....:         cst, den = bound_inverse_poly(pol, algorithm=algo)
-        ....:         maj = RationalMajorant(Pol(0)+cst, den, Pol(0))
-        ....:         maj._test(1/pol)
-    """
-    Poly = den.parent().change_ring(IR)
-    if den.degree() <= 0:
-        factors = []
-    else:
-        # below_abs()/lower() to get thin intervals
-        if algorithm == "simple":
-            rad = abs_min_nonzero_root(den).below_abs(test_zero=True)
-            factors = [(Poly([rad, -1]), den.degree())]
-        elif algorithm == "solve":
-            try:
-                poles = den.roots(CIF)
-            except NotImplementedError:
-                poles = den.change_ring(QQbar).roots(CIF)
-            factors = [(Poly([IR(iv.abs().lower()), -1]), mult)
-                        for iv, mult in poles]
-        else:
-            raise ValueError("algorithm")
-    num = ~abs(IC(den.leading_coefficient()))
-    return num, Factorization(factors, unit=Poly(1))
 
 ######################################################################
 # Bounds on rational functions of n
@@ -1033,10 +990,31 @@ class DiffOpBound(object):
                 num=pol_repr(self.majseq_num, shift=len(self.majseq_pol_part)),
                 pol=pol_repr(self.majseq_pol_part))
 
-    def _update_den_bound(self):
+    @cached_method
+    def _poles(self):
         lc = self.dop.leading_coefficient()
-        self.cst, self.maj_den = bound_inverse_poly(lc,
-                algorithm=self.bound_inverse)
+        try:
+            return lc.roots(CIF)
+        except NotImplementedError:
+            return lc.change_ring(QQbar).roots(CIF)
+
+    def _update_den_bound(self):
+        den = self.dop.leading_coefficient()
+
+        Poly = den.parent().change_ring(IR)
+        if den.degree() <= 0:
+            factors = []
+        # below_abs()/lower() to get thin intervals
+        elif self.bound_inverse == "simple":
+            rad = abs_min_nonzero_root(den).below_abs(test_zero=True)
+            factors = [(Poly([rad, -1]), den.degree())]
+        elif self.bound_inverse == "solve":
+            factors = [(Poly([IR(iv.abs().lower()), -1]), mult)
+                        for iv, mult in self._poles()]
+        else:
+            raise ValueError("algorithm")
+        self.cst = ~abs(IC(den.leading_coefficient()))
+        self.maj_den = Factorization(factors, unit=Poly(1))
 
     def _update_num_bound(self, pol_part_len, nmin):
 
