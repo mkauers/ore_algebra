@@ -1037,7 +1037,7 @@ class DiffOpBound(object):
         # logger.debug("pol_part: %s", pol_part)
         rem_num = self.dop - pol_part*lc # in theory, slow for large pol_part_len
         logger.log(logging.DEBUG - 1, "rem_num: %s", rem_num)
-        it = enumerate(_dop_rcoeffs_of_T(rem_num))
+        it = enumerate(_dop_rcoeffs_of_T(rem_num)) # slow
         rem_num_nz = MPol(sum(n**j*pol for j, pol in it)).polynomial(z)
         assert rem_num_nz.valuation() >= pol_part_len + 1
         rem_num_nz >>= (pol_part_len + 1)
