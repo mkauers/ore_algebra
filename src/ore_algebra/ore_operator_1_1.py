@@ -2136,7 +2136,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             sage: (Dx - 1).numerical_transition_matrix([0, 1])
             [[2.7182818284590452 +/- 3.54e-17]]
 
-        Now consider a second-operator that annihilates `\arctan(x)` and the
+        Now consider a second-order operator that annihilates `\arctan(x)` and the
         constants. A basis of solutions is formed of the constant `1`, of the
         form `1 + O(x^2)` as `x \to 0`, and the arctangent function, of the form
         `x + O(x^2)`. Accordingly, the entries of the transition matrix from the
