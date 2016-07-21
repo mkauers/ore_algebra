@@ -101,7 +101,7 @@ class MajorantSeries(object):
 
             sage: from ore_algebra.analytic.bounds import *
             sage: Pol.<z> = RBF[]
-            sage: maj = RationalMajorant(Pol(1), Factorization([(1-z,1)]), Pol(0))
+            sage: maj = RationalMajorant([(Pol(1), Factorization([(1-z,1)]))])
             sage: maj._test(11/10*z^30)
             Traceback (most recent call last):
             ...
@@ -128,6 +128,8 @@ class MajorantSeries(object):
 def _pole_free_rad(fac):
     if isinstance(fac, Factorization):
         den = [pol for (pol, mult) in fac if mult < 0]
+        if all(pol.degree() == 0 for pol in den):
+            return IR(infinity)
         if all(pol.degree() == 1 and pol.leading_coefficient().abs().is_one()
                for pol in den):
             rad = IR(infinity).min(*(IR(pol[0].abs()) for pol in den))
@@ -138,15 +140,16 @@ def _pole_free_rad(fac):
 
 class RationalMajorant(MajorantSeries):
     """
-    A rational power series with nonnegative coefficients, represented in the
-    form pol + num/den.
+    A rational power series with nonnegative coefficients, represented as an
+    unevaluated sum of rational fractions with factored denominators.
 
     TESTS::
 
         sage: from ore_algebra.analytic.bounds import *
         sage: Pol.<z> = RBF[]
         sage: den = Factorization([(1-z, 2), (2-z, 1)])
-        sage: maj = RationalMajorant(z^2, den, 1 + z); maj
+        sage: one = Pol.one().factor()
+        sage: maj = RationalMajorant([(1 + z, one), (z^2, den)]) ; maj
         1.000... + 1.000...*z + z^2/((-z + 2.000...) * (-z + 1.000...)^2)
         sage: maj(z).parent()
         Fraction Field of Univariate Polynomial Ring in z over Real ball field
@@ -168,56 +171,53 @@ class RationalMajorant(MajorantSeries):
         [0, 0, 0, 0.5000000000000000, 1.250000000000000, ...]
     """
 
-    def __init__(self, num, den, pol):
-        if isinstance(num, Polynomial) and isinstance(den, Factorization):
-            Poly = num.parent().change_ring(IR)
-            if not den.unit().is_one():
-                raise ValueError("expected a denominator with unit part 1")
-            assert num.valuation() > pol.degree()
-            assert den.universe() is Poly or den.value() == 1
-            super(self.__class__, self).__init__(Poly.variable_name(),
-                    cvrad=_pole_free_rad(~den))
-            self.num = Poly(num)
-            self.pol = Poly(pol)
-            self.den = den
-            self.var = Poly.gen()
-        else:
-            raise TypeError
+    def __init__(self, fracs):
+        self.Poly = Poly = fracs[0][0].parent().change_ring(IR)
+        cvrad = IR('inf').min(*[_pole_free_rad(~den) for _, den in fracs])
+        super(self.__class__, self).__init__(Poly.variable_name(), cvrad=cvrad)
+        self.fracs = []
+        for num, den in fracs:
+            if isinstance(num, Polynomial) and isinstance(den, Factorization):
+                if not den.unit().is_one():
+                    raise ValueError("expected a denominator with unit part 1")
+                assert den.universe() is Poly or den.value() == 1
+                self.fracs.append((num, den))
+            else:
+                raise TypeError
 
     def __repr__(self):
         res = ""
-        if self.pol:
-            Poly = self.pol.parent()
-            pol_as_series = Poly.completion(Poly.gen())(self.pol)
-            res += repr(pol_as_series) + " + "
-        res += self.num._coeff_repr()
-        if self.den:
-            res += "/(" + repr(self.den) + ")"
-        return res
+        Series = self.Poly.completion(self.Poly.gen())
+        def term(num, den):
+            if den.value() == 1:
+                return repr(Series(num))
+            elif num.is_term():
+                return "{}/({})".format(num, den)
+            else:
+                return "({})/({})".format(num._coeff_repr(), den)
+        res = " + ".join(term(num, den) for num, den in self.fracs if num)
+        return res if res != "" else "0"
 
     def eval(self, ev):
-        # may be better than den.value()(z) in some cases
-        den = prod(ev(lin)**mult for (lin, mult) in self.den)
-        return ev(self.pol) + ev(self.num)/den
+        # explicit product may be better than den.value()(z) in some cases
+        return sum(ev(num)/prod(ev(lin)**mult for (lin, mult) in den)
+                   for num, den in self.fracs)
 
     def bound_antiderivative(self):
         # When u, v have nonneg coeffs, int(u·v) is majorized by int(u)·v.
         # This is a little bit pessimistic but yields a rational bound,
         # avoiding antiderivatives of rational functions.
-        return RationalMajorant(self.num.integral(),
-                                self.den,
-                                self.pol.integral())
+        return RationalMajorant([(num.integral(), den)
+                                 for num, den in self.fracs])
 
     def __mul__(self, pol):
-        """"
+        """
         Multiplication by a polynomial.
 
         Note that this does not change the radius of convergence.
         """
-        if pol.parent() is self.num.parent():
-            return RationalMajorant(self.num*pol, self.den, self.pol*pol)
-        else:
-            raise TypeError
+        assert isinstance(pol, Polynomial)
+        return RationalMajorant([(pol*num, den) for num, den in self.fracs])
 
 class HyperexpMajorant(MajorantSeries):
     """
@@ -228,7 +228,8 @@ class HyperexpMajorant(MajorantSeries):
 
         sage: from ore_algebra.analytic.bounds import *
         sage: Pol.<z> = RBF[]
-        sage: integrand = RationalMajorant(z^2, Factorization([(1-z,1)]), 4+4*z)
+        sage: one = Pol.one().factor()
+        sage: integrand = RationalMajorant([(4+4*z, one), (z^2, Factorization([(1-z,1)]))])
         sage: rat = Factorization([(1/3-z, -1)])
         sage: maj = HyperexpMajorant(integrand, rat); maj
         ((-z + [0.333...])^-1)*exp(int(4.0... + 4.0...*z + z^2/(-z + 1.0...)))
@@ -947,7 +948,7 @@ class DiffOpBound(object):
     - ``majseq_pol_part`` - *list* of coefficients of ``pol_part``,
 
     - ``majseq_num`` - *list* of coefficients [c[d], c[d+1], ...] of
-        ``num``, starting at degree d = deg(pol_part) + 1,
+      ``num``, starting at degree d = deg(pol_part) + 1,
 
     - ``maj_den`` - ``Factorization``,
 
@@ -1175,9 +1176,15 @@ class DiffOpBound(object):
         Return a term of the majorant sequence.
         """
         maj_pol_part = self.Poly([fun(n) for fun in self.majseq_pol_part])
-        maj_num = (self.Poly([fun(n) for fun in self.majseq_num])
-                << len(self.majseq_pol_part))
-        rat_maj = RationalMajorant(self.cst*maj_num, self.maj_den, maj_pol_part)
+        # XXX: perhaps use sparse polys or add explicit support for a shift
+        # in RationalMajorant
+        maj_num_pre_shift = self.Poly([fun(n) for fun in self.majseq_num])
+        maj_num = (self.cst*maj_num_pre_shift) << self.pol_part_len()
+        one = Factorization([(self.Poly.one(),1)])
+        terms = [(maj_pol_part, one), (maj_num, self.maj_den)]
+        rat_maj = RationalMajorant(terms)
+        # The rational part “compensates” the change of unknown function
+        # involving the leading coefficient of the operator.
         maj = HyperexpMajorant(integrand=rat_maj, rat=~self.maj_den)
         return maj
 
