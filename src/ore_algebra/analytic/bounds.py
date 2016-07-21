@@ -1137,9 +1137,7 @@ class DiffOpBound(object):
         # We ignore the coefficient first_nz[0], which amounts to multiplying
         # the integrand by z⁻¹, as prescribed by the theory. Since, by
         # definition, majseq_num starts at the degree following that of
-        # majseq_pol_part, it gets shifted as well. The "<< 1" in the next few
-        # lines have nothing to do with that, they are multiplications by *n*.
-        # XXX: Consider using a faster algorithm for the pol part?
+        # majseq_pol_part, it gets shifted as well.
         old_pol_part_len = len(self.majseq_pol_part)
         self.stats.time_bound_ratio.tic()
         self.majseq_pol_part.extend([
