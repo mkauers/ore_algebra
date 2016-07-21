@@ -999,6 +999,10 @@ class DiffOpBound(object):
         ....: ]:
         ....:     DiffOpBound(dop)._test()
 
+        sage: for l in xrange(10):
+        ....:     DiffOpBound(Dx - 5*x^4, pol_part_len=l)._test()
+        ....:     DiffOpBound((1-x^5)*Dx - 5*x^4, pol_part_len=l)._test()
+
         sage: from ore_algebra.analytic.bounds import _test_diffop_bound
         sage: _test_diffop_bound() # long time
     """
