@@ -8,10 +8,11 @@ Error bounds
 # essentially rational fractions (QuotientRingElements, Factorizations, and
 # Rational Majorants) --> simplify?
 
-import logging, warnings
+import itertools, logging, textwrap, warnings
 
 import sage.rings.polynomial.real_roots as real_roots
 
+from sage.arith.srange import srange
 from sage.misc.cachefunc import cached_function, cached_method
 from sage.misc.misc_c import prod
 from sage.rings.all import CIF
@@ -435,307 +436,233 @@ def abs_min_nonzero_root(pol, tol=RR(1e-2), lg_larger_than=RR('-inf'),
 # Bounds on rational functions of n
 ######################################################################
 
-class SeqBound(object):
-    # XXX: try to simplify *SeqBound...
-    pass
+@cached_function # XXX: tie life to a suitable object
+def _complex_roots(pol):
+    if not pol.parent() is QQ: # QQ typical (ordinary points)
+        pol = pol.change_ring(QQbar)
+    return [(IC(rt), mult) for rt, mult in pol.roots(CIF)]
 
-class RatSeqBound(SeqBound):
+class RatSeqBound(object):
     r"""
-    A piecewise-constant-piecewise-rational nonincreasing sequence.
+    A *nonincreasing* bound on a sequence of the form
 
-    This is intended to represent a sequence b(n) such that |f(k)| <= b(n) for
-    almost all k >= n, where f(n) = num(n)/den(n) is a given rational function.
-    The bound is defined by
+        ⎧ sum[i](|num[i](n)/den(n)^(i+1)|),   n ∉ exceptions,
+        ⎨
+        ⎩ exceptions[n],                      n ∈ exceptions,
 
-    - the two polynomials num, den, with deg(num) <= deg(den),
+    where the num[i] and den are polynomials such that the num[i]/den^(i+1) all
+    have nonpositive degree.
 
-    - and a list of pairs (n[i], v[i]) with n[i-1] <= n[i], n[-1] = ∞,
-      v[i-1] >= v[i], and such that
-
-          |f(k)| <= max(|f(n)|, v[i]) for n[i-1] < n <= k <= n[i].
+    This version bounds the numerators (from above) and the denominators (from
+    below) separately. This simple strategy works well in the typical case where
+    the indicial equation has only small roots. In the presence of, e.g., large
+    real roots, however, it is not much better than waiting to get past the
+    largest root.
     """
 
-    def __init__(self, num, den, stairs):
-        self.num = num
+    def __init__(self, nums, den, exceptions):
+        self.almost_one = IR(15)/16
+        # Reference values (exceptions is also used to compute the bounds)
+        self.nums = nums
         self.den = den
-        self.stairs = stairs
+        self.exn = exceptions
+        # Dynamically computed data on when various parts of the bound become
+        # close enough to their limit that it is not worth recomputing them.
+        self._num_converged = [2**62 for _ in nums] # faster than infinity
+        self._den_converged = 2**62
+        # Precomputed bound data
+        self.num_data = self._precompute_num_data()
+        self.den_data = self._precompute_den_data()
+        self.stairs = self._precompute_stairs()
+        # self._test()
+        # self.plot().show()
 
     def __repr__(self):
-        fmt = "max(\n  |({num})/({den})|,\n{stairs}\n)"
-        n = self.num.variable_name()
+        n = self.den.variable_name()
+        fmt = ("max(\n  {rat},\n{stairs}\n)" if self.stairs else "({rat})")
+        ratstr = "\n+ ".join(
+                "|({num})/({den})|".format(
+                    num=num,
+                    den=(self.den if t == 0 else "(...)^" + str(t+1)))
+                for t, num in enumerate(self.nums))
         stairsstr = ',\n'.join("  {}\tfor  {} <= {}".format(val, n, edge)
                                 for edge, val in self.stairs)
-        r = fmt.format(num=self.num, den=self.den, stairs=stairsstr)
-        return r
+        return fmt.format(rat=ratstr, stairs=stairsstr)
 
     def asympt_repr(self):
-        deg = self.num.degree() - self.den.degree()
-        steplim = self.stairs[-1][1]
-        ratlim = IC(self.num().leading_coefficient()
-                    /self.den.leading_coefficient())
-        if deg == 0:
-            return "~{}".format(max(abs(steplim), abs(ratlim)).mid())
+        terms = []
+        for t, num in enumerate(self.nums):
+            deg = num.degree() - (t + 1)*self.den.degree()
+            lim = abs(IC(
+                num.leading_coefficient()/self.den.leading_coefficient()))
+            if deg == 0:
+                terms.append(str(lim))
+            else:
+                terms.append("{}*n^{}".format(lim, deg))
+        # note to self: in this version of the code, stairs is irrelevant to the
+        # asymptotics (its limit is always zero)
+        if len(terms) > 1:
+            return "~(" + " + ".join(terms) + ")"
         else:
-            return "~max({}, {}*n^{})".format(steplim.mid(), ratlim.mid(), deg)
+            return "~" + terms[0]
 
-    def lim(self):
-        deg = self.num.degree() - self.den.degree()
-        steplim = abs(self.stairs[-1][1])
-        if deg < 0:
-            return steplim
-        elif deg == 0:
-            ratlim = IC(self.num().leading_coefficient()
-                        /self.den.leading_coefficient())
-            return max(abs(ratlim), steplim)
-        else:
-            assert False
+    # Possible improvement: extract and cache???
+    def _precompute_den_data(self):
+        den_data = []
+        for root, mult in _complex_roots(self.den):
+            re = root.real()
+            # When Re(α) ≤ 0, the sequence |1-α/n| decreases to 1.
+            if safe_le(re, IR.zero()):
+                continue
+            # Otherwise, it first decreases to its minimum (which may be 0 if
+            # α is an integer), then increases to 1. We precompute the minimum
+            # and a value of n after which the sequence is nondecreasing.
+            crit_n = root.abs()**2/re
+            ns = srange(ZZ(crit_n.floor()), ZZ(crit_n.ceil()) + 1)
+            n_min = ns[-1]
+            # When the minimum over ℕ is reached at an exceptional index, we
+            # want to "skip" it in the computation of the global bound. So we
+            # replace each candidate argmin that is an exceptional index by the
+            # two adjacent integers--using the fact that the candidates form a
+            # range. (Consecutive exceptional indices are fairly common!)
+            while ns[-1] in self.exn:
+                ns.append(ns[-1] + 1) # append to avoid overwriting ns[0]
+            while ns[0] in self.exn:
+                ns[0] -= 1
+            global_lbound = IR.one().min(*(
+                    (IC.one() - root/n).abs()
+                    for n in ns if not n in self.exn))
+            global_lbound = global_lbound.below_abs()**mult # point ball
+            den_data.append((root, mult, n_min, global_lbound))
+        return den_data
 
-    def stairs_step(self, n):
+    def _lbound_den(self, n):
+        r"""
+        A *nondecreasing* lower bound on prod(|1-α/n|) for n ∈ ℕ \ {exceptions}.
+        """
+        assert n not in self.exn
+        if n > self._den_converged:
+            return self.almost_one
+        res = IR.one()
+        for root, mult, n_min, global_lbound in self.den_data:
+            if n < n_min:
+                # note that global_lbound already takes mult into account
+                res *= global_lbound
+            else:
+                res *= ((IC.one() - root/n).abs())**mult
+        if safe_ge(res, self.almost_one):
+            self._den_converged = n
+            return self.almost_one # just so that the sequence is nondecreasing
+        return res
+
+    def _precompute_num_data(self):
+        deg = 0
+        num_data = []
+        for num in self.nums:
+            deg += self.den.degree()
+            assert num.degree() <= deg
+            #rev = num.reverse(deg)
+            rev = Polynomial.reverse(num, deg) # work around sage bug #21194
+            num_data.append(rev.change_ring(IC))
+        return num_data
+
+    def _bound_num(self, ord, n):
+        r"""
+        A very simple upper bound on |num(n)/n^((t+1)·r)|, nonincreasing with n.
+
+        (Works for exceptional indices, but doesn't do anything clever to take
+        advantage of them.)
+        """
+        rcpq_num = self.num_data[ord]
+        almost_lim = rcpq_num[0].abs()/self.almost_one
+        if n > self._num_converged[ord]:
+            return almost_lim
+        iv = IR.zero().union(~IR(n))
+        bound = rcpq_num(iv).above_abs()
+        if bound < almost_lim: #safe_le(bound, almost_lim):
+            self._num_converged[ord] = n
+            return almost_lim # so that the sequence of bounds is nonincreasing
+        return bound
+
+    def _precompute_stairs(self):
+        if not self.exn:
+            return []
+        stairs = [(infinity, IR.zero())]
+        for n in sorted(self.exn, reverse=True):
+            # We need the global bound to be nonincreasing, so we take the max
+            # of the exceptional value and the next ordinary index.
+            for next in itertools.count(n):
+                if next not in self.exn:
+                    break
+            val = self.exn[n].max(self._bound_rat(next))
+            if val.upper() > stairs[-1][1].upper():
+                stairs.append((n, val))
+        stairs.reverse()
+        stairs.pop() # remove (∞,0) (so that stairs == [] makes sense, + faster)
+        return stairs
+
+    def _bound_exn(self, n):
+        r"""
+        A *nonincreasing* staircase function defined on the whole of ℕ that
+        bounds the values at exceptional indices.
+        """
+        # Return the value associated to the smallest step larger than n. (This
+        # might be counter-intuitive!)
         for (edge, val) in self.stairs:
             if n <= edge:
                 return val
-        assert False
+        return IR.zero()
+
+    def _bound_rat(self, n):
+        lden = self._lbound_den(n)
+        bound = sum(
+                self._bound_num(t, n)/lden**(t+1)
+                for t in xrange(len(self.num_data)))
+        if not bound.is_finite():
+            return IR(infinity) # replace NaN by +∞ (as max(NaN, 42) = 42)
+        return bound
 
     def __call__(self, n):
-        step = self.stairs_step(n)
-        if step.upper() == infinity: # TODO: arb is_finite?
-            return step
-        else:
-            # TODO: avoid recomputing cst every time once it becomes <= next + ε?
-            val = (IC(self.num(n))/IC(self.den(n))).above_abs()
-            return step.max(val)
+        bound_rat = IR.zero() if n in self.exn else self._bound_rat(n)
+        bound_exn = self._bound_exn(n)
+        return bound_rat.max(bound_exn)
 
-    def plot(self, n=30):
+    def ref(self, n):
+        if n in self.exn:
+            return abs(self.exn[n])
+        else:
+            return sum(
+                    (IC(num(n))/IC(self.den(n))**(i+1)).abs()
+                    for i, num in enumerate(self.nums))
+
+    def plot(self, rng=None):
         from sage.plot.plot import list_plot
-        rat = self.num/self.den
-        p1 = list_plot([RR(abs(rat(k))) if self.den(k) else RR('inf')
-                        for k in range(n)],
-                marker='o', plotjoined=True)
-        p2 = list_plot([self.stairs_step(k).upper() for k in range(n)],
-                plotjoined=True, linestyle=':', color='black')
-        p3 = list_plot([self(k).upper() for k in range(n)],
-                marker='o', plotjoined=True, color='blue')
-        return p1 + p2 + p3
+        if rng is None:
+            rng = xrange(self.den.degree(), 100)
+        p1 = list_plot(
+                [RR(self.ref(k).upper()) for k in rng],
+                plotjoined=True, color='black', scale="semilogy")
+        p2 = list_plot(
+                [RR(self(k).upper()) for k in rng],
+                plotjoined=True, color='blue', scale="semilogy")
+        return p1 + p2
 
-    def _test(self, n=100):
-        for k in range(n):
-            if self(k) < IR(self.num(k)/self.den(k)).abs():
-                raise AssertionError
-
-class SumSeqBound(SeqBound):
-    r"""
-    A sum of :class:`SeqBound`s.
-    """
-
-    def __init__(self, terms):
-        self.terms = terms
-
-    def __repr__(self):
-        return '(' + ' + '.join(repr(term) for term in self.terms) + ')'
-
-    def asympt_repr(self):
-        deg = max(t.num.degree() - t.den.degree() for t in self.terms)
-        if deg == 0:
-            return "~{}".format(sum(t.lim() for t in self.terms).mid())
-        else:
-            return "~max({}, {}·n^{})".format(
-                sum(t.lim() for t in self.terms).mid(),
-                sum(t.num().leading_coefficient()/t.den.leading_coefficient()
-                    for t in self.terms
-                    if t.num.degree() - t.den.degree() == deg).mid(),
-                deg)
-
-    def __call__(self, n):
-        return sum(term(n) for term in self.terms)
-
-def bound_real_roots(pol):
-    if pol.is_zero():
-        raise ValueError("pol == 0")
-    bound = real_roots.cl_maximum_root(pol.change_ring(RIF).list())
-    bound = RIF._upper_field()(bound) # work around weakness of cl_maximum_root
-    bound = bound.nextabove().ceil()
-    return bound
-
-@cached_function
-def real_roots_right_of(pol, xmin):
-    r"""
-    If pol ≠ 0, return a list of intervals with rational endpoints (represented
-    by pairs) containing all real roots x of pol with x >= xmin. Return [] if
-    pol = 0.
-    """
-    if pol.degree() <= 0:
-        return []
-    xmin = QQ(xmin)
-    xmax = bound_real_roots(pol)
-    if xmin > xmax:
-        return []
-    bounds = (xmin, xmax)
-    if pol.base_ring() is AA:
-        if xmax < QQ(xmin + 20):
-            # don't bother with computing the roots (too slow)
-            return [bounds]
-        bounds = None
-    pol = squarefree_part(pol)
-    try:
-        roots = real_roots.real_roots(pol, bounds=bounds, skip_squarefree=True)
-    except AssertionError:
-        bounds = None
-        roots = real_roots.real_roots(pol, skip_squarefree=True)
-    if roots and roots[-1][0][1]:
-        diam = ~roots[-1][0][1]
-        while any(rt >= xmin and rt - lt > QQ(10)
-                  for ((lt, rt), _) in roots):
-            # max_diameter is a relative diameter --> pb for large roots
-            logger.debug("refining (diam=%s)...", diam)
-            roots = real_roots.real_roots(pol, bounds=bounds, max_diameter=diam,
-                                                           skip_squarefree=True)
-            diam >>= 1
-    return [root for (root, mult) in roots if root[1] >= xmin]
-
-_upper_inf = RIF(infinity).upper()
-
-def _re_im(pol, RealScalars):
-    return (pol.map_coefficients(which, new_base_ring=RealScalars)
-            for which in (lambda coef: coef.real(),
-                            lambda coef: coef.imag()))
-
-# TODO: computation of roots should be shared between calls corresponding to
-# different shift equivalence classes...
-# XXX: j'ai l'impression qu'on pourrait aussi ne le faire que pour les n qui
-# nous intéressent vraiment...
-def bound_ratio_large_n(num, den, nmin, exceptions={}, min_drop=IR(1.1), stats=None):
-    """
-    Given two polynomials num and den with complex coefficients, return a
-    nonincreasing function b: ℕ → [0, ∞] such that
-
-        b(n) ≥ min(|num(n)/den(n)|, exceptions[n])    for all n ∈ ℕ.
-
-        XXX: is this really a min, or a piecewise def?
-
-    Don't bother with returning a tight or even finite bound for n < nmin.
-
-    Notes:
-    - The idea is that exceptions[k] will typically be specified only when
-      den(k) = 0, but may be omitted even in this case if one is willing to
-      accept that b(n) = ∞ up to the largest integer root of den.
-    - We probably don't really need b to be nondecreasing, only that
-      b(n) >= min(|num(k)/den(k)|, exceptions[k]) when 0 <= n <= k.
-
-    EXAMPLES::
-
-        sage: from ore_algebra.analytic.bounds import bound_ratio_large_n
-        sage: Pols.<n> = QQ[]
-
-        sage: num = (n^3-2/3*n^2-10*n+2)*(n^3-30*n+8)*(n^3-10/9*n+1/54)
-        sage: den = (n^3-5/2*n^2+n+2/5)*(n^3-1/2*n^2+3*n+2)*(n^3-81/5*n-14/15)
-        sage: bnd1 = bound_ratio_large_n(num, den, 0); bnd1
-        max(
-          |(n^9 + ([-0.66...])*n^8 + ([-41.1...])*n^7 + ...)/(n^9 - ...)|,
-          [22.77116...]     for  n <= 2,
-          [12.72438...]     for  n <= 4,
-          [1.052785...]     for  n <= +Infinity
-        )
-        sage: bnd1.plot(12)
-        Graphics object consisting of 3 graphics primitives
-
-        sage: num = (n^2-3/2*n-6/7)*(n^2+1/8*n+1/12)*(n^3-1/44*n^2+1/11*n+9/22)
-        sage: den = (n^3-1/2*n^2+1/13)*(n^3-28*n+35)*(n^3-31/5)
-        sage: bnd2 = bound_ratio_large_n(num, den, 0); bnd2
-        max(
-          ...
-          [0.231763...]   for  n <= 4,
-          [0.200420...]   for  n <= 5,
-          0               for  n <= +Infinity
-        )
-        sage: bnd2.plot()
-        Graphics object consisting of 3 graphics primitives
-
-    TESTS::
-
-        sage: bnd1._test()
-        sage: bnd2._test()
-
-        sage: bound_ratio_large_n(n, Pols(1), 0)
-        Traceback (most recent call last):
-        ...
-        ValueError: expected deg(num) <= deg(den)
-
-        sage: bound_ratio_large_n(Pols(1), Pols(3), 0)
-        max(
-          |(1.000...)/(3.000...)|,
-          [0.333...]     for  n <= +Infinity
-        )
-
-        sage: i = QuadraticField(-1).gen()
-        sage: bound_ratio_large_n(n, n + i, 0)
-        max(
-          |(n)/(n + I)|,
-          1.000000000000000     for  n <= +Infinity
-        )
-    """
-    num = den.parent().coerce(num)
-
-    if num.is_zero():
-        return RatSeqBound(num, den.parent().one(), [(infinity, IR.zero())])
-    if num.degree() > den.degree():
-        raise ValueError("expected deg(num) <= deg(den)")
-
-    Scalars = num.base_ring()
-    if Scalars is QQ:
-        crit = num.diff()*den - num*den.diff()
-        dden = den
-    else:
-        if isinstance(Scalars, NumberField_quadratic) and Scalars.gen()**2==-1:
-            RealScalars = QQ
-        else: # improvable
-            num, den = num.change_ring(QQbar), den.change_ring(QQbar)
-            RealScalars = AA
-        num_re, num_im = _re_im(num, RealScalars)
-        den_re, den_im = _re_im(den, RealScalars)
-        sqn_num = num_re**2 + num_im**2
-        if den_im.is_zero(): # this is the case at ordinary points
-            crit = sqn_num.diff()*den_re - 2*sqn_num*den_re.diff()
-            dden = den_re
-        else:
-            sqn_den = den_re**2 + den_im**2
-            crit = sqn_num.diff()*sqn_den - sqn_den.diff()*sqn_num
-            dden = den_re.gcd(den_im)
-        crit //= crit.gcd(dden)
-
-    if stats: stats.time_roots.tic()
-    roots = real_roots_right_of(dden, nmin)
-    roots.extend(real_roots_right_of(crit, nmin))
-    if stats: stats.time_roots.toc()
-
-    logger.debug("found %s roots, now building staircase...", len(roots))
-    if stats: stats.time_staircases.tic()
-    Pol = num.parent().change_ring(IC)
-    num, den = num.change_ring(IC), den.change_ring(IC)
-    thrs = list(n for iv in roots for n in xrange(iv[0].floor(), iv[1].ceil()))
-    thrs.sort(reverse=True)
-    thr_vals = []
-    prev_n = None
-    for n in thrs:
-        if n != prev_n:
-            thr_vals.append(
-                    (n, (exceptions[n] if n in exceptions
-                     else num(n).abs()/den(n).abs())))
-        prev_n = n
-    lim = (num[den.degree()]/den.leading_coefficient()).abs()
-    stairs = [(infinity, lim)]
-    for (n, val) in thr_vals:
-        if val.upper() > (min_drop*stairs[-1][1]).upper():
-            stairs.append((n, val))
-        elif val.upper() > stairs[-1][1].upper():
-            # avoid unnecessarily large staircases
-            stairs[-1] = (stairs[-1][0], val)
-        if val.upper() == _upper_inf:
-            break
-    stairs.reverse()
-    logger.log(logging.INFO-2, "done building staircase, size=%s", len(stairs))
-    if stats: stats.time_staircases.toc()
-
-    return RatSeqBound(num, den, stairs)
+    def _test(self, nmax=100):
+        deg = self.den.degree()
+        for n in range(nmax):
+            if n not in self.exn:
+                lb = self._lbound_den(n)
+                assert not (lb*IR(n)**deg > IC(self.den(n)).abs())
+                if n + 1 not in self.exn:
+                    assert not (self._lbound_den(n+1) < lb)
+                for i, num in enumerate(self.nums):
+                    bound = self._bound_num(i, n)
+                    assert not (bound*IR(n)**((i+1)*deg) < IC(num(n)).abs())
+                    assert not (bound < self._bound_num(i, n+1))
+            bound = self(n)
+            next = self(n+1)
+            assert not (bound < self.ref(n))
+            assert not (bound < next)
 
 def bound_ratio_derivatives(num, den, nmin, nat_poles, stats=None):
     r"""
@@ -744,11 +671,19 @@ def bound_ratio_derivatives(num, den, nmin, nat_poles, stats=None):
 
     The variable of num, den represents an integer index shift.
     """
+    # XXX: simplify calling sequence (nmin, stats are now ignored), rename,
+    # perhaps adapt stats
+    # XXX: add examples and tests adapted from the old bound_ratio_large_n
+    if num.degree() >= den.degree():
+        raise ValueError("expected deg(num) < deg(den)")
+
     Pol = num.parent()
 
     max_mult = max(mult for _, mult in nat_poles) if nat_poles else 0
     derivatives = 1 + sum(mult for _, mult in nat_poles)
     Jets = utilities.jets(IC, 'X', derivatives + max_mult)
+
+    # Compute exceptions first, since we are going to overwrite num.
     # Sage won't return Laurent series here.
     ex_series = {}
     for n, mult in nat_poles:
@@ -757,21 +692,22 @@ def bound_ratio_derivatives(num, den, nmin, nat_poles, stats=None):
         # computed value might include terms of degree < mult with interval
         # coefficients containing zero
         ex_series[n] = n*num(pert)/Jets(den(pert).lift() >> mult)
+    exns = { n: sum(ser[t].abs() for t in xrange(derivatives))
+             for n, ser in ex_series.iteritems() }
 
     denpow = den
     dendiff = den.derivative()
-    terms = []
+    nums = []
+    # Possible improvement: find a way to evaluate the derivatives on an
+    # interval directly, without explicitly computing their numerators???
     for t in range(derivatives):
         # at this point denpow = den^(t+1) and num/denpow = D^t(orig num/den)/t!
-        ex = {n: ser[t].abs() for n, ser in ex_series.iteritems()}
-        bnd = bound_ratio_large_n(num << 1, denpow, nmin, exceptions=ex, stats=stats)
-        terms.append(bnd)
+        nums.append(num << 1)
         num = num.derivative()*den/(t + 1) - num*dendiff
         denpow *= den
-    if len(terms) == 1:
-        return terms[0]
-    else:
-        return SumSeqBound(terms)
+
+    seqbound = RatSeqBound(nums, den, exns)
+    return seqbound
 
 ################################################################################
 # Bounds for differential equations
@@ -842,7 +778,7 @@ class DiffOpBound(object):
     where
 
     * num[n](z) and pol[n](z) are polynomials with coefficients depending on n
-      (given by SeqBound objects), with val(num[n]) >= deg(pol[n]),
+      (given by RatSeqBound objects), with val(num[n]) >= deg(pol[n]),
 
     * den(z) is a polynomial (with constant coefficients),
 
