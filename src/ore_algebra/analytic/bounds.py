@@ -444,8 +444,8 @@ class RatSeqBound(SeqBound):
     A piecewise-constant-piecewise-rational nonincreasing sequence.
 
     This is intended to represent a sequence b(n) such that |f(k)| <= b(n) for
-    all k >= n, for a certain (rational) sequence f(n) = num(n)/den(n). The
-    bound is defined by
+    almost all k >= n, where f(n) = num(n)/den(n) is a given rational function.
+    The bound is defined by
 
     - the two polynomials num, den, with deg(num) <= deg(den),
 
@@ -606,16 +606,20 @@ def _re_im(pol, RealScalars):
 def bound_ratio_large_n(num, den, nmin, exceptions={}, min_drop=IR(1.1), stats=None):
     """
     Given two polynomials num and den with complex coefficients, return a
-    function b: ℕ → [0, ∞] such that
+    nonincreasing function b: ℕ → [0, ∞] such that
 
-        b(n) >= min(|num(k)/den(k)|, exceptions[k])
+        b(n) ≥ min(|num(n)/den(n)|, exceptions[n])    for all n ∈ ℕ.
 
-    for all n, k ∈ ℕ with 0 <= n <= k. (The idea is that exceptions[k] will
-    typically be specified only when den(k) = 0, but may be omitted even in
-    this case if one is willing to accept that b(n) = ∞ up to the largest
-    integer root of den.)
+        XXX: is this really a min, or a piecewise def?
 
     Don't bother with returning a tight or even finite bound for n < nmin.
+
+    Notes:
+    - The idea is that exceptions[k] will typically be specified only when
+      den(k) = 0, but may be omitted even in this case if one is willing to
+      accept that b(n) = ∞ up to the largest integer root of den.
+    - We probably don't really need b to be nondecreasing, only that
+      b(n) >= min(|num(k)/den(k)|, exceptions[k]) when 0 <= n <= k.
 
     EXAMPLES::
 
