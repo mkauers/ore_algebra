@@ -1058,9 +1058,7 @@ class DiffOpBound(object):
         # definition, majseq_num starts at the degree following that of
         # majseq_pol_part, it gets shifted as well. The "<< 1" in the next few
         # lines have nothing to do with that, they are multiplications by *n*.
-        # XXX: Extend the previously computed pol part instead of restarting
-        # from the first term. Consider using a faster algorithm for the pol
-        # part.
+        # XXX: Consider using a faster algorithm for the pol part?
         old_pol_part_len = len(self.majseq_pol_part)
         self.majseq_pol_part.extend([
                 bound_ratio_derivatives(first_nz[i](alg_idx), self.ind, nmin,
