@@ -664,15 +664,13 @@ class RatSeqBound(object):
             assert not (bound < self.ref(n))
             assert not (bound < next)
 
-def bound_ratio_derivatives(num, den, nat_poles, stats=None):
+def bound_ratio_derivatives(num, den, nat_poles):
     r"""
     Compute a bound on sum(n·|f^(t)(n)/t!|, t=0..derivatives-1) similar to the
     one returned by bound_ratio_large_n. XXX: update descr
 
     The variable of num, den represents an integer index shift.
     """
-    # XXX: simplify calling sequence (stats now ignored), rename,
-    # perhaps adapt stats
     # XXX: add examples and tests adapted from the old bound_ratio_large_n
     if num.degree() >= den.degree():
         raise ValueError("expected deg(num) < deg(den)")
@@ -986,15 +984,17 @@ class DiffOpBound(object):
         # lines have nothing to do with that, they are multiplications by *n*.
         # XXX: Consider using a faster algorithm for the pol part?
         old_pol_part_len = len(self.majseq_pol_part)
+        self.stats.time_bound_ratio.tic()
         self.majseq_pol_part.extend([
                 bound_ratio_derivatives(first_nz[i](alg_idx), self.ind,
-                                        self.special_shifts, stats=self.stats)
+                                        self.special_shifts)
                 for i in xrange(old_pol_part_len + 1, pol_part_len + 1)])
         assert len(self.majseq_pol_part) == pol_part_len
         self.majseq_num = [
                 bound_ratio_derivatives(pol(alg_idx), self.ind,
-                                        self.special_shifts, stats=self.stats)
+                                        self.special_shifts)
                 for pol in rem_num_nz]
+        self.stats.time_bound_ratio.toc()
 
     def refine(self):
         # XXX: make it possible to increase the precision of IR, IC
@@ -1156,8 +1156,7 @@ class BoundDiffopStats(utilities.Stats):
     def __init__(self):
         super(self.__class__, self).__init__()
         self.time_total = utilities.Clock("total")
-        self.time_roots = utilities.Clock("computing roots")
-        self.time_staircases = utilities.Clock("building staircases")
+        self.time_bound_ratio = utilities.Clock("doing RatSeqBound precomp.")
         self.time_decomp_op = utilities.Clock("decomposing op")
 
 def _test_diffop_bound(
