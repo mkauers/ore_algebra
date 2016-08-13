@@ -664,14 +664,14 @@ class RatSeqBound(object):
             assert not (bound < self.ref(n))
             assert not (bound < next)
 
-def bound_ratio_derivatives(num, den, nmin, nat_poles, stats=None):
+def bound_ratio_derivatives(num, den, nat_poles, stats=None):
     r"""
     Compute a bound on sum(n·|f^(t)(n)/t!|, t=0..derivatives-1) similar to the
     one returned by bound_ratio_large_n. XXX: update descr
 
     The variable of num, den represents an integer index shift.
     """
-    # XXX: simplify calling sequence (nmin, stats are now ignored), rename,
+    # XXX: simplify calling sequence (stats now ignored), rename,
     # perhaps adapt stats
     # XXX: add examples and tests adapted from the old bound_ratio_large_n
     if num.degree() >= den.degree():
@@ -897,7 +897,7 @@ class DiffOpBound(object):
         self._effort = 0
 
         self._update_den_bound()
-        self._update_num_bound(pol_part_len, 0)
+        self._update_num_bound(pol_part_len)
 
         self.stats.time_total.toc()
         logger.info("...done, time: %s", self.stats)
@@ -946,7 +946,7 @@ class DiffOpBound(object):
         self.cst = ~abs(IC(den.leading_coefficient()))
         self.maj_den = Factorization(factors, unit=Poly(1))
 
-    def _update_num_bound(self, pol_part_len, nmin):
+    def _update_num_bound(self, pol_part_len):
 
         self.stats.time_decomp_op.tic()
         lc = self.dop.leading_coefficient()
@@ -987,16 +987,16 @@ class DiffOpBound(object):
         # XXX: Consider using a faster algorithm for the pol part?
         old_pol_part_len = len(self.majseq_pol_part)
         self.majseq_pol_part.extend([
-                bound_ratio_derivatives(first_nz[i](alg_idx), self.ind, nmin,
+                bound_ratio_derivatives(first_nz[i](alg_idx), self.ind,
                                         self.special_shifts, stats=self.stats)
                 for i in xrange(old_pol_part_len + 1, pol_part_len + 1)])
         assert len(self.majseq_pol_part) == pol_part_len
         self.majseq_num = [
-                bound_ratio_derivatives(pol(alg_idx), self.ind, nmin,
+                bound_ratio_derivatives(pol(alg_idx), self.ind,
                                         self.special_shifts, stats=self.stats)
                 for pol in rem_num_nz]
 
-    def refine(self, nmin=0):
+    def refine(self):
         # XXX: make it possible to increase the precision of IR, IC
         if not self.refinable:
             logger.debug("refining disabled")
@@ -1008,7 +1008,7 @@ class DiffOpBound(object):
             self.bound_inverse = 'solve'
             self._update_den_bound()
         else:
-            self._update_num_bound(max(2, 2*self.pol_part_len()), nmin)
+            self._update_num_bound(max(2, 2*self.pol_part_len()))
         self.stats.time_total.toc()
         logger.info("...done, cumulative time: %s", self.stats)
 
