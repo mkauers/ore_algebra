@@ -436,10 +436,10 @@ def fundamental_matrix_regular(dop, pt, eps, rows):
         ....:     + (2*x^6 - 3*x^5 - 6*x^4 + 7*x^3 + 8*x^2 - 6*x + 6)*Dx^2
         ....:     + (-2*x^6 + 3*x^5 + 5*x^4 - 2*x^3 - 9*x^2 + 9*x)*Dx)
         sage: fundamental_matrix_regular(dop, RBF(1/3), RBF(1e-10), 4)
-        [ [3.178847...] [-1.064032...]  [1.000...] [0.3287250...]]
-        [ [-8.98193...] [3.2281834...]    [+/-...] [0.9586537...]]
+        [[3.1788470...] [-1.064032...]  [1.000...] [0.3287250...]]
+        [[-8.981931...] [3.2281834...]    [+/-...] [0.9586537...]]
         [ [26.18828...] [-4.063756...]    [+/-...] [-0.123080...]]
-        [ [-80.2467...]  [9.190740...]    [+/-...] [-0.119259...]]
+        [[-80.24671...]  [9.190740...]    [+/-...] [-0.119259...]]
 
         sage: dop = x*Dx^3 + 2*Dx^2 + x*Dx
         sage: ini = [1, CBF(euler_gamma), 0]
@@ -539,16 +539,17 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, tgt_error,
         sage: from ore_algebra.analytic.naive_sum import *
         sage: Dops, x, Dx = Diffops()
 
-    Test that we don't compute the zero solution when the valuation is large,
-    but that, when there are several solutions with very different valuations,
-    we can stop before reaching the largest one if the initial values there are
-    zero. ::
+    Test that we don't compute the zero solution when the valuation is large.
+    TODO: In the presence of several solutions with very different valuations,
+    we used to be able to stop before reaching the largest one if the initial
+    values there were zero. Unfortunately, this is no longer the case with the
+    simplified bounds on rational sequences::
 
         sage: #dop = (Dx-1).lclm(x*Dx-1000)
         sage: dop = (x^2-1000*x)*Dx^2 + (-x^2+999000)*Dx + 1000*x - 999000
         sage: logger = logging.getLogger('ore_algebra.analytic.naive_sum')
         sage: logger.setLevel(logging.INFO) # TBI
-        sage: transition_matrix(dop, [0,1])
+        sage: transition_matrix(dop, [0,1]) # not tested - TODO
         INFO:ore_algebra.analytic.naive_sum:solution z^(0+0)·log(z)^0/0! + ···
         INFO:ore_algebra.analytic.naive_sum:summed 50 terms, tail <= ...
         ...

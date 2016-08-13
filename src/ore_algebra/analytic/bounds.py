@@ -816,27 +816,20 @@ class DiffOpBound(object):
         1/((-x + [0.994...])^2)*exp(int(POL+1.000...*NUM/(-x + [0.994...])^2))
         where
         POL=0,
-        NUM=max(
-          |(0)/(1)|,
-          0     for  n <= +Infinity
-        )*z^0 + max(
-          |(-2.000...*n^2 - 2.000...*n)/(n^2 - n)|,
-          [+/- inf]     for  n <= 1,
-          2.000...     for  n <= +Infinity
-        )*z^1
+        NUM=(|(0)/(n^2 - n)|)*z^0 + (|(-2*n^2 - 2*n)/(n^2 - n)|)*z^1
 
     A majorant series extracted from that sequence::
 
         sage: maj(3)
-        ((-x + [0.994...])^-2)*exp(int(4.000...])^2)))
+        ((-x + [0.994...])^-2)*exp(int([4.000...]...)^2)))
 
     An example with a nontrivial polynomial part::
 
         sage: dop = (x+1)*(x^2+1)*Dx^3-(x-1)*(x^2-3)*Dx^2-2*(x^2+2*x-1)*Dx
         sage: DiffOpBound(dop, pol_part_len=3)
         1/((-x + [0.9965035284306323 +/- 2.07e-17])^3)*exp(int(POL+1.000...*NUM/(-x + [0.9965035284306323 +/- 2.07e-17])^3)) where
-        POL=~6.00000000000000*z^0 + ~3.00000000000000*z^1 + ~5.00000000000000*z^2,
-        NUM=~7.00000000000000*z^3 + ~2.00000000000000*z^4 + ~5.00000000000000*z^5
+        POL=~6.0000000000...*z^0 + ~3.0000000000...*z^1 + ~5.0000000000...*z^2,
+        NUM=~7.0000000000...*z^3 + ~2.0000000000...*z^4 + ~5.0000000000...*z^5
 
     TESTS::
 
@@ -844,10 +837,7 @@ class DiffOpBound(object):
         1/(1.000...)*exp(int(POL+1.000...*NUM/1.000...))
         where
         POL=0,
-        NUM=max(
-        |(-n)/(n)|,
-        1.000...     for  n <= +Infinity
-        )*z^0
+        NUM=(|(-n)/(n)|)*z^0
 
         sage: QQi.<i> = QuadraticField(-1)
         sage: for dop in [
