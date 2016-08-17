@@ -446,11 +446,11 @@ class RatSeqBound(object):
     r"""
     A *nonincreasing* bound on a sequence of the form
 
-        ⎧ sum[i](|num[i](n)/den(n)^(i+1)|),   n ∉ exceptions,
+        ⎧ sum[i](|nums[i](n)/den(n)^(i+1)|),   n ∉ exceptions,
         ⎨
         ⎩ exceptions[n],                      n ∈ exceptions,
 
-    where the num[i] and den are polynomials such that the num[i]/den^(i+1) all
+    where den and the nums[i] are polynomials such that the nums[i]/den^(i+1)
     have nonpositive degree.
 
     This version bounds the numerators (from above) and the denominators (from
@@ -490,6 +490,10 @@ class RatSeqBound(object):
         return fmt.format(rat=ratstr, stairs=stairsstr)
 
     def asympt_repr(self):
+        r"""
+        Simplified repr() that gives an asymptotic equivalent of the bound
+        instead of a longer description valid for all n.
+        """
         terms = []
         for t, num in enumerate(self.nums):
             deg = num.degree() - (t + 1)*self.den.degree()
@@ -508,6 +512,19 @@ class RatSeqBound(object):
 
     # Possible improvement: extract and cache???
     def _precompute_den_data(self):
+        r"""
+        Return a lower bound on self.den/n^r (where r = deg(self.den)) in the
+        format that _lbound_den expects in self.den_data.
+
+        OUTPUT:
+
+        A list of tuples (root, mult, n_min, global_lbound) where
+        - root ranges over a subset of the roots of den;
+        - mult is the multiplicity of root in den;
+        - n_min is n integer s.t. |1-root/n| is nondecreasing for n ≥ nmin;
+        - global_lbound is a real (ball) s.t. |1-root/n| ≥ global_lbound for all
+          n ∈ ℕ (in particular, for n < n_min).
+        """
         den_data = []
         for root, mult in _complex_roots(self.den):
             re = root.real()
@@ -538,7 +555,11 @@ class RatSeqBound(object):
 
     def _lbound_den(self, n):
         r"""
-        A *nondecreasing* lower bound on prod(|1-α/n|) for n ∈ ℕ \ {exceptions}.
+        A *nondecreasing* lower bound on prod[den(α) = 0](|1-α/n|) valid
+        for n ∈ ℕ \ {exceptions}.
+
+        self.den_data must be set (using self._precompute_den_data) before
+        calling this method.
         """
         assert n not in self.exn
         if n > self._den_converged:
@@ -556,6 +577,11 @@ class RatSeqBound(object):
         return res
 
     def _precompute_num_data(self):
+        r"""
+        Return the list of self.num[t](n)/n^((t+1)·r), r = deg(self.den),
+        *as polynomials in 1/n*, in the format _bound_num expects in
+        self.num_data.
+        """
         deg = 0
         num_data = []
         for num in self.nums:
@@ -570,8 +596,13 @@ class RatSeqBound(object):
         r"""
         A very simple upper bound on |num(n)/n^((t+1)·r)|, nonincreasing with n.
 
-        (Works for exceptional indices, but doesn't do anything clever to take
+        This method simply evaluates the reciprocal polynomial of num, rescaled
+        by a suitable power of n, on a interval of the form [0,1/n]. (It works
+        for exceptional indices, but doesn't do anything clever to take
         advantage of them.)
+
+        self.num_data must be set (using self._precompute_num_data) before
+        calling this function.
         """
         rcpq_num = self.num_data[ord]
         almost_lim = rcpq_num[0].abs()/self.almost_one
@@ -585,6 +616,16 @@ class RatSeqBound(object):
         return bound
 
     def _precompute_stairs(self):
+        r"""
+        Return the data structure expected by _bound_exn in self.stairs.
+
+        self.num_data and self.den_data need to be set.
+
+        OUTPUT:
+
+        A list of pairs (edge, val), ordered by increasing edge, such that
+        |self.ref(n)| ≤ val for all n ≥ edge.
+        """
         if not self.exn:
             return []
         stairs = [(infinity, IR.zero())]
@@ -604,7 +645,11 @@ class RatSeqBound(object):
     def _bound_exn(self, n):
         r"""
         A *nonincreasing* staircase function defined on the whole of ℕ that
-        bounds the values at exceptional indices.
+        bounds the values of ref(k) for all k ≥ n whenever n is an exceptional
+        index (so that max(_bound_exn(n), _bound_rat(n)) is nonincreasing).
+
+        self.stairs must be set (using _precompute_stairs) before calling this
+        method.
         """
         # Return the value associated to the smallest step larger than n. (This
         # might be counter-intuitive!)
@@ -664,12 +709,37 @@ class RatSeqBound(object):
             assert not (bound < self.ref(n))
             assert not (bound < next)
 
+# Possible improvement: better take into account the range of derivatives needed
+# at each step.
 def bound_ratio_derivatives(num, den, nat_poles):
     r"""
-    Compute a bound on sum(n·|f^(t)(n)/t!|, t=0..derivatives-1) similar to the
-    one returned by bound_ratio_large_n. XXX: update descr
+    Compute a nonincreasing sequence that bounds the sequence |n·num(n)/den(n)|
+    where n ranges over the natural numbers (when nat_poles=[]) or (more
+    generally) a related sequence that comes up in bounds on rational operators.
 
-    The variable of num, den represents an integer index shift.
+    INPUT:
+
+    - num, den - polynomials with complex coefficients;
+    - nat_poles - list of pairs, a subset of the natural zeros of den and their
+      multiplicities.
+
+    OUTPUT:
+
+    A :class:`RatSeqBound` representing a nonincreasing b: ℕ → [0, ∞] such that
+
+        b(n) ≥ sum(|n·f^(t)(n)/t!|, t=0..M),                (n, _) ∉ nat_poles,
+        b(n) ≥ (some similar sum with t shifted),           (n, m) ∈ nat_poles,
+
+    where f = num/den and (currently) M ≥ sum[(_, m) ∈ nat_poles](m).
+
+    NOTES:
+
+    - In the main application this is intended for, den is the indicial equation
+      of a differential operator and num is another coefficient of some related
+      recurrence operator, both shifted so that some root of interest of the
+      indicial equation goes to zero.
+    - In the application, we probably don't really need b to be nonincreasing,
+      only that b(n) ≥ min(|num(k)/den(k)|, ...) when 0 ≤ n ≤ k.
     """
     # XXX: add examples and tests adapted from the old bound_ratio_large_n
     if num.degree() >= den.degree():
@@ -699,8 +769,8 @@ def bound_ratio_derivatives(num, den, nat_poles):
     # Possible improvement: find a way to evaluate the derivatives on an
     # interval directly, without explicitly computing their numerators???
     for t in range(derivatives):
-        # at this point denpow = den^(t+1) and num/denpow = D^t(orig num/den)/t!
-        nums.append(num << 1)
+        # At this point denpow = den^(t+1) and num/denpow = D^t(orig num/den)/t!
+        nums.append(num << 1) # the shift accounts for the "n·" in the spec
         num = num.derivative()*den/(t + 1) - num*dendiff
         denpow *= den
 
