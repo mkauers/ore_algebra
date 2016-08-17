@@ -446,9 +446,8 @@ class RatSeqBound(object):
     r"""
     A *nonincreasing* bound on a sequence of the form
 
-        ⎧ sum[i](|nums[i](n)/den(n)^(i+1)|),   n ∉ exceptions,
-        ⎨
-        ⎩ exceptions[n],                      n ∈ exceptions,
+        ⎰ sum[i](|nums[i](n)/den(n)^(i+1)|),   n ∉ exceptions,
+        ⎱ exceptions[n],                       n ∈ exceptions,
 
     where den and the nums[i] are polynomials such that the nums[i]/den^(i+1)
     have nonpositive degree.
@@ -458,6 +457,27 @@ class RatSeqBound(object):
     the indicial equation has only small roots. In the presence of, e.g., large
     real roots, however, it is not much better than waiting to get past the
     largest root.
+
+    EXAMPLES::
+
+        sage: Pols.<n> = QQ[]
+        sage: bnd = RatSeqBound([Pols(3), n^2], n*(n-3), {3: RBF(10)})
+        sage: bnd
+        max(
+          |(3)/(n^2 - 3*n)|
+        + |(n^2)/((...)^2)|,
+          10.00000000000000     for  n <= 3
+        )
+        sage: bnd.asympt_repr()
+        '~(3.000000000000000*n^-2 + 1.000000000000000*n^-2)'
+        sage: [(bnd.ref(k), bnd(k)) for k in range(5)]
+        [([+/- inf], [+/- inf]),
+         (1.750000000000000, [28.00000014901161 +/- 1.94e-15]),
+         (2.500000000000000, 10.00000000000000),
+         (10.00000000000000, 10.00000000000000),
+         (1.750000000000000, [1.750000009313226 +/- 2.54e-16])]
+        sage: bnd.plot()
+        Graphics object consisting of 2 graphics primitives
     """
 
     def __init__(self, nums, den, exceptions):
@@ -468,14 +488,16 @@ class RatSeqBound(object):
         self.exn = exceptions
         # Dynamically computed data on when various parts of the bound become
         # close enough to their limit that it is not worth recomputing them.
-        self._num_converged = [2**62 for _ in nums] # faster than infinity
+        self._num_converged = [2**62 for _ in nums] # faster than symbolic infty
         self._den_converged = 2**62
         # Precomputed bound data
         self.num_data = self._precompute_num_data()
         self.den_data = self._precompute_den_data()
         self.stairs = self._precompute_stairs()
-        # self._test()
-        # self.plot().show()
+        # TODO: add a way to _test() all bounds generated during a given
+        # computation
+        #if self.ctx is not None and self.ctx.check_bounds:
+        #    self._test()
 
     def __repr__(self):
         n = self.den.variable_name()
@@ -735,9 +757,13 @@ def bound_ratio_derivatives(num, den, nat_poles):
 
     INPUT:
 
-    - num, den - polynomials with complex coefficients;
+    - num, den - polynomials with complex coefficients, with deg(num) < deg(n);
     - nat_poles - list of pairs, a subset of the natural zeros of den and their
-      multiplicities.
+      multiplicities, typically
+      - either the full list of integer zeros (or a “right segment”), in the
+        context of evaluations at regular singular points,
+      - or empty if one is not interested in derivatives and willing to do with
+        an infinite bound up to the rightmost integer zero of den.
 
     OUTPUT:
 
@@ -756,8 +782,49 @@ def bound_ratio_derivatives(num, den, nat_poles):
       indicial equation goes to zero.
     - In the application, we probably don't really need b to be nonincreasing,
       only that b(n) ≥ min(|num(k)/den(k)|, ...) when 0 ≤ n ≤ k.
+
+    EXAMPLES::
+
+        sage: Pols.<n> = QQ[]
+
+        sage: bnd = bound_ratio_derivatives(Pols(1), n*(n-1), {}); bnd
+        (|(n)/(n^2 - n)|)
+        sage: [bnd(k) for k in range(5)]
+        [[+/- inf], [+/- inf], [1.000...], [0.500...], [0.333...]]
+
+        sage: bnd = bound_ratio_derivatives(-n, n*(n-3), [(0,1), (3,1)]); bnd
+        max(
+          |(-n^2)/(n^2 - 3*n)|
+        + |(n^3)/((...)^2)|
+        + |(-n^4)/((...)^3)|,
+          [84.2666...]      for  n <= 0,
+          [12.2666...]      for  n <= 3
+        )
+        sage: [(bnd.ref(k), bnd(k)) for k in range(5)]
+        [(0,          [84.266...]),
+         (0.875...,   [84.266...]),
+         (6.000...,   [28.266...]),
+         ([3.000...], [12.266...]),
+         (12.000...,  [12.266...])]
+
+        sage: bound_ratio_derivatives(n, n, {})
+        Traceback (most recent call last):
+        ...
+        ValueError: expected deg(num) < deg(den)
+
+    TESTS::
+
+        sage: bnd = bound_ratio_derivatives(Pols(3), n, {}); bnd
+        (|(3*n)/(n)|)
+        sage: bnd._test()
+        sage: i = QuadraticField(-1).gen()
+        sage: bound_ratio_derivatives(Pols(1), n+i, {})._test()
+        sage: bound_ratio_derivatives(-n, n*(n-3), [(3,1)])._test()
+        sage: bound_ratio_derivatives(-n, n*(n-3), [(0,1)])._test()
+        sage: bound_ratio_derivatives(-n, n*(n-3), [(0,1),(3,1)])._test()
+        sage: bound_ratio_derivatives(CBF(i)*n, n*(n-QQbar(i)), [(0,1),(3,1)])._test()
+        sage: bound_ratio_derivatives(n^5-100*n^4+2, n^3*(n-1/2)*(n-2)^2, [(0,3), (2,2)])._test()
     """
-    # XXX: add examples and tests adapted from the old bound_ratio_large_n
     if num.degree() >= den.degree():
         raise ValueError("expected deg(num) < deg(den)")
 
