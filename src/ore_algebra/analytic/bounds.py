@@ -680,15 +680,31 @@ class RatSeqBound(object):
                     (IC(num(n))/IC(self.den(n))**(i+1)).abs()
                     for i, num in enumerate(self.nums))
 
-    def plot(self, rng=None):
+    def plot(self, rng=xrange(100)):
+        r"""
+        Plot this bound and its reference value.
+
+        EXAMPLES::
+
+            sage: Pols.<n> = QQ[]
+            sage: i = QuadraticField(-1).gen()
+            sage: bnd = bound_ratio_derivatives(
+            ....:     CBF(i)*n+42, n*(n-3)*(n-i-20), [(0,1),(3,1)])
+            sage: bnd.plot()
+            Graphics object consisting of 2 graphics primitives
+            sage: bnd.plot(xrange(30))
+            Graphics object consisting of 2 graphics primitives
+        """
         from sage.plot.plot import list_plot
-        if rng is None:
-            rng = xrange(self.den.degree(), 100)
         p1 = list_plot(
-                [RR(self.ref(k).upper()) for k in rng],
+                [(k, RR(self.ref(k).upper()))
+                    for k in rng if self.ref(k).is_finite()],
                 plotjoined=True, color='black', scale="semilogy")
+        # Plots come up empty when one of the y-coordinates is +∞, so we may as
+        # well start with the first finite value.
+        rng2 = itertools.dropwhile(lambda k: self(k).is_infinity(), rng)
         p2 = list_plot(
-                [RR(self(k).upper()) for k in rng],
+                [(k, RR(self(k).upper())) for k in rng2],
                 plotjoined=True, color='blue', scale="semilogy")
         return p1 + p2
 
