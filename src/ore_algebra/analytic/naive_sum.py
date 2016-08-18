@@ -578,12 +578,12 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, tgt_error,
         sage: h = CBF(1/2)
         sage: #dop = (Dx-1).lclm(x^2*Dx^2 - x*(2*x+1999)*Dx + (x^2 + 1999*x + 1000^2))
         sage: dop = x^2*Dx^3 + (-3*x^2 - 1997*x)*Dx^2 + (3*x^2 + 3994*x + 998001)*Dx - x^2 - 1997*x - 998001
-        sage: mat = transition_matrix(dop, [0,1/2], 1e-5)
-        sage: mat[0,0].overlaps(exp(h))
+        sage: mat = transition_matrix(dop, [0,1/2], 1e-5) # XXX: long time with the simplified bounds on rational functions
+        sage: mat[0,0].overlaps(exp(h)) # long time
         True
-        sage: mat[0,1].overlaps(exp(h)*h^1000*log(h))
+        sage: mat[0,1].overlaps(exp(h)*h^1000*log(h)) # long time
         True
-        sage: mat[0,2].overlaps(exp(h)*h^1000)
+        sage: mat[0,2].overlaps(exp(h)*h^1000) # long time
         True
 
         sage: dop = (x^3 + x^2)*Dx^3 + (-1994*x^2 - 1997*x)*Dx^2 + (994007*x + 998001)*Dx + 998001
