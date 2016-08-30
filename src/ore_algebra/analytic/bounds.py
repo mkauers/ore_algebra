@@ -82,9 +82,6 @@ class MajorantSeries(object):
         else:
             return self._bound(rad, **kwds)
 
-    def _bound(self, rad):
-        return self(rad)
-
     def _test(self, fun=0, prec=50, return_difference=False):
         r"""
         Check that ``self`` is *plausibly* a majorant of ``fun``.
@@ -203,6 +200,11 @@ class RationalMajorant(MajorantSeries):
     def eval(self, ev):
         # explicit product may be better than den.value()(z) in some cases
         return sum(ev(num)/prod(ev(lin)**mult for (lin, mult) in den)
+                   for num, den in self.fracs)
+
+    def _bound(self, rad):
+        # repeated instead of calling eval for speed reasons
+        return sum(num(rad)/prod(lin(rad)**mult for (lin, mult) in den)
                    for num, den in self.fracs)
 
     def bound_antiderivative(self):
