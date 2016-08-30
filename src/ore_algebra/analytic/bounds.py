@@ -125,17 +125,19 @@ class MajorantSeries(object):
         if return_difference:
             return delta
 
-def _pole_free_rad(fac):
-    if isinstance(fac, Factorization):
-        den = [pol for (pol, mult) in fac if mult < 0]
-        if all(pol.degree() == 0 for pol in den):
-            return IR(infinity)
-        if all(pol.degree() == 1 and pol.leading_coefficient().abs().is_one()
-               for pol in den):
-            rad = IR(infinity).min(*(IR(pol[0].abs()) for pol in den))
-            rad = IR(rad.lower())
-            assert rad >= IR.zero()
-            return rad
+def _zero_free_rad(pols):
+    r"""
+    Return the radius of a disk around the origin without zeros of any of the
+    polynomials in pols.
+    """
+    if all(pol.degree() == 0 for pol in pols):
+        return IR(infinity)
+    if all(pol.degree() == 1 and pol.leading_coefficient().abs().is_one()
+            for pol in pols):
+        rad = IR(infinity).min(*(IR(pol[0].abs()) for pol in pols))
+        rad = IR(rad.lower())
+        assert rad >= IR.zero()
+        return rad
     raise NotImplementedError
 
 class RationalMajorant(MajorantSeries):
@@ -173,14 +175,14 @@ class RationalMajorant(MajorantSeries):
 
     def __init__(self, fracs):
         self.Poly = Poly = fracs[0][0].parent().change_ring(IR)
-        cvrad = IR('inf').min(*[_pole_free_rad(~den) for _, den in fracs])
+        cvrad = _zero_free_rad([-fac for _, den in fracs for fac, _ in den if fac.degree() > 0])
         super(self.__class__, self).__init__(Poly.variable_name(), cvrad=cvrad)
         self.fracs = []
         for num, den in fracs:
             if isinstance(num, Polynomial) and isinstance(den, Factorization):
                 if not den.unit().is_one():
                     raise ValueError("expected a denominator with unit part 1")
-                assert den.universe() is Poly or den.value() == 1
+                assert den.universe() is Poly or list(den) == []
                 self.fracs.append((num, den))
             else:
                 raise TypeError
@@ -243,7 +245,8 @@ class HyperexpMajorant(MajorantSeries):
     def __init__(self, integrand, rat):
         if isinstance(integrand, RationalMajorant) and isinstance(rat,
                 Factorization):
-            cvrad = integrand.cvrad.min(_pole_free_rad(rat))
+            den = [pol for (pol, mult) in rat if mult < 0]
+            cvrad = integrand.cvrad.min(_zero_free_rad(den))
             super(self.__class__, self).__init__(integrand.variable_name, cvrad)
             self.integrand = integrand
             self.rat = rat
@@ -1039,6 +1042,8 @@ class DiffOpBound(object):
         self._rcoeffs = _dop_rcoeffs_of_T(dop_T)
 
         self.Poly = Pols_z.change_ring(IR) # TBI
+        one = self.Poly.one()
+        self.__facto_one = Factorization([(one, 1)], unit=one, sort=False, simplify=False)
 
         lc = dop_T.leading_coefficient()
         if lc.is_term() and not lc.is_constant():
@@ -1089,18 +1094,18 @@ class DiffOpBound(object):
 
         Poly = den.parent().change_ring(IR)
         if den.degree() <= 0:
-            factors = []
+            facs = []
         # below_abs()/lower() to get thin intervals
         elif self.bound_inverse == "simple":
             rad = abs_min_nonzero_root(den).below_abs(test_zero=True)
-            factors = [(Poly([rad, -1]), den.degree())]
+            facs = [(Poly([rad, -1]), den.degree())]
         elif self.bound_inverse == "solve":
-            factors = [(Poly([IR(iv.abs().lower()), -1]), mult)
-                        for iv, mult in self._poles()]
+            facs = [(Poly([IR(iv.abs().lower()), -1]), mult)
+                    for iv, mult in self._poles()]
         else:
             raise ValueError("algorithm")
         self.cst = ~abs(IC(den.leading_coefficient()))
-        self.maj_den = Factorization(factors, unit=Poly(1))
+        self.maj_den = Factorization(facs, unit=Poly.one(), sort=False, simplify=False)
 
     def _update_num_bound(self, pol_part_len):
 
@@ -1180,12 +1185,15 @@ class DiffOpBound(object):
         # in RationalMajorant
         maj_num_pre_shift = self.Poly([fun(n) for fun in self.majseq_num])
         maj_num = (self.cst*maj_num_pre_shift) << self.pol_part_len()
-        one = Factorization([(self.Poly.one(),1)])
-        terms = [(maj_pol_part, one), (maj_num, self.maj_den)]
+        terms = [(maj_pol_part, self.__facto_one), (maj_num, self.maj_den)]
         rat_maj = RationalMajorant(terms)
         # The rational part “compensates” the change of unknown function
-        # involving the leading coefficient of the operator.
-        maj = HyperexpMajorant(integrand=rat_maj, rat=~self.maj_den)
+        # involving the leading coefficient of the operator. We compute ~den
+        # by hand because Factorization.__invert__() can be very slow.
+        inv_den = Factorization([(p,-e) for (p,e) in self.maj_den],
+                unit=self.maj_den.unit(), # always one
+                sort=False, simplify=False)
+        maj = HyperexpMajorant(integrand=rat_maj, rat=inv_den)
         return maj
 
     # Extracted from tail_majorant for (partial) compatibility with the regular
