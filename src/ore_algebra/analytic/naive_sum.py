@@ -518,7 +518,7 @@ def log_series_value(Jets, derivatives, expo, psum, pt):
     inipow = pt**expo*sum(_pow_trunc(aux, k, derivatives)/Integer(k).factorial()
                           for k in xrange(derivatives))
     logger.debug("inipow=%s", inipow)
-    val = inipow._mul_trunc_(
+    val = inipow.multiplication_trunc(
             sum(psum[p]._mul_trunc_(_pow_trunc(logpt, p, derivatives), derivatives)
                         /Integer(p).factorial()
                 for p in xrange(log_prec)),
