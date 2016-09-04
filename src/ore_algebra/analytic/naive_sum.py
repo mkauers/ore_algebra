@@ -361,7 +361,7 @@ def series_sum_ordinary(Intervals, dop, bwrec, ini, pt,
             if tgt_error.reached(tail_bound, abs_sum):
                 return True, tail_bound
             elif (i == 1 and tail_bound.is_finite()
-                    and not tail_bound < prev_tail_bound.above_abs()):
+                    and not tail_bound <= prev_tail_bound.above_abs()):
                 raise accuracy.PrecisionError
             elif not tgt_error.reached(tail_bound*
                     est**(QQ((maj._effort**2 + 2)*stride)/n)):
@@ -436,10 +436,10 @@ def fundamental_matrix_regular(dop, pt, eps, rows):
         ....:     + (2*x^6 - 3*x^5 - 6*x^4 + 7*x^3 + 8*x^2 - 6*x + 6)*Dx^2
         ....:     + (-2*x^6 + 3*x^5 + 5*x^4 - 2*x^3 - 9*x^2 + 9*x)*Dx)
         sage: fundamental_matrix_regular(dop, RBF(1/3), RBF(1e-10), 4)
-        [[3.1788470...] [-1.064032...]  [1.000...] [0.3287250...]]
-        [[-8.981931...] [3.2281834...]    [+/-...] [0.9586537...]]
-        [ [26.18828...] [-4.063756...]    [+/-...] [-0.123080...]]
-        [[-80.24671...]  [9.190740...]    [+/-...] [-0.119259...]]
+        [ [3.1788470...] [-1.064032...]  [1.000...] [0.3287250...]]
+        [ [-8.981931...] [3.2281834...]    [+/-...] [0.9586537...]]
+        [  [26.18828...] [-4.063756...]    [+/-...] [-0.123080...]]
+        [ [-80.24671...]  [9.190740...]    [+/-...] [-0.119259...]]
 
         sage: dop = x*Dx^3 + 2*Dx^2 + x*Dx
         sage: ini = [1, CBF(euler_gamma), 0]
@@ -656,7 +656,7 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, tgt_error,
             elif n < last_special_index: # some really bad bounds in this case
                 break
             elif (i == 1 and tail_bound.is_finite()
-                         and not tail_bound < prev_tail_bound.above_abs()):
+                         and not tail_bound <= prev_tail_bound.above_abs()):
                 # We likely lost all precision on the coefficients.
                 raise accuracy.PrecisionError
             else:
@@ -751,9 +751,6 @@ def plot_bounds(dop, ini=None, pt=None, eps=None, **kwds):
         ....:       ini=LogSeriesInitialValues(0, {0: (1, 0)}, dop))
         Graphics object consisting of 5 graphics primitives
 
-    The following example partially works, but causes overflows, so that we lose
-    one of the curves::
-
         sage: dop = ((x^2 + 10*x + 50)*Dx^10 + (5/9*x^2 + 50/9*x + 155/9)*Dx^9
         ....: + (-10/3*x^2 - 100/3*x - 190/3)*Dx^8 + (30*x^2 + 300*x + 815)*Dx^7
         ....: + (145*x^2 + 1445*x + 3605)*Dx^6 + (5/2*x^2 + 25*x + 115/2)*Dx^5
@@ -761,8 +758,7 @@ def plot_bounds(dop, ini=None, pt=None, eps=None, **kwds):
         ....: + (5/4*x^2 + 25/2*x + 105/4)*Dx^2 + (-20*x^2 - 195*x - 480)*Dx
         ....: + 5*x - 10)
         sage: plot_bounds(dop, pol_part_len=2, bound_inverse="solve", eps=1e-10) # long time
-        doctest:...
-        Graphics object consisting of 4 graphics primitives
+        Graphics object consisting of 5 graphics primitives
     """
     import sage.plot.all as plot
     from sage.all import VectorSpace, QQ, RIF

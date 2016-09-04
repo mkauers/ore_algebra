@@ -281,9 +281,8 @@ class HyperexpMajorant(MajorantSeries):
         Series = PowerSeriesRing(IR, 'eps', default_prec=derivatives)
         pert_rad = Series([rad, 1], derivatives)
         ser = rat(pert_rad)*self.integrand(pert_rad).integral().exp()
-        rat_part = sum(coeff**2 for coeff in ser.truncate(derivatives))
-        exp_part = (2*self.integrand.bound_antiderivative()(rad)).exp()
-        return (rat_part*exp_part).sqrtpos()
+        sqnorm = sum((c**2 for c in ser.truncate(derivatives)), IR.zero())
+        return sqnorm.sqrtpos()
 
     def __mul__(self, pol):
         """"
