@@ -138,7 +138,7 @@ An example kindly provided by Christoph Koutschan::
     sage: ini = [5494216492395559/3051757812500000000000000000000,
     ....:        6932746783438351/610351562500000000000000000000,
     ....:        1/2 * 1142339612827789/19073486328125000000000000000]
-    sage: eval_diffeq(dop, list(ini), [0, 84]) # long time (4.5 s)
+    sage: eval_diffeq(dop, list(ini), [0, 84]) # long time (2.2 s)
     [0.011501537469552017...]
 
 
