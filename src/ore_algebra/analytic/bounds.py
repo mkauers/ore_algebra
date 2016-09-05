@@ -1234,7 +1234,9 @@ class DiffOpBound(object):
         assert majeqrhs.valuation() >= n >= self.dop.order() >= 1
         maj = self(n)
         logger.debug("maj(%s) = %s", n, maj)
-        maj *= (majeqrhs >> 1).integral()
+        pol = (majeqrhs >> 1).integral()
+        assert pol.parent().is_sparse()
+        maj *= pol
         logger.debug("maj = %s", maj)
         return maj
 
@@ -1285,6 +1287,8 @@ class DiffOpBound(object):
             if n + 30 >= prec:
                 warnings.warn("insufficient precision")
             resid = self.dop(ref[:n])
+            resid = PolynomialRing(resid.base_ring(), resid.variable_name(),
+                                                             sparse=True)(resid)
             # we know a priori that val(resid) >= n mathematically, but interval
             # computations may give inexact zeros for some of the coefficients
             assert all(c.contains_zero() for c in resid[:n])
