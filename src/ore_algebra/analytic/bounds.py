@@ -59,28 +59,38 @@ class MajorantSeries(object):
         self.cvrad = IR(cvrad)
         assert self.cvrad >= IR.zero()
 
-    def eval(self, ev):
+    def series(self, rad, ord):
         r"""
-        Evaluate this majorant using the evaluator ``ev``.
+        Compute the series expansion of self at rad to order O(x^ord).
 
-        Typically the evaluator is a converter to a parent that supports all the
-        basic operations (+*/, integral...) appearing in the expression of the
-        majorant.
+        With rad = 0, this returns a truncation of the majorant series itself.
+        More generally, this can be used to obtain bounds on the derivatives of
+        the series majorized on disks contained within its disk of convergence.
         """
         raise NotImplementedError
 
-    def __call__(self, z):
-        return self.eval(lambda obj: obj(z))
+    def __call__(self, rad):
+        return self.series(rad, 1)
 
-    def series(self, prec=10):
-        Series = PowerSeriesRing(IR, self.variable_name, default_prec=prec)
-        return self.eval(Series).truncate_powerseries(prec)
+    def bound(self, rad, derivatives=1):
+        """
+        Bound the Frobenius norm of the vector
 
-    def bound(self, rad, **kwds):
+            [g(rad), g'(rad), g''(rad)/2, ..., 1/(d-1)!·g^(d-1)(rad)]
+
+        where d = ``derivatives`` and g is this majorant series. The result is
+        a bound for
+
+            [f(z), f'(z), f''(z)/2, ..., 1/(d-1)!·f^(d-1)(z)]
+
+        for all z with |z| ≤ rad.
+        """
         if not safe_le(rad, self.cvrad): # intervals!
             return IR(infinity)
         else:
-            return self._bound(rad, **kwds)
+            ser = self.series(rad, derivatives)
+            sqnorm = sum((c.abs()**2 for c in ser), IR.zero())
+            return sqnorm.sqrtpos()
 
     def _test(self, fun=0, prec=50, return_difference=False):
         r"""
@@ -107,7 +117,7 @@ class MajorantSeries(object):
         Series = PowerSeriesRing(IR, self.variable_name, prec)
         # CIF to work around problem with sage power series, should be IC
         ComplexSeries = PowerSeriesRing(CIF, self.variable_name, prec)
-        maj = self.series(prec)
+        maj = Series(self.series(0, prec))
         ref = Series([iv.abs() for iv in ComplexSeries(fun)], prec=prec)
         delta = (maj - ref).padded_list()
         if len(delta) < prec:
@@ -150,19 +160,14 @@ class RationalMajorant(MajorantSeries):
         sage: one = Pol.one().factor()
         sage: maj = RationalMajorant([(1 + z, one), (z^2, den)]) ; maj
         1.000... + 1.000...*z + z^2/((-z + 2.000...) * (-z + 1.000...)^2)
-        sage: maj(z).parent()
-        Fraction Field of Univariate Polynomial Ring in z over Real ball field
-        with 53 bits precision
         sage: maj(1/2)
         [2.166...]
         sage: maj*(z^10)
         1.000...*z^10 + 1.000...*z^11 + z^12/((-z + 2.000...) * (-z + 1.000...)^2)
-        sage: maj.bound_antiderivative()
-        1.00...*z + 0.50...*z^2 + [0.33...]*z^3/((-z + 2.00...) * (-z + 1.00...)^2)
         sage: maj.cvrad
         1.000000000000000
-        sage: maj.series(4)
-        1.000... + 1.000...*z + 0.500...*z^2 + 1.250...*z^3 + O(z^4)
+        sage: maj.series(0, 4)
+        1.250000000000000*z^3 + 0.5000000000000000*z^2 + z + 1.000000000000000
         sage: maj._test()
         sage: maj._test(1 + z + z^2/((1-z)^2*(2-z)), return_difference=True)
         [0, 0, 0, ...]
@@ -197,22 +202,18 @@ class RationalMajorant(MajorantSeries):
         res = " + ".join(term(num, den) for num, den in self.fracs if num)
         return res if res != "" else "0"
 
-    def eval(self, ev):
-        # explicit product may be better than den.value()(z) in some cases
-        return sum(ev(num)/prod(ev(lin)**mult for (lin, mult) in den)
-                   for num, den in self.fracs)
-
-    def _bound(self, rad):
-        # repeated instead of calling eval for speed reasons
-        return sum(num(rad)/prod(lin(rad)**mult for (lin, mult) in den)
-                   for num, den in self.fracs)
-
-    def bound_antiderivative(self):
-        # When u, v have nonneg coeffs, int(u·v) is majorized by int(u)·v.
-        # This is a little bit pessimistic but yields a rational bound,
-        # avoiding antiderivatives of rational functions.
-        return RationalMajorant([(num.integral(), den)
-                                 for num, den in self.fracs])
+    def series(self, rad, ord):
+        Pol = PolynomialRing(IC, self.variable_name) # XXX: should be IR
+        pert_rad = Pol([rad, 1])
+        res = Pol.zero()
+        for num, den in self.fracs:
+            den_ser = Pol.one()
+            for lin, mult in den:
+                fac_ser = lin(pert_rad).power_trunc(mult, ord)
+                den_ser = den_ser._mul_trunc_(fac_ser, ord)
+            num_ser = Pol(num).compose_trunc(pert_rad, ord)
+            res += num_ser._mul_trunc_(den_ser.inverse_series_trunc(ord), ord)
+        return res
 
     def __mul__(self, pol):
         """
@@ -239,8 +240,8 @@ class HyperexpMajorant(MajorantSeries):
         ((-z + [0.333...])^-1)*exp(int(4.0... + 4.0...*z + z^2/(-z + 1.0...)))
         sage: maj.cvrad
         [0.333...]
-        sage: maj.series(4)
-        [3.000...] + [21.000...]*z + [93.000...]*z^2 + [336.000...]*z^3 + O(z^4)
+        sage: maj.series(0, 4)
+        ([336.000...])*z^3 + ([93.000...])*z^2 + ([21.000...])*z + [3.000...]
         sage: maj._test()
     """
 
@@ -255,34 +256,29 @@ class HyperexpMajorant(MajorantSeries):
         else:
             raise TypeError
 
+    @cached_method
+    def _num(self):
+        return prod(pol**mult for (pol, mult) in self.rat if mult >= 0)
+
+    @cached_method
+    def _den(self):
+        return prod(pol**(-mult) for (pol, mult) in self.rat if mult < 0)
+
     def __repr__(self):
         return "({})*exp(int({}))".format(self.rat, self.integrand)
 
-    def eval(self, ev):
-        integrand = self.integrand.eval(ev)
-        return ev(self.rat.value()) * integrand.integral().exp()
-
-    def _bound(self, rad, derivatives=1):
-        """
-        Bound the Frobenius norm of the vector
-
-            [g(rad), g'(rad), g''(rad)/2, ..., 1/(d-1)!·g^(d-1)(rad)]
-
-        where d = ``derivatives`` and g is this majorant series. The result is
-        a bound for
-
-            [f(z), f'(z), f''(z)/2, ..., 1/(d-1)!·f^(d-1)(z)]
-
-        for all z with |z| ≤ rad.
-        """
-        rat = self.rat.value()
-        # Compute the derivatives by “automatic differentiation”. This is
+    def series(self, rad, ord):
+        # Compute the derivatives “by automatic differentiation”. This is
         # crucial for performance with operators of large order.
-        Series = PowerSeriesRing(IR, 'eps', default_prec=derivatives)
-        pert_rad = Series([rad, 1], derivatives)
-        ser = rat(pert_rad)*self.integrand(pert_rad).integral().exp()
-        sqnorm = sum((c**2 for c in ser.truncate(derivatives)), IR.zero())
-        return sqnorm.sqrtpos()
+        Pol = PolynomialRing(IC, self.variable_name)
+        pert_rad = Pol([rad, 1]) # XXX: should be IR
+        num_ser = Pol(self._num()).compose_trunc(pert_rad, ord)
+        den_ser = Pol(self._den()).compose_trunc(pert_rad, ord)
+        rat_ser = num_ser._mul_trunc_(den_ser.inverse_series_trunc(ord), ord)
+        # XXX: double-check (integral...)
+        exp_ser = self.integrand.series(rad, ord).integral()._exp_series(ord)
+        ser = rat_ser._mul_trunc_(exp_ser, ord)
+        return ser
 
     def __mul__(self, pol):
         """"
@@ -1296,7 +1292,7 @@ class DiffOpBound(object):
             resid = (resid >> n) << n
             maj = self.tail_majorant(n, self.maj_eq_rhs([resid]))
             tail = (ref >> n) << n
-            logger.info("%s << %s", Series(tail, n+30), maj.series(n+30))
+            logger.info("%s << %s", Series(tail, n+30), maj.series(0, n+30))
             maj._test(tail)
 
 def _dop_rcoeffs_of_T(dop):
