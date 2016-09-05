@@ -229,6 +229,8 @@ class HyperexpMajorant(MajorantSeries):
     A formal power series of the form rat1(z) + exp(int(rat2(ζ), ζ=0..z)), with
     nonnegative coefficients.
 
+    The fraction rat1 is represented in the form z^shift*num(z)/den(z).
+
     TESTS::
 
         sage: from ore_algebra.analytic.bounds import *
@@ -243,20 +245,32 @@ class HyperexpMajorant(MajorantSeries):
         sage: maj.series(0, 4)
         ([336.000...])*z^3 + ([93.000...])*z^2 + ([21.000...])*z + [3.000...]
         sage: maj._test()
+        sage: maj*=z^20
+        sage: maj
+        (z^20*1.00... * (-z + [0.333...])^-1)*exp(int(4.000... + 4.000...*z + z^2/(-z + 1.000...)))
+        sage: maj._test()
+
     """
 
-    def __init__(self, integrand, num, den):
+    def __init__(self, integrand, num, den, shift=0):
         assert isinstance(integrand, RationalMajorant)
         assert isinstance(den, Factorization)
         assert isinstance(num, Polynomial)
+        assert isinstance(shift, int) and shift >= 0
         cvrad = integrand.cvrad.min(_zero_free_rad([pol for (pol, m) in den]))
         super(self.__class__, self).__init__(integrand.variable_name, cvrad)
         self.integrand = integrand
         self.num = num
         self.den = den
+        self.shift = shift
 
     def __repr__(self):
-        return "({})*exp(int({}))".format((~self.den)*self.num, self.integrand)
+        if self.shift > 0:
+            shift_part = "{}^{}*".format(self.num.variable_name(), self.shift)
+        else:
+            shift_part = ""
+        return "({}{})*exp(int({}))".format(shift_part, (~self.den)*self.num,
+                                                                 self.integrand)
 
     @cached_method
     def _den_expanded(self):
@@ -267,25 +281,26 @@ class HyperexpMajorant(MajorantSeries):
         # crucial for performance with operators of large order.
         Pol = PolynomialRing(IC, self.variable_name)
         pert_rad = Pol([rad, 1]) # XXX: should be IR
+        shx_ser = pert_rad.power_trunc(self.shift, ord)
         num_ser = Pol(self.num).compose_trunc(pert_rad, ord) # XXX: remove Pol()
         den_ser = Pol(self._den_expanded()).compose_trunc(pert_rad, ord)
         assert num_ser.parent() is den_ser.parent()
-        rat_ser = num_ser._mul_trunc_(den_ser.inverse_series_trunc(ord), ord)
+        rat_ser = (shx_ser._mul_trunc_(num_ser, ord)
+                          ._mul_trunc_(den_ser.inverse_series_trunc(ord), ord))
         # XXX: double-check (integral...)
         exp_ser = self.integrand.series(rad, ord).integral()._exp_series(ord)
         ser = rat_ser._mul_trunc_(exp_ser, ord)
         return ser
 
-    def __mul__(self, pol):
-        """"
-        Multiplication by a polynomial.
+    def __imul__(self, pol):
+        r"""
+        IN-PLACE multiplication by a polynomial. Use with care!
 
         Note that this does not change the radius of convergence.
         """
-        return HyperexpMajorant(self.integrand, self.num*pol, self.den)
-
-    def __imul__(self, pol):
-        self.num *= pol
+        valuation = pol.valuation() if pol else 0
+        self.shift += valuation
+        self.num *= (pol >> valuation)
         return self
 
 ######################################################################
