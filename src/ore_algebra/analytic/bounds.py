@@ -235,9 +235,9 @@ class HyperexpMajorant(MajorantSeries):
         sage: Pol.<z> = RBF[]
         sage: one = Pol.one().factor()
         sage: integrand = RationalMajorant([(4+4*z, one), (z^2, Factorization([(1-z,1)]))])
-        sage: rat = Factorization([(1/3-z, -1)])
-        sage: maj = HyperexpMajorant(integrand, rat); maj
-        ((-z + [0.333...])^-1)*exp(int(4.0... + 4.0...*z + z^2/(-z + 1.0...)))
+        sage: den = Factorization([(1/3-z, 1)])
+        sage: maj = HyperexpMajorant(integrand, Pol.one(), den); maj
+        (1.00... * (-z + [0.333...])^-1)*exp(int(4.0... + 4.0...*z + z^2/(-z + 1.0...)))
         sage: maj.cvrad
         [0.333...]
         sage: maj.series(0, 4)
@@ -245,35 +245,31 @@ class HyperexpMajorant(MajorantSeries):
         sage: maj._test()
     """
 
-    def __init__(self, integrand, rat):
-        if isinstance(integrand, RationalMajorant) and isinstance(rat,
-                Factorization):
-            den = [pol for (pol, mult) in rat if mult < 0]
-            cvrad = integrand.cvrad.min(_zero_free_rad(den))
-            super(self.__class__, self).__init__(integrand.variable_name, cvrad)
-            self.integrand = integrand
-            self.rat = rat
-        else:
-            raise TypeError
-
-    @cached_method
-    def _num(self):
-        return prod(pol**mult for (pol, mult) in self.rat if mult >= 0)
-
-    @cached_method
-    def _den(self):
-        return prod(pol**(-mult) for (pol, mult) in self.rat if mult < 0)
+    def __init__(self, integrand, num, den):
+        assert isinstance(integrand, RationalMajorant)
+        assert isinstance(den, Factorization)
+        assert isinstance(num, Polynomial)
+        cvrad = integrand.cvrad.min(_zero_free_rad([pol for (pol, m) in den]))
+        super(self.__class__, self).__init__(integrand.variable_name, cvrad)
+        self.integrand = integrand
+        self.num = num
+        self.den = den
 
     def __repr__(self):
-        return "({})*exp(int({}))".format(self.rat, self.integrand)
+        return "({})*exp(int({}))".format((~self.den)*self.num, self.integrand)
+
+    @cached_method
+    def _den_expanded(self):
+        return prod(pol**m for (pol, m) in self.den)
 
     def series(self, rad, ord):
         # Compute the derivatives “by automatic differentiation”. This is
         # crucial for performance with operators of large order.
         Pol = PolynomialRing(IC, self.variable_name)
         pert_rad = Pol([rad, 1]) # XXX: should be IR
-        num_ser = Pol(self._num()).compose_trunc(pert_rad, ord)
-        den_ser = Pol(self._den()).compose_trunc(pert_rad, ord)
+        num_ser = Pol(self.num).compose_trunc(pert_rad, ord) # XXX: remove Pol()
+        den_ser = Pol(self._den_expanded()).compose_trunc(pert_rad, ord)
+        assert num_ser.parent() is den_ser.parent()
         rat_ser = num_ser._mul_trunc_(den_ser.inverse_series_trunc(ord), ord)
         # XXX: double-check (integral...)
         exp_ser = self.integrand.series(rad, ord).integral()._exp_series(ord)
@@ -286,7 +282,11 @@ class HyperexpMajorant(MajorantSeries):
 
         Note that this does not change the radius of convergence.
         """
-        return HyperexpMajorant(self.integrand, self.rat*pol)
+        return HyperexpMajorant(self.integrand, self.num*pol, self.den)
+
+    def __imul__(self, pol):
+        self.num *= pol
+        return self
 
 ######################################################################
 # Majorants for reciprocals of polynomials ("denominators")
@@ -973,7 +973,7 @@ class DiffOpBound(object):
     A majorant series extracted from that sequence::
 
         sage: maj(3)
-        ((-x + [0.994...])^-2)*exp(int([4.000...]...)^2)))
+        (1.00... * (-x + [0.994...])^-2)*exp(int([4.000...]...)^2)))
 
     An example with a nontrivial polynomial part::
 
@@ -1187,10 +1187,8 @@ class DiffOpBound(object):
         # The rational part “compensates” the change of unknown function
         # involving the leading coefficient of the operator. We compute ~den
         # by hand because Factorization.__invert__() can be very slow.
-        inv_den = Factorization([(p,-e) for (p,e) in self.maj_den],
-                unit=self.maj_den.unit(), # always one
-                sort=False, simplify=False)
-        maj = HyperexpMajorant(integrand=rat_maj, rat=inv_den)
+        maj = HyperexpMajorant(integrand=rat_maj, num=self.Poly.one(),
+                den=self.maj_den)
         return maj
 
     # Extracted from tail_majorant for (partial) compatibility with the regular
@@ -1234,8 +1232,9 @@ class DiffOpBound(object):
         corresponding to the elements of ``residuals``.
         """
         assert majeqrhs.valuation() >= n >= self.dop.order() >= 1
-        maj = self(n)*(majeqrhs >> 1).integral()
-        logger.debug("maj(%s) = %s", n, self(n))
+        maj = self(n)
+        logger.debug("maj(%s) = %s", n, maj)
+        maj *= (majeqrhs >> 1).integral()
         logger.debug("maj = %s", maj)
         return maj
 
