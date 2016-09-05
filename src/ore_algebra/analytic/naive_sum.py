@@ -94,7 +94,7 @@ class LogSeriesInitialValues(object):
       x^s·log(x)^k/k! for some k
     """
 
-    def __init__(self, expo, values, dop=None):
+    def __init__(self, expo, values, dop=None, check=True):
         r"""
         TESTS::
 
@@ -121,7 +121,7 @@ class LogSeriesInitialValues(object):
                        for s, ini in values.iteritems() }
 
         try:
-            if dop is not None and not self.is_valid_for(dop):
+            if check and dop is not None and not self.is_valid_for(dop):
                 raise ValueError("invalid initial data for {} at 0".format(dop))
         except TypeError: # coercion problems btw QQbar and number fields
             pass
@@ -401,10 +401,13 @@ def fundamental_matrix_ordinary(dop, pt, eps, rows, maj,
                                 max_prec_increase=1000):
     eps_col = bounds.IR(eps)/bounds.IR(dop.order()).sqrt()
     evpt = EvaluationPoint(pt, jet_order=rows)
+    inis = [
+        LogSeriesInitialValues(ZZ.zero(), ini, dop, check=False)
+        for ini in identity_matrix(dop.order())]
     cols = [
         series_sum(dop, ini, evpt, eps_col, maj=maj,
             max_prec_increase=max_prec_increase)
-        for ini in identity_matrix(dop.order())]
+        for ini in inis]
     return matrix(cols).transpose()
 
 ################################################################################
@@ -478,7 +481,8 @@ def fundamental_matrix_regular(dop, pt, eps, rows):
                                                if (s, p) == (shift, log_power)
                                                else ZZ.zero()
                                                for p in xrange(m))
-                                      for s, m in shifts})
+                                      for s, m in shifts},
+                            check = False)
                         # XXX: inefficient if shift >> 0
                         value = series_sum(dop, ini, evpt, col_tgt_error,
                                 maj=maj, bwrec=emb_bwrec)
