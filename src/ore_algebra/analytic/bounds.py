@@ -177,6 +177,7 @@ class RationalMajorant(MajorantSeries):
 
     def __init__(self, fracs):
         self.Poly = Poly = fracs[0][0].parent().change_ring(IR)
+        self._Poly_IC = fracs[0][0].parent().change_ring(IC)
         cvrad = _zero_free_rad([-fac for _, den in fracs for fac, _ in den if fac.degree() > 0])
         super(self.__class__, self).__init__(Poly.variable_name(), cvrad=cvrad)
         self.fracs = []
@@ -203,7 +204,7 @@ class RationalMajorant(MajorantSeries):
         return res if res != "" else "0"
 
     def series(self, rad, ord):
-        Pol = PolynomialRing(IC, self.variable_name) # XXX: should be IR
+        Pol = self._Poly_IC # XXX: switch to self.Poly once arb_polys are interfaced
         pert_rad = Pol([rad, 1])
         res = Pol.zero()
         for num, den in self.fracs:
@@ -211,6 +212,7 @@ class RationalMajorant(MajorantSeries):
             for lin, mult in den:
                 fac_ser = lin(pert_rad).power_trunc(mult, ord)
                 den_ser = den_ser._mul_trunc_(fac_ser, ord)
+            # slow; hopefully the fast Taylor shift will help...
             num_ser = Pol(num).compose_trunc(pert_rad, ord)
             res += num_ser._mul_trunc_(den_ser.inverse_series_trunc(ord), ord)
         return res
@@ -608,7 +610,7 @@ class RatSeqBound(object):
                 # note that global_lbound already takes mult into account
                 res *= global_lbound
             else:
-                res *= ((IC.one() - root/n).abs())**mult
+                res *= abs((IC.one() - root/n))**mult
         if safe_ge(res, self.almost_one):
             self._den_converged = n
             return self.almost_one # just so that the sequence is nondecreasing
@@ -643,7 +645,7 @@ class RatSeqBound(object):
         calling this function.
         """
         rcpq_num = self.num_data[ord]
-        almost_lim = rcpq_num[0].abs()/self.almost_one
+        almost_lim = abs(rcpq_num[0])/self.almost_one
         if n > self._num_converged[ord]:
             return almost_lim
         iv = IR.zero().union(~IR(n))
