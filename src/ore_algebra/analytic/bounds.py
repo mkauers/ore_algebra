@@ -20,8 +20,6 @@ from sage.rings.complex_arb import CBF
 from sage.rings.infinity import infinity
 from sage.rings.integer import Integer
 from sage.rings.integer_ring import ZZ
-from sage.rings.number_field.number_field import NumberField_quadratic
-from sage.rings.number_field.number_field_element_quadratic import NumberFieldElement_quadratic
 from sage.rings.polynomial.polynomial_element import Polynomial
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 from sage.rings.power_series_ring import PowerSeriesRing
