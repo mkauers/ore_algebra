@@ -192,7 +192,7 @@ class MatrixRec(object):
         # This is convenient to share code with other implementations, or at
         # least make the implementations easier to compare.
         # XXX: understand what to do about variable names!
-        self.bwrec = [recop[self.ordrec-k](diffop.base_ring().gen()-self.ordrec)
+        self.bwrec = [recop[self.ordrec-k](Rops.base_ring().gen()-self.ordrec)
                       for k in xrange(self.ordrec+1)]
 
         # Power of dz. Note that this part does not depend on n.
@@ -311,7 +311,8 @@ class MatrixRec(object):
         # Now compute the residual. WARNING: this residual must correspond to
         # the operator stored in maj.dop, which typically isn't self.diffop (but
         # an operator in θx equal to x^k·self.diffop for some k).
-        return bounds.residual(self.bwrec, n, list(reversed(last[:s])),
+        from ore_algebra.analytic.naive_sum import BackwardRec as BR
+        return bounds.residual(BR(self.bwrec), n, list(reversed(last[:s])),
                 self.zvar)
 
     def residuals(self, prod, n):

@@ -11,6 +11,7 @@ Evaluation of convergent D-finite series by direct summation
 import collections, itertools, logging
 
 from sage.matrix.constructor import identity_matrix, matrix
+from sage.misc.cachefunc import cached_method
 from sage.modules.free_module_element import vector
 from sage.rings.complex_arb import ComplexBallField, CBF, ComplexBall
 from sage.rings.infinity import infinity
@@ -37,8 +38,6 @@ logger = logging.getLogger(__name__)
 # Argument processing etc. (common to the ordinary and the regular case)
 ################################################################################
 
-# XXX: perhaps introduce a specific object type (with support for exceptional
-# indices and RecJets; see also bound_residual_with_logs)
 def backward_rec(dop, shift=ZZ.zero()):
     Pols_n = PolynomialRing(dop.base_ring().base_ring(), 'n') # XXX: name
     Rops = ore_algebra.OreAlgebra(Pols_n, 'Sn')
@@ -47,9 +46,69 @@ def backward_rec(dop, shift=ZZ.zero()):
     # rop = dop.to_S(Rops).primitive_part().numerator()
     rop = dop.to_S(Rops)
     ordrec = rop.order()
-    bwrec = [rop[ordrec-k](Pols_n.gen()-ordrec+shift)
+    coeff = [rop[ordrec-k](Pols_n.gen()-ordrec+shift)
              for k in xrange(ordrec+1)]
-    return bwrec
+    return BackwardRec(coeff)
+
+class BackwardRec(object):
+    r"""
+    A recurrence relation, written in terms of the backward shift operator.
+
+    This class is mainly intended to provide reasonably fast evaluation in the
+    context of naïve unrolling.
+    """
+
+    def __init__(self, coeff):
+        assert isinstance(coeff[0], polynomial_element.Polynomial)
+        self.coeff = coeff
+        self.base_ring = coeff[0].parent()
+        Scalars = self.base_ring.base_ring()
+        self.order = len(coeff) - 1
+        # Evaluating polynomials over ℚ[i] is slow...
+        # TODO: perhaps do something similar for eval_series
+        if (isinstance(Scalars, NumberField_quadratic)
+                and list(Scalars.polynomial()) == [1,0,1]):
+            QQn = PolynomialRing(QQ, 'n')
+            self._re_im = [
+                    (QQn([c.real() for c in pol]), QQn([c.imag() for c in pol]))
+                    for pol in coeff]
+            self.eval_int_ball = self._eval_qqi_cbf
+
+    # efficient way to cache the last few results (without cython)?
+    def eval(self, tgt, point):
+        return [tgt(pol(point)) for pol in self.coeff]
+
+    def _eval_qqi_cbf(self, tgt, point):
+        return [tgt(re(point), im(point)) for re, im in self._re_im]
+
+    # Optimized implementation of eval() when point is a Python
+    # integer and iv is a ball field. Can be dynamically replaced by
+    # one of the above implementations on initialization.
+    eval_int_ball = eval
+
+    @cached_method
+    def _coeff_series(self, i, j):
+        if j == 0:
+            return self.coeff[i]
+        else:
+            return self._coeff_series(i, j - 1).diff()/j
+
+    def eval_series(self, tgt, point, ord):
+        return [[tgt(self._coeff_series(i,j)(point)) for j in xrange(ord)]
+                for i in xrange(len(self.coeff))]
+
+    def eval_inverse_lcoeff_series(self, tgt, point, ord):
+        ser = self.base_ring( # polynomials, viewed as jets
+                [self._coeff_series(0, j)(point) for j in xrange(ord)])
+        inv = ser.inverse_series_trunc(ord)
+        return [tgt(c) for c in inv]
+
+    def __getitem__(self, i):
+        return self.coeff[i]
+
+    def shift(self, sh):
+        n = self.coeff[0].parent().gen()
+        return BackwardRec([pol(sh + n) for pol in self.coeff])
 
 class EvaluationPoint(object):
     r"""
@@ -321,7 +380,7 @@ def series_sum_ordinary(Intervals, dop, bwrec, ini, pt,
     jetpow = Jets.one()
     radpow = bounds.IR.one()
 
-    ordrec = len(bwrec) - 1
+    ordrec = bwrec.order
     assert ini.expo.is_zero()
     last = collections.deque([Intervals.zero()]*(ordrec - dop.order() + 1))
     last.extend(Intervals(ini.shift[n][0])
@@ -379,8 +438,9 @@ def series_sum_ordinary(Intervals, dop, bwrec, ini, pt,
         if n%stride == 0:
             done, tail_bound = check_convergence(tail_bound)
             if done: break
-        comb = sum(Intervals(bwrec[k](n))*last[k] for k in xrange(1, ordrec+1))
-        last[0] = -Intervals(~bwrec[0](n))*comb
+        bwrec_n = bwrec.eval_int_ball(Intervals, n)
+        comb = sum(bwrec_n[k]*last[k] for k in xrange(1, ordrec+1))
+        last[0] = -~bwrec_n[0]*comb
         # logger.debug("n = %s, [c(n), c(n-1), ...] = %s", n, list(last))
         term = Jets(last[0])._mul_trunc_(jetpow, ord)
         psum += term
@@ -468,7 +528,7 @@ def fundamental_matrix_regular(dop, pt, eps, rows):
             #irred_bwrec = [pol(irred_leftmost + n) for pol in bwrec]
             for leftmost, _ in irred_factor.roots(QQbar):
                 leftmost = utilities.as_embedded_number_field_element(leftmost)
-                emb_bwrec = [pol(leftmost + n) for pol in bwrec]
+                emb_bwrec = bwrec.shift(leftmost)
                 maj = bounds.DiffOpBound(dop, leftmost, shifts)
                 for shift, mult in shifts:
                     for log_power in xrange(mult):
@@ -613,16 +673,9 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, tgt_error,
     last_index_with_ini = max([dop.order()]
             + [s for s, vals in ini.shift.iteritems()
                  if not all(v.is_zero() for v in vals)])
-    ordrec = len(bwrec) - 1
     last = collections.deque([vector(Intervals, log_prec)
-                              for _ in xrange(ordrec + 1)])
+                              for _ in xrange(bwrec.order + 1)])
     psum = vector(Jets, log_prec)
-
-    # bugware to work around various inefficiencies in sage
-    bwrec_series = [[b] for b in bwrec]
-    for b_series in bwrec_series:
-        for i in xrange(1, log_prec):
-            b_series.append(b_series[i-1].diff()/i)
 
     # Every few iterations, heuristically check if we have converged and if
     # we still have enough precision. If it looks like the target error may
@@ -644,7 +697,7 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, tgt_error,
         # sense in a relative error setting)
         if not tgt_error.reached(est, sum_est) and record_bounds_in is None:
             return False, bounds.IR(infinity)
-        majeqrhs = bounds.maj_eq_rhs_with_logs(bwrec_series, n, list(last)[1:],
+        majeqrhs = bounds.maj_eq_rhs_with_logs(bwrec, n, list(last)[1:],
                 maj.Poly.variable_name(), log_prec)
         for i in xrange(5):
             tail_bound = maj.matrix_sol_tail_bound(n, pt.rad, majeqrhs,
@@ -684,15 +737,11 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, tgt_error,
             done, tail_bound = check_convergence(tail_bound)
             if done: break
 
-        bwrec_n = [ [Intervals(b(n)) for b in b_series]
-                    for b_series in bwrec_series ]
-        # logger.debug("bwrec_nn=%s", bwrec_n)
-        # for i in range(0, ordrec +1):
-        #    logger.debug("last[%d]=%s", i, last[i])
+        bwrec_n = bwrec.eval_series(Intervals, n, log_prec)
         for p in xrange(log_prec - mult - 1, -1, -1):
             combin  = sum(bwrec_n[i][j]*last[i][p+j]
                           for j in xrange(log_prec - p)
-                          for i in xrange(ordrec, 0, -1))
+                          for i in xrange(bwrec.order, 0, -1))
             combin += sum(bwrec_n[0][j]*last[0][p+j]
                           for j in xrange(mult + 1, log_prec - p))
             last[0][mult + p] = - ~bwrec_n[0][mult] * combin
