@@ -55,7 +55,7 @@ In the six-dimensional case, Koutschan gives the following operator::
     + ... - 2428790621931885035520000000000000000
     sage: ini = [0, 0, 0, 0, 0, 1, 0, 0]
     sage: eval_diffeq(fcc.dop6, ini, [0, 3/2 + i, 1], 1e-60) # long time (3 min)
-    [1.02774910062749883985936367927396850209243990900114872425...]
+    [1.02774910062749883985936367927396850209243990900114872425...] + [...]*I
 """
 
 from sage.rings.rational_field import QQ

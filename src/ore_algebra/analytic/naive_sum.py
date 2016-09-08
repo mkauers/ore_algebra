@@ -691,6 +691,9 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, tgt_error,
         if n <= last_index_with_ini or mult > 0:
             return False, bounds.IR(infinity)
         est = (abs(last[-1][0])*radpow).above_abs()
+        if any(abs(foo).rad_as_ball() > tgt_error.eps for bar in psum for foo in bar):
+            from .accuracy import PrecisionError
+            raise PrecisionError
         sum_est = bounds.IR(abs(psum[0][0]))
         # TODO: improve the automatic increase of precision for large x^λ:
         # currently we only check the series part (which would sort of make
