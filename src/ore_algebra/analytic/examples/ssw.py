@@ -31,7 +31,7 @@ http://specfun.inria.fr/chyzak/ssw/index.html>):
     ....:    +(172032*t^16-155648*t^15+20480*t^14+78016*t^13-188224*t^12
     ....:      +78144*t^11-6528*t^10+701*t^9+2131*t^8-1183*t^7+97*t^6-30*t^5
     ....:      +12*t^4)*Dt^5)
-    sage: mat = transition_matrix(dop,  [0, 1/3+i/10, 1/3]) # long time (21 s)
+    sage: mat = transition_matrix(dop,  [0, 1/3+i/10, 1/3]) # long time (11.3 s)
     sage: (mat*vector([0, 0, 1, 3, 7]))[0] # long time
     [...] + [0.50000...]*I
 
@@ -217,6 +217,6 @@ An example provided by Bruno Salvy that originates in the same work::
     sage: ini = [ 59/36, 547/2160, 1/2*229/252, 1/6*-20249/68040,
     ....:         1/24*1412134/280665, 1/120*1787365/2918916,
     ....:         1/720*194607493/2189187 ]
-    sage: eval_diffeq(dop, ini, [0,1]) # long time (22 s), TODO: double-check result
+    sage: eval_diffeq(dop, ini, [0,1]) # long time (6.2 s), TODO: double-check result
     [10.662510694...]
 """
