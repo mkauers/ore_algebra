@@ -1378,36 +1378,40 @@ def _test_diffop_bound(
                 maj = DiffOpBound(dop, pol_part_len=pplen)
                 maj._test(prec=prec)
 
-def residual(bwrec, n, last, z):
+def residual(n, bwrec_nplus, last, z):
     r"""
-    Compute the polynomial residual, up to sign, obtained by a applying a diff
+    Compute the polynomial residual (up to sign) obtained by a applying a diff
     op P to a partial sum of a power series solution y of P·y=0.
 
     INPUT:
 
-    - ``bwrec`` -- list [b[0], ..., b[s]] of coefficients of the recurrence
-      operator associated to P (by the direct substitution x |--> S⁻¹, θ |--> n;
-      no additional multiplication by x^k is allowed!), written in the form
-      b[0](n) + b[1](n) S⁻¹ + ···
-
     - ``n`` -- truncation order
+    - ``bwrec_nplus`` -- nested list/iterable ::
 
-    - ``last`` -- the last s+1 coefficients u[n-1], u[n-2], ... of the
+        [[b[0](n),     ..., b[s](n)],
+         [b[0](n+1),   ..., b[s](n+1)],
+         ...
+         [b[0](n+s-1), ..., b[s](n+s-1)]]
+
+      of coefficients evaluated at n of the recurrence operator b[0] + b[1] S⁻¹
+      + ··· + b[s] S^(-s) associated to P (by the direct substitution x ⟼ S⁻¹,
+      θ ⟼ n; no additional multiplication by x^k is allowed!)
+    - ``last`` -- the last s coefficients u[n-1], u[n-2], ... u[n-s] of the
       truncated series, in that order
-
     - ``z`` -- variable name for the result
 
     EXAMPLES::
 
-        sage: from ore_algebra import OreAlgebra
+        sage: from ore_algebra import DifferentialOperators
         sage: from ore_algebra.analytic.bounds import *
-        sage: from ore_algebra.analytic.naive_sum import BackwardRec as BR
-        sage: Pol_t.<t> = QQ[]; Pol_n.<n> = QQ[]
-        sage: Dop.<Dt> = OreAlgebra(Pol_t)
+        sage: dop, t, Dt = DifferentialOperators(QQ, 't')
+        sage: Pol.<n> = QQ[]
 
         sage: trunc = t._exp_series(5); trunc
         1/24*t^4 + 1/6*t^3 + 1/2*t^2 + t + 1
-        sage: residual(BR([n, Pol_n(1)]), 5, [trunc[4]], t)
+        sage: bwrec = [n, Pol(1)]
+        sage: bwrec_nplus = [[pol(5) for pol in bwrec]]
+        sage: residual(5, bwrec_nplus, [trunc[4]], t)
         ([0.0416666666666667 +/- 4.26e-17])*t^5
         sage: (Dt - 1).to_T('Tt')(trunc).change_ring(CBF)
         ([-0.0416666666666667 +/- 4.26e-17])*t^5
@@ -1421,25 +1425,23 @@ def residual(bwrec, n, last, z):
     ::
 
         sage: trunc = t._sin_series(5) + t._cos_series(5)
-        sage: residual(BR([n*(n-1), Pol_n(0), Pol_n(1)]), 5,
-        ....:         [trunc[4], trunc[3]], t)
+        sage: bwrec = [n*(n-1), Pol(0), Pol(1)]
+        sage: bwrec_nplus = [[pol(5+i) for pol in bwrec] for i in [0,1]]
+        sage: residual(5, bwrec_nplus, [trunc[4], trunc[3]], t)
         ([0.041666...])*t^6 + ([-0.16666...])*t^5
         sage: (Dt^2 + 1).to_T('Tt')(trunc).change_ring(CBF)
         ([0.041666...])*t^6 + ([-0.16666...])*t^5
     """
-    # NOTE: later on I may want to compute the residuals directly in each
-    # implementation of summation, to avoid recomputing known quantities (as
-    # this function currently does)
-    # XXX: b[j](n+i) is actually used only for j ≥ i.
-    bwrec_nplus = [bwrec.eval_int_ball(IC, n+i) for i in xrange(bwrec.order)]
+    ordrec = len(bwrec_nplus[0]) - 1
+    assert len(bwrec_nplus) == ordrec
     rescoef = [
-        sum(bwrec_nplus[i][i+k+1]*IC(last[k])
-            for k in xrange(bwrec.order-i))
-        for i in xrange(bwrec.order)]
+        sum((bwrec_nplus[i][i+k+1])*IC(last[k])
+            for k in xrange(ordrec-i))
+        for i in xrange(ordrec)]
     IvPols = PolynomialRing(IC, z, sparse=True)
     return IvPols(rescoef) << n
 
-def maj_eq_rhs_with_logs(bwrec, n, last, z, logs):
+def maj_eq_rhs_with_logs(n, bwrec, bwrec_nplus, last, z, logs):
     r"""
     Compute the rhs of a majorant equation for the tail from the last terms of a
     truncated series.
@@ -1469,8 +1471,7 @@ def maj_eq_rhs_with_logs(bwrec, n, last, z, logs):
         |∑[t=0..logs-1] (n+i)/t!·((d/dX)^t(Q0⁻¹))(λ+n+i)·q[λ+n+i,k+t]| ≤ q̂[n+i].
     """
     ordrec = bwrec.order
-    bwrec_ii = [bwrec.eval_series(IC, n+i, logs)
-                for i in xrange(ordrec)]
+    assert len(bwrec_nplus) >= len(bwrec_nplus[0]) - 1 == ordrec
     # Compute the coefficients of the residual:
     # residual = z^(λ + n)·(sum(rescoef[i][j]·z^i·log^j(z)/j!)
     rescoef = [[None]*logs for _ in xrange(ordrec)]
@@ -1478,7 +1479,7 @@ def maj_eq_rhs_with_logs(bwrec, n, last, z, logs):
         for j in xrange(logs):
             # significant overestimation here (apparently not too problematic)
             rescoef[i][j] = sum(
-                    IC(bwrec_ii[i][i+k+1][p])*IC(last[k][j+p])
+                    IC(bwrec_nplus[i][i+k+1][p])*IC(last[k][j+p])
                     for k in xrange(ordrec - i)
                     for p in xrange(logs - j))
     # For lack of a convenient data structure to return these coefficients,

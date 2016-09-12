@@ -311,9 +311,9 @@ class MatrixRec(object):
         # Now compute the residual. WARNING: this residual must correspond to
         # the operator stored in maj.dop, which typically isn't self.diffop (but
         # an operator in θx equal to x^k·self.diffop for some k).
-        from ore_algebra.analytic.naive_sum import BackwardRec as BR
-        return bounds.residual(BR(self.bwrec), n, list(reversed(last[:s])),
-                self.zvar)
+        # XXX: do not recompute this every time!
+        bwrnp = [[pol(n + i) for pol in self.bwrec] for i in range(s)]
+        return bounds.residual(n, bwrnp, list(reversed(last[:s])), self.zvar)
 
     def residuals(self, prod, n):
         return [self.residual(prod, n, j) for j in xrange(self.orddeq)]

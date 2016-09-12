@@ -386,16 +386,7 @@ def series_sum_ordinary(Intervals, dop, bwrec, ini, pt,
     last.extend(Intervals(ini.shift[n][0])
                 for n in xrange(dop.order() - 1, -1, -1))
     assert len(last) == ordrec + 1 # not ordrec!
-
-    # Singular part. Not the most natural thing to do here, but hopefully
-    # generalizes well to the regular singular case.
     psum = Jets.zero()
-    for n in range(dop.order()):
-        last.rotate(1)
-        term = Jets(last[0])._mul_trunc_(jetpow, ord)
-        psum += term
-        jetpow = jetpow._mul_trunc_(jet, ord)
-        radpow *= pt.rad
 
     tail_bound = bounds.IR(infinity)
     def check_convergence(prev_tail_bound):
@@ -408,7 +399,7 @@ def series_sum_ordinary(Intervals, dop, bwrec, ini, pt,
         # Warning: this residual must correspond to the operator stored in
         # maj.dop, which typically isn't the operator series_sum was called on
         # (but its to_T(), i.e. its product by a power of x).
-        residual = bounds.residual(bwrec, n, list(last)[1:],
+        residual = bounds.residual(n, bwrec_nplus, list(last)[1:],
                                                        maj.Poly.variable_name())
         majeqrhs = maj.maj_eq_rhs([residual])
         for i in xrange(5):
@@ -429,7 +420,20 @@ def series_sum_ordinary(Intervals, dop, bwrec, ini, pt,
             break
         return False, tail_bound
 
-    for n in itertools.count(dop.order()):
+    start = dop.order()
+    # Evaluate the coefficients a bit in advance as we are going to need them to
+    # compute the residuals. This is not ideal at high working precision, but
+    # already saves a lot of time compared to doing the evaluations twice.
+    bwrec_nplus = collections.deque(
+            (bwrec.eval_int_ball(Intervals, start+i) for i in xrange(ordrec)),
+            maxlen=ordrec)
+    for n in range(start): # Initial values (“singular part”)
+        last.rotate(1)
+        term = Jets(last[0])._mul_trunc_(jetpow, ord)
+        psum += term
+        jetpow = jetpow._mul_trunc_(jet, ord)
+        radpow *= pt.rad
+    for n in itertools.count(start):
         last.rotate(1)
         #last[0] = None
         # At this point last[0] should be considered undefined (it will hold
@@ -438,7 +442,7 @@ def series_sum_ordinary(Intervals, dop, bwrec, ini, pt,
         if n%stride == 0:
             done, tail_bound = check_convergence(tail_bound)
             if done: break
-        bwrec_n = bwrec.eval_int_ball(Intervals, n)
+        bwrec_n = bwrec_nplus[0]
         comb = sum(bwrec_n[k]*last[k] for k in xrange(1, ordrec+1))
         last[0] = -~bwrec_n[0]*comb
         # logger.debug("n = %s, [c(n), c(n-1), ...] = %s", n, list(last))
@@ -446,6 +450,7 @@ def series_sum_ordinary(Intervals, dop, bwrec, ini, pt,
         psum += term
         jetpow = jetpow._mul_trunc_(jet, ord)
         radpow *= pt.rad
+        bwrec_nplus.append(bwrec.eval_int_ball(Intervals, n+bwrec.order))
     # Account for the dropped high-order terms in the intervals we return
     # (tail_bound is actually a bound on the Frobenius norm of the error matrix,
     # so there is some overestimation).
@@ -700,8 +705,8 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, tgt_error,
         # sense in a relative error setting)
         if not tgt_error.reached(est, sum_est) and record_bounds_in is None:
             return False, bounds.IR(infinity)
-        majeqrhs = bounds.maj_eq_rhs_with_logs(bwrec, n, list(last)[1:],
-                maj.Poly.variable_name(), log_prec)
+        majeqrhs = bounds.maj_eq_rhs_with_logs(n, bwrec, bwrec_nplus,
+                list(last)[1:], maj.Poly.variable_name(), log_prec)
         for i in xrange(5):
             tail_bound = maj.matrix_sol_tail_bound(n, pt.rad, majeqrhs,
                                                         ord=pt.jet_order)
@@ -730,6 +735,11 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, tgt_error,
             break
         return False, tail_bound
 
+    precomp_len = max(1, bwrec.order) # hack for recurrences of order zero
+    bwrec_nplus = collections.deque(
+            (bwrec.eval_series(Intervals, i, log_prec)
+                for i in xrange(precomp_len)),
+            maxlen=precomp_len)
     for n in itertools.count():
         last.rotate(1)
         logger.log(logging.DEBUG - 2, "n = %s, [c(n), c(n-1), ...] = %s", n, list(last))
@@ -740,19 +750,19 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, tgt_error,
             done, tail_bound = check_convergence(tail_bound)
             if done: break
 
-        bwrec_n = bwrec.eval_series(Intervals, n, log_prec)
         for p in xrange(log_prec - mult - 1, -1, -1):
-            combin  = sum(bwrec_n[i][j]*last[i][p+j]
+            combin  = sum(bwrec_nplus[0][i][j]*last[i][p+j]
                           for j in xrange(log_prec - p)
                           for i in xrange(bwrec.order, 0, -1))
-            combin += sum(bwrec_n[0][j]*last[0][p+j]
+            combin += sum(bwrec_nplus[0][0][j]*last[0][p+j]
                           for j in xrange(mult + 1, log_prec - p))
-            last[0][mult + p] = - ~bwrec_n[0][mult] * combin
+            last[0][mult + p] = - ~bwrec_nplus[0][0][mult] * combin
         for p in xrange(mult - 1, -1, -1):
             last[0][p] = ini.shift[n][p]
         psum += last[0]*jetpow
         jetpow = jetpow._mul_trunc_(jet, ord)
         radpow *= pt.rad
+        bwrec_nplus.append(bwrec.eval_series(Intervals, n+precomp_len, log_prec))
     logger.info("summed %d terms, tail <= %s", n, tail_bound)
 
     # Add error terms accounting for the truncation (for each power of log and
