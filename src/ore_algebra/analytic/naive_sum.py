@@ -284,9 +284,9 @@ def series_sum(dop, ini, pt, tgt_error, maj=None, bwrec=None,
         ....:         EvaluationPoint(x.change_ring(RBF), rad=RBF(1), jet_order=2),
         ....:         AbsoluteError(1e-3), stride=1)
         (... + [0.0083...]*x^5 + [0.0416...]*x^4 + [0.1666...]*x^3
-        + 0.5000...*x^2 + x + [1.000 +/- ...e-4],
+        + 0.5000...*x^2 + x + [1.0000 +/- ...e-5],
         ... + [0.0083...]*x^5 + [0.0416...]*x^4 + [0.1666...]*x^3
-        + [0.5000...]*x^2 + x + [1.000 +/- ...e-4])
+        + [0.5000...]*x^2 + x + [1.0000 +/- ...e-5])
 
     TESTS::
 
@@ -392,7 +392,7 @@ def series_sum_ordinary(Intervals, dop, bwrec, ini, pt,
     def check_convergence(prev_tail_bound):
         # last[-1] since last[0] may still be "undefined" and last[1] may
         # not exist in degenerate cases
-        est = (abs(last[-1])*radpow).above_abs()
+        est = (max([abs(a) for a in last])*radpow).above_abs()
         abs_sum = abs(psum[0]) if pt.is_numeric else None
         if not tgt_error.reached(est, abs_sum) and record_bounds_in is None:
             return False, bounds.IR(infinity)
