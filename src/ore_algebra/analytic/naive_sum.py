@@ -404,8 +404,8 @@ def series_sum_ordinary(Intervals, dop, bwrec, ini, pt,
         majeqrhs = maj.maj_eq_rhs([residual])
         for i in xrange(5):
             tail_bound = maj.matrix_sol_tail_bound(n, pt.rad, majeqrhs, ord)
-            logger.debug("n=%s, sum=%s, est=%s, rhs[.]=%s, tail_bound=%s",
-                            n, psum[0], est, majeqrhs[0], tail_bound)
+            logger.debug("n=%s, i=%s, sum=%s, est=%s, rhs[.]=%s, tail_bound=%s",
+                            n, i, psum[0], est, majeqrhs[0], tail_bound)
             if record_bounds_in is not None:
                 record_bounds_in.append((n, psum, tail_bound))
             if tgt_error.reached(tail_bound, abs_sum):
