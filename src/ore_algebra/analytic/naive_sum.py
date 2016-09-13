@@ -236,8 +236,13 @@ class LogSeriesInitialValues(object):
         else:
             return False
 
+class PrecisionError(Exception):
+
+    def __init__(self, suggested_new_prec):
+        self.suggested_new_prec = suggested_new_prec
+
 def series_sum(dop, ini, pt, tgt_error, maj=None, bwrec=None,
-        stride=50, record_bounds_in=None, max_prec_increase=1000):
+        stride=50, record_bounds_in=None, max_prec=100000):
     r"""
     EXAMPLES::
 
@@ -347,20 +352,26 @@ def series_sum(dop, ini, pt, tgt_error, maj=None, bwrec=None,
     # Now do the actual computation, automatically increasing the precision as
     # necessary
 
-    prec_increase_count = 0
     bit_prec = utilities.prec_from_eps(tgt_error.eps)
-    bit_prec += 3*bit_prec.nbits()
+    # Roughly speaking, the computation of a new coefficient of the series
+    # *multiplies* the diameter by the order of the recurrence, so it is not
+    # unreasonable that the loss of precision is of the order of
+    # log2(ordrec^nterms)... but this observation is far from explaining
+    # everything; in particular, it completely ignores the size of the
+    # coefficients of the recurrence. Anyhow, this formula seems to work well in
+    # practice.
+    bit_prec *= 1 + ZZ(bwrec.order - 2).nbits()
+    logger.info("initial precision = %s bits", bit_prec)
     while True:
         try:
             psum = doit(ivs(bit_prec), dop, bwrec, ini, pt,
                     tgt_error, maj, stride, record_bounds_in)
             return psum
-        except accuracy.PrecisionError:
-            prec_increase_count += 1
-            if prec_increase_count > max_prec_increase:
+        except PrecisionError as err:
+            if err.suggested_new_prec > max_prec:
                 logger.info("lost too much precision, giving up")
                 raise
-            bit_prec *= 2
+            bit_prec = err.suggested_new_prec
             logger.info("lost too much precision, restarting with %d bits",
                         bit_prec)
 
@@ -394,6 +405,9 @@ def series_sum_ordinary(Intervals, dop, bwrec, ini, pt,
         # not exist in degenerate cases
         est = (max([abs(a) for a in last])*radpow).above_abs()
         abs_sum = abs(psum[0]) if pt.is_numeric else None
+        if (abs_sum is not None and abs_sum.rad_as_ball() > tgt_error.eps
+                                and tgt_error.precise):
+            raise PrecisionError(2*Intervals.precision())
         if not tgt_error.reached(est, abs_sum) and record_bounds_in is None:
             return False, bounds.IR(infinity)
         # Warning: this residual must correspond to the operator stored in
@@ -412,7 +426,7 @@ def series_sum_ordinary(Intervals, dop, bwrec, ini, pt,
                 return True, tail_bound
             elif (i == 1 and tail_bound.is_finite()
                     and not tail_bound <= prev_tail_bound.above_abs()):
-                raise accuracy.PrecisionError
+                raise PrecisionError(2*Intervals.precision())
             elif not tgt_error.reached(tail_bound*
                     est**(QQ((maj._effort**2 + 2)*stride)/n)):
                 maj.refine()
@@ -462,16 +476,14 @@ def series_sum_ordinary(Intervals, dop, bwrec, ini, pt,
     return res
 
 # XXX: pass ctx (→ real/complex?)?
-def fundamental_matrix_ordinary(dop, pt, eps, rows, maj,
-                                max_prec_increase=1000):
+def fundamental_matrix_ordinary(dop, pt, eps, rows, maj, max_prec=None):
     eps_col = bounds.IR(eps)/bounds.IR(dop.order()).sqrt()
     evpt = EvaluationPoint(pt, jet_order=rows)
     inis = [
         LogSeriesInitialValues(ZZ.zero(), ini, dop, check=False)
         for ini in identity_matrix(dop.order())]
     cols = [
-        series_sum(dop, ini, evpt, eps_col, maj=maj,
-            max_prec_increase=max_prec_increase)
+        series_sum(dop, ini, evpt, eps_col, maj=maj, max_prec=max_prec)
         for ini in inis]
     return matrix(cols).transpose()
 
@@ -494,9 +506,9 @@ def fundamental_matrix_regular(dop, pt, eps, rows):
 
         sage: dop = (x+1)*(x^2+1)*Dx^3-(x-1)*(x^2-3)*Dx^2-2*(x^2+2*x-1)*Dx
         sage: fundamental_matrix_regular(dop, 1/3, RBF(1e-10), 3)
-        [ 1.0000000...  [0.321750...]  [0.147723...]]
-        [            0  [0.900000...]  [0.991224...]]
-        [            0  [-0.2...]      [1.935612...]]
+        [ 1.0000000...  [0.321750554...]  [0.147723741...]]
+        [            0  [0.900000000...]  [0.991224850...]]
+        [            0  [-0.27000000...]  [1.935612425...]]
 
         sage: dop = (
         ....:     (2*x^6 - x^5 - 3*x^4 - x^3 + x^2)*Dx^4
@@ -695,10 +707,10 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, tgt_error,
     def check_convergence(prev_tail_bound):
         if n <= last_index_with_ini or mult > 0:
             return False, bounds.IR(infinity)
-        est = (abs(last[-1][0])*radpow).above_abs()
-        if any(abs(foo).rad_as_ball() > tgt_error.eps for bar in psum for foo in bar):
-            from .accuracy import PrecisionError
-            raise PrecisionError
+        est = max(abs(a) for log_jet in last for a in log_jet)*radpow.above_abs()
+        if tgt_error.precise and any(abs(iv).rad_as_ball() > tgt_error.eps
+                                     for log_jet in psum for iv in log_jet):
+            raise PrecisionError(2*Intervals.precision())
         sum_est = bounds.IR(abs(psum[0][0]))
         # TODO: improve the automatic increase of precision for large x^λ:
         # currently we only check the series part (which would sort of make
@@ -723,7 +735,7 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, tgt_error,
             elif (i == 1 and tail_bound.is_finite()
                          and not tail_bound <= prev_tail_bound.above_abs()):
                 # We likely lost all precision on the coefficients.
-                raise accuracy.PrecisionError
+                raise PrecisionError(2*Intervals.precision())
             else:
                 # We don't want to go too far beyond the optimal truncation to
                 # improve tail_bound (we would lose too much precision), but

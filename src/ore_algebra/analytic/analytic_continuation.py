@@ -91,12 +91,12 @@ def ordinary_step_transition_matrix(ctx, step, eps, rows):
         return ctx.fundamental_matrix_ordinary(
                 ldop, step.delta(), eps, rows, maj)
     elif step.is_exact():
-        if eps > bounds.IR(1) >> (256 + 32*ldop.degree()):
+        thr = 256 + 32*ldop.degree()
+        if eps > bounds.IR(1)>>thr:
             try:
                 return naive_sum.fundamental_matrix_ordinary(
-                        ldop, step.delta(), eps, rows, maj,
-                        max_prec_increase=2+3*ldop.degree())
-            except accuracy.PrecisionError:
+                        ldop, step.delta(), eps, rows, maj, max_prec=4*thr)
+            except naive_sum.PrecisionError:
                 pass
         return binary_splitting.fundamental_matrix_ordinary(
                 ldop, step.delta(), eps, rows, maj)

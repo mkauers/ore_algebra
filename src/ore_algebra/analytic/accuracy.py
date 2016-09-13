@@ -14,9 +14,6 @@ logger = logging.getLogger(__name__)
 # Absolute and relative errors
 ######################################################################
 
-class PrecisionError(Exception):
-    pass
-
 class StoppingCriterion(object):
     pass
 
@@ -28,15 +25,9 @@ class AbsoluteError(StoppingCriterion):
 
     def reached(self, err, abs_val=None):
         if abs_val is not None and safe_gt(abs_val.rad_as_ball(), self.eps):
-            if self.precise:
-                logger.debug("insufficient precision: rad(x) = %s > ε = %s",
-                        abs_val.rad_as_ball(), self.eps)
-                raise PrecisionError
-            else:
-                # XXX: take logger from creator?
-                logger.warn("interval too wide wrt target accuracy "
-                            "(lost too much precision?)")
-                return True
+            # XXX: take logger from creator?
+            logger.warn("interval too wide wrt target accuracy "
+                        "(lost too much precision?)")
         return safe_lt(err.abs(), self.eps)
 
     def __repr__(self):
