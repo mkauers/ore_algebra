@@ -50,6 +50,10 @@ def taylor_economization(pol, eps):
 
         sage: from ore_algebra.analytic.polynomial_approximation import _test_fun_approx
         sage: _test_fun_approx(newpol, pol, disk_rad=1)
+
+        sage: Pols.<x> = RBF[]
+        sage: taylor_economization(x^5 + 10*x^4 + x^3 + 2*x + 10, RBF(3))
+        10.0000...*x^4 + 2.0000...*x + [1e+1 +/- 2.01] + [+/- 2.01]*I
     """
     Coefs = pol.base_ring()
     coef = list(pol)
@@ -115,6 +119,16 @@ def general_economization(economization_polynomials, pol, eps):
     result at x contains that of ``pol``. This also holds true for complex x
     when ``pol`` has complex coefficients, but *not* in general for the
     evaluation at complex points of polynomials with real coefficients.
+
+    TESTS::
+
+        sage: def monomials(ring, n):
+        ....:     x = ring.gen()
+        ....:     return [x**k for k in range(n)]
+        sage: Pols.<x> = RBF[]
+        sage: general_economization(monomials,
+        ....:         x^5 + 10*x^4 + x^3 + 2*x + 10, RBF(3))
+        10.00000000000000*x^4 + 2.000000000000000*x + [1e+1 +/- 2.01]
     """
     ecopol = economization_polynomials(pol.parent(), pol.degree() + 1)
     delta_bound = eps.parent().zero()
@@ -124,7 +138,10 @@ def general_economization(economization_polynomials, pol, eps):
         tmp_bound = delta_bound + abs(c)
         if safe_lt(tmp_bound, eps):
             delta_bound = tmp_bound
-            newpol = newpol[:k] - c*ecopol[k][:k] # lc → exact zero
+            # lc → exact zero
+            high = (newpol >> (k + 1)) << (k + 1)
+            low = newpol[:k]
+            newpol = high + low - c*ecopol[k][:k]
     newpol = newpol[0].add_error(delta_bound) + ((newpol >> 1) << 1)
     return newpol
 
@@ -228,6 +245,11 @@ def on_interval(dop, ini, path, eps, rad=None):
         Traceback (most recent call last):
         ...
         TypeError: missing radius
+
+        sage: pol = polapprox.on_interval(Dx^2 - x,
+        ....:         ini=[1/(gamma(2/3)*3^(2/3)), -1/(gamma(1/3)*3^(1/3))],
+        ....:         path=[0,[-1,1]], eps=1e-8)
+        sage: _test_fun_approx(pol, lambda x: RBF(CBF(x).airy_ai()), interval_rad=1)
     """
     if rad is None:
         try:
