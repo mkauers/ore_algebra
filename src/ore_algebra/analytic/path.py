@@ -14,9 +14,9 @@ import sage.structure.coerce
 import sage.symbolic.ring
 
 from sage.misc.cachefunc import cached_method
-from sage.rings.all import QQ, CC, RIF, CIF, QQbar, RLF, CLF, Integer
-from sage.rings.complex_arb import CBF, ComplexBallField
-from sage.rings.real_arb import RBF, RealBallField
+from sage.rings.all import ZZ, QQ, CC, RIF, CIF, QQbar, RLF, CLF, Integer
+from sage.rings.complex_arb import CBF, ComplexBallField, ComplexBall
+from sage.rings.real_arb import RBF, RealBallField, RealBall
 from sage.structure.sage_object import SageObject
 
 from ore_algebra.analytic.local_solutions import *
@@ -161,6 +161,8 @@ class Point(SageObject):
         sage: QQi.<i> = QuadraticField(-1)
         sage: [Point(z, Dx).exact() for z in [1, 1/2, 1+i, QQbar(I)]]
         [1, 1/2, i + 1, I]
+        sage: [Point(z, Dx).exact() for z in [RBF(3/4), RBF(1) + I]]
+        [3/4, i + 1]
         sage: Point(RIF(1/3), Dx).exact()
         Traceback (most recent call last):
         ...
@@ -168,12 +170,18 @@ class Point(SageObject):
         """
         if self.is_exact():
             return self
+        elif isinstance(self.value, RealBall) and self.value.is_exact():
+            return Point(QQ(self.value), self.dop)
+        elif isinstance(self.value, ComplexBall) and self.value.is_exact():
+            value = QQi((QQ(self.value.real()), QQ(self.value.imag())))
+            return Point(value, self.dop)
         raise ValueError
 
     def is_real(self):
         return RIF.has_coerce_map_from(self.value.parent())
 
     def is_exact(self):
+        # XXX: also include exact balls?
         return isinstance(self.value,
                 (rings.Integer, rings.Rational, rings.NumberFieldElement))
 
@@ -282,6 +290,16 @@ class Point(SageObject):
         return IR(min_dist.lower())
 
     def local_diffop(self): # ?
+        r"""
+        TESTS::
+
+            sage: from ore_algebra import DifferentialOperators
+            sage: Dops, x, Dx = DifferentialOperators()
+            sage: Point(1, x*Dx - 1).local_diffop()
+            (x + 1)*Dx - 1
+            sage: Point(RBF(1/2), x*Dx - 1).local_diffop()
+            (x + 1/2)*Dx - 1
+        """
         Pols_dop = self.dop.base_ring()
         # NOTE: pushout(QQ[x], K) doesn't handle embeddings well, and creates
         # an L equal but not identical to K. But then other constructors like
@@ -291,14 +309,15 @@ class Point(SageObject):
         # XXX: This seems to work in the usual trivial case where we are looking
         # for a scalar domain containing QQ and QQ[i], but probably won't be
         # enough if we really have two different number fields with embeddings
-        Scalars = pushout.pushout(Pols_dop.base_ring(), self.value.parent())
+        ex = self.exact()
+        Scalars = pushout.pushout(Pols_dop.base_ring(), ex.value.parent())
         Pols = Pols_dop.change_ring(Scalars)
-        A, B = self.dop.base_ring().base_ring(), self.value.parent()
+        A, B = self.dop.base_ring().base_ring(), ex.value.parent()
         C = Pols.base_ring()
         assert C is A or C != A
         assert C is B or C != B
         dop_P = self.dop.change_ring(Pols)
-        return dop_P.annihilator_of_composition(Pols([self.value, 1]))
+        return dop_P.annihilator_of_composition(Pols([ex.value, 1]))
 
     def local_basis_structure(self):
         r"""
