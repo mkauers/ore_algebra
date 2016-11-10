@@ -10,6 +10,7 @@ import sage.plot.all as plot
 import sage.rings.all as rings
 import sage.rings.number_field.number_field as number_field
 import sage.rings.number_field.number_field_base as number_field_base
+import sage.structure.coerce
 import sage.symbolic.ring
 
 from sage.misc.cachefunc import cached_method
@@ -51,16 +52,22 @@ class Point(SageObject):
             sage: from ore_algebra.analytic.path import Point
             sage: Dops, x, Dx = Diffops()
             sage: [Point(z, Dx)
-            ....:  for z in [1, 1/2, 1+I, QQbar(I), RIF(1/3), CIF(1/3), pi]]
+            ....:  for z in [1, 1/2, 1+I, QQbar(I), RIF(1/3), CIF(1/3), pi,
+            ....:  RDF(1), CDF(I), 0.5r, 0.5jr, 10r]]
             [1, 1/2, I + 1, I, [0.333333333333333...], [0.333333333333333...],
-            3.141592653589794?]
+            3.141592653589794?, 1.000000000000000, 1.000000000000000*I,
+            0.5000000000000000, 0.5000000000000000*I, 10]
         """
         SageObject.__init__(self)
 
-        from sage.rings.real_mpfr import RealField_class
+        from sage.rings.complex_double import ComplexDoubleField_class
         from sage.rings.complex_field import ComplexField_class
-        from sage.rings.real_mpfi import RealIntervalField_class
         from sage.rings.complex_interval_field import ComplexIntervalField_class
+        from sage.rings.real_double import RealDoubleField_class
+        from sage.rings.real_mpfi import RealIntervalField_class
+        from sage.rings.real_mpfr import RealField_class
+
+        point = sage.structure.coerce.py_scalar_to_element(point)
         try:
             parent = point.parent()
         except AttributeError:
@@ -90,9 +97,10 @@ class Point(SageObject):
                                              NF.variable_name(),
                                              embedding=hom(NF.gen()))
             self.value = val.polynomial()(embNF.gen())
-        elif isinstance(parent, (RealField_class, RealIntervalField_class)):
+        elif isinstance(parent, (RealField_class, RealDoubleField_class,
+                                 RealIntervalField_class)):
             self.value = RealBallField(point.prec())(point)
-        elif isinstance(parent, (ComplexField_class,
+        elif isinstance(parent, (ComplexField_class, ComplexDoubleField_class,
                                  ComplexIntervalField_class)):
             self.value = ComplexBallField(point.prec())(point)
         else:
