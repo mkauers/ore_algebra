@@ -467,7 +467,11 @@ def series_sum_ordinary(Intervals, dop, bwrec, ini, pt,
         bwrec_nplus.append(bwrec.eval_int_ball(Intervals, n+bwrec.order))
     # Account for the dropped high-order terms in the intervals we return
     # (tail_bound is actually a bound on the Frobenius norm of the error matrix,
-    # so there is some overestimation).
+    # so there is some overestimation). WARNING: For symbolic x, the resulting
+    # polynomials have to be interpreted with some care: in particular, it would
+    # be incorrect to evaluate a polynomial result with real coefficients at a
+    # complex point. Our current mechanism to choose whether to add a real or
+    # complex error bound in this case is pretty fragile.
     tail_bound = tail_bound.abs()
     res = vector(_add_error(psum[i], tail_bound) for i in xrange(ord))
     logger.info("summed %d terms, tail <= %s, coeffwise error <= %s", n,

@@ -168,7 +168,7 @@ def chebyshev_economization(pol, eps):
 def mixed_economization(): # ?
     pass
 
-def doit(dop, ini, path, rad, eps, derivatives, economization):
+def doit(dop, ini, path, rad, eps, derivatives, economization, x_is_real):
 
     # Merge with analytic_continuation.analytic_continuation()???
 
@@ -179,7 +179,7 @@ def doit(dop, ini, path, rad, eps, derivatives, economization):
     pairs = ancont.analytic_continuation(ctx, ini=ini)
     local_ini = pairs[0][1]
 
-    Scalars = ball_field(eps1, ctx.real())
+    Scalars = ball_field(eps1, x_is_real and ctx.real())
     x = dop.base_ring().change_ring(Scalars).gen()
 
     local_dop = ctx.path.vert[-1].local_diffop()
@@ -212,10 +212,25 @@ def on_disk(dop, ini, path, rad, eps):
         sage: from ore_algebra.analytic.polynomial_approximation import _test_fun_approx
         sage: pol = polapprox.on_disk(Dx - 1, [1], [0, i], 1, 1e-20)
         sage: _test_fun_approx(pol, lambda b: (i + b).exp(), disk_rad=1, prec=200)
+
+    ::
+
         sage: pol = polapprox.on_disk(Dx^2 + 2*x*Dx, [0, 2/sqrt(RBF(pi))], [0], 2, 1e-10)
         sage: _test_fun_approx(pol, lambda x: x.erf(), disk_rad=1)
+
+    Ensure that the polynomial we computed correctly takes into account that x
+    may be complex, even though the Taylor series it is based on has real
+    coefficients::
+
+        sage: pol.parent()
+        Univariate Polynomial Ring in x over Complex ball field with ... bits precision
+        sage: pol[0].imag().is_zero()
+        False
     """
-    return doit(dop, ini, path, rad, eps, 1, taylor_economization)[0]
+    # Always use a *complex* ball field (otherwise the error term will be
+    # real even though it represents a bound on a series tail involving a
+    # complex x). (TBI!)
+    return doit(dop, ini, path, rad, eps, 1, taylor_economization, False)[0]
 
 def on_interval(dop, ini, path, eps, rad=None):
     r"""
@@ -261,7 +276,7 @@ def on_interval(dop, ini, path, eps, rad=None):
         mypath = path[:-1] + [mid]
     else:
         mypath = path
-    return doit(dop, ini, mypath, rad, eps, 1, chebyshev_economization)[0]
+    return doit(dop, ini, mypath, rad, eps, 1, chebyshev_economization, True)[0]
 
 def _test_fun_approx(pol, ref, disk_rad=None, interval_rad=None,
         prec=53, test_count=100):
