@@ -178,7 +178,7 @@ class Point(SageObject):
         raise ValueError
 
     def is_real(self):
-        return RIF.has_coerce_map_from(self.value.parent())
+        return is_real_parent(self.value.parent())
 
     def is_exact(self):
         # XXX: also include exact balls?

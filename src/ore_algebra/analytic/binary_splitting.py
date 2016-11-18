@@ -23,7 +23,6 @@ from sage.rings.rational_field import QQ
 from sage.rings.number_field.number_field import NumberField, is_NumberField
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 from sage.rings.power_series_ring import PowerSeriesRing
-from sage.rings.real_arb import RealBallField
 
 logger = logging.getLogger(__name__)
 
@@ -355,7 +354,7 @@ def fundamental_matrix_ordinary(dop, pt, eps, rows, maj):
                 if n > 64*2**maj._effort:
                     maj.refine()
             if done: break
-    is_real = RealBallField(2).has_coerce_map_from(pt.parent())
+    is_real = utilities.is_real_parent(pt.parent())
     Intervals = utilities.ball_field(eps, is_real)
     mat = prod.partial_sums(Intervals, rows, dop.order())
     # Account for the dropped high-order terms in the intervals we return.
