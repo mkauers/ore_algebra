@@ -217,6 +217,8 @@ def on_disk(dop, ini, path, rad, eps):
 
         sage: pol = polapprox.on_disk(Dx^2 + 2*x*Dx, [0, 2/sqrt(RBF(pi))], [0], 2, 1e-10)
         sage: _test_fun_approx(pol, lambda x: x.erf(), disk_rad=1)
+        sage: pol[0].abs() < RBF(10)^-10
+        True
 
     Ensure that the polynomial we computed correctly takes into account that x
     may be complex, even though the Taylor series it is based on has real

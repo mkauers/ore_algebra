@@ -404,11 +404,20 @@ def series_sum_ordinary(Intervals, dop, bwrec, ini, pt,
         # last[-1] since last[0] may still be "undefined" and last[1] may
         # not exist in degenerate cases
         est = (max([abs(a) for a in last])*radpow).above_abs()
-        abs_sum = abs(psum[0]) if pt.is_numeric else None
-        if (abs_sum is not None and abs_sum.rad_as_ball() > tgt_error.eps
-                                and tgt_error.precise):
-            raise PrecisionError(2*Intervals.precision())
-        if not tgt_error.reached(est, abs_sum) and record_bounds_in is None:
+        if pt.is_numeric:
+            abs_sum = abs(psum[0])
+            width = abs_sum.rad_as_ball()
+        else:
+            abs_sum = None
+            width = max([abs(a).rad_as_ball() for a in last])*radpow
+        ivs_too_wide = False
+        if width > tgt_error.eps:
+            if tgt_error.precise:
+                raise PrecisionError(2*Intervals.precision())
+            else:
+                ivs_too_wide = True
+        if (not tgt_error.reached(est, abs_sum) and record_bounds_in is None
+                and not ivs_too_wide):
             return False, bounds.IR(infinity)
         # Warning: this residual must correspond to the operator stored in
         # maj.dop, which typically isn't the operator series_sum was called on
@@ -424,6 +433,9 @@ def series_sum_ordinary(Intervals, dop, bwrec, ini, pt,
                 record_bounds_in.append((n, psum, tail_bound))
             if tgt_error.reached(tail_bound, abs_sum):
                 return True, tail_bound
+            elif ivs_too_wide:
+                if width > tail_bound:
+                    return True, tail_bound
             elif (i == 1 and tail_bound.is_finite()
                     and not tail_bound <= prev_tail_bound.above_abs()):
                 raise PrecisionError(2*Intervals.precision())
