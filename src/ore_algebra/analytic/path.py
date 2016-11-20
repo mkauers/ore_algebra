@@ -108,6 +108,10 @@ class Point(SageObject):
                 self.value = RLF.coerce(point)
             except TypeError:
                 self.value = CLF.coerce(point)
+        parent = self.value.parent()
+        assert (isinstance(parent, (number_field_base.NumberField,
+                                    RealBallField, ComplexBallField))
+                or parent is RLF or parent is CLF)
 
         self.dop = dop or point.dop
 
@@ -176,6 +180,16 @@ class Point(SageObject):
             value = QQi((QQ(self.value.real()), QQ(self.value.imag())))
             return Point(value, self.dop)
         raise ValueError
+
+    def approx_abs_real(self, prec):
+        if isinstance(self.value.parent(), RealBallField):
+            return self.value
+        elif self.is_real():
+            expo = ZZ(IR(self.value).abs().log(2).upper().ceil())
+            rel_prec = max(2, prec + expo + 10)
+            return RealBallField(rel_prec)(self.value)
+        else:
+            raise ValueError("point may not be real")
 
     def is_real(self):
         return is_real_parent(self.value.parent())
