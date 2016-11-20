@@ -25,6 +25,13 @@ from ore_algebra.analytic.naive_sum import series_sum, EvaluationPoint
 from ore_algebra.analytic.safe_cmp import *
 from ore_algebra.analytic.utilities import *
 
+def combine_radii(pol):
+    coeff = list(pol)
+    for i in xrange(1, len(coeff)):
+        coeff[0] = coeff[0].add_error(coeff[i].rad())
+        coeff[i] = coeff[i].squash()
+    return pol.parent()(coeff)
+
 def taylor_economization(pol, eps):
     r"""
     Remove terms from the polynomial ``pol``, starting with the high-order
@@ -163,7 +170,8 @@ def chebyshev_economization(pol, eps):
         sage: from ore_algebra.analytic.polynomial_approximation import _test_fun_approx
         sage: _test_fun_approx(newpol, pol, interval_rad=1)
     """
-    return general_economization(chebyshev_polynomials, pol, eps)
+    pol1 = combine_radii(pol)
+    return general_economization(chebyshev_polynomials, pol1, eps)
 
 def mixed_economization(): # ?
     pass
