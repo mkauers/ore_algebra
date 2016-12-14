@@ -476,7 +476,7 @@ class Step(SageObject):
         dop = self.start.dop
         # TODO: solve over CBF directly?
         sing = [IC(s) for s in dop_singularities(dop, CIF)
-                      if s != self.start.value and s != self.end.value]
+                      if s != CIF(self.start.value) and s != CIF(self.end.value)]
         for s in sing:
             ds = s - self.start.iv()
             t = self.delta()/ds
