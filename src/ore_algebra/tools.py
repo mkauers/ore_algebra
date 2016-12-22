@@ -18,6 +18,8 @@ collection of auxiliary functions.
 #  http://www.gnu.org/licenses/                                             #
 #############################################################################
 
+from __future__ import absolute_import
+
 from sage.structure.element import RingElement, canonical_coercion
 from sage.arith.all import gcd, lcm, previous_prime as pp
 from sage.rings.qqbar import QQbar

@@ -15,14 +15,14 @@ ideal
 #  http://www.gnu.org/licenses/                                             #
 #############################################################################
 
-import nullspace 
-
 from datetime import datetime
-from sage.rings.noncommutative_ideals import *
+from sage.rings.noncommutative_ideals import Ideal_nc
 from sage.misc.all import prod, add
 from sage.rings.rational_field import QQ
 from sage.modules.free_module_element import vector
 from sage.matrix.constructor import Matrix, matrix
+
+from . import nullspace
 
 class OreLeftIdeal(Ideal_nc):
 

@@ -29,23 +29,24 @@ except:
 
 #######################################
 
+import math
+from datetime import datetime
+
 from sage.rings.integer_ring import ZZ
 from sage.rings.rational_field import QQ
 from sage.rings.finite_rings.all import GF
 from sage.rings.finite_rings.finite_field_base import is_FiniteField
 from sage.matrix.constructor import Matrix, matrix
+from sage.matrix.matrix_space import MatrixSpace
 from sage.rings.arith import xgcd
 from sage.parallel.decorate import parallel
 from sage.rings.polynomial.polynomial_ring import is_PolynomialRing
+from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 from sage.modules.free_module_element import vector
+from sage.sets.primes import Primes
 
-from ore_algebra import *
-from ideal import * ## doctest needs this for some reason. 
-
-from datetime import datetime
-import nullspace
-import math
-from nullspace import _hermite
+from . import nullspace
+from .nullspace import _hermite
 
 def guess_rec(data, n, S, **kwargs):
     """

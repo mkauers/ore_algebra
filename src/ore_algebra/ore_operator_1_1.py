@@ -20,23 +20,26 @@ one generator.
 #  http://www.gnu.org/licenses/                                             #
 #############################################################################
 
+from __future__ import absolute_import
+
 import sage.functions.log as symbolic_log
 
-from sage.structure.element import RingElement, canonical_coercion
 from sage.arith.all import previous_prime as pp
 from sage.arith.all import gcd, lcm
+from sage.misc.all import prod, union
 from sage.rings.rational_field import QQ
 from sage.rings.integer_ring import ZZ
 from sage.rings.infinity import infinity
+from sage.rings.number_field.number_field_base import is_NumberField
 from sage.rings.qqbar import QQbar
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
+from sage.rings.power_series_ring import PowerSeriesRing
+from sage.structure.element import RingElement, canonical_coercion
 from sage.symbolic.all import SR
-from sage.misc.all import prod, union
 
-from tools import *
-from ore_operator import *
-from generalized_series import *
-from generalized_series import _generalized_series_shift_quotient, _binomial ## why not implied by the previous line?
+from .tools import q_log, make_factor_iterator, shift_factor
+from .ore_operator import OreOperator, UnivariateOreOperator
+from .generalized_series import GeneralizedSeriesMonoid, _generalized_series_shift_quotient, _binomial
 
 class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
     """
@@ -1970,7 +1973,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             sage: (x^3*Dx^4+3*x^2*Dx^3+x*Dx^2+x*Dx+1).local_basis_monomials(0)
             [1, 1/2*x*log(x)^2, x*log(x), x]
         """
-        from analytic.path import Point
+        from .analytic.path import Point
         struct = Point(point, self).local_basis_structure()
         x = SR(self.base_ring().gen()) - point
         return [x**sol.valuation*symbolic_log.log(x, hold=True)**sol.log_power
@@ -2078,7 +2081,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             sage: Dx.numerical_solution([1], [0, 1], 1e-10).parent()
             Real ball field with 3... bits precision
         """
-        import analytic.analytic_continuation as ancont
+        from .analytic import analytic_continuation as ancont
         ctx = ancont.Context(self, path, eps)
         if ctx.path.vert[-1].is_regular_singular():
             raise ValueError("the evaluation point is a regular singular "
@@ -2220,7 +2223,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             NotImplementedError: analytic continuation through irregular
             singular points is not supported
         """
-        import analytic.analytic_continuation as ancont
+        from .analytic import analytic_continuation as ancont
         ctx = ancont.Context(self, path, eps)
         pairs = ancont.analytic_continuation(ctx)
         assert len(pairs) == 1

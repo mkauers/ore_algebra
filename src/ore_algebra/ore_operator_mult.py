@@ -18,19 +18,20 @@ ore_operator_mult
 #  http://www.gnu.org/licenses/                                             #
 #############################################################################
 
+from __future__ import absolute_import
+
+from datetime import datetime
+
 from sage.structure.element import RingElement, canonical_coercion
 from sage.arith.all import gcd, lcm
+from sage.matrix.constructor import Matrix, matrix
+from sage.misc.all import prod, add
+from sage.modules.free_module_element import vector
 from sage.rings.rational_field import QQ
 from sage.rings.integer_ring import ZZ
 from sage.rings.infinity import infinity
 
-from sage.misc.all import prod, add
-
-from ore_operator import *
-from datetime import datetime
-
-from sage.modules.free_module_element import vector
-from sage.matrix.constructor import Matrix, matrix
+from .ore_operator import OreOperator
 
 class MultivariateOreOperator(OreOperator):
     """

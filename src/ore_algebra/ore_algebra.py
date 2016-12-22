@@ -45,6 +45,7 @@ AUTHOR:
 #  http://www.gnu.org/licenses/                                             #
 #############################################################################
 
+from __future__ import absolute_import
 
 """
 ######### development mode ###########
@@ -104,10 +105,7 @@ from sage.rings.integer_ring import ZZ
 from sage.rings.rational_field import QQ
 from sage.rings.finite_rings.all import GF
 
-from ore_operator import *
-from ore_operator_1_1 import *
-from ore_operator_mult import *
-import nullspace 
+from . import nullspace
 
 def is_OreAlgebra(A):
     """
@@ -915,26 +913,27 @@ def OreAlgebra(base_ring, *generators, **kwargs):
             product_rules[i] = (zero, one, zero)
 
     # Select element class
+    from . import ore_operator, ore_operator_1_1, ore_operator_mult
     if kwargs.has_key("element_class"):
         operator_class = kwargs["element_class"]
     elif len(gens) > 1:
-        operator_class = MultivariateOreOperator
+        operator_class = ore_operator_mult.MultivariateOreOperator
     elif len(Rgens) > 1:
-        operator_class = UnivariateOreOperator
+        operator_class = ore_operator.UnivariateOreOperator
     elif is_shift[0]:
-        operator_class = UnivariateRecurrenceOperatorOverUnivariateRing
+        operator_class = ore_operator_1_1.UnivariateRecurrenceOperatorOverUnivariateRing
     elif is_derivation[0]:
-        operator_class = UnivariateDifferentialOperatorOverUnivariateRing
+        operator_class = ore_operator_1_1.UnivariateDifferentialOperatorOverUnivariateRing
     elif is_qshift[0]:
-        operator_class = UnivariateQRecurrenceOperatorOverUnivariateRing
+        operator_class = ore_operator_1_1.UnivariateQRecurrenceOperatorOverUnivariateRing
     elif is_qderivation[0]:
-        operator_class = UnivariateQDifferentialOperatorOverUnivariateRing
+        operator_class = ore_operator_1_1.UnivariateQDifferentialOperatorOverUnivariateRing
     elif is_delta[0]:
-        operator_class = UnivariateDifferenceOperatorOverUnivariateRing
+        operator_class = ore_operator_1_1.UnivariateDifferenceOperatorOverUnivariateRing
     elif is_theta[0]:
-        operator_class = UnivariateEulerDifferentialOperatorOverUnivariateRing
+        operator_class = ore_operator_1_1.UnivariateEulerDifferentialOperatorOverUnivariateRing
     else:
-        operator_class = UnivariateOreOperator
+        operator_class = ore_operator.UnivariateOreOperator
 
     # Select the linear system solver for matrices over the base ring
     if kwargs.has_key("solver"):
@@ -1641,7 +1640,7 @@ class OreAlgebra_generic(Algebra):
 
         The generators must be elements of self. 
         """
-        from ideal import OreLeftIdeal
+        from .ideal import OreLeftIdeal
         return OreLeftIdeal(self, gens, coerce, is_known_to_be_a_groebner_basis)
 
     def base_extend(self, R):

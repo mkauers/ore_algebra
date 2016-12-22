@@ -18,6 +18,8 @@ ore_operator
 #  http://www.gnu.org/licenses/                                             #
 #############################################################################
 
+from __future__ import absolute_import
+
 from sage.structure.element import RingElement, canonical_coercion
 from sage.arith.all import gcd, lcm
 from sage.rings.rational_field import QQ
