@@ -26,118 +26,14 @@ from sage.rings.rational_field import QQ
 from sage.rings.real_mpfr import RR
 from sage.functions.log import log as LOG
 from sage.functions.log import exp as EXP
-from sage.rings.number_field.number_field import is_NumberField
+from sage.rings.number_field.number_field_base import NumberField
 from sage.structure.element import Element, RingElement, canonical_coercion
 from sage.structure.parent import Parent
+from sage.structure.unique_representation import UniqueRepresentation
 from sage.rings.infinity import infinity
 from sage.rings.qqbar import QQbar
 
 import re
-
-def GeneralizedSeriesMonoid(base, x, type="continuous"):
-    r"""
-    Creates a monoid of generalized series objects.
-
-    INPUT:
-
-    - ``base`` -- constant field, may be either ``QQ`` or a number field. 
-    - ``x`` -- name of the variable, must not contain the substring ``"log"``.
-    - ``type`` (optional) -- either ``"continuous"`` or ``"discrete"``.
-
-    If the type is ``"continuous"``, the domain contains series objects of the form
-
-    `\exp(\int_0^x \frac{p(t^{-1/r})}t dt)*q(x^{1/r},\log(x))`
-
-    where
-
-    * `r` is a positive integer (the object's "ramification")
-    * `p` is in `K[x]` (the object's "exponential part")
-    * `q` is in `K[[x]][y]` with `x\nmid q` unless `q` is zero (the object's "tail")
-    * `K` is the base ring.
-
-    Any two such objects can be multiplied and differentiated.
-    Objects whose exponential parts differ by an integer ("similar" series) can also be added. 
-
-    If the type is ``"discrete"``, the domain contains series objects of the form
-
-    `(x/e)^{x u/v}\rho^x\exp\bigl(c_1 x^{1/(m*v)} +...+ c_{v-1} x^{1-1/(m*v)}\bigr)x^\alpha p(x^{-1/(m*v)},\log(x))`
-
-    where
-
-    * `e` is Euler's constant (2.71...)
-    * `v` is a positive integer (the object's "ramification")
-    * `u` is an integer; the term `(x/e)^(v/u)` is called the "superexponential part" of the solution
-    * `\rho` is an element of an algebraic extension of the coefficient field `K`
-      (the algebra's base ring's base ring); the term `\rho^x` is called the "exponential part" of
-      the solution
-    * `c_1,...,c_{v-1}` are elements of `K(\rho)`; the term `\exp(...)` is called the "subexponential
-      part" of the solution
-    * `m` is a positive integer
-    * `\alpha` is an element of some algebraic extension of `K(\rho)`; the term `n^\alpha` is called
-      the "polynomial part" of the solution (even if `\alpha` is not an integer)
-    * `p` is an element of `K(\rho)(\alpha)[[x]][y]`. It is called the "expansion part" of the solution.
-
-    Any two such objects can be multiplied and shifted.
-    Objects with the same superexponential, exponential, and subexponential part can also be added. 
-    
-
-    Also there is also a zero element which acts neutrally with respect to addition,
-    and whose product with any other object is zero. In a strict mathematical sense,
-    the set of all generalized series therefore does not form a monoid. 
-
-    Nonzero objects involving no logariths (i.e., deg(q)==0) admit a multiplicative
-    inverse if the series part has finite precision. 
-
-    Coercion is supported from constants, polynomials, power series and Laurent
-    series and other generalized series, provided that the respective coefficient
-    domains support coercion.
-
-    There are functions for lifting the coefficient field to some algebraic extension.
-
-    EXAMPLES::
-
-        sage: from ore_algebra.generalized_series import GeneralizedSeriesMonoid
-        sage: G = GeneralizedSeriesMonoid(QQ, 'x')
-        sage: G
-        Monoid of continuous generalized series in x over Rational Field
-        sage: x = QQ['x'].gen()
-        sage: G(x+2*x^3 + 4*x^4 + O(x^5))
-        x*(1 + 2*x^2 + 4*x^3 + O(x^4))
-        sage: G(x+2*x^3 + 4*x^4 + O(x^5), ramification=2)
-        x^(1/2)*(1 + 2*x^(2/2) + 4*x^(3/2) + O(x^(4/2)))
-        sage: G(x+2*x^3 + 4*x^4 + O(x^5), ramification=3)
-        x^(1/3)*(1 + 2*x^(2/3) + 4*x^(3/3) + O(x^(4/3)))
-        sage: f = _
-        sage: f.derivative()
-        x^(-2/3)*(1/3 + 2*x^(2/3) + 16/3*x^(3/3) + O(x^(4/3)))
-        sage: _*f
-        x^(-1/3)*(1/3 + 8/3*x^(2/3) + 20/3*x^(3/3) + O(x^(4/3)))
-        sage: (G(1+x, ramification=2)*G(1+x, ramification=3)).ramification()
-        6
-        sage: K = QQ.extension(x^2-2, 'a'); a = K.gen()
-        sage: a*G(x)
-        x*a
-        sage: _.parent()
-        Monoid of continuous generalized series in x over Number Field in a with defining polynomial x^2 - 2
-        sage: G(x).base_extend(x^3+5, 'b')
-        x
-        sage: _.parent()
-        Monoid of continuous generalized series in x over Number Field in b with defining polynomial x^3 + 5
-
-    """
-    M = GeneralizedSeriesMonoid_class(base, x, type)
-
-    # Check whether this algebra already exists.
-    global _list_of_generalized_series_parents
-    for m in _list_of_generalized_series_parents:
-        if m == M:
-            return m
-
-    # It's new. register it and return it. 
-    _list_of_generalized_series_parents.append(M)
-    return M
-
-_list_of_generalized_series_parents = []
 
 from sage.categories.pushout import ConstructionFunctor
 from sage.categories.functor import Functor
@@ -166,23 +62,117 @@ class GeneralizedSeriesFunctor(ConstructionFunctor):
         return "GeneralizedSeries in " + str(self.x)
 
 
-class GeneralizedSeriesMonoid_class(Parent):
+class GeneralizedSeriesMonoid(UniqueRepresentation, Parent):
     """
     Objects of this class represent parents of generalized series objects.
     They depend on a coefficient ring, which must be either QQ or a number field,
     and a variable name. The type must be \"continuous\" or \"discrete\"
     """
 
-    def __init__(self, base, x, type):
-
+    @staticmethod
+    def __classcall__(cls, base, x, type="continuous"):
+        if not (any(base is P for P in [ZZ, QQ, QQbar])
+                or isinstance(base, NumberField)):
+            raise TypeError, "base ring must be ZZ, QQbar or a number field"
         x = str(x)
-        Parent.__init__(self, base=base, names=(x,), category=Rings())
-        if base is not QQbar and base is not QQ and base is not ZZ and not is_NumberField(base):
-            raise TypeError, "base ring must be QQ or a number field"
         if x.find("LOG") >= 0:
             raise ValueError, "generator name must not contain the substring 'LOG'"
+        type = str(type)
         if type != "continuous" and type != "discrete":
             raise ValueError, "type must be either \"continuous\" or \"discrete\""
+        return super(GeneralizedSeriesMonoid, cls).__classcall__(cls, base, x, type)
+
+    def __init__(self, base, x, type):
+        r"""
+        Creates a monoid of generalized series objects.
+
+        INPUT:
+
+        - ``base`` -- constant field, may be either ``QQ`` or a number field.
+        - ``x`` -- name of the variable, must not contain the substring ``"log"``.
+        - ``type`` (optional) -- either ``"continuous"`` or ``"discrete"``.
+
+        If the type is ``"continuous"``, the domain contains series objects of the form
+
+        `\exp(\int_0^x \frac{p(t^{-1/r})}t dt)*q(x^{1/r},\log(x))`
+
+        where
+
+        * `r` is a positive integer (the object's "ramification")
+        * `p` is in `K[x]` (the object's "exponential part")
+        * `q` is in `K[[x]][y]` with `x\nmid q` unless `q` is zero (the object's "tail")
+        * `K` is the base ring.
+
+        Any two such objects can be multiplied and differentiated.
+        Objects whose exponential parts differ by an integer ("similar" series) can also be added.
+
+        If the type is ``"discrete"``, the domain contains series objects of the form
+
+        `(x/e)^{x u/v}\rho^x\exp\bigl(c_1 x^{1/(m*v)} +...+ c_{v-1} x^{1-1/(m*v)}\bigr)x^\alpha p(x^{-1/(m*v)},\log(x))`
+
+        where
+
+        * `e` is Euler's constant (2.71...)
+        * `v` is a positive integer (the object's "ramification")
+        * `u` is an integer; the term `(x/e)^(v/u)` is called the "superexponential part" of the solution
+        * `\rho` is an element of an algebraic extension of the coefficient field `K`
+        (the algebra's base ring's base ring); the term `\rho^x` is called the "exponential part" of
+        the solution
+        * `c_1,...,c_{v-1}` are elements of `K(\rho)`; the term `\exp(...)` is called the "subexponential
+        part" of the solution
+        * `m` is a positive integer
+        * `\alpha` is an element of some algebraic extension of `K(\rho)`; the term `n^\alpha` is called
+        the "polynomial part" of the solution (even if `\alpha` is not an integer)
+        * `p` is an element of `K(\rho)(\alpha)[[x]][y]`. It is called the "expansion part" of the solution.
+
+        Any two such objects can be multiplied and shifted.
+        Objects with the same superexponential, exponential, and subexponential part can also be added.
+
+
+        Also there is also a zero element which acts neutrally with respect to addition,
+        and whose product with any other object is zero. In a strict mathematical sense,
+        the set of all generalized series therefore does not form a monoid.
+
+        Nonzero objects involving no logariths (i.e., deg(q)==0) admit a multiplicative
+        inverse if the series part has finite precision.
+
+        Coercion is supported from constants, polynomials, power series and Laurent
+        series and other generalized series, provided that the respective coefficient
+        domains support coercion.
+
+        There are functions for lifting the coefficient field to some algebraic extension.
+
+        EXAMPLES::
+
+            sage: from ore_algebra.generalized_series import GeneralizedSeriesMonoid
+            sage: G = GeneralizedSeriesMonoid(QQ, 'x')
+            sage: G
+            Monoid of continuous generalized series in x over Rational Field
+            sage: x = QQ['x'].gen()
+            sage: G(x+2*x^3 + 4*x^4 + O(x^5))
+            x*(1 + 2*x^2 + 4*x^3 + O(x^4))
+            sage: G(x+2*x^3 + 4*x^4 + O(x^5), ramification=2)
+            x^(1/2)*(1 + 2*x^(2/2) + 4*x^(3/2) + O(x^(4/2)))
+            sage: G(x+2*x^3 + 4*x^4 + O(x^5), ramification=3)
+            x^(1/3)*(1 + 2*x^(2/3) + 4*x^(3/3) + O(x^(4/3)))
+            sage: f = _
+            sage: f.derivative()
+            x^(-2/3)*(1/3 + 2*x^(2/3) + 16/3*x^(3/3) + O(x^(4/3)))
+            sage: _*f
+            x^(-1/3)*(1/3 + 8/3*x^(2/3) + 20/3*x^(3/3) + O(x^(4/3)))
+            sage: (G(1+x, ramification=2)*G(1+x, ramification=3)).ramification()
+            6
+            sage: K = QQ.extension(x^2-2, 'a'); a = K.gen()
+            sage: a*G(x)
+            x*a
+            sage: _.parent()
+            Monoid of continuous generalized series in x over Number Field in a with defining polynomial x^2 - 2
+            sage: G(x).base_extend(x^3+5, 'b')
+            x
+            sage: _.parent()
+            Monoid of continuous generalized series in x over Number Field in b with defining polynomial x^3 + 5
+        """
+        Parent.__init__(self, base=base, names=(x,), category=Rings())
         self.__exp_ring = base[x]
         self.__tail_ring = PowerSeriesRing(base, x)['LOG']
         self.__var = x
@@ -238,18 +228,12 @@ class GeneralizedSeriesMonoid_class(Parent):
         """
         return self.__tail_ring
 
-    def __eq__(self, other):
-        return isinstance(other, type(self)) \
-               and self.__type == other.__type \
-               and self.base() is other.base() \
-               and self.var() == other.var()
-
     def construction(self):
         return (GeneralizedSeriesFunctor(self.var(), self.__type), self.base())
 
     def _coerce_map_from_(self, P):
 
-        if isinstance(P, GeneralizedSeriesMonoid_class):
+        if isinstance(P, GeneralizedSeriesMonoid):
             if self.var() != P.var():
                 return False
             m = self.base().coerce_map_from(P.base())
