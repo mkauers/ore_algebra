@@ -383,7 +383,7 @@ class ContinuousGeneralizedSeries(RingElement):
                 # move part of the tail to the exponential part
                 exp += alpha
                 x = p.base_ring().gen()
-                p = p.map_coefficients(lambda q: q//(x**(ramification*alpha)))
+                p = p.map_coefficients(lambda q: q/(x**(ramification*alpha)))
             
             new_ram = lcm([ (e/ramification).denominator() for e in exp.exponents() ])
             if new_ram < ramification:
@@ -1431,7 +1431,7 @@ def _sub_expansion(coeffs, ram, i, n, prec):
             inner_pow = (inner_pow * inner) % (n**(ram*prec + 1))
             outer += inner_pow/ZZ(k).factorial()
         prod = (prod*outer) % (n**(ram*prec + 1))
-    coeffs = prod.padded_list(ram*prec + 1)
+    coeffs = prod.padded_list(int(ram*prec + 1))
     coeffs.reverse()
     return n.parent()(coeffs) 
 

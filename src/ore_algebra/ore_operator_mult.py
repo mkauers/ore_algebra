@@ -277,6 +277,9 @@ class MultivariateOreOperator(OreOperator):
     def tdeg(self):
         return max(sum(e) for e in self.exponents())
 
+    def __hash__(self):
+        return hash(self.__poly)
+
     # ==== reduction ====
 
     def reduce(self, basis, normalize=False, cofactors=False, infolevel=0, coerce=True):
