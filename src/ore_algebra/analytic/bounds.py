@@ -1432,8 +1432,8 @@ def residual(n, bwrec_nplus, last, z):
         sage: (Dt^2 + 1).to_T('Tt')(trunc).change_ring(CBF)
         ([0.041666...])*t^6 + ([-0.16666...])*t^5
     """
-    ordrec = len(bwrec_nplus[0]) - 1
-    assert len(bwrec_nplus) == ordrec
+    ordrec = len(bwrec_nplus)
+    assert ordrec == 0 or ordrec == len(bwrec_nplus[0]) - 1
     rescoef = [
         sum((bwrec_nplus[i][i+k+1])*IC(last[k])
             for k in xrange(ordrec-i))
