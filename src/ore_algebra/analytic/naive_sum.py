@@ -27,10 +27,10 @@ from sage.structure.sequence import Sequence
 
 import ore_algebra.ore_algebra as ore_algebra
 
-from ore_algebra.analytic import accuracy, bounds, utilities
-from ore_algebra.analytic.local_solutions import *
-from ore_algebra.analytic.safe_cmp import safe_lt
-from ore_algebra.analytic.shiftless import my_shiftless_decomposition
+from . import accuracy, bounds, utilities
+from .local_solutions import *
+from .safe_cmp import safe_lt
+from .shiftless import my_shiftless_decomposition
 
 logger = logging.getLogger(__name__)
 

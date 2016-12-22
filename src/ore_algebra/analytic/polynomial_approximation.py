@@ -16,14 +16,10 @@ logger = logging.getLogger(__name__)
 import sage.rings.real_arb
 import sage.rings.complex_arb
 
-import ore_algebra.analytic.accuracy as accuracy
-import ore_algebra.analytic.analytic_continuation as ancont
-import ore_algebra.analytic.bounds as bounds
-import ore_algebra.analytic.utilities as utilities
+from . import accuracy, analytic_continuation as ancont, bounds, utilities
 
-from ore_algebra.analytic.naive_sum import series_sum, EvaluationPoint
-from ore_algebra.analytic.safe_cmp import *
-from ore_algebra.analytic.utilities import *
+from .naive_sum import series_sum, EvaluationPoint
+from .safe_cmp import *
 
 def combine_radii(pol):
     coeff = list(pol)
@@ -187,7 +183,7 @@ def doit(dop, ini, path, rad, eps, derivatives, economization, x_is_real):
     pairs = ancont.analytic_continuation(ctx, ini=ini)
     local_ini = pairs[0][1]
 
-    Scalars = ball_field(eps1, x_is_real and ctx.real())
+    Scalars = utilities.ball_field(eps1, x_is_real and ctx.real())
     x = dop.base_ring().change_ring(Scalars).gen()
 
     local_dop = ctx.path.vert[-1].local_diffop()

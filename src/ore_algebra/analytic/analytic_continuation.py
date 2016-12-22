@@ -20,8 +20,8 @@ from sage.rings.number_field.number_field_element import NumberFieldElement
 from sage.rings.real_arb import RealBallField
 from sage.structure.sequence import Sequence
 
-from ore_algebra.analytic.path import Path, Step
-from ore_algebra.analytic.utilities import *
+from . import utilities
+from .path import Path, Step
 
 logger = logging.getLogger(__name__)
 
@@ -180,6 +180,6 @@ def analytic_continuation(ctx, ini=None, post=None):
         store_value_if_wanted(step.end)
     cm = sage.structure.element.get_coercion_model()
     OutputIntervals = cm.common_parent(
-            ball_field(ctx.eps, ctx.real()),
+            utilities.ball_field(ctx.eps, ctx.real()),
             *[mat.base_ring() for pt, mat in res])
     return [(pt, mat.change_ring(OutputIntervals)) for pt, mat in res]

@@ -5,8 +5,8 @@ Accuracy management
 
 import logging
 
-from ore_algebra.analytic.bounds import IR
-from ore_algebra.analytic.safe_cmp import *
+from .bounds import IR
+from .safe_cmp import *
 
 logger = logging.getLogger(__name__)
 

@@ -30,11 +30,11 @@ from sage.rings.real_mpfi import RIF
 from sage.rings.real_mpfr import RealField, RR
 from sage.structure.factorization import Factorization
 
-import ore_algebra.ore_algebra as ore_algebra
-import ore_algebra.analytic.utilities as utilities
+from .. import ore_algebra
+from . import utilities
 
-from ore_algebra.analytic.safe_cmp import *
-from ore_algebra.analytic.shiftless import squarefree_part
+from .safe_cmp import *
+from .shiftless import squarefree_part
 
 logger = logging.getLogger(__name__)
 

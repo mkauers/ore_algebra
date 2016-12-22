@@ -156,8 +156,8 @@ TESTS::
     True
 """
 
-from ore_algebra.analytic import analytic_continuation as ancont
-from ore_algebra.analytic import polynomial_approximation as polapprox
+from . import analytic_continuation as ancont
+from . import polynomial_approximation as polapprox
 
 def transition_matrix(dop, path, eps=1e-16):
     r"""

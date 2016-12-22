@@ -10,9 +10,8 @@ import pprint
 import sage.categories.pushout
 import sage.structure.coerce_exceptions
 
-import ore_algebra.ore_algebra as ore_algebra
-import ore_algebra.analytic.bounds as bounds
-import ore_algebra.analytic.utilities as utilities
+from .. import ore_algebra
+from . import bounds, utilities
 
 from sage.matrix.constructor import matrix
 from sage.matrix.matrix_space import MatrixSpace

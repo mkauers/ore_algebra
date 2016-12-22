@@ -19,9 +19,9 @@ from sage.rings.complex_arb import CBF, ComplexBallField, ComplexBall
 from sage.rings.real_arb import RBF, RealBallField, RealBall
 from sage.structure.sage_object import SageObject
 
-from ore_algebra.analytic.local_solutions import *
-from ore_algebra.analytic.safe_cmp import *
-from ore_algebra.analytic.utilities import *
+from .local_solutions import *
+from .safe_cmp import *
+from .utilities import *
 
 logger = logging.getLogger(__name__)
 
