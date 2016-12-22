@@ -126,6 +126,7 @@ def is_suitable_base_ring(R):
 
     EXAMPLES::
 
+       sage: from ore_algebra.ore_algebra import is_suitable_base_ring
        sage: R = GF(1091)['x, y'].fraction_field()['z']
        sage: is_suitable_base_ring(R)
        True
@@ -160,6 +161,7 @@ class Sigma_class(object):
 
     EXAMPLES::
 
+       sage: from ore_algebra.ore_algebra import Sigma_class
        sage: R.<x1,x2,x3> = QQ['x1,x2,x3']
        sage: sigma = Sigma_class(R, {x1:2*x1, x2:1-x2, x3:x3+1})
        sage: sigma(x1+x2+x3)
@@ -174,22 +176,21 @@ class Sigma_class(object):
 
     EXAMPLES::
 
-       sage: R.<x1,x2,x3> = QQ['x1,x2,x3']
-       sage: sigma = Sigma_class(R, {x1:2*x1, x2:1-x2, x3:x3+1})
-       sage: sigma(x1+x2+x3, 5)
-       32*x1 - x2 + x3 + 6
-       sage: sigma.factorial(x1+x2+x3, 4).factor()
-       (x1 + x2 + x3) * (2*x1 - x2 + x3 + 2) * (4*x1 + x2 + x3 + 2) * (8*x1 - x2 + x3 + 4)
-       sage: sigma_inv = sigma.inverse()
-       sage: sigma_inv(x1+x2+x3)
-       1/2*x1 - x2 + x3
-       sage: sigma(x1+x2+x3, -1)
-       1/2*x1 - x2 + x3
-       sage: sigma.inverse().inverse() == sigma
-       True
-       sage: sigma.dict()
-       {'x2': -x2 + 1, 'x3': x3 + 1, 'x1': 2*x1}    
-    
+        sage: R.<x1,x2,x3> = QQ['x1,x2,x3']
+        sage: sigma = Sigma_class(R, {x1:2*x1, x2:1-x2, x3:x3+1})
+        sage: sigma(x1+x2+x3, 5)
+        32*x1 - x2 + x3 + 6
+        sage: sigma.factorial(x1+x2+x3, 4).factor()
+        (x1 + x2 + x3) * (2*x1 - x2 + x3 + 2) * (4*x1 + x2 + x3 + 2) * (8*x1 - x2 + x3 + 4)
+        sage: sigma_inv = sigma.inverse()
+        sage: sigma_inv(x1+x2+x3)
+        1/2*x1 - x2 + x3
+        sage: sigma(x1+x2+x3, -1)
+        1/2*x1 - x2 + x3
+        sage: sigma.inverse().inverse() == sigma
+        True
+        sage: sorted(sigma.dict().items(), key=str)
+        [('x1', 2*x1), ('x2', -x2 + 1), ('x3', x3 + 1)]
     """
 
     def __init__(self, R, d):
@@ -336,15 +337,16 @@ class Sigma_class(object):
 
         EXAMPLES::
 
-           sage: R.<x> = QQ['x']
-           sage: A.<Sx> = OreAlgebra(R.fraction_field(), "Sx")
-           sage: sigma = A.sigma()
-           sage: sigma_inverse = sigma.inverse()
-           sage: sigma(x)
-           x + 1
-           sage: sigma_inverse(x)
-           x - 1
-        
+            sage: from ore_algebra import *
+            sage: R.<x> = QQ['x']
+            sage: A.<Sx> = OreAlgebra(R.fraction_field(), "Sx")
+            sage: sigma = A.sigma()
+            sage: sigma_inverse = sigma.inverse()
+            sage: sigma(x)
+            x + 1
+            sage: sigma_inverse(x)
+            x - 1
+
         """
         # possible generalization in case of rings with more generators: each generator is
         # mapped to a linear combination of the other generators with coefficients in the
@@ -406,6 +408,7 @@ class Delta_class(object):
 
     EXAMPLES::
 
+       sage: from ore_algebra.ore_algebra import *
        sage: R.<x1,x2,x3> = QQ['x1,x2,x3']
        sage: sigma = Sigma_class(R, {x1:2*x1, x2:1-x2, x3:x3+1})
        sage: delta = Delta_class(R, {x1:1, x3:x3}, sigma)
@@ -413,8 +416,8 @@ class Delta_class(object):
        x3 + 1
        sage: delta(x1*x2*x3)
        -2*x1*x2*x3 + 2*x1*x3 + x2*x3
-       sage: delta.dict()
-       {x1: 1, x3: x3}
+       sage: sorted(delta.dict().items(), key=str)
+       [(x1, 1), (x3, x3)]
 
     """
 
@@ -657,6 +660,8 @@ def OreAlgebra(base_ring, *generators, **kwargs):
     with the relevant laws. It is not checked whether they do.
 
     ::
+
+      sage: from ore_algebra import *
 
       sage: R.<x> = QQ['x']
       sage: K = R.fraction_field()
@@ -978,6 +983,7 @@ def DifferentialOperators(base=QQ, var='x'):
 
     EXAMPLE::
 
+        sage: from ore_algebra import *
         sage: Dops, x, Dx = DifferentialOperators()
         sage: Dops
         Univariate Ore algebra in Dx over Univariate Polynomial Ring in x over
@@ -988,8 +994,7 @@ def DifferentialOperators(base=QQ, var='x'):
         sage: DifferentialOperators(GF(2), 't')
         (Univariate Ore algebra in Dt over Univariate Polynomial Ring in t over
         Finite Field of size 2 (using NTL),
-        t,
- Dt)
+        t, Dt)
     """
     var = str(var)
     Pol, x = PolynomialRing(base, var).objgen()
@@ -1144,10 +1149,10 @@ class OreAlgebra_generic(Algebra):
 
         EXAMPLES::
 
-           sage: A.<Dx> = OreAlgebra(QQ['x'].fraction_field(), 'Dx')
-           sage: A.var()
-           'Dx'
-           
+            sage: from ore_algebra import OreAlgebra
+            sage: A.<Dx> = OreAlgebra(QQ['x'].fraction_field(), 'Dx')
+            sage: A.var()
+            'Dx'
         """
         return self._gens[n][0]
 
@@ -1173,41 +1178,42 @@ class OreAlgebra_generic(Algebra):
         """
         Returns the sigma callable associated to the `n` th generator of this algebra.
         The generator can be specified by index (as integer), or by name (as string),
-        or as algebra element.         
+        or as algebra element.
 
         EXAMPLES::
 
-           sage: A.<Dx> = OreAlgebra(QQ['x'].fraction_field(), 'Dx')
-           sage: A.sigma()
-           Endomorphism defined through {'x': x}
-           sage: A.sigma(0)
-           Endomorphism defined through {'x': x}
-           sage: A.sigma('Dx')
-           Endomorphism defined through {'x': x}
-           sage: A.sigma(Dx)
-           Endomorphism defined through {'x': x}
-           
+            sage: from ore_algebra import OreAlgebra
+            sage: A.<Dx> = OreAlgebra(QQ['x'].fraction_field(), 'Dx')
+            sage: A.sigma()
+            Endomorphism defined through {'x': x}
+            sage: A.sigma(0)
+            Endomorphism defined through {'x': x}
+            sage: A.sigma('Dx')
+            Endomorphism defined through {'x': x}
+            sage: A.sigma(Dx)
+            Endomorphism defined through {'x': x}
+
         """
         return self._gens[self._gen_to_idx(n)][1]
-    
+
     def delta(self, n=0):
         """
-        Returns the delta callable associated to the `n` th generator of this algebra. 
+        Returns the delta callable associated to the `n` th generator of this algebra.
         The generator can be specified by index (as integer), or by name (as string),
-        or as algebra element.         
+        or as algebra element.
 
         EXAMPLES::
 
-           sage: A.<Dx> = OreAlgebra(QQ['x'].fraction_field(), 'Dx')
-           sage: A.delta()
-           Skew-derivation defined through {x: 1} for Endomorphism defined through {'x': x}
-           sage: A.delta(0)
-           Skew-derivation defined through {x: 1} for Endomorphism defined through {'x': x}
-           sage: A.delta("Dx")
-           Skew-derivation defined through {x: 1} for Endomorphism defined through {'x': x}
-           sage: A.delta(Dx)
-           Skew-derivation defined through {x: 1} for Endomorphism defined through {'x': x}
-           
+            sage: from ore_algebra import OreAlgebra
+            sage: A.<Dx> = OreAlgebra(QQ['x'].fraction_field(), 'Dx')
+            sage: A.delta()
+            Skew-derivation defined through {x: 1} for Endomorphism defined through {'x': x}
+            sage: A.delta(0)
+            Skew-derivation defined through {x: 1} for Endomorphism defined through {'x': x}
+            sage: A.delta("Dx")
+            Skew-derivation defined through {x: 1} for Endomorphism defined through {'x': x}
+            sage: A.delta(Dx)
+            Skew-derivation defined through {x: 1} for Endomorphism defined through {'x': x}
         """
         return self._gens[self._gen_to_idx(n)][2]
 
@@ -1218,13 +1224,13 @@ class OreAlgebra_generic(Algebra):
 
         EXAMPLES::
 
-           sage: A.<Dx> = OreAlgebra(ZZ['x'], 'Dx')
-           sage: A.is_D()
-           x
-           sage: A.<Sx> = OreAlgebra(ZZ['x'], 'Sx')
-           sage: A.is_D()
-           False
-        
+            sage: from ore_algebra import OreAlgebra
+            sage: A.<Dx> = OreAlgebra(ZZ['x'], 'Dx')
+            sage: A.is_D()
+            x
+            sage: A.<Sx> = OreAlgebra(ZZ['x'], 'Sx')
+            sage: A.is_D()
+            False
         """
         n = self._gen_to_idx(n)
         try:
@@ -1253,13 +1259,13 @@ class OreAlgebra_generic(Algebra):
 
         EXAMPLES::
 
-           sage: A.<Sx> = OreAlgebra(ZZ['x'], 'Sx')
-           sage: A.is_S()
-           x
-           sage: A.<Dx> = OreAlgebra(ZZ['x'], 'Dx')
-           sage: A.is_S()
-           False
-        
+            sage: from ore_algebra import OreAlgebra
+            sage: A.<Sx> = OreAlgebra(ZZ['x'], 'Sx')
+            sage: A.is_S()
+            x
+            sage: A.<Dx> = OreAlgebra(ZZ['x'], 'Dx')
+            sage: A.is_S()
+            False
         """
         n = self._gen_to_idx(n)
         try:
@@ -1288,13 +1294,13 @@ class OreAlgebra_generic(Algebra):
 
         EXAMPLES::
 
-           sage: A.<C> = OreAlgebra(ZZ['x'], 'C')
-           sage: A.is_C()
-           True 
-           sage: A.<Dx> = OreAlgebra(ZZ['x'], 'Dx')
-           sage: A.is_C()
-           False
-        
+            sage: from ore_algebra import OreAlgebra
+            sage: A.<C> = OreAlgebra(ZZ['x'], 'C')
+            sage: A.is_C()
+            True
+            sage: A.<Dx> = OreAlgebra(ZZ['x'], 'Dx')
+            sage: A.is_C()
+            False
         """
         n = self._gen_to_idx(n)
         try:
@@ -1319,17 +1325,17 @@ class OreAlgebra_generic(Algebra):
 
         EXAMPLES::
 
-           sage: A.<Fx> = OreAlgebra(ZZ['x'], 'Fx')
-           sage: A.is_F()
-           x
-           sage: A.is_Delta()
-           x
-           sage: A.<Sx> = OreAlgebra(ZZ['x'], 'Sx')
-           sage: A.is_F()
-           False
-           sage: A.is_Delta()
-           False 
-        
+            sage: from ore_algebra import OreAlgebra
+            sage: A.<Fx> = OreAlgebra(ZZ['x'], 'Fx')
+            sage: A.is_F()
+            x
+            sage: A.is_Delta()
+            x
+            sage: A.<Sx> = OreAlgebra(ZZ['x'], 'Sx')
+            sage: A.is_F()
+            False
+            sage: A.is_Delta()
+            False
         """
         return self.is_F(n)
 
@@ -1341,17 +1347,17 @@ class OreAlgebra_generic(Algebra):
 
         EXAMPLES::
 
-           sage: A.<Fx> = OreAlgebra(ZZ['x'], 'Fx')
-           sage: A.is_F()
-           x
-           sage: A.is_Delta()
-           x
-           sage: A.<Sx> = OreAlgebra(ZZ['x'], 'Sx')
-           sage: A.is_F()
-           False
-           sage: A.is_Delta()
-           False 
-        
+            sage: from ore_algebra import OreAlgebra
+            sage: A.<Fx> = OreAlgebra(ZZ['x'], 'Fx')
+            sage: A.is_F()
+            x
+            sage: A.is_Delta()
+            x
+            sage: A.<Sx> = OreAlgebra(ZZ['x'], 'Sx')
+            sage: A.is_F()
+            False
+            sage: A.is_Delta()
+            False
         """
         n = self._gen_to_idx(n)
         try:
@@ -1380,13 +1386,13 @@ class OreAlgebra_generic(Algebra):
 
         EXAMPLES::
 
-           sage: A.<Tx> = OreAlgebra(ZZ['x'], 'Tx')
-           sage: A.is_T(), A.is_E()
-           (x, x)
-           sage: A.<Dx> = OreAlgebra(ZZ['x'], 'Dx')
-           sage: A.is_T(), A.is_E()
-           (False, False)
-        
+            sage: from ore_algebra import OreAlgebra
+            sage: A.<Tx> = OreAlgebra(ZZ['x'], 'Tx')
+            sage: A.is_T(), A.is_E()
+            (x, x)
+            sage: A.<Dx> = OreAlgebra(ZZ['x'], 'Dx')
+            sage: A.is_T(), A.is_E()
+            (False, False)
         """
         return self.is_T(n)
 
@@ -1397,13 +1403,13 @@ class OreAlgebra_generic(Algebra):
 
         EXAMPLES::
 
-           sage: A.<Tx> = OreAlgebra(ZZ['x'], 'Tx')
-           sage: A.is_T(), A.is_E()
-           (x, x)
-           sage: A.<Dx> = OreAlgebra(ZZ['x'], 'Dx')
-           sage: A.is_T(), A.is_E()
-           (False, False)
-        
+            sage: from ore_algebra import OreAlgebra
+            sage: A.<Tx> = OreAlgebra(ZZ['x'], 'Tx')
+            sage: A.is_T(), A.is_E()
+            (x, x)
+            sage: A.<Dx> = OreAlgebra(ZZ['x'], 'Dx')
+            sage: A.is_T(), A.is_E()
+            (False, False)
         """
         n = self._gen_to_idx(n)
         try:
@@ -1432,13 +1438,13 @@ class OreAlgebra_generic(Algebra):
 
         EXAMPLES::
 
-           sage: A.<Qx> = OreAlgebra(ZZ['x'], 'Qx', q=2)
-           sage: A.is_Q()
-           (x, 2)
-           sage: A.<Sx> = OreAlgebra(ZZ['x'], 'Sx')
-           sage: A.is_Q()
-           False
-        
+            sage: from ore_algebra import OreAlgebra
+            sage: A.<Qx> = OreAlgebra(ZZ['x'], 'Qx', q=2)
+            sage: A.is_Q()
+            (x, 2)
+            sage: A.<Sx> = OreAlgebra(ZZ['x'], 'Sx')
+            sage: A.is_Q()
+            False
         """
         n = self._gen_to_idx(n)
         try:
@@ -1471,16 +1477,16 @@ class OreAlgebra_generic(Algebra):
 
         EXAMPLES::
 
-           sage: A.<Jx> = OreAlgebra(ZZ['x'], 'Jx', q=2)
-           sage: A.is_J()
-           (x, 2)
-           sage: A.<Dx> = OreAlgebra(ZZ['x'], 'Dx')
-           sage: A.is_J()
-           False
-           sage: A.<Sx> = OreAlgebra(ZZ['x'], 'Sx')
-           sage: A.is_J()
-           False
-        
+            sage: from ore_algebra import OreAlgebra
+            sage: A.<Jx> = OreAlgebra(ZZ['x'], 'Jx', q=2)
+            sage: A.is_J()
+            (x, 2)
+            sage: A.<Dx> = OreAlgebra(ZZ['x'], 'Dx')
+            sage: A.is_J()
+            False
+            sage: A.<Sx> = OreAlgebra(ZZ['x'], 'Sx')
+            sage: A.is_J()
+            False
         """
         n = self._gen_to_idx(n)
         try:
@@ -1511,10 +1517,10 @@ class OreAlgebra_generic(Algebra):
 
         EXAMPLES::
 
-           sage: A.<Dx> = OreAlgebra(QQ['x'], 'Dx')
-           sage: A.variable_names() 
-           ('Dx',)
-           
+            sage: from ore_algebra import OreAlgebra
+            sage: A.<Dx> = OreAlgebra(QQ['x'], 'Dx')
+            sage: A.variable_names()
+            ('Dx',)
         """
         return tuple(x[0] for x in self._gens)
                         
@@ -1619,13 +1625,15 @@ class OreAlgebra_generic(Algebra):
 
         EXAMPLES::
 
-           sage: R.<x> = QQ['x']
-           sage: A = OreAlgebra(R.fraction_field(), "Dx")
-           sage: A
-           Univariate Ore algebra in Dx over Fraction Field of Univariate Polynomial Ring in x over Rational Field
-           sage: A.associated_commutative_algebra()
-           Univariate Polynomial Ring in Dx over Fraction Field of Univariate Polynomial Ring in x over Rational Field
-        
+            sage: from ore_algebra import OreAlgebra
+            sage: R.<x> = QQ['x']
+            sage: A = OreAlgebra(R.fraction_field(), "Dx")
+            sage: A
+            Univariate Ore algebra in Dx over Fraction Field of Univariate
+            Polynomial Ring in x over Rational Field
+            sage: A.associated_commutative_algebra()
+            Univariate Polynomial Ring in Dx over Fraction Field of Univariate
+            Polynomial Ring in x over Rational Field
         """
         try:
             return self._commutative_ring

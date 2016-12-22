@@ -96,32 +96,33 @@ def GeneralizedSeriesMonoid(base, x, type="continuous"):
 
     EXAMPLES::
 
-      sage: G = GeneralizedSeriesMonoid(QQ, 'x')
-      sage: G
-      Monoid of continuous generalized series in x over Rational Field
-      sage: x = QQ['x'].gen()
-      sage: G(x+2*x^3 + 4*x^4 + O(x^5))
-      x*(1 + 2*x^2 + 4*x^3 + O(x^4))
-      sage: G(x+2*x^3 + 4*x^4 + O(x^5), ramification=2)
-      x^(1/2)*(1 + 2*x^(2/2) + 4*x^(3/2) + O(x^(4/2)))
-      sage: G(x+2*x^3 + 4*x^4 + O(x^5), ramification=3)
-      x^(1/3)*(1 + 2*x^(2/3) + 4*x^(3/3) + O(x^(4/3)))
-      sage: f = _
-      sage: f.derivative()
-      x^(-2/3)*(1/3 + 2*x^(2/3) + 16/3*x^(3/3) + O(x^(4/3)))
-      sage: _*f
-      x^(-1/3)*(1/3 + 8/3*x^(2/3) + 20/3*x^(3/3) + O(x^(4/3)))
-      sage: (G(1+x, ramification=2)*G(1+x, ramification=3)).ramification()
-      6
-      sage: K = QQ.extension(x^2-2, 'a'); a = K.gen()
-      sage: a*G(x)
-      x*a
-      sage: _.parent()
-      Monoid of continuous generalized series in x over Number Field in a with defining polynomial x^2 - 2
-      sage: G(x).base_extend(x^3+5, 'b')
-      x
-      sage: _.parent()
-      Monoid of continuous generalized series in x over Number Field in b with defining polynomial x^3 + 5
+        sage: from ore_algebra.generalized_series import GeneralizedSeriesMonoid
+        sage: G = GeneralizedSeriesMonoid(QQ, 'x')
+        sage: G
+        Monoid of continuous generalized series in x over Rational Field
+        sage: x = QQ['x'].gen()
+        sage: G(x+2*x^3 + 4*x^4 + O(x^5))
+        x*(1 + 2*x^2 + 4*x^3 + O(x^4))
+        sage: G(x+2*x^3 + 4*x^4 + O(x^5), ramification=2)
+        x^(1/2)*(1 + 2*x^(2/2) + 4*x^(3/2) + O(x^(4/2)))
+        sage: G(x+2*x^3 + 4*x^4 + O(x^5), ramification=3)
+        x^(1/3)*(1 + 2*x^(2/3) + 4*x^(3/3) + O(x^(4/3)))
+        sage: f = _
+        sage: f.derivative()
+        x^(-2/3)*(1/3 + 2*x^(2/3) + 16/3*x^(3/3) + O(x^(4/3)))
+        sage: _*f
+        x^(-1/3)*(1/3 + 8/3*x^(2/3) + 20/3*x^(3/3) + O(x^(4/3)))
+        sage: (G(1+x, ramification=2)*G(1+x, ramification=3)).ramification()
+        6
+        sage: K = QQ.extension(x^2-2, 'a'); a = K.gen()
+        sage: a*G(x)
+        x*a
+        sage: _.parent()
+        Monoid of continuous generalized series in x over Number Field in a with defining polynomial x^2 - 2
+        sage: G(x).base_extend(x^3+5, 'b')
+        x
+        sage: _.parent()
+        Monoid of continuous generalized series in x over Number Field in b with defining polynomial x^3 + 5
 
     """
     M = GeneralizedSeriesMonoid_class(base, x, type)
@@ -316,20 +317,21 @@ class GeneralizedSeriesMonoid_class(Parent):
 
         EXAMPLES::
 
-           sage: G = GeneralizedSeriesMonoid(QQ, 'x', 'continuous')
-           sage: G
-           Monoid of continuous generalized series in x over Rational Field
-           sage: x = ZZ['x'].gen()
-           sage: G1 = G.base_extend(x^2 + 2, 'a')
-           sage: G1
-           Monoid of continuous generalized series in x over Number Field in a with defining polynomial x^2 + 2
-           sage: G2 = G1.base_extend(x^3 + 5, 'b')
-           sage: G2
-           Monoid of continuous generalized series in x over Number Field in b with defining polynomial x^3 + 5 over its base field
-           sage: G2(G1.random_element()).parent() is G2
-           True
-           sage: G1.random_element().parent() is G2
-           False 
+            sage: from ore_algebra.generalized_series import GeneralizedSeriesMonoid
+            sage: G = GeneralizedSeriesMonoid(QQ, 'x', 'continuous')
+            sage: G
+            Monoid of continuous generalized series in x over Rational Field
+            sage: x = ZZ['x'].gen()
+            sage: G1 = G.base_extend(x^2 + 2, 'a')
+            sage: G1
+            Monoid of continuous generalized series in x over Number Field in a with defining polynomial x^2 + 2
+            sage: G2 = G1.base_extend(x^3 + 5, 'b')
+            sage: G2
+            Monoid of continuous generalized series in x over Number Field in b with defining polynomial x^3 + 5 over its base field
+            sage: G2(G1.random_element()).parent() is G2
+            True
+            sage: G1.random_element().parent() is G2
+            False
         
         """
 
@@ -454,20 +456,20 @@ class ContinuousGeneralizedSeries(RingElement):
 
         EXAMPLES::
 
-           sage: G = GeneralizedSeriesMonoid(QQ, 'x')
-           sage: s = G(1+x+x^2, exp=3*x^2, ramification=3)
-           sage: s.parent()
-           Monoid of continuous generalized series in x over Rational Field
-           sage: x = ZZ['x'].gen()
-           sage: s.base_extend(x^2 + 2, 'a')
-           exp(-9/2*x^(-2/3))*(1 + x^(1/3) + x^(2/3))
-           sage: _.parent()
-           Monoid of continuous generalized series in x over Number Field in a with defining polynomial x^2 + 2
-           sage: s == s.base_extend(x^2 + 2, 'a')
-           True
-           sage: s is s.base_extend(x^2 + 2, 'a')
-           False 
-        
+            sage: from ore_algebra.generalized_series import GeneralizedSeriesMonoid
+            sage: G = GeneralizedSeriesMonoid(QQ, 'x')
+            sage: s = G(1+x+x^2, exp=3*x^2, ramification=3)
+            sage: s.parent()
+            Monoid of continuous generalized series in x over Rational Field
+            sage: x = ZZ['x'].gen()
+            sage: s.base_extend(x^2 + 2, 'a')
+            exp(-9/2*x^(-2/3))*(1 + x^(1/3) + x^(2/3))
+            sage: _.parent()
+            Monoid of continuous generalized series in x over Number Field in a with defining polynomial x^2 + 2
+            sage: s == s.base_extend(x^2 + 2, 'a')
+            True
+            sage: s is s.base_extend(x^2 + 2, 'a')
+            False
         """
         return self.parent().base_extend(ext, name=name)(self)
 
@@ -685,16 +687,16 @@ class ContinuousGeneralizedSeries(RingElement):
 
         EXAMPLES::
 
-          sage: G = GeneralizedSeriesMonoid(QQ, 'x')
-          sage: G(1+x+x^2, exp=2*x+x^2)
-          exp(-1/2*x^(-2) - 2*x^(-1))*(1 + x + x^2)
-          sage: _.exponential_part()
-          exp(-1/2*x^(-2) - 2*x^(-1))
-          sage: G(x^3+x^4+x^5)
-          x^3*(1 + x + x^2)
-          sage: _.exponential_part()
-          x^3
-        
+            sage: from ore_algebra.generalized_series import GeneralizedSeriesMonoid
+            sage: G = GeneralizedSeriesMonoid(QQ, 'x')
+            sage: G(1+x+x^2, exp=2*x+x^2)
+            exp(-1/2*x^(-2) - 2*x^(-1))*(1 + x + x^2)
+            sage: _.exponential_part()
+            exp(-1/2*x^(-2) - 2*x^(-1))
+            sage: G(x^3+x^4+x^5)
+            x^3*(1 + x + x^2)
+            sage: _.exponential_part()
+            x^3
         """
         return ContinuousGeneralizedSeries(self.parent(), 1, exp=self.__exp, ramification=self.ramification())
 
@@ -707,16 +709,16 @@ class ContinuousGeneralizedSeries(RingElement):
 
         EXAMPLES::
 
-          sage: G = GeneralizedSeriesMonoid(QQ, 'x')
-          sage: G(1+x+x^2).has_exponential_part()
-          False
-          sage: G(1+x+x^2, exp=2*x+x^2).has_exponential_part()
-          True
-          sage: G(x+x^2).has_exponential_part()
-          True
-          sage: G(x+x^2) == G(1+x, exp=1)
-          True 
-        
+            sage: from ore_algebra.generalized_series import GeneralizedSeriesMonoid
+            sage: G = GeneralizedSeriesMonoid(QQ, 'x')
+            sage: G(1+x+x^2).has_exponential_part()
+            False
+            sage: G(1+x+x^2, exp=2*x+x^2).has_exponential_part()
+            True
+            sage: G(x+x^2).has_exponential_part()
+            True
+            sage: G(x+x^2) == G(1+x, exp=1)
+            True
         """
         return not self.__exp.is_zero()
 
@@ -734,16 +736,16 @@ class ContinuousGeneralizedSeries(RingElement):
 
         EXAMPLES::
 
-          sage: G = GeneralizedSeriesMonoid(QQ, 'x')
-          sage: G(1+x+x^2, exp=2*x+x^2)
-          exp(-1/2*x^(-2) - 2*x^(-1))*(1 + x + x^2)
-          sage: _.tail()
-          1 + x + x^2
-          sage: G(x+x^2)
-          x*(1 + x)
-          sage: _.tail()
-          1 + x
-        
+            sage: from ore_algebra.generalized_series import GeneralizedSeriesMonoid
+            sage: G = GeneralizedSeriesMonoid(QQ, 'x')
+            sage: G(1+x+x^2, exp=2*x+x^2)
+            exp(-1/2*x^(-2) - 2*x^(-1))*(1 + x + x^2)
+            sage: _.tail()
+            1 + x + x^2
+            sage: G(x+x^2)
+            x*(1 + x)
+            sage: _.tail()
+            1 + x
         """
         return ContinuousGeneralizedSeries(self.parent(), self.__tail, exp=0, ramification=self.ramification())
 
@@ -756,16 +758,16 @@ class ContinuousGeneralizedSeries(RingElement):
 
         EXAMPLES::
 
-          sage: G = GeneralizedSeriesMonoid(QQ, 'x')
-          sage: G(1+x+x^2, ramification=2)
-          1 + x^(1/2) + x^(2/2)
-          sage: _.ramification()
-          2
-          sage: G(1+x^2+x^4, ramification=2)
-          1 + x + x^2
-          sage: _.ramification()
-          1
-        
+            sage: from ore_algebra.generalized_series import GeneralizedSeriesMonoid
+            sage: G = GeneralizedSeriesMonoid(QQ, 'x')
+            sage: G(1+x+x^2, ramification=2)
+            1 + x^(1/2) + x^(2/2)
+            sage: _.ramification()
+            2
+            sage: G(1+x^2+x^4, ramification=2)
+            1 + x + x^2
+            sage: _.ramification()
+            1
         """
         return self.__ramification
 
@@ -785,16 +787,16 @@ class ContinuousGeneralizedSeries(RingElement):
 
         EXAMPLES::
 
-          sage: G = GeneralizedSeriesMonoid(QQ, 'x')
-          sage: G(1+x+x^2,exp=17/24+5*x+7*x^2, ramification=9)
-          exp(-63/2*x^(-2/9) - 45*x^(-1/9))*x^(17/24)*(1 + x^(1/9) + x^(2/9))
-          sage: _.order()
-          17/24
-          sage: G(x^5+x^6, exp=-3)
-          x^2*(1 + x)
-          sage: _.order()
-          2
-        
+            sage: from ore_algebra.generalized_series import GeneralizedSeriesMonoid
+            sage: G = GeneralizedSeriesMonoid(QQ, 'x')
+            sage: G(1+x+x^2,exp=17/24+5*x+7*x^2, ramification=9)
+            exp(-63/2*x^(-2/9) - 45*x^(-1/9))*x^(17/24)*(1 + x^(1/9) + x^(2/9))
+            sage: _.order()
+            17/24
+            sage: G(x^5+x^6, exp=-3)
+            x^2*(1 + x)
+            sage: _.order()
+            2
         """
         return infinity if self.is_zero() else self.__exp.constant_coefficient()
 
@@ -816,22 +818,22 @@ class ContinuousGeneralizedSeries(RingElement):
 
         EXAMPLES::
 
-          sage: G = GeneralizedSeriesMonoid(QQ, 'x')
-          sage: A = G(1+x+x^2, exp=1+x+x^2, ramification=2)
-          sage: B = G(1+x+x^2, exp=-3/2+x+x^2, ramification=2)
-          sage: A.similar(B)
-          True
-          sage: B.similar(A)
-          True
-          sage: C = G(1+x+x^2, exp=-2/3+x+x^2, ramification=2)
-          sage: A.similar(C)
-          False
-          sage: A.similar(C, reference=QQ)
-          True
-          sage: D = G(1+x+x^2, exp=1+x^2+x^4, ramification=4)
-          sage: A.similar(D)
-          True
-          
+            sage: from ore_algebra.generalized_series import GeneralizedSeriesMonoid
+            sage: G = GeneralizedSeriesMonoid(QQ, 'x')
+            sage: A = G(1+x+x^2, exp=1+x+x^2, ramification=2)
+            sage: B = G(1+x+x^2, exp=-3/2+x+x^2, ramification=2)
+            sage: A.similar(B)
+            True
+            sage: B.similar(A)
+            True
+            sage: C = G(1+x+x^2, exp=-2/3+x+x^2, ramification=2)
+            sage: A.similar(C)
+            False
+            sage: A.similar(C, reference=QQ)
+            True
+            sage: D = G(1+x+x^2, exp=1+x^2+x^4, ramification=4)
+            sage: A.similar(D)
+            True
         """
 
         if not isinstance(other, ContinuousGeneralizedSeries) or self.parent() is not other.parent():
@@ -863,24 +865,24 @@ class ContinuousGeneralizedSeries(RingElement):
 
         EXAMPLES::
 
-          sage: G = GeneralizedSeriesMonoid(QQ, 'x')
-          sage: G(1+x+x^2, ramification=2)
-          1 + x^(1/2) + x^(2/2)
-          sage: _.substitute(3/5)
-          1 + x^(3/10) + x^(6/10)
-          sage: _.substitute(10/3)
-          1 + x + x^2
-          sage: _.ramification()
-          1
-          sage: G(1, exp=1+x+x^2, ramification=2)
-          exp(-x^(-2/2) - 2*x^(-1/2))*x
-          sage: _.substitute(3/5)
-          exp(-x^(-6/10) - 2*x^(-3/10))*x^(3/5)
-          sage: G([1,x,x^2], ramification=2)
-          x^(2/2)*log(x)^2 + x^(1/2)*log(x) + 1
-          sage: _.substitute(3/5)
-          9/25*x^(6/10)*log(x)^2 + 3/5*x^(3/10)*log(x) + 1
-
+            sage: from ore_algebra.generalized_series import GeneralizedSeriesMonoid
+            sage: G = GeneralizedSeriesMonoid(QQ, 'x')
+            sage: G(1+x+x^2, ramification=2)
+            1 + x^(1/2) + x^(2/2)
+            sage: _.substitute(3/5)
+            1 + x^(3/10) + x^(6/10)
+            sage: _.substitute(10/3)
+            1 + x + x^2
+            sage: _.ramification()
+            1
+            sage: G(1, exp=1+x+x^2, ramification=2)
+            exp(-x^(-2/2) - 2*x^(-1/2))*x
+            sage: _.substitute(3/5)
+            exp(-x^(-6/10) - 2*x^(-3/10))*x^(3/5)
+            sage: G([1,x,x^2], ramification=2)
+            x^(2/2)*log(x)^2 + x^(1/2)*log(x) + 1
+            sage: _.substitute(3/5)
+            9/25*x^(6/10)*log(x)^2 + 3/5*x^(3/10)*log(x) + 1
         """
         if not e in QQ or e <= 0:
             raise TypeError, "exponent must be a rational number"
@@ -907,16 +909,16 @@ class ContinuousGeneralizedSeries(RingElement):
 
         EXAMPLES::
 
-           sage: G = GeneralizedSeriesMonoid(QQ, 'x')
-           sage: G(1+x+x^2, exp=1+x+x^2, ramification=2)
-           exp(-x^(-2/2) - 2*x^(-1/2))*x*(1 + x^(1/2) + x^(2/2))
-           sage: _.derivative()
-           exp(-x^(-2/2) - 2*x^(-1/2))*x^(-1)*(1 + 2*x^(1/2) + 3*x^(2/2) + 5/2*x^(3/2) + 2*x^(4/2))
-           sage: G([0,0,0,1])
-           log(x)^3
-           sage: _.derivative()
-           x^(-1)*3*log(x)^2
-        
+            sage: from ore_algebra.generalized_series import GeneralizedSeriesMonoid
+            sage: G = GeneralizedSeriesMonoid(QQ, 'x')
+            sage: G(1+x+x^2, exp=1+x+x^2, ramification=2)
+            exp(-x^(-2/2) - 2*x^(-1/2))*x*(1 + x^(1/2) + x^(2/2))
+            sage: _.derivative()
+            exp(-x^(-2/2) - 2*x^(-1/2))*x^(-1)*(1 + 2*x^(1/2) + 3*x^(2/2) + 5/2*x^(3/2) + 2*x^(4/2))
+            sage: G([0,0,0,1])
+            log(x)^3
+            sage: _.derivative()
+            x^(-1)*3*log(x)^2
         """
 
         T = self.__tail
@@ -1067,12 +1069,12 @@ class DiscreteGeneralizedSeries(RingElement):
 
         EXAMPLES::
 
-          sage: n = QQ['n'].gen()
-          sage: G = GeneralizedSeriesMonoid(QQ, 'n', 'discrete')
-          sage: f = G([0, 1, 1, [], 7, [[1,0,0,0,0,0]]])
-          sage: f(n + 5)
-          n^7*(1 + 35*n^(-1) + 525*n^(-2) + 4375*n^(-3) + 21875*n^(-4) + 65625*n^(-5) + O(n^(-6)))
-        
+            sage: from ore_algebra.generalized_series import GeneralizedSeriesMonoid
+            sage: n = QQ['n'].gen()
+            sage: G = GeneralizedSeriesMonoid(QQ, 'n', 'discrete')
+            sage: f = G([0, 1, 1, [], 7, [[1,0,0,0,0,0]]])
+            sage: f(n + 5)
+            n^7*(1 + 35*n^(-1) + 525*n^(-2) + 4375*n^(-3) + 21875*n^(-4) + 65625*n^(-5) + O(n^(-6)))
         """
         E = self.parent().exp_ring()
         if arg in E and not arg in E.base_ring():
@@ -1117,20 +1119,20 @@ class DiscreteGeneralizedSeries(RingElement):
 
         EXAMPLES::
 
-           sage: G = GeneralizedSeriesMonoid(QQ, 'x')
-           sage: s = G(1+x+x^2, exp=3*x^2, ramification=3)
-           sage: s.parent()
-           Monoid of continuous generalized series in x over Rational Field
-           sage: x = ZZ['x'].gen()
-           sage: s.base_extend(x^2 + 2, 'a')
-           exp(-9/2*x^(-2/3))*(1 + x^(1/3) + x^(2/3))
-           sage: _.parent()
-           Monoid of continuous generalized series in x over Number Field in a with defining polynomial x^2 + 2
-           sage: s == s.base_extend(x^2 + 2, 'a')
-           True
-           sage: s is s.base_extend(x^2 + 2, 'a')
-           False 
-        
+            sage: from ore_algebra.generalized_series import GeneralizedSeriesMonoid
+            sage: G = GeneralizedSeriesMonoid(QQ, 'x')
+            sage: s = G(1+x+x^2, exp=3*x^2, ramification=3)
+            sage: s.parent()
+            Monoid of continuous generalized series in x over Rational Field
+            sage: x = ZZ['x'].gen()
+            sage: s.base_extend(x^2 + 2, 'a')
+            exp(-9/2*x^(-2/3))*(1 + x^(1/3) + x^(2/3))
+            sage: _.parent()
+            Monoid of continuous generalized series in x over Number Field in a with defining polynomial x^2 + 2
+            sage: s == s.base_extend(x^2 + 2, 'a')
+            True
+            sage: s is s.base_extend(x^2 + 2, 'a')
+            False
         """
         return self.parent().base_extend(ext, name=name)(self)
 

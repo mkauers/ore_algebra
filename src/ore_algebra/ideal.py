@@ -189,12 +189,12 @@ class OreLeftIdeal(Ideal_nc):
            sage: from ore_algebra import *
            sage: R.<x,y> = ZZ[]
            sage: A.<Dx,Dy> = OreAlgebra(R)
-           sage: A.ideal([Dy^5*(Dx + (-1 + 2*x - 2*y)*Dy - 1), (-2 + 2*x - 2*y)*Dy^2 - 3*Dy]).groebner_basis()
+           sage: sorted(A.ideal([Dy^5*(Dx + (-1 + 2*x - 2*y)*Dy - 1), (-2 + 2*x - 2*y)*Dy^2 - 3*Dy]).groebner_basis())
            [(2*x - 2*y - 2)*Dy^2 + (-3)*Dy, (2*x - 2*y - 2)*Dx*Dy + 3*Dy]
-           sage: A.ideal([Dy^3*(Dx + (-1 + 2*x - 2*y)*Dy - 1), Dx^2*((-2 + 2*x - 2*y)*Dy^2 - 3*Dy)]).groebner_basis()
-           [(2*x - 2*y - 2)*Dx*Dy^3 + 7*Dy^3,
+           sage: sorted(A.ideal([Dy^3*(Dx + (-1 + 2*x - 2*y)*Dy - 1), Dx^2*((-2 + 2*x - 2*y)*Dy^2 - 3*Dy)]).groebner_basis())
+           [(-3)*Dx^2*Dy + 4*Dx*Dy^2 + 7*Dy^3,
             (2*x - 2*y - 2)*Dy^4 + (-7)*Dy^3,
-            (-3)*Dx^2*Dy + 4*Dx*Dy^2 + 7*Dy^3]
+            (2*x - 2*y - 2)*Dx*Dy^3 + 7*Dy^3]
 
            sage: R.<n,k> = ZZ[]
            sage: A.<Sn,Sk> = OreAlgebra(R)
@@ -308,7 +308,6 @@ class OreLeftIdeal(Ideal_nc):
         EXAMPLES::
 
            sage: from ore_algebra import *
-           sage:
 
         """
         if self.dimension() + other.dimension() != 0:

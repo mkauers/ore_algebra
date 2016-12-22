@@ -35,6 +35,7 @@ It works for most polynomial domains.
 
 ::
   
+  sage: from ore_algebra.nullspace import *
   sage: my_solver = gauss()
   sage: A = MatrixSpace(ZZ['x'], 4, 5).random_element()
   sage: V = my_solver(A)
@@ -458,6 +459,7 @@ def sage_native(mat, degrees=[], infolevel=0):
 
     EXAMPLES::
 
+       sage: from ore_algebra.nullspace import sage_native
        sage: A = MatrixSpace(GF(1093)['x'], 4, 7).random_element(degree=3)
        sage: V = sage_native(A)
        sage: A*V[0]
@@ -498,6 +500,7 @@ def gauss(pivot=_pivot, ncpus=1, fun=None):
 
     EXAMPLES::
 
+       sage: from ore_algebra.nullspace import gauss
        sage: A = MatrixSpace(GF(1093)['x'], 4, 7).random_element(degree=3)
        sage: my_solver = gauss()
        sage: V = my_solver(A)
@@ -661,6 +664,7 @@ def hermite(early_termination=True):
 
     EXAMPLES::
 
+       sage: from ore_algebra.nullspace import hermite
        sage: A = MatrixSpace(GF(1093)['x'], 4, 7).random_element(degree=3)
        sage: my_solver = hermite()
        sage: V = my_solver(A)
@@ -861,6 +865,7 @@ def kronecker(subsolver, presolver=None):
 
     EXAMPLES::
 
+       sage: from ore_algebra.nullspace import *
        sage: A = MatrixSpace(GF(1093)['x','y'], 4, 7).random_element(degree=3)
        sage: mysolver = kronecker(gauss())
        sage: V = mysolver(A)
@@ -984,6 +989,7 @@ def lagrange(subsolver, start_point=10, ncpus=1):
 
     EXAMPLES::
 
+       sage: from ore_algebra.nullspace import *
        sage: A = MatrixSpace(GF(1093)['x'], 4, 7).random_element(degree=3)
        sage: my_solver = lagrange(sage_native)
        sage: V = my_solver(A)
@@ -1201,6 +1207,7 @@ def galois(subsolver, max_modulus=MAX_MODULUS, proof=False):
 
     EXAMPLES::
 
+       sage: from ore_algebra.nullspace import *
        sage: R.<x> = QQ['x']
        sage: K.<a> = NumberField(x^3-2, 'a')
        sage: A = MatrixSpace(K['x'], 4, 5).random_element(degree=3)
@@ -1253,6 +1260,7 @@ def cra(subsolver, max_modulus=MAX_MODULUS, proof=False, ncpus=1):
 
     EXAMPLES::
 
+       sage: from ore_algebra.nullspace import *
        sage: A = MatrixSpace(ZZ['x', 'y'], 4, 7).random_element(degree=3)
        sage: my_solver = cra(kronecker(gauss()))
        sage: V = my_solver(A) ## fails in sage 6.8 because (GF(3037000453)['x','y'].zero()).degree(GF(3037000453)['x','y'].gen(0))
@@ -1401,6 +1409,7 @@ def newton(subsolver, inverse=lambda mat:mat.inverse()):
 
     EXAMPLES::
 
+       sage: from ore_algebra.nullspace import *
        sage: A = MatrixSpace(GF(1093)['x'], 4, 7).random_element(degree=3)
        sage: my_solver = newton(sage_native)
        sage: V = my_solver(A)
@@ -1525,6 +1534,7 @@ def clear(subsolver):
 
     EXAMPLES::
 
+       sage: from ore_algebra.nullspace import *
        sage: A = MatrixSpace(ZZ['x'].fraction_field(), 4, 5).random_element()
        sage: my_solver = clear(gauss())
        sage: V = my_solver(A)
@@ -1628,16 +1638,17 @@ def merge(subsolver):
 
     EXAMPLES::
 
-      sage: my_solver = merge(kronecker(gauss()))
-      sage: A = MatrixSpace(ZZ['x']['y'], 3, 4).random_element()
-      sage: V = my_solver(A)
-      sage: A*V[0]
-      (0, 0, 0)
-      sage: my_solver = merge(clear(kronecker(gauss())))
-      sage: A = MatrixSpace(ZZ['x'].fraction_field()['y'], 3, 4).random_element()
-      sage: V = my_solver(A)
-      sage: A*V[0]
-      (0, 0, 0)
+        sage: from ore_algebra.nullspace import *
+        sage: my_solver = merge(kronecker(gauss()))
+        sage: A = MatrixSpace(ZZ['x']['y'], 3, 4).random_element()
+        sage: V = my_solver(A)
+        sage: A*V[0]
+        (0, 0, 0)
+        sage: my_solver = merge(clear(kronecker(gauss())))
+        sage: A = MatrixSpace(ZZ['x'].fraction_field()['y'], 3, 4).random_element()
+        sage: V = my_solver(A)
+        sage: A*V[0]
+        (0, 0, 0)
 
     """
     def merge_solver(mat, degrees=[], infolevel=0):
@@ -1690,6 +1701,7 @@ def quick_check(subsolver, modsolver=sage_native, modulus=MAX_MODULUS):
 
     EXAMPLES::
 
+       sage: from ore_algebra.nullspace import *
        sage: A = MatrixSpace(ZZ['x'], 4, 5).random_element()
        sage: my_solver = quick_check(gauss())
        sage: V = my_solver(A)
@@ -1751,6 +1763,7 @@ def compress(subsolver, presolver=sage_native, modulus=MAX_MODULUS):
 
     EXAMPLES::
 
+       sage: from ore_algebra.nullspace import *
        sage: A = MatrixSpace(ZZ['x'], 7, 4).random_element()*MatrixSpace(ZZ['x'], 4, 5).random_element()
        sage: my_solver = compress(gauss())
        sage: V = my_solver(A)
@@ -1855,6 +1868,7 @@ def wiedemann():
 
     EXAMPLES::
 
+       sage: from ore_algebra.nullspace import wiedemann
        sage: A = MatrixSpace(ZZ['x'], 4, 5).random_element()
        sage: my_solver = wiedemann()
        sage: V = my_solver(A)

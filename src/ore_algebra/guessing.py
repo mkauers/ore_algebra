@@ -411,13 +411,13 @@ def guess_hp(data, A, order=-1, degree=-1, lift=None, cut=25, ensure=0, infoleve
     EXAMPLES::
 
       sage: from ore_algebra import *
-      sage: K = GF(1091); R.<x> = K['x']; 
+      sage: from ore_algebra.guessing import guess_hp
+      sage: K = GF(1091); R.<x> = K['x'];
       sage: data = [binomial(2*n, n)*fibonacci(n)^3 for n in xrange(2000)]
       sage: guess_hp(data, OreAlgebra(R, 'Dx'), order=4, degree=4, lift=K)
       [(x^4 + 819*x^3 + 136*x^2 + 17*x + 635)*Dx^4 + (14*x^3 + 417*x^2 + 952*x + 605)*Dx^3 + (598*x^2 + 497*x + 99)*Dx^2 + (598*x + 794)*Dx + 893]
       sage: len(guess_hp(data, OreAlgebra(R, 'C'), order=16, degree=64, lift=K))
       1
-    
     """
 
     if min(order, degree) < 0:
@@ -1169,6 +1169,7 @@ def guess_mult(data, algebra, **kwargs):
     EXAMPLES::
 
       sage: from ore_algebra import *
+      sage: from ore_algebra.guessing import guess_mult
       sage: data = [[binomial(n,k) for n in range(10)] for k in range(10)]
       sage: guess_mult(data, OreAlgebra(ZZ['n','k'], 'Sn', 'Sk'), order=1, degree=0)
       Left Ideal (Sn*Sk - Sn - 1) of Multivariate Ore algebra in Sn, Sk over Multivariate Polynomial Ring in n, k over Integer Ring

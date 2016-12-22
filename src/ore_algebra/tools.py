@@ -63,14 +63,14 @@ def make_factor_iterator(ring, multiplicities=True):
 
     EXAMPLES::
 
-      sage: R0.<a,b> = ZZ['a','b']; R.<x> = R0['x']
-      sage: f = make_factor_iterator(R)
-      sage: [(p, e) for p, e in f(((a+b)*x - 2)^3*(2*x+a)*(2*x+b))]
-      [(2*x + b, 1), (2*x + a, 1), ((a + b)*x - 2, 3)]
-      sage: f = make_factor_iterator(ZZ[x])
-      sage: [(p, e) for p, e in f((2*x-3)*(4*x^3-5)*(3*x^5-4))]
-      [(2*x - 3, 1), (4*x^3 - 5, 1), (3*x^5 - 4, 1)]
-
+        sage: from ore_algebra.tools import make_factor_iterator
+        sage: R0.<a,b> = ZZ['a','b']; R.<x> = R0['x']
+        sage: f = make_factor_iterator(R)
+        sage: [(p, e) for p, e in f(((a+b)*x - 2)^3*(2*x+a)*(2*x+b))]
+        [(2*x + b, 1), (2*x + a, 1), ((a + b)*x - 2, 3)]
+        sage: f = make_factor_iterator(ZZ[x])
+        sage: [(p, e) for p, e in f((2*x-3)*(4*x^3-5)*(3*x^5-4))]
+        [(2*x - 3, 1), (4*x^3 - 5, 1), (3*x^5 - 4, 1)]
     """
     R = ring.ring() if ring.is_field() else ring 
     x = R.gen(); C = R.base_ring().fraction_field()
@@ -136,14 +136,14 @@ def shift_factor(p, ram=ZZ.one(), q=1):
     
     Note that rootof(q) is the largest root of every class. The other roots are given by rootof(q) - e[i][0]/ram.
 
-    EXAMPLES:: 
+    EXAMPLES::
 
-       sage: x = ZZ['x'].gen()
-       sage: shift_factor((x-2)*(x-4)*(x-8)*(2*x+3)*(2*x+15))
-       [[x - 8, [(0, 1), (4, 1), (6, 1)]], [2*x + 3, [(0, 1), (6, 1)]]]
-       sage: shift_factor((x-2)*(x-4)*(x-8)*(2*x+3)*(2*x+15), q=2)
-       [[-1/8*x + 1, [(0, 1), (1, 1), (2, 1)]], [2/3*x + 1, [(0, 1)]], [2/15*x + 1, [(0, 1)]]]
-
+        sage: from ore_algebra.tools import shift_factor
+        sage: x = ZZ['x'].gen()
+        sage: shift_factor((x-2)*(x-4)*(x-8)*(2*x+3)*(2*x+15))
+        [[x - 8, [(0, 1), (4, 1), (6, 1)]], [2*x + 3, [(0, 1), (6, 1)]]]
+        sage: shift_factor((x-2)*(x-4)*(x-8)*(2*x+3)*(2*x+15), q=2)
+        [[-1/8*x + 1, [(0, 1), (1, 1), (2, 1)]], [2/3*x + 1, [(0, 1)]], [2/15*x + 1, [(0, 1)]]]
     """
 
     classes = []

@@ -103,8 +103,8 @@ class MultivariateOreOperator(OreOperator):
 
         EXAMPLES::
 
-          sage: R.<x> = QQ['x']
           sage: from ore_algebra import *
+          sage: R.<x> = QQ['x']
           sage: A.<Dx> = OreAlgebra(R, 'Dx')
           sage: op = Dx^2 + 5*x*Dx + 1
           sage: op.parent()
@@ -188,10 +188,10 @@ class MultivariateOreOperator(OreOperator):
         Returns the leading coefficient of self
 
         EXAMPLES::
-        
+
            sage: from ore_algebra import *
            sage: R.<x,y> = QQ[]
-           sage: A.<Dx,Dy> = OreAlgebra(R, order='degrevlex')
+           sage: A.<Dx,Dy> = OreAlgebra(R)
            sage: p = (3*x+y-3)*Dx^3*Dy^2 + Dx - Dy + 1
            sage: p.lc()
            3*x + y - 3
@@ -206,10 +206,10 @@ class MultivariateOreOperator(OreOperator):
         Returns the leading monomial of self
 
         EXAMPLES::
-        
+
            sage: from ore_algebra import *
            sage: R.<x,y> = QQ[]
-           sage: A.<Dx,Dy> = OreAlgebra(R, order='degrevlex')
+           sage: A.<Dx,Dy> = OreAlgebra(R)
            sage: p = (3*x+y-3)*Dx^3*Dy^2 + Dx - Dy + 1
            sage: p.lm()
            Dx^3*Dy^2
@@ -224,10 +224,10 @@ class MultivariateOreOperator(OreOperator):
         Returns the leading term of self
 
         EXAMPLES::
-        
+
            sage: from ore_algebra import *
            sage: R.<x,y> = QQ[]
-           sage: A.<Dx,Dy> = OreAlgebra(R, order='degrevlex')
+           sage: A.<Dx,Dy> = OreAlgebra(R)
            sage: p = (3*x+y-3)*Dx^3*Dy^2 + Dx - Dy + 1
            sage: p.lt()
            (3*x + y - 3)*Dx^3*Dy^2
@@ -242,10 +242,10 @@ class MultivariateOreOperator(OreOperator):
         Returns the exponent vector of the leading monomial of self
 
         EXAMPLES::
-        
+
            sage: from ore_algebra import *
            sage: R.<x,y> = QQ[]
-           sage: A.<Dx,Dy> = OreAlgebra(R, order='degrevlex')
+           sage: A.<Dx,Dy> = OreAlgebra(R)
            sage: p = (3*x+y-3)*Dx^3*Dy^2 + Dx - Dy + 1
            sage: p.exp()
            (3, 2)
@@ -311,7 +311,8 @@ class MultivariateOreOperator(OreOperator):
         EXAMPLES::
 
            sage: from ore_algebra import *
-           sage: A.<Dx,Dy> = OreAlgebra(ZZ[x,y])
+           sage: P.<x,y> = ZZ[]
+           sage: A.<Dx,Dy> = OreAlgebra(P)
            sage: p = Dx^2*Dy^1-1; basis = [(x-y)*Dx+y,(x+y)*Dy-2]
            sage: p.reduce(basis)
            (x^4 - 2*x^3*y + 2*x*y^3 - y^4 - 2*x^2*y - 4*x*y^2 + 2*y^3 - x^2 - 4*x*y + y^2)/(-x^4 + 2*x^3*y - 2*x*y^3 + y^4)
