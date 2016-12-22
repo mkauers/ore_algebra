@@ -40,6 +40,7 @@ def gcd_free_basis(ring, elts):
 
     EXAMPLES::
 
+        sage: from ore_algebra.analytic.shiftless import *
         sage: gcd_free_basis(ZZ, [1])
         set()
         sage: gcd_free_basis(ZZ, [4, 30, 14, 49])
@@ -85,6 +86,7 @@ def squarefree_part(self):
 
     EXAMPLES::
 
+        sage: from ore_algebra.analytic.shiftless import *
         sage: Pol.<x> = QQ[]
         sage: pol = 37 * (x-1)^3 * (x-2)^3 * (x-1/3)^7 * (x-3/7)
         sage: squarefree_part(pol)
@@ -118,6 +120,7 @@ def dispersion_set(self, other=None):
 
     EXAMPLES::
 
+        sage: from ore_algebra.analytic.shiftless import *
         sage: Pol.<x> = QQ[]
         sage: dispersion_set(x, x + 1)
         [1]
@@ -165,6 +168,7 @@ def dispersion(self, other=None):
 
     EXAMPLES::
 
+        sage: from ore_algebra.analytic.shiftless import *
         sage: Pol.<x> = QQ[]
         sage: dispersion(x, x + 1)
         1
@@ -213,6 +217,7 @@ def shiftless_decomposition(self):
 
     EXAMPLES::
 
+        sage: from ore_algebra.analytic.shiftless import *
         sage: Pol.<y> = QQ[]
         sage: shiftless_decomposition((y-1)*(y-1/2)*y)
         (1, [(y - 1/2, [(0, 1)]), (y - 1, [(0, 1), (1, 1)])])

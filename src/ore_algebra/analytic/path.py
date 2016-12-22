@@ -241,6 +241,7 @@ class Point(SageObject):
         EXAMPLES::
 
             sage: from ore_algebra import *
+            sage: from ore_algebra.analytic.path import Point
             sage: Dops, x, Dx = DifferentialOperators()
 
             sage: dop = (x^2 + 1)*Dx^2 + 2*x*Dx
@@ -308,6 +309,7 @@ class Point(SageObject):
         TESTS::
 
             sage: from ore_algebra import DifferentialOperators
+            sage: from ore_algebra.analytic.path import Point
             sage: Dops, x, Dx = DifferentialOperators()
             sage: Point(1, x*Dx - 1).local_diffop()
             (x + 1)*Dx - 1
@@ -338,6 +340,7 @@ class Point(SageObject):
         EXAMPLES::
 
             sage: from ore_algebra.analytic.ui import *
+            sage: from ore_algebra.analytic.path import Point
             sage: Dops, x, Dx = Diffops()
             sage: Point(0, x*Dx^2 + Dx + x).local_basis_structure()
             [FundamentalSolution(valuation=0, log_power=1, value=None),

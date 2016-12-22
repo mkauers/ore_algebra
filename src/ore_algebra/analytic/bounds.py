@@ -476,6 +476,7 @@ class RatSeqBound(object):
 
     EXAMPLES::
 
+        sage: from ore_algebra.analytic.bounds import RatSeqBound
         sage: Pols.<n> = QQ[]
         sage: bnd = RatSeqBound([Pols(3), n^2], n*(n-3), {3: RBF(10)})
         sage: bnd
@@ -724,6 +725,7 @@ class RatSeqBound(object):
 
         EXAMPLES::
 
+            sage: from ore_algebra.analytic.bounds import bound_ratio_derivatives
             sage: Pols.<n> = QQ[]
             sage: i = QuadraticField(-1).gen()
             sage: bnd = bound_ratio_derivatives(
@@ -802,6 +804,7 @@ def bound_ratio_derivatives(num, den, nat_poles):
     EXAMPLES::
 
         sage: Pols.<n> = QQ[]
+        sage: from ore_algebra.analytic.bounds import bound_ratio_derivatives
 
         sage: bnd = bound_ratio_derivatives(Pols(1), n*(n-1), {}); bnd
         (|(n)/(n^2 - n)|)

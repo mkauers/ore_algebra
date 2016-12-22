@@ -158,6 +158,7 @@ class LogSeriesInitialValues(object):
         TESTS::
 
             sage: from ore_algebra.analytic.ui import Diffops
+            sage: from ore_algebra.analytic.naive_sum import *
             sage: Dops, x, Dx = Diffops()
             sage: LogSeriesInitialValues(0, {0: (1, 0)}, x*Dx^3 + 2*Dx^2 + x*Dx)
             Traceback (most recent call last):
@@ -832,6 +833,7 @@ def plot_bounds(dop, ini=None, pt=None, eps=None, **kwds):
     EXAMPLES::
 
         sage: from ore_algebra.analytic.ui import Diffops
+        sage: from ore_algebra.analytic.naive_sum import *
         sage: Dops, x, Dx = Diffops()
 
         sage: plot_bounds(Dx - 1, [CBF(1)], CBF(i)/2, RBF(1e-20))

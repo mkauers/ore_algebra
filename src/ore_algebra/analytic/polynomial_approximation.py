@@ -125,6 +125,7 @@ def general_economization(economization_polynomials, pol, eps):
 
     TESTS::
 
+        sage: from ore_algebra.analytic.polynomial_approximation import general_economization
         sage: def monomials(ring, n):
         ....:     x = ring.gen()
         ....:     return [x**k for k in range(n)]
@@ -155,7 +156,7 @@ def chebyshev_economization(pol, eps):
 
     EXAMPLES::
 
-        sage: from ore_algebra.analytic.polynomial_approximation import taylor_economization
+        sage: from ore_algebra.analytic.polynomial_approximation import chebyshev_economization
         sage: pol = polygen(QQ, 'x')._exp_series(10).change_ring(RBF)
         sage: newpol = chebyshev_economization(pol, RBF(1e-3)); newpol
         [0.04379...]*x^4 + [0.17734...]*x^3 + [0.49919...]*x^2 + [0.9973...]*x +
