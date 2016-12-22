@@ -172,11 +172,13 @@ class GeneralizedSeriesMonoid(UniqueRepresentation, Parent):
             sage: _.parent()
             Monoid of continuous generalized series in x over Number Field in b with defining polynomial x^3 + 5
         """
-        Parent.__init__(self, base=base, names=(x,), category=Rings())
+        self.__type = type
         self.__exp_ring = base[x]
         self.__tail_ring = PowerSeriesRing(base, x)['LOG']
         self.__var = x
-        self.__type = type
+        self.Element = (ContinuousGeneralizedSeries if self.is_continuous()
+                        else DiscreteGeneralizedSeries)
+        Parent.__init__(self, base=base, names=(x,), category=Rings())
 
     def is_discrete(self):
         return self.__type == "discrete"
@@ -199,11 +201,11 @@ class GeneralizedSeriesMonoid(UniqueRepresentation, Parent):
         except AttributeError:
             pass
         if self.is_continuous():
-            self.__gen = self._element_constructor_(self.__tail_ring.one(), exp=self.__exp_ring.one())
+            self.__gen = self(self.__tail_ring.one(), exp=self.__exp_ring.one())
         else:
-            self.__gen = self._element_constructor_([QQ.zero(), ZZ.one(), self.base().one(), \
-                                                     self.__exp_ring.zero(), self.base().one(), \
-                                                     self.__tail_ring.one()])
+            self.__gen = self([QQ.zero(), ZZ.one(), self.base().one(),
+                                self.__exp_ring.zero(), self.base().one(),
+                                self.__tail_ring.one()])
         return self.__gen         
 
     def exp_ring(self):
@@ -234,33 +236,17 @@ class GeneralizedSeriesMonoid(UniqueRepresentation, Parent):
     def _coerce_map_from_(self, P):
 
         if isinstance(P, GeneralizedSeriesMonoid):
-            if self.var() != P.var():
-                return False
-            m = self.base().coerce_map_from(P.base())
-            return (m is not False) and (m is not None)
-
-        m = self.base().coerce_map_from(P) # to const
-        if (m is not False) and (m is not None):
-            return True
-
-        m = self.tail_ring().base_ring().coerce_map_from(P) # to power series
-        if (m is not False) and (m is not None):
-            return True
-
-        return False
-
-    def _element_constructor_(self, *args, **kwds):
-        if self.is_continuous():
-            return ContinuousGeneralizedSeries(self, *args, **kwds)
+            return self.var() == P.var() and self.base().has_coerce_map_from(P.base())
         else:
-            return DiscreteGeneralizedSeries(self, *args, **kwds)
+            return (self.base().has_coerce_map_from(P) # to const
+                    or self.tail_ring().base_ring().has_coerce_map_from(P)) # to power series
 
     def random_element(self):
         """
         Returns a random element of this monoid. 
         """
         if self.is_continuous():
-            return self._element_constructor_(self.__tail_ring.random_element(), exp=self.__exp_ring.random_element())
+            return self(self.__tail_ring.random_element(), exp=self.__exp_ring.random_element())
         else:
             raise NotImplementedError
     
