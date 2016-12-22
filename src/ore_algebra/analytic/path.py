@@ -88,7 +88,7 @@ class Point(SageObject):
                 pass
             try:
                 self.value = RLF(point)
-            except TypeError:
+            except (TypeError, ValueError):
                 self.value = CLF(point)
         elif QQbar.has_coerce_map_from(parent):
             alg = QQbar.coerce(point)
