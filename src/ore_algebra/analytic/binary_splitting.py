@@ -27,6 +27,21 @@ TESTS::
     [0.011501537469552017...]
 
     sage: logger.setLevel(logging.WARNING)
+
+    sage: ((x + 1)*Dx^2 + Dx).numerical_transition_matrix([0,1/2], algorithm='binsplit')
+    [ [1.00000000000000...] [0.4054651081081643...]]
+    [             [+/- ...] [0.6666666666666666...]]
+
+    sage: ((x + 1)*Dx^3 + Dx).numerical_transition_matrix([0,1/2], algorithm='binsplit')
+    [  [1.000000000000000...]  [0.4815453970799961...]  [0.2456596136789682...]]
+    [               [+/- ...]  [0.8936357901691244...]  [0.9667328760004665...]]
+    [               [+/- ...] [-0.1959698689702905...]  [0.9070244207738327...]]
+
+    sage: ((x + 1)*Dx^3 + Dx^2).numerical_transition_matrix([0,1/2], algorithm='binsplit')
+    [ [1.000000000000000...] [0.5000000000000000...] [0.2163953243244931...]]
+    [              [+/- ...]  [1.000000000000000...] [0.8109302162163287...]]
+    [              [+/- ...]               [+/- ...] [0.6666666666666666...]]
+
 """
 
 import copy
@@ -141,11 +156,20 @@ class MatrixRec(object):
         # product tree, but could also be useful to extend the field using Pari
         # in the future.
         NF_rec, AlgInts_rec = _number_field_with_integer_gen(deq_Scalars)
-        Rops = ore_algebra.OreAlgebra(PolynomialRing(deq_Scalars, 'n'), 'Sn')
-        recop = diffop.to_S(Rops).primitive_part().numerator()
         # ore_algebra currently does not support orders as scalar rings
-        recop = recop.change_ring(recop.base_ring().change_ring(NF_rec))
-        recop *= lcm([p.denominator() for p in recop.coefficients()])
+        Pols = PolynomialRing(NF_rec, 'n')
+        Rops, Sn = ore_algebra.OreAlgebra(Pols, 'Sn').objgen()
+        recop = diffop.to_S(Rops).primitive_part().numerator()
+        recop = lcm([p.denominator() for p in recop.coefficients()])*recop
+        # Ensure that ordrec >= orddeq. When the homomorphic image of diffop in
+        # Rops is divisible by Sn, it can happen that the recop (e.g., after
+        # normalization to Sn-valuation 0) has order < orddeq, and our strategy
+        # of using vectors of coefficients of the form [u(n-s'), ..., u(n+r-1)]
+        # with s'=s-r does not work in this case.
+        orddelta = recop.order() - diffop.order()
+        if orddelta < 0:
+            recop = Sn**(-orddelta)*recop
+
         self.recop = recop
 
         self.orddeq = diffop.order()
@@ -270,6 +294,7 @@ class MatrixRec(object):
     def __repr__(self):
         return pprint.pformat(self.__dict__)
 
+    # XXX: needs testing, especially when rop.valuation() > 0
     def residual(self, prod, n, j):
         r"""
         Compute the residual associated with the fundamental solution of index j.
@@ -284,9 +309,10 @@ class MatrixRec(object):
         last.extend([IC(c)/IC(prod.rec_den)             # u(n-s'), ..., u(n+r-1)
                      for c in prod.rec_mat.column(s-r+j)])  # XXX: check column index
         rop = self.recop
+        v = rop.valuation()
         for i in xrange(r-1, -1, -1): # compute u(n-s+i)
-            last[i] = ~(rop[0](n-s+i))*sum(rop[k](n-s+i)*last[i+k]    # u(n-s+i)
-                                           for k in xrange(1, s+1))
+            last[i] = ~(rop[v](n-s+i))*sum(rop[k](n-s+i)*last[i+k]    # u(n-s+i)
+                                           for k in xrange(v+1, s+1))
         # Now compute the residual. WARNING: this residual must correspond to
         # the operator stored in maj.dop, which typically isn't self.diffop (but
         # an operator in θx equal to x^k·self.diffop for some k).
