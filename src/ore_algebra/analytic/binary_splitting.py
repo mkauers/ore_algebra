@@ -330,7 +330,7 @@ def fundamental_matrix_ordinary(dop, pt, eps, rows, maj):
     - ``eps`` -- a bound on the tail (does not take into account roundoff errors
       such as that committed when converting the result to intervals)
     """
-    logger.info("target error = %s", eps)
+    logger.log(logging.INFO - 1, "target error = %s", eps)
     rec = MatrixRec(dop, pt, rows)
     prod = rec.one()
     tail_bound = n = None
@@ -339,13 +339,13 @@ def fundamental_matrix_ordinary(dop, pt, eps, rows, maj):
         prod = rec.binsplit(last, n) * prod
         est = prod.term(bounds.IC, dop.order(), 0).abs()
         if n > 1024:
-            logger.info("n = %d, est = %s", n, est)
+            logger.debug("n = %d, est = %s", n, est)
         if est < eps: # use bounds.AbsoluteError???
             majeqrhs = maj.maj_eq_rhs(rec.residuals(prod, n))
             for i in xrange(5):
                 tail_bound = maj.matrix_sol_tail_bound(n, bounds.IC(pt).abs(),
                                                              majeqrhs, ord=rows)
-                logger.info("n = %d, tail bound = %s", n, tail_bound)
+                logger.debug("n = %d, tail bound = %s", n, tail_bound)
                 if tail_bound < eps: # XXX: clarify stopping criterion
                     done = True
                     break
