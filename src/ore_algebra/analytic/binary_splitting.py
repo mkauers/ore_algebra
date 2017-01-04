@@ -111,51 +111,6 @@ class StepMatrix(object):
     def __repr__(self):
         return pprint.pformat(self.__dict__)
 
-    # The following methods don't really make sense for steps that don't start
-    # at index 0, and should perhaps become module-level functions. On the other
-    # hand, they are useful for external code that doesn't want to know about
-    # the details of the StepMatrix data structure. Let's see how things evolve
-    # with the implementation of logarithmic series.
-
-    def term(self, parent, orddeq, j):
-        r"""
-        Given a StepMatrix representing a product B(n-1)···B(0) where B is the
-        recurrence matrix associated to some differential operator P, return the
-        term of index n of the fundamental solution of P of the form
-        y[j](z) = z^j + O(z^r), 0 <= j < r = order(P).
-
-        XXX: move this to a class that knows about orddeq?
-        """
-        orddelta = self.rec_mat.nrows() - orddeq
-        # XXX: orddelta, orddelta+j ?
-        num = parent(self.rec_mat[orddelta + j, orddelta])*parent(self.pow_num[0])
-        den = parent(self.rec_den)*parent(self.pow_den)
-        return num/den
-
-    def partial_sums_num_den(self, rows, cols):
-        """
-        Return a matrix of partial sums of the series and its derivatives, as an
-        unevaluated quotient of a matrix of algebraic integers and an integer.
-
-        Not tested with the current code.
-        """
-        numer_as_series = self.sums_row[0, -cols:]
-        C = numer_as_series.base_ring().base_ring()
-        numer = matrix(C, rows, cols, lambda i, j: numer_as_series[0,j][i])
-        rec_den_inv_num, rec_den_inv_den = _invert_order_element(self.rec_den)
-        numer *= rec_den_inv_num
-        denom = rec_den_inv_den * self.pow_den
-        return (numer, denom)
-
-    def partial_sums(self, ring, rows, cols):
-        """
-        Return a matrix of partial sums of the series and its derivatives.
-        """
-        numer_as_series = self.sums_row[0, -cols:]
-        numer = matrix(ring, rows, cols, lambda i, j: numer_as_series[0,j][i])
-        denom = ring(self.rec_den) * ring(self.pow_den)
-        return numer/denom
-
 class MatrixRec(object):
     """
     A matrix recurrence simultaneously generating the coefficients and partial
@@ -342,9 +297,29 @@ class MatrixRec(object):
     def residuals(self, prod, n):
         return [self.residual(prod, n, j) for j in xrange(self.orddeq)]
 
-def binsplit_step_seq(first_step=64):
-    "first_step >= 1"
-    low, high = 0, first_step
+    def term(self, prod, parent, j):
+        r"""
+        Given a prodrix representing a product B(n-1)···B(0) where B is the
+        recurrence matrix associated to some differential operator P, return the
+        term of index n of the fundamental solution of P of the form
+        y[j](z) = z^j + O(z^r), 0 <= j < r = order(P).
+        """
+        orddelta = self.orddelta
+        num = parent(prod.rec_mat[orddelta + j, orddelta])*parent(prod.pow_num[0])
+        den = parent(prod.rec_den)*parent(prod.pow_den)
+        return num/den
+
+    def partial_sums(self, prod, ring, rows):
+        r"""
+        Return a matrix of partial sums of the series and its derivatives.
+        """
+        numer = matrix(ring, rows, self.orddeq,
+                       lambda i, j: prod.sums_row[0, self.orddelta+j][i])
+        denom = ring(prod.rec_den)*ring(prod.pow_den)
+        return numer/denom
+
+def binsplit_step_seq(start):
+    low, high = start, start + 64
     while True:
         yield (low, high)
         low, high = high, 2*high
@@ -361,9 +336,9 @@ def fundamental_matrix_ordinary(dop, pt, eps, rows, maj):
     prod = rec.one()
     tail_bound = n = None
     done = False
-    for last, n in binsplit_step_seq():
+    for last, n in binsplit_step_seq(0):
         prod = rec.binsplit(last, n) * prod
-        est = prod.term(bounds.IC, dop.order(), 0).abs()
+        est = rec.term(prod, bounds.IC, 0).abs()
         if n > 1024:
             logger.debug("n = %d, est = %s", n, est)
         if est < eps: # use bounds.AbsoluteError???
@@ -381,7 +356,7 @@ def fundamental_matrix_ordinary(dop, pt, eps, rows, maj):
             if done: break
     is_real = utilities.is_real_parent(pt.parent())
     Intervals = utilities.ball_field(eps, is_real)
-    mat = prod.partial_sums(Intervals, rows, dop.order())
+    mat = rec.partial_sums(prod, Intervals, rows)
     # Account for the dropped high-order terms in the intervals we return.
     err = tail_bound.abs()
     mat = mat.apply_map(lambda x: x.add_error(err)) # XXX - overest
