@@ -126,9 +126,9 @@ class StepMatrix(object):
 
         XXX: move this to a class that knows about orddeq?
         """
-        orddiff = self.rec_mat.nrows() - orddeq
-        # XXX: orddiff, orddiff+j ?
-        num = parent(self.rec_mat[orddiff + j, orddiff])*parent(self.pow_num[0])
+        orddelta = self.rec_mat.nrows() - orddeq
+        # XXX: orddelta, orddelta+j ?
+        num = parent(self.rec_mat[orddelta + j, orddelta])*parent(self.pow_num[0])
         den = parent(self.rec_den)*parent(self.pow_den)
         return num/den
 
@@ -195,16 +195,16 @@ class MatrixRec(object):
 
         self.orddeq = diffop.order()
         self.ordrec = recop.order()
-        self.orddiff = self.ordrec - self.orddeq
+        self.orddelta = self.ordrec - self.orddeq
         self.derivatives = derivatives
 
         self.zvar = diffop.base_ring().variable_name()
 
         self.rec_matrix_ring = MatrixSpace(AlgInts_rec, self.ordrec, self.ordrec)
         Pols_rec, n = PolynomialRing(AlgInts_rec, 'n').objgen()
-        self.rec_coeffs = [-Pols_rec(recop[i])(n - self.orddiff)
+        self.rec_coeffs = [-Pols_rec(recop[i])(n - self.orddelta)
                                                    for i in xrange(self.ordrec)]
-        self.rec_den = Pols_rec(recop.leading_coefficient())(n - self.orddiff)
+        self.rec_den = Pols_rec(recop.leading_coefficient())(n - self.orddelta)
         # Guard against various problems related to number field embeddings and
         # uniqueness
         assert Pols_rec.base_ring() is AlgInts_rec
@@ -290,7 +290,7 @@ class MatrixRec(object):
         # XXX: should we give a truncation order?
         den = stepmat.rec_den * stepmat.pow_den
         den = self.series_class_sums(self.Series_sums, den)
-        stepmat.sums_row[0, self.orddiff] = den
+        stepmat.sums_row[0, self.orddelta] = den
         #R = stepmat.sums_row.base_ring().base_ring()
         #assert den.parent() is R or den.parent() != R
         return stepmat
