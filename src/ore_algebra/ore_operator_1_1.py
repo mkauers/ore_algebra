@@ -2077,6 +2077,14 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             42.000000000000000
             sage: Dx.numerical_solution([1], [0, 1], 1e-10).parent()
             Real ball field with 3... bits precision
+
+            sage: import logging; logging.basicConfig()
+            sage: logger = logging.getLogger('ore_algebra.analytic.binary_splitting')
+            sage: logger.setLevel(logging.INFO)
+            sage: (Dx - 1).numerical_solution([1], [0, i + pi], algorithm="binsplit")
+            INFO:ore_algebra.analytic.binary_splitting:...
+            [12.5029695888765...] + [19.4722214188416...]*I
+            sage: logger.setLevel(logging.WARNING)
         """
         import analytic.analytic_continuation as ancont
         ctx = ancont.Context(self, path, eps, **kwds)
@@ -2219,6 +2227,16 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             ...
             NotImplementedError: analytic continuation through irregular
             singular points is not supported
+
+            sage: import logging; logging.basicConfig()
+            sage: logger = logging.getLogger('ore_algebra.analytic.binary_splitting')
+            sage: logger.setLevel(logging.INFO)
+            sage: dop = (x^2 + 1)*Dx^2 + 2*x*Dx
+            sage: dop.numerical_transition_matrix([0,1], algorithm="binsplit")
+            INFO:ore_algebra.analytic.binary_splitting:...
+            [ [1.0000000000000...] [0.785398163397448...]]
+            [            [+/- ...] [0.500000000000000...]]
+            sage: logger.setLevel(logging.WARNING)
         """
         import analytic.analytic_continuation as ancont
         ctx = ancont.Context(self, path, eps, **kwds)

@@ -1,6 +1,32 @@
 # -*- coding: utf-8 - vim: tw=80
 """
 Evaluation of convergent D-finite series by binary splitting
+
+TESTS::
+
+    sage: from ore_algebra import DifferentialOperators
+    sage: Dops, x, Dx = DifferentialOperators(QQ, 'x')
+
+    sage: import logging
+    sage: logging.basicConfig()
+    sage: logger = logging.getLogger('ore_algebra.analytic.binary_splitting')
+    sage: logger.setLevel(logging.INFO)
+
+    sage: (Dx - 1).numerical_solution([1], [0, i + pi], algorithm="binsplit")
+    INFO:ore_algebra.analytic.binary_splitting:...
+    [12.5029695888765...] + [19.4722214188416...]*I
+
+    sage: ((x^2 + 1)*Dx^2 + 2*x*Dx).numerical_solution([0, 1],
+    ....:         [0, i+1, 2*i, i-1, 0], algorithm="binsplit")
+    INFO:ore_algebra.analytic.binary_splitting:...
+    [3.14159265358979...] + [+/- ...]*I
+
+    sage: from ore_algebra.analytic.examples.misc import koutschan1
+    sage: koutschan1.dop.numerical_solution(koutschan1.ini, [0, 84], algorithm="binsplit")
+    INFO:ore_algebra.analytic.binary_splitting:...
+    [0.011501537469552017...]
+
+    sage: logger.setLevel(logging.WARNING)
 """
 
 import copy
