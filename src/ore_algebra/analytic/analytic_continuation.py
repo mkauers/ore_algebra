@@ -28,8 +28,7 @@ logger = logging.getLogger(__name__)
 # TODO: clean up and reorganize
 class Context(object):
 
-    def __init__(self, dop, path, eps, keep="last",
-            summation_algorithm=None):
+    def __init__(self, dop, path, eps, keep="last", algorithm=None):
         if not dop:
             raise ValueError("operator must be nonzero")
         _, _, _, self.dop = dop._normalize_base_ring()
@@ -49,13 +48,13 @@ class Context(object):
 
         # XXX: decide what to do about all this
 
-        if isinstance(summation_algorithm, str):
-            if summation_algorithm == "naive":
+        if isinstance(algorithm, str):
+            if algorithm == "naive":
                 from . import naive_sum as mod
-            elif summation_algorithm == "binsplit":
+            elif algorithm == "binsplit":
                 from . import binary_splitting as mod
             else:
-                raise ValueError("summation_algorithm", summation_algorithm)
+                raise ValueError("algorithm", algorithm)
             self.fundamental_matrix_ordinary = mod.fundamental_matrix_ordinary
         else:
             self.fundamental_matrix_ordinary = None

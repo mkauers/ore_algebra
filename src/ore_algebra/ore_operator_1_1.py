@@ -1977,7 +1977,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
                                                       /sol.log_power.factorial()
                 for sol in struct]
 
-    def numerical_solution(self, ini, path, eps=1e-16):
+    def numerical_solution(self, ini, path, eps=1e-16, **kwds):
         r"""
         Evaluate an analytic solution of this operator at a point of its Riemann
         surface.
@@ -2079,7 +2079,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             Real ball field with 3... bits precision
         """
         import analytic.analytic_continuation as ancont
-        ctx = ancont.Context(self, path, eps)
+        ctx = ancont.Context(self, path, eps, **kwds)
         if ctx.path.vert[-1].is_regular_singular():
             raise ValueError("the evaluation point is a regular singular "
                     "point (try using numerical_transition_matrix())")
@@ -2091,7 +2091,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         else:
             return mat.base_ring().zero()
 
-    def numerical_transition_matrix(self, path, eps=1e-16):
+    def numerical_transition_matrix(self, path, eps=1e-16, **kwds):
         r"""
         Compute a transition matrix along a path drawn in the complex plane.
 
@@ -2221,7 +2221,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             singular points is not supported
         """
         import analytic.analytic_continuation as ancont
-        ctx = ancont.Context(self, path, eps)
+        ctx = ancont.Context(self, path, eps, **kwds)
         pairs = ancont.analytic_continuation(ctx)
         assert len(pairs) == 1
         return pairs[0][1]
