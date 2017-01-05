@@ -354,7 +354,10 @@ class Point(SageObject):
         # need a good way to share code with fundamental_matrix_regular. Or
         # perhaps modify generalized_series_solutions() to agree with our
         # definition of the basis?
-        if not self.is_regular():
+        if self.is_ordinary(): # support inexact points in this case
+            return [FundamentalSolution(QQbar(expo), Integer(0), None)
+                    for expo in range(self.dop.order())]
+        elif not self.is_regular():
             raise NotImplementedError("irregular singular point")
         ldop = self.local_diffop()
         x = ldop.base_ring().gen()
