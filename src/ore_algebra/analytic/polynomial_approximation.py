@@ -203,10 +203,10 @@ def on_disk(dop, ini, path, rad, eps):
     r"""
     EXAMPLES::
 
-        sage: from ore_algebra.analytic.ui import *
+        sage: from ore_algebra import *
         sage: from ore_algebra.analytic import polynomial_approximation as polapprox
         sage: QQi.<i> = QuadraticField(-1, 'I')
-        sage: Dops, x, Dx = Diffops()
+        sage: Dops, x, Dx = DifferentialOperators()
 
         sage: polapprox.on_disk(Dx - 1, [1], [0], 1, 1e-3)
         ([0.001...])*x^6 + ([0.008...])*x^5 + ([0.041...])*x^4
@@ -243,9 +243,9 @@ def on_interval(dop, ini, path, eps, rad=None):
     r"""
     EXAMPLES::
 
-        sage: from ore_algebra.analytic.ui import *
+        sage: from ore_algebra import *
         sage: from ore_algebra.analytic import polynomial_approximation as polapprox
-        sage: Dops, x, Dx = Diffops()
+        sage: Dops, x, Dx = DifferentialOperators()
 
         sage: pol1 = polapprox.on_interval(Dx - 1, [1], [0], 1e-3, rad=1); pol1
         [0.008...]*x^5 + [0.04...]*x^4 + [0.166...]*x^3 + [0.499...]*x^2

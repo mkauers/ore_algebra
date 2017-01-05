@@ -400,9 +400,10 @@ def abs_min_nonzero_root(pol, tol=RR(1e-2), lg_larger_than=RR('-inf'),
 
     An example where the ability to increase the precision is used::
 
-        sage: from ore_algebra.analytic.ui import *
-        sage: Dops, x, Dx = Diffops()
-        sage: eval_diffeq((x^2 + 10*x + 50)*Dx^2 + Dx + 1, [-1,1], [0, 1/10])
+        sage: from ore_algebra import *
+        sage: Dops, x, Dx = DifferentialOperators()
+        sage: dop = (x^2 + 10*x + 50)*Dx^2 + Dx + 1
+        sage: dop.numerical_solution([-1,1], [0, 1/10])
         [-0.90000329853426...]
     """
     myIR = type(IR)(prec)
@@ -975,9 +976,9 @@ class DiffOpBound(object):
 
     EXAMPLES::
 
-        sage: from ore_algebra.analytic.ui import *
+        sage: from ore_algebra import *
         sage: from ore_algebra.analytic.bounds import *
-        sage: Dops, x, Dx = Diffops()
+        sage: Dops, x, Dx = DifferentialOperators()
 
     A majorant sequence::
 
@@ -1285,9 +1286,9 @@ class DiffOpBound(object):
 
         EXAMPLES::
 
-            sage: from ore_algebra.analytic.ui import *
+            sage: from ore_algebra import *
             sage: from ore_algebra.analytic.bounds import *
-            sage: Dops, x, Dx = Diffops()
+            sage: Dops, x, Dx = DifferentialOperators()
             sage: maj = DiffOpBound(Dx - 1)
             sage: maj._test()
             sage: maj._test([3], 200)

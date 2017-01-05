@@ -157,9 +157,9 @@ class LogSeriesInitialValues(object):
         r"""
         TESTS::
 
-            sage: from ore_algebra.analytic.ui import Diffops
+            sage: from ore_algebra import *
             sage: from ore_algebra.analytic.naive_sum import *
-            sage: Dops, x, Dx = Diffops()
+            sage: Dops, x, Dx = DifferentialOperators()
             sage: LogSeriesInitialValues(0, {0: (1, 0)}, x*Dx^3 + 2*Dx^2 + x*Dx)
             Traceback (most recent call last):
             ...
@@ -212,12 +212,12 @@ class LogSeriesInitialValues(object):
 
         TESTS::
 
-            sage: from ore_algebra.analytic.ui import *
-            sage: Dops, x, Dx = Diffops()
+            sage: from ore_algebra import *
+            sage: Dops, x, Dx = DifferentialOperators()
             sage: i = QuadraticField(-1, 'i').gen()
-            sage: transition_matrix(x^2*Dx^2 + x*Dx + 1, [0, 1/2])
+            sage: (x^2*Dx^2 + x*Dx + 1).numerical_transition_matrix([0, 1/2])
             [ [0.769238901363972...] + [0.638961276313634...]*I [0.769238901363972...] + [-0.6389612763136...]*I]
-            sage: transition_matrix(Dx-i, [0,1])
+            sage: (Dx-i).numerical_transition_matrix([0,1])
             [[0.540302305868139...] + [0.841470984807896...]*I]
         """
         # We check that the exponent is real to ensure that the coefficients
@@ -251,9 +251,9 @@ def series_sum(dop, ini, pt, tgt_error, maj=None, bwrec=None,
         sage: from sage.rings.complex_arb import ComplexBallField, CBF
         sage: QQi.<i> = QuadraticField(-1)
 
-        sage: from ore_algebra.analytic.ui import *
+        sage: from ore_algebra import *
         sage: from ore_algebra.analytic.naive_sum import series_sum, EvaluationPoint
-        sage: Dops, x, Dx = Diffops()
+        sage: Dops, x, Dx = DifferentialOperators()
 
         sage: dop = ((4*x^2 + 3/58*x - 8)*Dx^10 + (2*x^2 - 2*x)*Dx^9 +
         ....:       (x^2 - 1)*Dx^8 + (6*x^2 - 1/2*x + 4)*Dx^7 +
@@ -513,9 +513,9 @@ def fundamental_matrix_regular(dop, pt, eps, rows):
     r"""
     TESTS::
 
-        sage: from ore_algebra.analytic.ui import *
+        sage: from ore_algebra import *
         sage: from ore_algebra.analytic.naive_sum import *
-        sage: Dops, x, Dx = Diffops()
+        sage: Dops, x, Dx = DifferentialOperators()
 
         sage: fundamental_matrix_regular(x*Dx^2 + (1-x)*Dx, 1, RBF(1e-10), 2)
         [[1.317902...] 1.000000...]
@@ -540,7 +540,7 @@ def fundamental_matrix_regular(dop, pt, eps, rows):
 
         sage: dop = x*Dx^3 + 2*Dx^2 + x*Dx
         sage: ini = [1, CBF(euler_gamma), 0]
-        sage: eval_diffeq(dop, ini, [0, RBF(1/3)], 1e-14)
+        sage: dop.numerical_solution(ini, [0, RBF(1/3)], 1e-14)
         [-0.549046117782...]
     """
     evpt = EvaluationPoint(pt, jet_order=rows)
@@ -633,9 +633,9 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, tgt_error,
     r"""
     TESTS::
 
-        sage: from ore_algebra.analytic.ui import *
+        sage: from ore_algebra import *
         sage: from ore_algebra.analytic.naive_sum import *
-        sage: Dops, x, Dx = Diffops()
+        sage: Dops, x, Dx = DifferentialOperators()
 
     Test that we don't compute the zero solution when the valuation is large.
     TODO: In the presence of several solutions with very different valuations,
@@ -647,7 +647,7 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, tgt_error,
         sage: dop = (x^2-1000*x)*Dx^2 + (-x^2+999000)*Dx + 1000*x - 999000
         sage: logger = logging.getLogger('ore_algebra.analytic.naive_sum')
         sage: logger.setLevel(logging.INFO) # TBI
-        sage: transition_matrix(dop, [0,1]) # not tested - TODO
+        sage: dop.numerical_transition_matrix([0,1]) # not tested - TODO
         INFO:ore_algebra.analytic.naive_sum:solution z^(0+0)·log(z)^0/0! + ···
         INFO:ore_algebra.analytic.naive_sum:summed 50 terms, tail <= ...
         ...
@@ -661,22 +661,22 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, tgt_error,
 
         sage: dop = (x*Dx-1001/2).symmetric_product(Dx-1)
         sage: dop = dop._normalize_base_ring()[-1]
-        sage: (exp(CBF(1/2))/RBF(2)^(1001/2)).overlaps(transition_matrix(dop, [0, 1/2], 1e-10)[0,0])
+        sage: (exp(CBF(1/2))/RBF(2)^(1001/2)).overlaps(dop.numerical_transition_matrix([0, 1/2], 1e-10)[0,0])
         True
-        sage: (exp(CBF(2))/RBF(1/2)^(1001/2)).overlaps(transition_matrix(dop, [0, 2], 1e-10)[0,0])
+        sage: (exp(CBF(2))/RBF(1/2)^(1001/2)).overlaps(dop.numerical_transition_matrix([0, 2], 1e-10)[0,0])
         True
 
         sage: dop = (x*Dx+1001/2).symmetric_product(Dx-1)
         sage: dop = dop._normalize_base_ring()[-1]
-        sage: (CBF(1/2)^(-1001/2)*exp(CBF(1/2))).overlaps(transition_matrix(dop, [0, 1/2], 1e-10)[0,0])
+        sage: (CBF(1/2)^(-1001/2)*exp(CBF(1/2))).overlaps(dop.numerical_transition_matrix([0, 1/2], 1e-10)[0,0])
         True
-        sage: (CBF(2)^(-1001/2)*exp(CBF(2))).overlaps(transition_matrix(dop, [0, 2], 1e-10)[0,0])
+        sage: (CBF(2)^(-1001/2)*exp(CBF(2))).overlaps(dop.numerical_transition_matrix([0, 2], 1e-10)[0,0])
         True
 
         sage: h = CBF(1/2)
         sage: #dop = (Dx-1).lclm(x^2*Dx^2 - x*(2*x+1999)*Dx + (x^2 + 1999*x + 1000^2))
         sage: dop = x^2*Dx^3 + (-3*x^2 - 1997*x)*Dx^2 + (3*x^2 + 3994*x + 998001)*Dx - x^2 - 1997*x - 998001
-        sage: mat = transition_matrix(dop, [0,1/2], 1e-5) # XXX: long time with the simplified bounds on rational functions
+        sage: mat = dop.numerical_transition_matrix([0,1/2], 1e-5) # XXX: long time with the simplified bounds on rational functions
         sage: mat[0,0].overlaps(exp(h)) # long time
         True
         sage: mat[0,1].overlaps(exp(h)*h^1000*log(h)) # long time
@@ -685,7 +685,7 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, tgt_error,
         True
 
         sage: dop = (x^3 + x^2)*Dx^3 + (-1994*x^2 - 1997*x)*Dx^2 + (994007*x + 998001)*Dx + 998001
-        sage: mat = transition_matrix(dop, [0, 1/2], 1e-5)
+        sage: mat = dop.numerical_transition_matrix([0, 1/2], 1e-5)
         sage: mat[0,0].overlaps(1/(1+h))
         True
         sage: mat[0,1].overlaps(h^1000/(1+h)*log(h))
@@ -832,9 +832,9 @@ def plot_bounds(dop, ini=None, pt=None, eps=None, **kwds):
     r"""
     EXAMPLES::
 
-        sage: from ore_algebra.analytic.ui import Diffops
+        sage: from ore_algebra import *
         sage: from ore_algebra.analytic.naive_sum import *
-        sage: Dops, x, Dx = Diffops()
+        sage: Dops, x, Dx = DifferentialOperators()
 
         sage: plot_bounds(Dx - 1, [CBF(1)], CBF(i)/2, RBF(1e-20))
         Graphics object consisting of 5 graphics primitives
