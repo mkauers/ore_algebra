@@ -573,9 +573,12 @@ class RatSeqBound(object):
                 continue
             # Otherwise, it first decreases to its minimum (which may be 0 if
             # α is an integer), then increases to 1. We precompute the minimum
-            # and a value of n after which the sequence is nondecreasing.
-            crit_n = root.abs()**2/re
-            ns = srange(ZZ(crit_n.floor()), ZZ(crit_n.ceil()) + 1)
+            # and a value of n after which the sequence is nondecreasing. Note
+            # that re may contain zero, but it is okay to replace it by an upper
+            # bound since the (lower bound on the) distance to 1 decreases when
+            # re increases.
+            crit_n = root.abs()**2/re.above_abs()
+            ns = srange(crit_n.lower().floor(), crit_n.upper().ceil() + 1)
             n_min = ns[-1]
             # When the minimum over ℕ is reached at an exceptional index, we
             # want to "skip" it in the computation of the global bound. So we
