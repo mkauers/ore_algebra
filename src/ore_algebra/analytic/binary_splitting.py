@@ -91,7 +91,6 @@ class StepMatrix(object):
 
     def imulleft(low, high): # pylint: disable=no-self-argument
         # TODO: Still very slow.
-        # - use polynomials (mul_trunc and friends) rather than power series?
         # - rewrite everything using lower-level operations...
         # - consider special-casing ℚ[i]
         mat = high.Mat_big_scalars.matrix(
