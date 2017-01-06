@@ -92,10 +92,9 @@ class StepMatrix(object):
         # TODO: Still very slow.
         # - rewrite everything using lower-level operations...
         # - consider special-casing ℚ[i]
-        mat = high.Mat_big_scalars.matrix(
-                [high.BigScalars(x, check=False)
-                 for x in low.rec_mat.list()],
-                coerce=False)
+        mat = low.rec_mat.list()
+        mat = [high.BigScalars(x, check=False) for x in mat]
+        mat = high.Mat_big_scalars.matrix(mat, coerce=False)
         low.rec_mat = high.rec_mat*low.rec_mat       # Mat(rec_Ints)
         tmp = high.sums_row*mat                      # Vec(sums_Ints[[δ]]/<δ^k>)
         for i in xrange(mat.nrows()):
