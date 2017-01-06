@@ -12,10 +12,6 @@ TESTS::
     sage: logger = logging.getLogger('ore_algebra.analytic.binary_splitting')
     sage: logger.setLevel(logging.INFO)
 
-    sage: (Dx - 1).numerical_solution([1], [0, i + pi], algorithm="binsplit")
-    INFO:ore_algebra.analytic.binary_splitting:...
-    [12.5029695888765...] + [19.4722214188416...]*I
-
     sage: ((x^2 + 1)*Dx^2 + 2*x*Dx).numerical_solution([0, 1],
     ....:         [0, i+1, 2*i, i-1, 0], algorithm="binsplit")
     INFO:ore_algebra.analytic.binary_splitting:...
@@ -42,6 +38,9 @@ TESTS::
     [              [+/- ...]  [1.000000000000000...] [0.8109302162163287...]]
     [              [+/- ...]               [+/- ...] [0.6666666666666666...]]
 
+    sage: (Dx - 1).numerical_solution([1], [0, i + pi], algorithm="binsplit") # long time (> 5 s)
+    INFO:ore_algebra.analytic.binary_splitting:...
+    [12.5029695888765...] + [19.4722214188416...]*I
 """
 
 import copy
