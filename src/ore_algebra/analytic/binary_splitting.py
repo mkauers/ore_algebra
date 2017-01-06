@@ -99,9 +99,9 @@ class StepMatrix(object):
         tmp = high.sums_row*mat                      # Vec(sums_Ints[[δ]]/<δ^k>)
         for i in xrange(mat.nrows()):
             tmp[0,i] = tmp[0,i]._mul_trunc_(low.pow_num, low.ord)
-        assert tmp[0][0].degree() < low.ord
+        #assert tmp[0][0].degree() < low.ord
         low.sums_row = tmp + high.rec_den * high.pow_den * low.sums_row
-        assert low.sums_row[0][0].degree() < low.ord
+        #assert low.sums_row[0][0].degree() < low.ord
         # TODO: try caching the powers of (pow_num/pow_den)? this will probably
         # not change anything for algebraic evaluation points, but it might
         # make a difference when the evaluation point is more complicated
