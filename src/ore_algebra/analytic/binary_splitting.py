@@ -78,15 +78,16 @@ class StepMatrix(object):
     # NOTES:
     # - store the indices the StepMatrix covers?
 
-    def __init__(self, rec_mat, rec_den, pow_num, pow_den, sums_row, ord):
-        self.rec_mat = rec_mat
-        self.rec_den = rec_den
-        self.pow_num = pow_num
-        self.pow_den = ZZ(pow_den)
-        self.sums_row = sums_row
-        self.ord = ord
-        self.BigScalars = sums_row.base_ring()
-        self.Mat_big_scalars = rec_mat.parent().change_ring(self.BigScalars)
+    # No __init__ for speed reasons. See MatrixRec. Fields:
+    #     self.rec_mat
+    #     self.rec_den
+    #     self.pow_num
+    #     self.pow_den
+    #     self.sums_row
+    #     self.ord
+    #     self.BigScalars, typically should be sums_row.base_ring()
+    #     self.Mat_big_scalars, typically should be
+    #                         self.rec_mat.parent().change_ring(self.BigScalars)
 
     def imulleft(low, high): # pylint: disable=no-self-argument
         # TODO: Still very slow.
@@ -210,7 +211,8 @@ class MatrixRec(object):
             # to gain something on the computation of the coefficients thanks
             # to the use of binary splitting.
             AlgInts_pow = E
-            pow_den = 1
+            pow_den = ZZ.one()
+        assert pow_den.parent() is ZZ
         assert AlgInts_pow is AlgInts_rec or AlgInts_pow != AlgInts_rec
 
         # If we extend the removal of denominators above to algebras other than
@@ -218,7 +220,8 @@ class MatrixRec(object):
         # the caller. --> support dz in non-com ring (mat)? power series work
         # only over com rings
         Series_pow = PolynomialRing(AlgInts_pow, 'delta')
-        pow_num = Series_pow([pow_den*dz, pow_den])
+        self.pow_num = Series_pow([pow_den*dz, pow_den])
+        self.pow_den = pow_den
 
         # Partial sums
 
@@ -244,38 +247,43 @@ class MatrixRec(object):
         self.Series_sums = Series_sums
         self.series_class_sums = type(Series_sums.gen())
 
-        Mat_rec = MatrixSpace(AlgInts_rec, self.ordrec, self.ordrec)
-        self._eval_template = StepMatrix(
-                rec_mat=Mat_rec.zero_matrix(),
-                rec_den=None, # 1
-                pow_num=pow_num,
-                pow_den=ZZ(pow_den),
-                sums_row=MatrixSpace(Series_sums, 1, self.ordrec).zero_matrix(),
-                ord=derivatives)
-        assert self._eval_template.rec_mat.base_ring() is AlgInts_rec
+        self.Mat_rec = MatrixSpace(AlgInts_rec, self.ordrec, self.ordrec)
+        self.Mat_sums_row = MatrixSpace(Series_sums, 1, self.ordrec)
+        self.Mat_series_sums = self.Mat_rec.change_ring(Series_sums)
 
     def __call__(self, n):
-        stepmat = self._eval_template.copy()
+        stepmat = StepMatrix()
         stepmat.rec_den = self.rec_den(n)
+        stepmat.rec_mat = self.Mat_rec.matrix()
         for i in xrange(self.ordrec-1):
             stepmat.rec_mat[i, i+1] = stepmat.rec_den
         for i in xrange(self.ordrec):
             stepmat.rec_mat[self.ordrec-1, i] = self.rec_coeffs[i](n)
+        stepmat.pow_num = self.pow_num
+        stepmat.pow_den = self.pow_den
         # TODO: fix redundancy--the rec_den*pow_den probabably doesn't belong
         # here
         # XXX: should we give a truncation order?
         den = stepmat.rec_den * stepmat.pow_den
-        den = self.series_class_sums(self.Series_sums, den)
+        den = self.series_class_sums(self.Series_sums, [den])
+        stepmat.sums_row = self.Mat_sums_row.matrix()
         stepmat.sums_row[0, self.orddelta] = den
-        #R = stepmat.sums_row.base_ring().base_ring()
-        #assert den.parent() is R or den.parent() != R
+        stepmat.ord = self.derivatives
+        stepmat.BigScalars = self.Series_sums
+        stepmat.Mat_big_scalars = self.Mat_series_sums
         return stepmat
 
     def one(self):
-        id = self._eval_template.rec_mat.parent().identity_matrix()
-        zero_row = self._eval_template.sums_row.parent().zero_matrix()
-        one_num = self._eval_template.pow_num.parent()(1)
-        return StepMatrix(id, ZZ(1), one_num, ZZ(1), zero_row, self.derivatives)
+        stepmat = StepMatrix()
+        stepmat.rec_mat = self.Mat_rec.identity_matrix()
+        stepmat.rec_den = ZZ.one()
+        stepmat.pow_num = self.pow_num.parent().one()
+        stepmat.pow_den = ZZ.one()
+        stepmat.sums_row = self.Mat_sums_row.matrix()
+        stepmat.ord = self.derivatives
+        stepmat.BigScalars = self.Series_sums
+        stepmat.Mat_big_scalars = self.Mat_series_sums
+        return stepmat
 
     def binsplit(self, low, high, threshold=64):
         if high - low <= threshold:
