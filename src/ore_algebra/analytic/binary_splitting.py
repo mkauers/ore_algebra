@@ -49,6 +49,9 @@ import pprint
 
 import sage.categories.pushout
 import sage.structure.coerce_exceptions
+import sage.rings.polynomial.polynomial_element as polyelt
+import sage.rings.polynomial.polynomial_ring as polyring
+import sage.rings.polynomial.polynomial_ring_constructor as polyringconstr
 
 from .. import ore_algebra
 from . import bounds, utilities
@@ -60,10 +63,16 @@ from sage.rings.complex_arb import ComplexBallField
 from sage.rings.integer_ring import ZZ
 from sage.rings.rational_field import QQ
 from sage.rings.number_field.number_field import NumberField, is_NumberField
-from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 from sage.rings.power_series_ring import PowerSeriesRing
 
 logger = logging.getLogger(__name__)
+
+def PolynomialRing(base, var):
+    if is_NumberField(base) and base is not QQ:
+        return polyring.PolynomialRing_field(base, var,
+                element_class=polyelt.Polynomial_generic_dense)
+    else:
+        return polyringconstr.PolynomialRing(base, var)
 
 class StepMatrix(object):
     """
@@ -94,14 +103,18 @@ class StepMatrix(object):
         # - rewrite everything using lower-level operations...
         # - consider special-casing ℚ[i]
         mat = low.rec_mat.list()
-        mat = [high.BigScalars(x, check=False) for x in mat]
-        mat = high.Mat_big_scalars.matrix(mat, coerce=False)
-        low.rec_mat = high.rec_mat*low.rec_mat       # Mat(rec_Ints)
-        tmp = high.sums_row*mat                      # Vec(sums_Ints[[δ]]/<δ^k>)
+        mat = [low.BigScalars.Element(low.BigScalars, [x], check=False) for x in mat]
+        mat = type(high.sums_row)(low.Mat_big_scalars, mat, copy=False, coerce=False)
+        # A more general but complicated solution would be to create a
+        # MatrixMatrixAction once and for all.
+        low.rec_mat = high.rec_mat._multiply_classical(low.rec_mat) # Mat(rec_Ints)
+        tmp = high.sums_row._multiply_classical(mat) # Vec(sums_Ints[[δ]]/<δ^k>)
         for i in xrange(mat.nrows()):
             tmp[0,i] = tmp[0,i]._mul_trunc_(low.pow_num, low.ord)
         #assert tmp[0][0].degree() < low.ord
-        low.sums_row = tmp + high.rec_den * high.pow_den * low.sums_row
+        tmp2 = high.rec_den * high.pow_den
+        tmp3 = low.sums_row._lmul_(low.BigScalars(tmp2))
+        low.sums_row = tmp._add_(tmp3)
         #assert low.sums_row[0][0].degree() < low.ord
         # TODO: try caching the powers of (pow_num/pow_den)? this will probably
         # not change anything for algebraic evaluation points, but it might
