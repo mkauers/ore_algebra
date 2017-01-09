@@ -469,7 +469,8 @@ def series_sum_ordinary(Intervals, dop, bwrec, ini, pt,
         if n%stride == 0:
             done, tail_bound = check_convergence(tail_bound)
             if done: break
-        bwrec_n = bwrec.eval_int_ball(Intervals, n)
+        bwrec_n = (bwrec_nplus[0] if bwrec_nplus
+                   else bwrec.eval_int_ball(Intervals, n))
         comb = sum(bwrec_n[k]*last[k] for k in xrange(1, ordrec+1))
         last[0] = -~bwrec_n[0]*comb
         # logger.debug("n = %s, [c(n), c(n-1), ...] = %s", n, list(last))
