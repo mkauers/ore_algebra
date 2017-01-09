@@ -22,25 +22,28 @@ TESTS::
     INFO:ore_algebra.analytic.binary_splitting:...
     [0.011501537469552017...]
 
-    sage: logger.setLevel(logging.WARNING)
-
     sage: ((x + 1)*Dx^2 + Dx).numerical_transition_matrix([0,1/2], algorithm='binsplit')
+    INFO:ore_algebra.analytic.binary_splitting:...
     [ [1.00000000000000...] [0.4054651081081643...]]
     [             [+/- ...] [0.6666666666666666...]]
 
     sage: ((x + 1)*Dx^3 + Dx).numerical_transition_matrix([0,1/2], algorithm='binsplit')
+    INFO:ore_algebra.analytic.binary_splitting:...
     [  [1.000000000000000...]  [0.4815453970799961...]  [0.2456596136789682...]]
     [               [+/- ...]  [0.8936357901691244...]  [0.9667328760004665...]]
     [               [+/- ...] [-0.1959698689702905...]  [0.9070244207738327...]]
 
     sage: ((x + 1)*Dx^3 + Dx^2).numerical_transition_matrix([0,1/2], algorithm='binsplit')
+    INFO:ore_algebra.analytic.binary_splitting:...
     [ [1.000000000000000...] [0.5000000000000000...] [0.2163953243244931...]]
     [              [+/- ...]  [1.000000000000000...] [0.8109302162163287...]]
     [              [+/- ...]               [+/- ...] [0.6666666666666666...]]
 
-    sage: (Dx - 1).numerical_solution([1], [0, i + pi], algorithm="binsplit") # long time (> 5 s)
+    sage: (Dx - 1).numerical_solution([1], [0, i + pi], algorithm="binsplit") # long time (> 4 s)
     INFO:ore_algebra.analytic.binary_splitting:...
     [12.5029695888765...] + [19.4722214188416...]*I
+
+    sage: logger.setLevel(logging.WARNING)
 """
 
 import copy
