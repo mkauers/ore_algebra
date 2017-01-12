@@ -180,7 +180,7 @@ def doit(dop, ini, path, rad, eps, derivatives, economization, x_is_real):
     # Merge with analytic_continuation.analytic_continuation()???
 
     eps1 = bounds.IR(eps)/2
-    rad = bounds.IR(rad) # TBI
+    rad = bounds.IR(rad).above_abs()
     ctx = ancont.Context(dop, path, eps/2)
     center = ctx.path.vert[-1]
     if not safe_le(rad, center.dist_to_sing()):
@@ -198,6 +198,8 @@ def doit(dop, ini, path, rad, eps, derivatives, economization, x_is_real):
                                 accuracy.AbsoluteError(eps1),
                                 stride=5)
 
+
+    rad = polys[0].base_ring()(rad)
     def postprocess(pol):
         return economization(pol(rad*x), eps1)(x/rad)
     new_polys = polys.apply_map(postprocess)

@@ -182,12 +182,18 @@ class Point(SageObject):
         raise ValueError
 
     def approx_abs_real(self, prec):
+        r"""
+        Compute an approximation with absolute error about 2^(-prec).
+        """
         if isinstance(self.value.parent(), RealBallField):
             return self.value
+        elif self.value.is_zero():
+            return RealBallField(max(2, prec)).zero()
         elif self.is_real():
             expo = ZZ(IR(self.value).abs().log(2).upper().ceil())
             rel_prec = max(2, prec + expo + 10)
-            return RealBallField(rel_prec)(self.value)
+            val = RealBallField(rel_prec)(self.value)
+            return val
         else:
             raise ValueError("point may not be real")
 
