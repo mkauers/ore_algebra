@@ -180,6 +180,9 @@ def doit(dop, ini, path, rad, eps, derivatives, economization, x_is_real):
     eps1 = bounds.IR(eps)/2
     rad = bounds.IR(rad) # TBI
     ctx = ancont.Context(dop, path, eps/2)
+    center = ctx.path.vert[-1]
+    if not safe_le(rad, center.dist_to_sing()):
+        raise ValueError("approximation domain too large")
 
     pairs = ancont.analytic_continuation(ctx, ini=ini)
     local_ini = pairs[0][1]
@@ -187,7 +190,7 @@ def doit(dop, ini, path, rad, eps, derivatives, economization, x_is_real):
     Scalars = utilities.ball_field(eps1, x_is_real and ctx.real())
     x = dop.base_ring().change_ring(Scalars).gen()
 
-    local_dop = ctx.path.vert[-1].local_diffop()
+    local_dop = center.local_diffop()
     evpt = EvaluationPoint(x, rad=rad, jet_order=derivatives)
     polys = series_sum(local_dop, local_ini.column(0), evpt,
                                 accuracy.AbsoluteError(eps1),
