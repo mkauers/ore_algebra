@@ -128,6 +128,10 @@ class EvaluationPoint(object):
 
         self.is_numeric = utilities.is_numeric_parent(pt.parent())
 
+    def __repr__(self):
+        fmt = "{} + η + O(η^{}) (with |.| ≤ {})"
+        return fmt.format(self.pt, self.jet_order + 1, self.rad)
+
     def jet(self, Intervals):
         base_ring = Intervals if self.is_numeric else self.pt.parent()
         Jets = utilities.jets(base_ring, 'eta', self.jet_order)
