@@ -30,7 +30,7 @@ import ore_algebra.ore_algebra as ore_algebra
 
 from . import accuracy, bounds, utilities
 from .local_solutions import *
-from .safe_cmp import safe_lt
+from .safe_cmp import *
 from .shiftless import my_shiftless_decomposition
 
 logger = logging.getLogger(__name__)
@@ -142,11 +142,13 @@ class EvaluationPoint(object):
     def is_real(self):
         return utilities.is_real_parent(self.pt.parent())
 
-    def is_precise(self, eps):
+    def accuracy(self):
         if self.pt.parent().is_exact():
-            return True
+            return bounds.IR.maximal_accuracy()
         elif isinstance(self.pt.parent(), (RealBallField, ComplexBallField)):
-            return safe_lt(bounds.IR(self.pt.rad()), eps)
+            return self.pt.accuracy()
+        else:
+            raise ValueError
 
 class LogSeriesInitialValues(object):
     r"""
@@ -233,15 +235,16 @@ class LogSeriesInitialValues(object):
                 and utilities.is_real_parent(self.universe)
                 and self.expo.imag().is_zero())
 
-    def is_precise(self, eps):
+    def accuracy(self):
+        infinity = bounds.IR.maximal_accuracy()
         if self.universe.is_exact():
-            return True
+            return infinity
         elif isinstance(self.universe, (RealBallField, ComplexBallField)):
-            return all(safe_lt(bounds.IR(x.rad()), eps)
-                       for val in self.shift.itervalues()
-                       for x in val)
+            return min(infinity, *(x.accuracy()
+                                   for val in self.shift.itervalues()
+                                   for x in val))
         else:
-            return False
+            raise ValueError
 
 class PrecisionError(Exception):
 
@@ -280,25 +283,24 @@ def series_sum(dop, ini, pt, tgt_error, maj=None, bwrec=None,
 
         sage: import logging; logging.basicConfig()
         sage: series_sum(dop, ini, 1/2, RBF(1e-30))
-        WARNING:ore_algebra.analytic.naive_sum:input intervals too wide for
-        requested accuracy
+        WARNING:ore_algebra.analytic.naive_sum:input intervals may be too wide
         ...
         ([-3.5751407034...] + [-2.2884877202...]*I)
 
     In normal usage ``pt`` should be an object coercible to a complex ball or an
-    :class:`EvaluationPoint` that wraps such an object. Polynomial with ball
-    coefficients (wrapped in EvaluationPoints) are also supported to some extent
-    (essentially, this is intended for use with polynomial indeterminates, and
-    anything else that works does so by accident). ::
+    :class:`EvaluationPoint` that wraps such an object. Polynomials (wrapped in
+    EvaluationPoints) are also supported to some extent (essentially, this is
+    intended for use with polynomial indeterminates, and anything else that
+    works does so by accident). ::
 
         sage: from ore_algebra.analytic.accuracy import AbsoluteError
         sage: series_sum(Dx - 1, [RBF(1)],
-        ....:         EvaluationPoint(x.change_ring(RBF), rad=RBF(1), jet_order=2),
+        ....:         EvaluationPoint(x, rad=RBF(1), jet_order=2),
         ....:         AbsoluteError(1e-3), stride=1)
         (... + [0.0083...]*x^5 + [0.0416...]*x^4 + [0.1666...]*x^3
-        + 0.5000...*x^2 + x + [1.0000 +/- ...e-5],
+        + 0.5000...*x^2 + x + [1.000...],
         ... + [0.0083...]*x^5 + [0.0416...]*x^4 + [0.1666...]*x^3
-        + [0.5000...]*x^2 + x + [1.0000 +/- ...e-5])
+        + [0.5000...]*x^2 + x + [1.000...])
 
     TESTS::
 
@@ -322,6 +324,32 @@ def series_sum(dop, ini, pt, tgt_error, maj=None, bwrec=None,
         Traceback (most recent call last):
         ...
         ValueError: invalid initial data for x*Dx^2 + Dx + x at 0
+
+    Test that automatic precision increases do something reasonable::
+
+        sage: logger = logging.getLogger('ore_algebra.analytic.naive_sum')
+        sage: logger.setLevel(logging.INFO)
+
+        sage: series_sum((x^2 + 1)*Dx^2 + 2*x*Dx, [0, 1/3], 5/7, 1e-16, max_prec=10**1000)
+        INFO:...
+        ([0.20674982866094049...])
+
+        sage: series_sum((x^2 + 1)*Dx^2 + 2*x*Dx, [0, RBF(1/3)], 5/7, 1e-16, max_prec=10**1000)
+        WARNING:ore_algebra.analytic.naive_sum:input intervals may be too wide compared to requested accuracy
+        ...
+        ([0.206749828660940...])
+
+        sage: series_sum((x^2 + 1)*Dx^2 + 2*x*Dx, [0, RBF(1/3)], RBF(5/7), 1e-12, max_prec=10**1000)
+        INFO:...
+        ([0.2067498286609...])
+
+        sage: series_sum((x^2 + 1)*Dx^2 + 2*x*Dx, [0, RBF(1/3)], RBF(5/7), 1e-20, max_prec=10**1000)
+        WARNING:ore_algebra.analytic.naive_sum:input intervals may be too wide compared to requested accuracy
+        ...
+        INFO:ore_algebra.analytic.naive_sum:lost too much precision, giving up
+        ([0.20674982866094...])
+
+        sage: logger.setLevel(logging.WARNING)
     """
 
     # The code that depends neither on the numeric precision nor on the
@@ -333,13 +361,15 @@ def series_sum(dop, ini, pt, tgt_error, maj=None, bwrec=None,
     if not isinstance(pt, EvaluationPoint):
         pt = EvaluationPoint(pt)
 
+    input_accuracy = min(pt.accuracy(), ini.accuracy())
+
     if isinstance(tgt_error, accuracy.RelativeError) and pt.jet_order > 1:
         raise TypeError("relative error not supported when computing derivatives")
     if not isinstance(tgt_error, accuracy.StoppingCriterion):
-        input_is_precise = pt.is_precise(tgt_error) and ini.is_precise(tgt_error)
-        if not input_is_precise:
-            logger.warn("input intervals too wide for requested accuracy")
-        tgt_error = accuracy.AbsoluteError(tgt_error, input_is_precise)
+        tgt_error = accuracy.AbsoluteError(tgt_error)
+        if input_accuracy < -tgt_error.eps.upper().log2().floor():
+            logger.warn("input intervals may be too wide "
+                        "compared to requested accuracy")
     logger.log(logging.INFO - 1, "target error = %s", tgt_error)
 
     if maj is None:
@@ -367,20 +397,28 @@ def series_sum(dop, ini, pt, tgt_error, maj=None, bwrec=None,
     # everything; in particular, it completely ignores the size of the
     # coefficients of the recurrence. Anyhow, this formula seems to work well in
     # practice.
-    bit_prec *= 1 + ZZ(bwrec.order - 2).nbits()
+    bit_prec = 8 + bit_prec*(1 + ZZ(bwrec.order - 2).nbits())
+    max_prec = min(max_prec, bit_prec + 2*input_accuracy) # XXX: only if None?
     logger.info("initial precision = %s bits", bit_prec)
     while True:
         try:
             psum = doit(ivs(bit_prec), dop, bwrec, ini, pt,
-                    tgt_error, maj, stride, record_bounds_in)
-            return psum
+                    tgt_error >> 4, maj, stride, record_bounds_in)
+            bit_prec *= 2
+            err = max(_get_error(c) for c in psum)
+            abs_sum = abs(psum[0]) if pt.is_numeric else None
+            if tgt_error.reached(err, abs_sum):
+                return psum
+            elif bit_prec > max_prec:
+                logger.info("lost too much precision, giving up")
+                return psum
         except PrecisionError as err:
-            if err.suggested_new_prec > max_prec:
+            bit_prec = err.suggested_new_prec
+            if bit_prec > max_prec:
                 logger.info("lost too much precision, giving up")
                 raise
-            bit_prec = err.suggested_new_prec
-            logger.info("lost too much precision, restarting with %d bits",
-                        bit_prec)
+        logger.info("lost too much precision, restarting with %d bits",
+                    bit_prec)
 
 ################################################################################
 # Ordinary points
@@ -407,6 +445,8 @@ def series_sum_ordinary(Intervals, dop, bwrec, ini, pt,
     psum = Jets.zero()
 
     tail_bound = bounds.IR(infinity)
+    bit_prec = Intervals.precision()
+    ini_are_accurate = 2*min(pt.accuracy(), ini.accuracy()) > bit_prec
     def check_convergence(prev_tail_bound):
         # last[-1] since last[0] may still be "undefined" and last[1] may
         # not exist in degenerate cases
@@ -417,14 +457,10 @@ def series_sum_ordinary(Intervals, dop, bwrec, ini, pt,
         else:
             abs_sum = None
             width = max([abs(a).rad_as_ball() for a in last])*radpow
-        ivs_too_wide = False
-        if width > tgt_error.eps:
-            if tgt_error.precise:
-                raise PrecisionError(2*Intervals.precision())
-            else:
-                ivs_too_wide = True
-        if (not tgt_error.reached(est, abs_sum) and record_bounds_in is None
-                and not ivs_too_wide):
+        logger.debug("n=%s, sum=%s, est=%s", n, psum[0], est)
+        if width > tgt_error.eps/4 and ini_are_accurate:
+            raise PrecisionError(2*bit_prec)
+        elif not tgt_error.reached(est, abs_sum) and record_bounds_in is None:
             return False, bounds.IR(infinity)
         # Warning: this residual must correspond to the operator stored in
         # maj.dop, which typically isn't the operator series_sum was called on
@@ -434,23 +470,19 @@ def series_sum_ordinary(Intervals, dop, bwrec, ini, pt,
         majeqrhs = maj.maj_eq_rhs([residual])
         for i in xrange(5):
             tail_bound = maj.matrix_sol_tail_bound(n, pt.rad, majeqrhs, ord)
-            logger.debug("n=%s, i=%s, sum=%s, est=%s, rhs[.]=%s, tail_bound=%s",
-                            n, i, psum[0], est, majeqrhs[0], tail_bound)
+            logger.debug("n=%s, i=%s, rhs[.]=%s, tail_bound=%s",
+                            n, i, majeqrhs[0], tail_bound)
             if record_bounds_in is not None:
                 record_bounds_in.append((n, psum, tail_bound))
-            if tgt_error.reached(tail_bound, abs_sum):
+            if (tgt_error.reached(tail_bound, abs_sum)
+                    or safe_gt(width, tail_bound)
+                    or not safe_le(tail_bound, prev_tail_bound.above_abs())):
                 return True, tail_bound
-            elif ivs_too_wide:
-                if width > tail_bound:
-                    return True, tail_bound
-            elif (i == 1 and tail_bound.is_finite()
-                    and not tail_bound <= prev_tail_bound.above_abs()):
-                raise PrecisionError(2*Intervals.precision())
-            elif not tgt_error.reached(tail_bound*
-                    est**(QQ((maj._effort**2 + 2)*stride)/n)):
-                maj.refine()
-                continue
-            break
+            thr = tail_bound*est**(QQ((maj._effort**2 + 2)*stride)/n)
+            if tgt_error.reached(thr):
+                # Try summing a few more terms before refining
+                break
+            maj.refine()
         return False, tail_bound
 
     start = dop.order()
@@ -530,9 +562,9 @@ def fundamental_matrix_regular(dop, pt, eps, rows):
 
         sage: dop = (x+1)*(x^2+1)*Dx^3-(x-1)*(x^2-3)*Dx^2-2*(x^2+2*x-1)*Dx
         sage: fundamental_matrix_regular(dop, 1/3, RBF(1e-10), 3)
-        [ 1.0000000...  [0.321750554...]  [0.147723741...]]
-        [            0  [0.900000000...]  [0.991224850...]]
-        [            0  [-0.27000000...]  [1.935612425...]]
+        [1.0000000...  [0.321750554...]  [0.147723741...]]
+        [           0  [0.900000000...]  [0.991224850...]]
+        [           0  [-0.27000000...]  [1.935612425...]]
 
         sage: dop = (
         ....:     (2*x^6 - x^5 - 3*x^4 - x^3 + x^2)*Dx^4
@@ -552,7 +584,7 @@ def fundamental_matrix_regular(dop, pt, eps, rows):
     """
     evpt = EvaluationPoint(pt, jet_order=rows)
     eps_col = bounds.IR(eps)/bounds.IR(dop.order()).sqrt()
-    col_tgt_error = accuracy.AbsoluteError(eps_col, evpt.is_precise(eps))
+    col_tgt_error = accuracy.AbsoluteError(eps_col)
     bwrec = backward_rec(dop)
     ind = bwrec[0]
     n = ind.parent().gen()
@@ -662,7 +694,7 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, tgt_error,
         [[2.7182818284590...] 1000.0000000000000]
         sage: logger.setLevel(logging.WARNING)
         sage: series_sum(dop, {0: (1,), 1000: (1/1000,)}, 1, 1e-10)
-        ([2.719281828459...])
+        ([2.719281828...])
 
     Some simple tests involving large non-integer valuations::
 
@@ -728,13 +760,15 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, tgt_error,
     # and (2) if we had code to compute lower bounds on coefficients of
     # series expansions of majorants.)
     tail_bound = bounds.IR(infinity)
+    bit_prec = Intervals.precision()
+    ini_are_accurate = 2*min(pt.accuracy(), ini.accuracy()) > bit_prec
     def check_convergence(prev_tail_bound):
         if n <= last_index_with_ini or mult > 0:
             return False, bounds.IR(infinity)
         est = max(abs(a) for log_jet in last for a in log_jet)*radpow.above_abs()
-        if tgt_error.precise and any(abs(iv).rad_as_ball() > tgt_error.eps
-                                     for log_jet in psum for iv in log_jet):
-            raise PrecisionError(2*Intervals.precision())
+        if ini_are_accurate and any(abs(iv).rad_as_ball() > tgt_error.eps
+                                   for log_jet in psum for iv in log_jet):
+            raise PrecisionError(2*bit_prec)
         sum_est = bounds.IR(abs(psum[0][0]))
         # TODO: improve the automatic increase of precision for large x^λ:
         # currently we only check the series part (which would sort of make
@@ -759,7 +793,7 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, tgt_error,
             elif (i == 1 and tail_bound.is_finite()
                          and not tail_bound <= prev_tail_bound.above_abs()):
                 # We likely lost all precision on the coefficients.
-                raise PrecisionError(2*Intervals.precision())
+                raise PrecisionError(2*bit_prec)
             else:
                 # We don't want to go too far beyond the optimal truncation to
                 # improve tail_bound (we would lose too much precision), but
@@ -821,6 +855,12 @@ def _add_error(approx, error):
         return approx[0].add_error(error) + ((approx >> 1) << 1)
     else:
         return approx.add_error(error)
+
+def _get_error(approx):
+    if isinstance(approx, polynomial_element.Polynomial):
+        return approx[0].abs().rad_as_ball()
+    else:
+        return approx.abs().rad_as_ball()
 
 def _random_ini(dop):
     import random

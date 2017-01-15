@@ -2104,7 +2104,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             (x - 1)^(1.500000000000000? - 0.866025403784439?*I),
             (x - 1)^(1.500000000000000? + 0.866025403784439?*I)]
             sage: dop.numerical_solution(ini=[1, 0, 0], path=[0, 1])
-            [0.68987291102194011 +/- 3.47e-18] + [+/- 2.21e-34]*I
+            [0.6898729110219401...] + [+/- ...]*I
 
             sage: dop = -(x+1)*(x-1)^3*Dx^2 + (x+3)*(x-1)^2*Dx - (x+3)*(x-1)
             sage: dop.local_basis_monomials(1)

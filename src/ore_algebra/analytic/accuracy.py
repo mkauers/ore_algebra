@@ -19,19 +19,17 @@ class StoppingCriterion(object):
 
 class AbsoluteError(StoppingCriterion):
 
-    def __init__(self, eps, precise=False):
+    def __init__(self, eps):
         self.eps = IR(eps)
-        self.precise = precise
 
     def reached(self, err, abs_val=None):
-        if abs_val is not None and safe_gt(abs_val.rad_as_ball(), self.eps):
-            # XXX: take logger from creator?
-            logger.warn("interval too wide wrt target accuracy "
-                        "(lost too much precision?)")
         return safe_lt(err.abs(), self.eps)
 
     def __repr__(self):
         return str(self.eps.lower()) + " (absolute)"
+
+    def __rshift__(self, n):
+        return AbsoluteError(self.eps >> n)
 
 class RelativeError(StoppingCriterion):
 
@@ -42,9 +40,11 @@ class RelativeError(StoppingCriterion):
     def reached(self, err, abs_val):
         # NOTE: we could provide a slightly faster test when err is a
         # non-rigorous estimate (not a true tail bound)
-        # XXX: raise PrecisionError if we can not conclude
         return (safe_le(err.abs(), self.eps*(abs_val - err))
                 or safe_le(abs_val + err, self.cutoff))
 
     def __repr__(self):
         return str(self.eps.lower()) + " (relative)"
+
+    def __rshift__(self, n):
+        return RelativeError(self.eps >> n, self.cutoff >> n)
