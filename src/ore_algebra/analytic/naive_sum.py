@@ -10,6 +10,7 @@ Evaluation of convergent D-finite series by direct summation
 
 import collections, itertools, logging
 
+from sage.categories.pushout import pushout
 from sage.matrix.constructor import identity_matrix, matrix
 from sage.misc.cachefunc import cached_method
 from sage.modules.free_module_element import vector
@@ -133,7 +134,8 @@ class EvaluationPoint(object):
         return fmt.format(self.pt, self.jet_order + 1, self.rad)
 
     def jet(self, Intervals):
-        base_ring = Intervals if self.is_numeric else self.pt.parent()
+        base_ring = (Intervals if self.is_numeric
+                     else pushout(self.pt.parent(), Intervals))
         Jets = utilities.jets(base_ring, 'eta', self.jet_order)
         return Jets([self.pt, 1])
 
