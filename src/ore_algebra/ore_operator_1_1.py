@@ -2116,9 +2116,11 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         assert len(pairs) == 1
         _, mat = pairs[0]
         struct = ctx.path.vert[-1].local_basis_structure()
+        if self.order() == 0:
+            return mat.base_ring().zero()
         asympt = local_solutions.sort_key_by_asympt(struct[0])
         asycst = (AA.zero(), ZZ.zero(), AA.zero(), 0)
-        if self.order() == 0 or asympt > asycst:
+        if asympt > asycst:
             return mat.base_ring().zero()
         elif asympt == asycst:
             return mat[0][0]
