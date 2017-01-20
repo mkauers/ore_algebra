@@ -48,9 +48,9 @@ class Point(SageObject):
         """
         TESTS::
 
-            sage: from ore_algebra.analytic.ui import *
+            sage: from ore_algebra import *
             sage: from ore_algebra.analytic.path import Point
-            sage: Dops, x, Dx = Diffops()
+            sage: Dops, x, Dx = DifferentialOperators()
             sage: [Point(z, Dx)
             ....:  for z in [1, 1/2, 1+I, QQbar(I), RIF(1/3), CIF(1/3), pi,
             ....:  RDF(1), CDF(I), 0.5r, 0.5jr, 10r]]
@@ -121,9 +121,9 @@ class Point(SageObject):
         """
         TESTS::
 
-            sage: from ore_algebra.analytic.ui import *
+            sage: from ore_algebra import *
             sage: from ore_algebra.analytic.path import Point
-            sage: Dops, x, Dx = Diffops()
+            sage: Dops, x, Dx = DifferentialOperators()
             sage: Point(10**20, Dx)
             ~1.0000e20
         """
@@ -142,9 +142,9 @@ class Point(SageObject):
     @cached_method
     def iv(self):
         """
-        sage: from ore_algebra.analytic.ui import *
+        sage: from ore_algebra import *
         sage: from ore_algebra.analytic.path import Point
-        sage: Dops, x, Dx = Diffops()
+        sage: Dops, x, Dx = DifferentialOperators()
         sage: [Point(z, Dx).iv()
         ....: for z in [1, 1/2, 1+I, QQbar(I), RIF(1/3), CIF(1/3), pi]]
         [1.000000000000000,
@@ -159,9 +159,9 @@ class Point(SageObject):
 
     def exact(self):
         r"""
-        sage: from ore_algebra.analytic.ui import *
+        sage: from ore_algebra import *
         sage: from ore_algebra.analytic.path import Point
-        sage: Dops, x, Dx = Diffops()
+        sage: Dops, x, Dx = DifferentialOperators()
         sage: QQi.<i> = QuadraticField(-1)
         sage: [Point(z, Dx).exact() for z in [1, 1/2, 1+i, QQbar(I)]]
         [1, 1/2, i + 1, I]
@@ -279,9 +279,9 @@ class Point(SageObject):
 
         TESTS::
 
-            sage: from ore_algebra.analytic.ui import *
+            sage: from ore_algebra import *
             sage: from ore_algebra.analytic.path import Point
-            sage: Dops, x, Dx = Diffops()
+            sage: Dops, x, Dx = DifferentialOperators()
             sage: dop = (x^2 + 1)*Dx^2 + 2*x*Dx
             sage: Point(1, dop).dist_to_sing()
             [1.41421356237309...]
@@ -339,9 +339,9 @@ class Point(SageObject):
         r"""
         EXAMPLES::
 
-            sage: from ore_algebra.analytic.ui import *
+            sage: from ore_algebra import *
             sage: from ore_algebra.analytic.path import Point
-            sage: Dops, x, Dx = Diffops()
+            sage: Dops, x, Dx = DifferentialOperators()
             sage: Point(0, x*Dx^2 + Dx + x).local_basis_structure()
             [FundamentalSolution(valuation=0, log_power=1, value=None),
              FundamentalSolution(valuation=0, log_power=0, value=None)]
@@ -354,7 +354,10 @@ class Point(SageObject):
         # need a good way to share code with fundamental_matrix_regular. Or
         # perhaps modify generalized_series_solutions() to agree with our
         # definition of the basis?
-        if not self.is_regular():
+        if self.is_ordinary(): # support inexact points in this case
+            return [FundamentalSolution(QQbar(expo), Integer(0), None)
+                    for expo in range(self.dop.order())]
+        elif not self.is_regular():
             raise NotImplementedError("irregular singular point")
         ldop = self.local_diffop()
         x = ldop.base_ring().gen()
@@ -374,10 +377,10 @@ class Step(SageObject):
     r"""
     EXAMPLES::
 
-        sage: from ore_algebra.analytic.ui import *
+        sage: from ore_algebra import *
         sage: from ore_algebra.analytic.path import Point, Step
         sage: QQi.<i> = QuadraticField(-1)
-        sage: Dops, x, Dx = Diffops()
+        sage: Dops, x, Dx = DifferentialOperators()
 
         sage: s1 = Step(Point(0, x*Dx-1), Point(i/7, x*Dx-1))
         sage: s2 = Step(Point(RIF(1/3), x*Dx-1), Point(pi, x*Dx-1))
@@ -452,9 +455,9 @@ class Step(SageObject):
 
         TESTS::
 
-            sage: from ore_algebra.analytic.ui import *
+            sage: from ore_algebra import *
             sage: from ore_algebra.analytic.path import Point, Step
-            sage: Dops, x, Dx = Diffops(); i = QuadraticField(-1, 'i').gen()
+            sage: Dops, x, Dx = DifferentialOperators(); i = QuadraticField(-1, 'i').gen()
             sage: dop = (x^2 + 1)*Dx
             sage: Step(Point(0, dop), Point(0, dop)).check_singularity()
             sage: Step(Point(0, dop), Point(1, dop)).check_singularity()
@@ -495,9 +498,9 @@ class Step(SageObject):
         r"""
         TESTS::
 
-            sage: from ore_algebra.analytic.ui import *
+            sage: from ore_algebra import *
             sage: from ore_algebra.analytic.path import *
-            sage: Dops, x, Dx = Diffops()
+            sage: Dops, x, Dx = DifferentialOperators()
 
             sage: Path([0, 1], x*(x^2+1)*Dx).check_convergence()
             Traceback (most recent call last):
@@ -529,9 +532,9 @@ class Path(SageObject):
 
     EXAMPLES::
 
-        sage: from ore_algebra.analytic.ui import *
+        sage: from ore_algebra import *
         sage: from ore_algebra.analytic.path import Path
-        sage: Dops, x, Dx = Diffops()
+        sage: Dops, x, Dx = DifferentialOperators()
         sage: dop = (x^2 + 1)*Dx^2 + 2*x*Dx
 
         sage: path = Path([0, 1+I, CBF(2*I)], dop)
@@ -558,9 +561,9 @@ class Path(SageObject):
         r"""
         TESTS::
 
-            sage: from ore_algebra.analytic.ui import *
+            sage: from ore_algebra import *
             sage: from ore_algebra.analytic.path import Path
-            sage: Dops, x, Dx = Diffops()
+            sage: Dops, x, Dx = DifferentialOperators()
             sage: dop = (x^2 + 1)*Dx^2 + 2*x*Dx
 
             sage: Path([], Dx)
@@ -615,9 +618,9 @@ class Path(SageObject):
         """
         EXAMPLES::
 
-            sage: from ore_algebra.analytic.ui import *
+            sage: from ore_algebra import *
             sage: from ore_algebra.analytic.path import Path
-            sage: Dops, x, Dx = Diffops()
+            sage: Dops, x, Dx = DifferentialOperators()
             sage: QQi.<i> = QuadraticField(-1, 'i')
             sage: dop = (x^2 + 1)*Dx^2 + 2*x*Dx
 
@@ -638,8 +641,8 @@ class Path(SageObject):
         regular singular endpoints. Adapted from a NumGfun bug found by
         Christoph Koutschan. ::
 
-            sage: transition_matrix((-8*x^3+4*x^4+5*x^2-x)*Dx
-            ....:                   + 10*x^2-4*x-8*x^3+1, [0,1])
+            sage: dop = (-8*x^3+4*x^4+5*x^2-x)*Dx + 10*x^2-4*x-8*x^3+1
+            sage: dop.numerical_transition_matrix([0,1])
             Traceback (most recent call last):
             ...
             ValueError: ...
@@ -651,9 +654,9 @@ class Path(SageObject):
         """
         EXAMPLES::
 
-            sage: from ore_algebra.analytic.ui import *
+            sage: from ore_algebra import *
             sage: from ore_algebra.analytic.path import Path
-            sage: Dops, x, Dx = Diffops()
+            sage: Dops, x, Dx = DifferentialOperators()
             sage: dop = (x^2 + 1)*Dx^2 + 2*x*Dx
             sage: Path([0, 1], dop).check_convergence()
             Traceback (most recent call last):

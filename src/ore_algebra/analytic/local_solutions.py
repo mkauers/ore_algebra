@@ -1,3 +1,4 @@
+# coding: utf-8
 r"""
 Local solutions
 """
@@ -9,5 +10,14 @@ FundamentalSolution = collections.namedtuple(
     ['valuation', 'log_power', 'value'])
 
 def sort_key_by_asympt(sol):
-    return sol.valuation.real(), -sol.log_power, sol.valuation.imag()
+    r"""
+    Specify the sorting order for local solutions.
+
+    Roughly speaking, they are sorted in decreasing order of asymptotic
+    dominance: when two solutions are asymptotically comparable, the largest
+    one as x → 0 comes first. In addition, divergent solutions, including
+    things like `x^i`, always come before convergent ones.
+    """
+    re, im = sol.valuation.real(), sol.valuation.imag()
+    return re, -sol.log_power, -im.abs(), im.sign()
 

@@ -32,6 +32,7 @@ from sage.rings.integer_ring import ZZ
 from sage.rings.infinity import infinity
 from sage.rings.number_field.number_field_base import is_NumberField
 from sage.rings.qqbar import QQbar
+from sage.rings.qqbar import QQbar, AA
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 from sage.rings.power_series_ring import PowerSeriesRing
 from sage.structure.element import RingElement, canonical_coercion
@@ -1980,7 +1981,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
                                                       /sol.log_power.factorial()
                 for sol in struct]
 
-    def numerical_solution(self, ini, path, eps=1e-16):
+    def numerical_solution(self, ini, path, eps=1e-16, **kwds):
         r"""
         Evaluate an analytic solution of this operator at a point of its Riemann
         surface.
@@ -2043,6 +2044,30 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             sage: dop.numerical_solution([0, 1], [0, i+1, 2*i, i-1, 0])
             [3.14159265358979...] + [+/- ...]*I
 
+        In some cases, this method is also able to compute limits of solutions
+        at regular singular points. This only works when all solutions of the
+        differential equation tend to finite values at the evaluation point::
+
+            sage: dop = (x - 1)^2*Dx^3 + Dx + 1
+            sage: dop.local_basis_monomials(1)
+            [1,
+            (x - 1)^(1.500000000000000? - 0.866025403784439?*I),
+            (x - 1)^(1.500000000000000? + 0.866025403784439?*I)]
+            sage: dop.numerical_solution(ini=[1, 0, 0], path=[0, 1])
+            [0.68987291102194011 +/- 3.47e-18] + [+/- 2.21e-34]*I
+
+            sage: dop = -(x+1)*(x-1)^3*Dx^2 + (x+3)*(x-1)^2*Dx - (x+3)*(x-1)
+            sage: dop.local_basis_monomials(1)
+            [x - 1, (x - 1)^2]
+            sage: dop.numerical_solution([1,0], [0,1])
+            0
+
+            sage: (Dx*x*Dx).numerical_solution(ini=[1,0],path=[1,0])
+            Traceback (most recent call last):
+            ...
+            ValueError: solution may not have a finite limit at evaluation
+            point (try using numerical_transition_matrix())
+
         Some notable examples of incorrect input::
 
             sage: (Dx - 1).numerical_solution([1], [])
@@ -2080,21 +2105,34 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             42.000000000000000
             sage: Dx.numerical_solution([1], [0, 1], 1e-10).parent()
             Real ball field with 3... bits precision
+
+            sage: import logging; logging.basicConfig()
+            sage: logger = logging.getLogger('ore_algebra.analytic.binary_splitting')
+            sage: logger.setLevel(logging.INFO)
+            sage: (Dx - 1).numerical_solution([1], [0, i + pi], algorithm="binsplit")
+            INFO:ore_algebra.analytic.binary_splitting:...
+            [12.5029695888765...] + [19.4722214188416...]*I
+            sage: logger.setLevel(logging.WARNING)
         """
-        from .analytic import analytic_continuation as ancont
-        ctx = ancont.Context(self, path, eps)
-        if ctx.path.vert[-1].is_regular_singular():
-            raise ValueError("the evaluation point is a regular singular "
-                    "point (try using numerical_transition_matrix())")
+        from .analytic import analytic_continuation as ancont, local_solutions
+        ctx = ancont.Context(self, path, eps, **kwds)
         pairs = ancont.analytic_continuation(ctx, ini=ini)
         assert len(pairs) == 1
         _, mat = pairs[0]
-        if mat.nrows() > 0:
+        struct = ctx.path.vert[-1].local_basis_structure()
+        if self.order() == 0:
+            return mat.base_ring().zero()
+        asympt = local_solutions.sort_key_by_asympt(struct[0])
+        asycst = (AA.zero(), ZZ.zero(), AA.zero(), 0)
+        if asympt > asycst:
+            return mat.base_ring().zero()
+        elif asympt == asycst:
             return mat[0][0]
         else:
-            return mat.base_ring().zero()
+            raise ValueError("solution may not have a finite limit at "
+                   "evaluation point (try using numerical_transition_matrix())")
 
-    def numerical_transition_matrix(self, path, eps=1e-16):
+    def numerical_transition_matrix(self, path, eps=1e-16, **kwds):
         r"""
         Compute a transition matrix along a path drawn in the complex plane.
 
@@ -2222,9 +2260,19 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             ...
             NotImplementedError: analytic continuation through irregular
             singular points is not supported
+
+            sage: import logging; logging.basicConfig()
+            sage: logger = logging.getLogger('ore_algebra.analytic.binary_splitting')
+            sage: logger.setLevel(logging.INFO)
+            sage: dop = (x^2 + 1)*Dx^2 + 2*x*Dx
+            sage: dop.numerical_transition_matrix([0,1], algorithm="binsplit")
+            INFO:ore_algebra.analytic.binary_splitting:...
+            [ [1.0000000000000...] [0.785398163397448...]]
+            [            [+/- ...] [0.500000000000000...]]
+            sage: logger.setLevel(logging.WARNING)
         """
         from .analytic import analytic_continuation as ancont
-        ctx = ancont.Context(self, path, eps)
+        ctx = ancont.Context(self, path, eps, **kwds)
         pairs = ancont.analytic_continuation(ctx)
         assert len(pairs) == 1
         return pairs[0][1]

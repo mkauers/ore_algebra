@@ -400,9 +400,10 @@ def abs_min_nonzero_root(pol, tol=RR(1e-2), lg_larger_than=RR('-inf'),
 
     An example where the ability to increase the precision is used::
 
-        sage: from ore_algebra.analytic.ui import *
-        sage: Dops, x, Dx = Diffops()
-        sage: eval_diffeq((x^2 + 10*x + 50)*Dx^2 + Dx + 1, [-1,1], [0, 1/10])
+        sage: from ore_algebra import *
+        sage: Dops, x, Dx = DifferentialOperators()
+        sage: dop = (x^2 + 10*x + 50)*Dx^2 + Dx + 1
+        sage: dop.numerical_solution([-1,1], [0, 1/10])
         [-0.90000329853426...]
     """
     myIR = type(IR)(prec)
@@ -572,9 +573,12 @@ class RatSeqBound(object):
                 continue
             # Otherwise, it first decreases to its minimum (which may be 0 if
             # α is an integer), then increases to 1. We precompute the minimum
-            # and a value of n after which the sequence is nondecreasing.
-            crit_n = root.abs()**2/re
-            ns = srange(ZZ(crit_n.floor()), ZZ(crit_n.ceil()) + 1)
+            # and a value of n after which the sequence is nondecreasing. Note
+            # that re may contain zero, but it is okay to replace it by an upper
+            # bound since the (lower bound on the) distance to 1 decreases when
+            # re increases.
+            crit_n = root.abs()**2/re.above_abs()
+            ns = srange(crit_n.lower().floor(), crit_n.upper().ceil() + 1)
             n_min = ns[-1]
             # When the minimum over ℕ is reached at an exceptional index, we
             # want to "skip" it in the computation of the global bound. So we
@@ -975,9 +979,9 @@ class DiffOpBound(object):
 
     EXAMPLES::
 
-        sage: from ore_algebra.analytic.ui import *
+        sage: from ore_algebra import *
         sage: from ore_algebra.analytic.bounds import *
-        sage: Dops, x, Dx = Diffops()
+        sage: Dops, x, Dx = DifferentialOperators()
 
     A majorant sequence::
 
@@ -1285,9 +1289,9 @@ class DiffOpBound(object):
 
         EXAMPLES::
 
-            sage: from ore_algebra.analytic.ui import *
+            sage: from ore_algebra import *
             sage: from ore_algebra.analytic.bounds import *
-            sage: Dops, x, Dx = Diffops()
+            sage: Dops, x, Dx = DifferentialOperators()
             sage: maj = DiffOpBound(Dx - 1)
             sage: maj._test()
             sage: maj._test([3], 200)
