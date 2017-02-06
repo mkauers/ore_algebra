@@ -1973,6 +1973,18 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             [x^(-1.232050807568878?), x^2.232050807568878?]
             sage: (x^3*Dx^4+3*x^2*Dx^3+x*Dx^2+x*Dx+1).local_basis_monomials(0)
             [1, 1/2*x*log(x)^2, x*log(x), x]
+
+        A local basis whose elements all start with pure monomials (without
+        logarithmic part) can nevertheless involve logarithms. In particular,
+        the leading monomials are not enough to decide if a given solution is
+        analytic::
+
+            sage: dop = (x^2 - x)*Dx^2 + (x - 1)*Dx + 1
+            sage: dop.local_basis_monomials(1)
+            [1, x - 1]
+            sage: dop.annihilator_of_composition(1 + x).generalized_series_solutions(3)
+            [x*(1 - x + 5/6*x^2 + O(x^3)),
+             (x - x^2 + O(x^3))*log(x) - 1 + 1/2*x^2 + O(x^3)]
         """
         from .analytic.path import Point
         struct = Point(point, self).local_basis_structure()
