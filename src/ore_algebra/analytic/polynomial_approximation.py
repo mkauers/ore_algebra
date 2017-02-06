@@ -188,7 +188,8 @@ def doit(dop, ini, path, rad, eps, derivatives, economization, x_is_real):
     local_ini = pairs[0][1]
 
     Scalars = utilities.ball_field(eps1, x_is_real and ctx.real())
-    x = dop.base_ring().change_ring(Scalars).gen()
+    _, base, _, dop = dop._normalize_base_ring()
+    x = base.change_ring(Scalars).gen()
 
     local_dop = center.local_diffop()
     evpt = EvaluationPoint(x, rad=rad, jet_order=derivatives)

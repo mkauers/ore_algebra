@@ -132,6 +132,8 @@ constant::
 
 TESTS:
 
+    sage: import ore_algebra.analytic.polynomial_approximation as pa
+
 Some corner cases::
 
     sage: (x*Dx + 1).numerical_transition_matrix([0, 1], 1e-10)
@@ -178,6 +180,29 @@ A few larger or harder examples::
     [-1.5598481440603221187326507993405933893413346644879595004537063375459901302359572361012065551669069...] +
     [-0.7107764943512671843673286878693314397759047479618104045777076954591551406949345143368742955333566...]*I
 
+Operators with rational function coefficients::
+
+    sage: dop = (x/x)*Dx - 1
+    sage: dop.parent()
+    Univariate Ore algebra in Dx over Fraction Field of Univariate Polynomial Ring in x over Rational Field
+    sage: dop.numerical_solution([1], [0, 1])
+    [2.71828182845904...]
+    sage: dop.numerical_transition_matrix([0, 1])
+    [[2.71828182845904...]]
+    sage: dop.local_basis_monomials(0)
+    [1]
+    sage: dop.numerical_solution([1], [0,1], 1e-30, algorithm='binsplit')
+    [2.7182818284590452353602874713...]
+    sage: _ = pa.on_disk(dop, [1], [0], 1, 1e-3)
+
+    sage: ((x/1)*Dx^2 - 1).local_basis_monomials(0)
+    [1, x]
+    sage: ((x/1)*Dx^2 - 1).numerical_transition_matrix([0, 1])
+    [[0.0340875989376363...]   [1.59063685463732...]]
+    [[-0.579827135138349...]   [2.27958530233606...]]
+    sage: ((x/1)*Dx^2 - 1).numerical_transition_matrix([0, 1], algorithm='binsplit')
+    [[0.0340875989376363...]   [1.59063685463732...]]
+    [[-0.579827135138349...]   [2.27958530233606...]]
 """
 
 # NOTE: to run the tests, use something like
