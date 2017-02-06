@@ -18,6 +18,7 @@ from sage.rings.complex_arb import ComplexBallField
 from sage.rings.integer_ring import ZZ
 from sage.rings.number_field.number_field_element import NumberFieldElement
 from sage.rings.real_arb import RealBallField
+from sage.structure.element import Matrix
 from sage.structure.sequence import Sequence
 
 from . import utilities
@@ -152,14 +153,14 @@ def analytic_continuation(ctx, ini=None, post=None):
         [+/- ...] + [1.65042575879754...]*I
     """
     logger.info("path: %s", ctx.path)
-    if isinstance(ini, list): # should this be here?
-        try:
-            ini = matrix(ctx.dop.order(), 1, ini)
-        except (TypeError, ValueError):
-            raise ValueError("incorrect initial values: {}".format(ini))
     eps1 = (ctx.eps/(1 + len(ctx.path))) >> 2 # TBI, +: move to ctx?
     prec = utilities.prec_from_eps(eps1)
     if ini is not None:
+        if not isinstance(ini, Matrix): # should this be here?
+            try:
+                ini = matrix(ctx.dop.order(), 1, list(ini))
+            except (TypeError, ValueError):
+                raise ValueError("incorrect initial values: {}".format(ini))
         try:
             ini = ini.change_ring(RealBallField(prec))
         except ValueError:

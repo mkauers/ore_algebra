@@ -2125,6 +2125,13 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             INFO:ore_algebra.analytic.binary_splitting:...
             [12.5029695888765...] + [19.4722214188416...]*I
             sage: logger.setLevel(logging.WARNING)
+
+            sage: (Dx^2 + 1).numerical_solution(vector([1, 0]), [0, 1])
+            [0.540302305868139...]
+            sage: (Dx^2 + 1).numerical_solution(column_matrix([0, 1]), [0, 1])
+            [0.841470984807896...]
+            sage: (Dx^2 + 1).numerical_solution(range(2), [0, 1])
+            [0.841470984807896...]
         """
         from .analytic import analytic_continuation as ancont, local_solutions
         ctx = ancont.Context(self, path, eps, **kwds)
