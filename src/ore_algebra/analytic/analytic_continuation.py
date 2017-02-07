@@ -143,7 +143,13 @@ def step_transition_matrix(ctx, step, eps, rows=None):
 
 def analytic_continuation(ctx, ini=None, post=None):
     """
-    Here ini and post both are matrices.
+    INPUT:
+
+    - ``ini`` (constant matrix, optional) - initial values, one column per
+      solution
+    - ``post`` (matrix of polynomial/rational functions, optional) - linear
+      combinations of the first Taylor coefficients to take, as a function of
+      the evaluation point
 
     TESTS::
 
@@ -171,7 +177,7 @@ def analytic_continuation(ctx, ini=None, post=None):
         if point.keep_value:
             value = path_mat
             if ini is not None:  value = value*ini
-            if post is not None: value = post*value
+            if post is not None: value = post(point.value)*value
             res.append((point.value, value))
     store_value_if_wanted(ctx.path.vert[0])
     for step in ctx.path:

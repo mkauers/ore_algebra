@@ -26,6 +26,7 @@ import sage.functions.log as symbolic_log
 
 from sage.arith.all import previous_prime as pp
 from sage.arith.all import gcd, lcm
+from sage.matrix.constructor import matrix
 from sage.misc.all import prod, union
 from sage.rings.rational_field import QQ
 from sage.rings.integer_ring import ZZ
@@ -1993,7 +1994,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
                                                       /sol.log_power.factorial()
                 for sol in struct]
 
-    def numerical_solution(self, ini, path, eps=1e-16, **kwds):
+    def numerical_solution(self, ini, path, eps=1e-16, post_transform=None, **kwds):
         r"""
         Evaluate an analytic solution of this operator at a point of its Riemann
         surface.
@@ -2004,7 +2005,10 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
           of the operator
         - ``path`` - a path on the complex plane, specified as a list of
           vertices `z_0, \dots, z_n`
-        - ``eps`` (floating-point number or ball) - target accuracy
+        - ``eps`` (floating-point number or ball, default 1e-16) - approximate
+          target accuracy
+        - ``post_transform`` (default: identity) - differential operator to be
+          applied to the solutions, see examples below
 
         OUTPUT:
 
@@ -2080,6 +2084,25 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             ValueError: solution may not have a finite limit at evaluation
             point (try using numerical_transition_matrix())
 
+        The ``post_transform`` parameter can be used to compute derivatives or
+        linear combinations of derivatives of the solution. Here, we use this
+        feature to evaluate the tenth derivative of the Airy `Ai` function::
+
+            sage: ini = [1/(3^(2/3)*gamma(2/3)), -1/(3^(1/3)*gamma(1/3))]
+            sage: (Dx^2-x).numerical_solution(ini, [0,2], post_transform=Dx^10)
+            [2.34553207877...]
+            sage: airy_ai(10, 2.)
+            2.345532078777...
+
+        A similar, slightly more complicated example::
+
+            sage: (Dx^2 - x).numerical_solution(ini, [0, 2],
+            ....:                               post_transform=1/x + x*Dx)
+            [-0.08871870365567...]
+            sage: t = SR.var('t')
+            sage: (airy_ai(t)/t + t*airy_ai_prime(t))(t=2.)
+            -0.08871870365567...
+
         Some notable examples of incorrect input::
 
             sage: (Dx - 1).numerical_solution([1], [])
@@ -2132,10 +2155,28 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             [0.841470984807896...]
             sage: (Dx^2 + 1).numerical_solution(range(2), [0, 1])
             [0.841470984807896...]
+
+            sage: _, y, Dy = DifferentialOperators(QQ, 'y')
+            sage: (Dx^2 - x).numerical_solution(ini, [0, 2], post_transform=Dy)
+            Traceback (most recent call last):
+            ...
+            TypeError: ...
+
+            sage: dop = x*Dx^3 + 2*Dx^2 + x*Dx
+            sage: ini = [1, CBF(euler_gamma), 0] # Cosine integral
+            sage: dop.numerical_solution(ini, path=[0, sqrt(2)], post_transform=Dx^10)
+            [-11340.0278985950...]
         """
         from .analytic import analytic_continuation as ancont, local_solutions
+        if post_transform is None:
+            post_transform = self.parent().one()
+        else:
+            _, post_transform = canonical_coercion(self, post_transform)
+        post_transform = post_transform % self
+        post_mat = matrix(1, self.order(),
+                lambda i, j: ZZ(j).factorial()*post_transform[j])
         ctx = ancont.Context(self, path, eps, **kwds)
-        pairs = ancont.analytic_continuation(ctx, ini=ini)
+        pairs = ancont.analytic_continuation(ctx, ini=ini, post=post_mat)
         assert len(pairs) == 1
         _, mat = pairs[0]
         struct = ctx.path.vert[-1].local_basis_structure()
