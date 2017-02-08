@@ -1401,11 +1401,10 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
           x^4*Dx^4
           sage: _.to_T('Tx')
           Tx^4 - 6*Tx^3 + 11*Tx^2 - 6*Tx
-        
         """
         R = self.base_ring(); one = R.one(); x = R.gen()
-        
-        if type(alg) == str:
+
+        if isinstance(alg, str):
             alg = self.parent().change_var_sigma_delta(alg, {}, {x:x})
         elif not isinstance(alg, type(self.parent())) or not alg.is_T() or \
              alg.base_ring().base_ring() is not R.base_ring():
@@ -1414,17 +1413,21 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         if self.is_zero():
             return alg.zero()
 
-        R = alg.base_ring().fraction_field(); alg2 = alg.change_ring(R); x = R.gen()
+        ord = self.order()
+        z = ZZ.zero()
+        stirling = [[z for j in xrange(ord+1)] for i in xrange(ord+1)]
+        stirling[0][0] = ZZ.one()
+        for i in xrange(ord):
+            for j in xrange(ord):
+                stirling[i+1][j+1] = i*stirling[i][j+1] + stirling[i][j]
 
-        theta = (1/x)*alg2.gen(); theta_k = alg2.one();
-        c = self.coefficients(sparse=False); out = alg2(R(c[0]))
-
-        for i in xrange(self.order()):
-            
-            theta_k *= theta
-            out += R(c[i + 1])*theta_k
-
-        return out if alg.base_ring() is R else out.numerator()
+        out = [R.zero() for _ in xrange(ord+1)]
+        for i, c in enumerate(self):
+            for j in xrange(i + 1):
+                out[j] += (-1 if (i+j)%2 else 1)*stirling[i][j]*c << (ord-i)
+        val = min(pol.valuation() for pol in out)
+        out = alg([pol >> val for pol in out])
+        return out
 
     def annihilator_of_integral(self):
         r"""
