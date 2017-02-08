@@ -2154,7 +2154,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             sage: Dops.zero().numerical_solution([], 1)
             Traceback (most recent call last):
             ...
-            ZeroDivisionError: other must be nonzero
+            ValueError: operator must be nonzero
 
             sage: (Dx - 1).numerical_solution(ini=[], path=[0, 1])
             Traceback (most recent call last):
@@ -2202,6 +2202,8 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             [-11340.0278985950...]
         """
         from .analytic import analytic_continuation as ancont, local_solutions
+        if not self:
+            raise ValueError("operator must be nonzero")
         if post_transform is None:
             post_transform = self.parent().one()
         else:
