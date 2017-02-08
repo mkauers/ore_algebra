@@ -500,7 +500,7 @@ def series_sum_ordinary(Intervals, dop, bwrec, ini, pt,
     return res
 
 # XXX: pass ctx (→ real/complex?)?
-def fundamental_matrix_ordinary(dop, pt, eps, rows, maj, max_prec=None):
+def fundamental_matrix_ordinary(dop, pt, eps, rows, maj, max_prec=100000):
     eps_col = bounds.IR(eps)/bounds.IR(dop.order()).sqrt()
     evpt = EvaluationPoint(pt, jet_order=rows)
     inis = [
