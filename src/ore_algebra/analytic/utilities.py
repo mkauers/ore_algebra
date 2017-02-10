@@ -102,3 +102,10 @@ def as_embedded_number_field_element(alg):
         res = elt.polynomial()(embnf.gen())
     assert QQbar.coerce(res) == alg
     return res
+
+def short_str(obj, n=60):
+    s = str(obj)
+    if len(s) < n:
+        return s
+    else:
+        return s[:n/2-2] + "..." + s[-n/2 + 2:]

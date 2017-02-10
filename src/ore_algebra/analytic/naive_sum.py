@@ -32,6 +32,7 @@ from . import accuracy, bounds, utilities
 from .local_solutions import *
 from .safe_cmp import *
 from .shiftless import my_shiftless_decomposition
+from .utilities import short_str
 
 logger = logging.getLogger(__name__)
 
@@ -457,7 +458,8 @@ def series_sum_ordinary(Intervals, dop, bwrec, ini, pt,
         else:
             abs_sum = None
             width = max([abs(a).rad_as_ball() for a in last])*radpow
-        logger.debug("n=%s, sum=%s, est=%s", n, psum[0], est)
+        logger.debug("n=%s, est=%s, width=%s, sum=%s", n, est, width,
+                short_str(psum[0]))
         if width > tgt_error.eps/4 and ini_are_accurate:
             raise PrecisionError(2*bit_prec)
         elif not tgt_error.reached(est, abs_sum) and record_bounds_in is None:
@@ -781,7 +783,7 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, tgt_error,
             tail_bound = maj.matrix_sol_tail_bound(n, pt.rad, majeqrhs,
                                                         ord=pt.jet_order)
             logger.debug("n=%d, sum[.]=%s, est=%s, rhs[.]=%s, tail_bound=%s",
-                    n, psum[0][0], est, majeqrhs[0], tail_bound)
+                    n, short_str(psum[0][0]), est, majeqrhs[0], tail_bound)
             if record_bounds_in is not None:
                 # TODO: record all partial sums, not just [log(z)^0]
                 # (requires improvements to plot_bounds)
