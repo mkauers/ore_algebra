@@ -350,6 +350,22 @@ def series_sum(dop, ini, pt, tgt_error, maj=None, bwrec=None,
         INFO:ore_algebra.analytic.naive_sum:lost too much precision, giving up
         ([0.20674982866094...])
 
+        sage: xx = EvaluationPoint(x, rad=RBF(1/4), jet_order=2)
+        sage: series_sum((x^2 + 1)*Dx^2 + 2*x*Dx, [0, 1/3], xx, 1e-30)[0](1/6)
+        INFO:...
+        [0.05504955913820894609304276321...]
+
+        sage: series_sum((x^2 + 1)*Dx^2 + 2*x*Dx, [0, RBF(1/3)], xx, 1e-16)[0](1/6)
+        WARNING:ore_algebra.analytic.naive_sum:input intervals may be too wide compared to requested accuracy
+        ...
+        [0.055049559138208...]
+
+        sage: series_sum((x^2 + 1)*Dx^2 + 2*x*Dx, [0, RBF(1/3)], xx, 1e-30)[0](1/6)
+        WARNING:ore_algebra.analytic.naive_sum:input intervals may be too wide compared to requested accuracy
+        ...
+        INFO:ore_algebra.analytic.naive_sum:lost too much precision, giving up
+        [0.055049559138208...]
+
         sage: logger.setLevel(logging.WARNING)
     """
 
@@ -460,8 +476,11 @@ def series_sum_ordinary(Intervals, dop, bwrec, ini, pt,
             width = max([abs(a).rad_as_ball() for a in last])*radpow
         logger.debug("n=%s, est=%s, width=%s, sum=%s", n, est, width,
                 short_str(psum[0]))
-        if width > tgt_error.eps/4 and ini_are_accurate:
-            raise PrecisionError(2*bit_prec)
+        if safe_gt(width, tgt_error.eps/4):
+            if ini_are_accurate:
+                raise PrecisionError(2*bit_prec)
+            elif safe_gt(est, width):
+                return False, bounds.IR(infinity)
         elif not tgt_error.reached(est, abs_sum) and record_bounds_in is None:
             return False, bounds.IR(infinity)
         # Warning: this residual must correspond to the operator stored in
