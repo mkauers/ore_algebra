@@ -144,7 +144,7 @@ class DFiniteFunction(object):
         max_rad = pt.dist_to_sing().min(self.max_rad)
         # What we want is the largest such disk containing pt
         expo = ZZ(max_rad.log(2).upper().ceil()) # rad = 2^expo
-        logger.debug("max_rad = %s, expo = %s", max_rad, expo)
+        logger.log(logging.DEBUG-2, "max_rad = %s, expo = %s", max_rad, expo)
         while True:
             approx_pt = pt.approx_abs_real(-expo)
             mantissa = (approx_pt.squash() >> expo).floor()
@@ -153,9 +153,10 @@ class DFiniteFunction(object):
             center = mantissa << expo
             dist = Point(center, pt.dop).dist_to_sing()
             rad = RBF.one() << expo
-            logger.debug("candidate disk: approx_pt = %s, mantissa = %s, "
-                         "center = %s, dist = %s, rad = %s",
-                         approx_pt, mantissa, center, dist, rad)
+            logger.log(logging.DEBUG-2,
+                    "candidate disk: approx_pt = %s, mantissa = %s, "
+                    "center = %s, dist = %s, rad = %s",
+                    approx_pt, mantissa, center, dist, rad)
             if safe_ge(dist >> 1, rad):
                 break
             expo -= 1
@@ -167,6 +168,8 @@ class DFiniteFunction(object):
         dist_to_center = (F(approx_pt) - F(center)).abs()
         if not safe_le(dist_to_center, rad):
             assert not safe_gt((approx_pt.squash() - center).squash(), rad)
+            logger.info("check that |%s - %s| < %s failed",
+                        approx_pt, center, rad)
             return None, None
         # exactify center so that subsequent computations are not limited by the
         # precision of its parent
@@ -205,11 +208,16 @@ class DFiniteFunction(object):
                                                          post_transform)
         eps = RBF.one() >> prec
         if prec >= self.max_prec or not pt.is_real():
+            logger.info("performing high-prec evaluation (pt=%s, prec=%s)",
+                        pt, prec)
             ini, path = self._path_to(pt)
             return self.dop.numerical_solution(ini, path, eps)
         center, rad = self._disk(pt)
         if center is None:
             raise NotImplementedError
+            #logger.info("falling back on generic evaluator")
+            #ini, path = self._path_to(pt)
+            #return self.dop.numerical_solution(ini=ini, path=path, eps=eps)
         approx = self._polys.get(center)
         Balls = RealBallField(prec)
         derivatives = post_transform.order() + 1
@@ -222,9 +230,9 @@ class DFiniteFunction(object):
                 known = self._inivecs.get(vert)
                 if known is None or known[0].accuracy() < val[0][0].accuracy():
                     self._inivecs[vert] = [c[0] for c in val]
-            logger.debug("computing polynomial approximations: "
-                         "ini = %s, path = %s, rad = %s, eps = %s",
-                         ini, path, rad, eps)
+            logger.info("computing new polynomial approximations: "
+                        "ini=%s, path=%s, rad=%s, eps=%s, ord=%s",
+                        ini, path, rad, eps, derivatives)
             polys = polapprox.doit(self.dop, ini=ini, path=path, rad=rad,
                     eps=eps, derivatives=derivatives, x_is_real=True,
                     economization=polapprox.chebyshev_economization)
