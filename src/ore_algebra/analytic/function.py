@@ -246,6 +246,33 @@ class DFiniteFunction(object):
     def plot_known(self):
         pass
 
+    def _sollya_(self):
+        r"""
+        EXAMPLES::
+
+            sage: import logging; logging.basicConfig(level=logging.INFO)
+            sage: logger = logging.getLogger("ore_algebra.analytic.function.sollya")
+            sage: logger.setLevel(logging.DEBUG)
+
+            sage: import ore_algebra
+            sage: DiffOps, x, Dx = ore_algebra.DifferentialOperators()
+            sage: from ore_algebra.analytic.function import DFiniteFunction
+            sage: f = DFiniteFunction(Dx - 1, [1])
+
+            sage: import sollya # optional - sollya
+            sage: sollya.plot(f, sollya.Interval(0, 1)) # not tested
+            ...
+
+        """
+        import sollya
+        logger = logging.getLogger(__name__ + ".sollya")
+        Dx = self.dop.parent().gen()
+        def wrapper(pt, ord, prec):
+            val = self.approx(pt, prec, post_transform=Dx**ord)
+            logger.debug("pt=%s, ord=%s, prec=%s, val=%s", pt, ord, prec, val)
+            return val
+        return sollya.sagefunction(wrapper)
+
 def _guess_prec(pt):
     if isinstance(pt, (RealNumber, ComplexNumber, RealBall, ComplexBall)):
         return pt.parent().precision()
