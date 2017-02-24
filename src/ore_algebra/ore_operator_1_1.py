@@ -3119,12 +3119,21 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
           sage: L.generalized_series_solutions()
           [exp(3.464101615137755?*I*n^(1/2))*n^(1/4)*(1 - 2.056810333988042?*I*n^(-1/2) - 1107/512*n^(-2/2) + (0.?e-19 + 1.489453749877895?*I)*n^(-3/2) + 2960239/2621440*n^(-4/2) + (0.?e-19 - 0.926161373412572?*I)*n^(-5/2) - 16615014713/46976204800*n^(-6/2) + (0.?e-20 + 0.03266142931818572?*I)*n^(-7/2) + 16652086533741/96207267430400*n^(-8/2) + (0.?e-20 - 0.1615093987591473?*I)*n^(-9/2) + O(n^(-10/2))), exp(-3.464101615137755?*I*n^(1/2))*n^(1/4)*(1 + 2.056810333988042?*I*n^(-1/2) - 1107/512*n^(-2/2) + (0.?e-19 - 1.489453749877895?*I)*n^(-3/2) + 2960239/2621440*n^(-4/2) + (0.?e-19 + 0.926161373412572?*I)*n^(-5/2) - 16615014713/46976204800*n^(-6/2) + (0.?e-20 - 0.03266142931818572?*I)*n^(-7/2) + 16652086533741/96207267430400*n^(-8/2) + (0.?e-20 + 0.1615093987591473?*I)*n^(-9/2) + O(n^(-10/2)))]
 
-          sage: L = guess([(-3)^n*(n+1)/(2*n+4) - 2^n*n^3/(n+3) for n in xrange(500)], A)
+          sage: L = guess([(-3)^k*(k+1)/(2*k+4) - 2^k*k^3/(k+3) for k in xrange(500)], A)
           sage: L.generalized_series_solutions()
           [2^n*n^2*(1 - 3*n^(-1) + 9*n^(-2) - 27*n^(-3) + 81*n^(-4) + O(n^(-5))), (-3)^n*(1 - n^(-1) + 2*n^(-2) - 4*n^(-3) + 8*n^(-4) + O(n^(-5)))]
           sage: L.generalized_series_solutions(dominant_only=True)
           [(-3)^n*(1 - n^(-1) + 2*n^(-2) - 4*n^(-3) + 8*n^(-4) + O(n^(-5)))]
 
+        TESTS::
+
+            sage: rop = (-8 -12*Sn + (n^2+5*n+6)*Sn^3)
+            sage: rop
+            (n^2 + 5*n + 6)*Sn^3 - 12*Sn - 8
+            sage: rop.generalized_series_solutions(1) # long time
+            [(n/e)^(-2/3*n)*2^n*exp(3*n^(1/3))*n^(-2/3)*(1 + 3/2*n^(-1/3) + 9/8*n^(-2/3) + O(n^(-3/3))),
+            (n/e)^(-2/3*n)*(-1.000000000000000? + 1.732050807568878?*I)^n*exp((-1.500000000000000? + 2.598076211353316?*I)*n^(1/3))*n^(-2/3)*(1 + (-0.750000000000000? - 1.299038105676658?*I)*n^(-1/3) + (-0.562500000000000? + 0.974278579257494?*I)*n^(-2/3) + O(n^(-3/3))),
+            (n/e)^(-2/3*n)*(-1.000000000000000? - 1.732050807568878?*I)^n*exp((-1.500000000000000? - 2.598076211353316?*I)*n^(1/3))*n^(-2/3)*(1 + (-0.750000000000000? + 1.299038105676658?*I)*n^(-1/3) + (-0.562500000000000? - 0.974278579257494?*I)*n^(-2/3) + O(n^(-3/3)))]
         """
         K = QQbar
 
@@ -3156,7 +3165,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
             if s == 0:
                 newcoeffs = [c.shift(w_prec - deg) for c in coeffs ]
             else:
-                v = s.denominator(); underflow = max(0, -v*r*s)
+                v = s.denominator(); underflow = int(max(0, -v*r*s))
                 newdeg = max([ coeffs[i].degree() + i*s for i in xrange(len(coeffs)) if coeffs[i] != 0 ])
                 newcoeffs = [(coeffs[i](x**v)*subs(x, prec=w_prec + underflow, shift=i, gamma=s))
                              .shift(-v*(newdeg + underflow)) for i in xrange(len(coeffs))]
@@ -3274,7 +3283,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
 
             info(2, "determining expansions for (gamma,rho,subexp,alpha)=" + str((gamma, rho, subexp,alpha)))
 
-            underflow = max(0, -ram*r*gamma)
+            underflow = int(max(0, -ram*r*gamma))
             coeffs = [(origcoeffs[i](x**ram)*subs(x, prec + underflow, i, gamma, rho, subexp, ram)).shift(-underflow)\
                           for i in xrange(r + 1)]
             deg = max([c.degree() for c in coeffs])
