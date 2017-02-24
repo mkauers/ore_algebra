@@ -18,6 +18,7 @@ from sage.rings.complex_arb import ComplexBallField
 from sage.rings.integer_ring import ZZ
 from sage.rings.number_field.number_field_element import NumberFieldElement
 from sage.rings.real_arb import RealBallField
+from sage.structure.element import Matrix
 from sage.structure.sequence import Sequence
 
 from . import utilities
@@ -142,7 +143,13 @@ def step_transition_matrix(ctx, step, eps, rows=None):
 
 def analytic_continuation(ctx, ini=None, post=None):
     """
-    Here ini and post both are matrices.
+    INPUT:
+
+    - ``ini`` (constant matrix, optional) - initial values, one column per
+      solution
+    - ``post`` (matrix of polynomial/rational functions, optional) - linear
+      combinations of the first Taylor coefficients to take, as a function of
+      the evaluation point
 
     TESTS::
 
@@ -152,14 +159,14 @@ def analytic_continuation(ctx, ini=None, post=None):
         [+/- ...] + [1.65042575879754...]*I
     """
     logger.info("path: %s", ctx.path)
-    if isinstance(ini, list): # should this be here?
-        try:
-            ini = matrix(ctx.dop.order(), 1, ini)
-        except (TypeError, ValueError):
-            raise ValueError("incorrect initial values: {}".format(ini))
     eps1 = (ctx.eps/(1 + len(ctx.path))) >> 2 # TBI, +: move to ctx?
     prec = utilities.prec_from_eps(eps1)
     if ini is not None:
+        if not isinstance(ini, Matrix): # should this be here?
+            try:
+                ini = matrix(ctx.dop.order(), 1, list(ini))
+            except (TypeError, ValueError):
+                raise ValueError("incorrect initial values: {}".format(ini))
         try:
             ini = ini.change_ring(RealBallField(prec))
         except ValueError:
@@ -170,7 +177,7 @@ def analytic_continuation(ctx, ini=None, post=None):
         if point.keep_value:
             value = path_mat
             if ini is not None:  value = value*ini
-            if post is not None: value = post*value
+            if post is not None: value = post(point.value)*value
             res.append((point.value, value))
     store_value_if_wanted(ctx.path.vert[0])
     for step in ctx.path:

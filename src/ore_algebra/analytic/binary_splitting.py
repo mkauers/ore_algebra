@@ -43,6 +43,13 @@ TESTS::
     INFO:ore_algebra.analytic.binary_splitting:...
     [12.5029695888765...] + [19.4722214188416...]*I
 
+    sage: from ore_algebra.analytic.examples import fcc
+    sage: fcc.dop5.numerical_solution( # long time (1 min 48 s)
+    ....:          [0, 0, 0, 0, 1, 0], [0, 1/5+i/2, 1],
+    ....:          1e-60, algorithm='binsplit')
+    INFO:ore_algebra.analytic.binary_splitting:...
+    [1.04885235135491485162956376369999275945402550465206640313845...] + [+/- ...]*I
+
     sage: logger.setLevel(logging.WARNING)
 """
 
