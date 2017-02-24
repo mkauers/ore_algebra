@@ -201,7 +201,7 @@ class NoSolution(ArithmeticError):
     
     def __str__(self):
         return "no solution"
-
+    
 def heuristic_row_content(row, ring):
     # used in nullspace_gauss
 
@@ -909,7 +909,7 @@ def _kronecker(subsolver, presolver, mat, degrees, infolevel):
     Rimg = Kimg[x0]
     if len(degrees) < len(x) - 1:
         _info(infolevel, "probing for output degrees...", alter = -1)
-        if presolver == None:
+        if presolver is None:
             presolver = subsolver
         degrees = []; evaluator = dict( (x[j], Rimg(59 + 17*j)) for j in xrange(len(x)) )
         for i in xrange(len(x)):
@@ -923,10 +923,10 @@ def _kronecker(subsolver, presolver, mat, degrees, infolevel):
         degrees = [ d + 3 for d in degrees ]
 
     # 2. kronecker substitution: x[i] |--> x[0]^(deg[0]*deg[1]*...*deg[i-1])
-    # the first variable is translated by some offset in order to make it unlikely that
+    # all variables are translated by some offset in order to make it unlikely that
     # we get solutions like (x^2,y) which after kronecker substitution become (x^2,x^1000)
     # but are returned by the subsolver as (1,x^998).
-    Rimg = K[x0]; z = K.zero(); shift = {x0 : R(x0 - 5556)}; 
+    Rimg = K[x0]; z = K.zero(); shift = dict( (x[j], R(x[j] - (159 + 117*j))) for j in range(len(x)) )
     def phi(poly): ##### MOST TIME IS SPENT IN THIS FUNCTION (in particular by .subs and .dict)
         terms = {}; poly = poly.subs(shift).dict(); 
         for exp in poly.keys():
@@ -942,7 +942,7 @@ def _kronecker(subsolver, presolver, mat, degrees, infolevel):
 
     # 4. undo kronecker substitution x^u |--> prod(x[i]^(u quo degprod[i-1] rem deg[i]), i=0..len(x))
     _info(infolevel, "undo substitution.", alter = -1)
-    unshift = {x[0] : R(x[0] + 5556)}
+    unshift = dict( (x[j], R(x[j] + (159 + 117*j))) for j in range(len(x)) )
     def unphi(p):
         exp = [0 for i in xrange(len(x))]; d = {}
         for c in p.coefficients(sparse=False):
@@ -1597,14 +1597,9 @@ def _clear(subsolver, mat, degrees, infolevel):
         newR = newK[R.gens()]; # e.g. ZZ[x]
         def common_denominator(row):
             den = newK.one()
-            try:
-                for p in row:
-                    for c in p.coefficients(sparse=False):
-                        den = den.lcm(c.denominator())
-            except AttributeError:
-                for p in row:
-                    for c in p.coefficients():
-                        den = den.lcm(c.denominator())
+            for p in row:
+                for c in p.coefficients():
+                    den = den.lcm(c.denominator())
             return newR(den)
     else:
         # unexpected ground domain
@@ -1615,7 +1610,7 @@ def _clear(subsolver, mat, degrees, infolevel):
         den = common_denominator(row)
         newmat.append( row.apply_map(lambda p: den*p, newR) )
     newmat = Matrix(newR, newmat)
-    
+
     return subsolver(newmat, degrees=degrees, infolevel=_alter_infolevel(infolevel, -1, 1))
 
 def merge(subsolver):

@@ -7,7 +7,7 @@ ore_operator_mult
 
 
 #############################################################################
-#  Copyright (C) 2013, 2014                                                 #
+#  Copyright (C) 2013, 2014, 2017                                           #
 #                Manuel Kauers (mkauers@gmail.com),                         #
 #                Maximilian Jaroschek (mjarosch@risc.jku.at),               #
 #                Fredrik Johansson (fjohanss@risc.jku.at).                  #
@@ -44,7 +44,7 @@ class MultivariateOreOperator(OreOperator):
     def __init__(self, parent, data): 
         OreOperator.__init__(self, parent)
         if isinstance(data, OreOperator):
-            data = data.polynomial()        
+            data = data.polynomial()
         self.__poly = parent.associated_commutative_algebra()(data)
 
     # action
@@ -53,7 +53,7 @@ class MultivariateOreOperator(OreOperator):
         
         A = self.parent()
         gens = A.gens()
-        make_der = lambda x, e=1: (lambda u: u.derivative(x, e))
+        make_der = lambda x, e=1: (lambda u: 0 if u in QQ else u.derivative(x, e))
         for d in gens:
             if str(d) not in kwds:
                 if A.is_D(d):
@@ -180,6 +180,9 @@ class MultivariateOreOperator(OreOperator):
     def __setitem__(self, n, value):
         raise IndexError, "Operators are immutable"
 
+    def __hash__(self):
+        return hash(self.__poly)
+
     def leading_coefficient(self):
         return self.__poly.leading_coefficient()
 
@@ -262,6 +265,9 @@ class MultivariateOreOperator(OreOperator):
     def constant_coefficient(self):
         return self.__poly.constant_coefficient()
 
+    def monomial_coefficient(self, term):
+        return self.__poly.monomial_coefficient(self.parent()(term).__poly)
+    
     def map_coefficients(self, f, new_base_ring = None):
         if new_base_ring is None:
             return self.parent()(self.__poly.map_coefficients(f))
@@ -277,8 +283,8 @@ class MultivariateOreOperator(OreOperator):
     def tdeg(self):
         return max(sum(e) for e in self.exponents())
 
-    def __hash__(self):
-        return hash(self.__poly)
+    def degree(self, D):
+        return self.__poly.degree(self.parent().associated_commutative_algebra()(str(D)))
 
     # ==== reduction ====
 
@@ -288,7 +294,7 @@ class MultivariateOreOperator(OreOperator):
 
         INPUT:
 
-           basis -- a list of elements of elements of self's parent (or objects that can be coerced to such elements)
+           basis -- a list of elements of elements of self's parent (or objects that can be coerced to such elements), or a left ideal
            normalize -- 'True' to allow the output to be some K-multiple of the actual result, where K is the parent's basering.
            cofactors -- 'True' to return also the cofactors
            infolevel -- nonnegative integer indicating the desired verbosity
@@ -344,7 +350,15 @@ class MultivariateOreOperator(OreOperator):
         def info(i, msg):
             if infolevel >= i:
                 print msg
-        
+
+        try:
+            # handle case where input is an ideal 
+            return self.reduce(basis.groebner_basis(), normalize=normalize, coerce=coerce, cofactors=cofactors, infolevel=infolevel)
+        except AttributeError:
+            pass
+
+        # assuming basis is a list of operators
+                
         if normalize and coerce:
 
             if self.base_ring().is_field():
@@ -383,8 +397,7 @@ class MultivariateOreOperator(OreOperator):
 
         while not p.is_zero():
 
-            if infolevel > 0:
-                print datetime.today().ctime() + ": " + str(len(p.coefficients())) + " terms left; continuing with " + str(p.lm())
+            info(1, datetime.today().ctime() + ": " + str(len(p.coefficients())) + " terms left; continuing with " + str(p.lm()))
             
             e = vector(ZZ, p.exp())
             candidates = filter(lambda i: min(e - exp[i]) >= 0, range_basis)
@@ -423,8 +436,23 @@ class MultivariateOreOperator(OreOperator):
                         cofs[k] += (p.lc()/b0lc)*tau
                     p -= (p.lc()/b0lc)*b0
 
+        if normalize and not r0.is_zero() and r0.lc().parent().base_ring() is ZZ:
+            ## make leading term of leading coefficient of r0 positive
+            try:
+                sgn = r0.lc().lc().sign()
+            except:
+                try:
+                    sgn = r0.lc().coefficients(sparse=True)[-1].sign()
+                except:
+                    sgn = ZZ.one()
+            r0 *= sgn
+            c *= sgn
+            if cofactors:
+                for i in range(len(cofs)):
+                    cofs[i] *= sgn
+
         if sugar is not None:
             r0.sugar = sugar
-
+            
         info(1, "reduction completed, remainder has " + str(len(r0.coefficients())) + " terms.")
         return (r0, cofs, c) if cofactors else r0

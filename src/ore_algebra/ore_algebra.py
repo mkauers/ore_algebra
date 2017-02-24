@@ -34,7 +34,7 @@ AUTHOR:
 """
 
 #############################################################################
-#  Copyright (C) 2013, 2014                                                 #
+#  Copyright (C) 2013, 2014, 2017                                           #
 #                Manuel Kauers (mkauers@gmail.com),                         #
 #                Maximilian Jaroschek (mjarosch@risc.jku.at),               #
 #                Fredrik Johansson (fjohanss@risc.jku.at).                  #
@@ -46,6 +46,9 @@ AUTHOR:
 #############################################################################
 
 from __future__ import absolute_import
+
+def unload():
+    for p in [k for k in sys.modules if k.startswith("ore_algebra")]: del sys.modules[p]
 
 """
 ######### development mode ###########
@@ -206,7 +209,7 @@ class Sigma_class(object):
             for x in d:
                 if not R(x) in Rgens:
                     raise ValueError, str(x) + " is not a generator of " + str(R)
-                if x != d[x]:
+                if R(x) != d[x]:
                     my_dict[str(x)] = R(d[x])
                     is_id = False
             for x in Rgens:
@@ -417,7 +420,7 @@ class Delta_class(object):
        sage: delta(x1*x2*x3)
        -2*x1*x2*x3 + 2*x1*x3 + x2*x3
        sage: sorted(delta.dict().items(), key=str)
-       [(x1, 1), (x3, x3)]
+       [('x1', 1), ('x3', x3)]
 
     """
 
@@ -445,7 +448,7 @@ class Delta_class(object):
                 if d[x] != zero:
                     is_zero = False
                 my_dict[str(x), 1] = R(d[x])
-                
+
         self.__is_zero = is_zero
         self.__R = R
         self.__dict = my_dict
@@ -460,16 +463,31 @@ class Delta_class(object):
         if p in R.base_ring():
             return R.zero()
 
-        R0 = p.parent(); 
+        R0 = p.parent();
         if is_FractionField(R0):
             a = p.numerator(); b = p.denominator()
-            return R0(delta(a))/R0(b) - R0(delta(b)*sigma(a))/R0(b*sigma(b)) 
+            # try/except cascade needed to work around sage's difficulties with rational function towers
+            try:
+                return (R0(delta(a)) - R0(sigma(a)/sigma(b))*R0(delta(b)))/R0(b)
+            except TypeError:
+                pass
+            try:
+                return R0(delta(a))/R0(b) - R0(sigma(a)/sigma(b))*(R0(delta(b))/R0(b))
+            except TypeError:
+                pass
+            try:
+                return R0(delta(a))/R0(b) - R0(delta(b)*sigma(a))/R0(b*sigma(b))
+            except TypeError:
+                pass
+            return R0(delta(a)*sigma(b) - sigma(a)*delta(b))/R0(b*sigma(b))
+        
         elif is_PolynomialRing(R0):
-            x = R(R0.gen()); strx = str(x)
+            x = R0.gen(); strx = str(x)
             if not my_dict.has_key((strx, 0)):
                 return R0.zero()
-            if sigma(x) == x:
-                return p.map_coefficients(delta) + p.derivative().map_coefficients(sigma)*my_dict[strx, 1]
+            if sigma.is_identity():
+                return p.derivative()*my_dict[strx, 1]
+            x = R(x)
             for i in xrange(2, p.degree() + 1):
                 if not my_dict.has_key((strx, i)):
                     my_dict[strx, i] = my_dict[strx, i - 1]*x + sigma(x**(i - 1))*my_dict[strx, 1]
@@ -479,6 +497,15 @@ class Delta_class(object):
             return out
         elif is_MPolynomialRing(R0):
             Rgens = R0.gens()
+            # special code for standard derivative
+            if sigma.is_identity():
+                out = R0.zero()
+                for x in Rgens:
+                    strx = str(x)
+                    if my_dict.has_key((strx, 1)) and not my_dict[strx, 1].is_zero():
+                        out += p.derivative(x)*my_dict[strx, 1]
+                return out
+            # fall-back code for general case
             for x in Rgens:
                 strx = str(x)
                 for i in xrange(2, p.degree(x) + 1):
@@ -536,7 +563,7 @@ class Delta_class(object):
     def __neq__(self, other):
         return not self.__eq__(other)
 
-    def ring():
+    def ring(self):
         """
         Returns the ring for which this sigma object is defined
         """
@@ -558,7 +585,7 @@ class Delta_class(object):
         for x in Rgens:
             dx = self(x)
             if dx != z:
-                d[x] = dx
+                d[str(x)] = dx
 
         return d    
 
@@ -799,15 +826,17 @@ def OreAlgebra(base_ring, *generators, **kwargs):
     if len(gens) == 0:
         try:
             gens = list(kwargs['names'])
-        except AttributeError:
-            raise TypeError, "There must be at least one generator"
+        except KeyError:
+            raise TypeError, "Algebra must have at least one generator"
     if len(gens) == 0:
-        raise TypeError, "There must be at least one generator"
+        raise TypeError, "Algebra must have at least one generator"
 
     product_rules = []
-    for g in gens:
+    for i in range(len(gens)):
+        g = gens[i]
         if len(g) > 3:
             product_rules.append(tuple(g[3]))
+            gens[i] = tuple(g[0:3])
         else:
             product_rules.append(None)
 
@@ -819,7 +848,10 @@ def OreAlgebra(base_ring, *generators, **kwargs):
                 s = Sigma_class(R, {}); d = Delta_class(R, {}, s)
                 gens[i] = (gens[i], s, d)
                 continue
-            x = R(gens[i][1:])
+            try:
+                x = R(gens[i][1:])
+            except:
+                raise TypeError, "base ring has no element '" + str(gens[i][1:]) + "'"
             if head == 'D': # derivative
                 gens[i] = (gens[i], {}, {x:one})
             elif head == 'S': # shift
@@ -865,8 +897,8 @@ def OreAlgebra(base_ring, *generators, **kwargs):
     for i in xrange(len(gens)):
 
         imgs = [(x, gens[i][1](x), gens[i][2](x)) for x in Rgens]
-        imgs = [(x, u, v) for (x, u, v) in imgs if (u != one or v != zero) ]
-
+        imgs = [(x, u, v) for (x, u, v) in imgs if (u != x or v != zero) ]
+        
         if len(imgs) == 0:
             is_commutative[i] = True
             continue
@@ -1207,13 +1239,13 @@ class OreAlgebra_generic(Algebra):
             sage: from ore_algebra import OreAlgebra
             sage: A.<Dx> = OreAlgebra(QQ['x'].fraction_field(), 'Dx')
             sage: A.delta()
-            Skew-derivation defined through {x: 1} for Endomorphism defined through {'x': x}
+            Skew-derivation defined through {'x': 1} for Endomorphism defined through {'x': x}
             sage: A.delta(0)
-            Skew-derivation defined through {x: 1} for Endomorphism defined through {'x': x}
+            Skew-derivation defined through {'x': 1} for Endomorphism defined through {'x': x}
             sage: A.delta("Dx")
-            Skew-derivation defined through {x: 1} for Endomorphism defined through {'x': x}
+            Skew-derivation defined through {'x': 1} for Endomorphism defined through {'x': x}
             sage: A.delta(Dx)
-            Skew-derivation defined through {x: 1} for Endomorphism defined through {'x': x}
+            Skew-derivation defined through {'x': 1} for Endomorphism defined through {'x': x}
         """
         return self._gens[self._gen_to_idx(n)][2]
 
@@ -1541,9 +1573,13 @@ class OreAlgebra_generic(Algebra):
 
     def gens(self):
         """
-        Return a list of generators of this Ore algebra. 
+        Return a tuple of generators of this Ore algebra. 
         """
-        return [ self(g) for g, _, _ in self._gens ]
+        try:
+            return self._gensops
+        except AttributeError:
+            self._gensops = [ self(g) for g, _, _ in self._gens ]
+        return self._gensops
 
     def gens_dict(self):
         """
@@ -1561,6 +1597,20 @@ class OreAlgebra_generic(Algebra):
         self._gen_dict = d.copy()
         return d
 
+    def subalgebra(self, gens):
+        """
+        Returns the subalgebra of 'self' generated by the given generators.
+        The given generators must be generators ("variables") of 'self'. 
+        The base ring is not affected. 
+        """
+        selfgens = self.gens()
+        targetgens = []
+        for g in gens:
+            g = selfgens[self._gen_to_idx(g)] # raises an error if g is not a generator
+            targetgens.append((str(g), self.sigma(g).dict(), self.delta(g).dict(), self._product_rule(g)))
+
+        return OreAlgebra(self.base_ring(), *targetgens)
+    
     def is_zero(self):
         return self.base_ring().is_zero()
     
@@ -1763,7 +1813,15 @@ class OreAlgebra_generic(Algebra):
         if R is self.base_ring():
             return self
         else:
-            return OreAlgebra(R, *self._gens)
+            try:
+                return self.__alternate_base_rings[R]
+            except AttributeError:
+                self.__alternate_base_rings = {}
+            except KeyError:
+                pass
+            A = OreAlgebra(R, *self._gens)
+            self.__alternate_base_rings[R] = A
+            return A
 
     def change_var(self, var, n=0):
         """

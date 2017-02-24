@@ -7,7 +7,7 @@ generalized_series
 
 
 #############################################################################
-#  Copyright (C) 2013, 2014                                                 #
+#  Copyright (C) 2013, 2014, 2017                                           #
 #                Manuel Kauers (mkauers@gmail.com),                         #
 #                Maximilian Jaroschek (mjarosch@risc.jku.at),               #
 #                Fredrik Johansson (fjohanss@risc.jku.at).                  #
@@ -483,6 +483,11 @@ class ContinuousGeneralizedSeries(RingElement):
         
     def _mul_(self, other):
 
+        if self.is_zero() or other.is_one():
+            return self
+        elif other.is_zero() or self.is_one():
+            return other
+        
         G = self.parent()
         s = lcm(self.ramification(), other.ramification())
         Ae, At = self.__inflate(s)
@@ -1075,6 +1080,9 @@ class DiscreteGeneralizedSeries(RingElement):
             return out            
         else:
             raise ValueError, "don't know how to evaluate discrete generalized series at" + str(arg)
+
+    def subs(self, *args, **kwargs):
+        raise NotImplementedError
         
     def base_extend(self, ext, name='a'):
         """
@@ -1137,6 +1145,11 @@ class DiscreteGeneralizedSeries(RingElement):
 
     def _mul_(self, other):
 
+        if self.is_zero() or other.is_one():
+            return self
+        elif other.is_zero() or self.is_one():
+            return other
+        
         ram = lcm(self.__ramification, other.__ramification)
 
         Asub, Aexp = self.__inflate(ram)

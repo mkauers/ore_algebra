@@ -1172,13 +1172,13 @@ def guess_mult(data, algebra, **kwargs):
       sage: from ore_algebra.guessing import guess_mult
       sage: data = [[binomial(n,k) for n in range(10)] for k in range(10)]
       sage: guess_mult(data, OreAlgebra(ZZ['n','k'], 'Sn', 'Sk'), order=1, degree=0)
-      Left Ideal (Sn*Sk - Sn - 1) of Multivariate Ore algebra in Sn, Sk over Multivariate Polynomial Ring in n, k over Integer Ring
+      Left Ideal (Sn*Sk - Sn - 1) of Multivariate Ore algebra in Sn, Sk over Fraction Field of Multivariate Polynomial Ring in n, k over Integer Ring
       sage: guess_mult(data, OreAlgebra(ZZ['x','y'], 'Dx', 'Dy'), order=1, degree=1)
-      Left Ideal ((x + 1)*Dx + (-y)*Dy) of Multivariate Ore algebra in Dx, Dy over Multivariate Polynomial Ring in x, y over Integer Ring
+      Left Ideal ((x + 1)*Dx + (-y)*Dy) of Multivariate Ore algebra in Dx, Dy over Fraction Field of Multivariate Polynomial Ring in x, y over Integer Ring
       sage: guess_mult(data, OreAlgebra(ZZ['n','y'], 'Sn', 'Dy'), order=1, degree=1)
-      Left Ideal ((-y + 1)*Sn*Dy - Sn + (-y)*Dy - 1, (-n - 1)*Sn + y*Dy - n, (-y + 1)*Sn - y) of Multivariate Ore algebra in Sn, Dy over Multivariate Polynomial Ring in n, y over Integer Ring
+      Left Ideal ((-y + 1)*Sn*Dy - Sn + (-y)*Dy - 1, (-n - 1)*Sn + y*Dy - n, (-y + 1)*Sn - y) of Multivariate Ore algebra in Sn, Dy over Fraction Field of Multivariate Polynomial Ring in n, y over Integer Ring
       sage: guess_mult(data, OreAlgebra(ZZ['x','k'], 'Dx', 'Sk'), order=1, degree=1)
-      Left Ideal (Dx*Sk + (-x - 1)*Dx - 1, x*Dx*Sk + (x + 1)*Dx + (-k)*Sk - x, (x + 1)*Dx - k, (x + 1)*Dx*Sk + (-k - 1)*Sk) of Multivariate Ore algebra in Dx, Sk over Multivariate Polynomial Ring in x, k over Integer Ring
+      Left Ideal (Dx*Sk + (-x - 1)*Dx - 1, x*Dx*Sk + (x + 1)*Dx + (-k)*Sk - x, (x + 1)*Dx - k, (x + 1)*Dx*Sk + (-k - 1)*Sk) of Multivariate Ore algebra in Dx, Sk over Fraction Field of Multivariate Polynomial Ring in x, k over Integer Ring
 
     """
 

@@ -161,7 +161,7 @@ class OreOperator(RingElement):
         no big-oh).
         """
         return infinity
-    
+
     # conversion
         
     def change_ring(self, R):
@@ -690,8 +690,16 @@ class UnivariateOreOperator(OreOperator):
         else:
             D = lambda p:p
 
+        if self.is_zero():
+            return self.base_ring().zero()*f
+
+        try:
+            f, _ = canonical_coercion(f, self.base_ring().zero())
+        except:
+            pass
+        R = f.parent()
         coeffs = self.coefficients(sparse=False)
-        R = f.parent(); Dif = f; result = R(coeffs[0])*f; 
+        Dif = f; result = R(coeffs[0])*f; 
         for i in xrange(1, self.order() + 1):
             Dif = D(Dif)
             result += R(coeffs[i])*Dif
@@ -718,12 +726,15 @@ class UnivariateOreOperator(OreOperator):
     def is_gen(self):
         return self._poly.is_gen()
 
+    def __hash__(self):
+        return hash(self._poly)
+    
     is_monic.__doc__ = OreOperator.is_monic.__doc__
     is_unit.__doc__ = OreOperator.is_unit.__doc__
     is_gen.__doc__ = OreOperator.is_gen.__doc__
     
     # conversion
-
+    
     def __iter__(self):
         return iter(self.list())
 
@@ -801,6 +812,24 @@ class UnivariateOreOperator(OreOperator):
         
         return R(res)
 
+    def reduce(self, basis, normalize=False, cofactors=False, infolevel=0, coerce=True):
+        ## compatibility method for multivariate case
+
+        if cofactors:
+            raise NotImplementedError
+
+        try:
+            # handle case where input is an ideal 
+            return self.reduce(basis.groebner_basis(), normalize=normalize, coerce=coerce, cofactors=cofactors, infolevel=infolevel)
+        except AttributeError:
+            pass
+        
+        p = self
+        for b in basis:
+            p = p % b
+
+        return p.normalize() if normalize else p
+    
     def quo_rem(self, other, fractionFree=False):
 
         if other.is_zero(): 
@@ -930,7 +959,7 @@ class UnivariateOreOperator(OreOperator):
 
         INPUT:
 
-        - ``other`` -- one operators which together with ``self`` can be coerced to a common parent.
+        - ``other`` -- one operator which together with ``self`` can be coerced to a common parent.
         - ``prs`` (default: "essential") -- pseudo remainder sequence to be used. Possible values are
           "essential", "primitive", "classic", "subresultant", "monic".
         
@@ -983,16 +1012,16 @@ class UnivariateOreOperator(OreOperator):
                    "monic" : __monicPRS__,
         }
 
-        try:
-            prs = prslist[prs]
-        except:
-            if self.base_ring().is_field():
-                prs = __classicPRS__
-            else:
-                prs = __essentialPRS__
-
         if retval == "syzygy": 
             prs = __primitivePRS__ # overrule any given options
+        else:
+            try:
+                prs = prslist[prs]
+            except:
+                if self.base_ring().is_field():
+                    prs = __classicPRS__
+                else:
+                    prs = __essentialPRS__
 
         r = (self, other)
         if r[0].order() < r[1].order():

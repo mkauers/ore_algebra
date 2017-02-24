@@ -26,6 +26,10 @@ from sage.rings.qqbar import QQbar
 from sage.rings.rational_field import QQ
 from sage.rings.integer_ring import ZZ
 from sage.rings.complex_field import ComplexField
+from sage.rings.number_field.number_field_base import is_NumberField
+from sage.rings.polynomial.polynomial_ring import is_PolynomialRing
+from sage.rings.polynomial.multi_polynomial_ring import is_MPolynomialRing
+from sage.rings.fraction_field import is_FractionField
 
 def q_log(q, u):
     """
@@ -71,10 +75,14 @@ def make_factor_iterator(ring, multiplicities=True):
         sage: f = make_factor_iterator(ZZ[x])
         sage: [(p, e) for p, e in f((2*x-3)*(4*x^3-5)*(3*x^5-4))]
         [(2*x - 3, 1), (4*x^3 - 5, 1), (3*x^5 - 4, 1)]
+        sage: f = make_factor_iterator(QQ.extension(QQ[x](x^2+1), "ii")[x])
+        sage: [(p, e) for p, e in f((x^2+1)^2*(4*x^3-5)*(3*x^5-4))]
+        [(x - ii, 2), (x + ii, 2), (x^3 - 5/4, 1), (x^5 - 4/3, 1)]
     """
-    R = ring.ring() if ring.is_field() else ring 
+    R = ring.ring() if ring.is_field() else ring
     x = R.gen(); C = R.base_ring().fraction_field()
     if C in (QQ, QQbar):
+        # R = QQ[x] or QQbar[x]
         flush = (lambda p: R(p.numerator())) if R.base_ring() is ZZ else (lambda p: p)
         if multiplicities:
             def factors(p):
@@ -86,8 +94,20 @@ def make_factor_iterator(ring, multiplicities=True):
                 for f, e in C[x](p).factor():
                     if f.degree() > 0:
                         yield flush(f)
+    elif is_NumberField(R.base_ring()):
+        # R = QQ(alpha)[x]
+        if multiplicities:
+            def factors(p):
+                for u, e in R(p).factor():
+                    if u.degree() > 0:
+                        yield u, e
+        else:
+            def factors(p):
+                for u, e in R(p).factor():
+                    if u.degree() > 0:
+                        yield u
     elif C.base_ring() in (ZZ, QQ) and C == C.base_ring()[R.base_ring().gens()].fraction_field():
-        # R = QQ(...)[x]
+        # R = QQ(t1,...)[x]
         gens = C.gens() + (x,)
         R_ext = QQ[gens]; x_ext = R_ext(x)
         R = QQ[C.gens()][x]
@@ -166,7 +186,7 @@ def shift_factor(p, ram=ZZ.one(), q=1):
                 return -q_log(qq, (u[d]/v[d])**ram)/d
             except:
                 return None
-            
+
     for (q, b) in make_factor_iterator(p.parent())(p):
 
         if q.degree() < 1:
@@ -205,86 +225,3 @@ def shift_factor(p, ram=ZZ.one(), q=1):
         c[1].sort(key=lambda e: e[0])
 
     return classes
-
-
-def uncouple(mat, algebra=None):
-    """
-    Triangularizes an operator matrix. 
-
-    The matrix is to be specified as lists of lists. The inner lists represent the rows of the matrix.
-    The output matrix has the same number of columns, but perhaps a smaller number of rows. It will be
-    in staircase form. Row operations applied during the transformation act on the matrix from the left.
-    No column swaps are preformed. 
-
-    not yet tested. code looks reasonable, but output looks suspicious...
-
-    """
-
-    A = mat[0][0].parent() if algebra is None else algebra
-    Arat = A.change_ring(A.base_ring().fraction_field())
-    Apol = Arat.change_ring(Arat.base_ring().ring())
-    Pol = Apol.base_ring()
-    mat = [map(Arat, list(m)) for m in mat] # private copy
-
-    # clear denominators and content
-    def clean_row(i):
-        d = Pol(lcm([Pol(Arat(c).denominator()) for c in mat[i]]))
-        mat[i] = [d*m for m in mat[i]]
-        g = gcd([Apol(c).content() for c in mat[i]])
-        mat[i] = [Apol(c).map_coefficients(lambda p: p//g) for c in mat[i]]
-
-    for i in xrange(len(mat)):
-        clean_row(i)
-
-    r = 0 # all rows before this one have been handled. 
-    for c in xrange(len(mat[0])):
-        # idea: if there are three or more nonzero elements, compute the gcrd of two random 
-        # linear combinations to produce two new rows, then combine them to a new row whose lc
-        # is the gcd of the lc's of the two rows. Use this row for elimination.
-        # if there are only two nonzero elements, just take their gcrd and use it for elimination.
-        # if there is only one nonzero element, use it for elimination.
-        # if there is no nonzero element, there is nothing to do.
-
-        nonzero = [i for i in xrange(r, len(mat)) if not mat[i][c].is_zero()]
-        
-        # select or construct pivot
-        if len(nonzero) == 0:
-            continue
-        elif len(nonzero) == 1:
-            piv_row = nonzero[0]
-        elif len(nonzero) == 2:
-            i, j = nonzero
-            G, S, T = mat[i][c].xgcrd(mat[j][c])
-            d = lcm(S.denominator(), T.denominator())
-            S, T = d*S, d*T
-            mat.append([S*mat[i][l] + T*mat[j][l] for l in xrange(len(mat[0]))])
-            piv_row = len(mat) - 1
-        else:
-            m = len(nonzero)
-            row1 = [sum((19+2**i)*mat[nonzero[i]][l] for i in xrange(m)) for l in xrange(len(mat[0]))]
-            row2 = [sum((17+3**i)*mat[nonzero[i]][l] for i in xrange(m)) for l in xrange(len(mat[0]))]
-            row3 = [sum((13+5**i)*mat[nonzero[i]][l] for i in xrange(m)) for l in xrange(len(mat[0]))]
-            G1, S1, T1 = row1[c].xgcrd(row2[c])
-            d = lcm(S1.denominator(), T1.denominator()); G1, S1, T1 = d*G1, d*S1, d*T1
-            G2, S2, T2 = row2[c].xgcrd(row3[c])
-            d = lcm(S2.denominator(), T2.denominator()); G2, S2, T2 = d*G2, d*S2, d*T2
-            assert(G1.order() == G2.order())
-            g, s, t = Pol(G1.leading_coefficient()).xgcd(Pol(G2.leading_coefficient()))
-            mat.append([ s*S1*row1[l] + (s*T1 + t*S2)*row2[l] + t*T2*row3[l] for l in xrange(len(mat[0]))])
-            piv_row = len(mat) - 1
-
-        # move pivot to front
-        mat[r][c], mat[piv_row][c] = mat[piv_row][c], mat[r][c]
-        piv = mat[r][c]
-
-        # perform elimination 
-        for i in xrange(r + 1, len(mat)):
-            Q, R = mat[i][c].quo_rem(piv); assert(R.is_zero()); 
-            d = Arat(Q).denominator(); Q = Apol(d*Q)
-            for j in xrange(c, len(mat[0])):
-                mat[i][j] = d*mat[i][j] - Q*mat[r][j]
-            clean_row(i)
-
-        r += 1
-                
-    return [row for row in mat if not all(p.is_zero() for p in row)]
