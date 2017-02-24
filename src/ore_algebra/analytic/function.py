@@ -80,7 +80,7 @@ logger = logging.getLogger(__name__)
     #
     #   -> note : polapprox.doit() already supports that to some extent
 
-RealPolApprox = collections.namedtuple('RealPolApprox', ['polys', 'prec'])
+RealPolApprox = collections.namedtuple('RealPolApprox', ['pol', 'prec'])
 
 class DFiniteFunction(object):
     r"""
@@ -218,11 +218,12 @@ class DFiniteFunction(object):
             #logger.info("falling back on generic evaluator")
             #ini, path = self._path_to(pt)
             #return self.dop.numerical_solution(ini=ini, path=path, eps=eps)
-        approx = self._polys.get(center)
+        approx = self._polys.get(center, [])
         Balls = RealBallField(prec)
         derivatives = post_transform.order() + 1
-        if (approx is None or approx.prec < prec
-                            or len(approx.polys) < derivatives):
+        # due to the way the polynomials are recomputed, the precisions attached
+        # to the successive derivatives are nonincreasing
+        if (len(approx) < derivatives or approx[derivatives-1].prec < prec):
             ini, path = self._path_to(center, prec)
             ctx = ancont.Context(self.dop, path, eps, keep="all")
             pairs = ancont.analytic_continuation(ctx, ini=ini)
@@ -236,9 +237,15 @@ class DFiniteFunction(object):
             polys = polapprox.doit(self.dop, ini=ini, path=path, rad=rad,
                     eps=eps, derivatives=derivatives, x_is_real=True,
                     economization=polapprox.chebyshev_economization)
-            self._polys[center] = RealPolApprox(polys, prec)
+            new_approx = []
+            for ord, pol in enumerate(polys):
+                if ord >= len(approx) or approx[ord].prec < prec:
+                    new_approx.append(RealPolApprox(pol, prec))
+                else:
+                    new_approx.append(approx[ord])
+            self._polys[center] = new_approx
         else:
-            polys = approx.polys
+            polys = [a.pol for a in approx]
         bpt = Balls(pt.value)
         reduced_pt = bpt - Balls(center)
         val = sum(ZZ(j).factorial()*coeff(bpt)*polys[j](reduced_pt)
