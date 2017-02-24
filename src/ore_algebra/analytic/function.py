@@ -30,6 +30,13 @@ TESTS::
     sage: plot(lambda x: RR(f(x, prec=10)), (-3, 3))
     Graphics object consisting of 1 graphics primitive
 
+    sage: f.approx(0, post_transform=Dx)
+    [1.00000000000000...]
+    sage: f.approx(2, post_transform=x*Dx+1)
+    [1.50714871779409...]
+    sage: 2/(1+2^2) + arctan(2.)
+    1.50714871779409
+
     sage: g = DFiniteFunction(Dx-1, [1])
 
     sage: [g(10^i) for i in range(-3, 4)]
@@ -73,7 +80,7 @@ logger = logging.getLogger(__name__)
     #
     #   -> note : polapprox.doit() already supports that to some extent
 
-RealPolApprox = collections.namedtuple('RealPolApprox', ['pol', 'prec'])
+RealPolApprox = collections.namedtuple('RealPolApprox', ['polys', 'prec'])
 
 class DFiniteFunction(object):
     r"""
@@ -179,10 +186,23 @@ class DFiniteFunction(object):
         start, ini = self.ini.items()[0]
         return ini, [start, dest]
 
-    def approx(self, pt, prec=None):
+    def approx(self, pt, prec=None, post_transform=None):
+        r"""
+        TESTS::
+
+            sage: from ore_algebra import *
+            sage: from ore_algebra.analytic.function import DFiniteFunction
+            sage: DiffOps, x, Dx = DifferentialOperators()
+
+            sage: h = DFiniteFunction(Dx^3-1, [0, 0, 1])
+            sage: h.approx(0, post_transform=Dx^2)
+            [2.0000000000000...]
+        """
+        pt = Point(pt, self.dop)
         if prec is None:
             prec = _guess_prec(pt)
-        pt = Point(pt, self.dop)
+        post_transform = ancont.normalize_post_transform(self.dop,
+                                                         post_transform)
         eps = RBF.one() >> prec
         if prec >= self.max_prec or not pt.is_real():
             ini, path = self._path_to(pt)
@@ -192,8 +212,9 @@ class DFiniteFunction(object):
             raise NotImplementedError
         approx = self._polys.get(center)
         Balls = RealBallField(prec)
-        reduced_pt = Balls(pt.value) - Balls(center)
-        if approx is None or approx.prec < prec:
+        derivatives = post_transform.order() + 1
+        if (approx is None or approx.prec < prec
+                            or len(approx.polys) < derivatives):
             ini, path = self._path_to(center, prec)
             ctx = ancont.Context(self.dop, path, eps, keep="all")
             pairs = ancont.analytic_continuation(ctx, ini=ini)
@@ -201,12 +222,20 @@ class DFiniteFunction(object):
                 known = self._inivecs.get(vert)
                 if known is None or known[0].accuracy() < val[0][0].accuracy():
                     self._inivecs[vert] = [c[0] for c in val]
-            logger.debug("computing a polynomial approximation: "
+            logger.debug("computing polynomial approximations: "
                          "ini = %s, path = %s, rad = %s, eps = %s",
                          ini, path, rad, eps)
-            pol = polapprox.on_interval(self.dop, ini, path, eps, rad)
-            self._polys[center] = approx = RealPolApprox(pol=pol, prec=prec)
-        return approx.pol(reduced_pt)
+            polys = polapprox.doit(self.dop, ini=ini, path=path, rad=rad,
+                    eps=eps, derivatives=derivatives, x_is_real=True,
+                    economization=polapprox.chebyshev_economization)
+            self._polys[center] = RealPolApprox(polys, prec)
+        else:
+            polys = approx.polys
+        bpt = Balls(pt.value)
+        reduced_pt = bpt - Balls(center)
+        val = sum(ZZ(j).factorial()*coeff(bpt)*polys[j](reduced_pt)
+                  for j, coeff in enumerate(post_transform))
+        return val
 
     def __call__(self, x, prec=None):
         return self.approx(x, prec=prec)

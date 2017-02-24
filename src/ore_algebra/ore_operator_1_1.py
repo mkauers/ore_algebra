@@ -2204,11 +2204,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         from .analytic import analytic_continuation as ancont, local_solutions
         if not self:
             raise ValueError("operator must be nonzero")
-        if post_transform is None:
-            post_transform = self.parent().one()
-        else:
-            _, post_transform = canonical_coercion(self, post_transform)
-        post_transform = post_transform % self
+        post_transform = ancont.normalize_post_transform(self, post_transform)
         post_mat = matrix(1, self.order(),
                 lambda i, j: ZZ(j).factorial()*post_transform[j])
         ctx = ancont.Context(self, path, eps, **kwds)

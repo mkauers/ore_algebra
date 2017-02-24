@@ -18,7 +18,7 @@ from sage.rings.complex_arb import ComplexBallField
 from sage.rings.integer_ring import ZZ
 from sage.rings.number_field.number_field_element import NumberFieldElement
 from sage.rings.real_arb import RealBallField
-from sage.structure.element import Matrix
+from sage.structure.element import Matrix, canonical_coercion
 from sage.structure.sequence import Sequence
 
 from . import utilities
@@ -189,3 +189,10 @@ def analytic_continuation(ctx, ini=None, post=None):
             utilities.ball_field(ctx.eps, ctx.real()),
             *[mat.base_ring() for pt, mat in res])
     return [(pt, mat.change_ring(OutputIntervals)) for pt, mat in res]
+
+def normalize_post_transform(dop, post_transform):
+    if post_transform is None:
+        post_transform = dop.parent().one()
+    else:
+        _, post_transform = canonical_coercion(dop, post_transform)
+    return post_transform % dop
