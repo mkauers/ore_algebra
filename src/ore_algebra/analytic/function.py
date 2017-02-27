@@ -285,6 +285,14 @@ class DFiniteFunction(object):
         def wrapper(pt, ord, prec):
             val = self.approx(pt, prec, post_transform=Dx**ord)
             logger.debug("pt=%s, ord=%s, prec=%s, val=%s", pt, ord, prec, val)
+            if (self._sollya_domain is not None
+                    and not pt.overlaps(self._sollya_domain)):
+                backtrace = sollya.getbacktrace()
+                logger.warn("%s not in %s", pt.str(style='brackets'),
+                            self._sollya_domain.str(style='brackets'))
+                logger.warn("sollya backtrace: %s",
+                            [sollya.objectname(t.struct.called_proc)
+                                for t in backtrace])
             return val
         return sollya.sagefunction(wrapper)
 
