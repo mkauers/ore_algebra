@@ -189,6 +189,33 @@ class DFiniteFunction(object):
         start, ini = self.ini.items()[0]
         return ini, [start, dest]
 
+    # Having the update (rather than the full test-and-update) logic in a
+    # separate method is convenient to override it in subclasses.
+    def _update_approx(self, center, rad, prec, derivatives):
+        ini, path = self._path_to(center, prec)
+        eps = RBF.one() >> prec
+        ctx = ancont.Context(self.dop, path, eps, keep="all")
+        pairs = ancont.analytic_continuation(ctx, ini=ini)
+        for (vert, val) in pairs:
+            known = self._inivecs.get(vert)
+            if known is None or known[0].accuracy() < val[0][0].accuracy():
+                self._inivecs[vert] = [c[0] for c in val]
+        logger.info("computing new polynomial approximations: "
+                    "ini=%s, path=%s, rad=%s, eps=%s, ord=%s",
+                    ini, path, rad, eps, derivatives)
+        polys = polapprox.doit(self.dop, ini=ini, path=path, rad=rad,
+                eps=eps, derivatives=derivatives, x_is_real=True,
+                economization=polapprox.chebyshev_economization)
+        approx = self._polys.get(center, [])
+        new_approx = []
+        for ord, pol in enumerate(polys):
+            if ord >= len(approx) or approx[ord].prec < prec:
+                new_approx.append(RealPolApprox(pol, prec))
+            else:
+                new_approx.append(approx[ord])
+        self._polys[center] = new_approx
+        return polys
+
     def approx(self, pt, prec=None, post_transform=None):
         r"""
         TESTS::
@@ -206,11 +233,11 @@ class DFiniteFunction(object):
             prec = _guess_prec(pt)
         post_transform = ancont.normalize_post_transform(self.dop,
                                                          post_transform)
-        eps = RBF.one() >> prec
         if prec >= self.max_prec or not pt.is_real():
             logger.info("performing high-prec evaluation (pt=%s, prec=%s)",
                         pt, prec)
             ini, path = self._path_to(pt)
+            eps = RBF.one() >> prec
             return self.dop.numerical_solution(ini, path, eps)
         center, rad = self._disk(pt)
         if center is None:
@@ -224,26 +251,7 @@ class DFiniteFunction(object):
         # due to the way the polynomials are recomputed, the precisions attached
         # to the successive derivatives are nonincreasing
         if (len(approx) < derivatives or approx[derivatives-1].prec < prec):
-            ini, path = self._path_to(center, prec)
-            ctx = ancont.Context(self.dop, path, eps, keep="all")
-            pairs = ancont.analytic_continuation(ctx, ini=ini)
-            for (vert, val) in pairs:
-                known = self._inivecs.get(vert)
-                if known is None or known[0].accuracy() < val[0][0].accuracy():
-                    self._inivecs[vert] = [c[0] for c in val]
-            logger.info("computing new polynomial approximations: "
-                        "ini=%s, path=%s, rad=%s, eps=%s, ord=%s",
-                        ini, path, rad, eps, derivatives)
-            polys = polapprox.doit(self.dop, ini=ini, path=path, rad=rad,
-                    eps=eps, derivatives=derivatives, x_is_real=True,
-                    economization=polapprox.chebyshev_economization)
-            new_approx = []
-            for ord, pol in enumerate(polys):
-                if ord >= len(approx) or approx[ord].prec < prec:
-                    new_approx.append(RealPolApprox(pol, prec))
-                else:
-                    new_approx.append(approx[ord])
-            self._polys[center] = new_approx
+            polys = self._update_approx(center, rad, prec, derivatives)
         else:
             polys = [a.pol for a in approx]
         bpt = Balls(pt.value)
