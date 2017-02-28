@@ -50,9 +50,9 @@ TESTS::
 
 """
 
-import collections, logging
+import collections, logging, sys
 
-from sage.rings.all import ZZ, QQ, RBF, CBF
+from sage.rings.all import ZZ, QQ, RBF, CBF, RIF
 from sage.rings.complex_arb import ComplexBall, ComplexBallField
 from sage.rings.complex_number import ComplexNumber
 from sage.rings.real_arb import RealBall, RealBallField
@@ -111,7 +111,7 @@ class DFiniteFunction(object):
     #   These would be used when possible, and one would revert to the other
     #   family otherwise.
 
-    def __init__(self, dop, ini, max_prec=256, max_rad=RBF('inf')):
+    def __init__(self, dop, ini, name="f", max_prec=256, max_rad=RBF('inf')):
         self.dop = dop
         if not isinstance(ini, dict):
             ini = {0: ini}
@@ -120,6 +120,7 @@ class DFiniteFunction(object):
             # initial values.
             raise NotImplementedError
         self.ini = ini
+        self.name = name
 
         # Global maximum width for the approximation intervals. In the case of
         # equations with no finite singular point, we try to avoid cancellation
@@ -136,6 +137,9 @@ class DFiniteFunction(object):
 
         self._inivecs = {}
         self._polys = {}
+
+        self._sollya_object = None
+        self._sollya_domain = RIF('-inf', 'inf')
 
     def _disk(self, pt):
         assert pt.is_real()
@@ -206,13 +210,20 @@ class DFiniteFunction(object):
         polys = polapprox.doit(self.dop, ini=ini, path=path, rad=rad,
                 eps=eps, derivatives=derivatives, x_is_real=True,
                 economization=polapprox.chebyshev_economization)
+        logger.info("...done")
         approx = self._polys.get(center, [])
         new_approx = []
+        sollya_fun = self._sollya_object
         for ord, pol in enumerate(polys):
             if ord >= len(approx) or approx[ord].prec < prec:
                 new_approx.append(RealPolApprox(pol, prec))
             else:
                 new_approx.append(approx[ord])
+            if self._sollya_object is not None:
+                # sollya keeps all annotations, let's not bother with selecting
+                # the best one
+                sollya_fun = _sollya_annotate_and_diff(sollya_fun, pol,
+                                                                center, rad)
         self._polys[center] = new_approx
         return polys
 
@@ -287,22 +298,30 @@ class DFiniteFunction(object):
             ...
 
         """
+        if self._sollya_object is not None:
+            return self._sollya_object
         import sollya
         logger = logging.getLogger(__name__ + ".sollya")
         Dx = self.dop.parent().gen()
         def wrapper(pt, ord, prec):
-            val = self.approx(pt, prec, post_transform=Dx**ord)
+            try:
+                val = self.approx(pt, prec, post_transform=Dx**ord)
+            except Exception:
+                logger.info("pt=%s, ord=%s, prec=%s, error", pt, ord, prec,
+                            exc_info=True)
+                return RIF('nan')
             logger.debug("pt=%s, ord=%s, prec=%s, val=%s", pt, ord, prec, val)
-            if (self._sollya_domain is not None
-                    and not pt.overlaps(self._sollya_domain)):
+            if not pt.overlaps(self._sollya_domain):
                 backtrace = sollya.getbacktrace()
-                logger.warn("%s not in %s", pt.str(style='brackets'),
-                            self._sollya_domain.str(style='brackets'))
-                logger.warn("sollya backtrace: %s",
-                            [sollya.objectname(t.struct.called_proc)
-                                for t in backtrace])
+                logger.debug("%s not in %s", pt.str(style='brackets'),
+                             self._sollya_domain.str(style='brackets'))
+                logger.debug("sollya backtrace: %s",
+                             [sollya.objectname(t.struct.called_proc)
+                                 for t in backtrace])
             return val
-        return sollya.sagefunction(wrapper)
+        wrapper.__name__ = self.name
+        self._sollya_object = sollya.sagefunction(wrapper)
+        return self._sollya_object
 
 def _guess_prec(pt):
     if isinstance(pt, (RealNumber, ComplexNumber, RealBall, ComplexBall)):
@@ -347,3 +366,18 @@ def _growth_parameters(dop):
     eqn = Pol({i: c for (h, i, c) in points if i == i0 + slope*(h-h0)})
     expo_growth = bounds.abs_min_nonzero_root(eqn)**(-slope)
     return -slope, expo_growth
+
+def _sollya_annotate_and_diff(sollya_fun, pol, center, rad):
+    import sollya
+    logger = logging.getLogger(__name__ + ".sollya")
+    sollya_pol = sum([c.center()*sollya.x**k for k, c in enumerate(pol)])
+    dom = RIF(center - rad, center + rad)
+    err_pol = pol.map_coefficients(lambda c: c - c.squash())
+    err = RIF(err_pol(RBF.zero().add_error(rad)))
+    with sollya.settings(display=sollya.dyadic):
+        logger.debug("annotatefunction(%s, %s, %s, %s, %s);",
+                sollya_fun, sollya_pol, sollya.SollyaObject(dom),
+                sollya.SollyaObject(err), sollya.SollyaObject(QQ(center)))
+    sollya.annotatefunction(sollya_fun, sollya_pol, dom, err, QQ(center))
+    logger.debug("...done")
+    return sollya.diff(sollya_fun)
