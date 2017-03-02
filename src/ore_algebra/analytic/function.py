@@ -108,7 +108,8 @@ class DFiniteFunction(object):
     #   These would be used when possible, and one would revert to the other
     #   family otherwise.
 
-    def __init__(self, dop, ini, name="f", max_prec=256, max_rad=RBF('inf')):
+    def __init__(self, dop, ini, name="dfinitefun",
+                 max_prec=256, max_rad=RBF('inf')):
         self.dop = dop
         if not isinstance(ini, dict):
             ini = {0: ini}
@@ -137,6 +138,9 @@ class DFiniteFunction(object):
 
         self._sollya_object = None
         self._sollya_domain = RIF('-inf', 'inf')
+
+    def __repr__(self):
+        return self.name
 
     def _disk(self, pt):
         assert pt.is_real()
