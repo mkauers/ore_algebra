@@ -92,7 +92,7 @@ def ordinary_step_transition_matrix(ctx, step, eps, rows):
                 ldop, step.delta(), eps, rows, maj)
     elif step.is_exact():
         thr = 256 + 32*ldop.degree()
-        if eps > bounds.IR(1)>>thr:
+        if eps > step.cvg_ratio()**thr:
             try:
                 return naive_sum.fundamental_matrix_ordinary(
                         ldop, step.delta(), eps, rows, maj, max_prec=4*thr)

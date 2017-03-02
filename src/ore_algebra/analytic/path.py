@@ -454,6 +454,9 @@ class Step(SageObject):
     def length(self):
         return IC(self.delta()).abs()
 
+    def cvg_ratio(self):
+        return self.length()/self.start.dist_to_sing()
+
     def check_singularity(self):
         r"""
         Raise an error if this step goes through a singular point or seems to do
