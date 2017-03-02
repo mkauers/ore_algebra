@@ -52,6 +52,9 @@ TESTS::
 
 import collections, logging, sys
 
+import sage.plot.all as plot
+
+from sage.plot.plot import generate_plot_points
 from sage.rings.all import ZZ, QQ, RBF, CBF, RIF
 from sage.rings.complex_arb import ComplexBall, ComplexBallField
 from sage.rings.complex_number import ComplexNumber
@@ -274,11 +277,67 @@ class DFiniteFunction(object):
     def __call__(self, x, prec=None):
         return self.approx(x, prec=prec)
 
-    def plot(self, xmin, xmax):
-        pass
+    def plot(self, xrange, **options):
+        r"""
+        Plot this function.
+
+        The plot is intended to give an idea of the accuracy of the evaluations
+        that led to it. However, it may not be a rigorous enclosure of the graph
+        of the function.
+
+        EXAMPLES::
+
+            sage: from ore_algebra import *
+            sage: from ore_algebra.analytic.function import DFiniteFunction
+            sage: DiffOps, x, Dx = DifferentialOperators()
+
+            sage: f = DFiniteFunction(Dx^2 - x,
+            ....:         [1/(gamma(2/3)*3^(2/3)), -1/(gamma(1/3)*3^(1/3))])
+            sage: plot(f, (-10, 5), color='black')
+            Graphics object consisting of 1 graphics primitive
+        """
+        mids = generate_plot_points(
+                lambda x: self.approx(x, 20).mid(),
+                xrange, plot_points=200)
+        ivs = [(x, self.approx(x, 20)) for x, _ in mids]
+        bounds  = [(x, y.upper()) for x, y in ivs]
+        bounds += [(x, y.lower()) for x, y in reversed(ivs)]
+        options.setdefault('aspect_ratio', 'automatic')
+        g = plot.polygon(bounds, thickness=1, **options)
+        return g
 
     def plot_known(self):
-        pass
+        r"""
+        TESTS::
+
+            sage: from ore_algebra import *
+            sage: from ore_algebra.analytic.function import DFiniteFunction
+            sage: DiffOps, x, Dx = DifferentialOperators()
+
+            sage: f = DFiniteFunction((x^2 + 1)*Dx^2 + 2*x*Dx, [0, 1])
+            sage: f(-10, 100) # long time
+            [-1.4711276743037345918528755717...]
+            sage: f.approx(5, post_transform=Dx) # long time
+            [0.038461538461538...]
+            sage: f.plot_known() # long time
+            Graphics object consisting of ... graphics primitives
+        """
+        g = plot.Graphics()
+        for center, polys in self._polys.iteritems():
+            center, rad = self._disk(Point(center, self.dop))
+            xrange = (center - rad).mid(), (center + rad).mid()
+            for i, a in enumerate(polys):
+                # color palette copied from sage.plot.plot.plot
+                color = plot.Color((0.66666+i*0.61803)%1, 1, 0.4, space='hsl')
+                Balls = a.pol.base_ring()
+                g += plot.plot(lambda x: a.pol(Balls(x)).mid(),
+                               xrange, color=color)
+                g += plot.text(str(a.prec), (center, a.pol(center).mid()),
+                               color=color)
+        for point, ini in self._inivecs.iteritems():
+            g += plot.point2d((point, 0), size=50)
+        return g
+
 
     def _sollya_(self):
         r"""
