@@ -76,12 +76,6 @@ logger = logging.getLogger(__name__)
     #   polynomial approximations become too large???
     #
     # - Introduce separate "Cache" objects?
-    #
-    # - Support derivatives and make it possible to share the analytic
-    #   continuation part (computation of local initial values) between a
-    #   function and its derivatives.
-    #
-    #   -> note : polapprox.doit() already supports that to some extent
 
 RealPolApprox = collections.namedtuple('RealPolApprox', ['pol', 'prec'])
 
