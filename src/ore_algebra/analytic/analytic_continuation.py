@@ -9,9 +9,7 @@ import sage.rings.all as rings
 import sage.rings.real_arb
 import sage.rings.complex_arb
 
-import ore_algebra.analytic.accuracy as accuracy
-import ore_algebra.analytic.bounds as bounds
-import ore_algebra.analytic.utilities as utilities
+from . import accuracy, bounds, utilities
 
 from sage.matrix.constructor import identity_matrix, matrix
 from sage.rings.complex_arb import ComplexBallField

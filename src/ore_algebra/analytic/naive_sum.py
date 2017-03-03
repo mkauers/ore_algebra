@@ -26,8 +26,7 @@ from sage.rings.rational_field import QQ
 from sage.rings.real_arb import RealBallField, RBF, RealBall
 from sage.structure.sequence import Sequence
 
-import ore_algebra.ore_algebra as ore_algebra
-
+from .. import ore_algebra
 from . import accuracy, bounds, utilities
 from .local_solutions import *
 from .safe_cmp import *

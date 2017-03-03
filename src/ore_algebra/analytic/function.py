@@ -61,12 +61,12 @@ from sage.rings.complex_number import ComplexNumber
 from sage.rings.real_arb import RealBall, RealBallField
 from sage.rings.real_mpfr import RealNumber
 
+from . import analytic_continuation as ancont
 from . import bounds
+from . import polynomial_approximation as polapprox
 
-import ore_algebra.analytic.analytic_continuation as ancont
-import ore_algebra.analytic.polynomial_approximation as polapprox
-from ore_algebra.analytic.path import Point
-from ore_algebra.analytic.safe_cmp import *
+from .path import Point
+from .safe_cmp import *
 
 logger = logging.getLogger(__name__)
 
