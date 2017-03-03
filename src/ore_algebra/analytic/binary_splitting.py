@@ -85,11 +85,11 @@ def PolynomialRing(base, var):
         return polyringconstr.PolynomialRing(base, var)
 
 class StepMatrix(object):
-    """
+    r"""
     A structured matrix that maps a vector of s coefficients and a partial sum
     (both around some truncation index n) of a D-finite series to a similar
     vector corresponding to the partial sum truncated at order n + p for some p.
-    The partial sum (but not the coefficients) typically depend on a
+    The partial sum (but not the coefficients) typically depends on a
     perturbation parameter δ, making it possible to compute several derivatives
     of the series at once.
     """
@@ -148,7 +148,7 @@ class StepMatrix(object):
         return pprint.pformat(self.__dict__)
 
 class MatrixRec(object):
-    """
+    r"""
     A matrix recurrence simultaneously generating the coefficients and partial
     sums of solutions of an ODE, and possibly derivatives of this solution.
 
