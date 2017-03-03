@@ -325,6 +325,11 @@ def series_sum(dop, ini, pt, tgt_error, maj=None, bwrec=None,
         ...
         ValueError: invalid initial data for x*Dx^2 + Dx + x at 0
 
+        sage: iv = RBF(RIF(-10^(-6), 10^(-6)))
+        sage: series_sum(((6+x)^2 + 1)*Dx^2+2*(6+x)*Dx, [iv, iv], 4, RBF(1e-10))
+        WARNING:...
+        ([+/- ...])
+
     Test that automatic precision increases do something reasonable::
 
         sage: logger = logging.getLogger('ore_algebra.analytic.naive_sum')
@@ -460,10 +465,11 @@ def series_sum_ordinary(Intervals, dop, bwrec, ini, pt,
     assert len(last) == ordrec + 1 # not ordrec!
     psum = Jets.zero()
 
+    est = bounds.IR(infinity)
     tail_bound = bounds.IR(infinity)
     bit_prec = Intervals.precision()
     ini_are_accurate = 2*min(pt.accuracy(), ini.accuracy()) > bit_prec
-    def check_convergence(prev_tail_bound):
+    def check_convergence(prev_tail_bound, prev_est):
         # last[-1] since last[0] may still be "undefined" and last[1] may
         # not exist in degenerate cases
         est = (max([abs(a) for a in last])*radpow).above_abs()
@@ -478,10 +484,10 @@ def series_sum_ordinary(Intervals, dop, bwrec, ini, pt,
         if safe_gt(width, tgt_error.eps/4):
             if ini_are_accurate:
                 raise PrecisionError(2*bit_prec)
-            elif safe_gt(est, width):
-                return False, bounds.IR(infinity)
+            elif safe_gt(est, width) and safe_lt(est, prev_est):
+                return False, bounds.IR(infinity), est
         elif not tgt_error.reached(est, abs_sum) and record_bounds_in is None:
-            return False, bounds.IR(infinity)
+            return False, bounds.IR(infinity), est
         # Warning: this residual must correspond to the operator stored in
         # maj.dop, which typically isn't the operator series_sum was called on
         # (but its to_T(), i.e. its product by a power of x).
@@ -497,13 +503,15 @@ def series_sum_ordinary(Intervals, dop, bwrec, ini, pt,
             if (tgt_error.reached(tail_bound, abs_sum)
                     or safe_gt(width, tail_bound)
                     or not safe_le(tail_bound, prev_tail_bound.above_abs())):
-                return True, tail_bound
+                return True, tail_bound, est
             thr = tail_bound*est**(QQ((maj._effort**2 + 2)*stride)/n)
             if tgt_error.reached(thr):
                 # Try summing a few more terms before refining
                 break
             maj.refine()
-        return False, tail_bound
+        if not tail_bound.is_finite():
+            return True, tail_bound, est
+        return False, tail_bound, est
 
     start = dop.order()
     # Evaluate the coefficients a bit in advance as we are going to need them to
@@ -525,7 +533,7 @@ def series_sum_ordinary(Intervals, dop, bwrec, ini, pt,
         # the coefficient of z^n later in the loop body) and last[1], ...
         # last[ordrec] are the coefficients of z^(n-1), ..., z^(n-ordrec)
         if n%stride == 0:
-            done, tail_bound = check_convergence(tail_bound)
+            done, tail_bound, est = check_convergence(tail_bound, est)
             if done: break
         bwrec_n = (bwrec_nplus[0] if bwrec_nplus
                    else bwrec.eval_int_ball(Intervals, n))
