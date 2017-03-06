@@ -239,6 +239,21 @@ class DFiniteFunction(object):
             sage: h = DFiniteFunction(Dx^3-1, [0, 0, 1])
             sage: h.approx(0, post_transform=Dx^2)
             [2.0000000000000...]
+
+            sage: f = DFiniteFunction((x^2 + 1)*Dx^2 + 2*x*Dx, [0, 1], max_prec=20)
+            sage: f.approx(1/3, prec=10)
+            [0.32...]
+            sage: f.approx(1/3, prec=40)
+            [0.321750554396...]
+            sage: f.approx(1/3, prec=10, post_transform=Dx)
+            [0.9...]
+            sage: f.approx(1/3, prec=40, post_transform=Dx)
+            [0.900000000000...]
+            sage: f.approx(1/3, prec=10, post_transform=Dx^2)
+            [-0.54...]
+            sage: f.approx(1/3, prec=40, post_transform=Dx^2)
+            [-0.540000000000...]
+
         """
         pt = Point(pt, self.dop)
         if prec is None:
@@ -250,7 +265,8 @@ class DFiniteFunction(object):
                         pt, prec)
             ini, path = self._path_to(pt)
             eps = RBF.one() >> prec
-            return self.dop.numerical_solution(ini, path, eps)
+            return self.dop.numerical_solution(ini, path, eps,
+                    post_transform=post_transform)
         center, rad = self._disk(pt)
         if center is None:
             raise NotImplementedError
