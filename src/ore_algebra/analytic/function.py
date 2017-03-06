@@ -138,6 +138,8 @@ class DFiniteFunction(object):
 
         self._sollya_object = None
         self._sollya_domain = RIF('-inf', 'inf')
+        self._keep_all_derivatives = False
+        self._update_approx_hook = (lambda *args: None)
 
     def __repr__(self):
         return self.name
@@ -214,19 +216,37 @@ class DFiniteFunction(object):
         logger.info("...done")
         approx = self._polys.get(center, [])
         new_approx = []
-        sollya_fun = self._sollya_object
         for ord, pol in enumerate(polys):
             if ord >= len(approx) or approx[ord].prec < prec:
                 new_approx.append(RealPolApprox(pol, prec))
             else:
                 new_approx.append(approx[ord])
-            if self._sollya_object is not None:
-                # sollya keeps all annotations, let's not bother with selecting
-                # the best one
-                sollya_fun = _sollya_annotate_and_diff(sollya_fun, pol,
-                                                                center, rad)
+        self._update_approx_hook(center, rad, polys)
         self._polys[center] = new_approx
         return polys
+
+    def _sollya_annotate(self, center, rad, polys):
+        import sollya
+        logger = logging.getLogger(__name__ + ".sollya")
+        logger.info("calling annotatefunction() on %s derivatives", len(polys))
+        center = QQ(center)
+        sollya_fun = self._sollya_object
+        # sollya keeps all annotations, let's not bother with selecting
+        # the best one
+        for ord, pol0 in enumerate(polys):
+            pol = ZZ(ord).factorial()*pol0
+            sollya_pol = sum([c.center()*sollya.x**k
+                              for k, c in enumerate(pol)])
+            dom = RIF(center - rad, center + rad) # XXX: dangerous when inexact
+            err_pol = pol.map_coefficients(lambda c: c - c.squash())
+            err = RIF(err_pol(RBF.zero().add_error(rad)))
+            with sollya.settings(display=sollya.dyadic):
+                logger.debug("annotatefunction(%s, %s, %s, %s, %s);",
+                        sollya_fun, sollya_pol, sollya.SollyaObject(dom),
+                        sollya.SollyaObject(err), sollya.SollyaObject(center))
+            sollya.annotatefunction(sollya_fun, sollya_pol, dom, err, center)
+            sollya_fun = sollya.diff(sollya_fun)
+        logger.info("...done")
 
     def approx(self, pt, prec=None, post_transform=None):
         r"""
@@ -258,8 +278,12 @@ class DFiniteFunction(object):
         pt = Point(pt, self.dop)
         if prec is None:
             prec = _guess_prec(pt)
+        derivatives = (post_transform.order() + 1 if post_transform is not None
+                       else 1)
         post_transform = ancont.normalize_post_transform(self.dop,
                                                          post_transform)
+        if not self._keep_all_derivatives:
+            derivatives = post_transform.order() + 1
         if prec >= self.max_prec or not pt.is_real():
             logger.info("performing high-prec evaluation (pt=%s, prec=%s)",
                         pt, prec)
@@ -275,7 +299,6 @@ class DFiniteFunction(object):
             #return self.dop.numerical_solution(ini=ini, path=path, eps=eps)
         approx = self._polys.get(center, [])
         Balls = RealBallField(prec)
-        derivatives = post_transform.order() + 1
         # due to the way the polynomials are recomputed, the precisions attached
         # to the successive derivatives are nonincreasing
         if (len(approx) < derivatives or approx[derivatives-1].prec < prec):
@@ -352,7 +375,6 @@ class DFiniteFunction(object):
             g += plot.point2d((point, 0), size=50)
         return g
 
-
     def _sollya_(self):
         r"""
         EXAMPLES::
@@ -394,6 +416,7 @@ class DFiniteFunction(object):
             return val
         wrapper.__name__ = self.name
         self._sollya_object = sollya.sagefunction(wrapper)
+        self._update_approx_hook = self._sollya_annotate
         return self._sollya_object
 
 def _guess_prec(pt):
@@ -439,18 +462,3 @@ def _growth_parameters(dop):
     eqn = Pol({i: c for (h, i, c) in points if i == i0 + slope*(h-h0)})
     expo_growth = bounds.abs_min_nonzero_root(eqn)**(-slope)
     return -slope, expo_growth
-
-def _sollya_annotate_and_diff(sollya_fun, pol, center, rad):
-    import sollya
-    logger = logging.getLogger(__name__ + ".sollya")
-    sollya_pol = sum([c.center()*sollya.x**k for k, c in enumerate(pol)])
-    dom = RIF(center - rad, center + rad)
-    err_pol = pol.map_coefficients(lambda c: c - c.squash())
-    err = RIF(err_pol(RBF.zero().add_error(rad)))
-    with sollya.settings(display=sollya.dyadic):
-        logger.debug("annotatefunction(%s, %s, %s, %s, %s);",
-                sollya_fun, sollya_pol, sollya.SollyaObject(dom),
-                sollya.SollyaObject(err), sollya.SollyaObject(QQ(center)))
-    sollya.annotatefunction(sollya_fun, sollya_pol, dom, err, QQ(center))
-    logger.debug("...done")
-    return sollya.diff(sollya_fun)
