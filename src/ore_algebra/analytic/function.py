@@ -285,8 +285,9 @@ class DFiniteFunction(object):
         if not self._keep_all_derivatives:
             derivatives = post_transform.order() + 1
         if prec >= self.max_prec or not pt.is_real():
-            logger.info("performing high-prec evaluation (pt=%s, prec=%s)",
-                        pt, prec)
+            logger.info("performing high-prec evaluation "
+                        "(pt=%s, prec=%s, post_transform=%s)",
+                        pt, prec, post_transform)
             ini, path = self._path_to(pt)
             eps = RBF.one() >> prec
             return self.dop.numerical_solution(ini, path, eps,
