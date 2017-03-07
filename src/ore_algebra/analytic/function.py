@@ -85,6 +85,18 @@ class DFiniteFunction(object):
     repeated evaluations of a D-Finite function on the real line. It may
     evolve to support evaluations on the complex plane, branch cuts, ring
     operations on D-Finite functions, and more. Do not expect any API stability.
+
+    TESTS::
+
+        sage: from ore_algebra import *
+        sage: from ore_algebra.analytic.function import DFiniteFunction
+        sage: from ore_algebra.analytic.path import Point
+
+        sage: DiffOps, x, Dx = DifferentialOperators()
+
+        sage: f = DFiniteFunction(Dx - 1, [1], max_rad=7/8)
+        sage: f._disk(Point(pi, dop=Dx-1))
+        (7/2, 0.5000000000000000)
     """
 
     # Stupid, but simple and deterministic caching strategy:
@@ -150,7 +162,7 @@ class DFiniteFunction(object):
         # approximation disk containing pt must have rad ≤ dist(pt, sing)
         max_rad = pt.dist_to_sing().min(self.max_rad)
         # What we want is the largest such disk containing pt
-        expo = ZZ(max_rad.log(2).upper().ceil()) # rad = 2^expo
+        expo = ZZ(max_rad.log(2).upper().ceil()) - 1 # rad = 2^expo
         logger.log(logging.DEBUG-2, "max_rad = %s, expo = %s", max_rad, expo)
         while True:
             approx_pt = pt.approx_abs_real(-expo)
