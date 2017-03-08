@@ -54,8 +54,9 @@ import collections, logging, sys
 
 import sage.plot.all as plot
 
+from sage.misc.cachefunc import cached_method
 from sage.plot.plot import generate_plot_points
-from sage.rings.all import ZZ, QQ, RBF, CBF, RIF
+from sage.rings.all import ZZ, QQ, RBF, CBF, RIF, CIF
 from sage.rings.complex_arb import ComplexBall, ComplexBallField
 from sage.rings.complex_number import ComplexNumber
 from sage.rings.real_arb import RealBall, RealBallField
@@ -155,6 +156,11 @@ class DFiniteFunction(object):
 
     def __repr__(self):
         return self.name
+
+    @cached_method
+    def _is_everywhere_defined(self):
+        return not any(rt.imag().contains_zero()
+                for rt, mult in self.dop.leading_coefficient().roots(CIF))
 
     def _disk(self, pt):
         assert pt.is_real()
@@ -412,6 +418,11 @@ class DFiniteFunction(object):
         logger = logging.getLogger(__name__ + ".sollya")
         Dx = self.dop.parent().gen()
         def wrapper(pt, ord, prec):
+            if pt.absolute_diameter().is_infinity():
+                if self._is_everywhere_defined():
+                    return pt.parent()('-inf', 'inf')
+                else:
+                    return pt.parent()('nan')
             try:
                 val = self.approx(pt, prec, post_transform=Dx**ord)
             except Exception:
