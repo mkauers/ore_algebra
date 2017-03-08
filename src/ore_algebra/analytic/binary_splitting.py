@@ -51,6 +51,21 @@ TESTS::
     [1.04885235135491485162956376369999275945402550465206640313845...] + [+/- ...]*I
 
     sage: logger.setLevel(logging.WARNING)
+
+    sage: from ore_algebra.analytic.binary_splitting import MatrixRec
+
+    sage: rec = MatrixRec((x-2)*Dx^3 - 1, RBF(1/3), 3)
+    sage: rec.partial_sums(rec.binsplit(0, 10), RBF, 3)
+    [  [0.996...]  [0.333...] [0.111...]]
+    [ [-0.029...]  [0.996...] [0.666...]]
+    [ [-0.091...] [-0.015...] [0.996...]]
+
+    sage: QQi.<i> = QuadraticField(-1)
+    sage: rec = MatrixRec((x-i)*Dx^3 - 1, RBF(1/3), 3)
+    sage: rec.partial_sums(rec.binsplit(0, 10), CBF, 3)
+    [ [1.0005...] + [0.0061...]*I [0.3333...] + [0.0005...]*I [0.1111...] + [6.6513...]*I]
+    [ [0.0059...] + [0.0545...]*I [1.0009...] + [0.0059...]*I [0.6668...] + [0.0009...]*I]
+    [ [0.0261...] + [0.1609...]*I [0.0057...] + [0.0263...]*I [1.0014...] + [0.0057...]*I]
 """
 
 import copy
@@ -120,7 +135,7 @@ class StepMatrix(object):
         low.rec_mat = high.rec_mat._multiply_classical(low.rec_mat) # Mat(rec_Ints)
         tmp = high.sums_row._multiply_classical(mat) # Vec(sums_Ints[[δ]]/<δ^k>)
         for i in xrange(mat.nrows()):
-            tmp[0,i] = tmp[0,i]._mul_trunc_(low.pow_num, low.ord)
+            tmp[0,i] = tmp[0,i]._mul_trunc_(low.BigScalars(low.pow_num), low.ord)
         #assert tmp[0][0].degree() < low.ord
         tmp2 = high.rec_den * high.pow_den
         tmp3 = low.sums_row._lmul_(low.BigScalars(tmp2))
