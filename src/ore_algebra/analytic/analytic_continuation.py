@@ -19,7 +19,6 @@ from sage.rings.real_arb import RealBallField
 from sage.structure.element import Matrix, canonical_coercion
 from sage.structure.sequence import Sequence
 
-from . import utilities
 from .path import Path, Step
 
 logger = logging.getLogger(__name__)
