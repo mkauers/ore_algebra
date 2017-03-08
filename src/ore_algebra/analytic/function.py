@@ -219,6 +219,7 @@ class DFiniteFunction(object):
     def _update_approx(self, center, rad, prec, derivatives):
         ini, path = self._path_to(center, prec)
         eps = RBF.one() >> prec
+        # keep="all" won't do anything until _path_to returns better paths
         ctx = ancont.Context(self.dop, path, eps, keep="all")
         pairs = ancont.analytic_continuation(ctx, ini=ini)
         for (vert, val) in pairs:
