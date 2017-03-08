@@ -2020,12 +2020,24 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             sage: dop.annihilator_of_composition(1 + x).generalized_series_solutions(3)
             [x*(1 - x + 5/6*x^2 + O(x^3)),
              (x - x^2 + O(x^3))*log(x) - 1 + 1/2*x^2 + O(x^3)]
+
+        TESTS::
+
+            sage: ((x+1/3)*Dx^4+Dx-x).local_basis_monomials(-1/3)
+            [1, x + 1/3, 1/9*(3*x + 1)^2, 1/27*(3*x + 1)^3]
+
         """
         from .analytic.path import Point
         struct = Point(point, self).local_basis_structure()
         x = SR(self.base_ring().gen()) - point
-        return [x**sol.valuation*symbolic_log.log(x, hold=True)**sol.log_power
-                                                      /sol.log_power.factorial()
+        def simplify_valuation(valuation): # work around sage bug #21758
+            try:
+                return ZZ(valuation)
+            except ValueError:
+                return valuation
+        return [x**simplify_valuation(sol.valuation)
+                    *symbolic_log.log(x, hold=True)**sol.log_power
+                    /sol.log_power.factorial()
                 for sol in struct]
 
     def numerical_solution(self, ini, path, eps=1e-16, post_transform=None, **kwds):
