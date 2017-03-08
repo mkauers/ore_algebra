@@ -2026,6 +2026,9 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             sage: ((x+1/3)*Dx^4+Dx-x).local_basis_monomials(-1/3)
             [1, x + 1/3, 1/9*(3*x + 1)^2, 1/27*(3*x + 1)^3]
 
+            sage: ((x^2 - 2)^3*Dx^4+Dx-x).local_basis_monomials(sqrt(2))
+            [1, (x - sqrt(2))^0.978..., (x - sqrt(2))^2.044...,
+            (x - sqrt(2))^2.977...]
         """
         from .analytic.path import Point
         struct = Point(point, self).local_basis_structure()

@@ -53,10 +53,12 @@ class Point(SageObject):
             sage: Dops, x, Dx = DifferentialOperators()
             sage: [Point(z, Dx)
             ....:  for z in [1, 1/2, 1+I, QQbar(I), RIF(1/3), CIF(1/3), pi,
-            ....:  RDF(1), CDF(I), 0.5r, 0.5jr, 10r]]
+            ....:  RDF(1), CDF(I), 0.5r, 0.5jr, 10r, QQbar(1), AA(1/3)]]
             [1, 1/2, I + 1, I, [0.333333333333333...], [0.333333333333333...],
             3.141592653589794?, 1.000000000000000, 1.000000000000000*I,
-            0.5000000000000000, 0.5000000000000000*I, 10]
+            0.5000000000000000, 0.5000000000000000*I, 10, 1, 1/3]
+            sage: Point(sqrt(2), Dx).iv()
+            [1.414...]
         """
         SageObject.__init__(self)
 
@@ -87,16 +89,23 @@ class Point(SageObject):
             except TypeError:
                 pass
             try:
+                return self.__init__(QQbar(point), dop)
+            except (TypeError, ValueError, NotImplementedError):
+                pass
+            try:
                 self.value = RLF(point)
             except (TypeError, ValueError):
                 self.value = CLF(point)
         elif QQbar.has_coerce_map_from(parent):
             alg = QQbar.coerce(point)
             NF, val, hom = alg.as_number_field_element()
-            embNF = number_field.NumberField(NF.polynomial(),
-                                             NF.variable_name(),
-                                             embedding=hom(NF.gen()))
-            self.value = val.polynomial()(embNF.gen())
+            if NF is QQ:
+                self.value = QQ.coerce(val) # parent may be ZZ
+            else:
+                embNF = number_field.NumberField(NF.polynomial(),
+                                                NF.variable_name(),
+                                                embedding=hom(NF.gen()))
+                self.value = val.polynomial()(embNF.gen())
         elif isinstance(parent, (RealField_class, RealDoubleField_class,
                                  RealIntervalField_class)):
             self.value = RealBallField(point.prec())(point)
