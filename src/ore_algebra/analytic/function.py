@@ -427,7 +427,7 @@ class DFiniteFunction(object):
                 val = self.approx(pt, prec, post_transform=Dx**ord)
             except Exception:
                 logger.info("pt=%s, ord=%s, prec=%s, error", pt, ord, prec,
-                            exc_info=True)
+                            exc_info=(pt.absolute_diameter() < .5))
                 return RIF('nan')
             logger.debug("pt=%s, ord=%s, prec=%s, val=%s", pt, ord, prec, val)
             if not pt.overlaps(self._sollya_domain):
