@@ -184,7 +184,7 @@ class DFiniteFunction(object):
 
         self._sollya_object = None
         self._sollya_domain = RIF('-inf', 'inf')
-        self._keep_all_derivatives = False
+        self._max_derivatives = self.dop.order()
         self._update_approx_hook = (lambda *args: None)
 
     def __repr__(self):
@@ -359,12 +359,11 @@ class DFiniteFunction(object):
         pt = Point(pt, self.dop)
         if prec is None:
             prec = _guess_prec(pt)
-        derivatives = (post_transform.order() + 1 if post_transform is not None
-                       else 1)
+        if post_transform is None:
+            post_transform = self.dop.parent().one()
+        derivatives = min(post_transform.order() + 1, self._max_derivatives)
         post_transform = ancont.normalize_post_transform(self.dop,
                                                          post_transform)
-        if not self._keep_all_derivatives:
-            derivatives = post_transform.order() + 1
         if prec >= self.max_prec or not pt.is_real():
             logger.info("performing high-prec evaluation "
                         "(pt=%s, prec=%s, post_transform=%s)",
