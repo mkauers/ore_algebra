@@ -59,7 +59,9 @@ from sage.plot.plot import generate_plot_points
 from sage.rings.all import ZZ, QQ, RBF, CBF, RIF, CIF
 from sage.rings.complex_arb import ComplexBall, ComplexBallField
 from sage.rings.complex_number import ComplexNumber
+from sage.rings.infinity import AnInfinity
 from sage.rings.real_arb import RealBall, RealBallField
+from sage.rings.real_mpfi import RealIntervalField
 from sage.rings.real_mpfr import RealNumber
 
 from . import analytic_continuation as ancont
@@ -92,12 +94,43 @@ class DFiniteFunction(object):
         sage: from ore_algebra import *
         sage: from ore_algebra.analytic.function import DFiniteFunction
         sage: from ore_algebra.analytic.path import Point
+        sage: from sage.rings.infinity import AnInfinity
 
-        sage: DiffOps, x, Dx = DifferentialOperators()
+        sage: Dops, x, Dx = DifferentialOperators()
 
         sage: f = DFiniteFunction(Dx - 1, [1], max_rad=7/8)
         sage: f._disk(Point(pi, dop=Dx-1))
         (7/2, 0.5000000000000000)
+
+        sage: f = DFiniteFunction(Dx^2 - x,
+        ....:         [1/(gamma(2/3)*3^(2/3)), -1/(gamma(1/3)*3^(1/3))],
+        ....:         name='my_Ai')
+        sage: f.plot((-5,5))
+        Graphics object consisting of 1 graphics primitive
+        sage: f._known_bound(RBF(RIF(1/3, 2/3)), post_transform=Dops.one())
+        [0.2...]
+        sage: f._known_bound(RBF(RIF(-1, 5.99)), post_transform=Dops.one())
+        [+/- ...]
+        sage: f._known_bound(RBF(RIF(-1, 6.01)), Dops.one())
+        [+/- inf]
+
+        sage: f = DFiniteFunction((x^2 + 1)*Dx^2 + 2*x*Dx, [0, 1])
+        sage: f.plot((0, 4))
+        Graphics object consisting of 1 graphics primitive
+        sage: f._known_bound(RBF(RIF(1,4)), Dops.one())
+        [1e+0 +/- 0.3...]
+        sage: f.approx(1, post_transform=Dx), f.approx(2, post_transform=Dx)
+        ([0.5000000000000...], [0.2000000000000...])
+        sage: f._known_bound(RBF(RIF(1.1, 2.9)), post_transform=Dx)
+        [+/- 0.4...]
+        sage: f._known_bound(RBF(AnInfinity()), Dops.one())
+        [+/- inf]
+
+        sage: f = DFiniteFunction((x + 1)*Dx^2 + 2*x*Dx, [0, 1])
+        sage: f._known_bound(RBF(RIF(1,10)),Dops.one())
+        nan
+        sage: f._known_bound(RBF(AnInfinity()), Dops.one())
+        nan
     """
 
     # Stupid, but simple and deterministic caching strategy:
@@ -201,6 +234,9 @@ class DFiniteFunction(object):
         center = QQ(center)
         return center, rad
 
+    def _rad(self, center):
+        return RBF.one() << QQ(center).valuation(2)
+
     def _path_to(self, dest, prec=None):
         r"""
         Find a path from a point with known "initial" values to pt
@@ -266,6 +302,32 @@ class DFiniteFunction(object):
             sollya.annotatefunction(sollya_fun, sollya_pol, dom, err, center)
             sollya_fun = sollya.diff(sollya_fun)
         logger.info("...done")
+
+    def _known_bound(self, iv, post_transform):
+        Balls = iv.parent()
+        Ivs = RealIntervalField(Balls.precision())
+        mid = [c for c in self._polys.keys()
+                 if Balls(c).add_error(self._rad(c)).overlaps(iv)]
+        mid.sort()
+        rad = [self._rad(c) for c in mid]
+        crude_bound = (Balls(AnInfinity()) if self._is_everywhere_defined()
+                       else Balls('nan'))
+        if len(mid) < 1 or not mid[0] - rad[0] <= iv <= mid[-1] + rad[-1]:
+            return crude_bound
+        if not all(safe_eq(mid[i] + rad[i], mid[i+1] - rad[i+1])
+                   for i in range(len(mid) - 1)):
+            return crude_bound
+        bound = None
+        for c, r in zip(mid, rad):
+            if len(self._polys[c]) < post_transform.order():
+                return crude_bound
+            polys = [a.pol for a in self._polys[c]]
+            dom = Balls(Ivs(Balls(c).add_error(r)).intersection(Ivs(iv)))
+            reduced_dom = dom - c
+            img = sum(ZZ(j).factorial()*coeff(dom)*polys[j](reduced_dom)
+                  for j, coeff in enumerate(post_transform))
+            bound = img if bound is None else bound.union(img)
+        return bound
 
     def approx(self, pt, prec=None, post_transform=None):
         r"""
