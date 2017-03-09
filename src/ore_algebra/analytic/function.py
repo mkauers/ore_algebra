@@ -481,11 +481,8 @@ class DFiniteFunction(object):
         logger = logging.getLogger(__name__ + ".sollya")
         Dx = self.dop.parent().gen()
         def wrapper(pt, ord, prec):
-            if pt.absolute_diameter().is_infinity():
-                if self._is_everywhere_defined():
-                    return pt.parent()('-inf', 'inf')
-                else:
-                    return pt.parent()('nan')
+            if RBF(pt.diameter()) > self.max_rad/4:
+                return self._known_bound(RBF(pt), post_transform=Dx**ord)
             try:
                 val = self.approx(pt, prec, post_transform=Dx**ord)
             except Exception:
