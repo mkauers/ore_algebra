@@ -176,7 +176,8 @@ class RationalMajorant(MajorantSeries):
     def __init__(self, fracs):
         self.Poly = Poly = fracs[0][0].parent().change_ring(IR)
         self._Poly_IC = fracs[0][0].parent().change_ring(IC)
-        cvrad = _zero_free_rad([-fac for _, den in fracs for fac, _ in den if fac.degree() > 0])
+        cvrad = _zero_free_rad([-fac for _, den in fracs for fac, _ in den
+                                     if fac.degree() > 0])
         super(self.__class__, self).__init__(Poly.variable_name(), cvrad=cvrad)
         self.fracs = []
         for num, den in fracs:
@@ -226,7 +227,7 @@ class RationalMajorant(MajorantSeries):
 
 class HyperexpMajorant(MajorantSeries):
     """
-    A formal power series of the form rat1(z) + exp(int(rat2(ζ), ζ=0..z)), with
+    A formal power series of the form rat1(z)·exp(int(rat2(ζ), ζ=0..z)), with
     nonnegative coefficients.
 
     The fraction rat1 is represented in the form z^shift*num(z)/den(z).
@@ -236,10 +237,12 @@ class HyperexpMajorant(MajorantSeries):
         sage: from ore_algebra.analytic.bounds import *
         sage: Pol.<z> = RBF[]
         sage: one = Pol.one().factor()
-        sage: integrand = RationalMajorant([(4+4*z, one), (z^2, Factorization([(1-z,1)]))])
+        sage: den0 = Factorization([(1-z,1)])
+        sage: integrand = RationalMajorant([(4+4*z, one), (z^2, den0)])
         sage: den = Factorization([(1/3-z, 1)])
         sage: maj = HyperexpMajorant(integrand, Pol.one(), den); maj
-        (1.00... * (-z + [0.333...])^-1)*exp(int(4.0... + 4.0...*z + z^2/(-z + 1.0...)))
+        (1.00... * (-z + [0.333...])^-1)*exp(int(4.0...
+                                                + 4.0...*z + z^2/(-z + 1.0...)))
         sage: maj.cvrad
         [0.333...]
         sage: maj.series(0, 4)
@@ -247,15 +250,15 @@ class HyperexpMajorant(MajorantSeries):
         sage: maj._test()
         sage: maj*=z^20
         sage: maj
-        (z^20*1.00... * (-z + [0.333...])^-1)*exp(int(4.000... + 4.000...*z + z^2/(-z + 1.000...)))
+        (z^20*1.00... * (-z + [0.333...])^-1)*exp(int(4.000...
+                                            + 4.000...*z + z^2/(-z + 1.000...)))
         sage: maj._test()
-
     """
 
     def __init__(self, integrand, num, den, shift=0):
         assert isinstance(integrand, RationalMajorant)
-        assert isinstance(den, Factorization)
         assert isinstance(num, Polynomial)
+        assert isinstance(den, Factorization)
         assert isinstance(shift, int) and shift >= 0
         cvrad = integrand.cvrad.min(_zero_free_rad([pol for (pol, m) in den]))
         super(self.__class__, self).__init__(integrand.variable_name, cvrad)
@@ -304,12 +307,12 @@ class HyperexpMajorant(MajorantSeries):
         return self
 
 ######################################################################
-# Majorants for reciprocals of polynomials ("denominators")
+# Majorants for reciprocals of polynomials (“denominators”)
 ######################################################################
 
 def graeffe(pol):
     r"""
-    Compute the Graeffe iterate of this polynomial.
+    Compute the Graeffe iterate of a polynomial.
 
     EXAMPLES:
 
@@ -333,13 +336,12 @@ def graeffe(pol):
     """
     deg = pol.degree()
     Parent = pol.parent()
-    pol_even = Parent([pol[2*i]   for i in xrange(deg/2+1)])
+    pol_even = Parent([pol[2*i] for i in xrange(deg/2+1)])
     pol_odd = Parent([pol[2*i+1] for i in xrange(deg/2+1)])
     graeffe_iterate = (-1)**deg * (pol_even**2 - (pol_odd**2).shift(1))
     return graeffe_iterate
 
-def abs_min_nonzero_root(pol, tol=RR(1e-2), lg_larger_than=RR('-inf'),
-        prec=IR.precision()):
+def abs_min_nonzero_root(pol, tol=RR(1e-2), min_log=RR('-inf'), prec=None):
     r"""
     Compute an enclosure of the absolute value of the nonzero complex root of
     ``pol`` closest to the origin.
@@ -352,8 +354,10 @@ def abs_min_nonzero_root(pol, tol=RR(1e-2), lg_larger_than=RR('-inf'),
       width over exact value). It is currently *not* guaranteed that the
       relative accuracy will be smaller than ``tol``.
 
-    - ``lg_larger_than`` -- A lower bound on the binary logarithm of acceptable
-      results. The function may loop if ``exact result <= 2^lg_larger_than``.
+    - ``min_log`` -- Return a bound larger than ``2^min_log``. The function
+      may loop if there is a nonzero root of modulus bounded by that value.
+
+    - ``prec`` -- working precision.
 
     ALGORITHM:
 
@@ -373,10 +377,10 @@ def abs_min_nonzero_root(pol, tol=RR(1e-2), lg_larger_than=RR('-inf'),
         sage: abs_min_nonzero_root(pol, tol=1e-10)
         [0.3776955532 +/- 2.41e-11]
 
-        sage: abs_min_nonzero_root(pol, lg_larger_than=-1.4047042967)
+        sage: abs_min_nonzero_root(pol, min_log=-1.4047042967)
         [0.3776955532 +/- 2.41e-11]
 
-        sage: abs_min_nonzero_root(pol, lg_larger_than=-1.4047042966)
+        sage: abs_min_nonzero_root(pol, min_log=-1.4047042966)
         Traceback (most recent call last):
         ...
         ValueError: there is a root smaller than 2^(-1.40470429660000)
@@ -403,11 +407,21 @@ def abs_min_nonzero_root(pol, tol=RR(1e-2), lg_larger_than=RR('-inf'),
         sage: from ore_algebra import *
         sage: Dops, x, Dx = DifferentialOperators()
         sage: dop = (x^2 + 10*x + 50)*Dx^2 + Dx + 1
+        sage: import logging; logging.basicConfig()
+        sage: logger = logging.getLogger('ore_algebra.analytic.bounds')
+        sage: logger.setLevel(logging.DEBUG)
         sage: dop.numerical_solution([-1,1], [0, 1/10])
+        INFO:...
+        DEBUG:ore_algebra.analytic.bounds:failed to bound the roots...
+        ...
         [-0.90000329853426...]
+        sage: logger.setLevel(logging.WARNING)
     """
+    if prec is None:
+        prec = IR.precision()
+    tol = RealField(prec)(tol)
     myIR = type(IR)(prec)
-    myRIF = type(RIF)(prec)
+    myRIF = type(RIF)(prec) # XXX: could use balls with recent arb (> intersect)
     if pol.is_zero():
         raise ValueError("expected a nonzero polynomial")
     pol >>= pol.valuation()
@@ -419,7 +433,8 @@ def abs_min_nonzero_root(pol, tol=RR(1e-2), lg_larger_than=RR('-inf'),
     i = 0
     lg_rad = myRIF(-infinity, infinity)        # left-right intervals because we
     encl = myRIF(1, 2*deg).log(2)              # compute intersections
-    while (safe_le(lg_rad.lower(rnd='RNDN'), lg_larger_than)
+    neg_infty = myRIF('-inf')
+    while (safe_le(lg_rad.lower(rnd='RNDN'), min_log)
               # *relative* error on 2^lg_rad
            or safe_gt(lg_rad.absolute_diameter(), tol)):
         prev_lg_rad = lg_rad
@@ -429,19 +444,19 @@ def abs_min_nonzero_root(pol, tol=RR(1e-2), lg_larger_than=RR('-inf'),
                                 for k in xrange(1, deg+1)))
         lg_rad = (-(1 + myRIF(m)) + encl) >> i
         lg_rad = prev_lg_rad.intersection(lg_rad)
-        if lg_rad.lower() == -infinity or cmp(lg_rad, prev_lg_rad) == 0:
+        stalled = (lg_rad.endpoints() == prev_lg_rad.endpoints())
+        if (neg_infty in lg_rad or lg_rad.is_NaN() or stalled):
             prec *= 2
             logger.debug("failed to bound the roots of %s, "
-                    "retrying with prec=%s bits", mypol, prec)
-            return abs_min_nonzero_root(pol, RealField(prec)(tol),
-                                        lg_larger_than, prec)
+                    "retrying with prec=%s bits", pol, prec)
+            return abs_min_nonzero_root(pol, tol, min_log, prec)
         logger.log(logging.DEBUG - 1, "i = %s\trad ∈ %s\tdiam=%s",
                 i, lg_rad.exp2().str(style='brackets'),
                 lg_rad.absolute_diameter())
         # detect gross input errors (this does not prevent all infinite loops)
-        if safe_le(lg_rad.upper(rnd='RNDN'), lg_larger_than):
+        if safe_le(lg_rad.upper(rnd='RNDN'), min_log):
             raise ValueError("there is a root smaller than 2^({})"
-                             .format(lg_larger_than))
+                             .format(min_log))
         mypol = graeffe(mypol)
         i += 1
     res = myIR(2)**myIR(lg_rad)
