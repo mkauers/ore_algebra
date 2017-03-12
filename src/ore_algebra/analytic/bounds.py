@@ -290,8 +290,7 @@ class HyperexpMajorant(MajorantSeries):
         assert num_ser.parent() is den_ser.parent()
         rat_ser = (shx_ser._mul_trunc_(num_ser, ord)
                           ._mul_trunc_(den_ser.inverse_series_trunc(ord), ord))
-        # XXX: double-check (integral...)
-        exp_ser = self.integrand.series(rad, ord).integral()._exp_series(ord)
+        exp_ser = self.integrand.series(rad, ord-1).integral()._exp_series(ord)
         ser = rat_ser._mul_trunc_(exp_ser, ord)
         return ser
 
