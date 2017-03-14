@@ -697,6 +697,15 @@ class RatSeqBound(object):
             return almost_lim # so that the sequence of bounds is nonincreasing
         return bound
 
+    def _bound_rat(self, n):
+        lden = self._lbound_den(n)
+        bound = sum(
+                self._bound_num(t, n)/lden**(t+1)
+                for t in xrange(len(self._num_data())))
+        if not bound.is_finite():
+            return IR(infinity) # replace NaN by +∞ (as max(NaN, 42) = 42)
+        return bound
+
     @cached_method
     def _stairs(self):
         r"""
@@ -733,15 +742,6 @@ class RatSeqBound(object):
             if n <= edge:
                 return val
         return IR.zero()
-
-    def _bound_rat(self, n):
-        lden = self._lbound_den(n)
-        bound = sum(
-                self._bound_num(t, n)/lden**(t+1)
-                for t in xrange(len(self._num_data())))
-        if not bound.is_finite():
-            return IR(infinity) # replace NaN by +∞ (as max(NaN, 42) = 42)
-        return bound
 
     def __call__(self, n):
         bound_rat = IR.zero() if n in self.exn else self._bound_rat(n)
