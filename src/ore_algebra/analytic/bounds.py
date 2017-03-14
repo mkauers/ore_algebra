@@ -531,7 +531,12 @@ class RatSeqBound(object):
          (10.00000000000000, 10.00000000000000),
          (1.750000000000000, [1.750000009313226 +/- 2.54e-16])]
         sage: bnd.plot()
-        Graphics object consisting of 2 graphics primitives
+        Graphics object consisting of ... graphics primitives
+
+        sage: bnd = RatSeqBound([Pols(3), n^2], (n-3)*(n-31/2),
+        ....:         {3: RBF(10), 10: RBF(5), 11:RBF(6), 20: RBF(1)})
+        sage: bnd.plot(range(25))
+        Graphics object consisting of ... graphics primitives
     """
 
     def __init__(self, nums, den, exceptions):
@@ -768,22 +773,32 @@ class RatSeqBound(object):
             sage: bnd = bound_ratio_derivatives(
             ....:     CBF(i)*n+42, n*(n-3)*(n-i-20), [(0,1),(3,1)])
             sage: bnd.plot()
-            Graphics object consisting of 2 graphics primitives
+            Graphics object consisting of ... graphics primitives
             sage: bnd.plot(xrange(30))
-            Graphics object consisting of 2 graphics primitives
+            Graphics object consisting of ... graphics primitives
         """
         from sage.plot.plot import list_plot
         p1 = list_plot(
                 [(k, RR(self.ref(k).upper()))
                     for k in rng if self.ref(k).is_finite()],
-                plotjoined=True, color='black', scale="semilogy")
+                plotjoined=True, color='black', scale='semilogy')
         # Plots come up empty when one of the y-coordinates is +∞, so we may as
         # well start with the first finite value.
-        rng2 = itertools.dropwhile(lambda k: self(k).is_infinity(), rng)
+        rng2 = list(itertools.dropwhile(lambda k: self(k).is_infinity(), rng))
         p2 = list_plot(
                 [(k, RR(self(k).upper())) for k in rng2],
-                plotjoined=True, color='blue', scale="semilogy")
-        return p1 + p2
+                plotjoined=True, color='blue', scale='semilogy')
+        p3 = list_plot(
+                [(k, RR(self._bound_rat(k).upper())) for k in rng2
+                    if k not in self.exn],
+                size=20, color='red', scale='semilogy')
+        p4 = list_plot(
+                [(k, RR(self._bound_exn(k).upper())) for k in rng],
+                size=20, color='gray', scale='semilogy')
+        m = max(rng)
+        p5 = list_plot([(e, v.upper()) for (e, v) in self._stairs() if e <= m],
+                size=60, marker='x', color='gray', scale='semilogy')
+        return p1 + p2 + p3 + p4 + p5
 
     def _test(self, nmax=100):
         deg = self.den.degree()
