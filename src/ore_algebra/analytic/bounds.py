@@ -606,6 +606,8 @@ class RatSeqBound(object):
             global_lbound = IR.one().min(*(
                     (IC.one() - root/n).abs()
                     for n in ns if not n in self.exn))
+            if global_lbound.contains_zero() and not global_lbound.is_zero():
+                raise BoundPrecisionError
             global_lbound = global_lbound.below_abs()**mult # point ball
             den_data.append((root, mult, n_min, global_lbound))
         return den_data
