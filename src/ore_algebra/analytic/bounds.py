@@ -489,8 +489,8 @@ class RatSeqBound(object):
 
     An instance of this class represents a sequence ref(n) of the form
 
-        ⎰ f(n),             n ∉ exceptions,
-        ⎱ exceptions[n],    n ∈ exceptions,
+        ⎰ f(n),               n ∉ exceptions,
+        ⎱ |exceptions[n]|,    n ∈ exceptions,
 
     along with a *nonincreasing* bound on its values. The bound is of the form
     max(f(n), s(n)) where s(n) is a staircase function chosen to make this
@@ -703,6 +703,9 @@ class RatSeqBound(object):
         return bound
 
     def _bound_rat(self, n):
+        r"""
+        A nonincreasing bound on ref(n), valid for n ∉ exceptions.
+        """
         lden = self._lbound_den(n)
         bound = sum(
                 self._bound_num(t, n)/lden**(t+1)
@@ -732,14 +735,21 @@ class RatSeqBound(object):
             if val.upper() > stairs[-1][1].upper():
                 stairs.append((n, val))
         stairs.reverse()
-        stairs.pop() # remove (∞,0) (so that stairs == [] makes sense, + faster)
+        stairs.pop() # remove (∞,0) (faster and permits testing "stairs == []")
         return stairs
 
     def _bound_exn(self, n):
         r"""
-        A *nonincreasing* staircase function defined on the whole of ℕ that
-        bounds the values of ref(k) for all k ≥ n whenever n is an exceptional
-        index (so that max(_bound_exn(n), _bound_rat(n)) is nonincreasing).
+        A *nonincreasing* staircase function defined on the whole of ℕ such
+        that, whenever *n* (sic) is an exceptional index, the inequality
+        ref(k) ≤ _bound_exn(n) holds for all k ≥ n.
+
+        (The pairs returned by _stairs() correspond to the *upper right* corner
+        of each stair: the index associated to a given value is the last time
+        this value will be reached by the staircase function _bound_exn().
+        One may well have |f(n)| > _bound_exn(n), however, extending the bound
+        for n ∈ exceptions to a nonincreasing function ensures that
+        max(_bound_exn(n), _bound_rat(n)) is nonincreasing.)
         """
         # Return the value associated to the smallest step larger than n. (This
         # might be counter-intuitive!)
