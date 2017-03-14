@@ -1,5 +1,5 @@
-# -*- coding: utf-8 - vim: tw=80
-"""
+# -*- coding: utf-8 - vim: tw=79
+r"""
 Error bounds
 """
 
@@ -475,19 +475,41 @@ def _complex_roots(pol):
 
 class RatSeqBound(object):
     r"""
-    A *nonincreasing* bound on a sequence of the form
+    A nonincreasing bound on a special sum of almost everywhere rational
+    sequences.
 
-        ⎰ sum[i](|nums[i](n)/den(n)^(i+1)|),   n ∉ exceptions,
-        ⎱ exceptions[n],                       n ∈ exceptions,
+    Let
 
-    where den and the nums[i] are polynomials such that the nums[i]/den^(i+1)
-    have nonpositive degree.
+        f(n) = sum[i](|nums[i](n)/den(n)^(i+1)|)
+
+    for polynomials nums[i] and den such that all fractions nums[i]/den^{i+1}
+    have nonpositive degree. (Typically, f(n) might result from applying the
+    triangle inequality to a truncated series expansion of a rational
+    function.)
+
+    An instance of this class represents a sequence ref(n) of the form
+
+        ⎰ f(n),             n ∉ exceptions,
+        ⎱ exceptions[n],    n ∈ exceptions,
+
+    along with a *nonincreasing* bound on its values. The bound is of the form
+    max(f(n), s(n)) where s(n) is a staircase function chosen to make this
+    maximum nonincreasing.
+
+    Such bounds appear as coefficients in the parametrized majorant series
+    associated to differential operators, see the class DiffOpBound. The
+    ability to bound a sum of related fractions rather than just a single one
+    is useful to support logarithmic solutions at regular singular points.
+
+    ALGORITHM:
 
     This version bounds the numerators (from above) and the denominators (from
-    below) separately. This simple strategy works well in the typical case where
-    the indicial equation has only small roots. In the presence of, e.g., large
-    real roots, however, it is not much better than waiting to get past the
-    largest root.
+    below) separately. This simple strategy works well in the typical case
+    where the indicial equation has only small roots. In the presence of, e.g.,
+    large real roots, however, it is not much better than waiting to get past
+    the largest root.
+
+    (See the git history for a tighter but more expensive alternative.)
 
     EXAMPLES::
 
@@ -567,6 +589,8 @@ class RatSeqBound(object):
     # Possible improvement: extract and cache???
     def _precompute_den_data(self):
         r"""
+        Shared part of the computation of _lbound_den(n) for varying n.
+
         Return a lower bound on self.den/n^r (where r = deg(self.den)) in the
         format that _lbound_den expects in self.den_data.
 
@@ -575,9 +599,13 @@ class RatSeqBound(object):
         A list of tuples (root, mult, n_min, global_lbound) where
         - root ranges over a subset of the roots of den;
         - mult is the multiplicity of root in den;
-        - n_min is n integer s.t. |1-root/n| is nondecreasing for n ≥ nmin;
-        - global_lbound is a real (ball) s.t. |1-root/n| ≥ global_lbound for all
-          n ∈ ℕ (in particular, for n < n_min).
+        - n_min is an integer s.t. |1-root/n| is nondecreasing for n ≥ nmin;
+        - global_lbound is a real (ball) s.t. |1-root/n| ≥ global_lbound for
+          all n ∈ ℕ ∖ exceptions (in particular, for n < n_min).
+
+        Often (but not always), all integer roots of den will belong to the
+        exceptional set, and in this case the returned global_lbound will be
+        positive.
         """
         den_data = []
         for root, mult in _complex_roots(self.den):
@@ -585,20 +613,22 @@ class RatSeqBound(object):
             # When Re(α) ≤ 0, the sequence |1-α/n| decreases to 1.
             if safe_le(re, IR.zero()):
                 continue
-            # Otherwise, it first decreases to its minimum (which may be 0 if
-            # α is an integer), then increases to 1. We precompute the minimum
-            # and a value of n after which the sequence is nondecreasing. Note
-            # that re may contain zero, but it is okay to replace it by an upper
+            # Otherwise, it first decreases to its minimum (which may be 0 if α
+            # is an integer), then increases to 1. We compute the minimum and a
+            # value of n after which the sequence is nondecreasing. Note that
+            # re may contain zero, but it is okay to replace it by an upper
             # bound since the (lower bound on the) distance to 1 decreases when
             # re increases.
             crit_n = root.abs()**2/re.above_abs()
             ns = srange(crit_n.lower().floor(), crit_n.upper().ceil() + 1)
             n_min = ns[-1]
-            # When the minimum over ℕ is reached at an exceptional index, we
-            # want to "skip" it in the computation of the global bound. So we
-            # replace each candidate argmin that is an exceptional index by the
-            # two adjacent integers--using the fact that the candidates form a
-            # range. (Consecutive exceptional indices are fairly common!)
+            # We skip exceptional indices among the candidates in the
+            # computation of the global lower bound, and consider the adjacent
+            # integers above and below instead. In particular, when the current
+            # root is equal to an exceptional index, the global minimum over ℕ
+            # is zero, but we want a nonzero lower bound over ℕ ∖ exceptions.
+            # Note that there can be several consecutive exceptional indices
+            # (this is actually quite typical).
             while ns[-1] in self.exn:
                 ns.append(ns[-1] + 1) # append to avoid overwriting ns[0]
             while ns[0] in self.exn:
@@ -615,7 +645,7 @@ class RatSeqBound(object):
     def _lbound_den(self, n):
         r"""
         A *nondecreasing* lower bound on prod[den(α) = 0](|1-α/n|) valid
-        for n ∈ ℕ \ {exceptions}.
+        for n ∈ ℕ \ exceptions.
 
         self.den_data must be set (using self._precompute_den_data) before
         calling this method.
@@ -632,12 +662,14 @@ class RatSeqBound(object):
                 res *= abs((IC.one() - root/n))**mult
         if safe_ge(res, self.almost_one):
             self._den_converged = n
-            return self.almost_one # just so that the sequence is nondecreasing
+            return self.almost_one # so that the sequence is nondecreasing
         return res
 
     def _precompute_num_data(self):
         r"""
-        Return the list of self.num[t](n)/n^((t+1)·r), r = deg(self.den),
+        Shared part of the computation of _bound_num(i, n) for varying i and n.
+
+        Return the list of self.nums[i](n)/n^{(i+1)·r}, r = deg(self.den),
         *as polynomials in 1/n*, in the format _bound_num expects in
         self.num_data.
         """
@@ -650,31 +682,33 @@ class RatSeqBound(object):
             num_data.append(rev.change_ring(IC))
         return num_data
 
-    def _bound_num(self, ord, n):
+    def _bound_num(self, i, n):
         r"""
-        A very simple upper bound on |num(n)/n^((t+1)·r)|, nonincreasing with n.
+        A simple nonincreasing upper bound on |nums[i](n)/n^{(i+1)·r}|.
 
-        This method simply evaluates the reciprocal polynomial of num, rescaled
-        by a suitable power of n, on a interval of the form [0,1/n]. (It works
-        for exceptional indices, but doesn't do anything clever to take
-        advantage of them.)
+        This method simply evaluates the reciprocal polynomial of nums[i],
+        rescaled by a suitable power of n, on an interval of the form [0,1/n].
+        (It works for exceptional indices, but doesn't do anything clever to
+        take advantage of them.)
 
         self.num_data must be set (using self._precompute_num_data) before
         calling this function.
         """
-        rcpq_num = self.num_data[ord]
+        rcpq_num = self.num_data[i]
         almost_lim = abs(rcpq_num[0])/self.almost_one
-        if n > self._num_converged[ord]:
+        if n > self._num_converged[i]:
             return almost_lim
         iv = IR.zero().union(~IR(n))
         bound = rcpq_num(iv).above_abs()
         if bound < almost_lim: #safe_le(bound, almost_lim):
-            self._num_converged[ord] = n
+            self._num_converged[i] = n
             return almost_lim # so that the sequence of bounds is nonincreasing
         return bound
 
     def _precompute_stairs(self):
         r"""
+        Shared part of the computation of _bound_exn(n) for varying n.
+
         Return the data structure expected by _bound_exn in self.stairs.
 
         self.num_data and self.den_data need to be set.
@@ -682,7 +716,7 @@ class RatSeqBound(object):
         OUTPUT:
 
         A list of pairs (edge, val), ordered by increasing edge, such that
-        |self.ref(n)| ≤ val for all n ≥ edge.
+        |ref(n)| ≤ val for all n ≥ edge.
         """
         if not self.exn:
             return []
@@ -941,13 +975,14 @@ class DiffOpBound(object):
 
     This is an object that can be used to bound the tails of logarithmic power
     series solutions with terms supported by leftmost + ℕ of a differential
-    operator. Given a residual q = dop·ỹ where ỹ(z) = y[:N](z) is the truncation
-    at order N of some (logarithmic) solution y of dop·y = 0, it can be used
-    to compute a majorant series of the coefficients u[0], u[1], ... of the tail
+    operator. Given a residual q = dop(ỹ) where ỹ(z) = y[:N](z) is the
+    truncation at order N of some (logarithmic) solution y of dop·y = 0, it can
+    be used to compute a majorant series of the coefficients u[0], u[1], ... of
+    the tail
 
         y(z) - ỹ(z) = u[0](z) + u[1](z)·log(z) + u[2](z)·log(z)² + ···.
 
-    That majorant series of the tail is represented by a HyperexpMajorant.
+    That majorant series of the tail is in an object of class HyperexpMajorant.
 
     Note that multiplying dop by a rational function changes the residual.
 
