@@ -483,9 +483,9 @@ class RatSeqBound(object):
         f(n) = sum[i](|nums[i](n)/den(n)^(i+1)|)
 
     for polynomials nums[i] and den such that all fractions nums[i]/den^{i+1}
-    have nonpositive degree. (Typically, f(n) might result from applying the
-    triangle inequality to a truncated series expansion of a rational
-    function.)
+    have nonpositive degree. We additionally assume that den is monic.
+    (Typically, f(n) might result from applying the triangle inequality to a
+    truncated series expansion of a rational function.)
 
     An instance of this class represents a sequence ref(n) of the form
 
@@ -538,6 +538,7 @@ class RatSeqBound(object):
         self.almost_one = IR(15)/16
         # Reference values (exceptions is also used to compute the bounds)
         self.nums = nums
+        assert den.is_monic()
         self.den = den
         self.exn = exceptions
         # Dynamically computed data on when various parts of the bound become
@@ -569,8 +570,7 @@ class RatSeqBound(object):
         terms = []
         for t, num in enumerate(self.nums):
             deg = num.degree() - (t + 1)*self.den.degree()
-            lim = abs(IC(
-                num.leading_coefficient()/self.den.leading_coefficient()))
+            lim = abs(IC(num.leading_coefficient()))
             if deg == 0:
                 terms.append(str(lim))
             else:
