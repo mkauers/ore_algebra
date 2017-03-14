@@ -909,21 +909,25 @@ def bound_ratio_derivatives(num, den, nat_poles):
     if num.degree() >= den.degree():
         raise ValueError("expected deg(num) < deg(den)")
 
-    Pol = num.parent()
-
     max_mult = max(mult for _, mult in nat_poles) if nat_poles else 0
     derivatives = 1 + sum(mult for _, mult in nat_poles)
-    Jets = utilities.jets(IC, 'X', derivatives + max_mult)
+    jet_order = derivatives + max_mult
+
+    Pols = PolynomialRing(IC, 'X')
+    approx_num = Pols(num)
+    approx_den = Pols(den)
 
     # Compute exceptions first, since we are going to overwrite num.
-    # Sage won't return Laurent series here.
     ex_series = {}
     for n, mult in nat_poles:
-        pert = Jets([n, 1]) # n + X
+        pert = Pols([n, 1]) # n + X, viewed as a jet
         # den has a root of order mult at n, so den(pert) = O(X^mult), but the
         # computed value might include terms of degree < mult with interval
         # coefficients containing zero
-        ex_series[n] = n*num(pert)/Jets(den(pert).lift() >> mult)
+        num_pert = approx_num.compose_trunc(pert, jet_order)
+        den_pert = approx_den.compose_trunc(pert, jet_order)
+        inv_den_pert = (den_pert >> mult).inverse_series_trunc(jet_order)
+        ex_series[n] = n*num_pert.multiplication_trunc(inv_den_pert, jet_order)
     exns = { n: sum(ser[t].abs() for t in xrange(derivatives))
              for n, ser in ex_series.iteritems() }
 

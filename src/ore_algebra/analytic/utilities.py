@@ -80,11 +80,6 @@ def ball_field(eps, real):
     else:
         return sage.rings.complex_arb.ComplexBallField(prec)
 
-def jets(base, var_name, order):
-    # Polynomial quotient ring elements are faster than power series
-    Pols = PolynomialRing(base, var_name)
-    return Pols.quo(Pols.one() << order)
-
 def split(cond, objs):
     matching, not_matching = [], []
     for x in objs:

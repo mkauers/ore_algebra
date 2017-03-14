@@ -136,8 +136,8 @@ class EvaluationPoint(object):
     def jet(self, Intervals):
         base_ring = (Intervals if self.is_numeric
                      else pushout(self.pt.parent(), Intervals))
-        Jets = utilities.jets(base_ring, 'eta', self.jet_order)
-        return Jets([self.pt, 1])
+        Pol = PolynomialRing(base_ring, 'eta')
+        return Pol([self.pt, 1]).truncate(self.jet_order)
 
     def is_real(self):
         return utilities.is_real_parent(self.pt.parent())
@@ -451,7 +451,7 @@ def series_sum_ordinary(Intervals, dop, bwrec, ini, pt,
     if record_bounds_in:
         record_bounds_in[:] = []
 
-    jet = pt.jet(Intervals).lift()
+    jet = pt.jet(Intervals)
     Jets = jet.parent() # polynomial ring!
     ord = pt.jet_order
     jetpow = Jets.one()
@@ -762,7 +762,7 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, tgt_error,
 
     """
 
-    jet = pt.jet(Intervals).lift()
+    jet = pt.jet(Intervals)
     Jets = jet.parent()
     ord = pt.jet_order
     jetpow = Jets.one()
