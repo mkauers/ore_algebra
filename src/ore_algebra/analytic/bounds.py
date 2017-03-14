@@ -723,7 +723,7 @@ class RatSeqBound(object):
             # We need the global bound to be nonincreasing, so we take the max
             # of the exceptional value and the next ordinary index.
             n1 = next(n1 for n1 in itertools.count(n) if n1 not in self.exn)
-            val = self.exn[n].max(self._bound_rat(n1))
+            val = self.exn[n].abs().max(self._bound_rat(n1))
             if val.upper() > stairs[-1][1].upper():
                 stairs.append((n, val))
         stairs.reverse()
