@@ -544,10 +544,6 @@ class RatSeqBound(object):
         # close enough to their limit that it is not worth recomputing them.
         self._num_converged = [2**62 for _ in nums] # faster than symbolic infty
         self._den_converged = 2**62
-        # Precomputed bound data
-        self.num_data = self._precompute_num_data()
-        self.den_data = self._precompute_den_data()
-        self.stairs = self._precompute_stairs()
         # TODO: add a way to _test() all bounds generated during a given
         # computation
         #if self.ctx is not None and self.ctx.check_bounds:
@@ -555,14 +551,14 @@ class RatSeqBound(object):
 
     def __repr__(self):
         n = self.den.variable_name()
-        fmt = ("max(\n  {rat},\n{stairs}\n)" if self.stairs else "({rat})")
+        fmt = ("max(\n  {rat},\n{stairs}\n)" if self._stairs() else "({rat})")
         ratstr = "\n+ ".join(
                 "|({num})/({den})|".format(
                     num=num,
                     den=(self.den if t == 0 else "(...)^" + str(t+1)))
                 for t, num in enumerate(self.nums))
         stairsstr = ',\n'.join("  {}\tfor  {} <= {}".format(val, n, edge)
-                                for edge, val in self.stairs)
+                                for edge, val in self._stairs())
         return fmt.format(rat=ratstr, stairs=stairsstr)
 
     def asympt_repr(self):
@@ -586,13 +582,13 @@ class RatSeqBound(object):
         else:
             return "~" + terms[0]
 
-    # Possible improvement: extract and cache???
-    def _precompute_den_data(self):
+    @cached_method
+    def _den_data(self):
         r"""
         Shared part of the computation of _lbound_den(n) for varying n.
 
         Return a lower bound on self.den/n^r (where r = deg(self.den)) in the
-        format that _lbound_den expects in self.den_data.
+        format that _lbound_den expects.
 
         OUTPUT:
 
@@ -646,15 +642,12 @@ class RatSeqBound(object):
         r"""
         A *nondecreasing* lower bound on prod[den(α) = 0](|1-α/n|) valid
         for n ∈ ℕ \ exceptions.
-
-        self.den_data must be set (using self._precompute_den_data) before
-        calling this method.
         """
         assert n not in self.exn
         if n > self._den_converged:
             return self.almost_one
         res = IR.one()
-        for root, mult, n_min, global_lbound in self.den_data:
+        for root, mult, n_min, global_lbound in self._den_data():
             if n < n_min:
                 # note that global_lbound already takes mult into account
                 res *= global_lbound
@@ -665,13 +658,15 @@ class RatSeqBound(object):
             return self.almost_one # so that the sequence is nondecreasing
         return res
 
-    def _precompute_num_data(self):
+    @cached_method
+    def _num_data(self):
         r"""
         Shared part of the computation of _bound_num(i, n) for varying i and n.
 
-        Return the list of self.nums[i](n)/n^{(i+1)·r}, r = deg(self.den),
-        *as polynomials in 1/n*, in the format _bound_num expects in
-        self.num_data.
+        OUTPUT:
+
+        The list of self.nums[i](n)/n^{(i+1)·r}, r = deg(self.den), *as
+        polynomials in 1/n*.
         """
         deg = 0
         num_data = []
@@ -690,11 +685,8 @@ class RatSeqBound(object):
         rescaled by a suitable power of n, on an interval of the form [0,1/n].
         (It works for exceptional indices, but doesn't do anything clever to
         take advantage of them.)
-
-        self.num_data must be set (using self._precompute_num_data) before
-        calling this function.
         """
-        rcpq_num = self.num_data[i]
+        rcpq_num = self._num_data()[i]
         almost_lim = abs(rcpq_num[0])/self.almost_one
         if n > self._num_converged[i]:
             return almost_lim
@@ -705,13 +697,10 @@ class RatSeqBound(object):
             return almost_lim # so that the sequence of bounds is nonincreasing
         return bound
 
-    def _precompute_stairs(self):
+    @cached_method
+    def _stairs(self):
         r"""
         Shared part of the computation of _bound_exn(n) for varying n.
-
-        Return the data structure expected by _bound_exn in self.stairs.
-
-        self.num_data and self.den_data need to be set.
 
         OUTPUT:
 
@@ -737,13 +726,10 @@ class RatSeqBound(object):
         A *nonincreasing* staircase function defined on the whole of ℕ that
         bounds the values of ref(k) for all k ≥ n whenever n is an exceptional
         index (so that max(_bound_exn(n), _bound_rat(n)) is nonincreasing).
-
-        self.stairs must be set (using _precompute_stairs) before calling this
-        method.
         """
         # Return the value associated to the smallest step larger than n. (This
         # might be counter-intuitive!)
-        for (edge, val) in self.stairs:
+        for (edge, val) in self._stairs():
             if n <= edge:
                 return val
         return IR.zero()
@@ -752,7 +738,7 @@ class RatSeqBound(object):
         lden = self._lbound_den(n)
         bound = sum(
                 self._bound_num(t, n)/lden**(t+1)
-                for t in xrange(len(self.num_data)))
+                for t in xrange(len(self._num_data())))
         if not bound.is_finite():
             return IR(infinity) # replace NaN by +∞ (as max(NaN, 42) = 42)
         return bound
