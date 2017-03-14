@@ -646,8 +646,7 @@ class RatSeqBound(object):
         for num in self.nums:
             deg += self.den.degree()
             assert num.degree() <= deg
-            #rev = num.reverse(deg)
-            rev = Polynomial.reverse(num, deg) # work around sage bug #21194
+            rev = num.reverse(deg)
             num_data.append(rev.change_ring(IC))
         return num_data
 
