@@ -704,18 +704,17 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, tgt_error,
         sage: from ore_algebra.analytic.naive_sum import *
         sage: Dops, x, Dx = DifferentialOperators()
 
-    Test that we don't compute the zero solution when the valuation is large.
-    TODO: In the presence of several solutions with very different valuations,
-    we used to be able to stop before reaching the largest one if the initial
-    values there were zero. Unfortunately, this is no longer the case with the
-    simplified bounds on rational sequences::
+    Test that we correctly compute solutions of large valuations, and that when
+    there are several solutions with very different valuations, we can stop
+    before reaching the largest one if the initial values there are zero::
 
         sage: #dop = (Dx-1).lclm(x*Dx-1000)
         sage: dop = (x^2-1000*x)*Dx^2 + (-x^2+999000)*Dx + 1000*x - 999000
         sage: logger = logging.getLogger('ore_algebra.analytic.naive_sum')
         sage: logger.setLevel(logging.INFO) # TBI
-        sage: dop.numerical_transition_matrix([0,1]) # not tested - TODO
+        sage: dop.numerical_transition_matrix([0,1])
         INFO:ore_algebra.analytic.naive_sum:solution z^(0+0)·log(z)^0/0! + ···
+        ...
         INFO:ore_algebra.analytic.naive_sum:summed 50 terms, tail <= ...
         ...
         [[2.7182818284590...] 1.0000000000000000]
