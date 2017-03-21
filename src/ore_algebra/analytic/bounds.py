@@ -8,6 +8,8 @@ Error bounds
 # essentially rational fractions (QuotientRingElements, Factorizations, and
 # Rational Majorants) --> simplify?
 
+from __future__ import print_function
+
 import itertools, logging, textwrap, warnings
 
 import sage.rings.polynomial.real_roots as real_roots
@@ -15,6 +17,7 @@ import sage.rings.polynomial.real_roots as real_roots
 from sage.arith.srange import srange
 from sage.misc.cachefunc import cached_function, cached_method
 from sage.misc.misc_c import prod
+from sage.misc.random_testing import random_testing
 from sage.rings.all import CIF
 from sage.rings.complex_arb import CBF
 from sage.rings.infinity import infinity
@@ -1414,22 +1417,31 @@ class BoundDiffopStats(utilities.Stats):
         self.time_bound_ratio = utilities.Clock("doing RatSeqBound precomp.")
         self.time_decomp_op = utilities.Clock("decomposing op")
 
+@random_testing
 def _test_diffop_bound(
         ords=xrange(1, 5),
         degs=xrange(5),
         pplens=[1, 2, 5],
-        prec=100
+        prec=100,
+        verbose=False
     ):
     r"""
     Randomized testing of :func:`DiffOpBound`.
 
     EXAMPLES::
 
-        sage: import logging; logging.basicConfig(level=logging.INFO)
+    Here we are causing an error in the testing function itselt see the random
+    testing framework at work. The real tests are run from the docstring of
+    DiffOpBound. ::
+
         sage: from ore_algebra.analytic.bounds import _test_diffop_bound
-        sage: _test_diffop_bound() # not tested - done in DiffOpBound
-        INFO:ore_algebra.analytic.bounds:testing operator: (-i + 2)*Dx + i - 1
+        sage: _test_diffop_bound(ords=[2], degs=[2], pplens=[1], prec=10,
+        ....:         seed=0, verbose=True)
+        testing operator: ((-i + 1)*x^2 + (i - 6)*x - 2)*Dx^2 + ((5*i - 6)*x^2
+        + (-i - 2)*x - i + 1)*Dx + (-12*i - 2)*x^2 + (i + 2)*x
         ...
+        Random seed: 0
+        AssertionError()
     """
     from sage.rings.number_field.number_field import QuadraticField
 
@@ -1443,7 +1455,8 @@ def _test_diffop_bound(
             while dop.leading_coefficient()(0).is_zero():
                 dop = Dops([Pols.random_element(degree=(0, deg))
                             for _ in xrange(ord + 1)])
-            logger.info("testing operator: %s", dop)
+            if verbose:
+                print("testing operator:", dop)
             for pplen in pplens:
                 maj = DiffOpBound(dop, pol_part_len=pplen)
                 maj._test(prec=prec)
