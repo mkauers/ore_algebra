@@ -296,6 +296,7 @@ class DFiniteFunction(object):
             err_pol = pol.map_coefficients(lambda c: c - c.squash())
             err = RIF(err_pol(RBF.zero().add_error(rad)))
             with sollya.settings(display=sollya.dyadic):
+                logger = logging.getLogger(__name__ + ".sollya.annotate")
                 logger.debug("annotatefunction(%s, %s, %s, %s, %s);",
                         sollya_fun, sollya_pol, sollya.SollyaObject(dom),
                         sollya.SollyaObject(err), sollya.SollyaObject(center))
@@ -477,7 +478,7 @@ class DFiniteFunction(object):
         if self._sollya_object is not None:
             return self._sollya_object
         import sollya
-        logger = logging.getLogger(__name__ + ".sollya")
+        logger = logging.getLogger(__name__ + ".sollya.eval")
         Dx = self.dop.parent().gen()
         def wrapper(pt, ord, prec):
             if RBF(pt.diameter()) > self.max_rad/4:
