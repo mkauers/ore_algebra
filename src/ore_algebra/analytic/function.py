@@ -481,7 +481,7 @@ class DFiniteFunction(object):
         logger = logging.getLogger(__name__ + ".sollya.eval")
         Dx = self.dop.parent().gen()
         def wrapper(pt, ord, prec):
-            if RBF(pt.diameter()) > self.max_rad/4:
+            if RBF(pt.diameter()) >= self.max_rad/4:
                 return self._known_bound(RBF(pt), post_transform=Dx**ord)
             try:
                 val = self.approx(pt, prec, post_transform=Dx**ord)
