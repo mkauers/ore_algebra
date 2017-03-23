@@ -500,6 +500,17 @@ class DFiniteFunction(object):
             return val
         wrapper.__name__ = self.name
         self._sollya_object = sollya.sagefunction(wrapper)
+        for pt, ini in self.ini.iteritems():
+            pt = RIF(pt)
+            if pt.is_exact():
+                fun = self._sollya_object
+                for ord, val in enumerate(ini):
+                    try:
+                        sollya.annotatefunction(fun, val, pt, RIF.zero())
+                    except TypeError:
+                        logger.info("annotation failed: D^%s(%s)(%s) = %s",
+                                    ord, self.name, pt, val)
+                    fun = sollya.diff(fun)
         self._update_approx_hook = self._sollya_annotate
         return self._sollya_object
 
