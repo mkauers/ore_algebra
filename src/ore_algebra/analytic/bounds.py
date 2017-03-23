@@ -601,7 +601,6 @@ class RatSeqBound(object):
             raise ValueError("expected deg(num) < deg(den)")
         if ord is None:
             ord = 1 + sum(exceptions.values())
-        # self.almost_one = IR(15)/16
         self.num = num
         self.ivnum = num.change_ring(IC)
         assert den.is_monic()
@@ -610,9 +609,18 @@ class RatSeqBound(object):
         self.ord = ord
         self.exn = exceptions
         # Two polynomials whose quotient is equal to (1/n)*rat(1/n)
-        self._rcpq_num = num.change_ring(IC).reverse(den.degree() - 1)
+        deg = den.degree()
+        self._rcpq_num = num.change_ring(IC).reverse(deg - 1)
         self._rcpq_den = den.change_ring(IC).reverse()
-        self.Pol = self._rcpq_den.parent()
+        self._Pol = self._rcpq_den.parent()
+        self._pol_class = self._Pol.Element
+        # Precomputations to provide a fast path when we get close to the limit
+        # (at least when the limit is nonzero).
+        # If num/den has degree <= 0, then its derivatives have degree < 0,
+        # hence the asymptotic representation does not depend on ord. And
+        # stairs() is irrelevant to the asymptotics as it always tends to zero.
+        self._rat_converged = (1 << 62)
+        self._almost_lim = ((IR(17)/16)*self.ivnum[deg-1]).below_abs()
 
     def __repr__(self, type="full"):
         if type == "asympt":
@@ -625,9 +633,6 @@ class RatSeqBound(object):
             fmt += "      ..., {asympt}"
             fmt += "\n{stairs}" if self._stairs() else ""
         n = self.den.variable_name()
-        # If p(n)/q(n) has degree <= 0, then its derivatives have degree < 0,
-        # hence the asymptotic representation does not depend on ord. And
-        # stairs() is irrelevant to the asymptotics as it always tends to zero.
         lim = abs(ComplexBallField(20)(self.num.leading_coefficient()))
         deg = self.num.degree() - self.den.degree() + 1
         asymptfmt = "~{lim}" if deg == 0 else "~{lim}*n^{deg}"
@@ -701,8 +706,6 @@ class RatSeqBound(object):
         n, k ∈ ℕ ∖ exceptions.
         """
         assert n not in self.exn
-        # if n > self._den_converged:
-        #     return self.almost_one
         res = IR.one()
         for root, mult, n_min, global_lbound in self._den_data():
             if n < n_min:
@@ -710,9 +713,6 @@ class RatSeqBound(object):
                 res *= global_lbound
             else:
                 res *= abs((IC.one() - root/n))**mult
-        # if safe_ge(res, self.almost_one):
-        #     self._den_converged = n
-        #     return self.almost_one # so that the sequence is nondecreasing
         return res
 
     def _bound_rat(self, n, ord):
@@ -726,11 +726,14 @@ class RatSeqBound(object):
         evaluation on an interval jet of the form [0,1/n] + ε + O(ε^ord)
         yields bounds for the derivatives as well.
         """
+        if ord == self.ord and n > self._rat_converged:
+            return self._almost_lim
         assert n not in self.exn
         iv = IR.zero().union(~IR(n))
         # jet = 1/(n+ε) = n⁻¹/(1+n⁻¹ε)
-        jet0 = self.Pol([IR.one(), iv]).inverse_series_trunc(ord)
-        jet = iv*jet0
+        jet0 = self._pol_class(self._Pol, [IR.one(), iv])
+        jet1 = jet0.inverse_series_trunc(ord)
+        jet = iv*jet1
         num = self._rcpq_num.compose_trunc(jet, ord)
         den = self._rcpq_den.compose_trunc(jet, ord)
         invabscst = IR.one()
@@ -752,13 +755,15 @@ class RatSeqBound(object):
         # ser0 = num/den = invcst⁻¹·(n+ε)·f(1/(n+ε))
         # ser = (1+ε/n)⁻¹·ser0 = invcst⁻¹·n·f(n+ε)
         ser0 = num._mul_trunc_(den.inverse_series_trunc(ord), ord)
-        ser = jet0._mul_trunc_(ser0, ord)
-        # logger.debug("n=%s, jet0=%s, ser0=%s, ser=%s", n, jet0, ser0, ser)
+        ser = jet1._mul_trunc_(ser0, ord)
+        # logger.debug("n=%s, jet1=%s, ser0=%s, ser=%s", n, jet1, ser0, ser)
         bound = (invabscst*sum(c.above_abs() for c in ser)).above_abs()
         # logger.debug(lazy_string(lambda: "bound(%s) = %s = %s" % (n,
         #     "+".join([str(invabscst*c.above_abs()) for c in ser]), bound)))
         if not bound.is_finite():
             return IR(infinity) # replace NaN by +∞ (as max(NaN, 42) = 42)
+        elif ord == self.ord and bound < self._almost_lim:
+            self._rat_converged = n
         return bound
 
     @cached_method
@@ -818,7 +823,7 @@ class RatSeqBound(object):
         Reference value for a single n.
         """
         ord = self.ord # XXX: take as parameter???
-        jet = self.Pol([n, 1])
+        jet = self._pol_class(self._Pol, [n, 1])
         num = self.ivnum.compose_trunc(jet, ord)
         mult = self.exn.get(n, 0)
         # den has a root of order mult at n, so den(pert) = O(X^mult), but the
@@ -1577,8 +1582,3 @@ def maj_eq_rhs_with_logs(n, bwrec, bwrec_nplus, last, z, logs):
                for i in xrange(ordrec)]
     IvPols = PolynomialRing(IR, z, sparse=True)
     return IvPols(polcoef) << n
-
-
-
-
-
