@@ -221,7 +221,7 @@ class DFiniteFunction(object):
         logger.debug("disk for %s: center=%s, rad=%s", pt, center, rad)
         # pt may be a ball with nonzero radius: check that it is contained in
         # our candidate disk
-        log = approx_pt.abs().log(2)
+        log = RBF.zero() if 0 in approx_pt else approx_pt.abs().log(2)
         F = RealBallField(ZZ((expo - log).max(0).upper().ceil()) + 10)
         dist_to_center = (F(approx_pt) - F(center)).abs()
         if not safe_le(dist_to_center, rad):
