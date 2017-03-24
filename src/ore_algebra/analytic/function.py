@@ -68,6 +68,7 @@ from . import analytic_continuation as ancont
 from . import bounds
 from . import polynomial_approximation as polapprox
 
+from .analytic_continuation import normalize_post_transform
 from .path import Point
 from .safe_cmp import *
 
@@ -131,6 +132,13 @@ class DFiniteFunction(object):
         nan
         sage: f._known_bound(RBF(AnInfinity()), Dops.one())
         nan
+
+        sage: f = DFiniteFunction(Dx^2 + 2*x*Dx, [1, -2/sqrt(pi)], name='my_erfc')
+        sage: f._known_bound(RBF(RIF(-1/2,1/2)), post_transform=Dx^2)
+        [+/- inf]
+        sage: f.approx(1/2, post_transform=Dx^2); f.approx(-1/2, post_transform=Dx^2);
+        sage: f._known_bound(RBF(RIF(-1/2,1/2)), post_transform=Dx^2)
+        [+/- 1.5...]
     """
 
     # Stupid, but simple and deterministic caching strategy:
@@ -305,6 +313,7 @@ class DFiniteFunction(object):
         logger.info("...done")
 
     def _known_bound(self, iv, post_transform):
+        post_transform = normalize_post_transform(self.dop, post_transform)
         Balls = iv.parent()
         Ivs = RealIntervalField(Balls.precision())
         mid = [c for c in self._polys.keys()
@@ -320,7 +329,7 @@ class DFiniteFunction(object):
             return crude_bound
         bound = None
         for c, r in zip(mid, rad):
-            if len(self._polys[c]) < post_transform.order():
+            if len(self._polys[c]) <= post_transform.order():
                 return crude_bound
             polys = [a.pol for a in self._polys[c]]
             dom = Balls(Ivs(Balls(c).add_error(r)).intersection(Ivs(iv)))
@@ -363,8 +372,7 @@ class DFiniteFunction(object):
         if post_transform is None:
             post_transform = self.dop.parent().one()
         derivatives = min(post_transform.order() + 1, self._max_derivatives)
-        post_transform = ancont.normalize_post_transform(self.dop,
-                                                         post_transform)
+        post_transform = normalize_post_transform(self.dop, post_transform)
         if prec >= self.max_prec or not pt.is_real():
             logger.info("performing high-prec evaluation "
                         "(pt=%s, prec=%s, post_transform=%s)",
