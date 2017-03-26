@@ -1122,9 +1122,6 @@ class DiffOpBound(object):
 
         logger.info("bounding local operator...")
 
-        self.stats = BoundDiffopStats()
-        self.stats.time_total.tic()
-
         if not dop.parent().is_D():
             raise ValueError("expected an operator in K(x)[D]")
         _, Pols_z, _, dop = dop._normalize_base_ring()
@@ -1150,9 +1147,6 @@ class DiffOpBound(object):
 
         self._update_den_bound()
         self._update_num_bound(pol_part_len)
-
-        self.stats.time_total.toc()
-        logger.info("...done, time: %s", self.stats)
 
     def __repr__(self, asympt=True):
         fmt = ("1/({den})*exp(int(POL+{cst}*NUM/{den})) where\n"
@@ -1200,7 +1194,6 @@ class DiffOpBound(object):
 
     def _update_num_bound(self, pol_part_len):
 
-        self.stats.time_decomp_op.tic()
         lc = self.dop.leading_coefficient()
         inv = lc.inverse_series_trunc(pol_part_len + 1) # XXX: incremental Newton ?
         MPol, (z, n) = self.dop.base_ring().extend_variables('n').objgens()
@@ -1224,7 +1217,6 @@ class DiffOpBound(object):
         assert rem_num_nz.valuation() >= pol_part_len + 1
         rem_num_nz >>= (pol_part_len + 1)
         logger.log(logging.DEBUG - 1, "rem_num_nz: %s", rem_num_nz)
-        self.stats.time_decomp_op.toc()
 
         # XXX: make this independent of pol_part_len?
         alg_idx = self.leftmost + first_nz.base_ring().gen()
@@ -1236,7 +1228,6 @@ class DiffOpBound(object):
         # definition, majseq_num starts at the degree following that of
         # majseq_pol_part, it gets shifted as well.
         old_pol_part_len = len(self.majseq_pol_part)
-        self.stats.time_bound_ratio.tic()
         exns = dict(self.special_shifts)
         self.majseq_pol_part.extend([
                 RatSeqBound(first_nz[i](alg_idx), self.ind, exns)
@@ -1245,7 +1236,6 @@ class DiffOpBound(object):
         self.majseq_num = [
                 RatSeqBound(pol(alg_idx), self.ind, exns)
                 for pol in rem_num_nz]
-        self.stats.time_bound_ratio.toc()
 
     def refine(self):
         # XXX: make it possible to increase the precision of IR, IC
@@ -1254,14 +1244,11 @@ class DiffOpBound(object):
             return
         self._effort += 1
         logger.info("refining majorant (effort = %s)...", self._effort)
-        self.stats.time_total.tic()
         if self.bound_inverse == 'simple':
             self.bound_inverse = 'solve'
             self._update_den_bound()
         else:
             self._update_num_bound(max(2, 2*self.pol_part_len()))
-        self.stats.time_total.toc()
-        logger.info("...done, cumulative time: %s", self.stats)
 
     def pol_part_len(self):
         return len(self.majseq_pol_part)
@@ -1437,16 +1424,6 @@ def _dop_rcoeffs_of_T(dop):
                 pow *= (-j)
         res[k] = Pols(pol)
     return res
-
-class BoundDiffopStats(utilities.Stats):
-    """
-    Store timings for various parts of the bound computation algorithm.
-    """
-    def __init__(self):
-        super(self.__class__, self).__init__()
-        self.time_total = utilities.Clock("total")
-        self.time_bound_ratio = utilities.Clock("doing RatSeqBound precomp.")
-        self.time_decomp_op = utilities.Clock("decomposing op")
 
 @random_testing
 def _test_diffop_bound(
