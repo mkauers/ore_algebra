@@ -1129,7 +1129,7 @@ class DiffOpBound(object):
             raise ValueError("expected an operator in K(x)[D]")
         _, Pols_z, _, dop = dop._normalize_base_ring()
         self._dop_D = dop
-        self.dop = dop_T = dop.to_T('T' + Pols_z.variable_name()) # slow
+        self.dop = dop_T = dop.to_T('T' + Pols_z.variable_name())
         self._rcoeffs = _dop_rcoeffs_of_T(dop_T)
 
         self.Poly = Pols_z.change_ring(IR) # TBI
@@ -1219,7 +1219,7 @@ class DiffOpBound(object):
         # logger.debug("pol_part: %s", pol_part)
         rem_num = self.dop - pol_part*lc # in theory, slow for large pol_part_len
         logger.log(logging.DEBUG - 1, "rem_num: %s", rem_num)
-        it = enumerate(_dop_rcoeffs_of_T(rem_num)) # slow
+        it = enumerate(_dop_rcoeffs_of_T(rem_num))
         rem_num_nz = MPol(sum(n**j*pol for j, pol in it)).polynomial(z)
         assert rem_num_nz.valuation() >= pol_part_len + 1
         rem_num_nz >>= (pol_part_len + 1)
