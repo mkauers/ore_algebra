@@ -1152,19 +1152,16 @@ class DiffOpBound(object):
         fmt = ("1/({den})*exp(int(POL+{cst}*NUM/{den})) where\n"
                "POL={pol},\n"
                "NUM={num}\n")
-        def pol_repr(ratseqbounds, shift=0):
-            if len(ratseqbounds):
-                return " + ".join(
-                        "{}*z^{}".format(
-                            c.__repr__("asympt" if asympt else "short"),
-                            n + shift)
-                        for n, c in enumerate(ratseqbounds))
-            else:
+        def pol_repr(ratseqbounds, shift):
+            if len(ratseqbounds) == 0:
                 return 0
+            style = "asympt" if asympt else "short"
+            return " + ".join("{}*z^{}".format(c.__repr__(style), n + shift)
+                              for n, c in enumerate(ratseqbounds))
         return fmt.format(
                 cst=self.cst, den=self.maj_den,
                 num=pol_repr(self.majseq_num, shift=len(self.majseq_pol_part)),
-                pol=pol_repr(self.majseq_pol_part))
+                pol=pol_repr(self.majseq_pol_part, shift=0))
 
     @cached_method
     def _poles(self):
@@ -1176,7 +1173,6 @@ class DiffOpBound(object):
 
     def _update_den_bound(self):
         den = self.dop.leading_coefficient()
-
         Poly = den.parent().change_ring(IR)
         if den.degree() <= 0:
             facs = []
@@ -1190,7 +1186,8 @@ class DiffOpBound(object):
         else:
             raise ValueError("algorithm")
         self.cst = ~abs(IC(den.leading_coefficient()))
-        self.maj_den = Factorization(facs, unit=Poly.one(), sort=False, simplify=False)
+        self.maj_den = Factorization(facs, unit=Poly.one(),
+                                     sort=False, simplify=False)
 
     def _update_num_bound(self, pol_part_len):
 
@@ -1207,8 +1204,9 @@ class DiffOpBound(object):
         assert first_nz[0] == self._dop_D.indicial_polynomial(z, n).monic()
         assert all(pol.degree() < self.dop.order() for pol in first_nz >> 1)
 
-        T = self.dop.parent().gen()
-        pol_part = sum(T**j*pol for j, pol in enumerate(first_zn)) # slow
+        theta = self.dop.parent().gen()
+        # theta**j*pol slow for large pol_part_len
+        pol_part = sum(theta**j*pol for j, pol in enumerate(first_zn))
         # logger.debug("pol_part: %s", pol_part)
         rem_num = self.dop - pol_part*lc # in theory, slow for large pol_part_len
         logger.log(logging.DEBUG - 1, "rem_num: %s", rem_num)
