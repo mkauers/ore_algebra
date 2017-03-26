@@ -1062,13 +1062,12 @@ class DiffOpBound(object):
         1/((-x + [0.994...])^2)*exp(int(POL+1.000...*NUM/(-x + [0.994...])^2))
         where
         POL=0,
-        NUM=RatSeqBound(0, ord=1)*z^0 + RatSeqBound((-2*n - 2)/(n^2 - n),
-        ord=1)*z^1
+        NUM=RatSeqBound(0, ord=1)*z^0 + RatSeqBound(-2/n, ord=1)*z^1
 
     A majorant series extracted from that sequence::
 
         sage: maj(3)
-        (1.00... * (-x + [0.994...])^-2)*exp(int([4.000...]...)^2)))
+        (1.00... * (-x + [0.994...])^-2)*exp(int([3.000...]...)^2)))
 
     An example with a nontrivial polynomial part::
 
@@ -1392,25 +1391,51 @@ class DiffOpBound(object):
             logger.info("%s << %s", Series(tail, n+30), maj.series(0, n+30))
             maj._test(tail)
 
+# Perhaps better: work with a "true" Ore algebra K[θ][z]. Use Euclidean
+# division to compute the truncation in DiffOpBound._update_num_bound.
+# Extracting the Qj(θ) would then be easy, and I may no longer need the
+# coefficients of θ "on the right".
 def _dop_rcoeffs_of_T(dop):
-    """
+    r"""
     Compute the coefficients of dop as an operator in θ but with θ on the left.
+
+    EXAMPLES::
+
+        sage: from ore_algebra import OreAlgebra
+        sage: from ore_algebra.analytic.bounds import _dop_rcoeffs_of_T
+        sage: Pols.<x> = QQ[]; Dops.<Tx> = OreAlgebra(Pols)
+        sage: dop = (1/250*x^4 + 21/50*x^3)*Tx - 6/125*x^4 + 6/25*x^3
+        sage: coeff = _dop_rcoeffs_of_T(dop); coeff
+        [-8/125*x^4 - 51/50*x^3, 1/250*x^4 + 21/50*x^3]
+        sage: sum(Tx^i*c for i, c in enumerate(coeff)) == dop
+        True
+
+    TESTS::
+
+        sage: _dop_rcoeffs_of_T(Dops.zero())
+        []
+        sage: _dop_rcoeffs_of_T(Dops.one())
+        [1]
+        sage: _dop_rcoeffs_of_T(Dops.gen())
+        [0, 1]
     """
-    # Perhaps better: work with a "true" Ore algebra K[θ][z]. Use Euclidean
-    # division to compute the truncation in DiffOpBound._update_num_bound.
-    # Extracting the Qj(θ) would then be easy, and I may no longer need the
-    # coefficients of θ "on the right".
-    Pols_z = dop.base_ring()
-    Pols_n, n = Pols_z.change_var('n').objgen()
-    Rops = ore_algebra.OreAlgebra(Pols_n, 'Sn')
-    rop = dop.to_S(Rops) if dop else Rops(0)
-    bwd_rop_as_pol = (rop.polynomial().reverse().change_variable_name('Bn')
-                         .map_coefficients(lambda pol: pol(n-rop.order())))
-    MPol = Pols_n.extend_variables('Bn')
-    bwd_rop_rcoeffof_n = MPol(bwd_rop_as_pol).polynomial(MPol.gen(0)).list()
-    val = min(pol.valuation() for pol in dop.coefficients()
-              + [Pols_z.zero()]) # TBI; 0 to handle dop=0
-    res = [Pols_z(c) << val for c in bwd_rop_rcoeffof_n]
+    assert dop.parent().is_T()
+    Pols = dop.base_ring()
+    ordlen, deglen = dop.order() + 1, dop.degree() + 1
+    binomial = [[0]*(ordlen) for _ in range(ordlen)]
+    for n in range(ordlen):
+        binomial[n][0] = 1
+        for k in range(1, n + 1):
+            binomial[n][k] = binomial[n-1][k-1] + binomial[n-1][k]
+    res = [None]*(ordlen)
+    for k in range(ordlen):
+        pol = [0]*(deglen)
+        for j in range(deglen):
+            pow = 1
+            for i in range(ordlen - k):
+                pol[j] += pow*binomial[k+i][i]*dop[k+i][j]
+                pow *= (-j)
+        res[k] = Pols(pol)
     return res
 
 class BoundDiffopStats(utilities.Stats):
