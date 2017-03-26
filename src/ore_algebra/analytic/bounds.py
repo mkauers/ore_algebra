@@ -1189,10 +1189,30 @@ class DiffOpBound(object):
         self.maj_den = Factorization(facs, unit=Poly.one(),
                                      sort=False, simplify=False)
 
-    def _update_num_bound(self, pol_part_len):
+    def _split_dop(self, pol_part_len):
+        r"""
+        Split self.dop.monic() into a truncated series in z and a remainder.
+
+        Let lc denote the leading coefficient of dop. This function computes
+        two operators first, rem ∈ K[θ][z] such that
+
+            dop·lc⁻¹ = first + rem_num·z^v·lc⁻¹,    deg[z](first) < v
+
+        where v = pol_part_len + 1. Thus, first is the Taylor expansion in z to
+        order O(z^v) of dop·lc⁻¹ written with θ on the left.
+
+        In the output, first and rem_num are encoded as elements of a
+        commutative polynomial ring K[n][z]. More precisely, θ is replaced by a
+        commutative variable n, with the convention that n^i·z^j should be
+        mapped to θ^i·z^j with θ on the left when translating back.
+        """
+        # XXX: This function recomputes the series expansion from scratch each
+        # time. One could use Newton's method to update it instead.
+
+        # Compute the initial part of the series expansion
 
         lc = self.dop.leading_coefficient()
-        inv = lc.inverse_series_trunc(pol_part_len + 1) # XXX: incremental Newton ?
+        inv = lc.inverse_series_trunc(pol_part_len + 1)
         MPol, (z, n) = self.dop.base_ring().extend_variables('n').objgens()
         # Including rcoeffs[-1] here actually is redundant, as, by construction,
         # the only term in first to involve n^ordeq will be 1·n^ordeq·z^0.
@@ -1204,17 +1224,23 @@ class DiffOpBound(object):
         assert first_nz[0] == self._dop_D.indicial_polynomial(z, n).monic()
         assert all(pol.degree() < self.dop.order() for pol in first_nz >> 1)
 
+        # Now compute rem_num as (dop - first·lc)·z^(-pol_part_len-1)
+
         theta = self.dop.parent().gen()
-        # theta**j*pol slow for large pol_part_len
-        pol_part = sum(theta**j*pol for j, pol in enumerate(first_zn))
-        # logger.debug("pol_part: %s", pol_part)
-        rem_num = self.dop - pol_part*lc # in theory, slow for large pol_part_len
+        pol_part = sum(theta**j*pol for j, pol in enumerate(first_zn)) # slow
+        rem_num = self.dop - pol_part*lc # slow
         logger.log(logging.DEBUG - 1, "rem_num: %s", rem_num)
         it = enumerate(_dop_rcoeffs_of_T(rem_num))
-        rem_num_nz = MPol(sum(n**j*pol for j, pol in it)).polynomial(z)
+        rem_num_nz = MPol(sum(n**j*pol for j, pol in it)).polynomial(z) # slow
         assert rem_num_nz.valuation() >= pol_part_len + 1
         rem_num_nz >>= (pol_part_len + 1)
         logger.log(logging.DEBUG - 1, "rem_num_nz: %s", rem_num_nz)
+
+        return first_nz, rem_num_nz
+
+    def _update_num_bound(self, pol_part_len):
+
+        first_nz, rem_num_nz = self._split_dop(pol_part_len)
 
         # XXX: make this independent of pol_part_len?
         alg_idx = self.leftmost + first_nz.base_ring().gen()
