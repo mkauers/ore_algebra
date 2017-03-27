@@ -1174,6 +1174,10 @@ class DiffOpBound(object):
             return lc.change_ring(QQbar).roots(CIF)
 
     def _update_den_bound(self):
+        r"""
+        Set self.cst, self.maj_den so that cst/maj_den is a majorant series
+        of the leading coefficient of dop.
+        """
         den = self.dop.leading_coefficient()
         Poly = den.parent().change_ring(IR)
         if den.degree() <= 0:
