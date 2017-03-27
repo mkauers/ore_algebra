@@ -734,6 +734,8 @@ class RatSeqBound(object):
         jet0 = self._pol_class(self._Pol, [IR.one(), iv])
         jet1 = jet0.inverse_series_trunc(ord)
         jet = iv*jet1
+        # Most expensive part. Perhaps consider simplifying rcpq_num, rcpq_den
+        # by bounding the high-degree terms for large n???
         num = self._rcpq_num.compose_trunc(jet, ord)
         den = self._rcpq_den.compose_trunc(jet, ord)
         invabscst = IR.one()
