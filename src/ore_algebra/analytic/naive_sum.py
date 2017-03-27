@@ -731,7 +731,7 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, tgt_error,
 
         sage: dop = x*Dx^2 + Dx + x
         sage: ini = LogSeriesInitialValues(0, {0: (1, 0)})
-        sage: maj = bounds.DiffOpBound(dop, refinable=False)
+        sage: maj = bounds.DiffOpBound(dop, max_effort=0)
         sage: series_sum(dop, ini, QQ(2), 1e-8, stride=1, record_bounds_in=[],
         ....:            maj=maj)
         ([0.22389077...])
@@ -961,7 +961,7 @@ def plot_bounds(dop, ini=None, pt=None, eps=None, **kwds):
     logger.info("point: %s", pt)
     logger.info("initial values: %s", ini)
     recd = []
-    maj = bounds.DiffOpBound(dop, refinable=False, **kwds)
+    maj = bounds.DiffOpBound(dop, max_effort=0, **kwds)
     series_sum(dop, ini, pt, eps, stride=1, record_bounds_in=recd, maj=maj)
     ref_sum = recd[-1][1][0].add_error(recd[-1][2])
     recd[-1:] = []

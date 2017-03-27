@@ -1105,7 +1105,7 @@ class DiffOpBound(object):
     """
 
     def __init__(self, dop, leftmost=ZZ.zero(), special_shifts=[],
-            refinable=True, pol_part_len=2, bound_inverse="simple"):
+            max_effort=9, pol_part_len=2, bound_inverse="simple"):
         r"""
         INPUT:
 
@@ -1144,7 +1144,7 @@ class DiffOpBound(object):
 
         self.bound_inverse = bound_inverse
         self.majseq_pol_part = []
-        self.refinable = refinable
+        self.max_effort = max_effort
         self._effort = 0
 
         self._update_den_bound()
@@ -1266,8 +1266,8 @@ class DiffOpBound(object):
 
     def refine(self):
         # XXX: make it possible to increase the precision of IR, IC
-        if not self.refinable:
-            logger.debug("refining disabled")
+        if self._effort > self.max_effort:
+            logger.debug("majorant no longer refinable")
             return
         self._effort += 1
         logger.info("refining majorant (effort = %s)...", self._effort)
