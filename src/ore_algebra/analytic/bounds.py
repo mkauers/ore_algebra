@@ -1206,35 +1206,32 @@ class DiffOpBound(object):
         commutative variable n, with the convention that n^i·z^j should be
         mapped to θ^i·z^j with θ on the left when translating back.
         """
-        # XXX: This function recomputes the series expansion from scratch each
-        # time. One could use Newton's method to update it instead.
+        # XXX: This function recomputes the series expansion from scratch every
+        # time. Use Newton's method to update it instead?
+
+        Pol_z = self.dop.base_ring()
+        Pol_zn = PolynomialRing(Pol_z, 'n')
 
         # Compute the initial part of the series expansion
 
         lc = self.dop.leading_coefficient()
         inv = lc.inverse_series_trunc(pol_part_len + 1)
-        MPol, (z, n) = self.dop.base_ring().extend_variables('n').objgens()
         # Including rcoeffs[-1] here actually is redundant, as, by construction,
         # the only term in first to involve n^ordeq will be 1·n^ordeq·z^0.
-        first = sum(n**j*pol._mul_trunc_(inv, pol_part_len + 1)
-                    for j, pol in enumerate(self._rcoeffs))
-        first_nz = first.polynomial(z)
-        first_zn = first.polynomial(n)
-        logger.log(logging.DEBUG - 1, "first: %s", first_nz)
+        first_zn = Pol_zn([pol._mul_trunc_(inv, pol_part_len + 1)
+                           for pol in self._rcoeffs])
+        first_nz = _switch_vars(first_zn)
+        z = Pol_z.gen(); n = Pol_zn.gen()
         assert first_nz[0] == self._dop_D.indicial_polynomial(z, n).monic()
         assert all(pol.degree() < self.dop.order() for pol in first_nz >> 1)
 
         # Now compute rem_num as (dop - first·lc)·z^(-pol_part_len-1)
 
-        theta = self.dop.parent().gen()
-        pol_part = sum(theta**j*pol for j, pol in enumerate(first_zn)) # slow
-        rem_num = self.dop - pol_part*lc # slow
-        logger.log(logging.DEBUG - 1, "rem_num: %s", rem_num)
-        it = enumerate(_dop_rcoeffs_of_T(rem_num))
-        rem_num_nz = MPol(sum(n**j*pol for j, pol in it)).polynomial(z) # slow
-        assert rem_num_nz.valuation() >= pol_part_len + 1
-        rem_num_nz >>= (pol_part_len + 1)
-        logger.log(logging.DEBUG - 1, "rem_num_nz: %s", rem_num_nz)
+        dop_zn = Pol_zn(self._rcoeffs)
+        rem_num_0_zn = dop_zn - first_zn*lc
+        rem_num_0_nz = _switch_vars(rem_num_0_zn)
+        assert rem_num_0_nz.valuation() >= pol_part_len + 1
+        rem_num_nz = rem_num_0_nz >> (pol_part_len + 1)
 
         return first_nz, rem_num_nz
 
@@ -1608,3 +1605,15 @@ def maj_eq_rhs_with_logs(n, bwrec, bwrec_nplus, last, z, logs):
                for i in xrange(ordrec)]
     IvPols = PolynomialRing(IR, z, sparse=True)
     return IvPols(polcoef) << n
+
+def _switch_vars(pol):
+    Ax = pol.base_ring()
+    x = Ax.variable_name()
+    y = pol.variable_name()
+    Ay = PolynomialRing(Ax.base_ring(), y)
+    Ayx = PolynomialRing(Ay, x)
+    if pol.is_zero():
+        return Ayx.zero()
+    dy = pol.degree()
+    dx = max(c.degree() for c in pol)
+    return Ayx([Ay([pol[j][i] for j in range(dy+1)]) for i in range(dx+1)])
