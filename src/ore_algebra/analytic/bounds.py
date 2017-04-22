@@ -3,16 +3,9 @@ r"""
 Error bounds
 """
 
-# TODO:
-# - this module uses at least three different object types for things that are
-# essentially rational fractions (QuotientRingElements, Factorizations, and
-# Rational Majorants) --> simplify?
-
 from __future__ import print_function
 
-import itertools, logging, textwrap, warnings
-
-import sage.rings.polynomial.real_roots as real_roots
+import itertools, logging, warnings
 
 from sage.arith.srange import srange
 from sage.misc.cachefunc import cached_function, cached_method
@@ -27,9 +20,9 @@ from sage.rings.integer_ring import ZZ
 from sage.rings.polynomial.polynomial_element import Polynomial
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 from sage.rings.power_series_ring import PowerSeriesRing
-from sage.rings.qqbar import QQbar, AA
+from sage.rings.qqbar import QQbar
 from sage.rings.rational_field import QQ
-from sage.rings.real_arb import RBF, RealBallField
+from sage.rings.real_arb import RBF
 from sage.rings.real_mpfi import RIF
 from sage.rings.real_mpfr import RealField, RR
 from sage.structure.factorization import Factorization
@@ -150,7 +143,7 @@ def _zero_free_rad(pols):
     raise NotImplementedError
 
 class RationalMajorant(MajorantSeries):
-    """
+    r"""
     A rational power series with nonnegative coefficients, represented as an
     unevaluated sum of rational fractions with factored denominators.
 
@@ -230,7 +223,7 @@ class RationalMajorant(MajorantSeries):
         return RationalMajorant([(pol*num, den) for num, den in self.fracs])
 
 class HyperexpMajorant(MajorantSeries):
-    """
+    r"""
     A formal power series of the form rat1(z)·exp(int(rat2(ζ), ζ=0..z)), with
     nonnegative coefficients.
 
@@ -277,7 +270,7 @@ class HyperexpMajorant(MajorantSeries):
         else:
             shift_part = ""
         return "({}{})*exp(int({}))".format(shift_part, (~self.den)*self.num,
-                                                                 self.integrand)
+                                                                self.integrand)
 
     @cached_method
     def _den_expanded(self):
@@ -477,8 +470,8 @@ def _complex_roots(pol):
         pol = pol.change_ring(QQbar)
     return [(IC(rt), mult) for rt, mult in pol.roots(CIF)]
 
-# Possible improvement: better take into account the range of derivatives needed
-# at each step.
+# Possible improvement: better take into account the range of derivatives
+# needed at each step.
 class RatSeqBound(object):
     r"""
     Bounds on the tails of a.e. rational sequences and their derivatives.
@@ -509,11 +502,10 @@ class RatSeqBound(object):
     associated to differential operators, see the class DiffOpBound. The
     ability to bound a sum of derivatives rather than a single rational
     function is useful to support logarithmic solutions at regular singular
-    points. Vectors of such bounds are supported purely for performance
-    reasons: it helps avoiding redundant computations on the indices and
-    denominators.
+    points. Vectors of bounds are supported purely for performance reasons: it
+    helps avoiding redundant computations on the indices and denominators.
 
-    TODO: perhaps extend this to allow ord to vary?
+    TODO: extend to allow ord to vary?
 
     ALGORITHM:
 
