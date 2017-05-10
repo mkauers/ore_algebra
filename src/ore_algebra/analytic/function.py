@@ -383,10 +383,12 @@ class DFiniteFunction(object):
                     post_transform=post_transform)
         center, rad = self._disk(pt)
         if center is None:
-            raise NotImplementedError
-            #logger.info("falling back on generic evaluator")
-            #ini, path = self._path_to(pt)
-            #return self.dop.numerical_solution(ini=ini, path=path, eps=eps)
+            # raise NotImplementedError
+            logger.info("falling back on generic evaluator")
+            ini, path = self._path_to(pt)
+            eps = RBF.one() >> prec
+            return self.dop.numerical_solution(ini, path, eps,
+                    post_transform=post_transform)
         approx = self._polys.get(center, [])
         Balls = RealBallField(prec)
         # due to the way the polynomials are recomputed, the precisions attached
