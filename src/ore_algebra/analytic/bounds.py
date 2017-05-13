@@ -1112,7 +1112,7 @@ class DiffOpBound(object):
 
         sage: maj = DiffOpBound((x^2 + 1)*Dx^2 + 2*x*Dx, pol_part_len=0)
         sage: print(maj.__repr__(asympt=False))
-        1/((-x + [0.994...])^2)*exp(int(POL+1.000...*NUM/(-x + [0.994...])^2))
+        1.000.../((-x + [0.994...])^2)*exp(int(POL+1.000...*NUM/(-x + [0.994...])^2))
         where
         POL=0,
         NUM=bound(0, ord=1)*z^0 + bound(-2/n, ord=1)*z^1
@@ -1126,7 +1126,7 @@ class DiffOpBound(object):
 
         sage: dop = (x+1)*(x^2+1)*Dx^3-(x-1)*(x^2-3)*Dx^2-2*(x^2+2*x-1)*Dx
         sage: DiffOpBound(dop, pol_part_len=3)
-        1/((-x + [0.9965035284306323 +/- 2.07e-17])^3)*exp(int(POL+1.000...*NUM/(-x + [0.9965035284306323 +/- 2.07e-17])^3)) where
+        1.000.../((-x + [0.9965035284306323 +/- 2.07e-17])^3)*exp(int(POL+1.000...*NUM/(-x + [0.9965035284306323 +/- 2.07e-17])^3)) where
         POL=~6.000...*z^0 + ~3.000...*z^1 + ~5.000...*z^2,
         NUM=~7.000...*z^3 + ~2.000...*z^4 + ~5.000...*z^5
 
@@ -1150,7 +1150,7 @@ class DiffOpBound(object):
     TESTS::
 
         sage: print(DiffOpBound(Dx - 1, pol_part_len=0).__repr__(asympt=False))
-        1/(1.000...)*exp(int(POL+1.000...*NUM/1.000...))
+        1.000.../(1.000...)*exp(int(POL+1.000...*NUM/1.000...))
         where
         POL=0,
         NUM=bound(-1/n, ord=1)*z^0
@@ -1158,7 +1158,7 @@ class DiffOpBound(object):
         sage: QQi.<i> = QuadraticField(-1)
         sage: for dop in [
         ....:     # orders <= 1 are not supported
-        ....:     Dx, Dx - 1, i*Dx, Dx + i, Dx^2,
+        ....:     Dx, Dx - 1, 1/1000*Dx - 1, i*Dx, Dx + i, Dx^2,
         ....:     (x^2 + 1)*Dx^2 + 2*x*Dx,
         ....:     Dx^2 - x*Dx
         ....: ]:
@@ -1244,7 +1244,7 @@ class DiffOpBound(object):
         self._update_num_bound(pol_part_len, first_nz, rem_num_nz)
 
     def __repr__(self, asympt=True):
-        fmt = ("1/({den})*exp(int(POL+{cst}*NUM/{den})) where\n"
+        fmt = ("{cst}/({den})*exp(int(POL+{cst}*NUM/{den})) where\n"
                "POL={pol},\n"
                "NUM={num}\n")
         def pol_repr(ratseqbounds, shift):
@@ -1374,7 +1374,7 @@ class DiffOpBound(object):
         rat_maj = RationalMajorant(terms)
         # The rational part “compensates” the change of unknown function
         # involving the leading coefficient of the operator.
-        maj = HyperexpMajorant(integrand=rat_maj, num=self.Poly.one(),
+        maj = HyperexpMajorant(integrand=rat_maj, num=self.Poly(self.cst),
                 den=self.maj_den)
         return maj
 
@@ -1819,8 +1819,9 @@ def _test_diffop_bound(
         sage: from ore_algebra.analytic.bounds import _test_diffop_bound
         sage: _test_diffop_bound(ords=[2], degs=[2], pplens=[1], prec=100,
         ....:         seed=0, verbose=True)
-        testing operator: ((-i + 1)*x^2 + (i - 6)*x - 2)*Dx^2 + ((5*i - 6)*x^2
-        + (-i - 2)*x - i + 1)*Dx + (-12*i - 2)*x^2 + (i + 2)*x
+        testing operator: ((1/457*i - 3/457)*x^2 + (-1/457*i + 1/457)*x
+        + 1/457*i - 6/457)*Dx^2 + ((-2/53*i + 2/53)*x - 1/106*i + 1/106)*Dx
+        + (-6/107*i - 1/107)*x^2 + (1/214*i + 1/107)*x
     """
     from sage.rings.number_field.number_field import QuadraticField
 
@@ -1833,6 +1834,7 @@ def _test_diffop_bound(
             dop = Dops(0)
             while dop.leading_coefficient()(0).is_zero():
                 dop = Dops([Pols.random_element(degree=(0, deg))
+                                /ZZ.random_element(1,1000)
                             for _ in xrange(ord + 1)])
             if verbose:
                 print("testing operator:", dop)
