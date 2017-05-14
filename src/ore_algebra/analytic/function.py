@@ -68,6 +68,7 @@ from . import analytic_continuation as ancont
 from . import bounds
 from . import polynomial_approximation as polapprox
 
+from .analytic_continuation import normalize_post_transform
 from .path import Point
 from .safe_cmp import *
 
@@ -131,6 +132,13 @@ class DFiniteFunction(object):
         nan
         sage: f._known_bound(RBF(AnInfinity()), Dops.one())
         nan
+
+        sage: f = DFiniteFunction(Dx^2 + 2*x*Dx, [1, -2/sqrt(pi)], name='my_erfc')
+        sage: f._known_bound(RBF(RIF(-1/2,1/2)), post_transform=Dx^2)
+        [+/- inf]
+        sage: f.approx(1/2, post_transform=Dx^2); f.approx(-1/2, post_transform=Dx^2);
+        sage: f._known_bound(RBF(RIF(-1/2,1/2)), post_transform=Dx^2)
+        [+/- 1.5...]
     """
 
     # Stupid, but simple and deterministic caching strategy:
@@ -221,7 +229,7 @@ class DFiniteFunction(object):
         logger.debug("disk for %s: center=%s, rad=%s", pt, center, rad)
         # pt may be a ball with nonzero radius: check that it is contained in
         # our candidate disk
-        log = approx_pt.abs().log(2)
+        log = RBF.zero() if 0 in approx_pt else approx_pt.abs().log(2)
         F = RealBallField(ZZ((expo - log).max(0).upper().ceil()) + 10)
         dist_to_center = (F(approx_pt) - F(center)).abs()
         if not safe_le(dist_to_center, rad):
@@ -296,6 +304,7 @@ class DFiniteFunction(object):
             err_pol = pol.map_coefficients(lambda c: c - c.squash())
             err = RIF(err_pol(RBF.zero().add_error(rad)))
             with sollya.settings(display=sollya.dyadic):
+                logger = logging.getLogger(__name__ + ".sollya.annotate")
                 logger.debug("annotatefunction(%s, %s, %s, %s, %s);",
                         sollya_fun, sollya_pol, sollya.SollyaObject(dom),
                         sollya.SollyaObject(err), sollya.SollyaObject(center))
@@ -304,6 +313,7 @@ class DFiniteFunction(object):
         logger.info("...done")
 
     def _known_bound(self, iv, post_transform):
+        post_transform = normalize_post_transform(self.dop, post_transform)
         Balls = iv.parent()
         Ivs = RealIntervalField(Balls.precision())
         mid = [c for c in self._polys.keys()
@@ -319,7 +329,7 @@ class DFiniteFunction(object):
             return crude_bound
         bound = None
         for c, r in zip(mid, rad):
-            if len(self._polys[c]) < post_transform.order():
+            if len(self._polys[c]) <= post_transform.order():
                 return crude_bound
             polys = [a.pol for a in self._polys[c]]
             dom = Balls(Ivs(Balls(c).add_error(r)).intersection(Ivs(iv)))
@@ -362,8 +372,7 @@ class DFiniteFunction(object):
         if post_transform is None:
             post_transform = self.dop.parent().one()
         derivatives = min(post_transform.order() + 1, self._max_derivatives)
-        post_transform = ancont.normalize_post_transform(self.dop,
-                                                         post_transform)
+        post_transform = normalize_post_transform(self.dop, post_transform)
         if prec >= self.max_prec or not pt.is_real():
             logger.info("performing high-prec evaluation "
                         "(pt=%s, prec=%s, post_transform=%s)",
@@ -374,10 +383,12 @@ class DFiniteFunction(object):
                     post_transform=post_transform)
         center, rad = self._disk(pt)
         if center is None:
-            raise NotImplementedError
-            #logger.info("falling back on generic evaluator")
-            #ini, path = self._path_to(pt)
-            #return self.dop.numerical_solution(ini=ini, path=path, eps=eps)
+            # raise NotImplementedError
+            logger.info("falling back on generic evaluator")
+            ini, path = self._path_to(pt)
+            eps = RBF.one() >> prec
+            return self.dop.numerical_solution(ini, path, eps,
+                    post_transform=post_transform)
         approx = self._polys.get(center, [])
         Balls = RealBallField(prec)
         # due to the way the polynomials are recomputed, the precisions attached
@@ -477,10 +488,10 @@ class DFiniteFunction(object):
         if self._sollya_object is not None:
             return self._sollya_object
         import sollya
-        logger = logging.getLogger(__name__ + ".sollya")
+        logger = logging.getLogger(__name__ + ".sollya.eval")
         Dx = self.dop.parent().gen()
         def wrapper(pt, ord, prec):
-            if RBF(pt.diameter()) > self.max_rad/4:
+            if RBF(pt.diameter()) >= self.max_rad/4:
                 return self._known_bound(RBF(pt), post_transform=Dx**ord)
             try:
                 val = self.approx(pt, prec, post_transform=Dx**ord)
@@ -499,6 +510,17 @@ class DFiniteFunction(object):
             return val
         wrapper.__name__ = self.name
         self._sollya_object = sollya.sagefunction(wrapper)
+        for pt, ini in self.ini.iteritems():
+            pt = RIF(pt)
+            if pt.is_exact():
+                fun = self._sollya_object
+                for ord, val in enumerate(ini):
+                    try:
+                        sollya.annotatefunction(fun, val, pt, RIF.zero())
+                    except TypeError:
+                        logger.info("annotation failed: D^%s(%s)(%s) = %s",
+                                    ord, self.name, pt, val)
+                    fun = sollya.diff(fun)
         self._update_approx_hook = self._sollya_annotate
         return self._sollya_object
 
