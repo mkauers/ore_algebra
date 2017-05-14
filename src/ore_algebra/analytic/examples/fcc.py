@@ -44,7 +44,7 @@ In this case, the segment [0, 1] contains a singularity of the operator::
 We can nevertheless evaluate the solution of interest using an integration path
 that passes above the singular point::
 
-    sage: fcc.dop5.numerical_solution([0, 0, 0, 0, 1, 0], [0, 1/5+i/2, 1], 1e-60) # long time (8.6 s)
+    sage: fcc.dop5.numerical_solution([0, 0, 0, 0, 1, 0], [0, 1/5+i/2, 1], 1e-60) # long time (5.7 s)
     [1.04885235135491485162956376369999275945402550465206640313845...] + [+/-...]*I
 
 In the six-dimensional case, Koutschan gives the following operator::
@@ -53,7 +53,7 @@ In the six-dimensional case, Koutschan gives the following operator::
     (27122036833024*z^43 + ... + 2276991208061142220800000000000000000*z^6)*Dz^8
     + ... - 2428790621931885035520000000000000000
     sage: ini = [0, 0, 0, 0, 0, 1, 0, 0]
-    sage: fcc.dop6.numerical_solution(ini, [0, 3/2 + i, 1], 1e-60) # long time (95 s)
+    sage: fcc.dop6.numerical_solution(ini, [0, 3/2 + i, 1], 1e-60) # long time (115 s)
     [1.02774910062749883985936367927396850209243990900114872425...] + [...]*I
 """
 
