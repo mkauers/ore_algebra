@@ -590,6 +590,7 @@ class RatSeqBound(object):
         sage: RatSeqBound([-n], n*(n-3), {0:1})._test()
         sage: RatSeqBound([-n], n*(n-3), {0:1,3:1})._test()
         sage: RatSeqBound([CBF(i)*n], n*(n-QQbar(i)), {0:1})._test()
+        sage: RatSeqBound([QQi['n'](3*i+1)], n + (i-1)/3, {})._test()
 
         sage: from ore_algebra.analytic.bounds import _test_RatSeqBound
         sage: _test_RatSeqBound() # long time
@@ -750,6 +751,8 @@ class RatSeqBound(object):
         n, k ∈ ℕ ∖ exceptions.
         """
         assert n not in self.exn
+        if n == 0:
+            return IR.zero() # _den_data() assumes n ≥ 1
         res = IR.one()
         for root, mult, n_min, global_lbound in self._den_data():
             if n < n_min:
