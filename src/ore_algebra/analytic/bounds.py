@@ -1082,6 +1082,23 @@ class DiffOpBound(object):
         POL=~6.000...*z^0 + ~3.000...*z^1 + ~5.000...*z^2,
         NUM=~7.000...*z^3 + ~2.000...*z^4 + ~5.000...*z^5
 
+    Refining::
+
+        sage: from ore_algebra.analytic.examples import fcc
+        sage: maj = DiffOpBound(fcc.dop5)
+        sage: maj.maj_den
+        (-z + [0.2047...])^13
+        sage: maj.maj_den.value()(1/10)
+        [1.82513661e-13 +/- 5.50e-22]
+        sage: maj.refine()
+        sage: maj.maj_den.value()(1/10)
+        [436565.0...]
+        sage: [b(10) for b in maj.majseq_pol_part]
+        [[41.256...], [188.43...]]
+        sage: maj.refine()
+        sage: [b(10) for b in maj.majseq_pol_part]
+        [[41.256...], [188.43...], [920.6...], [4518.9...]]
+
     TESTS::
 
         sage: print(DiffOpBound(Dx - 1, pol_part_len=0).__repr__(asympt=False))
