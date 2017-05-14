@@ -726,6 +726,9 @@ class RatSeqBound(object):
         evaluation on an interval jet of the form [0,1/n] + ε + O(ε^ord)
         yields bounds for the derivatives as well.
         """
+        # XXX: A large part of this computation could be shared between
+        # consecutive calls corresponding to the same DiffOpBound, where n and
+        # den are the same, saving perhaps a factor of ~2.
         if ord == self.ord and n > self._rat_converged:
             return self._almost_lim
         assert n not in self.exn
@@ -1133,14 +1136,15 @@ class DiffOpBound(object):
 
         self.Poly = Pols_z.change_ring(IR) # TBI
         one = self.Poly.one()
-        self.__facto_one = Factorization([(one, 1)], unit=one, sort=False, simplify=False)
+        self.__facto_one = Factorization([(one, 1)], unit=one, sort=False,
+                                                     simplify=False)
 
         lc = dop_T.leading_coefficient()
         if lc.is_term() and not lc.is_constant():
             raise ValueError("irregular singular operator", dop)
 
         self.leftmost = leftmost
-        self.special_shifts = special_shifts
+        self.exns = dict(special_shifts) # XXX: rename?
 
         self.bound_inverse = bound_inverse
         self.majseq_pol_part = []
@@ -1148,7 +1152,12 @@ class DiffOpBound(object):
         self._effort = 0
 
         self._update_den_bound()
-        self._update_num_bound(pol_part_len)
+        first_nz, rem_num_nz = self._split_dop(pol_part_len)
+        self.alg_idx = self.leftmost + first_nz.base_ring().gen()
+        # indicial polynomial, XXX clarify exact convention
+        # XXX: check if ind needs to be shifted (ind(n ± leftmost))
+        self.ind = first_nz[0](self.alg_idx)
+        self._update_num_bound(pol_part_len, first_nz, rem_num_nz)
 
     def __repr__(self, asympt=True):
         fmt = ("1/({den})*exp(int(POL+{cst}*NUM/{den})) where\n"
@@ -1214,16 +1223,14 @@ class DiffOpBound(object):
         """
         # XXX: This function recomputes the series expansion from scratch every
         # time. Use Newton's method to update it instead?
-
         Pol_z = self.dop.base_ring()
         Pol_zn = PolynomialRing(Pol_z, 'n')
 
         # Compute the initial part of the series expansion
-
         lc = self.dop.leading_coefficient()
         inv = lc.inverse_series_trunc(pol_part_len + 1)
-        # Including rcoeffs[-1] here actually is redundant, as, by construction,
-        # the only term in first to involve n^ordeq will be 1·n^ordeq·z^0.
+        # Including rcoeffs[-1] here actually is redundant: by construction,
+        # the only term involving n^ordeq  in first will be 1·n^ordeq·z^0.
         first_zn = Pol_zn([pol._mul_trunc_(inv, pol_part_len + 1)
                            for pol in self._rcoeffs])
         first_nz = _switch_vars(first_zn)
@@ -1232,7 +1239,6 @@ class DiffOpBound(object):
         assert all(pol.degree() < self.dop.order() for pol in first_nz >> 1)
 
         # Now compute rem_num as (dop - first·lc)·z^(-pol_part_len-1)
-
         dop_zn = Pol_zn(self._rcoeffs)
         rem_num_0_zn = dop_zn - first_zn*lc
         rem_num_0_nz = _switch_vars(rem_num_0_zn)
@@ -1241,27 +1247,18 @@ class DiffOpBound(object):
 
         return first_nz, rem_num_nz
 
-    def _update_num_bound(self, pol_part_len):
-
-        first_nz, rem_num_nz = self._split_dop(pol_part_len)
-
-        # XXX: make this independent of pol_part_len?
-        alg_idx = self.leftmost + first_nz.base_ring().gen()
-        # XXX: check if ind needs to be shifted (ind(n ± leftmost))
-        self.ind = first_nz[0](alg_idx)
-
+    def _update_num_bound(self, pol_part_len, first_nz, rem_num_nz):
+        old_pol_part_len = len(self.majseq_pol_part)
         # We ignore the coefficient first_nz[0], which amounts to multiplying
         # the integrand by z⁻¹, as prescribed by the theory. Since, by
         # definition, majseq_num starts at the degree following that of
         # majseq_pol_part, it gets shifted as well.
-        old_pol_part_len = len(self.majseq_pol_part)
-        exns = dict(self.special_shifts)
         self.majseq_pol_part.extend([
-                RatSeqBound(first_nz[i](alg_idx), self.ind, exns)
+                RatSeqBound(first_nz[i](self.alg_idx), self.ind, self.exns)
                 for i in xrange(old_pol_part_len + 1, pol_part_len + 1)])
         assert len(self.majseq_pol_part) == pol_part_len
         self.majseq_num = [
-                RatSeqBound(pol(alg_idx), self.ind, exns)
+                RatSeqBound(pol(self.alg_idx), self.ind, self.exns)
                 for pol in rem_num_nz]
 
     def refine(self):
@@ -1275,7 +1272,9 @@ class DiffOpBound(object):
             self.bound_inverse = 'solve'
             self._update_den_bound()
         else:
-            self._update_num_bound(max(2, 2*self.pol_part_len()))
+            new_pol_part_len = max(2, 2*self.pol_part_len())
+            split = self._split_dop(new_pol_part_len)
+            self._update_num_bound(new_pol_part_len, *split)
 
     def pol_part_len(self):
         return len(self.majseq_pol_part)
@@ -1292,8 +1291,7 @@ class DiffOpBound(object):
         terms = [(maj_pol_part, self.__facto_one), (maj_num, self.maj_den)]
         rat_maj = RationalMajorant(terms)
         # The rational part “compensates” the change of unknown function
-        # involving the leading coefficient of the operator. We compute ~den
-        # by hand because Factorization.__invert__() can be very slow.
+        # involving the leading coefficient of the operator.
         maj = HyperexpMajorant(integrand=rat_maj, num=self.Poly.one(),
                 den=self.maj_den)
         return maj
@@ -1335,8 +1333,9 @@ class DiffOpBound(object):
 
         OUTPUT:
 
-        A (common) majorant series of the tails ``y[N:](z)`` of the solutions
-        corresponding to the elements of ``residuals``.
+        A ``HyperexpMajorant`` representing a common majorant series of the
+        tails ``y[N:](z)`` of the solutions corresponding to the elements of
+        ``residuals``.
         """
         assert majeqrhs.valuation() >= n >= self.dop.order() >= 1
         maj = self(n)
