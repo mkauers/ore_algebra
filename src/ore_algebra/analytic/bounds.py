@@ -28,7 +28,7 @@ from sage.rings.real_mpfr import RealField, RR
 from sage.structure.factorization import Factorization
 
 from .. import ore_algebra
-from . import utilities
+from . import recurrence, utilities
 
 from .safe_cmp import *
 from .shiftless import squarefree_part
@@ -213,6 +213,14 @@ class RationalMajorant(MajorantSeries):
             res += num_ser._mul_trunc_(den_ser.inverse_series_trunc(ord), ord)
         return res
 
+    def series0(self, ord):
+        Pol = self._Poly_IC # XXX should be IR eventually
+        res = Pol.zero()
+        for num, den_facto in self.fracs:
+            den = prod((lin**mult for lin, mult in den_facto), Pol.one())
+            res += num._mul_trunc_(den.inverse_series_trunc(ord), ord)
+        return res
+
     def __mul__(self, pol):
         """
         Multiplication by a polynomial.
@@ -276,11 +284,14 @@ class HyperexpMajorant(MajorantSeries):
     def _den_expanded(self):
         return prod(pol**m for (pol, m) in self.den)
 
+    def exp_part_series0(self, ord):
+        return self.integrand.series0(ord-1).integral()._exp_series(ord)
+
     def series(self, rad, ord):
         # Compute the derivatives “by automatic differentiation”. This is
         # crucial for performance with operators of large order.
-        Pol = PolynomialRing(IC, self.variable_name)
-        pert_rad = Pol([rad, 1]) # XXX: should be IR
+        Pol = PolynomialRing(IC, self.variable_name) # XXX: should be IR
+        pert_rad = Pol([rad, 1])
         shx_ser = pert_rad.power_trunc(self.shift, ord)
         num_ser = Pol(self.num).compose_trunc(pert_rad, ord) # XXX: remove Pol()
         den_ser = Pol(self._den_expanded()).compose_trunc(pert_rad, ord)
@@ -300,6 +311,13 @@ class HyperexpMajorant(MajorantSeries):
         valuation = pol.valuation() if pol else 0
         self.shift += valuation
         self.num *= (pol >> valuation)
+        return self
+
+    def __irshift__(self, n):
+        r"""
+        IN-PLACE multiplication by x^n. Use with care!
+        """
+        self.shift += n
         return self
 
 ######################################################################
@@ -1040,66 +1058,49 @@ def bound_polynomials(pols):
         return IR.zero().max(*(
             pols[k][n].above_abs()
             for k in xrange(order)))
-    maj = PolyIR([coeff_bound(n)
-                  for n in xrange(val, deg + 1)])
+    maj = PolyIR([coeff_bound(n) for n in xrange(val, deg + 1)])
     maj <<= val
     return maj
 
 class DiffOpBound(object):
     r"""
-    A "bound on the inverse" of a differential operator at a regular point.
+    A “bound” on the “inverse” of a differential operator at a regular point.
 
-    This is an object that can be used to bound the tails of logarithmic power
-    series solutions with terms supported by leftmost + ℕ of a differential
-    operator. Given a residual q = dop(ỹ) where ỹ(z) = y[:N](z) is the
-    truncation at order N of some (logarithmic) solution y of dop·y = 0, it can
-    be used to compute a majorant series of the coefficients u[0], u[1], ... of
-    the tail
+    A DiffOpBound can be thought of as a sequence of formal power series
 
-        y(z) - ỹ(z) = u[0](z) + u[1](z)·log(z) + u[2](z)·log(z)² + ···.
-
-    That majorant series of the tail is in an object of class HyperexpMajorant.
-
-    Note that multiplying dop by a rational function changes the residual.
-
-    More precisely, a DiffOpBound represents a *parametrized* formal power
-    series v[n](z) with the property that, if N and ỹ are as above with
-    N - n ∈ ℕ, then v[n](z)·B(q)(z), for some logarithmic polynomial B(q)
-    derived from q, is a majorant of y(z) - ỹ(z).
-    XXX: Here B(q) can be taken to be any majorant polynomial of q, but tighter
-    choices are possible (see below for details).
-
-    The sequence v[n](z) is of the form
-
-        1/den(z) * exp(int(cst*num[n](z)/den(z) + pol[n](z)))
+        v[n](z) = 1/den(z) · exp ∫ (pol[n](z) + cst·z^ℓ·num[n](z)/den(z))
 
     where
 
-    * num[n](z) and pol[n](z) are polynomials with coefficients depending on n
-      (given by RatSeqBound objects), with val(num[n]) >= deg(pol[n]),
+    * cst is a real number,
+    * den(z) is a polynomial with constant coefficients,
+    * pol[n](z) and num[n](z) are polynomials with coefficients depending on n
+      (given by RatSeqBound objects), and ℓ >= deg(pol[n]).
 
-    * den(z) is a polynomial (with constant coefficients),
+    These series can be used to bound the tails of logarithmic power series
+    solutions y(z) belonging to a certain subspace (see the documentation of
+    __init__() for details) of dop(y) = 0. More precisely, write
 
-    * cst is a constant.
+        y(z) - ỹ(z) = z^λ·(u[0](z)/0! + u[1](z)·log(z)/1! + ···)
 
-    XXX: DiffOpBounds are refinable.
+    where y(z) is a solution of self.dop (in the correct subspace, with
+    λ = self.leftmost) and ỹ(z) is its truncation to O(z^n1). Then, for
+    suitable n0 ∈ ℕ and p(z) ∈ ℝ_+[z], the series ŷ(z) = v[n0](z)·p(z) is a
+    common majorant of u[0], u[1], ...
 
-    DATA:
+    In the typical situation where n0 ≤ n1 and y(z) does not depend on initial
+    conditions “past” n1, a polynomial p(z) of valuation at least n1 with this
+    property can be computed using the methods normalized_residual() and rhs().
+    Variants with different p hold in more general settings. See their
+    documentation of normalized_residual() and rhs() for more information.
 
-    - ``dop`` - the operator to which the bound applies (and which should be
-        used to compute the residuals),
+    Note that multiplying dop by a rational function changes p(z).
 
-    - ``cst`` - constant (real ball),
-
-    - ``majseq_pol_part`` - *list* of coefficients of ``pol_part``,
-
-    - ``majseq_num`` - *list* of coefficients [c[d], c[d+1], ...] of
-      ``num``, starting at degree d = deg(pol_part) + 1,
-
-    - ``maj_den`` - ``Factorization``,
-
-    - ``ind`` - polynomial to be used in the computation of tail bounds
-        from residuals, typically the indicial polynomial of ``dop``.
+    DiffOpBounds are refinable: calling the method refine() will try to replace
+    the parametrized series v[n](z) by one giving tighter bounds. The main
+    effect of refinement is to increase the degree of the polynomial part. This
+    can be done several times, but repeated calls to refine() quickly become
+    expensive.
 
     EXAMPLES::
 
@@ -1174,19 +1175,35 @@ class DiffOpBound(object):
     def __init__(self, dop, leftmost=ZZ.zero(), special_shifts=[],
             max_effort=9, pol_part_len=2, bound_inverse="simple"):
         r"""
+        Construct a DiffOpBound for a subset of the solutions of dop.
+
         INPUT:
 
-        * special_shifts: list of nonneg integers n s.t. leftmost+n is a root of
-          the indicial equation where we are interested in "new" powers of log
-          that may appear, with associated multiplicities
+        * dop: element of K(z)[Dz] (K a number field), with 0 as a regular
+          (i.e., ordinary or regular singular) point
+        * leftmost: algebraic number
+        * special_shifts: list of (shift, mult) pairs, where shift is a
+          nonnegative integer and (leftmost + shift) is a root of multiplicity
+          mult of the indicial polynomial of dop
+
+        OUTPUT:
+
+        The resulting bound applies to the generalized series solutions of dop
+        in z^λ·ℂ[[z]][log(z)], λ = leftmost, with the additional property that
+        the maximum power of log(z) in the coefficient of z^n is strictly less
+        than the sum of the multiplicities of the elements of special_shifts
+        with shift ≤ n.
 
         .. WARNING::
 
-            The bounds depend on residuals computed using the “normalized”
-            operator ``self.dop``, not the operator ``dop`` given as input to
-            ``__init__``. The normalized operator is the product of ``dop`` by a
-            power of x.
+            Thus, special_shifts can be left to its default value of [] when
+            the origin is an ordinary point, but needs to contain all the roots
+            of the indicial polynomial in λ + ℕ for a general regular singular
+            point.
 
+        The remaining parameters are used to set properties of the DiffOpBound
+        object related to the effort/tightness trade-off of the algorithm. They
+        have no influence on the semantics of the bound.
         """
 
         logger.info("bounding local operator...")
@@ -1194,33 +1211,36 @@ class DiffOpBound(object):
         if not dop.parent().is_D():
             raise ValueError("expected an operator in K(x)[D]")
         _, Pols_z, _, dop = dop._normalize_base_ring()
-        self._dop_D = dop
+        self._dop_D = dop # only used in argument checking, assertions
         self.dop = dop_T = dop.to_T('T' + Pols_z.variable_name())
-        self._rcoeffs = _dop_rcoeffs_of_T(dop_T)
-
-        self.Poly = Pols_z.change_ring(IR) # TBI
-        one = self.Poly.one()
-        self.__facto_one = Factorization([(one, 1)], unit=one, sort=False,
-                                                     simplify=False)
 
         lc = dop_T.leading_coefficient()
         if lc.is_term() and not lc.is_constant():
             raise ValueError("irregular singular operator", dop)
 
+        self._rcoeffs = _dop_rcoeffs_of_T(dop_T)
+
         self.leftmost = leftmost
-        self.exns = dict(special_shifts) # XXX: rename?
+        self.special_shifts = dict(special_shifts)
 
         self.bound_inverse = bound_inverse
         self.max_effort = max_effort
         self._effort = 0
 
+        self.Poly = Pols_z.change_ring(IR) # TBI
+        self.__CPoly = Pols_z.change_ring(IC)
+        one = self.Poly.one()
+        self.__facto_one = Factorization([(one, 1)], unit=one, sort=False,
+                                                     simplify=False)
+
         self._update_den_bound()
         first_nz, rem_num_nz = self._split_dop(pol_part_len)
         self.alg_idx = self.leftmost + first_nz.base_ring().gen()
-        # indicial polynomial, XXX clarify exact convention
-        # XXX: check if ind needs to be shifted (ind(n ± leftmost))
+        # indicial polynomial, shifted so that integer roots correspond to
+        # series in z^λ·ℂ[[z]][log(z)]
         self.ind = first_nz[0](self.alg_idx)
-        self.majseq_pol_part = RatSeqBound([], self.ind, self.exns)
+        assert self.ind.is_monic()
+        self.majseq_pol_part = RatSeqBound([], self.ind, self.special_shifts)
         self._update_num_bound(pol_part_len, first_nz, rem_num_nz)
 
     def __repr__(self, asympt=True):
@@ -1252,20 +1272,19 @@ class DiffOpBound(object):
         of the leading coefficient of dop.
         """
         den = self.dop.leading_coefficient()
-        Poly = den.parent().change_ring(IR)
         if den.degree() <= 0:
             facs = []
         # below_abs()/lower() to get thin intervals
         elif self.bound_inverse == "simple":
             rad = abs_min_nonzero_root(den).below_abs(test_zero=True)
-            facs = [(Poly([rad, -1]), den.degree())]
+            facs = [(self.Poly([rad, -1]), den.degree())]
         elif self.bound_inverse == "solve":
-            facs = [(Poly([IR(iv.abs().lower()), -1]), mult)
+            facs = [(self.Poly([IR(iv.abs().lower()), -1]), mult)
                     for iv, mult in self._poles()]
         else:
             raise ValueError("algorithm")
         self.cst = ~abs(IC(den.leading_coefficient()))
-        self.maj_den = Factorization(facs, unit=Poly.one(),
+        self.maj_den = Factorization(facs, unit=self.Poly.one(),
                                      sort=False, simplify=False)
 
     def _split_dop(self, pol_part_len):
@@ -1275,10 +1294,10 @@ class DiffOpBound(object):
         Let lc denote the leading coefficient of dop. This function computes
         two operators first, rem ∈ K[θ][z] such that
 
-            dop·lc⁻¹ = first + rem_num·z^v·lc⁻¹,    deg[z](first) < v
+            dop·lc⁻¹ = first + rem_num·z^ℓ·lc⁻¹,    deg[z](first) < ℓ
 
-        where v = pol_part_len + 1. Thus, first is the Taylor expansion in z to
-        order O(z^v) of dop·lc⁻¹ written with θ on the left.
+        where ℓ = pol_part_len + 1. Thus, first is the Taylor expansion in z to
+        order O(z^ℓ) of dop·lc⁻¹ written with θ on the left.
 
         In the output, first and rem_num are encoded as elements of a
         commutative polynomial ring K[n][z]. More precisely, θ is replaced by a
@@ -1322,7 +1341,7 @@ class DiffOpBound(object):
         assert len(self.majseq_pol_part) == pol_part_len
         self.majseq_num = RatSeqBound(
                 [pol(self.alg_idx) for pol in rem_num_nz],
-                self.ind, self.exns)
+                self.ind, self.special_shifts)
 
     def refine(self):
         # XXX: make it possible to increase the precision of IR, IC
@@ -1344,7 +1363,7 @@ class DiffOpBound(object):
 
     def __call__(self, n):
         r"""
-        Return a term of the majorant sequence.
+        Return a term v[n] of the majorant sequence.
         """
         maj_pol_part = self.Poly(self.majseq_pol_part(n))
         # XXX: perhaps use sparse polys or add explicit support for a shift
@@ -1359,80 +1378,344 @@ class DiffOpBound(object):
                 den=self.maj_den)
         return maj
 
-    # Extracted from tail_majorant for (partial) compatibility with the regular
-    # singular case.
-    def maj_eq_rhs(self, residuals):
-        abs_residual = bound_polynomials(residuals)
-        logger.debug("lc(abs_res) = %s", abs_residual.leading_coefficient())
-        # In general, a majorant series for the tail of order n is given by
-        # self(n)(z)*int(t⁻¹*aux(t)/self(n)(t)) where aux(t) is a polynomial
-        # s.t. |aux[k]| >= (k/indicial_eq(k))*abs_residual[k]. This bound is not
-        # very convenient to compute. But since self(n) has nonnegative
-        # coefficients and self(n)(0) = 1, we can replace aux by aux*self(n) in
-        # the formula. (XXX: How much do we lose?) Since k/indicial_eq(k) <= 1
-        # (ordinary point!), we could in fact take aux = abs_residual*self(n),
-        # yielding a very simple bound. (We would lose an additional factor of
-        # about n^(ordeq-1).)
-        Pols = abs_residual.parent()
-        aux = Pols(dict(
-            (k, (c*k/self.ind(k)).above_abs())
-            for k, c in abs_residual.dict().iteritems()))
-        return aux
+    @cached_method
+    def bwrec(self):
+        return recurrence.backward_rec(self.dop, shift=self.leftmost)
 
-    # XXX: make interval evaluation more precise? (not crucial as we only need
-    # an upper bound, but...)
-    def tail_majorant(self, n, majeqrhs):
+    def normalized_residual(self, n, last, bwrec_nplus=None, Ring=IC):
         r"""
-        Bound the tails of order ``N`` of solutions of ``self.dop(y) == 0``.
+        Compute the “normalized residual” associated to a truncated solution
+        of dop(y) = 0.
+
+        Consider a solution
+
+            y(z) = z^λ·sum[i,k](y[i,k]·z^i·log(z)^k/k!)
+
+        of self.dop(y) = 0, and its truncated series expansion
+
+            ỹ(z) = z^λ·sum[i<n,k](y[i,k]·z^i·log(z)^k/k!).
+
+        Denote s = deg[z](dop(z,θ)). The equation
+
+            monic(dop(z=0,θ))(f(z)) = dop(ỹ)
+
+        has at least one solution (exactly one when none of λ+n, λ+n+1, ...,
+        λ+n+s-1 is a root of the indicial polynomial dop(z=0,n)). Its
+        solutions are of the form
+
+            f(z) = z^(λ+n)·sum[k](f[k](z)·log(z)^k/k!)
+
+        for a finite list [f[0], f[1], ...] of polynomials of degree ≤ s-1.
+
+        This method takes as input the truncation order n and the coefficients
+
+            last = [[y[n-1,0], y[n-1,1], ...],
+                    [y[n-2,0], y[n-2,1], ...],
+                    ...,
+                    [y[n-s,0], y[n-s,1], ...]],
+
+        and returns a list [f[0], f[1], ...] as above.
+
+        In order to avoid redundant computations, is possible to pass as
+        additional input the series expansions around λ+n+j (0≤j≤s) of the
+        coefficients of the recurrence operator dop(S⁻¹,ν) =
+        sum[0≤i≤s](b[i](ν)·S⁻¹) associated to dop.
+
+        The optional Ring parameter makes it possible to choose the coefficient
+        domain. It is there for debugging purposes.
+
+        .. WARNING::
+
+            The bound holds for the normalized residual computed using the
+            operator ``self.dop``, not the one given as input to ``__init__``.
+            These operators differ by a power-of-x factor, which may change the
+            normalized residual.
+
+        EXAMPLES::
+
+            sage: from ore_algebra import *
+            sage: from ore_algebra.analytic.bounds import *
+            sage: Dops, t, Dt = DifferentialOperators(QQ, 't')
+
+        Compute the normalized residual associated to a truncation of the
+        exponential series::
+
+            sage: trunc = t._exp_series(5); trunc
+            1/24*t^4 + 1/6*t^3 + 1/2*t^2 + t + 1
+            sage: maj = DiffOpBound(Dt - 1)
+            sage: nres = maj.normalized_residual(5, [[trunc[4]]]); nres
+            [[-0.00833333333333333 +/- 5.77e-18]]
+
+        Check that it has the expected properties::
+
+            sage: dopT = (Dt - 1).to_T('Tt'); dopT
+            Tt - t
+            sage: dopT.map_coefficients(lambda pol: pol[0])(nres[0]*t^5)
+            ([-0.0416666666666667 +/- 6.40e-17])*t^5
+            sage: (Dt - 1).to_T('Tt')(trunc).change_ring(CBF)
+            ([-0.0416666666666667 +/- 4.26e-17])*t^5
+
+        Note that using Dt - 1 instead of θt - t makes a difference in the
+        result, since it amounts to a division by t::
+
+            sage: (Dt - 1)(trunc).change_ring(CBF)
+            ([-0.0416666666666667 +/- 4.26e-17])*t^4
+
+        TESTS::
+
+            sage: maj = DiffOpBound(Dt^2 + 1)
+            sage: trunc = t._sin_series(5) + t._cos_series(5)
+            sage: maj._check_normalized_residual(5, [trunc], ZZ.zero(), QQ)
+            0
+
+            sage: Pol.<n> = CBF[]
+            sage: Jets.<eta> = CBF[]
+            sage: bwrec = [n*(n-1), Pol(0), Pol(1)]
+            sage: bwrec_nplus = [[Jets(pol(5+i)) for pol in bwrec]
+            ....:                for i in [0,1]]
+            sage: last = [[trunc[4]], [trunc[3]]]
+            sage: (maj.normalized_residual(5, last, bwrec_nplus)
+            ....:         == maj.normalized_residual(5, last))
+            True
+
+        This operator annihilates t^(1/3)*[1/(1-t)+log(t)^2*exp(t)]+exp(t)::
+
+            sage: dop = ((81*(-1+t))*t^4*(3*t^6-19*t^5+61*t^4-85*t^3+106*t^2
+            ....: -22*t+28)*Dt^5-27*t^3*(36*t^8-315*t^7+1346*t^6-3250*t^5
+            ....: +4990*t^4-5545*t^3+2788*t^2-1690*t+560)*Dt^4+27*t^2*(54*t^9
+            ....: -555*t^8+2678*t^7-7656*t^6+13370*t^5-17723*t^4+13070*t^3
+            ....: -6254*t^2+4740*t-644)*Dt^3-3*t*(324*t^10-3915*t^9+20871*t^8
+            ....: -67614*t^7+130952*t^6-190111*t^5+180307*t^4-71632*t^3
+            ....: +73414*t^2-26368*t-868)*Dt^2+(243*t^11-3645*t^10+21276*t^9
+            ....: -77346*t^8+163611*t^7-249067*t^6+297146*t^5-83366*t^4
+            ....: +109352*t^3-97772*t^2-4648*t+896)*Dt+162*t^10-1107*t^9
+            ....: +5292*t^8-12486*t^7+17908*t^6-37889*t^5-6034*t^4-1970*t^3
+            ....: +36056*t^2+2044*t-896)
+
+        We check that the residuals corresponding to various truncated
+        solutions (both without and with logs, with lefmost=1/3 and leftmost=0)
+        are correctly computed::
+
+            sage: n = 20
+            sage: zero = t.parent().zero()
+
+            sage: maj = DiffOpBound(dop, leftmost=0)
+            sage: trunc = [t._exp_series(n), zero, zero]
+            sage: maj._check_normalized_residual(n, trunc, 0, QQ)
+            0
+
+            sage: maj = DiffOpBound(dop, leftmost=1/3)
+            sage: trunc = [(1-t).inverse_series_trunc(n), zero, zero]
+            sage: maj._check_normalized_residual(n, trunc, 1/3, QQ)
+            0
+            sage: trunc = [(1-t).inverse_series_trunc(n), zero, 2*t._exp_series(n)]
+            sage: maj._check_normalized_residual(n, trunc, 1/3, QQ)
+            0
+        """
+        deg = self.dop.degree()
+        logs = max(len(logpol) for logpol in last) if last else 1
+        if bwrec_nplus is None:
+            bwrec = self.bwrec()
+            # Suboptimal: For a given j, we are only going to need the
+            # b[i](λ+n+i+ε) for < s - i.
+            bwrec_nplus = [bwrec.eval_series(Ring, n+i, logs)
+                           for i in xrange(deg)]
+        # Check that we have been given/computed enough shifts of the
+        # recurrence, and that the orders are consistent. We only have
+        # len(bwrec_nplus[0]) - 1 == ordrec >= deg, not ordrec == deg,
+        # because bwrec might be of the form ...+(..)*S^(-s)+0*S^(-s-1)+...
+        assert (bwrec_nplus == [] and deg == 0
+                or len(bwrec_nplus) >= len(bwrec_nplus[0]) - 1 >= deg)
+
+        # res(z) = z^(λ + n)·sum[k,d]( res[k][d]·z^d·log^k(z)/k!)
+        #   f(z) = z^(λ + n)·sum[k,d](nres[k][d]·z^d·log^k(z)/k!)
+        res = [[None]*deg for _ in xrange(logs)]
+        nres = [[None]*deg for _ in xrange(logs)]
+        # Since our indicial polynomial is monic,
+        # b₀(n) = bwrec_nplus[0][0][0] = lc(dop)(0)·ind(n) = cst·ind(n)
+        cst = self.dop.leading_coefficient()[0]
+        # For each d, compute the coefficients of z^(λ+n+d)·log(z)^k/k! in the
+        # normalized residual. This is done by solving a triangular system with
+        # (cst ×) the coefficients of the residual corresponding to the same d
+        # on the rhs. The coefficients of the residual are computed on the fly.
+        for d in range(deg):
+            for k in reversed(range(logs)):
+                # Coefficient of z^(λ+n+d)·log(z)^k/k! in dop(ỹ)
+                res[k][d] = sum(
+                        Ring(bwrec_nplus[d][d+i+1][j])*Ring(last[i][k+j])
+                        for i in range(deg - d)
+                        for j in range(logs - k))
+                # Deduce the corresponding coefficient of nres
+                # XXX For simplicity, we limit ourselves to the “generic” case
+                # where none of the n+d is a root of the indicial polynomial.
+                lc = bwrec_nplus[d][0][0]
+                assert not (lc.parent() is IC and lc.contains_zero())
+                inv = ~lc
+                cor = sum(bwrec_nplus[d][0][u]*nres[k+u][d]
+                          for u in range(1, logs-k))
+                nres[k][d] = inv*(cst*res[k][d] - cor)
+        Poly = self.__CPoly if Ring is IC else self.Poly.change_ring(Ring)
+        return [Poly(coeff) for coeff in nres]
+
+    def _check_normalized_residual(self, n, trunc, expo, Ring):
+        r"""
+        Test the output of normalized_residual().
+
+        This is done by comparing
+
+            monic(dop(z=0,θ))(f(z))      and       dop(ỹ(z)),
+
+        where f(z) is the output of normalized_residual() and ỹ(z) is a
+        solution of dop truncated at order O(z^n).
+
+        The parameter trunc must be a list of polynomials such that
+
+            ỹ(z) = z^expo·sum[k](trunc[k](z)·log(z)^k/k!).
+
+        Ideally, Ring should be IC (the default value for the corresponding
+        paramter of normalized_residual()) in most cases; unfortunately, this
+        often doesn't work due to various weaknesses of Sage.
+        """
+        ordrec = self.dop.degree()
+        last = list(reversed(zip(*(pol.padded_list(n)[n-ordrec:n]
+                                   for pol in trunc))))
+        coeff = self.normalized_residual(n, last, Ring=Ring)
+        from sage.all import log, SR
+        z = SR(self.Poly.gen())
+        nres = z**(self.leftmost + n)*sum(pol*log(z)**k/ZZ(k).factorial()
+                                          for k, pol in enumerate(coeff))
+        trunc_full = z**expo*sum(pol*log(z)**k/ZZ(k).factorial()
+                                 for k, pol in enumerate(trunc))
+        lc = self.dop.leading_coefficient()
+        dop0 = self.dop.map_coefficients(lambda pol: pol[0]/lc[0])
+        Poly = self.Poly.change_ring(Ring)
+        out = (dop0(nres)/z**self.leftmost).expand()
+        ref = (self.dop(trunc_full)/z**self.leftmost).expand()
+        return (out-ref).expand()
+
+    def rhs(self, n1, normalized_residuals, maj=None):
+        r"""
+        Compute the right-hand side of a majorant equation valid for each of
+        the given normalized residuals.
 
         INPUT:
 
-        - ``n`` - integer, ``n <= N``, typically ``n == N``. (Technically, this
-          function should work for ``n < N `` too, but this is unused, untested,
-          and not very useful with the current code structure.)
-
-        - ``residuals`` - list of polynomials of the form ``self.dop(y[:N])``
-          where y satisfies ``self.dop(y) == 0``.
+        A list of normalized residuals q (as computed by normalized_residual()
+        i.e., in particular, with an implicit z^n factor) corresponding to
+        solutions y of self.dop truncated to a same order n1. Optionally, a
+        HyperexpMajorant maj = self(n0) for some n0 ≤ n1.
 
         OUTPUT:
 
-        A ``HyperexpMajorant`` representing a common majorant series of the
-        tails ``y[N:](z)`` of the solutions corresponding to the elements of
-        ``residuals``.
+        A polynomial (q#)(z) such that, with (q^)(z) = z^n1·(q#)(z),
+
+            z·ŷ'(z) - ŷ(z) = (q^)(z)·v[n0](z)·den(z)                     (*)
+
+        is a majorant equation of self.dop(ỹ) = Q₀(θ)·q(z) (where Q₀ = monic
+        indicial polynomial) for all q ∈ normalized_residuals. More precisely,
+        if y(z) is a solution of dop(y) = 0 associated to one of the q's, if
+        ŷ(z) is a solution of (*), and if
+
+            |y[λ+n,k]| ≤ ŷ[n]   for   n ≥ n1,   0 ≤ k < mult(n, Q₀),     (**)
+
+        then |y[λ+n,k]| ≤ ŷ[n] for *all* n ≥ n1, k ≥ 0. If maj is omitted, the
+        bound will hold for any choice of n0 ≤ n1 in (*), but may be coarser
+        than that corresponding to a particular n0.
+
+        The typical application is with n0 = n1 larger than the n's
+        corresponding to roots λ+n of Q₀ where the y have nonzero initial
+        values. In this case, one can take
+
+            ŷ(z) = v[n0](z)·∫(w⁻¹·(q^)(w)·dw, w=0..z)
+
+        and the conditions (**) trivially hold true. (In general, one would
+        need to adjust the integration constant so that they do.)
+
+        Note: Some of the above actually makes sense for n1 < n0 as well,
+        provided that (**) also hold for n1 ≤ n < n0 and k ≥ 0 and that q^ be
+        suitably modified.
         """
-        assert majeqrhs.valuation() >= n >= self.dop.order() >= 1
+        # Let res(z) denote a normalized residual. In general, for any
+        # polynomial (res^)(z) s.t. (res^)[n] ≥ |λ+n|*|res[n,k]| for all n, k,
+        # the series v[n0](z)*∫(w⁻¹*(res^)(w)/h[n0](w)) where
+        # h[n0](z) = v[n0](z)*den(z) is a majorant for the tail of the
+        # solution. To make the integral easy to compute, we choose
+        # (res^) = (q^)(z)*h[n0](z), i.e., as a polynomial multiple of h.
+        nres_bound = bound_polynomials([pol for nres in normalized_residuals
+                                            for pol in nres])
+        Pols = nres_bound.parent()
+        lbda = IC(self.leftmost)
+        aux = Pols([(n1 + j)*c for j, c in enumerate(nres_bound)])
+        if maj is None:
+            # As h[n0](z) has nonnegative coefficients and h[n0](0) = 1, it is
+            # always enough to take (q^)[n] ≥ |λ+n|*max[k](|res[n,k]|), that
+            # is, (q#)(z) = aux(z).
+            return aux
+        else:
+            # Tighter choice: compute a truncated series expansion f(z) of
+            # aux(z)/h(z) s.t. aux(z) = f(z)*h(z) + O(z^(1+deg(aux))). Then,
+            # any majorant of f is a valid q^.
+            ord = aux.degree() + 1
+            inv = maj.exp_part_series0(ord).inverse_series_trunc(ord)
+            f = aux._mul_trunc_(inv, ord)
+            return Pols([abs(c) for c in f])
+
+    def tail_majorant(self, n, normalized_residuals):
+        r"""
+        Bound the tails of order ``n`` of solutions of ``self.dop(y) == 0``.
+
+        INPUT:
+
+        A list of normalized residuals q (as computed by normalized_residual(),
+        i.e., in particular, with an implicit z^n factor) corresponding to
+        solutions y of self.dop truncated to a same order n.
+
+        The truncation order n is required to be larger than all n' such that
+        self.leftmost + n' is a root of the indicial polynomial of self.dop,
+        and the solution of interest has nonzero initial values there.
+
+        OUTPUT:
+
+        A HyperexpMajorant representing a common majorant series for the
+        tails y[n:](z) of the corresponding solutions.
+        """
+        # XXX Perhaps add a way to pass an existing maj (= self(n0), n0 <= n)
+        # or an n0 as parameter.
         maj = self(n)
-        logger.debug("maj(%s) = %s", n, maj)
-        pol = (majeqrhs >> 1).integral()
-        assert pol.parent().is_sparse()
+        # XXX Better without maj? (speed/tightness trade-off)
+        rhs = self.rhs(n, normalized_residuals, maj)
+        # Shift by n to account for the implicit z^n, then by -1 because of the
+        # formula ∫(w⁻¹·(q^)(w)·dw.
+        pol = (rhs << (n - 1)).integral() # XXX potential perf issue with <<
         maj *= pol
-        logger.debug("maj = %s", maj)
         return maj
 
-    # XXX: rename ord to rows?
-    def matrix_sol_tail_bound(self, n, rad, majeqrhs, ord=None):
+    def matrix_sol_tail_bound(self, n, rad, normalized_residuals, rows=None):
         r"""
         Bound the Frobenius norm of the tail starting of order ``n`` of the
         series expansion of the matrix ``(y_j^(i)(z)/i!)_{i,j}`` where the
-        ``y_j`` are the solutions associated to the elements of ``residuals``,
-        and ``0 ≤ j < ord``. The bound is valid for ``|z| < rad``.
+        ``y_j`` are the solutions associated to the elements of
+        ``normalized_residuals``, and ``0 ≤ j < rows``. The bound is valid for
+        ``|z| < rad``.
         """
-        if ord is None: ord=self.dop.order()
-        maj = self.tail_majorant(n, majeqrhs)
+        if rows is None:
+            rows=self.dop.order()
+        maj = self.tail_majorant(n, normalized_residuals)
         # Since (y[n:])' << maj => (y')[n:] << maj, this bound is valid for the
         # tails of a column of the form [y, y', y''/2, y'''/6, ...] or
         # [y, θy, θ²y/2, θ³y/6, ...].
-        col_bound = maj.bound(rad, derivatives=ord)
-        logger.debug("maj(%s).bound() = %s", n, self(n).bound(rad))
+        col_bound = maj.bound(rad, derivatives=rows)
         logger.debug("n = %s, col_bound = %s", n, col_bound)
-        return IR(ord).sqrt()*col_bound
+        return IR(rows).sqrt()*col_bound
 
     def _test(self, ini=None, prec=100):
         r"""
-        Check that the majorants produced by this DiffOpBound bound the tails of
-        the solutions of the associated operator.
+        Check that the majorants produced by this DiffOpBound bound the tails
+        of the solutions of the associated operator.
 
         This is a heuristic check for testing purposes, nothing rigorous!
+
+        This method currently does not support regular singular points.
 
         EXAMPLES::
 
@@ -1443,6 +1726,9 @@ class DiffOpBound(object):
             sage: maj._test()
             sage: maj._test([3], 200)
         """
+        if (self._dop_D.leading_coefficient()[0].is_zero()
+                or not self.leftmost.is_zero()):
+            raise NotImplementedError
         ord = self.dop.order()
         if ini is None:
             from sage.rings.number_field.number_field import QuadraticField
@@ -1451,20 +1737,20 @@ class DiffOpBound(object):
         sol = self.dop.power_series_solutions(prec)
         Series = PowerSeriesRing(CBF, self.dop.base_ring().variable_name())
         ref = sum((ini[k]*sol[k] for k in xrange(ord)), Series(0)).polynomial()
+        # XXX This won't work at regular singular points (even for power series
+        # solutions), because tail_majorant(), by basing on rhs(), assumes that
+        # we are past all nonzero initial conditions.
         for n in [ord, ord + 1, ord + 2, ord + 50]:
             logger.info("truncation order = %d", n)
             if n + 30 >= prec:
                 warnings.warn("insufficient precision")
-            resid = self.dop(ref[:n])
-            resid = PolynomialRing(resid.base_ring(), resid.variable_name(),
-                                                             sparse=True)(resid)
-            # we know a priori that val(resid) >= n mathematically, but interval
-            # computations may give inexact zeros for some of the coefficients
-            assert all(c.contains_zero() for c in resid[:n])
-            resid = (resid >> n) << n
-            maj = self.tail_majorant(n, self.maj_eq_rhs([resid]))
+            last = [[ref[n-i]] for i in range(1, self.dop.degree() + 1)]
+            resid = self.normalized_residual(n, last)
+            maj = self.tail_majorant(n, [resid])
             tail = (ref >> n) << n
-            logger.info("%s << %s", Series(tail, n+30), maj.series(0, n+30))
+            maj_ser = maj.series(0, n + 30)
+            logger.info(["|{}| <= {}".format(tail[i], maj_ser[i])
+                         for i in range(n + 30)])
             maj._test(tail)
 
 # Perhaps better: work with a "true" Ore algebra K[θ][z]. Use Euclidean
@@ -1527,18 +1813,14 @@ def _test_diffop_bound(
 
     EXAMPLES::
 
-    Here we are causing an error in the testing function itselt see the random
-    testing framework at work. The real tests are run from the docstring of
-    DiffOpBound. ::
+    Just an example of how to use this function; the real tests are run from
+    the docstring of DiffOpBound. ::
 
         sage: from ore_algebra.analytic.bounds import _test_diffop_bound
-        sage: _test_diffop_bound(ords=[2], degs=[2], pplens=[1], prec=10,
+        sage: _test_diffop_bound(ords=[2], degs=[2], pplens=[1], prec=100,
         ....:         seed=0, verbose=True)
         testing operator: ((-i + 1)*x^2 + (i - 6)*x - 2)*Dx^2 + ((5*i - 6)*x^2
         + (-i - 2)*x - i + 1)*Dx + (-12*i - 2)*x^2 + (i + 2)*x
-        ...
-        Random seed: 0
-        AssertionError()
     """
     from sage.rings.number_field.number_field import QuadraticField
 
@@ -1557,122 +1839,6 @@ def _test_diffop_bound(
             for pplen in pplens:
                 maj = DiffOpBound(dop, pol_part_len=pplen)
                 maj._test(prec=prec)
-
-def residual(n, bwrec_nplus, last, z):
-    r"""
-    Compute the polynomial residual (up to sign) obtained by a applying a diff
-    op P to a partial sum of a power series solution y of P·y=0.
-
-    INPUT:
-
-    - ``n`` -- truncation order
-    - ``bwrec_nplus`` -- nested list/iterable ::
-
-        [[b[0](n),     ..., b[s](n)],
-         [b[0](n+1),   ..., b[s](n+1)],
-         ...
-         [b[0](n+s-1), ..., b[s](n+s-1)]]
-
-      of coefficients evaluated at n of the recurrence operator b[0] + b[1] S⁻¹
-      + ··· + b[s] S^(-s) associated to P (by the direct substitution x ⟼ S⁻¹,
-      θ ⟼ n; no additional multiplication by x^k is allowed!)
-    - ``last`` -- the last s coefficients u[n-1], u[n-2], ... u[n-s] of the
-      truncated series, in that order
-    - ``z`` -- variable name for the result
-
-    EXAMPLES::
-
-        sage: from ore_algebra import DifferentialOperators
-        sage: from ore_algebra.analytic.bounds import *
-        sage: dop, t, Dt = DifferentialOperators(QQ, 't')
-        sage: Pol.<n> = QQ[]
-
-        sage: trunc = t._exp_series(5); trunc
-        1/24*t^4 + 1/6*t^3 + 1/2*t^2 + t + 1
-        sage: bwrec = [n, Pol(1)]
-        sage: bwrec_nplus = [[pol(5) for pol in bwrec]]
-        sage: residual(5, bwrec_nplus, [trunc[4]], t)
-        ([0.0416666666666667 +/- 4.26e-17])*t^5
-        sage: (Dt - 1).to_T('Tt')(trunc).change_ring(CBF)
-        ([-0.0416666666666667 +/- 4.26e-17])*t^5
-
-    Note that using Dt - 1 instead of θt - t makes a difference in the result,
-    since it amounts to a division by t::
-
-        sage: (Dt - 1)(trunc).change_ring(CBF)
-        ([-0.0416666666666667 +/- 4.26e-17])*t^4
-
-    ::
-
-        sage: trunc = t._sin_series(5) + t._cos_series(5)
-        sage: bwrec = [n*(n-1), Pol(0), Pol(1)]
-        sage: bwrec_nplus = [[pol(5+i) for pol in bwrec] for i in [0,1]]
-        sage: residual(5, bwrec_nplus, [trunc[4], trunc[3]], t)
-        ([0.041666...])*t^6 + ([-0.16666...])*t^5
-        sage: (Dt^2 + 1).to_T('Tt')(trunc).change_ring(CBF)
-        ([0.041666...])*t^6 + ([-0.16666...])*t^5
-    """
-    ordrec = len(bwrec_nplus)
-    assert ordrec == 0 or ordrec == len(bwrec_nplus[0]) - 1
-    rescoef = [
-        sum((bwrec_nplus[i][i+k+1])*IC(last[k])
-            for k in xrange(ordrec-i))
-        for i in xrange(ordrec)]
-    IvPols = PolynomialRing(IC, z, sparse=True)
-    return IvPols(rescoef) << n
-
-def maj_eq_rhs_with_logs(n, bwrec, bwrec_nplus, last, z, logs):
-    r"""
-    Compute the rhs of a majorant equation for the tail from the last terms of a
-    truncated series.
-
-    This roughly corresponds to residual() followed by maj.maj_eq_rhs() in the
-    ordinary case. TODO: more consistent interface.
-
-    INPUT:
-
-    - ``bwrec``: a recurrence *“in n”*, i.e. already shifted by λ
-    - ``n``: int index where to evaluate the rec to compute the residual, must
-      be an *generic* index (i.e. QO(λ+n)≠0, where Q0 = indicial poly)
-    - ``last``: coefficients of λ+n-1, λ+n-2, ... of the solution
-    - ...
-
-    OUTPUT:
-
-    A *polynomial* q̂ of valuation at least ``n`` (i.e., *not* shifted by λ) s.t.
-
-        (n+i) · |∑[t=0..logs-1] ((d/dX)^t(Q0⁻¹))(λ+n+i)/t!|
-              · max[k](|q[λ+n+i, k]|)                                   (*)
-        ≤ q̂[n+i]
-
-    for all i ≥ n and all k, where q[λ+j,t] is the coefficient of
-    z^(λ+j)·log(z)^t/t! in the residual. Note that (*) implies
-
-        |∑[t=0..logs-1] (n+i)/t!·((d/dX)^t(Q0⁻¹))(λ+n+i)·q[λ+n+i,k+t]| ≤ q̂[n+i].
-    """
-    ordrec = bwrec.order
-    assert len(bwrec_nplus) >= len(bwrec_nplus[0]) - 1 == ordrec
-    # Compute the coefficients of the residual:
-    # residual = z^(λ + n)·(sum(rescoef[i][j]·z^i·log^j(z)/j!)
-    rescoef = [[None]*logs for _ in xrange(ordrec)]
-    for i in xrange(ordrec):
-        for j in xrange(logs):
-            # significant overestimation here (apparently not too problematic)
-            rescoef[i][j] = sum(
-                    IC(bwrec_nplus[i][i+k+1][p])*IC(last[k][j+p])
-                    for k in xrange(ordrec - i)
-                    for p in xrange(logs - j))
-    # For lack of a convenient data structure to return these coefficients,
-    # compute a “majorant” polynomial right away. For simplicity, we only handle
-    # the generic case.
-    def invlcmaj(i):
-        # sum(1/t!·(1/Q0)^(t)(λ + n + i)·Sk^t)
-        invlc = bwrec.eval_inverse_lcoeff_series(IC, n+i, logs)
-        return sum(t.abs() for t in invlc)
-    polcoef = [(n + i)*invlcmaj(i)*max(t.abs() for t in rescoef[i])
-               for i in xrange(ordrec)]
-    IvPols = PolynomialRing(IR, z, sparse=True)
-    return IvPols(polcoef) << n
 
 def _switch_vars(pol):
     Ax = pol.base_ring()

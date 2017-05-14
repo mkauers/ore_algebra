@@ -6,6 +6,7 @@ Recurrence relations
 from sage.misc.cachefunc import cached_method
 from sage.rings.all import ZZ, QQ
 from sage.rings.number_field.number_field import NumberField_quadratic
+from sage.rings.polynomial import polynomial_element
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 
 from .. import ore_algebra
@@ -15,7 +16,9 @@ def backward_rec(dop, shift=ZZ.zero()):
     Rops = ore_algebra.OreAlgebra(Pols_n, 'Sn')
     # Using the primitive part here would break the computation of residuals!
     # TODO: add test (arctan); better fix?
-    # rop = dop.to_S(Rops).primitive_part().numerator()
+    # Other interesting cases: operators of the for P(Θ) (with constant
+    # coefficients)
+    #rop = dop.to_S(Rops).primitive_part().numerator()
     rop = dop.to_S(Rops)
     ordrec = rop.order()
     coeff = [rop[ordrec-k](Pols_n.gen()-ordrec+shift)
@@ -45,6 +48,11 @@ class BackwardRec(object):
                     (QQn([c.real() for c in pol]), QQn([c.imag() for c in pol]))
                     for pol in coeff]
             self.eval_int_ball = self._eval_qqi_cbf
+
+    def __repr__(self):
+        n = self.base_ring.variable_name()
+        return " + ".join("({})*S{}^(-{})".format(c, n, j)
+                          for j, c in enumerate(self.coeff))
 
     # efficient way to cache the last few results (without cython)?
     def eval(self, tgt, point):

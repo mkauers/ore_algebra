@@ -421,13 +421,11 @@ def series_sum_ordinary(Intervals, dop, bwrec, ini, pt,
         # Warning: this residual must correspond to the operator stored in
         # maj.dop, which typically isn't the operator series_sum was called on
         # (but its to_T(), i.e. its product by a power of x).
-        residual = bounds.residual(n, bwrec_nplus, list(last)[1:],
-                                                       maj.Poly.variable_name())
-        majeqrhs = maj.maj_eq_rhs([residual])
+        residual = maj.normalized_residual(n, [[c] for c in last][1:],
+                [[[c] for c in l] for l in bwrec_nplus])
         for i in xrange(5):
-            tail_bound = maj.matrix_sol_tail_bound(n, pt.rad, majeqrhs, ord)
-            logger.debug("n=%s, i=%s, rhs[.]=%s, tail_bound=%s",
-                            n, i, majeqrhs[0], tail_bound)
+            tail_bound = maj.matrix_sol_tail_bound(n, pt.rad, [residual], ord)
+            logger.debug("n=%s, i=%s, tail_bound=%s", n, i, tail_bound)
             if record_bounds_in is not None:
                 record_bounds_in.append((n, psum, tail_bound))
             if (tgt_error.reached(tail_bound, abs_sum)
@@ -742,11 +740,10 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, tgt_error,
         # sense in a relative error setting)
         if not tgt_error.reached(est, sum_est) and record_bounds_in is None:
             return None, bounds.IR(infinity)
-        majeqrhs = bounds.maj_eq_rhs_with_logs(n, bwrec, bwrec_nplus,
-                list(last)[1:], maj.Poly.variable_name(), log_prec)
+        residual = maj.normalized_residual(n, list(last)[1:], bwrec_nplus)
         for i in xrange(5):
-            tail_bound = maj.matrix_sol_tail_bound(n, pt.rad, majeqrhs,
-                                                        ord=pt.jet_order)
+            tail_bound = maj.matrix_sol_tail_bound(n, pt.rad, [residual],
+                                                   rows=pt.jet_order)
             if record_bounds_in is not None:
                 # TODO: record all partial sums, not just [log(z)^0]
                 # (requires improvements to plot_bounds)
@@ -761,9 +758,9 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, tgt_error,
             val = log_series_value(Jets, ord, ini.expo, my_psum, jet[0])
             err_bound = max([RBF.zero()] + [_get_error(c) for c in val])
 
-            logger.debug("n=%d, sum[.]=%s, est=%s, rhs[.]=%s, tail_bound=%s, "
-                    "err_bound=%s", n, short_str(psum[0][0]), est, majeqrhs[0],
-                    tail_bound, err_bound)
+            logger.debug(
+                    "n=%d, sum[.]=%s, est=%s, tail_bound=%s, err_bound=%s",
+                    n, short_str(psum[0][0]), est, tail_bound, err_bound)
 
             if (tgt_error.reached(err_bound)
                     or not safe_le(err_bound, prev_err_bound.above_abs())):

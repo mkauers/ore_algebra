@@ -213,8 +213,6 @@ class MatrixRec(object):
         self.orddelta = self.ordrec - self.orddeq
         self.derivatives = derivatives
 
-        self.zvar = diffop.base_ring().variable_name()
-
         self.rec_matrix_ring = MatrixSpace(AlgInts_rec, self.ordrec, self.ordrec)
         Pols_rec, n = PolynomialRing(AlgInts_rec, 'n').objgen()
         self.rec_coeffs = [-Pols_rec(recop[i])(n - self.orddelta)
@@ -338,9 +336,10 @@ class MatrixRec(object):
         return pprint.pformat(self.__dict__)
 
     # XXX: needs testing, especially when rop.valuation() > 0
-    def residual(self, prod, n, j):
+    def normalized_residual(self, maj, prod, n, j):
         r"""
-        Compute the residual associated with the fundamental solution of index j.
+        Compute the normalized residual associated with the fundamental
+        solution of index j.
         """
         r, s = self.orddeq, self.ordrec
         IC = bounds.IC
@@ -361,10 +360,12 @@ class MatrixRec(object):
         # an operator in θx equal to x^k·self.diffop for some k).
         # XXX: do not recompute this every time!
         bwrnp = [[pol(n + i) for pol in self.bwrec] for i in range(s)]
-        return bounds.residual(n, bwrnp, list(reversed(last[:s])), self.zvar)
+        altlast = [[c] for c in reversed(last[:s])]
+        return maj.normalized_residual(n, altlast, bwrnp)
 
-    def residuals(self, prod, n):
-        return [self.residual(prod, n, j) for j in xrange(self.orddeq)]
+    def normalized_residuals(self, maj, prod, n):
+        return [self.normalized_residual(maj, prod, n, j)
+                for j in xrange(self.orddeq)]
 
     def term(self, prod, parent, j):
         r"""
@@ -411,10 +412,10 @@ def fundamental_matrix_ordinary(dop, pt, eps, rows, maj):
         if n > 1024:
             logger.debug("n = %d, est = %s", n, est)
         if est < eps: # use bounds.AbsoluteError???
-            majeqrhs = maj.maj_eq_rhs(rec.residuals(prod, n))
+            residuals = rec.normalized_residuals(maj, prod, n)
             for i in xrange(5):
                 tail_bound = maj.matrix_sol_tail_bound(n, bounds.IC(pt).abs(),
-                                                             majeqrhs, ord=rows)
+                                                       residuals, rows=rows)
                 logger.debug("n = %d, tail bound = %s", n, tail_bound)
                 if tail_bound < eps: # XXX: clarify stopping criterion
                     done = True
