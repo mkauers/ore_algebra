@@ -78,9 +78,6 @@ import sage.rings.polynomial.polynomial_element as polyelt
 import sage.rings.polynomial.polynomial_ring as polyring
 import sage.rings.polynomial.polynomial_ring_constructor as polyringconstr
 
-from .. import ore_algebra
-from . import bounds, utilities
-
 from sage.matrix.constructor import matrix
 from sage.matrix.matrix_space import MatrixSpace
 from sage.arith.all import lcm
@@ -89,6 +86,11 @@ from sage.rings.integer_ring import ZZ
 from sage.rings.rational_field import QQ
 from sage.rings.number_field.number_field import NumberField, is_NumberField
 from sage.rings.power_series_ring import PowerSeriesRing
+
+from .. import ore_algebra
+from . import bounds, utilities
+
+from .safe_cmp import *
 
 logger = logging.getLogger(__name__)
 
@@ -213,7 +215,6 @@ class MatrixRec(object):
         self.orddelta = self.ordrec - self.orddeq
         self.derivatives = derivatives
 
-        self.rec_matrix_ring = MatrixSpace(AlgInts_rec, self.ordrec, self.ordrec)
         Pols_rec, n = PolynomialRing(AlgInts_rec, 'n').objgen()
         self.rec_coeffs = [-Pols_rec(recop[i])(n - self.orddelta)
                                                    for i in xrange(self.ordrec)]
@@ -409,15 +410,15 @@ def fundamental_matrix_ordinary(dop, pt, eps, rows, maj):
     for last, n in binsplit_step_seq(0):
         prod = rec.binsplit(last, n) * prod
         est = rec.term(prod, bounds.IC, 0).abs()
-        if n > 1024:
-            logger.debug("n = %d, est = %s", n, est)
-        if est < eps: # use bounds.AbsoluteError???
+        if n > 64:
+            logger.debug("n=%d, est=%s", n, est)
+        if safe_lt(est, eps): # use bounds.AbsoluteError???
             residuals = rec.normalized_residuals(maj, prod, n)
             for i in xrange(5):
                 tail_bound = maj.matrix_sol_tail_bound(n, bounds.IC(pt).abs(),
                                                        residuals, rows=rows)
-                logger.debug("n = %d, tail bound = %s", n, tail_bound)
-                if tail_bound < eps: # XXX: clarify stopping criterion
+                logger.debug("n=%d, tail bound=%s", n, tail_bound)
+                if safe_lt(tail_bound, eps): # XXX: clarify stopping criterion
                     done = True
                     break
                 # note that we may get a majorant that has already been refined
