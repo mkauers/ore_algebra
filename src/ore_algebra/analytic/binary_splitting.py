@@ -39,12 +39,12 @@ TESTS::
     [              [+/- ...]  [1.000000000000000...] [0.8109302162163287...]]
     [              [+/- ...]               [+/- ...] [0.6666666666666666...]]
 
-    sage: (Dx - 1).numerical_solution([1], [0, i + pi], algorithm="binsplit") # long time (4.2 s)
+    sage: (Dx - 1).numerical_solution([1], [0, i + pi], algorithm="binsplit")
     INFO:ore_algebra.analytic.binary_splitting:...
     [12.5029695888765...] + [19.4722214188416...]*I
 
     sage: from ore_algebra.analytic.examples import fcc
-    sage: fcc.dop5.numerical_solution( # long time (91 s)
+    sage: fcc.dop5.numerical_solution( # long time (25 s)
     ....:          [0, 0, 0, 0, 1, 0], [0, 1/5+i/2, 1],
     ....:          1e-60, algorithm='binsplit')
     INFO:ore_algebra.analytic.binary_splitting:...
@@ -54,17 +54,17 @@ TESTS::
 
     sage: from ore_algebra.analytic.binary_splitting import MatrixRec
 
-    sage: rec = MatrixRec((x-2)*Dx^3 - 1, RBF(1/3), 3)
+    sage: rec = MatrixRec((x-2)*Dx^3 - 1, RBF(1/3), 3, 10)
     sage: rec.partial_sums(rec.binsplit(0, 10), RBF, 3)
-    [  [0.996...]  [0.333...] [0.111...]]
-    [ [-0.029...]  [0.996...] [0.666...]]
-    [ [-0.091...] [-0.015...] [0.996...]]
+    [ [0.996...]  [0.333...] [0.111...]]
+    [[-0.029...]  [0.996...] [0.666...]]
+    [[-0.091...] [-0.015...] [0.996...]]
 
     sage: QQi.<i> = QuadraticField(-1)
-    sage: rec = MatrixRec((x-i)*Dx^3 - 1, RBF(1/3), 3)
+    sage: rec = MatrixRec((x-i)*Dx^3 - 1, RBF(1/3), 3, 10)
     sage: rec.partial_sums(rec.binsplit(0, 10), CBF, 3)
     [ [1.0005...] + [0.0061...]*I [0.3333...] + [0.0005...]*I [0.1111...] + [6.6513...]*I]
-    [ [0.0059...] + [0.0545...]*I [1.0009...] + [0.0059...]*I [0.6668...] + [0.0009...]*I]
+    [[0.0059...]  + [0.0545...]*I [1.0009...] + [0.0059...]*I [0.6668...] + [0.0009...]*I]
     [ [0.0261...] + [0.1609...]*I [0.0057...] + [0.0263...]*I [1.0014...] + [0.0057...]*I]
 """
 
@@ -81,14 +81,12 @@ import sage.rings.polynomial.polynomial_ring_constructor as polyringconstr
 from sage.matrix.constructor import matrix
 from sage.matrix.matrix_space import MatrixSpace
 from sage.arith.all import lcm
-from sage.rings.complex_arb import ComplexBallField
-from sage.rings.integer_ring import ZZ
-from sage.rings.rational_field import QQ
+from sage.rings.all import ZZ, QQ, RLF, CLF, RealBallField, ComplexBallField
 from sage.rings.number_field.number_field import NumberField, is_NumberField
 from sage.rings.power_series_ring import PowerSeriesRing
 
 from .. import ore_algebra
-from . import bounds, utilities
+from . import accuracy, bounds, utilities
 
 from .safe_cmp import *
 
@@ -125,6 +123,20 @@ class StepMatrix(object):
     #     self.Mat_big_scalars, typically should be
     #                         self.rec_mat.parent().change_ring(self.BigScalars)
 
+    def copy(self):
+        new = copy.copy(self)
+        new.rec_mat = copy.copy(self.rec_mat)
+        new.sums_row = copy.copy(self.sums_row)
+        return new
+
+    def __mul__(high, low): # pylint: disable=no-self-argument
+        return low.copy().imulleft(high)
+
+    def __repr__(self):
+        return pprint.pformat(self.__dict__)
+
+class StepMatrix_generic(StepMatrix):
+
     def imulleft(low, high): # pylint: disable=no-self-argument
         # TODO: Still very slow.
         # - rewrite everything using lower-level operations...
@@ -152,17 +164,26 @@ class StepMatrix(object):
         low.rec_den *= high.rec_den                  # rec_Ints
         return low
 
-    def copy(self):
-        new = copy.copy(self)
-        new.rec_mat = copy.copy(self.rec_mat)
-        new.sums_row = copy.copy(self.sums_row)
-        return new
+class StepMatrix_arb(StepMatrix):
 
-    def __mul__(high, low): # pylint: disable=no-self-argument
-        return low.copy().imulleft(high)
-
-    def __repr__(self):
-        return pprint.pformat(self.__dict__)
+    def imulleft(low, high):
+        ordrec = low.rec_mat.nrows()
+        # prod.sums_row = high.sums_row * low.rec_mat * low.pow_num + O(δ^ord)
+        #               + high.rec_den * high.pow_den * low.sums_row
+        tmp = [high.sums_row[0,j]._mul_trunc_(low.pow_num, low.ord)
+               for j in range(high.sums_row.ncols())]
+        low.sums_row = low.sums_row._lmul_(high.rec_den * high.pow_den)
+        # XXX try converting tmp to an ord×ordrec matrix instead?
+        for j in xrange(ordrec):
+            for i in xrange(ordrec):
+                # XXX until _lmul_ is impemented for arb polynomials
+                # low.sums_row[0,j] += tmp[i]._lmul_(low.rec_mat[i,j])
+                low.sums_row[0,j] += low.rec_mat[i,j]*tmp[i]
+        low.rec_mat = high.rec_mat*low.rec_mat # Mat(XBF)
+        low.pow_num = low.pow_num._mul_trunc_(high.pow_num, low.ord) # XBF[δ]
+        low.pow_den = low.pow_den._mul_(high.pow_den) # XBF (ZZ)
+        low.rec_den = low.rec_den._mul_(high.rec_den) # XBF
+        return low
 
 class MatrixRec(object):
     r"""
@@ -174,19 +195,16 @@ class MatrixRec(object):
     derive from StepMatrix as the data structure is different.
     """
 
-    def __init__(self, diffop, dz, derivatives):
-
-        # Matrix corresponding to the recurrence on the series coefficients
+    def __init__(self, diffop, dz, derivatives, nterms_est):
 
         deq_Scalars = diffop.base_ring().base_ring()
+        E = dz.parent()
         if deq_Scalars.characteristic() != 0:
             raise ValueError("only makes sense for scalar rings of "
                              "characteristic 0")
-        ### Work around number field uniqueness problems (→ slow coercions)
-        if dz.parent() == deq_Scalars:
-            dz = deq_Scalars(dz)
-        ###
         assert deq_Scalars is dz.parent() or deq_Scalars != dz.parent()
+
+        #### Recurrence operator
 
         # Reduce to the case of a number field generated by an algebraic
         # integer. This is mainly intended to avoid computing gcds (due to
@@ -208,12 +226,56 @@ class MatrixRec(object):
         if orddelta < 0:
             recop = Sn**(-orddelta)*recop
 
+        #### Choose computation domains
+
+        if ((isinstance(E, (RealBallField, ComplexBallField))
+                    or E is QQ or utilities.is_QQi(E)
+                    or E is RLF or E is CLF)
+                and (deq_Scalars is QQ or utilities.is_QQi(deq_Scalars))):
+            # Special-case QQ and QQ[i] to use arb matrices
+            # (overwrites AlgInts_rec)
+            self.StepMatrix_class = StepMatrix_arb
+            # Working precision. We typically want operations on exact balls to
+            # be exact, so that overshooting shouldn't be a problem.
+            # XXX Less clear in the case dz ∈ XBF!
+            # XXX The rough estimate below ignores the height of rec and dz.
+            # prec = nterms_est*(recop.degree()*nterms_est.nbits()
+            #                    + recop.order().nbits() + 1)
+            prec = 8 + nterms_est*(1 + ZZ(ZZ(recop.order()).nbits()).nbits())
+            if (E is QQ or isinstance(E, RealBallField)) and deq_Scalars is QQ:
+                AlgInts_rec = AlgInts_pow = RealBallField(prec)
+            else:
+                AlgInts_rec = AlgInts_pow = ComplexBallField(prec)
+            if is_NumberField(E):
+                pow_den = AlgInts_pow(dz.denominator())
+            else:
+                pow_den = AlgInts_pow.one()
+        else:
+            self.StepMatrix_class = StepMatrix_generic
+            if is_NumberField(E):
+                # In fact we should probably do something similar for dz in any
+                # finite-dimensional Q-algebra. (But how?)
+                NF_pow, AlgInts_pow = _number_field_with_integer_gen(E)
+                pow_den = NF_pow(dz).denominator()
+            else:
+                # This includes the case E = ZZ, but dz could live in pretty
+                # much any algebra over deq_Scalars (including matrices,
+                # intervals...). Then the computation of sums_row may take time,
+                # but we still hope to gain something on the computation of the
+                # coefficients and/or limit interval blow-up thanks to the use
+                # of binary splitting.
+                AlgInts_pow = E
+                pow_den = ZZ.one()
+            assert pow_den.parent() is ZZ
+        assert AlgInts_pow is AlgInts_rec or AlgInts_pow != AlgInts_rec
+
+        #### Recurrence matrix
+
         self.recop = recop
 
         self.orddeq = diffop.order()
         self.ordrec = recop.order()
         self.orddelta = self.ordrec - self.orddeq
-        self.derivatives = derivatives
 
         Pols_rec, n = PolynomialRing(AlgInts_rec, 'n').objgen()
         self.rec_coeffs = [-Pols_rec(recop[i])(n - self.orddelta)
@@ -233,24 +295,7 @@ class MatrixRec(object):
         self.bwrec = [recop[self.ordrec-k](Rops.base_ring().gen()-self.ordrec)
                       for k in xrange(self.ordrec+1)]
 
-        # Power of dz. Note that this part does not depend on n.
-
-        E = dz.parent()
-        if is_NumberField(E):
-            # In fact we should probably do something similar for dz in any
-            # finite-dimensional Q-algebra. (But how?)
-            NF_pow, AlgInts_pow = _number_field_with_integer_gen(E)
-            pow_den = NF_pow(dz).denominator()
-        else:
-            # This includes the case E = ZZ, but dz could live in pretty much
-            # any algebra over deq_Scalars (including matrices, intervals...).
-            # Then the computation of sums_row may take time, but we still hope
-            # to gain something on the computation of the coefficients thanks
-            # to the use of binary splitting.
-            AlgInts_pow = E
-            pow_den = ZZ.one()
-        assert pow_den.parent() is ZZ
-        assert AlgInts_pow is AlgInts_rec or AlgInts_pow != AlgInts_rec
+        #### Power of dz. Note that this part does not depend on n.
 
         # If we extend the removal of denominators above to algebras other than
         # number fields, it would probably make more sense to move this into
@@ -259,8 +304,9 @@ class MatrixRec(object):
         Series_pow = PolynomialRing(AlgInts_pow, 'delta')
         self.pow_num = Series_pow([pow_den*dz, pow_den])
         self.pow_den = pow_den
+        self.derivatives = derivatives
 
-        # Partial sums
+        #### Partial sums
 
         # We need a parent containing both the coefficients of the operator and
         # the evaluation point.
@@ -289,7 +335,7 @@ class MatrixRec(object):
         self.Mat_series_sums = self.Mat_rec.change_ring(Series_sums)
 
     def __call__(self, n):
-        stepmat = StepMatrix()
+        stepmat = self.StepMatrix_class()
         stepmat.rec_den = self.rec_den(n)
         stepmat.rec_mat = self.Mat_rec.matrix()
         for i in xrange(self.ordrec-1):
@@ -306,20 +352,24 @@ class MatrixRec(object):
         stepmat.sums_row = self.Mat_sums_row.matrix()
         stepmat.sums_row[0, self.orddelta] = den
         stepmat.ord = self.derivatives
-        stepmat.BigScalars = self.Series_sums
+
+        stepmat.BigScalars = self.Series_sums # XXX unused in arb case
         stepmat.Mat_big_scalars = self.Mat_series_sums
+
         return stepmat
 
     def one(self):
-        stepmat = StepMatrix()
+        stepmat = self.StepMatrix_class()
         stepmat.rec_mat = self.Mat_rec.identity_matrix()
-        stepmat.rec_den = ZZ.one()
+        stepmat.rec_den = self.rec_den.base_ring().one()
         stepmat.pow_num = self.pow_num.parent().one()
-        stepmat.pow_den = ZZ.one()
+        stepmat.pow_den = self.pow_den.parent().one()
         stepmat.sums_row = self.Mat_sums_row.matrix()
         stepmat.ord = self.derivatives
-        stepmat.BigScalars = self.Series_sums
+
+        stepmat.BigScalars = self.Series_sums # XXX unused in arb case
         stepmat.Mat_big_scalars = self.Mat_series_sums
+
         return stepmat
 
     def binsplit(self, low, high, threshold=64):
@@ -389,6 +439,21 @@ class MatrixRec(object):
         denom = ring(prod.rec_den)*ring(prod.pow_den)
         return numer/denom
 
+    def error_estimate(self, prod):
+        orddelta = self.orddelta
+        num1 = max(abs(bounds.IC(prod.rec_mat[orddelta + j, orddelta]))
+                   for j in range(self.orddeq))
+        num2 = abs(bounds.IC(prod.pow_num[0]))
+        den = abs(bounds.IC(prod.rec_den))*abs(bounds.IC(prod.pow_den))
+        return num1*num2/den
+
+    def width(self, prod):
+        ivs = [a for j in range(self.orddeq)
+                 for a in prod.sums_row[0, self.orddelta + j]]
+        num_rad = bounds.IR(max(a.rad() for a in ivs) if ivs else 0)
+        den = abs(bounds.IC(prod.rec_den))*abs(bounds.IC(prod.pow_den))
+        return num_rad/den
+
 def binsplit_step_seq(start):
     low, high = start, start + 64
     while True:
@@ -403,28 +468,25 @@ def fundamental_matrix_ordinary(dop, pt, eps, rows, maj):
       such as that committed when converting the result to intervals)
     """
     logger.log(logging.INFO - 1, "target error = %s", eps)
-    rec = MatrixRec(dop, pt, rows)
+    maj.refine()
+    rec = MatrixRec(dop, pt, rows, utilities.prec_from_eps(eps))
     prod = rec.one()
-    tail_bound = n = None
+    n = None
+    tail_bound = bounds.IR('inf')
     done = False
+    rad = bounds.IC(pt).abs()
+    # XXX clarify exact criterion
+    stopping_criterion = accuracy.StoppingCriterion(maj=maj, eps=eps,
+            get_residuals=lambda: rec.normalized_residuals(maj, prod, n),
+            get_bound=lambda(resid):
+                maj.matrix_sol_tail_bound(n, rad, resid, rows=rows))
     for last, n in binsplit_step_seq(0):
         prod = rec.binsplit(last, n) * prod
-        est = rec.term(prod, bounds.IC, 0).abs()
-        if n > 64:
-            logger.debug("n=%d, est=%s", n, est)
-        if safe_lt(est, eps): # use bounds.AbsoluteError???
-            residuals = rec.normalized_residuals(maj, prod, n)
-            for i in xrange(5):
-                tail_bound = maj.matrix_sol_tail_bound(n, bounds.IC(pt).abs(),
-                                                       residuals, rows=rows)
-                logger.debug("n=%d, tail bound=%s", n, tail_bound)
-                if safe_lt(tail_bound, eps): # XXX: clarify stopping criterion
-                    done = True
-                    break
-                # note that we may get a majorant that has already been refined
-                if n > 64*2**maj._effort:
-                    maj.refine()
-            if done: break
+        done, tail_bound = stopping_criterion.check(n, tail_bound,
+                est=rec.error_estimate(prod), width=rec.width(prod),
+                next_stride=n)
+        if done:
+            break
     is_real = utilities.is_real_parent(pt.parent())
     Intervals = utilities.ball_field(eps, is_real)
     mat = rec.partial_sums(prod, Intervals, rows)
@@ -471,4 +533,3 @@ def _invert_order_element(alg):
         modulus = Order.gen(1).minpoly()
         den, num, _ = pol.xgcd(modulus)  # hopefully fraction-free!
         return Order(num), ZZ(den)
-

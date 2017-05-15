@@ -5,11 +5,11 @@ Recurrence relations
 
 from sage.misc.cachefunc import cached_method
 from sage.rings.all import ZZ, QQ
-from sage.rings.number_field.number_field import NumberField_quadratic
 from sage.rings.polynomial import polynomial_element
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 
 from .. import ore_algebra
+from . import utilities
 
 def backward_rec(dop, shift=ZZ.zero()):
     Pols_n = PolynomialRing(dop.base_ring().base_ring(), 'n') # XXX: name
@@ -41,8 +41,7 @@ class BackwardRec(object):
         self.order = len(coeff) - 1
         # Evaluating polynomials over ℚ[i] is slow...
         # TODO: perhaps do something similar for eval_series
-        if (isinstance(Scalars, NumberField_quadratic)
-                and list(Scalars.polynomial()) == [1,0,1]):
+        if utilities.is_QQi(Scalars):
             QQn = PolynomialRing(QQ, 'n')
             self._re_im = [
                     (QQn([c.real() for c in pol]), QQn([c.imag() for c in pol]))
