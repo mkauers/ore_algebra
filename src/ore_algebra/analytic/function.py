@@ -136,7 +136,8 @@ class DFiniteFunction(object):
         sage: f = DFiniteFunction(Dx^2 + 2*x*Dx, [1, -2/sqrt(pi)], name='my_erfc')
         sage: f._known_bound(RBF(RIF(-1/2,1/2)), post_transform=Dx^2)
         [+/- inf]
-        sage: f.approx(1/2, post_transform=Dx^2); f.approx(-1/2, post_transform=Dx^2);
+        sage: _ = f.approx(1/2, post_transform=Dx^2)
+        sage: _ = f.approx(-1/2, post_transform=Dx^2)
         sage: f._known_bound(RBF(RIF(-1/2,1/2)), post_transform=Dx^2)
         [+/- 1.5...]
     """
