@@ -13,14 +13,11 @@ import collections, itertools, logging
 from sage.categories.pushout import pushout
 from sage.matrix.constructor import identity_matrix, matrix
 from sage.modules.free_module_element import vector
+from sage.rings.all import ZZ, QQ, RR, QQbar, infinity
 from sage.rings.complex_arb import ComplexBallField, CBF, ComplexBall
-from sage.rings.infinity import infinity
 from sage.rings.integer import Integer
-from sage.rings.integer_ring import ZZ
 from sage.rings.polynomial import polynomial_element
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
-from sage.rings.qqbar import QQbar
-from sage.rings.rational_field import QQ
 from sage.rings.real_arb import RealBallField, RBF, RealBall
 from sage.structure.sequence import Sequence
 
@@ -614,7 +611,7 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, tgt_error,
         sage: dop.numerical_transition_matrix([0,1])
         INFO:ore_algebra.analytic.naive_sum:solution z^(0+0)·log(z)^0/0! + ···
         ...
-        INFO:ore_algebra.analytic.naive_sum:summed 50 terms, error <= ...
+        INFO:ore_algebra.analytic.naive_sum:summed 50 terms, ...
         ...
         [[2.7182818284590...] 1.0000000000000000]
         [[2.7182818284590...] 1000.0000000000000]
@@ -695,61 +692,21 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, tgt_error,
     # (1) by using a slightly more complicated formula for the tail bound,
     # and (2) if we had code to compute lower bounds on coefficients of
     # series expansions of majorants.)
-    err_bound = bounds.IR(infinity)
+    tail_bound = bounds.IR(infinity)
     bit_prec = Intervals.precision()
     ini_are_accurate = 2*min(pt.accuracy(), ini.accuracy()) > bit_prec
-    def check_convergence(prev_err_bound):
-        if n <= last_index_with_ini or mult > 0:
-            return None, bounds.IR(infinity)
-        est = max(abs(a) for log_jet in last for a in log_jet)*radpow.above_abs()
-        if ini_are_accurate and any(abs(iv).rad_as_ball() > tgt_error.eps/4
-                                   for log_jet in psum for iv in log_jet):
-            raise accuracy.PrecisionError
-        sum_est = bounds.IR(abs(psum[0][0]))
-        # TODO: improve the automatic increase of precision for large x^λ:
-        # currently we only check the series part (which would sort of make
-        # sense in a relative error setting)
-        if not tgt_error.reached(est, sum_est) and record_bounds_in is None:
-            return None, bounds.IR(infinity)
-        residual = maj.normalized_residual(n, list(last)[1:], bwrec_nplus)
-        for i in xrange(5):
-            tail_bound = maj.matrix_sol_tail_bound(n, pt.rad, [residual],
-                                                   rows=pt.jet_order)
-            if record_bounds_in is not None:
-                # TODO: record all partial sums, not just [log(z)^0]
-                # (requires improvements to plot_bounds)
-                record_bounds_in.append((n, psum[0], tail_bound))
 
-            # Add error terms accounting for the truncation (for each power of
-            # log and each derivative), combine the series corresponding to each
-            # power of log, return the vector of successive derivatives.
-            tail_bound = tail_bound.abs()
-            my_psum = vector(Jets, [[t[i].add_error(tail_bound)
-                                    for i in range(ord)] for t in psum])
-            val = log_series_value(Jets, ord, ini.expo, my_psum, jet[0])
-            err_bound = max([RBF.zero()] + [_get_error(c) for c in val])
-
-            logger.debug(
-                    "n=%d, sum[.]=%s, est=%s, tail_bound=%s, err_bound=%s",
-                    n, short_str(psum[0][0]), est, tail_bound, err_bound)
-
-            if (tgt_error.reached(err_bound)
-                    or not safe_le(err_bound, prev_err_bound.above_abs())):
-                return val, err_bound
-            elif tgt_error.reached(tail_bound):
-                return None, err_bound
-            elif n < last_special_index: # some really bad bounds in this case
-                break
-            else:
-                # We don't want to go too far beyond the optimal truncation to
-                # improve tail_bound (we would lose too much precision), but
-                # refining many times is really expensive.
-                bound_est = err_bound*est**(QQ((maj._effort**2 + 2)*stride)/n)
-                if not tgt_error.reached(bound_est):
-                    maj.refine()
-                    continue
-            break
-        return None, err_bound
+    # TODO: improve the automatic increase of precision for large x^λ:
+    # we currently check the series part only (which would sort of make
+    # sense in a relative error setting)
+    stopping_criterion = accuracy.StoppingCriterion(
+            maj=maj, eps=tgt_error.eps,
+            get_residuals=lambda:
+                [maj.normalized_residual(n, list(last)[1:], bwrec_nplus)],
+            get_bound=(lambda(resid):
+                maj.matrix_sol_tail_bound(n, pt.rad, resid, rows=pt.jet_order)),
+            fast_fail=ini_are_accurate,
+            force=(record_bounds_in is not None))
 
     precomp_len = max(1, bwrec.order) # hack for recurrences of order zero
     bwrec_nplus = collections.deque(
@@ -762,9 +719,18 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, tgt_error,
         logger.log(logging.DEBUG - 1, "n = %s, sum = %s", n, psum)
         mult = len(ini.shift.get(n, ()))
 
-        if n%stride == 0:
-            val, err_bound = check_convergence(err_bound)
-            if val is not None:
+        if n%stride == 0 and n > last_index_with_ini and mult == 0:
+            est = (max(abs(a) for log_jet in last for a in log_jet)
+                  * radpow.above_abs())
+            width = bounds.IR(max([RR.zero()] + [iv.rad() for log_jet in psum
+                                                          for iv in log_jet]))
+            done, tail_bound = stopping_criterion.check(n, tail_bound, est,
+                                                       width, stride)
+            if record_bounds_in is not None:
+                # TODO: record all partial sums, not just [log(z)^0]
+                # (requires improvements to plot_bounds)
+                record_bounds_in.append((n, psum[0], tail_bound))
+            if done:
                 break
 
         for p in xrange(log_prec - mult - 1, -1, -1):
@@ -780,7 +746,12 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, tgt_error,
         jetpow = jetpow._mul_trunc_(jet, ord)
         radpow *= pt.rad
         bwrec_nplus.append(bwrec.eval_series(Intervals, n+precomp_len, log_prec))
-    logger.info("summed %d terms, error <= %s", n, err_bound)
+    tail_bound = tail_bound.abs()
+    my_psum = vector(Jets, [[t[i].add_error(tail_bound)
+                            for i in range(ord)] for t in psum])
+    val = log_series_value(Jets, ord, ini.expo, my_psum, jet[0])
+    logger.info("summed %d terms, individual series tail bound = %s",
+                n, tail_bound)
     result = vector(val[i] for i in xrange(ord))
     return result
 
