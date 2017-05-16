@@ -173,11 +173,6 @@ class LogSeriesInitialValues(object):
         else:
             raise ValueError
 
-class PrecisionError(Exception):
-
-    def __init__(self, suggested_new_prec):
-        self.suggested_new_prec = suggested_new_prec
-
 def series_sum(dop, ini, pt, tgt_error, maj=None, bwrec=None,
         stride=50, record_bounds_in=None, max_prec=100000):
     r"""
@@ -313,7 +308,7 @@ def series_sum(dop, ini, pt, tgt_error, maj=None, bwrec=None,
 
     if isinstance(tgt_error, accuracy.RelativeError) and pt.jet_order > 1:
         raise TypeError("relative error not supported when computing derivatives")
-    if not isinstance(tgt_error, accuracy.StoppingCriterion):
+    if not isinstance(tgt_error, accuracy.OldStoppingCriterion):
         tgt_error = accuracy.AbsoluteError(tgt_error)
         if input_accuracy < -tgt_error.eps.upper().log2().floor():
             logger.warn("input intervals may be too wide "
@@ -362,9 +357,9 @@ def series_sum(dop, ini, pt, tgt_error, maj=None, bwrec=None,
             elif bit_prec > max_prec:
                 logger.info("lost too much precision, giving up")
                 return psum
-        except PrecisionError as err:
+        except accuracy.PrecisionError:
             logger.debug("bit_prec=%s, PrecisionError", bit_prec)
-            bit_prec = err.suggested_new_prec
+            bit_prec *= 2
             if bit_prec > max_prec:
                 logger.info("lost too much precision, giving up")
                 raise
@@ -395,51 +390,9 @@ def series_sum_ordinary(Intervals, dop, bwrec, ini, pt,
     assert len(last) == ordrec + 1 # not ordrec!
     psum = Jets.zero()
 
-    est = bounds.IR(infinity)
     tail_bound = bounds.IR(infinity)
     bit_prec = Intervals.precision()
     ini_are_accurate = 2*min(pt.accuracy(), ini.accuracy()) > bit_prec
-    def check_convergence(prev_tail_bound, prev_est):
-        # last[-1] since last[0] may still be "undefined" and last[1] may
-        # not exist in degenerate cases
-        est = (max([abs(a) for a in last])*radpow).above_abs()
-        if pt.is_numeric:
-            abs_sum = abs(psum[0])
-            width = abs_sum.rad_as_ball()
-        else:
-            abs_sum = None
-            width = max([abs(a).rad_as_ball() for a in last])*radpow
-        logger.debug("n=%s, est=%s, width=%s, sum=%s", n, est, width,
-                short_str(psum[0]))
-        if safe_gt(width, tgt_error.eps/4):
-            if ini_are_accurate:
-                raise PrecisionError(2*bit_prec)
-            elif safe_gt(est, width) and safe_lt(est, prev_est):
-                return False, bounds.IR(infinity), est
-        elif not tgt_error.reached(est, abs_sum) and record_bounds_in is None:
-            return False, bounds.IR(infinity), est
-        # Warning: this residual must correspond to the operator stored in
-        # maj.dop, which typically isn't the operator series_sum was called on
-        # (but its to_T(), i.e. its product by a power of x).
-        residual = maj.normalized_residual(n, [[c] for c in last][1:],
-                [[[c] for c in l] for l in bwrec_nplus])
-        for i in xrange(5):
-            tail_bound = maj.matrix_sol_tail_bound(n, pt.rad, [residual], ord)
-            logger.debug("n=%s, i=%s, tail_bound=%s", n, i, tail_bound)
-            if record_bounds_in is not None:
-                record_bounds_in.append((n, psum, tail_bound))
-            if (tgt_error.reached(tail_bound, abs_sum)
-                    or safe_gt(width, tail_bound)
-                    or not safe_le(tail_bound, prev_tail_bound.above_abs())):
-                return True, tail_bound, est
-            thr = tail_bound*est**(QQ((maj._effort**2 + 2)*stride)/n)
-            if tgt_error.reached(thr):
-                # Try summing a few more terms before refining
-                break
-            maj.refine()
-        if not tail_bound.is_finite():
-            return True, tail_bound, est
-        return False, tail_bound, est
 
     start = dop.order()
     # Evaluate the coefficients a bit in advance as we are going to need them to
@@ -448,6 +401,17 @@ def series_sum_ordinary(Intervals, dop, bwrec, ini, pt,
     bwrec_nplus = collections.deque(
             (bwrec.eval_int_ball(Intervals, start+i) for i in xrange(ordrec)),
             maxlen=ordrec)
+
+    stopping_criterion = accuracy.StoppingCriterion(
+            maj=maj, eps=tgt_error.eps,
+            get_residuals=(lambda:
+                [maj.normalized_residual(n, [[c] for c in last][1:],
+                        [[[c] for c in l] for l in bwrec_nplus])]),
+            get_bound=(lambda(resid):
+                maj.matrix_sol_tail_bound(n, pt.rad, resid, ord)),
+            fast_fail=ini_are_accurate,
+            force=(record_bounds_in is not None))
+
     for n in range(start): # Initial values (“singular part”)
         last.rotate(1)
         term = Jets(last[0])._mul_trunc_(jetpow, ord)
@@ -461,8 +425,15 @@ def series_sum_ordinary(Intervals, dop, bwrec, ini, pt,
         # the coefficient of z^n later in the loop body) and last[1], ...
         # last[ordrec] are the coefficients of z^(n-1), ..., z^(n-ordrec)
         if n%stride == 0:
-            done, tail_bound, est = check_convergence(tail_bound, est)
-            if done: break
+            done, tail_bound = stopping_criterion.check(n, tail_bound,
+                    est=(max([abs(a) for a in last])*radpow).above_abs(),
+                    width=(abs(psum[0]).rad_as_ball() if pt.is_numeric
+                        else max([abs(a).rad_as_ball() for a in last])*radpow),
+                    next_stride=stride)
+            if record_bounds_in is not None:
+                record_bounds_in.append((n, psum, tail_bound))
+            if done:
+                break
         bwrec_n = (bwrec_nplus[0] if bwrec_nplus
                    else bwrec.eval_int_ball(Intervals, n))
         comb = sum(bwrec_n[k]*last[k] for k in xrange(1, ordrec+1))
@@ -733,7 +704,7 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, tgt_error,
         est = max(abs(a) for log_jet in last for a in log_jet)*radpow.above_abs()
         if ini_are_accurate and any(abs(iv).rad_as_ball() > tgt_error.eps/4
                                    for log_jet in psum for iv in log_jet):
-            raise PrecisionError(2*bit_prec)
+            raise accuracy.PrecisionError
         sum_est = bounds.IR(abs(psum[0][0]))
         # TODO: improve the automatic increase of precision for large x^λ:
         # currently we only check the series part (which would sort of make

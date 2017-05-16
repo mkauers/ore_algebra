@@ -93,7 +93,7 @@ def ordinary_step_transition_matrix(ctx, step, eps, rows):
             try:
                 return naive_sum.fundamental_matrix_ordinary(
                         ldop, step.delta(), eps, rows, maj, max_prec=4*thr)
-            except naive_sum.PrecisionError:
+            except accuracy.PrecisionError:
                 pass
         return binary_splitting.fundamental_matrix_ordinary(
                 ldop, step.delta(), eps, rows, maj)
