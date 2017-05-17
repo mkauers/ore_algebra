@@ -699,13 +699,19 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, tgt_error,
     # TODO: improve the automatic increase of precision for large x^λ:
     # we currently check the series part only (which would sort of make
     # sense in a relative error setting)
+    val = [None] # XXX could be more elegant :-)
+    def get_bound(resid):
+        tb = maj.matrix_sol_tail_bound(n, pt.rad, resid, rows=pt.jet_order)
+        tb = tb.abs()
+        my_psum = vector(Jets, [[t[i].add_error(tb)
+                                for i in range(ord)] for t in psum])
+        val[0] = log_series_value(Jets, ord, ini.expo, my_psum, jet[0])
+        return max([RBF.zero()] + [_get_error(c) for c in val])
     stopping_criterion = accuracy.StoppingCriterion(
             maj=maj, eps=tgt_error.eps,
             get_residuals=lambda:
                 [maj.normalized_residual(n, list(last)[1:], bwrec_nplus)],
-            get_bound=(lambda(resid):
-                maj.matrix_sol_tail_bound(n, pt.rad, resid, rows=pt.jet_order)),
-            fast_fail=ini_are_accurate,
+            get_bound=get_bound, fast_fail=ini_are_accurate,
             force=(record_bounds_in is not None))
 
     precomp_len = max(1, bwrec.order) # hack for recurrences of order zero
@@ -746,13 +752,8 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, tgt_error,
         jetpow = jetpow._mul_trunc_(jet, ord)
         radpow *= pt.rad
         bwrec_nplus.append(bwrec.eval_series(Intervals, n+precomp_len, log_prec))
-    tail_bound = tail_bound.abs()
-    my_psum = vector(Jets, [[t[i].add_error(tail_bound)
-                            for i in range(ord)] for t in psum])
-    val = log_series_value(Jets, ord, ini.expo, my_psum, jet[0])
-    logger.info("summed %d terms, individual series tail bound = %s",
-                n, tail_bound)
-    result = vector(val[i] for i in xrange(ord))
+    logger.info("summed %d terms, global tail bound = %s", n, tail_bound)
+    result = vector(val[0][i] for i in xrange(ord))
     return result
 
 ################################################################################
