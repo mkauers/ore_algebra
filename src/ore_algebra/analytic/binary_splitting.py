@@ -39,12 +39,12 @@ TESTS::
     [              [+/- ...]  [1.000000000000000...] [0.8109302162163287...]]
     [              [+/- ...]               [+/- ...] [0.6666666666666666...]]
 
-    sage: (Dx - 1).numerical_solution([1], [0, i + pi], algorithm="binsplit") # long time (4 s)
+    sage: (Dx - 1).numerical_solution([1], [0, i + pi], algorithm="binsplit") # long time (4.2 s)
     INFO:ore_algebra.analytic.binary_splitting:...
     [12.5029695888765...] + [19.4722214188416...]*I
 
     sage: from ore_algebra.analytic.examples import fcc
-    sage: fcc.dop5.numerical_solution( # long time (90 s)
+    sage: fcc.dop5.numerical_solution( # long time (91 s)
     ....:          [0, 0, 0, 0, 1, 0], [0, 1/5+i/2, 1],
     ....:          1e-60, algorithm='binsplit')
     INFO:ore_algebra.analytic.binary_splitting:...

@@ -54,18 +54,33 @@ class MajorantSeries(object):
         self.cvrad = IR(cvrad)
         assert self.cvrad >= IR.zero()
 
+    def bound_series(self, rad, ord):
+        r"""
+        Compute a termwise bound on the series expansion of self at rad to
+        order O(x^ord).
+
+        More precisely, the upper bound of each interval coefficient is a bound
+        on the corresponding coefficient of self (which itself is a bound on
+        the absolute value of the corresponding coefficient of the series this
+        object is intended to bound).
+        """
+        return self.series(rad, ord)
+
     def series(self, rad, ord):
         r"""
         Compute the series expansion of self at rad to order O(x^ord).
 
-        With rad = 0, this returns a truncation of the majorant series itself.
-        More generally, this can be used to obtain bounds on the derivatives of
-        the series majorized on disks contained within its disk of convergence.
+        With rad = 0, this returns the majorant series itself. More generally,
+        this can be used to obtain bounds on the derivatives of the series this
+        majorant bounds on disks contained within its disk of convergence.
         """
         raise NotImplementedError
 
     def __call__(self, rad):
-        return self.series(rad, 1)
+        r"""
+        Bound the value of this series at rad ≥ 0.
+        """
+        return self.series(rad, 1)[0]
 
     def bound(self, rad, derivatives=1):
         """
@@ -83,7 +98,7 @@ class MajorantSeries(object):
         if not safe_le(rad, self.cvrad): # intervals!
             return IR(infinity)
         else:
-            ser = self.series(rad, derivatives)
+            ser = self.bound_series(rad, derivatives)
             sqnorm = sum((c.abs()**2 for c in ser), IR.zero())
             return sqnorm.sqrtpos()
 
@@ -112,7 +127,7 @@ class MajorantSeries(object):
         Series = PowerSeriesRing(IR, self.variable_name, prec)
         # CIF to work around problem with sage power series, should be IC
         ComplexSeries = PowerSeriesRing(CIF, self.variable_name, prec)
-        maj = Series(self.series(0, prec))
+        maj = Series(self.bound_series(0, prec))
         ref = Series([iv.abs() for iv in ComplexSeries(fun)], prec=prec)
         delta = (maj - ref).padded_list()
         if len(delta) < prec:
@@ -213,6 +228,33 @@ class RationalMajorant(MajorantSeries):
             res += num_ser._mul_trunc_(den_ser.inverse_series_trunc(ord), ord)
         return res
 
+    def bound_integral(self, rad, ord):
+        r"""
+        Compute a termwise bound on the series expansion of int(self, 0..z) at
+        z = rad, to order O(z^ord).
+        """
+        # For each summand f = num/den of self, we bound the series int(f,0..z)
+        # by int(num,0..z)/den(z), using the fact that num and 1/den have
+        # nonnegative coefficients and the bound int(fg) << int(f)·g (which
+        # can be proved by integrating by parts). We then compose with rad+ε to
+        # get the desired series expansion.
+        # (Alternative algorithm: only bound the constant term this way,
+        # use self.series().integral() for the remaining terms. Probably
+        # slightly tighter and costlier.)
+        Pol = self._Poly_IC # XXX: switch to self.Poly
+        pert_rad = Pol([rad, 1])
+        res = Pol.zero()
+        for num, den in self.fracs:
+            den_ser = Pol.one()
+            for lin, mult in den:
+                fac_ser = lin(pert_rad).power_trunc(mult, ord)
+                den_ser = den_ser._mul_trunc_(fac_ser, ord)
+            num_ser = Pol(num.integral()).compose_trunc(pert_rad, ord)
+            res += num_ser._mul_trunc_(den_ser.inverse_series_trunc(ord), ord)
+            logger.debug("num=%s, den=%s", num, den)
+        logger.debug("integral bound=%s", res)
+        return res
+
     def series0(self, ord):
         Pol = self._Poly_IC # XXX should be IR eventually
         res = Pol.zero()
@@ -250,7 +292,7 @@ class HyperexpMajorant(MajorantSeries):
                                                 + 4.0...*z + z^2/(-z + 1.0...)))
         sage: maj.cvrad
         [0.333...]
-        sage: maj.series(0, 4)
+        sage: maj.bound_series(0, 4)
         ([336.000...])*z^3 + ([93.000...])*z^2 + ([21.000...])*z + [3.000...]
         sage: maj._test()
         sage: maj*=z^20
@@ -259,6 +301,13 @@ class HyperexpMajorant(MajorantSeries):
                                             + 4.000...*z + z^2/(-z + 1.000...)))
         sage: maj._test()
     """
+
+    # The choice of having the integral start at zero (i.e., choosing the
+    # exponential part that is equal to one at 0, instead of a constant
+    # multiple) is arbitrary, in the sense that the exponential part appearing
+    # in the “homogeneous” part of the majorant will be compensated by the one
+    # in the denominator of the integrand in the variation-of-constants
+    # formula. Of course, the choice needs to be consistent.
 
     def __init__(self, integrand, num, den, shift=0):
         assert isinstance(integrand, RationalMajorant)
@@ -285,9 +334,21 @@ class HyperexpMajorant(MajorantSeries):
         return prod(pol**m for (pol, m) in self.den)
 
     def exp_part_series0(self, ord):
+        # This uses the fact that the integral in the definition of self starts
+        # at zero!
         return self.integrand.series0(ord-1).integral()._exp_series(ord)
 
-    def series(self, rad, ord):
+    def bound_series(self, rad, ord):
+        r"""
+        TESTS::
+
+            sage: from ore_algebra import *
+            sage: from ore_algebra.analytic.bounds import DiffOpBound
+            sage: Dops, x, Dx = DifferentialOperators()
+            sage: maj = DiffOpBound(Dx-1)(10)
+            sage: maj.bound(RBF(1000))
+            [1.97007111401705e+434 +/- ...]
+        """
         # Compute the derivatives “by automatic differentiation”. This is
         # crucial for performance with operators of large order.
         Pol = PolynomialRing(IC, self.variable_name) # XXX: should be IR
@@ -298,7 +359,11 @@ class HyperexpMajorant(MajorantSeries):
         assert num_ser.parent() is den_ser.parent()
         rat_ser = (shx_ser._mul_trunc_(num_ser, ord)
                           ._mul_trunc_(den_ser.inverse_series_trunc(ord), ord))
-        exp_ser = self.integrand.series(rad, ord-1).integral()._exp_series(ord)
+        # Majorant series for the integral. Note that we need the constant term
+        # here, since we assume in exp_part_series0 and elsewhere that the
+        # exponential part is one at rad=0.
+        int_ser = self.integrand.bound_integral(rad, ord)
+        exp_ser = int_ser._exp_series(ord)
         ser = rat_ser._mul_trunc_(exp_ser, ord)
         return ser
 
@@ -1687,6 +1752,7 @@ class DiffOpBound(object):
         maj = self(n)
         # XXX Better without maj? (speed/tightness trade-off)
         rhs = self.rhs(n, normalized_residuals, maj)
+        logger.debug("n=%s, maj(n)=%s, rhs=%s", n, maj, rhs)
         # Shift by n to account for the implicit z^n, then by -1 because of the
         # formula ∫(w⁻¹·(q^)(w)·dw.
         pol = (rhs << (n - 1)).integral() # XXX potential perf issue with <<
@@ -1708,7 +1774,6 @@ class DiffOpBound(object):
         # tails of a column of the form [y, y', y''/2, y'''/6, ...] or
         # [y, θy, θ²y/2, θ³y/6, ...].
         col_bound = maj.bound(rad, derivatives=rows)
-        logger.debug("n = %s, col_bound = %s", n, col_bound)
         return IR(rows).sqrt()*col_bound
 
     def _test(self, ini=None, prec=100):
@@ -1751,7 +1816,7 @@ class DiffOpBound(object):
             resid = self.normalized_residual(n, last)
             maj = self.tail_majorant(n, [resid])
             tail = (ref >> n) << n
-            maj_ser = maj.series(0, n + 30)
+            maj_ser = maj.bound_series(0, n + 30)
             logger.info(["|{}| <= {}".format(tail[i], maj_ser[i])
                          for i in range(n + 30)])
             maj._test(tail)

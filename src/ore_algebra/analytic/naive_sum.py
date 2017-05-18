@@ -605,19 +605,21 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, tgt_error,
 
     Test that we correctly compute solutions of large valuations, and that when
     there are several solutions with very different valuations, we can stop
-    before reaching the largest one if the initial values there are zero::
+    before reaching the largest one if the initial values there are zero.
+    (Unfortunately, the bounds in this kind of situation are currently so
+    pessimistic that this ability rarely helps in practice!) ::
 
         sage: #dop = (Dx-1).lclm(x*Dx-1000)
         sage: dop = (x^2-1000*x)*Dx^2 + (-x^2+999000)*Dx + 1000*x - 999000
         sage: logger = logging.getLogger('ore_algebra.analytic.naive_sum')
         sage: logger.setLevel(logging.INFO) # TBI
-        sage: dop.numerical_transition_matrix([0,1])
+        sage: dop.numerical_transition_matrix([0,1/10000000])
         INFO:ore_algebra.analytic.naive_sum:solution z^(0+0)·log(z)^0/0! + ···
         ...
         INFO:ore_algebra.analytic.naive_sum:summed 50 terms, ...
         ...
-        [[2.7182818284590...] 1.0000000000000000]
-        [[2.7182818284590...] 1000.0000000000000]
+        [ [1.000000100000005...] [1.0000000000000000e-7000...]]
+        [ [1.000000100000005...] [1.0000000000000000e-6990...]]
         sage: logger.setLevel(logging.WARNING)
         sage: series_sum(dop, {0: (1,), 1000: (1/1000,)}, 1, 1e-10)
         ([2.719281828...])
@@ -630,7 +632,7 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, tgt_error,
         sage: maj = bounds.DiffOpBound(dop, max_effort=0)
         sage: series_sum(dop, ini, QQ(2), 1e-8, stride=1, record_bounds_in=[],
         ....:            maj=maj)
-        ([0.22389077...])
+        ([0.2238907...])
 
     Some simple tests involving large non-integer valuations::
 
