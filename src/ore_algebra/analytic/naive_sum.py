@@ -340,10 +340,13 @@ def series_sum(dop, ini, pt, tgt_error, maj=None, bwrec=None,
     bit_prec = 8 + bit_prec*(1 + ZZ(bwrec.order - 2).nbits())
     max_prec = min(max_prec, bit_prec + 2*input_accuracy) # XXX: only if None?
     logger.info("initial precision = %s bits", bit_prec)
-    while True:
+    for attempt in itertools.count():
         try:
+            # ask for a slightly higher accuracy each time to avoid situations
+            # where doit would be happy with the result and stop at the same
+            # point despite the higher bit_prec
             psum = doit(ivs(bit_prec), dop, bwrec, ini, pt,
-                    tgt_error >> 4, maj, stride, record_bounds_in)
+                    tgt_error >> (4*attempt), maj, stride, record_bounds_in)
             err = max(_get_error(c) for c in psum)
             logger.debug("bit_prec=%s, err=%s (tgt=%s)", bit_prec, err,
                     tgt_error)
@@ -706,7 +709,7 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, tgt_error,
         my_psum = vector(Jets, [[t[i].add_error(tb)
                                 for i in range(ord)] for t in psum])
         val[0] = log_series_value(Jets, ord, ini.expo, my_psum, jet[0])
-        return max([RBF.zero()] + [_get_error(c) for c in val])
+        return max([RBF.zero()] + [_get_error(c) for c in val[0]])
     stopping_criterion = accuracy.StoppingCriterion(
             maj=maj, eps=tgt_error.eps,
             get_residuals=lambda:
