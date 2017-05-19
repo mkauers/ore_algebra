@@ -837,18 +837,24 @@ def plot_bounds(dop, ini=None, pt=None, eps=None, **kwds):
     recd[-1:] = []
     # Note: this won't work well when the errors get close to the double
     # precision underflow threshold.
+    err = [(psum[0]-ref_sum).abs() for n, psum, _ in recd]
+    large = float(1e200) # plot() is not robust to large values
     error_plot_upper = plot.line(
-            [(n, (psum[0]-ref_sum).abs().upper())
-             for n, psum, _ in recd],
+            [(n, v.upper()) for (n, v) in enumerate(err)
+                            if abs(float(v.upper())) < large],
             color="lightgray", scale="semilogy")
     error_plot = plot.line(
-            [(n, (psum[0]-ref_sum).abs().lower())
-                for n, psum, _ in recd],
+            [(n, v.lower()) for (n, v) in enumerate(err)
+                            if abs(float(v.lower())) < large],
             color="black", scale="semilogy")
-    bound_plot_lower = plot.line([(n, bound.lower()) for n, _, bound in recd],
-                           color="lightblue", scale="semilogy")
-    bound_plot = plot.line([(n, bound.upper()) for n, _, bound in recd],
-                           color="blue", scale="semilogy")
+    bound_plot_lower = plot.line(
+            [(n, bound.lower()) for n, _, bound in recd
+                                if abs(float(bound.lower())) < large],
+            color="lightblue", scale="semilogy")
+    bound_plot = plot.line(
+            [(n, bound.upper()) for n, _, bound in recd
+                                if abs(float(bound.upper())) < large],
+            color="blue", scale="semilogy")
     title = repr(dop) + " @ x=" + repr(pt)
     title = title if len(title) < 80 else title[:77]+"..."
     myplot = error_plot_upper + error_plot + bound_plot_lower + bound_plot
