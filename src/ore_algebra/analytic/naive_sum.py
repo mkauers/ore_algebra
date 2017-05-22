@@ -529,7 +529,8 @@ def fundamental_matrix_regular(dop, pt, eps, rows):
             for leftmost, _ in irred_factor.roots(QQbar):
                 leftmost = utilities.as_embedded_number_field_element(leftmost)
                 emb_bwrec = bwrec.shift(leftmost)
-                maj = bounds.DiffOpBound(dop, leftmost, shifts)
+                maj = bounds.DiffOpBound(dop, leftmost, shifts,
+                                         pol_part_len=4, bound_inverse="solve")
                 for shift, mult in shifts:
                     for log_power in xrange(mult):
                         logger.info("solution z^(%s+%s)·log(z)^%s/%s! + ···",

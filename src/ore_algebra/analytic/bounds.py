@@ -485,16 +485,16 @@ def abs_min_nonzero_root(pol, tol=RR(1e-2), min_log=RR('-inf'), prec=None):
     An example where the ability to increase the precision is used::
 
         sage: from ore_algebra import *
+        sage: from ore_algebra.analytic.bounds import DiffOpBound
         sage: Dops, x, Dx = DifferentialOperators()
         sage: dop = (x^2 + 10*x + 50)*Dx^2 + Dx + 1
         sage: import logging; logging.basicConfig()
         sage: logger = logging.getLogger('ore_algebra.analytic.bounds')
         sage: logger.setLevel(logging.DEBUG)
-        sage: dop.numerical_solution([-1,1], [0, 1/10])
+        sage: maj = DiffOpBound(dop, bound_inverse="simple")
         INFO:...
         DEBUG:ore_algebra.analytic.bounds:failed to bound the roots...
         ...
-        [-0.90000329853426...]
         sage: logger.setLevel(logging.WARNING)
     """
     if prec is None:
@@ -1243,7 +1243,7 @@ class DiffOpBound(object):
     """
 
     def __init__(self, dop, leftmost=ZZ.zero(), special_shifts=[],
-            max_effort=9, pol_part_len=2, bound_inverse="simple"):
+            max_effort=6, pol_part_len=2, bound_inverse="simple"):
         r"""
         Construct a DiffOpBound for a subset of the solutions of dop.
 
@@ -1293,9 +1293,15 @@ class DiffOpBound(object):
         self.leftmost = leftmost
         self.special_shifts = dict(special_shifts)
 
+        # XXX Consider switching to an interface where the user simply chooses
+        # the initial effort (and refine() accepts an effort value)
         self.bound_inverse = bound_inverse
         self.max_effort = max_effort
         self._effort = 0
+        if bound_inverse == "solve":
+            self._effort += 1
+        if pol_part_len > 2:
+            self._effort += ZZ(pol_part_len - 2).nbits()
 
         self.Poly = Pols_z.change_ring(IR) # TBI
         self.__CPoly = Pols_z.change_ring(IC)
@@ -1431,7 +1437,7 @@ class DiffOpBound(object):
 
     def refine(self):
         # XXX: make it possible to increase the precision of IR, IC
-        if self._effort > self.max_effort:
+        if self._effort >= self.max_effort:
             logger.debug("majorant no longer refinable")
             return
         self._effort += 1

@@ -235,6 +235,7 @@ class MatrixRec(object):
             # Special-case QQ and QQ[i] to use arb matrices
             # (overwrites AlgInts_rec)
             self.StepMatrix_class = StepMatrix_arb
+            self.binsplit_threshold = 8
             # Working precision. We typically want operations on exact balls to
             # be exact, so that overshooting shouldn't be a problem.
             # XXX Less clear in the case dz ∈ XBF!
@@ -252,6 +253,7 @@ class MatrixRec(object):
                 pow_den = AlgInts_pow.one()
         else:
             self.StepMatrix_class = StepMatrix_generic
+            self.binsplit_threshold = 64
             if is_NumberField(E):
                 # In fact we should probably do something similar for dz in any
                 # finite-dimensional Q-algebra. (But how?)
@@ -372,8 +374,8 @@ class MatrixRec(object):
 
         return stepmat
 
-    def binsplit(self, low, high, threshold=64):
-        if high - low <= threshold:
+    def binsplit(self, low, high):
+        if high - low <= self.binsplit_threshold:
             mat = self.one()
             for n in xrange(low, high):
                 mat.imulleft(self(n))

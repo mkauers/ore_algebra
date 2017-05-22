@@ -83,12 +83,14 @@ class Context(object):
 def ordinary_step_transition_matrix(ctx, step, eps, rows):
     from . import naive_sum, binary_splitting
     ldop = step.start.local_diffop()
-    maj = bounds.DiffOpBound(ldop)  # cache in ctx?
+    deg = ldop.degree()
+    # cache in ctx?
+    maj = bounds.DiffOpBound(ldop, pol_part_len=4, bound_inverse="solve")
     if ctx.fundamental_matrix_ordinary is not None:
         return ctx.fundamental_matrix_ordinary(
                 ldop, step.delta(), eps, rows, maj)
     elif step.is_exact():
-        thr = 256 + 32*ldop.degree()
+        thr = 256 + 32*deg
         if eps > step.cvg_ratio()**thr:
             try:
                 return naive_sum.fundamental_matrix_ordinary(
