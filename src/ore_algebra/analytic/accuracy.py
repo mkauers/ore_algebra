@@ -52,8 +52,10 @@ class StoppingCriterion(object):
 
         eps = self.eps
 
+        accuracy = est.accuracy()
         width = IR(est.rad())
-        intervals_blowing_up = (est.accuracy() < self.prec or
+        est = IR(est)
+        intervals_blowing_up = (accuracy < self.prec or
                                 safe_le(self.eps >> 2, width))
         if intervals_blowing_up:
             if self.fast_fail:
@@ -63,7 +65,7 @@ class StoppingCriterion(object):
                 # Aim for tail_bound < width instead of tail_bound < self.eps
                 eps = width
 
-        if safe_lt(eps, est) and est.accuracy() >= self.prec and not self.force:
+        if safe_lt(eps, est) and accuracy >= self.prec and not self.force:
             # It is important to test the inequality with the *interval* est, to
             # avoid getting caught in an infinite loop when est increases
             # indefinitely due to interval blow-up. When however the lower bound

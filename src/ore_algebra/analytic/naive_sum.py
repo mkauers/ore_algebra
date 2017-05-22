@@ -444,6 +444,9 @@ def series_sum_ordinary(Intervals, dop, bwrec, ini, pt,
         jetpow = jetpow._mul_trunc_(jet, ord)
         radpow *= pt.rad
         bwrec_nplus.append(bwrec.eval_int_ball(Intervals, n+bwrec.order))
+    logger.info("summed %d terms, tail <= %s, coeffwise error <= %s", n,
+            tail_bound,
+            max(x.rad() for x in psum) if pt.is_numeric else "n/a")
     # Account for the dropped high-order terms in the intervals we return
     # (tail_bound is actually a bound on the Frobenius norm of the error matrix,
     # so there is some overestimation). WARNING: For symbolic x, the resulting
@@ -453,9 +456,6 @@ def series_sum_ordinary(Intervals, dop, bwrec, ini, pt,
     # complex error bound in this case is pretty fragile.
     tail_bound = tail_bound.abs()
     res = vector(_add_error(psum[i], tail_bound) for i in xrange(ord))
-    logger.info("summed %d terms, tail <= %s, coeffwise error <= %s", n,
-            tail_bound,
-            max(x.rad() for x in res) if pt.is_numeric else "n/a")
     return res
 
 # XXX: pass ctx (→ real/complex?)?
