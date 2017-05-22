@@ -441,18 +441,11 @@ class MatrixRec(object):
 
     def error_estimate(self, prod):
         orddelta = self.orddelta
-        num1 = max(abs(bounds.IC(prod.rec_mat[orddelta + j, orddelta]))
+        num1 = sum(abs(prod.rec_mat[orddelta + j, orddelta])
                    for j in range(self.orddeq))
-        num2 = abs(bounds.IC(prod.pow_num[0]))
-        den = abs(bounds.IC(prod.rec_den))*abs(bounds.IC(prod.pow_den))
+        num2 = sum(abs(a) for a in prod.pow_num)
+        den = abs(prod.rec_den)*abs(prod.pow_den)
         return num1*num2/den
-
-    def width(self, prod):
-        ivs = [a for j in range(self.orddeq)
-                 for a in prod.sums_row[0, self.orddelta + j]]
-        num_rad = bounds.IR(max(a.rad() for a in ivs) if ivs else 0)
-        den = abs(bounds.IC(prod.rec_den))*abs(bounds.IC(prod.pow_den))
-        return num_rad/den
 
 def binsplit_step_seq(start):
     low, high = start, start + 64
@@ -483,8 +476,7 @@ def fundamental_matrix_ordinary(dop, pt, eps, rows, maj):
     for last, n in binsplit_step_seq(0):
         prod = rec.binsplit(last, n) * prod
         done, tail_bound = stopping_criterion.check(n, tail_bound,
-                est=rec.error_estimate(prod), width=rec.width(prod),
-                next_stride=n)
+                est=rec.error_estimate(prod), next_stride=n)
         if done:
             break
     is_real = utilities.is_real_parent(pt.parent())

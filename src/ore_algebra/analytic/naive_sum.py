@@ -425,10 +425,10 @@ def series_sum_ordinary(Intervals, dop, bwrec, ini, pt,
         # the coefficient of z^n later in the loop body) and last[1], ...
         # last[ordrec] are the coefficients of z^(n-1), ..., z^(n-ordrec)
         if n%stride == 0:
+            radpowest = abs(jetpow[0] if pt.is_numeric
+                            else Intervals(pt.rad**n))
             done, tail_bound = stopping_criterion.check(n, tail_bound,
-                    est=(max([abs(a) for a in last])*radpow).above_abs(),
-                    width=(abs(psum[0]).rad_as_ball() if pt.is_numeric
-                        else max([abs(a).rad_as_ball() for a in last])*radpow),
+                    est=sum(abs(a) for a in last)*radpowest,
                     next_stride=stride)
             if record_bounds_in is not None:
                 record_bounds_in.append((n, psum, tail_bound))
@@ -731,12 +731,10 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, tgt_error,
         mult = len(ini.shift.get(n, ()))
 
         if n%stride == 0 and n > last_index_with_ini and mult == 0:
-            est = (max(abs(a) for log_jet in last for a in log_jet)
-                  * radpow.above_abs())
-            width = bounds.IR(max([RR.zero()] + [iv.rad() for log_jet in psum
-                                                          for iv in log_jet]))
+            radpowest = abs(jetpow[0])
+            est = sum(abs(a) for log_jet in last for a in log_jet) * radpowest
             done, tail_bound = stopping_criterion.check(n, tail_bound, est,
-                                                       width, stride)
+                                                        stride)
             if record_bounds_in is not None:
                 # TODO: record all partial sums, not just [log(z)^0]
                 # (requires improvements to plot_bounds)
