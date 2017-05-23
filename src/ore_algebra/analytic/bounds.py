@@ -18,6 +18,7 @@ from sage.rings.infinity import infinity
 from sage.rings.integer import Integer
 from sage.rings.integer_ring import ZZ
 from sage.rings.polynomial.polynomial_element import Polynomial
+from sage.rings.polynomial.polynomial_ring import polygen
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 from sage.rings.power_series_ring import PowerSeriesRing
 from sage.rings.qqbar import QQbar
@@ -1183,7 +1184,8 @@ class DiffOpBound(object):
         1.000.../((-x + [0.994...])^2)*exp(int(POL+1.000...*NUM/(-x + [0.994...])^2))
         where
         POL=0,
-        NUM=bound(0, ord=1)*z^0 + bound(-2/n, ord=1)*z^1
+        NUM=bound(0, ord=1)*z^0 +
+        bound((-2.000...*n + 2.000...)/(n^2 - n), ord=1)*z^1
 
     A majorant series extracted from that sequence::
 
@@ -1221,7 +1223,7 @@ class DiffOpBound(object):
         1.000.../(1.000...)*exp(int(POL+1.000...*NUM/1.000...))
         where
         POL=0,
-        NUM=bound(-1/n, ord=1)*z^0
+        NUM=bound(-1.000.../n, ord=1)*z^0
 
         sage: QQi.<i> = QuadraticField(-1)
         sage: for dop in [
@@ -1286,7 +1288,7 @@ class DiffOpBound(object):
         if lc.is_term() and not lc.is_constant():
             raise ValueError("irregular singular operator", dop)
 
-        self._rcoeffs = _dop_rcoeffs_of_T(dop_T)
+        self._rcoeffs = _dop_rcoeffs_of_T(dop_T, IC)
 
         self.leftmost = leftmost
         self.special_shifts = dict(special_shifts)
@@ -1303,11 +1305,16 @@ class DiffOpBound(object):
 
         self._update_den_bound()
         first_nz, rem_num_nz = self._split_dop(pol_part_len)
-        self.alg_idx = self.leftmost + first_nz.base_ring().gen()
+        self.alg_idx = self.leftmost + polygen(Pols_z.base_ring(), 'n')
         # indicial polynomial, shifted so that integer roots correspond to
         # series in z^λ·ℂ[[z]][log(z)]
-        self.ind = first_nz[0](self.alg_idx)
+        # (mathematically equal to first_nz[0](self.alg_idx), but the latter
+        # has interval coefficients, and we need an exact version to compute
+        # the roots)
+        z = Pols_z.gen()
+        self.ind = self._dop_D.indicial_polynomial(z, z).monic()(self.alg_idx)
         assert self.ind.is_monic()
+        assert self.ind.base_ring().is_exact()
         self.majseq_pol_part = RatSeqBound([], self.ind, self.special_shifts)
         self._update_num_bound(pol_part_len, first_nz, rem_num_nz)
 
@@ -1374,26 +1381,37 @@ class DiffOpBound(object):
         """
         # XXX: This function recomputes the series expansion from scratch every
         # time. Use Newton's method to update it instead?
-        Pol_z = self.dop.base_ring()
+        Pol_z = self.dop.base_ring().change_ring(IC)
         Pol_zn = PolynomialRing(Pol_z, 'n')
+        orddeq = self.dop.order()
 
-        # Compute the initial part of the series expansion
+        # Compute the initial part of the series expansion.
         lc = self.dop.leading_coefficient()
-        inv = lc.inverse_series_trunc(pol_part_len + 1)
+        # Doing the inversion exactly yields much better bounds (at least when
+        # the coefficients do not fit on IC.prec() bits)
+        inv = lc.inverse_series_trunc(pol_part_len + 1).change_ring(IC)
         # Including rcoeffs[-1] here actually is redundant: by construction,
         # the only term involving n^ordeq  in first will be 1·n^ordeq·z^0.
         first_zn = Pol_zn([pol._mul_trunc_(inv, pol_part_len + 1)
                            for pol in self._rcoeffs])
+        # Force the leading coefficient to one after interval computations
+        assert all(pol.contains_zero() for pol in first_zn[orddeq] >> 1)
+        first_zn = Pol_zn.gen()**orddeq + first_zn[:orddeq]
         first_nz = _switch_vars(first_zn)
         z = Pol_z.gen(); n = Pol_zn.gen()
-        assert first_nz[0] == self._dop_D.indicial_polynomial(z, n).monic()
+        # Would hold in exact arithmetic
+        # assert first_nz[0] == self._dop_D.indicial_polynomial(z, n).monic()
         assert all(pol.degree() < self.dop.order() for pol in first_nz >> 1)
 
         # Now compute rem_num as (dop - first·lc)·z^(-pol_part_len-1)
         dop_zn = Pol_zn(self._rcoeffs)
-        rem_num_0_zn = dop_zn - first_zn*lc
+        # By construction (since lc is the leading coefficient of dop and
+        # first_nz = 1·n^orddeq + ···), rem_num_0_zn has degree < orddeq in n.
+        # Truncate as the interval subtraction may leave inexact zeros.
+        rem_num_0_zn = (dop_zn - first_zn*lc)[:orddeq]
         rem_num_0_nz = _switch_vars(rem_num_0_zn)
-        assert rem_num_0_nz.valuation() >= pol_part_len + 1
+        # Would hold in exact arithmetic
+        # assert rem_num_0_nz.valuation() >= pol_part_len + 1
         rem_num_nz = rem_num_0_nz >> (pol_part_len + 1)
 
         return first_nz, rem_num_nz
@@ -1825,7 +1843,7 @@ class DiffOpBound(object):
 # division to compute the truncation in DiffOpBound._update_num_bound.
 # Extracting the Qj(θ) would then be easy, and I may no longer need the
 # coefficients of θ "on the right".
-def _dop_rcoeffs_of_T(dop):
+def _dop_rcoeffs_of_T(dop, base_ring):
     r"""
     Compute the coefficients of dop as an operator in θ but with θ on the left.
 
@@ -1835,22 +1853,22 @@ def _dop_rcoeffs_of_T(dop):
         sage: from ore_algebra.analytic.bounds import _dop_rcoeffs_of_T
         sage: Pols.<x> = QQ[]; Dops.<Tx> = OreAlgebra(Pols)
         sage: dop = (1/250*x^4 + 21/50*x^3)*Tx - 6/125*x^4 + 6/25*x^3
-        sage: coeff = _dop_rcoeffs_of_T(dop); coeff
+        sage: coeff = _dop_rcoeffs_of_T(dop, QQ); coeff
         [-8/125*x^4 - 51/50*x^3, 1/250*x^4 + 21/50*x^3]
         sage: sum(Tx^i*c for i, c in enumerate(coeff)) == dop
         True
 
     TESTS::
 
-        sage: _dop_rcoeffs_of_T(Dops.zero())
+        sage: _dop_rcoeffs_of_T(Dops.zero(), QQ)
         []
-        sage: _dop_rcoeffs_of_T(Dops.one())
+        sage: _dop_rcoeffs_of_T(Dops.one(), QQ)
         [1]
-        sage: _dop_rcoeffs_of_T(Dops.gen())
+        sage: _dop_rcoeffs_of_T(Dops.gen(), QQ)
         [0, 1]
     """
     assert dop.parent().is_T()
-    Pols = dop.base_ring()
+    Pols = dop.base_ring().change_ring(base_ring)
     ordlen, deglen = dop.order() + 1, dop.degree() + 1
     binomial = [[0]*(ordlen) for _ in range(ordlen)]
     for n in range(ordlen):
