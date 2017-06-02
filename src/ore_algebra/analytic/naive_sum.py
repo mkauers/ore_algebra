@@ -817,7 +817,7 @@ def plot_bounds(dop, ini=None, pt=None, eps=None, **kwds):
         ....: + (20*x^2 + 395/2*x + 1975/4)*Dx^4 + (-5*x^2 - 50*x - 130)*Dx^3
         ....: + (5/4*x^2 + 25/2*x + 105/4)*Dx^2 + (-20*x^2 - 195*x - 480)*Dx
         ....: + 5*x - 10)
-        sage: plot_bounds(dop, pol_part_len=2, bound_inverse="solve", eps=1e-10) # long time
+        sage: plot_bounds(dop, pol_part_len=4, bound_inverse="solve", eps=1e-10) # long time
         Graphics object consisting of 5 graphics primitives
     """
     import sage.plot.all as plot
