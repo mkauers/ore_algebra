@@ -109,9 +109,6 @@ class StepMatrix(object):
     of the series at once.
     """
 
-    # NOTES:
-    # - store the indices the StepMatrix covers?
-
     # No __init__ for speed reasons. See MatrixRec. Fields:
     #     self.rec_mat
     #     self.rec_den
@@ -141,6 +138,7 @@ class StepMatrix_generic(StepMatrix):
         # TODO: Still very slow.
         # - rewrite everything using lower-level operations...
         # - consider special-casing ℚ[i]
+        assert high.idx_start == low.idx_end
         mat = low.rec_mat.list()
         mat = [low.BigScalars.Element(low.BigScalars, [x], check=False) for x in mat]
         mat = type(high.sums_row)(low.Mat_big_scalars, mat, copy=False, coerce=False)
@@ -162,11 +160,13 @@ class StepMatrix_generic(StepMatrix):
                                                            # pow_Ints[[δ]]/<δ^k>
         low.pow_den *= high.pow_den                  # ZZ
         low.rec_den *= high.rec_den                  # rec_Ints
+        low.idx_end = high.idx_end
         return low
 
 class StepMatrix_arb(StepMatrix):
 
     def imulleft(low, high):
+        assert high.idx_start == low.idx_end
         ordrec = low.rec_mat.nrows()
         # prod.sums_row = high.sums_row * low.rec_mat * low.pow_num + O(δ^ord)
         #               + high.rec_den * high.pow_den * low.sums_row
@@ -183,6 +183,7 @@ class StepMatrix_arb(StepMatrix):
         low.pow_num = low.pow_num._mul_trunc_(high.pow_num, low.ord) # XBF[δ]
         low.pow_den = low.pow_den._mul_(high.pow_den) # XBF (ZZ)
         low.rec_den = low.rec_den._mul_(high.rec_den) # XBF
+        low.idx_end = high.idx_end
         return low
 
 class MatrixRec(object):
@@ -338,6 +339,8 @@ class MatrixRec(object):
 
     def __call__(self, n):
         stepmat = self.StepMatrix_class()
+        stepmat.idx_start = n
+        stepmat.idx_end = n + 1
         stepmat.rec_den = self.rec_den(n)
         stepmat.rec_mat = self.Mat_rec.matrix()
         for i in xrange(self.ordrec-1):
@@ -360,8 +363,9 @@ class MatrixRec(object):
 
         return stepmat
 
-    def one(self):
+    def one(self, n):
         stepmat = self.StepMatrix_class()
+        stepmat.idx_start = stepmat.idx_end = n
         stepmat.rec_mat = self.Mat_rec.identity_matrix()
         stepmat.rec_den = self.rec_den.base_ring().one()
         stepmat.pow_num = self.pow_num.parent().one()
@@ -376,7 +380,7 @@ class MatrixRec(object):
 
     def binsplit(self, low, high):
         if high - low <= self.binsplit_threshold:
-            mat = self.one()
+            mat = self.one(low)
             for n in xrange(low, high):
                 mat.imulleft(self(n))
         else:
@@ -465,7 +469,7 @@ def fundamental_matrix_ordinary(dop, pt, eps, rows, maj):
     logger.log(logging.INFO - 1, "target error = %s", eps)
     maj.refine()
     rec = MatrixRec(dop, pt, rows, utilities.prec_from_eps(eps))
-    prod = rec.one()
+    prod = rec.one(0)
     n = None
     tail_bound = bounds.IR('inf')
     done = False
