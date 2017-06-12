@@ -31,7 +31,7 @@ http://specfun.inria.fr/chyzak/ssw/index.html>):
     ....:    +(172032*t^16-155648*t^15+20480*t^14+78016*t^13-188224*t^12
     ....:      +78144*t^11-6528*t^10+701*t^9+2131*t^8-1183*t^7+97*t^6-30*t^5
     ....:      +12*t^4)*Dt^5)
-    sage: mat = dop.numerical_transition_matrix([0, 1/3+i/10, 1/3]) # long time (5.9 s)
+    sage: mat = dop.numerical_transition_matrix([0, 1/3+i/10, 1/3]) # long time (5.8 s)
     sage: (mat*vector([0, 0, 1, 3, 7]))[0] # long time
     [...] + [0.50000...]*I
 
