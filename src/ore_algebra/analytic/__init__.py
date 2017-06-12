@@ -211,9 +211,11 @@ Operators with rational function coefficients::
     sage: ((x/1)*Dx^2 - 1).numerical_transition_matrix([0, 1], algorithm='binsplit')
     [[0.0340875989376363...]   [1.59063685463732...]]
     [[-0.579827135138349...]   [2.27958530233606...]]
+
+Test suite
+==========
+
+To run the test suite of the ``ore_algebra.analytic`` subpackage, run::
+
+    src$ PYTHONPATH="$PWD" sage -t --force-lib ore_algebra/analytic/
 """
-
-# NOTE: to run the tests, use something like
-#
-#     SAGE_PATH="$PWD" sage -t --force-lib ore_algebra/analytic/
-
