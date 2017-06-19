@@ -1798,7 +1798,7 @@ class DiffOpBound(object):
         # tails of a column of the form [y, y', y''/2, y'''/6, ...] or
         # [y, θy, θ²y/2, θ³y/6, ...].
         col_bound = maj.bound(rad, derivatives=rows)
-        return IR(rows).sqrt()*col_bound
+        return (IR(rows).sqrt()*col_bound).above_abs()
 
     def _test(self, ini=None, prec=100):
         r"""

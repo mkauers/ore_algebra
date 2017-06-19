@@ -23,6 +23,13 @@ An example provided by Bruno Salvy that originates in the same work::
 
     sage: ssw.dop2.numerical_solution(ssw.ini2, [0,1]) # long time (4.3 s), TODO: double-check result
     [10.662510694...]
+
+The operator P[1, 0, 0, "xy"] from the same work::
+
+    sage: ssw.dop3.numerical_transition_matrix([0, 1/4])
+    [ [-206.5126691369...] + [...]*I             [16.000000000000...] + [...]*I  [1.20938909474579...] + [...]*I]
+    [ [1489.126691369...] + [...]*I              [-128.00000000000...] + [...]*I [3.9061090525420...] + [...]*I]
+    [ [1925.57548817...] + [-1536.00000000...]*I [768.000000000...] + [...]*I    [-124.21690469554...] + [128.000000000000...]*I]
 """
 
 from sage.rings.all import Integer, QQ
@@ -232,3 +239,5 @@ ini2 = [ Integer(59)/Integer(36), Integer(547)/Integer(2160),
         Integer(1)/Integer(24)*Integer(1412134)/Integer(280665),
         Integer(1)/Integer(120)*Integer(1787365)/Integer(2918916),
         Integer(1)/Integer(720)*Integer(194607493)/Integer(2189187) ]
+
+dop3 = 96*t+(144*t**3-9*t)*Dt**2+(16*t**4-t**2)*Dt**3+(288*t**2-15)*Dt

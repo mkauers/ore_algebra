@@ -5,7 +5,7 @@ Accuracy management
 
 import logging
 
-from sage.rings.all import QQ, ZZ
+from sage.rings.all import QQ, ZZ, RR
 
 from .bounds import IR
 from .safe_cmp import *
@@ -52,7 +52,7 @@ class StoppingCriterion(object):
 
         eps = self.eps
 
-        accuracy = est.accuracy()
+        accuracy = max(est.accuracy(), -int((est.rad() or RR(1)).log(2)))
         width = IR(est.rad())
         est = IR(est)
         intervals_blowing_up = (accuracy < self.prec or
@@ -86,7 +86,7 @@ class StoppingCriterion(object):
                          n, est, width, tb)
             if safe_lt(tb, eps):
                 return True, tb
-            elif ini_tb.is_finite() and not safe_le(tb, ini_tb.above_abs()):
+            elif ini_tb.is_finite() and not safe_lt(tb, ini_tb):
                 # The bounds are out of control, stop asap.
                 # Subtle point: We could also end up here because of a hump. But
                 # then, typically, est > ε, so that we shouldn't even have
