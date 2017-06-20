@@ -359,28 +359,25 @@ class Point(SageObject):
             sage: from ore_algebra.analytic.path import Point
             sage: Dops, x, Dx = DifferentialOperators()
             sage: Point(0, x*Dx^2 + Dx + x).local_basis_structure()
-            [FundamentalSolution(valuation=0, log_power=1, value=None),
-             FundamentalSolution(valuation=0, log_power=0, value=None)]
+            [FundamentalSolution(leftmost=0, shift=0, log_power=1, value=None),
+             FundamentalSolution(leftmost=0, shift=0, log_power=0, value=None)]
             sage: Point(0, Dx^3 + x*Dx + x).local_basis_structure()
-            [FundamentalSolution(valuation=0, log_power=0, value=None),
-             FundamentalSolution(valuation=1, log_power=0, value=None),
-             FundamentalSolution(valuation=2, log_power=0, value=None)]
+            [FundamentalSolution(leftmost=0, shift=0, log_power=0, value=None),
+             FundamentalSolution(leftmost=0, shift=1, log_power=0, value=None),
+             FundamentalSolution(leftmost=0, shift=2, log_power=0, value=None)]
         """
         # TODO: provide a way to compute the first terms of the series. First
         # need a good way to share code with fundamental_matrix_regular. Or
         # perhaps modify generalized_series_solutions() to agree with our
         # definition of the basis?
         if self.is_ordinary(): # support inexact points in this case
-            return [FundamentalSolution(QQbar(expo), Integer(0), None)
+            return [FundamentalSolution(QQbar.zero(), ZZ(expo), ZZ.zero(), None)
                     for expo in range(self.dop.order())]
         elif not self.is_regular():
             raise NotImplementedError("irregular singular point")
-        ldop = self.local_diffop()
-        x = ldop.base_ring().gen()
-        roots = ldop.indicial_polynomial(x).roots(QQbar)
-        sols = [FundamentalSolution(expo, Integer(log_power), None)
-                for expo, mult in roots
-                for log_power in xrange(mult)]
+        sols = map_local_basis(self.local_diffop(),
+                lambda ini, bwrec: None,
+                lambda leftmost, shift: {})
         sols.sort(key=sort_key_by_asympt)
         return sols
 

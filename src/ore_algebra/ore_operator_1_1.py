@@ -2034,14 +2034,10 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             (x - sqrt(2))^2.977...]
         """
         from .analytic.path import Point
+        from .analytic.local_solutions import simplify_exponent
         struct = Point(point, self).local_basis_structure()
         x = SR(self.base_ring().gen()) - point
-        def simplify_valuation(valuation): # work around sage bug #21758
-            try:
-                return ZZ(valuation)
-            except ValueError:
-                return valuation
-        return [x**simplify_valuation(sol.valuation)
+        return [x**simplify_exponent(sol.valuation)
                     *symbolic_log.log(x, hold=True)**sol.log_power
                     /sol.log_power.factorial()
                 for sol in struct]

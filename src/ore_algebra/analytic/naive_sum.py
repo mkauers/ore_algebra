@@ -23,7 +23,7 @@ from sage.rings.real_arb import RealBallField, RBF, RealBall
 from .. import ore_algebra
 from . import accuracy, bounds, utilities
 from .local_solutions import (backward_rec, FundamentalSolution,
-        LogSeriesInitialValues, sort_key_by_asympt, map_local_basis)
+        LogSeriesInitialValues, map_local_basis)
 from .safe_cmp import *
 from .shiftless import my_shiftless_decomposition
 from .utilities import short_str
@@ -544,7 +544,6 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, tgt_error,
                              # at 1 regardless of ini.expo)
 
     log_prec = sum(len(v) for v in ini.shift.itervalues())
-    last_special_index = max(ini.shift)
     last_index_with_ini = max([dop.order()]
             + [s for s, vals in ini.shift.iteritems()
                  if not all(v.is_zero() for v in vals)])

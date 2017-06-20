@@ -5,16 +5,22 @@ Local solutions
 
 import collections, logging
 
+from sage.categories.pushout import pushout
+from sage.functions.log import log as symbolic_log
 from sage.misc.cachefunc import cached_method
+from sage.modules.free_module_element import vector
 from sage.rings.all import ZZ, QQ, QQbar, RBF, RealBallField, ComplexBallField
 from sage.rings.polynomial import polynomial_element
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
+from sage.structure.element import get_coercion_model
+from sage.structure.formal_sum import FormalSum, FormalSums
 from sage.structure.sequence import Sequence
+from sage.symbolic.all import SR
 
 from .. import ore_algebra
 from . import utilities
 
-from .shiftless import my_shiftless_decomposition
+from .shiftless import dispersion, my_shiftless_decomposition
 
 logger = logging.getLogger(__name__)
 
@@ -200,9 +206,15 @@ class LogSeriesInitialValues(object):
 # Structure of the local basis at a regular singular point
 ##############################################################################
 
-FundamentalSolution = collections.namedtuple(
+_FundamentalSolution0 = collections.namedtuple(
     'FundamentalSolution',
-    ['valuation', 'log_power', 'value'])
+    ['leftmost', 'shift', 'log_power', 'value'])
+
+class FundamentalSolution(_FundamentalSolution0):
+    @property
+    @cached_method
+    def valuation(self):
+        return QQbar(self.leftmost + self.shift) # alg vs NFelt for re, im
 
 def sort_key_by_asympt(sol):
     r"""
@@ -256,10 +268,126 @@ def map_local_basis(dop, fun, modZ_class_aux):
                         # XXX: inefficient if shift >> 0
                         value = fun(ini, emb_bwrec, **modZ_class_data)
                         sol = FundamentalSolution(
-                            valuation = leftmost + shift,
-                            log_power = log_power,
+                            leftmost = leftmost,
+                            shift = ZZ(shift),
+                            log_power = ZZ(log_power),
                             value = value)
                         logger.debug("sol=%s\n\n", sol)
                         cols.append(sol)
     cols.sort(key=sort_key_by_asympt)
     return cols
+
+def log_series(ini, bwrec, order):
+    Coeffs = pushout(bwrec.base_ring, ini.universe)
+    log_prec = sum(len(v) for v in ini.shift.itervalues())
+    precomp_len = max(1, bwrec.order) # hack for recurrences of order zero
+    bwrec_nplus = collections.deque(
+            (bwrec.eval_series(Coeffs, i, log_prec)
+                for i in xrange(precomp_len)),
+            maxlen=precomp_len)
+    series = []
+    for n in xrange(order):
+        new_term = vector(Coeffs, log_prec)
+        mult = len(ini.shift.get(n, ()))
+        for p in xrange(log_prec - mult - 1, -1, -1):
+            combin  = sum(bwrec_nplus[0][i][j]*series[-i][p+j]
+                          for j in xrange(log_prec - p)
+                          for i in xrange(min(bwrec.order, n), 0, -1))
+            combin += sum(bwrec_nplus[0][0][j]*new_term[p+j]
+                          for j in xrange(mult + 1, log_prec - p))
+            new_term[mult + p] = - ~bwrec_nplus[0][0][mult] * combin
+        for p in xrange(mult - 1, -1, -1):
+            new_term[p] = ini.shift[n][p]
+        series.append(new_term)
+        bwrec_nplus.append(bwrec.eval_series(Coeffs, n+precomp_len, log_prec))
+    return series
+
+# TODO: Implement (as a method of differential operators) a version that returns
+# a list of DFiniteFunction objects
+
+def local_basis(dop, point, order=None):
+    r"""
+    Generalized series expansions the local basis.
+
+    INPUT:
+
+    * dop - Differential operator
+
+    * point - Point where the local basis is to be computed
+
+    * order (optional) - Number of terms to compute, **starting from each
+      “leftmost” valuation of a group of solutions with valuations differing by
+      integers**. (Thus, the absolute truncation order will be the same for all
+      solutions in such a group, with some solutions having more actual
+      coefficients computed that others.)
+
+      The default is to choose the truncation order in such a way that the
+      structure of the basis is apparent, and in particular that logarithmic
+      terms appear if logarithms are involved at all in that basis. The
+      corresponding order may be very large in some cases.
+
+    EXAMPLES::
+
+        sage: from ore_algebra import *
+        sage: from ore_algebra.analytic.local_solutions import local_basis
+        sage: Dops, z, Dz = DifferentialOperators(QQ, 'z')
+
+        sage: local_basis(Dz - 1, 0)
+        [1 + z + 1/2*z^2 + 1/6*z^3]
+
+        sage: from ore_algebra.analytic.examples import ssw
+        sage: Dops, z, Dz = DifferentialOperators(QQ, 'z')
+        sage: local_basis(ssw.dop3, 0)
+        [t^(-4) + 24*log(t)/t^2 - 48*log(t) - 96*t^2*log(t) - 88*t^2,
+         t^(-2),
+         1 + 2*t^2]
+
+        sage: dop = (z^2*(z^2-34*z+1)*Dz^3 + 3*z*(2*z^2-51*z+1)*Dz^2
+        ....:     + (7*z^2-112*z+1)*Dz + (z-5))
+        sage: local_basis(dop, 0, 3)
+        [1/2*log(z)^2 + 5/2*z*log(z)^2 + 12*z*log(z) + 73/2*z^2*log(z)^2
+         + 210*z^2*log(z) + 72*z^2,
+         log(z) + 5*z*log(z) + 12*z + 73*z^2*log(z) + 210*z^2,
+         1 + 5*z + 73*z^2]
+
+        sage: roots = dop.leading_coefficient().roots(AA)
+        sage: local_basis(dop, roots[1][0], 3)
+        [1 - (-239/12*a+169/6)*(z + 12*sqrt(2) - 17)^2,
+         sqrt(z + 12*sqrt(2) - 17) - (-203/32*a+9)*(z + 12*sqrt(2) - 17)^(3/2)
+         + (-24031/160*a+1087523/5120)*(z + 12*sqrt(2) - 17)^(5/2),
+         z + 12*sqrt(2) - 17 - (-55/6*a+13)*(z + 12*sqrt(2) - 17)^2]
+
+    """
+    from .path import Point
+    point = Point(point, dop)
+    ldop = point.local_diffop()
+    if order is None:
+        ind = ldop.indicial_polynomial(ldop.base_ring().gen())
+        order = max(dop.order(), ind.dispersion()) + 3
+    sols = map_local_basis(ldop,
+            lambda ini, bwrec: log_series(ini, bwrec, order),
+            lambda leftmost, shift: {})
+    dx = SR(dop.base_ring().gen()) - point.value
+    # Working with symbolic expressions here is too complicated: let's try
+    # returning FormalSums.
+    def log_monomial(expo, n, k):
+        expo = simplify_exponent(expo)
+        return dx**(expo + n) * symbolic_log(dx, hold=True)**k
+    cm = get_coercion_model()
+    Coeffs = cm.common_parent(
+            dop.base_ring().base_ring(),
+            point.value.parent(),
+            *(sol.leftmost for sol in sols))
+    res = [FormalSum(
+                [(c/ZZ(k).factorial(), log_monomial(sol.leftmost, n, k))
+                    for n, vec in enumerate(sol.value)
+                    for k, c in reversed(list(enumerate(vec)))],
+                FormalSums(Coeffs))
+           for sol in sols]
+    return res
+
+def simplify_exponent(e): # work around sage bug #21758
+    try:
+        return ZZ(e)
+    except (TypeError, ValueError):
+        return e
