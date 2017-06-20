@@ -19,7 +19,8 @@ from sage.rings.complex_arb import CBF, ComplexBallField, ComplexBall
 from sage.rings.real_arb import RBF, RealBallField, RealBall
 from sage.structure.sage_object import SageObject
 
-from .local_solutions import *
+from .local_solutions import (FundamentalSolution, sort_key_by_asympt,
+        map_local_basis)
 from .safe_cmp import *
 from .utilities import *
 

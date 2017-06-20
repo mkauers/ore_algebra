@@ -29,7 +29,7 @@ from sage.rings.real_mpfr import RealField, RR
 from sage.structure.factorization import Factorization
 
 from .. import ore_algebra
-from . import recurrence, utilities
+from . import local_solutions, utilities
 
 from .safe_cmp import *
 from .shiftless import squarefree_part
@@ -1472,7 +1472,7 @@ class DiffOpBound(object):
 
     @cached_method
     def bwrec(self):
-        return recurrence.backward_rec(self.dop, shift=self.leftmost)
+        return local_solutions.backward_rec(self.dop, shift=self.leftmost)
 
     def normalized_residual(self, n, last, bwrec_nplus=None, Ring=IC):
         r"""

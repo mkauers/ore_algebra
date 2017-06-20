@@ -19,12 +19,11 @@ from sage.rings.integer import Integer
 from sage.rings.polynomial import polynomial_element
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 from sage.rings.real_arb import RealBallField, RBF, RealBall
-from sage.structure.sequence import Sequence
 
 from .. import ore_algebra
 from . import accuracy, bounds, utilities
-from .local_solutions import *
-from .recurrence import backward_rec
+from .local_solutions import (backward_rec, FundamentalSolution,
+        LogSeriesInitialValues, sort_key_by_asympt, map_local_basis)
 from .safe_cmp import *
 from .shiftless import my_shiftless_decomposition
 from .utilities import short_str
@@ -71,102 +70,6 @@ class EvaluationPoint(object):
             return bounds.IR.maximal_accuracy()
         elif isinstance(self.pt.parent(), (RealBallField, ComplexBallField)):
             return self.pt.accuracy()
-        else:
-            raise ValueError
-
-class LogSeriesInitialValues(object):
-    r"""
-    Initial values defining a logarithmic series.
-
-    - ``self.expo`` is an algebraic number representing the “valuation” of the
-      log-series,
-    - ``self.shift`` is a dictionary mapping an integer shift s to a tuple of
-      initial values corresponding to the coefficients of x^s, x^s·log(x), ...,
-      x^s·log(x)^k/k! for some k
-    """
-
-    def __init__(self, expo, values, dop=None, check=True):
-        r"""
-        TESTS::
-
-            sage: from ore_algebra import *
-            sage: from ore_algebra.analytic.naive_sum import *
-            sage: Dops, x, Dx = DifferentialOperators()
-            sage: LogSeriesInitialValues(0, {0: (1, 0)}, x*Dx^3 + 2*Dx^2 + x*Dx)
-            Traceback (most recent call last):
-            ...
-            ValueError: invalid initial data for x*Dx^3 + 2*Dx^2 + x*Dx at 0
-        """
-        try:
-            self.expo = ZZ.coerce(expo)
-        except TypeError:
-            self.expo = QQbar.coerce(expo)
-        if isinstance(values, dict):
-            all_values = sum(values.values(), ()) # concatenation of tuples
-        else:
-            all_values = values
-            values = dict((n, (values[n],)) for n in xrange(len(values)))
-        self.universe = Sequence(all_values).universe()
-        if not utilities.is_numeric_parent(self.universe):
-            raise ValueError("initial values must coerce into a ball field")
-        self.shift = { s: tuple(self.universe(a) for a in ini)
-                       for s, ini in values.iteritems() }
-
-        try:
-            if check and dop is not None and not self.is_valid_for(dop):
-                raise ValueError("invalid initial data for {} at 0".format(dop))
-        except TypeError: # coercion problems btw QQbar and number fields
-            pass
-
-    def __repr__(self):
-        return ", ".join(
-            "[z^({expo}+{shift})·log(z)^{log_power}/{log_power}!] = {val}"
-            .format(expo=self.expo, shift=s, log_power=log_power, val=val)
-            for s, ini in self.shift.iteritems()
-            for log_power, val in enumerate(ini))
-
-    def is_valid_for(self, dop):
-        ind = dop.indicial_polynomial(dop.base_ring().gen())
-        for sl_factor, shifts in my_shiftless_decomposition(ind):
-            for k, (val_shift, _) in enumerate(shifts):
-                if sl_factor(self.expo - val_shift).is_zero():
-                    if len(self.shift) != len(shifts) - k:
-                        return False
-                    for shift, mult in shifts[k:]:
-                        if len(self.shift.get(shift - val_shift, ())) != mult:
-                            return False
-                    return True
-        return False
-
-    def is_real(self, dop):
-        r"""
-        Try to detect cases where the coefficients of the series will be real.
-
-        TESTS::
-
-            sage: from ore_algebra import *
-            sage: Dops, x, Dx = DifferentialOperators()
-            sage: i = QuadraticField(-1, 'i').gen()
-            sage: (x^2*Dx^2 + x*Dx + 1).numerical_transition_matrix([0, 1/2])
-            [ [0.769238901363972...] + [0.638961276313634...]*I [0.769238901363972...] + [-0.6389612763136...]*I]
-            sage: (Dx-i).numerical_transition_matrix([0,1])
-            [[0.540302305868139...] + [0.841470984807896...]*I]
-        """
-        # We check that the exponent is real to ensure that the coefficients
-        # will stay real. Note however that we don't need to make sure that
-        # pt^expo*log(z)^k is real.
-        return (utilities.is_real_parent(dop.base_ring().base_ring())
-                and utilities.is_real_parent(self.universe)
-                and self.expo.imag().is_zero())
-
-    def accuracy(self):
-        infinity = bounds.IR.maximal_accuracy()
-        if self.universe.is_exact():
-            return infinity
-        elif isinstance(self.universe, (RealBallField, ComplexBallField)):
-            return min(infinity, *(x.accuracy()
-                                   for val in self.shift.itervalues()
-                                   for x in val))
         else:
             raise ValueError
 
@@ -474,7 +377,6 @@ def fundamental_matrix_ordinary(dop, pt, eps, rows, maj, max_prec=100000):
 # Regular singular points
 ################################################################################
 
-# TODO: move parts not specific to the naïve summation algo elsewhere
 def fundamental_matrix_regular(dop, pt, eps, rows):
     r"""
     TESTS::
@@ -512,48 +414,12 @@ def fundamental_matrix_regular(dop, pt, eps, rows):
     evpt = EvaluationPoint(pt, jet_order=rows)
     eps_col = bounds.IR(eps)/bounds.IR(dop.order()).sqrt()
     col_tgt_error = accuracy.AbsoluteError(eps_col)
-    bwrec = backward_rec(dop)
-    ind = bwrec[0]
-    n = ind.parent().gen()
-    sl_decomp = my_shiftless_decomposition(ind)
-    logger.debug("indicial polynomial = %s ~~> %s", ind, sl_decomp)
-
-    cols = []
-    for sl_factor, shifts in sl_decomp:
-        for irred_factor, irred_mult in sl_factor.factor():
-            assert irred_mult == 1
-            # Complicated to do here and specialize, for little benefit
-            #irred_nf = irred_factor.root_field("leftmost")
-            #irred_leftmost = irred_nf.gen()
-            #irred_bwrec = [pol(irred_leftmost + n) for pol in bwrec]
-            for leftmost, _ in irred_factor.roots(QQbar):
-                leftmost = utilities.as_embedded_number_field_element(leftmost)
-                emb_bwrec = bwrec.shift(leftmost)
-                maj = bounds.DiffOpBound(dop, leftmost, shifts,
-                                         pol_part_len=4, bound_inverse="solve")
-                for shift, mult in shifts:
-                    for log_power in xrange(mult):
-                        logger.info("solution z^(%s+%s)·log(z)^%s/%s! + ···",
-                                    leftmost, shift, log_power, log_power)
-                        ini = LogSeriesInitialValues(
-                            dop = dop,
-                            expo = leftmost,
-                            values = {s: tuple(ZZ.one()
-                                               if (s, p) == (shift, log_power)
-                                               else ZZ.zero()
-                                               for p in xrange(m))
-                                      for s, m in shifts},
-                            check = False)
-                        # XXX: inefficient if shift >> 0
-                        value = series_sum(dop, ini, evpt, col_tgt_error,
-                                maj=maj, bwrec=emb_bwrec)
-                        sol = FundamentalSolution(
-                            valuation = leftmost + shift,
-                            log_power = log_power,
-                            value = value)
-                        logger.debug("sol=%s\n\n", sol)
-                        cols.append(sol)
-    cols.sort(key=sort_key_by_asympt)
+    def get_maj(leftmost, shifts):
+        return {'maj': bounds.DiffOpBound(dop, leftmost, shifts,
+                                        pol_part_len=4, bound_inverse="solve") }
+    def get_value(ini, bwrec, maj):
+        return series_sum(dop, ini, evpt, col_tgt_error, maj=maj, bwrec=bwrec)
+    cols = map_local_basis(dop, get_value, get_maj)
     return matrix([sol.value for sol in cols]).transpose()
 
 def _pow_trunc(a, n, ord):
@@ -615,10 +481,8 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, tgt_error,
         sage: logger = logging.getLogger('ore_algebra.analytic.naive_sum')
         sage: logger.setLevel(logging.INFO) # TBI
         sage: dop.numerical_transition_matrix([0,1/10000000])
-        INFO:ore_algebra.analytic.naive_sum:solution z^(0+0)·log(z)^0/0! + ···
-        ...
+        INFO:ore_algebra.analytic.naive_sum:...
         INFO:ore_algebra.analytic.naive_sum:summed 50 terms, ...
-        ...
         [ [1.000000100000005...] [1.0000000000000000e-7000...]]
         [ [1.000000100000005...] [1.0000000000000000e-6990...]]
         sage: logger.setLevel(logging.WARNING)
@@ -670,7 +534,6 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, tgt_error,
         True
         sage: mat[0,2].overlaps(h^1000/(1+h))
         True
-
     """
 
     jet = pt.jet(Intervals)
