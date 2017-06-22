@@ -278,7 +278,7 @@ def map_local_basis(dop, fun, modZ_class_aux):
     return cols
 
 def log_series(ini, bwrec, order):
-    Coeffs = pushout(bwrec.base_ring, ini.universe)
+    Coeffs = pushout(bwrec.base_ring.base_ring(), ini.universe)
     log_prec = sum(len(v) for v in ini.shift.itervalues())
     precomp_len = max(1, bwrec.order) # hack for recurrences of order zero
     bwrec_nplus = collections.deque(
@@ -330,32 +330,40 @@ def local_basis(dop, point, order=None):
 
         sage: from ore_algebra import *
         sage: from ore_algebra.analytic.local_solutions import local_basis
-        sage: Dops, z, Dz = DifferentialOperators(QQ, 'z')
+        sage: Dops, x, Dx = DifferentialOperators(QQ, 'x')
 
-        sage: local_basis(Dz - 1, 0)
-        [1 + z + 1/2*z^2 + 1/6*z^3]
+        sage: local_basis(Dx - 1, 0)
+        [1 + x + 1/2*x^2 + 1/6*x^3]
 
         sage: from ore_algebra.analytic.examples import ssw
-        sage: Dops, z, Dz = DifferentialOperators(QQ, 'z')
         sage: local_basis(ssw.dop3, 0)
         [t^(-4) + 24*log(t)/t^2 - 48*log(t) - 96*t^2*log(t) - 88*t^2,
          t^(-2),
          1 + 2*t^2]
 
-        sage: dop = (z^2*(z^2-34*z+1)*Dz^3 + 3*z*(2*z^2-51*z+1)*Dz^2
-        ....:     + (7*z^2-112*z+1)*Dz + (z-5))
+        sage: dop = (x^2*(x^2-34*x+1)*Dx^3 + 3*x*(2*x^2-51*x+1)*Dx^2
+        ....:     + (7*x^2-112*x+1)*Dx + (x-5))
         sage: local_basis(dop, 0, 3)
-        [1/2*log(z)^2 + 5/2*z*log(z)^2 + 12*z*log(z) + 73/2*z^2*log(z)^2
-         + 210*z^2*log(z) + 72*z^2,
-         log(z) + 5*z*log(z) + 12*z + 73*z^2*log(z) + 210*z^2,
-         1 + 5*z + 73*z^2]
+        [1/2*log(x)^2 + 5/2*x*log(x)^2 + 12*x*log(x) + 73/2*x^2*log(x)^2
+         + 210*x^2*log(x) + 72*x^2,
+         log(x) + 5*x*log(x) + 12*x + 73*x^2*log(x) + 210*x^2,
+         1 + 5*x + 73*x^2]
 
         sage: roots = dop.leading_coefficient().roots(AA)
         sage: local_basis(dop, roots[1][0], 3)
-        [1 - (-239/12*a+169/6)*(z + 12*sqrt(2) - 17)^2,
-         sqrt(z + 12*sqrt(2) - 17) - (-203/32*a+9)*(z + 12*sqrt(2) - 17)^(3/2)
-         + (-24031/160*a+1087523/5120)*(z + 12*sqrt(2) - 17)^(5/2),
-         z + 12*sqrt(2) - 17 - (-55/6*a+13)*(z + 12*sqrt(2) - 17)^2]
+        [1 - (-239/12*a+169/6)*(x + 12*sqrt(2) - 17)^2,
+         sqrt(x + 12*sqrt(2) - 17) - (-203/32*a+9)*(x + 12*sqrt(2) - 17)^(3/2)
+         + (-24031/160*a+1087523/5120)*(x + 12*sqrt(2) - 17)^(5/2),
+         x + 12*sqrt(2) - 17 - (-55/6*a+13)*(x + 12*sqrt(2) - 17)^2]
+
+    TESTS::
+
+        sage: local_basis(4*x^2*Dx^2 + (-x^2+8*x-11), 0, 2)
+        [x^(-sqrt(3) + 1/2) + (-4/11*a+2/11)*x^(-sqrt(3) + 3/2),
+         x^(sqrt(3) + 1/2) - (-4/11*a-2/11)*x^(sqrt(3) + 3/2)]
+
+        sage: local_basis((27*x^2+4*x)*Dx^2 + (54*x+6)*Dx + 6, 0, 2)
+        [1/sqrt(x) + 3/8*sqrt(x), 1 - x]
 
     """
     from .path import Point
