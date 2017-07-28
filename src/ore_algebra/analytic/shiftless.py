@@ -78,23 +78,6 @@ def gcd_free_basis(ring, elts):
 
 # -> UniqueFactorizationDomains.ElementMethods
 
-def squarefree_part(self):
-    r"""
-    Return the square-free part of this element.
-
-    This default implementation calls ``squarefree_decomposition``.
-
-    EXAMPLES::
-
-        sage: from ore_algebra.analytic.shiftless import *
-        sage: Pol.<x> = QQ[]
-        sage: pol = 37 * (x-1)^3 * (x-2)^3 * (x-1/3)^7 * (x-3/7)
-        sage: squarefree_part(pol)
-        37*x^4 - 2923/21*x^3 + 1147/7*x^2 - 1517/21*x + 74/7
-    """
-    decomp = self.squarefree_decomposition()
-    return prod(fac for fac, mult in decomp)
-
 # -> Polynomial
 # note: parent() can become _parent in .pyx
 
@@ -227,7 +210,7 @@ def shiftless_decomposition(self):
     unit = Pol.base_ring()(self.leading_coefficient())
     by_mult = [Pol.one()]
     while not quo.is_one():
-        sqf = squarefree_part(quo)
+        sqf = quo.radical()
         by_mult.append(sqf)
         quo //= sqf
     parts = set()

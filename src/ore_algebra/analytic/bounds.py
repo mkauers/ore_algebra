@@ -32,7 +32,6 @@ from .. import ore_algebra
 from . import local_solutions, utilities
 
 from .safe_cmp import *
-from .shiftless import squarefree_part
 
 logger = logging.getLogger(__name__)
 
