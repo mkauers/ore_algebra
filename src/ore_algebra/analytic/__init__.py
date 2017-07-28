@@ -242,5 +242,5 @@ Test suite
 
 To run the test suite of the ``ore_algebra.analytic`` subpackage, run::
 
-    src$ PYTHONPATH="$PWD" sage -t --force-lib ore_algebra/analytic/
+    src$ PYTHONPATH="$PWD" sage -t ore_algebra/analytic/
 """
