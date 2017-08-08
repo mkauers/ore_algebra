@@ -19,6 +19,7 @@ dfinite_function
 from sage.rings.ring import Algebra
 from numpy.polynomial.polynomial import Polynomial
 from numpy import poly1d
+import random
 
 class DFiniteFunctionRing(Algebra):
     """
@@ -41,8 +42,21 @@ class DFiniteFunctionRing(Algebra):
 
     def is_integral_domain(self, proof = True):
         """
+        false for the sequence ring, true for the function ring
         """
-        return self._ore_algebra.is_integral_domain()
+        g = self._ore_algebra.var()[0]
+        if g is 'S':
+            return False
+        elif g is 'D':
+            return True
+        else:
+            raise NotImplementedError
+    
+    def is_commutative(self):
+        """
+        the function as well as the sequence ring are always commutative
+        """
+        return True
 
 
     def is_noetherian(self):
@@ -60,12 +74,28 @@ class DFiniteFunctionRing(Algebra):
         """
         raise NotImplementedError
 
-    def _sage_input_(self, sib, coerced):
+    def _sage_input_(self, name):
         r"""
         Produce an expression which will reproduce this value when
         evaluated.
+        
+        Input:
+                -self... a DFiniteFunctionRing
+                -name... a string of the object name of self
+        
+        Output: 
+                a string which will reproduce this value when evaluated
+                
+        Example: 
+        
+        sage: A = OreAlgebra(FractionField(ZZ['n']),'Dn')
+        sage: B = DFiniteFunctionRing(A)
+        sage: B._sage_input_("B")
+        'DFiniteFunctionRing(B.ore_algebra())'
+
         """
-        raise NotImplementedError
+        str = "DFiniteFunctionRing(" + name + ".ore_algebra())"
+        return str
 
     def _is_valid_homomorphism_(self, codomain, im_gens):
         """
@@ -92,8 +122,9 @@ class DFiniteFunctionRing(Algebra):
 
     def _latex_(self): #gibt das Element in Latex Code aus
         """
+        returns self in Latex code
         """
-        raise NotImplementedError
+        return "\mathcal{D}(" + self._base_ring._latex_() + ")"
 
     def base_extend(self, R):
         """
@@ -141,26 +172,14 @@ class DFiniteFunctionRing(Algebra):
         """
         return False
         
-    def random_element(self, typ = "polynomial", degree=2 ) : #, *args, **kwds):
+    def random_element(self, degree=2 ) : #, *args, **kwds):
         #still in process - does not work so far !!!
         r"""
         Return a random operator. 
         """
-        A = self.ore_algebra().random_element()
-        if typ == "polynomial" :
-            B = A.polynomial_solutions([1,2],degree)
-            C = list(min(B))
-            p = poly1d(C)
-            print p
-            return p
-        elif typ == "rational" :
-            B = A.rational_solutions([1,2],degree)
-            C = list(min(B))
-            p = poly1d(C)
-            print p
-            return p
-        else:
-            raise NotImplementedError
+        A = self.ore_algebra().random_element(degree)
+        int_val = random.sample(xrange(-100, 100), degree)
+        return UnivariateDFiniteSequence(self,A,int_val) #gibt dawei immer nur Sequence zurÃ¼ck - muss man noch Ã¤ndern
         
     def change_base_ring(self,R):
         """
@@ -184,12 +203,19 @@ class DFiniteFunction(RingElement):
 
     # constructor
 
-    def __init__(self, parent, is_gen = False, construct=False): 
+    def __init__(self, parent, ann, initial_val, is_gen = False, construct=False, cache=True):
         """
         """
         RingElement.__init__(self, parent)
         self._is_gen = is_gen
-
+    
+        self._ann = parent._ore_algebra(ann)                #annihilation polynomial
+        
+        if len(initial_val) < self._ann.order():
+            raise ValueError, "not enough initial values given"
+        
+        self._initial_values = initial_val
+        
     def __copy__(self):
         """
         Return a "copy" of self. This is just self, since D-finite functions are immutable. 
@@ -213,10 +239,12 @@ class DFiniteFunction(RingElement):
 #    def __richcmp__(left, right, int op):
 #        return (<Element>left)._richcmp(right, op)
 
-    def __nonzero__(self):
+    def __is_zero__(self):
         """
         """
-        raise NotImplementedError
+        if all(x == 0 for x in self._initial_values):
+            return true
+        return false
 
     def _is_atomic(self):
         """
@@ -362,33 +390,29 @@ class DFiniteFunction(RingElement):
 
     def annihilator(self):
         """
+        return the annihilating operator of self
         """
-        raise NotImplementedError
+        return self._ann
     
     def initial_values(self):
         """
         return the initial values of self
         """
-        raise NotImplementedError
+        return self._initial_values
 
 
 #############################################################################################################
     
-class UnivariateDFiniteFunction(DFiniteFunction):
+class UnivariateDFiniteSequence(DFiniteFunction):
     """
-    D-finite function in a single (differentiable or discrete) variable.
+    D-finite sequence in a single (differentiable or discrete) variable.
     """
-
     def __init__(self, parent, ann, initial_val, is_gen=False, construct=False, cache=True):
-        super(DFiniteFunction, self).__init__(parent)
-        self._ann = parent._ore_algebra(ann)                #annihilation polynomial
+        if parent.ore_algebra().var()[0] is not 'S':
+            raise TypeError, "Not the Shift Operator"
+        super(UnivariateDFiniteSequence, self).__init__(parent, ann, initial_val, is_gen, construct, cache)
 
-        if len(initial_val) < self._ann.order():
-            raise ValueError, "not enough initial values given"
-        
-        self._initial_values = initial_val
     # action
-    
 
     def __call__(self, *x, **kwds):
         """
@@ -396,13 +420,6 @@ class UnivariateDFiniteFunction(DFiniteFunction):
         raise NotImplementedError
 
     # tests
-
-    def __is_zero__(self):
-        """
-        """
-        if all(x == 0 for x in self._initial_values):
-            return true
-        return false
 
     def _is_atomic(self):
         """
@@ -449,15 +466,16 @@ class UnivariateDFiniteFunction(DFiniteFunction):
     def _repr_(self, name=None):
         """
         """
-        r = "Univariate D-finite function defined by the annihilating polynomial "
+        r = "Univariate D-finite sequence defined by the annihilating polynomial "
         r = r + self._ann._repr() + " and the initial values "
         r = r + '[%s]' % ', '.join(map(str, self._initial_values))
         return r
 
-    def _repr_(self):
+    def _repr(self):
         """
         """
         return _repr_(self)
+    
 
     def _latex_(self, name=None):
         """
@@ -479,14 +497,20 @@ class UnivariateDFiniteFunction(DFiniteFunction):
 
     def _add_(self, right):
         """
-        return the sum of two D-finite functions
+        return the sum of two D-finite sequences
         
         EXAMPLE:
             sage: A = OreAlgebra(ZZ['n'],'Sn')
             sage: D = DFiniteFunctionRing(A)
-            sage: a = UnivariateDFiniteFunction(C, "Sn**2 - Sn - 1", [0,1])
-            sage: b = UnivariateDFiniteFunction(C, "(n**2+3)*Sn**3 + (4*n - 10)*Sn - 1", [0,1,2])
+            sage: a = UnivariateDFiniteSequence(C, "Sn**2 - Sn - 1", [0,1])
+            sage: b = UnivariateDFiniteSequence(C, "(n**2+3)*Sn**3 + (4*n - 10)*Sn - 1", [0,1,2])
+            sage: a.expand(10)
+            [0, 1, 1, 2, 3, 5, 8, 13, 21, 34]
+            sage: b.expand(10)
+            [0, 1, 2, 10/3, 13/4, 26/21, -19/72, -117/532, 977/7056, 3851/53352]
             sage: c = a+b
+            sage: c.expand(10)
+            [0, 2, 3, 16/3, 25/4, 131/21, 557/72, 6799/532, 149153/7056, 1817819/53352]
         """
         sum_ann = self._ann.lclm(right._ann)
         
@@ -495,39 +519,39 @@ class UnivariateDFiniteFunction(DFiniteFunction):
         int_val_right = right._ann.to_list(right._initial_values,n)
         int_val_sum = [x+y for x, y in zip(int_val_self, int_val_right)]
         
-        sum = UnivariateDFiniteFunction(self.parent(), sum_ann, int_val_sum)
+        sum = UnivariateDFiniteSequence(self.parent(), sum_ann, int_val_sum)
         return sum
     
     def _neg_(self):
         """
-        return the negative of a D-finite function
+        return the negative of a D-finite sequence
         """
         neg_int_val = [-x for x in self._initial_values]
-        neg = UnivariateDFiniteFunction(self.parent(), self._ann, neg_int_val)
+        neg = UnivariateDFiniteSequence(self.parent(), self._ann, neg_int_val)
         return neg
 
-    def _lmul_(self, left):#kann ich die nicht kommutativen FÃlle auch auf symmetric_product zurückführen?
-        return left*self
+    def _lmul_(self, left):
+        raise NotImplementedError
     
     def _rmul_(self, right):
-        return self*right
+        raise NotImplementedError
 
     def _mul_(self, right):
         """
-        return the product of two D-finite functions
+        return the product of two D-finite sequences
         
         EXAMPLE:
             sage: A = OreAlgebra(ZZ['n'],'Sn')
             sage: D = DFiniteFunctionRing(A)
-            sage: a = UnivariateDFiniteFunction(C, "Sn**2 - Sn - 1", [0,1])
-            sage: b = UnivariateDFiniteFunction(C, "(n**2+3)*Sn**3 + (4*n - 10)*Sn - 1", [0,1,2])
-            sage: a.to_list(10)
+            sage: a = UnivariateDFiniteSequence(C, "Sn**2 - Sn - 1", [0,1])
+            sage: b = UnivariateDFiniteSequence(C, "(n**2+3)*Sn**3 + (4*n - 10)*Sn - 1", [0,1,2])
+            sage: a.expand(10)
             [0, 1, 1, 2, 3, 5, 8, 13, 21, 34]
-            sage: b.to_list(10)
+            sage: b.expand(10)
             [0, 1, 2, 10/3, 13/4, 26/21, -19/72, -117/532, 977/7056, 3851/53352]
-            sage: c = a+b
-            sage: c.to_list(10)
-            [0, 2, 3, 16/3, 25/4, 131/21, 557/72, 6799/532, 149153/7056, 1817819/53352]
+            sage: c = a*b
+            sage: c.expand(10)
+            [0, 1, 2, 20/3, 39/4, 130/21, -19/9, -1521/532, 977/336, 65467/26676]
         """
         prod_ann = self._ann.symmetric_product(right._ann)
         
@@ -536,12 +560,12 @@ class UnivariateDFiniteFunction(DFiniteFunction):
         int_val_right = right._ann.to_list(right._initial_values,n)
         int_val_prod = [x*y for x, y in zip(int_val_self, int_val_right)]
         
-        prod = UnivariateDFiniteFunction(self.parent(), prod_ann, int_val_prod)
+        prod = UnivariateDFiniteSequence(self.parent(), prod_ann, int_val_prod)
         return prod
 
     def __invert__(self):
         raise NotImplementedError
-
+    
     def interlace(self, right):
         """
         return the interlaced sequence of the two sequences self (e.g. a0,a1,a2,...)
@@ -550,14 +574,14 @@ class UnivariateDFiniteFunction(DFiniteFunction):
         EXAMPLE:
             sage: A = OreAlgebra(ZZ['n'],'Sn')
             sage: D = DFiniteFunctionRing(A)
-            sage: a = UnivariateDFiniteFunction(C, "Sn**2 - Sn - 1", [0,1])
-            sage: k = UnivariateDFiniteFunction(C, "Sn - 1", [4])
-            sage: a.to_list(10)
+            sage: a = UnivariateDFiniteSequence(C, "Sn**2 - Sn - 1", [0,1])
+            sage: k = UnivariateDFiniteSequence(C, "Sn - 1", [4])
+            sage: a.expand(10)
             [0, 1, 1, 2, 3, 5, 8, 13, 21, 34]
-            sage: k.to_list(10)
+            sage: k.expand(10)
             [4, 4, 4, 4, 4, 4, 4, 4, 4, 4]
             sage: i = a.interlace(k)
-            sage: i.to_list(10)
+            sage: i.expand(10)
             [0, 4, 1, 4, 1, 4, 2, 4, 3, 4]
         """
         interlacing_ann = self._ann.annihilator_of_interlacing(right._ann)
@@ -569,15 +593,15 @@ class UnivariateDFiniteFunction(DFiniteFunction):
         int_val_interlacing[::2] = int_val_self
         int_val_interlacing[1::2] = int_val_right
     
-        interlacing = UnivariateDFiniteFunction(self.parent(), interlacing_ann, int_val_interlacing)
+        interlacing = UnivariateDFiniteSequence(self.parent(), interlacing_ann, int_val_interlacing)
         return interlacing
- 
+
     # evaluation
     
-    def to_list(self,n):        #only makes sense for sequences
+    def expand(self, n):
         """
-        return the first n terms of the sequences self
-        
+        return the first n terms of the sequences "self"
+            
         EXAMPLE:
             sage: A = OreAlgebra(ZZ['n'],'Sn')
             sage: D = DFiniteFunctionRing(A)
@@ -586,59 +610,178 @@ class UnivariateDFiniteFunction(DFiniteFunction):
             [0, 1, 1, 2, 3, 5, 8, 13, 21, 34]
         """
         return self._ann.to_list(self._initial_values,n)
-    
+        
     def __getitem__(self,n):    #only makes sense for sequences
         """
-        return the n-th term of the sequence self
-        
+        return the n-th term of the sequence "self"
+            
         EXAMPLE:
             sage: A = OreAlgebra(ZZ['n'],'Sn')
             sage: D = DFiniteFunctionRing(A)
-            sage: a = UnivariateDFiniteFunction(C, "Sn**2 - Sn - 1", [0,1])
+            sage: a = UnivariateDFiniteSequence(C, "Sn**2 - Sn - 1", [0,1])
             sage: a[5]  #the 5th Fibonacci number
             5
             sage: a[10] #the 10th Fibnoacci number
             55
         """
-        l = self.to_list(n+1)
+        l = self.expand(n+1)
         return l[n]
 
-    
+    def evaluate(self, z, n): #doesn't make sense for sequences?
+        # numerically by analytic continuation
+        raise NotImplementedError
 
+###############################################################################################################
+    
+    
+    
+class UnivariateDFiniteFunction(DFiniteFunction):
+    """
+        D-finite function in a single (differentiable or discrete) variable.
+        """
+    def __init__(self, parent, ann, initial_val, is_gen=False, construct=False, cache=True):
+        super(UnivariateDFiniteSequence, self).__init__(parent, ann, initial_val, is_gen, construct, cache)
+    
+    # action
+    
+    def __call__(self, *x, **kwds):
+        """
+            """
+        raise NotImplementedError
+    
+    # tests
+    def _is_atomic(self):
+        """
+            """
+        raise NotImplementedError
+    
+    # conversion
+    
+    def __iter__(self):
+        """
+            """
+        raise NotImplementedError
+    
+    def __float__(self):
+        """
+            """
+        return NotImplementedError
+    
+    def __int__(self):
+        """
+            """
+        return NotImplementedError
+    
+    def _integer_(self, ZZ):
+        """
+            """
+        return NotImplementedError
+    
+    def _rational_(self):
+        """
+            """
+        return NotImplementedError
+    
+    def _symbolic_(self, R):
+        """
+            """
+        raise NotImplementedError
+    
+    def __long__(self):
+        """
+            """
+        raise NotImplementedError
+    
+    def _repr_(self, name=None):
+        """
+            """
+        r = "Univariate D-finite function defined by the annihilating polynomial "
+        r = r + self._ann._repr() + " and the initial values "
+        r = r + '[%s]' % ', '.join(map(str, self._initial_values))
+        return r
+    
+    def _repr(self):
+        """
+            """
+        return _repr_(self)
+    
+    
+    def _latex_(self, name=None):
+        """
+            """
+        raise NotImplementedError
+    
+    def _sage_input_(self, sib, coerced):
+        """
+            """
+        raise NotImplementedError
+    
+    def dict(self):
+        raise NotImplementedError
+    
+    def list(self):
+        raise NotImplementedError
+    
+    # arithmetic
+    
+    def _add_(self, right):
+        """
+        """
+        raise NotImplementedError
+    
+    def _neg_(self):
+        """
+        """
+        raise NotImplementedError
+    
+    def _lmul_(self, left):
+        raise NotImplementedError
+    
+    def _rmul_(self, right):
+        raise NotImplementedError
+    
+    def _mul_(self, right):
+        """
+        """
+        raise NotImplementedError
+    
+    def __invert__(self):
+        raise NotImplementedError
+    
+    # evaluation
+    
     def expand(self, n):
         # series coefficients or sequence terms
         raise NotImplementedError
-
+    
     def evaluate(self, z, n):
         # numerically by analytic continuation
         raise NotImplementedError
-    
-    ########################## testing #########################
+
+
+########################## testing #########################
 A = OreAlgebra(FractionField(ZZ['n']),'Sn')
+B = OreAlgebra(FractionField(ZZ['n']),'Dn')
 C = DFiniteFunctionRing(A)      #C is our D-finite function ring
-a = UnivariateDFiniteFunction(C,"Sn**2-Sn-1",[0,1]) #represents the Fibonacci Numbers
-b = UnivariateDFiniteFunction(C, "(n**2+3)*Sn**3 + (4*n - 10)*Sn - 1", [0,1,2]) #some ugly sequence
-k = UnivariateDFiniteFunction(C, "Sn -1", [4])      #constant sequence 4,4,4,...
+D = DFiniteFunctionRing(B)
+a = UnivariateDFiniteSequence(C,"Sn**2-Sn-1",[0,1]) #represents the Fibonacci Numbers
+b = UnivariateDFiniteSequence(C, "(n**2+3)*Sn**3 + (4*n - 10)*Sn - 1", [0,1,2]) #some ugly sequence
+k = UnivariateDFiniteSequence(C, "Sn -1", [4])      #constant sequence 4,4,4,...
 print "First 10 terms of a: "
-print a.to_list(10)
+print a.expand(10)
 print "First 10 terms of b: "
-print b.to_list(10)
+print b.expand(10)
 print "First 10 terms of k: "
-print k.to_list(10)
+print k.expand(10)
 
 s = a+b
 print "First 10 terms of a+b: "
-print s.to_list(10)
+print s.expand(10)
 
 p = a*k
 print "First 10 terms of a*k: "
-print p.to_list(10)
+print p.expand(10)
 
 i = a.interlace(k)
 print "First 10 terms of a interlaced with k: "
-print i.to_list(10)
-
-
-
-
-
+print i.expand(10)
