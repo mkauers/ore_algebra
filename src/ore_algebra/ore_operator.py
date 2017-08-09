@@ -1779,6 +1779,19 @@ class UnivariateOreOperator(OreOperator):
             raise NotImplementedError
 
     # coefficient-related functions
+    
+    def roots(self):
+        """
+        return the integer roots of the coefficients of the Ore Operator ``self``
+        """
+        coeffs = self.coefficients()
+        result = set([])
+        for n in range(len(coeffs)):
+            roots = coeffs[n].numerator().roots()
+            for i in range(len(roots)):
+                if roots[i][0] in ZZ:
+                    result.add(roots[i][0])
+        return result
 
     def order(self):
         """

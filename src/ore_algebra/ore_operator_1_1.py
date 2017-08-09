@@ -1401,11 +1401,10 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
           x^4*Dx^4
           sage: _.to_T('Tx')
           Tx^4 - 6*Tx^3 + 11*Tx^2 - 6*Tx
-        
         """
         R = self.base_ring(); one = R.one(); x = R.gen()
-        
-        if type(alg) == str:
+
+        if isinstance(alg, str):
             alg = self.parent().change_var_sigma_delta(alg, {}, {x:x})
         elif not isinstance(alg, type(self.parent())) or not alg.is_T() or \
              alg.base_ring().base_ring() is not R.base_ring():
@@ -1414,17 +1413,21 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         if self.is_zero():
             return alg.zero()
 
-        R = alg.base_ring().fraction_field(); alg2 = alg.change_ring(R); x = R.gen()
+        ord = self.order()
+        z = ZZ.zero()
+        stirling = [[z for j in xrange(ord+1)] for i in xrange(ord+1)]
+        stirling[0][0] = ZZ.one()
+        for i in xrange(ord):
+            for j in xrange(ord):
+                stirling[i+1][j+1] = i*stirling[i][j+1] + stirling[i][j]
 
-        theta = (1/x)*alg2.gen(); theta_k = alg2.one();
-        c = self.coefficients(sparse=False); out = alg2(R(c[0]))
-
-        for i in xrange(self.order()):
-            
-            theta_k *= theta
-            out += R(c[i + 1])*theta_k
-
-        return out if alg.base_ring() is R else out.numerator()
+        out = [R.zero() for _ in xrange(ord+1)]
+        for i, c in enumerate(self):
+            for j in xrange(i + 1):
+                out[j] += (-1 if (i+j)%2 else 1)*stirling[i][j]*c << (ord-i)
+        val = min(pol.valuation() for pol in out)
+        out = alg([pol >> val for pol in out])
+        return out
 
     def annihilator_of_integral(self):
         r"""
@@ -2020,12 +2023,23 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             sage: dop.annihilator_of_composition(1 + x).generalized_series_solutions(3)
             [x*(1 - x + 5/6*x^2 + O(x^3)),
              (x - x^2 + O(x^3))*log(x) - 1 + 1/2*x^2 + O(x^3)]
+
+        TESTS::
+
+            sage: ((x+1/3)*Dx^4+Dx-x).local_basis_monomials(-1/3)
+            [1, x + 1/3, 1/9*(3*x + 1)^2, 1/27*(3*x + 1)^3]
+
+            sage: ((x^2 - 2)^3*Dx^4+Dx-x).local_basis_monomials(sqrt(2))
+            [1, (x - sqrt(2))^0.978..., (x - sqrt(2))^2.044...,
+            (x - sqrt(2))^2.977...]
         """
         from .analytic.path import Point
+        from .analytic.local_solutions import simplify_exponent
         struct = Point(point, self).local_basis_structure()
         x = SR(self.base_ring().gen()) - point
-        return [x**sol.valuation*symbolic_log.log(x, hold=True)**sol.log_power
-                                                      /sol.log_power.factorial()
+        return [x**simplify_exponent(sol.valuation)
+                    *symbolic_log.log(x, hold=True)**sol.log_power
+                    /sol.log_power.factorial()
                 for sol in struct]
 
     def numerical_solution(self, ini, path, eps=1e-16, post_transform=None, **kwds):
@@ -2104,7 +2118,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             (x - 1)^(1.500000000000000? - 0.866025403784439?*I),
             (x - 1)^(1.500000000000000? + 0.866025403784439?*I)]
             sage: dop.numerical_solution(ini=[1, 0, 0], path=[0, 1])
-            [0.68987291102194011 +/- 3.47e-18] + [+/- 2.21e-34]*I
+            [0.6898729110219401...] + [+/- ...]*I
 
             sage: dop = -(x+1)*(x-1)^3*Dx^2 + (x+3)*(x-1)^2*Dx - (x+3)*(x-1)
             sage: dop.local_basis_monomials(1)
@@ -2154,7 +2168,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             sage: Dops.zero().numerical_solution([], 1)
             Traceback (most recent call last):
             ...
-            ZeroDivisionError: other must be nonzero
+            ValueError: operator must be nonzero
 
             sage: (Dx - 1).numerical_solution(ini=[], path=[0, 1])
             Traceback (most recent call last):
@@ -2202,11 +2216,9 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             [-11340.0278985950...]
         """
         from .analytic import analytic_continuation as ancont, local_solutions
-        if post_transform is None:
-            post_transform = self.parent().one()
-        else:
-            _, post_transform = canonical_coercion(self, post_transform)
-        post_transform = post_transform % self
+        if not self:
+            raise ValueError("operator must be nonzero")
+        post_transform = ancont.normalize_post_transform(self, post_transform)
         post_mat = matrix(1, self.order(),
                 lambda i, j: ZZ(j).factorial()*post_transform[j])
         ctx = ancont.Context(self, path, eps, **kwds)
@@ -3117,12 +3129,21 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
           sage: L.generalized_series_solutions()
           [exp(3.464101615137755?*I*n^(1/2))*n^(1/4)*(1 - 2.056810333988042?*I*n^(-1/2) - 1107/512*n^(-2/2) + (0.?e-19 + 1.489453749877895?*I)*n^(-3/2) + 2960239/2621440*n^(-4/2) + (0.?e-19 - 0.926161373412572?*I)*n^(-5/2) - 16615014713/46976204800*n^(-6/2) + (0.?e-20 + 0.03266142931818572?*I)*n^(-7/2) + 16652086533741/96207267430400*n^(-8/2) + (0.?e-20 - 0.1615093987591473?*I)*n^(-9/2) + O(n^(-10/2))), exp(-3.464101615137755?*I*n^(1/2))*n^(1/4)*(1 + 2.056810333988042?*I*n^(-1/2) - 1107/512*n^(-2/2) + (0.?e-19 - 1.489453749877895?*I)*n^(-3/2) + 2960239/2621440*n^(-4/2) + (0.?e-19 + 0.926161373412572?*I)*n^(-5/2) - 16615014713/46976204800*n^(-6/2) + (0.?e-20 - 0.03266142931818572?*I)*n^(-7/2) + 16652086533741/96207267430400*n^(-8/2) + (0.?e-20 + 0.1615093987591473?*I)*n^(-9/2) + O(n^(-10/2)))]
 
-          sage: L = guess([(-3)^n*(n+1)/(2*n+4) - 2^n*n^3/(n+3) for n in xrange(500)], A)
+          sage: L = guess([(-3)^k*(k+1)/(2*k+4) - 2^k*k^3/(k+3) for k in xrange(500)], A)
           sage: L.generalized_series_solutions()
           [2^n*n^2*(1 - 3*n^(-1) + 9*n^(-2) - 27*n^(-3) + 81*n^(-4) + O(n^(-5))), (-3)^n*(1 - n^(-1) + 2*n^(-2) - 4*n^(-3) + 8*n^(-4) + O(n^(-5)))]
           sage: L.generalized_series_solutions(dominant_only=True)
           [(-3)^n*(1 - n^(-1) + 2*n^(-2) - 4*n^(-3) + 8*n^(-4) + O(n^(-5)))]
 
+        TESTS::
+
+            sage: rop = (-8 -12*Sn + (n^2+5*n+6)*Sn^3)
+            sage: rop
+            (n^2 + 5*n + 6)*Sn^3 - 12*Sn - 8
+            sage: rop.generalized_series_solutions(1) # long time
+            [(n/e)^(-2/3*n)*2^n*exp(3*n^(1/3))*n^(-2/3)*(1 + 3/2*n^(-1/3) + 9/8*n^(-2/3) + O(n^(-3/3))),
+            (n/e)^(-2/3*n)*(-1.000000000000000? + 1.732050807568878?*I)^n*exp((-1.500000000000000? + 2.598076211353316?*I)*n^(1/3))*n^(-2/3)*(1 + (-0.750000000000000? - 1.299038105676658?*I)*n^(-1/3) + (-0.562500000000000? + 0.974278579257494?*I)*n^(-2/3) + O(n^(-3/3))),
+            (n/e)^(-2/3*n)*(-1.000000000000000? - 1.732050807568878?*I)^n*exp((-1.500000000000000? - 2.598076211353316?*I)*n^(1/3))*n^(-2/3)*(1 + (-0.750000000000000? + 1.299038105676658?*I)*n^(-1/3) + (-0.562500000000000? - 0.974278579257494?*I)*n^(-2/3) + O(n^(-3/3)))]
         """
         K = QQbar
 
@@ -3154,7 +3175,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
             if s == 0:
                 newcoeffs = [c.shift(w_prec - deg) for c in coeffs ]
             else:
-                v = s.denominator(); underflow = max(0, -v*r*s)
+                v = s.denominator(); underflow = int(max(0, -v*r*s))
                 newdeg = max([ coeffs[i].degree() + i*s for i in xrange(len(coeffs)) if coeffs[i] != 0 ])
                 newcoeffs = [(coeffs[i](x**v)*subs(x, prec=w_prec + underflow, shift=i, gamma=s))
                              .shift(-v*(newdeg + underflow)) for i in xrange(len(coeffs))]
@@ -3272,7 +3293,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
 
             info(2, "determining expansions for (gamma,rho,subexp,alpha)=" + str((gamma, rho, subexp,alpha)))
 
-            underflow = max(0, -ram*r*gamma)
+            underflow = int(max(0, -ram*r*gamma))
             coeffs = [(origcoeffs[i](x**ram)*subs(x, prec + underflow, i, gamma, rho, subexp, ram)).shift(-underflow)\
                           for i in xrange(r + 1)]
             deg = max([c.degree() for c in coeffs])

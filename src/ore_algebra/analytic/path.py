@@ -19,7 +19,8 @@ from sage.rings.complex_arb import CBF, ComplexBallField, ComplexBall
 from sage.rings.real_arb import RBF, RealBallField, RealBall
 from sage.structure.sage_object import SageObject
 
-from .local_solutions import *
+from .local_solutions import (FundamentalSolution, sort_key_by_asympt,
+        map_local_basis)
 from .safe_cmp import *
 from .utilities import *
 
@@ -53,10 +54,12 @@ class Point(SageObject):
             sage: Dops, x, Dx = DifferentialOperators()
             sage: [Point(z, Dx)
             ....:  for z in [1, 1/2, 1+I, QQbar(I), RIF(1/3), CIF(1/3), pi,
-            ....:  RDF(1), CDF(I), 0.5r, 0.5jr, 10r]]
+            ....:  RDF(1), CDF(I), 0.5r, 0.5jr, 10r, QQbar(1), AA(1/3)]]
             [1, 1/2, I + 1, I, [0.333333333333333...], [0.333333333333333...],
             3.141592653589794?, 1.000000000000000, 1.000000000000000*I,
-            0.5000000000000000, 0.5000000000000000*I, 10]
+            0.5000000000000000, 0.5000000000000000*I, 10, 1, 1/3]
+            sage: Point(sqrt(2), Dx).iv()
+            [1.414...]
         """
         SageObject.__init__(self)
 
@@ -87,16 +90,23 @@ class Point(SageObject):
             except TypeError:
                 pass
             try:
+                return self.__init__(QQbar(point), dop)
+            except (TypeError, ValueError, NotImplementedError):
+                pass
+            try:
                 self.value = RLF(point)
             except (TypeError, ValueError):
                 self.value = CLF(point)
         elif QQbar.has_coerce_map_from(parent):
             alg = QQbar.coerce(point)
             NF, val, hom = alg.as_number_field_element()
-            embNF = number_field.NumberField(NF.polynomial(),
-                                             NF.variable_name(),
-                                             embedding=hom(NF.gen()))
-            self.value = val.polynomial()(embNF.gen())
+            if NF is QQ:
+                self.value = QQ.coerce(val) # parent may be ZZ
+            else:
+                embNF = number_field.NumberField(NF.polynomial(),
+                                                NF.variable_name(),
+                                                embedding=hom(NF.gen()))
+                self.value = val.polynomial()(embNF.gen())
         elif isinstance(parent, (RealField_class, RealDoubleField_class,
                                  RealIntervalField_class)):
             self.value = RealBallField(point.prec())(point)
@@ -182,12 +192,18 @@ class Point(SageObject):
         raise ValueError
 
     def approx_abs_real(self, prec):
+        r"""
+        Compute an approximation with absolute error about 2^(-prec).
+        """
         if isinstance(self.value.parent(), RealBallField):
             return self.value
+        elif self.value.is_zero():
+            return RealBallField(max(2, prec)).zero()
         elif self.is_real():
             expo = ZZ(IR(self.value).abs().log(2).upper().ceil())
             rel_prec = max(2, prec + expo + 10)
-            return RealBallField(rel_prec)(self.value)
+            val = RealBallField(rel_prec)(self.value)
+            return val
         else:
             raise ValueError("point may not be real")
 
@@ -343,28 +359,25 @@ class Point(SageObject):
             sage: from ore_algebra.analytic.path import Point
             sage: Dops, x, Dx = DifferentialOperators()
             sage: Point(0, x*Dx^2 + Dx + x).local_basis_structure()
-            [FundamentalSolution(valuation=0, log_power=1, value=None),
-             FundamentalSolution(valuation=0, log_power=0, value=None)]
+            [FundamentalSolution(leftmost=0, shift=0, log_power=1, value=None),
+             FundamentalSolution(leftmost=0, shift=0, log_power=0, value=None)]
             sage: Point(0, Dx^3 + x*Dx + x).local_basis_structure()
-            [FundamentalSolution(valuation=0, log_power=0, value=None),
-             FundamentalSolution(valuation=1, log_power=0, value=None),
-             FundamentalSolution(valuation=2, log_power=0, value=None)]
+            [FundamentalSolution(leftmost=0, shift=0, log_power=0, value=None),
+             FundamentalSolution(leftmost=0, shift=1, log_power=0, value=None),
+             FundamentalSolution(leftmost=0, shift=2, log_power=0, value=None)]
         """
         # TODO: provide a way to compute the first terms of the series. First
         # need a good way to share code with fundamental_matrix_regular. Or
         # perhaps modify generalized_series_solutions() to agree with our
         # definition of the basis?
         if self.is_ordinary(): # support inexact points in this case
-            return [FundamentalSolution(QQbar(expo), Integer(0), None)
+            return [FundamentalSolution(QQbar.zero(), ZZ(expo), ZZ.zero(), None)
                     for expo in range(self.dop.order())]
         elif not self.is_regular():
             raise NotImplementedError("irregular singular point")
-        ldop = self.local_diffop()
-        x = ldop.base_ring().gen()
-        roots = ldop.indicial_polynomial(x).roots(QQbar)
-        sols = [FundamentalSolution(expo, Integer(log_power), None)
-                for expo, mult in roots
-                for log_power in xrange(mult)]
+        sols = map_local_basis(self.local_diffop(),
+                lambda ini, bwrec: None,
+                lambda leftmost, shift: {})
         sols.sort(key=sort_key_by_asympt)
         return sols
 
@@ -447,6 +460,9 @@ class Step(SageObject):
 
     def length(self):
         return IC(self.delta()).abs()
+
+    def cvg_ratio(self):
+        return self.length()/self.start.dist_to_sing()
 
     def check_singularity(self):
         r"""

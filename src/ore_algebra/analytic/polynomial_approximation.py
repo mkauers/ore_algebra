@@ -16,6 +16,8 @@ logger = logging.getLogger(__name__)
 import sage.rings.real_arb
 import sage.rings.complex_arb
 
+from sage.rings.rational_field import QQ
+
 from . import accuracy, analytic_continuation as ancont, bounds, utilities
 
 from .naive_sum import series_sum, EvaluationPoint
@@ -178,7 +180,7 @@ def doit(dop, ini, path, rad, eps, derivatives, economization, x_is_real):
     # Merge with analytic_continuation.analytic_continuation()???
 
     eps1 = bounds.IR(eps)/2
-    rad = bounds.IR(rad) # TBI
+    rad = bounds.IR(rad).above_abs()
     ctx = ancont.Context(dop, path, eps/2)
     center = ctx.path.vert[-1]
     if not safe_le(rad, center.dist_to_sing()):
@@ -187,9 +189,8 @@ def doit(dop, ini, path, rad, eps, derivatives, economization, x_is_real):
     pairs = ancont.analytic_continuation(ctx, ini=ini)
     local_ini = pairs[0][1]
 
-    Scalars = utilities.ball_field(eps1, x_is_real and ctx.real())
     _, base, _, dop = dop._normalize_base_ring()
-    x = base.change_ring(Scalars).gen()
+    x = base.change_ring(QQ).gen()
 
     local_dop = center.local_diffop()
     evpt = EvaluationPoint(x, rad=rad, jet_order=derivatives)
@@ -197,6 +198,8 @@ def doit(dop, ini, path, rad, eps, derivatives, economization, x_is_real):
                                 accuracy.AbsoluteError(eps1),
                                 stride=5)
 
+
+    rad = polys[0].base_ring()(rad)
     def postprocess(pol):
         return economization(pol(rad*x), eps1)(x/rad)
     new_polys = polys.apply_map(postprocess)

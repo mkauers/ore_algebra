@@ -9,19 +9,16 @@ import sage.rings.all as rings
 import sage.rings.real_arb
 import sage.rings.complex_arb
 
-import ore_algebra.analytic.accuracy as accuracy
-import ore_algebra.analytic.bounds as bounds
-import ore_algebra.analytic.utilities as utilities
+from . import accuracy, bounds, utilities
 
 from sage.matrix.constructor import identity_matrix, matrix
 from sage.rings.complex_arb import ComplexBallField
 from sage.rings.integer_ring import ZZ
 from sage.rings.number_field.number_field_element import NumberFieldElement
 from sage.rings.real_arb import RealBallField
-from sage.structure.element import Matrix
+from sage.structure.element import Matrix, canonical_coercion
 from sage.structure.sequence import Sequence
 
-from . import utilities
 from .path import Path, Step
 
 logger = logging.getLogger(__name__)
@@ -86,17 +83,19 @@ class Context(object):
 def ordinary_step_transition_matrix(ctx, step, eps, rows):
     from . import naive_sum, binary_splitting
     ldop = step.start.local_diffop()
-    maj = bounds.DiffOpBound(ldop)  # cache in ctx?
+    deg = ldop.degree()
+    # cache in ctx?
+    maj = bounds.DiffOpBound(ldop, pol_part_len=4, bound_inverse="solve")
     if ctx.fundamental_matrix_ordinary is not None:
         return ctx.fundamental_matrix_ordinary(
                 ldop, step.delta(), eps, rows, maj)
     elif step.is_exact():
-        thr = 256 + 32*ldop.degree()
-        if eps > bounds.IR(1)>>thr:
+        thr = 256 + 32*deg
+        if eps > step.cvg_ratio()**thr:
             try:
                 return naive_sum.fundamental_matrix_ordinary(
                         ldop, step.delta(), eps, rows, maj, max_prec=4*thr)
-            except naive_sum.PrecisionError:
+            except accuracy.PrecisionError:
                 pass
         return binary_splitting.fundamental_matrix_ordinary(
                 ldop, step.delta(), eps, rows, maj)
@@ -189,3 +188,10 @@ def analytic_continuation(ctx, ini=None, post=None):
             utilities.ball_field(ctx.eps, ctx.real()),
             *[mat.base_ring() for pt, mat in res])
     return [(pt, mat.change_ring(OutputIntervals)) for pt, mat in res]
+
+def normalize_post_transform(dop, post_transform):
+    if post_transform is None:
+        post_transform = dop.parent().one()
+    else:
+        _, post_transform = canonical_coercion(dop, post_transform)
+    return post_transform % dop
