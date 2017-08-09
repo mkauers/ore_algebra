@@ -1134,7 +1134,11 @@ class OreAlgebra_generic(Algebra):
             return False
 
     def _sage_input_(self, sib, coerced):
-        raise NotImplementedError
+        # one for generators following the naming convention
+        base = sib(self.base_ring())
+        args = map(sib, [self.base_ring()] + [str(g) for g in self.gens()]) 
+        sie = sib.name('OreAlgebra')(*args)
+        return sib.parent_with_gens(self, sie, self.variable_names(), 'R')
 
     def _is_valid_homomorphism_(self, codomain, im_gens):
         raise NotImplementedError

@@ -763,7 +763,25 @@ class UnivariateOreOperator(OreOperator):
         return self._poly._latex_(name=name)
         
     def _sage_input_(self, sib, coerced):
-        raise NotImplementedError
+        
+        if self.order() > 0:
+            gen = sib.gen(self.parent())
+            coeffs = self.list()
+            terms = []
+            for i in range(len(coeffs)-1, -1, -1):
+                if i > 0:
+                    if i > 1:
+                        gen_pow = gen**sib.int(i)
+                    else:
+                        gen_pow = gen
+                    terms.append(sib.prod((sib(coeffs[i], True), gen_pow), simplify=True))
+                else:
+                    terms.append(sib(coeffs[i], True))
+            return sib.sum(terms, simplify=True)
+        elif coerced:
+            return sib(self[0], True)
+        else:
+            return sib(self.parent())(sib(self[0], True))
 
     def dict(self):
         return self._poly.dict()
