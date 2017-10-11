@@ -1159,7 +1159,7 @@ class DiffOpBound(object):
     In the typical situation where n0 ≤ n1 and y(z) does not depend on initial
     conditions “past” n1, a polynomial p(z) of valuation at least n1 with this
     property can be computed using the methods normalized_residual() and rhs().
-    Variants with different p hold in more general settings. See their
+    Variants with different p hold in more general settings. See the
     documentation of normalized_residual() and rhs() for more information.
 
     Note that multiplying dop by a rational function changes p(z).
