@@ -1735,7 +1735,6 @@ class DiffOpBound(object):
         nres_bound = bound_polynomials([pol for nres in normalized_residuals
                                             for pol in nres])
         Pols = nres_bound.parent()
-        lbda = IC(self.leftmost)
         aux = Pols([(n1 + j)*c for j, c in enumerate(nres_bound)])
         if maj is None:
             # As h[n0](z) has nonnegative coefficients and h[n0](0) = 1, it is
@@ -1745,11 +1744,12 @@ class DiffOpBound(object):
         else:
             # Tighter choice: compute a truncated series expansion f(z) of
             # aux(z)/h(z) s.t. aux(z) = f(z)*h(z) + O(z^(1+deg(aux))). Then,
-            # any majorant of f is a valid q^.
+            # any f^ s.t. f^[n] ≥ max(0,f[n]) is a valid q^.
             ord = aux.degree() + 1
             inv = maj.exp_part_series0(ord).inverse_series_trunc(ord)
             f = aux._mul_trunc_(inv, ord)
-            return Pols([abs(c) for c in f])
+            # assert all(c.imag().contains_zero() for c in f)
+            return Pols([IR.zero().max(c.real()) for c in f])
 
     def tail_majorant(self, n, normalized_residuals):
         r"""
