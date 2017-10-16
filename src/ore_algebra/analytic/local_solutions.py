@@ -10,6 +10,8 @@ from sage.functions.log import log as symbolic_log
 from sage.misc.cachefunc import cached_method
 from sage.modules.free_module_element import vector
 from sage.rings.all import ZZ, QQ, QQbar, RBF, RealBallField, ComplexBallField
+from sage.rings.number_field.number_field import NumberField_generic
+from sage.rings.number_field.number_field_morphisms import NumberFieldEmbedding
 from sage.rings.polynomial import polynomial_element
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 from sage.structure.element import get_coercion_model
@@ -54,11 +56,11 @@ class BackwardRec(object):
         assert isinstance(coeff[0], polynomial_element.Polynomial)
         self.coeff = coeff
         self.base_ring = coeff[0].parent()
-        Scalars = self.base_ring.base_ring()
+        self.Scalars = self.base_ring.base_ring()
         self.order = len(coeff) - 1
         # Evaluating polynomials over ℚ[i] is slow...
         # TODO: perhaps do something similar for eval_series
-        if utilities.is_QQi(Scalars):
+        if utilities.is_QQi(self.Scalars):
             QQn = PolynomialRing(QQ, 'n')
             self._re_im = [
                     (QQn([c.real() for c in pol]), QQn([c.imag() for c in pol]))
@@ -89,8 +91,18 @@ class BackwardRec(object):
         else:
             return self._coeff_series(i, j - 1).diff()/j
 
+    @cached_method
+    def scalars_embedding(self, tgt):
+        if isinstance(self.Scalars, NumberField_generic):
+            # do complicated coercions via QQbar and CLF only once...
+            return NumberFieldEmbedding(self.Scalars, tgt,
+                                        tgt(self.Scalars.gen()))
+        else:
+            return tgt
+
     def eval_series(self, tgt, point, ord):
-        return [[tgt(self._coeff_series(i,j)(point)) for j in xrange(ord)]
+        mor = self.scalars_embedding(tgt)
+        return [[mor(self._coeff_series(i,j)(point)) for j in xrange(ord)]
                 for i in xrange(len(self.coeff))]
 
     def eval_inverse_lcoeff_series(self, tgt, point, ord):

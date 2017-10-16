@@ -17,6 +17,7 @@ from sage.rings.complex_arb import CBF, ComplexBallField
 from sage.rings.infinity import infinity
 from sage.rings.integer import Integer
 from sage.rings.integer_ring import ZZ
+from sage.rings.polynomial.complex_roots import complex_roots
 from sage.rings.polynomial.polynomial_element import Polynomial
 from sage.rings.polynomial.polynomial_ring import polygen
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
@@ -1344,7 +1345,8 @@ class DiffOpBound(object):
         try:
             return lc.roots(CIF)
         except NotImplementedError:
-            return lc.change_ring(QQbar).roots(CIF)
+            lc = lc.radical().change_ring(QQbar)
+            return complex_roots(lc, skip_squarefree=True, retval='interval')
 
     def _update_den_bound(self):
         r"""
