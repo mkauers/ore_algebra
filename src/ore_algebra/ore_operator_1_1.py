@@ -36,7 +36,8 @@ from sage.rings.qqbar import QQbar
 from sage.rings.qqbar import QQbar, AA
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 from sage.rings.power_series_ring import PowerSeriesRing
-from sage.structure.element import RingElement, canonical_coercion
+from sage.structure.element import RingElement, canonical_coercion, get_coercion_model
+from sage.structure.formal_sum import FormalSum, FormalSums
 from sage.symbolic.all import SR
 
 from .tools import q_log, make_factor_iterator, shift_factor
@@ -1996,6 +1997,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
 
         .. seealso::
 
+            :meth:`local_basis_expansions`,
             :meth:`numerical_solution`,
             :meth:`numerical_transition_matrix`
 
@@ -2034,13 +2036,128 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             (x - sqrt(2))^2.977...]
         """
         from .analytic.path import Point
-        from .analytic.local_solutions import simplify_exponent
         struct = Point(point, self).local_basis_structure()
         x = SR(self.base_ring().gen()) - point
-        return [x**simplify_exponent(sol.valuation)
+        return [x**_simplify_exponent(sol.valuation)
                     *symbolic_log.log(x, hold=True)**sol.log_power
                     /sol.log_power.factorial()
                 for sol in struct]
+
+    # TODO: Add a version that returns DFiniteFunction objects
+    def local_basis_expansions(dop, point, order=None, ring=None):
+        r"""
+        Generalized series expansions of the local basis.
+
+        INPUT:
+
+        * dop - Differential operator
+
+        * point - Point where the local basis is to be computed
+
+        * order (optional) - Number of terms to compute, **starting from each
+          “leftmost” valuation of a group of solutions with valuations differing by
+          integers**. (Thus, the absolute truncation order will be the same for all
+          solutions in such a group, with some solutions having more actual
+          coefficients computed that others.)
+
+          The default is to choose the truncation order in such a way that the
+          structure of the basis is apparent, and in particular that logarithmic
+          terms appear if logarithms are involved at all in that basis. The
+          corresponding order may be very large in some cases.
+
+        * ring (optional) - Ring in which to coerce the coefficients of the
+          expansion
+
+        .. seealso::
+
+            :meth:`local_basis_monomials`,
+            :meth:`numerical_solution`,
+            :meth:`numerical_transition_matrix`
+
+        EXAMPLES::
+
+            sage: from ore_algebra import *
+            sage: Dops, x, Dx = DifferentialOperators(QQ, 'x')
+
+            sage: (Dx - 1).local_basis_expansions(0)
+            [1 + x + 1/2*x^2 + 1/6*x^3]
+
+            sage: from ore_algebra.analytic.examples import ssw
+            sage: ssw.dop3.local_basis_expansions(0)
+            [t^(-4) + 24*log(t)/t^2 - 48*log(t) - 96*t^2*log(t) - 88*t^2,
+            t^(-2),
+            1 + 2*t^2]
+
+            sage: dop = (x^2*(x^2-34*x+1)*Dx^3 + 3*x*(2*x^2-51*x+1)*Dx^2
+            ....:     + (7*x^2-112*x+1)*Dx + (x-5))
+            sage: dop.local_basis_expansions(0, order=3)
+            [1/2*log(x)^2 + 5/2*x*log(x)^2 + 12*x*log(x) + 73/2*x^2*log(x)^2
+            + 210*x^2*log(x) + 72*x^2,
+            log(x) + 5*x*log(x) + 12*x + 73*x^2*log(x) + 210*x^2,
+            1 + 5*x + 73*x^2]
+
+            sage: roots = dop.leading_coefficient().roots(AA)
+            sage: basis = dop.local_basis_expansions(roots[1][0], order=3)
+            sage: basis
+            [1 - (-239/12*a+169/6)*(x - 0.02943725152285942?)^2,
+            sqrt(x - 0.02943725152285942?)
+            - (-203/32*a+9)*(x - 0.02943725152285942?)^(3/2)
+            + (-24031/160*a+1087523/5120)*(x - 0.02943725152285942?)^(5/2),
+            x - 0.02943725152285942? - (-55/6*a+13)*(x - 0.02943725152285942?)^2]
+            sage: basis[0].base_ring()
+            Number Field in a with defining polynomial y^2 - 2
+            sage: RR(basis[0].base_ring().gen())
+            -1.41421356237309
+            sage: basis[0][1]
+            (239/12*a - 169/6, (x - 0.02943725152285942?)^2)
+
+            sage: dop.local_basis_expansions(roots[1][0], order=3, ring=QQbar)
+            [1 - 56.33308678393081?*(x - 0.02943725152285942?)^2,
+            sqrt(x - 0.02943725152285942?)
+            - 17.97141728630432?*(x - 0.02943725152285942?)^(3/2)
+            + 424.8128741711741?*(x - 0.02943725152285942?)^(5/2),
+            x - 0.02943725152285942?
+            - 25.96362432175337?*(x - 0.02943725152285942?)^2]
+
+        TESTS::
+
+            sage: (4*x^2*Dx^2 + (-x^2+8*x-11)).local_basis_expansions(0, 2)
+            [x^(-sqrt(3) + 1/2) + (-4/11*a+2/11)*x^(-sqrt(3) + 3/2),
+            x^(sqrt(3) + 1/2) - (-4/11*a-2/11)*x^(sqrt(3) + 3/2)]
+
+            sage: ((27*x^2+4*x)*Dx^2 + (54*x+6)*Dx + 6).local_basis_expansions(0, 2)
+            [1/sqrt(x) + 3/8*sqrt(x), 1 - x]
+        """
+        from .analytic.local_solutions import log_series, map_local_basis
+        from .analytic.path import Point
+        mypoint = Point(point, dop)
+        ldop = mypoint.local_diffop()
+        if order is None:
+            ind = ldop.indicial_polynomial(ldop.base_ring().gen())
+            order = max(dop.order(), ind.dispersion()) + 3
+        sols = map_local_basis(ldop,
+                lambda ini, bwrec: log_series(ini, bwrec, order),
+                lambda leftmost, shift: {})
+        x = SR.var(dop.base_ring().variable_name())
+        dx = x if point.is_zero() else x.add(-point, hold=True)
+        # Working with symbolic expressions here is too complicated: let's try
+        # returning FormalSums.
+        def log_monomial(expo, n, k):
+            expo = _simplify_exponent(expo)
+            return dx**(expo + n) * symbolic_log.log(dx, hold=True)**k
+        if ring is None:
+            cm = get_coercion_model()
+            ring = cm.common_parent(
+                    dop.base_ring().base_ring(),
+                    mypoint.value.parent(),
+                    *(sol.leftmost for sol in sols))
+        res = [FormalSum(
+                    [(c/ZZ(k).factorial(), log_monomial(sol.leftmost, n, k))
+                        for n, vec in enumerate(sol.value)
+                        for k, c in reversed(list(enumerate(vec)))],
+                    FormalSums(ring))
+            for sol in sols]
+        return res
 
     def numerical_solution(self, ini, path, eps=1e-16, post_transform=None, **kwds):
         r"""
@@ -4466,3 +4583,9 @@ def _listToOre(l,order,R):
     for i in xrange(len(l)):
         res = res+l[i]*n**(i%d)*S**(i//d)
     return res
+
+def _simplify_exponent(e): # work around sage bug #21758
+    try:
+        return ZZ(e)
+    except (TypeError, ValueError):
+        return e
