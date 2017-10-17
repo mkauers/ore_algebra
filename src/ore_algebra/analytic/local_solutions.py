@@ -317,7 +317,7 @@ def log_series(ini, bwrec, order):
 # TODO: Implement (as a method of differential operators) a version that returns
 # a list of DFiniteFunction objects
 
-def local_basis(dop, point, order=None):
+def local_basis(dop, point, order=None, ring=None):
     r"""
     Generalized series expansions the local basis.
 
@@ -338,6 +338,9 @@ def local_basis(dop, point, order=None):
       terms appear if logarithms are involved at all in that basis. The
       corresponding order may be very large in some cases.
 
+    * ring (optional) - Ring in which to coerce the coefficients of the
+      expansion
+
     EXAMPLES::
 
         sage: from ore_algebra import *
@@ -355,18 +358,34 @@ def local_basis(dop, point, order=None):
 
         sage: dop = (x^2*(x^2-34*x+1)*Dx^3 + 3*x*(2*x^2-51*x+1)*Dx^2
         ....:     + (7*x^2-112*x+1)*Dx + (x-5))
-        sage: local_basis(dop, 0, 3)
+        sage: local_basis(dop, 0, order=3)
         [1/2*log(x)^2 + 5/2*x*log(x)^2 + 12*x*log(x) + 73/2*x^2*log(x)^2
          + 210*x^2*log(x) + 72*x^2,
          log(x) + 5*x*log(x) + 12*x + 73*x^2*log(x) + 210*x^2,
          1 + 5*x + 73*x^2]
 
         sage: roots = dop.leading_coefficient().roots(AA)
-        sage: local_basis(dop, roots[1][0], 3)
-        [1 - (-239/12*a+169/6)*(x + 12*sqrt(2) - 17)^2,
-         sqrt(x + 12*sqrt(2) - 17) - (-203/32*a+9)*(x + 12*sqrt(2) - 17)^(3/2)
-         + (-24031/160*a+1087523/5120)*(x + 12*sqrt(2) - 17)^(5/2),
-         x + 12*sqrt(2) - 17 - (-55/6*a+13)*(x + 12*sqrt(2) - 17)^2]
+        sage: basis = local_basis(dop, roots[1][0], order=3)
+        sage: basis
+        [1 - (-239/12*a+169/6)*(x - 0.02943725152285942?)^2,
+         sqrt(x - 0.02943725152285942?)
+         - (-203/32*a+9)*(x - 0.02943725152285942?)^(3/2)
+         + (-24031/160*a+1087523/5120)*(x - 0.02943725152285942?)^(5/2),
+         x - 0.02943725152285942? - (-55/6*a+13)*(x - 0.02943725152285942?)^2]
+        sage: basis[0].base_ring()
+        Number Field in a with defining polynomial y^2 - 2
+        sage: RR(basis[0].base_ring().gen())
+        -1.41421356237309
+        sage: basis[0][1]
+        (239/12*a - 169/6, (x - 0.02943725152285942?)^2)
+
+        sage: local_basis(dop, roots[1][0], order=3, ring=QQbar)
+        [1 - 56.33308678393081?*(x - 0.02943725152285942?)^2,
+         sqrt(x - 0.02943725152285942?)
+         - 17.97141728630432?*(x - 0.02943725152285942?)^(3/2)
+         + 424.8128741711741?*(x - 0.02943725152285942?)^(5/2),
+         x - 0.02943725152285942?
+         - 25.96362432175337?*(x - 0.02943725152285942?)^2]
 
     TESTS::
 
@@ -379,30 +398,32 @@ def local_basis(dop, point, order=None):
 
     """
     from .path import Point
-    point = Point(point, dop)
-    ldop = point.local_diffop()
+    mypoint = Point(point, dop)
+    ldop = mypoint.local_diffop()
     if order is None:
         ind = ldop.indicial_polynomial(ldop.base_ring().gen())
         order = max(dop.order(), ind.dispersion()) + 3
     sols = map_local_basis(ldop,
             lambda ini, bwrec: log_series(ini, bwrec, order),
             lambda leftmost, shift: {})
-    dx = SR(dop.base_ring().gen()) - point.value
+    x = SR.var(dop.base_ring().variable_name())
+    dx = x if point.is_zero() else x.add(-point, hold=True)
     # Working with symbolic expressions here is too complicated: let's try
     # returning FormalSums.
     def log_monomial(expo, n, k):
         expo = simplify_exponent(expo)
         return dx**(expo + n) * symbolic_log(dx, hold=True)**k
-    cm = get_coercion_model()
-    Coeffs = cm.common_parent(
-            dop.base_ring().base_ring(),
-            point.value.parent(),
-            *(sol.leftmost for sol in sols))
+    if ring is None:
+        cm = get_coercion_model()
+        ring = cm.common_parent(
+                dop.base_ring().base_ring(),
+                mypoint.value.parent(),
+                *(sol.leftmost for sol in sols))
     res = [FormalSum(
                 [(c/ZZ(k).factorial(), log_monomial(sol.leftmost, n, k))
                     for n, vec in enumerate(sol.value)
                     for k, c in reversed(list(enumerate(vec)))],
-                FormalSums(Coeffs))
+                FormalSums(ring))
            for sol in sols]
     return res
 
