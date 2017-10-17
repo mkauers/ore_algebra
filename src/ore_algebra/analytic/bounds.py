@@ -1666,7 +1666,7 @@ class DiffOpBound(object):
             ỹ(z) = z^expo·sum[k](trunc[k](z)·log(z)^k/k!).
 
         Ideally, Ring should be IC (the default value for the corresponding
-        paramter of normalized_residual()) in most cases; unfortunately, this
+        parameter of normalized_residual()) in most cases; unfortunately, this
         often doesn't work due to various weaknesses of Sage.
         """
         ordrec = self.dop.degree()
@@ -1674,7 +1674,7 @@ class DiffOpBound(object):
                                    for pol in trunc))))
         coeff = self.normalized_residual(n, last, Ring=Ring)
         from sage.all import log, SR
-        z = SR(self.Poly.gen())
+        z = SR.var(self.Poly.variable_name())
         nres = z**(self.leftmost + n)*sum(pol*log(z)**k/ZZ(k).factorial()
                                           for k, pol in enumerate(coeff))
         trunc_full = z**expo*sum(pol*log(z)**k/ZZ(k).factorial()
