@@ -1283,7 +1283,7 @@ class DiffOpBound(object):
         if not dop.parent().is_D():
             raise ValueError("expected an operator in K(x)[D]")
         _, Pols_z, _, dop = dop._normalize_base_ring()
-        self._dop_D = dop # only used in argument checking, assertions
+        self._dop_D = dop # only for arg checking, assertions, plot() etc.
         self.dop = dop_T = dop.to_T('T' + Pols_z.variable_name())
 
         lc = dop_T.leading_coefficient()
@@ -1847,6 +1847,89 @@ class DiffOpBound(object):
             logger.info(["|{}| <= {}".format(tail[i], maj_ser[i])
                          for i in range(n + 30)])
             maj._test(tail)
+
+    def plot(self, ini=None, pt=None, eps=None):
+        r"""
+        EXAMPLES::
+
+            sage: from ore_algebra import *
+            sage: from ore_algebra.analytic.bounds import DiffOpBound
+            sage: from ore_algebra.analytic.local_solutions import LogSeriesInitialValues
+            sage: Dops, x, Dx = DifferentialOperators()
+
+            sage: DiffOpBound(Dx - 1).plot([CBF(1)], CBF(i)/2, RBF(1e-20))
+            Graphics object consisting of 5 graphics primitives
+
+            sage: DiffOpBound(x*Dx^3 + 2*Dx^2 + x*Dx).plot(eps=1e-8)
+            Graphics object consisting of 5 graphics primitives
+
+            sage: dop = x*Dx^2 + Dx + x
+            sage: DiffOpBound(dop, 0, [(0,2)]).plot(eps=1e-8,
+            ....:       ini=LogSeriesInitialValues(0, {0: (1, 0)}, dop))
+            Graphics object consisting of 5 graphics primitives
+
+            sage: dop = ((x^2 + 10*x + 50)*Dx^10 + (5/9*x^2 + 50/9*x + 155/9)*Dx^9
+            ....: + (-10/3*x^2 - 100/3*x - 190/3)*Dx^8 + (30*x^2 + 300*x + 815)*Dx^7
+            ....: + (145*x^2 + 1445*x + 3605)*Dx^6 + (5/2*x^2 + 25*x + 115/2)*Dx^5
+            ....: + (20*x^2 + 395/2*x + 1975/4)*Dx^4 + (-5*x^2 - 50*x - 130)*Dx^3
+            ....: + (5/4*x^2 + 25/2*x + 105/4)*Dx^2 + (-20*x^2 - 195*x - 480)*Dx
+            ....: + 5*x - 10)
+            sage: DiffOpBound(dop, 0, [], pol_part_len=4, # not tested
+            ....:         bound_inverse="solve").plot(eps=1e-10)
+            Graphics object consisting of 5 graphics primitives
+        """
+        import sage.plot.all as plot
+        from . import naive_sum
+
+        if ini is None:
+            ini = local_solutions.random_ini(self._dop_D)
+        if pt is None:
+            rad = abs_min_nonzero_root(self._dop_D.leading_coefficient())
+            pt = QQ(2) if rad == infinity else RIF(rad/2).simplest_rational()
+        if eps is None:
+            eps = RBF(1e-50)
+        logger.info("point: %s", pt)
+        logger.info("initial values: %s", ini)
+
+        recd = []
+        saved_max_effort = self.max_effort
+        self.max_effort = 0
+        naive_sum.series_sum(self._dop_D, ini, pt, eps, stride=1,
+                            record_bounds_in=recd, maj=self)
+        self.max_effort = saved_max_effort
+        ref_sum = recd[-1][1][0].add_error(recd[-1][2])
+        recd[-1:] = []
+        # Note: this won't work well when the errors get close to the double
+        # precision underflow threshold.
+        err = [(psum[0]-ref_sum).abs() for n, psum, _ in recd]
+
+        large = float(1e200) # plot() is not robust to large values
+        error_plot_upper = plot.line(
+                [(n, v.upper()) for (n, v) in enumerate(err)
+                                if abs(float(v.upper())) < large],
+                color="lightgray", scale="semilogy")
+        error_plot = plot.line(
+                [(n, v.lower()) for (n, v) in enumerate(err)
+                                if abs(float(v.lower())) < large],
+                color="black", scale="semilogy")
+        bound_plot_lower = plot.line(
+                [(n, bound.lower()) for n, _, bound in recd
+                                    if abs(float(bound.lower())) < large],
+                color="lightblue", scale="semilogy")
+        bound_plot = plot.line(
+                [(n, bound.upper()) for n, _, bound in recd
+                                    if abs(float(bound.upper())) < large],
+                color="blue", scale="semilogy")
+        title = repr(self._dop_D) + " @ x=" + repr(pt)
+        title = title if len(title) < 80 else title[:77]+"..."
+        myplot = error_plot_upper + error_plot + bound_plot_lower + bound_plot
+        ymax = myplot.ymax()
+        if ymax < float('inf'):
+            txt = plot.text(title, (myplot.xmax(), ymax),
+                            horizontal_alignment='right', vertical_alignment='top')
+            myplot += txt
+
+        return myplot
 
 # Perhaps better: work with a "true" Ore algebra K[θ][z]. Use Euclidean
 # division to compute the truncation in DiffOpBound._update_num_bound.

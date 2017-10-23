@@ -212,6 +212,19 @@ class LogSeriesInitialValues(object):
         else:
             raise ValueError
 
+def random_ini(dop):
+    import random
+    from sage.all import VectorSpace
+    ind = dop.indicial_polynomial(dop.base_ring().gen())
+    sl_decomp = my_shiftless_decomposition(ind)
+    pol, shifts = random.choice(sl_decomp)
+    expo = random.choice(pol.roots(QQbar))[0]
+    values = {
+        shift: tuple(VectorSpace(QQ, mult).random_element(10))
+        for shift, mult in shifts
+    }
+    return LogSeriesInitialValues(expo, values, dop)
+
 ##############################################################################
 # Structure of the local basis at a regular singular point
 ##############################################################################
