@@ -1492,13 +1492,13 @@ class DiffOpBound(object):
 
             monic(dop(z=0,θ))(f(z)) = dop(ỹ)
 
-        has at least one solution (exactly one when none of λ+n, λ+n+1, ...,
-        λ+n+s-1 is a root of the indicial polynomial dop(z=0,n)). Its
-        solutions are of the form
+        has at least one solution of the form
 
             f(z) = z^(λ+n)·sum[k](f[k](z)·log(z)^k/k!)
 
-        for a finite list [f[0], f[1], ...] of polynomials of degree ≤ s-1.
+        for a finite list [f[0], f[1], ...] of polynomials of degree ≤ s-1
+        (exactly one when none of λ+n, λ+n+1, ..., λ+n+s-1 is a root of the
+        indicial polynomial dop(z=0,n)).
 
         This method takes as input the truncation order n and the coefficients
 
