@@ -334,10 +334,10 @@ class HyperexpMajorant(MajorantSeries):
     def _den_expanded(self):
         return prod(pol**m for (pol, m) in self.den)
 
-    def exp_part_series0(self, ord):
+    def inv_exp_part_series0(self, ord):
         # This uses the fact that the integral in the definition of self starts
         # at zero!
-        return self.integrand.series0(ord-1).integral()._exp_series(ord)
+        return (- self.integrand.series0(ord-1)).integral()._exp_series(ord)
 
     def bound_series(self, rad, ord):
         r"""
@@ -361,7 +361,7 @@ class HyperexpMajorant(MajorantSeries):
         rat_ser = (shx_ser._mul_trunc_(num_ser, ord)
                           ._mul_trunc_(den_ser.inverse_series_trunc(ord), ord))
         # Majorant series for the integral. Note that we need the constant term
-        # here, since we assume in exp_part_series0 and elsewhere that the
+        # here, since we assume in inv_exp_part_series0 and elsewhere that the
         # exponential part is one at rad=0.
         int_ser = self.integrand.bound_integral(rad, ord)
         exp_ser = int_ser._exp_series(ord)
@@ -1748,7 +1748,7 @@ class DiffOpBound(object):
             # aux(z)/h(z) s.t. aux(z) = f(z)*h(z) + O(z^(1+deg(aux))). Then,
             # any f^ s.t. f^[n] ≥ max(0,f[n]) is a valid q^.
             ord = aux.degree() + 1
-            inv = maj.exp_part_series0(ord).inverse_series_trunc(ord)
+            inv = maj.inv_exp_part_series0(ord)
             f = aux._mul_trunc_(inv, ord)
             # assert all(c.imag().contains_zero() for c in f)
             return Pols([IR.zero().max(c.real()) for c in f])
