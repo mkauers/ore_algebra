@@ -1276,7 +1276,9 @@ class DiffOpBound(object):
         have no influence on the semantics of the bound.
         """
 
-        logger.info("bounding local operator...")
+        logger.info("bounding local operator "
+                "(%s, pol_part_len=%s, max_effort=%s)...",
+                bound_inverse, pol_part_len, max_effort)
 
         if not dop.parent().is_D():
             raise ValueError("expected an operator in K(x)[D]")
