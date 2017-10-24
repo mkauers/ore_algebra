@@ -1848,7 +1848,7 @@ class DiffOpBound(object):
                          for i in range(n + 30)])
             maj._test(tail)
 
-    def plot(self, ini=None, pt=None, eps=None):
+    def plot(self, ini=None, pt=None, eps=RBF(1e-50)):
         r"""
         EXAMPLES::
 
@@ -1886,8 +1886,6 @@ class DiffOpBound(object):
         if pt is None:
             rad = abs_min_nonzero_root(self._dop_D.leading_coefficient())
             pt = QQ(2) if rad == infinity else RIF(rad/2).simplest_rational()
-        if eps is None:
-            eps = RBF(1e-50)
         logger.info("point: %s", pt)
         logger.info("initial values: %s", ini)
 
