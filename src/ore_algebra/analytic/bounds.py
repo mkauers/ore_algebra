@@ -554,13 +554,15 @@ def _complex_roots(pol):
         pol = pol.change_ring(QQbar)
     return [(IC(rt), mult) for rt, mult in pol.roots(CIF)]
 
-# Possible improvement: better take into account the range of derivatives
-# needed at each step.
+# Possible improvements:
+# - better take into account the range of derivatives needed at each step,
+# - allow ord to vary?
+
 class RatSeqBound(object):
     r"""
     Bounds on the tails of a.e. rational sequences and their derivatives.
 
-    Consider a vector of rational sequences sharing a single denominator,
+    Consider a vector of rational sequences sharing the same denominator,
 
         f(n) = nums(n)/den(n) = [num[i](n)/den(n)]_i.
 
@@ -580,16 +582,14 @@ class RatSeqBound(object):
 
         ∀ k ≥ n,   |ref(k)| ≤ b(n)  (componentwise).
 
-    (Note: the entries of b(n) are not guaranteed to be nonincreasing.)
+    (The bounds are *not* guaranteed to be nonincreasing.)
 
     Such bounds appear as coefficients in the parametrized majorant series
-    associated to differential operators, see the class DiffOpBound. The
+    associated to differential operators, see :class:`DiffOpBound`. The
     ability to bound a sum of derivatives rather than a single rational
     function is useful to support logarithmic solutions at regular singular
-    points. Vectors of bounds are supported purely for performance reasons: it
-    helps avoiding redundant computations on the indices and denominators.
-
-    TODO: extend to allow ord to vary?
+    points. Vectors of bounds are supported purely for performance reasons,
+    to avoid redundant computations on the indices and denominators.
 
     ALGORITHM:
 
@@ -674,9 +674,9 @@ class RatSeqBound(object):
           natural integer zeros of den[*],  typically
             - either the full list of integer zeros (or a “right segment”), in
               the context of evaluations at regular singular points,
-            - or empty, if one is not interested in derivatives and willing to
-              do with an infinite bound up to the rightmost integer zero of
-              den.
+            - or (default) empty, if one is willing to do with an infinite
+              bound up to the rightmost integer zero of den;
+        - ord - integer, default = 1 + sum of multiplicities of exceptions.
 
         In the main application this is intended for, den is the indicial
         equation of a differential operator and the nums are coefficients of
