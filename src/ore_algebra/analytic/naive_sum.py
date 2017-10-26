@@ -23,7 +23,7 @@ from sage.rings.real_arb import RealBallField, RBF, RealBall
 from .. import ore_algebra
 from . import accuracy, bounds, utilities
 from .local_solutions import (backward_rec, FundamentalSolution,
-        LogSeriesInitialValues, map_local_basis)
+        LogSeriesInitialValues, LocalBasisMapper)
 from .safe_cmp import *
 from .utilities import short_str
 
@@ -413,12 +413,14 @@ def fundamental_matrix_regular(dop, pt, eps, rows):
     evpt = EvaluationPoint(pt, jet_order=rows)
     eps_col = bounds.IR(eps)/bounds.IR(dop.order()).sqrt()
     col_tgt_error = accuracy.AbsoluteError(eps_col)
-    def get_maj(leftmost, shifts):
-        return {'maj': bounds.DiffOpBound(dop, leftmost, shifts,
-                                        pol_part_len=4, bound_inverse="solve") }
-    def get_value(ini, bwrec, maj):
-        return series_sum(dop, ini, evpt, col_tgt_error, maj=maj, bwrec=bwrec)
-    cols = map_local_basis(dop, get_value, get_maj)
+    class Mapper(LocalBasisMapper):
+        def process_modZ_class(self):
+            self.maj = bounds.DiffOpBound(dop, self.leftmost, self.shifts,
+                                        pol_part_len=4, bound_inverse="solve")
+        def fun(self, ini):
+            return series_sum(dop, ini, evpt, col_tgt_error, maj=self.maj,
+                              bwrec=self.emb_bwrec)
+    cols = Mapper().run(dop)
     return matrix([sol.value for sol in cols]).transpose()
 
 def _pow_trunc(a, n, ord):

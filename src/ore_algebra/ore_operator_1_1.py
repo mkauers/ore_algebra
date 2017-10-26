@@ -2128,16 +2128,17 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             sage: ((27*x^2+4*x)*Dx^2 + (54*x+6)*Dx + 6).local_basis_expansions(0, 2)
             [1/sqrt(x) + 3/8*sqrt(x), 1 - x]
         """
-        from .analytic.local_solutions import log_series, map_local_basis
+        from .analytic.local_solutions import log_series, LocalBasisMapper
         from .analytic.path import Point
         mypoint = Point(point, dop)
         ldop = mypoint.local_diffop()
         if order is None:
             ind = ldop.indicial_polynomial(ldop.base_ring().gen())
             order = max(dop.order(), ind.dispersion()) + 3
-        sols = map_local_basis(ldop,
-                lambda ini, bwrec: log_series(ini, bwrec, order),
-                lambda leftmost, shift: {})
+        class Mapper(LocalBasisMapper):
+            def fun(self, ini):
+                return log_series(ini, self.emb_bwrec, order)
+        sols = Mapper().run(ldop)
         x = SR.var(dop.base_ring().variable_name())
         dx = x if point.is_zero() else x.add(-point, hold=True)
         # Working with symbolic expressions here is too complicated: let's try

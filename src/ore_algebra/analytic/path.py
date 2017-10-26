@@ -20,7 +20,7 @@ from sage.rings.real_arb import RBF, RealBallField, RealBall
 from sage.structure.sage_object import SageObject
 
 from .local_solutions import (FundamentalSolution, sort_key_by_asympt,
-        map_local_basis)
+        LocalBasisMapper)
 from .safe_cmp import *
 from .utilities import *
 
@@ -375,9 +375,7 @@ class Point(SageObject):
                     for expo in range(self.dop.order())]
         elif not self.is_regular():
             raise NotImplementedError("irregular singular point")
-        sols = map_local_basis(self.local_diffop(),
-                lambda ini, bwrec: None,
-                lambda leftmost, shift: {})
+        sols = LocalBasisMapper().run(self.local_diffop())
         sols.sort(key=sort_key_by_asympt)
         return sols
 

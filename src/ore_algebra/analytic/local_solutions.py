@@ -251,54 +251,80 @@ def sort_key_by_asympt(sol):
     re, im = sol.valuation.real(), sol.valuation.imag()
     return re, -sol.log_power, -im.abs(), im.sign()
 
-def map_local_basis(dop, fun, modZ_class_aux):
-    r"""
-    Compute fun(ini, bwrec, data) for each element of the local basis at 0
-    of dop, where data is computed as modZ_class_aux(leftmost, shift) for each
-    “group” (class modulo ℤ) of roots the indicial polynomial. Somewhat ad hoc.
-    """
-    bwrec = backward_rec(dop)
-    ind = bwrec[0]
-    n = ind.parent().gen()
-    sl_decomp = my_shiftless_decomposition(ind)
-    logger.debug("indicial polynomial = %s ~~> %s", ind, sl_decomp)
+class LocalBasisMapper(object):
 
-    cols = []
-    for sl_factor, shifts in sl_decomp:
-        for irred_factor, irred_mult in sl_factor.factor():
-            assert irred_mult == 1
-            # Complicated to do here and specialize, for little benefit
-            #irred_nf = irred_factor.root_field("leftmost")
-            #irred_leftmost = irred_nf.gen()
-            #irred_bwrec = [pol(irred_leftmost + n) for pol in bwrec]
-            for leftmost, _ in irred_factor.roots(QQbar):
-                leftmost = utilities.as_embedded_number_field_element(leftmost)
-                emb_bwrec = bwrec.shift(leftmost)
-                modZ_class_data = modZ_class_aux(leftmost, shifts)
-                for shift, mult in shifts:
-                    for log_power in xrange(mult):
-                        logger.info(r"solution z^(%s+%s)·log(z)^%s/%s! + ···",
-                                    leftmost, shift, log_power, log_power)
-                        ini = LogSeriesInitialValues(
-                            dop = dop,
-                            expo = leftmost,
-                            values = {s: tuple(ZZ.one()
-                                               if (s, p) == (shift, log_power)
-                                               else ZZ.zero()
-                                               for p in xrange(m))
-                                      for s, m in shifts},
-                            check = False)
-                        # XXX: inefficient if shift >> 0
-                        value = fun(ini, emb_bwrec, **modZ_class_data)
-                        sol = FundamentalSolution(
-                            leftmost = leftmost,
-                            shift = ZZ(shift),
-                            log_power = ZZ(log_power),
-                            value = value)
-                        logger.debug("sol=%s\n\n", sol)
-                        cols.append(sol)
-    cols.sort(key=sort_key_by_asympt)
-    return cols
+    def run(self, dop):
+        r"""
+        Compute self.fun() for each element of the local basis at 0 of dop.
+
+        Subclasses should define a fun() method that takes as input a
+        LogSeriesInitialValues structure and can access the iteration variables
+        as well as some derived quantities through the instance's field.
+        Additionally, hooks are provided to share parts of the computation
+        in a class of related solutions. The choice of unconditional
+        computations, exported data and hooks is ad hoc.
+
+        The output is a list of FundamentalSolution structures, sorted in the
+        canonical order.
+        """
+
+        bwrec = backward_rec(dop)
+        ind = bwrec[0]
+        sl_decomp = my_shiftless_decomposition(ind)
+        logger.debug("indicial polynomial = %s ~~> %s", ind, sl_decomp)
+
+        cols = []
+        for self.sl_factor, self.shifts in sl_decomp:
+            for self.irred_factor, irred_mult in self.sl_factor.factor():
+                assert irred_mult == 1
+                self.process_irred_factor()
+                # Complicated to do here and specialize, for little benefit
+                #irred_nf = irred_factor.root_field("self.leftmost")
+                #irred_leftmost = irred_nf.gen()
+                #irred_bwrec = [pol(irred_leftmost + n) for pol in bwrec]
+                for leftmost, _ in self.irred_factor.roots(QQbar):
+                    self.leftmost = utilities.as_embedded_number_field_element(leftmost)
+                    self.emb_bwrec = bwrec.shift(self.leftmost)
+                    self.process_modZ_class()
+                    for self.shift, self.mult in self.shifts:
+                        self.process_valuation()
+                        for self.log_power in xrange(self.mult):
+                            logger.info(r"solution z^(%s+%s)·log(z)^%s/%s! + ···",
+                                        self.leftmost, self.shift,
+                                        self.log_power, self.log_power)
+                            ini = LogSeriesInitialValues(
+                                dop = dop,
+                                expo = self.leftmost,
+                                values = {
+                                    s: tuple(ZZ.one() if (s, p) == (self.shift,
+                                                                 self.log_power)
+                                             else ZZ.zero()
+                                             for p in xrange(m))
+                                    for s, m in self.shifts},
+                                check = False)
+                            # XXX: inefficient if self.shift >> 0
+                            value = self.fun(ini)
+                            sol = FundamentalSolution(
+                                leftmost = self.leftmost,
+                                shift = ZZ(self.shift),
+                                log_power = ZZ(self.log_power),
+                                value = value)
+                            logger.debug("sol=%s\n\n", sol)
+                            cols.append(sol)
+        cols.sort(key=sort_key_by_asympt)
+        return cols
+
+    def process_irred_factor(self):
+        pass
+
+    def process_modZ_class(self):
+        pass
+
+    def process_valuation(self):
+        pass
+
+    def fun(self, ini):
+        return None
 
 def log_series(ini, bwrec, order):
     Coeffs = pushout(bwrec.base_ring.base_ring(), ini.universe)
