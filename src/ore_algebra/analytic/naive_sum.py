@@ -376,6 +376,11 @@ def fundamental_matrix_ordinary(dop, pt, eps, rows, maj, max_prec=100000):
 # Regular singular points
 ################################################################################
 
+# TODO: Avoid redundant computations at multiple roots of the initial equation
+# (easy in principle after cleaning up series_sum() for a single root of high
+# multiplicity, needs partial sums from one root to the next or something
+# similar in the general case).
+
 def fundamental_matrix_regular(dop, pt, eps, rows):
     r"""
     TESTS::
