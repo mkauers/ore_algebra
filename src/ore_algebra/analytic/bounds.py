@@ -833,7 +833,7 @@ class RatSeqBound(object):
         A componentwise bound on the vector ref[ord](k), valid for all k ≥ n
         with n, k ∉ exceptions.
 
-        When ord = 0, this method simply evaluates the reciprocal polynomials
+        When ord = 1, this method simply evaluates the reciprocal polynomials
         of nums and den, rescaled by a suitable power of n, on an interval of
         the form [0,1/n]. (It works for exceptional indices, but doesn't do
         anything clever to take advantage of them.) More generally, a similar
@@ -1135,7 +1135,7 @@ class DiffOpBound(object):
     r"""
     A “bound” on the “inverse” of a differential operator at a regular point.
 
-    A DiffOpBound can be thought of as a sequence of formal power series
+    A DiffOpBound may be thought of as a sequence of formal power series
 
         v[n](z) = 1/den(z) · exp ∫ (pol[n](z) + cst·z^ℓ·num[n](z)/den(z))
 
@@ -1147,8 +1147,8 @@ class DiffOpBound(object):
       (given by RatSeqBound objects), and ℓ >= deg(pol[n]).
 
     These series can be used to bound the tails of logarithmic power series
-    solutions y(z) belonging to a certain subspace (see the documentation of
-    __init__() for details) of dop(y) = 0. More precisely, write
+    solutions y(z) of dop(y) = 0 belonging to a certain subspace (see the
+    documentation of __init__() for details). More precisely, write
 
         y(z) - ỹ(z) = z^λ·(u[0](z)/0! + u[1](z)·log(z)/1! + ···)
 
@@ -1250,19 +1250,20 @@ class DiffOpBound(object):
         INPUT:
 
         * dop: element of K(z)[Dz] (K a number field), with 0 as a regular
-          (i.e., ordinary or regular singular) point
-        * leftmost: algebraic number
+          (i.e., ordinary or regular singular) point;
+        * leftmost: algebraic number;
         * special_shifts: list of (shift, mult) pairs, where shift is a
           nonnegative integer and (leftmost + shift) is a root of multiplicity
-          mult of the indicial polynomial of dop
+          mult of the indicial polynomial of dop.
 
         OUTPUT:
 
         The resulting bound applies to the generalized series solutions of dop
-        in z^λ·ℂ[[z]][log(z)], λ = leftmost, with the additional property that
-        the maximum power of log(z) in the coefficient of z^n is strictly less
-        than the sum of the multiplicities of the elements of special_shifts
-        with shift ≤ n.
+        1. belonging to z^λ·ℂ[[z]][log(z)], λ = leftmost,
+        2. in which, additionally, the coefficient of z^n has degree w.r.t.
+           log(z) strictly less than
+
+               sum { m : (s,m) ∈ special_shifts, s ≤ n }.
 
         .. WARNING::
 
