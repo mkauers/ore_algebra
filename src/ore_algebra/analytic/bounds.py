@@ -568,21 +568,22 @@ class RatSeqBound(object):
 
     We assume that den is monic and deg(nums) < deg(den). Let
 
-        ref(n) = sum[t=0..ord-1](|n*F[t](n)/t!|)
-
-    where
-
-                  ⎧ f^(t)(n),                           n ∉ exceptions,
+                  ⎧ f^(t)(n),                       n ∉ exceptional_indices,
         F[t](n) = ⎨ (d/dX)^t(num(n+X)/(X^{-m}·den(n+X)))(X=0)),
-                  ⎩                                     exceptions[n] = m
+                  ⎩                                 exceptional_indices[n] = m
 
-    (the first formula is the specialization to m = 0 of the second one).
+                    (the first formula is the specialization to m = 0 of the
+                    second one),
+
+        ref(n, ord) = sum[t=0..ord-1](|n*F[t](n)/t!|),
+
+        τ(n) = sum[k=-∞..n](exceptional_indices[k]).
 
     An instance of this class represents a vector of bounds b(n) such that
 
-        ∀ k ≥ n,   |ref(k)| ≤ b(n)  (componentwise).
+        ∀ k ≥ n,   |ref(k, τ(k))| ≤ b(n)  (componentwise).
 
-    (The bounds are *not* guaranteed to be nonincreasing.)
+    The bounds are *not* guaranteed to be nonincreasing.
 
     Such bounds appear as coefficients in the parametrized majorant series
     associated to differential operators, see :class:`DiffOpBound`. The
@@ -608,7 +609,7 @@ class RatSeqBound(object):
         sage: from ore_algebra.analytic.bounds import RatSeqBound
 
         sage: bnd = RatSeqBound([Pols(1)], n*(n-1)); bnd
-        bound(1/(n^2 - n), ord=1)
+        bound(1/(n^2 - n), ord≤1)
             = +infinity, +infinity, 1.0000, 0.50000, 0.33333, 0.25000, 0.20000,
             0.16667, ..., ~1.00000*n^-1
         sage: [bnd(k)[0] for k in range(5)]
@@ -617,16 +618,16 @@ class RatSeqBound(object):
         sage: bnd.plot()
         Graphics object...
 
-        sage: bnd = RatSeqBound([-n], n*(n-3), {0:1, 3:1}, ord=3); bnd
-        bound(-1/(n - 3), ord=3)
-            = 1842.5, 1842.5, 141.94, 12.000, 12.000, 4.3750, 2.8889, 2.2969,
+        sage: bnd = RatSeqBound([-n], n*(n-3), {-1: 1, 0:1, 3:1}); bnd
+        bound(-1/(n - 3), ord≤3)
+            = 74.767, 74.767, 22.439, 12.000, 12.000, 4.3750, 2.8889, 2.2969,
             ..., ~1.00000
-            [1842.5...]    for  n <= 0,
-            [12.000...]    for  n <= 3
-        sage: [(bnd.ref(k)[0], bnd(k)[0]) for k in range(5)]
-        [(0,          [1842.5...]),
-         (0.875...,   [1842.5...]),
-         (6.000...,   [141.94...]),
+            [74.7...]    for  n <= 0,
+            [12.0...]    for  n <= 3
+        sage: [(bnd.ref(k, bnd.ord(k))[0], bnd(k)[0]) for k in range(5)]
+        [(0,          [74.767...]),
+         (0.750...,   [74.767...]),
+         (4.000...,   [22.439...]),
          ([3.000...], [12.000...]),
          (12.000...,  [12.000...])]
         sage: bnd._test()
@@ -642,7 +643,7 @@ class RatSeqBound(object):
         sage: bnd.plot()
         Graphics object...
 
-        sage: bndvec = RatSeqBound([n, n^2, n^3], (n+1)^4)
+        sage: bndvec = RatSeqBound([n, n^2, n^3], (n+1)^4, {-1: 1})
         sage: for bnd in bndvec:
         ....:     bnd._test()
 
@@ -656,41 +657,36 @@ class RatSeqBound(object):
         sage: RatSeqBound([-n], n*(n-3), {0:1})._test()
         sage: RatSeqBound([-n], n*(n-3), {0:1,3:1})._test()
         sage: RatSeqBound([CBF(i)*n], n*(n-QQbar(i)), {0:1})._test()
-        sage: RatSeqBound([QQi['n'](3*i+1)], n + (i-1)/3, {})._test()
+        sage: RatSeqBound([QQi['n'](3*i+1)], n + (i-1)/3, {-1: 1})._test()
 
         sage: from ore_algebra.analytic.bounds import _test_RatSeqBound
         sage: _test_RatSeqBound() # long time
         sage: _test_RatSeqBound(base=QQi, number=3, deg=3) # long time
     """
 
-    def __init__(self, nums, den, exceptions={}, ord=None):
+    def __init__(self, nums, den, exceptional_indices={-1: 1}):
         r"""
         INPUT:
 
         - den - polynomial with complex coefficients,
         - nums - list of polynomials with complex coefficients, each
           with deg(num) < deg(den);
-        - exceptions - dictionary {zero: multiplicity} for a subset of the
-          natural integer zeros of den[*],  typically
-            - either the full list of integer zeros (or a “right segment”), in
-              the context of evaluations at regular singular points,
-            - or (default) empty, if one is willing to do with an infinite
-              bound up to the rightmost integer zero of den;
-        - ord - integer, default = 1 + sum of multiplicities of exceptions.
+        - exceptional_indices - dictionary {index: multiplicity},  typically
+            - either {-1: 1}, corresponding to bounds on |nums(n)/den(n)| (for
+              n≥ 0) that only become finite after the last integer zero of den
+              (accepting negative indices here is a bit of a hack, but is
+              convenient to test the bounds in simple cases...),
+            - or the integer zeros of den, the context of evaluations at
+              regular singular points.
 
-        In the main application this is intended for, den is the indicial
-        equation of a differential operator and the nums are coefficients of
-        related recurrence operators, both shifted so that some root of
-        interest of the indicial equation is mapped to zero.
-
-        [*] At least part of the code actually works for more general
-            values of the exceptions parameter.
+        In the main application, den is the indicial equation of a differential
+        operator and the nums are coefficients of related recurrence operators,
+        both shifted so that some root of interest of the indicial equation is
+        mapped to zero.
         """
         deg = den.degree()
         if any(num.degree() >= deg for num in nums):
             raise ValueError("expected deg(num) < deg(den)")
-        if ord is None:
-            ord = 1 + sum(exceptions.values())
         self.nums = []
         self._ivnums = []
         self._rcpq_nums = []
@@ -698,8 +694,10 @@ class RatSeqBound(object):
         self.den = den
         self._ivden = den.change_ring(IC)
         self._rcpq_den = den.change_ring(IC).reverse()
-        self.ord = ord
-        self.exn = exceptions
+        self.exn = exceptional_indices
+        # temporary(?), for compatibility with the previous version
+        if not self.exn:
+            self.exn = {0: 1}
         self._Pol = self._rcpq_den.parent()
         self._pol_class = self._Pol.Element
         self.extend(nums)
@@ -725,9 +723,9 @@ class RatSeqBound(object):
         if type == "asympt":
             fmt = "{asympt}"
         elif type == "short":
-            fmt = "bound({rat}, ord={ord})"
+            fmt = "bound({rat}, ord≤{ord})"
         elif type == "full":
-            fmt  = "bound({rat}, ord={ord})\n"
+            fmt  = "bound({rat}, ord≤{ord})\n"
             fmt += "    = {list},\n"
             fmt += "      ..., {asympt}"
             fmt += "{stairs}"
@@ -746,7 +744,7 @@ class RatSeqBound(object):
             dscs.append(
                 fmt.format(
                     rat=num/self.den,
-                    ord=self.ord,
+                    ord=sum(m for (n, m) in self.exn.items()),
                     list=", ".join(str(b.n(20)) for b in bnd),
                     asympt=asymptfmt.format(lim=lim, deg=deg),
                     stairs=stairsstr if seq_stairs else ""))
@@ -756,7 +754,7 @@ class RatSeqBound(object):
         return "\n".join(self.entries_repr("full"))
 
     def __getitem__(self, i):
-        return RatSeqBound([self.nums[i]], self.den, self.exn, self.ord)
+        return RatSeqBound([self.nums[i]], self.den, self.exn)
 
     @cached_method
     def _den_data(self):
@@ -772,7 +770,7 @@ class RatSeqBound(object):
         - mult is the multiplicity of root in den;
         - n_min is an integer s.t. |1-root/n| is nondecreasing for n ≥ nmin;
         - global_lbound is a real (ball) s.t. |1-root/n| ≥ global_lbound for
-          all n ∈ ⟦1,∞) ∖ exceptions (in particular, for n < n_min).
+          all n ∈ ⟦1,∞) ∖ exn (in particular, for n < n_min).
 
         Often (but not always), all integer roots of den will belong to the
         exceptional set, and in this case the returned global_lbound will be
@@ -797,7 +795,7 @@ class RatSeqBound(object):
             # computation of the global lower bound, and consider the adjacent
             # integers above and below instead. In particular, when the current
             # root is equal to an exceptional index, the global minimum over ℕ
-            # is zero, but we want a nonzero lower bound over ℕ ∖ exceptions.
+            # is zero, but we want a nonzero lower bound over ℕ ∖ exn.
             # There can be several consecutive exceptional indices (this is
             # even quite typical).
             while ns[-1] in self.exn:
@@ -814,7 +812,7 @@ class RatSeqBound(object):
     def _lbound_den(self, n):
         r"""
         A lower bound on prod[den(α) = 0](|1-α/k|) valid for all k ≥ n with
-        n, k ∈ ℕ ∖ exceptions.
+        n, k ∈ ℕ ∖ exn.
         """
         assert n not in self.exn
         if n == 0:
@@ -831,7 +829,7 @@ class RatSeqBound(object):
     def _bound_rat(self, n, ord):
         r"""
         A componentwise bound on the vector ref[ord](k), valid for all k ≥ n
-        with n, k ∉ exceptions.
+        with n, k ∉ exn.
 
         When ord = 1, this method simply evaluates the reciprocal polynomials
         of nums and den, rescaled by a suitable power of n, on an interval of
@@ -895,20 +893,21 @@ class RatSeqBound(object):
         # consistency check, we need to recompute or at least extend the stairs
         # each time the sequence of numerators is extended
         assert count == len(self.nums)
-        if not self.exn:
-            return [[]]*len(self.nums)
         stairs = [[(infinity, IR.zero())] for _ in self.nums]
-        for n in sorted(self.exn, reverse=True):
+        ord = sum(m for n, m in self.exn.items())
+        exn = sorted([n for n in self.exn if n >= 0], reverse=True)
+        for n in exn:
             # We want the bound to hold for ordinary k ≥ n too, so we take the
             # max of the exceptional value and the next ordinary index.
             n1 = next(n1 for n1 in itertools.count(n) if n1 not in self.exn)
-            refs = self.ref(n)
-            rats = self._bound_rat(n1, self.ord)
+            refs = self.ref(n, ord)
+            rats = self._bound_rat(n1, ord)
             assert len(refs) == len(rats) == len(stairs) == len(self.nums)
             for (ref, rat, seq_stairs) in zip(refs, rats, stairs):
                 val = ref.max(rat)
                 if val.upper() > seq_stairs[-1][1].upper():
                     seq_stairs.append((n, val))
+            ord -= self.exn[n]
         for seq_stairs in stairs:
             seq_stairs.reverse()
             # remove (∞,0) (faster and permits testing "stairs == []")
@@ -917,10 +916,10 @@ class RatSeqBound(object):
 
     def _bound_exn(self, n):
         r"""
-        A list of non-increasing staircase functions defined on the whole of ℕ
-        such that, whenever *n* (sic) is an exceptional index, the inequality
-        ref(k) ≤ _bound_exn(n) holds (componentwise) for all k ≥ n (whether
-        ordinary or exceptional).
+        A list of *non-increasing* staircase functions defined on the whole
+        of ℕ such that, whenever *n* (sic) is an exceptional index, the
+        inequality ref(k) ≤ _bound_exn(n) holds (componentwise) for all k ≥ n
+        (both ordinary and exceptional).
 
         (The pairs returned by _stairs() correspond to the *upper right* corner
         of each stair: the index associated to a given value is the last time
@@ -937,23 +936,34 @@ class RatSeqBound(object):
         stairs = self._stairs(len(self.nums))
         return [doit(seq_stairs) for seq_stairs in stairs]
 
+    def ord(self, n):
+        return sum(m for (k, m) in self.exn.items() if k <= n)
+
     def __call__(self, n):
         r"""
         The bounds.
         """
-        ord = self.ord # XXX: take as parameter???
         bound_exn = self._bound_exn(n)
         if n in self.exn:
             return bound_exn
         else:
+            # Note: we could accept an optional parameter ord ≤ self.ord(n) and
+            # use it in the call to _bound_rat() to provide tighter bounds
+            # (once n is larger than the exceptional indices) if we detect that
+            # we are computing a solution of log-degree smaller than the
+            # generic bound (like at ordinary points, except that in the case
+            # of ordinary points we can tell in advance that this will happen).
+            # In fact, we could even do it before the last exceptional index,
+            # but that would complicate (and perhaps slow down) _stairs() and
+            # _bound_exn().
+            ord = self.ord(n)
             bound_rat = self._bound_rat(n, ord)
             return [b1.max(b2) for b1, b2 in zip(bound_rat, bound_exn)]
 
-    def ref(self, n):
+    def ref(self, n, ord):
         r"""
         Reference value for a single n.
         """
-        ord = self.ord # XXX: take as parameter???
         jet = self._pol_class(self._Pol, [n, 1])
         nums = [num.compose_trunc(jet, ord) for num in self._ivnums]
         mult = self.exn.get(n, 0)
@@ -987,10 +997,12 @@ class RatSeqBound(object):
         if len(self.nums) != 1:
             raise NotImplementedError("expected a single sequence")
         from sage.plot.plot import list_plot
-        p1 = list_plot(
-                [(k, RR(self.ref(k)[0].upper()))
-                    for k in rng if self.ref(k)[0].is_finite()],
-                plotjoined=True, color='black', scale='semilogy')
+        ref = []
+        for k in rng:
+            iv = self.ref(k, self.ord(k))[0]
+            if iv.is_finite():
+                ref.append((k, RR(iv.upper())))
+        p1 = list_plot(ref, plotjoined=True, color='black', scale='semilogy')
         # Plots come up empty when one of the y-coordinates is +∞, so we may as
         # well start with the first finite value.
         rng2 = list(itertools.dropwhile(
@@ -999,7 +1011,8 @@ class RatSeqBound(object):
                 [(k, RR(self(k)[0].upper())) for k in rng2],
                 plotjoined=True, color='blue', scale='semilogy')
         p3 = list_plot(
-                [(k, RR(self._bound_rat(k, self.ord)[0].upper())) for k in rng2
+                [(k, RR(self._bound_rat(k, self.ord(k))[0].upper()))
+                    for k in rng2
                     if k not in self.exn],
                 size=20, color='red', scale='semilogy')
         p4 = list_plot(
@@ -1024,10 +1037,11 @@ class RatSeqBound(object):
         deg = self.den.degree()
         # Well-formedness
         for n, mult in self.exn.iteritems():
-            pol = self.den
-            for i in range(mult):
-                assert pol(n).is_zero()
-                pol = pol.derivative()
+            if n >= 0:
+                pol = self.den
+                for i in range(mult):
+                    assert pol(n).is_zero()
+                    pol = pol.derivative()
         # Test _lbound_den()
         for n in range(nmax):
             if n not in self.exn:
@@ -1052,7 +1066,7 @@ class RatSeqBound(object):
         # Test the complete bound
         ref = IR(0)
         for n in testrange:
-            n = ref.max(self.ref(n)[0])
+            n = ref.max(self.ref(n, self.ord(n))[0])
             assert not (self(n)[0] < ref)
 
 @random_testing
@@ -1088,6 +1102,8 @@ def _test_RatSeqBound(number=10, base=QQ, deg=20, verbose=False):
             roots = den0.roots(ZZ)
         roots = [(r, m) for (r, m) in roots if r >= 0]
         exns = dict(Subsets(roots).random_element())
+        if not exns:
+            exns = {-1: 0}
         if verbose:
             print("num = {}\nden = {}\nexns = {}".format(num, den, exns))
         bnd = RatSeqBound([num], den, exns)
@@ -1184,8 +1200,8 @@ class DiffOpBound(object):
         1.000.../((-x + [0.994...])^2)*exp(int(POL+1.000...*NUM/(-x + [0.994...])^2))
         where
         POL=0,
-        NUM=bound(0, ord=1)*z^0 +
-        bound((-2.000...*n + 2.000...)/(n^2 - n), ord=1)*z^1
+        NUM=bound(0, ord≤1)*z^0 +
+        bound((-2.000...*n + 2.000...)/(n^2 - n), ord≤1)*z^1
 
     A majorant series extracted from that sequence::
 
@@ -1223,7 +1239,7 @@ class DiffOpBound(object):
         1.000.../(1.000...)*exp(int(POL+1.000...*NUM/1.000...))
         where
         POL=0,
-        NUM=bound(-1.000.../n, ord=1)*z^0
+        NUM=bound(-1.000.../n, ord≤1)*z^0
 
         sage: QQi.<i> = QuadraticField(-1)
         sage: for dop in [
