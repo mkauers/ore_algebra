@@ -326,6 +326,16 @@ class LocalBasisMapper(object):
     def fun(self, ini):
         return None
 
+def exponent_shifts(dop, leftmost):
+    bwrec = backward_rec(dop)
+    ind = bwrec[0]
+    sl_decomp = my_shiftless_decomposition(ind)
+    cand = [shifts for fac, shifts in sl_decomp if fac(leftmost).is_zero()]
+    assert len(cand) == 1
+    shifts = [s for s in cand[0] if s >= 0]
+    assert shifts[0][0] == 0
+    return shifts
+
 def log_series(ini, bwrec, order):
     Coeffs = pushout(bwrec.base_ring.base_ring(), ini.universe)
     log_prec = sum(len(v) for v in ini.shift.itervalues())

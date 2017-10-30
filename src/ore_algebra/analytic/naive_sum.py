@@ -215,9 +215,8 @@ def series_sum(dop, ini, pt, tgt_error, maj=None, bwrec=None,
     logger.log(logging.INFO - 1, "target error = %s", tgt_error)
 
     if maj is None:
-        maj = bounds.DiffOpBound(dop, ini.expo,
-                [] if dop.leading_coefficient().valuation() == 0
-                else [(s, len(v)) for s, v in ini.shift.iteritems()])
+        special_shifts = [(s, len(v)) for s, v in ini.shift.iteritems()]
+        maj = bounds.DiffOpBound(dop, ini.expo, special_shifts)
 
     if bwrec is None:
         bwrec = backward_rec(dop, shift=ini.expo)
@@ -500,7 +499,7 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, tgt_error,
 
         sage: dop = x*Dx^2 + Dx + x
         sage: ini = LogSeriesInitialValues(0, {0: (1, 0)})
-        sage: maj = bounds.DiffOpBound(dop, max_effort=0)
+        sage: maj = bounds.DiffOpBound(dop, special_shifts=[(0, 1)], max_effort=0)
         sage: series_sum(dop, ini, QQ(2), 1e-8, stride=1, record_bounds_in=[],
         ....:            maj=maj)
         ([0.2238907...])

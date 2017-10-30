@@ -1103,7 +1103,7 @@ def _test_RatSeqBound(number=10, base=QQ, deg=20, verbose=False):
         roots = [(r, m) for (r, m) in roots if r >= 0]
         exns = dict(Subsets(roots).random_element())
         if not exns:
-            exns = {-1: 0}
+            exns = {-1: 1}
         if verbose:
             print("num = {}\nden = {}\nexns = {}".format(num, den, exns))
         bnd = RatSeqBound([num], den, exns)
@@ -1219,7 +1219,7 @@ class DiffOpBound(object):
     Refining::
 
         sage: from ore_algebra.analytic.examples import fcc
-        sage: maj = DiffOpBound(fcc.dop5)
+        sage: maj = DiffOpBound(fcc.dop5, special_shifts=[(0, 1)])
         sage: maj.maj_den
         (-z + [0.2047...])^13
         sage: maj.maj_den.value()(1/10)
@@ -1258,7 +1258,7 @@ class DiffOpBound(object):
         sage: _test_diffop_bound() # long time
     """
 
-    def __init__(self, dop, leftmost=ZZ.zero(), special_shifts=[],
+    def __init__(self, dop, leftmost=ZZ.zero(), special_shifts=None,
             max_effort=6, pol_part_len=2, bound_inverse="simple"):
         r"""
         Construct a DiffOpBound for a subset of the solutions of dop.
@@ -1267,26 +1267,27 @@ class DiffOpBound(object):
 
         * dop: element of K(z)[Dz] (K a number field), with 0 as a regular
           (i.e., ordinary or regular singular) point;
-        * leftmost: algebraic number;
-        * special_shifts: list of (shift, mult) pairs, where shift is a
-          nonnegative integer and (leftmost + shift) is a root of multiplicity
-          mult of the indicial polynomial of dop.
+        * leftmost (default 0): algebraic number;
+        * special_shifts (optional): list of (shift, mult) pairs, where shift
+          is a nonnegative integer and (leftmost + shift) is a root of
+          multiplicity mult of the indicial polynomial of dop.
 
         OUTPUT:
 
-        The resulting bound applies to the generalized series solutions of dop
-        1. belonging to z^λ·ℂ[[z]][log(z)], λ = leftmost,
-        2. in which, additionally, the coefficient of z^n has degree w.r.t.
-           log(z) strictly less than
+        If special_shifts is left to its default value or contains all the
+        (n, m) such that λ + n (λ = leftmost) is a root of multiplicity m of
+        the indicial equation, the resulting bound applies to the generalized
+        series solutions of dop that belong to z^λ·ℂ[[z]][log(z)].
 
-               sum { m : (s,m) ∈ special_shifts, s ≤ n }.
+        Some of the roots may be omitted. In this case, the bound only applies
+        to solutions in which, additionally, the coefficient of z^n has degree
+        w.r.t. log(z) strictly less than
 
-        .. WARNING::
+            sum { m : (s,m) ∈ special_shifts, s ≤ n }.
 
-            Thus, special_shifts can be left to its default value of [] when
-            the origin is an ordinary point, but needs to contain all the roots
-            of the indicial polynomial in λ + ℕ for a general regular singular
-            point.
+        Note that the special case of ordinary points (where the generic
+        log-degree bound given by the multiplicity of the roots of the indicial
+        equation is pessimistic) is automatically taken into account.
 
         The remaining parameters are used to set properties of the DiffOpBound
         object related to the effort/tightness trade-off of the algorithm. They
@@ -1300,7 +1301,7 @@ class DiffOpBound(object):
         if not dop.parent().is_D():
             raise ValueError("expected an operator in K(x)[D]")
         _, Pols_z, _, dop = dop._normalize_base_ring()
-        self._dop_D = dop # only for arg checking, assertions, plot() etc.
+        self._dop_D = dop
         self.dop = dop_T = dop.to_T('T' + Pols_z.variable_name())
 
         lc = dop_T.leading_coefficient()
@@ -1310,7 +1311,15 @@ class DiffOpBound(object):
         self._rcoeffs = _dop_rcoeffs_of_T(dop_T, IC)
 
         self.leftmost = leftmost
-        self.special_shifts = dict(special_shifts)
+        if self._dop_D.leading_coefficient()[0] != 0:
+            # Ordinary point: even though the indicial equation usually has
+            # several integer roots, the solutions are plain power series.
+            self.special_shifts = {0: 1}
+        else:
+            if special_shifts is None:
+                special_shifts = local_solutions.exponent_shifts(
+                                                         self._dop_D, leftmost)
+            self.special_shifts = dict(special_shifts)
 
         # XXX Consider switching to an interface where the user simply chooses
         # the initial effort (and refine() accepts an effort value)
@@ -1611,12 +1620,12 @@ class DiffOpBound(object):
             sage: n = 20
             sage: zero = t.parent().zero()
 
-            sage: maj = DiffOpBound(dop, leftmost=0)
+            sage: maj = DiffOpBound(dop, leftmost=0, special_shifts=[(0, 1)])
             sage: trunc = [t._exp_series(n), zero, zero]
             sage: maj._check_normalized_residual(n, trunc, 0, QQ)
             0
 
-            sage: maj = DiffOpBound(dop, leftmost=1/3)
+            sage: maj = DiffOpBound(dop, leftmost=1/3, special_shifts=[(0, 1)])
             sage: trunc = [(1-t).inverse_series_trunc(n), zero, zero]
             sage: maj._check_normalized_residual(n, trunc, 1/3, QQ)
             0

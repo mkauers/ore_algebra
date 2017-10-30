@@ -86,6 +86,7 @@ def ordinary_step_transition_matrix(ctx, step, eps, rows):
     deg = ldop.degree()
     # cache in ctx?
     maj = bounds.DiffOpBound(ldop, pol_part_len=4, bound_inverse="solve")
+    assert len(maj.special_shifts) == 1 and maj.special_shifts[0] == 1
     if ctx.fundamental_matrix_ordinary is not None:
         return ctx.fundamental_matrix_ordinary(
                 ldop, step.delta(), eps, rows, maj)
