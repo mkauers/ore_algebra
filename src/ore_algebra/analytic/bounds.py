@@ -898,10 +898,14 @@ class RatSeqBound(object):
         exn = sorted([n for n in self.exn if n >= 0], reverse=True)
         for n in exn:
             # We want the bound to hold for ordinary k ≥ n too, so we take the
-            # max of the exceptional value and the next ordinary index.
-            n1 = next(n1 for n1 in itertools.count(n) if n1 not in self.exn)
+            # max of the exceptional value at n and the value at n + 1, when
+            # n + 1 is an ordinary index. (When n + 1 is an exceptional index,
+            # it has already been done during the previous iteration.)
             refs = self.ref(n, ord)
-            rats = self._bound_rat(n1, ord)
+            if n + 1 not in exn:
+                rats = self._bound_rat(n + 1, ord)
+            else:
+                rats = [IR.zero()]*len(refs)
             assert len(refs) == len(rats) == len(stairs) == len(self.nums)
             for (ref, rat, seq_stairs) in zip(refs, rats, stairs):
                 val = ref.max(rat)
