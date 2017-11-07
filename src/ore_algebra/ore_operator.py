@@ -763,7 +763,25 @@ class UnivariateOreOperator(OreOperator):
         return self._poly._latex_(name=name)
         
     def _sage_input_(self, sib, coerced):
-        raise NotImplementedError
+        
+        if self.order() > 0:
+            gen = sib.gen(self.parent())
+            coeffs = self.list()
+            terms = []
+            for i in range(len(coeffs)-1, -1, -1):
+                if i > 0:
+                    if i > 1:
+                        gen_pow = gen**sib.int(i)
+                    else:
+                        gen_pow = gen
+                    terms.append(sib.prod((sib(coeffs[i], True), gen_pow), simplify=True))
+                else:
+                    terms.append(sib(coeffs[i], True))
+            return sib.sum(terms, simplify=True)
+        elif coerced:
+            return sib(self[0], True)
+        else:
+            return sib(self.parent())(sib(self[0], True))
 
     def dict(self):
         return self._poly.dict()
@@ -1779,6 +1797,32 @@ class UnivariateOreOperator(OreOperator):
             raise NotImplementedError
 
     # coefficient-related functions
+    
+    def singularities(self, backwards = False):
+        r"""
+        return the integer singularities of the Ore Operator ``self``, i.e. the roots of the 
+        leading coefficient shifted by the order of the operator and the roots of the constant 
+        term (not shifted)
+        If backwards is false, only the roots of the leading coefficient are returned
+        """
+        
+        lc = self.leading_coefficient()
+        result = set()
+        ord = self.order()
+        roots_lc = lc.numerator().roots()
+        for i in range(len(roots_lc)):
+            r = roots_lc[i][0]
+            if r in ZZ:
+                result.add(ZZ(r + ord))
+        if backwards is not False:
+            cc = self.constant_coefficient()
+            if cc.numerator() != 0:
+                roots_cc = cc.numerator().roots()
+                for i in range(len(roots_cc)):
+                    r = roots_cc[i][0]
+                    if r in ZZ:
+                        result.add(ZZ(r))
+        return result
 
     def order(self):
         """
