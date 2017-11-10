@@ -15,13 +15,13 @@ http://specfun.inria.fr/chyzak/ssw/index.html>):
     sage: Dops.<Dt> = OreAlgebra(Pols)
 
     sage: from ore_algebra.analytic.examples import ssw
-    sage: mat = ssw.dop1.numerical_transition_matrix([0, 1/3+i/10, 1/3]) # long time (5.6 s)
+    sage: mat = ssw.dop1.numerical_transition_matrix([0, 1/3+i/10, 1/3]) # long time (5.2 s)
     sage: (mat*vector([0, 0, 1, 3, 7]))[0] # long time
     [...] + [0.50000...]*I
 
 An example provided by Bruno Salvy that originates in the same work::
 
-    sage: ssw.dop2.numerical_solution(ssw.ini2, [0,1]) # long time (4.3 s), TODO: double-check result
+    sage: ssw.dop2.numerical_solution(ssw.ini2, [0,1]) # long time (3.8 s), TODO: double-check result
     [10.662510694...]
 
 The operator P[1, 0, 0, "xy"] from the same work::

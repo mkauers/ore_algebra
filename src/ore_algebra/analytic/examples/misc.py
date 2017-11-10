@@ -14,7 +14,7 @@ equation::
     sage: Pols.<z> = QQ[]
     sage: a = AA.polynomial_root(54*z**3+324*z**2-4265*z+432, RIF(0.1, 0.11))
     sage: roots = salvy1_pol(z=a).univariate_polynomial().roots(QQbar)
-    sage: val = salvy1_dop.numerical_solution([0, 0, 0, 0, 0, 1/2], [0, a]) # long time (30.8s  s)
+    sage: val = salvy1_dop.numerical_solution([0, 0, 0, 0, 0, 1/2], [0, a]) # long time (28.3s)
     sage: [r for (r, _) in roots if r in val]                               # long time
     [0.0108963334211605...]
 """
