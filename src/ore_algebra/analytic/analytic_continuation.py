@@ -92,7 +92,8 @@ def ordinary_step_transition_matrix(ctx, step, eps, rows):
                 ldop, step.delta(), eps, rows, maj)
     elif step.is_exact():
         thr = 256 + 32*deg
-        if eps > step.cvg_ratio()**thr:
+        a = step.cvg_ratio()
+        if eps > a.max(a.parent().one() >> 100)**thr: # TBI
             try:
                 return naive_sum.fundamental_matrix_ordinary(
                         ldop, step.delta(), eps, rows, maj, max_prec=4*thr)
