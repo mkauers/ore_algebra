@@ -103,7 +103,7 @@ def ordinary_step_transition_matrix(ctx, step, eps, rows):
                 ldop, step.delta(), eps, rows, maj)
     else:
         return naive_sum.fundamental_matrix_ordinary(
-                ldop, step.delta(), eps, rows, maj)
+                ldop, step.delta(), eps, rows, maj, max_prec=(1<<30))
 
 def singular_step_transition_matrix(ctx, step, eps, rows):
     from .naive_sum import fundamental_matrix_regular

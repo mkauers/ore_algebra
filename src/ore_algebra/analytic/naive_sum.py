@@ -73,7 +73,7 @@ class EvaluationPoint(object):
             raise ValueError
 
 def series_sum(dop, ini, pt, tgt_error, maj=None, bwrec=None,
-        stride=50, record_bounds_in=None, max_prec=100000):
+        record_bounds_in=None, max_prec=100000, **kwds):
     r"""
     EXAMPLES::
 
@@ -194,42 +194,38 @@ def series_sum(dop, ini, pt, tgt_error, maj=None, bwrec=None,
         sage: logger.setLevel(logging.WARNING)
     """
 
-    # The code that depends neither on the numeric precision nor on the
-    # ordinary/regsing dichotomy goes here.
-
     if not isinstance(ini, LogSeriesInitialValues):
         ini = LogSeriesInitialValues(ZZ.zero(), ini, dop)
-
     if not isinstance(pt, EvaluationPoint):
         pt = EvaluationPoint(pt)
-
-    input_accuracy = min(pt.accuracy(), ini.accuracy())
-
     if isinstance(tgt_error, accuracy.RelativeError) and pt.jet_order > 1:
         raise TypeError("relative error not supported when computing derivatives")
     if not isinstance(tgt_error, accuracy.OldStoppingCriterion):
         tgt_error = accuracy.AbsoluteError(tgt_error)
+        input_accuracy = min(pt.accuracy(), ini.accuracy())
         if input_accuracy < -tgt_error.eps.upper().log2().floor():
             logger.warn("input intervals may be too wide "
                         "compared to requested accuracy")
-    logger.log(logging.INFO - 1, "target error = %s", tgt_error)
 
     if maj is None:
         special_shifts = [(s, len(v)) for s, v in ini.shift.iteritems()]
         maj = bounds.DiffOpBound(dop, ini.expo, special_shifts)
-
     if bwrec is None:
         bwrec = backward_rec(dop, shift=ini.expo)
+
+    doit = (series_sum_ordinary if dop.leading_coefficient().valuation() == 0
+            else series_sum_regular)
+
+    return interval_series_sum_wrapper(doit, dop, ini, pt, tgt_error, maj,
+                                      bwrec, max_prec, record_bounds_in, **kwds)
+
+def interval_series_sum_wrapper(doit, dop, ini, pt, tgt_error, maj, bwrec,
+                                max_prec, record_bounds_in, stride=50):
 
     ivs = (RealBallField
            if ini.is_real(dop) and (pt.is_real() or not pt.is_numeric)
            else ComplexBallField)
-    doit = (series_sum_ordinary if dop.leading_coefficient().valuation() == 0
-            else series_sum_regular)
-
-    # Now do the actual computation, automatically increasing the precision as
-    # necessary
-
+    input_accuracy = min(pt.accuracy(), ini.accuracy())
     bit_prec = utilities.prec_from_eps(tgt_error.eps)
     # Roughly speaking, the computation of a new coefficient of the series
     # *multiplies* the diameter by the order of the recurrence, so it is not
@@ -240,10 +236,11 @@ def series_sum(dop, ini, pt, tgt_error, maj=None, bwrec=None,
     # practice.
     bit_prec = 8 + bit_prec*(1 + ZZ(bwrec.order - 2).nbits())
     max_prec = min(max_prec, bit_prec + 2*input_accuracy) # XXX: only if None?
+    logger.log(logging.INFO - 1, "target error = %s", tgt_error)
     logger.info("initial precision = %s bits", bit_prec)
     for attempt in itertools.count():
         try:
-            # ask for a slightly higher accuracy each time to avoid situations
+            # strictly decrease tgt_error each time to avoid situations
             # where doit would be happy with the result and stop at the same
             # point despite the higher bit_prec
             psum = doit(ivs(bit_prec), dop, bwrec, ini, pt,
@@ -360,14 +357,17 @@ def series_sum_ordinary(Intervals, dop, bwrec, ini, pt,
     return res
 
 # XXX: pass ctx (→ real/complex?)?
-def fundamental_matrix_ordinary(dop, pt, eps, rows, maj, max_prec=100000):
+def fundamental_matrix_ordinary(dop, pt, eps, rows, maj, max_prec):
     eps_col = bounds.IR(eps)/bounds.IR(dop.order()).sqrt()
+    eps_col = accuracy.AbsoluteError(eps_col)
     evpt = EvaluationPoint(pt, jet_order=rows)
+    bwrec = backward_rec(dop)
     inis = [
         LogSeriesInitialValues(ZZ.zero(), ini, dop, check=False)
         for ini in identity_matrix(dop.order())]
     cols = [
-        series_sum(dop, ini, evpt, eps_col, maj=maj, max_prec=max_prec)
+        interval_series_sum_wrapper(series_sum_ordinary, dop, ini, evpt,
+                                    eps_col, maj, bwrec, max_prec, None)
         for ini in inis]
     return matrix(cols).transpose()
 
@@ -422,8 +422,8 @@ def fundamental_matrix_regular(dop, pt, eps, rows):
             self.maj = bounds.DiffOpBound(dop, self.leftmost, self.shifts,
                                         pol_part_len=4, bound_inverse="solve")
         def fun(self, ini):
-            return series_sum(dop, ini, evpt, col_tgt_error, maj=self.maj,
-                              bwrec=self.emb_bwrec)
+            return interval_series_sum_wrapper(series_sum_regular, dop, ini,
+                    evpt, col_tgt_error, self.maj, self.emb_bwrec, 1<<30, None)
     cols = Mapper().run(dop)
     return matrix([sol.value for sol in cols]).transpose()
 
