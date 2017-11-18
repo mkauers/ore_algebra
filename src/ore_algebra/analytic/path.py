@@ -429,6 +429,17 @@ class Step(SageObject):
 
         sage: s2.plot()
         Graphics object consisting of 1 graphics primitive
+
+    TESTS:
+
+    Check that we can handle connections between points in ℚ[i] and in other
+    complex number fields in spite of various weaknesses of the coercion system.
+    Thanks to Armin Straub for the example::
+
+        sage: dop = ((81*x^4 + 14*x^3 + x^2)*Dx^3 + (486*x^3 + 63*x^2 +
+        ....: 3*x)*Dx^2 + (567*x^2 + 48*x + 1)*Dx + 81*x + 3)
+        sage: dop.numerical_transition_matrix([0,QQbar((4*sqrt(2)*I-7)/81)])[0,0]
+        [-3.17249673357...] + [-4.486587907205...]*I
     """
 
     def __init__(self, start, end):
@@ -454,7 +465,12 @@ class Step(SageObject):
         return self.start.is_exact() and self.end.is_exact()
 
     def delta(self):
-        return self.end.value - self.start.value
+        try: # XXX: TBI
+            return self.end.value - self.start.value
+        except TypeError:
+            z0 = QQbar(self.start.value)
+            z1 = QQbar(self.end.value)
+            return as_embedded_number_field_element(z1 - z0)
 
     def length(self):
         return IC(self.delta()).abs()
@@ -495,8 +511,9 @@ class Step(SageObject):
         """
         dop = self.start.dop
         # TODO: solve over CBF directly?
-        sing = [IC(s) for s in dop_singularities(dop, CIF)
-                      if s != CIF(self.start.value) and s != CIF(self.end.value)]
+        sing = [IC(s) for s in dop_singularities(dop, CIF)]
+        z0, z1 = IC(self.start.value), IC(self.end.value)
+        sing = [s for s in sing if s != z0 and s != z1]
         for s in sing:
             ds = s - self.start.iv()
             t = self.delta()/ds
