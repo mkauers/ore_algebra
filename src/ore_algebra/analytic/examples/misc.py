@@ -17,6 +17,18 @@ equation::
     sage: val = salvy1_dop.numerical_solution([0, 0, 0, 0, 0, 1/2], [0, a]) # long time (28.3s)
     sage: [r for (r, _) in roots if r in val]                               # long time
     [0.0108963334211605...]
+
+An example provided by Steve Melczer which used to trigger an issue with the
+numerical analytic continuation code::
+
+    sage: from ore_algebra.analytic.examples.misc import melczer1
+    sage: rts = melczer1.leading_coefficient().roots(QQbar, multiplicities=False)
+    sage: melczer1.numerical_transition_matrix([0, rts[1]])[0, 0]
+    [4.64191240683487...] + [-0.0159612280126475...]*I
+    sage: melczer1.local_basis_expansions(rts[1])
+    [1 + (1269/32*a+3105/28)*(z + 0.086...? + 0.069...*I)^4 + ...,
+     sqrt(z + 0.086...? + 0.069...*I) + (365/96*a+13/3)*(z + 0.086...? + 0.069...*I)^(3/2) - ...,
+     ...]
 """
 import collections
 
@@ -172,3 +184,9 @@ salvy1_dop = ((71820*z**41 + 22638420*z**40 + 706611850*z**39 - 27125189942*z**3
             - 585638701894459069562880*z**6 - 27312208046701695467520*z**4 +
             972607606705430200320*z**3 - 248157347732520960*z +
             212916818855030905896960*z**5 + 21162675253133967360*z**2))
+
+
+DiffOps_z, z, Dz = DifferentialOperators(QQ, 'z')
+melczer1 = ((81*z**5 + 14*z**4 + z**3)*Dz**5 + (1296*z**4 + 175*z**3 + 9*z**2)*Dz**4
+        + (6075*z**3 + 594*z**2 + 19*z)*Dz**3 + (9315*z**2 + 573*z + 8)*Dz**2
+        + (3726*z + 102)*Dz + 162)
