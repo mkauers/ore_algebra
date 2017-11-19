@@ -2127,6 +2127,17 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
 
             sage: ((27*x^2+4*x)*Dx^2 + (54*x+6)*Dx + 6).local_basis_expansions(0, 2)
             [1/sqrt(x) + 3/8*sqrt(x), 1 - x]
+
+        Thanks to Armin Straub for this example::
+
+            sage: dop = ((81*x^4 + 14*x^3 + x^2)*Dx^3
+            ....:       + (486*x^3 + 63*x^2 + 3*x)*Dx^2
+            ....:       + (567*x^2 + 48*x + 1)*Dx + 81*x + 3)
+            sage: dop.local_basis_expansions(QQbar((4*sqrt(2)*I-7)/81))
+            [1,
+            sqrt(x + 0.0864...? - 0.0698...?*I)
+            + (365/96*a^3+365/96*a+13/3)*(x + 0.0864...? - 0.0698...?*I)^(3/2),
+            x + 0.0864...? - 0.0698...?*I]
         """
         from .analytic.local_solutions import log_series, LocalBasisMapper
         from .analytic.path import Point
@@ -2156,7 +2167,8 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
                     [(c/ZZ(k).factorial(), log_monomial(sol.leftmost, n, k))
                         for n, vec in enumerate(sol.value)
                         for k, c in reversed(list(enumerate(vec)))],
-                    FormalSums(ring))
+                    FormalSums(ring),
+                    reduce=False)
             for sol in sols]
         return res
 
