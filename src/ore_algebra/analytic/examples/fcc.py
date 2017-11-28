@@ -55,6 +55,13 @@ In the six-dimensional case, Koutschan gives the following operator::
     sage: ini = [0, 0, 0, 0, 0, 1, 0, 0]
     sage: fcc.dop6.numerical_solution(ini, [0, 3/2 + i, 1], 1e-60) # long time (84 s)
     [1.02774910062749883985936367927396850209243990900114872425...] + [...]*I
+
+TESTS:
+
+An experimental feature::
+
+    sage: fcc.dop5.numerical_solution([0, 0, 0, 0, 1, 0], [0, 1], assume_analytic=True) # long time
+    [1.0488523513549...] + [+/- ...]*I
 """
 
 from sage.rings.rational_field import QQ

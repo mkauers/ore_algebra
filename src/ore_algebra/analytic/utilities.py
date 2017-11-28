@@ -47,7 +47,9 @@ class Stats(object):
 # OreOperator, or of a custom wrapper.
 
 @cached_function
-def dop_singularities(dop, dom=QQbar):
+def dop_singularities(dop, dom=QQbar, include_apparent=True):
+    if not include_apparent:
+        dop = dop.desingularize()
     return [descr[0] for descr in dop.leading_coefficient().roots(dom)]
 
 def sing_as_alg(dop, iv):

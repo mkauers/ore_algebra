@@ -322,8 +322,8 @@ class Point(SageObject):
         sing = dop_singularities(self.dop, CIF)
         sing = [IC(s) for s in sing]
         close, distant = split(lambda s: s.overlaps(self.iv()), sing)
-        if (len(close) >= 2 or len(close) == 1 and
-                not self.dop.leading_coefficient()(self.value).is_zero()):
+        if (len(close) >= 2 or len(close) == 1
+                               and not _is_exact_sing(self, self.dop)):
             raise NotImplementedError # refine?
         dist = [(self.iv() - s).abs() for s in distant]
         min_dist = IR(rings.infinity).min(*dist)
@@ -483,11 +483,30 @@ class Step(SageObject):
             z1 = QQbar(self.end.value)
             return as_embedded_number_field_element(z1 - z0)
 
+    def direction(self):
+        delta = self.end.iv() - self.start.iv()
+        return delta/abs(delta)
+
     def length(self):
         return IC(self.delta()).abs()
 
     def cvg_ratio(self):
         return self.length()/self.start.dist_to_sing()
+
+    def singularities(self):
+        dop = self.start.dop
+        # TODO: solve over CBF directly?
+        sing = [IC(s) for s in dop_singularities(dop, CIF)]
+        z0, z1 = IC(self.start.value), IC(self.end.value)
+        sing = [s for s in sing if s != z0 and s != z1]
+        res = []
+        for s in sing:
+            ds = s - self.start.iv()
+            t = self.delta()/ds
+            if (ds.contains_zero() or t.imag().contains_zero()
+                    and not safe_lt(t.real(), IR.one())):
+                res.append(sing_as_alg(dop, s))
+        return res
 
     def check_singularity(self):
         r"""
@@ -520,21 +539,14 @@ class Step(SageObject):
             singular point 1*I (to compute the connection to a singular point,
             make it a vertex of the path)
         """
-        dop = self.start.dop
-        # TODO: solve over CBF directly?
-        sing = [IC(s) for s in dop_singularities(dop, CIF)]
-        z0, z1 = IC(self.start.value), IC(self.end.value)
-        sing = [s for s in sing if s != z0 and s != z1]
-        for s in sing:
-            ds = s - self.start.iv()
-            t = self.delta()/ds
-            if (ds.contains_zero() or t.imag().contains_zero()
-                    and not safe_lt(t.real(), IR.one())):
-                raise ValueError(
-                    "Step {} passes through or too close to singular point {} "
-                    "(to compute the connection to a singular point, make it "
-                    "a vertex of the path)"
-                    .format(self, sing_as_alg(dop, s)))
+        sing = self.singularities()
+        if len(sing) > 0:
+            plural = "" if len(sing) == 1 else "s"
+            sings = ", ".join(str(s) for s in sing)
+            raise ValueError(
+                "Step {} passes through or too close to singular point{} {} "
+                "(to compute the connection to a singular point, make it "
+                "a vertex of the path)".format(self, plural, sings))
 
     def check_convergence(self):
         r"""
@@ -688,6 +700,14 @@ class Path(SageObject):
             Traceback (most recent call last):
             ...
             ValueError: ...
+
+        Multiple singular points along a single edge::
+
+            sage: (((x-1)*Dx-1)*((x-2)*Dx-2)).numerical_transition_matrix([0,3])
+            Traceback (most recent call last):
+            ...
+            ValueError: Step 0 --> 3 passes through or too close to singular
+            points 1, 2...
         """
         for step in self:
             step.check_singularity()
@@ -711,6 +731,45 @@ class Path(SageObject):
             step.check_convergence()
 
     # Path rewriting
+
+    def bypass_singularities(self):
+        r"""
+        TESTS::
+
+            sage: from ore_algebra import *
+            sage: Dops, x, Dx = DifferentialOperators()
+            sage: ((x-1)*Dx - 1).numerical_solution([1], [0,2], assume_analytic=True)
+            [-1.0000000000000...] + [+/- ...]*I
+
+            sage: dop = ((x - 1)*Dx - 1)*((x - 2)*Dx - 2)
+            sage: dop.numerical_solution([1, 0], [0, 3], assume_analytic=True)
+            [-3.5000000000000...] + [+/- ...]*I
+
+            sage: QQi.<i> = QuadraticField(-1)
+            sage: dop = ((x - i - 1)*Dx - 1)*((x - 2*i - 2)*Dx - 2)
+            sage: dop.numerical_solution([1, 0], [0, 3*i + 3], assume_analytic=True)
+            [-3.5000000000000...] + [+/- ...]*I
+        """
+        new = []
+        for step in self:
+            new.append(step.start)
+            dir = step.direction()
+            sings = step.singularities()
+            for s in sings:
+                ds = Point(s, self.dop).dist_to_sing()
+                d0 = abs(IC(s) - step.start.iv())
+                d1 = abs(IC(s) - step.end.iv())
+                zs = []
+                if not safe_lt(d0, ds):
+                    zs.append(-1)
+                zs.append(IC.gen(0))
+                if not safe_lt(d1, ds):
+                    zs.append(1)
+                rad = (ds/2).min(d0, d1)
+                new.extend([_rationalize(CIF(s + rad*z*dir)) for z in zs])
+        new.append(self.vert[-1])
+        new = Path(new, self.dop)
+        return new
 
     def subdivide(self, threshold=IR(0.6), factor=IR(0.5)):
         # TODO:
@@ -773,3 +832,11 @@ def _rationalize(civ, real=False):
     else:
         return QQi([my_RIF(civ.real()).simplest_rational(),
                     my_RIF(civ.imag()).simplest_rational()])
+
+def _is_exact_sing(pt, dop):
+    lc = dop.leading_coefficient()
+    try:
+        val = lc(pt.value)
+    except TypeError: # work around coercion weaknesses
+        val = lc.change_ring(QQbar)(QQbar.coerce(pt.value))
+    return val.is_zero()

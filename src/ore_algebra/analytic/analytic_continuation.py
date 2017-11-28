@@ -26,13 +26,15 @@ logger = logging.getLogger(__name__)
 # TODO: clean up and reorganize
 class Context(object):
 
-    def __init__(self, dop, path, eps, keep="last", algorithm=None):
+    def __init__(self, dop, path, eps, keep="last", algorithm=None,
+                 assume_analytic=False):
         if not dop:
             raise ValueError("operator must be nonzero")
         _, _, _, self.dop = dop._normalize_base_ring()
         # XXX: allow the user to specify their own Path
         self.path = self.initial_path = Path(path, self.dop)
-        self.initial_path.check_singularity()
+        if not assume_analytic:
+            self.initial_path.check_singularity()
         if not all(x.is_regular() for x in self.path.vert):
             raise NotImplementedError("analytic continuation through irregular "
                                              "singular points is not supported")
@@ -62,6 +64,8 @@ class Context(object):
 
         self.subdivide = True
         self.optimize_path = self.use_bit_burst = False
+        if assume_analytic:
+            self.path = self.path.bypass_singularities()
         if self.subdivide:
             if self.optimize_path:
                 self.path = self.path.optimize_by_homotopy()
