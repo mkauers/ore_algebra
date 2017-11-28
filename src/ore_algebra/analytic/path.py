@@ -232,7 +232,7 @@ class Point(SageObject):
     def is_ordinary(self):
         lc = self.dop.leading_coefficient()
         if self.is_exact():
-            return bool(lc(self.value))
+            return not _is_exact_sing(self, self.dop)
         elif not lc(self.iv()).contains_zero():
             return True
         else:
@@ -715,7 +715,6 @@ class Path(SageObject):
     def subdivide(self, threshold=IR(0.6), factor=IR(0.5)):
         # TODO:
         # - support paths passing very close to singular points
-        from sage.rings.real_mpfi import RealIntervalField
         new = [self.vert[0]]
         i = 1
         while i < len(self.vert):
@@ -734,12 +733,7 @@ class Path(SageObject):
                 is_real = interm.imag().is_zero()
                 interm = interm.add_error(rad/8)
                 Step(cur, Point(interm, self.dop)).check_singularity() # TBI
-                my_RIF = RealIntervalField(interm.real().parent().precision())
-                if is_real:
-                    interm = my_RIF(interm.real()).simplest_rational()
-                else:
-                    interm = QQi([my_RIF(interm.real()).simplest_rational(),
-                                  my_RIF(interm.imag()).simplest_rational()])
+                interm = _rationalize(interm, is_real)
                 new.append(Point(interm, self.dop))
                 logger.debug("subdividing %s -> %s", cur, next)
         new = Path(new, self.dop)
@@ -756,3 +750,26 @@ class Path(SageObject):
 
 def local_monodromy_path(sing):
     raise NotImplementedError
+
+def polygon_around(point, size=17):
+    # not ideal in the case of a single singularity...
+    rad = (point.dist_to_sing()/2).min(1)
+    polygon = []
+    for k in range(size):
+        x = point.iv() + rad*(CBF(2*k)/size).exppii()
+        # XXX balls are not supported (or don't work well) as
+        # starting/intermediate points
+        if not Point(x, point.dop).is_ordinary():
+            raise PathPrecisionError
+        x = _rationalize(IC(x))
+        polygon.append(Point(x, point.dop))
+    return polygon
+
+def _rationalize(civ, real=False):
+    from sage.rings.real_mpfi import RealIntervalField
+    my_RIF = RealIntervalField(civ.real().parent().precision())
+    if real or civ.imag().is_zero():
+        return my_RIF(civ.real()).simplest_rational()
+    else:
+        return QQi([my_RIF(civ.real()).simplest_rational(),
+                    my_RIF(civ.imag()).simplest_rational()])

@@ -56,23 +56,8 @@ def _identity_matrix(point, eps):
     Scalars = ComplexBallField(utilities.prec_from_eps(eps))
     return matrix.identity_matrix(Scalars, point.dop.order())
 
-def _polygon_around(point, size=17):
-    # not ideal in the case of a single singularity...
-    rad = (point.dist_to_sing()/2).min(1)
-    polygon = []
-    for k in range(size):
-        x = point.iv() + rad*(CBF(2*k)/size).exppii()
-        # XXX balls are not supported (or don't work well) as
-        # starting/intermediate points
-        if not path.Point(x, point.dop).is_ordinary():
-            raise path.PathPrecisionError
-        x = x.squash()
-        x = QQ(x.real()) + QQi.gen()*QQ(x.imag())
-        polygon.append(path.Point(x, point.dop))
-    return polygon
-
 def _local_monodromy_loop(x, eps):
-    polygon = _polygon_around(x)
+    polygon = path.polygon_around(x)
     n = len(polygon)
     mats = []
     for i in range(n):
@@ -91,7 +76,7 @@ def _indicial_polynomial(x): # XXX code duplication
 
 def _local_monodromy_formal(x, eps):
     assert x.is_regular()
-    base = _polygon_around(x, size=1)[0] # TBI?
+    base = path.polygon_around(x, size=1)[0] # TBI?
     rows = x.dop.order()
     step_in = path.Step(base, x)
     mat_in = ancont.inverse_singular_step_transition_matrix(step_in, eps, rows)
@@ -158,7 +143,7 @@ def monodromy_matrices(dop, base, eps=1e-16, algorithm="connect"):
         sage: monodromy_matrices(Dx*x*Dx, 1/2)
         [
         [   1.0000... [+/- ...] + [3.1415926535897...]*I]
-        [           0 [1.0000000000000...] + [+/- ...]*I]
+        [           0               [1.0000000000000...]]
         ]
     """
 
