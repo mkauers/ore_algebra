@@ -105,10 +105,11 @@ def ordinary_step_transition_matrix(step, eps, rows, ctx=None):
         return naive_sum.fundamental_matrix_ordinary(
                 ldop, step.delta(), eps, rows, maj, max_prec=(1<<30))
 
-def singular_step_transition_matrix(step, eps, rows, ctx=None):
+def singular_step_transition_matrix(step, eps, rows, ctx=None, determination=0):
     from .naive_sum import fundamental_matrix_regular
     ldop = step.start.local_diffop()
-    mat = fundamental_matrix_regular(ldop, step.delta(), eps, rows)
+    mat = fundamental_matrix_regular(ldop, step.delta(), eps, rows,
+                                     determination)
     return mat
 
 def inverse_singular_step_transition_matrix(step, eps, rows, ctx=None):
