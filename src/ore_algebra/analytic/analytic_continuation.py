@@ -36,10 +36,13 @@ class Context(object):
         if not all(x.is_regular() for x in self.path.vert):
             raise NotImplementedError("analytic continuation through irregular "
                                              "singular points is not supported")
+        # FIXME: prevents the reuse of points...
         if keep == "all":
             for v in self.path.vert:
                 v.keep_value = True
         elif keep == "last":
+            for v in self.path.vert:
+                v.keep_value = False
             self.path.vert[-1].keep_value = True
         else:
             raise ValueError("keep", keep)

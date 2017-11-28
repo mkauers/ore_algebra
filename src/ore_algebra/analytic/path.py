@@ -29,6 +29,9 @@ logger = logging.getLogger(__name__)
 IR, IC = RBF, CBF # TBI
 QQi = number_field.QuadraticField(-1, 'i')
 
+class PathPrecisionError(Exception):
+    pass
+
 ######################################################################
 # Points
 ######################################################################
@@ -214,6 +217,14 @@ class Point(SageObject):
         # XXX: also include exact balls?
         return isinstance(self.value,
                 (rings.Integer, rings.Rational, rings.NumberFieldElement))
+
+    # Point equality is identity
+
+    def __eq__(self, other):
+        return self is other
+
+    def __hash__(self):
+        return id(self)
 
     ### Methods that depend on dop
 
