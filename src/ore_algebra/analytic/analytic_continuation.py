@@ -80,14 +80,14 @@ class Context(object):
         return (rings.RIF.has_coerce_map_from(self.dop.base_ring().base_ring())
                 and all(v.is_real() for v in self.path.vert))
 
-def ordinary_step_transition_matrix(ctx, step, eps, rows):
+def ordinary_step_transition_matrix(step, eps, rows, ctx=None):
     from . import naive_sum, binary_splitting
     ldop = step.start.local_diffop()
     deg = ldop.degree()
     # cache in ctx?
     maj = bounds.DiffOpBound(ldop, pol_part_len=4, bound_inverse="solve")
     assert len(maj.special_shifts) == 1 and maj.special_shifts[0] == 1
-    if ctx.fundamental_matrix_ordinary is not None:
+    if ctx is not None and ctx.fundamental_matrix_ordinary is not None:
         return ctx.fundamental_matrix_ordinary(
                 ldop, step.delta(), eps, rows, maj)
     elif step.is_exact():
@@ -105,27 +105,28 @@ def ordinary_step_transition_matrix(ctx, step, eps, rows):
         return naive_sum.fundamental_matrix_ordinary(
                 ldop, step.delta(), eps, rows, maj, max_prec=(1<<30))
 
-def singular_step_transition_matrix(ctx, step, eps, rows):
+def singular_step_transition_matrix(step, eps, rows, ctx=None):
     from .naive_sum import fundamental_matrix_regular
     ldop = step.start.local_diffop()
     mat = fundamental_matrix_regular(ldop, step.delta(), eps, rows)
     return mat
 
-def inverse_singular_step_transition_matrix(ctx, step, eps, rows):
+def inverse_singular_step_transition_matrix(step, eps, rows, ctx=None):
     rev_step = Step(step.end, step.start)
-    mat = singular_step_transition_matrix(ctx, rev_step, eps/2, rows)
+    mat = singular_step_transition_matrix(rev_step, eps/2, rows)
     return ~mat
 
-def step_transition_matrix(ctx, step, eps, rows=None):
+def step_transition_matrix(step, eps, rows=None, ctx=None):
+    order = step.start.dop.order()
     if rows is None:
-        rows = ctx.dop.order()
+        rows = order
     z0, z1 = step
-    if ctx.dop.order() == 0:
+    if order == 0:
         logger.info("%s: trivial case", step)
         return matrix(ZZ) # 0 by 0
     elif z0.value == z1.value:
         logger.info("%s: trivial case", step)
-        return identity_matrix(ZZ, ctx.dop.order())[:rows]
+        return identity_matrix(ZZ, order)[:rows]
     elif z0.is_ordinary() and z1.is_ordinary():
         logger.info("%s: ordinary case", step)
         logger.debug("fraction of cvrad: %s/%s", step.length(), z0.dist_to_sing())
@@ -140,7 +141,7 @@ def step_transition_matrix(ctx, step, eps, rows=None):
         fun = inverse_singular_step_transition_matrix
     else:
         raise TypeError(type(z0), type(z1))
-    return fun(ctx, step, eps, rows)
+    return fun(step, eps, rows, ctx=ctx)
 
 def analytic_continuation(ctx, ini=None, post=None):
     """
@@ -182,7 +183,7 @@ def analytic_continuation(ctx, ini=None, post=None):
             res.append((point.value, value))
     store_value_if_wanted(ctx.path.vert[0])
     for step in ctx.path:
-        step_mat = step_transition_matrix(ctx, step, eps1)
+        step_mat = step_transition_matrix(step, eps1, ctx=ctx)
         path_mat = step_mat*path_mat
         store_value_if_wanted(step.end)
     cm = sage.structure.element.get_coercion_model()
