@@ -93,13 +93,15 @@ class BackwardRec(object):
     def scalars_embedding(self, tgt):
         if isinstance(self.Scalars, NumberField_generic):
             # do complicated coercions via QQbar and CLF only once...
-            return NumberFieldEmbedding(self.Scalars, tgt,
-                                        tgt(self.Scalars.gen()))
+            Pol = PolynomialRing(tgt, 'x')
+            x = tgt(self.Scalars.gen())
+            return lambda elt: Pol([tgt(c) for c in elt._coefficients()])(x)
         else:
             return tgt
 
     def eval_series(self, tgt, point, ord):
         mor = self.scalars_embedding(tgt)
+        point = self.Scalars(point)
         return [[mor(self._coeff_series(i,j)(point)) for j in xrange(ord)]
                 for i in xrange(len(self.coeff))]
 

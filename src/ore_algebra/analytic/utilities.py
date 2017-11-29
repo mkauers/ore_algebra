@@ -102,7 +102,7 @@ def as_embedded_number_field_element(alg):
         embnf = NumberField(nf.polynomial(), nf.variable_name(),
                     embedding=emb(nf.gen()))
         res = elt.polynomial()(embnf.gen())
-    assert QQbar.coerce(res) == alg
+    # assert QQbar.coerce(res) == alg
     return res
 
 def short_str(obj, n=60):
