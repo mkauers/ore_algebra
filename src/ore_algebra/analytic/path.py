@@ -48,7 +48,7 @@ class Point(SageObject):
     lie on the complex plane, not on the Riemann surface of the operator.
     """
 
-    def __init__(self, point, dop=None):
+    def __init__(self, point, dop=None, **kwds):
         """
         TESTS::
 
@@ -127,8 +127,7 @@ class Point(SageObject):
                 or parent is RLF or parent is CLF)
 
         self.dop = dop or point.dop
-
-        self.keep_value = False
+        self.options = kwds
 
     def _repr_(self):
         """
@@ -453,13 +452,14 @@ class Step(SageObject):
         [-3.17249673357...] + [-4.486587907205...]*I
     """
 
-    def __init__(self, start, end):
+    def __init__(self, start, end, branch=(0,)):
         if not (isinstance(start, Point) and isinstance(end, Point)):
             raise TypeError
         if start.dop != end.dop:
             raise ValueError
         self.start = start
         self.end = end
+        self.branch = branch
 
     def _repr_(self):
         return repr(self.start) + " --> " + repr(self.end)
@@ -639,7 +639,8 @@ class Path(SageObject):
         if len(self.vert) < 2:
             raise IndexError
         else:
-            return Step(self.vert[i], self.vert[i+1])
+            branch = self.vert[i].options.get("outgoing_branch", (0,))
+            return Step(self.vert[i], self.vert[i+1], branch)
 
     def __len__(self):
         return len(self.vert) - 1

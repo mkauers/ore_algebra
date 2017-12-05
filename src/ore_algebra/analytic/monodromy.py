@@ -80,9 +80,8 @@ def _local_monodromy_formal(x, eps):
     rows = x.dop.order()
     step_in = path.Step(base, x)
     mat_in = ancont.inverse_singular_step_transition_matrix(step_in, eps, rows)
-    step_out = path.Step(x, base)
-    mat_out = ancont.singular_step_transition_matrix(step_out, eps, rows,
-                                                     determination=1)
+    step_out = path.Step(x, base, branch=(1,))
+    mat_out = ancont.singular_step_transition_matrix(step_out, eps, rows)
     return [base, x], [mat_in, mat_out]
 
 def _local_monodromy(x, eps, algorithm):

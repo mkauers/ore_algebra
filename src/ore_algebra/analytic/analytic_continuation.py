@@ -41,11 +41,11 @@ class Context(object):
         # FIXME: prevents the reuse of points...
         if keep == "all":
             for v in self.path.vert:
-                v.keep_value = True
+                v.options['keep_value'] = True
         elif keep == "last":
             for v in self.path.vert:
-                v.keep_value = False
-            self.path.vert[-1].keep_value = True
+                v.options['keep_value'] = False
+            self.path.vert[-1].options['keep_value'] = True
         else:
             raise ValueError("keep", keep)
 
@@ -112,11 +112,10 @@ def ordinary_step_transition_matrix(step, eps, rows, ctx=None):
         return naive_sum.fundamental_matrix_ordinary(
                 ldop, step.delta(), eps, rows, maj, max_prec=(1<<30))
 
-def singular_step_transition_matrix(step, eps, rows, ctx=None, determination=0):
+def singular_step_transition_matrix(step, eps, rows, ctx=None):
     from .naive_sum import fundamental_matrix_regular
     ldop = step.start.local_diffop()
-    mat = fundamental_matrix_regular(ldop, step.delta(), eps, rows,
-                                     determination)
+    mat = fundamental_matrix_regular(ldop, step.delta(), eps, rows, step.branch)
     return mat
 
 def inverse_singular_step_transition_matrix(step, eps, rows, ctx=None):
@@ -184,7 +183,7 @@ def analytic_continuation(ctx, ini=None, post=None):
     res = []
     path_mat = identity_matrix(ZZ, ctx.dop.order())
     def store_value_if_wanted(point):
-        if point.keep_value:
+        if point.options.get('keep_value'):
             value = path_mat
             if ini is not None:  value = value*ini
             if post is not None: value = post(point.value)*value

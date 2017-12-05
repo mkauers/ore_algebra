@@ -44,12 +44,12 @@ class EvaluationPoint(object):
     """
 
     # XXX: choose a single place to set the default value for jet_order
-    def __init__(self, pt, rad=None, jet_order=1, sheet=0):
+    def __init__(self, pt, rad=None, jet_order=1, branch=(0,)):
         self.pt = pt
         self.rad = (bounds.IR.coerce(rad) if rad is not None
                     else bounds.IC(pt).above_abs())
         self.jet_order = jet_order
-        self.sheet=sheet
+        self.branch=branch
 
         self.is_numeric = utilities.is_numeric_parent(pt.parent())
 
@@ -382,7 +382,7 @@ def fundamental_matrix_ordinary(dop, pt, eps, rows, maj, max_prec):
 # multiplicity, needs partial sums from one root to the next or something
 # similar in the general case).
 
-def fundamental_matrix_regular(dop, pt, eps, rows, determination):
+def fundamental_matrix_regular(dop, pt, eps, rows, branch):
     r"""
     TESTS::
 
@@ -390,12 +390,12 @@ def fundamental_matrix_regular(dop, pt, eps, rows, determination):
         sage: from ore_algebra.analytic.naive_sum import *
         sage: Dops, x, Dx = DifferentialOperators()
 
-        sage: fundamental_matrix_regular(x*Dx^2 + (1-x)*Dx, 1, RBF(1e-10), 2, 0)
+        sage: fundamental_matrix_regular(x*Dx^2 + (1-x)*Dx, 1, RBF(1e-10), 2, (0,))
         [[1.317902...] 1.000000...]
         [[2.718281...]           0]
 
         sage: dop = (x+1)*(x^2+1)*Dx^3-(x-1)*(x^2-3)*Dx^2-2*(x^2+2*x-1)*Dx
-        sage: fundamental_matrix_regular(dop, 1/3, RBF(1e-10), 3, 0)
+        sage: fundamental_matrix_regular(dop, 1/3, RBF(1e-10), 3, (0,))
         [1.0000000...  [0.321750554...]  [0.147723741...]]
         [           0  [0.900000000...]  [0.991224850...]]
         [           0  [-0.27000000...]  [1.935612425...]]
@@ -405,7 +405,7 @@ def fundamental_matrix_regular(dop, pt, eps, rows, determination):
         ....:     + (-2*x^6 + 5*x^5 - 11*x^3 - 6*x^2 + 6*x)*Dx^3
         ....:     + (2*x^6 - 3*x^5 - 6*x^4 + 7*x^3 + 8*x^2 - 6*x + 6)*Dx^2
         ....:     + (-2*x^6 + 3*x^5 + 5*x^4 - 2*x^3 - 9*x^2 + 9*x)*Dx)
-        sage: fundamental_matrix_regular(dop, RBF(1/3), RBF(1e-10), 4, 0)
+        sage: fundamental_matrix_regular(dop, RBF(1/3), RBF(1e-10), 4, (0,))
         [ [3.1788470...] [-1.064032...]  [1.000...] [0.3287250...]]
         [ [-8.981931...] [3.2281834...]    [+/-...] [0.9586537...]]
         [  [26.18828...] [-4.063756...]    [+/-...] [-0.123080...]]
@@ -416,7 +416,7 @@ def fundamental_matrix_regular(dop, pt, eps, rows, determination):
         sage: dop.numerical_solution(ini, [0, RBF(1/3)], 1e-14)
         [-0.549046117782...]
     """
-    evpt = EvaluationPoint(pt, jet_order=rows, sheet=determination)
+    evpt = EvaluationPoint(pt, jet_order=rows, branch=branch)
     eps_col = bounds.IR(eps)/bounds.IR(dop.order()).sqrt()
     col_tgt_error = accuracy.AbsoluteError(eps_col)
     class Mapper(LocalBasisMapper):
@@ -439,30 +439,39 @@ def _pow_trunc(a, n, ord):
         n = n >> 1
     return pow
 
-def log_series_value(Jets, derivatives, expo, psum, pt, determination=0):
+def log_series_value(Jets, derivatives, expo, psum, pt, branch=(0,)):
+    r"""
+    * ``branch`` - branch of the logarithm to use; (0) means the standard
+      branch, (k) means log(z) + 2kπi, a tuple of length > 1 averages over the
+      corresponding branches
+    """
     log_prec = psum.length()
-    if log_prec > 1 or expo not in ZZ or determination != 0:
+    if log_prec > 1 or expo not in ZZ or branch != (0,):
         pt = pt.parent().complex_field()(pt)
         Jets = Jets.change_ring(Jets.base_ring().complex_field())
         psum = psum.change_ring(Jets)
-    twokpii = pt.parent()(determination*2*pi*I)
     # hardcoded series expansions of log(pt) = log(a+η) and pt^λ = (a+η)^λ (too
     # cumbersome to compute directly in Sage at the moment)
     high = Jets([0] + [(-1)**(k+1)*~pt**k/k
                        for k in xrange(1, derivatives)])
-    logpt = Jets([pt.log() + twokpii]) + high
-    logger.debug("logpt=%s", logpt)
     aux = high*expo
     logger.debug("aux=%s", aux)
-    inipow = ((twokpii*expo).exp()*pt**expo
-             *sum(_pow_trunc(aux, k, derivatives)/Integer(k).factorial()
-                  for k in xrange(derivatives)))
-    logger.debug("inipow=%s", inipow)
-    val = inipow.multiplication_trunc(
-            sum(psum[p]._mul_trunc_(_pow_trunc(logpt, p, derivatives), derivatives)
+    val = Jets.base_ring().zero()
+    for b in branch:
+        twobpii = pt.parent()(2*b*pi*I)
+        logpt = Jets([pt.log() + twobpii]) + high
+        logger.debug("logpt[%s]=%s", b, logpt)
+        inipow = ((twobpii*expo).exp()*pt**expo
+                *sum(_pow_trunc(aux, k, derivatives)/Integer(k).factorial()
+                    for k in xrange(derivatives)))
+        logger.debug("inipow[%s]=%s", b, inipow)
+        val += inipow.multiplication_trunc(
+                sum(psum[p]._mul_trunc_(_pow_trunc(logpt, p, derivatives),
+                                        derivatives)
                         /Integer(p).factorial()
-                for p in xrange(log_prec)),
-            derivatives)
+                    for p in xrange(log_prec)),
+                derivatives)
+    val /= len(branch)
     return val
 
 # This function only handles the case of a “single” series, i.e. a series where
@@ -585,7 +594,7 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, tgt_error,
         # XXX decouple this from the summation => less redundant computation of
         # local monodromy matrices
         val[0] = log_series_value(Jets, ord, ini.expo, my_psum, jet[0],
-                                  determination=pt.sheet)
+                                  branch=pt.branch)
         return max([RBF.zero()] + [_get_error(c) for c in val[0]])
     stopping_criterion = accuracy.StoppingCriterion(
             maj=maj, eps=tgt_error.eps,
