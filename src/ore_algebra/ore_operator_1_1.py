@@ -2086,7 +2086,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             [1 + x + 1/2*x^2 + 1/6*x^3]
 
             sage: from ore_algebra.analytic.examples import ssw
-            sage: ssw.dop[1,0,0,'xy'].local_basis_expansions(0)
+            sage: ssw.dop[1,0,0].local_basis_expansions(0)
             [t^(-4) + 24*log(t)/t^2 - 48*log(t) - 96*t^2*log(t) - 88*t^2,
             t^(-2),
             1 + 2*t^2]
@@ -2111,7 +2111,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             Number Field in a with defining polynomial y^2 - 2
             sage: RR(basis[0].base_ring().gen())
             -1.41421356237309
-            sage: basis[0][1]
+            sage: basis[0][-1]
             (239/12*a - 169/6, (x - 0.02943725152285942?)^2)
 
             sage: dop.local_basis_expansions(roots[1][0], order=3, ring=QQbar)
@@ -2141,7 +2141,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             sage: dop = ((81*x^4 + 14*x^3 + x^2)*Dx^3
             ....:       + (486*x^3 + 63*x^2 + 3*x)*Dx^2
             ....:       + (567*x^2 + 48*x + 1)*Dx + 81*x + 3)
-            sage: dop.local_basis_expansions(QQbar((4*sqrt(2)*I-7)/81))
+            sage: dop.local_basis_expansions(QQbar((4*sqrt(2)*I-7)/81), 2)
             [1,
             sqrt(x + 0.0864...? - 0.0698...?*I)
             + (365/96*a^3+365/96*a+13/3)*(x + 0.0864...? - 0.0698...?*I)^(3/2),
