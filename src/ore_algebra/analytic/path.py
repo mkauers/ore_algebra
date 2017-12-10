@@ -126,7 +126,7 @@ class Point(SageObject):
                                     RealBallField, ComplexBallField))
                 or parent is RLF or parent is CLF)
 
-        self.dop = dop or point.dop
+        self.dop = dop.numerator() or point.dop
         self.options = kwds
 
     def _repr_(self):

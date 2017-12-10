@@ -2034,6 +2034,11 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             sage: ((x^2 - 2)^3*Dx^4+Dx-x).local_basis_monomials(sqrt(2))
             [1, (x - sqrt(2))^0.978..., (x - sqrt(2))^2.044...,
             (x - sqrt(2))^2.977...]
+
+            sage: dop = (Dx^3 + ((24*x^2 - 4*x - 12)/(8*x^3 - 8*x))*Dx^2 +
+            ....:   ((32*x^2 + 32*x - 16)/(32*x^4 + 32*x^3 - 32*x^2 - 32*x))*Dx)
+            sage: dop.local_basis_monomials(0)
+            [1, sqrt(x), x]
         """
         from .analytic.path import Point
         struct = Point(point, self).local_basis_structure()
@@ -2044,13 +2049,11 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
                 for sol in struct]
 
     # TODO: Add a version that returns DFiniteFunction objects
-    def local_basis_expansions(dop, point, order=None, ring=None):
+    def local_basis_expansions(self, point, order=None, ring=None):
         r"""
         Generalized series expansions of the local basis.
 
         INPUT:
-
-        * dop - Differential operator
 
         * point - Point where the local basis is to be computed
 
@@ -2128,6 +2131,11 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             sage: ((27*x^2+4*x)*Dx^2 + (54*x+6)*Dx + 6).local_basis_expansions(0, 2)
             [1/sqrt(x) + 3/8*sqrt(x), 1 - x]
 
+            sage: dop = (Dx^3 + ((24*x^2 - 4*x - 12)/(8*x^3 - 8*x))*Dx^2 +
+            ....:   ((32*x^2 + 32*x - 16)/(32*x^4 + 32*x^3 - 32*x^2 - 32*x))*Dx)
+            sage: dop.local_basis_expansions(0, 3)
+            [1, sqrt(x) - 1/6*x^(3/2) + 3/40*x^(5/2), x - 1/6*x^2]
+
         Thanks to Armin Straub for this example::
 
             sage: dop = ((81*x^4 + 14*x^3 + x^2)*Dx^3
@@ -2141,16 +2149,16 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         """
         from .analytic.local_solutions import log_series, LocalBasisMapper
         from .analytic.path import Point
-        mypoint = Point(point, dop)
+        mypoint = Point(point, self)
         ldop = mypoint.local_diffop()
         if order is None:
             ind = ldop.indicial_polynomial(ldop.base_ring().gen())
-            order = max(dop.order(), ind.dispersion()) + 3
+            order = max(self.order(), ind.dispersion()) + 3
         class Mapper(LocalBasisMapper):
             def fun(self, ini):
                 return log_series(ini, self.emb_bwrec, order)
         sols = Mapper().run(ldop)
-        x = SR.var(dop.base_ring().variable_name())
+        x = SR.var(self.base_ring().variable_name())
         dx = x if point.is_zero() else x.add(-point, hold=True)
         # Working with symbolic expressions here is too complicated: let's try
         # returning FormalSums.
@@ -2160,7 +2168,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         if ring is None:
             cm = get_coercion_model()
             ring = cm.common_parent(
-                    dop.base_ring().base_ring(),
+                    self.base_ring().base_ring(),
                     mypoint.value.parent(),
                     *(sol.leftmost for sol in sols))
         res = [FormalSum(
