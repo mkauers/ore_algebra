@@ -450,8 +450,6 @@ def log_series_value(Jets, derivatives, expo, psum, pt, branch=(0,)):
         pt = pt.parent().complex_field()(pt)
         Jets = Jets.change_ring(Jets.base_ring().complex_field())
         psum = psum.change_ring(Jets)
-    # hardcoded series expansions of log(pt) = log(a+η) and pt^λ = (a+η)^λ (too
-    # cumbersome to compute directly in Sage at the moment)
     high = Jets([0] + [(-1)**(k+1)*~pt**k/k
                        for k in xrange(1, derivatives)])
     aux = high*expo
@@ -459,6 +457,8 @@ def log_series_value(Jets, derivatives, expo, psum, pt, branch=(0,)):
     val = Jets.base_ring().zero()
     for b in branch:
         twobpii = pt.parent()(2*b*pi*I)
+        # hardcoded series expansions of log(a+η) and (a+η)^λ
+        # (too cumbersome to compute directly in Sage at the moment)
         logpt = Jets([pt.log() + twobpii]) + high
         logger.debug("logpt[%s]=%s", b, logpt)
         inipow = ((twobpii*expo).exp()*pt**expo
