@@ -47,6 +47,7 @@ from sage.sets.primes import Primes
 
 from . import nullspace
 from .nullspace import _hermite
+from .ore_algebra import OreAlgebra
 
 def guess_rec(data, n, S, **kwargs):
     """
@@ -153,7 +154,7 @@ def guess(data, algebra, **kwargs):
             data = [ K(line) for line in f ]
 
     if A.ngens() > 1 or R.ngens() > 1:
-        raise TypeError, "unexpected algebra: " + str(A)
+        return guess_mult(data, algebra, **kwargs)
     
     elif R.is_field():
         return guess(data, A.change_ring(R.ring()), **kwargs)
