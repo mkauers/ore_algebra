@@ -137,6 +137,27 @@ constant::
     sage: mat[1][2].overlaps(CBF(cst))
     True
 
+Credits
+=======
+
+The author would like to thank the following people for comments, examples, bug
+reports, or feedback:
+
+    - Jakob Ablinger
+    - Frédéric Chyzak
+    - Manuel Kauers
+    - Christoph Koutschan
+    - Christoph Lauter
+    - Pierre Lairez
+    - Steve Melczer
+    - Clemens Raab
+    - Bruno Salvy
+    - Emre Sertoz
+    - Armin Straub
+
+Tests
+=====
+
 TESTS:
 
     sage: import ore_algebra.analytic.polynomial_approximation as pa
