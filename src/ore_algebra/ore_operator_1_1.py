@@ -2933,6 +2933,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
             return A(c).annihilator_of_composition(-u*x)
 
         # now a = u*x where u > 1 is an integer. 
+        u = u.numerator()
         from sage.matrix.constructor import Matrix
         A = A.change_ring(A.base_ring().fraction_field())
         if solver == None:
