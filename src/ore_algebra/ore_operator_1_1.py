@@ -2188,7 +2188,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             sage: (Dx - 1).numerical_solution([42], [1])
             42.000000000000000
             sage: Dx.numerical_solution([1], [0, 1], 1e-10).parent()
-            Real ball field with 3... bits precision
+            Real ball field with 3... precision
 
             sage: import logging; logging.basicConfig()
             sage: logger = logging.getLogger('ore_algebra.analytic.binary_splitting')

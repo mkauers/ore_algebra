@@ -1012,7 +1012,7 @@ def DifferentialOperators(base=QQ, var='x'):
 
         sage: DifferentialOperators(GF(2), 't')
         (Univariate Ore algebra in Dt over Univariate Polynomial Ring in t over
-        Finite Field of size 2 (using NTL),
+        Finite Field of size 2 (...),
         t, Dt)
     """
     var = str(var)

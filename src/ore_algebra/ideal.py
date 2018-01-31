@@ -778,13 +778,13 @@ class OreLeftIdeal(Ideal_nc):
            sage: # binomial theorem
            sage: R.<n,k> = ZZ[]
            sage: A.<Sn,Sk> = OreAlgebra(R)
-           sage: A.ideal([(k+1)*Sk+(k-n),(1-k+n)*Sn+(-1-n)]).ct(Sk-1)
+           sage: A.ideal([(k+1)*Sk+(k-n),(1-k+n)*Sn+(-1-n)]).ct(Sk-1) # random
            ([Sn - 2], [k/(k - n - 1)])
 
            sage: # gfun of legendre polynomials 
            sage: R.<t,n,x> = ZZ[]
            sage: A.<Dt,Dx,Sn> = OreAlgebra(R)
-           sage: A.ideal([(-t+t*x^2)*Dx + (-1-n)*Sn+(t*x+n*t*x),(2+n)*Sn^2+(-3*t*x-2*n*t*x)*Sn+(t^2+n*t^2), t*Dt-n]).ct(Sn-1)
+           sage: A.ideal([(-t+t*x^2)*Dx + (-1-n)*Sn+(t*x+n*t*x),(2+n)*Sn^2+(-3*t*x-2*n*t*x)*Sn+(t^2+n*t^2), t*Dt-n]).ct(Sn-1) # random
            ([(-t^2 + 2*t*x - 1)*Dx + t, (-t^2 + 2*t*x - 1)*Dt - t + x],
             [(((-t*x + 1)/(t*x^2 - t))*n + (-t*x + 1)/(t*x^2 - t))*Sn + ((2*t*x^2 - t - x)/(x^2 - 1))*n + (t*x^2 - x)/(x^2 - 1),
              (1/t*n + 1/t)*Sn + ((-2*t*x + 1)/t)*n - x])
