@@ -95,7 +95,9 @@ def taylor_shift_univ_modp_ratfun(q, i):
     den = taylor_shift_univ_modp_poly(q.denominator(), i)
     return q.parent()(num, den, coerce=False, reduce=False)
 
+from sage.misc.cachefunc import cached_method
 from sage.structure.element import RingElement
+from sage.structure.unique_representation import UniqueRepresentation
 from sage.rings.ring import Algebra
 from sage.rings.ring import Ring 
 from sage.rings.polynomial.polynomial_ring import is_PolynomialRing
@@ -268,13 +270,10 @@ class Sigma_class(object):
         """
         return self.__dict.copy()
 
+    @cached_method
     def __hash__(self):
-        try:
-            return self.__hash_value
-        except:
-            pass
         gens = self.__R.gens()
-        self.__hash_value = h = hash((self.__R, (self(x) for x in gens)))
+        h = hash((self.__R, tuple(self(x) for x in gens)))
         return h
 
     def __eq__(self, other):
@@ -538,14 +537,13 @@ class Delta_class(object):
     def __repr__(self):
         return "Skew-derivation defined through " + str(self.dict()) + " for " + str(self.__sigma)
 
+    @cached_method
     def __hash__(self):
-        try:
-            return self.__hash_value
-        except:
-            pass
         sigma = self.__sigma; gens = self.__R.gens()
-        self.__hash_value = h = hash((self.__R, (self(x) for x in gens), (sigma(x) for x in gens)))
-        return h 
+        h = hash((self.__R,
+            tuple(self(x) for x in gens),
+            tuple(sigma(x) for x in gens)))
+        return h
 
     def __eq__(self, other):
 
@@ -972,31 +970,20 @@ def OreAlgebra(base_ring, *generators, **kwargs):
     else:
         operator_class = ore_operator.UnivariateOreOperator
 
-    # Select the linear system solver for matrices over the base ring
-    if kwargs.has_key("solver"):
-        solvers = kwargs["solver"]
-        if type(solvers) != dict:
-            solvers = {R : solvers}
-    else:
-        solvers = {}
-
     # complain if we got any bogus keyword arguments
     for kw in kwargs:
         if kw not in ("solver", "element_class", "names", "q"):
             raise TypeError, "OreAlgebra constructor got an unexpected keyword argument " + str(kw)
 
-    # Check whether this algebra already exists.
-    global _list_of_ore_algebras
-    alg = OreAlgebra_generic(base_ring, operator_class, gens, solvers, product_rules)
-    for a in _list_of_ore_algebras:
-        if a == alg:
-            if kwargs.has_key("solver"):
-                a._set_solvers(solvers)
-            a._set_product_rules(product_rules)
-            return a
+    alg = OreAlgebra_generic(base_ring, operator_class, tuple(gens), tuple(product_rules))
 
-    # It's new. register it and return it. 
-    _list_of_ore_algebras.append(alg)    
+    # Select the linear system solver for matrices over the base ring
+    if kwargs.has_key("solver"):
+        solvers = kwargs["solver"]
+        if not isinstance(solvers, dict):
+            solvers = {R : solvers}
+        alg._set_solvers(solvers)
+
     return alg
 
 def DifferentialOperators(base=QQ, var='x'):
@@ -1033,50 +1020,19 @@ def DifferentialOperators(base=QQ, var='x'):
     Dop, Dx = OreAlgebra(Pol, 'D' + var).objgen()
     return Dop, x, Dx
 
-_list_of_ore_algebras = []
-
-class OreAlgebra_generic(Algebra):
+class OreAlgebra_generic(UniqueRepresentation, Algebra):
     """
     """
 
-    def __init__(self, base_ring, operator_class, gens, solvers, product_rules):
-        self._base_ring = base_ring
-        self._operator_class = operator_class
+    def __init__(self, base_ring, operator_class, gens, product_rules):
+        self._no_generic_basering_coercion = True
+        super(self.__class__, self).__init__(base_ring)
         self._gens = gens
-        self.__solvers = solvers
+        self._operator_class = operator_class
+        self.__solvers = {}
         self.__product_rules = product_rules
 
     # information extraction
-
-    def __eq__(self, other):
-        # type and base ring and number of generators and element constructur must agree
-        if not is_OreAlgebra(other):
-            return False
-        if not self.base_ring() == other.base_ring():
-            return False
-        if not self.ngens() == other.ngens():
-            return False
-        if not self._operator_class == other._operator_class:
-            return False
-        Rgens = self.base_ring().gens()
-        for i in xrange(self.ngens()):
-            # variable names and sigmas and deltas must agree
-            if not (self.var(i) == other.var(i) and self.sigma(i) == other.sigma(i) and self.delta(i) == other.delta(i)):
-                return False
-            # if there are product rules, they must agree
-            pr1 = self._product_rule(i); pr2 = self._product_rule(i)
-            if pr1 is not None and pr2 is not None:
-                for i in xrange(3):
-                    if pr1[i] != pr2[i]:
-                        return False
-        # solvers do not matter
-        return True
-
-    def base_ring(self):
-        """
-        Returns this algebra's base ring
-        """
-        return self._base_ring
 
     def is_integral_domain(self, proof = True):
         """
@@ -1142,14 +1098,6 @@ class OreAlgebra_generic(Algebra):
 
     def _is_valid_homomorphism_(self, codomain, im_gens):
         raise NotImplementedError
-
-    def __hash__(self):
-        try:
-            return self._cached_hash
-        except AttributeError:
-            pass
-        h = self._cached_hash = hash((self.base_ring(),tuple(self._gens)))
-        return h
 
     def _repr_(self):
         try:
