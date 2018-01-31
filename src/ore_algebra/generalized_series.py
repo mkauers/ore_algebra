@@ -355,7 +355,7 @@ class ContinuousGeneralizedSeries(RingElement):
                 # move part of the tail to the exponential part
                 exp += alpha
                 x = p.base_ring().gen()
-                p = p.map_coefficients(lambda q: q/(x**(ramification*alpha)))
+                p = p.map_coefficients(lambda q: q/(x**ZZ(ramification*alpha)))
             
             new_ram = lcm([ (e/ramification).denominator() for e in exp.exponents() ])
             if new_ram < ramification:
@@ -454,7 +454,7 @@ class ContinuousGeneralizedSeries(RingElement):
         if s == r:
             return (self.__exp, self.__tail)
 
-        quo = s / r
+        quo = s // r
         
         if r*quo != s or s <= 0:
             raise ValueError, "s must be a positive integer multiple of the ramification"

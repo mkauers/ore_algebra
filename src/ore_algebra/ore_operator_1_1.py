@@ -41,6 +41,7 @@ from sage.structure.formal_sum import FormalSum, FormalSums
 from sage.symbolic.all import SR
 
 from .tools import q_log, make_factor_iterator, shift_factor
+from .ore_algebra import OreAlgebra_generic
 from .ore_operator import OreOperator, UnivariateOreOperator
 from .generalized_series import GeneralizedSeriesMonoid, _generalized_series_shift_quotient, _binomial
 
@@ -1296,7 +1297,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         if type(alg) == str:
             R = self.base_ring(); x = R.gen(); one = R.one()
             rec_algebra = self.parent().change_var_sigma_delta(alg, {x:x+one}, {})
-        elif not isinstance(alg, type(self.parent())) or not alg.is_S() \
+        elif not isinstance(alg, OreAlgebra_generic) or not alg.is_S() \
              or alg.base_ring().base_ring() is not self.base_ring().base_ring():
             raise TypeError, "not an adequate algebra"
         else:
@@ -1407,7 +1408,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
 
         if isinstance(alg, str):
             alg = self.parent().change_var_sigma_delta(alg, {}, {x:x})
-        elif not isinstance(alg, type(self.parent())) or not alg.is_T() or \
+        elif not isinstance(alg, OreAlgebra_generic) or not alg.is_T() or \
              alg.base_ring().base_ring() is not R.base_ring():
             raise TypeError, "target algebra is not adequate"
 
@@ -2325,7 +2326,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             sage: (Dx - 1).numerical_solution([42], [1])
             42.000000000000000
             sage: Dx.numerical_solution([1], [0, 1], 1e-10).parent()
-            Real ball field with 3... bits precision
+            Real ball field with 3... precision
 
             sage: import logging; logging.basicConfig()
             sage: logger = logging.getLogger('ore_algebra.analytic.binary_splitting')
@@ -2598,7 +2599,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
 
         if type(alg) == str:
             alg = self.parent().change_var_sigma_delta(alg, {}, {x:one})
-        elif not isinstance(alg, type(self.parent())) or not alg.is_D() \
+        elif not isinstance(alg, OreAlgebra_generic) or not alg.is_D() \
              or alg.base_ring().base_ring() is not R.base_ring():
             raise TypeError, "target algebra is not adequate"
 
@@ -2647,7 +2648,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
 
         if type(alg) == str:
             alg = self.parent().change_var_sigma_delta(alg, {x:x+one}, {x:one})
-        elif not isinstance(alg, type(self.parent())) or not alg.is_F() or \
+        elif not isinstance(alg, OreAlgebra_generic) or not alg.is_F() or \
              alg.base_ring().base_ring() is not R.base_ring():
             raise TypeError, "target algebra is not adequate"
 
@@ -3070,6 +3071,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
             return A(c).annihilator_of_composition(-u*x)
 
         # now a = u*x where u > 1 is an integer. 
+        u = u.numerator()
         from sage.matrix.constructor import Matrix
         A = A.change_ring(A.base_ring().fraction_field())
         if solver == None:
@@ -3627,7 +3629,7 @@ class UnivariateQRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverU
 
         if type(alg) == str:
             alg = self.parent().change_var_sigma_delta(alg, {x:q*x}, {x:one})
-        elif not isinstance(alg, type(self.parent())) or not alg.is_J() or \
+        elif not isinstance(alg, OreAlgebra_generic) or not alg.is_J() or \
              alg.base_ring().base_ring() is not K or K(alg.is_J()[1]) != K(q):
             raise TypeError, "target algebra is not adequate"
 
@@ -3980,7 +3982,7 @@ class UnivariateQDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOve
 
         if type(alg) == str:
             alg = self.parent().change_var_sigma_delta(alg, {x:q*x}, {})
-        elif not isinstance(alg, type(self.parent())) or not alg.is_Q() or \
+        elif not isinstance(alg, OreAlgebra_generic) or not alg.is_Q() or \
              alg.base_ring().base_ring() is not R.base_ring() or K(alg.is_Q()[1]) != K(q) :
             raise TypeError, "target algebra is not adequate"
 
@@ -4159,7 +4161,7 @@ class UnivariateDifferenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
 
         if type(alg) == str:
             alg = self.parent().change_var_sigma_delta(alg, {x:x+one}, {})
-        elif not isinstance(alg, type(self.parent())) or not alg.is_S() or \
+        elif not isinstance(alg, OreAlgebra_generic) or not alg.is_S() or \
              alg.base_ring().base_ring() is not R.base_ring():
             raise TypeError, "target algebra is not adequate"
 
@@ -4320,7 +4322,7 @@ class UnivariateEulerDifferentialOperatorOverUnivariateRing(UnivariateOreOperato
 
         if type(alg) == str:
             alg = self.parent().change_var_sigma_delta(alg, {}, {x:one})
-        elif not isinstance(alg, type(self.parent())) or not alg.is_D() or \
+        elif not isinstance(alg, OreAlgebra_generic) or not alg.is_D() or \
              alg.base_ring().base_ring() is not R.base_ring():
             raise TypeError, "target algebra is not adequate"
 
