@@ -1227,7 +1227,7 @@ class DiffOpBound(object):
         sage: maj.maj_den
         (-z + [0.2047...])^13
         sage: maj.maj_den.value()(1/10)
-        [1.82513661e-13 +/- 5.50e-22]
+        [1.825136...]
         sage: maj.refine()
         sage: maj.maj_den.value()(1/10)
         [436565.0...]
@@ -1599,9 +1599,12 @@ class DiffOpBound(object):
             sage: bwrec_nplus = [[Jets(pol(5+i)) for pol in bwrec]
             ....:                for i in [0,1]]
             sage: last = [[trunc[4]], [trunc[3]]]
-            sage: (maj.normalized_residual(5, last, bwrec_nplus)
-            ....:         == maj.normalized_residual(5, last))
+            sage: res1 = maj.normalized_residual(5, last, bwrec_nplus)
+            sage: res2 = maj.normalized_residual(5, last)
+            sage: len(res1) == len(res2) == 1
             True
+            sage: res1[0] - res2[0]
+            ([+/- ...e-18])*t + [+/- ...e-18]
 
         This operator annihilates t^(1/3)*[1/(1-t)+log(t)^2*exp(t)]+exp(t)::
 

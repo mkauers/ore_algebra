@@ -178,7 +178,7 @@ def analytic_continuation(ctx, ini=None, post=None):
                 raise ValueError("incorrect initial values: {}".format(ini))
         try:
             ini = ini.change_ring(RealBallField(prec))
-        except ValueError:
+        except (TypeError, ValueError):
             ini = ini.change_ring(ComplexBallField(prec))
     res = []
     path_mat = identity_matrix(ZZ, ctx.dop.order())

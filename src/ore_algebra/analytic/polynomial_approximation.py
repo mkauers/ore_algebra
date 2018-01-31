@@ -237,7 +237,7 @@ def on_disk(dop, ini, path, rad, eps):
     coefficients::
 
         sage: pol.parent()
-        Univariate Polynomial Ring in x over Complex ball field with ... bits precision
+        Univariate Polynomial Ring in x over Complex ball field with ... precision
         sage: pol[0].imag().is_zero()
         False
     """
