@@ -9,6 +9,8 @@ import sage.rings.real_arb
 from sage.misc.cachefunc import cached_function
 from sage.misc.misc import cputime
 from sage.rings.all import QQ, QQbar, CIF
+from sage.rings.complex_arb import ComplexBallField
+from sage.rings.complex_interval_field import ComplexIntervalField
 from sage.rings.number_field.number_field import NumberField_quadratic
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 
@@ -47,10 +49,17 @@ class Stats(object):
 # OreOperator, or of a custom wrapper.
 
 @cached_function
-def dop_singularities(dop, dom=QQbar, include_apparent=True):
-    if not include_apparent:
+def dop_singularities(dop, dom, include_apparent=True):
+    if not include_apparent: # TBI
         dop = dop.desingularize()
-    return [descr[0] for descr in dop.leading_coefficient().roots(dom)]
+    if isinstance(dom, ComplexBallField): # TBI
+        dom1 = ComplexIntervalField(dom.precision())
+    else:
+        dom1 = dom
+    sing = dop.leading_coefficient().roots(dom1, multiplicities=False)
+    if dom1 is not dom:
+        sing = [dom(s) for s in sing]
+    return sing
 
 def sing_as_alg(dop, iv):
     pol = dop.leading_coefficient().radical()

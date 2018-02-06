@@ -48,8 +48,14 @@ class Point(SageObject):
     lie on the complex plane, not on the Riemann surface of the operator.
     """
 
-    def __init__(self, point, dop=None, **kwds):
+    def __init__(self, point, dop=None, singular=None, **kwds):
         """
+        INPUT:
+
+        - ``singular``: can be set to True to force this point to be considered
+          a singular point, even if this cannot be checked (e.g. because we only
+          have an enclosure)
+
         TESTS::
 
             sage: from ore_algebra import *
@@ -63,6 +69,8 @@ class Point(SageObject):
             0.5000000000000000, 0.5000000000000000*I, 10, 1, 1/3]
             sage: Point(sqrt(2), Dx).iv()
             [1.414...]
+            sage: Point(RBF(0), (x-1)*x*Dx, singular=True).dist_to_sing()
+            1.000000000000000
         """
         SageObject.__init__(self)
 
@@ -127,6 +135,7 @@ class Point(SageObject):
                 or parent is RLF or parent is CLF)
 
         self.dop = dop.numerator() or point.dop
+        self._force_singular = bool(singular)
         self.options = kwds
 
     def _repr_(self):
@@ -229,16 +238,22 @@ class Point(SageObject):
 
     @cached_method
     def is_ordinary(self):
+        if self._force_singular:
+            return False
         lc = self.dop.leading_coefficient()
-        if self.is_exact():
-            return not _is_exact_sing(self, self.dop)
-        elif not lc(self.iv()).contains_zero():
+        if not lc(self.iv()).contains_zero():
             return True
+        if self.is_exact():
+            try:
+                val = lc(self.value)
+            except TypeError: # work around coercion weaknesses
+                val = lc.change_ring(QQbar)(QQbar.coerce(self.value))
+            return not val.is_zero()
         else:
             raise ValueError("can't tell if inexact point is singular")
 
     def is_singular(self):
-        return not is_ordinary(self)
+        return not self.is_ordinary()
 
     @cached_method
     def is_regular(self):
@@ -317,12 +332,9 @@ class Point(SageObject):
             1.00...
 
         """
-        # TODO - solve over CBF directly; perhaps with arb's own poly solver
-        sing = dop_singularities(self.dop, CIF)
-        sing = [IC(s) for s in sing]
+        sing = dop_singularities(self.dop, IC)
         close, distant = split(lambda s: s.overlaps(self.iv()), sing)
-        if (len(close) >= 2 or len(close) == 1
-                               and not _is_exact_sing(self, self.dop)):
+        if (len(close) >= 2 or len(close) == 1 and not self.is_singular()):
             raise NotImplementedError # refine?
         dist = [(self.iv() - s).abs() for s in distant]
         min_dist = IR(rings.infinity).min(*dist)
@@ -495,8 +507,7 @@ class Step(SageObject):
 
     def singularities(self):
         dop = self.start.dop
-        # TODO: solve over CBF directly?
-        sing = [IC(s) for s in dop_singularities(dop, CIF)]
+        sing = dop_singularities(dop, IC)
         z0, z1 = IC(self.start.value), IC(self.end.value)
         sing = [s for s in sing if s != z0 and s != z1]
         res = []
@@ -505,7 +516,7 @@ class Step(SageObject):
             t = self.delta()/ds
             if (ds.contains_zero() or t.imag().contains_zero()
                     and not safe_lt(t.real(), IR.one())):
-                res.append(sing_as_alg(dop, s))
+                res.append(s)
         return res
 
     def check_singularity(self):
@@ -542,7 +553,7 @@ class Step(SageObject):
         sing = self.singularities()
         if len(sing) > 0:
             plural = "" if len(sing) == 1 else "s"
-            sings = ", ".join(str(s) for s in sing)
+            sings = ", ".join(str(sing_as_alg(self.start.dop, s)) for s in sing)
             raise ValueError(
                 "Step {} passes through or too close to singular point{} {} "
                 "(to compute the connection to a singular point, make it "
@@ -757,9 +768,9 @@ class Path(SageObject):
             dir = step.direction()
             sings = step.singularities()
             for s in sings:
-                ds = Point(s, self.dop).dist_to_sing()
-                d0 = abs(IC(s) - step.start.iv())
-                d1 = abs(IC(s) - step.end.iv())
+                ds = Point(s, self.dop, singular=True).dist_to_sing()
+                d0 = abs(s - step.start.iv())
+                d1 = abs(s - step.end.iv())
                 zs = []
                 if not safe_lt(d0, ds):
                     zs.append(-1)
@@ -833,11 +844,3 @@ def _rationalize(civ, real=False):
     else:
         return QQi([my_RIF(civ.real()).simplest_rational(),
                     my_RIF(civ.imag()).simplest_rational()])
-
-def _is_exact_sing(pt, dop):
-    lc = dop.leading_coefficient()
-    try:
-        val = lc(pt.value)
-    except TypeError: # work around coercion weaknesses
-        val = lc.change_ring(QQbar)(QQbar.coerce(pt.value))
-    return val.is_zero()
