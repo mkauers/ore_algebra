@@ -66,6 +66,7 @@ class Context(object):
         self.optimize_path = self.use_bit_burst = False
         if assume_analytic:
             self.path = self.path.bypass_singularities()
+            self.path.check_singularity()
         if self.subdivide:
             if self.optimize_path:
                 self.path = self.path.optimize_by_homotopy()
