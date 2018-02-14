@@ -1,3 +1,3 @@
 
 all:
-	sage -sh sage-pip-install .
+	sage -pip install --upgrade --no-index .

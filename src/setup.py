@@ -1,4 +1,9 @@
 
+try:
+    import sage.all
+except ImportError:
+    raise ValueError("this package should be installed inside Sage")
+
 from distutils.core import setup
 
 setup(
