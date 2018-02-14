@@ -21,12 +21,23 @@ http://www.gnu.org/licenses/
 Installation
 ------------
 
-Just run
+To install the development version, simply run
 
-    sage -pip install . [--user]
+    sage -pip install git+https://github.com/mkauers/ore_algebra/ [--user]
 
 The optional option `--user` allows to install the package in your home directory
 instead of the Sage installation tree.
+
+Testing
+-------
+
+To launch the doctests simply run
+
+    sage -python setup.py test
+
+Or alternatively
+
+    sage -tp --long --force-lib src/
 
 Source code
 -----------
