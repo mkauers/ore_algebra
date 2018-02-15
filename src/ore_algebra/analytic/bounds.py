@@ -2000,11 +2000,11 @@ def _dop_rcoeffs_of_T(dop, base_ring):
             binomial[n][k] = binomial[n-1][k-1] + binomial[n-1][k]
     res = [None]*(ordlen)
     for k in range(ordlen):
-        pol = [0]*(deglen)
+        pol = [base_ring.zero()]*(deglen)
         for j in range(deglen):
             pow = 1
             for i in range(ordlen - k):
-                pol[j] += pow*binomial[k+i][i]*dop[k+i][j]
+                pol[j] += pow*binomial[k+i][i]*base_ring(dop[k+i][j])
                 pow *= (-j)
         res[k] = Pols(pol)
     return res
