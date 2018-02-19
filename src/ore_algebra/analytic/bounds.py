@@ -1001,30 +1001,34 @@ class RatSeqBound(object):
         if len(self.nums) != 1:
             raise NotImplementedError("expected a single sequence")
         from sage.plot.plot import list_plot
+        inf = RR('inf')
+        # avoid empty plots and matplotlib warnings
+        def pltfilter(it):
+            return [(x, RR(y)) for (x, y) in it if 0 < RR(y) < inf]
         ref = []
         for k in rng:
             iv = self.ref(k, self.ord(k))[0]
             if iv.is_finite():
-                ref.append((k, RR(iv.upper())))
-        p1 = list_plot(ref, plotjoined=True, color='black', scale='semilogy')
-        # Plots come up empty when one of the y-coordinates is +∞, so we may as
-        # well start with the first finite value.
-        rng2 = list(itertools.dropwhile(
-            lambda k: self(k)[0].is_infinity(), rng))
+                ref.append((k, iv.upper()))
+        p1 = list_plot(pltfilter(ref), plotjoined=True, color='black',
+                       scale='semilogy')
         p2 = list_plot(
-                [(k, RR(self(k)[0].upper())) for k in rng2],
+                pltfilter((k, self(k)[0].upper()) for k in rng),
                 plotjoined=True, color='blue', scale='semilogy')
         p3 = list_plot(
-                [(k, RR(self._bound_rat(k, self.ord(k))[0].upper()))
-                    for k in rng2
-                    if k not in self.exn],
+                pltfilter((k, self._bound_rat(k, self.ord(k))[0].upper())
+                    for k in rng
+                    if k not in self.exn),
                 size=20, color='red', scale='semilogy')
         p4 = list_plot(
-                [(k, RR(self._bound_exn(k)[0].upper())) for k in rng],
+                pltfilter((k, self._bound_exn(k)[0].upper())
+                          for k in rng),
                 size=20, color='gray', scale='semilogy')
         m = max(rng)
-        p5 = list_plot([(e, v.upper()) for (e, v) in self._stairs(1)[0]
-                                       if e <= m],
+        p5 = list_plot(
+                pltfilter((e, v.upper())
+                          for (e, v) in self._stairs(1)[0]
+                          if e <= m),
                 size=60, marker='x', color='gray', scale='semilogy')
         return p1 + p2 + p3 + p4 + p5
 
