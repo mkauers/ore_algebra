@@ -709,7 +709,7 @@ class UnivariateOreOperator(OreOperator):
     # tests
 
     def __nonzero__(self):
-        return self._poly.__nonzero__()
+        return bool(self._poly).__nonzero__()
 
     def __cmp__(self, other):
         return cmp(self.polynomial(), other.polynomial())

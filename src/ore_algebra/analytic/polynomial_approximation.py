@@ -179,6 +179,9 @@ def doit(dop, ini, path, rad, eps, derivatives, economization, x_is_real):
 
     # Merge with analytic_continuation.analytic_continuation()???
 
+    from .differential_operator import DifferentialOperator
+    dop = DifferentialOperator(dop)
+
     eps1 = bounds.IR(eps)/2
     rad = bounds.IR(rad).above_abs()
     ctx = ancont.Context(dop, path, eps/2)
@@ -192,7 +195,7 @@ def doit(dop, ini, path, rad, eps, derivatives, economization, x_is_real):
     _, base, _, dop = dop._normalize_base_ring()
     x = base.change_ring(QQ).gen()
 
-    local_dop = center.local_diffop()
+    local_dop = dop.shift(center)
     evpt = EvaluationPoint(x, rad=rad, jet_order=derivatives)
     polys = series_sum(local_dop, local_ini.column(0), evpt,
                                 accuracy.AbsoluteError(eps1),

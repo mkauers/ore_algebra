@@ -69,6 +69,7 @@ from . import bounds
 from . import polynomial_approximation as polapprox
 
 from .analytic_continuation import normalize_post_transform
+from .differential_operator import DifferentialOperator
 from .path import Point
 from .safe_cmp import *
 
@@ -165,7 +166,7 @@ class DFiniteFunction(object):
 
     def __init__(self, dop, ini, name="dfinitefun",
                  max_prec=256, max_rad=RBF('inf')):
-        self.dop = dop
+        self.dop = dop = DifferentialOperator(dop)
         if not isinstance(ini, dict):
             ini = {0: ini}
         if len(ini) != 1:
@@ -193,7 +194,7 @@ class DFiniteFunction(object):
 
         self._sollya_object = None
         self._sollya_domain = RIF('-inf', 'inf')
-        self._max_derivatives = self.dop.order()
+        self._max_derivatives = dop.order()
         self._update_approx_hook = (lambda *args: None)
 
     def __repr__(self):

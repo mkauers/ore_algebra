@@ -19,6 +19,7 @@ from sage.rings.real_arb import RealBallField
 from sage.structure.element import Matrix, canonical_coercion
 from sage.structure.sequence import Sequence
 
+from .differential_operator import DifferentialOperator
 from .path import Path, Step
 
 logger = logging.getLogger(__name__)
@@ -88,9 +89,9 @@ class Context(object):
         return (rings.RIF.has_coerce_map_from(self.dop.base_ring().base_ring())
                 and all(v.is_real() for v in self.path.vert))
 
-def ordinary_step_transition_matrix(step, eps, rows, ctx=None):
+def ordinary_step_transition_matrix(dop, step, eps, rows, ctx=None):
     from . import naive_sum, binary_splitting
-    ldop = step.start.local_diffop()
+    ldop = dop.shift(step.start)
     deg = ldop.degree()
     # cache in ctx?
     maj = bounds.DiffOpBound(ldop, pol_part_len=4, bound_inverse="solve")
@@ -113,19 +114,20 @@ def ordinary_step_transition_matrix(step, eps, rows, ctx=None):
         return naive_sum.fundamental_matrix_ordinary(
                 ldop, step.delta(), eps, rows, maj, max_prec=(1<<30))
 
-def singular_step_transition_matrix(step, eps, rows, ctx=None):
+def singular_step_transition_matrix(dop, step, eps, rows, ctx=None):
     from .naive_sum import fundamental_matrix_regular
-    ldop = step.start.local_diffop()
+    ldop = dop.shift(step.start)
     mat = fundamental_matrix_regular(ldop, step.delta(), eps, rows, step.branch)
     return mat
 
-def inverse_singular_step_transition_matrix(step, eps, rows, ctx=None):
+def inverse_singular_step_transition_matrix(dop, step, eps, rows, ctx=None):
     rev_step = Step(step.end, step.start)
-    mat = singular_step_transition_matrix(rev_step, eps/2, rows)
+    mat = singular_step_transition_matrix(dop, rev_step, eps/2, rows)
     return ~mat
 
 def step_transition_matrix(step, eps, rows=None, ctx=None):
-    order = step.start.dop.order()
+    dop = step.start.dop
+    order = dop.order()
     if rows is None:
         rows = order
     z0, z1 = step
@@ -149,7 +151,7 @@ def step_transition_matrix(step, eps, rows=None, ctx=None):
         fun = inverse_singular_step_transition_matrix
     else:
         raise TypeError(type(z0), type(z1))
-    return fun(step, eps, rows, ctx=ctx)
+    return fun(dop, step, eps, rows, ctx=ctx)
 
 def analytic_continuation(ctx, ini=None, post=None):
     """

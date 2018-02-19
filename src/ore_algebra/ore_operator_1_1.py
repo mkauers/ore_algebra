@@ -2041,9 +2041,11 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             sage: dop.local_basis_monomials(0)
             [1, sqrt(x), x]
         """
+        from .analytic.differential_operator import DifferentialOperator
         from .analytic.path import Point
-        struct = Point(point, self).local_basis_structure()
-        x = SR(self.base_ring().gen()) - point
+        dop = DifferentialOperator(self)
+        struct = Point(point, dop).local_basis_structure()
+        x = SR(dop.base_ring().gen()) - point
         return [x**_simplify_exponent(sol.valuation)
                     *symbolic_log.log(x, hold=True)**sol.log_power
                     /sol.log_power.factorial()
@@ -2148,18 +2150,20 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             + (365/96*a^3+365/96*a+13/3)*(x + 0.0864...? - 0.0698...?*I)^(3/2),
             x + 0.0864...? - 0.0698...?*I]
         """
+        from .analytic.differential_operator import DifferentialOperator
         from .analytic.local_solutions import log_series, LocalBasisMapper
         from .analytic.path import Point
         mypoint = Point(point, self)
-        ldop = mypoint.local_diffop()
+        dop = DifferentialOperator(self)
+        ldop = dop.shift(mypoint)
         if order is None:
             ind = ldop.indicial_polynomial(ldop.base_ring().gen())
-            order = max(self.order(), ind.dispersion()) + 3
+            order = max(dop.order(), ind.dispersion()) + 3
         class Mapper(LocalBasisMapper):
-            def fun(self, ini):
-                return log_series(ini, self.emb_bwrec, order)
+            def fun(dop, ini):
+                return log_series(ini, dop.emb_bwrec, order)
         sols = Mapper().run(ldop)
-        x = SR.var(self.base_ring().variable_name())
+        x = SR.var(dop.base_ring().variable_name())
         dx = x if point.is_zero() else x.add(-point, hold=True)
         # Working with symbolic expressions here is too complicated: let's try
         # returning FormalSums.
@@ -2169,7 +2173,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         if ring is None:
             cm = get_coercion_model()
             ring = cm.common_parent(
-                    self.base_ring().base_ring(),
+                    dop.base_ring().base_ring(),
                     mypoint.value.parent(),
                     *(sol.leftmost for sol in sols))
         res = [FormalSum(
@@ -2355,17 +2359,17 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             [-11340.0278985950...]
         """
         from .analytic import analytic_continuation as ancont, local_solutions
-        if not self:
-            raise ValueError("operator must be nonzero")
-        post_transform = ancont.normalize_post_transform(self, post_transform)
-        post_mat = matrix(1, self.order(),
+        from .analytic.differential_operator import DifferentialOperator
+        dop = DifferentialOperator(self)
+        post_transform = ancont.normalize_post_transform(dop, post_transform)
+        post_mat = matrix(1, dop.order(),
                 lambda i, j: ZZ(j).factorial()*post_transform[j])
-        ctx = ancont.Context(self, path, eps, **kwds)
+        ctx = ancont.Context(dop, path, eps, **kwds)
         pairs = ancont.analytic_continuation(ctx, ini=ini, post=post_mat)
         assert len(pairs) == 1
         _, mat = pairs[0]
         struct = ctx.path.vert[-1].local_basis_structure()
-        if self.order() == 0:
+        if dop.order() == 0:
             return mat.base_ring().zero()
         asympt = local_solutions.sort_key_by_asympt(struct[0])
         asycst = (AA.zero(), ZZ.zero(), AA.zero(), 0)
@@ -2516,8 +2520,10 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             [            [+/- ...] [0.500000000000000...]]
             sage: logger.setLevel(logging.WARNING)
         """
-        from .analytic import analytic_continuation as ancont
-        ctx = ancont.Context(self, path, eps, **kwds)
+        from .analytic import analytic_continuation as ancont, local_solutions
+        from .analytic.differential_operator import DifferentialOperator
+        dop = DifferentialOperator(self)
+        ctx = ancont.Context(dop, path, eps, **kwds)
         pairs = ancont.analytic_continuation(ctx)
         assert len(pairs) == 1
         return pairs[0][1]

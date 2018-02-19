@@ -5,7 +5,6 @@ Analytic continuation paths
 
 import logging
 
-import sage.categories.pushout as pushout
 import sage.plot.all as plot
 import sage.rings.all as rings
 import sage.rings.number_field.number_field as number_field
@@ -19,6 +18,7 @@ from sage.rings.complex_arb import CBF, ComplexBallField, ComplexBall
 from sage.rings.real_arb import RBF, RealBallField, RealBall
 from sage.structure.sage_object import SageObject
 
+from .differential_operator import DifferentialOperator
 from .local_solutions import (FundamentalSolution, sort_key_by_asympt,
         LocalBasisMapper)
 from .safe_cmp import *
@@ -134,7 +134,11 @@ class Point(SageObject):
                                     RealBallField, ComplexBallField))
                 or parent is RLF or parent is CLF)
 
-        self.dop = dop.numerator() or point.dop
+        if dop is None: # TBI
+            if isinstance(point, Point):
+                self.dop = point.dop
+        else:
+            self.dop = DifferentialOperator(dop.numerator())
         self._force_singular = bool(singular)
         self.options = kwds
 
@@ -332,7 +336,7 @@ class Point(SageObject):
             1.00...
 
         """
-        sing = dop_singularities(self.dop, IC)
+        sing = self.dop._singularities(IC)
         close, distant = split(lambda s: s.overlaps(self.iv()), sing)
         if (len(close) >= 2 or len(close) == 1 and not self.is_singular()):
             raise NotImplementedError # refine?
@@ -341,37 +345,6 @@ class Point(SageObject):
         if min_dist.contains_zero():
             raise NotImplementedError # refine???
         return IR(min_dist.lower())
-
-    def local_diffop(self): # ?
-        r"""
-        TESTS::
-
-            sage: from ore_algebra import DifferentialOperators
-            sage: from ore_algebra.analytic.path import Point
-            sage: Dops, x, Dx = DifferentialOperators()
-            sage: Point(1, x*Dx - 1).local_diffop()
-            (x + 1)*Dx - 1
-            sage: Point(RBF(1/2), x*Dx - 1).local_diffop()
-            (x + 1/2)*Dx - 1
-        """
-        Pols_dop = self.dop.base_ring()
-        # NOTE: pushout(QQ[x], K) doesn't handle embeddings well, and creates
-        # an L equal but not identical to K. But then other constructors like
-        # PolynomialRing(L, x) sometimes return objects over K found in cache,
-        # leading to endless headaches with slow coercions. But the version here
-        # may be closer to what I really want in any case.
-        # XXX: This seems to work in the usual trivial case where we are looking
-        # for a scalar domain containing QQ and QQ[i], but probably won't be
-        # enough if we really have two different number fields with embeddings
-        ex = self.exact()
-        Scalars = pushout.pushout(Pols_dop.base_ring(), ex.value.parent())
-        Pols = Pols_dop.change_ring(Scalars)
-        A, B = self.dop.base_ring().base_ring(), ex.value.parent()
-        C = Pols.base_ring()
-        assert C is A or C != A
-        assert C is B or C != B
-        dop_P = self.dop.change_ring(Pols)
-        return dop_P.annihilator_of_composition(Pols([ex.value, 1]))
 
     def local_basis_structure(self):
         r"""
@@ -397,7 +370,7 @@ class Point(SageObject):
                     for expo in range(self.dop.order())]
         elif not self.is_regular():
             raise NotImplementedError("irregular singular point")
-        sols = LocalBasisMapper().run(self.local_diffop())
+        sols = LocalBasisMapper().run(self.dop.shift(self))
         sols.sort(key=sort_key_by_asympt)
         return sols
 
@@ -507,7 +480,7 @@ class Step(SageObject):
 
     def singularities(self):
         dop = self.start.dop
-        sing = dop_singularities(dop, IC)
+        sing = dop._singularities(IC)
         z0, z1 = IC(self.start.value), IC(self.end.value)
         sing = [s for s in sing if s != z0 and s != z1]
         res = []
@@ -553,7 +526,7 @@ class Step(SageObject):
         sing = self.singularities()
         if len(sing) > 0:
             plural = "" if len(sing) == 1 else "s"
-            sings = ", ".join(str(sing_as_alg(self.start.dop, s)) for s in sing)
+            sings = ", ".join(str(self.start.dop._sing_as_alg(s)) for s in sing)
             raise ValueError(
                 "Step {} passes through or too close to singular point{} {} "
                 "(to compute the connection to a singular point, make it "
@@ -664,7 +637,7 @@ class Path(SageObject):
         return repr(self.vert[0]) + arrow + repr(self.vert[-1])
 
     def plot(self, disks=False):
-        gr  = plot.point2d(dop_singularities(self.dop, CC),
+        gr  = plot.point2d(self.dop._singularities(CC),
                            marker='*', size=200, color='red')
         for step in self:
             gr += step.plot()

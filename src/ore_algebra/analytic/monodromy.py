@@ -48,6 +48,8 @@ from sage.symbolic.all import I, pi
 
 from . import analytic_continuation as ancont, local_solutions, path, utilities
 
+from .differential_operator import DifferentialOperator
+
 logger = logging.getLogger(__name__)
 
 QQi = QuadraticField(-1, 'i')
@@ -56,7 +58,7 @@ def _identity_matrix(point, eps):
     Scalars = ComplexBallField(utilities.prec_from_eps(eps))
     return matrix.identity_matrix(Scalars, point.dop.order())
 
-def _local_monodromy_loop(x, eps):
+def _local_monodromy_loop(dop, x, eps):
     polygon = path.polygon_around(x)
     n = len(polygon)
     mats = []
@@ -69,35 +71,30 @@ def _local_monodromy_loop(x, eps):
         mats.append(mat)
     return polygon, mats
 
-def _indicial_polynomial(x): # XXX code duplication
-    dop = x.local_diffop()
-    bwrec = local_solutions.backward_rec(dop)
-    return bwrec[0]
-
-def _local_monodromy_formal(x, eps):
+def _local_monodromy_formal(dop, x, eps):
     assert x.is_regular()
     base = path.polygon_around(x, size=1)[0] # TBI?
     rows = x.dop.order()
     step_in = path.Step(base, x)
-    mat_in = ancont.inverse_singular_step_transition_matrix(step_in, eps, rows)
+    mat_in = ancont.inverse_singular_step_transition_matrix(dop, step_in, eps, rows)
     step_out = path.Step(x, base, branch=(1,))
-    mat_out = ancont.singular_step_transition_matrix(step_out, eps, rows)
+    mat_out = ancont.singular_step_transition_matrix(dop, step_out, eps, rows)
     return [base, x], [mat_in, mat_out]
 
-def _local_monodromy(x, eps, algorithm):
+def _local_monodromy(dop, x, eps, algorithm):
     if x.is_ordinary():
         return [x], [_identity_matrix(x, eps)]
     elif x.is_regular() and algorithm == "connect": # and alg deg not too large?
-        return _local_monodromy_formal(x, eps)
+        return _local_monodromy_formal(dop, x, eps)
     else:
-        return _local_monodromy_loop(x, eps)
+        return _local_monodromy_loop(dop, x, eps)
 
 def _closest_unsafe(lst, x):
     x = CC(x.value)
     return min(enumerate(lst), key=lambda (i, y): abs(CC(y.value) - x))
 
 def _sing_tree(dop, base):
-    sing = utilities.dop_singularities(dop, QQbar, include_apparent=False)
+    sing = dop._singularities(QQbar, include_apparent=False)
     sing = [path.Point(x, dop) for x in sing]
     verts = [base] + sing
     graph = Graph([verts, lambda x, y: x is not y])
@@ -146,6 +143,7 @@ def monodromy_matrices(dop, base, eps=1e-16, algorithm="connect"):
         ]
     """
 
+    dop = DifferentialOperator(dop)
     base = path.Point(base, dop)
     if not base.is_regular():
         raise ValueError("base point must be regular")
@@ -162,7 +160,7 @@ def monodromy_matrices(dop, base, eps=1e-16, algorithm="connect"):
     # continuation code)
 
     tree = _sing_tree(dop, base)
-    polygon_base, local_monodromy_base = _local_monodromy(base, eps, algorithm)
+    polygon_base, local_monodromy_base = _local_monodromy(dop, base, eps, algorithm)
     result = [] if base.is_ordinary() else local_monodromy_base
 
     def dfs(x, path, path_mat, polygon_x, local_monodromy_x):
@@ -171,7 +169,7 @@ def monodromy_matrices(dop, base, eps=1e-16, algorithm="connect"):
 
             logger.info("Computing local monodromy around %s via %s", y, path)
 
-            polygon_y, local_monodromy_y = _local_monodromy(y, eps, algorithm)
+            polygon_y, local_monodromy_y = _local_monodromy(dop, y, eps, algorithm)
 
             anchor_index_x, anchor_x = _closest_unsafe(polygon_x, y)
             anchor_index_y, anchor_y = _closest_unsafe(polygon_y, x)
