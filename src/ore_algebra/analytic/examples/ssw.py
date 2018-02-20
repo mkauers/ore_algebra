@@ -16,7 +16,7 @@ functions of walks with small steps in the quarter plane, arXiv:1606.02982
 
     sage: from ore_algebra.analytic.examples import ssw
 
-    sage: mat = ssw.dop[5,1,1].numerical_transition_matrix([0, 1/3+i/10, 1/3]) # long time (4.7 s)
+    sage: mat = ssw.dop[5,1,1].numerical_transition_matrix([0, 1/3+i/10, 1/3]) # long time (3.5 s)
     sage: (mat*vector([0, 0, 1, 3, 7]))[0] # long time
     [...] + [0.50000...]*I
 
@@ -27,7 +27,7 @@ functions of walks with small steps in the quarter plane, arXiv:1606.02982
 
 An example provided by Bruno Salvy, also related to small-step walks::
 
-    sage: ssw.aux_dop.numerical_solution(ssw.aux_ini, [0,1]) # long time (3.8 s), TODO: double-check result
+    sage: ssw.aux_dop.numerical_solution(ssw.aux_ini, [0,1]) # long time (3.4 s), TODO: double-check result
     [10.662510694...]
 
 """
