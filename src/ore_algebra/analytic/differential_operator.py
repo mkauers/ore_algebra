@@ -12,7 +12,13 @@ from sage.rings.complex_interval_field import ComplexIntervalField
 
 from ..ore_operator_1_1 import UnivariateDifferentialOperatorOverUnivariateRing
 
-class DifferentialOperator(UnivariateDifferentialOperatorOverUnivariateRing):
+def DifferentialOperator(dop):
+    if isinstance(dop, PlainDifferentialOperator):
+        return dop
+    else:
+        return PlainDifferentialOperator(dop)
+
+class PlainDifferentialOperator(UnivariateDifferentialOperatorOverUnivariateRing):
     r"""
     A subclass of differential operators for internal use by the numerical
     evaluation code.
@@ -21,21 +27,24 @@ class DifferentialOperator(UnivariateDifferentialOperatorOverUnivariateRing):
     def __init__(self, dop):
         if not dop:
             raise ValueError("operator must be nonzero")
-        dop = dop.numerator()
-        super(DifferentialOperator, self).__init__(
+        if not dop.parent().is_D():
+            raise ValueError("expected an operator in K(x)[D]")
+        _, _, _, dop = dop.numerator()._normalize_base_ring()
+        super(PlainDifferentialOperator, self).__init__(
                 dop.parent(), dop)
 
     def singularities(self, *args):
         raise NotImplementedError("use _singularities()")
 
     @cached_method
-    def _singularities(self, dom, include_apparent=True):
+    def _singularities(self, dom, include_apparent=True, multiplicities=False):
         dop = self if include_apparent else self.desingularize() # TBI
         if isinstance(dom, ComplexBallField): # TBI
             dom1 = ComplexIntervalField(dom.precision())
         else:
             dom1 = dom
-        sing = dop.leading_coefficient().roots(dom1, multiplicities=False)
+        lc = dop.leading_coefficient()
+        sing = lc.roots(dom1, multiplicities=multiplicities)
         if dom1 is not dom:
             sing = [dom(s) for s in sing]
         return sing
@@ -78,14 +87,17 @@ class DifferentialOperator(UnivariateDifferentialOperatorOverUnivariateRing):
         shifted = dop_P.annihilator_of_composition(Pols([ex.value, 1]))
         return ShiftedDifferentialOperator(shifted, self, delta)
 
-class ShiftedDifferentialOperator(DifferentialOperator):
+class ShiftedDifferentialOperator(PlainDifferentialOperator):
 
     def __init__(self, dop, orig, delta):
         super(ShiftedDifferentialOperator, self).__init__(dop)
         self._orig = orig
         self._delta = delta
 
-    def _singularities(self, dom, include_apparent=True):
-        sing = self._orig._singularities(dom, include_apparent)
+    def _singularities(self, dom, include_apparent=True, multiplicities=False):
+        sing = self._orig._singularities(dom, include_apparent, multiplicities)
         delta = dom(self._delta.value)
-        return [s - delta for s in sing]
+        if multiplicities:
+            return [(s - delta, m) for s, m in sing]
+        else:
+            return [s - delta for s in sing]

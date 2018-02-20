@@ -32,6 +32,7 @@ from sage.structure.factorization import Factorization
 from .. import ore_algebra
 from . import local_solutions, utilities
 
+from .differential_operator import DifferentialOperator
 from .safe_cmp import *
 
 logger = logging.getLogger(__name__)
@@ -1306,10 +1307,8 @@ class DiffOpBound(object):
                 "(%s, pol_part_len=%s, max_effort=%s)...",
                 bound_inverse, pol_part_len, max_effort)
 
-        if not dop.parent().is_D():
-            raise ValueError("expected an operator in K(x)[D]")
-        _, Pols_z, _, dop = dop._normalize_base_ring()
-        self._dop_D = dop
+        self._dop_D = dop = DifferentialOperator(dop)
+        Pols_z = dop.base_ring()
         self.dop = dop_T = dop.to_T('T' + Pols_z.variable_name())
 
         lc = dop_T.leading_coefficient()
@@ -1377,12 +1376,12 @@ class DiffOpBound(object):
 
     @cached_method
     def _poles(self):
-        lc = self.dop.leading_coefficient()
-        try:
-            return lc.roots(CIF)
-        except NotImplementedError:
-            lc = lc.radical().change_ring(QQbar)
-            return complex_roots(lc, skip_squarefree=True, retval='interval')
+        sing = self._dop_D._singularities(CIF, multiplicities=True)
+        nz = [(s, m) for s, m in sing if not s.contains_zero()]
+        if sum(m for s, m in nz) == self.dop.leading_coefficient().degree():
+            return nz
+        else:
+            raise NotImplementedError
 
     def _update_den_bound(self):
         r"""
