@@ -76,5 +76,16 @@ class DifferentialOperator(UnivariateDifferentialOperatorOverUnivariateRing):
         assert C is B or C != B
         dop_P = self.change_ring(Pols)
         shifted = dop_P.annihilator_of_composition(Pols([ex.value, 1]))
-        return DifferentialOperator(shifted)
+        return ShiftedDifferentialOperator(shifted, self, delta)
 
+class ShiftedDifferentialOperator(DifferentialOperator):
+
+    def __init__(self, dop, orig, delta):
+        super(ShiftedDifferentialOperator, self).__init__(dop)
+        self._orig = orig
+        self._delta = delta
+
+    def _singularities(self, dom, include_apparent=True):
+        sing = self._orig._singularities(dom, include_apparent)
+        delta = dom(self._delta.value)
+        return [s - delta for s in sing]
