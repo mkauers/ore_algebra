@@ -197,7 +197,7 @@ class Point(SageObject):
         ...
         ValueError
         """
-        if self.is_exact():
+        if self.value.parent().is_exact():
             return self
         elif isinstance(self.value, RealBall) and self.value.is_exact():
             return Point(QQ(self.value), self.dop)
@@ -226,9 +226,10 @@ class Point(SageObject):
         return is_real_parent(self.value.parent())
 
     def is_exact(self):
-        # XXX: also include exact balls?
-        return isinstance(self.value,
-                (rings.Integer, rings.Rational, rings.NumberFieldElement))
+        return (isinstance(self.value, (rings.Integer, rings.Rational,
+                                        rings.NumberFieldElement))
+                or isinstance(self.value, (RealBall, ComplexBall))
+                    and self.value.is_exact())
 
     # Point equality is identity
 
@@ -461,12 +462,25 @@ class Step(SageObject):
         return self.start.is_exact() and self.end.is_exact()
 
     def delta(self):
-        try: # XXX: TBI
-            return self.end.value - self.start.value
-        except TypeError:
-            z0 = QQbar(self.start.value)
-            z1 = QQbar(self.end.value)
-            return as_embedded_number_field_element(z1 - z0)
+        r"""
+        TESTS::
+
+            sage: from ore_algebra import *
+            sage: Dops, x, Dx = DifferentialOperators()
+            sage: (Dx - 1).numerical_solution([1], [0, RealField(10)(.33), 1])
+            [2.71828182845904...]
+        """
+        z0, z1 = self.start.value, self.end.value
+        if (z0.parent() is not z1.parent()
+                and self.start.is_exact() and self.end.is_exact()):
+            z0 = self.start.exact().value
+            z1 = self.end.exact().value
+            try:
+                return z1 - z0
+            except TypeError:
+                return as_embedded_number_field_element(QQbar(z1) - QQbar(z0))
+        else:
+            return z1 - z0
 
     def direction(self):
         delta = self.end.iv() - self.start.iv()
