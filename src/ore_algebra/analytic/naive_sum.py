@@ -327,9 +327,9 @@ def series_sum_ordinary(Intervals, dop, bwrec, ini, pt,
         if n%stride == 0:
             radpowest = abs(jetpow[0] if pt.is_numeric
                             else Intervals(pt.rad**n))
+            est = sum(abs(a) for a in last)*radpowest
             done, tail_bound = stopping_criterion.check(n, tail_bound,
-                    est=sum(abs(a) for a in last)*radpowest,
-                    next_stride=stride)
+                    est=est, next_stride=stride)
             if record_bounds_in is not None:
                 record_bounds_in.append((n, psum, tail_bound))
             if done:
@@ -344,8 +344,8 @@ def series_sum_ordinary(Intervals, dop, bwrec, ini, pt,
         jetpow = jetpow._mul_trunc_(jet, ord)
         radpow *= pt.rad
         bwrec_nplus.append(bwrec.eval_int_ball(Intervals, n+bwrec.order))
-    logger.info("summed %d terms, tail <= %s, coeffwise error <= %s", n,
-            tail_bound,
+    logger.info("summed %d terms, tail <= %s (est = %s), coeffwise error <= %s",
+            n, tail_bound, bounds.IR(est),
             max(x.rad() for x in psum) if pt.is_numeric else "n/a")
     # Account for the dropped high-order terms in the intervals we return
     # (tail_bound is actually a bound on the Frobenius norm of the error matrix,
@@ -639,7 +639,8 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, tgt_error,
         jetpow = jetpow._mul_trunc_(jet, ord)
         radpow *= pt.rad
         bwrec_nplus.append(bwrec.eval_series(Intervals, n+precomp_len, log_prec))
-    logger.info("summed %d terms, global tail bound = %s", n, tail_bound)
+    logger.info("summed %d terms, global tail bound = %s (est = %s)",
+            n, tail_bound, bounds.IR(est))
     result = vector(val[0][i] for i in xrange(ord))
     return result
 
