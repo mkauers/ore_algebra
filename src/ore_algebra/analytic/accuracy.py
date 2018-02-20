@@ -84,24 +84,26 @@ class StoppingCriterion(object):
             tb = self.get_bound(resid)
             logger.debug("n=%d, est=%s, width=%s, tail_bound=%s",
                          n, est, width, tb)
+            out_of_control = ini_tb.is_finite() and not safe_lt(tb, ini_tb)
             if safe_lt(tb, eps):
                 logger.debug("--> ok")
                 return True, tb
-            elif ini_tb.is_finite() and not safe_lt(tb, ini_tb):
-                # The bounds are out of control, stop asap.
-                # Subtle point: We could also end up here because of a hump. But
-                # then, typically, est > ε, so that we shouldn't even have
-                # entered the rigorous phase unless the intervals are blowing up
-                # badly.
-                logger.debug("--> bounds out of control ({} became {})"
-                             .format(ini_tb, tb))
-                return True, tb
             elif prev_tb.is_finite() and not safe_le(tb, prev_tb >> 8):
-                # Refining no longer seems to help: sum more terms
-                logger.debug("--> refining doesn't help")
-                break
-            elif intervals_blowing_up:
-                logger.debug("--> intervals blowing up")
+                if out_of_control:
+                    # The bounds are out of control, stop asap.
+                    # Subtle point: We could also end up here because of a hump. But
+                    # then, typically, est > ε, so that we shouldn't even have
+                    # entered the rigorous phase unless the intervals are blowing up
+                    # badly.
+                    logger.debug("--> bounds out of control ({} became {})"
+                                .format(ini_tb, tb))
+                    return True, tb
+                else:
+                    # Refining no longer seems to help: sum more terms
+                    logger.debug("--> refining doesn't help")
+                    break
+            elif intervals_blowing_up or out_of_control:
+                logger.debug("--> intervals blowing up / bounds out of control")
                 self.maj.refine()
             else:
                 thr = tb*est**(QQ(next_stride*(self.maj._effort**2 + 2))/n)
