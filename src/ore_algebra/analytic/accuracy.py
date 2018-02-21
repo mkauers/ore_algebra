@@ -84,17 +84,18 @@ class StoppingCriterion(object):
             tb = self.get_bound(resid)
             logger.debug("n=%d, est=%s, width=%s, tail_bound=%s",
                          n, est, width, tb)
-            out_of_control = ini_tb.is_finite() and not safe_lt(tb, ini_tb)
+            bound_getting_worse = ini_tb.is_finite() and not safe_lt(tb, ini_tb)
             if safe_lt(tb, eps):
                 logger.debug("--> ok")
                 return True, tb
-            elif prev_tb.is_finite() and not safe_le(tb, prev_tb >> 8):
-                if out_of_control:
+            elif (prev_tb.is_finite() and not safe_le(tb, prev_tb >> 8)
+                    or not self.maj.can_refine()):
+                if bound_getting_worse:
                     # The bounds are out of control, stop asap.
-                    # Subtle point: We could also end up here because of a hump. But
-                    # then, typically, est > ε, so that we shouldn't even have
-                    # entered the rigorous phase unless the intervals are blowing up
-                    # badly.
+                    # Subtle point: We could also end up here because of a hump.
+                    # But then, typically, est > ε, so that we shouldn't even
+                    # have entered the rigorous phase unless the intervals are
+                    # blowing up badly.
                     logger.debug("--> bounds out of control ({} became {})"
                                 .format(ini_tb, tb))
                     return True, tb
@@ -102,8 +103,13 @@ class StoppingCriterion(object):
                     # Refining no longer seems to help: sum more terms
                     logger.debug("--> refining doesn't help")
                     break
-            elif intervals_blowing_up or out_of_control:
-                logger.debug("--> intervals blowing up / bounds out of control")
+            elif intervals_blowing_up or bound_getting_worse:
+                # Adding more terms is likely to make the result worse and
+                # worse, but we can try refining the majorant as much as
+                # possible before giving up. (Note that unlike in the previous
+                # branch, we do not stop asap if the bound is getting worse in
+                # the present case.)
+                logger.debug("--> intervals blowing up or bound getting worse")
                 self.maj.refine()
             else:
                 thr = tb*est**(QQ(next_stride*(self.maj._effort**2 + 2))/n)
@@ -113,6 +119,7 @@ class StoppingCriterion(object):
                                  .format(thr, eps))
                     break
                 else:
+                    logger.debug("--> bad bound but refining may help")
                     self.maj.refine()
         return False, tb
 

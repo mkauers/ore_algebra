@@ -1471,9 +1471,12 @@ class DiffOpBound(object):
                 [pol(self.alg_idx) for pol in rem_num_nz],
                 self.ind, self.special_shifts)
 
+    def can_refine(self):
+        return self._effort < self.max_effort
+
     def refine(self):
         # XXX: make it possible to increase the precision of IR, IC
-        if self._effort >= self.max_effort:
+        if not self.can_refine():
             logger.debug("majorant no longer refinable")
             return
         self._effort += 1
