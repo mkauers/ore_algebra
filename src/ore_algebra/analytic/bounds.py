@@ -358,6 +358,9 @@ class HyperexpMajorant(MajorantSeries):
         shx_ser = pert_rad.power_trunc(self.shift, ord)
         num_ser = Pol(self.num).compose_trunc(pert_rad, ord) # XXX: remove Pol()
         den_ser = Pol(self._den_expanded()).compose_trunc(pert_rad, ord)
+        if den_ser[0].contains_zero():
+            # we will never obtain a finite bound using this result
+            raise BoundPrecisionError
         assert num_ser.parent() is den_ser.parent()
         rat_ser = (shx_ser._mul_trunc_(num_ser, ord)
                           ._mul_trunc_(den_ser.inverse_series_trunc(ord), ord))

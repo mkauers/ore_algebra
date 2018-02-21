@@ -150,7 +150,7 @@ def step_transition_matrix(step, eps, rows=None, ctx=None):
         raise TypeError(type(z0), type(z1))
     try:
         return fun(dop, step, eps, rows, ctx=ctx)
-    except accuracy.PrecisionError:
+    except (accuracy.PrecisionError, bounds.BoundPrecisionError):
         logger.info("splitting step...")
         s0, s1 = step.split()
         m0 = step_transition_matrix(s0, eps/2, rows=None, ctx=ctx)
