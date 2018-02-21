@@ -84,7 +84,16 @@ class PlainDifferentialOperator(UnivariateDifferentialOperatorOverUnivariateRing
         assert C is A or C != A
         assert C is B or C != B
         dop_P = self.change_ring(Pols)
-        shifted = dop_P.annihilator_of_composition(Pols([ex.value, 1]))
+        # Gcd-avoiding shift by an algebraic delta
+        deg = dop_P.degree()
+        den = ex.value.denominator()
+        num = den*ex.value
+        lin = Pols([num, den])
+        x = Pols.gen()
+        def shift_poly(pol):
+            pol = (pol.reverse(deg)(den*x)).reverse(deg)
+            return pol(lin)
+        shifted = dop_P.map_coefficients(shift_poly)
         return ShiftedDifferentialOperator(shifted, self, delta)
 
 class ShiftedDifferentialOperator(PlainDifferentialOperator):
