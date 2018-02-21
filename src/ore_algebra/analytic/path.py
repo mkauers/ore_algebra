@@ -492,6 +492,10 @@ class Step(SageObject):
     def cvg_ratio(self):
         return self.length()/self.start.dist_to_sing()
 
+    def split(self):
+        mid = Point((self.start.value + self.end.value)/2, self.start.dop)
+        return [Step(self.start, mid, branch=self.branch), Step(mid, self.end)]
+
     def singularities(self):
         dop = self.start.dop
         sing = dop._singularities(IC)

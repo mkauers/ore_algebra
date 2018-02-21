@@ -103,11 +103,8 @@ def ordinary_step_transition_matrix(dop, step, eps, rows, ctx=None):
         thr = 256 + 32*deg
         a = step.cvg_ratio()
         if eps > a.max(a.parent().one() >> 100)**thr: # TBI
-            try:
-                return naive_sum.fundamental_matrix_ordinary(
-                        ldop, step.delta(), eps, rows, maj, max_prec=4*thr)
-            except accuracy.PrecisionError:
-                pass
+            return naive_sum.fundamental_matrix_ordinary(
+                    ldop, step.delta(), eps, rows, maj, max_prec=4*thr)
         return binary_splitting.fundamental_matrix_ordinary(
                 ldop, step.delta(), eps, rows, maj)
     else:
@@ -151,7 +148,14 @@ def step_transition_matrix(step, eps, rows=None, ctx=None):
         fun = inverse_singular_step_transition_matrix
     else:
         raise TypeError(type(z0), type(z1))
-    return fun(dop, step, eps, rows, ctx=ctx)
+    try:
+        return fun(dop, step, eps, rows, ctx=ctx)
+    except accuracy.PrecisionError:
+        logger.info("splitting step...")
+        s0, s1 = step.split()
+        m0 = step_transition_matrix(s0, eps/2, rows=None, ctx=ctx)
+        m1 = step_transition_matrix(s1, eps/2, rows=rows, ctx=ctx)
+        return m1*m0
 
 def analytic_continuation(ctx, ini=None, post=None):
     """
