@@ -23,7 +23,7 @@ from sage.symbolic.all import pi, I
 
 from .. import ore_algebra
 from . import accuracy, bounds, utilities
-from .local_solutions import (backward_rec, FundamentalSolution,
+from .local_solutions import (bw_shift_rec, FundamentalSolution,
         LogSeriesInitialValues, LocalBasisMapper)
 from .safe_cmp import *
 from .utilities import short_str
@@ -213,7 +213,7 @@ def series_sum(dop, ini, pt, tgt_error, maj=None, bwrec=None,
         special_shifts = [(s, len(v)) for s, v in ini.shift.iteritems()]
         maj = bounds.DiffOpBound(dop, ini.expo, special_shifts)
     if bwrec is None:
-        bwrec = backward_rec(dop, shift=ini.expo)
+        bwrec = bw_shift_rec(dop, shift=ini.expo)
 
     doit = (series_sum_ordinary if dop.leading_coefficient().valuation() == 0
             else series_sum_regular)
@@ -363,7 +363,7 @@ def fundamental_matrix_ordinary(dop, pt, eps, rows, maj, max_prec):
     eps_col = bounds.IR(eps)/bounds.IR(dop.order()).sqrt()
     eps_col = accuracy.AbsoluteError(eps_col)
     evpt = EvaluationPoint(pt, jet_order=rows)
-    bwrec = backward_rec(dop)
+    bwrec = bw_shift_rec(dop)
     inis = [
         LogSeriesInitialValues(ZZ.zero(), ini, dop, check=False)
         for ini in identity_matrix(dop.order())]

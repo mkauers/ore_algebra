@@ -1514,7 +1514,7 @@ class DiffOpBound(object):
 
     @cached_method
     def bwrec(self):
-        return local_solutions.backward_rec(self.dop, shift=self.leftmost)
+        return local_solutions.bw_shift_rec(self.dop, shift=self.leftmost)
 
     def normalized_residual(self, n, last, bwrec_nplus=None, Ring=IC):
         r"""

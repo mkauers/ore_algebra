@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 # Recurrence relations
 ##############################################################################
 
-def backward_rec(dop, shift=ZZ.zero()):
+def bw_shift_rec(dop, shift=ZZ.zero()):
     Pols_n = PolynomialRing(dop.base_ring().base_ring(), 'n') # XXX: name
     Rops = ore_algebra.OreAlgebra(Pols_n, 'Sn')
     # Using the primitive part here would break the computation of residuals!
@@ -40,9 +40,9 @@ def backward_rec(dop, shift=ZZ.zero()):
     ordrec = rop.order()
     coeff = [rop[ordrec-k](Pols_n.gen()-ordrec+shift)
              for k in xrange(ordrec+1)]
-    return BackwardRec(coeff)
+    return BwShiftRec(coeff)
 
-class BackwardRec(object):
+class BwShiftRec(object):
     r"""
     A recurrence relation, written in terms of the backward shift operator.
 
@@ -116,7 +116,7 @@ class BackwardRec(object):
 
     def shift(self, sh):
         n = self.coeff[0].parent().gen()
-        return BackwardRec([pol(sh + n) for pol in self.coeff])
+        return BwShiftRec([pol(sh + n) for pol in self.coeff])
 
 class LogSeriesInitialValues(object):
     r"""
@@ -270,7 +270,7 @@ class LocalBasisMapper(object):
         canonical order.
         """
 
-        bwrec = backward_rec(dop)
+        bwrec = bw_shift_rec(dop)
         ind = bwrec[0]
         sl_decomp = my_shiftless_decomposition(ind)
         logger.debug("indicial polynomial = %s ~~> %s", ind, sl_decomp)
@@ -329,7 +329,7 @@ class LocalBasisMapper(object):
         return None
 
 def exponent_shifts(dop, leftmost):
-    bwrec = backward_rec(dop)
+    bwrec = bw_shift_rec(dop)
     ind = bwrec[0]
     sl_decomp = my_shiftless_decomposition(ind)
     cand = [shifts for fac, shifts in sl_decomp if fac(leftmost).is_zero()]
