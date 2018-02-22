@@ -65,9 +65,9 @@ class BwShiftRec(object):
     @cached_method
     def eval_method(self, tgt):
         if utilities.is_QQi(self.Scalars) and isinstance(tgt, ComplexBallField):
-            QQn = PolynomialRing(QQ, 'n')
+            ZZn = PolynomialRing(ZZ, 'n')
             re_im = [
-                    (QQn([c.real() for c in pol]), QQn([c.imag() for c in pol]))
+                    (ZZn([c.real() for c in pol]), ZZn([c.imag() for c in pol]))
                     for pol in self.coeff]
             def ev(point):
                 return [tgt(re(point), im(point)) for re, im in re_im]

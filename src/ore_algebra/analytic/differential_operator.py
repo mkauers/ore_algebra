@@ -5,6 +5,7 @@ Custom differential operators
 
 import sage.categories.pushout as pushout
 
+from sage.arith.all import lcm
 from sage.misc.cachefunc import cached_method
 from sage.rings.all import CIF, QQbar
 from sage.rings.complex_arb import ComplexBallField
@@ -30,6 +31,8 @@ class PlainDifferentialOperator(UnivariateDifferentialOperatorOverUnivariateRing
         if not dop.parent().is_D():
             raise ValueError("expected an operator in K(x)[D]")
         _, _, _, dop = dop.numerator()._normalize_base_ring()
+        den = lcm(c.denominator() for c in dop)
+        dop *= den
         super(PlainDifferentialOperator, self).__init__(
                 dop.parent(), dop)
 
@@ -65,7 +68,7 @@ class PlainDifferentialOperator(UnivariateDifferentialOperatorOverUnivariateRing
             (x + 1)*Dx - 1
             sage: dop = DifferentialOperator(x*Dx - 1)
             sage: dop.shift(Point(RBF(1/2), dop))
-            (x + 1/2)*Dx - 1
+            (2*x + 1)*Dx - 2
         """
         Pols_dop = self.base_ring()
         # NOTE: pushout(QQ[x], K) doesn't handle embeddings well, and creates
