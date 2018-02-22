@@ -222,8 +222,10 @@ def series_sum(dop, ini, pt, tgt_error, maj=None, bwrec=None,
                                       bwrec, max_prec, record_bounds_in, **kwds)
 
 def interval_series_sum_wrapper(doit, dop, ini, pt, tgt_error, maj, bwrec,
-                                max_prec, record_bounds_in, stride=50):
+                                max_prec, record_bounds_in, stride=None):
 
+    if stride is None:
+        stride = max(50, 2*bwrec.order)
     ivs = (RealBallField
            if ini.is_real(dop) and (pt.is_real() or not pt.is_numeric)
            else ComplexBallField)
@@ -480,7 +482,7 @@ def log_series_value(Jets, derivatives, expo, psum, pt, branch=(0,)):
 # roots of the indicial equation belonging to the same shift-equivalence class),
 # not just initial conditions associated to canonical solutions.
 def series_sum_regular(Intervals, dop, bwrec, ini, pt, tgt_error,
-        maj, stride=50, record_bounds_in=None):
+        maj, stride, record_bounds_in=None):
     r"""
     TESTS::
 

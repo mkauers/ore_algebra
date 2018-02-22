@@ -15,7 +15,8 @@ equation::
     sage: a = AA.polynomial_root(54*z**3+324*z**2-4265*z+432, RIF(0.1, 0.11))
     sage: roots = salvy1_pol(z=a).univariate_polynomial().roots(QQbar)
     sage: val = salvy1_dop.numerical_solution([0, 0, 0, 0, 0, 1/2], [0, a]) # long time (17.2s)
-    sage: [r for (r, _) in roots if r in val]                               # long time
+    sage: CBF100 = ComplexBallField(100)
+    sage: [r for (r, _) in roots if CBF100(r) in val]                         # long time
     [0.0108963334211605...]
 
 An example provided by Steve Melczer which used to trigger an issue with the
