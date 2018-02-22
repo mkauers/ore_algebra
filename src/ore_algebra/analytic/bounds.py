@@ -13,7 +13,7 @@ from sage.misc.lazy_string import lazy_string
 from sage.misc.misc_c import prod
 from sage.misc.random_testing import random_testing
 from sage.rings.all import CIF
-from sage.rings.complex_arb import CBF, ComplexBallField
+from sage.rings.complex_arb import CBF, ComplexBallField, ComplexBall
 from sage.rings.infinity import infinity
 from sage.rings.integer import Integer
 from sage.rings.integer_ring import ZZ
@@ -24,7 +24,7 @@ from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 from sage.rings.power_series_ring import PowerSeriesRing
 from sage.rings.qqbar import QQbar
 from sage.rings.rational_field import QQ
-from sage.rings.real_arb import RBF
+from sage.rings.real_arb import RBF, RealBall
 from sage.rings.real_mpfi import RIF
 from sage.rings.real_mpfr import RealField, RR
 from sage.structure.factorization import Factorization
@@ -1516,7 +1516,7 @@ class DiffOpBound(object):
     def bwrec(self):
         return local_solutions.bw_shift_rec(self.dop, shift=self.leftmost)
 
-    def normalized_residual(self, n, last, bwrec_nplus=None, Ring=IC):
+    def normalized_residual(self, n, last, bwrec_nplus=None, Ring=None):
         r"""
         Compute the “normalized residual” associated to a truncated solution
         of dop(y) = 0.
@@ -1651,6 +1651,10 @@ class DiffOpBound(object):
         """
         deg = self.dop.degree()
         logs = max(len(logpol) for logpol in last) if last else 1
+        if Ring is None:
+            use_sum_of_products, Ring = _use_sum_of_products(last, bwrec_nplus)
+        else:
+            use_sum_of_products = False
         if bwrec_nplus is None:
             bwrec = self.bwrec()
             # Suboptimal: For a given j, we are only going to need the
@@ -1678,10 +1682,16 @@ class DiffOpBound(object):
         for d in range(deg):
             for k in reversed(range(logs)):
                 # Coefficient of z^(λ+n+d)·log(z)^k/k! in dop(ỹ)
-                res[k][d] = sum(
-                        Ring(bwrec_nplus[d][d+i+1][j])*Ring(last[i][k+j])
-                        for i in range(deg - d)
-                        for j in range(logs - k))
+                if use_sum_of_products:
+                    res[k][d] = Ring._sum_of_products(
+                            (bwrec_nplus[d][d+i+1][j], last[i][k+j])
+                            for i in range(deg - d)
+                            for j in range(logs - k))
+                else:
+                    res[k][d] = sum(
+                            Ring(bwrec_nplus[d][d+i+1][j])*Ring(last[i][k+j])
+                            for i in range(deg - d)
+                            for j in range(logs - k))
                 # Deduce the corresponding coefficient of nres
                 # XXX For simplicity, we limit ourselves to the “generic” case
                 # where none of the n+d is a root of the indicial polynomial.
@@ -1709,8 +1719,7 @@ class DiffOpBound(object):
 
             ỹ(z) = z^expo·sum[k](trunc[k](z)·log(z)^k/k!).
 
-        Ideally, Ring should be IC (the default value for the corresponding
-        parameter of normalized_residual()) in most cases; unfortunately, this
+        Ideally, Ring should be IR or IC in most cases; unfortunately, this
         often doesn't work due to various weaknesses of Sage.
         """
         ordrec = self.dop.degree()
@@ -2071,3 +2080,18 @@ def _switch_vars(pol):
     dy = pol.degree()
     dx = max(c.degree() for c in pol)
     return Ayx([Ay([pol[j][i] for j in range(dy+1)]) for i in range(dx+1)])
+
+def _use_sum_of_products(last, bwrec_nplus):
+    if not (last and last[0] and bwrec_nplus and bwrec_nplus[0] and
+            bwrec_nplus[0][0]):
+        return False, IC
+    b0 = last[0][0]
+    b1 = bwrec_nplus[0][0][0]
+    if (isinstance(b0, RealBall) and isinstance(b1, RealBall)
+            and hasattr(IR, '_sum_of_products')):
+        return True, IR
+    elif (isinstance(b0, ComplexBall) and isinstance(b1, ComplexBall)
+            and hasattr(IC, '_sum_of_products')):
+        return True, IC
+    else:
+        return False, IC

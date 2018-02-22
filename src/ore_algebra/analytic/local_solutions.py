@@ -10,6 +10,7 @@ from sage.functions.log import log as symbolic_log
 from sage.misc.cachefunc import cached_method
 from sage.modules.free_module_element import vector
 from sage.rings.all import ZZ, QQ, QQbar, RBF, RealBallField, ComplexBallField
+from sage.rings.complex_arb import ComplexBall
 from sage.rings.number_field.number_field import NumberField_generic
 from sage.rings.number_field.number_field_morphisms import NumberFieldEmbedding
 from sage.rings.polynomial import polynomial_element
@@ -69,8 +70,13 @@ class BwShiftRec(object):
             re_im = [
                     (ZZn([c.real() for c in pol]), ZZn([c.imag() for c in pol]))
                     for pol in self.coeff]
-            def ev(point):
-                return [tgt(re(point), im(point)) for re, im in re_im]
+            if utilities.has_new_ComplexBall_constructor():
+                def ev(point):
+                    return [ComplexBall(tgt, re(point), im(point))
+                            for re, im in re_im]
+            else:
+                def ev(point):
+                    return [tgt(re(point), im(point)) for re, im in re_im]
         else:
             def ev(point):
                 return [tgt(pol(point)) for pol in self.coeff]

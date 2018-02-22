@@ -57,6 +57,20 @@ def is_QQi(parent):
                 and list(parent.polynomial()) == [1,0,1])
 
 ######################################################################
+# Sage features
+######################################################################
+
+@cached_function
+def has_new_ComplexBall_constructor():
+    from sage.rings.complex_arb import ComplexBall, CBF
+    try:
+        ComplexBall(CBF, QQ(1), QQ(1))
+    except TypeError:
+        return False
+    else:
+        return True
+
+######################################################################
 # Miscellaneous stuff
 ######################################################################
 
