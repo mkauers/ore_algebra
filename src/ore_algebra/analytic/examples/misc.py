@@ -25,7 +25,7 @@ numerical analytic continuation code::
     sage: from ore_algebra.analytic.examples.misc import melczer1
     sage: rts = melczer1.leading_coefficient().roots(QQbar, multiplicities=False)
     sage: melczer1.numerical_transition_matrix([0, rts[1]])[0, 0]
-    [4.64191240683487...] + [-0.0159612280126475...]*I
+    [4.64191240683...] + [-0.01596122801...]*I
     sage: melczer1.local_basis_expansions(rts[1])
     [1 + (1269/32*a+3105/28)*(z + 0.086...? + 0.069...*I)^4 + ...,
      sqrt(z + 0.086...? + 0.069...*I) + (365/96*a+13/3)*(z + 0.086...? + 0.069...*I)^(3/2) - ...,

@@ -96,6 +96,11 @@ class StoppingCriterion(object):
                     # But then, typically, est > ε, so that we shouldn't even
                     # have entered the rigorous phase unless the intervals are
                     # blowing up badly.
+                    # Note: it seems best *not* to do this when prev_tb is
+                    # non-finite, because we may be waiting to get past a
+                    # singularity of the recurrence. (XXX: Unfortunately, we
+                    # have no way of deciding if the bound is infinite because
+                    # of a genuine mathematical reason or an evaluation issue.)
                     logger.debug("--> bounds out of control ({} became {})"
                                 .format(ini_tb, tb))
                     return True, tb

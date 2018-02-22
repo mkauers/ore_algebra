@@ -459,7 +459,7 @@ def binsplit_step_seq(start):
         yield (low, high)
         low, high = high, 2*high
 
-def fundamental_matrix_ordinary(dop, pt, eps, rows, maj):
+def fundamental_matrix_ordinary(dop, pt, eps, rows, maj, fail_fast):
     r"""
     INPUT:
 

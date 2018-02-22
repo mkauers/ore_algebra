@@ -76,9 +76,11 @@ def _local_monodromy_formal(dop, x, eps):
     base = path.polygon_around(x, size=1)[0] # TBI?
     rows = x.dop.order()
     step_in = path.Step(base, x)
-    mat_in = ancont.inverse_singular_step_transition_matrix(dop, step_in, eps, rows)
+    mat_in = ancont.inverse_singular_step_transition_matrix(dop, step_in, eps,
+                                                          rows, fail_fast=False)
     step_out = path.Step(x, base, branch=(1,))
-    mat_out = ancont.singular_step_transition_matrix(dop, step_out, eps, rows)
+    mat_out = ancont.singular_step_transition_matrix(dop, step_out, eps, rows,
+                                                                fail_fast=False)
     return [base, x], [mat_in, mat_out]
 
 def _local_monodromy(dop, x, eps, algorithm):

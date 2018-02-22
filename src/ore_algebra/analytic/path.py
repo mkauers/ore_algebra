@@ -231,6 +231,14 @@ class Point(SageObject):
                 or isinstance(self.value, (RealBall, ComplexBall))
                     and self.value.is_exact())
 
+    def rationalize(self):
+        a = self.iv()
+        lc = self.dop.leading_coefficient()
+        if lc(a).contains_zero():
+            raise PathPrecisionError
+        else:
+            return Point(_rationalize(a), self.dop)
+
     # Point equality is identity
 
     def __eq__(self, other):
@@ -493,8 +501,17 @@ class Step(SageObject):
         return self.length()/self.start.dist_to_sing()
 
     def split(self):
-        mid = Point((self.start.value + self.end.value)/2, self.start.dop)
-        return [Step(self.start, mid, branch=self.branch), Step(mid, self.end)]
+        # Ensure that the substeps correspond to convergent series when
+        # splitting a singular step
+        if self.start.is_singular():
+            mid = (self.start.iv() + 2*self.end.iv())/3
+        elif self.end.is_singular():
+            mid = (2*self.start.iv() + self.end.iv())/3
+        else:
+            mid = (self.start.iv() + self.end.iv())/2
+        mid = Point(mid, self.start.dop)
+        mid = mid.rationalize()
+        return (Step(self.start, mid, branch=self.branch), Step(mid, self.end))
 
     def singularities(self):
         dop = self.start.dop

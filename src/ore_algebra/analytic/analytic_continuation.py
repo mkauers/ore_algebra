@@ -89,7 +89,7 @@ class Context(object):
         return (rings.RIF.has_coerce_map_from(self.dop.base_ring().base_ring())
                 and all(v.is_real() for v in self.path.vert))
 
-def ordinary_step_transition_matrix(dop, step, eps, rows, ctx=None):
+def ordinary_step_transition_matrix(dop, step, eps, rows, fail_fast, ctx=None):
     from . import naive_sum, binary_splitting
     ldop = dop.shift(step.start)
     deg = ldop.degree()
@@ -98,31 +98,37 @@ def ordinary_step_transition_matrix(dop, step, eps, rows, ctx=None):
     assert len(maj.special_shifts) == 1 and maj.special_shifts[0] == 1
     if ctx is not None and ctx.fundamental_matrix_ordinary is not None:
         return ctx.fundamental_matrix_ordinary(
-                ldop, step.delta(), eps, rows, maj)
+                ldop, step.delta(), eps, rows, maj, fail_fast)
     elif step.is_exact():
         thr = 256 + 32*deg
         a = step.cvg_ratio()
         if eps > a.max(a.parent().one() >> 100)**thr: # TBI
-            return naive_sum.fundamental_matrix_ordinary(
-                    ldop, step.delta(), eps, rows, maj, max_prec=4*thr)
+            try:
+                return naive_sum.fundamental_matrix_ordinary(ldop, step.delta(),
+                        eps, rows, maj, fail_fast)
+            except accuracy.PrecisionError:
+                if fail_fast:
+                    raise
         return binary_splitting.fundamental_matrix_ordinary(
-                ldop, step.delta(), eps, rows, maj)
+                ldop, step.delta(), eps, rows, maj, fail_fast)
     else:
         return naive_sum.fundamental_matrix_ordinary(
-                ldop, step.delta(), eps, rows, maj, max_prec=(1<<30))
+                ldop, step.delta(), eps, rows, maj, fail_fast)
 
-def singular_step_transition_matrix(dop, step, eps, rows, ctx=None):
+def singular_step_transition_matrix(dop, step, eps, rows, fail_fast, ctx=None):
     from .naive_sum import fundamental_matrix_regular
     ldop = dop.shift(step.start)
-    mat = fundamental_matrix_regular(ldop, step.delta(), eps, rows, step.branch)
+    mat = fundamental_matrix_regular(ldop, step.delta(), eps, rows, step.branch,
+                                                                      fail_fast)
     return mat
 
-def inverse_singular_step_transition_matrix(dop, step, eps, rows, ctx=None):
+def inverse_singular_step_transition_matrix(dop, step, eps, rows, fail_fast,
+                                                                      ctx=None):
     rev_step = Step(step.end, step.start)
-    mat = singular_step_transition_matrix(dop, rev_step, eps/2, rows)
+    mat = singular_step_transition_matrix(dop, rev_step, eps/2, rows, fail_fast)
     return ~mat
 
-def step_transition_matrix(step, eps, rows=None, ctx=None):
+def step_transition_matrix(step, eps, rows=None, ctx=None, split=0, max_split=3):
     dop = step.start.dop
     order = dop.order()
     if rows is None:
@@ -149,12 +155,15 @@ def step_transition_matrix(step, eps, rows=None, ctx=None):
     else:
         raise TypeError(type(z0), type(z1))
     try:
-        return fun(dop, step, eps, rows, ctx=ctx)
+        return fun(dop, step, eps, rows, ctx=ctx, fail_fast=(split < max_split))
     except (accuracy.PrecisionError, bounds.BoundPrecisionError):
+        # XXX it would be nicer to return something in this case...
+        if split >= max_split:
+            raise
         logger.info("splitting step...")
         s0, s1 = step.split()
-        m0 = step_transition_matrix(s0, eps/2, rows=None, ctx=ctx)
-        m1 = step_transition_matrix(s1, eps/2, rows=rows, ctx=ctx)
+        m0 = step_transition_matrix(s0, eps/2, rows=None, ctx=ctx, split=split+1)
+        m1 = step_transition_matrix(s1, eps/2, rows=rows, ctx=ctx, split=split+1)
         return m1*m0
 
 def analytic_continuation(ctx, ini=None, post=None):

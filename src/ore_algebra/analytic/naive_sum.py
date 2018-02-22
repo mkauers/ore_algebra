@@ -75,7 +75,7 @@ class EvaluationPoint(object):
             raise ValueError
 
 def series_sum(dop, ini, pt, tgt_error, maj=None, bwrec=None,
-        record_bounds_in=None, max_prec=100000, **kwds):
+        record_bounds_in=None, max_prec=100000, fail_fast=False, **kwds):
     r"""
     EXAMPLES::
 
@@ -219,10 +219,12 @@ def series_sum(dop, ini, pt, tgt_error, maj=None, bwrec=None,
             else series_sum_regular)
 
     return interval_series_sum_wrapper(doit, dop, ini, pt, tgt_error, maj,
-                                      bwrec, max_prec, record_bounds_in, **kwds)
+                                       bwrec, fail_fast, max_prec,
+                                       record_bounds_in, **kwds)
 
 def interval_series_sum_wrapper(doit, dop, ini, pt, tgt_error, maj, bwrec,
-                                max_prec, record_bounds_in, stride=None):
+                                fail_fast, max_prec, record_bounds_in,
+                                stride=None):
 
     if stride is None:
         stride = max(50, 2*bwrec.order)
@@ -239,7 +241,9 @@ def interval_series_sum_wrapper(doit, dop, ini, pt, tgt_error, maj, bwrec,
     # coefficients of the recurrence. Anyhow, this formula seems to work well in
     # practice.
     bit_prec = 8 + bit_prec*(1 + ZZ(bwrec.order - 2).nbits())
-    max_prec = min(max_prec, bit_prec + 2*input_accuracy) # XXX: only if None?
+    if max_prec is None:
+        max_prec = bit_prec*3
+    max_prec = min(max_prec, bit_prec + 2*input_accuracy)
     logger.log(logging.INFO - 1, "target error = %s", tgt_error)
     logger.info("initial precision = %s bits", bit_prec)
     for attempt in itertools.count():
@@ -252,19 +256,20 @@ def interval_series_sum_wrapper(doit, dop, ini, pt, tgt_error, maj, bwrec,
             err = max(_get_error(c) for c in psum)
             logger.debug("bit_prec=%s, err=%s (tgt=%s)", bit_prec, err,
                     tgt_error)
-            bit_prec *= 2
             abs_sum = abs(psum[0]) if pt.is_numeric else None
             if tgt_error.reached(err, abs_sum):
                 return psum
-            elif bit_prec > max_prec:
-                logger.info("lost too much precision, giving up")
-                return psum
         except accuracy.PrecisionError:
-            logger.debug("bit_prec=%s, PrecisionError", bit_prec)
-            bit_prec *= 2
-            if bit_prec > max_prec:
+            if 2*bit_prec > max_prec:
                 logger.info("lost too much precision, giving up")
                 raise
+        bit_prec *= 2
+        if bit_prec > max_prec:
+            logger.info("lost too much precision, giving up")
+            if fail_fast:
+                raise accuracy.PrecisionError
+            else:
+                return psum
         logger.info("lost too much precision, restarting with %d bits",
                     bit_prec)
 
@@ -361,7 +366,7 @@ def series_sum_ordinary(Intervals, dop, bwrec, ini, pt,
     return res
 
 # XXX: pass ctx (→ real/complex?)?
-def fundamental_matrix_ordinary(dop, pt, eps, rows, maj, max_prec):
+def fundamental_matrix_ordinary(dop, pt, eps, rows, maj, fail_fast):
     eps_col = bounds.IR(eps)/bounds.IR(dop.order()).sqrt()
     eps_col = accuracy.AbsoluteError(eps_col)
     evpt = EvaluationPoint(pt, jet_order=rows)
@@ -371,7 +376,8 @@ def fundamental_matrix_ordinary(dop, pt, eps, rows, maj, max_prec):
         for ini in identity_matrix(dop.order())]
     cols = [
         interval_series_sum_wrapper(series_sum_ordinary, dop, ini, evpt,
-                                    eps_col, maj, bwrec, max_prec, None)
+                                    eps_col, maj, bwrec, fail_fast,
+                                    max_prec=None, record_bounds_in=None)
         for ini in inis]
     return matrix(cols).transpose()
 
@@ -384,7 +390,7 @@ def fundamental_matrix_ordinary(dop, pt, eps, rows, maj, max_prec):
 # multiplicity, needs partial sums from one root to the next or something
 # similar in the general case).
 
-def fundamental_matrix_regular(dop, pt, eps, rows, branch):
+def fundamental_matrix_regular(dop, pt, eps, rows, branch, fail_fast):
     r"""
     TESTS::
 
@@ -392,12 +398,12 @@ def fundamental_matrix_regular(dop, pt, eps, rows, branch):
         sage: from ore_algebra.analytic.naive_sum import *
         sage: Dops, x, Dx = DifferentialOperators()
 
-        sage: fundamental_matrix_regular(x*Dx^2 + (1-x)*Dx, 1, RBF(1e-10), 2, (0,))
+        sage: fundamental_matrix_regular(x*Dx^2 + (1-x)*Dx, 1, RBF(1e-10), 2, (0,), 100)
         [[1.317902...] 1.000000...]
         [[2.718281...]           0]
 
         sage: dop = (x+1)*(x^2+1)*Dx^3-(x-1)*(x^2-3)*Dx^2-2*(x^2+2*x-1)*Dx
-        sage: fundamental_matrix_regular(dop, 1/3, RBF(1e-10), 3, (0,))
+        sage: fundamental_matrix_regular(dop, 1/3, RBF(1e-10), 3, (0,), 100)
         [1.0000000...  [0.321750554...]  [0.147723741...]]
         [           0  [0.900000000...]  [0.991224850...]]
         [           0  [-0.27000000...]  [1.935612425...]]
@@ -407,7 +413,7 @@ def fundamental_matrix_regular(dop, pt, eps, rows, branch):
         ....:     + (-2*x^6 + 5*x^5 - 11*x^3 - 6*x^2 + 6*x)*Dx^3
         ....:     + (2*x^6 - 3*x^5 - 6*x^4 + 7*x^3 + 8*x^2 - 6*x + 6)*Dx^2
         ....:     + (-2*x^6 + 3*x^5 + 5*x^4 - 2*x^3 - 9*x^2 + 9*x)*Dx)
-        sage: fundamental_matrix_regular(dop, RBF(1/3), RBF(1e-10), 4, (0,))
+        sage: fundamental_matrix_regular(dop, RBF(1/3), RBF(1e-10), 4, (0,), 100)
         [ [3.1788470...] [-1.064032...]  [1.000...] [0.3287250...]]
         [ [-8.981931...] [3.2281834...]    [+/-...] [0.9586537...]]
         [  [26.18828...] [-4.063756...]    [+/-...] [-0.123080...]]
@@ -427,7 +433,8 @@ def fundamental_matrix_regular(dop, pt, eps, rows, branch):
                                         pol_part_len=4, bound_inverse="solve")
         def fun(self, ini):
             return interval_series_sum_wrapper(series_sum_regular, dop, ini,
-                    evpt, col_tgt_error, self.maj, self.emb_bwrec, 1<<30, None)
+                    evpt, col_tgt_error, self.maj, self.emb_bwrec, fail_fast,
+                    max_prec=None, record_bounds_in=None)
     cols = Mapper().run(dop)
     return matrix([sol.value for sol in cols]).transpose()
 
