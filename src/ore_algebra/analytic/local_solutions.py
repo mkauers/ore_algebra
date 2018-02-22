@@ -56,31 +56,25 @@ class BwShiftRec(object):
         self.base_ring = coeff[0].parent()
         self.Scalars = self.base_ring.base_ring()
         self.order = len(coeff) - 1
-        # Evaluating polynomials over ℚ[i] is slow...
-        # TODO: perhaps do something similar for eval_series
-        if utilities.is_QQi(self.Scalars):
-            QQn = PolynomialRing(QQ, 'n')
-            self._re_im = [
-                    (QQn([c.real() for c in pol]), QQn([c.imag() for c in pol]))
-                    for pol in coeff]
-            self.eval_int_ball = self._eval_qqi_cbf
 
     def __repr__(self):
         n = self.base_ring.variable_name()
         return " + ".join("({})*S{}^(-{})".format(c, n, j)
                           for j, c in enumerate(self.coeff))
 
-    # efficient way to cache the last few results (without cython)?
-    def eval(self, tgt, point):
-        return [tgt(pol(point)) for pol in self.coeff]
-
-    def _eval_qqi_cbf(self, tgt, point):
-        return [tgt(re(point), im(point)) for re, im in self._re_im]
-
-    # Optimized implementation of eval() when point is a Python
-    # integer and iv is a ball field. Can be dynamically replaced by
-    # one of the above implementations on initialization.
-    eval_int_ball = eval
+    @cached_method
+    def eval_method(self, tgt):
+        if utilities.is_QQi(self.Scalars) and isinstance(tgt, ComplexBallField):
+            QQn = PolynomialRing(QQ, 'n')
+            re_im = [
+                    (QQn([c.real() for c in pol]), QQn([c.imag() for c in pol]))
+                    for pol in self.coeff]
+            def ev(point):
+                return [tgt(re(point), im(point)) for re, im in re_im]
+        else:
+            def ev(point):
+                return [tgt(pol(point)) for pol in self.coeff]
+        return ev
 
     @cached_method
     def _coeff_series(self, i, j):

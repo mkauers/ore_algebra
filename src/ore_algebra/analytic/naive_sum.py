@@ -298,8 +298,9 @@ def series_sum_ordinary(Intervals, dop, bwrec, ini, pt,
     # Evaluate the coefficients a bit in advance as we are going to need them to
     # compute the residuals. This is not ideal at high working precision, but
     # already saves a lot of time compared to doing the evaluations twice.
+    bwrec_ev = bwrec.eval_method(Intervals)
     bwrec_nplus = collections.deque(
-            (bwrec.eval_int_ball(Intervals, start+i) for i in xrange(ordrec)),
+            (bwrec_ev(start+i) for i in xrange(ordrec)),
             maxlen=ordrec)
 
     stopping_criterion = accuracy.StoppingCriterion(
@@ -334,8 +335,7 @@ def series_sum_ordinary(Intervals, dop, bwrec, ini, pt,
                 record_bounds_in.append((n, psum, tail_bound))
             if done:
                 break
-        bwrec_n = (bwrec_nplus[0] if bwrec_nplus
-                   else bwrec.eval_int_ball(Intervals, n))
+        bwrec_n = (bwrec_nplus[0] if bwrec_nplus else bwrec_ev(n))
         comb = sum(bwrec_n[k]*last[k] for k in xrange(1, ordrec+1))
         last[0] = -~bwrec_n[0]*comb
         # logger.debug("n = %s, [c(n), c(n-1), ...] = %s", n, list(last))
@@ -343,7 +343,7 @@ def series_sum_ordinary(Intervals, dop, bwrec, ini, pt,
         psum += term
         jetpow = jetpow._mul_trunc_(jet, ord)
         radpow *= pt.rad
-        bwrec_nplus.append(bwrec.eval_int_ball(Intervals, n+bwrec.order))
+        bwrec_nplus.append(bwrec_ev(n+bwrec.order))
     logger.info("summed %d terms, tail <= %s (est = %s), coeffwise error <= %s",
             n, tail_bound, bounds.IR(est),
             max(x.rad() for x in psum) if pt.is_numeric else "n/a")
