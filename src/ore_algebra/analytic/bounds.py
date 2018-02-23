@@ -1675,6 +1675,8 @@ class DiffOpBound(object):
         # Since our indicial polynomial is monic,
         # b₀(n) = bwrec_nplus[0][0][0] = lc(dop)(0)·ind(n) = cst·ind(n)
         cst = self.dop.leading_coefficient()[0]
+        #assert deg == 0 or IC(cst*self.ind(n) - bwrec_nplus[0][0][0]).contains_zero()
+
         # For each d, compute the coefficients of z^(λ+n+d)·log(z)^k/k! in the
         # normalized residual. This is done by solving a triangular system with
         # (cst ×) the coefficients of the residual corresponding to the same d

@@ -216,7 +216,10 @@ class MatrixRec(object):
         # ore_algebra currently does not support orders as scalar rings
         Pols = PolynomialRing(NF_rec, 'n')
         Rops, Sn = ore_algebra.OreAlgebra(Pols, 'Sn').objgen()
-        recop = diffop.to_S(Rops).primitive_part().numerator()
+        # Using the primitive part here would break the computation of
+        # residuals! (Cf. local_solutions.)
+        # recop = diffop.to_S(Rops).primitive_part().numerator()
+        recop = diffop.to_S(Rops)
         recop = lcm([p.denominator() for p in recop.coefficients()])*recop
         # Ensure that ordrec >= orddeq. When the homomorphic image of diffop in
         # Rops is divisible by Sn, it can happen that the recop (e.g., after
@@ -416,7 +419,7 @@ class MatrixRec(object):
         # the operator stored in maj.dop, which typically isn't self.diffop (but
         # an operator in θx equal to x^k·self.diffop for some k).
         # XXX: do not recompute this every time!
-        bwrnp = [[pol(n + i) for pol in self.bwrec] for i in range(s)]
+        bwrnp = [[[pol(n + i)] for pol in self.bwrec] for i in range(s)]
         altlast = [[c] for c in reversed(last[:s])]
         return maj.normalized_residual(n, altlast, bwrnp)
 
