@@ -23,6 +23,7 @@ from sage.symbolic.all import pi, I
 
 from .. import ore_algebra
 from . import accuracy, bounds, utilities
+from .differential_operator import DifferentialOperator
 from .local_solutions import (bw_shift_rec, FundamentalSolution,
         LogSeriesInitialValues, LocalBasisMapper)
 from .safe_cmp import *
@@ -196,6 +197,7 @@ def series_sum(dop, ini, pt, tgt_error, maj=None, bwrec=None,
         sage: logger.setLevel(logging.WARNING)
     """
 
+    dop = DifferentialOperator(dop)
     if not isinstance(ini, LogSeriesInitialValues):
         ini = LogSeriesInitialValues(ZZ.zero(), ini, dop)
     if not isinstance(pt, EvaluationPoint):
