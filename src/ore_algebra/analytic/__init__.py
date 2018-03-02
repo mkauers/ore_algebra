@@ -252,6 +252,12 @@ Operators with rational function coefficients::
     [[0.0340875989376363...]   [1.59063685463732...]]
     [[-0.579827135138349...]   [2.27958530233606...]]
 
+Algorithm choice::
+
+    sage: dop = Dx + 1/4/(x - 1/2)
+    sage: dop.numerical_transition_matrix([0,1+I,1], 1e-300, algorithm='naive')
+    [[0.707...399...] + [0.707...399...]*I]
+
 Miscellaneous tests::
 
     sage: dop =  -452*Dx^10 + (-2*x^2 - x - 1/2)*Dx^9 + (1/2*x + 22)*Dx^8 + (1/4*x^2 + x)*Dx^7 + (1/3*x^2 - 1/2*x + 1/3)*Dx^6 + (-3*x^2 + x + 1)*Dx^5 + (x^2 - 4/3*x)*Dx^4 + (2*x^2 - 2*x)*Dx^3 + (2*x^2 + x)*Dx^2 + (-2/3*x^2 - 5/27*x - 1/3)*Dx - 18*x^2 + 6/5*x - 6
