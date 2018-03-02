@@ -400,6 +400,14 @@ class MatrixRec(object):
         r"""
         Compute the normalized residual associated with the fundamental
         solution of index j.
+
+        TESTS::
+
+            sage: from ore_algebra import *
+            sage: DOP, t, D = DifferentialOperators()
+            sage: ode = D + 1/4/(t - 1/2)
+            sage: ode.numerical_transition_matrix([0,1+I,1], 1e-100, algorithm='binsplit')
+            [[0.707...2078...] + [0.707...]*I]
         """
         r, s = self.orddeq, self.ordrec
         IC = bounds.IC
