@@ -38,7 +38,7 @@ from sage.rings.finite_rings.all import GF
 from sage.rings.finite_rings.finite_field_base import is_FiniteField
 from sage.matrix.constructor import Matrix, matrix
 from sage.matrix.matrix_space import MatrixSpace
-from sage.rings.arith import xgcd
+from sage.arith.misc import xgcd
 from sage.parallel.decorate import parallel
 from sage.rings.polynomial.polynomial_ring import is_PolynomialRing
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing

@@ -31,6 +31,8 @@ def transition_matrices(dop, path, eps=1e-16):
          (4/5, [[2.225540928...]]),
          (1,   [[2.718281828...]])]
     """
+    from .differential_operator import DifferentialOperator
+    dop = DifferentialOperator(dop)
     ctx = ancont.Context(dop, path, eps, keep="all")
     pairs = ancont.analytic_continuation(ctx)
     return pairs
@@ -71,6 +73,8 @@ def multi_eval_diffeq(dop, ini, path, eps=1e-16):
         sage: multi_eval_diffeq(Dx - 1, ini=[42], path=[1])
         [(1, 42.000...)]
     """
+    from .differential_operator import DifferentialOperator
+    dop = DifferentialOperator(dop)
     ctx = ancont.Context(dop, path, eps, keep="all")
     pairs = ancont.analytic_continuation(ctx, ini=ini)
     return [(point, _value_from_mat(mat)) for point, mat in pairs]

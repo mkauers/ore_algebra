@@ -40,21 +40,6 @@ class Stats(object):
                                     if isinstance(clock, Clock))
 
 ######################################################################
-# Differential operators
-######################################################################
-
-# These functions should probably become methods of suitable subclasses of
-# OreOperator, or of a custom wrapper.
-
-@cached_function
-def dop_singularities(dop, dom=QQbar):
-    return [descr[0] for descr in dop.leading_coefficient().roots(dom)]
-
-def sing_as_alg(dop, iv):
-    pol = dop.leading_coefficient().radical()
-    return QQbar.polynomial_root(pol, CIF(iv))
-
-######################################################################
 # Numeric fields
 ######################################################################
 
@@ -70,6 +55,20 @@ def is_real_parent(parent):
 def is_QQi(parent):
     return (isinstance(parent, NumberField_quadratic)
                 and list(parent.polynomial()) == [1,0,1])
+
+######################################################################
+# Sage features
+######################################################################
+
+@cached_function
+def has_new_ComplexBall_constructor():
+    from sage.rings.complex_arb import ComplexBall, CBF
+    try:
+        ComplexBall(CBF, QQ(1), QQ(1))
+    except TypeError:
+        return False
+    else:
+        return True
 
 ######################################################################
 # Miscellaneous stuff
@@ -100,7 +99,7 @@ def as_embedded_number_field_element(alg):
         embnf = NumberField(nf.polynomial(), nf.variable_name(),
                     embedding=emb(nf.gen()))
         res = elt.polynomial()(embnf.gen())
-    assert QQbar.coerce(res) == alg
+    # assert QQbar.coerce(res) == alg
     return res
 
 def short_str(obj, n=60):

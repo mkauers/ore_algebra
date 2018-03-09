@@ -13,17 +13,18 @@ from sage.misc.lazy_string import lazy_string
 from sage.misc.misc_c import prod
 from sage.misc.random_testing import random_testing
 from sage.rings.all import CIF
-from sage.rings.complex_arb import CBF, ComplexBallField
+from sage.rings.complex_arb import CBF, ComplexBallField, ComplexBall
 from sage.rings.infinity import infinity
 from sage.rings.integer import Integer
 from sage.rings.integer_ring import ZZ
+from sage.rings.polynomial.complex_roots import complex_roots
 from sage.rings.polynomial.polynomial_element import Polynomial
 from sage.rings.polynomial.polynomial_ring import polygen
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 from sage.rings.power_series_ring import PowerSeriesRing
 from sage.rings.qqbar import QQbar
 from sage.rings.rational_field import QQ
-from sage.rings.real_arb import RBF
+from sage.rings.real_arb import RBF, RealBall
 from sage.rings.real_mpfi import RIF
 from sage.rings.real_mpfr import RealField, RR
 from sage.structure.factorization import Factorization
@@ -31,8 +32,8 @@ from sage.structure.factorization import Factorization
 from .. import ore_algebra
 from . import local_solutions, utilities
 
+from .differential_operator import DifferentialOperator
 from .safe_cmp import *
-from .shiftless import squarefree_part
 
 logger = logging.getLogger(__name__)
 
@@ -334,10 +335,10 @@ class HyperexpMajorant(MajorantSeries):
     def _den_expanded(self):
         return prod(pol**m for (pol, m) in self.den)
 
-    def exp_part_series0(self, ord):
+    def inv_exp_part_series0(self, ord):
         # This uses the fact that the integral in the definition of self starts
         # at zero!
-        return self.integrand.series0(ord-1).integral()._exp_series(ord)
+        return (- self.integrand.series0(ord-1)).integral()._exp_series(ord)
 
     def bound_series(self, rad, ord):
         r"""
@@ -357,11 +358,14 @@ class HyperexpMajorant(MajorantSeries):
         shx_ser = pert_rad.power_trunc(self.shift, ord)
         num_ser = Pol(self.num).compose_trunc(pert_rad, ord) # XXX: remove Pol()
         den_ser = Pol(self._den_expanded()).compose_trunc(pert_rad, ord)
+        if den_ser[0].contains_zero():
+            # we will never obtain a finite bound using this result
+            raise BoundPrecisionError
         assert num_ser.parent() is den_ser.parent()
         rat_ser = (shx_ser._mul_trunc_(num_ser, ord)
                           ._mul_trunc_(den_ser.inverse_series_trunc(ord), ord))
         # Majorant series for the integral. Note that we need the constant term
-        # here, since we assume in exp_part_series0 and elsewhere that the
+        # here, since we assume in inv_exp_part_series0 and elsewhere that the
         # exponential part is one at rad=0.
         int_ser = self.integrand.bound_integral(rad, ord)
         exp_ser = int_ser._exp_series(ord)
@@ -554,42 +558,43 @@ def _complex_roots(pol):
         pol = pol.change_ring(QQbar)
     return [(IC(rt), mult) for rt, mult in pol.roots(CIF)]
 
-# Possible improvement: better take into account the range of derivatives
-# needed at each step.
+# Possible improvements:
+# - better take into account the range of derivatives needed at each step,
+# - allow ord to vary?
+
 class RatSeqBound(object):
     r"""
     Bounds on the tails of a.e. rational sequences and their derivatives.
 
-    Consider a vector of rational sequences sharing a single denominator,
+    Consider a vector of rational sequences sharing the same denominator,
 
         f(n) = nums(n)/den(n) = [num[i](n)/den(n)]_i.
 
     We assume that den is monic and deg(nums) < deg(den). Let
 
-        ref(n) = sum[t=0..ord-1](|n*F[t](n)/t!|)
-
-    where
-
-                  ⎧ f^(t)(n),                           n ∉ exceptions,
+                  ⎧ f^(t)(n),                       n ∉ exceptional_indices,
         F[t](n) = ⎨ (d/dX)^t(num(n+X)/(X^{-m}·den(n+X)))(X=0)),
-                  ⎩                                     exceptions[n] = m
+                  ⎩                                 exceptional_indices[n] = m
 
-    (the first formula is the specialization to m = 0 of the second one).
+                    (the first formula is the specialization to m = 0 of the
+                    second one),
+
+        ref(n, ord) = sum[t=0..ord-1](|n*F[t](n)/t!|),
+
+        τ(n) = sum[k=-∞..n](exceptional_indices[k]).
 
     An instance of this class represents a vector of bounds b(n) such that
 
-        ∀ k ≥ n,   |ref(k)| ≤ b(n)  (componentwise).
+        ∀ k ≥ n,   |ref(k, τ(k))| ≤ b(n)  (componentwise).
 
-    (Note: the entries of b(n) are not guaranteed to be nonincreasing.)
+    The bounds are *not* guaranteed to be nonincreasing.
 
     Such bounds appear as coefficients in the parametrized majorant series
-    associated to differential operators, see the class DiffOpBound. The
+    associated to differential operators, see :class:`DiffOpBound`. The
     ability to bound a sum of derivatives rather than a single rational
     function is useful to support logarithmic solutions at regular singular
-    points. Vectors of bounds are supported purely for performance reasons: it
-    helps avoiding redundant computations on the indices and denominators.
-
-    TODO: extend to allow ord to vary?
+    points. Vectors of bounds are supported purely for performance reasons,
+    to avoid redundant computations on the indices and denominators.
 
     ALGORITHM:
 
@@ -608,7 +613,7 @@ class RatSeqBound(object):
         sage: from ore_algebra.analytic.bounds import RatSeqBound
 
         sage: bnd = RatSeqBound([Pols(1)], n*(n-1)); bnd
-        bound(1/(n^2 - n), ord=1)
+        bound(1/(n^2 - n), ord≤1)
             = +infinity, +infinity, 1.0000, 0.50000, 0.33333, 0.25000, 0.20000,
             0.16667, ..., ~1.00000*n^-1
         sage: [bnd(k)[0] for k in range(5)]
@@ -617,16 +622,16 @@ class RatSeqBound(object):
         sage: bnd.plot()
         Graphics object...
 
-        sage: bnd = RatSeqBound([-n], n*(n-3), {0:1, 3:1}, ord=3); bnd
-        bound(-1/(n - 3), ord=3)
-            = 1842.5, 1842.5, 141.94, 12.000, 12.000, 4.3750, 2.8889, 2.2969,
+        sage: bnd = RatSeqBound([-n], n*(n-3), {-1: 1, 0:1, 3:1}); bnd
+        bound(-1/(n - 3), ord≤3)
+            = 74.767, 74.767, 22.439, 12.000, 12.000, 4.3750, 2.8889, 2.2969,
             ..., ~1.00000
-            [1842.5...]    for  n <= 0,
-            [12.000...]    for  n <= 3
-        sage: [(bnd.ref(k)[0], bnd(k)[0]) for k in range(5)]
-        [(0,          [1842.5...]),
-         (0.875...,   [1842.5...]),
-         (6.000...,   [141.94...]),
+            [74.7...]    for  n <= 0,
+            [12.0...]    for  n <= 3
+        sage: [(bnd.ref(k, bnd.ord(k))[0], bnd(k)[0]) for k in range(5)]
+        [(0,          [74.767...]),
+         (0.750...,   [74.767...]),
+         (4.000...,   [22.439...]),
          ([3.000...], [12.000...]),
          (12.000...,  [12.000...])]
         sage: bnd._test()
@@ -642,7 +647,7 @@ class RatSeqBound(object):
         sage: bnd.plot()
         Graphics object...
 
-        sage: bndvec = RatSeqBound([n, n^2, n^3], (n+1)^4)
+        sage: bndvec = RatSeqBound([n, n^2, n^3], (n+1)^4, {-1: 1})
         sage: for bnd in bndvec:
         ....:     bnd._test()
 
@@ -656,41 +661,36 @@ class RatSeqBound(object):
         sage: RatSeqBound([-n], n*(n-3), {0:1})._test()
         sage: RatSeqBound([-n], n*(n-3), {0:1,3:1})._test()
         sage: RatSeqBound([CBF(i)*n], n*(n-QQbar(i)), {0:1})._test()
-        sage: RatSeqBound([QQi['n'](3*i+1)], n + (i-1)/3, {})._test()
+        sage: RatSeqBound([QQi['n'](3*i+1)], n + (i-1)/3, {-1: 1})._test()
 
         sage: from ore_algebra.analytic.bounds import _test_RatSeqBound
         sage: _test_RatSeqBound() # long time
         sage: _test_RatSeqBound(base=QQi, number=3, deg=3) # long time
     """
 
-    def __init__(self, nums, den, exceptions={}, ord=None):
+    def __init__(self, nums, den, exceptional_indices={-1: 1}):
         r"""
         INPUT:
 
         - den - polynomial with complex coefficients,
         - nums - list of polynomials with complex coefficients, each
           with deg(num) < deg(den);
-        - exceptions - dictionary {zero: multiplicity} for a subset of the
-          natural integer zeros of den[*],  typically
-            - either the full list of integer zeros (or a “right segment”), in
-              the context of evaluations at regular singular points,
-            - or empty, if one is not interested in derivatives and willing to
-              do with an infinite bound up to the rightmost integer zero of
-              den.
+        - exceptional_indices - dictionary {index: multiplicity},  typically
+            - either {-1: 1}, corresponding to bounds on |nums(n)/den(n)| (for
+              n≥ 0) that only become finite after the last integer zero of den
+              (accepting negative indices here is a bit of a hack, but is
+              convenient to test the bounds in simple cases...),
+            - or the integer zeros of den, the context of evaluations at
+              regular singular points.
 
-        In the main application this is intended for, den is the indicial
-        equation of a differential operator and the nums are coefficients of
-        related recurrence operators, both shifted so that some root of
-        interest of the indicial equation is mapped to zero.
-
-        [*] At least part of the code actually works for more general
-            values of the exceptions parameter.
+        In the main application, den is the indicial equation of a differential
+        operator and the nums are coefficients of related recurrence operators,
+        both shifted so that some root of interest of the indicial equation is
+        mapped to zero.
         """
         deg = den.degree()
         if any(num.degree() >= deg for num in nums):
             raise ValueError("expected deg(num) < deg(den)")
-        if ord is None:
-            ord = 1 + sum(exceptions.values())
         self.nums = []
         self._ivnums = []
         self._rcpq_nums = []
@@ -698,8 +698,10 @@ class RatSeqBound(object):
         self.den = den
         self._ivden = den.change_ring(IC)
         self._rcpq_den = den.change_ring(IC).reverse()
-        self.ord = ord
-        self.exn = exceptions
+        self.exn = exceptional_indices
+        # temporary(?), for compatibility with the previous version
+        if not self.exn:
+            self.exn = {0: 1}
         self._Pol = self._rcpq_den.parent()
         self._pol_class = self._Pol.Element
         self.extend(nums)
@@ -725,9 +727,9 @@ class RatSeqBound(object):
         if type == "asympt":
             fmt = "{asympt}"
         elif type == "short":
-            fmt = "bound({rat}, ord={ord})"
+            fmt = "bound({rat}, ord≤{ord})"
         elif type == "full":
-            fmt  = "bound({rat}, ord={ord})\n"
+            fmt  = "bound({rat}, ord≤{ord})\n"
             fmt += "    = {list},\n"
             fmt += "      ..., {asympt}"
             fmt += "{stairs}"
@@ -746,7 +748,7 @@ class RatSeqBound(object):
             dscs.append(
                 fmt.format(
                     rat=num/self.den,
-                    ord=self.ord,
+                    ord=sum(m for (n, m) in self.exn.items()),
                     list=", ".join(str(b.n(20)) for b in bnd),
                     asympt=asymptfmt.format(lim=lim, deg=deg),
                     stairs=stairsstr if seq_stairs else ""))
@@ -756,7 +758,7 @@ class RatSeqBound(object):
         return "\n".join(self.entries_repr("full"))
 
     def __getitem__(self, i):
-        return RatSeqBound([self.nums[i]], self.den, self.exn, self.ord)
+        return RatSeqBound([self.nums[i]], self.den, self.exn)
 
     @cached_method
     def _den_data(self):
@@ -772,7 +774,7 @@ class RatSeqBound(object):
         - mult is the multiplicity of root in den;
         - n_min is an integer s.t. |1-root/n| is nondecreasing for n ≥ nmin;
         - global_lbound is a real (ball) s.t. |1-root/n| ≥ global_lbound for
-          all n ∈ ⟦1,∞) ∖ exceptions (in particular, for n < n_min).
+          all n ∈ ⟦1,∞) ∖ exn (in particular, for n < n_min).
 
         Often (but not always), all integer roots of den will belong to the
         exceptional set, and in this case the returned global_lbound will be
@@ -797,7 +799,7 @@ class RatSeqBound(object):
             # computation of the global lower bound, and consider the adjacent
             # integers above and below instead. In particular, when the current
             # root is equal to an exceptional index, the global minimum over ℕ
-            # is zero, but we want a nonzero lower bound over ℕ ∖ exceptions.
+            # is zero, but we want a nonzero lower bound over ℕ ∖ exn.
             # There can be several consecutive exceptional indices (this is
             # even quite typical).
             while ns[-1] in self.exn:
@@ -814,7 +816,7 @@ class RatSeqBound(object):
     def _lbound_den(self, n):
         r"""
         A lower bound on prod[den(α) = 0](|1-α/k|) valid for all k ≥ n with
-        n, k ∈ ℕ ∖ exceptions.
+        n, k ∈ ℕ ∖ exn.
         """
         assert n not in self.exn
         if n == 0:
@@ -831,9 +833,9 @@ class RatSeqBound(object):
     def _bound_rat(self, n, ord):
         r"""
         A componentwise bound on the vector ref[ord](k), valid for all k ≥ n
-        with n, k ∉ exceptions.
+        with n, k ∉ exn.
 
-        When ord = 0, this method simply evaluates the reciprocal polynomials
+        When ord = 1, this method simply evaluates the reciprocal polynomials
         of nums and den, rescaled by a suitable power of n, on an interval of
         the form [0,1/n]. (It works for exceptional indices, but doesn't do
         anything clever to take advantage of them.) More generally, a similar
@@ -895,20 +897,25 @@ class RatSeqBound(object):
         # consistency check, we need to recompute or at least extend the stairs
         # each time the sequence of numerators is extended
         assert count == len(self.nums)
-        if not self.exn:
-            return [[]]*len(self.nums)
         stairs = [[(infinity, IR.zero())] for _ in self.nums]
-        for n in sorted(self.exn, reverse=True):
+        ord = sum(m for n, m in self.exn.items())
+        exn = sorted([n for n in self.exn if n >= 0], reverse=True)
+        for n in exn:
             # We want the bound to hold for ordinary k ≥ n too, so we take the
-            # max of the exceptional value and the next ordinary index.
-            n1 = next(n1 for n1 in itertools.count(n) if n1 not in self.exn)
-            refs = self.ref(n)
-            rats = self._bound_rat(n1, self.ord)
+            # max of the exceptional value at n and the value at n + 1, when
+            # n + 1 is an ordinary index. (When n + 1 is an exceptional index,
+            # it has already been done during the previous iteration.)
+            refs = self.ref(n, ord)
+            if n + 1 not in exn:
+                rats = self._bound_rat(n + 1, ord)
+            else:
+                rats = [IR.zero()]*len(refs)
             assert len(refs) == len(rats) == len(stairs) == len(self.nums)
             for (ref, rat, seq_stairs) in zip(refs, rats, stairs):
                 val = ref.max(rat)
                 if val.upper() > seq_stairs[-1][1].upper():
                     seq_stairs.append((n, val))
+            ord -= self.exn[n]
         for seq_stairs in stairs:
             seq_stairs.reverse()
             # remove (∞,0) (faster and permits testing "stairs == []")
@@ -917,10 +924,10 @@ class RatSeqBound(object):
 
     def _bound_exn(self, n):
         r"""
-        A list of non-increasing staircase functions defined on the whole of ℕ
-        such that, whenever *n* (sic) is an exceptional index, the inequality
-        ref(k) ≤ _bound_exn(n) holds (componentwise) for all k ≥ n (whether
-        ordinary or exceptional).
+        A list of *non-increasing* staircase functions defined on the whole
+        of ℕ such that, whenever *n* (sic) is an exceptional index, the
+        inequality ref(k) ≤ _bound_exn(n) holds (componentwise) for all k ≥ n
+        (both ordinary and exceptional).
 
         (The pairs returned by _stairs() correspond to the *upper right* corner
         of each stair: the index associated to a given value is the last time
@@ -937,23 +944,34 @@ class RatSeqBound(object):
         stairs = self._stairs(len(self.nums))
         return [doit(seq_stairs) for seq_stairs in stairs]
 
+    def ord(self, n):
+        return sum(m for (k, m) in self.exn.items() if k <= n)
+
     def __call__(self, n):
         r"""
         The bounds.
         """
-        ord = self.ord # XXX: take as parameter???
         bound_exn = self._bound_exn(n)
         if n in self.exn:
             return bound_exn
         else:
+            # Note: we could accept an optional parameter ord ≤ self.ord(n) and
+            # use it in the call to _bound_rat() to provide tighter bounds
+            # (once n is larger than the exceptional indices) if we detect that
+            # we are computing a solution of log-degree smaller than the
+            # generic bound (like at ordinary points, except that in the case
+            # of ordinary points we can tell in advance that this will happen).
+            # In fact, we could even do it before the last exceptional index,
+            # but that would complicate (and perhaps slow down) _stairs() and
+            # _bound_exn().
+            ord = self.ord(n)
             bound_rat = self._bound_rat(n, ord)
             return [b1.max(b2) for b1, b2 in zip(bound_rat, bound_exn)]
 
-    def ref(self, n):
+    def ref(self, n, ord):
         r"""
         Reference value for a single n.
         """
-        ord = self.ord # XXX: take as parameter???
         jet = self._pol_class(self._Pol, [n, 1])
         nums = [num.compose_trunc(jet, ord) for num in self._ivnums]
         mult = self.exn.get(n, 0)
@@ -987,27 +1005,34 @@ class RatSeqBound(object):
         if len(self.nums) != 1:
             raise NotImplementedError("expected a single sequence")
         from sage.plot.plot import list_plot
-        p1 = list_plot(
-                [(k, RR(self.ref(k)[0].upper()))
-                    for k in rng if self.ref(k)[0].is_finite()],
-                plotjoined=True, color='black', scale='semilogy')
-        # Plots come up empty when one of the y-coordinates is +∞, so we may as
-        # well start with the first finite value.
-        rng2 = list(itertools.dropwhile(
-            lambda k: self(k)[0].is_infinity(), rng))
+        inf = RR('inf')
+        # avoid empty plots and matplotlib warnings
+        def pltfilter(it):
+            return [(x, RR(y)) for (x, y) in it if 0 < RR(y) < inf]
+        ref = []
+        for k in rng:
+            iv = self.ref(k, self.ord(k))[0]
+            if iv.is_finite():
+                ref.append((k, iv.upper()))
+        p1 = list_plot(pltfilter(ref), plotjoined=True, color='black',
+                       scale='semilogy')
         p2 = list_plot(
-                [(k, RR(self(k)[0].upper())) for k in rng2],
+                pltfilter((k, self(k)[0].upper()) for k in rng),
                 plotjoined=True, color='blue', scale='semilogy')
         p3 = list_plot(
-                [(k, RR(self._bound_rat(k, self.ord)[0].upper())) for k in rng2
-                    if k not in self.exn],
+                pltfilter((k, self._bound_rat(k, self.ord(k))[0].upper())
+                    for k in rng
+                    if k not in self.exn),
                 size=20, color='red', scale='semilogy')
         p4 = list_plot(
-                [(k, RR(self._bound_exn(k)[0].upper())) for k in rng],
+                pltfilter((k, self._bound_exn(k)[0].upper())
+                          for k in rng),
                 size=20, color='gray', scale='semilogy')
         m = max(rng)
-        p5 = list_plot([(e, v.upper()) for (e, v) in self._stairs(1)[0]
-                                       if e <= m],
+        p5 = list_plot(
+                pltfilter((e, v.upper())
+                          for (e, v) in self._stairs(1)[0]
+                          if e <= m),
                 size=60, marker='x', color='gray', scale='semilogy')
         return p1 + p2 + p3 + p4 + p5
 
@@ -1024,10 +1049,11 @@ class RatSeqBound(object):
         deg = self.den.degree()
         # Well-formedness
         for n, mult in self.exn.iteritems():
-            pol = self.den
-            for i in range(mult):
-                assert pol(n).is_zero()
-                pol = pol.derivative()
+            if n >= 0:
+                pol = self.den
+                for i in range(mult):
+                    assert pol(n).is_zero()
+                    pol = pol.derivative()
         # Test _lbound_den()
         for n in range(nmax):
             if n not in self.exn:
@@ -1052,7 +1078,7 @@ class RatSeqBound(object):
         # Test the complete bound
         ref = IR(0)
         for n in testrange:
-            n = ref.max(self.ref(n)[0])
+            n = ref.max(self.ref(n, self.ord(n))[0])
             assert not (self(n)[0] < ref)
 
 @random_testing
@@ -1088,6 +1114,8 @@ def _test_RatSeqBound(number=10, base=QQ, deg=20, verbose=False):
             roots = den0.roots(ZZ)
         roots = [(r, m) for (r, m) in roots if r >= 0]
         exns = dict(Subsets(roots).random_element())
+        if not exns:
+            exns = {-1: 1}
         if verbose:
             print("num = {}\nden = {}\nexns = {}".format(num, den, exns))
         bnd = RatSeqBound([num], den, exns)
@@ -1135,7 +1163,7 @@ class DiffOpBound(object):
     r"""
     A “bound” on the “inverse” of a differential operator at a regular point.
 
-    A DiffOpBound can be thought of as a sequence of formal power series
+    A DiffOpBound may be thought of as a sequence of formal power series
 
         v[n](z) = 1/den(z) · exp ∫ (pol[n](z) + cst·z^ℓ·num[n](z)/den(z))
 
@@ -1147,8 +1175,8 @@ class DiffOpBound(object):
       (given by RatSeqBound objects), and ℓ >= deg(pol[n]).
 
     These series can be used to bound the tails of logarithmic power series
-    solutions y(z) belonging to a certain subspace (see the documentation of
-    __init__() for details) of dop(y) = 0. More precisely, write
+    solutions y(z) of dop(y) = 0 belonging to a certain subspace (see the
+    documentation of __init__() for details). More precisely, write
 
         y(z) - ỹ(z) = z^λ·(u[0](z)/0! + u[1](z)·log(z)/1! + ···)
 
@@ -1160,7 +1188,7 @@ class DiffOpBound(object):
     In the typical situation where n0 ≤ n1 and y(z) does not depend on initial
     conditions “past” n1, a polynomial p(z) of valuation at least n1 with this
     property can be computed using the methods normalized_residual() and rhs().
-    Variants with different p hold in more general settings. See their
+    Variants with different p hold in more general settings. See the
     documentation of normalized_residual() and rhs() for more information.
 
     Note that multiplying dop by a rational function changes p(z).
@@ -1184,8 +1212,8 @@ class DiffOpBound(object):
         1.000.../((-x + [0.994...])^2)*exp(int(POL+1.000...*NUM/(-x + [0.994...])^2))
         where
         POL=0,
-        NUM=bound(0, ord=1)*z^0 +
-        bound((-2.000...*n + 2.000...)/(n^2 - n), ord=1)*z^1
+        NUM=bound(0, ord≤1)*z^0 +
+        bound((-2.000...*n + 2.000...)/(n^2 - n), ord≤1)*z^1
 
     A majorant series extracted from that sequence::
 
@@ -1203,11 +1231,11 @@ class DiffOpBound(object):
     Refining::
 
         sage: from ore_algebra.analytic.examples import fcc
-        sage: maj = DiffOpBound(fcc.dop5)
+        sage: maj = DiffOpBound(fcc.dop5, special_shifts=[(0, 1)])
         sage: maj.maj_den
         (-z + [0.2047...])^13
         sage: maj.maj_den.value()(1/10)
-        [1.82513661e-13 +/- 5.50e-22]
+        [1.825136...]
         sage: maj.refine()
         sage: maj.maj_den.value()(1/10)
         [436565.0...]
@@ -1223,7 +1251,7 @@ class DiffOpBound(object):
         1.000.../(1.000...)*exp(int(POL+1.000...*NUM/1.000...))
         where
         POL=0,
-        NUM=bound(-1.000.../n, ord=1)*z^0
+        NUM=bound(-1.000.../n, ord≤1)*z^0
 
         sage: QQi.<i> = QuadraticField(-1)
         sage: for dop in [
@@ -1242,7 +1270,7 @@ class DiffOpBound(object):
         sage: _test_diffop_bound() # long time
     """
 
-    def __init__(self, dop, leftmost=ZZ.zero(), special_shifts=[],
+    def __init__(self, dop, leftmost=ZZ.zero(), special_shifts=None,
             max_effort=6, pol_part_len=2, bound_inverse="simple"):
         r"""
         Construct a DiffOpBound for a subset of the solutions of dop.
@@ -1250,38 +1278,40 @@ class DiffOpBound(object):
         INPUT:
 
         * dop: element of K(z)[Dz] (K a number field), with 0 as a regular
-          (i.e., ordinary or regular singular) point
-        * leftmost: algebraic number
-        * special_shifts: list of (shift, mult) pairs, where shift is a
-          nonnegative integer and (leftmost + shift) is a root of multiplicity
-          mult of the indicial polynomial of dop
+          (i.e., ordinary or regular singular) point;
+        * leftmost (default 0): algebraic number;
+        * special_shifts (optional): list of (shift, mult) pairs, where shift
+          is a nonnegative integer and (leftmost + shift) is a root of
+          multiplicity mult of the indicial polynomial of dop.
 
         OUTPUT:
 
-        The resulting bound applies to the generalized series solutions of dop
-        in z^λ·ℂ[[z]][log(z)], λ = leftmost, with the additional property that
-        the maximum power of log(z) in the coefficient of z^n is strictly less
-        than the sum of the multiplicities of the elements of special_shifts
-        with shift ≤ n.
+        If special_shifts is left to its default value or contains all the
+        (n, m) such that λ + n (λ = leftmost) is a root of multiplicity m of
+        the indicial equation, the resulting bound applies to the generalized
+        series solutions of dop that belong to z^λ·ℂ[[z]][log(z)].
 
-        .. WARNING::
+        Some of the roots may be omitted. In this case, the bound only applies
+        to solutions in which, additionally, the coefficient of z^n has degree
+        w.r.t. log(z) strictly less than
 
-            Thus, special_shifts can be left to its default value of [] when
-            the origin is an ordinary point, but needs to contain all the roots
-            of the indicial polynomial in λ + ℕ for a general regular singular
-            point.
+            sum { m : (s,m) ∈ special_shifts, s ≤ n }.
+
+        Note that the special case of ordinary points (where the generic
+        log-degree bound given by the multiplicity of the roots of the indicial
+        equation is pessimistic) is automatically taken into account.
 
         The remaining parameters are used to set properties of the DiffOpBound
         object related to the effort/tightness trade-off of the algorithm. They
         have no influence on the semantics of the bound.
         """
 
-        logger.info("bounding local operator...")
+        logger.info("bounding local operator "
+                "(%s, pol_part_len=%s, max_effort=%s)...",
+                bound_inverse, pol_part_len, max_effort)
 
-        if not dop.parent().is_D():
-            raise ValueError("expected an operator in K(x)[D]")
-        _, Pols_z, _, dop = dop._normalize_base_ring()
-        self._dop_D = dop # only used in argument checking, assertions
+        self._dop_D = dop = DifferentialOperator(dop)
+        Pols_z = dop.base_ring()
         self.dop = dop_T = dop.to_T('T' + Pols_z.variable_name())
 
         lc = dop_T.leading_coefficient()
@@ -1291,7 +1321,15 @@ class DiffOpBound(object):
         self._rcoeffs = _dop_rcoeffs_of_T(dop_T, IC)
 
         self.leftmost = leftmost
-        self.special_shifts = dict(special_shifts)
+        if self._dop_D.leading_coefficient()[0] != 0:
+            # Ordinary point: even though the indicial equation usually has
+            # several integer roots, the solutions are plain power series.
+            self.special_shifts = {0: 1}
+        else:
+            if special_shifts is None:
+                special_shifts = local_solutions.exponent_shifts(
+                                                         self._dop_D, leftmost)
+            self.special_shifts = dict(special_shifts)
 
         # XXX Consider switching to an interface where the user simply chooses
         # the initial effort (and refine() accepts an effort value)
@@ -1341,11 +1379,12 @@ class DiffOpBound(object):
 
     @cached_method
     def _poles(self):
-        lc = self.dop.leading_coefficient()
-        try:
-            return lc.roots(CIF)
-        except NotImplementedError:
-            return lc.change_ring(QQbar).roots(CIF)
+        sing = self._dop_D._singularities(CIF, multiplicities=True)
+        nz = [(s, m) for s, m in sing if not s.contains_zero()]
+        if sum(m for s, m in nz) == self.dop.leading_coefficient().degree():
+            return nz
+        else:
+            raise NotImplementedError
 
     def _update_den_bound(self):
         r"""
@@ -1435,9 +1474,12 @@ class DiffOpBound(object):
                 [pol(self.alg_idx) for pol in rem_num_nz],
                 self.ind, self.special_shifts)
 
+    def can_refine(self):
+        return self._effort < self.max_effort
+
     def refine(self):
         # XXX: make it possible to increase the precision of IR, IC
-        if self._effort >= self.max_effort:
+        if not self.can_refine():
             logger.debug("majorant no longer refinable")
             return
         self._effort += 1
@@ -1472,9 +1514,9 @@ class DiffOpBound(object):
 
     @cached_method
     def bwrec(self):
-        return local_solutions.backward_rec(self.dop, shift=self.leftmost)
+        return local_solutions.bw_shift_rec(self.dop, shift=self.leftmost)
 
-    def normalized_residual(self, n, last, bwrec_nplus=None, Ring=IC):
+    def normalized_residual(self, n, last, bwrec_nplus=None, Ring=None):
         r"""
         Compute the “normalized residual” associated to a truncated solution
         of dop(y) = 0.
@@ -1491,13 +1533,13 @@ class DiffOpBound(object):
 
             monic(dop(z=0,θ))(f(z)) = dop(ỹ)
 
-        has at least one solution (exactly one when none of λ+n, λ+n+1, ...,
-        λ+n+s-1 is a root of the indicial polynomial dop(z=0,n)). Its
-        solutions are of the form
+        has at least one solution of the form
 
             f(z) = z^(λ+n)·sum[k](f[k](z)·log(z)^k/k!)
 
-        for a finite list [f[0], f[1], ...] of polynomials of degree ≤ s-1.
+        for a finite list [f[0], f[1], ...] of polynomials of degree ≤ s-1
+        (exactly one when none of λ+n, λ+n+1, ..., λ+n+s-1 is a root of the
+        indicial polynomial dop(z=0,n)).
 
         This method takes as input the truncation order n and the coefficients
 
@@ -1566,9 +1608,12 @@ class DiffOpBound(object):
             sage: bwrec_nplus = [[Jets(pol(5+i)) for pol in bwrec]
             ....:                for i in [0,1]]
             sage: last = [[trunc[4]], [trunc[3]]]
-            sage: (maj.normalized_residual(5, last, bwrec_nplus)
-            ....:         == maj.normalized_residual(5, last))
+            sage: res1 = maj.normalized_residual(5, last, bwrec_nplus)
+            sage: res2 = maj.normalized_residual(5, last)
+            sage: len(res1) == len(res2) == 1
             True
+            sage: res1[0] - res2[0]
+            ([+/- ...e-18])*t + [+/- ...e-18]
 
         This operator annihilates t^(1/3)*[1/(1-t)+log(t)^2*exp(t)]+exp(t)::
 
@@ -1591,12 +1636,12 @@ class DiffOpBound(object):
             sage: n = 20
             sage: zero = t.parent().zero()
 
-            sage: maj = DiffOpBound(dop, leftmost=0)
+            sage: maj = DiffOpBound(dop, leftmost=0, special_shifts=[(0, 1)])
             sage: trunc = [t._exp_series(n), zero, zero]
             sage: maj._check_normalized_residual(n, trunc, 0, QQ)
             0
 
-            sage: maj = DiffOpBound(dop, leftmost=1/3)
+            sage: maj = DiffOpBound(dop, leftmost=1/3, special_shifts=[(0, 1)])
             sage: trunc = [(1-t).inverse_series_trunc(n), zero, zero]
             sage: maj._check_normalized_residual(n, trunc, 1/3, QQ)
             0
@@ -1606,6 +1651,10 @@ class DiffOpBound(object):
         """
         deg = self.dop.degree()
         logs = max(len(logpol) for logpol in last) if last else 1
+        if Ring is None:
+            use_sum_of_products, Ring = _use_sum_of_products(last, bwrec_nplus)
+        else:
+            use_sum_of_products = False
         if bwrec_nplus is None:
             bwrec = self.bwrec()
             # Suboptimal: For a given j, we are only going to need the
@@ -1626,6 +1675,8 @@ class DiffOpBound(object):
         # Since our indicial polynomial is monic,
         # b₀(n) = bwrec_nplus[0][0][0] = lc(dop)(0)·ind(n) = cst·ind(n)
         cst = self.dop.leading_coefficient()[0]
+        #assert deg == 0 or IC(cst*self.ind(n) - bwrec_nplus[0][0][0]).contains_zero()
+
         # For each d, compute the coefficients of z^(λ+n+d)·log(z)^k/k! in the
         # normalized residual. This is done by solving a triangular system with
         # (cst ×) the coefficients of the residual corresponding to the same d
@@ -1633,10 +1684,16 @@ class DiffOpBound(object):
         for d in range(deg):
             for k in reversed(range(logs)):
                 # Coefficient of z^(λ+n+d)·log(z)^k/k! in dop(ỹ)
-                res[k][d] = sum(
-                        Ring(bwrec_nplus[d][d+i+1][j])*Ring(last[i][k+j])
-                        for i in range(deg - d)
-                        for j in range(logs - k))
+                if use_sum_of_products:
+                    res[k][d] = Ring._sum_of_products(
+                            (bwrec_nplus[d][d+i+1][j], last[i][k+j])
+                            for i in range(deg - d)
+                            for j in range(logs - k))
+                else:
+                    res[k][d] = sum(
+                            Ring(bwrec_nplus[d][d+i+1][j])*Ring(last[i][k+j])
+                            for i in range(deg - d)
+                            for j in range(logs - k))
                 # Deduce the corresponding coefficient of nres
                 # XXX For simplicity, we limit ourselves to the “generic” case
                 # where none of the n+d is a root of the indicial polynomial.
@@ -1664,8 +1721,7 @@ class DiffOpBound(object):
 
             ỹ(z) = z^expo·sum[k](trunc[k](z)·log(z)^k/k!).
 
-        Ideally, Ring should be IC (the default value for the corresponding
-        paramter of normalized_residual()) in most cases; unfortunately, this
+        Ideally, Ring should be IR or IC in most cases; unfortunately, this
         often doesn't work due to various weaknesses of Sage.
         """
         ordrec = self.dop.degree()
@@ -1673,7 +1729,7 @@ class DiffOpBound(object):
                                    for pol in trunc))))
         coeff = self.normalized_residual(n, last, Ring=Ring)
         from sage.all import log, SR
-        z = SR(self.Poly.gen())
+        z = SR.var(self.Poly.variable_name())
         nres = z**(self.leftmost + n)*sum(pol*log(z)**k/ZZ(k).factorial()
                                           for k, pol in enumerate(coeff))
         trunc_full = z**expo*sum(pol*log(z)**k/ZZ(k).factorial()
@@ -1736,7 +1792,6 @@ class DiffOpBound(object):
         nres_bound = bound_polynomials([pol for nres in normalized_residuals
                                             for pol in nres])
         Pols = nres_bound.parent()
-        lbda = IC(self.leftmost)
         aux = Pols([(n1 + j)*c for j, c in enumerate(nres_bound)])
         if maj is None:
             # As h[n0](z) has nonnegative coefficients and h[n0](0) = 1, it is
@@ -1746,11 +1801,12 @@ class DiffOpBound(object):
         else:
             # Tighter choice: compute a truncated series expansion f(z) of
             # aux(z)/h(z) s.t. aux(z) = f(z)*h(z) + O(z^(1+deg(aux))). Then,
-            # any majorant of f is a valid q^.
+            # any f^ s.t. f^[n] ≥ max(0,f[n]) is a valid q^.
             ord = aux.degree() + 1
-            inv = maj.exp_part_series0(ord).inverse_series_trunc(ord)
+            inv = maj.inv_exp_part_series0(ord)
             f = aux._mul_trunc_(inv, ord)
-            return Pols([abs(c) for c in f])
+            # assert all(c.imag().contains_zero() for c in f)
+            return Pols([IR.zero().max(c.real()) for c in f])
 
     def tail_majorant(self, n, normalized_residuals):
         r"""
@@ -1845,6 +1901,87 @@ class DiffOpBound(object):
                          for i in range(n + 30)])
             maj._test(tail)
 
+    def plot(self, ini=None, pt=None, eps=RBF(1e-50)):
+        r"""
+        EXAMPLES::
+
+            sage: from ore_algebra import *
+            sage: from ore_algebra.analytic.bounds import DiffOpBound
+            sage: from ore_algebra.analytic.local_solutions import LogSeriesInitialValues
+            sage: Dops, x, Dx = DifferentialOperators()
+
+            sage: DiffOpBound(Dx - 1).plot([CBF(1)], CBF(i)/2, RBF(1e-20))
+            Graphics object consisting of 5 graphics primitives
+
+            sage: DiffOpBound(x*Dx^3 + 2*Dx^2 + x*Dx).plot(eps=1e-8)
+            Graphics object consisting of 5 graphics primitives
+
+            sage: dop = x*Dx^2 + Dx + x
+            sage: DiffOpBound(dop, 0, [(0,2)]).plot(eps=1e-8,
+            ....:       ini=LogSeriesInitialValues(0, {0: (1, 0)}, dop))
+            Graphics object consisting of 5 graphics primitives
+
+            sage: dop = ((x^2 + 10*x + 50)*Dx^10 + (5/9*x^2 + 50/9*x + 155/9)*Dx^9
+            ....: + (-10/3*x^2 - 100/3*x - 190/3)*Dx^8 + (30*x^2 + 300*x + 815)*Dx^7
+            ....: + (145*x^2 + 1445*x + 3605)*Dx^6 + (5/2*x^2 + 25*x + 115/2)*Dx^5
+            ....: + (20*x^2 + 395/2*x + 1975/4)*Dx^4 + (-5*x^2 - 50*x - 130)*Dx^3
+            ....: + (5/4*x^2 + 25/2*x + 105/4)*Dx^2 + (-20*x^2 - 195*x - 480)*Dx
+            ....: + 5*x - 10)
+            sage: DiffOpBound(dop, 0, [], pol_part_len=4, # not tested
+            ....:         bound_inverse="solve").plot(eps=1e-10)
+            Graphics object consisting of 5 graphics primitives
+        """
+        import sage.plot.all as plot
+        from . import naive_sum
+
+        if ini is None:
+            ini = local_solutions.random_ini(self._dop_D)
+        if pt is None:
+            rad = abs_min_nonzero_root(self._dop_D.leading_coefficient())
+            pt = QQ(2) if rad == infinity else RIF(rad/2).simplest_rational()
+        logger.info("point: %s", pt)
+        logger.info("initial values: %s", ini)
+
+        recd = []
+        saved_max_effort = self.max_effort
+        self.max_effort = 0
+        naive_sum.series_sum(self._dop_D, ini, pt, eps, stride=1,
+                            record_bounds_in=recd, maj=self)
+        self.max_effort = saved_max_effort
+        ref_sum = recd[-1][1][0].add_error(recd[-1][2])
+        recd[-1:] = []
+        # Note: this won't work well when the errors get close to the double
+        # precision underflow threshold.
+        err = [(psum[0]-ref_sum).abs() for n, psum, _ in recd]
+
+        large = float(1e200) # plot() is not robust to large values
+        error_plot_upper = plot.line(
+                [(n, v.upper()) for (n, v) in enumerate(err)
+                                if abs(float(v.upper())) < large],
+                color="lightgray", scale="semilogy")
+        error_plot = plot.line(
+                [(n, v.lower()) for (n, v) in enumerate(err)
+                                if abs(float(v.lower())) < large],
+                color="black", scale="semilogy")
+        bound_plot_lower = plot.line(
+                [(n, bound.lower()) for n, _, bound in recd
+                                    if abs(float(bound.lower())) < large],
+                color="lightblue", scale="semilogy")
+        bound_plot = plot.line(
+                [(n, bound.upper()) for n, _, bound in recd
+                                    if abs(float(bound.upper())) < large],
+                color="blue", scale="semilogy")
+        title = repr(self._dop_D) + " @ x=" + repr(pt)
+        title = title if len(title) < 80 else title[:77]+"..."
+        myplot = error_plot_upper + error_plot + bound_plot_lower + bound_plot
+        ymax = myplot.ymax()
+        if ymax < float('inf'):
+            txt = plot.text(title, (myplot.xmax(), ymax),
+                            horizontal_alignment='right', vertical_alignment='top')
+            myplot += txt
+
+        return myplot
+
 # Perhaps better: work with a "true" Ore algebra K[θ][z]. Use Euclidean
 # division to compute the truncation in DiffOpBound._update_num_bound.
 # Extracting the Qj(θ) would then be easy, and I may no longer need the
@@ -1883,11 +2020,11 @@ def _dop_rcoeffs_of_T(dop, base_ring):
             binomial[n][k] = binomial[n-1][k-1] + binomial[n-1][k]
     res = [None]*(ordlen)
     for k in range(ordlen):
-        pol = [0]*(deglen)
+        pol = [base_ring.zero()]*(deglen)
         for j in range(deglen):
             pow = 1
             for i in range(ordlen - k):
-                pol[j] += pow*binomial[k+i][i]*dop[k+i][j]
+                pol[j] += pow*binomial[k+i][i]*base_ring(dop[k+i][j])
                 pow *= (-j)
         res[k] = Pols(pol)
     return res
@@ -1945,3 +2082,18 @@ def _switch_vars(pol):
     dy = pol.degree()
     dx = max(c.degree() for c in pol)
     return Ayx([Ay([pol[j][i] for j in range(dy+1)]) for i in range(dx+1)])
+
+def _use_sum_of_products(last, bwrec_nplus):
+    if not (last and last[0] and bwrec_nplus and bwrec_nplus[0] and
+            bwrec_nplus[0][0]):
+        return False, IC
+    b0 = last[0][0]
+    b1 = bwrec_nplus[0][0][0]
+    if (isinstance(b0, RealBall) and isinstance(b1, RealBall)
+            and hasattr(IR, '_sum_of_products')):
+        return True, IR
+    elif (isinstance(b0, ComplexBall) and isinstance(b1, ComplexBall)
+            and hasattr(IC, '_sum_of_products')):
+        return True, IC
+    else:
+        return False, IC

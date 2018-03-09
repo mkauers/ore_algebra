@@ -5,7 +5,6 @@ Analytic continuation paths
 
 import logging
 
-import sage.categories.pushout as pushout
 import sage.plot.all as plot
 import sage.rings.all as rings
 import sage.rings.number_field.number_field as number_field
@@ -19,8 +18,9 @@ from sage.rings.complex_arb import CBF, ComplexBallField, ComplexBall
 from sage.rings.real_arb import RBF, RealBallField, RealBall
 from sage.structure.sage_object import SageObject
 
+from .differential_operator import DifferentialOperator
 from .local_solutions import (FundamentalSolution, sort_key_by_asympt,
-        map_local_basis)
+        LocalBasisMapper)
 from .safe_cmp import *
 from .utilities import *
 
@@ -28,6 +28,9 @@ logger = logging.getLogger(__name__)
 
 IR, IC = RBF, CBF # TBI
 QQi = number_field.QuadraticField(-1, 'i')
+
+class PathPrecisionError(Exception):
+    pass
 
 ######################################################################
 # Points
@@ -45,8 +48,14 @@ class Point(SageObject):
     lie on the complex plane, not on the Riemann surface of the operator.
     """
 
-    def __init__(self, point, dop=None):
+    def __init__(self, point, dop=None, singular=None, **kwds):
         """
+        INPUT:
+
+        - ``singular``: can be set to True to force this point to be considered
+          a singular point, even if this cannot be checked (e.g. because we only
+          have an enclosure)
+
         TESTS::
 
             sage: from ore_algebra import *
@@ -60,6 +69,8 @@ class Point(SageObject):
             0.5000000000000000, 0.5000000000000000*I, 10, 1, 1/3]
             sage: Point(sqrt(2), Dx).iv()
             [1.414...]
+            sage: Point(RBF(0), (x-1)*x*Dx, singular=True).dist_to_sing()
+            1.000000000000000
         """
         SageObject.__init__(self)
 
@@ -123,9 +134,13 @@ class Point(SageObject):
                                     RealBallField, ComplexBallField))
                 or parent is RLF or parent is CLF)
 
-        self.dop = dop or point.dop
-
-        self.keep_value = False
+        if dop is None: # TBI
+            if isinstance(point, Point):
+                self.dop = point.dop
+        else:
+            self.dop = DifferentialOperator(dop.numerator())
+        self._force_singular = bool(singular)
+        self.options = kwds
 
     def _repr_(self):
         """
@@ -182,7 +197,7 @@ class Point(SageObject):
         ...
         ValueError
         """
-        if self.is_exact():
+        if self.value.parent().is_exact():
             return self
         elif isinstance(self.value, RealBall) and self.value.is_exact():
             return Point(QQ(self.value), self.dop)
@@ -211,24 +226,47 @@ class Point(SageObject):
         return is_real_parent(self.value.parent())
 
     def is_exact(self):
-        # XXX: also include exact balls?
-        return isinstance(self.value,
-                (rings.Integer, rings.Rational, rings.NumberFieldElement))
+        return (isinstance(self.value, (rings.Integer, rings.Rational,
+                                        rings.NumberFieldElement))
+                or isinstance(self.value, (RealBall, ComplexBall))
+                    and self.value.is_exact())
+
+    def rationalize(self):
+        a = self.iv()
+        lc = self.dop.leading_coefficient()
+        if lc(a).contains_zero():
+            raise PathPrecisionError
+        else:
+            return Point(_rationalize(a), self.dop)
+
+    # Point equality is identity
+
+    def __eq__(self, other):
+        return self is other
+
+    def __hash__(self):
+        return id(self)
 
     ### Methods that depend on dop
 
     @cached_method
     def is_ordinary(self):
+        if self._force_singular:
+            return False
         lc = self.dop.leading_coefficient()
-        if self.is_exact():
-            return bool(lc(self.value))
-        elif not lc(self.iv()).contains_zero():
+        if not lc(self.iv()).contains_zero():
             return True
+        if self.is_exact():
+            try:
+                val = lc(self.value)
+            except TypeError: # work around coercion weaknesses
+                val = lc.change_ring(QQbar)(QQbar.coerce(self.value))
+            return not val.is_zero()
         else:
             raise ValueError("can't tell if inexact point is singular")
 
     def is_singular(self):
-        return not is_ordinary(self)
+        return not self.is_ordinary()
 
     @cached_method
     def is_regular(self):
@@ -307,49 +345,15 @@ class Point(SageObject):
             1.00...
 
         """
-        # TODO - solve over CBF directly; perhaps with arb's own poly solver
-        sing = dop_singularities(self.dop, CIF)
-        sing = [IC(s) for s in sing]
+        sing = self.dop._singularities(IC)
         close, distant = split(lambda s: s.overlaps(self.iv()), sing)
-        if (len(close) >= 2 or len(close) == 1 and
-                not self.dop.leading_coefficient()(self.value).is_zero()):
+        if (len(close) >= 2 or len(close) == 1 and not self.is_singular()):
             raise NotImplementedError # refine?
         dist = [(self.iv() - s).abs() for s in distant]
         min_dist = IR(rings.infinity).min(*dist)
         if min_dist.contains_zero():
             raise NotImplementedError # refine???
         return IR(min_dist.lower())
-
-    def local_diffop(self): # ?
-        r"""
-        TESTS::
-
-            sage: from ore_algebra import DifferentialOperators
-            sage: from ore_algebra.analytic.path import Point
-            sage: Dops, x, Dx = DifferentialOperators()
-            sage: Point(1, x*Dx - 1).local_diffop()
-            (x + 1)*Dx - 1
-            sage: Point(RBF(1/2), x*Dx - 1).local_diffop()
-            (x + 1/2)*Dx - 1
-        """
-        Pols_dop = self.dop.base_ring()
-        # NOTE: pushout(QQ[x], K) doesn't handle embeddings well, and creates
-        # an L equal but not identical to K. But then other constructors like
-        # PolynomialRing(L, x) sometimes return objects over K found in cache,
-        # leading to endless headaches with slow coercions. But the version here
-        # may be closer to what I really want in any case.
-        # XXX: This seems to work in the usual trivial case where we are looking
-        # for a scalar domain containing QQ and QQ[i], but probably won't be
-        # enough if we really have two different number fields with embeddings
-        ex = self.exact()
-        Scalars = pushout.pushout(Pols_dop.base_ring(), ex.value.parent())
-        Pols = Pols_dop.change_ring(Scalars)
-        A, B = self.dop.base_ring().base_ring(), ex.value.parent()
-        C = Pols.base_ring()
-        assert C is A or C != A
-        assert C is B or C != B
-        dop_P = self.dop.change_ring(Pols)
-        return dop_P.annihilator_of_composition(Pols([ex.value, 1]))
 
     def local_basis_structure(self):
         r"""
@@ -375,9 +379,7 @@ class Point(SageObject):
                     for expo in range(self.dop.order())]
         elif not self.is_regular():
             raise NotImplementedError("irregular singular point")
-        sols = map_local_basis(self.local_diffop(),
-                lambda ini, bwrec: None,
-                lambda leftmost, shift: {})
+        sols = LocalBasisMapper().run(self.dop.shift(self))
         sols.sort(key=sort_key_by_asympt)
         return sols
 
@@ -431,15 +433,27 @@ class Step(SageObject):
 
         sage: s2.plot()
         Graphics object consisting of 1 graphics primitive
+
+    TESTS:
+
+    Check that we can handle connections between points in ℚ[i] and in other
+    complex number fields in spite of various weaknesses of the coercion system.
+    Thanks to Armin Straub for the example::
+
+        sage: dop = ((81*x^4 + 14*x^3 + x^2)*Dx^3 + (486*x^3 + 63*x^2 +
+        ....: 3*x)*Dx^2 + (567*x^2 + 48*x + 1)*Dx + 81*x + 3)
+        sage: dop.numerical_transition_matrix([0,QQbar((4*sqrt(2)*I-7)/81)])[0,0]
+        [-3.17249673357...] + [-4.486587907205...]*I
     """
 
-    def __init__(self, start, end):
+    def __init__(self, start, end, branch=(0,)):
         if not (isinstance(start, Point) and isinstance(end, Point)):
             raise TypeError
         if start.dop != end.dop:
             raise ValueError
         self.start = start
         self.end = end
+        self.branch = branch
 
     def _repr_(self):
         return repr(self.start) + " --> " + repr(self.end)
@@ -456,13 +470,62 @@ class Step(SageObject):
         return self.start.is_exact() and self.end.is_exact()
 
     def delta(self):
-        return self.end.value - self.start.value
+        r"""
+        TESTS::
+
+            sage: from ore_algebra import *
+            sage: Dops, x, Dx = DifferentialOperators()
+            sage: (Dx - 1).numerical_solution([1], [0, RealField(10)(.33), 1])
+            [2.71828182845904...]
+        """
+        z0, z1 = self.start.value, self.end.value
+        if (z0.parent() is not z1.parent()
+                and self.start.is_exact() and self.end.is_exact()):
+            z0 = self.start.exact().value
+            z1 = self.end.exact().value
+            try:
+                return z1 - z0
+            except TypeError:
+                return as_embedded_number_field_element(QQbar(z1) - QQbar(z0))
+        else:
+            return z1 - z0
+
+    def direction(self):
+        delta = self.end.iv() - self.start.iv()
+        return delta/abs(delta)
 
     def length(self):
         return IC(self.delta()).abs()
 
     def cvg_ratio(self):
         return self.length()/self.start.dist_to_sing()
+
+    def split(self):
+        # Ensure that the substeps correspond to convergent series when
+        # splitting a singular step
+        if self.start.is_singular():
+            mid = (self.start.iv() + 2*self.end.iv())/3
+        elif self.end.is_singular():
+            mid = (2*self.start.iv() + self.end.iv())/3
+        else:
+            mid = (self.start.iv() + self.end.iv())/2
+        mid = Point(mid, self.start.dop)
+        mid = mid.rationalize()
+        return (Step(self.start, mid, branch=self.branch), Step(mid, self.end))
+
+    def singularities(self):
+        dop = self.start.dop
+        sing = dop._singularities(IC)
+        z0, z1 = IC(self.start.value), IC(self.end.value)
+        sing = [s for s in sing if s != z0 and s != z1]
+        res = []
+        for s in sing:
+            ds = s - self.start.iv()
+            t = self.delta()/ds
+            if (ds.contains_zero() or t.imag().contains_zero()
+                    and not safe_lt(t.real(), IR.one())):
+                res.append(s)
+        return res
 
     def check_singularity(self):
         r"""
@@ -495,20 +558,14 @@ class Step(SageObject):
             singular point 1*I (to compute the connection to a singular point,
             make it a vertex of the path)
         """
-        dop = self.start.dop
-        # TODO: solve over CBF directly?
-        sing = [IC(s) for s in dop_singularities(dop, CIF)
-                      if s != CIF(self.start.value) and s != CIF(self.end.value)]
-        for s in sing:
-            ds = s - self.start.iv()
-            t = self.delta()/ds
-            if (ds.contains_zero() or t.imag().contains_zero()
-                    and not safe_lt(t.real(), IR.one())):
-                raise ValueError(
-                    "Step {} passes through or too close to singular point {} "
-                    "(to compute the connection to a singular point, make it "
-                    "a vertex of the path)"
-                    .format(self, sing_as_alg(dop, s)))
+        sing = self.singularities()
+        if len(sing) > 0:
+            plural = "" if len(sing) == 1 else "s"
+            sings = ", ".join(str(self.start.dop._sing_as_alg(s)) for s in sing)
+            raise ValueError(
+                "Step {} passes through or too close to singular point{} {} "
+                "(to compute the connection to a singular point, make it "
+                "a vertex of the path)".format(self, plural, sings))
 
     def check_convergence(self):
         r"""
@@ -601,7 +658,8 @@ class Path(SageObject):
         if len(self.vert) < 2:
             raise IndexError
         else:
-            return Step(self.vert[i], self.vert[i+1])
+            branch = self.vert[i].options.get("outgoing_branch", (0,))
+            return Step(self.vert[i], self.vert[i+1], branch)
 
     def __len__(self):
         return len(self.vert) - 1
@@ -614,7 +672,7 @@ class Path(SageObject):
         return repr(self.vert[0]) + arrow + repr(self.vert[-1])
 
     def plot(self, disks=False):
-        gr  = plot.point2d(dop_singularities(self.dop, CC),
+        gr  = plot.point2d(self.dop._singularities(CC),
                            marker='*', size=200, color='red')
         for step in self:
             gr += step.plot()
@@ -662,6 +720,14 @@ class Path(SageObject):
             Traceback (most recent call last):
             ...
             ValueError: ...
+
+        Multiple singular points along a single edge::
+
+            sage: (((x-1)*Dx-1)*((x-2)*Dx-2)).numerical_transition_matrix([0,3])
+            Traceback (most recent call last):
+            ...
+            ValueError: Step 0 --> 3 passes through or too close to singular
+            points 1, 2...
         """
         for step in self:
             step.check_singularity()
@@ -686,10 +752,48 @@ class Path(SageObject):
 
     # Path rewriting
 
+    def bypass_singularities(self):
+        r"""
+        TESTS::
+
+            sage: from ore_algebra import *
+            sage: Dops, x, Dx = DifferentialOperators()
+            sage: ((x-1)*Dx - 1).numerical_solution([1], [0,2], assume_analytic=True)
+            [-1.0000000000000...] + [+/- ...]*I
+
+            sage: dop = ((x - 1)*Dx - 1)*((x - 2)*Dx - 2)
+            sage: dop.numerical_solution([1, 0], [0, 3], assume_analytic=True)
+            [-3.5000000000000...] + [+/- ...]*I
+
+            sage: QQi.<i> = QuadraticField(-1)
+            sage: dop = ((x - i - 1)*Dx - 1)*((x - 2*i - 2)*Dx - 2)
+            sage: dop.numerical_solution([1, 0], [0, 3*i + 3], assume_analytic=True)
+            [-3.5000000000000...] + [+/- ...]*I
+        """
+        new = []
+        for step in self:
+            new.append(step.start)
+            dir = step.direction()
+            sings = step.singularities()
+            for s in sings:
+                ds = Point(s, self.dop, singular=True).dist_to_sing()
+                d0 = abs(s - step.start.iv())
+                d1 = abs(s - step.end.iv())
+                zs = []
+                if not safe_lt(d0, ds):
+                    zs.append(-1)
+                zs.append(IC.gen(0))
+                if not safe_lt(d1, ds):
+                    zs.append(1)
+                rad = (ds/2).min(d0, d1)
+                new.extend([_rationalize(CIF(s + rad*z*dir)) for z in zs])
+        new.append(self.vert[-1])
+        new = Path(new, self.dop)
+        return new
+
     def subdivide(self, threshold=IR(0.6), factor=IR(0.5)):
         # TODO:
         # - support paths passing very close to singular points
-        from sage.rings.real_mpfi import RealIntervalField
         new = [self.vert[0]]
         i = 1
         while i < len(self.vert):
@@ -708,12 +812,7 @@ class Path(SageObject):
                 is_real = interm.imag().is_zero()
                 interm = interm.add_error(rad/8)
                 Step(cur, Point(interm, self.dop)).check_singularity() # TBI
-                my_RIF = RealIntervalField(interm.real().parent().precision())
-                if is_real:
-                    interm = my_RIF(interm.real()).simplest_rational()
-                else:
-                    interm = QQi([my_RIF(interm.real()).simplest_rational(),
-                                  my_RIF(interm.imag()).simplest_rational()])
+                interm = _rationalize(interm, is_real)
                 new.append(Point(interm, self.dop))
                 logger.debug("subdividing %s -> %s", cur, next)
         new = Path(new, self.dop)
@@ -730,3 +829,26 @@ class Path(SageObject):
 
 def local_monodromy_path(sing):
     raise NotImplementedError
+
+def polygon_around(point, size=17):
+    # not ideal in the case of a single singularity...
+    rad = (point.dist_to_sing()/2).min(1)
+    polygon = []
+    for k in range(size):
+        x = point.iv() + rad*(CBF(2*k)/size).exppii()
+        # XXX balls are not supported (or don't work well) as
+        # starting/intermediate points
+        if not Point(x, point.dop).is_ordinary():
+            raise PathPrecisionError
+        x = _rationalize(IC(x))
+        polygon.append(Point(x, point.dop))
+    return polygon
+
+def _rationalize(civ, real=False):
+    from sage.rings.real_mpfi import RealIntervalField
+    my_RIF = RealIntervalField(civ.real().parent().precision())
+    if real or civ.imag().is_zero():
+        return my_RIF(civ.real()).simplest_rational()
+    else:
+        return QQi([my_RIF(civ.real()).simplest_rational(),
+                    my_RIF(civ.imag()).simplest_rational()])

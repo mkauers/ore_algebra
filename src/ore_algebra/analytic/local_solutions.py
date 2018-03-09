@@ -10,10 +10,11 @@ from sage.functions.log import log as symbolic_log
 from sage.misc.cachefunc import cached_method
 from sage.modules.free_module_element import vector
 from sage.rings.all import ZZ, QQ, QQbar, RBF, RealBallField, ComplexBallField
+from sage.rings.complex_arb import ComplexBall
+from sage.rings.number_field.number_field import NumberField_generic
+from sage.rings.number_field.number_field_morphisms import NumberFieldEmbedding
 from sage.rings.polynomial import polynomial_element
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
-from sage.structure.element import get_coercion_model
-from sage.structure.formal_sum import FormalSum, FormalSums
 from sage.structure.sequence import Sequence
 from sage.symbolic.all import SR
 
@@ -28,7 +29,7 @@ logger = logging.getLogger(__name__)
 # Recurrence relations
 ##############################################################################
 
-def backward_rec(dop, shift=ZZ.zero()):
+def bw_shift_rec(dop, shift=ZZ.zero()):
     Pols_n = PolynomialRing(dop.base_ring().base_ring(), 'n') # XXX: name
     Rops = ore_algebra.OreAlgebra(Pols_n, 'Sn')
     # Using the primitive part here would break the computation of residuals!
@@ -40,9 +41,9 @@ def backward_rec(dop, shift=ZZ.zero()):
     ordrec = rop.order()
     coeff = [rop[ordrec-k](Pols_n.gen()-ordrec+shift)
              for k in xrange(ordrec+1)]
-    return BackwardRec(coeff)
+    return BwShiftRec(coeff)
 
-class BackwardRec(object):
+class BwShiftRec(object):
     r"""
     A recurrence relation, written in terms of the backward shift operator.
 
@@ -54,33 +55,32 @@ class BackwardRec(object):
         assert isinstance(coeff[0], polynomial_element.Polynomial)
         self.coeff = coeff
         self.base_ring = coeff[0].parent()
-        Scalars = self.base_ring.base_ring()
+        self.Scalars = self.base_ring.base_ring()
         self.order = len(coeff) - 1
-        # Evaluating polynomials over ℚ[i] is slow...
-        # TODO: perhaps do something similar for eval_series
-        if utilities.is_QQi(Scalars):
-            QQn = PolynomialRing(QQ, 'n')
-            self._re_im = [
-                    (QQn([c.real() for c in pol]), QQn([c.imag() for c in pol]))
-                    for pol in coeff]
-            self.eval_int_ball = self._eval_qqi_cbf
 
     def __repr__(self):
         n = self.base_ring.variable_name()
         return " + ".join("({})*S{}^(-{})".format(c, n, j)
                           for j, c in enumerate(self.coeff))
 
-    # efficient way to cache the last few results (without cython)?
-    def eval(self, tgt, point):
-        return [tgt(pol(point)) for pol in self.coeff]
-
-    def _eval_qqi_cbf(self, tgt, point):
-        return [tgt(re(point), im(point)) for re, im in self._re_im]
-
-    # Optimized implementation of eval() when point is a Python
-    # integer and iv is a ball field. Can be dynamically replaced by
-    # one of the above implementations on initialization.
-    eval_int_ball = eval
+    @cached_method
+    def eval_method(self, tgt):
+        if utilities.is_QQi(self.Scalars) and isinstance(tgt, ComplexBallField):
+            ZZn = PolynomialRing(ZZ, 'n')
+            re_im = [
+                    (ZZn([c.real() for c in pol]), ZZn([c.imag() for c in pol]))
+                    for pol in self.coeff]
+            if utilities.has_new_ComplexBall_constructor():
+                def ev(point):
+                    return [ComplexBall(tgt, re(point), im(point))
+                            for re, im in re_im]
+            else:
+                def ev(point):
+                    return [tgt(re(point), im(point)) for re, im in re_im]
+        else:
+            def ev(point):
+                return [tgt(pol(point)) for pol in self.coeff]
+        return ev
 
     @cached_method
     def _coeff_series(self, i, j):
@@ -89,8 +89,20 @@ class BackwardRec(object):
         else:
             return self._coeff_series(i, j - 1).diff()/j
 
+    @cached_method
+    def scalars_embedding(self, tgt):
+        if isinstance(self.Scalars, NumberField_generic):
+            # do complicated coercions via QQbar and CLF only once...
+            Pol = PolynomialRing(tgt, 'x')
+            x = tgt(self.Scalars.gen())
+            return lambda elt: Pol([tgt(c) for c in elt._coefficients()])(x)
+        else:
+            return tgt
+
     def eval_series(self, tgt, point, ord):
-        return [[tgt(self._coeff_series(i,j)(point)) for j in xrange(ord)]
+        mor = self.scalars_embedding(tgt)
+        point = self.Scalars(point)
+        return [[mor(self._coeff_series(i,j)(point)) for j in xrange(ord)]
                 for i in xrange(len(self.coeff))]
 
     def eval_inverse_lcoeff_series(self, tgt, point, ord):
@@ -104,7 +116,7 @@ class BackwardRec(object):
 
     def shift(self, sh):
         n = self.coeff[0].parent().gen()
-        return BackwardRec([pol(sh + n) for pol in self.coeff])
+        return BwShiftRec([pol(sh + n) for pol in self.coeff])
 
 class LogSeriesInitialValues(object):
     r"""
@@ -202,6 +214,19 @@ class LogSeriesInitialValues(object):
         else:
             raise ValueError
 
+def random_ini(dop):
+    import random
+    from sage.all import VectorSpace
+    ind = dop.indicial_polynomial(dop.base_ring().gen())
+    sl_decomp = my_shiftless_decomposition(ind)
+    pol, shifts = random.choice(sl_decomp)
+    expo = random.choice(pol.roots(QQbar))[0]
+    values = {
+        shift: tuple(VectorSpace(QQ, mult).random_element(10))
+        for shift, mult in shifts
+    }
+    return LogSeriesInitialValues(expo, values, dop)
+
 ##############################################################################
 # Structure of the local basis at a regular singular point
 ##############################################################################
@@ -228,54 +253,90 @@ def sort_key_by_asympt(sol):
     re, im = sol.valuation.real(), sol.valuation.imag()
     return re, -sol.log_power, -im.abs(), im.sign()
 
-def map_local_basis(dop, fun, modZ_class_aux):
-    r"""
-    Compute fun(ini, bwrec, data) for each element of the local basis at 0
-    of dop, where data is computed as modZ_class_aux(leftmost, shift) for each
-    “group” (class modulo ℤ) of roots the indicial polynomial. Somewhat ad hoc.
-    """
-    bwrec = backward_rec(dop)
-    ind = bwrec[0]
-    n = ind.parent().gen()
-    sl_decomp = my_shiftless_decomposition(ind)
-    logger.debug("indicial polynomial = %s ~~> %s", ind, sl_decomp)
+class LocalBasisMapper(object):
 
-    cols = []
-    for sl_factor, shifts in sl_decomp:
-        for irred_factor, irred_mult in sl_factor.factor():
-            assert irred_mult == 1
-            # Complicated to do here and specialize, for little benefit
-            #irred_nf = irred_factor.root_field("leftmost")
-            #irred_leftmost = irred_nf.gen()
-            #irred_bwrec = [pol(irred_leftmost + n) for pol in bwrec]
-            for leftmost, _ in irred_factor.roots(QQbar):
-                leftmost = utilities.as_embedded_number_field_element(leftmost)
-                emb_bwrec = bwrec.shift(leftmost)
-                modZ_class_data = modZ_class_aux(leftmost, shifts)
-                for shift, mult in shifts:
-                    for log_power in xrange(mult):
-                        logger.info(r"solution z^(%s+%s)·log(z)^%s/%s! + ···",
-                                    leftmost, shift, log_power, log_power)
-                        ini = LogSeriesInitialValues(
-                            dop = dop,
-                            expo = leftmost,
-                            values = {s: tuple(ZZ.one()
-                                               if (s, p) == (shift, log_power)
-                                               else ZZ.zero()
-                                               for p in xrange(m))
-                                      for s, m in shifts},
-                            check = False)
-                        # XXX: inefficient if shift >> 0
-                        value = fun(ini, emb_bwrec, **modZ_class_data)
-                        sol = FundamentalSolution(
-                            leftmost = leftmost,
-                            shift = ZZ(shift),
-                            log_power = ZZ(log_power),
-                            value = value)
-                        logger.debug("sol=%s\n\n", sol)
-                        cols.append(sol)
-    cols.sort(key=sort_key_by_asympt)
-    return cols
+    def run(self, dop):
+        r"""
+        Compute self.fun() for each element of the local basis at 0 of dop.
+
+        Subclasses should define a fun() method that takes as input a
+        LogSeriesInitialValues structure and can access the iteration variables
+        as well as some derived quantities through the instance's field.
+        Additionally, hooks are provided to share parts of the computation
+        in a class of related solutions. The choice of unconditional
+        computations, exported data and hooks is ad hoc.
+
+        The output is a list of FundamentalSolution structures, sorted in the
+        canonical order.
+        """
+
+        bwrec = bw_shift_rec(dop)
+        ind = bwrec[0]
+        sl_decomp = my_shiftless_decomposition(ind)
+        logger.debug("indicial polynomial = %s ~~> %s", ind, sl_decomp)
+
+        cols = []
+        for self.sl_factor, self.shifts in sl_decomp:
+            for self.irred_factor, irred_mult in self.sl_factor.factor():
+                assert irred_mult == 1
+                self.process_irred_factor()
+                # Complicated to do here and specialize, for little benefit
+                #irred_nf = irred_factor.root_field("self.leftmost")
+                #irred_leftmost = irred_nf.gen()
+                #irred_bwrec = [pol(irred_leftmost + n) for pol in bwrec]
+                for leftmost, _ in self.irred_factor.roots(QQbar):
+                    self.leftmost = utilities.as_embedded_number_field_element(leftmost)
+                    self.emb_bwrec = bwrec.shift(self.leftmost)
+                    self.process_modZ_class()
+                    for self.shift, self.mult in self.shifts:
+                        self.process_valuation()
+                        for self.log_power in xrange(self.mult):
+                            logger.info(r"solution z^(%s+%s)·log(z)^%s/%s! + ···",
+                                        self.leftmost, self.shift,
+                                        self.log_power, self.log_power)
+                            ini = LogSeriesInitialValues(
+                                dop = dop,
+                                expo = self.leftmost,
+                                values = {
+                                    s: tuple(ZZ.one() if (s, p) == (self.shift,
+                                                                 self.log_power)
+                                             else ZZ.zero()
+                                             for p in xrange(m))
+                                    for s, m in self.shifts},
+                                check = False)
+                            # XXX: inefficient if self.shift >> 0
+                            value = self.fun(ini)
+                            sol = FundamentalSolution(
+                                leftmost = self.leftmost,
+                                shift = ZZ(self.shift),
+                                log_power = ZZ(self.log_power),
+                                value = value)
+                            logger.debug("sol=%s\n\n", sol)
+                            cols.append(sol)
+        cols.sort(key=sort_key_by_asympt)
+        return cols
+
+    def process_irred_factor(self):
+        pass
+
+    def process_modZ_class(self):
+        pass
+
+    def process_valuation(self):
+        pass
+
+    def fun(self, ini):
+        return None
+
+def exponent_shifts(dop, leftmost):
+    bwrec = bw_shift_rec(dop)
+    ind = bwrec[0]
+    sl_decomp = my_shiftless_decomposition(ind)
+    cand = [shifts for fac, shifts in sl_decomp if fac(leftmost).is_zero()]
+    assert len(cand) == 1
+    shifts = [s for s in cand[0] if s >= 0]
+    assert shifts[0][0] == 0
+    return shifts
 
 def log_series(ini, bwrec, order):
     Coeffs = pushout(bwrec.base_ring.base_ring(), ini.universe)
@@ -301,101 +362,3 @@ def log_series(ini, bwrec, order):
         series.append(new_term)
         bwrec_nplus.append(bwrec.eval_series(Coeffs, n+precomp_len, log_prec))
     return series
-
-# TODO: Implement (as a method of differential operators) a version that returns
-# a list of DFiniteFunction objects
-
-def local_basis(dop, point, order=None):
-    r"""
-    Generalized series expansions the local basis.
-
-    INPUT:
-
-    * dop - Differential operator
-
-    * point - Point where the local basis is to be computed
-
-    * order (optional) - Number of terms to compute, **starting from each
-      “leftmost” valuation of a group of solutions with valuations differing by
-      integers**. (Thus, the absolute truncation order will be the same for all
-      solutions in such a group, with some solutions having more actual
-      coefficients computed that others.)
-
-      The default is to choose the truncation order in such a way that the
-      structure of the basis is apparent, and in particular that logarithmic
-      terms appear if logarithms are involved at all in that basis. The
-      corresponding order may be very large in some cases.
-
-    EXAMPLES::
-
-        sage: from ore_algebra import *
-        sage: from ore_algebra.analytic.local_solutions import local_basis
-        sage: Dops, x, Dx = DifferentialOperators(QQ, 'x')
-
-        sage: local_basis(Dx - 1, 0)
-        [1 + x + 1/2*x^2 + 1/6*x^3]
-
-        sage: from ore_algebra.analytic.examples import ssw
-        sage: local_basis(ssw.dop3, 0)
-        [t^(-4) + 24*log(t)/t^2 - 48*log(t) - 96*t^2*log(t) - 88*t^2,
-         t^(-2),
-         1 + 2*t^2]
-
-        sage: dop = (x^2*(x^2-34*x+1)*Dx^3 + 3*x*(2*x^2-51*x+1)*Dx^2
-        ....:     + (7*x^2-112*x+1)*Dx + (x-5))
-        sage: local_basis(dop, 0, 3)
-        [1/2*log(x)^2 + 5/2*x*log(x)^2 + 12*x*log(x) + 73/2*x^2*log(x)^2
-         + 210*x^2*log(x) + 72*x^2,
-         log(x) + 5*x*log(x) + 12*x + 73*x^2*log(x) + 210*x^2,
-         1 + 5*x + 73*x^2]
-
-        sage: roots = dop.leading_coefficient().roots(AA)
-        sage: local_basis(dop, roots[1][0], 3)
-        [1 - (-239/12*a+169/6)*(x + 12*sqrt(2) - 17)^2,
-         sqrt(x + 12*sqrt(2) - 17) - (-203/32*a+9)*(x + 12*sqrt(2) - 17)^(3/2)
-         + (-24031/160*a+1087523/5120)*(x + 12*sqrt(2) - 17)^(5/2),
-         x + 12*sqrt(2) - 17 - (-55/6*a+13)*(x + 12*sqrt(2) - 17)^2]
-
-    TESTS::
-
-        sage: local_basis(4*x^2*Dx^2 + (-x^2+8*x-11), 0, 2)
-        [x^(-sqrt(3) + 1/2) + (-4/11*a+2/11)*x^(-sqrt(3) + 3/2),
-         x^(sqrt(3) + 1/2) - (-4/11*a-2/11)*x^(sqrt(3) + 3/2)]
-
-        sage: local_basis((27*x^2+4*x)*Dx^2 + (54*x+6)*Dx + 6, 0, 2)
-        [1/sqrt(x) + 3/8*sqrt(x), 1 - x]
-
-    """
-    from .path import Point
-    point = Point(point, dop)
-    ldop = point.local_diffop()
-    if order is None:
-        ind = ldop.indicial_polynomial(ldop.base_ring().gen())
-        order = max(dop.order(), ind.dispersion()) + 3
-    sols = map_local_basis(ldop,
-            lambda ini, bwrec: log_series(ini, bwrec, order),
-            lambda leftmost, shift: {})
-    dx = SR(dop.base_ring().gen()) - point.value
-    # Working with symbolic expressions here is too complicated: let's try
-    # returning FormalSums.
-    def log_monomial(expo, n, k):
-        expo = simplify_exponent(expo)
-        return dx**(expo + n) * symbolic_log(dx, hold=True)**k
-    cm = get_coercion_model()
-    Coeffs = cm.common_parent(
-            dop.base_ring().base_ring(),
-            point.value.parent(),
-            *(sol.leftmost for sol in sols))
-    res = [FormalSum(
-                [(c/ZZ(k).factorial(), log_monomial(sol.leftmost, n, k))
-                    for n, vec in enumerate(sol.value)
-                    for k, c in reversed(list(enumerate(vec)))],
-                FormalSums(Coeffs))
-           for sol in sols]
-    return res
-
-def simplify_exponent(e): # work around sage bug #21758
-    try:
-        return ZZ(e)
-    except (TypeError, ValueError):
-        return e

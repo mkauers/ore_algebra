@@ -137,6 +137,27 @@ constant::
     sage: mat[1][2].overlaps(CBF(cst))
     True
 
+Credits
+=======
+
+The author would like to thank the following people for comments, examples, bug
+reports, or feedback:
+
+    - Jakob Ablinger
+    - Frédéric Chyzak
+    - Manuel Kauers
+    - Christoph Koutschan
+    - Christoph Lauter
+    - Pierre Lairez
+    - Steve Melczer
+    - Clemens Raab
+    - Bruno Salvy
+    - Emre Sertoz
+    - Armin Straub
+
+Tests
+=====
+
 TESTS:
 
     sage: import ore_algebra.analytic.polynomial_approximation as pa
@@ -184,7 +205,7 @@ A few larger or harder examples::
     sage: dop = (z+1)*(3*z^2-z+2)*Dz^3 + (5*z^3+4*z^2+2*z+4)*Dz^2 \
     ....:       + (z+1)*Dz + (4*z^3+2*z^2+5)
     sage: path = [0,-2/5+3/5*i,-2/5+i,-1/5+7/5*i]
-    sage: dop.numerical_solution([0,i,0], path, 1e-150) # long time (2.6 s)
+    sage: dop.numerical_solution([0,i,0], path, 1e-150) # long time (2.1 s)
     [-1.5598481440603221187326507993405933893413346644879595004537063375459901302359572361012065551669069...] +
     [-0.7107764943512671843673286878693314397759047479618104045777076954591551406949345143368742955333566...]*I
 
@@ -231,10 +252,22 @@ Operators with rational function coefficients::
     [[0.0340875989376363...]   [1.59063685463732...]]
     [[-0.579827135138349...]   [2.27958530233606...]]
 
+Algorithm choice::
+
+    sage: dop = Dx + 1/4/(x - 1/2)
+    sage: dop.numerical_transition_matrix([0,1+I,1], 1e-300, algorithm='naive')
+    [[0.707...399...] + [0.707...399...]*I]
+
+Miscellaneous tests::
+
+    sage: dop =  -452*Dx^10 + (-2*x^2 - x - 1/2)*Dx^9 + (1/2*x + 22)*Dx^8 + (1/4*x^2 + x)*Dx^7 + (1/3*x^2 - 1/2*x + 1/3)*Dx^6 + (-3*x^2 + x + 1)*Dx^5 + (x^2 - 4/3*x)*Dx^4 + (2*x^2 - 2*x)*Dx^3 + (2*x^2 + x)*Dx^2 + (-2/3*x^2 - 5/27*x - 1/3)*Dx - 18*x^2 + 6/5*x - 6
+    sage: ((dop.numerical_transition_matrix([0,1])*dop.numerical_transition_matrix([1, 1+i, 0]) - 1)).norm('frob') < 1e-13
+    True
+
 Test suite
 ==========
 
 To run the test suite of the ``ore_algebra.analytic`` subpackage, run::
 
-    src$ PYTHONPATH="$PWD" sage -t --force-lib ore_algebra/analytic/
+    src$ PYTHONPATH="$PWD" sage -t ore_algebra/analytic/
 """

@@ -36,10 +36,12 @@ from sage.rings.qqbar import QQbar
 from sage.rings.qqbar import QQbar, AA
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 from sage.rings.power_series_ring import PowerSeriesRing
-from sage.structure.element import RingElement, canonical_coercion
+from sage.structure.element import RingElement, canonical_coercion, get_coercion_model
+from sage.structure.formal_sum import FormalSum, FormalSums
 from sage.symbolic.all import SR
 
 from .tools import q_log, make_factor_iterator, shift_factor
+from .ore_algebra import OreAlgebra_generic
 from .ore_operator import OreOperator, UnivariateOreOperator
 from .generalized_series import GeneralizedSeriesMonoid, _generalized_series_shift_quotient, _binomial
 
@@ -1295,7 +1297,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         if type(alg) == str:
             R = self.base_ring(); x = R.gen(); one = R.one()
             rec_algebra = self.parent().change_var_sigma_delta(alg, {x:x+one}, {})
-        elif not isinstance(alg, type(self.parent())) or not alg.is_S() \
+        elif not isinstance(alg, OreAlgebra_generic) or not alg.is_S() \
              or alg.base_ring().base_ring() is not self.base_ring().base_ring():
             raise TypeError, "not an adequate algebra"
         else:
@@ -1406,7 +1408,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
 
         if isinstance(alg, str):
             alg = self.parent().change_var_sigma_delta(alg, {}, {x:x})
-        elif not isinstance(alg, type(self.parent())) or not alg.is_T() or \
+        elif not isinstance(alg, OreAlgebra_generic) or not alg.is_T() or \
              alg.base_ring().base_ring() is not R.base_ring():
             raise TypeError, "target algebra is not adequate"
 
@@ -1996,6 +1998,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
 
         .. seealso::
 
+            :meth:`local_basis_expansions`,
             :meth:`numerical_solution`,
             :meth:`numerical_transition_matrix`
 
@@ -2032,15 +2035,155 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             sage: ((x^2 - 2)^3*Dx^4+Dx-x).local_basis_monomials(sqrt(2))
             [1, (x - sqrt(2))^0.978..., (x - sqrt(2))^2.044...,
             (x - sqrt(2))^2.977...]
+
+            sage: dop = (Dx^3 + ((24*x^2 - 4*x - 12)/(8*x^3 - 8*x))*Dx^2 +
+            ....:   ((32*x^2 + 32*x - 16)/(32*x^4 + 32*x^3 - 32*x^2 - 32*x))*Dx)
+            sage: dop.local_basis_monomials(0)
+            [1, sqrt(x), x]
         """
+        from .analytic.differential_operator import DifferentialOperator
         from .analytic.path import Point
-        from .analytic.local_solutions import simplify_exponent
-        struct = Point(point, self).local_basis_structure()
-        x = SR(self.base_ring().gen()) - point
-        return [x**simplify_exponent(sol.valuation)
+        dop = DifferentialOperator(self)
+        struct = Point(point, dop).local_basis_structure()
+        x = SR(dop.base_ring().gen()) - point
+        return [x**_simplify_exponent(sol.valuation)
                     *symbolic_log.log(x, hold=True)**sol.log_power
                     /sol.log_power.factorial()
                 for sol in struct]
+
+    # TODO: Add a version that returns DFiniteFunction objects
+    def local_basis_expansions(self, point, order=None, ring=None):
+        r"""
+        Generalized series expansions of the local basis.
+
+        INPUT:
+
+        * point - Point where the local basis is to be computed
+
+        * order (optional) - Number of terms to compute, **starting from each
+          “leftmost” valuation of a group of solutions with valuations differing by
+          integers**. (Thus, the absolute truncation order will be the same for all
+          solutions in such a group, with some solutions having more actual
+          coefficients computed that others.)
+
+          The default is to choose the truncation order in such a way that the
+          structure of the basis is apparent, and in particular that logarithmic
+          terms appear if logarithms are involved at all in that basis. The
+          corresponding order may be very large in some cases.
+
+        * ring (optional) - Ring in which to coerce the coefficients of the
+          expansion
+
+        .. seealso::
+
+            :meth:`local_basis_monomials`,
+            :meth:`numerical_solution`,
+            :meth:`numerical_transition_matrix`
+
+        EXAMPLES::
+
+            sage: from ore_algebra import *
+            sage: Dops, x, Dx = DifferentialOperators(QQ, 'x')
+
+            sage: (Dx - 1).local_basis_expansions(0)
+            [1 + x + 1/2*x^2 + 1/6*x^3]
+
+            sage: from ore_algebra.analytic.examples import ssw
+            sage: ssw.dop[1,0,0].local_basis_expansions(0)
+            [t^(-4) + 24*log(t)/t^2 - 48*log(t) - 96*t^2*log(t) - 88*t^2,
+            t^(-2),
+            1 + 2*t^2]
+
+            sage: dop = (x^2*(x^2-34*x+1)*Dx^3 + 3*x*(2*x^2-51*x+1)*Dx^2
+            ....:     + (7*x^2-112*x+1)*Dx + (x-5))
+            sage: dop.local_basis_expansions(0, order=3)
+            [1/2*log(x)^2 + 5/2*x*log(x)^2 + 12*x*log(x) + 73/2*x^2*log(x)^2
+            + 210*x^2*log(x) + 72*x^2,
+            log(x) + 5*x*log(x) + 12*x + 73*x^2*log(x) + 210*x^2,
+            1 + 5*x + 73*x^2]
+
+            sage: roots = dop.leading_coefficient().roots(AA)
+            sage: basis = dop.local_basis_expansions(roots[1][0], order=3)
+            sage: basis
+            [1 - (-239/12*a+169/6)*(x - 0.02943725152285942?)^2,
+            sqrt(x - 0.02943725152285942?)
+            - (-203/32*a+9)*(x - 0.02943725152285942?)^(3/2)
+            + (-24031/160*a+1087523/5120)*(x - 0.02943725152285942?)^(5/2),
+            x - 0.02943725152285942? - (-55/6*a+13)*(x - 0.02943725152285942?)^2]
+            sage: basis[0].base_ring()
+            Number Field in a with defining polynomial y^2 - 2
+            sage: RR(basis[0].base_ring().gen())
+            -1.41421356237309
+            sage: basis[0][-1]
+            (239/12*a - 169/6, (x - 0.02943725152285942?)^2)
+
+            sage: dop.local_basis_expansions(roots[1][0], order=3, ring=QQbar)
+            [1 - 56.33308678393081?*(x - 0.02943725152285942?)^2,
+            sqrt(x - 0.02943725152285942?)
+            - 17.97141728630432?*(x - 0.02943725152285942?)^(3/2)
+            + 424.8128741711741?*(x - 0.02943725152285942?)^(5/2),
+            x - 0.02943725152285942?
+            - 25.96362432175337?*(x - 0.02943725152285942?)^2]
+
+        TESTS::
+
+            sage: (4*x^2*Dx^2 + (-x^2+8*x-11)).local_basis_expansions(0, 2)
+            [x^(-sqrt(3) + 1/2) + (-4/11*a+2/11)*x^(-sqrt(3) + 3/2),
+            x^(sqrt(3) + 1/2) - (-4/11*a-2/11)*x^(sqrt(3) + 3/2)]
+
+            sage: ((27*x^2+4*x)*Dx^2 + (54*x+6)*Dx + 6).local_basis_expansions(0, 2)
+            [1/sqrt(x) + 3/8*sqrt(x), 1 - x]
+
+            sage: dop = (Dx^3 + ((24*x^2 - 4*x - 12)/(8*x^3 - 8*x))*Dx^2 +
+            ....:   ((32*x^2 + 32*x - 16)/(32*x^4 + 32*x^3 - 32*x^2 - 32*x))*Dx)
+            sage: dop.local_basis_expansions(0, 3)
+            [1, sqrt(x) - 1/6*x^(3/2) + 3/40*x^(5/2), x - 1/6*x^2]
+
+        Thanks to Armin Straub for this example::
+
+            sage: dop = ((81*x^4 + 14*x^3 + x^2)*Dx^3
+            ....:       + (486*x^3 + 63*x^2 + 3*x)*Dx^2
+            ....:       + (567*x^2 + 48*x + 1)*Dx + 81*x + 3)
+            sage: dop.local_basis_expansions(QQbar((4*sqrt(2)*I-7)/81), 2)
+            [1,
+            sqrt(x + 0.0864...? - 0.0698...?*I)
+            + (365/96*a^3+365/96*a+13/3)*(x + 0.0864...? - 0.0698...?*I)^(3/2),
+            x + 0.0864...? - 0.0698...?*I]
+        """
+        from .analytic.differential_operator import DifferentialOperator
+        from .analytic.local_solutions import log_series, LocalBasisMapper
+        from .analytic.path import Point
+        mypoint = Point(point, self)
+        dop = DifferentialOperator(self)
+        ldop = dop.shift(mypoint)
+        if order is None:
+            ind = ldop.indicial_polynomial(ldop.base_ring().gen())
+            order = max(dop.order(), ind.dispersion()) + 3
+        class Mapper(LocalBasisMapper):
+            def fun(dop, ini):
+                return log_series(ini, dop.emb_bwrec, order)
+        sols = Mapper().run(ldop)
+        x = SR.var(dop.base_ring().variable_name())
+        dx = x if point.is_zero() else x.add(-point, hold=True)
+        # Working with symbolic expressions here is too complicated: let's try
+        # returning FormalSums.
+        def log_monomial(expo, n, k):
+            expo = _simplify_exponent(expo)
+            return dx**(expo + n) * symbolic_log.log(dx, hold=True)**k
+        if ring is None:
+            cm = get_coercion_model()
+            ring = cm.common_parent(
+                    dop.base_ring().base_ring(),
+                    mypoint.value.parent(),
+                    *(sol.leftmost for sol in sols))
+        res = [FormalSum(
+                    [(c/ZZ(k).factorial(), log_monomial(sol.leftmost, n, k))
+                        for n, vec in enumerate(sol.value)
+                        for k, c in reversed(list(enumerate(vec)))],
+                    FormalSums(ring),
+                    reduce=False)
+            for sol in sols]
+        return res
 
     def numerical_solution(self, ini, path, eps=1e-16, post_transform=None, **kwds):
         r"""
@@ -2187,7 +2330,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             sage: (Dx - 1).numerical_solution([42], [1])
             42.000000000000000
             sage: Dx.numerical_solution([1], [0, 1], 1e-10).parent()
-            Real ball field with 3... bits precision
+            Real ball field with 3... precision
 
             sage: import logging; logging.basicConfig()
             sage: logger = logging.getLogger('ore_algebra.analytic.binary_splitting')
@@ -2216,17 +2359,17 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             [-11340.0278985950...]
         """
         from .analytic import analytic_continuation as ancont, local_solutions
-        if not self:
-            raise ValueError("operator must be nonzero")
-        post_transform = ancont.normalize_post_transform(self, post_transform)
-        post_mat = matrix(1, self.order(),
+        from .analytic.differential_operator import DifferentialOperator
+        dop = DifferentialOperator(self)
+        post_transform = ancont.normalize_post_transform(dop, post_transform)
+        post_mat = matrix(1, dop.order(),
                 lambda i, j: ZZ(j).factorial()*post_transform[j])
-        ctx = ancont.Context(self, path, eps, **kwds)
+        ctx = ancont.Context(dop, path, eps, **kwds)
         pairs = ancont.analytic_continuation(ctx, ini=ini, post=post_mat)
         assert len(pairs) == 1
         _, mat = pairs[0]
         struct = ctx.path.vert[-1].local_basis_structure()
-        if self.order() == 0:
+        if dop.order() == 0:
             return mat.base_ring().zero()
         asympt = local_solutions.sort_key_by_asympt(struct[0])
         asycst = (AA.zero(), ZZ.zero(), AA.zero(), 0)
@@ -2377,8 +2520,10 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             [            [+/- ...] [0.500000000000000...]]
             sage: logger.setLevel(logging.WARNING)
         """
-        from .analytic import analytic_continuation as ancont
-        ctx = ancont.Context(self, path, eps, **kwds)
+        from .analytic import analytic_continuation as ancont, local_solutions
+        from .analytic.differential_operator import DifferentialOperator
+        dop = DifferentialOperator(self)
+        ctx = ancont.Context(dop, path, eps, **kwds)
         pairs = ancont.analytic_continuation(ctx)
         assert len(pairs) == 1
         return pairs[0][1]
@@ -2460,7 +2605,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
 
         if type(alg) == str:
             alg = self.parent().change_var_sigma_delta(alg, {}, {x:one})
-        elif not isinstance(alg, type(self.parent())) or not alg.is_D() \
+        elif not isinstance(alg, OreAlgebra_generic) or not alg.is_D() \
              or alg.base_ring().base_ring() is not R.base_ring():
             raise TypeError, "target algebra is not adequate"
 
@@ -2509,7 +2654,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
 
         if type(alg) == str:
             alg = self.parent().change_var_sigma_delta(alg, {x:x+one}, {x:one})
-        elif not isinstance(alg, type(self.parent())) or not alg.is_F() or \
+        elif not isinstance(alg, OreAlgebra_generic) or not alg.is_F() or \
              alg.base_ring().base_ring() is not R.base_ring():
             raise TypeError, "target algebra is not adequate"
 
@@ -2932,6 +3077,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
             return A(c).annihilator_of_composition(-u*x)
 
         # now a = u*x where u > 1 is an integer. 
+        u = u.numerator()
         from sage.matrix.constructor import Matrix
         A = A.change_ring(A.base_ring().fraction_field())
         if solver == None:
@@ -3489,7 +3635,7 @@ class UnivariateQRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverU
 
         if type(alg) == str:
             alg = self.parent().change_var_sigma_delta(alg, {x:q*x}, {x:one})
-        elif not isinstance(alg, type(self.parent())) or not alg.is_J() or \
+        elif not isinstance(alg, OreAlgebra_generic) or not alg.is_J() or \
              alg.base_ring().base_ring() is not K or K(alg.is_J()[1]) != K(q):
             raise TypeError, "target algebra is not adequate"
 
@@ -3842,7 +3988,7 @@ class UnivariateQDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOve
 
         if type(alg) == str:
             alg = self.parent().change_var_sigma_delta(alg, {x:q*x}, {})
-        elif not isinstance(alg, type(self.parent())) or not alg.is_Q() or \
+        elif not isinstance(alg, OreAlgebra_generic) or not alg.is_Q() or \
              alg.base_ring().base_ring() is not R.base_ring() or K(alg.is_Q()[1]) != K(q) :
             raise TypeError, "target algebra is not adequate"
 
@@ -4021,7 +4167,7 @@ class UnivariateDifferenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
 
         if type(alg) == str:
             alg = self.parent().change_var_sigma_delta(alg, {x:x+one}, {})
-        elif not isinstance(alg, type(self.parent())) or not alg.is_S() or \
+        elif not isinstance(alg, OreAlgebra_generic) or not alg.is_S() or \
              alg.base_ring().base_ring() is not R.base_ring():
             raise TypeError, "target algebra is not adequate"
 
@@ -4182,7 +4328,7 @@ class UnivariateEulerDifferentialOperatorOverUnivariateRing(UnivariateOreOperato
 
         if type(alg) == str:
             alg = self.parent().change_var_sigma_delta(alg, {}, {x:one})
-        elif not isinstance(alg, type(self.parent())) or not alg.is_D() or \
+        elif not isinstance(alg, OreAlgebra_generic) or not alg.is_D() or \
              alg.base_ring().base_ring() is not R.base_ring():
             raise TypeError, "target algebra is not adequate"
 
@@ -4466,3 +4612,9 @@ def _listToOre(l,order,R):
     for i in xrange(len(l)):
         res = res+l[i]*n**(i%d)*S**(i//d)
     return res
+
+def _simplify_exponent(e): # work around sage bug #21758
+    try:
+        return ZZ(e)
+    except (TypeError, ValueError):
+        return e

@@ -19,6 +19,7 @@ from sage.rings.real_arb import RealBallField
 from sage.structure.element import Matrix, canonical_coercion
 from sage.structure.sequence import Sequence
 
+from .differential_operator import DifferentialOperator
 from .path import Path, Step
 
 logger = logging.getLogger(__name__)
@@ -26,21 +27,26 @@ logger = logging.getLogger(__name__)
 # TODO: clean up and reorganize
 class Context(object):
 
-    def __init__(self, dop, path, eps, keep="last", algorithm=None):
+    def __init__(self, dop, path, eps, keep="last", algorithm=None,
+                 assume_analytic=False):
         if not dop:
             raise ValueError("operator must be nonzero")
         _, _, _, self.dop = dop._normalize_base_ring()
         # XXX: allow the user to specify their own Path
         self.path = self.initial_path = Path(path, self.dop)
-        self.initial_path.check_singularity()
+        if not assume_analytic:
+            self.initial_path.check_singularity()
         if not all(x.is_regular() for x in self.path.vert):
             raise NotImplementedError("analytic continuation through irregular "
                                              "singular points is not supported")
+        # FIXME: prevents the reuse of points...
         if keep == "all":
             for v in self.path.vert:
-                v.keep_value = True
+                v.options['keep_value'] = True
         elif keep == "last":
-            self.path.vert[-1].keep_value = True
+            for v in self.path.vert:
+                v.options['keep_value'] = False
+            self.path.vert[-1].options['keep_value'] = True
         else:
             raise ValueError("keep", keep)
 
@@ -59,6 +65,9 @@ class Context(object):
 
         self.subdivide = True
         self.optimize_path = self.use_bit_burst = False
+        if assume_analytic:
+            self.path = self.path.bypass_singularities()
+            self.path.check_singularity()
         if self.subdivide:
             if self.optimize_path:
                 self.path = self.path.optimize_by_homotopy()
@@ -80,50 +89,57 @@ class Context(object):
         return (rings.RIF.has_coerce_map_from(self.dop.base_ring().base_ring())
                 and all(v.is_real() for v in self.path.vert))
 
-def ordinary_step_transition_matrix(ctx, step, eps, rows):
+def ordinary_step_transition_matrix(dop, step, eps, rows, fail_fast, ctx=None):
     from . import naive_sum, binary_splitting
-    ldop = step.start.local_diffop()
+    ldop = dop.shift(step.start)
     deg = ldop.degree()
     # cache in ctx?
     maj = bounds.DiffOpBound(ldop, pol_part_len=4, bound_inverse="solve")
-    if ctx.fundamental_matrix_ordinary is not None:
+    assert len(maj.special_shifts) == 1 and maj.special_shifts[0] == 1
+    if ctx is not None and ctx.fundamental_matrix_ordinary is not None:
         return ctx.fundamental_matrix_ordinary(
-                ldop, step.delta(), eps, rows, maj)
+                ldop, step.delta(), eps, rows, maj, fail_fast)
     elif step.is_exact():
         thr = 256 + 32*deg
-        if eps > step.cvg_ratio()**thr:
+        a = step.cvg_ratio()
+        if eps > a.max(a.parent().one() >> 100)**thr: # TBI
             try:
-                return naive_sum.fundamental_matrix_ordinary(
-                        ldop, step.delta(), eps, rows, maj, max_prec=4*thr)
+                return naive_sum.fundamental_matrix_ordinary(ldop, step.delta(),
+                        eps, rows, maj, fail_fast)
             except accuracy.PrecisionError:
-                pass
+                if fail_fast:
+                    raise
         return binary_splitting.fundamental_matrix_ordinary(
-                ldop, step.delta(), eps, rows, maj)
+                ldop, step.delta(), eps, rows, maj, fail_fast)
     else:
         return naive_sum.fundamental_matrix_ordinary(
-                ldop, step.delta(), eps, rows, maj)
+                ldop, step.delta(), eps, rows, maj, fail_fast)
 
-def singular_step_transition_matrix(ctx, step, eps, rows):
+def singular_step_transition_matrix(dop, step, eps, rows, fail_fast, ctx=None):
     from .naive_sum import fundamental_matrix_regular
-    ldop = step.start.local_diffop()
-    mat = fundamental_matrix_regular(ldop, step.delta(), eps, rows)
+    ldop = dop.shift(step.start)
+    mat = fundamental_matrix_regular(ldop, step.delta(), eps, rows, step.branch,
+                                                                      fail_fast)
     return mat
 
-def inverse_singular_step_transition_matrix(ctx, step, eps, rows):
+def inverse_singular_step_transition_matrix(dop, step, eps, rows, fail_fast,
+                                                                      ctx=None):
     rev_step = Step(step.end, step.start)
-    mat = singular_step_transition_matrix(ctx, rev_step, eps/2, rows)
+    mat = singular_step_transition_matrix(dop, rev_step, eps/2, rows, fail_fast)
     return ~mat
 
-def step_transition_matrix(ctx, step, eps, rows=None):
+def step_transition_matrix(step, eps, rows=None, ctx=None, split=0, max_split=3):
+    dop = step.start.dop
+    order = dop.order()
     if rows is None:
-        rows = ctx.dop.order()
+        rows = order
     z0, z1 = step
-    if ctx.dop.order() == 0:
+    if order == 0:
         logger.info("%s: trivial case", step)
         return matrix(ZZ) # 0 by 0
     elif z0.value == z1.value:
         logger.info("%s: trivial case", step)
-        return identity_matrix(ZZ, ctx.dop.order())[:rows]
+        return identity_matrix(ZZ, order)[:rows]
     elif z0.is_ordinary() and z1.is_ordinary():
         logger.info("%s: ordinary case", step)
         logger.debug("fraction of cvrad: %s/%s", step.length(), z0.dist_to_sing())
@@ -138,7 +154,17 @@ def step_transition_matrix(ctx, step, eps, rows=None):
         fun = inverse_singular_step_transition_matrix
     else:
         raise TypeError(type(z0), type(z1))
-    return fun(ctx, step, eps, rows)
+    try:
+        return fun(dop, step, eps, rows, ctx=ctx, fail_fast=(split < max_split))
+    except (accuracy.PrecisionError, bounds.BoundPrecisionError):
+        # XXX it would be nicer to return something in this case...
+        if split >= max_split:
+            raise
+        logger.info("splitting step...")
+        s0, s1 = step.split()
+        m0 = step_transition_matrix(s0, eps/2, rows=None, ctx=ctx, split=split+1)
+        m1 = step_transition_matrix(s1, eps/2, rows=rows, ctx=ctx, split=split+1)
+        return m1*m0
 
 def analytic_continuation(ctx, ini=None, post=None):
     """
@@ -168,19 +194,19 @@ def analytic_continuation(ctx, ini=None, post=None):
                 raise ValueError("incorrect initial values: {}".format(ini))
         try:
             ini = ini.change_ring(RealBallField(prec))
-        except ValueError:
+        except (TypeError, ValueError):
             ini = ini.change_ring(ComplexBallField(prec))
     res = []
     path_mat = identity_matrix(ZZ, ctx.dop.order())
     def store_value_if_wanted(point):
-        if point.keep_value:
+        if point.options.get('keep_value'):
             value = path_mat
             if ini is not None:  value = value*ini
             if post is not None: value = post(point.value)*value
             res.append((point.value, value))
     store_value_if_wanted(ctx.path.vert[0])
     for step in ctx.path:
-        step_mat = step_transition_matrix(ctx, step, eps1)
+        step_mat = step_transition_matrix(step, eps1, ctx=ctx)
         path_mat = step_mat*path_mat
         store_value_if_wanted(step.end)
     cm = sage.structure.element.get_coercion_model()
