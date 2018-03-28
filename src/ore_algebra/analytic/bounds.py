@@ -1271,7 +1271,7 @@ class DiffOpBound(object):
     """
 
     def __init__(self, dop, leftmost=ZZ.zero(), special_shifts=None,
-            max_effort=6, pol_part_len=2, bound_inverse="simple"):
+            max_effort=2, pol_part_len=None, bound_inverse="simple"):
         r"""
         Construct a DiffOpBound for a subset of the solutions of dop.
 
@@ -1338,8 +1338,11 @@ class DiffOpBound(object):
         self._effort = 0
         if bound_inverse == "solve":
             self._effort += 1
-        if pol_part_len > 2:
-            self._effort += ZZ(pol_part_len - 2).nbits()
+        default_pol_part_len = self.dop.degree()//2 + 2
+        if pol_part_len is None:
+            pol_part_len = default_pol_part_len
+        else:
+            self._effort += (ZZ(pol_part_len)//default_pol_part_len).nbits()
 
         self.Poly = Pols_z.change_ring(IR) # TBI
         self.__CPoly = Pols_z.change_ring(IC)

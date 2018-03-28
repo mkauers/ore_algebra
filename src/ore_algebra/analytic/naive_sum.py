@@ -432,7 +432,7 @@ def fundamental_matrix_regular(dop, pt, eps, rows, branch, fail_fast):
     class Mapper(LocalBasisMapper):
         def process_modZ_class(self):
             self.maj = bounds.DiffOpBound(dop, self.leftmost, self.shifts,
-                                        pol_part_len=4, bound_inverse="solve")
+                                          bound_inverse="solve")
         def fun(self, ini):
             return interval_series_sum_wrapper(series_sum_regular, dop, ini,
                     evpt, col_tgt_error, self.maj, self.emb_bwrec, fail_fast,
