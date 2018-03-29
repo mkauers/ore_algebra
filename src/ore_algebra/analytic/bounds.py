@@ -1962,25 +1962,24 @@ class DiffOpBound(object):
         # precision underflow threshold.
         err = [(n, (psum[0]-ref_sum).abs()) for n, psum, _ in recd]
 
+        # avoid empty plots and matplotlib warnings
         large = float(1e200) # plot() is not robust to large values
+        def pltfilter(it):
+            return [(x, float(y)) for (x, y) in it if 0 < float(y) < large]
         myplot = plot.plot([])
         if intervals:
             myplot += plot.line( # error - upper
-                    [(n, v.upper()) for (n, v) in err
-                                    if abs(float(v.upper())) < large],
+                    pltfilter((n, v.upper()) for (n, v) in err),
                     color="black", scale="semilogy")
         myplot += plot.line( # error - main
-                [(n, v.lower()) for (n, v) in err
-                                if abs(float(v.lower())) < large],
+                pltfilter((n, v.lower()) for (n, v) in err),
                 color="black", scale="semilogy")
         if intervals:
             myplot += plot.line( # bound - lower
-                [(n, bound.lower()) for n, _, bound in recd
-                                    if abs(float(bound.lower())) < large],
-                color=color, scale="semilogy")
+                    pltfilter((n, bound.lower()) for n, _, bound in recd),
+                    color=color, scale="semilogy", **opts)
         myplot += plot.line( # bound - main
-                [(n, bound.upper()) for n, _, bound in recd
-                                    if abs(float(bound.upper())) < large],
+                pltfilter((n, bound.upper()) for n, _, bound in recd),
                 color=color, scale="semilogy", **opts)
         ymax = myplot.ymax()
         if title and ymax < float('inf'):
