@@ -1938,6 +1938,11 @@ class DiffOpBound(object):
             sage: DiffOpBound(dop, 0, [], pol_part_len=4, # not tested
             ....:         bound_inverse="solve").plot(eps=1e-10)
             Graphics object consisting of 5 graphics primitives
+
+        TESTS::
+
+            sage: DiffOpBound(Dx - 1).plot()
+            Graphics object consisting of 5 graphics primitives
         """
         import sage.plot.all as plot
         from . import naive_sum

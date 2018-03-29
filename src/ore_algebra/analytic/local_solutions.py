@@ -221,10 +221,12 @@ def random_ini(dop):
     sl_decomp = my_shiftless_decomposition(ind)
     pol, shifts = random.choice(sl_decomp)
     expo = random.choice(pol.roots(QQbar))[0]
-    values = {
-        shift: tuple(VectorSpace(QQ, mult).random_element(10))
-        for shift, mult in shifts
-    }
+    values = {}
+    while all(a.is_zero() for v in values.values() for a in v):
+        values = {
+            shift: tuple(VectorSpace(QQ, mult).random_element(10))
+            for shift, mult in shifts
+        }
     return LogSeriesInitialValues(expo, values, dop)
 
 ##############################################################################
