@@ -1904,6 +1904,10 @@ class DiffOpBound(object):
                          for i in range(n + 30)])
             maj._test(tail)
 
+    @cached_method
+    def _random_ini(self):
+        return local_solutions.random_ini(self._dop_D)
+
     def plot(self, ini=None, pt=None, eps=RBF(1e-50)):
         r"""
         EXAMPLES::
@@ -1938,7 +1942,7 @@ class DiffOpBound(object):
         from . import naive_sum
 
         if ini is None:
-            ini = local_solutions.random_ini(self._dop_D)
+            ini = self._random_ini()
         if pt is None:
             rad = abs_min_nonzero_root(self._dop_D.leading_coefficient())
             pt = QQ(2) if rad == infinity else RIF(rad/2).simplest_rational()
