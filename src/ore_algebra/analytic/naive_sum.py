@@ -609,6 +609,11 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, tgt_error,
         # local monodromy matrices
         val[0] = log_series_value(Jets, ord, ini.expo, my_psum, jet[0],
                                   branch=pt.branch)
+        if record_bounds_in is not None:
+            recd_psum = vector(Jets, [[t[i] for i in range(ord)] for t in psum])
+            recd_val = log_series_value(Jets, ord, ini.expo, recd_psum, jet[0],
+                                        branch=pt.branch)
+            record_bounds_in.append((n, recd_val, tb))
         return max([RBF.zero()] + [_get_error(c) for c in val[0]])
     stopping_criterion = accuracy.StoppingCriterion(
             maj=maj, eps=tgt_error.eps,
@@ -633,10 +638,6 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, tgt_error,
             est = sum(abs(a) for log_jet in last for a in log_jet) * radpowest
             done, tail_bound = stopping_criterion.check(n, tail_bound, est,
                                                         stride)
-            if record_bounds_in is not None:
-                # TODO: record all partial sums, not just [log(z)^0]
-                # (requires improvements to plot_bounds)
-                record_bounds_in.append((n, psum[0], tail_bound))
             if done:
                 break
 

@@ -1953,19 +1953,21 @@ class DiffOpBound(object):
         recd = []
         saved_max_effort = self.max_effort
         self.max_effort = 0
-        naive_sum.series_sum(self._dop_D, ini, pt, eps, stride=1,
+        ref_sum = naive_sum.series_sum(self._dop_D, ini, pt, eps>>2, stride=1,
                             record_bounds_in=recd, maj=self)
-        self.max_effort = saved_max_effort
-        ref_sum = recd[-1][1][0].add_error(recd[-1][2])
         recd[-1:] = []
+        assert all(ref_sum[0] in psum[0].add_error(b)
+                   for _, psum, b in recd)
+        self.max_effort = saved_max_effort
         # Note: this won't work well when the errors get close to the double
         # precision underflow threshold.
-        err = [(n, (psum[0]-ref_sum).abs()) for n, psum, _ in recd]
+        err = [(n, (psum[0]-ref_sum[0]).abs()) for n, psum, _ in recd]
 
         # avoid empty plots and matplotlib warnings
+        feps = float(eps)
         large = float(1e200) # plot() is not robust to large values
         def pltfilter(it):
-            return [(x, float(y)) for (x, y) in it if 0 < float(y) < large]
+            return [(x, float(y)) for (x, y) in it if feps < float(y) < large]
         myplot = plot.plot([])
         if intervals:
             myplot += plot.line( # error - upper
