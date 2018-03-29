@@ -48,6 +48,16 @@ class StoppingCriterion(object):
         (done, bound) where done is a boolean indicating if it is time to stop
         the computation, and bound is a rigorous (possibly infinite) bound on
         the tail of the series.
+
+        TESTS::
+
+            sage: from ore_algebra import DifferentialOperators
+            sage: from ore_algebra.analytic.bounds import DiffOpBound
+            sage: from ore_algebra.analytic.naive_sum import series_sum
+            sage: Dops, x, Dx = DifferentialOperators()
+            sage: maj = DiffOpBound(Dx-1, max_effort=0)
+            sage: series_sum(Dx-1, [1], 2, 1e-50, stride=1, record_bounds_in=[])
+            ([7.3890560989306502272304274605750078131803155705...])
         """
 
         eps = self.eps
@@ -88,6 +98,8 @@ class StoppingCriterion(object):
             if safe_lt(tb, eps):
                 logger.debug("--> ok")
                 return True, tb
+            elif self.force and not self.maj.can_refine():
+                break
             elif (prev_tb.is_finite() and not safe_le(tb, prev_tb >> 8)
                     or not self.maj.can_refine()):
                 if bound_getting_worse:
@@ -126,6 +138,7 @@ class StoppingCriterion(object):
                 else:
                     logger.debug("--> bad bound but refining may help")
                     self.maj.refine()
+        logger.debug("--> ko")
         return False, tb
 
 
