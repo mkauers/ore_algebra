@@ -1908,7 +1908,8 @@ class DiffOpBound(object):
     def _random_ini(self):
         return local_solutions.random_ini(self._dop_D)
 
-    def plot(self, ini=None, pt=None, eps=RBF(1e-50)):
+    def plot(self, ini=None, pt=None, eps=RBF(1e-50), color="blue",
+             title=True, intervals=True, **opts):
         r"""
         EXAMPLES::
 
@@ -1962,31 +1963,33 @@ class DiffOpBound(object):
         err = [(psum[0]-ref_sum).abs() for n, psum, _ in recd]
 
         large = float(1e200) # plot() is not robust to large values
-        error_plot_upper = plot.line(
-                [(n, v.upper()) for (n, v) in enumerate(err)
-                                if abs(float(v.upper())) < large],
-                color="lightgray", scale="semilogy")
-        error_plot = plot.line(
+        myplot = plot.plot([])
+        if intervals:
+            myplot += plot.line( # error - upper
+                    [(n, v.upper()) for (n, v) in enumerate(err)
+                                    if abs(float(v.upper())) < large],
+                    color="black", scale="semilogy")
+        myplot += plot.line( # error - main
                 [(n, v.lower()) for (n, v) in enumerate(err)
                                 if abs(float(v.lower())) < large],
                 color="black", scale="semilogy")
-        bound_plot_lower = plot.line(
+        if intervals:
+            myplot += plot.line( # bound - lower
                 [(n, bound.lower()) for n, _, bound in recd
                                     if abs(float(bound.lower())) < large],
-                color="lightblue", scale="semilogy")
-        bound_plot = plot.line(
+                color=color, scale="semilogy")
+        myplot += plot.line( # bound - main
                 [(n, bound.upper()) for n, _, bound in recd
                                     if abs(float(bound.upper())) < large],
-                color="blue", scale="semilogy")
-        title = repr(self._dop_D) + " @ x=" + repr(pt)
-        title = title if len(title) < 80 else title[:77]+"..."
-        myplot = error_plot_upper + error_plot + bound_plot_lower + bound_plot
+                color=color, scale="semilogy", **opts)
         ymax = myplot.ymax()
-        if ymax < float('inf'):
-            txt = plot.text(title, (myplot.xmax(), ymax),
-                            horizontal_alignment='right', vertical_alignment='top')
-            myplot += txt
-
+        if title and ymax < float('inf'):
+            text = repr(self._dop_D)
+            text = text if len(text) < 50 else text[:47]+"..."
+            text += " @ x=" + repr(pt)
+            myplot += plot.text(text, (myplot.xmax(), ymax),
+                                horizontal_alignment='right',
+                                vertical_alignment='top')
         return myplot
 
 # Perhaps better: work with a "true" Ore algebra K[θ][z]. Use Euclidean
