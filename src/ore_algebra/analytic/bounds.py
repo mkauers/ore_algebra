@@ -1960,17 +1960,17 @@ class DiffOpBound(object):
         recd[-1:] = []
         # Note: this won't work well when the errors get close to the double
         # precision underflow threshold.
-        err = [(psum[0]-ref_sum).abs() for n, psum, _ in recd]
+        err = [(n, (psum[0]-ref_sum).abs()) for n, psum, _ in recd]
 
         large = float(1e200) # plot() is not robust to large values
         myplot = plot.plot([])
         if intervals:
             myplot += plot.line( # error - upper
-                    [(n, v.upper()) for (n, v) in enumerate(err)
+                    [(n, v.upper()) for (n, v) in err
                                     if abs(float(v.upper())) < large],
                     color="black", scale="semilogy")
         myplot += plot.line( # error - main
-                [(n, v.lower()) for (n, v) in enumerate(err)
+                [(n, v.lower()) for (n, v) in err
                                 if abs(float(v.lower())) < large],
                 color="black", scale="semilogy")
         if intervals:
