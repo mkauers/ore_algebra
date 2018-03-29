@@ -154,6 +154,9 @@ def series_sum(dop, ini, pt, tgt_error, maj=None, bwrec=None,
         WARNING:...
         ([+/- ...])
 
+        sage: series_sum(Dx-1, [0], 2, 1e-50, stride=1)
+        (0)
+
     Test that automatic precision increases do something reasonable::
 
         sage: logger = logging.getLogger('ore_algebra.analytic.naive_sum')
@@ -355,7 +358,7 @@ def series_sum_ordinary(Intervals, dop, bwrec, ini, pt,
         bwrec_nplus.append(bwrec_ev(n+bwrec.order))
     logger.info("summed %d terms, tail <= %s (est = %s), coeffwise error <= %s",
             n, tail_bound, bounds.IR(est),
-            max(x.rad() for x in psum) if pt.is_numeric else "n/a")
+            max(psum[i].rad() for i in range(ord)) if pt.is_numeric else "n/a")
     # Account for the dropped high-order terms in the intervals we return
     # (tail_bound is actually a bound on the Frobenius norm of the error matrix,
     # so there is some overestimation). WARNING: For symbolic x, the resulting
