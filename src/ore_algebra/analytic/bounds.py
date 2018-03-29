@@ -1230,7 +1230,7 @@ class DiffOpBound(object):
 
     Refining::
 
-        sage: from ore_algebra.analytic.examples import fcc
+        sage: from ore_algebra.examples import fcc
         sage: maj = DiffOpBound(fcc.dop5, special_shifts=[(0, 1)])
         sage: maj.maj_den
         (-z + [0.2047...])^13

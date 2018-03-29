@@ -2088,7 +2088,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             sage: (Dx - 1).local_basis_expansions(0)
             [1 + x + 1/2*x^2 + 1/6*x^3]
 
-            sage: from ore_algebra.analytic.examples import ssw
+            sage: from ore_algebra.examples import ssw
             sage: ssw.dop[1,0,0].local_basis_expansions(0)
             [t^(-4) + 24*log(t)/t^2 - 48*log(t) - 96*t^2*log(t) - 88*t^2,
             t^(-2),
