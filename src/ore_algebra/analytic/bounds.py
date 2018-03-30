@@ -1919,10 +1919,10 @@ class DiffOpBound(object):
             sage: Dops, x, Dx = DifferentialOperators()
 
             sage: DiffOpBound(Dx - 1).plot([CBF(1)], CBF(i)/2, RBF(1e-20))
-            Graphics object consisting of 5 graphics primitives
+            Graphics object consisting of 4 graphics primitives
 
             sage: DiffOpBound(x*Dx^3 + 2*Dx^2 + x*Dx).plot(eps=1e-8)
-            Graphics object consisting of 5 graphics primitives
+            Graphics object consisting of 4 graphics primitives
 
             sage: dop = x*Dx^2 + Dx + x
             sage: DiffOpBound(dop, 0, [(0,2)]).plot(eps=1e-8,
@@ -1937,12 +1937,12 @@ class DiffOpBound(object):
             ....: + 5*x - 10)
             sage: DiffOpBound(dop, 0, [], pol_part_len=4, # not tested
             ....:         bound_inverse="solve").plot(eps=1e-10)
-            Graphics object consisting of 5 graphics primitives
+            Graphics object consisting of 4 graphics primitives
 
         TESTS::
 
             sage: DiffOpBound(Dx - 1).plot()
-            Graphics object consisting of 5 graphics primitives
+            Graphics object consisting of 4 graphics primitives
         """
         import sage.plot.all as plot
         from . import naive_sum
@@ -1989,13 +1989,12 @@ class DiffOpBound(object):
                 pltfilter((n, bound.upper()) for n, _, bound in recd),
                 color=color, scale="semilogy", **opts)
         ymax = myplot.ymax()
-        if title and ymax < float('inf'):
-            text = repr(self._dop_D)
-            text = text if len(text) < 50 else text[:47]+"..."
-            text += " @ x=" + repr(pt)
-            myplot += plot.text(text, (myplot.xmax(), ymax),
-                                horizontal_alignment='right',
-                                vertical_alignment='top')
+        if title:
+            if title is True:
+                title = repr(self._dop_D)
+                title = title if len(title) < 50 else title[:47]+"..."
+                title += " @ x=" + repr(pt)
+            myplot += plot.plot([], title=title)
         return myplot
 
 # Perhaps better: work with a "true" Ore algebra K[θ][z]. Use Euclidean
