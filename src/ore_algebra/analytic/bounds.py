@@ -1927,7 +1927,7 @@ class DiffOpBound(object):
             sage: dop = x*Dx^2 + Dx + x
             sage: DiffOpBound(dop, 0, [(0,2)]).plot(eps=1e-8,
             ....:       ini=LogSeriesInitialValues(0, {0: (1, 0)}, dop))
-            Graphics object consisting of 5 graphics primitives
+            Graphics object consisting of 4 graphics primitives
 
             sage: dop = ((x^2 + 10*x + 50)*Dx^10 + (5/9*x^2 + 50/9*x + 155/9)*Dx^9
             ....: + (-10/3*x^2 - 100/3*x - 190/3)*Dx^8 + (30*x^2 + 300*x + 815)*Dx^7
@@ -1996,6 +1996,21 @@ class DiffOpBound(object):
                 title += " @ x=" + repr(pt)
             myplot += plot.plot([], title=title)
         return myplot
+
+    def plot_refinements(self, n=4, **kwds):
+        import sage.plot.all as plot
+        p = plot.plot([])
+        styles = [':', '-.', '--', '-']
+        for i in range(n):
+            lab = "{}, $\ell={}$".format(self.bound_inverse,
+                    self.pol_part_len())
+            p += self.plot(intervals=False,
+                           legend_label=lab,
+                           linestyle=styles[i%len(styles)],
+                           **kwds)
+            self.refine()
+        p.set_legend_options(handlelength=4)
+        return p
 
 # Perhaps better: work with a "true" Ore algebra K[θ][z]. Use Euclidean
 # division to compute the truncation in DiffOpBound._update_num_bound.
