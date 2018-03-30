@@ -176,9 +176,9 @@ class StepMatrix_arb(StepMatrix):
         # XXX try converting tmp to an ord×ordrec matrix instead?
         for j in xrange(ordrec):
             for i in xrange(ordrec):
-                # XXX until _lmul_ is impemented for arb polynomials
-                # low.sums_row[0,j] += tmp[i]._lmul_(low.rec_mat[i,j])
                 low.sums_row[0,j] += low.rec_mat[i,j]*tmp[i]
+        # With moderately large matrices, all the time goes in the following
+        # line, even with native arb matrices.
         low.rec_mat = high.rec_mat*low.rec_mat # Mat(XBF)
         low.pow_num = low.pow_num._mul_trunc_(high.pow_num, low.ord) # XBF[δ]
         low.pow_den = low.pow_den._mul_(high.pow_den) # XBF (ZZ)
