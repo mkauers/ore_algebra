@@ -142,7 +142,7 @@ class LogSeriesInitialValues(object):
             ValueError: invalid initial data for x*Dx^3 + 2*Dx^2 + x*Dx at 0
         """
         try:
-            self.expo = ZZ.coerce(expo)
+            self.expo = QQ.coerce(expo)
         except TypeError:
             self.expo = QQbar.coerce(expo)
         if isinstance(values, dict):
@@ -221,6 +221,7 @@ def random_ini(dop):
     sl_decomp = my_shiftless_decomposition(ind)
     pol, shifts = random.choice(sl_decomp)
     expo = random.choice(pol.roots(QQbar))[0]
+    expo = utilities.as_embedded_number_field_element(expo)
     values = {}
     while all(a.is_zero() for v in values.values() for a in v):
         values = {
