@@ -1806,10 +1806,10 @@ class DiffOpBound(object):
             # aux(z)/h(z) s.t. aux(z) = f(z)*h(z) + O(z^(1+deg(aux))). Then,
             # any f^ s.t. f^[n] ≥ max(0,f[n]) is a valid q^.
             ord = aux.degree() + 1
-            inv = maj.inv_exp_part_series0(ord)
+            inv = Pols(maj.inv_exp_part_series0(ord))
             f = aux._mul_trunc_(inv, ord)
             # assert all(c.imag().contains_zero() for c in f)
-            return Pols([IR.zero().max(c.real()) for c in f])
+            return Pols([IR.zero().max(c) for c in f])
 
     def tail_majorant(self, n, normalized_residuals):
         r"""
