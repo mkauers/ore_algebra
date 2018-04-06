@@ -2448,8 +2448,8 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         Then we compute a connection matrix to the singularity itself::
 
             sage: dop.numerical_transition_matrix([0, i], 1e-10)
-            [      [+/-...] + [+/-...]*I          [+/-...] + [-0.50000000...]*I]
-            [ [1.000000...] + [+/-...]*I [0.7853981634...] + [0.346573590...]*I]
+            [            ...           [+/-...] + [-0.50000000...]*I]
+            [ ...1.000000...  [0.7853981634...] + [0.346573590...]*I]
 
         Note that a path that crosses the branch cut of the complex logarithm
         yields a different result::
