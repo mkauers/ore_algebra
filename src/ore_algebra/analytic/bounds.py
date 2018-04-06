@@ -1660,8 +1660,8 @@ class DiffOpBound(object):
             use_sum_of_products = False
         if bwrec_nplus is None:
             bwrec = self.bwrec()
-            # Suboptimal: For a given j, we are only going to need the
-            # b[i](λ+n+i+ε) for < s - i.
+            # Suboptimal: For a given i, we are only going to need the
+            # b[i](λ+n+i+j+ε) for j < s - i.
             bwrec_nplus = [bwrec.eval_series(Ring, n+i, logs)
                            for i in xrange(deg)]
         # Check that we have been given/computed enough shifts of the
@@ -1685,6 +1685,9 @@ class DiffOpBound(object):
         # (cst ×) the coefficients of the residual corresponding to the same d
         # on the rhs. The coefficients of the residual are computed on the fly.
         for d in range(deg):
+            lc = bwrec_nplus[d][0][0]
+            assert not (lc.parent() is IC and lc.contains_zero())
+            inv = ~lc
             for k in reversed(range(logs)):
                 # Coefficient of z^(λ+n+d)·log(z)^k/k! in dop(ỹ)
                 if use_sum_of_products:
@@ -1700,9 +1703,6 @@ class DiffOpBound(object):
                 # Deduce the corresponding coefficient of nres
                 # XXX For simplicity, we limit ourselves to the “generic” case
                 # where none of the n+d is a root of the indicial polynomial.
-                lc = bwrec_nplus[d][0][0]
-                assert not (lc.parent() is IC and lc.contains_zero())
-                inv = ~lc
                 cor = sum(bwrec_nplus[d][0][u]*nres[k+u][d]
                           for u in range(1, logs-k))
                 nres[k][d] = inv*(cst*res[k][d] - cor)
