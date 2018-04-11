@@ -371,6 +371,36 @@ class HyperexpMajorant(MajorantSeries):
         ser = rat_ser._mul_trunc_(exp_ser, ord)
         return ser
 
+    def _saddle_point_bound(self, rad, ord, n, aux_rad):
+        r"""
+        Compute a termwise bound on the first ord derivatives of the *remainder
+        of order start_index* of this majorant series, using evaluations at
+        aux_rad.
+        """
+        assert safe_le(rad, aux_rad)
+        assert safe_le(aux_rad, self.cvrad)
+        ser = self.bound_series(aux_rad, ord)
+        ratio = rad/aux_rad
+        eps = ser.parent().gen()
+        return ratio**n * ser(eps/ratio)
+
+    def bound_tail_series(self, rad, ord, n):
+        r"""
+        Compute a termwise bound on the first ord derivatives of the *remainder
+        of order start_index* of this majorant series.
+        """
+        from sage.numerical.optimize import find_local_minimum
+        b0 = self.bound_series(rad, ord)
+        if n < self.shift:
+            return b0
+        def bound(r):
+            return self._saddle_point_bound(rad, 1, n, IR(r))[0].log().mid()
+        _, aux_rad = find_local_minimum(bound, rad.upper(), self.cvrad.lower(),
+                                       tol=.125)
+        b1 = self._saddle_point_bound(rad, ord, n, IR(aux_rad))
+        Ser = b1.parent().change_ring(IR)
+        return Ser([a0.abs().min(a1.abs()) for a0, a1 in zip(b0, b1)])
+
     def __imul__(self, pol):
         r"""
         IN-PLACE multiplication by a polynomial. Use with care!
@@ -1829,8 +1859,6 @@ class DiffOpBound(object):
         A HyperexpMajorant representing a common majorant series for the
         tails y[n:](z) of the corresponding solutions.
         """
-        # XXX Perhaps add a way to pass an existing maj (= self(n0), n0 <= n)
-        # or an n0 as parameter.
         maj = self(n)
         # XXX Better without maj? (speed/tightness trade-off)
         rhs = self.rhs(n, normalized_residuals, maj)
