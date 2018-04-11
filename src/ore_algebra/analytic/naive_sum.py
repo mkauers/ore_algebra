@@ -321,7 +321,7 @@ def series_sum_ordinary(Intervals, dop, bwrec, ini, pt,
                 [maj.normalized_residual(n, [[c] for c in last][1:],
                         [[[c] for c in l] for l in bwrec_nplus])]),
             get_bound=(lambda(resid):
-                maj.matrix_sol_tail_bound(n, pt.rad, resid, ord)),
+                maj.tail_majorant(n, resid).bound(pt.rad, rows=ord)),
             fast_fail=ini_are_accurate,
             force=(record_bounds_in is not None))
 
@@ -601,7 +601,7 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, tgt_error,
     # sense in a relative error setting)
     val = [None] # XXX could be more elegant :-)
     def get_bound(resid):
-        tb = maj.matrix_sol_tail_bound(n, pt.rad, resid, rows=pt.jet_order)
+        tb = maj.tail_majorant(n, resid).bound(pt.rad, rows=pt.jet_order)
         tb = tb.abs()
         my_psum = vector(Jets, [[t[i].add_error(tb)
                                 for i in range(ord)] for t in psum])

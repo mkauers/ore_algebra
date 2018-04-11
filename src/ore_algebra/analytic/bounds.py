@@ -84,24 +84,23 @@ class MajorantSeries(object):
         """
         return self.series(rad, 1)[0]
 
-    def bound(self, rad, derivatives=1):
+    def bound(self, rad, rows=1, cols=1):
         """
-        Bound the Frobenius norm of the vector
+        Bound the Frobenius norm of the matrix of the given dimensions whose
+        columns are all equal to
 
-            [g(rad), g'(rad), g''(rad)/2, ..., 1/(d-1)!·g^(d-1)(rad)]
+            [g(rad), g'(rad), g''(rad)/2, ..., 1/(r-1)!·g^(r-1)(rad)]
 
-        where d = ``derivatives`` and g is this majorant series. The result is
-        a bound for
-
-            [f(z), f'(z), f''(z)/2, ..., 1/(d-1)!·f^(d-1)(z)]
-
-        for all z with |z| ≤ rad.
+        and g is this majorant series. Typically, g(z) is a common majorant
+        series of the elements of a basis of solutions of some differential
+        equation, and the result is then a bound on the corresponding
+        fundamental matrix Y(ζ) for all for all ζ with |ζ| ≤ rad.
         """
         if not safe_le(rad, self.cvrad): # intervals!
             return IR(infinity)
         else:
-            ser = self.bound_series(rad, derivatives)
-            sqnorm = sum((c.abs()**2 for c in ser), IR.zero())
+            ser = self.bound_series(rad, rows)
+            sqnorm = IR(cols)*sum((c.abs()**2 for c in ser), IR.zero())
             return sqnorm.sqrtpos()
 
     def _test(self, fun=0, prec=50, return_difference=False):
@@ -1841,23 +1840,6 @@ class DiffOpBound(object):
         pol = (rhs << (n - 1)).integral() # XXX potential perf issue with <<
         maj *= pol
         return maj
-
-    def matrix_sol_tail_bound(self, n, rad, normalized_residuals, rows=None):
-        r"""
-        Bound the Frobenius norm of the tail starting of order ``n`` of the
-        series expansion of the matrix ``(y_j^(i)(z)/i!)_{i,j}`` where the
-        ``y_j`` are the solutions associated to the elements of
-        ``normalized_residuals``, and ``0 ≤ j < rows``. The bound is valid for
-        ``|z| < rad``.
-        """
-        if rows is None:
-            rows=self.dop.order()
-        maj = self.tail_majorant(n, normalized_residuals)
-        # Since (y[n:])' << maj => (y')[n:] << maj, this bound is valid for the
-        # tails of a column of the form [y, y', y''/2, y'''/6, ...] or
-        # [y, θy, θ²y/2, θ³y/6, ...].
-        col_bound = maj.bound(rad, derivatives=rows)
-        return (IR(rows).sqrt()*col_bound).above_abs()
 
     def _test(self, ini=None, prec=100):
         r"""
