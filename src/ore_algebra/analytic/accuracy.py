@@ -168,9 +168,6 @@ class AbsoluteError(OldStoppingCriterion):
     def __repr__(self):
         return str(self.eps.lower()) + " (absolute)"
 
-    def __rshift__(self, n):
-        return AbsoluteError(self.eps >> n)
-
 class RelativeError(OldStoppingCriterion):
 
     def __init__(self, eps, cutoff=None):
@@ -185,6 +182,3 @@ class RelativeError(OldStoppingCriterion):
 
     def __repr__(self):
         return str(self.eps.lower()) + " (relative)"
-
-    def __rshift__(self, n):
-        return RelativeError(self.eps >> n, self.cutoff >> n)
