@@ -83,7 +83,7 @@ class MajorantSeries(object):
         """
         return self.series(rad, 1)[0]
 
-    def bound(self, rad, rows=1, cols=1):
+    def bound(self, rad, rows=1, cols=1, tail=None):
         """
         Bound the Frobenius norm of the matrix of the given dimensions whose
         columns are all equal to
@@ -97,10 +97,12 @@ class MajorantSeries(object):
         """
         if not safe_le(rad, self.cvrad): # intervals!
             return IR(infinity)
-        else:
+        elif tail is None:
             ser = self.bound_series(rad, rows)
-            sqnorm = IR(cols)*sum((c.abs()**2 for c in ser), IR.zero())
-            return sqnorm.sqrtpos()
+        else:
+            ser = self.bound_tail_series(rad, rows, tail)
+        sqnorm = IR(cols)*sum((c.abs()**2 for c in ser), IR.zero())
+        return sqnorm.sqrtpos()
 
     def _test(self, fun=0, prec=50, return_difference=False):
         r"""
@@ -1917,8 +1919,8 @@ class DiffOpBound(object):
     def _random_ini(self):
         return local_solutions.random_ini(self._dop_D)
 
-    def plot(self, ini=None, pt=None, eps=RBF(1e-50), color="blue",
-             title=True, intervals=True, **opts):
+    def plot(self, ini=None, pt=None, eps=RBF(1e-50), tails=None,
+             color="blue", title=True, intervals=True, **opts):
         r"""
         EXAMPLES::
 
@@ -1968,8 +1970,8 @@ class DiffOpBound(object):
         saved_max_effort = self.max_effort
         self.max_effort = 0
         recorder = BoundRecorder(maj=self, eps=eps>>2)
-        ref_sum = naive_sum.series_sum(self._dop_D, ini, pt, eps>>2, stride=1,
-                                       stop=recorder)
+        ref_sum = naive_sum.series_sum(self._dop_D, ini, pt, eps>>2,
+                                       stride=1, stop=recorder)
         recd = recorder.recd[:-1]
         assert all(ref_sum[0] in rec.psum[0].add_error(rec.b) for rec in recd)
         self.max_effort = saved_max_effort
@@ -1977,17 +1979,15 @@ class DiffOpBound(object):
         # precision underflow threshold.
         err = [(rec.n, (rec.psum[0]-ref_sum[0]).abs()) for rec in recd]
 
-        # avoid empty plots and matplotlib warnings
-        feps = float(eps)
-        large = float(1e200) # plot() is not robust to large values
-        def pltfilter(it):
-            return [(x, float(y)) for (x, y) in it if feps < float(y) < large]
+        # avoid empty plots, matplotlib warnings, ...
+        def pltfilter(it, eps=float(eps), large=float(1e200)):
+            return [(x, float(y)) for (x, y) in it if eps < float(y) < large]
         myplot = plot.plot([])
         if intervals:
-            myplot += plot.line( # error - upper
+            myplot += plot.line( # reference value - upper
                     pltfilter((n, v.upper()) for (n, v) in err),
                     color="black", scale="semilogy")
-        myplot += plot.line( # error - main
+        myplot += plot.line( # reference value - main
                 pltfilter((n, v.lower()) for (n, v) in err),
                 color="black", scale="semilogy")
         if intervals:
@@ -1997,6 +1997,15 @@ class DiffOpBound(object):
         myplot += plot.line( # bound - main
                 pltfilter((rec.n, rec.b.upper()) for rec in recd),
                 color=color, scale="semilogy", **opts)
+        if tails is not None:
+            nmax = recd[-1].n + 1
+            for rec in recd: # bounds for n1 > n based on the residual at n
+                if (rec.n - recd[0].n) % tails == 0:
+                    r = CBF(pt).abs()
+                    data = [(n1, rec.maj.bound(r, tail=n1).upper())
+                            for n1 in range(rec.n, nmax)]
+                    data = pltfilter(data)
+                    myplot += plot.line(data, color=color, scale="semilogy")
         ymax = myplot.ymax()
         if title:
             if title is True:
