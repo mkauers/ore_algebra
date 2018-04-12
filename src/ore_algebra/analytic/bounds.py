@@ -30,14 +30,13 @@ from sage.rings.real_mpfr import RealField, RR
 from sage.structure.factorization import Factorization
 
 from .. import ore_algebra
-from . import local_solutions, utilities
+from . import accuracy, local_solutions, utilities
 
 from .differential_operator import DifferentialOperator
 from .safe_cmp import *
+from .accuracy import IR, IC
 
 logger = logging.getLogger(__name__)
-
-IR, IC = RBF, CBF # TBI
 
 class BoundPrecisionError(Exception):
     pass
@@ -1962,15 +1961,16 @@ class DiffOpBound(object):
         if pt is None:
             rad = abs_min_nonzero_root(self._dop_D.leading_coefficient())
             pt = QQ(2) if rad == infinity else RIF(rad/2).simplest_rational()
+        eps = RBF(eps)
         logger.info("point: %s", pt)
         logger.info("initial values: %s", ini)
 
-        recd = []
         saved_max_effort = self.max_effort
         self.max_effort = 0
+        recorder = BoundRecorder(maj=self, eps=eps>>2)
         ref_sum = naive_sum.series_sum(self._dop_D, ini, pt, eps>>2, stride=1,
-                            record_bounds_in=recd, maj=self)
-        recd[-1:] = []
+                                       stop=recorder)
+        recd = recorder.recd[:-1]
         assert all(ref_sum[0] in psum[0].add_error(b)
                    for _, psum, b in recd)
         self.max_effort = saved_max_effort
@@ -2021,6 +2021,22 @@ class DiffOpBound(object):
             self.refine()
         p.set_legend_options(handlelength=4)
         return p
+
+class BoundRecorder(accuracy.StoppingCriterion):
+
+    def __init__(self, maj, eps, fast_fail=False):
+        super(self.__class__, self).__init__(maj, eps, fast_fail=fast_fail)
+        self.force = True
+        self.recd = []
+
+    def check(self, get_bound, get_residuals, get_value, n, *args):
+        self.recd.append([n, get_value(), get_bound(get_residuals())])
+        return super(self.__class__, self).check(
+                get_bound, get_residuals, get_value, n, *args)
+
+    def reset(self, *args):
+        super(self.__class__, self).reset(*args)
+        self.recd = []
 
 # Perhaps better: work with a "true" Ore algebra K[θ][z]. Use Euclidean
 # division to compute the truncation in DiffOpBound._update_num_bound.

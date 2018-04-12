@@ -486,14 +486,15 @@ def fundamental_matrix_ordinary(dop, pt, eps, rows, maj, fail_fast):
     done = False
     rad = bounds.IC(pt).abs()
     # XXX clarify exact criterion
-    stopping_criterion = accuracy.StoppingCriterion(maj=maj, eps=eps,
-            get_residuals=lambda: rec.normalized_residuals(maj, prod, n),
-            get_bound=lambda(resid):
-                maj.tail_majorant(n, resid).bound(rad, rows=rows, cols=rows))
+    stop = accuracy.StoppingCriterion(maj=maj, eps=eps)
+    def get_residuals():
+        return rec.normalized_residuals(maj, prod, n)
+    def get_bound(resid):
+        return maj.tail_majorant(n, resid).bound(rad, rows=rows, cols=rows)
     for last, n in binsplit_step_seq(0):
         prod = rec.binsplit(last, n) * prod
-        done, tail_bound = stopping_criterion.check(n, tail_bound,
-                est=rec.error_estimate(prod), next_stride=n)
+        done, tail_bound = stop.check(get_bound, get_residuals,
+                None, n, tail_bound, rec.error_estimate(prod), next_stride=n)
         if done:
             break
     is_real = utilities.is_real_parent(pt.parent())
