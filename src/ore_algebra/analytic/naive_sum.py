@@ -312,8 +312,8 @@ def series_sum_ordinary(Intervals, dop, bwrec, ini, pt, stop, stride):
             (bwrec_ev(start+i) for i in xrange(ordrec)),
             maxlen=ordrec)
 
-    def get_bound(resid):
-        return stop.maj.tail_majorant(n, resid).bound(pt.rad, rows=ord)
+    def get_bound(maj):
+        return maj.bound(pt.rad, rows=ord)
     def get_residuals():
         return [stop.maj.normalized_residual(n, [[c] for c in last][1:],
                     [[[c] for c in l] for l in bwrec_nplus])]
@@ -593,8 +593,8 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, stop, stride):
     # we currently check the series part only (which would sort of make
     # sense in a relative error setting)
     val = [None] # XXX could be more elegant :-)
-    def get_bound(resid):
-        tb = stop.maj.tail_majorant(n, resid).bound(pt.rad, rows=pt.jet_order)
+    def get_bound(maj):
+        tb = maj.bound(pt.rad, rows=pt.jet_order)
         my_psum = vector(Jets, [[t[i].add_error(tb.abs())
                                 for i in range(ord)] for t in psum])
         # XXX decouple this from the summation => less redundant computation of

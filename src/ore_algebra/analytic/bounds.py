@@ -5,7 +5,7 @@ Error bounds
 
 from __future__ import print_function
 
-import itertools, logging, warnings
+import collections, itertools, logging, warnings
 
 from sage.arith.srange import srange
 from sage.misc.cachefunc import cached_function, cached_method
@@ -1971,12 +1971,11 @@ class DiffOpBound(object):
         ref_sum = naive_sum.series_sum(self._dop_D, ini, pt, eps>>2, stride=1,
                                        stop=recorder)
         recd = recorder.recd[:-1]
-        assert all(ref_sum[0] in psum[0].add_error(b)
-                   for _, psum, b in recd)
+        assert all(ref_sum[0] in rec.psum[0].add_error(rec.b) for rec in recd)
         self.max_effort = saved_max_effort
         # Note: this won't work well when the errors get close to the double
         # precision underflow threshold.
-        err = [(n, (psum[0]-ref_sum[0]).abs()) for n, psum, _ in recd]
+        err = [(rec.n, (rec.psum[0]-ref_sum[0]).abs()) for rec in recd]
 
         # avoid empty plots and matplotlib warnings
         feps = float(eps)
@@ -1993,10 +1992,10 @@ class DiffOpBound(object):
                 color="black", scale="semilogy")
         if intervals:
             myplot += plot.line( # bound - lower
-                    pltfilter((n, bound.lower()) for n, _, bound in recd),
+                    pltfilter((rec.n, rec.b.lower()) for rec in recd),
                     color=color, scale="semilogy", **opts)
         myplot += plot.line( # bound - main
-                pltfilter((n, bound.upper()) for n, _, bound in recd),
+                pltfilter((rec.n, rec.b.upper()) for rec in recd),
                 color=color, scale="semilogy", **opts)
         ymax = myplot.ymax()
         if title:
@@ -2022,6 +2021,8 @@ class DiffOpBound(object):
         p.set_legend_options(handlelength=4)
         return p
 
+BoundRecord = collections.namedtuple("BoundRecord", ["n", "psum", "maj", "b"])
+
 class BoundRecorder(accuracy.StoppingCriterion):
 
     def __init__(self, maj, eps, fast_fail=False):
@@ -2030,7 +2031,9 @@ class BoundRecorder(accuracy.StoppingCriterion):
         self.recd = []
 
     def check(self, get_bound, get_residuals, get_value, n, *args):
-        self.recd.append([n, get_value(), get_bound(get_residuals())])
+        resid = get_residuals()
+        maj = self.maj.tail_majorant(n, resid)
+        self.recd.append(BoundRecord(n, get_value(), maj, get_bound(maj)))
         return super(self.__class__, self).check(
                 get_bound, get_residuals, get_value, n, *args)
 

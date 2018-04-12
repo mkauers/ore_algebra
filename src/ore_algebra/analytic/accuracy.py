@@ -96,7 +96,7 @@ class StoppingCriterion(object):
         tb = IR('inf')
         while True:
             prev_tb = tb
-            tb = get_bound(resid)
+            tb = get_bound(self.maj.tail_majorant(n, resid))
             logger.debug("n=%d, est=%s, width=%s, tail_bound=%s",
                          n, est, width, tb)
             bound_getting_worse = ini_tb.is_finite() and not safe_lt(tb, ini_tb)

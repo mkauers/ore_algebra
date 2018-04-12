@@ -489,8 +489,8 @@ def fundamental_matrix_ordinary(dop, pt, eps, rows, maj, fail_fast):
     stop = accuracy.StoppingCriterion(maj=maj, eps=eps)
     def get_residuals():
         return rec.normalized_residuals(maj, prod, n)
-    def get_bound(resid):
-        return maj.tail_majorant(n, resid).bound(rad, rows=rows, cols=rows)
+    def get_bound(maj):
+        return maj.bound(rad, rows=rows, cols=rows)
     for last, n in binsplit_step_seq(0):
         prod = rec.binsplit(last, n) * prod
         done, tail_bound = stop.check(get_bound, get_residuals,
