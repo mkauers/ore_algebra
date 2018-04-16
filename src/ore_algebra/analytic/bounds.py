@@ -1977,7 +1977,8 @@ class DiffOpBound(object):
         ref_sum = naive_sum.series_sum(self._dop_D, ini, pt, eps>>2,
                                        stride=1, stop=recorder)
         recd = recorder.recd[:-1]
-        assert all(ref_sum[0] in rec.psum[0].add_error(rec.b) for rec in recd)
+        assert all(ref_sum[0].intersects(rec.psum[0].add_error(rec.b))
+                   for rec in recd)
         self.max_effort = saved_max_effort
         # Note: this won't work well when the errors get close to the double
         # precision underflow threshold.
