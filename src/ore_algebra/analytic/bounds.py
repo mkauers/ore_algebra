@@ -1977,7 +1977,7 @@ class DiffOpBound(object):
         ref_sum = naive_sum.series_sum(self._dop_D, ini, pt, eps>>2,
                                        stride=1, stop=recorder)
         recd = recorder.recd[:-1]
-        assert all(ref_sum[0].intersects(rec.psum[0].add_error(rec.b))
+        assert all(ref_sum[0].overlaps(rec.psum[0].add_error(rec.b))
                    for rec in recd)
         self.max_effort = saved_max_effort
         # Note: this won't work well when the errors get close to the double
@@ -2020,19 +2020,20 @@ class DiffOpBound(object):
             myplot += plot.plot([], title=title)
         return myplot
 
-    def plot_refinements(self, n=4, **kwds):
+    def plot_refinements(self, n=4, legend_fmt="{inv}, pplen={pplen}", **kwds):
         import sage.plot.all as plot
         p = plot.plot([])
         styles = [':', '-.', '--', '-']
         for i in range(n):
-            lab = "{}, $\ell={}$".format(self.bound_inverse,
-                    self.pol_part_len())
+            lab = legend_fmt.format(
+                    inv=self.bound_inverse,
+                    pplen=self.pol_part_len())
             p += self.plot(intervals=False,
                            legend_label=lab,
                            linestyle=styles[i%len(styles)],
                            **kwds)
             self.refine()
-        p.set_legend_options(handlelength=4)
+        p.set_legend_options(handlelength=4, shadow=False)
         return p
 
 BoundRecord = collections.namedtuple("BoundRecord", ["n", "psum", "maj", "b"])
