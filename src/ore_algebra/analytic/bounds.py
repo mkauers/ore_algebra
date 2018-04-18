@@ -1974,7 +1974,7 @@ class DiffOpBound(object):
         saved_max_effort = self.max_effort
         self.max_effort = 0
         recorder = BoundRecorder(maj=self, eps=eps>>2)
-        ref_sum = naive_sum.series_sum(self._dop_D, ini, pt, eps>>2,
+        ref_sum = naive_sum.series_sum(self._dop_D, ini, pt, eps>>2, maj=self,
                                        stride=1, stop=recorder)
         recd = recorder.recd[:-1]
         assert all(ref_sum[0].overlaps(rec.psum[0].add_error(rec.b))
