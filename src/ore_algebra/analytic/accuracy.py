@@ -26,7 +26,7 @@ class StoppingCriterion(object):
         self.force = False
 
     def check(self, get_bound, get_residuals, get_value,
-              n, ini_tb, est, next_stride):
+              sing, n, ini_tb, est, next_stride):
         r"""
         Test if it is time to halt the computation of the sum of a series.
 
@@ -64,6 +64,8 @@ class StoppingCriterion(object):
             sage: series_sum(Dx-1, [1], 2, 1e-50, stride=1)
             ([7.3890560989306502272304274605750078131803155705...])
         """
+        if sing:
+            return False, IR('inf')
 
         eps = self.eps
 
@@ -134,7 +136,7 @@ class StoppingCriterion(object):
                 logger.debug("--> intervals blowing up or bound getting worse")
                 self.maj.refine()
             else:
-                thr = tb*est**(QQ(next_stride*(self.maj._effort**2 + 2))/n)
+                thr = tb*est**(QQ(next_stride*(self.maj._effort**2 + 2))/(n+1))
                 if safe_le(thr, eps):
                     # Try summing a few more terms before refining
                     logger.debug("--> above refinement threshold ({} <= {})"

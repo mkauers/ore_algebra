@@ -320,13 +320,7 @@ def series_sum_ordinary(Intervals, dop, bwrec, ini, pt, stop, stride):
     def get_value():
         return psum
 
-    for n in range(start): # Initial values (“singular part”)
-        last.rotate(1)
-        term = Jets(last[0])._mul_trunc_(jetpow, ord)
-        psum += term
-        jetpow = jetpow._mul_trunc_(jet, ord)
-        radpow *= pt.rad
-    for n in itertools.count(start):
+    for n in itertools.count():
         last.rotate(1)
         #last[0] = None
         # At this point last[0] should be considered undefined (it will hold
@@ -337,18 +331,19 @@ def series_sum_ordinary(Intervals, dop, bwrec, ini, pt, stop, stride):
                             else Intervals(pt.rad**n))
             est = sum(abs(a) for a in last)*radpowest
             done, tail_bound = stop.check(get_bound, get_residuals, get_value,
-                                          n, tail_bound, est, stride)
+                                       (n <= start), n, tail_bound, est, stride)
             if done:
                 break
-        bwrec_n = (bwrec_nplus[0] if bwrec_nplus else bwrec_ev(n))
-        comb = sum(bwrec_n[k]*last[k] for k in xrange(1, ordrec+1))
-        last[0] = -~bwrec_n[0]*comb
-        # logger.debug("n = %s, [c(n), c(n-1), ...] = %s", n, list(last))
+        if n >= start:
+            bwrec_n = (bwrec_nplus[0] if bwrec_nplus else bwrec_ev(n))
+            comb = sum(bwrec_n[k]*last[k] for k in xrange(1, ordrec+1))
+            last[0] = -~bwrec_n[0]*comb
+            bwrec_nplus.append(bwrec_ev(n+bwrec.order))
+            # logger.debug("n = %s, [c(n), c(n-1), ...] = %s", n, list(last))
         term = Jets(last[0])._mul_trunc_(jetpow, ord)
         psum += term
         jetpow = jetpow._mul_trunc_(jet, ord)
         radpow *= pt.rad
-        bwrec_nplus.append(bwrec_ev(n+bwrec.order))
     logger.info("summed %d terms, tail <= %s (est = %s), coeffwise error <= %s",
             n, tail_bound, bounds.IR(est),
             max(psum[i].rad() for i in range(ord)) if pt.is_numeric else "n/a")
@@ -621,11 +616,12 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, stop, stride):
         logger.log(logging.DEBUG - 1, "n = %s, sum = %s", n, psum)
         mult = len(ini.shift.get(n, ()))
 
-        if n%stride == 0 and n > last_index_with_ini and mult == 0:
+        if n%stride == 0:
             radpowest = abs(jetpow[0])
             est = sum(abs(a) for log_jet in last for a in log_jet) * radpowest
+            sing = (n <= last_index_with_ini) or (mult > 0)
             done, tail_bound = stop.check(get_bound, get_residuals, get_value,
-                                          n, tail_bound, est, stride)
+                                          sing, n, tail_bound, est, stride)
             if done:
                 break
 

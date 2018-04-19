@@ -2008,7 +2008,8 @@ class DiffOpBound(object):
                 if (rec.n - recd[0].n) % tails == 0:
                     r = CBF(pt).abs()
                     data = [(n1, rec.maj.bound(r, tail=n1).upper())
-                            for n1 in range(rec.n, nmax)]
+                            for n1 in range(rec.n, nmax)
+                            if rec.maj is not None]
                     data = pltfilter(data)
                     myplot += plot.line(data, color=color, scale="semilogy")
         ymax = myplot.ymax()
@@ -2045,12 +2046,17 @@ class BoundRecorder(accuracy.StoppingCriterion):
         self.force = True
         self.recd = []
 
-    def check(self, get_bound, get_residuals, get_value, n, *args):
-        resid = get_residuals()
-        maj = self.maj.tail_majorant(n, resid)
-        self.recd.append(BoundRecord(n, get_value(), maj, get_bound(maj)))
+    def check(self, get_bound, get_residuals, get_value, sing, n, *args):
+        if sing:
+            maj = None
+            bound = IR('inf')
+        else:
+            resid = get_residuals()
+            maj = self.maj.tail_majorant(n, resid)
+            bound = get_bound(maj)
+        self.recd.append(BoundRecord(n, get_value(), maj, bound))
         return super(self.__class__, self).check(
-                get_bound, get_residuals, get_value, n, *args)
+                get_bound, get_residuals, get_value, sing, n, *args)
 
     def reset(self, *args):
         super(self.__class__, self).reset(*args)
