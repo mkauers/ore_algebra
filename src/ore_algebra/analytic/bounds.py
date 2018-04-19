@@ -1962,12 +1962,15 @@ class DiffOpBound(object):
         import sage.plot.all as plot
         from . import naive_sum
 
+        logger = logging.getLogger("ore_algebra.analytic.bounds.plot")
+
         if ini is None:
             ini = self._random_ini()
         if pt is None:
             rad = abs_min_nonzero_root(self._dop_D.leading_coefficient())
             pt = QQ(2) if rad == infinity else RIF(rad/2).simplest_rational()
         eps = RBF(eps)
+        logger.info("operator: %s", str(self.dop)[:60])
         logger.info("point: %s", pt)
         logger.info("initial values: %s", ini)
 
