@@ -155,6 +155,7 @@ reports, or feedback:
     - Bruno Salvy
     - Emre Sertoz
     - Armin Straub
+    - Michael Wallner
 
 Tests
 =====
