@@ -486,7 +486,7 @@ def fundamental_matrix_ordinary(dop, pt, eps, rows, maj, fail_fast):
     done = False
     rad = bounds.IC(pt).abs()
     # XXX clarify exact criterion
-    stop = accuracy.StoppingCriterion(maj=maj, eps=eps)
+    stop = accuracy.StoppingCriterion(maj=maj, eps=eps, fast_fail=False)
     def get_residuals():
         return rec.normalized_residuals(maj, prod, n)
     def get_bound(maj):

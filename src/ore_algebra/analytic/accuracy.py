@@ -18,7 +18,7 @@ class PrecisionError(Exception):
 
 class StoppingCriterion(object):
 
-    def __init__(self, maj, eps, fast_fail=False):
+    def __init__(self, maj, eps, fast_fail=True):
         self.maj = maj
         self.eps = eps
         self.prec = ZZ(eps.log(2).lower().floor()) - 2

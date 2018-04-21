@@ -220,7 +220,7 @@ def series_sum(dop, ini, pt, tgt_error, maj=None, bwrec=None, stop=None,
     if bwrec is None:
         bwrec = bw_shift_rec(dop, shift=ini.expo)
     if stop is None:
-        stop = accuracy.StoppingCriterion(maj, tgt_error.eps, False)
+        stop = accuracy.StoppingCriterion(maj, tgt_error.eps)
 
     doit = (series_sum_ordinary if dop.leading_coefficient().valuation() == 0
             else series_sum_regular)
