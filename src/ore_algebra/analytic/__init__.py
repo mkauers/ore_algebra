@@ -273,3 +273,16 @@ To run the test suite of the ``ore_algebra.analytic`` subpackage, run::
 
     src$ PYTHONPATH="$PWD" sage -t ore_algebra/analytic/
 """
+
+from __future__ import absolute_import
+
+from . import analytic_continuation as ancont
+from . import polynomial_approximation as polapprox
+
+from .bounds import RatSeqBound, DiffOpBound
+from .differential_operator import DifferentialOperator
+from .function import DFiniteFunction
+from .local_solutions import LogSeriesInitialValues
+from .naive_sum import EvaluationPoint
+
+from .monodromy import monodromy_matrices
