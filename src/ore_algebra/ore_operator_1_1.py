@@ -1803,34 +1803,41 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
 
     def indicial_polynomial(self, p, var='alpha'):
         """
-        Computes the indicial polynomial of this operator at (a root of) `p`.
+        Compute the indicial polynomial of this operator at (a root of) `p`.
 
-        If `x` is the generator of the base ring, the input may be either irreducible polynomial in `x`
-        or the rational function `1/x`.
+        If `x` is the generator of the base ring, the input may be either
+        irreducible polynomial in `x` or the rational function `1/x`.
 
-        The output is a univariate polynomial in the given variable ``var`` with coefficients in the
-        base ring's base ring. It has the following property: for every nonzero series solution
-        of ``self`` in rising powers of `p`, i.e. `p_0 p^\alpha + p_1 p^{\alpha+1} + ...`, the
-        minimal exponent `\alpha` is a root of the indicial polynomial.
-        The converse may not hold. 
+        The output is a univariate polynomial in the given variable ``var``
+        with coefficients in the base ring's base ring. It has the following
+        property: for every nonzero series solution of ``self`` in rising
+        powers of `p`, i.e. `p_0 p^\alpha + p_1 p^{\alpha+1} + ...`, the
+        minimal exponent `\alpha` is a root of the indicial polynomial. The
+        converse may not hold.
 
         INPUT:
 
-        - ``p`` -- an irreducible polynomial in the base ring of the operator algebra, or `1/x`.
-        - ``var`` (optional) -- the variable name to use for the indicial polynomial.
+        - ``p`` -- an irreducible polynomial in the base ring of the operator
+          algebra, or `1/x`.
+        - ``var`` (optional) -- the variable name to use for the indicial
+          polynomial.
 
         EXAMPLES::
-        
-          sage: from ore_algebra import *
-          sage: R.<x> = ZZ['x']; A.<Dx> = OreAlgebra(R, 'Dx');
-          sage: L = (x*Dx-5).lclm((x^2+1)*Dx - 7*x).lclm(Dx - 1)
-          sage: L.indicial_polynomial(x).factor()
-          5 * 2^2 * (alpha - 5) * (alpha - 1) * alpha
-          sage: L.indicial_polynomial(1/x).factor()
-          (-1) * 2 * (alpha - 7) * (alpha - 5)
-          sage: L.indicial_polynomial(x^2+1).factor()
-          5 * 7 * 2^2 * (alpha - 1) * alpha * (2*alpha - 7)
-        
+
+            sage: from ore_algebra import *
+            sage: R.<x> = ZZ['x']; A.<Dx> = OreAlgebra(R, 'Dx');
+            sage: L = (x*Dx-5).lclm((x^2+1)*Dx - 7*x).lclm(Dx - 1)
+            sage: L.indicial_polynomial(x).factor()
+            5 * 2^2 * (alpha - 5) * (alpha - 1) * alpha
+            sage: L.indicial_polynomial(1/x).factor()
+            (-1) * 2 * (alpha - 7) * (alpha - 5)
+            sage: L.indicial_polynomial(x^2+1).factor()
+            5 * 7 * (alpha - 1) * alpha * (2*alpha - 7)
+
+        TESTS::
+
+            sage: A(x^3 - 2).indicial_polynomial(x^2 + 1)
+            1
         """
 
         x = p.parent().gen()
@@ -1839,9 +1846,9 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             return UnivariateOreOperatorOverUnivariateRing.indicial_polynomial(self, p, var=var)
 
         op = self.numerator()
+        op *= lcm([c.denominator() for c in op])
 
-        R = op.parent()
-        L = R.base_ring() # k[x]
+        L = op.parent().base_ring() # k[x]
         if L.is_field():
             L = L.ring()
         K = PolynomialRing(L.base_ring(), var) # k[alpha]
@@ -1851,45 +1858,46 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         if op.order() == 0:
             return K.one()
 
-        L = L.change_ring(K.fraction_field()) # FF(k[alpha])[x]
+        r = op.order()
+        d = op.degree()
 
-        pder = self.parent().delta()(p)
-        
-        try: 
-            p = L(p)
-            pder = L(pder)
-        except:
-            raise ValueError, "p has to be a polynomial or 1/" + str(p.parent().gen())
+        L = L.change_ring(K) # FF(k[alpha])[x]
+        alpha = L([K.gen()])
 
-        s = L.zero()
-        y = L(K.gen())
+        ffac = [L.one()] # falling_factorial(alpha, i)
+        for i in range(r + 1):
+            ffac.append(L([ffac[-1][0]*(alpha - i)]))
 
-        r = self.order()
-        currentder = p.parent().one() # = (p')^i mod p
-        currentinv = p**r # = p^(ord - i)
-        y_ff_i = y # = falling_factorial(y, i)
-        s = op[0]*currentinv
+        xpowmodp = [p.parent().one()]
+        for j in range(d + 1):
+            xpowmodp.append((x*xpowmodp[-1]) % p)
+        for j in range(d + 1):
+            xpowmodp[j] = xpowmodp[j].change_ring(op.base_ring().base_ring())
 
-        for i in range(1, op.order() + 1):
-            currentder = (currentder * pder) % p
-            currentinv = currentinv // p
-            s += op[i]*currentinv*currentder*y_ff_i
-            y_ff_i *= y - i
 
-        q, r = s.quo_rem(p)
-        while r.is_zero() and not q.is_zero():
-            q, r = q.quo_rem(p)
+        for k in range(d + r + 1):
+            algind = L.zero()
+            for i in range(k + 1):
+                j0 = k - i
+                coeff = 0
+                for j in range(d - j0 + 1):
+                    a = ZZ(j0+j).binomial(j) * op[r-i][j0+j]
+                    a = xpowmodp[j]._lmul_(a)
+                    coeff += a
+                coeff = coeff.change_ring(K)
+                algind += coeff*ffac[r-i]
+            if not algind.is_zero():
+                break
+        else:
+            assert False
 
-        if r.is_zero():
-            raise ValueError, "p not irreducible?"
-
-        r = K(gcd(r.coefficients()).numerator())
+        ind = K(gcd(algind.coefficients()).numerator())
         try: ## facilitate factorization
-            den = lcm([p.denominator() for p in r])
-            r = r.map_coefficients(lambda p: den*p)
-        except:
+            den = lcm([p.denominator() for p in ind])
+            ind *= den
+        except (TypeError, ValueError, NotImplementedError):
             pass
-        return r
+        return ind
 
     def _desingularization_order_bound(self):
 
