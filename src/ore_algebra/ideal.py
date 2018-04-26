@@ -28,6 +28,8 @@ from sage.rings.fraction_field import is_FractionField
 
 from . import nullspace
 
+from .tools import clear_denominators
+
 class OreLeftIdeal(Ideal_nc):
 
     def __init__(self, ring, gens, coerce=True, is_known_to_be_a_groebner_basis=False):
@@ -1129,9 +1131,12 @@ def uncouple(mat, algebra=None, extended=False, column_swaps=False, infolevel=0)
     Apol = A.change_ring(Arat.base_ring().ring())
     mat = [map(Arat, list(row)) for row in mat]
     for i, row in enumerate(mat):
-        d = lcm([L.denominator() for L in row])
+        num, d = clear_denominators([c for L in row for c in L])
+        s = 0
         for j in range(m):
-            row[j] = Apol(d*row[j])
+            w = row[j].order() + 1
+            row[j] = Apol(num[s:s+w])
+            s += w
         if extended:
             U[i][i] = Apol(d)
             

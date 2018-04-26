@@ -1834,8 +1834,8 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         if (x*p).is_one() or p == x:
             return UnivariateOreOperatorOverUnivariateRing.indicial_polynomial(self, p, var=var)
 
-        op = self.numerator()
-        op *= lcm([c.denominator() for c in op])
+        coeff, _ = clear_denominators(self)
+        op = self.parent(coeff)
 
         L = op.parent().base_ring() # k[x]
         if L.is_field():
