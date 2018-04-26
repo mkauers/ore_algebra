@@ -186,6 +186,7 @@ from sage.matrix.berlekamp_massey import berlekamp_massey
 from sage.arith.multi_modular import MAX_MODULUS
 from sage.parallel.decorate import parallel
 from sage.matrix.constructor import Matrix, matrix
+from sage.matrix.matrix_space import MatrixSpace
 from sage.modules.free_module_element import vector
 from datetime import datetime
 import math
@@ -1677,7 +1678,7 @@ def _merge(subsolver, mat, degrees, infolevel):
 
     return subsolver(mat, degrees=degrees, infolevel=_alter_infolevel(infolevel, -2, 1))
 
-def quick_check(subsolver, modsolver=sage_native, modulus=MAX_MODULUS):
+def quick_check(subsolver, modsolver=sage_native, modulus=pp(2**23)):
     """
     Constructs a solver which first tests in a homomorphic image whether the nullspace is empty
     and applies the subsolver only if it is not.
@@ -1728,8 +1729,8 @@ def _quick_check(subsolver, modsolver, modulus, mat, degrees, infolevel):
     
     check_prime = pp(modulus) if R.characteristic() == 0 else R.characteristic()
     check_eval = dict(zip(x, [ 17*j + 13 for j in xrange(len(x)) ]))
-    check_field = GF(check_prime)
-    check_mat = mat.apply_map( lambda pol : pol.substitute(check_eval), check_field )
+    check_mat_ring = MatrixSpace(GF(check_prime), mat.nrows(), mat.ncols())
+    check_mat = check_mat_ring.matrix(lambda i, j: mat[i,j].substitute(check_eval))
 
     _info(infolevel, "Starting modular solver...", alter = -1)
     check_sol = modsolver(check_mat)
