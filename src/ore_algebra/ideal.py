@@ -25,6 +25,7 @@ from sage.rings.integer_ring import ZZ
 from sage.modules.free_module_element import vector
 from sage.matrix.constructor import Matrix, matrix
 from sage.misc.lazy_string import lazy_string
+from sage.structure.all import coercion_model
 from sage.structure.element import RingElement, canonical_coercion
 from sage.rings.fraction_field import is_FractionField
 
@@ -1122,34 +1123,36 @@ def uncouple(mat, algebra=None, extended=False, column_swaps=False, infolevel=0)
       [[x, 3*Dx + x - 1], [0, -3*x*Dx^2 + (2*x^2 + x + 3)*Dx - x^2 - 1]]
       sage: uncouple([[Dx-x, 2,x], [3, x, Dx-4], [x*Dx-4, 4-x, 4]])
       [[3, x, Dx - 4],
-       [0, -x^3 - 5*x + 12, (-x^2 + 4)*Dx + x^2 - 4],
+       [0, x^3 + 5*x - 12, (x^2 - 4)*Dx - x^2 + 4],
        [0,
         0,
-        (9*x^4 - 12*x^3 + 45*x^2 - 168*x + 144)*Dx^2 + (-3*x^6 - 3*x^5 - 27*x^4 + 27*x^3 + 12*x^2 + 264*x - 336)*Dx + 3*x^5 - 12*x^4 + 57*x^3 - 132*x^2 + 264*x - 240]]
+        (-3*x^4 + 4*x^3 - 15*x^2 + 56*x - 48)*Dx^2 + (x^6 + x^5 + 9*x^4 - 9*x^3 - 4*x^2 - 88*x + 112)*Dx - x^5 + 4*x^4 - 19*x^3 + 44*x^2 - 88*x + 80]]
 
     """
 
     if column_swaps:
         raise NotImplementedError
-    
-    A = mat[0][0].parent() if algebra is None else algebra
 
+    if algebra is None:
+        A = coercion_model.common_parent(*[elt for row in mat for elt in row])
+    else:
+        A = algebra
+    A_ff = None
     n = len(mat); m = len(mat[0])
+    U = [None]*n
+    V = [None]*n
 
-    if extended:
-        one = A.one(); zero = A.zero()
-        U = [[(one if i == j else zero) for j in range(n)] for i in range(n)]
-        V = [[(one if i == j else zero) for j in range(m)] for i in range(m)]
-    
-    Arat = A.change_ring(A.base_ring().fraction_field())
-    Apol = A.change_ring(Arat.base_ring().ring())
-    mat = [list(map(Arat, list(row))) for row in mat]
     for i, row in enumerate(mat):
-        row[:], d = clear_denominators(row)
-        row[:] = [Apol(op) for op in row]
+        row[:], d = clear_denominators([A.coerce(elt) for elt in row])
+        if A_ff is None:
+            A_ff = row[0].parent()
+            zero = A_ff.zero()
+            one = A_ff.one()
+        d = A_ff([d])
         if extended:
-            U[i][i] = Apol(d)
-            
+            U[i] = [d if i == j else zero for j in range(n)]
+            V[i] = [(one if i == j else zero) for j in range(m)]
+
     r = 0 # all rows before this one have been handled. 
     for c in range(m):
 
@@ -1170,9 +1173,7 @@ def uncouple(mat, algebra=None, extended=False, column_swaps=False, infolevel=0)
             # perform elimination 
             for i in nonzero:
                 if i > r:
-                    Q, R = mat[i][c].quo_rem(mat[r][c])
-                    d = Q.denominator()
-                    mat[i][c], Q = Apol(d*R), Apol(d*Q)
+                    d, Q, mat[i][c] = mat[i][c].pseudo_quo_rem(mat[r][c])
                     for j in range(c + 1, m):
                         mat[i][j] = d*mat[i][j] - Q*mat[r][j]
                     if extended:
@@ -1187,10 +1188,20 @@ def uncouple(mat, algebra=None, extended=False, column_swaps=False, infolevel=0)
         piv = mat[r][c]
         if extended:
             U[r], U[piv_row] = U[piv_row], U[r]    
-                        
+
+        g = gcd([a for op in mat[r] + (U[r] if extended else []) for a in op])
+        for j in range(n):
+            mat[r][j] = A_ff([a//g for a in mat[r][j]])
+            if extended:
+                U[r][j] = A_ff([a//g for a in U[r][j]])
+
         r += 1
 
+    mat = [[A(a) for a in row] for row in mat]
+
     if extended:
+        U = [[A(a) for a in row] for row in U]
+        V = [[A(a) for a in row] for row in V]
         if column_swaps:
             return mat, U, V
         else:

@@ -826,6 +826,49 @@ class UnivariateOreOperator(OreOperator):
 
     quo_rem.__doc__ = OreOperator.quo_rem.__doc__
 
+    def pseudo_quo_rem(self, other):
+
+        if other.is_zero():
+            raise ZeroDivisionError("other must be nonzero")
+
+        assert other.parent() is self.parent()
+
+        ord = other.order()
+        if self.order() < ord:
+            return self.base_ring().one(), self.parent().zero(), self
+
+        p, q = self, other
+
+        # XXX: remove the (right?) content of self and other???
+
+        D = self.parent().gen()
+        sigma = self.parent().sigma()
+        sigma_lc = [q.leading_coefficient()]
+        for i in range(p.order() - q.order()):
+            sigma_lc.append(sigma(sigma_lc[-1]))
+
+        den, quo, rem = p.base_ring().one(), p.parent().zero(), p
+
+        while rem.order() >= ord:
+
+            a = sigma_lc[rem.order() - ord]
+            b = rem.leading_coefficient()
+
+            g = a.gcd(b)
+            a //= g
+            b //= g
+
+            cfquo = b*D**(rem.order() - ord)
+            den = a*den
+            quo = a*quo + cfquo
+            rem = a*rem - cfquo*other
+
+        # assert den*self == quo*other + rem
+        # assert quo.parent() is self.parent()
+        # assert rem.parent() is self.parent()
+
+        return den, quo, rem
+
     def gcrd(self, *other, **kwargs):
         """
         Returns the greatest common right divisor of ``self`` and one or more ``other`` operators.
