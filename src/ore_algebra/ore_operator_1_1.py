@@ -40,7 +40,7 @@ from sage.structure.element import RingElement, canonical_coercion, get_coercion
 from sage.structure.formal_sum import FormalSum, FormalSums
 from sage.symbolic.all import SR
 
-from .tools import q_log, make_factor_iterator, shift_factor
+from .tools import clear_denominators, q_log, make_factor_iterator, shift_factor
 from .ore_algebra import OreAlgebra_generic
 from .ore_operator import OreOperator, UnivariateOreOperator
 from .generalized_series import GeneralizedSeriesMonoid, _generalized_series_shift_quotient, _binomial
@@ -171,14 +171,9 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
             R_ring = K[R.gens()]
             K = R_ring.base_ring()
 
-        # clear denominators
-        if len(rhs) == 0:
-            den = R_ring.one()
-        else:
-            den = lcm(map(lambda p: R_field(p).denominator(), rhs))
-        den = den.lcm(self.denominator())
-
-        L = (den*self).change_ring(R_ring); rhs = tuple(R_ring(den*r) for r in rhs)
+        coeffs, _ = clear_denominators([R_field(a) for a in list(self) + list(rhs)])
+        L = self.parent().change_ring(R_ring)(coeffs[:self.order()+1])
+        rhs = coeffs[self.order()+1:]
 
         if degree is None:
             degree = L._degree_bound()
@@ -263,17 +258,11 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         """
         A = self.parent(); R = A.base_ring(); 
         R_field = R.fraction_field()
-        R_ring = R_field.ring()
         A = A.change_ring(R_field)
 
-        # clear denominators
-        if len(rhs) == 0:
-            den = R_ring.one()
-        else:
-            den = lcm(map(lambda p: R_field(p).denominator(), rhs))
-        den = R_field(den.lcm(self.denominator()))
-
-        L = den*self; rhs = tuple(den*r for r in rhs)
+        coeffs, _ = clear_denominators([R_field(a) for a in list(self) + list(rhs)])
+        L = self.parent()(coeffs[:self.order()+1])
+        rhs = coeffs[self.order()+1:]
 
         if denominator is None:
             denominator = L._denominator_bound()

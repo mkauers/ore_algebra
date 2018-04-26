@@ -29,7 +29,7 @@ from sage.rings.complex_field import ComplexField
 from sage.rings.number_field.number_field_base import is_NumberField
 from sage.rings.polynomial.polynomial_ring import is_PolynomialRing
 from sage.rings.polynomial.multi_polynomial_ring import is_MPolynomialRing
-from sage.rings.fraction_field import is_FractionField
+from sage.rings.fraction_field import FractionField_generic
 
 def q_log(q, u):
     """
@@ -225,3 +225,53 @@ def shift_factor(p, ram=ZZ.one(), q=1):
         c[1].sort(key=lambda e: e[0])
 
     return classes
+
+def _my_lcm(elts): # non monic
+    l = ZZ.one()
+    for p in elts:
+        l *= (p//p.gcd(l))
+    return l
+
+def _clear_denominators_1(elt, dom):
+    num, den = elt.numerator(), elt.denominator()
+    base = dom.base_ring()
+    if isinstance(base, FractionField_generic):
+        numnum, numden = clear_denominators(num, base)
+        dennum, denden = clear_denominators(den, base)
+        newdom = dom.change_ring(base.ring())
+        numnum = newdom(numnum)
+        dennum = newdom(dennum)
+        gnum = numnum.gcd(dennum)
+        numnum, dennum = numnum//gnum, dennum//gnum
+        gden = numden.gcd(denden)
+        numden, denden = numden//gden, denden//gden
+        return (numnum, numden, dennum, denden)
+    else:
+        return (num, dom.one(), den, dom.one())
+
+def clear_denominators(elts, dom=None):
+    r"""
+    Recursively clear denominators in a list (or other iterable) of elements.
+
+    Typically intended for elements of fields like QQ(x)(y).
+    """
+    if not elts:
+        return elts, dom.one()
+    if dom is None:
+        dom = elts[0].parent()
+    if isinstance(dom, FractionField_generic):
+        ring = dom.ring()
+        split = [_clear_denominators_1(elt, ring) for elt in elts]
+        lcmnum = _my_lcm((dennum for _, _, dennum, _ in split))
+        lcmden = _my_lcm((numden for _, numden, _, _ in split))
+        num = [(denden*(lcmden//numden))*(numnum*(lcmnum//dennum))
+                  for (numnum, numden, dennum, denden) in split]
+        den = lcmden*lcmnum
+        g = gcd(num + [den]) # XXX: can we be more specific here?
+        num = [p//g for p in num]
+        den = den//g
+    else:
+        num, den = elts, dom.one()
+    # assert all(b/den == a for a, b in zip(elts, num))
+    # assert gcd(num + [den]).is_one()
+    return num, den
