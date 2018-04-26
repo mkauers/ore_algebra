@@ -1146,7 +1146,6 @@ def uncouple(mat, algebra=None, extended=False, column_swaps=False, infolevel=0)
     mat = [list(map(Arat, list(row))) for row in mat]
     for i, row in enumerate(mat):
         row[:], d = clear_denominators(row)
-        row[:] = [Apol(op) for op in row]
         if extended:
             U[i][i] = Apol(d)
             
@@ -1170,9 +1169,7 @@ def uncouple(mat, algebra=None, extended=False, column_swaps=False, infolevel=0)
             # perform elimination 
             for i in nonzero:
                 if i > r:
-                    Q, R = mat[i][c].quo_rem(mat[r][c])
-                    d = Q.denominator()
-                    mat[i][c], Q = Apol(d*R), Apol(d*Q)
+                    d, Q, mat[i][c] = mat[i][c].pseudo_quo_rem(mat[r][c])
                     for j in range(c + 1, m):
                         mat[i][j] = d*mat[i][j] - Q*mat[r][j]
                     if extended:
