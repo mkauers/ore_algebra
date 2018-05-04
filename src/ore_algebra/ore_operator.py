@@ -805,15 +805,10 @@ class UnivariateOreOperator(OreOperator):
         if self.is_zero(): return self
         if right.is_zero(): return right
 
-        coeffs = self.coefficients(sparse=False)
-        DiB = right.polynomial() # D^i * B, for i=0,1,2,...
-
         R = self.parent() # Ore algebra
         sigma = R.sigma(); delta = R.delta()
-        A = DiB.parent() # associate commutative algebra
-        D = A.gen() 
-        res = coeffs[0]*DiB
-        
+        D = R.associated_commutative_algebra().gen()
+
         if sigma.is_identity():
             def times_D(b):
                 return b*D + b.map_coefficients(delta)
@@ -823,11 +818,13 @@ class UnivariateOreOperator(OreOperator):
         else:
             def times_D(b):
                 return b.map_coefficients(sigma)*D + b.map_coefficients(delta)
-            
-        for i in xrange(1, len(coeffs)):
+
+        DiB = right.polynomial() # D^i * B, for i=0,1,2,...
+        res = self[0]*DiB
+        for i in xrange(1, self.order() + 1):
             DiB = times_D(DiB)
-            res += coeffs[i]*DiB
-        
+            res += self[i]*DiB
+
         return R(res)
 
     def reduce(self, basis, normalize=False, cofactors=False, infolevel=0, coerce=True):
