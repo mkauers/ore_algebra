@@ -827,6 +827,9 @@ class UnivariateOreOperator(OreOperator):
 
         return R(res)
 
+    def _rmul_(self, left):
+        return self.parent()([left*c for c in self])
+
     def reduce(self, basis, normalize=False, cofactors=False, infolevel=0, coerce=True):
         ## compatibility method for multivariate case
 
