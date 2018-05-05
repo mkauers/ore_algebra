@@ -20,16 +20,17 @@ collection of auxiliary functions.
 
 from __future__ import absolute_import
 
-from sage.structure.element import RingElement, canonical_coercion
+from sage.structure.element import Element, RingElement, canonical_coercion, parent
 from sage.arith.all import gcd, lcm, previous_prime as pp
 from sage.rings.qqbar import QQbar
 from sage.rings.rational_field import QQ
 from sage.rings.integer_ring import ZZ
 from sage.rings.complex_field import ComplexField
 from sage.rings.number_field.number_field_base import is_NumberField
-from sage.rings.polynomial.polynomial_ring import is_PolynomialRing
+from sage.rings.polynomial.polynomial_element import Polynomial
 from sage.rings.polynomial.multi_polynomial_ring import is_MPolynomialRing
 from sage.rings.fraction_field import FractionField_generic
+from sage.rings.fraction_field_element import FractionFieldElement
 
 def q_log(q, u):
     """
@@ -232,12 +233,13 @@ def _my_lcm(elts): # non monic
         l *= (p//p.gcd(l))
     return l
 
-def _clear_denominators_1(elt, dom):
-    num, den = elt.numerator(), elt.denominator()
+def _clear_denominators_1(elt):
+    dom = elt.parent().ring()
     base = dom.base_ring()
+    num, den = elt.numerator(), elt.denominator()
     if isinstance(base, FractionField_generic):
-        numnum, numden = clear_denominators(num, base)
-        dennum, denden = clear_denominators(den, base)
+        numnum, numden = clear_denominators(num, base.ring())
+        dennum, denden = clear_denominators(den, base.ring())
         newdom = dom.change_ring(base.ring())
         numnum = newdom(numnum)
         dennum = newdom(dennum)
@@ -249,6 +251,13 @@ def _clear_denominators_1(elt, dom):
     else:
         return (num, dom.one(), den, dom.one())
 
+def _has_coefficients(elt):
+    if isinstance(elt, (list, tuple)):
+        return True
+    elif isinstance(elt, Element):
+        parent = elt.parent()
+        return parent.base_ring() is not parent
+
 def clear_denominators(elts, dom=None):
     r"""
     Recursively clear denominators in a list (or other iterable) of elements.
@@ -257,11 +266,8 @@ def clear_denominators(elts, dom=None):
     """
     if not elts:
         return elts, dom.one()
-    if dom is None:
-        dom = elts[0].parent()
-    if isinstance(dom, FractionField_generic):
-        ring = dom.ring()
-        split = [_clear_denominators_1(elt, ring) for elt in elts]
+    if all(isinstance(elt, FractionFieldElement) for elt in elts):
+        split = [_clear_denominators_1(elt) for elt in elts]
         lcmnum = _my_lcm((dennum for _, _, dennum, _ in split))
         lcmden = _my_lcm((numden for _, numden, _, _ in split))
         num = [(denden*(lcmden//numden))*(numnum*(lcmnum//dennum))
@@ -270,8 +276,25 @@ def clear_denominators(elts, dom=None):
         g = gcd(num + [den]) # XXX: can we be more specific here?
         num = [p//g for p in num]
         den = den//g
+    elif all(_has_coefficients(elt) for elt in elts):
+        nums, den = clear_denominators([elt for l in elts for elt in l])
+        s = 0
+        num = []
+        for elt in elts:
+            if isinstance(elt, Element):
+                r = len(list(elt))
+                newdom = elt.parent().change_ring(nums[0].parent())
+            else:
+                r = len(elt)
+                newdom = type(elt)
+            num.append(newdom(nums[s:s+r]))
+            s += r
     else:
-        num, den = elts, dom.one()
+        num, den = elts, (dom or elts[0].parent()).one()
+    if isinstance(elts, Element):
+        num = elts.parent().change_ring(num[0].parent())(num)
+    else:
+        num = type(elts)(num)
     # assert all(b/den == a for a, b in zip(elts, num))
     # assert gcd(num + [den]).is_one()
     return num, den
