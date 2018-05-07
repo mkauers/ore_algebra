@@ -25,7 +25,7 @@ from __future__ import absolute_import
 import sage.functions.log as symbolic_log
 
 from sage.arith.all import previous_prime as pp
-from sage.arith.all import gcd, lcm
+from sage.arith.all import gcd, lcm, srange
 from sage.matrix.constructor import matrix
 from sage.misc.all import prod, union
 from sage.rings.rational_field import QQ
@@ -37,6 +37,7 @@ from sage.rings.qqbar import QQbar, AA
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 from sage.rings.power_series_ring import PowerSeriesRing
 from sage.structure.element import RingElement, canonical_coercion, get_coercion_model
+from sage.structure.factorization import Factorization
 from sage.structure.formal_sum import FormalSum, FormalSums
 from sage.symbolic.all import SR
 
@@ -258,17 +259,20 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         """
         A = self.parent(); R = A.base_ring(); 
         R_field = R.fraction_field()
-        A = A.change_ring(R_field)
 
-        coeffs, _ = clear_denominators([R_field(a) for a in list(self) + list(rhs)])
-        L = self.parent()(coeffs[:self.order()+1])
+        coeffs, den = clear_denominators([R_field(a) for a in list(self) + list(rhs)])
+        L = A.change_ring(den.parent())(coeffs[:self.order()+1])
         rhs = coeffs[self.order()+1:]
 
         if denominator is None:
             denominator = L._denominator_bound()
+        elif not isinstance(denominator, Factorization):
+            denominator = Factorization([(denominator, 1)])
 
-        sol = (L * A(~R_field(denominator))).polynomial_solutions(rhs, degree=degree, solver=solver)
+        L1, opden = L._apply_denominator_bound(denominator)
+        sol = L1.polynomial_solutions([opden*c for c in rhs], degree=degree, solver=solver)
 
+        denominator = denominator.expand()
         for i in xrange(len(sol)):
             sol[i] = tuple([sol[i][0]/denominator] + list(sol[i][1:]))
 
@@ -321,19 +325,45 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         n = L.dispersion()
         A = sigma(L[r], -r)
         B = L[0]
-        u = L.base_ring().one()
+        u = Factorization([])
 
         for i in xrange(n, -1, -1):
             d = A.gcd(sigma(B, i))
             if d.degree() > 0:
                 A //= d
                 for j in xrange(i):
-                    u *= d
+                    u *= d.numerator()
                     d = sigma(d, -1)
-                u *= d
+                u *= d.numerator()
                 B //= d
 
-        return self.base_ring()(u.numerator())
+        return u.base_change(self.base_ring())
+
+    def _apply_denominator_bound(self, den):
+        sigma = self.parent().sigma()
+        delta = self.parent().delta()
+        if sigma.is_identity():
+            r = self.order()
+            opnum = list(self)
+            opden = self.base_ring().one()
+            for fac, m in den:
+                delta_fac = delta(fac)
+                dnum = [fac.parent().one()] # δ^k(1/fac^m) = dnum[k]/fac^(m+k)
+                facpow = [fac.parent().one()]
+                for k in range(1, r + 1):
+                    dnum.append(delta(dnum[-1])*fac - (m+k-1)*dnum[-1]*delta_fac)
+                    facpow.append(facpow[-1]*fac)
+                opnum = [sum(k.binomial(i)*opnum[k]*dnum[k-i]*facpow[r-k+i]
+                               for k in srange(i, r + 1))
+                           for i in range(r+1)]
+                opden *= fac**(m+r)
+                g = gcd([opden] + opnum)
+                opnum = [c//g for c in opnum]
+                opden //= g
+        else:
+            op = self*~self.base_ring().fraction_field()(den.expand())
+            opnum, opden = clear_denominators(op)
+        return self.parent()(opnum), opden
 
     def dispersion(self, p=0):
         """
@@ -1923,10 +1953,10 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
 
     def _denominator_bound(self):
         """
-        Denominator bounding based on indicial polynomial. 
+        Denominator bounding based on indicial polynomial.
         """
         if self.is_zero():
-            raise ZeroDivisionError, "unbounded denominator"        
+            raise ZeroDivisionError, "unbounded denominator"
 
         A, R, _, L = self._normalize_base_ring()
 
@@ -1938,9 +1968,9 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             den = lcm( [ p.denominator() for p in lc ])
             lc = lc.map_coefficients(lambda p: den*p)
         except:
-            pass        
-        
-        bound = R.one()
+            pass
+
+        bound = []
         for (p, _) in lc.factor():
             e = 0
             for j in range(r + 1): ## may be needed for inhomogeneous part
@@ -1952,9 +1982,9 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
                         e = max(e, ZZ(q[0]/q[1]))
                     except:
                         pass
-            bound *= p**e
+            bound.append((p, e))
 
-        return bound
+        return Factorization(bound)
 
     def _powerIndicator(self):
         return self.leading_coefficient()    
@@ -3903,7 +3933,7 @@ class UnivariateQRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverU
                 except:
                     pass
 
-        return (quo*x + rem)*x**(-e)
+        return Factorization([(quo*x + rem, 1), (x, -e)])
 
     def _powerIndicator(self):
         return self.coefficients(sparse=False)[0]
