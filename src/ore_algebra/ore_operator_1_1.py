@@ -172,9 +172,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
             R_ring = K[R.gens()]
             K = R_ring.base_ring()
 
-        coeffs, _ = clear_denominators([R_field(a) for a in list(self) + list(rhs)])
-        L = self.parent().change_ring(R_ring)(coeffs[:self.order()+1])
-        rhs = coeffs[self.order()+1:]
+        [L, rhs], _ = clear_denominators([self.change_ring(R_field), [R_field(a) for a in rhs]])
 
         if degree is None:
             degree = L._degree_bound()
@@ -187,7 +185,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
 
         from sage.matrix.constructor import matrix
 
-        x = R_ring.gen()
+        x = L.base_ring().gen()
         sys = [-L(x**i) for i in xrange(degree + 1)] + list(rhs)
         neqs = max(1, max(map(lambda p: p.degree() + 1, sys)))
         sys = map(lambda p: p.padded_list(neqs), sys)
@@ -257,12 +255,10 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
           [((-n + 1)/(n^2 + 2*n - 2), 1)]          
         
         """
-        A = self.parent(); R = A.base_ring(); 
+        A = self.parent(); R = A.base_ring();
         R_field = R.fraction_field()
 
-        coeffs, den = clear_denominators([R_field(a) for a in list(self) + list(rhs)])
-        L = A.change_ring(den.parent())(coeffs[:self.order()+1])
-        rhs = coeffs[self.order()+1:]
+        [L, rhs], _ = clear_denominators([self.change_ring(R_field), [R_field(a) for a in rhs]])
 
         if denominator is None:
             denominator = L._denominator_bound()
@@ -347,6 +343,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
             opnum = list(self)
             opden = self.base_ring().one()
             for fac, m in den:
+                fac, _ = clear_denominators(fac)
                 delta_fac = delta(fac)
                 dnum = [fac.parent().one()] # δ^k(1/fac^m) = dnum[k]/fac^(m+k)
                 facpow = [fac.parent().one()]
