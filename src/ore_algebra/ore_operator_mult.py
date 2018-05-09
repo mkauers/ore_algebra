@@ -26,6 +26,7 @@ from sage.structure.element import RingElement, canonical_coercion
 from sage.arith.all import gcd, lcm
 from sage.matrix.constructor import Matrix, matrix
 from sage.misc.all import prod, add
+from sage.misc.lazy_string import lazy_string
 from sage.modules.free_module_element import vector
 from sage.rings.rational_field import QQ
 from sage.rings.integer_ring import ZZ
@@ -397,7 +398,7 @@ class MultivariateOreOperator(OreOperator):
 
         while not p.is_zero():
 
-            info(1, datetime.today().ctime() + ": " + str(len(p.coefficients())) + " terms left; continuing with " + str(p.lm()))
+            info(1, lazy_string(lambda: datetime.today().ctime() + ": " + str(len(p.coefficients())) + " terms left; continuing with " + str(p.lm())))
             
             e = vector(ZZ, p.exp())
             candidates = filter(lambda i: min(e - exp[i]) >= 0, range_basis)

@@ -23,6 +23,7 @@ from sage.rings.rational_field import QQ
 from sage.rings.integer_ring import ZZ
 from sage.modules.free_module_element import vector
 from sage.matrix.constructor import Matrix, matrix
+from sage.misc.lazy_string import lazy_string
 from sage.structure.element import RingElement, canonical_coercion
 from sage.rings.fraction_field import is_FractionField
 
@@ -867,9 +868,9 @@ class OreLeftIdeal(Ideal_nc):
             raise NotImplementedError
 
         # uncouple
-        info(1, datetime.today().ctime() + ": Uncoupling coupled system...")
+        info(1, lazy_string(lambda: datetime.today().ctime() + ": Uncoupling coupled system..."))
         T, U = uncouple(sys, extended=True, infolevel=infolevel+2)
-        info(2, datetime.today().ctime() + ": Uncoupling completed.")
+        info(2, lazy_string(lambda: datetime.today().ctime() + ": Uncoupling completed."))
         Ufy = lambda v: [sum(U[i][j](v[j]) for j in range(len(v))) for i in range(len(U))]
 
         # start fglm-like procedure
@@ -892,7 +893,7 @@ class OreLeftIdeal(Ideal_nc):
         rhs = [Ufy(terms[B[0]])] ## vectors corresponding to monomials in B, but in T-coordinates
         
         info(1, "next monomial: 1")
-        info(2, datetime.today().ctime() + ": calling solver...")
+        info(2, lazy_string(lambda: datetime.today().ctime() + ": calling solver..."))
         sol = findrelation()
 
         if sol is not None:
@@ -912,9 +913,9 @@ class OreLeftIdeal(Ideal_nc):
                     B.append(tau*d); rhs.append(Ufy(terms[tau*d]))
                 
                     # solve
-                    info(2, datetime.today().ctime() + ": calling solver...")
+                    info(2, lazy_string(lambda: datetime.today().ctime() + ": calling solver..."))
                     sol = findrelation()
-                    info(3, datetime.today().ctime() + ": solving completed.")
+                    info(3, lazy_string(lambda: datetime.today().ctime() + ": solving completed."))
                     if sol is not None:
                         info(2, "telescoper detected.")
                         telescopers.append(sol)

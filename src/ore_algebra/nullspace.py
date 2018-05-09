@@ -177,6 +177,7 @@ testsuite
 
 from sage.arith.all import CRT_basis, xgcd, gcd, lcm, previous_prime as pp
 from sage.misc.all import prod
+from sage.misc.lazy_string import lazy_string
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 from sage.rings.fraction_field import FractionField
 from sage.rings.integer_ring import ZZ
@@ -427,18 +428,19 @@ def _alter_infolevel(infolevel, dlevel, dprefix):
     return (infolevel[0] + dlevel, infolevel[1] + dprefix)
 
 def _launch_info(infolevel, name, dim=None, deg=None, domain=None):
-    message = datetime.today().ctime() + ": " + name + " called";
-    if not dim == None:
-        message = message + ", dim=" + str(dim)
-    if not deg == None:
-        message = message + ", deg=" + str(deg)
-    if not domain == None:
-        try:
-            message = message + ", domain=" + domain._latex_()
-        except:
-            message = message + ", domain=" + str(domain)
-    message = message + "."    
-    _info(infolevel, message)
+    def make_message():
+        message = datetime.today().ctime() + ": " + name + " called";
+        if not dim == None:
+            message = message + ", dim=" + str(dim)
+        if not deg == None:
+            message = message + ", deg=" + str(deg)
+        if not domain == None:
+            try:
+                message = message + ", domain=" + domain._latex_()
+            except:
+                message = message + ", domain=" + str(domain)
+        return message + "."
+    _info(infolevel, lazy_string(make_message))
 
 ########################################
 ####### solvers and transformers #######

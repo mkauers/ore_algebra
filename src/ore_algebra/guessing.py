@@ -38,6 +38,7 @@ from sage.rings.finite_rings.all import GF
 from sage.rings.finite_rings.finite_field_base import is_FiniteField
 from sage.matrix.constructor import Matrix, matrix
 from sage.matrix.matrix_space import MatrixSpace
+from sage.misc.lazy_string import lazy_string
 from sage.arith.misc import xgcd
 from sage.parallel.decorate import parallel
 from sage.rings.polynomial.polynomial_ring import is_PolynomialRing
@@ -293,7 +294,7 @@ def guess_raw(data, A, order=-1, degree=-1, lift=None, solver=None, cut=25, ensu
         if bound <= infolevel:
             print msg
 
-    info(1, datetime.today().ctime() + ": raw guessing started.")
+    info(1, lazy_string(lambda: datetime.today().ctime() + ": raw guessing started."))
     info(1, "len(data)=" + str(len(data)) + ", algebra=" + str(A._latex_()))
 
     if A.ngens() > 1 or (not A.is_S() and not A.is_Q() and not A.is_D() ):
@@ -351,10 +352,11 @@ def guess_raw(data, A, order=-1, degree=-1, lift=None, solver=None, cut=25, ensu
 
     sys = matrix(K, zip(*sys))
 
-    info(2, datetime.today().ctime() + ": matrix construction completed. size=" + str(sys.dimensions()))
+    dims = sys.dimensions()
+    info(2, lazy_string(lambda: datetime.today().ctime() + ": matrix construction completed. size=" + str(dims)))
     sol = solver(sys, infolevel=infolevel - 2)
     del sys 
-    info(2, datetime.today().ctime() + ": nullspace computation completed. size=" + str(len(sol)))
+    info(2, lazy_string(lambda: datetime.today().ctime() + ": nullspace computation completed. size=" + str(len(sol))))
 
     sigma = A.sigma()
     for l in xrange(len(sol)):
@@ -434,7 +436,7 @@ def guess_hp(data, A, order=-1, degree=-1, lift=None, cut=25, ensure=0, infoleve
         if bound <= infolevel:
             print msg
 
-    info(1, datetime.today().ctime() + ": Hermite/Pade guessing started.")
+    info(1, lazy_string(lambda: datetime.today().ctime() + ": Hermite/Pade guessing started."))
     info(1, "len(data)=" + str(len(data)) + ", algebra=" + str(A._latex_()))
 
     if A.ngens() > 1 or (not A.is_C() and not A.is_D() ):
@@ -467,9 +469,9 @@ def guess_hp(data, A, order=-1, degree=-1, lift=None, cut=25, ensure=0, infoleve
         for i in xrange(order - 1):
             series.append((series[1]*series[-1]).truncate(truncate))
 
-    info(2, datetime.today().ctime() + ": matrix construction completed.")
+    info(2, lazy_string(lambda: datetime.today().ctime() + ": matrix construction completed."))
     sol = _hermite(True, matrix(R, [series]), [degree], infolevel - 2, truncate = truncate - 1)
-    info(2, datetime.today().ctime() + ": hermite pade approximation completed.")
+    info(2, lazy_string(lambda: datetime.today().ctime() + ": hermite pade approximation completed."))
 
     sol = [A(map(R, s)) for s in sol]
     sol = [(~L.leading_coefficient().leading_coefficient())*L for L in sol]
@@ -519,7 +521,7 @@ def _guess_via_hom(data, A, modulus, to_hom, **kwargs):
     R = A.base_ring(); x = R.gen(); K = R.base_ring(); 
     atomic = not ( is_PolynomialRing(K) and K.base_ring() is ZZ )
 
-    info(1, datetime.today().ctime() + ": guessing via homomorphic images started.")
+    info(1, lazy_string(lambda: datetime.today().ctime() + ": guessing via homomorphic images started."))
     info(1, "len(data)=" + str(len(data)) + ", algebra=" + str(A._latex_()))
 
     L = A.zero()
@@ -706,7 +708,7 @@ def _guess_via_gcrd(data, A, **kwargs):
 
     R = A.base_ring(); x = R.gen(); K = R.base_ring(); 
 
-    info(1, datetime.today().ctime() + ": guessing via gcrd started.")
+    info(1, lazy_string(lambda: datetime.today().ctime() + ": guessing via gcrd started."))
     info(1, "len(data)=" + str(len(data)) + ", algebra=" + str(A._latex_()))
 
     if kwargs.has_key('ncpus'):
@@ -819,7 +821,7 @@ def _guess_via_gcrd(data, A, **kwargs):
         if len(L) >= 2:
             break
 
-    info(2, datetime.today().ctime() + ": search completed.")
+    info(2, lazy_string(lambda: datetime.today().ctime() + ": search completed."))
 
     if len(L) == 0:
         raise ValueError, "No relations found."
@@ -827,7 +829,7 @@ def _guess_via_gcrd(data, A, **kwargs):
         L = L[0]
     else:
         L = L[0].gcrd(L[1])
-        info(2, datetime.today().ctime() + ": gcrd completed.")
+        info(2, lazy_string(lambda: datetime.today().ctime() + ": gcrd completed."))
 
     L = (~L.leading_coefficient().leading_coefficient())*L
 
@@ -1209,7 +1211,7 @@ def guess_mult(data, algebra, **kwargs):
 
     gens = list(algebra.gens()); vars = algebra.base_ring().gens(); assert(dim == len(vars) == len(gens))
 
-    info(1, datetime.today().ctime() + ": multivariate guessing started.")
+    info(1, lazy_string(lambda: datetime.today().ctime() + ": multivariate guessing started."))
     info(1, "dim(data)=" + str(dim) + ", algebra=" + str(algebra._latex_()))
 
     # 2. prepare polynomial terms, operator terms (structure set), and all terms
@@ -1311,7 +1313,7 @@ def guess_mult(data, algebra, **kwargs):
 
                 ## early termination check
                 if len(solp) == 0:
-                    info(1, datetime.today().ctime() + " : multivariate guessing completed by early termination.")
+                    info(1, lazy_string(lambda: datetime.today().ctime() + " : multivariate guessing completed by early termination."))
                     return algebra.ideal([])
                 
                 ## extract support of solutions
@@ -1364,7 +1366,7 @@ def guess_mult(data, algebra, **kwargs):
     else: 
         raise NotImplementedError, "unexpected constant domain"
         
-    info(1, datetime.today().ctime() + " : " + str(len(sol)) + " solutions.")
+    info(1, lazy_string(lambda: datetime.today().ctime() + " : " + str(len(sol)) + " solutions."))
 
     if kwargs.setdefault('_return_raw_vectors', False):
         return sol
@@ -1385,7 +1387,7 @@ def guess_mult(data, algebra, **kwargs):
             coeffs[o] = R(d*R1(coeffs[o]))
         basis.append(algebra(coeffs))
 
-    info(1, datetime.today().ctime() + " : multivariate guessing completed.")
+    info(1, lazy_string(lambda: datetime.today().ctime() + " : multivariate guessing completed."))
     return algebra.ideal(basis)
 
 def guess_mult_raw(C, data, terms, points, power, A, B, **kwargs):
@@ -1421,7 +1423,7 @@ def guess_mult_raw(C, data, terms, points, power, A, B, **kwargs):
     phi = kwargs.setdefault('phi', lambda x: x)
     C = C.fraction_field()
     mat = []
-    info(1, datetime.today().ctime() + " : setting up modular system...")
+    info(1, lazy_string(lambda: datetime.today().ctime() + " : setting up modular system..."))
     monomial_cache = dict()
     range_dim = range(len(A))
 
@@ -1463,8 +1465,8 @@ def guess_mult_raw(C, data, terms, points, power, A, B, **kwargs):
     if len(terms) + kwargs.setdefault('ensure') >= len(mat):
         raise ValueError, "not enough data, or too many zeros"
 
-    info(1, datetime.today().ctime() + " : solving modular system...")
+    info(1, lazy_string(lambda: datetime.today().ctime() + " : solving modular system..."))
     sol = MatrixSpace(C, len(points), len(terms))(mat).right_kernel().basis()
 
-    info(1, datetime.today().ctime() + " : " + str(len(sol)) + " solutions detected.")
+    info(1, lazy_string(lambda: datetime.today().ctime() + " : " + str(len(sol)) + " solutions detected."))
     return sol
