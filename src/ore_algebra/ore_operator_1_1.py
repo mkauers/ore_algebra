@@ -28,6 +28,7 @@ from sage.arith.all import previous_prime as pp
 from sage.arith.all import gcd, lcm, srange
 from sage.matrix.constructor import matrix
 from sage.misc.all import prod, union
+from sage.rings.fraction_field import FractionField_generic
 from sage.rings.rational_field import QQ
 from sage.rings.integer_ring import ZZ
 from sage.rings.infinity import infinity
@@ -35,6 +36,8 @@ from sage.rings.number_field.number_field_base import is_NumberField
 from sage.rings.qqbar import QQbar
 from sage.rings.qqbar import QQbar, AA
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
+from sage.rings.polynomial.polynomial_ring import is_PolynomialRing
+from sage.rings.polynomial.multi_polynomial_ring import is_MPolynomialRing
 from sage.rings.power_series_ring import PowerSeriesRing
 from sage.structure.element import RingElement, canonical_coercion, get_coercion_model
 from sage.structure.factorization import Factorization
@@ -1955,9 +1958,8 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         if self.is_zero():
             raise ZeroDivisionError, "unbounded denominator"
 
-        A, R, _, L = self._normalize_base_ring()
+        A, R, K, L = self._normalize_base_ring()
 
-        coeffs = L.coefficients(sparse=False)
         r = L.order()
 
         lc = L.leading_coefficient()
@@ -1967,13 +1969,29 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         except:
             pass
 
+        # specialize additional variables
+        K1, vars = _tower(K)
+        K1 = K1.fraction_field()
+        L1 = L
+        if vars and K1 is QQ:
+            R1 = R.change_ring(K1)
+            A1 = A.change_ring(R1)
+            for _ in range(5):
+                subs = {x: K1.random_element(100) for x in vars}
+                L1 = A1([R1([c(**subs) for c in p]) for p in L])
+                if all(L1[i].degree() == L[i].degree() for i in range(L.order() + 1)):
+                    break
+                else:
+                    L1 = L
+
         bound = []
         for (p, _) in lc.factor():
+            p1 = R1([c(**subs) for c in p]) if L1 is not L else p
             e = 0
             for j in range(r + 1): ## may be needed for inhomogeneous part
-                if not coeffs[j].is_zero():
-                    e = max(e, coeffs[j].valuation(p) - j)
-            for (q, _) in L.indicial_polynomial(p).factor(): ## contribution for homogeneous part
+                if not L1[j].is_zero():
+                    e = max(e, L1[j].valuation(p1) - j)
+            for (q, _) in L1.indicial_polynomial(p1).factor(): ## contribution for homogeneous part
                 if q.degree() == 1:
                     try:
                         e = max(e, ZZ(q[0]/q[1]))
@@ -4654,3 +4672,12 @@ def _simplify_exponent(e): # work around sage bug #21758
         return ZZ(e)
     except (TypeError, ValueError):
         return e
+
+def _tower(dom):
+    if is_PolynomialRing(dom) or is_MPolynomialRing(dom):
+        base, vars = _tower(dom.base_ring())
+        return base, vars.union(set(dom.variable_names()))
+    elif isinstance(dom, FractionField_generic):
+        return _tower(dom.ring())
+    else:
+        return dom, set()
