@@ -272,7 +272,7 @@ def _pivot(mat, r, n, c, m, zero):
     for i in xrange(n):
         mati = mat[i + r]
         for j in xrange(m):
-            if mati[j + c] != zero:
+            if mati[j + c]:
                 nz_in_row[i] += 1; nz_in_col[j] += 1; zero_matrix = False
 
     if zero_matrix:
@@ -281,7 +281,7 @@ def _pivot(mat, r, n, c, m, zero):
     for i in xrange(n):
         mati = mat[i + r]
         for j in xrange(m):
-            if mati[j + c] != zero:
+            if mati[j + c]:
                 if nz_in_row[i] == 1 or nz_in_col[j] == 1:
                     return (i + r, j + c) # early termination: row or column with only one nonzero entry
                 nz_in_rows_for_col[j] += nz_in_row[i]
@@ -290,7 +290,7 @@ def _pivot(mat, r, n, c, m, zero):
     for i in xrange(n):
         mati = mat[i + r]
         for j in xrange(m):
-            if mati[j + c] != zero:
+            if mati[j + c]:
                 w = (nz_in_row[i] - 1)**EXPONENT*(nz_in_col[j] - 1) # expected fillin
                 if w < min_nz_fillin:
                     min_nz_fillin = w; bound = ALPHA*(min_nz_fillin + BETA)
@@ -564,7 +564,7 @@ def _gauss(pivot, ncpus, fun, mat, degrees, infolevel):
         # 2. perform elimination
         affected_rows = []
         for i in xrange(r + 1, n):
-            if mat[i][c] != zero:
+            if mat[i][c]:
                 affected_rows.append(i); matr = mat[r]; piv = matr[c]; mati = mat[i]; elim = mati[c]
                 try: 
                     g = gcd(piv, elim)
@@ -578,20 +578,20 @@ def _gauss(pivot, ncpus, fun, mat, degrees, infolevel):
                 mati[c] = zero
 
         # 3. cancel common content of all affected rows
-        g = heuristic_row_content([mat[i][j] for i in affected_rows for j in xrange(c + 1, m) if mat[i][j] != zero], R)
-        if g != zero and g != one and (cancel_constants or not g.is_constant()):
+        g = heuristic_row_content([mat[i][j] for i in affected_rows for j in xrange(c + 1, m) if mat[i][j]], R)
+        if g and not g.is_one() and (cancel_constants or not g.is_constant()):
             for i in affected_rows:
                 mati = mat[i]
                 for j in xrange(c + 1, m):
-                    if mati[j] != zero:
+                    if mati[j]:
                         mati[j] //= g
         del g
 
         # 4. cancel remaining content of individual rows
         for i in affected_rows:
             mati = mat[i]
-            g = heuristic_row_content([mati[j] for j in xrange(m) if mati[j] != zero], R)
-            if g != zero and g != one and (cancel_constants or not g.is_constant()):
+            g = heuristic_row_content([mati[j] for j in xrange(m) if mati[j]], R)
+            if g and g != one and (cancel_constants or not g.is_constant()):
                 for j in xrange(c + 1, m):
                     mati[j] //= g
             del g
@@ -615,7 +615,7 @@ def _gauss(pivot, ncpus, fun, mat, degrees, infolevel):
         mati = mat[i]
         for j in xrange(dim):
             solj = sol[j]
-            num = -sum(mati[k]*solj[k] for k in xrange(i + 1, m) if mati[k] != zero and solj[k] != zero)
+            num = -sum(mati[k]*solj[k] for k in xrange(i + 1, m) if mati[k] and solj[k])
             if num == zero:
                 continue
             den = mati[i] 
@@ -641,8 +641,8 @@ def _gauss(pivot, ncpus, fun, mat, degrees, infolevel):
     sol = [[v[col_perm_inv[i]] for i in xrange(m)] for v in sol]
 
     for v in sol:
-        g = heuristic_row_content([p for p in v if p != zero], R)
-        if g != one and g != zero:
+        g = heuristic_row_content([p for p in v if p], R)
+        if g and not g.is_one():
             for j in xrange(m):
                 v[j] //= g
 
@@ -761,14 +761,14 @@ def _hermite_base(early_termination, R, A, u, D):
             # pivot: among the indices j where A[i,j]!=0, pick one where D[j] is minimal
             piv = -1; d = infinity
             for j in xrange(m):
-                if D[j] < d and row[j][k] != zero:
+                if D[j] < d and row[j][k]:
                     piv = j; d = D[j]
             if piv == -1:
                 continue # kth coeff of ith row of A is already zero
             # elimination
             piv_element = -one/row[piv][k]; 
             for j in xrange(m):
-                if j != piv and row[j][k] != zero:
+                if j != piv and row[j][k]:
                     q = piv_element*row[j][k]
                     for v in V:
                         v[j] += q*v[piv]
@@ -1814,7 +1814,7 @@ def _compress(subsolver, presolver, modulus, mat, degrees, infolevel):
         mat = mat.delete_columns(useless_columns)
 
     # determine row weights
-    row_idx = [ 10**13*sum(1 for p in row if p != zero) + sum(p.degree() for p in row if p != zero) for row in mat ]
+    row_idx = [ 10**13*sum(1 for p in row if p) + sum(p.degree() for p in row if p) for row in mat ]
     row_idx = zip(range(n), row_idx)
     row_idx.sort(key=lambda p: -p[1])
     row_idx = map(lambda p: p[0], row_idx)
