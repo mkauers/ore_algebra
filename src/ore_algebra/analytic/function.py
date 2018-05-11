@@ -291,7 +291,7 @@ class DFiniteFunction(object):
         return polys
 
     def _sollya_annotate(self, center, rad, polys):
-        import sollya
+        import sagesollya as sollya
         logger = logging.getLogger(__name__ + ".sollya")
         logger.info("calling annotatefunction() on %s derivatives", len(polys))
         center = QQ(center)
@@ -482,14 +482,14 @@ class DFiniteFunction(object):
             sage: from ore_algebra.analytic.function import DFiniteFunction
             sage: f = DFiniteFunction(Dx - 1, [1])
 
-            sage: import sollya # optional - sollya
+            sage: import sagesollya as sollya # optional - sollya
             sage: sollya.plot(f, sollya.Interval(0, 1)) # not tested
             ...
 
         """
         if self._sollya_object is not None:
             return self._sollya_object
-        import sollya
+        import sagesollya as sollya
         logger = logging.getLogger(__name__ + ".sollya.eval")
         Dx = self.dop.parent().gen()
         def wrapper(pt, ord, prec):
