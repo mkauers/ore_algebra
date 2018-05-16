@@ -918,6 +918,7 @@ def _merge_homomorphic_images(v, mod, vp, p, reconstruct=True):
         if poly:
             p = R.base_ring()(p)
             mod = R.base_ring()(mod)
+            R = r
 
         # cra / interpolation
 
