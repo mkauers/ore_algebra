@@ -2799,6 +2799,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
         and then switch to ZZ (etc.) internally.
         """
         from sage.matrix.matrix_space import MatrixSpace
+        n = ZZ(n); start = ZZ(start); # exact division below fails if n or start are in QQ, as reported by Clemens Hofstadler 2018-03-14.
         assert n >= 0
         r = self.order()
         scalar_ring = self.base_ring().base_ring()
@@ -2826,6 +2827,8 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
 
         from sage.matrix.matrix_space import MatrixSpace
 
+        m = ZZ(m) # exact division below fails if n or start are in QQ, as reported by Clemens Hofstadler 2018-03-14.
+        
         r = self.order()
 
         delta_ring = self.base_ring()
