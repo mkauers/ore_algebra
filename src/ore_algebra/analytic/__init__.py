@@ -149,11 +149,13 @@ reports, or feedback:
     - Christoph Koutschan
     - Christoph Lauter
     - Pierre Lairez
+    - Yvan Le Borgne
     - Steve Melczer
     - Clemens Raab
     - Bruno Salvy
     - Emre Sertoz
     - Armin Straub
+    - Michael Wallner
 
 Tests
 =====

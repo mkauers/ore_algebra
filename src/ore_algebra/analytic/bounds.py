@@ -5,7 +5,7 @@ Error bounds
 
 from __future__ import print_function
 
-import itertools, logging, warnings
+import collections, itertools, logging, warnings
 
 from sage.arith.srange import srange
 from sage.misc.cachefunc import cached_function, cached_method
@@ -30,14 +30,13 @@ from sage.rings.real_mpfr import RealField, RR
 from sage.structure.factorization import Factorization
 
 from .. import ore_algebra
-from . import local_solutions, utilities
+from . import accuracy, local_solutions, utilities
 
 from .differential_operator import DifferentialOperator
 from .safe_cmp import *
+from .accuracy import IR, IC
 
 logger = logging.getLogger(__name__)
-
-IR, IC = RBF, CBF # TBI
 
 class BoundPrecisionError(Exception):
     pass
@@ -84,25 +83,26 @@ class MajorantSeries(object):
         """
         return self.series(rad, 1)[0]
 
-    def bound(self, rad, derivatives=1):
+    def bound(self, rad, rows=1, cols=1, tail=None):
         """
-        Bound the Frobenius norm of the vector
+        Bound the Frobenius norm of the matrix of the given dimensions whose
+        columns are all equal to
 
-            [g(rad), g'(rad), g''(rad)/2, ..., 1/(d-1)!·g^(d-1)(rad)]
+            [g(rad), g'(rad), g''(rad)/2, ..., 1/(r-1)!·g^(r-1)(rad)]
 
-        where d = ``derivatives`` and g is this majorant series. The result is
-        a bound for
-
-            [f(z), f'(z), f''(z)/2, ..., 1/(d-1)!·f^(d-1)(z)]
-
-        for all z with |z| ≤ rad.
+        and g is this majorant series. Typically, g(z) is a common majorant
+        series of the elements of a basis of solutions of some differential
+        equation, and the result is then a bound on the corresponding
+        fundamental matrix Y(ζ) for all for all ζ with |ζ| ≤ rad.
         """
         if not safe_le(rad, self.cvrad): # intervals!
             return IR(infinity)
+        elif tail is None:
+            ser = self.bound_series(rad, rows)
         else:
-            ser = self.bound_series(rad, derivatives)
-            sqnorm = sum((c.abs()**2 for c in ser), IR.zero())
-            return sqnorm.sqrtpos()
+            ser = self.bound_tail_series(rad, rows, tail)
+        sqnorm = IR(cols)*sum((c.abs()**2 for c in ser), IR.zero())
+        return sqnorm.sqrtpos()
 
     def _test(self, fun=0, prec=50, return_difference=False):
         r"""
@@ -371,6 +371,40 @@ class HyperexpMajorant(MajorantSeries):
         exp_ser = int_ser._exp_series(ord)
         ser = rat_ser._mul_trunc_(exp_ser, ord)
         return ser
+
+    def _saddle_point_bound(self, rad, ord, n, aux_rad):
+        r"""
+        Compute a termwise bound on the first ord derivatives of the *remainder
+        of order start_index* of this majorant series, using evaluations at
+        aux_rad.
+        """
+        assert safe_le(rad, aux_rad)
+        assert safe_le(aux_rad, self.cvrad)
+        ser = self.bound_series(aux_rad, ord)
+        ratio = rad/aux_rad
+        eps = ser.parent().gen()
+        return ratio**n * ser(eps/ratio)
+
+    def bound_tail_series(self, rad, ord, n):
+        r"""
+        Compute a termwise bound on the first ord derivatives of the *remainder
+        of order start_index* of this majorant series.
+        """
+        import numpy
+        from sage.numerical.optimize import find_local_minimum
+        b0 = self.bound_series(rad, ord)
+        if n < self.shift:
+            return b0
+        def bound(r):
+            r = IR(numpy.real(r))
+            return self._saddle_point_bound(rad, 1, n, r)[0].log().mid()
+        right = (float(rad)*float(n) if self.cvrad.is_infinity()
+                 else self.cvrad.lower())
+        _, aux_rad = find_local_minimum(bound, rad.upper(), right, tol=.125)
+        aux_rad = IR(numpy.real(aux_rad))
+        b1 = self._saddle_point_bound(rad, ord, n, aux_rad)
+        Ser = b1.parent().change_ring(IR)
+        return Ser([a0.abs().min(a1.abs()) for a0, a1 in zip(b0, b1)])
 
     def __imul__(self, pol):
         r"""
@@ -1230,7 +1264,7 @@ class DiffOpBound(object):
 
     Refining::
 
-        sage: from ore_algebra.analytic.examples import fcc
+        sage: from ore_algebra.examples import fcc
         sage: maj = DiffOpBound(fcc.dop5, special_shifts=[(0, 1)])
         sage: maj.maj_den
         (-z + [0.2047...])^13
@@ -1271,7 +1305,7 @@ class DiffOpBound(object):
     """
 
     def __init__(self, dop, leftmost=ZZ.zero(), special_shifts=None,
-            max_effort=6, pol_part_len=2, bound_inverse="simple"):
+            max_effort=2, pol_part_len=None, bound_inverse="simple"):
         r"""
         Construct a DiffOpBound for a subset of the solutions of dop.
 
@@ -1338,8 +1372,11 @@ class DiffOpBound(object):
         self._effort = 0
         if bound_inverse == "solve":
             self._effort += 1
-        if pol_part_len > 2:
-            self._effort += ZZ(pol_part_len - 2).nbits()
+        default_pol_part_len = self.dop.degree()//2 + 2
+        if pol_part_len is None:
+            pol_part_len = default_pol_part_len
+        else:
+            self._effort += (ZZ(pol_part_len)//default_pol_part_len).nbits()
 
         self.Poly = Pols_z.change_ring(IR) # TBI
         self.__CPoly = Pols_z.change_ring(IC)
@@ -1657,8 +1694,8 @@ class DiffOpBound(object):
             use_sum_of_products = False
         if bwrec_nplus is None:
             bwrec = self.bwrec()
-            # Suboptimal: For a given j, we are only going to need the
-            # b[i](λ+n+i+ε) for < s - i.
+            # Suboptimal: For a given i, we are only going to need the
+            # b[i](λ+n+i+j+ε) for j < s - i.
             bwrec_nplus = [bwrec.eval_series(Ring, n+i, logs)
                            for i in xrange(deg)]
         # Check that we have been given/computed enough shifts of the
@@ -1682,6 +1719,9 @@ class DiffOpBound(object):
         # (cst ×) the coefficients of the residual corresponding to the same d
         # on the rhs. The coefficients of the residual are computed on the fly.
         for d in range(deg):
+            lc = bwrec_nplus[d][0][0]
+            assert not (lc.parent() is IC and lc.contains_zero())
+            inv = ~lc
             for k in reversed(range(logs)):
                 # Coefficient of z^(λ+n+d)·log(z)^k/k! in dop(ỹ)
                 if use_sum_of_products:
@@ -1697,9 +1737,6 @@ class DiffOpBound(object):
                 # Deduce the corresponding coefficient of nres
                 # XXX For simplicity, we limit ourselves to the “generic” case
                 # where none of the n+d is a root of the indicial polynomial.
-                lc = bwrec_nplus[d][0][0]
-                assert not (lc.parent() is IC and lc.contains_zero())
-                inv = ~lc
                 cor = sum(bwrec_nplus[d][0][u]*nres[k+u][d]
                           for u in range(1, logs-k))
                 nres[k][d] = inv*(cst*res[k][d] - cor)
@@ -1803,10 +1840,10 @@ class DiffOpBound(object):
             # aux(z)/h(z) s.t. aux(z) = f(z)*h(z) + O(z^(1+deg(aux))). Then,
             # any f^ s.t. f^[n] ≥ max(0,f[n]) is a valid q^.
             ord = aux.degree() + 1
-            inv = maj.inv_exp_part_series0(ord)
+            inv = Pols(maj.inv_exp_part_series0(ord))
             f = aux._mul_trunc_(inv, ord)
             # assert all(c.imag().contains_zero() for c in f)
-            return Pols([IR.zero().max(c.real()) for c in f])
+            return Pols([IR.zero().max(c) for c in f])
 
     def tail_majorant(self, n, normalized_residuals):
         r"""
@@ -1827,8 +1864,6 @@ class DiffOpBound(object):
         A HyperexpMajorant representing a common majorant series for the
         tails y[n:](z) of the corresponding solutions.
         """
-        # XXX Perhaps add a way to pass an existing maj (= self(n0), n0 <= n)
-        # or an n0 as parameter.
         maj = self(n)
         # XXX Better without maj? (speed/tightness trade-off)
         rhs = self.rhs(n, normalized_residuals, maj)
@@ -1838,23 +1873,6 @@ class DiffOpBound(object):
         pol = (rhs << (n - 1)).integral() # XXX potential perf issue with <<
         maj *= pol
         return maj
-
-    def matrix_sol_tail_bound(self, n, rad, normalized_residuals, rows=None):
-        r"""
-        Bound the Frobenius norm of the tail starting of order ``n`` of the
-        series expansion of the matrix ``(y_j^(i)(z)/i!)_{i,j}`` where the
-        ``y_j`` are the solutions associated to the elements of
-        ``normalized_residuals``, and ``0 ≤ j < rows``. The bound is valid for
-        ``|z| < rad``.
-        """
-        if rows is None:
-            rows=self.dop.order()
-        maj = self.tail_majorant(n, normalized_residuals)
-        # Since (y[n:])' << maj => (y')[n:] << maj, this bound is valid for the
-        # tails of a column of the form [y, y', y''/2, y'''/6, ...] or
-        # [y, θy, θ²y/2, θ³y/6, ...].
-        col_bound = maj.bound(rad, derivatives=rows)
-        return (IR(rows).sqrt()*col_bound).above_abs()
 
     def _test(self, ini=None, prec=100):
         r"""
@@ -1901,7 +1919,12 @@ class DiffOpBound(object):
                          for i in range(n + 30)])
             maj._test(tail)
 
-    def plot(self, ini=None, pt=None, eps=RBF(1e-50)):
+    @cached_method
+    def _random_ini(self):
+        return local_solutions.random_ini(self._dop_D)
+
+    def plot(self, ini=None, pt=None, eps=RBF(1e-50), tails=None,
+             color="blue", title=True, intervals=True, **opts):
         r"""
         EXAMPLES::
 
@@ -1911,15 +1934,15 @@ class DiffOpBound(object):
             sage: Dops, x, Dx = DifferentialOperators()
 
             sage: DiffOpBound(Dx - 1).plot([CBF(1)], CBF(i)/2, RBF(1e-20))
-            Graphics object consisting of 5 graphics primitives
+            Graphics object consisting of 4 graphics primitives
 
             sage: DiffOpBound(x*Dx^3 + 2*Dx^2 + x*Dx).plot(eps=1e-8)
-            Graphics object consisting of 5 graphics primitives
+            Graphics object consisting of 4 graphics primitives
 
             sage: dop = x*Dx^2 + Dx + x
             sage: DiffOpBound(dop, 0, [(0,2)]).plot(eps=1e-8,
             ....:       ini=LogSeriesInitialValues(0, {0: (1, 0)}, dop))
-            Graphics object consisting of 5 graphics primitives
+            Graphics object consisting of 4 graphics primitives
 
             sage: dop = ((x^2 + 10*x + 50)*Dx^10 + (5/9*x^2 + 50/9*x + 155/9)*Dx^9
             ....: + (-10/3*x^2 - 100/3*x - 190/3)*Dx^8 + (30*x^2 + 300*x + 815)*Dx^7
@@ -1929,58 +1952,118 @@ class DiffOpBound(object):
             ....: + 5*x - 10)
             sage: DiffOpBound(dop, 0, [], pol_part_len=4, # not tested
             ....:         bound_inverse="solve").plot(eps=1e-10)
-            Graphics object consisting of 5 graphics primitives
+            Graphics object consisting of 4 graphics primitives
+
+        TESTS::
+
+            sage: DiffOpBound(Dx - 1).plot()
+            Graphics object consisting of 4 graphics primitives
         """
         import sage.plot.all as plot
         from . import naive_sum
 
+        logger = logging.getLogger("ore_algebra.analytic.bounds.plot")
+
         if ini is None:
-            ini = local_solutions.random_ini(self._dop_D)
+            ini = self._random_ini()
         if pt is None:
             rad = abs_min_nonzero_root(self._dop_D.leading_coefficient())
             pt = QQ(2) if rad == infinity else RIF(rad/2).simplest_rational()
+        eps = RBF(eps)
+        logger.info("operator: %s", str(self.dop)[:60])
         logger.info("point: %s", pt)
         logger.info("initial values: %s", ini)
 
-        recd = []
         saved_max_effort = self.max_effort
         self.max_effort = 0
-        naive_sum.series_sum(self._dop_D, ini, pt, eps, stride=1,
-                            record_bounds_in=recd, maj=self)
+        recorder = BoundRecorder(maj=self, eps=eps>>2)
+        ref_sum = naive_sum.series_sum(self._dop_D, ini, pt, eps>>2, maj=self,
+                                       stride=1, stop=recorder)
+        recd = recorder.recd[:-1]
+        assert all(ref_sum[0].overlaps(rec.psum[0].add_error(rec.b))
+                   for rec in recd)
         self.max_effort = saved_max_effort
-        ref_sum = recd[-1][1][0].add_error(recd[-1][2])
-        recd[-1:] = []
         # Note: this won't work well when the errors get close to the double
         # precision underflow threshold.
-        err = [(psum[0]-ref_sum).abs() for n, psum, _ in recd]
+        err = [(rec.n, (rec.psum[0]-ref_sum[0]).abs()) for rec in recd]
 
-        large = float(1e200) # plot() is not robust to large values
-        error_plot_upper = plot.line(
-                [(n, v.upper()) for (n, v) in enumerate(err)
-                                if abs(float(v.upper())) < large],
-                color="lightgray", scale="semilogy")
-        error_plot = plot.line(
-                [(n, v.lower()) for (n, v) in enumerate(err)
-                                if abs(float(v.lower())) < large],
+        # avoid empty plots, matplotlib warnings, ...
+        def pltfilter(it, eps=float(eps), large=float(1e200)):
+            return [(x, float(y)) for (x, y) in it if eps < float(y) < large]
+        myplot = plot.plot([])
+        if intervals:
+            myplot += plot.line( # reference value - upper
+                    pltfilter((n, v.upper()) for (n, v) in err),
+                    color="black", scale="semilogy")
+        myplot += plot.line( # reference value - main
+                pltfilter((n, v.lower()) for (n, v) in err),
                 color="black", scale="semilogy")
-        bound_plot_lower = plot.line(
-                [(n, bound.lower()) for n, _, bound in recd
-                                    if abs(float(bound.lower())) < large],
-                color="lightblue", scale="semilogy")
-        bound_plot = plot.line(
-                [(n, bound.upper()) for n, _, bound in recd
-                                    if abs(float(bound.upper())) < large],
-                color="blue", scale="semilogy")
-        title = repr(self._dop_D) + " @ x=" + repr(pt)
-        title = title if len(title) < 80 else title[:77]+"..."
-        myplot = error_plot_upper + error_plot + bound_plot_lower + bound_plot
+        if intervals:
+            myplot += plot.line( # bound - lower
+                    pltfilter((rec.n, rec.b.lower()) for rec in recd),
+                    color=color, scale="semilogy", **opts)
+        myplot += plot.line( # bound - main
+                pltfilter((rec.n, rec.b.upper()) for rec in recd),
+                color=color, scale="semilogy", **opts)
+        if tails is not None:
+            nmax = recd[-1].n + 1
+            for rec in recd: # bounds for n1 > n based on the residual at n
+                if (rec.n - recd[0].n) % tails == 0:
+                    r = CBF(pt).abs()
+                    data = [(n1, rec.maj.bound(r, tail=n1).upper())
+                            for n1 in range(rec.n, nmax)
+                            if rec.maj is not None]
+                    data = pltfilter(data)
+                    myplot += plot.line(data, color=color, scale="semilogy")
         ymax = myplot.ymax()
-        if ymax < float('inf'):
-            txt = plot.text(title, (myplot.xmax(), ymax),
-                            horizontal_alignment='right', vertical_alignment='top')
-            myplot += txt
-
+        if title:
+            if title is True:
+                title = repr(self._dop_D)
+                title = title if len(title) < 50 else title[:47]+"..."
+                title += " @ x=" + repr(pt)
+            myplot += plot.plot([], title=title)
         return myplot
+
+    def plot_refinements(self, n=4, legend_fmt="{inv}, pplen={pplen}", **kwds):
+        import sage.plot.all as plot
+        p = plot.plot([])
+        styles = [':', '-.', '--', '-']
+        for i in range(n):
+            lab = legend_fmt.format(
+                    inv=self.bound_inverse,
+                    pplen=self.pol_part_len())
+            p += self.plot(intervals=False,
+                           legend_label=lab,
+                           linestyle=styles[i%len(styles)],
+                           **kwds)
+            self.refine()
+        p.set_legend_options(handlelength=4, shadow=False)
+        return p
+
+BoundRecord = collections.namedtuple("BoundRecord", ["n", "psum", "maj", "b"])
+
+class BoundRecorder(accuracy.StoppingCriterion):
+
+    def __init__(self, maj, eps, fast_fail=False):
+        super(self.__class__, self).__init__(maj, eps, fast_fail=fast_fail)
+        self.force = True
+        self.recd = []
+
+    def check(self, get_bound, get_residuals, get_value, sing, n, *args):
+        if sing:
+            maj = None
+            bound = IR('inf')
+        else:
+            resid = get_residuals()
+            maj = self.maj.tail_majorant(n, resid)
+            bound = get_bound(maj)
+        self.recd.append(BoundRecord(n, get_value(), maj, bound))
+        return super(self.__class__, self).check(
+                get_bound, get_residuals, get_value, sing, n, *args)
+
+    def reset(self, *args):
+        super(self.__class__, self).reset(*args)
+        self.recd = []
 
 # Perhaps better: work with a "true" Ore algebra K[θ][z]. Use Euclidean
 # division to compute the truncation in DiffOpBound._update_num_bound.

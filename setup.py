@@ -28,7 +28,7 @@ setup(
     author = "Manuel Kauers, Maximilian Jaroschek, Fredrik Johansson",
     author_email = "manuel@kauers.de",
     license = "GPL",
-    packages = ["ore_algebra", "ore_algebra.analytic", "ore_algebra.analytic.examples"],
+    packages = ["ore_algebra", "ore_algebra.analytic", "ore_algebra.analytic.examples", "ore_algebra.examples"],
     package_dir = {'': 'src/'},
     cmdclass = {'test': TestCommand}
     )

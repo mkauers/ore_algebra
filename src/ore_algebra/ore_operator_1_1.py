@@ -2088,7 +2088,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             sage: (Dx - 1).local_basis_expansions(0)
             [1 + x + 1/2*x^2 + 1/6*x^3]
 
-            sage: from ore_algebra.analytic.examples import ssw
+            sage: from ore_algebra.examples import ssw
             sage: ssw.dop[1,0,0].local_basis_expansions(0)
             [t^(-4) + 24*log(t)/t^2 - 48*log(t) - 96*t^2*log(t) - 88*t^2,
             t^(-2),
@@ -2448,8 +2448,8 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         Then we compute a connection matrix to the singularity itself::
 
             sage: dop.numerical_transition_matrix([0, i], 1e-10)
-            [      [+/-...] + [+/-...]*I          [+/-...] + [-0.50000000...]*I]
-            [ [1.000000...] + [+/-...]*I [0.7853981634...] + [0.346573590...]*I]
+            [            ...           [+/-...] + [-0.50000000...]*I]
+            [ ...1.000000...  [0.7853981634...] + [0.346573590...]*I]
 
         Note that a path that crosses the branch cut of the complex logarithm
         yields a different result::

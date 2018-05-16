@@ -75,8 +75,8 @@ class EvaluationPoint(object):
         else:
             raise ValueError
 
-def series_sum(dop, ini, pt, tgt_error, maj=None, bwrec=None,
-        record_bounds_in=None, max_prec=100000, fail_fast=False, **kwds):
+def series_sum(dop, ini, pt, tgt_error, maj=None, bwrec=None, stop=None,
+        max_prec=100000, fail_fast=False, **kwds):
     r"""
     EXAMPLES::
 
@@ -154,6 +154,9 @@ def series_sum(dop, ini, pt, tgt_error, maj=None, bwrec=None,
         WARNING:...
         ([+/- ...])
 
+        sage: series_sum(Dx-1, [0], 2, 1e-50, stride=1)
+        (0)
+
     Test that automatic precision increases do something reasonable::
 
         sage: logger = logging.getLogger('ore_algebra.analytic.naive_sum')
@@ -216,17 +219,17 @@ def series_sum(dop, ini, pt, tgt_error, maj=None, bwrec=None,
         maj = bounds.DiffOpBound(dop, ini.expo, special_shifts)
     if bwrec is None:
         bwrec = bw_shift_rec(dop, shift=ini.expo)
+    if stop is None:
+        stop = accuracy.StoppingCriterion(maj, tgt_error.eps)
 
     doit = (series_sum_ordinary if dop.leading_coefficient().valuation() == 0
             else series_sum_regular)
 
-    return interval_series_sum_wrapper(doit, dop, ini, pt, tgt_error, maj,
-                                       bwrec, fail_fast, max_prec,
-                                       record_bounds_in, **kwds)
+    return interval_series_sum_wrapper(doit, dop, ini, pt, tgt_error, bwrec,
+                                       stop, fail_fast, max_prec, **kwds)
 
-def interval_series_sum_wrapper(doit, dop, ini, pt, tgt_error, maj, bwrec,
-                                fail_fast, max_prec, record_bounds_in,
-                                stride=None):
+def interval_series_sum_wrapper(doit, dop, ini, pt, tgt_error, bwrec, stop,
+                                fail_fast, max_prec, stride=None):
 
     if stride is None:
         stride = max(50, 2*bwrec.order)
@@ -250,11 +253,14 @@ def interval_series_sum_wrapper(doit, dop, ini, pt, tgt_error, maj, bwrec,
     logger.info("initial precision = %s bits", bit_prec)
     for attempt in itertools.count():
         try:
-            # strictly decrease tgt_error each time to avoid situations
-            # where doit would be happy with the result and stop at the same
-            # point despite the higher bit_prec
-            psum = doit(ivs(bit_prec), dop, bwrec, ini, pt,
-                    tgt_error >> (4*attempt), maj, stride, record_bounds_in)
+            Intervals = ivs(bit_prec)
+            ini_are_accurate = 2*min(pt.accuracy(), ini.accuracy()) > bit_prec
+            # strictly decrease eps each time to avoid situations where doit
+            # would be happy with the result and stop at the same point despite
+            # the higher bit_prec
+            stop.reset(tgt_error.eps >> (4*attempt),
+                       stop.fast_fail and ini_are_accurate)
+            psum = doit(Intervals, dop, bwrec, ini, pt, stop, stride)
             err = max(_get_error(c) for c in psum)
             logger.debug("bit_prec=%s, err=%s (tgt=%s)", bit_prec, err,
                     tgt_error)
@@ -279,11 +285,7 @@ def interval_series_sum_wrapper(doit, dop, ini, pt, tgt_error, maj, bwrec,
 # Ordinary points
 ################################################################################
 
-def series_sum_ordinary(Intervals, dop, bwrec, ini, pt,
-        tgt_error, maj, stride, record_bounds_in):
-
-    if record_bounds_in:
-        record_bounds_in[:] = []
+def series_sum_ordinary(Intervals, dop, bwrec, ini, pt, stop, stride):
 
     jet = pt.jet(Intervals)
     Jets = jet.parent() # polynomial ring!
@@ -300,8 +302,6 @@ def series_sum_ordinary(Intervals, dop, bwrec, ini, pt,
     psum = Jets.zero()
 
     tail_bound = bounds.IR(infinity)
-    bit_prec = Intervals.precision()
-    ini_are_accurate = 2*min(pt.accuracy(), ini.accuracy()) > bit_prec
 
     start = dop.order()
     # Evaluate the coefficients a bit in advance as we are going to need them to
@@ -312,23 +312,15 @@ def series_sum_ordinary(Intervals, dop, bwrec, ini, pt,
             (bwrec_ev(start+i) for i in xrange(ordrec)),
             maxlen=ordrec)
 
-    stopping_criterion = accuracy.StoppingCriterion(
-            maj=maj, eps=tgt_error.eps,
-            get_residuals=(lambda:
-                [maj.normalized_residual(n, [[c] for c in last][1:],
-                        [[[c] for c in l] for l in bwrec_nplus])]),
-            get_bound=(lambda(resid):
-                maj.matrix_sol_tail_bound(n, pt.rad, resid, ord)),
-            fast_fail=ini_are_accurate,
-            force=(record_bounds_in is not None))
+    def get_bound(maj):
+        return maj.bound(pt.rad, rows=ord)
+    def get_residuals():
+        return [stop.maj.normalized_residual(n, [[c] for c in last][1:],
+                    [[[c] for c in l] for l in bwrec_nplus])]
+    def get_value():
+        return psum
 
-    for n in range(start): # Initial values (“singular part”)
-        last.rotate(1)
-        term = Jets(last[0])._mul_trunc_(jetpow, ord)
-        psum += term
-        jetpow = jetpow._mul_trunc_(jet, ord)
-        radpow *= pt.rad
-    for n in itertools.count(start):
+    for n in itertools.count():
         last.rotate(1)
         #last[0] = None
         # At this point last[0] should be considered undefined (it will hold
@@ -338,24 +330,23 @@ def series_sum_ordinary(Intervals, dop, bwrec, ini, pt,
             radpowest = abs(jetpow[0] if pt.is_numeric
                             else Intervals(pt.rad**n))
             est = sum(abs(a) for a in last)*radpowest
-            done, tail_bound = stopping_criterion.check(n, tail_bound,
-                    est=est, next_stride=stride)
-            if record_bounds_in is not None:
-                record_bounds_in.append((n, psum, tail_bound))
+            done, tail_bound = stop.check(get_bound, get_residuals, get_value,
+                                       (n <= start), n, tail_bound, est, stride)
             if done:
                 break
-        bwrec_n = (bwrec_nplus[0] if bwrec_nplus else bwrec_ev(n))
-        comb = sum(bwrec_n[k]*last[k] for k in xrange(1, ordrec+1))
-        last[0] = -~bwrec_n[0]*comb
-        # logger.debug("n = %s, [c(n), c(n-1), ...] = %s", n, list(last))
+        if n >= start:
+            bwrec_n = (bwrec_nplus[0] if bwrec_nplus else bwrec_ev(n))
+            comb = sum(bwrec_n[k]*last[k] for k in xrange(1, ordrec+1))
+            last[0] = -~bwrec_n[0]*comb
+            bwrec_nplus.append(bwrec_ev(n+bwrec.order))
+            # logger.debug("n = %s, [c(n), c(n-1), ...] = %s", n, list(last))
         term = Jets(last[0])._mul_trunc_(jetpow, ord)
         psum += term
         jetpow = jetpow._mul_trunc_(jet, ord)
         radpow *= pt.rad
-        bwrec_nplus.append(bwrec_ev(n+bwrec.order))
     logger.info("summed %d terms, tail <= %s (est = %s), coeffwise error <= %s",
             n, tail_bound, bounds.IR(est),
-            max(x.rad() for x in psum) if pt.is_numeric else "n/a")
+            max(psum[i].rad() for i in range(ord)) if pt.is_numeric else "n/a")
     # Account for the dropped high-order terms in the intervals we return
     # (tail_bound is actually a bound on the Frobenius norm of the error matrix,
     # so there is some overestimation). WARNING: For symbolic x, the resulting
@@ -376,10 +367,11 @@ def fundamental_matrix_ordinary(dop, pt, eps, rows, maj, fail_fast):
     inis = [
         LogSeriesInitialValues(ZZ.zero(), ini, dop, check=False)
         for ini in identity_matrix(dop.order())]
+    stop = accuracy.StoppingCriterion(maj, eps_col.eps)
     cols = [
         interval_series_sum_wrapper(series_sum_ordinary, dop, ini, evpt,
-                                    eps_col, maj, bwrec, fail_fast,
-                                    max_prec=None, record_bounds_in=None)
+                                    eps_col, bwrec, stop, fail_fast,
+                                    max_prec=None)
         for ini in inis]
     return matrix(cols).transpose()
 
@@ -428,15 +420,16 @@ def fundamental_matrix_regular(dop, pt, eps, rows, branch, fail_fast):
     """
     evpt = EvaluationPoint(pt, jet_order=rows, branch=branch)
     eps_col = bounds.IR(eps)/bounds.IR(dop.order()).sqrt()
-    col_tgt_error = accuracy.AbsoluteError(eps_col)
+    eps_col = accuracy.AbsoluteError(eps_col)
     class Mapper(LocalBasisMapper):
         def process_modZ_class(self):
-            self.maj = bounds.DiffOpBound(dop, self.leftmost, self.shifts,
-                                        pol_part_len=4, bound_inverse="solve")
+            maj = bounds.DiffOpBound(dop, self.leftmost, self.shifts,
+                                     bound_inverse="solve")
+            self.stop = accuracy.StoppingCriterion(maj, eps_col.eps)
         def fun(self, ini):
             return interval_series_sum_wrapper(series_sum_regular, dop, ini,
-                    evpt, col_tgt_error, self.maj, self.emb_bwrec, fail_fast,
-                    max_prec=None, record_bounds_in=None)
+                    evpt, eps_col, self.emb_bwrec, self.stop, fail_fast,
+                    max_prec=None)
     cols = Mapper().run(dop)
     return matrix([sol.value for sol in cols]).transpose()
 
@@ -490,8 +483,7 @@ def log_series_value(Jets, derivatives, expo, psum, pt, branch=(0,)):
 # past singular indices anyway, we can allow for general initial conditions (at
 # roots of the indicial equation belonging to the same shift-equivalence class),
 # not just initial conditions associated to canonical solutions.
-def series_sum_regular(Intervals, dop, bwrec, ini, pt, tgt_error,
-        maj, stride, record_bounds_in=None):
+def series_sum_regular(Intervals, dop, bwrec, ini, pt, stop, stride):
     r"""
     TESTS::
 
@@ -524,8 +516,7 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, tgt_error,
         sage: dop = x*Dx^2 + Dx + x
         sage: ini = LogSeriesInitialValues(0, {0: (1, 0)})
         sage: maj = bounds.DiffOpBound(dop, special_shifts=[(0, 1)], max_effort=0)
-        sage: series_sum(dop, ini, QQ(2), 1e-8, stride=1, record_bounds_in=[],
-        ....:            maj=maj)
+        sage: series_sum(dop, ini, QQ(2), 1e-8, stride=1, maj=maj)
         ([0.2238907...])
 
     Some simple tests involving large non-integer valuations::
@@ -597,22 +588,22 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, tgt_error,
     # we currently check the series part only (which would sort of make
     # sense in a relative error setting)
     val = [None] # XXX could be more elegant :-)
-    def get_bound(resid):
-        tb = maj.matrix_sol_tail_bound(n, pt.rad, resid, rows=pt.jet_order)
-        tb = tb.abs()
-        my_psum = vector(Jets, [[t[i].add_error(tb)
+    def get_bound(maj):
+        tb = maj.bound(pt.rad, rows=pt.jet_order)
+        my_psum = vector(Jets, [[t[i].add_error(tb.abs())
                                 for i in range(ord)] for t in psum])
         # XXX decouple this from the summation => less redundant computation of
         # local monodromy matrices
         val[0] = log_series_value(Jets, ord, ini.expo, my_psum, jet[0],
                                   branch=pt.branch)
         return max([RBF.zero()] + [_get_error(c) for c in val[0]])
-    stopping_criterion = accuracy.StoppingCriterion(
-            maj=maj, eps=tgt_error.eps,
-            get_residuals=lambda:
-                [maj.normalized_residual(n, list(last)[1:], bwrec_nplus)],
-            get_bound=get_bound, fast_fail=ini_are_accurate,
-            force=(record_bounds_in is not None))
+    def get_residuals():
+        return [stop.maj.normalized_residual(n, list(last)[1:], bwrec_nplus)]
+    def get_value():
+        my_psum = vector(Jets, [[t[i] for i in range(ord)] for t in psum])
+        my_val = log_series_value(Jets, ord, ini.expo, my_psum, jet[0],
+                                  branch=pt.branch)
+        return my_val
 
     precomp_len = max(1, bwrec.order) # hack for recurrences of order zero
     bwrec_nplus = collections.deque(
@@ -625,15 +616,12 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, tgt_error,
         logger.log(logging.DEBUG - 1, "n = %s, sum = %s", n, psum)
         mult = len(ini.shift.get(n, ()))
 
-        if n%stride == 0 and n > last_index_with_ini and mult == 0:
+        if n%stride == 0:
             radpowest = abs(jetpow[0])
             est = sum(abs(a) for log_jet in last for a in log_jet) * radpowest
-            done, tail_bound = stopping_criterion.check(n, tail_bound, est,
-                                                        stride)
-            if record_bounds_in is not None:
-                # TODO: record all partial sums, not just [log(z)^0]
-                # (requires improvements to plot_bounds)
-                record_bounds_in.append((n, psum[0], tail_bound))
+            sing = (n <= last_index_with_ini) or (mult > 0)
+            done, tail_bound = stop.check(get_bound, get_residuals, get_value,
+                                          sing, n, tail_bound, est, stride)
             if done:
                 break
 

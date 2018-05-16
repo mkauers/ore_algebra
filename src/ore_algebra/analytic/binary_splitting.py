@@ -43,8 +43,8 @@ TESTS::
     INFO:ore_algebra.analytic.binary_splitting:...
     [12.5029695888765...] + [19.4722214188416...]*I
 
-    sage: from ore_algebra.analytic.examples import fcc
-    sage: fcc.dop5.numerical_solution( # long time (16.5 s, quite unstable)
+    sage: from ore_algebra.examples import fcc
+    sage: fcc.dop5.numerical_solution( # long time (~15 s, unstable)
     ....:          [0, 0, 0, 0, 1, 0], [0, 1/5+i/2, 1],
     ....:          1e-60, algorithm='binsplit')
     INFO:ore_algebra.analytic.binary_splitting:...
@@ -176,9 +176,9 @@ class StepMatrix_arb(StepMatrix):
         # XXX try converting tmp to an ord×ordrec matrix instead?
         for j in xrange(ordrec):
             for i in xrange(ordrec):
-                # XXX until _lmul_ is impemented for arb polynomials
-                # low.sums_row[0,j] += tmp[i]._lmul_(low.rec_mat[i,j])
                 low.sums_row[0,j] += low.rec_mat[i,j]*tmp[i]
+        # With moderately large matrices, all the time goes in the following
+        # line, even with native arb matrices.
         low.rec_mat = high.rec_mat*low.rec_mat # Mat(XBF)
         low.pow_num = low.pow_num._mul_trunc_(high.pow_num, low.ord) # XBF[δ]
         low.pow_den = low.pow_den._mul_(high.pow_den) # XBF (ZZ)
@@ -486,14 +486,15 @@ def fundamental_matrix_ordinary(dop, pt, eps, rows, maj, fail_fast):
     done = False
     rad = bounds.IC(pt).abs()
     # XXX clarify exact criterion
-    stopping_criterion = accuracy.StoppingCriterion(maj=maj, eps=eps,
-            get_residuals=lambda: rec.normalized_residuals(maj, prod, n),
-            get_bound=lambda(resid):
-                maj.matrix_sol_tail_bound(n, rad, resid, rows=rows))
+    stop = accuracy.StoppingCriterion(maj=maj, eps=eps, fast_fail=False)
+    def get_residuals():
+        return rec.normalized_residuals(maj, prod, n)
+    def get_bound(maj):
+        return maj.bound(rad, rows=rows, cols=rows)
     for last, n in binsplit_step_seq(0):
         prod = rec.binsplit(last, n) * prod
-        done, tail_bound = stopping_criterion.check(n, tail_bound,
-                est=rec.error_estimate(prod), next_stride=n)
+        done, tail_bound = stop.check(get_bound, get_residuals, None,
+                False, n, tail_bound, rec.error_estimate(prod), next_stride=n)
         if done:
             break
     is_real = utilities.is_real_parent(pt.parent())

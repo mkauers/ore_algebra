@@ -5,34 +5,39 @@ Accuracy management
 
 import logging
 
-from sage.rings.all import QQ, ZZ, RR
+from sage.rings.all import  ZZ, QQ, RR, RBF, CBF
 
-from .bounds import IR
 from .safe_cmp import *
 
 logger = logging.getLogger(__name__)
+
+IR, IC = RBF, CBF # TBI
 
 class PrecisionError(Exception):
     pass
 
 class StoppingCriterion(object):
 
-    def __init__(self, maj, eps, get_residuals, get_bound,
-                 fast_fail=False, force=False):
+    def __init__(self, maj, eps, fast_fail=True):
         self.maj = maj
         self.eps = eps
         self.prec = ZZ(eps.log(2).lower().floor()) - 2
-        self.get_residuals = get_residuals
-        self.get_bound = get_bound
         self.fast_fail = fast_fail
-        self.force = force
+        self.force = False
 
-    def check(self, n, ini_tb, est, next_stride):
+    def check(self, get_bound, get_residuals, get_value,
+              sing, n, ini_tb, est, next_stride):
         r"""
         Test if it is time to halt the computation of the sum of a series.
 
         INPUT:
 
+        - get_bound: function residual -> bound on the total error on the
+          current partial sum (including logs etc.);
+        - get_residuals: nullary function returning the normalized residuals;
+        - get_value: nullary function returning the current partial sum
+          (including logs etc.), *without* taking into account the tail bound in
+          the intervals;
         - n: current index;
         - ini_tb: previous tail bound (can be infinite);
         - est: real interval, heuristic estimate of the absolute value of the
@@ -48,7 +53,19 @@ class StoppingCriterion(object):
         (done, bound) where done is a boolean indicating if it is time to stop
         the computation, and bound is a rigorous (possibly infinite) bound on
         the tail of the series.
+
+        TESTS::
+
+            sage: from ore_algebra import DifferentialOperators
+            sage: from ore_algebra.analytic.bounds import DiffOpBound
+            sage: from ore_algebra.analytic.naive_sum import series_sum
+            sage: Dops, x, Dx = DifferentialOperators()
+            sage: maj = DiffOpBound(Dx-1, max_effort=0)
+            sage: series_sum(Dx-1, [1], 2, 1e-50, stride=1)
+            ([7.3890560989306502272304274605750078131803155705...])
         """
+        if sing:
+            return False, IR('inf')
 
         eps = self.eps
 
@@ -76,18 +93,20 @@ class StoppingCriterion(object):
             assert width.is_finite()
             return False, IR('inf')
 
-        resid = self.get_residuals()
+        resid = get_residuals()
 
         tb = IR('inf')
         while True:
             prev_tb = tb
-            tb = self.get_bound(resid)
+            tb = get_bound(self.maj.tail_majorant(n, resid))
             logger.debug("n=%d, est=%s, width=%s, tail_bound=%s",
                          n, est, width, tb)
             bound_getting_worse = ini_tb.is_finite() and not safe_lt(tb, ini_tb)
             if safe_lt(tb, eps):
                 logger.debug("--> ok")
                 return True, tb
+            elif self.force and not self.maj.can_refine():
+                break
             elif (prev_tb.is_finite() and not safe_le(tb, prev_tb >> 8)
                     or not self.maj.can_refine()):
                 if bound_getting_worse:
@@ -117,7 +136,7 @@ class StoppingCriterion(object):
                 logger.debug("--> intervals blowing up or bound getting worse")
                 self.maj.refine()
             else:
-                thr = tb*est**(QQ(next_stride*(self.maj._effort**2 + 2))/n)
+                thr = tb*est**(QQ(next_stride*(self.maj._effort**2 + 2))/(n+1))
                 if safe_le(thr, eps):
                     # Try summing a few more terms before refining
                     logger.debug("--> above refinement threshold ({} <= {})"
@@ -126,8 +145,12 @@ class StoppingCriterion(object):
                 else:
                     logger.debug("--> bad bound but refining may help")
                     self.maj.refine()
+        logger.debug("--> ko")
         return False, tb
 
+    def reset(self, eps, fast_fail):
+        self.eps = eps
+        self.fast_fail = fast_fail
 
 ######################################################################
 # Absolute and relative errors
@@ -147,9 +170,6 @@ class AbsoluteError(OldStoppingCriterion):
     def __repr__(self):
         return str(self.eps.lower()) + " (absolute)"
 
-    def __rshift__(self, n):
-        return AbsoluteError(self.eps >> n)
-
 class RelativeError(OldStoppingCriterion):
 
     def __init__(self, eps, cutoff=None):
@@ -164,6 +184,3 @@ class RelativeError(OldStoppingCriterion):
 
     def __repr__(self):
         return str(self.eps.lower()) + " (relative)"
-
-    def __rshift__(self, n):
-        return RelativeError(self.eps >> n, self.cutoff >> n)
