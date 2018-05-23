@@ -968,7 +968,7 @@ def OreAlgebra(base_ring, *generators, **kwargs):
     elif is_theta[0]:
         operator_class = ore_operator_1_1.UnivariateEulerDifferentialOperatorOverUnivariateRing
     else:
-        operator_class = ore_operator.UnivariateOreOperator
+        operator_class = ore_operator_1_1.UnivariateOreOperatorOverUnivariateRing
 
     # complain if we got any bogus keyword arguments
     for kw in kwargs:
