@@ -44,7 +44,7 @@ TESTS::
     [12.5029695888765...] + [19.4722214188416...]*I
 
     sage: from ore_algebra.examples import fcc
-    sage: fcc.dop5.numerical_solution( # long time (~15 s, unstable)
+    sage: fcc.dop5.numerical_solution( # long time (6.7 s)
     ....:          [0, 0, 0, 0, 1, 0], [0, 1/5+i/2, 1],
     ....:          1e-60, algorithm='binsplit')
     INFO:ore_algebra.analytic.binary_splitting:...
