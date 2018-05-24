@@ -48,6 +48,15 @@ from .generalized_series import GeneralizedSeriesMonoid, _generalized_series_shi
 class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
     """
     Element of an Ore algebra with a single generator and a commutative rational function field as base ring.     
+
+    TESTS::
+
+        sage: from ore_algebra import OreAlgebra
+        sage: R.<C> = OreAlgebra(GF(2)['x'])
+        sage: type(C)
+        <class 'ore_algebra.ore_operator_1_1.UnivariateOreOperatorOverUnivariateRing'>
+        sage: C.list()
+        [0, 1]
     """
     # Overview of dependencies between degree and denominator bounding functions:
     #
@@ -67,7 +76,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
     #
 
     def __init__(self, parent, *data, **kwargs):
-        super(UnivariateOreOperator, self).__init__(parent, *data, **kwargs)
+        super(self.__class__, self).__init__(parent, *data, **kwargs)
 
     def _normalize_base_ring(self):
         """

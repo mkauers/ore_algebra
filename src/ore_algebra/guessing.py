@@ -144,7 +144,11 @@ def guess(data, algebra, **kwargs):
       sage: rec = guess([1/(i+t) + t^i for i in xrange(100)], OreAlgebra(R['n'], 'Sn'))
       sage: rec
       ((-t + 1)*n^2 + (-2*t^2 - t + 2)*n - t^3 - 2*t^2)*Sn^2 + ((t^2 - 1)*n^2 + (2*t^3 + 3*t^2 - 2*t - 1)*n + t^4 + 3*t^3 + t^2 - t)*Sn + (-t^2 + t)*n^2 + (-2*t^3 + t)*n - t^4 - t^3 + t^2
-    
+
+      sage: R.<C> = OreAlgebra(ZZ['x'])
+      sage: cat = [binomial(2*n,n) // (n+1) for n in range(10)]
+      sage: guess(cat, R)
+      -x*C^2 + C - 1
     """
 
     A = algebra; R = A.base_ring(); K = R.base_ring(); x = R.gen()
