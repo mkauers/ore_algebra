@@ -887,7 +887,7 @@ class RatSeqBound(object):
         nums = [num.compose_trunc(jet, ord) for num in self._rcpq_nums]
         den = self._rcpq_den.compose_trunc(jet, ord)
         invabscst = IR.one()
-        if tight or tight is None and den[0].contains_zero():
+        if tight or tight is None and den[0].accuracy() < 0:
             # Replace the constant coefficient by a tighter bound (in
             # particular, one that should be finite even in the presence of
             # poles at exceptional or non-integer indices). More precisely,
