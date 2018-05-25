@@ -13,6 +13,11 @@
 
 import sys, os
 
+# Imports of some subpackages of Sage fail if executed in the wrong order.
+# We work around that issue by having Sphinx import sage.all before trying
+# to import anything from ore_algebra.
+import sage.all
+
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
@@ -172,7 +177,7 @@ htmlhelp_basename = 'ore_algebra_doc'
 # Grouping the document tree into LaTeX files. List of tuples
 # (source start file, target name, title, author, documentclass [howto/manual]).
 latex_documents = [
-  ('index', 'ore_algebra.tex', u'ore_algebra Documentation',
+  ('index', 'ore_algebra.tex', r'ore\_algebra Documentation',
    u'Manuel Kauers, Maximilian Jaroschek, Fredrik Johansson', 'manual'),
 ]
 

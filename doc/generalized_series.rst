@@ -1,4 +1,4 @@
 
-.. automodule:: generalized_series
+.. automodule:: ore_algebra.generalized_series
     :members:
 

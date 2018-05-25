@@ -1,5 +1,5 @@
 
 
-.. automodule:: guessing
+.. automodule:: ore_algebra.guessing
     :members:
 

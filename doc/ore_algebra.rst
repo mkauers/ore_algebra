@@ -1,4 +1,4 @@
 
-.. automodule:: ore_algebra
+.. automodule:: ore_algebra.ore_algebra
     :members:
 
