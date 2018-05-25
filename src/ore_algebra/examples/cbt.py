@@ -100,8 +100,7 @@ and we already saw that we were interested in the coefficient of
 (z - s)^4.260514654474679? + O((z - s)^10), i.e.
 
     sage: coef[5] # long time
-    [-15159.9611543047799242579648777 +/- 6.91e-26] +
-    [16196.115858853758381627715220 +/- 3.00e-25]*I
+    [-15159.961154304779924257964877...] + [16196.11585885375838162771522...]*I
 
 Sage's AsymptoticRing apparently doesn't digest the algebraic exponent yet, so
 let's do the singularity analysis by hand. Slightly annoyingly, the local basis

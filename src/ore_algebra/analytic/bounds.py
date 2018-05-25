@@ -864,7 +864,7 @@ class RatSeqBound(object):
                 res *= abs((IC.one() - root/n))**mult
         return res
 
-    def _bound_rat(self, n, ord):
+    def _bound_rat(self, n, ord, tight=None):
         r"""
         A componentwise bound on the vector ref[ord](k), valid for all k ≥ n
         with n, k ∉ exn.
@@ -887,7 +887,7 @@ class RatSeqBound(object):
         nums = [num.compose_trunc(jet, ord) for num in self._rcpq_nums]
         den = self._rcpq_den.compose_trunc(jet, ord)
         invabscst = IR.one()
-        if den[0].contains_zero():
+        if tight or tight is None and den[0].contains_zero():
             # Replace the constant coefficient by a tighter bound (in
             # particular, one that should be finite even in the presence of
             # poles at exceptional or non-integer indices). More precisely,
@@ -981,7 +981,7 @@ class RatSeqBound(object):
     def ord(self, n):
         return sum(m for (k, m) in self.exn.items() if k <= n)
 
-    def __call__(self, n):
+    def __call__(self, n, tight=None):
         r"""
         The bounds.
         """
@@ -999,7 +999,7 @@ class RatSeqBound(object):
             # but that would complicate (and perhaps slow down) _stairs() and
             # _bound_exn().
             ord = self.ord(n)
-            bound_rat = self._bound_rat(n, ord)
+            bound_rat = self._bound_rat(n, ord, tight)
             return [b1.max(b2) for b1, b2 in zip(bound_rat, bound_exn)]
 
     def ref(self, n, ord):
@@ -1018,7 +1018,7 @@ class RatSeqBound(object):
         my_n = IR(n)
         return [my_n*sum((c.abs() for c in ser), IR.zero()) for ser in sers]
 
-    def plot(self, rng=xrange(40)):
+    def plot(self, rng=xrange(40), tight=None):
         r"""
         Plot this bound and its reference function.
 
@@ -1048,27 +1048,39 @@ class RatSeqBound(object):
             iv = self.ref(k, self.ord(k))[0]
             if iv.is_finite():
                 ref.append((k, iv.upper()))
-        p1 = list_plot(pltfilter(ref), plotjoined=True, color='black',
-                       scale='semilogy')
-        p2 = list_plot(
-                pltfilter((k, self(k)[0].upper()) for k in rng),
-                plotjoined=True, color='blue', scale='semilogy')
-        p3 = list_plot(
-                pltfilter((k, self._bound_rat(k, self.ord(k))[0].upper())
-                    for k in rng
-                    if k not in self.exn),
-                size=20, color='red', scale='semilogy')
-        p4 = list_plot(
+        p  = list_plot(pltfilter(ref), plotjoined=True, color='black',
+                       linestyle="--", scale='semilogy',
+                       legend_label=r"ref.\ value")
+        p += list_plot(
+                pltfilter((k, self(k, tight=tight)[0].upper()) for k in rng),
+                plotjoined=True, color='blue', scale='semilogy',
+                legend_label="bound")
+        p += list_plot(
+                pltfilter((k,
+                    self._bound_rat(k, self.ord(k), tight=False)[0].upper())
+                    for k in rng if k not in self.exn),
+                size=20, color="blue", marker='^', scale='semilogy',
+                legend_label="$M_{\mathrm{gen}}$ (coarse)")
+        p += list_plot(
+                pltfilter((k,
+                    self._bound_rat(k, self.ord(k), tight=True)[0].upper())
+                    for k in rng if k not in self.exn),
+                size=20, color='blue', marker="v", scale='semilogy',
+                legend_label="$M_{\mathrm{gen}}$ (tight)")
+        p += list_plot(
                 pltfilter((k, self._bound_exn(k)[0].upper())
                           for k in rng),
-                size=20, color='gray', scale='semilogy')
+                size=15, color='blue', marker="s", scale='semilogy',
+                legend_label="$M_{\mathrm{exn}}$")
         m = max(rng)
-        p5 = list_plot(
+        p += list_plot(
                 pltfilter((e, v.upper())
                           for (e, v) in self._stairs(1)[0]
                           if e <= m),
-                size=60, marker='x', color='gray', scale='semilogy')
-        return p1 + p2 + p3 + p4 + p5
+                size=20, marker='x', color='blue', scale='semilogy',
+                legend_label="$\{S(n)\}$")
+        p.set_legend_options(handlelength=2, numpoints=3, shadow=False)
+        return p
 
     # TODO: add a way to _test() all bounds generated during a given
     # computation
