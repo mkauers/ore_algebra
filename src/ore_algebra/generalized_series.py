@@ -676,10 +676,10 @@ class ContinuousGeneralizedSeries(RingElement):
         return ContinuousGeneralizedSeries(self.parent(), 1, exp=self.__exp, ramification=self.ramification())
 
     def has_exponential_part(self):
-        """
+        r"""
         True if ``self`` has a nontrivial exponential part.
 
-        Note that the exponential part may not show up in form of an \"exp\" term in the printout,
+        Note that the exponential part may not show up in form of an "exp" term in the printout,
         but may also simply consist of some power `x^\alpha` with nonzero `\alpha`.
 
         EXAMPLES::

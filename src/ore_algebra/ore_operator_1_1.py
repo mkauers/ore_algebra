@@ -1562,7 +1562,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         return self.parent()(list(sol[0]))
 
     def power_series_solutions(self, n=5):
-        """
+        r"""
         Computes the first few terms of the power series solutions of this operator.
 
         The method raises an error if Sage does not know how to factor univariate polynomials
@@ -1821,7 +1821,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         return solutions
 
     def indicial_polynomial(self, p, var='alpha'):
-        """
+        r"""
         Compute the indicial polynomial of this operator at (a root of) `p`.
 
         If `x` is the generator of the base ring, the input may be either
@@ -2307,7 +2307,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         Generalized initial conditions at regular singular points are also
         supported. If `z_0` is a regular point, the entries of ``ini`` are
         interpreted as the coefficients of the monomials `(z-z_0)^n
-        \log(z_z_0)^k/k!` returned by :meth:`local_basis_monomials` in the
+        \log(z-z_0)^k/k!` returned by :meth:`local_basis_monomials` in the
         logarithmic series expansion of `f` at `z_0`. This definition reduces
         to the previous one when `z_0` is an ordinary point.
 
