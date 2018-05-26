@@ -4,6 +4,34 @@ Symbolic-numeric tools
 
 TODO: add general information about the subpackage here
 
+.. rubric:: Advanced API (unstable)
+
+.. autosummary::
+    :toctree: generated
+
+    ore_algebra.analytic.bounds
+    ore_algebra.analytic.function
+    ore_algebra.analytic.monodromy
+    ore_algebra.analytic.path
+    ore_algebra.analytic.polynomial_approximation
+    ore_algebra.analytic.ui
+
+.. rubric:: Internals
+
+.. autosummary::
+    :toctree: generated
+
+    ore_algebra.analytic.accuracy
+    ore_algebra.analytic.analytic_continuation
+    ore_algebra.analytic.binary_splitting
+    ore_algebra.analytic.differential_operator
+    ore_algebra.analytic.local_solutions
+    ore_algebra.analytic.naive_sum
+    ore_algebra.analytic.rectangular_splitting
+    ore_algebra.analytic.safe_cmp
+    ore_algebra.analytic.shiftless
+    ore_algebra.analytic.utilities
+
 Basic Usage
 ===========
 
