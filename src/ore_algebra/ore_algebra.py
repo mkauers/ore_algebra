@@ -1,7 +1,6 @@
 # coding: utf-8
 """
-ore_algebra
-===========
+Ore algebras
 
 The ore_algebra package provides functionality for doing computations with Ore polynomials.
 

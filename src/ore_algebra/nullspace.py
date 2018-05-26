@@ -1,8 +1,6 @@
 
 """
-
-nullspace
-=========
+Kernels of polynomial matrices
 
 This module is about computing the right kernel of matrices with polynomial entries.
 It provides various general purpose tools for constructing **solvers**. 

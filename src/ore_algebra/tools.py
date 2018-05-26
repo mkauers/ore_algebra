@@ -1,10 +1,6 @@
 
 """
-tools
-=====
-
-collection of auxiliary functions.
-
+Auxiliary functions
 """
 
 #############################################################################

@@ -1,8 +1,6 @@
 
 """
-ore_operator
-============
-
+Operators
 """
 
 

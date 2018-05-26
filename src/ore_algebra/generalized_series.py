@@ -1,8 +1,6 @@
 
 """
-generalized_series
-==================
-
+Generalized series
 """
 
 

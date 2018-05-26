@@ -1,6 +1,8 @@
 # coding: utf-8
 r"""
-Asymptotic Enumeration of Compacted Binary Trees, after Genitrini et al.
+Asymptotic enumeration of Compacted Binary Trees
+
+after Genitrini et al.
 
 This example shows how to compute rigorous enclosures of the constant factor
 in front of the asymptotic expansion of a P-recursive sequence using

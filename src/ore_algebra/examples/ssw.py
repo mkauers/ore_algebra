@@ -1,6 +1,6 @@
 # coding: utf-8
 r"""
-Small-Step Walks
+Small-step walks
 
 Operators and connection problems related to work by Alin Bostan, Frédéric
 Chyzak, Mark van Hoeij, Manuel Kauers and Lucien Pech on the combinatorics of

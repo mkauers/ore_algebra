@@ -1,8 +1,6 @@
 
 """
-ore_operator_mult
-=================
-
+Multivariate operators
 """
 
 

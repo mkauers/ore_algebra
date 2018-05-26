@@ -1,7 +1,6 @@
 # coding: utf-8
 """
-ore_operator_1_1
-================
+Univariate operators over univariate rings
 
 Special classes for operators living in algebras with one generator with base rings that also have
 one generator.
