@@ -129,6 +129,13 @@ they involve irrational exponents::
     [[-3.829367993175840...]  [7.857756823216673...]]
     [[-1.135875563239369...]  [1.426170676718429...]]
 
+    sage: kappa, mu = CBF(2), CBF(sqrt(3))
+    sage: z = CBF(10)
+    sage: dop.numerical_solution(ini=[0,1], path=[0, z]) # Whittaker M
+    [7.85775682321...] + [+/- ...]*I
+    sage: (-z/2).exp()*z^(mu+1/2)*z.hypergeometric([mu-kappa+1/2],[1+2*mu])
+    [7.85775682321...]
+
 This one has both algebraic exponents and an algebraic evaluation point::
 
     sage: alg = NumberField(x^6+86*x^5+71*x^4-80*x^3+2*x^2+7*x+24, 'alg',
