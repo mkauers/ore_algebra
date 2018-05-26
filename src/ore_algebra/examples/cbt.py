@@ -97,7 +97,7 @@ hence::
     sage: coef = mat*vector(ini) # long time
 
 and we already saw that we were interested in the coefficient of
-(z - s)^4.260514654474679? + O((z - s)^10), i.e.
+(z - s)^4.260514654474679? + O((z - s)^10), i.e. ::
 
     sage: coef[5] # long time
     [-15159.961154304779924257964877...] + [16196.11585885375838162771522...]*I
@@ -110,7 +110,7 @@ expressions of the form (1-z/s)^α. Since::
 
     [z^n] (1-z/s)^α ~ (1/s)^n·n^(-α-1)/Γ(-α),
 
-the constant κ_{10} we are looking for is given by
+the constant κ_{10} we are looking for is given by ::
 
     sage: alpha = QQbar(dop.local_basis_monomials(s)[5].op[1])
     sage: C = ComplexBallField(100)

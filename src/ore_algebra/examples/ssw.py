@@ -8,7 +8,7 @@ walks with small steps in the quarter plane. (A. Bostan and M. Kauers, Automatic
 Classification of Restricted Lattice Walks, FPSAC'09; A. Bostan, F. Chyzak,
 M. van Hoeij, M. Kauers and L. Pech, Hypergeometric expressions for generating
 functions of walks with small steps in the quarter plane, arXiv:1606.02982
-[math.CO], <URL: http://specfun.inria.fr/chyzak/ssw/index.html>):
+[math.CO], <URL: http://specfun.inria.fr/chyzak/ssw/index.html>)::
 
     sage: from ore_algebra import *
     sage: Pols.<t> = QQ[]
