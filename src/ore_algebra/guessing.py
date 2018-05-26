@@ -130,10 +130,11 @@ def guess(data, algebra, **kwargs):
 
     .. NOTE::
 
-    - This method is designed to find equations for D-finite objects. It may exhibit strange
-      behaviour for objects which are holonomic but not D-finite. 
-    - When the generator of the algebra is a commutative variable, the method searches for 
-      algebraic equations.
+        - This method is designed to find equations for D-finite objects. It
+          may exhibit strange behaviour for objects which are holonomic but not
+          D-finite. 
+        - When the generator of the algebra is a commutative variable, the
+          method searches for algebraic equations.
 
     EXAMPLES::
 
@@ -1171,8 +1172,9 @@ def guess_mult(data, algebra, **kwargs):
 
     .. NOTE::
 
-    - This method is designed to find equations for D-finite objects. It may exhibit strange
-      behaviour for objects which are holonomic but not D-finite. 
+        This method is designed to find equations for D-finite objects. It may
+        exhibit strange behaviour for objects which are holonomic but not
+        D-finite. 
 
     EXAMPLES::
 

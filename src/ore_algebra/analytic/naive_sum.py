@@ -37,6 +37,8 @@ logger = logging.getLogger(__name__)
 
 class EvaluationPoint(object):
     r"""
+    Series evaluation point/jet.
+
     A ring element (a complex number, a polynomial indeterminate, perhaps
     someday a matrix) where to evaluate the partial sum of a series, along with
     a “jet order” used to compute derivatives and a bound on the norm of the
@@ -78,6 +80,8 @@ class EvaluationPoint(object):
 def series_sum(dop, ini, pt, tgt_error, maj=None, bwrec=None, stop=None,
         max_prec=100000, fail_fast=False, **kwds):
     r"""
+    Sum a (generalized) series solution of dop.
+
     EXAMPLES::
 
         sage: from sage.rings.real_arb import RealBallField, RBF
@@ -386,6 +390,8 @@ def fundamental_matrix_ordinary(dop, pt, eps, rows, maj, fail_fast):
 
 def fundamental_matrix_regular(dop, pt, eps, rows, branch, fail_fast):
     r"""
+    Fundamental matrix at a possibly regular singular point
+
     TESTS::
 
         sage: from ore_algebra import *
@@ -445,6 +451,8 @@ def _pow_trunc(a, n, ord):
 
 def log_series_value(Jets, derivatives, expo, psum, pt, branch=(0,)):
     r"""
+    Evaluate a logarithmic series.
+
     * ``branch`` - branch of the logarithm to use; (0) means the standard
       branch, (k) means log(z) + 2kπi, a tuple of length > 1 averages over the
       corresponding branches
@@ -485,6 +493,9 @@ def log_series_value(Jets, derivatives, expo, psum, pt, branch=(0,)):
 # not just initial conditions associated to canonical solutions.
 def series_sum_regular(Intervals, dop, bwrec, ini, pt, stop, stride):
     r"""
+    Sum a (logarithmic) series solution of an operator that may have a regular
+    singular point at the origin.
+
     TESTS::
 
         sage: from ore_algebra import *

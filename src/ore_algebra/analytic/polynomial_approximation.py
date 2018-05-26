@@ -32,13 +32,15 @@ def combine_radii(pol):
 
 def taylor_economization(pol, eps):
     r"""
+    Economize a polynomial by removing monomials.
+
     Remove terms from the polynomial ``pol``, starting with the high-order
-    terms, in such a way that its value on the disk |z| < 1 changes at most
+    terms, in such a way that its value on the disk `|z| < 1` changes at most
     by ``eps``.
 
     A bound on the difference between the result and the input polynomial is
-    added to the constant term, so that, for any complex number z with |z| < 1,
-    the value of the result at z contains that of ``pol``.
+    added to the constant term, so that, for any complex number `z` with
+    `|z| < 1`, the value of the result at `z` contains that of ``pol``.
 
     EXAMPLES::
 
@@ -107,9 +109,9 @@ def general_economization(economization_polynomials, pol, eps):
     INPUT:
 
     - ``economization_polynomials(ring, n)`` - function returning a list
-      [E[0], ..., E[n-1]] of ``n`` elements of ``ring``; it is assumed that E[k]
-      is a polynomial of degree exactly ``k`` such that |E[k](x)| ≤ 1 when x
-      lies in some domain of interest;
+      `[E[0], ..., E[n-1]]` of ``n`` elements of ``ring``; it is assumed that
+      `E[k]` is a polynomial of degree exactly ``k`` such that `|E[k](x)| ≤ 1`
+      when `x` lies in some domain of interest;
 
     - ``pol`` - polynomial with real or complex ball coefficients;
 
@@ -211,6 +213,9 @@ def doit(dop, ini, path, rad, eps, derivatives, economization, x_is_real):
 
 def on_disk(dop, ini, path, rad, eps):
     r"""
+    Compute a polynomial approximation of a solution of ``dop`` on a complex
+    disk.
+
     EXAMPLES::
 
         sage: from ore_algebra import *
@@ -251,6 +256,8 @@ def on_disk(dop, ini, path, rad, eps):
 
 def on_interval(dop, ini, path, eps, rad=None):
     r"""
+    Compute a polynomial approximation of a solution of ``dop`` on a segment.
+
     EXAMPLES::
 
         sage: from ore_algebra import *

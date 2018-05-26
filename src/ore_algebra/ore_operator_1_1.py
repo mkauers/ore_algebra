@@ -764,16 +764,17 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
 
         INPUT:
 
-        - ``oBound'' -- The maximal order of the operators in the center.
-        - ``dBound'' -- The maximal coefficient degree of the operators in the center.
+        - ``oBound`` -- The maximal order of the operators in the center.
+        - ``dBound`` -- The maximal coefficient degree of the operators in the center.
 
         OUTPUT:
 
-        A subspace of Q^((oBound+1)*(dBound+1)). Each entry of a vector corresponds to a coefficient of an Ore polynomial that commutes with `self'. To tranlstte a vector to its corresponding Ore
-        polynomial, call _listToOre
+        A subspace of Q^((oBound+1)*(dBound+1)). Each entry of a vector
+        corresponds to a coefficient of an Ore polynomial that commutes with
+        ``self``. To translate a vector to its corresponding Ore polynomial,
+        call _listToOre
 
         Note: This method only works for operators over Q[n].
-
         """
 
         R = self.parent()
@@ -1036,7 +1037,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
 
         INPUT:
 
-        - ``order'' (default=1) -- only determine right factors of at most this
+        - ``order`` (default=1) -- only determine right factors of at most this
           order
 
         - ``early_termination`` (optional) -- if set to ``True``, the search for

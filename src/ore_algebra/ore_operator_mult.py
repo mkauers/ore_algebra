@@ -295,12 +295,16 @@ class MultivariateOreOperator(OreOperator):
 
         INPUT:
 
-           basis -- a list of elements of elements of self's parent (or objects that can be coerced to such elements), or a left ideal
-           normalize -- 'True' to allow the output to be some K-multiple of the actual result, where K is the parent's basering.
-           cofactors -- 'True' to return also the cofactors
-           infolevel -- nonnegative integer indicating the desired verbosity
-           coerce -- set to 'False' to save some speed if normalize is 'True' and you know that 'self' as well as the elements
-                     of 'basis' belong to the same algebra and this algebra has a multivariate polynomial ring as base ring. 
+        - basis -- a list of elements of elements of self's parent (or objects
+          that can be coerced to such elements), or a left ideal
+        - normalize -- 'True' to allow the output to be some K-multiple of the
+          actual result, where K is the parent's basering.
+        - cofactors -- 'True' to return also the cofactors infolevel --
+          nonnegative integer indicating the desired verbosity
+        - coerce -- set to 'False' to save some speed if normalize is 'True'
+          and you know that 'self' as well as the elements of 'basis' belong to
+          the same algebra and this algebra has a multivariate polynomial ring
+          as base ring.
 
         OUTPUT:
 

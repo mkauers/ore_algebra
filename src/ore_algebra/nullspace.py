@@ -1566,7 +1566,7 @@ def clear(subsolver):
     .. WARNING::
 
        For unstructured matrices, clearing denominators may significantly increase the size
-       of the system. In such situations, consider using nullspace.lagrange_ .
+       of the system. In such situations, consider using ``nullspace.lagrange_``.
       
     """
     def clear_solver(mat, degrees=[], infolevel=0):

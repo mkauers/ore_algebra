@@ -390,6 +390,8 @@ class Point(SageObject):
 # XXX: do we need special *Steps* for connections to singular points?
 class Step(SageObject):
     r"""
+    Analytic continuation step from a :class:`Point` to another
+
     EXAMPLES::
 
         sage: from ore_algebra import *

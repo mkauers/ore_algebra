@@ -8,6 +8,7 @@ import collections, logging
 from sage.categories.pushout import pushout
 from sage.functions.log import log as symbolic_log
 from sage.misc.cachefunc import cached_method
+from sage.misc.lazy_attribute import lazy_attribute
 from sage.modules.free_module_element import vector
 from sage.rings.all import ZZ, QQ, QQbar, RBF, RealBallField, ComplexBallField
 from sage.rings.complex_arb import ComplexBall
@@ -239,8 +240,7 @@ _FundamentalSolution0 = collections.namedtuple(
     ['leftmost', 'shift', 'log_power', 'value'])
 
 class FundamentalSolution(_FundamentalSolution0):
-    @property
-    @cached_method
+    @lazy_attribute
     def valuation(self):
         return QQbar(self.leftmost + self.shift) # alg vs NFelt for re, im
 

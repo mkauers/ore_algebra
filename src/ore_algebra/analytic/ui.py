@@ -10,6 +10,8 @@ from . import polynomial_approximation as polapprox
 
 def transition_matrices(dop, path, eps=1e-16):
     r"""
+    Compute several transition matrices at once.
+
     EXAMPLES::
 
         sage: from ore_algebra.analytic.ui import *
@@ -45,6 +47,8 @@ def _value_from_mat(mat):
 
 def multi_eval_diffeq(dop, ini, path, eps=1e-16):
     """
+    Evaluate a solution at several points along a path.
+
     EXAMPLES::
 
         sage: from ore_algebra.analytic.ui import *

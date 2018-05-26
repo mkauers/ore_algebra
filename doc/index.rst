@@ -1,7 +1,7 @@
 Documentation of ore_algebra
 ============================
 
-.. rubric::
+.. rubric:: Core modules
 
 .. autosummary::
     :toctree: generated
@@ -44,7 +44,6 @@ Documentation of ore_algebra
 .. autosummary::
     :toctree: generated
 
-    ore_algebra.examples.__init__
     ore_algebra.examples.cbt
     ore_algebra.examples.fcc
     ore_algebra.examples.iint

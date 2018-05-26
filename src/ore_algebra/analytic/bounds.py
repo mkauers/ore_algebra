@@ -93,7 +93,7 @@ class MajorantSeries(object):
         and g is this majorant series. Typically, g(z) is a common majorant
         series of the elements of a basis of solutions of some differential
         equation, and the result is then a bound on the corresponding
-        fundamental matrix Y(ζ) for all for all ζ with |ζ| ≤ rad.
+        fundamental matrix Y(ζ) for all for all ζ with `|ζ|` ≤ rad.
         """
         if not safe_le(rad, self.cvrad): # intervals!
             return IR(infinity)
@@ -432,7 +432,7 @@ def graeffe(pol):
     r"""
     Compute the Graeffe iterate of a polynomial.
 
-    EXAMPLES:
+    EXAMPLES::
 
         sage: from ore_algebra.analytic.bounds import graeffe
         sage: Pol.<x> = QQ[]
@@ -600,11 +600,11 @@ class RatSeqBound(object):
     r"""
     Bounds on the tails of a.e. rational sequences and their derivatives.
 
-    Consider a vector of rational sequences sharing the same denominator,
+    Consider a vector of rational sequences sharing the same denominator, ::
 
         f(n) = nums(n)/den(n) = [num[i](n)/den(n)]_i.
 
-    We assume that den is monic and deg(nums) < deg(den). Let
+    We assume that den is monic and deg(nums) < deg(den). Let ::
 
                   ⎧ f^(t)(n),                       n ∉ exceptional_indices,
         F[t](n) = ⎨ (d/dX)^t(num(n+X)/(X^{-m}·den(n+X)))(X=0)),
@@ -617,7 +617,7 @@ class RatSeqBound(object):
 
         τ(n) = sum[k=-∞..n](exceptional_indices[k]).
 
-    An instance of this class represents a vector of bounds b(n) such that
+    An instance of this class represents a vector of bounds b(n) such that ::
 
         ∀ k ≥ n,   |ref(k, τ(k))| ≤ b(n)  (componentwise).
 
@@ -1175,7 +1175,7 @@ def bound_polynomials(pols):
     r"""
     Compute a common majorant polynomial for the polynomials in ``pol``.
 
-    Note that this returns a _majorant_, not some kind of enclosure.
+    Note that this returns a *majorant*, not some kind of enclosure.
 
     TESTS::
 
@@ -1233,17 +1233,18 @@ class DiffOpBound(object):
 
     In the typical situation where n0 ≤ n1 and y(z) does not depend on initial
     conditions “past” n1, a polynomial p(z) of valuation at least n1 with this
-    property can be computed using the methods normalized_residual() and rhs().
+    property can be computed using the methods :meth:`normalized_residual()`
+    and :meth:`rhs()`.
     Variants with different p hold in more general settings. See the
     documentation of normalized_residual() and rhs() for more information.
 
     Note that multiplying dop by a rational function changes p(z).
 
-    DiffOpBounds are refinable: calling the method refine() will try to replace
-    the parametrized series v[n](z) by one giving tighter bounds. The main
-    effect of refinement is to increase the degree of the polynomial part. This
-    can be done several times, but repeated calls to refine() quickly become
-    expensive.
+    DiffOpBounds are refinable: calling the method :meth:`refine()` will try to
+    replace the parametrized series v[n](z) by one giving tighter bounds. The
+    main effect of refinement is to increase the degree of the polynomial part.
+    This can be done several times, but repeated calls to refine() quickly
+    become expensive.
 
     EXAMPLES::
 
@@ -1590,7 +1591,8 @@ class DiffOpBound(object):
         (exactly one when none of λ+n, λ+n+1, ..., λ+n+s-1 is a root of the
         indicial polynomial dop(z=0,n)).
 
-        This method takes as input the truncation order n and the coefficients
+        This method takes as input the truncation order n and the
+        coefficients ::
 
             last = [[y[n-1,0], y[n-1,1], ...],
                     [y[n-2,0], y[n-2,1], ...],
@@ -1804,24 +1806,24 @@ class DiffOpBound(object):
 
         OUTPUT:
 
-        A polynomial (q#)(z) such that, with (q^)(z) = z^n1·(q#)(z),
+        A polynomial (q#)(z) such that, with (q^)(z) = z^n1·(q#)(z), ::
 
             z·ŷ'(z) - ŷ(z) = (q^)(z)·v[n0](z)·den(z)                     (*)
 
         is a majorant equation of self.dop(ỹ) = Q₀(θ)·q(z) (where Q₀ = monic
         indicial polynomial) for all q ∈ normalized_residuals. More precisely,
         if y(z) is a solution of dop(y) = 0 associated to one of the q's, if
-        ŷ(z) is a solution of (*), and if
+        ŷ(z) is a solution of (*), and if ::
 
             |y[λ+n,k]| ≤ ŷ[n]   for   n ≥ n1,   0 ≤ k < mult(n, Q₀),     (**)
 
-        then |y[λ+n,k]| ≤ ŷ[n] for *all* n ≥ n1, k ≥ 0. If maj is omitted, the
+        then `|y[λ+n,k]| ≤ ŷ[n]` for *all* n ≥ n1, k ≥ 0. If maj is omitted, the
         bound will hold for any choice of n0 ≤ n1 in (*), but may be coarser
         than that corresponding to a particular n0.
 
         The typical application is with n0 = n1 larger than the n's
         corresponding to roots λ+n of Q₀ where the y have nonzero initial
-        values. In this case, one can take
+        values. In this case, one can take ::
 
             ŷ(z) = v[n0](z)·∫(w⁻¹·(q^)(w)·dw, w=0..z)
 
