@@ -2059,7 +2059,7 @@ BoundRecord = collections.namedtuple("BoundRecord", ["n", "psum", "maj", "b"])
 class BoundRecorder(accuracy.StoppingCriterion):
 
     def __init__(self, maj, eps, fast_fail=False):
-        super(self.__class__, self).__init__(maj, eps, fast_fail=fast_fail)
+        super(self.__class__, self).__init__(maj, eps, fast_fail=True)
         self.force = True
         self.recd = []
 
