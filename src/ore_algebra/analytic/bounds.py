@@ -1732,7 +1732,7 @@ class DiffOpBound(object):
         # normalized residual. This is done by solving a triangular system with
         # (cst ×) the coefficients of the residual corresponding to the same d
         # on the rhs. The coefficients of the residual are computed on the fly.
-        for d in range(deg):
+        for d in xrange(deg):
             lc = bwrec_nplus[d][0][0]
             assert not (lc.parent() is IC and lc.contains_zero())
             inv = ~lc
@@ -1741,18 +1741,18 @@ class DiffOpBound(object):
                 if use_sum_of_products:
                     res[k][d] = Ring._sum_of_products(
                             (bwrec_nplus[d][d+i+1][j], last[i][k+j])
-                            for i in range(deg - d)
-                            for j in range(logs - k))
+                            for i in xrange(deg - d)
+                            for j in xrange(logs - k))
                 else:
                     res[k][d] = sum(
                             Ring(bwrec_nplus[d][d+i+1][j])*Ring(last[i][k+j])
-                            for i in range(deg - d)
-                            for j in range(logs - k))
+                            for i in xrange(deg - d)
+                            for j in xrange(logs - k))
                 # Deduce the corresponding coefficient of nres
                 # XXX For simplicity, we limit ourselves to the “generic” case
                 # where none of the n+d is a root of the indicial polynomial.
                 cor = sum(bwrec_nplus[d][0][u]*nres[k+u][d]
-                          for u in range(1, logs-k))
+                          for u in xrange(1, logs-k))
                 nres[k][d] = inv*(cst*res[k][d] - cor)
         Poly = self.__CPoly if Ring is IC else self.Poly.change_ring(Ring)
         return [Poly(coeff) for coeff in nres]
@@ -2113,14 +2113,14 @@ def _dop_rcoeffs_of_T(dop, base_ring):
     binomial = [[0]*(ordlen) for _ in range(ordlen)]
     for n in range(ordlen):
         binomial[n][0] = 1
-        for k in range(1, n + 1):
+        for k in xrange(1, n + 1):
             binomial[n][k] = binomial[n-1][k-1] + binomial[n-1][k]
     res = [None]*(ordlen)
     for k in range(ordlen):
         pol = [base_ring.zero()]*(deglen)
-        for j in range(deglen):
+        for j in xrange(deglen):
             pow = 1
-            for i in range(ordlen - k):
+            for i in xrange(ordlen - k):
                 pol[j] += pow*binomial[k+i][i]*base_ring(dop[k+i][j])
                 pow *= (-j)
         res[k] = Pols(pol)
@@ -2178,7 +2178,7 @@ def _switch_vars(pol):
         return Ayx.zero()
     dy = pol.degree()
     dx = max(c.degree() for c in pol)
-    return Ayx([Ay([pol[j][i] for j in range(dy+1)]) for i in range(dx+1)])
+    return Ayx([Ay([pol[j][i] for j in xrange(dy+1)]) for i in xrange(dx+1)])
 
 def _use_sum_of_products(last, bwrec_nplus):
     if not (last and last[0] and bwrec_nplus and bwrec_nplus[0] and
