@@ -1937,6 +1937,11 @@ class DiffOpBound(object):
     def _random_ini(self):
         return local_solutions.random_ini(self._dop_D)
 
+    def _test_point(self):
+        rad = abs_min_nonzero_root(self._dop_D.leading_coefficient())
+        pt = QQ(2) if rad == infinity else RIF(rad/2).simplest_rational()
+        return pt
+
     def plot(self, ini=None, pt=None, eps=RBF(1e-50), tails=None,
              color="blue", title=True, intervals=True, **opts):
         r"""
@@ -1981,8 +1986,7 @@ class DiffOpBound(object):
         if ini is None:
             ini = self._random_ini()
         if pt is None:
-            rad = abs_min_nonzero_root(self._dop_D.leading_coefficient())
-            pt = QQ(2) if rad == infinity else RIF(rad/2).simplest_rational()
+            pt = self._test_point()
         eps = RBF(eps)
         logger.info("operator: %s", str(self.dop)[:60])
         logger.info("point: %s", pt)
@@ -2042,6 +2046,9 @@ class DiffOpBound(object):
         import sage.plot.all as plot
         p = plot.plot([])
         styles = [':', '-.', '--', '-']
+        d = len(styles) - n
+        if d > 0:
+            styles = styles[d:]
         for i in range(n):
             lab = legend_fmt.format(
                     inv=self.bound_inverse,
