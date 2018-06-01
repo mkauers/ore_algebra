@@ -1857,6 +1857,24 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
 
             sage: A(x^3 - 2).indicial_polynomial(x^2 + 1)
             1
+
+            sage: P.<x> = QQ[]; Q.<y> = Frac(P)[]; Dops.<Dy> = OreAlgebra(Q)
+            sage: dop = ((x+1)*(y*Dy)^3-x)*((y*Dy)^2+2*x*y*Dy+1)
+            sage: dop.indicial_polynomial(y).factor()
+            (x + 1) * (alpha^2 + 2*x*alpha + 1) * (alpha^3 - x/(x + 1))
+            sage: dop = ((((3*x - 5)/(-2*x^2 - 3/4*x - 2/41))*y^2
+            ....:     + ((-1/8*x^2 + 903/2*x)/(-x^2 - 1))*y
+            ....:     + (-1/59*x^2 - 1/6*x - 5)/(-8*x^2 + 1/2))*Dy^2
+            ....:     + (((x^2 - 1/2*x + 2)/(x + 1/3))*y^2
+            ....:     + ((2*x^2 + 19*x + 1/2)/(-5*x^2 + 21/4*x - 1/2))*y
+            ....:     + (1/5*x^2 - 26*x - 3)/(-x^2 - 1/3*x + 1/3))*Dy
+            ....:     + ((3*x^2 + 2/5*x + 1/2)/(-139*x^2 + 2))*y^2
+            ....:     + ((1/2*x^2 + 1/20*x + 1)/(4/3*x^2 + 1/6*x + 4))*y
+            ....:     + (3/5*x - 3)/(-1/2*x^2))
+            sage: dop.indicial_polynomial(y)
+            (1/472*x^2 + 1/48*x + 5/8)*alpha^2 + (-1/472*x^2 - 1/48*x - 5/8)*alpha
+            sage: dop.indicial_polynomial(dop.leading_coefficient())
+            alpha
         """
 
         x = p.parent().gen()
