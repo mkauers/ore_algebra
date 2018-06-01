@@ -1972,6 +1972,23 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
     def _denominator_bound(self):
         """
         Denominator bounding based on indicial polynomial.
+
+        TESTS::
+
+            sage: from ore_algebra import *
+            sage: P.<x> = QQ[]; Q.<y> = Frac(P)[]; Dops.<Dy> = OreAlgebra(Q)
+            sage: u = 1/(x^2 + y)
+            sage: v = 1/((y+1)*(y-1))
+            sage: dop = (Dy - Dy(u)/u).lclm(Dy - Dy(v)/v)
+            sage: dop._denominator_bound()
+            (y - 1) * (y + 1) * (y + x^2)
+            sage: dop.rational_solutions()
+            [(1/(y^2 - 1),), (1/(y + x^2),)]
+            sage: dop = (Dy - Dy(u)/u).lclm(Dy^2 - y)
+            sage: dop._denominator_bound()
+            y + x^2
+            sage: dop.rational_solutions()
+            [(1/(y + x^2),)]
         """
         if self.is_zero():
             raise ZeroDivisionError, "unbounded denominator"
@@ -1986,25 +2003,30 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             lc = lc.map_coefficients(lambda p: den*p)
         except:
             pass
+        fac = [p for p, _ in lc.factor()]
 
         # specialize additional variables
         K1, vars = _tower(K)
         K1 = K1.fraction_field()
-        L1 = L
+        L1, p1, fac1 = L, p, fac
         if vars and K1 is QQ:
             R1 = R.change_ring(K1)
             A1 = A.change_ring(R1)
             for _ in range(5):
                 subs = {x: K1.random_element(100) for x in vars}
                 L1 = A1([R1([c(**subs) for c in p]) for p in L])
-                if all(L1[i].degree() == L[i].degree() for i in range(L.order() + 1)):
-                    break
-                else:
-                    L1 = L
+                fac1 = [R1([c(**subs) for c in p]) for p in fac]
+                if any (p1.degree() != p.degree() for p, p1 in zip(fac, fac1)):
+                    continue
+                if any(L1[i].valuation() != L[i].valuation()
+                       for i in range(L.order() + 1)):
+                    continue
+                break
+        else:
+            L1, p1, fac1 = L, p, fac
 
         bound = []
-        for (p, _) in lc.factor():
-            p1 = R1([c(**subs) for c in p]) if L1 is not L else p
+        for (p, p1) in zip(fac, fac1):
             e = 0
             for j in range(r + 1): ## may be needed for inhomogeneous part
                 if not L1[j].is_zero():
