@@ -1730,7 +1730,9 @@ def _quick_check(subsolver, modsolver, modulus, mat, degrees, infolevel):
     check_prime = pp(modulus) if R.characteristic() == 0 else R.characteristic()
     check_eval = dict(zip(x, [ 17*j + 13 for j in xrange(len(x)) ]))
     check_mat_ring = MatrixSpace(GF(check_prime), mat.nrows(), mat.ncols())
-    check_mat = check_mat_ring.matrix(lambda i, j: mat[i,j].substitute(check_eval))
+    check_mat = check_mat_ring.matrix([mat[i,j].substitute(check_eval)
+                                       for i in range(mat.nrows())
+                                       for j in range(mat.ncols())])
 
     _info(infolevel, "Starting modular solver...", alter = -1)
     check_sol = modsolver(check_mat)
