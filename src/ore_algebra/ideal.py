@@ -807,8 +807,7 @@ class OreLeftIdeal(Ideal_nc):
            sage: K.<t> = R.fraction_field().extension((x-y)*t^3 + t - x^2*y - x^2)
            sage: A.<Dx,Dy> = OreAlgebra(R)
            sage: A.ideal([x*Dx-1,y*Dy-1]).annihilator_of_composition(x=t).ct(Dy, certificates=False)
-           [(252*x^5 - 108*x^4 - 81*x^3 + 36*x^2)*Dx^2 + (-504*x^4 + 108*x^3 + 36*x)*Dx + 224*x^3 + 360*x^2 + 66*x - 16]
-
+           [(-252*x^5 + 108*x^4 + 81*x^3 - 36*x^2)*Dx^2 + (504*x^4 - 108*x^3 - 36*x)*Dx - 224*x^3 - 360*x^2 - 66*x + 16]
         """
 
         def info(i, m):
