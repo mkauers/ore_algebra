@@ -2219,8 +2219,8 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         TESTS::
 
             sage: (4*x^2*Dx^2 + (-x^2+8*x-11)).local_basis_expansions(0, 2)
-            [x^(-sqrt(3) + 1/2) + (-4/11*a+2/11)*x^(-sqrt(3) + 3/2),
-            x^(sqrt(3) + 1/2) - (-4/11*a-2/11)*x^(sqrt(3) + 3/2)]
+            [x^(-1.232050807568878?) + (-4/11*a+2/11)*x^(-0.2320508075688773?),
+            x^2.232050807568878? - (-4/11*a-2/11)*x^3.232050807568878?]
 
             sage: ((27*x^2+4*x)*Dx^2 + (54*x+6)*Dx + 6).local_basis_expansions(0, 2)
             [1/sqrt(x) + 3/8*sqrt(x), 1 - x]
@@ -4707,11 +4707,35 @@ def _listToOre(l,order,R):
         res = res+l[i]*n**(i%d)*S**(i//d)
     return res
 
-def _simplify_exponent(e): # work around sage bug #21758
-    try:
-        return ZZ(e)
-    except (TypeError, ValueError):
-        return e
+def _simplify_exponent(e): # work around various Sage bugs
+    r"""
+    TESTS::
+
+        sage: from ore_algebra.examples import cbt
+        sage: lc = cbt.dop[10].leading_coefficient()
+        sage: s = sorted(lc.roots(QQbar, multiplicities=False), key=abs)[0]
+        sage: cbt.dop[10].local_basis_monomials(s)
+        [1,
+        z - 0.2651878342412026?,
+        (z - 0.2651878342412026?)^2,
+        (z - 0.2651878342412026?)^3,
+        (z - 0.2651878342412026?)^4,
+        (z - 0.2651878342412026?)^4.260514654474679?,
+        (z - 0.2651878342412026?)^5,
+        (z - 0.2651878342412026?)^6,
+        (z - 0.2651878342412026?)^7,
+        (z - 0.2651878342412026?)^8,
+        (z - 0.2651878342412026?)^9]
+        sage: cbt.dop[10].local_basis_expansions(s, 1)
+        [1, 0, 0, 0, 0, (z - 0.2651878342412026?)^4.260514654474679?, 0, 0, 0,
+        0, 0]
+    """
+    for dom in ZZ, QQ, AA, QQbar:
+        try:
+            return dom(e)
+        except (TypeError, ValueError):
+            pass
+    return e
 
 def _tower(dom):
     if is_PolynomialRing(dom) or is_MPolynomialRing(dom):
