@@ -2013,13 +2013,12 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             R1 = R.change_ring(K1)
             A1 = A.change_ring(R1)
             for _ in range(5):
-                subs = {x: K1.random_element(100) for x in vars}
+                subs = {x: K1(nth_prime(5 + _) + nth_prime(15 + i)) for (x, i) in enumerate(vars)}
                 L1 = A1([R1([c(**subs) for c in p]) for p in L])
                 fac1 = [R1([c(**subs) for c in p]) for p in fac]
                 if any (p1.degree() != p.degree() for p, p1 in zip(fac, fac1)):
                     continue
-                if any(L1[i].valuation() != L[i].valuation()
-                       for i in range(L.order() + 1)):
+                if any(L1[i].valuation() != L[i].valuation() for i in range(L.order() + 1)):
                     continue
                 break
         else:
