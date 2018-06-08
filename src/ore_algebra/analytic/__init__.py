@@ -172,6 +172,42 @@ constant::
     sage: mat[1][2].overlaps(CBF(cst))
     True
 
+The EXPERIMENTAL ``assume_analytic`` authorizes paths that go through a singular
+point, and makes the assumption that the solution(s) of interest are analytic at
+that point::
+
+    sage: dop = ((x-1)^2*Dx-1).lclm(Dx-1)
+    sage: dop.local_basis_monomials(0)
+    [1, x^2]
+
+    sage: dop.numerical_solution([1, 1/2],[0, 2])
+    Traceback (most recent call last):
+    ...
+    ValueError: Step 0 --> 2 passes through or too close to singular point 1...
+
+    sage: dop.numerical_solution([1, 1/2],[0, 1, 2])
+    Traceback (most recent call last):
+    ...
+    NotImplementedError: analytic continuation through irregular singular points
+    is not supported
+
+    sage: dop.numerical_solution([1, 1/2],[0, 2], assume_analytic=True)
+    [7.389056098930650...] + [+/- ...]*I
+
+Note that it can lead to surprising results. In this example, the equation has
+order one, and analytic continuation around the singular point yields the same
+value from both sides, but the function is not analytic::
+
+    sage: _.<y> = Pol.fraction_field()[]
+    sage: y = Pol.fraction_field().extension(y^3 - x^2*(x+1)).gen()
+    sage: dop = (x*Dx-1).annihilator_of_composition(y)
+    sage: dop.numerical_solution([1], [0, -1+i, -2], assume_analytic=True)
+    [-1.587401051968199...] + [+/- ...]*I
+    sage: dop.numerical_solution([1], [0, -1-i, -2], assume_analytic=True)
+    [-1.587401051968199...] + [+/- ...]*I
+    sage: dop.numerical_solution([1], [0, -2], assume_analytic=True)
+    [0.7937005259840997...] + [1.374729636998602...]*I
+
 Credits
 =======
 
