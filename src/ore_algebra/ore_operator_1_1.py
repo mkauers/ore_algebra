@@ -852,6 +852,67 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         L is the radical of P.
         """
         raise NotImplementedError
+    
+    def singularities(self, backwards = False):
+        r"""
+        Returns the integer singularities of the operator ``self``.
+        
+        INPUT:
+        
+        - ``backwards`` (default ``False``) -- boolean value that decides whether the singularities of the leading coefficient are returned
+          (when ``backwards`` is ``False``) or those of the coefficient with minimal degree (regarding ``Sn`` or ``Dx``)
+          
+        OUTPUT:
+        
+        - If ``backwards`` is ``False``, a set containing the roots of the leading coefficient of the annihilator of ``self`` shifted by 
+          its order are returned
+        - If ``backwards`` is ``True``, a set containing the roots of the coefficient with minimal degree (regarding `Sn` or `Dx` respectively) 
+          are returned; shifted by the degree of this coefficient
+          
+        EXAMPLES::
+            sage: A = OreAlgebra(QQ['n'],'Sn')
+            sage: a = A("(n-3)*(n+2)*Sn^3 + n^2*Sn^2 - (n-1)*(n+5)*Sn")
+            sage: a.singularities()
+            {1, 6}
+            sage: a.singularities(True)
+            {-4, 2}
+
+        return the integer singularities of the Ore Operator ``self``, i.e. the roots of the
+        leading coefficient shifted by the order of the operator if ``backwards``is false; 
+        when``backwards`` is true then the roots of the smallest non-zero term (concerning the degree)
+        are returned (shifted by the degree of this term)
+        """
+        if self == 0:
+            return {ZZ}
+        
+        S = self.parent().is_S()
+        result = set()
+        ord = self.order()
+        min_degree = 0
+        
+        #no backward singularities needed
+        if not backwards:
+            lc = self.leading_coefficient()
+            roots = lc.numerator().roots()
+            for i in range(len(roots)):
+                r = roots[i][0]
+                if (r in ZZ) and (r >= -ord):
+                    if S:
+                        result.add(ZZ(r + ord))
+                    else:
+                        result.add(ZZ(r))
+        
+        #backward singularities are also needed
+        else:
+            min_degree = next((index for index, coeff in enumerate(self.list()) if coeff.numerator() != 0), 0)
+            coeff = self.list()[min_degree]
+            roots = coeff.numerator().roots()
+            for i in range(len(roots)):
+                r = roots[i][0]
+                if (r in ZZ) and (r <= ord - min_degree):
+                    result.add(ZZ(r + min_degree))
+
+        return result
 
     def finite_singularities(self):
         """
@@ -4567,9 +4628,9 @@ def _rec2list(L, init, n, start, append, padd, deform, singularity_handler=None)
             terms.append(None)
         return terms
 
-    for i in xrange(r):
-        if terms[-i - 1] not in K:
-            raise TypeError, "illegal initial value object"
+    #for i in xrange(r):
+    #    if terms[-i - 1] not in K:
+    #        raise TypeError, "illegal initial value object"
 
     rec = L.numerator().coefficients(sparse=False); sigma = L.parent().sigma()
     rec = tuple( -sigma(p, -r) for p in rec )

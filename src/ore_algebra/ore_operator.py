@@ -1424,7 +1424,7 @@ class UnivariateOreOperator(OreOperator):
         if A.is_zero() or B.is_zero():
             return A
         elif min(a, b) < 1:
-            return A.one()
+            return A.parent().one()
         elif a == 1 and b > 1:
             A, B, a, b = B, A, b, a
 
@@ -1796,32 +1796,6 @@ class UnivariateOreOperator(OreOperator):
 
     # coefficient-related functions
     
-    def singularities(self, backwards = False):
-        r"""
-        return the integer singularities of the Ore Operator ``self``, i.e. the roots of the 
-        leading coefficient shifted by the order of the operator and the roots of the constant 
-        term (not shifted)
-        If backwards is false, only the roots of the leading coefficient are returned
-        """
-        
-        lc = self.leading_coefficient()
-        result = set()
-        ord = self.order()
-        roots_lc = lc.numerator().roots()
-        for i in range(len(roots_lc)):
-            r = roots_lc[i][0]
-            if r in ZZ:
-                result.add(ZZ(r + ord))
-        if backwards is not False:
-            cc = self.constant_coefficient()
-            if cc.numerator() != 0:
-                roots_cc = cc.numerator().roots()
-                for i in range(len(roots_cc)):
-                    r = roots_cc[i][0]
-                    if r in ZZ:
-                        result.add(ZZ(r))
-        return result
-
     def order(self):
         """
         Returns the order of this operator, which is defined as the maximal power `i` of the
