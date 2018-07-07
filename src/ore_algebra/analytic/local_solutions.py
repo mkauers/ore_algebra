@@ -35,7 +35,7 @@ def bw_shift_rec(dop, shift=ZZ.zero()):
     Rops = ore_algebra.OreAlgebra(Pols_n, 'Sn')
     # Using the primitive part here would break the computation of residuals!
     # TODO: add test (arctan); better fix?
-    # Other interesting cases: operators of the for P(Θ) (with constant
+    # Other interesting cases: operators of the form P(Θ) (with constant
     # coefficients)
     #rop = dop.to_S(Rops).primitive_part().numerator()
     rop = dop.to_S(Rops)

@@ -437,7 +437,7 @@ class MatrixRec(object):
 
     def term(self, prod, parent, j):
         r"""
-        Given a prodrix representing a product B(n-1)···B(0) where B is the
+        Given a matrix representing a product B(n-1)···B(0) where B is the
         recurrence matrix associated to some differential operator P, return the
         term of index n of the fundamental solution of P of the form
         y[j](z) = z^j + O(z^r), 0 <= j < r = order(P).
