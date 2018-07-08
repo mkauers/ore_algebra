@@ -564,9 +564,9 @@ def abs_min_nonzero_root(pol, tol=RR(1e-2), min_log=RR('-inf'), prec=None):
         prev_lg_rad = lg_rad
         # The smallest root of the current mypol is between 2^(-1-m) and
         # (2·deg)·2^(-1-m), cf. Davenport & Mignotte (1990), Grégoire (2012).
-        m = myIR(-infinity).max(*(mypol[k].above_abs().log(2)/k
+        m = myRIF(-infinity).max(*(myRIF(_log2abs(mypol[k])/k)
                                 for k in xrange(1, deg+1)))
-        lg_rad = (-(1 + myRIF(m)) + encl) >> i
+        lg_rad = (-(1 + m) + encl) >> i
         lg_rad = prev_lg_rad.intersection(lg_rad)
         stalled = (lg_rad.endpoints() == prev_lg_rad.endpoints())
         if (neg_infty in lg_rad or lg_rad.is_NaN() or stalled):
@@ -2207,3 +2207,12 @@ def _use_sum_of_products(last, bwrec_nplus):
         return True, IC
     else:
         return False, IC
+
+def _log2abs(x):
+    upper = x.above_abs().log(2)
+    below = x.below_abs()
+    if below.contains_zero():
+        lower = below.parent()(-infinity)
+    else:
+        lower = below.log(2)
+    return lower.union(upper)
