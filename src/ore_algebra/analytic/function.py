@@ -10,7 +10,7 @@ TESTS::
 
     sage: f = DFiniteFunction((x^2 + 1)*Dx^2 + 2*x*Dx, [0, 1])
 
-    sage: [f(10^i) for i in range(-3, 4)] # long time (2.1 s)
+    sage: [f(10^i) for i in range(-3, 4)]
     [[0.0009999996666...], [0.0099996666866...], [0.0996686524911...],
      [0.7853981633974...], [1.4711276743037...], [1.5607966601082...],
      [1.5697963271282...]]
@@ -545,12 +545,11 @@ def _growth_parameters(dop):
         sage: _growth_parameters(Dx^2 + 2*x*Dx) # erf(x)
         (1/2, [1.4...])
         sage: _growth_parameters(Dx^2 + 8*x*Dx) # erf(2*x)
-        (1/2, [2.82 +/- 8.45e-3])
+        (1/2, [2.82...])
         sage: _growth_parameters(Dx^2 - x) # Airy
-        (2/3, [1.0 +/- 3.62e-3])
+        (2/3, [1.0...])
 
-        XXX: todo - add an example with several slopes
-
+    TODO: add an example with several slopes
     """
     # Newton polygon. In terms of the coefficient sequence,
     # (S^(-j)·((n+1)S)^i)(α^n/n!^κ) ≈ α^(i-j)·n^(i+κ(j-i)).

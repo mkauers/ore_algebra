@@ -1271,7 +1271,7 @@ class DiffOpBound(object):
 
         sage: dop = (x+1)*(x^2+1)*Dx^3-(x-1)*(x^2-3)*Dx^2-2*(x^2+2*x-1)*Dx
         sage: DiffOpBound(dop, pol_part_len=3)
-        1.000.../((-x + [0.9965035284306323 +/- 2.07e-17])^3)*exp(int(POL+1.000...*NUM/(-x + [0.9965035284306323 +/- 2.07e-17])^3)) where
+        1.000.../((-x + [0.99...])^3)*exp(int(POL+1.000...*NUM/(-x + [0.99...])^3)) where
         POL=~6.000...*z^0 + ~3.000...*z^1 + ~5.000...*z^2,
         NUM=~7.000...*z^3 + ~2.000...*z^4 + ~5.000...*z^5
 
@@ -1282,7 +1282,7 @@ class DiffOpBound(object):
         sage: maj.maj_den
         (-z + [0.2047...])^13
         sage: maj.maj_den.value()(1/10)
-        [1.825136...]
+        [1.825...]
         sage: maj.refine()
         sage: maj.maj_den.value()(1/10)
         [436565.0...]
