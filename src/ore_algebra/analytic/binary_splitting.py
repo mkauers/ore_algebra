@@ -478,13 +478,9 @@ def fundamental_matrix_ordinary(dop, pt, eps, rows, maj, fail_fast):
       such as that committed when converting the result to intervals)
     """
     logger.log(logging.INFO - 1, "target error = %s", eps)
-    maj.refine()
     rec = MatrixRec(dop, pt, rows, utilities.prec_from_eps(eps))
-    prod = rec.one(0)
-    n = None
-    tail_bound = bounds.IR('inf')
-    done = False
     rad = bounds.IC(pt).abs()
+    prod, n, tail_bound = rec.one(0), None, bounds.IR('inf')
     # XXX clarify exact criterion
     stop = accuracy.StoppingCriterion(maj=maj, eps=eps, fast_fail=False)
     def get_residuals():
