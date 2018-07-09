@@ -8,8 +8,9 @@ import sage.rings.real_arb
 
 from sage.misc.cachefunc import cached_function
 from sage.misc.misc import cputime
-from sage.rings.all import QQ, QQbar, CIF
-from sage.rings.number_field.number_field import NumberField_quadratic
+from sage.rings.all import ZZ, QQ, QQbar, CIF
+from sage.rings.number_field.number_field import (NumberField,
+        NumberField_quadratic)
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 
 ######################################################################
@@ -56,6 +57,41 @@ def is_QQi(parent):
     return (isinstance(parent, NumberField_quadratic)
                 and list(parent.polynomial()) == [1,0,1])
 
+################################################################################
+# Number fields and orders
+################################################################################
+
+def number_field_with_integer_gen(K):
+    if K is QQ:
+        return QQ, ZZ
+    den = K.defining_polynomial().denominator()
+    if den.is_one():
+        # Ensure that we return the same number field object (coercions can be
+        # slow!)
+        intNF = K
+    else:
+        intgen = K.gen() * den
+        ### Attempt to work around various problems with embeddings
+        emb = K.coerce_embedding()
+        embgen = emb(intgen) if emb else intgen
+        intNF = NumberField(intgen.minpoly(), str(K.gen) + str(den),
+                            embedding=embgen)
+        assert intNF != K
+    # Work around weaknesses in coercions involving order elements,
+    # including #14982 (fixed). Used to trigger #14989 (fixed).
+    #return intNF, intNF.order(intNF.gen())
+    return intNF, intNF
+
+def invert_order_element(alg):
+    if alg in ZZ:
+        return 1, alg
+    else:
+        Order = alg.parent()
+        pol = alg.polynomial().change_ring(ZZ)
+        modulus = Order.gen(1).minpoly()
+        den, num, _ = pol.xgcd(modulus)  # hopefully fraction-free!
+        return Order(num), ZZ(den)
+
 ######################################################################
 # Sage features
 ######################################################################
@@ -91,7 +127,6 @@ def split(cond, objs):
     return matching, not_matching
 
 def as_embedded_number_field_element(alg):
-    from sage.rings.number_field.number_field import NumberField
     nf, elt, emb = alg.as_number_field_element()
     if nf is QQ:
         res = elt

@@ -5,6 +5,7 @@ Local solutions
 
 import collections, logging
 
+from sage.arith.all import lcm
 from sage.categories.pushout import pushout
 from sage.functions.log import log as symbolic_log
 from sage.misc.cachefunc import cached_method
@@ -30,8 +31,9 @@ logger = logging.getLogger(__name__)
 # Recurrence relations
 ##############################################################################
 
-def bw_shift_rec(dop, shift=ZZ.zero()):
-    Pols_n = PolynomialRing(dop.base_ring().base_ring(), 'n') # XXX: name
+def bw_shift_rec(dop, shift=ZZ.zero(), clear_denominators=False):
+    Scalars = dop.base_ring().base_ring()
+    Pols_n, n = PolynomialRing(Scalars, 'n').objgen()
     Rops = ore_algebra.OreAlgebra(Pols_n, 'Sn')
     # Using the primitive part here would break the computation of residuals!
     # TODO: add test (arctan); better fix?
@@ -39,8 +41,11 @@ def bw_shift_rec(dop, shift=ZZ.zero()):
     # coefficients)
     #rop = dop.to_S(Rops).primitive_part().numerator()
     rop = dop.to_S(Rops)
+    if clear_denominators:
+        den = lcm([p.denominator() for p in rop])
+        rop = den*rop
     ordrec = rop.order()
-    coeff = [rop[ordrec-k](Pols_n.gen()-ordrec+shift)
+    coeff = [rop[ordrec-k](n-ordrec+shift)
              for k in xrange(ordrec+1)]
     return BwShiftRec(coeff)
 
@@ -118,6 +123,9 @@ class BwShiftRec(object):
     def shift(self, sh):
         n = self.coeff[0].parent().gen()
         return BwShiftRec([pol(sh + n) for pol in self.coeff])
+
+    def change_base(self, base):
+        return BwShiftRec([pol.change_ring(base) for pol in self.coeff])
 
 class LogSeriesInitialValues(object):
     r"""
