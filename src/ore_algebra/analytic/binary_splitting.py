@@ -54,14 +54,14 @@ TESTS::
 
     sage: from ore_algebra.analytic.binary_splitting import MatrixRec
 
-    sage: rec = MatrixRec((x-2)*Dx^3 - 1, RBF(1/3), 3, 10)
+    sage: rec = MatrixRec((x-2)*Dx^3 - 1, 0, RBF(1/3), 3, 10)
     sage: rec.partial_sums(rec.binsplit(0, 10), RBF, 3)
     [ [0.996...]  [0.333...] [0.111...]]
     [[-0.029...]  [0.996...] [0.666...]]
     [[-0.091...] [-0.015...] [0.996...]]
 
     sage: QQi.<i> = QuadraticField(-1)
-    sage: rec = MatrixRec((x-i)*Dx^3 - 1, RBF(1/3), 3, 10)
+    sage: rec = MatrixRec((x-i)*Dx^3 - 1, 0, RBF(1/3), 3, 10)
     sage: rec.partial_sums(rec.binsplit(0, 10), CBF, 3)
     [ [1.0005...] + [0.0061...]*I [0.3333...] + [0.0005...]*I [0.1111...] + [6.6513...]*I]
     [[0.0059...]  + [0.0545...]*I [1.0009...] + [0.0059...]*I [0.6668...] + [0.0009...]*I]
@@ -201,7 +201,7 @@ class MatrixRec(object):
     derive from StepMatrix as the data structure is different.
     """
 
-    def __init__(self, diffop, dz, derivatives, nterms_est):
+    def __init__(self, diffop, shift, dz, derivatives, nterms_est):
 
         #### Recurrence operator & matrix
 
@@ -457,7 +457,7 @@ def fundamental_matrix_ordinary(dop, pt, eps, rows, maj, fail_fast):
       such as that committed when converting the result to intervals)
     """
     logger.log(logging.INFO - 1, "target error = %s", eps)
-    rec = MatrixRec(dop, pt, rows, utilities.prec_from_eps(eps))
+    rec = MatrixRec(dop, 0, pt, rows, utilities.prec_from_eps(eps))
     rad = bounds.IC(pt).abs()
     prod, n, tail_bound = rec.one(0), None, bounds.IR('inf')
     # XXX clarify exact criterion
