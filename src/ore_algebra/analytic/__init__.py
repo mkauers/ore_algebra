@@ -254,6 +254,89 @@ A recurrence with constant coefficients::
     sage: (Dx - (x - 1)).numerical_solution(ini=[1], path=[0, i/30])
     [0.99888940314741...] + [-0.03330865088952795...]*I
 
+
+Some simple tests involving large non-integer valuations::
+
+    sage: dop = (x*Dx-1001/2).symmetric_product(Dx-1)
+    sage: dop = dop._normalize_base_ring()[-1]
+
+    sage: ref = exp(CBF(1/2))/RBF(2)^(1001/2)
+    sage: ref.overlaps(dop.numerical_transition_matrix([0, 1/2], 1e-10)[0,0])
+    True
+    sage: ref.overlaps(dop.numerical_transition_matrix([0, 1/2], 1e-10,
+    ....:                                            algorithm="binsplit")[0,0])
+    True
+
+    sage: ref = exp(CBF(2))/RBF(1/2)^(1001/2)
+    sage: ref.overlaps(dop.numerical_transition_matrix([0, 2], 1e-10)[0,0])
+    True
+    sage: ref.overlaps(dop.numerical_transition_matrix([0, 2], 1e-10,
+    ....:                                            algorithm="binsplit")[0,0])
+    True
+
+::
+
+    sage: dop = (x*Dx+1001/2).symmetric_product(Dx-1)
+    sage: dop = dop._normalize_base_ring()[-1]
+
+    sage: val = dop.numerical_transition_matrix([0, 1/2], 1e-10)[0,0]
+    sage: val2 = dop.numerical_transition_matrix([0, 1/2], 1e-10,
+    ....:                                        algorithm="binsplit")[0,0]
+    sage: val2
+    [7.632381510...e+150 +/- ...] + [+/- ...]*I
+    sage: type(val.parent()) is type(val2.parent())
+    True
+    sage: ref = CBF(1/2)^(-1001/2)*exp(CBF(1/2))
+    sage: ref.overlaps(val)
+    True
+    sage: ref.overlaps(val2)
+    True
+
+    sage: (CBF(2)^(-1001/2)*exp(CBF(2))).overlaps(dop.numerical_transition_matrix([0, 2], 1e-10)[0,0])
+    True
+
+::
+
+    sage: h = CBF(1/2)
+    sage: #dop = (Dx-1).lclm(x^2*Dx^2 - x*(2*x+1999)*Dx + (x^2 + 1999*x + 1000^2))
+    sage: dop = x^2*Dx^3 + (-3*x^2 - 1997*x)*Dx^2 + (3*x^2 + 3994*x + 998001)*Dx - x^2 - 1997*x - 998001
+
+    sage: mat = dop.numerical_transition_matrix([0,1/2], 1e-5)
+    sage: mat[0,0].overlaps(exp(h))
+    True
+    sage: mat[0,1].overlaps(exp(h)*h^1000*log(h))
+    True
+    sage: mat[0,2].overlaps(exp(h)*h^1000)
+    True
+
+    sage: mat = dop.numerical_transition_matrix([0,1/2], 1e-5, algorithm="binsplit")
+    sage: mat[0,0].overlaps(exp(h))
+    True
+    sage: mat[0,1].overlaps(exp(h)*h^1000*log(h))
+    True
+    sage: mat[0,2].overlaps(exp(h)*h^1000)
+    True
+
+::
+
+    sage: dop = (x^3 + x^2)*Dx^3 + (-1994*x^2 - 1997*x)*Dx^2 + (994007*x + 998001)*Dx + 998001
+
+    sage: mat = dop.numerical_transition_matrix([0, 1/2], 1e-5)
+    sage: mat[0,0].overlaps(1/(1+h))
+    True
+    sage: mat[0,1].overlaps(h^1000/(1+h)*log(h))
+    True
+    sage: mat[0,2].overlaps(h^1000/(1+h))
+    True
+
+    sage: mat = dop.numerical_transition_matrix([0, 1/2], 1e-5, algorithm="binsplit")
+    sage: mat[0,0].overlaps(1/(1+h))
+    True
+    sage: mat[0,1].overlaps(h^1000/(1+h)*log(h))
+    True
+    sage: mat[0,2].overlaps(h^1000/(1+h))
+    True
+
 A few larger or harder examples::
 
     sage: _, z, Dz = DifferentialOperators()

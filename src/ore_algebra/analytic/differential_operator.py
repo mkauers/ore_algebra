@@ -4,13 +4,17 @@ Custom differential operators
 """
 
 from sage.arith.all import lcm
+from sage.categories.pushout import pushout
 from sage.misc.cachefunc import cached_method
 from sage.rings.all import CIF, QQbar, QQ
 from sage.rings.complex_arb import ComplexBallField
 from sage.rings.complex_interval_field import ComplexIntervalField
+from sage.structure.coerce_exceptions import CoercionException
 
 from ..ore_algebra import OreAlgebra
 from ..ore_operator_1_1 import UnivariateDifferentialOperatorOverUnivariateRing
+
+from .utilities import as_embedded_number_field_elements
 
 from . import utilities
 
@@ -67,7 +71,15 @@ class PlainDifferentialOperator(UnivariateDifferentialOperatorOverUnivariateRing
         if Scalars.has_coerce_map_from(pt.parent()):
             return self, pt
         gen = Scalars.gen()
-        NF, (gen1, pt1) = utilities.as_embedded_number_field_elements([gen,pt])
+        try:
+            # Largely redundant with the other branch, but may do a better job
+            # in some cases, e.g. pushout(QQ, QQ(α)), where as_enf_elts() would
+            # invent new generator names.
+            NF = pushout(Scalars, pt.parent())
+            gen1 = NF.coerce(gen)
+            pt1 = NF.coerce(pt)
+        except CoercionException:
+            NF, (gen1, pt1) = as_embedded_number_field_elements([gen,pt])
         hom = Scalars.hom([gen1], codomain=NF)
         Dops1 = OreAlgebra(Pols.change_ring(NF),
                 (Dops.variable_name(), {}, {Pols.gen(): Pols.one()}))

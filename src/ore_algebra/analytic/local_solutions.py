@@ -7,18 +7,17 @@ import collections, logging
 
 from sage.arith.all import lcm
 from sage.categories.pushout import pushout
-from sage.functions.log import log as symbolic_log
 from sage.misc.cachefunc import cached_method
 from sage.misc.lazy_attribute import lazy_attribute
 from sage.modules.free_module_element import vector
 from sage.rings.all import ZZ, QQ, QQbar, RBF, RealBallField, ComplexBallField
 from sage.rings.complex_arb import ComplexBall
-from sage.rings.number_field.number_field import NumberField_generic
-from sage.rings.number_field.number_field_morphisms import NumberFieldEmbedding
+from sage.rings.integer import Integer
+from sage.rings.number_field.number_field import NumberField_absolute
 from sage.rings.polynomial import polynomial_element
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 from sage.structure.sequence import Sequence
-from sage.symbolic.all import SR
+from sage.symbolic.all import SR, pi, I
 
 from .. import ore_algebra
 from . import utilities
@@ -32,7 +31,8 @@ logger = logging.getLogger(__name__)
 ##############################################################################
 
 def bw_shift_rec(dop, shift=ZZ.zero(), clear_denominators=False):
-    Scalars = dop.base_ring().base_ring()
+    Scalars = pushout(dop.base_ring().base_ring(), shift.parent())
+    Pols_x = dop.base_ring().change_ring(Scalars)
     Pols_n, n = PolynomialRing(Scalars, 'n').objgen()
     Rops = ore_algebra.OreAlgebra(Pols_n, 'Sn')
     # Using the primitive part here would break the computation of residuals!
@@ -40,7 +40,7 @@ def bw_shift_rec(dop, shift=ZZ.zero(), clear_denominators=False):
     # Other interesting cases: operators of the form P(Θ) (with constant
     # coefficients)
     #rop = dop.to_S(Rops).primitive_part().numerator()
-    rop = dop.to_S(Rops)
+    rop = dop.change_ring(Pols_x).to_S(Rops)
     if clear_denominators:
         den = lcm([p.denominator() for p in rop])
         rop = den*rop
@@ -97,7 +97,7 @@ class BwShiftRec(object):
 
     @cached_method
     def scalars_embedding(self, tgt):
-        if isinstance(self.Scalars, NumberField_generic):
+        if isinstance(self.Scalars, NumberField_absolute):
             # do complicated coercions via QQbar and CLF only once...
             Pol = PolynomialRing(tgt, 'x')
             x = tgt(self.Scalars.gen())
@@ -153,7 +153,11 @@ class LogSeriesInitialValues(object):
         try:
             self.expo = QQ.coerce(expo)
         except TypeError:
-            self.expo = QQbar.coerce(expo)
+            try:
+                self.expo = QQbar.coerce(expo)
+            except TypeError:
+                # symbolic; won't be sortable
+                self.expo = expo
         if isinstance(values, dict):
             all_values = sum(values.values(), ()) # concatenation of tuples
         else:
@@ -265,76 +269,101 @@ def sort_key_by_asympt(sol):
     return re, -sol.log_power, -im.abs(), im.sign()
 
 class LocalBasisMapper(object):
+    r"""
+    Utility class for iterating over the canonical local basis of solutions of
+    an operator.
 
-    def run(self, dop):
+    Subclasses should define a fun() method that takes as input a
+    LogSeriesInitialValues structure and can access the iteration variables
+    as well as some derived quantities through the instance's field.
+
+    The nested loops that iterate over the solutions are spread over several
+    methods that can be overriden to share parts of the computation in a
+    class of related solutions. The choice of unconditional computations,
+    exported data and hooks is a bit ad hoc.
+    """
+
+    def __init__(self, dop):
+        self.dop = dop
+
+    def run(self):
         r"""
-        Compute self.fun() for each element of the local basis at 0 of dop.
-
-        Subclasses should define a fun() method that takes as input a
-        LogSeriesInitialValues structure and can access the iteration variables
-        as well as some derived quantities through the instance's field.
-        Additionally, hooks are provided to share parts of the computation
-        in a class of related solutions. The choice of unconditional
-        computations, exported data and hooks is ad hoc.
+        Compute self.fun() for each element of the local basis at 0 of self.dop.
 
         The output is a list of FundamentalSolution structures, sorted in the
         canonical order.
         """
 
-        bwrec = bw_shift_rec(dop)
-        ind = bwrec[0]
-        sl_decomp = my_shiftless_decomposition(ind)
-        logger.debug("indicial polynomial = %s ~~> %s", ind, sl_decomp)
+        self.bwrec = bw_shift_rec(self.dop) # XXX wasteful in binsplit case
+        ind = self.bwrec[0]
+        self.sl_decomp = my_shiftless_decomposition(ind)
+        logger.debug("indicial polynomial = %s (shiftless decomposition = %s)",
+                     ind, self.sl_decomp)
 
-        cols = []
-        for self.sl_factor, self.shifts in sl_decomp:
+        self.process_decomposition()
+
+        self.cols = []
+        self.nontrivial_factor_index = 0
+        for self.sl_factor, self.shifts in self.sl_decomp:
             for self.irred_factor, irred_mult in self.sl_factor.factor():
                 assert irred_mult == 1
+                roots = self.irred_factor.roots(QQbar, multiplicities=False)
+                self.roots = [utilities.as_embedded_number_field_element(rt)
+                              for rt in roots]
+                logger.debug("indicial factor = %s, roots = %s",
+                             self.irred_factor, self.roots)
+                self.irred_factor_cols = []
                 self.process_irred_factor()
-                # Complicated to do here and specialize, for little benefit
-                #irred_nf = irred_factor.root_field("self.leftmost")
-                #irred_leftmost = irred_nf.gen()
-                #irred_bwrec = [pol(irred_leftmost + n) for pol in bwrec]
-                for leftmost, _ in self.irred_factor.roots(QQbar):
-                    self.leftmost = utilities.as_embedded_number_field_element(leftmost)
-                    self.emb_bwrec = bwrec.shift(self.leftmost)
-                    self.process_modZ_class()
-                    for self.shift, self.mult in self.shifts:
-                        self.process_valuation()
-                        for self.log_power in xrange(self.mult):
-                            logger.info(r"solution z^(%s+%s)·log(z)^%s/%s! + ···",
-                                        self.leftmost, self.shift,
-                                        self.log_power, self.log_power)
-                            ini = LogSeriesInitialValues(
-                                dop = dop,
-                                expo = self.leftmost,
-                                values = {
-                                    s: tuple(ZZ.one() if (s, p) == (self.shift,
-                                                                 self.log_power)
-                                             else ZZ.zero()
-                                             for p in xrange(m))
-                                    for s, m in self.shifts},
-                                check = False)
-                            # XXX: inefficient if self.shift >> 0
-                            value = self.fun(ini)
-                            sol = FundamentalSolution(
-                                leftmost = self.leftmost,
-                                shift = ZZ(self.shift),
-                                log_power = ZZ(self.log_power),
-                                value = value)
-                            logger.debug("sol=%s\n\n", sol)
-                            cols.append(sol)
-        cols.sort(key=sort_key_by_asympt)
-        return cols
+                self.cols.extend(self.irred_factor_cols)
+                if self.irred_factor.degree() >= 2:
+                    self.nontrivial_factor_index += 1
+        self.cols.sort(key=sort_key_by_asympt)
+        return self.cols
+
+    def process_decomposition(self):
+        pass
+
+    # The next three methods can be overridden to customize the iteration. Each
+    # specialized implementation should set the same fields (self.leftmost,
+    # etc.) as the original method does, and call the next method in the list,
+    # or at least ultimately result in process_solution() being called with the
+    # correct fields set.
 
     def process_irred_factor(self):
-        pass
+        for self.leftmost in self.roots:
+            self.process_modZ_class()
 
     def process_modZ_class(self):
-        pass
+        self.shifted_bwrec = self.bwrec.shift(self.leftmost)
+        for self.shift, self.mult in self.shifts:
+            self.process_valuation()
 
     def process_valuation(self):
-        pass
+        for self.log_power in xrange(self.mult):
+            self.process_solution()
+
+    def process_solution(self):
+        logger.info(r"solution z^(%s+%s)·log(z)^%s/%s! + ···",
+                    self.leftmost, self.shift,
+                    self.log_power, self.log_power)
+        ini = LogSeriesInitialValues(
+            dop = self.dop,
+            expo = self.leftmost,
+            values = {
+                s: tuple(ZZ.one() if (s, p) == (self.shift, self.log_power)
+                            else ZZ.zero()
+                            for p in xrange(m))
+                for s, m in self.shifts},
+            check = False)
+        # XXX: inefficient if self.shift >> 0
+        value = self.fun(ini)
+        sol = FundamentalSolution(
+            leftmost = self.leftmost,
+            shift = ZZ(self.shift),
+            log_power = ZZ(self.log_power),
+            value = value)
+        logger.debug("value = %s", sol)
+        self.irred_factor_cols.append(sol)
 
     def fun(self, ini):
         return None
@@ -374,13 +403,23 @@ def log_series(ini, bwrec, order):
         bwrec_nplus.append(bwrec.eval_series(Coeffs, n+precomp_len, log_prec))
     return series
 
-def log_series_value(Jets, derivatives, expo, psum, pt, branch=(0,)):
+def log_series_value(Jets, derivatives, expo, psum, pt, branch):
     r"""
     Evaluate a logarithmic series.
 
-    * ``branch`` - branch of the logarithm to use; (0) means the standard
-      branch, (k) means log(z) + 2kπi, a tuple of length > 1 averages over the
-      corresponding branches
+    That is, compute ::
+
+        (pt + η)^expo * Σ_k (psum[k]*log(pt + η)^k/k!) + O(η^derivatives),
+
+    as an element of ``Jets``, optionally using a non-standard branch of the
+    logarithm.
+
+    * ``branch`` - branch of the logarithm to use; ``(0,)`` means the standard
+      branch, ``(k,)`` means log(z) + 2kπi, a tuple of length > 1 averages over
+      the corresponding branches
+
+    Note that while this function computes ``pt^expo`` in ℂ, it does NOT
+    specialize abstract algebraic numbers that might appear in ``psum``.
     """
     log_prec = psum.length()
     if log_prec > 1 or expo not in ZZ or branch != (0,):
@@ -410,3 +449,14 @@ def log_series_value(Jets, derivatives, expo, psum, pt, branch=(0,)):
                 derivatives)
     val /= len(branch)
     return val
+
+def _pow_trunc(a, n, ord):
+    pow = a.parent().one()
+    pow2k = a
+    while n:
+        if n & 1:
+            pow = pow._mul_trunc_(pow2k, ord)
+        pow2k = pow2k._mul_trunc_(pow2k, ord)
+        n = n >> 1
+    return pow
+

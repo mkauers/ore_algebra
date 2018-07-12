@@ -27,7 +27,10 @@ class BoundCallbacks(object):
 
     def get_residuals(self):
         r"""
-        Return the normalized residuals required by get_bound.
+        Return the normalized residuals.
+
+        The format is up to the client: the residuals will be passed as is to
+        get_bound and get_maj.
         """
         raise NotImplementedError
 
@@ -175,7 +178,7 @@ class StoppingCriterion(object):
                 logger.debug("--> intervals blowing up or bound getting worse")
                 self.maj.refine()
             else:
-                thr = tb*est**(QQ(next_stride*(self.maj._effort**2 + 2))/(n+1))
+                thr = tb*est**(QQ(next_stride*(self.maj.effort()**2 + 2))/(n+1))
                 if safe_le(thr, eps):
                     # Try summing a few more terms before refining
                     logger.debug("--> above refinement threshold ({} <= {})"

@@ -2251,9 +2251,9 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             ind = ldop.indicial_polynomial(ldop.base_ring().gen())
             order = max(dop.order(), ind.dispersion()) + 3
         class Mapper(LocalBasisMapper):
-            def fun(dop, ini):
-                return log_series(ini, dop.emb_bwrec, order)
-        sols = Mapper().run(ldop)
+            def fun(self, ini):
+                return log_series(ini, self.shifted_bwrec, order)
+        sols = Mapper(ldop).run()
         x = SR.var(dop.base_ring().variable_name())
         dx = x if point.is_zero() else x.add(-point, hold=True)
         # Working with symbolic expressions here is too complicated: let's try
@@ -2608,7 +2608,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             sage: dop.numerical_transition_matrix([0,1], algorithm="binsplit")
             INFO:ore_algebra.analytic.binary_splitting:...
             [ [1.0000000000000...] [0.785398163397448...]]
-            [            [+/- ...] [0.500000000000000...]]
+            [                    0 [0.500000000000000...]]
             sage: logger.setLevel(logging.WARNING)
         """
         from .analytic import analytic_continuation as ancont, local_solutions

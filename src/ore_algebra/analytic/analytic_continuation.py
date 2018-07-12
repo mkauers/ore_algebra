@@ -10,6 +10,7 @@ import sage.rings.real_arb
 import sage.rings.complex_arb
 
 from . import accuracy, bounds, utilities
+from . import naive_sum, binary_splitting
 
 from sage.matrix.constructor import identity_matrix, matrix
 from sage.rings.complex_arb import ComplexBallField
@@ -52,16 +53,9 @@ class Context(object):
 
         # XXX: decide what to do about all this
 
-        if isinstance(algorithm, str):
-            if algorithm == "naive":
-                from . import naive_sum as mod
-            elif algorithm == "binsplit":
-                from . import binary_splitting as mod
-            else:
-                raise ValueError("algorithm", algorithm)
-            self.fundamental_matrix_ordinary = mod.fundamental_matrix_ordinary
-        else:
-            self.fundamental_matrix_ordinary = None
+        if not algorithm in [None, "naive", "binsplit"]:
+            raise ValueError("algorithm", algorithm)
+        self.algorithm = algorithm
 
         self.subdivide = True
         self.optimize_path = self.use_bit_burst = False
@@ -90,15 +84,18 @@ class Context(object):
                 and all(v.is_real() for v in self.path.vert))
 
 def ordinary_step_transition_matrix(dop, step, eps, rows, fail_fast, ctx=None):
-    from . import naive_sum, binary_splitting
     ldop = dop.shift(step.start)
     deg = ldop.degree()
     # cache in ctx?
     maj = bounds.DiffOpBound(ldop, pol_part_len=4, bound_inverse="solve")
     assert len(maj.special_shifts) == 1 and maj.special_shifts[0] == 1
-    if ctx is not None and ctx.fundamental_matrix_ordinary is not None:
-        return ctx.fundamental_matrix_ordinary(
-                ldop, step.delta(), eps, rows, maj, fail_fast)
+    if ctx is not None and ctx.algorithm is not None:
+        if ctx.algorithm == "naive":
+            return naive_sum.fundamental_matrix_ordinary(
+                    ldop, step.delta(), eps, rows, maj, fail_fast)
+        elif ctx.algorithm == "binsplit":
+            return binary_splitting.fundamental_matrix_regular(
+                    ldop, step.delta(), eps, rows, (0,), fail_fast)
     elif step.is_exact():
         thr = 256 + 32*deg
         a = step.cvg_ratio()
@@ -109,23 +106,27 @@ def ordinary_step_transition_matrix(dop, step, eps, rows, fail_fast, ctx=None):
             except accuracy.PrecisionError:
                 if fail_fast:
                     raise
-        return binary_splitting.fundamental_matrix_ordinary(
-                ldop, step.delta(), eps, rows, maj, fail_fast)
+        return binary_splitting.fundamental_matrix_regular(
+                ldop, step.delta(), eps, rows, (0,), fail_fast)
     else:
         return naive_sum.fundamental_matrix_ordinary(
                 ldop, step.delta(), eps, rows, maj, fail_fast)
 
 def singular_step_transition_matrix(dop, step, eps, rows, fail_fast, ctx=None):
-    from .naive_sum import fundamental_matrix_regular
     ldop = dop.shift(step.start)
-    mat = fundamental_matrix_regular(ldop, step.delta(), eps, rows, step.branch,
-                                                                      fail_fast)
+    if ctx is not None and ctx.algorithm == "binsplit":
+        mat = binary_splitting.fundamental_matrix_regular(ldop, step.delta(),
+                                              eps, rows, step.branch, fail_fast)
+    else:
+        mat = naive_sum.fundamental_matrix_regular(ldop, step.delta(), eps,
+                                                   rows, step.branch, fail_fast)
     return mat
 
 def inverse_singular_step_transition_matrix(dop, step, eps, rows, fail_fast,
                                                                       ctx=None):
     rev_step = Step(step.end, step.start)
-    mat = singular_step_transition_matrix(dop, rev_step, eps/2, rows, fail_fast)
+    mat = singular_step_transition_matrix(dop, rev_step, eps/2, rows, fail_fast,
+                                                                            ctx)
     return ~mat
 
 def step_transition_matrix(step, eps, rows=None, ctx=None, split=0, max_split=3):

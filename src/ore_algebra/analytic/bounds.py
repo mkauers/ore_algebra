@@ -1524,6 +1524,9 @@ class DiffOpBound(object):
                 [pol(self.alg_idx) for pol in rem_num_nz],
                 self.ind, self.special_shifts)
 
+    def effort(self):
+        return self._effort
+
     def can_refine(self):
         return self._effort < self.max_effort
 
@@ -2060,6 +2063,26 @@ class DiffOpBound(object):
             self.refine()
         p.set_legend_options(handlelength=4, shadow=False)
         return p
+
+class MultiDiffOpBound(object):
+    r"""
+    Ad hoc wrapper for passing several DiffOpBounds to StoppingCriterion.
+
+    (Useful for handling several valuation groups at once.)
+    """
+
+    def __init__(self, majs):
+        self.majs = majs
+
+    def can_refine(self):
+        return any(m.can_refine() for m in self.majs)
+
+    def refine(self):
+        for m in self.majs:
+            m.refine()
+
+    def effort(self):
+        return min(m.effort() for m in self.majs)
 
 # Perhaps better: work with a "true" Ore algebra K[θ][z]. Use Euclidean
 # division to compute the truncation in DiffOpBound._update_num_bound.

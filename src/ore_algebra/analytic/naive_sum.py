@@ -8,6 +8,8 @@ Evaluation of convergent D-finite series by direct summation
 # is reached?
 # - cythonize critical parts?
 
+from __future__ import print_function
+
 import collections, itertools, logging
 
 from sage.categories.pushout import pushout
@@ -19,7 +21,6 @@ from sage.rings.integer import Integer
 from sage.rings.polynomial import polynomial_element
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 from sage.rings.real_arb import RealBallField, RBF, RealBall
-from sage.symbolic.all import pi, I
 
 from .. import ore_algebra
 from . import accuracy, bounds, utilities
@@ -63,7 +64,7 @@ class EvaluationPoint(object):
     def jet(self, Intervals):
         base_ring = (Intervals if self.is_numeric
                      else pushout(self.pt.parent(), Intervals))
-        Pol = PolynomialRing(base_ring, 'eta')
+        Pol = PolynomialRing(base_ring, 'delta')
         return Pol([self.pt, 1]).truncate(self.jet_order)
 
     def is_real(self):
@@ -434,22 +435,13 @@ def fundamental_matrix_regular(dop, pt, eps, rows, branch, fail_fast):
             maj = bounds.DiffOpBound(dop, self.leftmost, self.shifts,
                                      bound_inverse="solve")
             self.stop = accuracy.StoppingCriterion(maj, eps_col.eps)
+            super(self.__class__, self).process_modZ_class()
         def fun(self, ini):
             return interval_series_sum_wrapper(series_sum_regular, dop, ini,
-                    evpt, eps_col, self.emb_bwrec, self.stop, fail_fast,
+                    evpt, eps_col, self.shifted_bwrec, self.stop, fail_fast,
                     max_prec=None)
-    cols = Mapper().run(dop)
+    cols = Mapper(dop).run()
     return matrix([sol.value for sol in cols]).transpose()
-
-def _pow_trunc(a, n, ord):
-    pow = a.parent().one()
-    pow2k = a
-    while n:
-        if n & 1:
-            pow = pow._mul_trunc_(pow2k, ord)
-        pow2k = pow2k._mul_trunc_(pow2k, ord)
-        n = n >> 1
-    return pow
 
 # This function only handles the case of a “single” series, i.e. a series where
 # all indices differ from each other by integers. But since we need logic to go
@@ -494,42 +486,6 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, stop, stride):
         sage: maj = bounds.DiffOpBound(dop, special_shifts=[(0, 1)], max_effort=0)
         sage: series_sum(dop, ini, QQ(2), 1e-8, stride=1, maj=maj)
         ([0.2238907...])
-
-    Some simple tests involving large non-integer valuations::
-
-        sage: dop = (x*Dx-1001/2).symmetric_product(Dx-1)
-        sage: dop = dop._normalize_base_ring()[-1]
-        sage: (exp(CBF(1/2))/RBF(2)^(1001/2)).overlaps(dop.numerical_transition_matrix([0, 1/2], 1e-10)[0,0])
-        True
-        sage: (exp(CBF(2))/RBF(1/2)^(1001/2)).overlaps(dop.numerical_transition_matrix([0, 2], 1e-10)[0,0])
-        True
-
-        sage: dop = (x*Dx+1001/2).symmetric_product(Dx-1)
-        sage: dop = dop._normalize_base_ring()[-1]
-        sage: (CBF(1/2)^(-1001/2)*exp(CBF(1/2))).overlaps(dop.numerical_transition_matrix([0, 1/2], 1e-10)[0,0])
-        True
-        sage: (CBF(2)^(-1001/2)*exp(CBF(2))).overlaps(dop.numerical_transition_matrix([0, 2], 1e-10)[0,0])
-        True
-
-        sage: h = CBF(1/2)
-        sage: #dop = (Dx-1).lclm(x^2*Dx^2 - x*(2*x+1999)*Dx + (x^2 + 1999*x + 1000^2))
-        sage: dop = x^2*Dx^3 + (-3*x^2 - 1997*x)*Dx^2 + (3*x^2 + 3994*x + 998001)*Dx - x^2 - 1997*x - 998001
-        sage: mat = dop.numerical_transition_matrix([0,1/2], 1e-5) # XXX: long time with the simplified bounds on rational functions
-        sage: mat[0,0].overlaps(exp(h)) # long time
-        True
-        sage: mat[0,1].overlaps(exp(h)*h^1000*log(h)) # long time
-        True
-        sage: mat[0,2].overlaps(exp(h)*h^1000) # long time
-        True
-
-        sage: dop = (x^3 + x^2)*Dx^3 + (-1994*x^2 - 1997*x)*Dx^2 + (994007*x + 998001)*Dx + 998001
-        sage: mat = dop.numerical_transition_matrix([0, 1/2], 1e-5)
-        sage: mat[0,0].overlaps(1/(1+h))
-        True
-        sage: mat[0,1].overlaps(h^1000/(1+h)*log(h))
-        True
-        sage: mat[0,2].overlaps(h^1000/(1+h))
-        True
     """
 
     jet = pt.jet(Intervals)
