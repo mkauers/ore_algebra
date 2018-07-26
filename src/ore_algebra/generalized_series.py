@@ -1,6 +1,8 @@
 
 """
-Generalized series
+generalized_series
+==================
+
 """
 
 
@@ -353,7 +355,7 @@ class ContinuousGeneralizedSeries(RingElement):
                 # move part of the tail to the exponential part
                 exp += alpha
                 x = p.base_ring().gen()
-                p = p.map_coefficients(lambda q: q/(x**ZZ(ramification*alpha)))
+                p = p.map_coefficients(lambda q: q/(x**(ramification*alpha)))
             
             new_ram = lcm([ (e/ramification).denominator() for e in exp.exponents() ])
             if new_ram < ramification:
@@ -411,6 +413,23 @@ class ContinuousGeneralizedSeries(RingElement):
     def __copy__(self):
         return self
 
+    def __getitem__(self, key):
+        """
+        Returns a particular coefficient of the tail. 
+        The tail is regarded as an element of C[[x^(1/r)]][log(x)].
+        The input of the method is either a pair (a,b) where a is the 
+        exponent of log(x) and b the exponent of x, or just a rational 
+        number, which amounts to the same as choosing a=0.
+        Note that the exponent b only refers to the tail, excluding the
+        polynomial part alpha of the series. 
+        """
+        if key in QQ:
+            return self.__tail[0][key*self.__ramification]
+        elif len(key) == 2:
+            return self.__tail[key[0]][key[1]*self.__ramification]
+        else:
+            raise KeyError            
+    
     def base_extend(self, ext, name='a'):
         """
         Lifts ``self`` to a domain with an enlarged coefficient domain.
@@ -452,7 +471,7 @@ class ContinuousGeneralizedSeries(RingElement):
         if s == r:
             return (self.__exp, self.__tail)
 
-        quo = s // r
+        quo = s / r
         
         if r*quo != s or s <= 0:
             raise ValueError, "s must be a positive integer multiple of the ramification"
@@ -674,10 +693,10 @@ class ContinuousGeneralizedSeries(RingElement):
         return ContinuousGeneralizedSeries(self.parent(), 1, exp=self.__exp, ramification=self.ramification())
 
     def has_exponential_part(self):
-        r"""
+        """
         True if ``self`` has a nontrivial exponential part.
 
-        Note that the exponential part may not show up in form of an "exp" term in the printout,
+        Note that the exponential part may not show up in form of an \"exp\" term in the printout,
         but may also simply consist of some power `x^\alpha` with nonzero `\alpha`.
 
         EXAMPLES::
@@ -699,7 +718,7 @@ class ContinuousGeneralizedSeries(RingElement):
         """
         True if ``self`` contains logarithmic terms. 
         """
-        self.__tail.degree() > 0
+        return self.__tail.degree() > 0
 
     def tail(self):
         """
@@ -1079,6 +1098,25 @@ class DiscreteGeneralizedSeries(RingElement):
         else:
             raise ValueError, "don't know how to evaluate discrete generalized series at" + str(arg)
 
+
+    def __getitem__(self, key):
+        """
+        Returns a particular coefficient of the tail. 
+        The tail is regarded as an element of C[[x^(-1/r)]][log(x)].
+        The input of the method is either a pair (a,b) where a is the 
+        exponent of log(x) and b the exponent of x, or just a rational 
+        number, which amounts to the same as choosing a=0.
+        Note that the exponent b only refers to the tail, excluding the
+        polynomial part alpha of the series. 
+        """
+        if key in QQ:
+            return self.__expansion[0][-key*self.__ramification]
+        elif len(key) == 2:
+            return self.__expansion[key[0]][-key[1]*self.__ramification]
+        else:
+            raise KeyError            
+        
+        
     def subs(self, *args, **kwargs):
         raise NotImplementedError
         
