@@ -728,7 +728,7 @@ def _guess_via_gcrd(data, A, **kwargs):
         sort_key = lambda p: (p[0] + 1)*(p[1] + 1)
         prelude = []
     else:
-        r2d = lambda r: (N - 2*r - 2)/(r + 1) # python integer division intended.
+        r2d = lambda r: (N - 2*r - 2)//(r + 1) # python integer division intended.
         path = [(r, r2d(r)) for r in xrange(1, N)] 
         path = filter(lambda p: min(p[0] - 1, p[1]) >= 0, path)
         (r, d) = (1, 1); prelude = []
