@@ -373,3 +373,40 @@ def log_series(ini, bwrec, order):
         series.append(new_term)
         bwrec_nplus.append(bwrec.eval_series(Coeffs, n+precomp_len, log_prec))
     return series
+
+def log_series_value(Jets, derivatives, expo, psum, pt, branch=(0,)):
+    r"""
+    Evaluate a logarithmic series.
+
+    * ``branch`` - branch of the logarithm to use; (0) means the standard
+      branch, (k) means log(z) + 2kπi, a tuple of length > 1 averages over the
+      corresponding branches
+    """
+    log_prec = psum.length()
+    if log_prec > 1 or expo not in ZZ or branch != (0,):
+        pt = pt.parent().complex_field()(pt)
+        Jets = Jets.change_ring(Jets.base_ring().complex_field())
+        psum = psum.change_ring(Jets)
+    high = Jets([0] + [(-1)**(k+1)*~pt**k/k
+                       for k in xrange(1, derivatives)])
+    aux = high*expo
+    logger.debug("aux=%s", aux)
+    val = Jets.base_ring().zero()
+    for b in branch:
+        twobpii = pt.parent()(2*b*pi*I)
+        # hardcoded series expansions of log(a+η) and (a+η)^λ
+        # (too cumbersome to compute directly in Sage at the moment)
+        logpt = Jets([pt.log() + twobpii]) + high
+        logger.debug("logpt[%s]=%s", b, logpt)
+        inipow = ((twobpii*expo).exp()*pt**expo
+                *sum(_pow_trunc(aux, k, derivatives)/Integer(k).factorial()
+                    for k in xrange(derivatives)))
+        logger.debug("inipow[%s]=%s", b, inipow)
+        val += inipow.multiplication_trunc(
+                sum(psum[p]._mul_trunc_(_pow_trunc(logpt, p, derivatives),
+                                        derivatives)
+                        /Integer(p).factorial()
+                    for p in xrange(log_prec)),
+                derivatives)
+    val /= len(branch)
+    return val
