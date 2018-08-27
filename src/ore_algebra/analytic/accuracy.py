@@ -32,12 +32,23 @@ class StoppingCriterion(object):
 
         INPUT:
 
+        Callbacks:
+
         - get_bound: function residual -> bound on the total error on the
-          current partial sum (including logs etc.);
+          current partial sum (should return whatever quantity the caller
+          considers the “tail bound” and wants to make < ε, possibly accounting
+          for logs etc.);
         - get_residuals: nullary function returning the normalized residuals;
-        - get_value: nullary function returning the current partial sum
-          (including logs etc.), *without* taking into account the tail bound in
-          the intervals;
+        - get_value (actually only used by BoundRecorder, can be None for
+          callers that don't need to support bound recording): nullary function
+          returning the current partial sum (including logs etc.), *without*
+          taking into account the tail bound in the intervals;
+
+        Values:
+
+        - sing: boolean, True signals a singular index where we should return
+          infinity without even trying to compute a better bound (this is useful
+          to avoid special-casing singular indices elsewhere);
         - n: current index;
         - ini_tb: previous tail bound (can be infinite);
         - est: real interval, heuristic estimate of the absolute value of the
