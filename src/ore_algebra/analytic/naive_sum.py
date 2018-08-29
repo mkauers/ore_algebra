@@ -316,13 +316,15 @@ def series_sum_ordinary(Intervals, dop, bwrec, ini, pt, stop, stride):
             (bwrec_ev(start+i) for i in xrange(ordrec)),
             maxlen=ordrec)
 
-    def get_bound(maj):
-        return maj.bound(pt.rad, rows=ord)
-    def get_residuals():
-        return [stop.maj.normalized_residual(n, [[c] for c in last][1:],
-                    [[[c] for c in l] for l in bwrec_nplus])]
-    def get_value():
-        return psum
+    class BoundCallbacks(accuracy.BoundCallbacks):
+        def get_residuals(self):
+            return [stop.maj.normalized_residual(n, [[c] for c in last][1:],
+                        [[[c] for c in l] for l in bwrec_nplus])]
+        def get_bound(self, residuals):
+            return self.get_maj(stop, n, residuals).bound(pt.rad, rows=ord)
+        def get_value(self):
+            return psum
+    cb = BoundCallbacks()
 
     for n in itertools.count():
         last.rotate(1)
@@ -334,8 +336,8 @@ def series_sum_ordinary(Intervals, dop, bwrec, ini, pt, stop, stride):
             radpowest = abs(jetpow[0] if pt.is_numeric
                             else Intervals(pt.rad**n))
             est = sum(abs(a) for a in last)*radpowest
-            done, tail_bound = stop.check(get_bound, get_residuals, get_value,
-                                       (n <= start), n, tail_bound, est, stride)
+            sing = (n <= start)
+            done, tail_bound = stop.check(cb, sing, n, tail_bound, est, stride)
             if done:
                 break
         if n >= start:
@@ -598,23 +600,27 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, stop, stride):
     # TODO: improve the automatic increase of precision for large x^λ:
     # we currently check the series part only (which would sort of make
     # sense in a relative error setting)
-    val = [None] # XXX could be more elegant :-)
-    def get_bound(maj):
-        tb = maj.bound(pt.rad, rows=pt.jet_order)
-        my_psum = vector(Jets, [[t[i].add_error(tb.abs())
-                                for i in range(ord)] for t in psum])
-        # XXX decouple this from the summation => less redundant computation of
-        # local monodromy matrices
-        val[0] = log_series_value(Jets, ord, ini.expo, my_psum, jet[0],
-                                  branch=pt.branch)
-        return max([RBF.zero()] + [_get_error(c) for c in val[0]])
-    def get_residuals():
-        return [stop.maj.normalized_residual(n, list(last)[1:], bwrec_nplus)]
-    def get_value():
-        my_psum = vector(Jets, [[t[i] for i in range(ord)] for t in psum])
-        my_val = log_series_value(Jets, ord, ini.expo, my_psum, jet[0],
-                                  branch=pt.branch)
-        return my_val
+    class BoundCallbacks(accuracy.BoundCallbacks):
+        def __init__(self):
+            self.val = None
+        def get_residuals(self):
+            return [stop.maj.normalized_residual(n, list(last)[1:], bwrec_nplus)]
+        def get_bound(self, residuals):
+            maj = self.get_maj(stop, n, residuals)
+            tb = maj.bound(pt.rad, rows=pt.jet_order)
+            my_psum = vector(Jets, [[t[i].add_error(tb.abs())
+                                    for i in range(ord)] for t in psum])
+            # XXX decouple this from the summation => less redundant computation
+            # of local monodromy matrices
+            self.val = log_series_value(Jets, ord, ini.expo, my_psum, jet[0],
+                                        branch=pt.branch)
+            return max([RBF.zero()] + [_get_error(c) for c in self.val])
+        def get_value(self):
+            my_psum = vector(Jets, [[t[i] for i in range(ord)] for t in psum])
+            my_val = log_series_value(Jets, ord, ini.expo, my_psum, jet[0],
+                                    branch=pt.branch)
+            return my_val
+    cb = BoundCallbacks()
 
     precomp_len = max(1, bwrec.order) # hack for recurrences of order zero
     bwrec_nplus = collections.deque(
@@ -631,8 +637,7 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, stop, stride):
             radpowest = abs(jetpow[0])
             est = sum(abs(a) for log_jet in last for a in log_jet) * radpowest
             sing = (n <= last_index_with_ini) or (mult > 0)
-            done, tail_bound = stop.check(get_bound, get_residuals, get_value,
-                                          sing, n, tail_bound, est, stride)
+            done, tail_bound = stop.check(cb, sing, n, tail_bound, est, stride)
             if done:
                 break
 
@@ -651,7 +656,7 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, stop, stride):
         bwrec_nplus.append(bwrec.eval_series(Intervals, n+precomp_len, log_prec))
     logger.info("summed %d terms, global tail bound = %s (est = %s)",
             n, tail_bound, bounds.IR(est))
-    result = vector(val[0][i] for i in xrange(ord))
+    result = vector(cb.val[i] for i in xrange(ord))
     return result
 
 ################################################################################

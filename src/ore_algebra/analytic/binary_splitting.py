@@ -468,17 +468,20 @@ def fundamental_matrix_ordinary(dop, pt, eps, rows, maj, fail_fast):
     prods, n, tail_bound = [], None, bounds.IR('inf')
     # XXX clarify exact criterion
     stop = accuracy.StoppingCriterion(maj=maj, eps=eps, fast_fail=False)
-    def get_residuals():
-        return [rec.normalized_residual(maj, mat, n) for mat in prods]
-    def get_bound(maj):
-        return maj.bound(rad, rows=rows, cols=rows)
+    class BoundCallbacks(accuracy.BoundCallbacks):
+        def get_residuals(self):
+            return [rec.normalized_residual(maj, mat, n) for mat in prods]
+        def get_bound(self, residuals):
+            maj = self.get_maj(stop, n, residuals)
+            return maj.bound(rad, rows=rows, cols=rows)
+    cb = BoundCallbacks()
     prods = [rec.ordinary_ini(i, dop.order()) for i in range(dop.order())]
     for last, n in binsplit_step_seq(dop.order() - 1):
         fwd = rec.binsplit(last, n)
         for prod in prods:
             prod.imulleft(fwd)
-        done, tail_bound = stop.check(get_bound, get_residuals, None,
-                False, n, tail_bound, rec.error_estimate(prod), next_stride=n)
+        done, tail_bound = stop.check(cb, False, n, tail_bound,
+                                      rec.error_estimate(prod), next_stride=n)
         if done:
             break
     is_real = utilities.is_real_parent(pt.parent())

@@ -13,8 +13,50 @@ logger = logging.getLogger(__name__)
 
 IR, IC = RBF, CBF # TBI
 
+######################################################################
+# Convergence check
+######################################################################
+
 class PrecisionError(Exception):
     pass
+
+class BoundCallbacks(object):
+    r"""
+    Used by StoppingCriterion.
+    """
+
+    def get_residuals(self):
+        r"""
+        Return the normalized residuals required by get_bound.
+        """
+        raise NotImplementedError
+
+    def get_bound(self, residuals):
+        r"""
+        Bound on the total error on the current partial sum (should return
+        whatever quantity the client considers the “tail bound” and wants to
+        make < ε, possibly accounting for logs etc.)
+        """
+        raise NotImplementedError
+
+    def get_maj(self, stop, n, resid):
+        r"""
+        Return the majorant of the tail computed from the residuals.
+
+        Optional: only required from clients that support bound recording.
+        """
+        return stop.maj.tail_majorant(n, resid)
+
+    def get_value(self):
+        r"""
+        Return the current partial sum.
+
+        The result should include logs etc. just like get_bound(), but *not*
+        take into account the tail bound in the intervals.
+
+        Optional: only required from clients that support bound recording.
+        """
+        raise NotImplementedError
 
 class StoppingCriterion(object):
 
@@ -25,27 +67,13 @@ class StoppingCriterion(object):
         self.fast_fail = fast_fail
         self.force = False
 
-    def check(self, get_bound, get_residuals, get_value,
-              sing, n, ini_tb, est, next_stride):
+    def check(self, cb, sing, n, ini_tb, est, next_stride):
         r"""
         Test if it is time to halt the computation of the sum of a series.
 
         INPUT:
 
-        Callbacks:
-
-        - get_bound: function residual -> bound on the total error on the
-          current partial sum (should return whatever quantity the caller
-          considers the “tail bound” and wants to make < ε, possibly accounting
-          for logs etc.);
-        - get_residuals: nullary function returning the normalized residuals;
-        - get_value (actually only used by BoundRecorder, can be None for
-          callers that don't need to support bound recording): nullary function
-          returning the current partial sum (including logs etc.), *without*
-          taking into account the tail bound in the intervals;
-
-        Values:
-
+        - cb: BoundCallbacks object, see the documentation of that class;
         - sing: boolean, True signals a singular index where we should return
           infinity without even trying to compute a better bound (this is useful
           to avoid special-casing singular indices elsewhere);
@@ -104,12 +132,12 @@ class StoppingCriterion(object):
             assert width.is_finite()
             return False, IR('inf')
 
-        resid = get_residuals()
+        resid = cb.get_residuals()
 
         tb = IR('inf')
         while True:
             prev_tb = tb
-            tb = get_bound(self.maj.tail_majorant(n, resid))
+            tb = cb.get_bound(resid)
             logger.debug("n=%d, est=%s, width=%s, tail_bound=%s",
                          n, est, width, tb)
             bound_getting_worse = ini_tb.is_finite() and not safe_lt(tb, ini_tb)
@@ -176,17 +204,16 @@ class BoundRecorder(StoppingCriterion):
         self.force = True
         self.recd = []
 
-    def check(self, get_bound, get_residuals, get_value, sing, n, *args):
+    def check(self, cb, sing, n, *args):
         if sing:
-            maj = None
             bound = IR('inf')
+            maj = None
         else:
-            resid = get_residuals()
-            maj = self.maj.tail_majorant(n, resid)
-            bound = get_bound(maj)
-        self.recd.append(BoundRecord(n, get_value(), maj, bound))
-        return super(self.__class__, self).check(
-                get_bound, get_residuals, get_value, sing, n, *args)
+            resid = cb.get_residuals()
+            bound = cb.get_bound(resid)
+            maj = cb.get_maj(self, n, resid)
+        self.recd.append(BoundRecord(n, cb.get_value(), maj, bound))
+        return super(self.__class__, self).check(cb, sing, n, *args)
 
     def reset(self, *args):
         super(self.__class__, self).reset(*args)
