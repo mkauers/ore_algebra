@@ -5,7 +5,7 @@ Error bounds
 
 from __future__ import print_function
 
-import collections, itertools, logging, warnings
+import itertools, logging, warnings
 
 from sage.arith.srange import srange
 from sage.misc.cachefunc import cached_function, cached_method
@@ -1994,7 +1994,7 @@ class DiffOpBound(object):
 
         saved_max_effort = self.max_effort
         self.max_effort = 0
-        recorder = BoundRecorder(maj=self, eps=eps>>2)
+        recorder = accuracy.BoundRecorder(maj=self, eps=eps>>2)
         ref_sum = naive_sum.series_sum(self._dop_D, ini, pt, eps>>2, maj=self,
                                        stride=1, stop=recorder)
         recd = recorder.recd[:-1]
@@ -2060,31 +2060,6 @@ class DiffOpBound(object):
             self.refine()
         p.set_legend_options(handlelength=4, shadow=False)
         return p
-
-BoundRecord = collections.namedtuple("BoundRecord", ["n", "psum", "maj", "b"])
-
-class BoundRecorder(accuracy.StoppingCriterion):
-
-    def __init__(self, maj, eps, fast_fail=False):
-        super(self.__class__, self).__init__(maj, eps, fast_fail=True)
-        self.force = True
-        self.recd = []
-
-    def check(self, get_bound, get_residuals, get_value, sing, n, *args):
-        if sing:
-            maj = None
-            bound = IR('inf')
-        else:
-            resid = get_residuals()
-            maj = self.maj.tail_majorant(n, resid)
-            bound = get_bound(maj)
-        self.recd.append(BoundRecord(n, get_value(), maj, bound))
-        return super(self.__class__, self).check(
-                get_bound, get_residuals, get_value, sing, n, *args)
-
-    def reset(self, *args):
-        super(self.__class__, self).reset(*args)
-        self.recd = []
 
 # Perhaps better: work with a "true" Ore algebra K[θ][z]. Use Euclidean
 # division to compute the truncation in DiffOpBound._update_num_bound.

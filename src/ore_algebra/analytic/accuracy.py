@@ -3,7 +3,7 @@ r"""
 Accuracy management
 """
 
-import logging
+import collections, logging
 
 from sage.rings.all import  ZZ, QQ, RR, RBF, CBF
 
@@ -162,6 +162,35 @@ class StoppingCriterion(object):
     def reset(self, eps, fast_fail):
         self.eps = eps
         self.fast_fail = fast_fail
+
+######################################################################
+# Bound recording
+######################################################################
+
+BoundRecord = collections.namedtuple("BoundRecord", ["n", "psum", "maj", "b"])
+
+class BoundRecorder(StoppingCriterion):
+
+    def __init__(self, maj, eps, fast_fail=False):
+        super(self.__class__, self).__init__(maj, eps, fast_fail=True)
+        self.force = True
+        self.recd = []
+
+    def check(self, get_bound, get_residuals, get_value, sing, n, *args):
+        if sing:
+            maj = None
+            bound = IR('inf')
+        else:
+            resid = get_residuals()
+            maj = self.maj.tail_majorant(n, resid)
+            bound = get_bound(maj)
+        self.recd.append(BoundRecord(n, get_value(), maj, bound))
+        return super(self.__class__, self).check(
+                get_bound, get_residuals, get_value, sing, n, *args)
+
+    def reset(self, *args):
+        super(self.__class__, self).reset(*args)
+        self.recd = []
 
 ######################################################################
 # Absolute and relative errors
