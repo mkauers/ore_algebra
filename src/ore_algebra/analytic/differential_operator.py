@@ -64,6 +64,8 @@ class PlainDifferentialOperator(UnivariateDifferentialOperatorOverUnivariateRing
         Dops = self.parent()
         Pols = Dops.base_ring()
         Scalars = Pols.base_ring()
+        if Scalars.has_coerce_map_from(pt.parent()):
+            return self, pt
         gen = Scalars.gen()
         NF, (gen1, pt1) = utilities.as_embedded_number_field_elements([gen,pt])
         hom = Scalars.hom([gen1], codomain=NF)
