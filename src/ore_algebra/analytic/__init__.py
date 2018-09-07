@@ -346,6 +346,15 @@ to significantly decrease ``eps`` to get precise results::
     sage: dop.numerical_solution(ini, [0,5], 1e-150)
     [+/- ...e-35]
 
+Handling of algebraic points::
+
+    sage: (Dx - i).numerical_solution([1], [sqrt(2), 0])
+    [0.1559436947653744...] + [-0.9877659459927355...]*I
+    sage: (Dx - i).numerical_solution([1], [0, sqrt(2)])
+    [0.1559436947653744...] + [0.9877659459927355...]*I
+    sage: (Dx - i).numerical_solution([1], [sqrt(2), sqrt(3)])
+    [0.9499135278648561...] + [0.3125128630622157...]*I
+
 Miscellaneous tests::
 
     sage: dop =  -452*Dx^10 + (-2*x^2 - x - 1/2)*Dx^9 + (1/2*x + 22)*Dx^8 + (1/4*x^2 + x)*Dx^7 + (1/3*x^2 - 1/2*x + 1/3)*Dx^6 + (-3*x^2 + x + 1)*Dx^5 + (x^2 - 4/3*x)*Dx^4 + (2*x^2 - 2*x)*Dx^3 + (2*x^2 + x)*Dx^2 + (-2/3*x^2 - 5/27*x - 1/3)*Dx - 18*x^2 + 6/5*x - 6

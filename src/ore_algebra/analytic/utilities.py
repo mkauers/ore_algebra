@@ -72,14 +72,14 @@ def ball_field(eps, real):
 def as_embedded_number_field_elements(algs):
     nf, elts, emb = number_field_elements_from_algebraics(algs)
     if nf is not QQ:
-        embnf = NumberField(nf.polynomial(), nf.variable_name(),
+        nf = NumberField(nf.polynomial(), nf.variable_name(),
                     embedding=emb(nf.gen()))
-        elts = [elt.polynomial()(embnf.gen()) for elt in elts]
+        elts = [elt.polynomial()(nf.gen()) for elt in elts]
     assert [QQbar.coerce(elt) == alg for alg, elt in zip(algs, elts)]
-    return elts
+    return nf, elts
 
 def as_embedded_number_field_element(alg):
-    return as_embedded_number_field_elements([alg])[0]
+    return as_embedded_number_field_elements([alg])[1][0]
 
 def number_field_with_integer_gen(K):
     r"""
