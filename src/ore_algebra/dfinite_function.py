@@ -67,7 +67,7 @@ class DFiniteFunctionRing(Algebra):
 
 # constructor
     
-    def __init__(self, ore_algebra, codomain = NN, name=None, element_class=None, category=None):
+    def __init__(self, ore_algebra, domain = NN, name=None, element_class=None, category=None):
         """
         Constuctor for a D-finite function ring.
         
@@ -76,8 +76,8 @@ class DFiniteFunctionRing(Algebra):
         - ``ore_algebra`` -- an Ore algebra over which the D-finite function ring is defined.
             Only ore algebras with the differential or the shift operator are accepted to
             define a D-finite function ring.
-        - ``codomain`` (default ``NN``) -- domain over which the sequence indices are considered,
-            i.e. if the codomain is ``ZZ``also negative sequence inidices exist.
+        - ``domain`` (default ``NN``) -- domain over which the sequence indices are considered,
+            i.e. if the domain is ``ZZ``also negative sequence inidices exist.
             So far for d-finite sequences ``NN`` and ``ZZ`` are supported and for D-finite
             functions only ``NN``is supported.
         
@@ -103,16 +103,16 @@ class DFiniteFunctionRing(Algebra):
             Ring of D-finite functions over Univariate Polynomial Ring in x over Rational Field
 
         """
-        if codomain != ZZ and codomain != NN:
-            raise TypeError, "Codomain does not fit"
+        if domain != ZZ and domain != NN:
+            raise TypeError, "Domain does not fit"
         
         self._ore_algebra = ore_algebra
         self._base_ring = ore_algebra.base_ring()
         
-        if ore_algebra.is_D() and codomain == ZZ:
+        if ore_algebra.is_D() and domain == ZZ:
             raise NotImplementedError, "D-finite functions with negative powers are not implemented"
-        self._codomain = codomain
-        if codomain == NN:
+        self._domain = domain
+        if domain == NN:
             self._backward_calculation = False
         else:
             self._backward_calculation = true
@@ -204,8 +204,8 @@ class DFiniteFunctionRing(Algebra):
         Convert a d-finite object ``x`` into this ring, possibly non-canonically
         
         This is possible if there is a coercion from the Ore algebra of the parent of ``x`` into the Ore algebra of ``self``.
-        In the shift case, if ``x`` represents a sequence that is defined over ``NN`` then also the codomain of ``self``
-        has to be ``NN``(can not convert sequence over codomain ``NN`` into sequence over codomain ``ZZ``)
+        In the shift case, if ``x`` represents a sequence that is defined over ``NN`` then also the domain of ``self``
+        has to be ``NN``(can not convert sequence over domain ``NN`` into sequence over domain ``ZZ``)
         
         INPUT:
         
@@ -231,13 +231,13 @@ class DFiniteFunctionRing(Algebra):
             Univariate D-finite sequence defined by the annihilating operator n*Sn - n - 1 and the initial conditions {0: 0, 1: 1}
             sage: D2(a1)
             Univariate D-finite sequence defined by the annihilating operator n*Sn - n - 1 and the initial conditions {0: 0, 1: 1}
-            #D1(a2) would not work since a2 is defined over ``NN`` but D1 has codomain ``ZZ``
+            #D1(a2) would not work since a2 is defined over ``NN`` but D1 has domain ``ZZ``
             
         """
         if self._coerce_map_from_(x.parent()):
             if n:
-                if self._codomain == ZZ and x.parent()._codomain == NN:
-                    raise TypeError, "can not convert sequence over codomain NN into sequence over codomain ZZ"
+                if self._domain == ZZ and x.parent()._domain == NN:
+                    raise TypeError, "can not convert sequence over domain NN into sequence over domain ZZ"
                 else:
                     return UnivariateDFiniteSequence(self,x.ann(),x.initial_conditions())
             else:
@@ -317,13 +317,14 @@ class DFiniteFunctionRing(Algebra):
             Univariate D-finite function defined by the annihilating operator (x + 1)*Dx + 1 and the coefficient sequence defined by (n + 1)*Sn + n + 1 and {0: 1}
             
         """
-        x = self.base_ring().fraction_field()(x)
+        R = self.base_ring()
+        x = R.fraction_field()(x)
 
         if n:
                 
             #getting the operator
             A = self.ore_algebra()
-            N = self.base_ring().gen()
+            N = R.gen()
             Sn = A.gen()
             f = x.numerator()
             g = x.denominator()
@@ -336,7 +337,7 @@ class DFiniteFunctionRing(Algebra):
             singularities_positive = ann.singularities()
             singularities_negative = set()
             if self._backward_calculation == True:
-                singularities_negative = ann.singularities(True)
+                singularities_negative = set([n for n in ann.singularities(True) if n < 0])
 
             initial_val = set(range(ord)).union(singularities_positive, singularities_negative)
             if self._backward_calculation == True:
@@ -358,6 +359,8 @@ class DFiniteFunctionRing(Algebra):
             return UnivariateDFiniteSequence(self,ann,int_val)
                     
         else:
+            if R(x.denominator()).constant_coefficient() == 0:
+                raise ValueError, "The rational function you tried to convert has a pole at x = 0. Hence, it can not be converted into a D-finite formal power series object. "
             y = self.ore_algebra().is_D()
             Dy = self.ore_algebra().gen()
             R = self.ore_algebra().base_ring().change_var('n')
@@ -451,7 +454,7 @@ class DFiniteFunctionRing(Algebra):
             elif (not n) and (exponent - QQ(0.5) in ZZ) and (exponent >= 0):
                 if R(operands[0]).degree() > 1:
                    raise ValueError, "Sqrt implemented only for linear inner function"
-                ann = symbolic_database(self.ore_algebra(),operator,n,operands[0])
+                ann = symbolic_database(self.ore_algebra(),operator,operands[0])
                 ord = ann.order()
                 int_val = range(ord)
                 initial_val = {i: operator(operands[0],QQ(0.5)).derivative(i)(x = 0)/factorial(i) for i in int_val}
@@ -481,7 +484,7 @@ class DFiniteFunctionRing(Algebra):
                     singularities_positive = ann.singularities()
                     singularities_negative = set()
                     if self._backward_calculation == True:
-                        singularities_negative = ann.singularities(True)
+                        singularities_negative = set([i for i in ann.singularities(True) if i < 0])
                     int_val = set(range(ord)).union(singularities_positive, singularities_negative)
                     initial_val = {i: exp(n = i) for i in int_val}
                     return UnivariateDFiniteSequence(self,ann,initial_val)
@@ -499,7 +502,7 @@ class DFiniteFunctionRing(Algebra):
                     singularities_positive = ann.singularities()
                     singularities_negative = set()
                     if self._backward_calculation == True:
-                        singularities_negative = ann.singularities(True)
+                        singularities_negative = set([i for i in ann.singularities(True) if i < 0])
                     int_val = set(range(ord)).union(singularities_positive, singularities_negative)
                     initial_val = {i: exp.subs(inner == var('n'))(n = i) for i in int_val}
                     #if inner == n we are done
@@ -532,7 +535,7 @@ class DFiniteFunctionRing(Algebra):
     def __eq__(self,right):
         """
         Tests if the two DFiniteFunctionRings ``self``and ``right`` are equal. 
-        This is the case if and only if they are defined over equal Ore algebras and have the same codomain
+        This is the case if and only if they are defined over equal Ore algebras and have the same domain
         
         EXAMPLES::
         
@@ -547,7 +550,7 @@ class DFiniteFunctionRing(Algebra):
         
         """
         try:
-            return (self.ore_algebra() == right.ore_algebra() and self.codomain() == right.codomain())
+            return (self.ore_algebra() == right.ore_algebra() and self.domain() == right.domain())
         except:
             return False
 
@@ -595,12 +598,12 @@ class DFiniteFunctionRing(Algebra):
         Produce an expression which will reproduce ``self`` when
         evaluated.
         """
-        if self.codomain() == ZZ:
-            return sib.name('DFiniteFunctionRing')(sib(self.ore_algebra()),sib(self.codomain()))
+        if self.domain() == ZZ:
+            return sib.name('DFiniteFunctionRing')(sib(self.ore_algebra()),sib(self.domain()))
         else:
             return sib.name('DFiniteFunctionRing')(sib(self.ore_algebra()),sib.name('NN'))
 
-    def _is_valid_homomorphism_(self, codomain, im_gens):
+    def _is_valid_homomorphism_(self, domain, im_gens):
         """
         """
         raise NotImplementedError
@@ -647,11 +650,11 @@ class DFiniteFunctionRing(Algebra):
         """
         return self._ore_algebra
 
-    def codomain(self):
+    def domain(self):
         """
-        Return the codomain over which the DFiniteFunctionRing is defined
+        Return the domain over which the DFiniteFunctionRing is defined
         """
-        return self._codomain
+        return self._domain
 
     def characteristic(self):
         """
@@ -717,7 +720,7 @@ class DFiniteFunctionRing(Algebra):
         singularities_positive = ann.singularities()
         singularities_negative = set()
         if self._backward_calculation == True:
-            singularities_negative = ann.singularities(True)
+            singularities_negative = set([i for i in ann.singularities(True) if i < 0])
         
         initial_val = set(range(degree)).union(singularities_positive, singularities_negative)
         int_val = {n:randint(-100, 100) for n in initial_val}
@@ -741,17 +744,17 @@ class DFiniteFunctionRing(Algebra):
         if R is self._base_ring:
             return self
         else:
-            D = DFiniteFunctionRing(self._ore_algebra.change_ring(R), self._codomain)
+            D = DFiniteFunctionRing(self._ore_algebra.change_ring(R), self._domain)
             return D
 
-    def change_codomain(self,R):
+    def change_domain(self,R):
         """
-        Return a copy of ``self``but with the codomain `R`
+        Return a copy of ``self``but with the domain `R`
         """
         if R != NN and R != ZZ:
-            raise TypeError, "Codomain not supported"
+            raise TypeError, "domain not supported"
 
-        if self.codomain() == R:
+        if self.domain() == R:
             return self
 
         return DFiniteFunctionRing(self.ore_algebra(), R)
@@ -800,7 +803,7 @@ class DFiniteFunction(RingElement):
         ord = self.__ann.order()
         singularities = self.__ann.singularities()
         if parent._backward_calculation == True:
-            singularities.update([a for a in self.__ann.singularities(True) if a < self.__ann.order()])
+            singularities.update([a for a in self.__ann.singularities(True) if a < 0])
         
         #converting the initial values into sage rationals if possible
         if type(initial_val) == dict:
@@ -826,7 +829,7 @@ class DFiniteFunction(RingElement):
                     print "Not enough initial values"
                 
                 #sequence comes from a d-finite function
-                if parent._backward_calculation is False:
+                if parent._backward_calculation is False and len(self._initial_values) < ord:
                     diff = len(initial_conditions) - len(self._initial_values)
                     zeros = {i:0 for i in range(-diff,0)}
                     self._initial_values.update(zeros)
@@ -1206,7 +1209,7 @@ class DFiniteFunction(RingElement):
                 critical_points.update(range(n,n+ord+1))
         
         elif self.parent()._backward_calculation == True:
-            singularities_negative = self.__ann.singularities(True)
+            singularities_negative = set([i for i in self.__ann.singularities(True) if i < 0])
             for n in singularities_negative:
                 critical_points.update(range(n-ord,n+1))
         
@@ -1316,7 +1319,7 @@ class DFiniteFunction(RingElement):
             Univariate D-finite sequence defined by the annihilating operator x^2 - x - 1 and the initial conditions {0: 0, 1: 1}
         
         """
-        D = DFiniteFunctionRing(self.parent().ore_algebra().change_var(var),self.parent()._codomain)
+        D = DFiniteFunctionRing(self.parent().ore_algebra().change_var(var),self.parent()._domain)
         if self.parent().ore_algebra().is_S():
             return UnivariateDFiniteSequence(D, self.__ann, self._initial_values)
         else:
@@ -1742,7 +1745,7 @@ class UnivariateDFiniteSequence(DFiniteFunction):
         
         If `x` is an integer (or a float, which then gets ``cut`` to an integer) the x-th sequence term
         is returned. This is also possible for negative `x` if the DFiniteFunctionRing is defined
-        over the codomain ZZ. If `x` is a suitable expression, i.e. of the form x = u*n + v for
+        over the domain ZZ. If `x` is a suitable expression, i.e. of the form x = u*n + v for
         some u,v in QQ, it is interpreted as the composition self(floor(x(n)))
         
         EXAMPLES::
@@ -1780,7 +1783,7 @@ class UnivariateDFiniteSequence(DFiniteFunction):
             singularities_positive = ann.singularities()
             singularities_negative = set()
             if self.parent()._backward_calculation == True:
-                singularities_negative = ann.singularities(True)
+                singularities_negative = set([i for i in ann.singularities(True) if i < 0])
         
             initial_val = set(range(ord)).union(singularities_positive, singularities_negative)
             int_val = {n:self[floor(x(n))] for n in initial_val}
@@ -2023,7 +2026,7 @@ class UnivariateDFiniteSequence(DFiniteFunction):
         singularities_positive = sum_ann.singularities()
         singularities_negative = set()
         if self.parent()._backward_calculation == True:
-            singularities_negative = sum_ann.singularities(True)
+            singularities_negative = set([i for i in sum_ann.singularities(True) if i < 0])
     
         initial_val = set(range(ord)).union(singularities_positive, singularities_negative)
         int_val_sum = {n:self[n] + right[n] if (self[n] != None and right[n] != None) else None for n in initial_val}
@@ -2095,7 +2098,7 @@ class UnivariateDFiniteSequence(DFiniteFunction):
         singularities_positive = sum_ann.singularities()
         singularities_negative = set()
         if self.parent()._backward_calculation == True:
-            singularities_negative = sum_ann.singularities(True)
+            singularities_negative = set([i for i in sum_ann.singularities(True) if i < 0])
     
         initial_val = set(range(ord)).union(singularities_positive, singularities_negative)
         int_val_sum = {n:self[n] + right[n] if (self[n] != None and right[n] != None) else None for n in initial_val}
@@ -2182,7 +2185,7 @@ class UnivariateDFiniteSequence(DFiniteFunction):
         singularities_positive = prod_ann.singularities()
         singularities_negative = set()
         if self.parent()._backward_calculation == True:
-            singularities_negative = prod_ann.singularities(True)
+            singularities_negative = set([i for i in prod_ann.singularities(True) if i < 0])
     
         initial_val = set(range(ord)).union(singularities_positive, singularities_negative)
         int_val_prod = {n:self[n] * right[n] if (self[n] != None and right[n] != None) else None for n in initial_val }
@@ -2259,7 +2262,7 @@ class UnivariateDFiniteSequence(DFiniteFunction):
         singularities_positive = prod_ann.singularities()
         singularities_negative = set()
         if self.parent()._backward_calculation == True:
-            singularities_negative = prod_ann.singularities(True)
+            singularities_negative = set([i for i in prod_ann.singularities(True) if i < 0])
     
         initial_val = set(range(ord)).union(singularities_positive, singularities_negative)
         int_val_prod = {}
@@ -2366,7 +2369,7 @@ class UnivariateDFiniteSequence(DFiniteFunction):
         singularities_positive = interlacing_ann.singularities()
         singularities_negative = set()
         if self.parent()._backward_calculation == True:
-            singularities_negative = interlacing_ann.singularities(True)
+            singularities_negative = set([i for i in interlacing_ann.singularities(True) if i < 0])
         
         initial_val = set(range(ord)).union(singularities_positive, singularities_negative)
         int_val_interlacing = {}
@@ -2440,8 +2443,8 @@ class UnivariateDFiniteSequence(DFiniteFunction):
             
         """
         #only makes sense for sequences over NN
-        if self.parent().codomain() == ZZ:
-            raise TypeError, "codomain of the DFiniteFunctionRing has to be NN"
+        if self.parent().domain() == ZZ:
+            raise TypeError, "domain of the DFiniteFunctionRing has to be NN"
         
         #getting the operator
         N = self.parent().base_ring().gen()
@@ -2456,7 +2459,7 @@ class UnivariateDFiniteSequence(DFiniteFunction):
         singularities_positive = sum_ann.singularities()
         singularities_negative = set()
         if self.parent()._backward_calculation == True:
-            singularities_negative = sum_ann.singularities(True)
+            singularities_negative = set([i for i in sum_ann.singularities(True) if i < 0])
     
         initial_val = set(range(ord)).union(singularities_positive, singularities_negative)
         int_val_sum = {n : sum(self.expand(n)) if all(self[k] != None for k in xrange(n+1)) else None for n in initial_val}
@@ -2493,7 +2496,7 @@ class UnivariateDFiniteSequence(DFiniteFunction):
         
         INPUT:
         
-        - ``n`` -- an integer; if ``self`` is defined over the codomain ZZ then ``n`` can also be negative
+        - ``n`` -- an integer; if ``self`` is defined over the domain ZZ then ``n`` can also be negative
         
         OUTPUT:
         
@@ -2559,7 +2562,7 @@ class UnivariateDFiniteSequence(DFiniteFunction):
                 
             int_val = {ord-i:self[i] for i in self.initial_conditions() if i <= ord}
             if int_val:
-                b = UnivariateDFiniteSequence(self.parent().change_codomain(NN), A, int_val)
+                b = UnivariateDFiniteSequence(self.parent().change_domain(NN), A, int_val)
                 return b.expand(-(n+1)+ord+1)[ord:]
             else:
                 return (-n+1)*[0]
@@ -2571,7 +2574,7 @@ class UnivariateDFiniteSequence(DFiniteFunction):
         
         INPUT:
         
-        - ``n`` -- an integer; if ``self`` is defined over the codomain ZZ then ``n`` can also be negative
+        - ``n`` -- an integer; if ``self`` is defined over the domain ZZ then ``n`` can also be negative
 
         OUTPUT:
         
@@ -2688,7 +2691,7 @@ class UnivariateDFiniteFunction(DFiniteFunction):
     def __call__(self, r):
         """
         Lets ``self`` act on `r` and returns the result.
-        `r` may be either a constant, then this (tries to) computes an evaluation. This evaluation might fail if there
+        `r` may be either a constant, then this method tries to evaluate ``self``at `r`. This evaluation might fail if there
         is a singularity of the annihilating operator of ``self`` between 0 and `r`. To then compute an evaluation use 
         ``evaluate`` and see the documentation there.
         `r` can also be a (suitable) expression, then the composition ``self(r)`` is computed. A suitable expression means 
@@ -2722,9 +2725,10 @@ class UnivariateDFiniteFunction(DFiniteFunction):
         if type(r) == list:
             return self.evaluate(r,0)
         
-        try:
-            r = float(r)
-        except:
+        if r in CC:
+            return self.evaluate(r,0)
+        
+        else:
             if not isinstance(r, UnivariateDFiniteFunction):
                 r = self.parent()(r)
             
@@ -2764,8 +2768,7 @@ class UnivariateDFiniteFunction(DFiniteFunction):
             seq = UnivariateDFiniteSequence(DFiniteFunctionRing(S,NN),s_ann,int_val)
         
             return UnivariateDFiniteFunction(self.parent(), ann, seq)
-        
-        return self.evaluate(r,0)
+
         
     def _test_conversion_(self):
         """
@@ -3106,7 +3109,15 @@ class UnivariateDFiniteFunction(DFiniteFunction):
     
         prod = UnivariateDFiniteFunction(self.parent(), prod_ann, seq)
         return prod
-               
+        
+    def hadamard_product(self,right):
+        """
+        Return the D-finite function corresponding to the Hadamard product of ``self`` and ``right``.
+        The Hadamard product of two formal power series a(x) = \sum_{n=0}^\infty a_n x^n and b(x) = \sum_{n=0}^\infty b_n x^n
+        is defined as a(x) \odot b(x) := \sum_{n=0}^\infty a_nb_n x^n
+        """
+        seq = self.initial_conditions() * right.initial_conditions()
+        return seq.generating_function()
         
     def __invert__(self):
         """
@@ -3230,14 +3241,10 @@ class UnivariateDFiniteFunction(DFiniteFunction):
         ini = self.initial_values()
         Dx = self.parent().ore_algebra().gen()
         
-        try:
-            z = float(z)
-            if z == 0:
-                return self[0]
-        except:
-            pass
+        if z == 0:
+            return self[0]
         
-        if type(z) == float:
+        if z in CC:
             return self.ann().numerical_solution(ini,[0,z], eps=1e-50, post_transform=Dx**n)
         elif type(z) == list:
             return self.ann().numerical_solution(ini,z, eps=1e-50, post_transform=Dx**n)
