@@ -514,6 +514,7 @@ class MatrixRec(object):
         Mat_rec0 = MatrixSpace(self.AlgInts_rec, self.ordrec)
         self.Mat_rec = PolynomialRing(Mat_rec0, 'Sk')
         self.Pols_rec = PolynomialRing(self.AlgInts_rec, 'Sk')
+        logger.debug("coefficients in: %s", self.Pols_rec)
 
         assert self.bwrec[0].base_ring() is self.AlgInts_rec # uniqueness
         assert self.bwrec[0](0).parent() is self.AlgInts_rec #   issues...
@@ -522,10 +523,12 @@ class MatrixRec(object):
         Series_pow = PolynomialRing(self.AlgInts_pow, 'delta')
         self.pow_num = Series_pow([self.pow_den*dz, self.pow_den])
         self.derivatives = derivatives
+        logger.debug("evaluation point in: %s", self.Pols_rec)
 
         # Partial sums
         Series_sums0 = PolynomialRing(self.AlgInts_sums, 'delta')
         self.Series_sums = PolynomialRing(Series_sums0, 'Sk')
+        logger.debug("partial sums in: %s", self.Series_sums)
 
     def _init_CBF(self, deq_Scalars, shift, E, dz, prec):
         self.StepMatrix_class = StepMatrix_arb
@@ -811,9 +814,9 @@ class MatrixRecsUnroller(LocalBasisMapper):
         # concrete ones
         assert len(self.irred_factor_cols) == sum(m for _, m in self.shifts)
         self.irred_factor_cols = self.modZ_class_partial_sums(self.Jets)
+        # logger.debug("concrete partial sums: %s", self.irred_factor_cols)
         assert (len(self.irred_factor_cols)
                 == sum(m for _, m in self.shifts)*self.irred_factor.degree())
-        logger.debug("concrete partial sums: %s", self.irred_factor_cols)
 
     def process_modZ_class(self):
 
@@ -887,7 +890,6 @@ class MatrixRecsUnroller(LocalBasisMapper):
             # Unroll by binary splitting, automatically handling exceptional
             # indices as necessary
             fwd = self.matrix_rec.binsplit(prev, self.shift)
-            logger.debug("fwd = %s", fwd)
             # Extend known solutions
             for sol in self.irred_factor_cols:
                 sol.value.iapply(fwd, self.mult)
@@ -902,14 +904,15 @@ class MatrixRecsUnroller(LocalBasisMapper):
                 done, tail_bound = stop.check(cb, False, self.shift, tail_bound,
                                est, next_stride=self.shift-first_singular_index)
             if self.shift > 16:
-                logger.info("n=%s, logs=%s, est=%s, tb=%s",
+                logger.log(logging.INFO if self.shift > 1000 else logging.DEBUG,
+                        "n=%s, logs=%s, est=%s, tb=%s",
                         self.shift, fwd.rec_mat.degree(), est, tail_bound)
             if done:
                 break
             prev = self.shift
         logger.info("summed %d terms, tails <= %s", self.shift, tail_bound)
-        logger.debug("abstract partial sums:\n* %s",
-                '\n* '.join(str(sol) for sol in self.irred_factor_cols))
+        # logger.debug("abstract partial sums:\n* %s",
+        #         '\n* '.join(str(sol) for sol in self.irred_factor_cols))
         self.modZ_class_tail_bound = tail_bound
 
     def modZ_class_partial_sums(self, Jets):
