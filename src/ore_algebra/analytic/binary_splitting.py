@@ -337,17 +337,18 @@ class SolutionColumn(StepMatrix):
     whose application to the length-one vector [ log(z)^k/k! ] where
     k = mat.ord_log - 1 yields the coefficients and partial sums of the series.
     Equivalently, entries of the SolutionColumn can be viewed as coefficient
-    sequences of (scaled) powers of log(z), with the coefficients of Sk^ord_log,
-    Sk^(ord_log-1), ... corresponding to those of 1, log(z), ... .
+    sequences of (scaled) powers of log(z), with the coefficients of
+    Sk^(ord_log-1), Sk^(ord_log-2), ... corresponding to those of 1, log(z), ...
 
     Mathematically, mat should be a column matrix, but for technical reasons (in
     order to represent it as a polynomial in Sk with matrix coefficients), it is
     actually represented as the last column of a square matrix otherwise filled
     with zeros.
 
-    The ord_log field is meant to be initialized to k+1 < μ+1 for a solution of
+    The ord_log field is meant to be initialized to k+1 ≤ μ for a solution of
     leading monomial z^ν*log(z)^k/k! where ν is a singular index of
-    multiplicity ν, and then increased when crossing other singular indices.
+    multiplicity μ, and then increased (if necesssary) when crossing other
+    singular indices.
 
     Applying a StepMatrix (viewed as a matrix of operators) to a SolutionColumn
     almost amounts to a usual StepMatrix multiplication. The difference is that
@@ -391,6 +392,17 @@ class SolutionColumn(StepMatrix):
         fix the result of a left multiplication by a StepMatrix of larger
         ord_log.
         """
+        # If some of the high-degree coefficients wrt log(z) happen to be zero,
+        # e.g., at ordinary points, we don't need the full precision. This will
+        # be used to also reduce the precision in the computation of recurrence
+        # matrices.
+        for k in range(m):
+            if self.rec_mat[k].is_zero():
+                m -= 1
+            else:
+                break
+        if m == 0:
+            return
         Mat = self.rec_mat.base_ring()
         new_mats = [Mat() for _ in range(m)]
         new_mats.extend(self.rec_mat[k].__copy__()
