@@ -397,12 +397,12 @@ class SolutionColumn(StepMatrix):
         # be used to also reduce the precision in the computation of recurrence
         # matrices.
         for k in range(m):
-            if self.rec_mat[k].is_zero():
+            # Only the last coefficient counts, because this is the one that's
+            # going to be shifted.
+            if self.rec_mat[k][-1][-1].is_zero():
                 m -= 1
             else:
                 break
-        if m == 0:
-            return
         Mat = self.rec_mat.base_ring()
         new_mats = [Mat() for _ in range(m)]
         new_mats.extend(self.rec_mat[k].__copy__()
@@ -618,39 +618,33 @@ class MatrixRec(object):
         self.AlgInts_pow = AlgInts_pow
         self.AlgInts_sums = AlgInts_sums
 
-    def ord_log_and_mult(self, n):
-        # XXX: find a good way to keep a running total instead? and perhaps to
-        # detect special cases like apparent singularities?
-        ord_log = 0
+    def mult(self, n):
         for n1, m in self.singular_indices:
             if n1 == n:
-                return ord_log, m
-            elif n1 > n:
-                break
-            else:
-                ord_log += m
-        return ord_log, 0
+                return m
+        return 0
 
-    def __call__(self, n):
+    def __call__(self, n, ord_log):
         stepmat = self.StepMatrix_class()
 
         stepmat.idx_start = n - 1
         stepmat.idx_end = n
         stepmat.ord_diff = self.derivatives
-        stepmat.ord_log, mult = self.ord_log_and_mult(n)
+        stepmat.ord_log = ord_log
+        mult = self.mult(n)
 
         bwrec_n = self.bwrec.eval_series(self.bwrec.Scalars, n,
-                                         stepmat.ord_log + mult)
+                                         ord_log + mult)
         assert all(bwrec_n[0][i].is_zero() for i in range(mult))
         bwrec_n[0] = bwrec_n[0][mult:]
         bwrec_n = [self.Pols_rec(c) for c in bwrec_n]
-        invlc = bwrec_n[0].inverse_series_trunc(stepmat.ord_log)
+        invlc = bwrec_n[0].inverse_series_trunc(ord_log)
 
         den = invlc.denominator() # perhaps not ideal...
         invlc *= den
 
         for i in xrange(self.ordrec):
-            bwrec_n[1+i] = bwrec_n[1+i]._mul_trunc_(invlc, stepmat.ord_log)
+            bwrec_n[1+i] = bwrec_n[1+i]._mul_trunc_(invlc, ord_log)
 
         if den.parent() is ZZ:
             # it may be an arb ball...
@@ -663,7 +657,7 @@ class MatrixRec(object):
         # Polynomial of matrices.
         rec_mat = []
         Mat = self.Mat_rec.base_ring()
-        for k in xrange(stepmat.ord_log):
+        for k in xrange(ord_log):
             mat = Mat.matrix()
             for i in xrange(self.ordrec):
                 mat[-1, -1-i] = -bwrec_n[i+1][k]/g
@@ -682,11 +676,12 @@ class MatrixRec(object):
 
         return stepmat
 
-    def one(self, n):
+    def one(self, n, ord_log):
         stepmat = self.StepMatrix_class()
         stepmat.idx_start = stepmat.idx_end = n
         stepmat.ord_diff = self.derivatives
-        stepmat.ord_log, mult = self.ord_log_and_mult(n)
+        stepmat.ord_log = ord_log
+        mult = self.mult(n)
         stepmat.rec_mat = self.Mat_rec.one()
         stepmat.rec_den = self.bwrec[0].base_ring().one()
         stepmat.pow_num = self.pow_num.parent().one()
@@ -712,20 +707,20 @@ class MatrixRec(object):
         stepmat.ord_log = log_power + 1
         return stepmat
 
-    def binsplit(self, low, high):
+    def binsplit(self, low, high, ord_log):
         r"""
         Compute R(high)·R(high-1)···R(low+1) by binary splitting.
         """
         if high == low:
-            mat = self.one(low)
+            mat = self.one(low, ord_log)
         elif high - low <= self.StepMatrix_class.binsplit_threshold:
-            mat = self(low + 1)
+            mat = self(low + 1, ord_log)
             for n in xrange(low + 2, high + 1):
-                mat.imulleft(self(n))
+                mat.imulleft(self(n, ord_log))
         else:
             mid = (low + high) // 2
-            mat = self.binsplit(low, mid)
-            mat.imulleft(self.binsplit(mid, high))
+            mat = self.binsplit(low, mid, ord_log)
+            mat.imulleft(self.binsplit(mid, high, ord_log))
         assert mat.idx_start == low and mat.idx_end == high
         return mat
 
@@ -910,6 +905,7 @@ class MatrixRecsUnroller(LocalBasisMapper):
         assert first_singular_index >= 0
         est, tail_bound = None, bounds.IR('inf')
         prev, done = first_singular_index, False
+        ord_log = 0
         while True:
             # Try doubling the number of terms, but stop at exceptional indices
             self.shift, self.mult = max(2*prev, prev + 4), 0
@@ -918,13 +914,14 @@ class MatrixRecsUnroller(LocalBasisMapper):
                 si += 1
             # Unroll by binary splitting, automatically handling exceptional
             # indices as necessary
-            fwd = self.matrix_rec.binsplit(prev, self.shift)
+            fwd = self.matrix_rec.binsplit(prev, self.shift, ord_log)
             # Extend known solutions
             for sol in self.irred_factor_cols:
                 sol.value.iapply(fwd, self.mult)
             # Append “new” solutions starting at the current valuation
             if self.mult > 0: # 'if' only for clarity
                 self.process_valuation()
+                ord_log = max(sol.value.ord_log for sol in self.irred_factor_cols)
             foo = self.irred_factor_cols[0]
             # Check if we have converged
             if self.shift > last_singular_index:
