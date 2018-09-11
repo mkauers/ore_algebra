@@ -10,38 +10,47 @@ TESTS::
     sage: import logging
     sage: logging.basicConfig()
     sage: logger = logging.getLogger('ore_algebra.analytic.binary_splitting')
-    sage: logger.setLevel(logging.INFO)
+
+    sage: logger.setLevel(logging.DEBUG)
 
     sage: ((x^2 + 1)*Dx^2 + 2*x*Dx).numerical_solution([0, 1],
     ....:         [0, i+1, 2*i, i-1, 0], algorithm="binsplit")
-    INFO:ore_algebra.analytic.binary_splitting:...
+    DEBUG:ore_algebra.analytic.binary_splitting:coefficients in: ... Complex
+    ball field ...
     [3.14159265358979...] + [+/- ...]*I
+
+    sage: NF.<sqrt2> = QuadraticField(2)
+    sage: dop = (x^2 - 3)*Dx^2 + x + 1
+    sage: dop.numerical_transition_matrix([0, sqrt2], 1e-10, algorithm="binsplit")
+    DEBUG:ore_algebra.analytic.binary_splitting:coefficients in: ... Number
+    Field ...
+    [[1.669017372...] [1.809514316...]]
+    [[1.556515516...] [2.286697055...]]
+
+    sage: (Dx - 1).numerical_solution([1], [0, i + pi], algorithm="binsplit")
+    DEBUG:ore_algebra.analytic.binary_splitting:coefficients in: ... Complex
+    ball field ...
+    [12.5029695888765...] + [19.4722214188416...]*I
+
+    sage: logger.setLevel(logging.WARNING)
 
     sage: from ore_algebra.analytic.examples.misc import koutschan1
     sage: koutschan1.dop.numerical_solution(koutschan1.ini, [0, 84], algorithm="binsplit")
-    INFO:ore_algebra.analytic.binary_splitting:...
     [0.011501537469552017...]
 
     sage: ((x + 1)*Dx^2 + Dx).numerical_transition_matrix([0,1/2], algorithm='binsplit')
-    INFO:ore_algebra.analytic.binary_splitting:...
     [ [1.00000000000000...] [0.4054651081081643...]]
     [                     0 [0.6666666666666666...]]
 
     sage: ((x + 1)*Dx^3 + Dx).numerical_transition_matrix([0,1/2], algorithm='binsplit')
-    INFO:ore_algebra.analytic.binary_splitting:...
     [  [1.000000000000000...]  [0.4815453970799961...]  [0.2456596136789682...]]
     [                       0  [0.8936357901691244...]  [0.9667328760004665...]]
     [                       0 [-0.1959698689702905...]  [0.9070244207738327...]]
 
     sage: ((x + 1)*Dx^3 + Dx^2).numerical_transition_matrix([0,1/2], algorithm='binsplit')
-    INFO:ore_algebra.analytic.binary_splitting:...
     [ [1.000000000000000...] [0.5000000000000000...] [0.2163953243244931...]]
     [                      0  [1.000000000000000...] [0.8109302162163287...]]
     [                      0                       0 [0.6666666666666666...]]
-
-    sage: (Dx - 1).numerical_solution([1], [0, i + pi], algorithm="binsplit")
-    INFO:ore_algebra.analytic.binary_splitting:...
-    [12.5029695888765...] + [19.4722214188416...]*I
 
     sage: from ore_algebra.examples import fcc
     sage: fcc.dop5.numerical_solution( # long time (7.2 s)
@@ -49,15 +58,6 @@ TESTS::
     ....:          1e-60, algorithm='binsplit')
     INFO:ore_algebra.analytic.binary_splitting:...
     [1.04885235135491485162956376369999275945402550465206640313845...] + [+/- ...]*I
-
-    sage: NF.<sqrt2> = QuadraticField(2)
-    sage: dop = (x^2 - 3)*Dx^2 + x + 1
-    sage: dop.numerical_transition_matrix([0, sqrt2], 1e-10, algorithm="binsplit")
-    INFO:ore_algebra.analytic.binary_splitting:...
-    [[1.669017372...] [1.809514316...]]
-    [[1.556515516...] [2.286697055...]]
-
-    sage: logger.setLevel(logging.WARNING)
 
     sage: QQi.<i> = QuadraticField(-1)
     sage: (Dx - i).numerical_solution([1], [sqrt(2), sqrt(3)], algorithm="binsplit")
@@ -68,10 +68,14 @@ Regular singular connection problems
 
 Elementary examples::
 
+    sage: logger.setLevel(logging.DEBUG)
     sage: (x*Dx^2 + x + 1).numerical_transition_matrix([0, 1], 1e-10,
     ....:                                             algorithm="binsplit")
+    DEBUG:ore_algebra.analytic.binary_splitting:coefficients in: ... Complex
+    ball field ...
     [[-0.006152006884...]    [0.4653635461...]]
     [   [-2.148107776...]  [-0.05672090833...]]
+    sage: logger.setLevel(logging.WARNING)
 
     sage: dop = (Dx*(x*Dx)^2).lclm(Dx-1)
     sage: dop.numerical_solution([2, 0, 0, 0], [0, 1/4], algorithm="binsplit")
@@ -179,6 +183,14 @@ Miscellaneous examples::
     sage: QQi.<i> = QuadraticField(-1)
     sage: (Dx - i).numerical_solution([1], [0,1], algorithm="binsplit")
     [0.5403023058681397...] + [0.8414709848078965...]*I
+
+    sage: logger.setLevel(logging.DEBUG)
+    sage: ((x*Dx - 3/7)).lclm(Dx - 1).numerical_transition_matrix([0,1/3], algorithm="binsplit")
+    DEBUG:ore_algebra.analytic.binary_splitting:coefficients in: ... Complex
+    ball field ...
+    [[1.395612425086089...] + [+/- ...]*I  [0.6244813348581596...]]
+    [[1.395612425086089...] + [+/- ...]*I   [0.802904573389062...]]
+    sage: logger.setLevel(logging.WARNING)
 """
 
 from __future__ import print_function
@@ -477,16 +489,13 @@ class MatrixRec(object):
 
         self.singular_indices = singular_indices
 
-        # XXX: set 'ordinary'
-        ordinary = False
-
         # Choose computation domains
         E = dz.parent()
         deq_Scalars = dop.base_ring().base_ring()
         assert deq_Scalars is E or deq_Scalars != E
         # sets self.AlgInts_{rec,pow,sums}, self.pow_den, and self.shift
         # TODO: perhaps extend the arb version to the singular case
-        if _can_use_CBF(E, deq_Scalars, shift.parent()) and ordinary:
+        if _can_use_CBF(E, deq_Scalars, shift.parent()):
             # Work with arb balls and matrices, when possible with entries in ZZ
             # or ZZ[i]. Round the entries that are larger than the target
             # precision (+ some guard digits) in the upper levels of the tree.
@@ -504,8 +513,9 @@ class MatrixRec(object):
                 self._init_generic(deq_Scalars, shift, E, dz)
         self.dz = dz
 
-        self.bwrec = bw_shift_rec(dop, shift=self.shift,
-                                  clear_denominators=True)
+        bwrec = bw_shift_rec(dop, shift=self.shift, clear_denominators=True)
+        # separate step because Ore ops cannot have ball coefficients
+        self.bwrec = bwrec.change_base(self.AlgInts_rec)
         if self.bwrec.order == 0:
             # not sure what to do in this case
             raise NotImplementedError("recurrence of order zero")
@@ -540,6 +550,9 @@ class MatrixRec(object):
             self.pow_den = dom(dz.denominator())
         else:
             self.pow_den = dom.one()
+        # we are going to use self.shift to build an Ore op, it needs to be
+        # exact
+        self.shift = shift
         self.AlgInts_rec = self.AlgInts_pow = self.AlgInts_sums = dom
 
     def _init_generic(self, deq_Scalars, shift, E, dz):
@@ -627,8 +640,13 @@ class MatrixRec(object):
         for i in xrange(self.ordrec):
             bwrec_n[1+i] = bwrec_n[1+i]._mul_trunc_(invlc, stepmat.ord_log)
 
-        g = gcd([den] + [c for p in bwrec_n[1:] for c in p])
-        stepmat.rec_den = den//g
+        if den.parent() is ZZ:
+            # it may be an arb ball...
+            g = gcd([den] + [c for p in bwrec_n[1:] for c in p])
+            stepmat.rec_den = den//g
+        else:
+            stepmat.rec_den = den
+            g = den.parent().one()
 
         # Polynomial of matrices.
         rec_mat = []
@@ -636,7 +654,7 @@ class MatrixRec(object):
         for k in xrange(stepmat.ord_log):
             mat = Mat.matrix()
             for i in xrange(self.ordrec):
-                mat[-1, -1-i] = -bwrec_n[i+1][k]//g
+                mat[-1, -1-i] = -bwrec_n[i+1][k]/g
             rec_mat.append(mat)
         for i in xrange(self.ordrec - 1):
             rec_mat[0][i, i+1] = stepmat.rec_den
@@ -772,7 +790,6 @@ class MatrixRecsUnroller(LocalBasisMapper):
         self.pt = pt
         self.eps = eps
         self.derivatives = derivatives
-        logger.log(logging.INFO - 1, "target error = %s", eps)
 
     def process_decomposition(self):
         int_expos = (len(self.sl_decomp) == 1

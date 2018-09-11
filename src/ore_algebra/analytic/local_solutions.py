@@ -125,6 +125,8 @@ class BwShiftRec(object):
         return BwShiftRec([pol(sh + n) for pol in self.coeff])
 
     def change_base(self, base):
+        if base is self.base_ring:
+            return self
         return BwShiftRec([pol.change_ring(base) for pol in self.coeff])
 
 class LogSeriesInitialValues(object):
