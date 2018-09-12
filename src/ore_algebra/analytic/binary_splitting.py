@@ -325,9 +325,30 @@ class StepMatrix_generic(StepMatrix):
 
     binsplit_threshold = 1
 
+    def assert_exact(self):
+        return
+
 class StepMatrix_arb(StepMatrix):
 
     binsplit_threshold = 8
+
+    def assert_exact(self):
+        r"""
+        Assert that all the balls used to represent this matrix are exact.
+
+        This may not always be true in real computations.
+        """
+        for m in self.rec_mat:
+            for a in m.list():
+                assert a.is_exact()
+        assert self.rec_den.is_exact()
+        for a in self.pow_num:
+            assert a.is_exact()
+        assert self.pow_den.is_exact()
+        for p in self.sums_row.list():
+            for a in p:
+                for b in a:
+                    assert b.is_exact()
 
 class SolutionColumn(StepMatrix):
     r"""
@@ -494,7 +515,7 @@ class MatrixRec(object):
     """
 
     def __init__(self, dop, shift, singular_indices,
-                 dz, derivatives, nterms_est):
+                 dz, derivatives, prec):
 
         # TODO: perhaps dynamically optimize the representation when there are
         # no logs, algebraic exponents, etc.
@@ -505,15 +526,22 @@ class MatrixRec(object):
         E = dz.parent()
         deq_Scalars = dop.base_ring().base_ring()
         assert deq_Scalars is E or deq_Scalars != E
-        # sets self.AlgInts_{rec,pow,sums}, self.pow_den, and self.shift
-        # TODO: perhaps extend the arb version to the singular case
+        # Sets self.AlgInts_{rec,pow,sums}, self.pow_{num,den} (pow_num will be
+        # modified later), and self.shift.
         if _can_use_CBF(E, deq_Scalars, shift.parent()):
             # Work with arb balls and matrices, when possible with entries in ZZ
             # or ZZ[i]. Round the entries that are larger than the target
             # precision (+ some guard digits) in the upper levels of the tree.
-            # Choice of working precision TBI.
-            prec = 8 + nterms_est*(1 + ZZ(ZZ(dop.degree()).nbits()).nbits())
-            self._init_CBF(deq_Scalars, shift, E, dz, prec)
+            #
+            # Working precision ≈ max(prec + some room for rounding errors,
+            # space needed for representing the leaves exactly), assuming prec ≈
+            # number of terms. (If the coefficients are so large that we want to
+            # round them, we probably shouldn't be using binary splitting.)
+            h = max(c.absolute_norm().height().nbits()
+                    for pol in dop for c in pol)
+            rs = dop.degree()*dop.order()
+            wp = max(prec, h*ZZ(rs).nbits()) + rs*ZZ(prec).nbits() + 8
+            self._init_CBF(deq_Scalars, shift, E, dz, wp)
         else:
             try:
                 self._init_generic(deq_Scalars, shift, E, dz)
@@ -683,6 +711,10 @@ class MatrixRec(object):
         # XXX: perhaps to be re-optimized
         stepmat.sums_row = matrix(self.Series_sums, 1, self.ordrec)
         stepmat.sums_row[0, -1] = stepmat.rec_den*stepmat.pow_den
+
+        # May not always hold, but convenient for checking that we are producing
+        # exact balls in simple cases
+        # stepmat.assert_exact()
 
         return stepmat
 
