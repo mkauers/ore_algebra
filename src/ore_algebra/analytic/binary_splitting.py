@@ -526,6 +526,10 @@ class MatrixRec(object):
         self.dz = dz
 
         bwrec = bw_shift_rec(dop, shift=self.shift, clear_denominators=True)
+        # Arb sometimes doesn't realize when the truncated inverse of an exact
+        # polynomial is exact, so we store an exact version of the leading
+        # coefficient.
+        self.exact_lc = bwrec.lc_as_rec()
         # separate step because Ore ops cannot have ball coefficients
         self.bwrec = bwrec.change_base(self.AlgInts_rec)
         if self.bwrec.order == 0:
@@ -637,13 +641,17 @@ class MatrixRec(object):
 
         bwrec_n = self.bwrec.eval_series(self.bwrec.Scalars, n,
                                          ord_log + mult)
-        assert all(bwrec_n[0][i].is_zero() for i in range(mult))
-        bwrec_n[0] = bwrec_n[0][mult:]
+        assert all(bwrec_n[0][i].is_zero() or bwrec_n[0][i].contains_zero()
+                   for i in range(mult))
         bwrec_n = [self.Pols_rec(c) for c in bwrec_n]
-        invlc = bwrec_n[0].inverse_series_trunc(ord_log)
 
-        den = invlc.denominator() # perhaps not ideal...
-        invlc *= den
+        # We must compute the (shifted) series inverse exactly even with balls.
+
+        # Returns a polynomial in the wrong variable (but that's ok)
+        invlc = self.exact_lc.eval_inv_lc_series(n, ord_log + mult, mult)
+        den = invlc.denominator()
+        invlc = self.Pols_rec(den*invlc)
+        den = self.AlgInts_rec(den)
 
         for i in xrange(self.ordrec):
             bwrec_n[1+i] = bwrec_n[1+i]._mul_trunc_(invlc, ord_log)

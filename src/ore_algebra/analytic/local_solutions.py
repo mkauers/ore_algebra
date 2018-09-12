@@ -111,11 +111,10 @@ class BwShiftRec(object):
         return [[mor(self._coeff_series(i,j)(point)) for j in xrange(ord)]
                 for i in xrange(len(self.coeff))]
 
-    def eval_inverse_lcoeff_series(self, tgt, point, ord):
+    def eval_inv_lc_series(self, point, ord, shift):
         ser = self.base_ring( # polynomials, viewed as jets
-                [self._coeff_series(0, j)(point) for j in xrange(ord)])
-        inv = ser.inverse_series_trunc(ord)
-        return [tgt(c) for c in inv]
+                [self._coeff_series(0, j)(point) for j in xrange(shift, ord)])
+        return ser.inverse_series_trunc(ord)
 
     def __getitem__(self, i):
         return self.coeff[i]
@@ -128,6 +127,9 @@ class BwShiftRec(object):
         if base is self.base_ring:
             return self
         return BwShiftRec([pol.change_ring(base) for pol in self.coeff])
+
+    def lc_as_rec(self):
+        return BwShiftRec([self.coeff[0]])
 
 class LogSeriesInitialValues(object):
     r"""
