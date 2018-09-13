@@ -22,7 +22,8 @@ TESTS::
     sage: NF.<sqrt2> = QuadraticField(2)
     sage: dop = (x^2 - 3)*Dx^2 + x + 1
     sage: dop.numerical_transition_matrix([0, sqrt2], 1e-10, algorithm="binsplit")
-    DEBUG:ore_algebra.analytic.binary_splitting:coefficients in: ... Number
+    DEBUG:...
+    DEBUG:ore_algebra.analytic.binary_splitting:evaluation point in: ... Number
     Field ...
     [[1.669017372...] [1.809514316...]]
     [[1.556515516...] [2.286697055...]]
@@ -38,19 +39,24 @@ TESTS::
     sage: koutschan1.dop.numerical_solution(koutschan1.ini, [0, 84], algorithm="binsplit")
     [0.011501537469552017...]
 
+Note that the zeros here shouldn't be exact unless we have proved that the
+corresponding series do not continue::
+
     sage: ((x + 1)*Dx^2 + Dx).numerical_transition_matrix([0,1/2], algorithm='binsplit')
     [ [1.00000000000000...] [0.4054651081081643...]]
-    [                     0 [0.6666666666666666...]]
+    [             [+/- ...] [0.6666666666666666...]]
 
     sage: ((x + 1)*Dx^3 + Dx).numerical_transition_matrix([0,1/2], algorithm='binsplit')
     [  [1.000000000000000...]  [0.4815453970799961...]  [0.2456596136789682...]]
-    [                       0  [0.8936357901691244...]  [0.9667328760004665...]]
-    [                       0 [-0.1959698689702905...]  [0.9070244207738327...]]
+    [               [+/- ...]  [0.8936357901691244...]  [0.9667328760004665...]]
+    [               [+/- ...] [-0.1959698689702905...]  [0.9070244207738327...]]
 
     sage: ((x + 1)*Dx^3 + Dx^2).numerical_transition_matrix([0,1/2], algorithm='binsplit')
     [ [1.000000000000000...] [0.5000000000000000...] [0.2163953243244931...]]
-    [                      0  [1.000000000000000...] [0.8109302162163287...]]
-    [                      0                       0 [0.6666666666666666...]]
+    [              [+/- ...]  [1.000000000000000...] [0.8109302162163287...]]
+    [              [+/- ...]               [+/- ...] [0.6666666666666666...]]
+
+More examples::
 
     sage: from ore_algebra.examples import fcc
     sage: fcc.dop5.numerical_solution( # long time (7.2 s)
@@ -254,9 +260,7 @@ class StepMatrix(object):
         #                 cst (nf)        cst        δ, Sk, row
 
         ordrec = high.rec_mat.base_ring().nrows()
-        Pol_delta_Sk = high.sums_row.base_ring() # K[λ][δ][Sk]
-        Pol_delta = Pol_delta_Sk.base_ring()
-        Scalars = Pol_delta.base_ring()
+        Scalars = high.zero_sum.parent()
 
         high_den = Scalars(high.rec_den*high.pow_den)
         use_sum_of_products = (hasattr(Scalars, "_sum_of_products")
@@ -265,7 +269,7 @@ class StepMatrix(object):
 
         # TODO: maybe try introducing matrix-matrix multiplications
 
-        res1 = high.sums_row.parent()()
+        res1 = [None]*len(high.sums_row)
         for j in xrange(ordrec):
             res2 = [None]*high.ord_log
             for q in xrange(high.ord_log):
@@ -274,29 +278,31 @@ class StepMatrix(object):
                     # one coefficient of one entry the first term
                     # high.sums_row*low.rec_mat*low.pow_num
                     if use_sum_of_products:
-                        # Even with this, we are doing an incredible number of
-                        # unnecessary copies just to extract the coefficients...
-                        t1 = Scalars._sum_of_products(
-                                ( high.sums_row[0,k][v][u],
-                                  low.pow_num[p-u],
-                                  low.rec_mat[q-v][k,j] )
-                                for k in xrange(ordrec)
-                                for u in xrange(p + 1)
-                                for v in xrange(q + 1))
+                        # Even with this, perhaps ~2/3 of the time goes in
+                        # (unnecessary) object creations/deletions/copies...
+                        t = Scalars._sum_of_products(
+                               ( high.sums_row[k][v][u],
+                                 low.pow_num[p-u],
+                                 low.rec_mat[q-v][k,j] )
+                               for k in xrange(ordrec)
+                               for u in xrange(p + 1)
+                               for v in xrange(q + 1))
                     else:
-                        t1 = sum(
-                                high.sums_row[0,k][v][u]
-                                    * Scalars(low.pow_num[p-u]
-                                                * low.rec_mat[q-v][k,j])
-                                for k in xrange(ordrec)
-                                for u in xrange(p + 1)
-                                for v in xrange(q + 1))
+                        t = sum(
+                               high.sums_row[k][v][u]
+                                   * Scalars(low.pow_num[p-u]
+                                               * low.rec_mat[q-v][k,j])
+                               for k in xrange(ordrec)
+                               for u in xrange(p + 1)
+                               for v in xrange(q + 1))
                     # same for the second term
                     # high.rec_den*pow_den.rec_den*low.sums_row
-                    t2 = high_den*low.sums_row[0,j][q][p]
-                    res3[p] = t1 + t2
-                res2[q] = Pol_delta(res3)
-            res1[0,j] = Pol_delta_Sk(res2)
+                    if q < low.ord_log: # usually true, but low might be
+                                        # an optimized SolutionColumn
+                        t += high_den*low.sums_row[j][q][p]
+                    res3[p] = t
+                res2[q] = res3
+            res1[j] = res2
         return res1
 
     def imulleft(low, high): # pylint: disable=no-self-argument
@@ -330,7 +336,7 @@ class StepMatrix(object):
         Sk = Pol.gen()
         rec_mat = sum(m*Sk**k for k, m in enumerate(self.rec_mat))
         res += "rec_den={}, rec_mat=\n{}\n".format(self.rec_den, rec_mat)
-        res += "sums_row={} }}".format(self.sums_row.list())
+        res += "sums_row={} }}".format(self.sums_row)
         return res
 
 # TODO: get rid of these classes (unless they prove useful again!)
@@ -359,7 +365,7 @@ class StepMatrix_arb(StepMatrix):
         for a in self.pow_num:
             assert a.is_exact()
         assert self.pow_den.is_exact()
-        for p in self.sums_row.list():
+        for p in self.sums_row:
             for a in p:
                 for b in a:
                     assert b.is_exact()
@@ -396,7 +402,7 @@ class SolutionColumn(StepMatrix):
 
     def assert_well_formed(self):
         assert self.rec_mat.degree() < self.ord_log
-        assert self.sums_row[0][-1].degree() < self.ord_log
+        assert len(self.sums_row[-1]) == self.ord_log
 
     def iapply(self, fwd, shift):
         r"""
@@ -447,9 +453,12 @@ class SolutionColumn(StepMatrix):
         for k in range(self.ord_log, self.ord_log + m):
             new_mats[k][-1,-1] = 0
         self.rec_mat = self.rec_mat.parent()(new_mats)
-        # truncation not strictly necessary, I think (junk terms may appear if
-        # we don't truncate, but probably don't influence the result)
-        self.sums_row[0,-1] = self.sums_row[0,-1][:self.ord_log] << m
+        zeros = [[self.zero_sum]*self.ord_diff for _ in xrange(m)]
+        for p in self.sums_row[:-1]:
+            p[self.ord_log:] = [] # useful?
+            p.extend(zeros)
+        self.sums_row[-1][self.ord_log:] = []
+        self.sums_row[-1][:0] = zeros
         self.ord_log += m
 
 class MatrixRec(object):
@@ -511,7 +520,8 @@ class MatrixRec(object):
         AlgInts_sums = K[λ]
         Series_pow = K₁[δ]
         Mat_rec = K₀[λ]^(s×s)[Sk]
-        Series_sums = K[λ][δ][Sk]
+        Series_sums = K[λ][δ][Sk], represented as a list of list of lists
+                                   for efficiency reasons
 
     NOTES:
 
@@ -591,12 +601,13 @@ class MatrixRec(object):
         Series_pow = PolynomialRing(self.AlgInts_pow, 'delta')
         self.pow_num = Series_pow([self.pow_num, self.pow_den])
         self.derivatives = derivatives
-        logger.debug("evaluation point in: %s", self.Pols_rec)
+        logger.debug("evaluation point in: %s", Series_pow)
 
-        # Partial sums
-        Series_sums0 = PolynomialRing(self.AlgInts_sums, 'delta')
-        self.Series_sums = PolynomialRing(Series_sums0, 'Sk')
-        logger.debug("partial sums in: %s", self.Series_sums)
+    def Series_sums(self, ord_log):
+        zero = self.AlgInts_sums.zero()
+        row = [[[zero]*self.derivatives for _ in xrange(ord_log)]
+               for _ in xrange(self.ordrec)]
+        return zero, row
 
     def _init_CBF(self, deq_Scalars, shift, E, dz, prec):
         self.StepMatrix_class = StepMatrix_arb
@@ -723,8 +734,9 @@ class MatrixRec(object):
 
         # XXX: redundancy--the rec_den*pow_den probably doesn't belong here
         # XXX: perhaps to be re-optimized
-        stepmat.sums_row = matrix(self.Series_sums, 1, self.ordrec)
-        stepmat.sums_row[0, -1] = stepmat.rec_den*stepmat.pow_den
+        stepmat.zero_sum, stepmat.sums_row = self.Series_sums(ord_log)
+        den = stepmat.rec_den*stepmat.pow_den
+        stepmat.sums_row[-1][0][0] = self.AlgInts_sums(den)
 
         # May not always hold, but convenient for checking that we are producing
         # exact balls in simple cases
@@ -742,13 +754,15 @@ class MatrixRec(object):
         stepmat.rec_den = self.bwrec[0].base_ring().one()
         stepmat.pow_num = self.pow_num.parent().one()
         stepmat.pow_den = self.pow_den.parent().one()
-        stepmat.sums_row = matrix(self.Series_sums, 1, self.ordrec)
+        stepmat.zero_sum, stepmat.sums_row = self.Series_sums(ord_log)
         return stepmat
 
     def new_solution(self, n, log_power):
         stepmat = SolutionColumn()
         stepmat.idx_start = None # can be multiplied on left, not on the right
         stepmat.idx_end = n
+        stepmat.ord_log = log_power + 1
+        stepmat.ord_diff = self.derivatives
         # square matrix because we want to use it as a polynomial coefficient
         mat = self.Mat_rec().base_ring()()
         mat[-1,-1] = 1
@@ -758,9 +772,7 @@ class MatrixRec(object):
         stepmat.pow_den = self.pow_den.parent().one()
         # ordrec columns for compatibility with the square matrix; only the last
         # column is really used
-        stepmat.sums_row = matrix(self.Series_sums, 1, self.ordrec)
-        stepmat.ord_diff = self.derivatives
-        stepmat.ord_log = log_power + 1
+        stepmat.zero_sum, stepmat.sums_row = self.Series_sums(stepmat.ord_log)
         return stepmat
 
     def binsplit(self, low, high, ord_log):
@@ -818,11 +830,11 @@ class MatrixRec(object):
 
     def partial_sum(self, Jets, abstract_alg, alg, shift, sol, tail_bound):
         # Extract the (abstract numerator of) series part
-        op_k = sol.sums_row[0,-1] # K[λ][δ][Sk]
-        numer = list(reversed(op_k.padded_list(sol.ord_log)))
+        op_k = sol.sums_row[-1] # K[λ][δ][Sk]
+        numer = list(reversed(op_k))
         Scalars = Jets.base_ring()
         # Specialize abstract algebraic exponent
-        specialize = _specialization_map(op_k.base_ring().base_ring(), Scalars,
+        specialize = _specialization_map(sol.zero_sum.parent(), Scalars,
                                          abstract_alg, alg)
         # (overestimation: we are using a single bound for all subseries)
         numer = vector([Jets([specialize(c).add_error(tail_bound) for c in ser])

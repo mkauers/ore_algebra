@@ -2608,7 +2608,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             sage: dop.numerical_transition_matrix([0,1], algorithm="binsplit")
             INFO:ore_algebra.analytic.binary_splitting:...
             [ [1.0000000000000...] [0.785398163397448...]]
-            [                    0 [0.500000000000000...]]
+            [            [+/- ...] [0.500000000000000...]]
             sage: logger.setLevel(logging.WARNING)
         """
         from .analytic import analytic_continuation as ancont, local_solutions
