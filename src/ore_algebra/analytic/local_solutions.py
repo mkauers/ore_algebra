@@ -90,10 +90,9 @@ class BwShiftRec(object):
 
     @cached_method
     def _coeff_series(self, i, j):
-        if j == 0:
-            return self.coeff[i]
-        else:
-            return self._coeff_series(i, j - 1).diff()/j
+        p = self.coeff[i]
+        return self.base_ring([ZZ(k+j).binomial(k)*p[k+j]
+                               for k in xrange(p.degree() + 1 - j)])
 
     @cached_method
     def scalars_embedding(self, tgt):
