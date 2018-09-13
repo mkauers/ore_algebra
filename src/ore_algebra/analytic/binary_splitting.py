@@ -243,7 +243,86 @@ class StepMatrix(object):
     of the series at once.
     """
 
-    # No __init__ for speed reasons (XXX: still relevant?). See MatrixRec.
+    def __init__(self, rec, n0, n1, ord_log):
+
+        self.idx_start = n0
+        self.idx_end = n1
+        self.ord_diff = rec.derivatives
+        self.ord_log = ord_log
+
+        if n0 == n1:
+            self._init_identity(rec, n1, ord_log)
+        elif n0 == n1 - 1:
+            self._init_n(rec, n1, ord_log)
+        else:
+            assert n0 is None
+
+    def _init_identity(self, rec, n, ord_log):
+        mult = rec.mult(n)
+        self.rec_mat = rec.Mat_rec.one()
+        self.rec_den = rec.bwrec[0].base_ring().one()
+        self.pow_num = rec.pow_num.parent().one()
+        self.pow_den = rec.pow_den.parent().one()
+        self.zero_sum, self.sums_row = rec.Series_sums(ord_log)
+
+    def _init_n(self, rec, n, ord_log):
+
+        mult = rec.mult(n)
+
+        bwrec_n = rec.bwrec.eval_series(rec.bwrec.Scalars, n,
+                                         ord_log + mult)
+        assert all(bwrec_n[0][i].is_zero() or bwrec_n[0][i].contains_zero()
+                   for i in range(mult))
+        assert bwrec_n[0][0].parent() is rec.AlgInts_rec
+        bwrec_n = [rec.Pols_rec.element_class(rec.Pols_rec, c, check=False)
+                   for c in bwrec_n]
+
+        # We must compute the (shifted) series inverse exactly even with balls.
+
+        # Returns a polynomial in the wrong variable (but that's ok)
+        invlc = rec.exact_lc.eval_inv_lc_series(n, ord_log + mult, mult)
+        den = invlc.denominator()
+        invlc = den*invlc
+        invlc = rec.Pols_rec.element_class(rec.Pols_rec,
+                [rec.AlgInts_rec(a) for a in invlc], check=False)
+        den = rec.AlgInts_rec(den)
+
+        for i in xrange(rec.ordrec):
+            bwrec_n[1+i] = bwrec_n[1+i]._mul_trunc_(invlc, ord_log)
+
+        if den.parent() is ZZ:
+            # it may be an arb ball...
+            g = gcd([den] + [c for p in bwrec_n[1:] for c in p])
+            self.rec_den = den//g
+        else:
+            self.rec_den = den
+            g = den.parent().one()
+
+        # Polynomial of matrices.
+        rec_mat = []
+        Mat = rec.Mat_rec.base_ring()
+        for k in xrange(ord_log):
+            mat = Mat.matrix()
+            for i in xrange(rec.ordrec):
+                mat[-1, -1-i] = -bwrec_n[i+1][k]/g
+            rec_mat.append(mat)
+        for i in xrange(rec.ordrec - 1):
+            rec_mat[0][i, i+1] = self.rec_den
+        self.rec_mat = rec.Mat_rec.element_class(rec.Mat_rec, rec_mat,
+                                                 check=False)
+        self.pow_num = rec.pow_num
+        self.pow_den = rec.pow_den
+
+        # XXX: redundancy--the rec_den*pow_den probably doesn't belong here
+        # XXX: perhaps to be re-optimized
+        self.zero_sum, self.sums_row = rec.Series_sums(ord_log)
+        den = self.rec_den*self.pow_den
+        self.sums_row[-1][0][0] = rec.AlgInts_sums(den)
+
+        # May not always hold, but convenient for checking that we are producing
+        # exact balls in simple cases
+        # self.assert_exact()
+        pass
 
     # TODO: try caching the powers of (pow_num/pow_den)? this probably
     # won't change anything for algebraic evaluation points, but it might
@@ -368,6 +447,8 @@ class StepMatrix_arb(StepMatrix):
                 for b in a:
                     assert b.is_exact()
 
+# XXX SolutionColumns does not know about self.StepMatrix_class... this could
+# become an issue
 class SolutionColumn(StepMatrix):
     r"""
     Partially “unrolled” local canonical solutions.
@@ -397,6 +478,20 @@ class SolutionColumn(StepMatrix):
     multiplication and call fix_product_and_shift_logs() to truncate the result
     afterwards.)
     """
+
+    def __init__(self, rec, n, log_power):
+        # n0 = None: can be multiplied on left, not on the right
+        super(self.__class__, self).__init__(rec, None, n, log_power + 1)
+        # square matrix because we want to use it as a polynomial coefficient
+        mat = rec.Mat_rec().base_ring()()
+        mat[-1,-1] = 1
+        self.rec_mat = rec.Mat_rec(mat)
+        self.rec_den = rec.bwrec[0].base_ring().one()
+        self.pow_num = rec.pow_num.parent().one()
+        self.pow_den = rec.pow_den.parent().one()
+        # ordrec columns for compatibility with the square matrix; only the last
+        # column is really used
+        self.zero_sum, self.sums_row = rec.Series_sums(self.ord_log)
 
     def assert_well_formed(self):
         assert self.rec_mat.degree() < self.ord_log
@@ -688,108 +783,14 @@ class MatrixRec(object):
         return 0
 
     def __call__(self, n, ord_log):
-        stepmat = self.StepMatrix_class()
-
-        stepmat.idx_start = n - 1
-        stepmat.idx_end = n
-        stepmat.ord_diff = self.derivatives
-        stepmat.ord_log = ord_log
-        mult = self.mult(n)
-
-        bwrec_n = self.bwrec.eval_series(self.bwrec.Scalars, n,
-                                         ord_log + mult)
-        assert all(bwrec_n[0][i].is_zero() or bwrec_n[0][i].contains_zero()
-                   for i in range(mult))
-        assert bwrec_n[0][0].parent() is self.AlgInts_rec
-        bwrec_n = [self.Pols_rec.element_class(self.Pols_rec, c, check=False)
-                   for c in bwrec_n]
-
-        # We must compute the (shifted) series inverse exactly even with balls.
-
-        # Returns a polynomial in the wrong variable (but that's ok)
-        invlc = self.exact_lc.eval_inv_lc_series(n, ord_log + mult, mult)
-        den = invlc.denominator()
-        invlc = den*invlc
-        invlc = self.Pols_rec.element_class(self.Pols_rec,
-                [self.AlgInts_rec(a) for a in invlc], check=False)
-        den = self.AlgInts_rec(den)
-
-        for i in xrange(self.ordrec):
-            bwrec_n[1+i] = bwrec_n[1+i]._mul_trunc_(invlc, ord_log)
-
-        if den.parent() is ZZ:
-            # it may be an arb ball...
-            g = gcd([den] + [c for p in bwrec_n[1:] for c in p])
-            stepmat.rec_den = den//g
-        else:
-            stepmat.rec_den = den
-            g = den.parent().one()
-
-        # Polynomial of matrices.
-        rec_mat = []
-        Mat = self.Mat_rec.base_ring()
-        for k in xrange(ord_log):
-            mat = Mat.matrix()
-            for i in xrange(self.ordrec):
-                mat[-1, -1-i] = -bwrec_n[i+1][k]/g
-            rec_mat.append(mat)
-        for i in xrange(self.ordrec - 1):
-            rec_mat[0][i, i+1] = stepmat.rec_den
-        stepmat.rec_mat = self.Mat_rec.element_class(self.Mat_rec, rec_mat,
-                                                     check=False)
-
-        stepmat.pow_num = self.pow_num
-        stepmat.pow_den = self.pow_den
-
-        # XXX: redundancy--the rec_den*pow_den probably doesn't belong here
-        # XXX: perhaps to be re-optimized
-        stepmat.zero_sum, stepmat.sums_row = self.Series_sums(ord_log)
-        den = stepmat.rec_den*stepmat.pow_den
-        stepmat.sums_row[-1][0][0] = self.AlgInts_sums(den)
-
-        # May not always hold, but convenient for checking that we are producing
-        # exact balls in simple cases
-        # stepmat.assert_exact()
-
-        return stepmat
-
-    def one(self, n, ord_log):
-        stepmat = self.StepMatrix_class()
-        stepmat.idx_start = stepmat.idx_end = n
-        stepmat.ord_diff = self.derivatives
-        stepmat.ord_log = ord_log
-        mult = self.mult(n)
-        stepmat.rec_mat = self.Mat_rec.one()
-        stepmat.rec_den = self.bwrec[0].base_ring().one()
-        stepmat.pow_num = self.pow_num.parent().one()
-        stepmat.pow_den = self.pow_den.parent().one()
-        stepmat.zero_sum, stepmat.sums_row = self.Series_sums(ord_log)
-        return stepmat
-
-    def new_solution(self, n, log_power):
-        stepmat = SolutionColumn()
-        stepmat.idx_start = None # can be multiplied on left, not on the right
-        stepmat.idx_end = n
-        stepmat.ord_log = log_power + 1
-        stepmat.ord_diff = self.derivatives
-        # square matrix because we want to use it as a polynomial coefficient
-        mat = self.Mat_rec().base_ring()()
-        mat[-1,-1] = 1
-        stepmat.rec_mat = self.Mat_rec(mat)
-        stepmat.rec_den = self.bwrec[0].base_ring().one()
-        stepmat.pow_num = self.pow_num.parent().one()
-        stepmat.pow_den = self.pow_den.parent().one()
-        # ordrec columns for compatibility with the square matrix; only the last
-        # column is really used
-        stepmat.zero_sum, stepmat.sums_row = self.Series_sums(stepmat.ord_log)
-        return stepmat
+        return self.StepMatrix_class(self, n-1, n, ord_log)
 
     def binsplit(self, low, high, ord_log):
         r"""
         Compute R(high)·R(high-1)···R(low+1) by binary splitting.
         """
         if high == low:
-            mat = self.one(low, ord_log)
+            mat = self.StepMatrix_class(self, low, high, ord_log)
         elif high - low <= self.StepMatrix_class.binsplit_threshold:
             mat = self(low + 1, ord_log)
             for n in xrange(low + 2, high + 1):
@@ -1034,7 +1035,7 @@ class MatrixRecsUnroller(LocalBasisMapper):
     def fun(self, ini):
         # *Abstract* solution, will be replaced by one or several concrete
         # solutions later on.
-        return self.matrix_rec.new_solution(self.shift, self.log_power)
+        return SolutionColumn(self.matrix_rec, self.shift, self.log_power)
 
 def fundamental_matrix_regular(dop, pt, eps, rows, branch, fail_fast):
     if branch != (0,):
