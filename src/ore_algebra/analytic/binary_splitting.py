@@ -259,24 +259,38 @@ class StepMatrix(object):
         Scalars = Pol_delta.base_ring()
 
         high_den = Scalars(high.rec_den*high.pow_den)
+        use_sum_of_products = (hasattr(Scalars, "_sum_of_products")
+                and low.pow_num.base_ring() is Scalars
+                and low.rec_mat.base_ring().base_ring() is Scalars)
 
         # TODO: maybe try introducing matrix-matrix multiplications
 
         res1 = high.sums_row.parent()()
-        for j in range(ordrec):
+        for j in xrange(ordrec):
             res2 = [None]*high.ord_log
-            for q in range(high.ord_log):
+            for q in xrange(high.ord_log):
                 res3 = [None]*low.ord_diff
-                for p in range(low.ord_diff):
+                for p in xrange(low.ord_diff):
                     # one coefficient of one entry the first term
                     # high.sums_row*low.rec_mat*low.pow_num
-                    t1 = sum(
-                            high.sums_row[0,k][v][u]
-                                * Scalars(low.pow_num[p-u]
-                                            * low.rec_mat[q-v][k,j])
-                            for k in range(ordrec)
-                            for u in range(p + 1)
-                            for v in range(q + 1))
+                    if use_sum_of_products:
+                        # Even with this, we are doing an incredible number of
+                        # unnecessary copies just to extract the coefficients...
+                        t1 = Scalars._sum_of_products(
+                                ( high.sums_row[0,k][v][u],
+                                  low.pow_num[p-u],
+                                  low.rec_mat[q-v][k,j] )
+                                for k in xrange(ordrec)
+                                for u in xrange(p + 1)
+                                for v in xrange(q + 1))
+                    else:
+                        t1 = sum(
+                                high.sums_row[0,k][v][u]
+                                    * Scalars(low.pow_num[p-u]
+                                                * low.rec_mat[q-v][k,j])
+                                for k in xrange(ordrec)
+                                for u in xrange(p + 1)
+                                for v in xrange(q + 1))
                     # same for the second term
                     # high.rec_den*pow_den.rec_den*low.sums_row
                     t2 = high_den*low.sums_row[0,j][q][p]
