@@ -111,8 +111,10 @@ class BwShiftRec(object):
                 for i in xrange(len(self.coeff))]
 
     def eval_inv_lc_series(self, point, ord, shift):
-        ser = self.base_ring( # polynomials, viewed as jets
-                [self._coeff_series(0, j)(point) for j in xrange(shift, ord)])
+        ser = self.base_ring.element_class(
+                self.base_ring, # polynomials, viewed as jets
+                [self._coeff_series(0, j)(point) for j in xrange(shift, ord)],
+                check=False)
         return ser.inverse_series_trunc(ord)
 
     def __getitem__(self, i):

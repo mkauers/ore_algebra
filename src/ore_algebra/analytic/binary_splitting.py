@@ -696,14 +696,18 @@ class MatrixRec(object):
                                          ord_log + mult)
         assert all(bwrec_n[0][i].is_zero() or bwrec_n[0][i].contains_zero()
                    for i in range(mult))
-        bwrec_n = [self.Pols_rec(c) for c in bwrec_n]
+        assert bwrec_n[0][0].parent() is self.AlgInts_rec
+        bwrec_n = [self.Pols_rec.element_class(self.Pols_rec, c, check=False)
+                   for c in bwrec_n]
 
         # We must compute the (shifted) series inverse exactly even with balls.
 
         # Returns a polynomial in the wrong variable (but that's ok)
         invlc = self.exact_lc.eval_inv_lc_series(n, ord_log + mult, mult)
         den = invlc.denominator()
-        invlc = self.Pols_rec(den*invlc)
+        invlc = den*invlc
+        invlc = self.Pols_rec.element_class(self.Pols_rec,
+                [self.AlgInts_rec(a) for a in invlc], check=False)
         den = self.AlgInts_rec(den)
 
         for i in xrange(self.ordrec):
@@ -727,7 +731,8 @@ class MatrixRec(object):
             rec_mat.append(mat)
         for i in xrange(self.ordrec - 1):
             rec_mat[0][i, i+1] = stepmat.rec_den
-        stepmat.rec_mat = self.Mat_rec(rec_mat)
+        stepmat.rec_mat = self.Mat_rec.element_class(self.Mat_rec, rec_mat,
+                                                     check=False)
 
         stepmat.pow_num = self.pow_num
         stepmat.pow_den = self.pow_den
