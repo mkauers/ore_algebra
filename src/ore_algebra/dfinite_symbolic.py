@@ -127,7 +127,6 @@ def symbolic_database(A, f, inner = None, k = 0):
         if inner:
             x = A(inner)
             d = A(inner.derivative())
-            inner = A(inner)
         else:
             x = A.base_ring().gen()
             d = 1 #x.derivative()
@@ -173,7 +172,7 @@ def symbolic_database(A, f, inner = None, k = 0):
             return A(x*Dx**2 + d*Dx)
         #sqrt
         elif f == pow:
-            return A(4*x**2*Dx**2 + d**2)
+            return A(-2*x*Dx + d)
         #airy_ai
         elif isinstance(f,sage.functions.airy.FunctionAiryAiSimple):
             return A(Dx**2 - d**2*x)
