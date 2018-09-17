@@ -119,6 +119,8 @@ def guess(data, algebra, **kwargs):
       with elements in `K`. 
     - ``infolevel`` -- an integer specifying the level of details of progress
       reports during the calculation. 
+    - ``method`` -- either "linalg" (for linear algebra) or "hp" (for Hermite-Pade) or "automatic" 
+      (for the default choice), or a callable with the specification of a raw guesser.
 
     OUTPUT:
 
@@ -756,6 +758,18 @@ def _guess_via_gcrd(data, A, **kwargs):
     if kwargs.has_key('min_order'):
         min_ord = kwargs['min_order']; del kwargs['min_order']
 
+    subguesser = guess_hp if A.is_C() else guess_raw # default = hp for algeqs and raw for other
+    if kwargs.has_key('method'):
+        if kwargs['method'] == 'linalg':
+            subguesser = guess_raw
+        elif kwargs['method'] == 'hp':
+            subguesser = guess_hp
+        elif kwargs['method'] == 'automatic' or kwargs['method'] == 'default':
+            pass # same as when no method is specified
+        else:
+            subguesser = kwargs['method'] # callable
+        del kwargs['method']
+        
     path = filter(lambda p: min_ord <= p[0] and p[0] <= max_ord and min_deg <= p[1] and p[1] <= max_deg, path)
 
     path.sort(key=sort_key)
@@ -771,7 +785,6 @@ def _guess_via_gcrd(data, A, **kwargs):
 
     # search equation
 
-    subguesser = guess_hp if A.is_C() else guess_raw
     neg_probes = []
     def probe(r, d):
         if (r, d) in neg_probes:
