@@ -554,6 +554,69 @@ class SolutionColumn(StepMatrix):
         self.sums_row[-1][:0] = zeros
         self.ord_log += m
 
+    def normalized_residual(self, maj, abstract_alg, alg, n):
+        r"""
+        Compute the normalized residual associated with the fundamental
+        solution.
+
+        TESTS::
+
+            sage: from ore_algebra import *
+            sage: DOP, t, D = DifferentialOperators()
+            sage: ode = D + 1/4/(t - 1/2)
+            sage: ode.numerical_transition_matrix([0,1+I,1], 1e-100, algorithm='binsplit')
+            [[0.707...2078...] + [0.707...]*I]
+        """
+        # WARNING: this residual must correspond to the operator stored in
+        # maj.dop, which typically isn't rec.diffop (but an operator in Θx
+        # equal to x^k·rec.diffop for some k).
+
+        assert alg == maj.leftmost
+
+        IC = bounds.IC
+
+        # Specialize abstract algebraic exponent
+        alg_to_IC = _specialization_map(self.rec_mat.base_ring().base_ring(),
+                                        IC, abstract_alg, alg)
+
+        # last = [[u(n-1) for log⁰, log¹, ...], ..., [u(n-s) for all logs]]
+        rec_den = IC(self.rec_den)
+        last = [[alg_to_IC(self.rec_mat[self.ord_log-1-k][-j,-1])/rec_den # (?)
+                 for k in range(self.ord_log)
+                ] for j in range(self.rec_mat.base_ring().nrows())]
+        res = maj.normalized_residual(n, last)
+        return res
+
+    def partial_sum(self, Jets, dz, abstract_alg, alg, shift, tail_bound):
+        # Extract the (abstract numerator of) series part
+        op_k = self.sums_row[-1] # K[λ][δ][Sk]
+        numer = list(reversed(op_k))
+        Scalars = Jets.base_ring()
+        # Specialize abstract algebraic exponent
+        specialize = _specialization_map(self.zero_sum.parent(), Scalars,
+                                         abstract_alg, alg)
+        # (overestimation: we are using a single bound for all subseries)
+        numer = vector([Jets([specialize(c).add_error(tail_bound) for c in ser])
+                       for ser in numer])
+        # TODO: support other branches (perhaps by using EvaluationPoint?)
+        numer = log_series_value(Jets, self.ord_diff, alg + shift, numer,
+                                 Scalars(dz), branch=(0,))
+        denom = specialize(self.rec_den)*Scalars(self.pow_den)
+        # slightly redundant: should actually be the same for all columns...
+        return numer/denom
+
+    def error_estimate(self):
+        def IC_est(c):
+            try:
+                return bounds.IC(c) # arb, QQ
+            except TypeError:
+                return bounds.IC(c[0]) # NF, would work for QQ
+        zero = bounds.IR.zero()
+        num1 = max([zero] + [abs(IC_est(m[-1, -1])) for m in self.rec_mat])
+        num2 = sum(abs(IC_est(a)) for a in self.pow_num)
+        den = abs(IC_est(self.rec_den))*bounds.IR(self.pow_den)
+        return num1*num2/den
+
 class MatrixRec(object):
     r"""
     A matrix recurrence simultaneously generating the coefficients and partial
@@ -805,69 +868,6 @@ class MatrixRec(object):
     def __repr__(self):
         return pprint.pformat(self.__dict__)
 
-    def normalized_residual(self, maj, col, abstract_alg, alg, n):
-        r"""
-        Compute the normalized residual associated with the fundamental
-        solution.
-
-        TESTS::
-
-            sage: from ore_algebra import *
-            sage: DOP, t, D = DifferentialOperators()
-            sage: ode = D + 1/4/(t - 1/2)
-            sage: ode.numerical_transition_matrix([0,1+I,1], 1e-100, algorithm='binsplit')
-            [[0.707...2078...] + [0.707...]*I]
-        """
-        # WARNING: this residual must correspond to the operator stored in
-        # maj.dop, which typically isn't self.diffop (but an operator in Θx
-        # equal to x^k·self.diffop for some k).
-
-        assert alg == maj.leftmost
-
-        IC = bounds.IC
-
-        # Specialize abstract algebraic exponent
-        alg_to_IC = _specialization_map(col.rec_mat.base_ring().base_ring(),
-                                        IC, abstract_alg, alg)
-
-        # last = [[u(n-1) for log⁰, log¹, ...], ..., [u(n-s) for all logs]]
-        rec_den = IC(col.rec_den)
-        last = [[alg_to_IC(col.rec_mat[col.ord_log-1-k][-j,-1])/rec_den # (?)
-                 for k in range(col.ord_log)
-                ] for j in range(self.ordrec)]
-        res = maj.normalized_residual(n, last)
-        return res
-
-    def partial_sum(self, Jets, abstract_alg, alg, shift, sol, tail_bound):
-        # Extract the (abstract numerator of) series part
-        op_k = sol.sums_row[-1] # K[λ][δ][Sk]
-        numer = list(reversed(op_k))
-        Scalars = Jets.base_ring()
-        # Specialize abstract algebraic exponent
-        specialize = _specialization_map(sol.zero_sum.parent(), Scalars,
-                                         abstract_alg, alg)
-        # (overestimation: we are using a single bound for all subseries)
-        numer = vector([Jets([specialize(c).add_error(tail_bound) for c in ser])
-                       for ser in numer])
-        # TODO: support other branches (perhaps by using EvaluationPoint?)
-        numer = log_series_value(Jets, self.derivatives, alg + shift, numer,
-                                 Scalars(self.dz), branch=(0,))
-        denom = specialize(sol.rec_den)*Scalars(sol.pow_den)
-        # slightly redundant: should actually be the same for all columns...
-        return numer/denom
-
-    def error_estimate(self, mat):
-        def IC_est(c):
-            try:
-                return bounds.IC(c) # arb, QQ
-            except TypeError:
-                return bounds.IC(c[0]) # NF, would work for QQ
-        zero = bounds.IR.zero()
-        num1 = max([zero] + [abs(IC_est(m[-1, -1])) for m in mat.rec_mat])
-        num2 = sum(abs(IC_est(a)) for a in mat.pow_num)
-        den = abs(IC_est(mat.rec_den))*bounds.IR(mat.pow_den)
-        return num1*num2/den
-
 class MatrixRecsUnroller(LocalBasisMapper):
 
     def __init__(self, dop, pt, eps, derivatives):
@@ -946,8 +946,8 @@ class MatrixRecsUnroller(LocalBasisMapper):
                 assert len(self.irred_factor_cols) == sum(m for _, m in
                                                                     self.shifts)
                 return {(rt, sol.shift, sol.log_power):
-                        self.matrix_rec.normalized_residual(maj[rt], sol.value,
-                                                  self.leftmost, rt, self.shift)
+                        sol.value.normalized_residual(maj[rt], self.leftmost,
+                                                      rt, self.shift)
                         for rt in self.roots
                         for sol in self.irred_factor_cols}
             def get_bound(_, residuals):
@@ -1003,7 +1003,7 @@ class MatrixRecsUnroller(LocalBasisMapper):
             foo = self.irred_factor_cols[0]
             # Check if we have converged
             if self.shift > last_singular_index:
-                est = max(self.matrix_rec.error_estimate(sol.value)
+                est = max(sol.value.error_estimate()
                           for sol in self.irred_factor_cols)
                 done, tail_bound = stop.check(cb, False, self.shift, tail_bound,
                                est, next_stride=self.shift-first_singular_index)
@@ -1027,8 +1027,8 @@ class MatrixRecsUnroller(LocalBasisMapper):
                 leftmost = rt,
                 shift = sol.shift,
                 log_power = sol.log_power,
-                value = self.matrix_rec.partial_sum(Jets, self.leftmost, rt,
-                              sol.shift, sol.value, self.modZ_class_tail_bound))
+                value = sol.value.partial_sum(Jets, self.pt, self.leftmost, rt,
+                                         sol.shift, self.modZ_class_tail_bound))
             for rt in self.roots
             for sol in self.irred_factor_cols]
 
