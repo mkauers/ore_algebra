@@ -245,8 +245,6 @@ class StepMatrix(object):
 
     # No __init__ for speed reasons (XXX: still relevant?). See MatrixRec.
 
-    # TODO: __slots__
-
     # TODO: try caching the powers of (pow_num/pow_den)? this probably
     # won't change anything for algebraic evaluation points, but it might
     # make a difference when the evaluation point is more complicated
