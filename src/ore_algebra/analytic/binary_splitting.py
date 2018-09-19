@@ -610,7 +610,13 @@ class MatrixRec(object):
         return zero, row
 
     def _init_CBF(self, deq_Scalars, shift, E, dz, prec):
-        self.StepMatrix_class = StepMatrix_arb
+        try:
+            from . import binary_splitting_arb
+            self.StepMatrix_class = binary_splitting_arb.StepMatrix_arb
+        except ImportError:
+            logger.warn("Cython implementation unavailable, "
+                        "falling back to slower Python implementation")
+            self.StepMatrix_class = StepMatrix_arb
         if _can_use_RBF(E, deq_Scalars, shift):
             dom = RealBallField(prec)
         else:
