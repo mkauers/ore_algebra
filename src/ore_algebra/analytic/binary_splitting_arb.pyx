@@ -19,7 +19,11 @@ import cython
 from . import binary_splitting
 
 cdef inline acb_mat_struct* acb_mat_poly_coeff_ptr(Polynomial p, long i):
-    return (<Matrix_complex_ball_dense> (p.get_coeff_c(i))).value
+    cdef list coeffs = p.list(copy=False)
+    if i >= len(coeffs):
+        return NULL
+    else:
+        return (<Matrix_complex_ball_dense> (coeffs[i])).value
 
 # may become a cdef class (and no longer inherit from the Python version) in
 # the future
@@ -86,6 +90,8 @@ class StepMatrix_arb(binary_splitting.StepMatrix_arb):
                                 if b == NULL:
                                     continue
                                 mat = acb_mat_poly_coeff_ptr(low_rec_mat, q-v)
+                                if mat == NULL:
+                                    continue
                                 c = acb_mat_entry(mat, k, j)
                                 acb_mul(t, b, c, prec)
                                 acb_addmul(entry.value, t, a, prec)
