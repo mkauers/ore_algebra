@@ -267,31 +267,9 @@ class StepMatrix(object):
 
     def _init_n(self, rec, n, ord_log):
 
-        mult = rec.mult(n)
+        bwrec_n, den = rec.coeff_series_num_den(n, ord_log)
 
-        bwrec_n = rec.bwrec.eval_series(rec.bwrec.Scalars, n,
-                                         ord_log + mult)
-        assert all(bwrec_n[0][i].is_zero() or bwrec_n[0][i].contains_zero()
-                   for i in range(mult))
-        assert bwrec_n[0][0].parent() is rec.AlgInts_rec
-        bwrec_n = [rec.Pols_rec.element_class(rec.Pols_rec, c, check=False)
-                   for c in bwrec_n]
-
-        # We must compute the (shifted) series inverse exactly even with balls.
-
-        # Returns a polynomial in the wrong variable (but that's ok)
-        invlc = rec.exact_lc.eval_inv_lc_series(n, ord_log + mult, mult)
-        den = invlc.denominator()
-        invlc = den*invlc
-        invlc = rec.Pols_rec.element_class(rec.Pols_rec,
-                [rec.AlgInts_rec(a) for a in invlc], check=False)
-        den = rec.AlgInts_rec(den)
-
-        for i in xrange(rec.ordrec):
-            bwrec_n[1+i] = bwrec_n[1+i]._mul_trunc_(invlc, ord_log)
-
-        if den.parent() is ZZ:
-            # it may be an arb ball...
+        if den.parent() is ZZ: # den might be an arb ball
             g = gcd([den] + [c for p in bwrec_n[1:] for c in p])
             self.rec_den = den//g
         else:
@@ -845,6 +823,34 @@ class MatrixRec(object):
                 return m
         return 0
 
+    def coeff_series_num_den(self, n, ord_log):
+
+        mult = self.mult(n)
+        bwrec_n = self.bwrec.eval_series(self.bwrec.Scalars, n,
+                                         ord_log + mult)
+        assert all(bwrec_n[0][i].is_zero() or bwrec_n[0][i].contains_zero()
+                   for i in range(mult))
+        assert bwrec_n[0][0].parent() is self.AlgInts_rec
+        bwrec_n[0] = None
+        # slooow conversion when we are creating arb polys
+        bwrec_n = [self.Pols_rec.element_class(self.Pols_rec, c, check=False)
+                   for c in bwrec_n]
+
+        # We must compute the (shifted) series inverse exactly even with balls.
+
+        # Returns a polynomial in the wrong variable (but that's ok)
+        invlc = self.exact_lc.eval_inv_lc_series(n, ord_log + mult, mult)
+        den = invlc.denominator()
+        invlc = den*invlc
+        invlc = self.Pols_rec.element_class(self.Pols_rec,
+                [self.AlgInts_rec(a) for a in invlc], check=False)
+        den = self.AlgInts_rec(den)
+
+        for i in xrange(self.ordrec):
+            bwrec_n[1+i] = bwrec_n[1+i]._mul_trunc_(invlc, ord_log)
+
+        return bwrec_n, den
+
     def __call__(self, n, ord_log):
         return self.StepMatrix_class(self, n-1, n, ord_log)
 
@@ -1040,7 +1046,7 @@ class MatrixRecsUnroller(LocalBasisMapper):
 def fundamental_matrix_regular(dop, pt, eps, rows, branch, fail_fast):
     if branch != (0,):
         raise NotImplementedError
-    cols = MatrixRecsUnroller(dop, pt, eps, dop.order()).run()
+    cols = MatrixRecsUnroller(dop, pt, eps, rows).run()
     coeffs = [sol.value.padded_list(rows) for sol in cols]
     return matrix(coeffs).transpose()
 
