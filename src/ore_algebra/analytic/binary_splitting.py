@@ -715,9 +715,10 @@ class MatrixRec(object):
         self.dz = dz
 
         bwrec = bw_shift_rec(dop, shift=self.shift, clear_denominators=True)
-        # Arb sometimes doesn't realize when the truncated inverse of an exact
-        # polynomial is exact, so we store an exact version of the leading
-        # coefficient.
+        # Also store an exact version of the leading coefficient to be able to
+        # compute the inverse exactly (and simplify the result) when working
+        # with arb balls. (Would it be enough to increase the working precision
+        # as in the Cython version?)
         self.exact_lc = bwrec.lc_as_rec()
         # separate step because Ore ops cannot have ball coefficients
         self.bwrec = bwrec.change_base(self.AlgInts_rec)
