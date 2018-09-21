@@ -1,3 +1,4 @@
+# cython: profile=True
 r"""
 Lower-level reimplementation of key subroutines of binary_splitting
 """
@@ -8,6 +9,9 @@ from sage.libs.arb.types cimport *
 from sage.libs.arb.acb cimport *
 from sage.libs.arb.acb_poly cimport *
 from sage.libs.arb.acb_mat cimport *
+from sage.libs.flint.fmpz cimport *
+from sage.libs.flint.fmpq_poly cimport *
+from sage.libs.flint.fmpz_poly cimport *
 
 from sage.matrix.matrix_complex_ball_dense cimport Matrix_complex_ball_dense
 from sage.rings.complex_arb cimport ComplexBall
@@ -28,6 +32,108 @@ cdef inline acb_mat_struct* acb_mat_poly_coeff_ptr(Polynomial p, long i):
 # may become a cdef class (and no longer inherit from the Python version) in
 # the future
 class StepMatrix_arb(binary_splitting.StepMatrix_arb):
+
+    def _coeff_series_num_den(self, rec, py_n, ord_log):
+
+        cdef bint success
+        cdef size_t i, j
+        cdef ComplexBall den
+        cdef Polynomial_complex_arb val_pert
+        cdef acb_struct* c
+        cdef acb_t n, lc0, lc0pow
+        cdef acb_poly_struct* lc
+        cdef fmpz_poly_t lcz
+        cdef fmpq_poly_t lcq
+        cdef size_t prec_inv
+        cdef size_t reclen = len(rec.bwrec.coeff)
+        cdef list bwrec_n = [None]*reclen
+
+        cdef size_t mult = rec.mult(py_n)
+        cdef size_t prec = rec.bwrec.Scalars.precision()
+
+        acb_init(n)
+        acb_set_si(n, py_n)
+        for i in range(reclen):
+            val_pert = Polynomial_complex_arb.__new__(Polynomial_complex_arb)
+            val_pert._parent = rec.bwrec.base_ring
+            # Only needed to order ord_log + mult, but compose_series requires
+            # the inner polynomial to have valuation > 0.
+            # TODO: Maybe use evaluate or evaluate2 instead when applicable.
+            acb_poly_taylor_shift(
+                    val_pert.__poly,
+                    (<Polynomial_complex_arb> (rec.bwrec.coeff[i])).__poly,
+                    n, prec)
+            acb_poly_truncate(
+                    val_pert.__poly,
+                    ord_log + mult)
+            bwrec_n[i] = val_pert
+        acb_clear(n)
+
+        den = ComplexBall.__new__(ComplexBall)
+        den._parent = rec.bwrec.Scalars
+
+        lc = (<Polynomial_complex_arb> (bwrec_n[0])).__poly
+        for i in range(mult):
+            assert acb_contains_zero(acb_poly_get_coeff_ptr(lc, i)), "!= 0"
+        acb_poly_shift_right(lc, lc, mult)
+
+        # Compute the inverse exactly
+
+        cdef size_t ord_inv = ord_log# + mult
+        # cdef size_t ord_inv = ord_log
+        if acb_poly_is_real(lc):
+            # Work over ℚ to reduce the bit size of the result
+            fmpq_poly_init(lcq)
+            fmpz_poly_init(lcz)
+            success = acb_poly_get_unique_fmpz_poly(lcz, lc)
+            assert success, "acb -> fmpz " + str(bwrec_n[0])
+            fmpq_poly_set_fmpz_poly(lcq, lcz)
+            fmpz_poly_clear(lcz)
+            fmpq_poly_inv_series(lcq, lcq, ord_inv)
+            acb_set_fmpz(den.value, fmpq_poly_denref(lcq))
+            fmpz_one(fmpq_poly_denref(lcq))
+            acb_poly_set_fmpq_poly(lc, lcq, prec)
+            fmpq_poly_clear(lcq)
+        else:
+            # Reduce to a unit constant coefficient. Temporarily increase the
+            # (bit) working precision by the expected size of the denominator
+            # to keep at least the computation of the inverse exact, but the
+            # result may not fit on prec bits, and the coefficients may be huge
+            # :-(
+            acb_init(lc0)
+            acb_poly_fit_length(lc, ord_inv)
+            acb_poly_get_coeff_acb(lc0, lc, 0)
+            prec_inv = prec + ord_inv*(acb_bits(lc0) + 1)
+            acb_init(lc0pow)
+            # lc ← lc(lc[0]*x)/lc[0]
+            acb_one(acb_poly_get_coeff_ptr(lc, 0))
+            acb_one(lc0pow)
+            for i in range(2, ord_log): # lc[i] ← lc[0]^(i-1)·lc[i]
+                acb_mul(lc0pow, lc0pow, lc0, prec_inv)
+                c = acb_poly_get_coeff_ptr(lc, i)
+                acb_mul(c, c, lc0pow, prec_inv)
+            # typically but perhaps not always exact
+            acb_poly_inv_series(lc, lc, ord_inv, prec_inv)
+            acb_one(lc0pow)
+            acb_poly_fit_length(lc, ord_inv)
+            for i in range(ord_inv-2, -1, -1):
+                acb_mul(lc0pow, lc0pow, lc0, prec_inv)
+                c = acb_poly_get_coeff_ptr(lc, i)
+                acb_mul(c, c, lc0pow, prec_inv)
+            acb_mul(lc0pow, lc0pow, lc0, prec_inv) # lc[0]^ord_inv
+            acb_set(den.value, lc0pow)
+            acb_clear(lc0pow)
+            acb_clear(lc0)
+
+        for i in range(rec.ordrec):
+            acb_poly_mullow(
+                    (<Polynomial_complex_arb> (bwrec_n[1+i])).__poly,
+                    (<Polynomial_complex_arb> (bwrec_n[1+i])).__poly,
+                    lc, ord_log, prec)
+
+        bwrec_n[0] = 0 # clears lc
+
+        return bwrec_n, den
 
     @cython.boundscheck(False)
     @cython.wraparound(False)
@@ -51,7 +157,7 @@ class StepMatrix_arb(binary_splitting.StepMatrix_arb):
         cdef acb_t high_den
         acb_init(high_den)
         acb_mul(high_den, (<ComplexBall> high.rec_den).value,
-                          (<ComplexBall> high.pow_den).value, prec)
+                        (<ComplexBall> high.pow_den).value, prec)
 
         # sums_row = high.sums_row*low.rec_mat*low.pow_num
         #             δ, Sk, row     Sk, mat      δ

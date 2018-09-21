@@ -265,9 +265,12 @@ class StepMatrix(object):
         self.pow_den = rec.pow_den.parent().one()
         self.zero_sum, self.sums_row = rec.Series_sums(ord_log)
 
+    def _coeff_series_num_den(self, rec, n, ord_log):
+        return rec.coeff_series_num_den(n, ord_log)
+
     def _init_n(self, rec, n, ord_log):
 
-        bwrec_n, den = rec.coeff_series_num_den(n, ord_log)
+        bwrec_n, den = self._coeff_series_num_den(rec, n, ord_log)
 
         if den.parent() is ZZ: # den might be an arb ball
             g = gcd([den] + [c for p in bwrec_n[1:] for c in p])
