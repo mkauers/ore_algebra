@@ -269,14 +269,7 @@ class StepMatrix(object):
 
     def _init_n(self, rec, n, ord_log):
 
-        bwrec_n, den = self._coeff_series_num_den(rec, n, ord_log)
-
-        if den.parent() is ZZ: # den might be an arb ball
-            g = gcd([den] + [c for p in bwrec_n[1:] for c in p])
-            self.rec_den = den//g
-        else:
-            self.rec_den = den
-            g = den.parent().one()
+        bwrec_n, self.rec_den = self._coeff_series_num_den(rec, n, ord_log)
 
         # Polynomial of matrices.
         rec_mat = []
@@ -284,7 +277,7 @@ class StepMatrix(object):
         for k in xrange(ord_log):
             mat = Mat.matrix()
             for i in xrange(rec.ordrec):
-                mat[-1, -1-i] = -bwrec_n[i+1][k]/g
+                mat[-1, -1-i] = -bwrec_n[i+1][k]
             rec_mat.append(mat)
         for i in xrange(rec.ordrec - 1):
             rec_mat[0][i, i+1] = self.rec_den
@@ -851,6 +844,13 @@ class MatrixRec(object):
 
         for i in xrange(self.ordrec):
             bwrec_n[1+i] = bwrec_n[1+i]._mul_trunc_(invlc, ord_log)
+
+        if self.AlgInts_rec is QQ: # TODO: generalize (den might be a ball!)
+            g = gcd([den] + [c for p in bwrec_n[1:] for c in p])
+            den //= g
+            if not g.is_one():
+                for i in xrange(self.ordrec):
+                    bwrec_n[1+i] = bwrec_n[1+i]/g
 
         return bwrec_n, den
 

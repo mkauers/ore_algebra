@@ -131,6 +131,9 @@ class StepMatrix_arb(binary_splitting.StepMatrix_arb):
                     (<Polynomial_complex_arb> (bwrec_n[1+i])).__poly,
                     lc, ord_log, prec)
 
+        # TODO: implement the gcd of Gaussian integers represented as acb
+        # balls, use it to remove a common factor between bwrec_n and den
+
         bwrec_n[0] = 0 # clears lc
 
         return bwrec_n, den
