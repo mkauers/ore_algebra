@@ -5,7 +5,7 @@ Local solutions
 
 import collections, logging
 
-from sage.arith.all import lcm
+from sage.arith.all import gcd, lcm
 from sage.categories.pushout import pushout
 from sage.misc.cachefunc import cached_method
 from sage.misc.lazy_attribute import lazy_attribute
@@ -44,6 +44,21 @@ def bw_shift_rec(dop, shift=ZZ.zero(), clear_denominators=False):
     if clear_denominators:
         den = lcm([p.denominator() for p in rop])
         rop = den*rop
+    # Remove constant common factors to make the recurrence smaller
+    if Scalars is QQ:
+        g = gcd(c for p in rop for c in p)
+    # elif utilities.is_QQi(Scalars): # XXX: too slow (and not general enough)
+    #     ZZi = Scalars.maximal_order()
+    #     g = ZZi.zero()
+    #     for c in (c1 for p in rop for c1 in p):
+    #         g = ZZi(g).gcd(ZZi(c)) # gcd returns a nfe
+    #         if g.is_one():
+    #             g = None
+    #             break
+    else:
+        g = None
+    if g is not None:
+        rop = (1/g)*rop
     ordrec = rop.order()
     coeff = [rop[ordrec-k](n-ordrec+shift)
              for k in xrange(ordrec+1)]
