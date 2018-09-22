@@ -62,8 +62,7 @@ More examples::
     sage: fcc.dop5.numerical_solution( # long time (7.2 s)
     ....:          [0, 0, 0, 0, 1, 0], [0, 1/5+i/2, 1],
     ....:          1e-60, algorithm='binsplit')
-    INFO:ore_algebra.analytic.binary_splitting:...
-    [1.04885235135491485162956376369999275945402550465206640313845...] + [+/- ...]*I
+    [1.048852351354914851629563763699992759454025504652066403...] + [+/- ...]*I
 
     sage: QQi.<i> = QuadraticField(-1)
     sage: (Dx - i).numerical_solution([1], [sqrt(2), sqrt(3)], algorithm="binsplit")

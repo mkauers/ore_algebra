@@ -48,7 +48,7 @@ Thanks to Jakob Ablinger and Clemens Raab for the data.
     sage: iint_value(dop, myini)
     [0.97080469562493...]
     sage: iint_value(dop, myini, 1e-500) # long time (16 s, unstable)
-    [0.97080469562493...03834204...]
+    [0.97080469562493...0383420...]
 
 Known exact values::
 
