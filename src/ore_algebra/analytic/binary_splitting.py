@@ -249,53 +249,75 @@ class StepMatrix(object):
         self.ord_diff = rec.derivatives
         self.ord_log = ord_log
 
-        if n0 == n1:
-            self._init_identity(rec, n1, ord_log)
-        elif n0 == n1 - 1:
-            self._init_n(rec, n1, ord_log)
-        else:
-            assert n0 is None
-
-    def _init_identity(self, rec, n, ord_log):
-        mult = rec.mult(n)
-        self.rec_mat = rec.Mat_rec.one()
-        self.rec_den = rec.bwrec[0].base_ring().one()
+        # updated by _init_range
+        self.rec_den = rec.AlgInts_rec.one()
         self.pow_num = rec.pow_num.parent().one()
         self.pow_den = rec.pow_den.parent().one()
+
+        if n0 == n1:
+            self._init_identity(rec, n1, ord_log)
+        elif n0 is not None:
+            self._init_range(rec, n0, n1, ord_log)
+        else:
+            assert self.__class__ is SolutionColumn
+
+    def _init_identity(self, rec, n, ord_log):
+        self.rec_mat = rec.Mat_rec.one()
+
+    def _init_range(self, rec, n0, n1, ord_log):
+        r"""
+        Naïve unrolling.
+        """
+
         self.zero_sum, self.sums_row = rec.Series_sums(ord_log)
 
-    def _coeff_series_num_den(self, rec, n, ord_log):
-        return rec.coeff_series_num_den(n, ord_log)
+        seqs = [[rec.Pols_rec.zero()]*rec.ordrec for _ in range(rec.ordrec)]
+        for k in range(1, rec.ordrec + 1):
+            seqs[-k][-k] = rec.Pols_rec.one()
 
-    def _init_n(self, rec, n, ord_log):
+        for n in xrange(n0+1, n1+1):
 
-        bwrec_n, self.rec_den = self._coeff_series_num_den(rec, n, ord_log)
+            bwrec_n, rec_den_n = self._coeff_series_num_den(rec, n, ord_log)
+            den = rec.pow_den*rec_den_n
+
+            for (num, psum) in zip(seqs, self.sums_row):
+
+                for q in xrange(ord_log):
+                    for p in xrange(self.ord_diff):
+                        psum[q][p] += self.pow_num[p]*num[-1][q]
+                        psum[q][p] *= den
+
+                u_n = -sum(bwrec_n[k]._mul_trunc_(num[-k], ord_log)
+                           for k in xrange(1, rec.ordrec + 1))
+                num[:] = [rec_den_n*term for term in num[1:]]
+                num.append(u_n)
+
+            self.pow_num = self.pow_num._mul_trunc_(rec.pow_num, self.ord_diff)
+            self.pow_den *= rec.pow_den
+            self.rec_den *= rec_den_n
 
         # Polynomial of matrices.
         rec_mat = []
         Mat = rec.Mat_rec.base_ring()
         for k in xrange(ord_log):
             mat = Mat.matrix()
-            for i in xrange(rec.ordrec):
-                mat[-1, -1-i] = -bwrec_n[i+1][k]
+            for j, u in enumerate(seqs):
+                for i in xrange(1, rec.ordrec + 1):
+                    mat[-i,j] = u[-i][k]
             rec_mat.append(mat)
-        for i in xrange(rec.ordrec - 1):
-            rec_mat[0][i, i+1] = self.rec_den
         self.rec_mat = rec.Mat_rec.element_class(rec.Mat_rec, rec_mat,
                                                  check=False)
-        self.pow_num = rec.pow_num
-        self.pow_den = rec.pow_den
 
-        # XXX: redundancy--the rec_den*pow_den probably doesn't belong here
-        # XXX: perhaps to be re-optimized
-        self.zero_sum, self.sums_row = rec.Series_sums(ord_log)
-        den = self.rec_den*self.pow_den
-        self.sums_row[-1][0][0] = rec.AlgInts_sums(den)
+        # TODO: find and remove common factors?
+        # self.simplify()
 
         # May not always hold, but convenient for checking that we are producing
         # exact balls in simple cases
         # self.assert_exact()
         pass
+
+    def _coeff_series_num_den(self, rec, n, ord_log):
+        return rec.coeff_series_num_den(n, ord_log)
 
     # TODO: try caching the powers of (pow_num/pow_den)? this probably
     # won't change anything for algebraic evaluation points, but it might
@@ -393,14 +415,10 @@ class StepMatrix(object):
 
 class StepMatrix_generic(StepMatrix):
 
-    binsplit_threshold = 1
-
     def assert_exact(self):
         return
 
 class StepMatrix_arb(StepMatrix):
-
-    binsplit_threshold = 8
 
     def assert_exact(self):
         r"""
@@ -420,8 +438,8 @@ class StepMatrix_arb(StepMatrix):
                 for b in a:
                     assert b.is_exact()
 
-# XXX SolutionColumns does not know about self.StepMatrix_class... this could
-# become an issue
+# XXX SolutionColumns does not know about MatrixRec.StepMatrix_class... this
+# could become an issue
 class SolutionColumn(StepMatrix):
     r"""
     Partially “unrolled” local canonical solutions.
@@ -459,9 +477,6 @@ class SolutionColumn(StepMatrix):
         mat = rec.Mat_rec().base_ring()()
         mat[-1,-1] = 1
         self.rec_mat = rec.Mat_rec(mat)
-        self.rec_den = rec.bwrec[0].base_ring().one()
-        self.pow_num = rec.pow_num.parent().one()
-        self.pow_den = rec.pow_den.parent().one()
         # ordrec columns for compatibility with the square matrix; only the last
         # column is really used
         self.zero_sum, self.sums_row = rec.Series_sums(self.ord_log)
@@ -719,6 +734,8 @@ class MatrixRec(object):
             raise NotImplementedError("recurrence of order zero")
         self.ordrec = self.bwrec.order
 
+        self.binsplit_threshold = max(8, self.ordrec)
+
         Mat_rec0 = MatrixSpace(self.AlgInts_rec, self.ordrec)
         self.Mat_rec = PolynomialRing(Mat_rec0, 'Sk')
         self.Pols_rec = PolynomialRing(self.AlgInts_rec, 'Sk')
@@ -857,20 +874,19 @@ class MatrixRec(object):
     def __call__(self, n, ord_log):
         return self.StepMatrix_class(self, n-1, n, ord_log)
 
-    def binsplit(self, low, high, ord_log):
+    def step_matrix_basecase(self, low, high, ord_log):
+        return self.StepMatrix_class(self, low, high, ord_log)
+
+    def step_matrix_binsplit(self, low, high, ord_log):
         r"""
         Compute R(high)·R(high-1)···R(low+1) by binary splitting.
         """
-        if high == low:
+        if high - low <= self.binsplit_threshold:
             mat = self.StepMatrix_class(self, low, high, ord_log)
-        elif high - low <= self.StepMatrix_class.binsplit_threshold:
-            mat = self(low + 1, ord_log)
-            for n in xrange(low + 2, high + 1):
-                mat.imulleft(self(n, ord_log))
         else:
             mid = (low + high) // 2
-            mat = self.binsplit(low, mid, ord_log)
-            mat.imulleft(self.binsplit(mid, high, ord_log))
+            mat = self.step_matrix_binsplit(low, mid, ord_log)
+            mat.imulleft(self.step_matrix_binsplit(mid, high, ord_log))
         assert mat.idx_start == low and mat.idx_end == high
         return mat
 
@@ -1001,7 +1017,7 @@ class MatrixRecsUnroller(LocalBasisMapper):
                 si += 1
             # Unroll by binary splitting, automatically handling exceptional
             # indices as necessary
-            fwd = self.matrix_rec.binsplit(prev, self.shift, ord_log)
+            fwd = self.matrix_rec.step_matrix_binsplit(prev, self.shift, ord_log)
             # Extend known solutions
             for sol in self.irred_factor_cols:
                 sol.value.iapply(fwd, self.mult)
