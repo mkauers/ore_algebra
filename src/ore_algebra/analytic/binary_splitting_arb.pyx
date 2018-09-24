@@ -138,6 +138,78 @@ class StepMatrix_arb(binary_splitting.StepMatrix_arb):
 
         return bwrec_n, den
 
+    @staticmethod
+    def _seq_init(rec, ord_log):
+        # Ensure that we start with new objects (not cached zeros and ones), as
+        # _seq_next is going to modify them
+
+        cdef ComplexBall zero = <ComplexBall> rec.AlgInts_sums.zero()
+        row = [[[zero._new() for _ in range(rec.derivatives)]
+                for _ in range(ord_log)]
+               for _ in range(rec.ordrec)]
+
+        cdef Polynomial_complex_arb zpol = rec.Pols_rec.zero()
+        seqs = [[zpol._new() for _ in range(rec.ordrec)]
+                for _ in range(rec.ordrec)]
+        for k in range(1, rec.ordrec + 1):
+            acb_poly_one((<Polynomial_complex_arb> (seqs[-k][-k])).__poly)
+
+        return zero, row, seqs
+
+    @cython.boundscheck(False)
+    @cython.wraparound(False)
+    def _seq_next(self, py_num, psum, py_bwrec_n, py_rec_den_n, py_den, ord_log):
+
+        # Cython version to avoid the (currently very large) overhead of
+        # accessing the coefficients of arb polynomials from Python
+
+        cdef size_t p, q, ord_diff
+        cdef ssize_t k
+        cdef long prec
+        cdef ComplexBall c, den, rec_den_n
+        cdef acb_ptr a, b
+        cdef Polynomial_complex_arb pow_num, mynum, coef
+        cdef acb_poly_t tmppol, u_n
+        cdef list bwrec_n = <list> py_bwrec_n
+        cdef list num = <list> py_num
+        cdef size_t len_num = len(num)
+
+        den = <ComplexBall> py_den
+        rec_den_n = <ComplexBall> py_rec_den_n
+        pow_num = <Polynomial_complex_arb> self.pow_num
+        mynum = <Polynomial_complex_arb> (num[len_num-1])
+
+        prec = den._parent._prec
+        ord_diff = self.ord_diff
+
+        for q in range(ord_log):
+            for p in range(ord_diff):
+                a = acb_poly_get_coeff_ptr(pow_num.__poly, p)
+                b = acb_poly_get_coeff_ptr(mynum.__poly, q)
+                c = <ComplexBall> ((<list> (<list> psum)[q])[p])
+                if a != NULL and b != NULL:
+                    acb_addmul(c.value, a, b, prec)
+                acb_mul(c.value, c.value, den.value, prec)
+
+        acb_poly_init(u_n)
+
+        acb_poly_init(tmppol)
+        for k in range(1, len(bwrec_n)):
+            coef = <Polynomial_complex_arb> (bwrec_n[k])
+            mynum = <Polynomial_complex_arb> (num[len_num-k])
+            acb_poly_mullow(tmppol, coef.__poly, mynum.__poly, ord_log, prec)
+            acb_poly_sub(u_n, u_n, tmppol, prec)
+        acb_poly_clear(tmppol)
+
+        for k in range(len_num - 1):
+            acb_poly_scalar_mul(
+                    (<Polynomial_complex_arb> num[k]).__poly,
+                    (<Polynomial_complex_arb> num[k+1]).__poly,
+                    rec_den_n.value, prec)
+
+        acb_poly_swap((<Polynomial_complex_arb> num[len_num-1]).__poly, u_n)
+        acb_poly_clear(u_n)
+
     @cython.boundscheck(False)
     @cython.wraparound(False)
     def compute_sums_row(low, high):

@@ -263,17 +263,14 @@ class StepMatrix(object):
 
     def _init_identity(self, rec, n, ord_log):
         self.rec_mat = rec.Mat_rec.one()
+        self.zero_sum, self.sums_row = rec.Series_sums(ord_log)
 
     def _init_range(self, rec, n0, n1, ord_log):
         r"""
         Naïve unrolling.
         """
 
-        self.zero_sum, self.sums_row = rec.Series_sums(ord_log)
-
-        seqs = [[rec.Pols_rec.zero()]*rec.ordrec for _ in range(rec.ordrec)]
-        for k in range(1, rec.ordrec + 1):
-            seqs[-k][-k] = rec.Pols_rec.one()
+        self.zero_sum, self.sums_row, seqs = self._seq_init(rec, ord_log)
 
         for n in xrange(n0+1, n1+1):
 
@@ -281,16 +278,8 @@ class StepMatrix(object):
             den = rec.pow_den*rec_den_n
 
             for (num, psum) in zip(seqs, self.sums_row):
-
-                for q in xrange(ord_log):
-                    for p in xrange(self.ord_diff):
-                        psum[q][p] += self.pow_num[p]*num[-1][q]
-                        psum[q][p] *= den
-
-                u_n = -sum(bwrec_n[k]._mul_trunc_(num[-k], ord_log)
-                           for k in xrange(1, rec.ordrec + 1))
-                num[:] = [rec_den_n*term for term in num[1:]]
-                num.append(u_n)
+                # separate to allow for a cython version
+                self._seq_next(num, psum, bwrec_n, rec_den_n, den, ord_log)
 
             self.pow_num = self.pow_num._mul_trunc_(rec.pow_num, self.ord_diff)
             self.pow_den *= rec.pow_den
@@ -316,8 +305,28 @@ class StepMatrix(object):
         # self.assert_exact()
         pass
 
+    @staticmethod
+    def _seq_init(rec, ord_log):
+        zero, row = rec.Series_sums(ord_log)
+        seqs = [[rec.Pols_rec.zero()]*rec.ordrec for _ in range(rec.ordrec)]
+        for k in range(1, rec.ordrec + 1):
+            seqs[-k][-k] = rec.Pols_rec.one()
+        return zero, row, seqs
+
     def _coeff_series_num_den(self, rec, n, ord_log):
         return rec.coeff_series_num_den(n, ord_log)
+
+    def _seq_next(self, num, psum, bwrec_n, rec_den_n, den, ord_log):
+
+        for q in xrange(ord_log):
+            for p in xrange(self.ord_diff):
+                psum[q][p] += self.pow_num[p]*num[-1][q]
+                psum[q][p] *= den
+
+        u_n = -sum(bwrec_n[k]._mul_trunc_(num[-k], ord_log)
+                    for k in xrange(1, len(bwrec_n)))
+        num[:] = [rec_den_n*term for term in num[1:]]
+        num.append(u_n)
 
     # TODO: try caching the powers of (pow_num/pow_den)? this probably
     # won't change anything for algebraic evaluation points, but it might
