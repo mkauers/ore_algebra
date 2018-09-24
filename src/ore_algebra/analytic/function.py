@@ -266,8 +266,8 @@ class DFiniteFunction(object):
         ini, path = self._path_to(center, prec)
         eps = RBF.one() >> prec
         # keep="all" won't do anything until _path_to returns better paths
-        ctx = ancont.Context(self.dop, path, eps, keep="all")
-        pairs = ancont.analytic_continuation(ctx, ini=ini)
+        ctx = ancont.Context(keep="all")
+        pairs = ancont.analytic_continuation(self.dop, path, eps, ctx, ini=ini)
         for (vert, val) in pairs:
             known = self._inivecs.get(vert)
             if known is None or known[0].accuracy() < val[0][0].accuracy():

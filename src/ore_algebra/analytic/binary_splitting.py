@@ -161,6 +161,10 @@ irrational, but in the same extension as the singularity itself::
 Recurrences of order zero::
 
     sage: (x*Dx + 1).numerical_transition_matrix([0,2], algorithm="binsplit")
+    [0.50000000000000000]
+
+    sage: (x*Dx + 1).numerical_transition_matrix([0,2], algorithm="binsplit",
+    ....:                                        force_algorithm=True)
     Traceback (most recent call last):
     ...
     NotImplementedError: recurrence of order zero

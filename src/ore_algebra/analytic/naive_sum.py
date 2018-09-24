@@ -366,7 +366,9 @@ def series_sum_ordinary(Intervals, dop, bwrec, ini, pt, stop, stride):
     return res
 
 # XXX: pass ctx (→ real/complex?)?
-def fundamental_matrix_ordinary(dop, pt, eps, rows, maj, fail_fast):
+def fundamental_matrix_ordinary(dop, pt, eps, rows, branch, fail_fast):
+    if branch != (0,):
+        logger.warn("nontrivial branch choice at ordinary point")
     eps_col = bounds.IR(eps)/bounds.IR(dop.order()).sqrt()
     eps_col = accuracy.AbsoluteError(eps_col)
     evpt = EvaluationPoint(pt, jet_order=rows)
@@ -374,6 +376,8 @@ def fundamental_matrix_ordinary(dop, pt, eps, rows, maj, fail_fast):
     inis = [
         LogSeriesInitialValues(ZZ.zero(), ini, dop, check=False)
         for ini in identity_matrix(dop.order())]
+    maj = bounds.DiffOpBound(dop, pol_part_len=4, bound_inverse="solve")
+    assert len(maj.special_shifts) == 1 and maj.special_shifts[0] == 1
     stop = accuracy.StoppingCriterion(maj, eps_col.eps)
     cols = [
         interval_series_sum_wrapper(series_sum_ordinary, dop, ini, evpt,

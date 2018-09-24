@@ -35,8 +35,8 @@ def transition_matrices(dop, path, eps=1e-16):
     """
     from .differential_operator import DifferentialOperator
     dop = DifferentialOperator(dop)
-    ctx = ancont.Context(dop, path, eps, keep="all")
-    pairs = ancont.analytic_continuation(ctx)
+    ctx = ancont.Context(keep="all")
+    pairs = ancont.analytic_continuation(dop, path, eps, ctx)
     return pairs
 
 def _value_from_mat(mat):
@@ -79,8 +79,8 @@ def multi_eval_diffeq(dop, ini, path, eps=1e-16):
     """
     from .differential_operator import DifferentialOperator
     dop = DifferentialOperator(dop)
-    ctx = ancont.Context(dop, path, eps, keep="all")
-    pairs = ancont.analytic_continuation(ctx, ini=ini)
+    ctx = ancont.Context(keep="all")
+    pairs = ancont.analytic_continuation(dop, path, eps, ctx, ini=ini)
     return [(point, _value_from_mat(mat)) for point, mat in pairs]
 
 polynomial_approximation_on_disk = polapprox.on_disk

@@ -21,6 +21,7 @@ from sage.rings.rational_field import QQ
 from . import accuracy, analytic_continuation as ancont, bounds, utilities
 
 from .naive_sum import series_sum, EvaluationPoint
+from .path import Path
 from .safe_cmp import *
 
 def combine_radii(pol):
@@ -186,12 +187,12 @@ def doit(dop, ini, path, rad, eps, derivatives, economization, x_is_real):
 
     eps1 = bounds.IR(eps)/2
     rad = bounds.IR(rad).above_abs()
-    ctx = ancont.Context(dop, path, eps/2)
-    center = ctx.path.vert[-1]
+    path = Path(path, dop)
+    center = path.vert[-1]
     if not safe_le(rad, center.dist_to_sing()):
         raise ValueError("approximation domain too large")
 
-    pairs = ancont.analytic_continuation(ctx, ini=ini)
+    pairs = ancont.analytic_continuation(dop, path, eps/2, ini=ini)
     local_ini = pairs[0][1]
 
     _, base, _, dop = dop._normalize_base_ring()

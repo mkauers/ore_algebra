@@ -2455,8 +2455,9 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         post_transform = ancont.normalize_post_transform(dop, post_transform)
         post_mat = matrix(1, dop.order(),
                 lambda i, j: ZZ(j).factorial()*post_transform[j])
-        ctx = ancont.Context(dop, path, eps, **kwds)
-        pairs = ancont.analytic_continuation(ctx, ini=ini, post=post_mat)
+        ctx = ancont.Context(**kwds)
+        pairs = ancont.analytic_continuation(dop, path, eps, ctx, ini=ini,
+                                                                  post=post_mat)
         assert len(pairs) == 1
         _, mat = pairs[0]
         struct = ctx.path.vert[-1].local_basis_structure()
@@ -2614,8 +2615,8 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         from .analytic import analytic_continuation as ancont, local_solutions
         from .analytic.differential_operator import DifferentialOperator
         dop = DifferentialOperator(self)
-        ctx = ancont.Context(dop, path, eps, **kwds)
-        pairs = ancont.analytic_continuation(ctx)
+        ctx = ancont.Context(**kwds)
+        pairs = ancont.analytic_continuation(dop, path, eps, ctx)
         assert len(pairs) == 1
         return pairs[0][1]
 
