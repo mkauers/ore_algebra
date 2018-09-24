@@ -743,7 +743,7 @@ class MatrixRec(object):
             raise NotImplementedError("recurrence of order zero")
         self.ordrec = self.bwrec.order
 
-        self.binsplit_threshold = max(8, self.ordrec)
+        self.binsplit_threshold = max(32, self.ordrec)
 
         Mat_rec0 = MatrixSpace(self.AlgInts_rec, self.ordrec)
         self.Mat_rec = PolynomialRing(Mat_rec0, 'Sk')
