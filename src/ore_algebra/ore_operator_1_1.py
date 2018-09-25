@@ -870,6 +870,8 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
           are returned; shifted by the degree of this coefficient
           
         EXAMPLES::
+
+            sage: from ore_algebra import OreAlgebra
             sage: A = OreAlgebra(QQ['n'],'Sn')
             sage: a = A("(n-3)*(n+2)*Sn^3 + n^2*Sn^2 - (n-1)*(n+5)*Sn")
             sage: a.singularities()
