@@ -25,6 +25,7 @@ import sage.functions.log as symbolic_log
 
 from sage.arith.all import previous_prime as pp
 from sage.arith.all import gcd, lcm, nth_prime, srange
+from sage.functions.all import floor
 from sage.matrix.constructor import matrix
 from sage.misc.all import prod, union
 from sage.rings.fraction_field import FractionField_generic
@@ -2948,6 +2949,14 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
             [               63/8*x^5 - 35/4*x^3 + 15/8*x]
             [231/16*x^6 - 315/16*x^4 + 105/16*x^2 - 5/16]
 
+
+            sage: Sk = Rxks.gen()
+            sage: (Sk^2 - 1).forward_matrix_param_rectangular(1, 10)
+            (
+            [1 0]
+            [0 1], 1
+            )
+
         TODO: this should detect if the base coefficient ring is QQ (etc.)
         and then switch to ZZ (etc.) internally.
         """
@@ -3060,7 +3069,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
         scalar_ring = parametric_ring.base_ring()
 
         coeffs = list(self)
-        param_degree = max(max(d.degree() for d in c) for c in coeffs)
+        param_degree = max(d.degree() for c in coeffs for d in c)
 
         # Step size
         if m is None:
@@ -3187,7 +3196,6 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
           (x^2 + 11*x + 30)*Sx^6 + (-3*x^2 - 25*x - 54)*Sx^4 + (3*x^2 + 17*x + 26)*Sx^2 - x^2 - 3*x - 2
           sage: ((2+x)*Sx^2-(2*x+3)*Sx+(x+1)).annihilator_of_composition(100-x)
           (-x + 99)*Sx^2 + (2*x - 199)*Sx - x + 100
-          
         """
 
         A = self.parent()
