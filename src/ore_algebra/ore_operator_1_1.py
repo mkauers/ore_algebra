@@ -24,7 +24,7 @@ from __future__ import absolute_import
 import sage.functions.log as symbolic_log
 
 from sage.arith.all import previous_prime as pp
-from sage.arith.all import gcd, lcm, srange
+from sage.arith.all import gcd, lcm, nth_prime, srange
 from sage.matrix.constructor import matrix
 from sage.misc.all import prod, union
 from sage.rings.fraction_field import FractionField_generic
@@ -2074,7 +2074,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             R1 = R.change_ring(K1)
             A1 = A.change_ring(R1)
             for _ in range(5):
-                subs = {x: K1(nth_prime(5 + _) + nth_prime(15 + i)) for (x, i) in enumerate(vars)}
+                subs = {x: K1(nth_prime(5 + _) + nth_prime(15 + i)) for (i, x) in enumerate(vars)}
                 L1 = A1([R1([c(**subs) for c in p]) for p in L])
                 fac1 = [R1([c(**subs) for c in p]) for p in fac]
                 if any (p1.degree() != p.degree() for p, p1 in zip(fac, fac1)):
