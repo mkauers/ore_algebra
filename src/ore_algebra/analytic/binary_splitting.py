@@ -526,34 +526,50 @@ class SolutionColumn(StepMatrix):
         them as appropriate. In particular, it can be called it with m = 0 to
         fix the result of a left multiplication by a StepMatrix of larger
         ord_log.
+
+        TESTS::
+
+            sage: from ore_algebra import DifferentialOperators
+            sage: Dops, x, Dx = DifferentialOperators(QQ, 'x')
+            sage: dop = ((x*Dx)**2-x).lclm(x*Dx-1)
+            sage: dop.numerical_transition_matrix([0,1/2], algorithm="binsplit")
+            [[-1.286219620632667...]  [1.566082929756350...] [0.50000000...]]
+            [ [1.420567646452300...]  [1.271723456312137...]  [1.0000000...]]
+            [[-1.706787267084967...] [0.2943594734442134...]       [+/- ...]]
+
+            sage: from ore_algebra.examples import fcc
+            sage: fcc.dop4.numerical_solution([0, 1, 0, 0], [1, 1/2],
+            ....:                             algorithm="binsplit")
+            [0.6757976924611368...] + [-2.987541622123742...]*I
         """
         # If some of the high-degree coefficients wrt log(z) happen to be zero,
         # e.g., at ordinary points, we don't need the full precision. This will
         # be used to also reduce the precision in the computation of recurrence
         # matrices.
+        z = 0
         for k in range(m):
-            # Only the last coefficient counts, because this is the one that's
+            # Only the last coefficient counts, because it is the one that's
             # going to be shifted.
             if self.rec_mat[k][-1][-1].is_zero():
-                m -= 1
+                z += 1
             else:
                 break
         Mat = self.rec_mat.base_ring()
-        new_mats = [Mat() for _ in range(m)]
+        new_mats = [Mat() for _ in range(m - z)]
         new_mats.extend(self.rec_mat[k].__copy__()
                         for k in range(self.ord_log))
         for k in range(self.ord_log):
-            new_mats[k][-1,-1] = self.rec_mat[k][-1,-1]
-        for k in range(self.ord_log, self.ord_log + m):
+            new_mats[k][-1,-1] = self.rec_mat[k + z][-1,-1]
+        for k in range(self.ord_log, self.ord_log + m - z):
             new_mats[k][-1,-1] = 0
         self.rec_mat = self.rec_mat.parent()(new_mats)
-        zeros = [[self.zero_sum]*self.ord_diff for _ in xrange(m)]
+        zeros = [[self.zero_sum]*self.ord_diff for _ in xrange(m - z)]
         for p in self.sums_row[:-1]:
             p[self.ord_log:] = [] # useful?
             p.extend(zeros)
         self.sums_row[-1][self.ord_log:] = []
         self.sums_row[-1][:0] = zeros
-        self.ord_log += m
+        self.ord_log += m - z
 
     def normalized_residual(self, maj, abstract_alg, alg, n):
         r"""
