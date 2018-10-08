@@ -1038,7 +1038,6 @@ class MatrixRecsUnroller(LocalBasisMapper):
             if self.mult > 0: # 'if' only for clarity
                 self.process_valuation()
                 ord_log = max(sol.value.ord_log for sol in self.irred_factor_cols)
-            foo = self.irred_factor_cols[0]
             # Check if we have converged
             if self.shift > last_singular_index:
                 est = max(sol.value.error_estimate()
