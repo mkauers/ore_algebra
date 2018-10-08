@@ -67,6 +67,14 @@ class Context(object):
 default_ctx = Context()
 
 def step_transition_matrix(dop, step, eps, rows=None, split=0, ctx=default_ctx):
+    r"""
+    TESTS::
+
+        sage: from ore_algebra.examples import fcc
+        sage: fcc.dop4.numerical_solution([0, 0, 0, 1], [0, 1], 1e-3)
+        [1...] + [+/- ...]*I
+    """
+
     order = dop.order()
     if rows is None:
         rows = order
@@ -104,7 +112,7 @@ def step_transition_matrix(dop, step, eps, rows=None, split=0, ctx=default_ctx):
         s0, s1 = step.split()
         m0 = step_transition_matrix(dop, s0, eps/2, None, split+1, ctx)
         m1 = step_transition_matrix(dop, s1, eps/2, rows, split+1, ctx)
-        return m1*m0
+        mat = m1*m0
     if inverse:
         mat = ~mat
     return mat
