@@ -382,7 +382,6 @@ class LocalBasisMapper(object):
             shift = ZZ(self.shift),
             log_power = ZZ(self.log_power),
             value = value)
-        logger.debug("value = %s", sol)
         self.irred_factor_cols.append(sol)
 
     def fun(self, ini):

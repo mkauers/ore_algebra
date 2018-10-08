@@ -1044,7 +1044,7 @@ class MatrixRecsUnroller(LocalBasisMapper):
                           for sol in self.irred_factor_cols)
                 done, tail_bound = stop.check(cb, False, self.shift, tail_bound,
                                est, next_stride=self.shift-first_singular_index)
-            if self.shift > 16:
+            if self.shift > 16 or self.mult > 0:
                 logger.log(logging.INFO if self.shift > 1000 else logging.DEBUG,
                         "n=%s, logs=%s, est=%s, tb=%s",
                         self.shift, fwd.rec_mat.degree(), est, tail_bound)
