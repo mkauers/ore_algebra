@@ -582,6 +582,43 @@ def abs_min_nonzero_root(pol, tol=RR(1e-2), min_log=RR('-inf'), prec=None):
         logger.debug("required tolerance may not be met")
     return res
 
+def growth_parameters(dop):
+    r"""
+    Find κ, α such that the solutions of dop grow at most like
+    sum(α^n*x^n/n!^κ) ≈ exp(κ*(α·x)^(1/κ)).
+
+    EXAMPLES::
+
+        sage: from ore_algebra import *
+        sage: DiffOps, x, Dx = DifferentialOperators()
+        sage: from ore_algebra.analytic.bounds import growth_parameters
+        sage: growth_parameters(Dx^2 + 2*x*Dx) # erf(x)
+        (1/2, [1.4...])
+        sage: growth_parameters(Dx^2 + 8*x*Dx) # erf(2*x)
+        (1/2, [2.82...])
+        sage: growth_parameters(Dx^2 - x) # Airy
+        (2/3, [1.0...])
+
+    TODO: add an example with several slopes
+    """
+    # Newton polygon. In terms of the coefficient sequence,
+    # (S^(-j)·((n+1)S)^i)(α^n/n!^κ) ≈ α^(i-j)·n^(i+κ(j-i)).
+    # In terms of asymptotics at infinity,
+    # (x^j·D^i)(exp(κ·(α·x)^(1/κ))) ≈ α^(i/κ)·x^((i+κ(j-i))/κ)·exp(...).
+    # The upshot is that we want the smallest κ s.t. i+κ(j-i) is max and reached
+    # twice, and then the largest |α| with sum[edge](a[i,j]·α^(i/κ))=0.
+    # (Note that the equation on α resulting from the first formulation
+    # simplifies thanks to i+κ(j-i)=cst on the edge.)
+    points = [(ZZ(j-i), ZZ(i), c) for (i, pol) in enumerate(dop)
+                                  for (j, c) in enumerate(pol)
+                                  if not c.is_zero()]
+    h0, i0, _ = min(points, key=lambda (h, i, c): (h, -j))
+    slope = max((i-i0)/(h-h0) for (h, i, c) in points if h > h0)
+    Pol = dop.base_ring()
+    eqn = Pol({i: c for (h, i, c) in points if i == i0 + slope*(h-h0)})
+    expo_growth = abs_min_nonzero_root(eqn)**(-slope)
+    return -slope, expo_growth
+
 ######################################################################
 # Bounds on rational functions of n
 ######################################################################

@@ -41,6 +41,11 @@ class PlainDifferentialOperator(UnivariateDifferentialOperatorOverUnivariateRing
         super(PlainDifferentialOperator, self).__init__(
                 dop.parent(), dop)
 
+    @cached_method
+    def growth_parameters(self):
+        from .bounds import growth_parameters
+        return growth_parameters(self)
+
     def singularities(self, *args):
         raise NotImplementedError("use _singularities()")
 
