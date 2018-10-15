@@ -598,25 +598,36 @@ def growth_parameters(dop):
         (1/2, [2.82...])
         sage: growth_parameters(Dx^2 - x) # Airy
         (2/3, [1.0...])
-
-    TODO: add an example with several slopes
+        sage: growth_parameters(x*Dx^2 + (1-x)*Dx) # Ei(1, -x)
+        (1, [1.0...])
+        sage: growth_parameters((Dx-1).lclm(Dx-2))
+        (1, [2.0...])
+        sage: growth_parameters((Dx - x).lclm(Dx^2 - 1))
+        (1/2, [1.0...])
     """
+    assert dop.leading_coefficient().is_term()
     # Newton polygon. In terms of the coefficient sequence,
     # (S^(-j)·((n+1)S)^i)(α^n/n!^κ) ≈ α^(i-j)·n^(i+κ(j-i)).
     # In terms of asymptotics at infinity,
     # (x^j·D^i)(exp(κ·(α·x)^(1/κ))) ≈ α^(i/κ)·x^((i+κ(j-i))/κ)·exp(...).
-    # The upshot is that we want the smallest κ s.t. i+κ(j-i) is max and reached
+    # Thus, we want the largest (negative) κ s.t. i+κ(j-i) is max and reached
     # twice, and then the largest |α| with sum[edge](a[i,j]·α^(i/κ))=0.
     # (Note that the equation on α resulting from the first formulation
     # simplifies thanks to i+κ(j-i)=cst on the edge.)
+    # For a differential operator of order r, there may be more than r + 1
+    # different values of i (<-> solutions of the associated recurrence), but
+    # at most r + 1 values of h = j-i and hence at most r *negative* slopes.
+    # Or maybe a better way to look at this is to say that we are considering
+    # the classical Newton polygon at infinity (as in Loday-Richaud 2016,
+    # Def. 3.3.10) but we are interested in the inverses of the slopes.
     points = [(ZZ(j-i), ZZ(i), c) for (i, pol) in enumerate(dop)
                                   for (j, c) in enumerate(pol)
                                   if not c.is_zero()]
-    h0, i0, _ = min(points, key=lambda (h, i, c): (h, -j))
-    slope = max((i-i0)/(h-h0) for (h, i, c) in points if h > h0)
+    h0, i0, _ = max(points, key=lambda (h, i, c): (i, h))
+    slope = max((i-i0)/(h-h0) for (h, i, c) in points if h > h0 and i < i0)
     Pol = dop.base_ring()
-    eqn = Pol({i: c for (h, i, c) in points if i == i0 + slope*(h-h0)})
-    expo_growth = abs_min_nonzero_root(eqn)**(-slope)
+    eqn = Pol({i0 - i: c for (h, i, c) in points if i == i0 + slope*(h-h0)})
+    expo_growth = abs_min_nonzero_root(eqn)**slope
     return -slope, expo_growth
 
 ######################################################################
