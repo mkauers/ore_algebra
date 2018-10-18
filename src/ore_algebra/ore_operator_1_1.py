@@ -684,7 +684,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
           sage: R.<x> = QQ['x']; A.<Dx> = OreAlgebra(R, 'Dx');
           sage: L = x^2*Dx^2 + x*Dx + (x^2 - 1); p = 1  ## L(bessel(x)) == 0
           sage: L.associate_solutions(Dx, p)
-          [(-Dx + 1/-x, 1/-x^2)]
+          [(-Dx - 1/x, -1/x^2)]
           sage: (M, m) = _[0]
           sage: Dx*M == p + m*L  ## this implies int(bessel(x)) == -bessel'(x) -1/x*bessel(x)
           True

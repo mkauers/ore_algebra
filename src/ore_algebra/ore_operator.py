@@ -289,7 +289,7 @@ class OreOperator(RingElement):
            sage: U = (15*x^2 + 29*x + 5)*Dx^2 + (5*x^2 - 50*x - 41)*Dx - 2*x + 64
            sage: V = (3*x+5)*Dx + (x-9)
            sage: U//V
-           ((15*x^2 + 29*x + 5)/(3*x + 5))*Dx + (-64*x^2 - 204*x - 175)/(9*x^2 + 30*x + 25)
+           ((5*x^2 + 29/3*x + 5/3)/(x + 5/3))*Dx + (-64/9*x^2 - 68/3*x - 175/9)/(x^2 + 10/3*x + 25/9)
         
         """
         Q, _ = self.quo_rem(right)
@@ -307,7 +307,7 @@ class OreOperator(RingElement):
            sage: U = (15*x^2 + 29*x + 5)*Dx^2 + (5*x^2 - 50*x - 41)*Dx - 2*x + 64
            sage: V = (3*x+5)*Dx + (x-9)
            sage: U % V
-           (3*x^3 - 54*x^2 + 147*x)/(27*x^2 + 90*x + 75)
+           (1/9*x^3 - 2*x^2 + 49/9*x)/(x^2 + 10/3*x + 25/9)
         
         """
         _, R = self.quo_rem(other)
