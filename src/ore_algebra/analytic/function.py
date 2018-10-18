@@ -545,9 +545,9 @@ def _growth_parameters(dop):
         sage: _growth_parameters(Dx^2 + 2*x*Dx) # erf(x)
         (1/2, [1.4...])
         sage: _growth_parameters(Dx^2 + 8*x*Dx) # erf(2*x)
-        (1/2, [2.82 +/- 8.45e-3])
+        (1/2, [2.8...])
         sage: _growth_parameters(Dx^2 - x) # Airy
-        (2/3, [1.0 +/- 3.62e-3])
+        (2/3, [1.0...])
 
         XXX: todo - add an example with several slopes
 

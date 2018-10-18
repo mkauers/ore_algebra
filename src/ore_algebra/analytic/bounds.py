@@ -522,17 +522,23 @@ def abs_min_nonzero_root(pol, tol=RR(1e-2), min_log=RR('-inf'), prec=None):
 
     An example where the ability to increase the precision is used::
 
-        sage: from ore_algebra import *
-        sage: from ore_algebra.analytic.bounds import DiffOpBound
-        sage: Dops, x, Dx = DifferentialOperators()
-        sage: dop = (x^2 + 10*x + 50)*Dx^2 + Dx + 1
         sage: import logging; logging.basicConfig()
         sage: logger = logging.getLogger('ore_algebra.analytic.bounds')
         sage: logger.setLevel(logging.DEBUG)
-        sage: maj = DiffOpBound(dop, bound_inverse="simple")
-        INFO:...
+
+        sage: abs_min_nonzero_root(z^7 - 2*(1000*z^2-1), tol=1e-20)
         DEBUG:ore_algebra.analytic.bounds:failed to bound the roots...
-        ...
+        [0.03162277660143379332...]
+
+    And one where that used to be the case::
+
+        sage: from ore_algebra import DifferentialOperators
+        sage: from ore_algebra.analytic.bounds import DiffOpBound
+        sage: Dops, x, Dx = DifferentialOperators()
+        sage: dop = (x^2 + 10*x + 50)*Dx^2 + Dx + 1
+        sage: maj = DiffOpBound(dop, bound_inverse="simple")
+        INFO:ore_algebra.analytic.bounds:bounding local operator (simple, pol_part_len=None, max_effort=2)...
+
         sage: logger.setLevel(logging.WARNING)
     """
     if prec is None:
@@ -558,7 +564,7 @@ def abs_min_nonzero_root(pol, tol=RR(1e-2), min_log=RR('-inf'), prec=None):
         prev_lg_rad = lg_rad
         # The smallest root of the current mypol is between 2^(-1-m) and
         # (2·deg)·2^(-1-m), cf. Davenport & Mignotte (1990), Grégoire (2012).
-        m = myIR(-infinity).max(*(mypol[k].abs().log(2)/k
+        m = myIR(-infinity).max(*(mypol[k].above_abs().log(2)/k
                                 for k in xrange(1, deg+1)))
         lg_rad = (-(1 + myRIF(m)) + encl) >> i
         lg_rad = prev_lg_rad.intersection(lg_rad)
@@ -1136,9 +1142,10 @@ def _test_RatSeqBound(number=10, base=QQ, deg=20, verbose=False):
 
         sage: from ore_algebra.analytic.bounds import _test_RatSeqBound
         sage: _test_RatSeqBound(number=1, deg=4, verbose=True, seed=0)
-        num = -1/2
-        den = n^4 - 3043/285*n^3 - 5879/380*n^2 - 5513/1140*n + 1/19
-        exns = {12: 1}
+        num = 1/6
+        den = n^4 - 7/8*n^3 - 5/16*n^2 + 3/16*n
+        exns = {-1: 1}
+
     """
     from sage.combinat.subset import Subsets
     Pols, n = PolynomialRing(base, 'n').objgen()
@@ -1271,9 +1278,10 @@ class DiffOpBound(object):
 
         sage: dop = (x+1)*(x^2+1)*Dx^3-(x-1)*(x^2-3)*Dx^2-2*(x^2+2*x-1)*Dx
         sage: DiffOpBound(dop, pol_part_len=3)
-        1.000.../((-x + [0.9965035284306323 +/- 2.07e-17])^3)*exp(int(POL+1.000...*NUM/(-x + [0.9965035284306323 +/- 2.07e-17])^3)) where
-        POL=~6.000...*z^0 + ~3.000...*z^1 + ~5.000...*z^2,
-        NUM=~7.000...*z^3 + ~2.000...*z^4 + ~5.000...*z^5
+        1.000.../((-x + [0.9965...])^3)*exp(int(POL+1.000...*NUM/(-x + [0.9965...])^3)) where
+        POL=~6.00000*z^0 + ~3.00000*z^1 + ~5.00000*z^2,
+        NUM=~7.00000*z^3 + ~2.00000*z^4 + ~5.00000*z^5
+        <BLANKLINE>
 
     Refining::
 
@@ -1282,7 +1290,7 @@ class DiffOpBound(object):
         sage: maj.maj_den
         (-z + [0.2047...])^13
         sage: maj.maj_den.value()(1/10)
-        [1.825136...]
+        [1.825...]
         sage: maj.refine()
         sage: maj.maj_den.value()(1/10)
         [436565.0...]
@@ -2152,9 +2160,7 @@ def _test_diffop_bound(
         sage: from ore_algebra.analytic.bounds import _test_diffop_bound
         sage: _test_diffop_bound(ords=[2], degs=[2], pplens=[1], prec=100,
         ....:         seed=0, verbose=True)
-        testing operator: ((1/457*i - 3/457)*x^2 + (-1/457*i + 1/457)*x
-        + 1/457*i - 6/457)*Dx^2 + ((-2/53*i + 2/53)*x - 1/106*i + 1/106)*Dx
-        + (-6/107*i - 1/107)*x^2 + (1/214*i + 1/107)*x
+        testing operator: 5/927*Dx^2 + ((-2/463*i - 1/463)*x + 1/463*i)*Dx - 95/396*i + 1/396
     """
     from sage.rings.number_field.number_field import QuadraticField
 
