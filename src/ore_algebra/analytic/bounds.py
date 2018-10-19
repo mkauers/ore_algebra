@@ -253,7 +253,7 @@ class RationalMajorant(MajorantSeries):
                 den_ser = den_ser._mul_trunc_(fac_ser, ord)
             num_ser = Pol(num.integral()).compose_trunc(pert_rad, ord)
             res += num_ser._mul_trunc_(den_ser.inverse_series_trunc(ord), ord)
-            logger.debug("num=%s, den=%s", num, den)
+            # logger.debug("num=%s, den=%s", num, den)
         logger.debug("integral bound=%s", res)
         return res
 
@@ -1941,7 +1941,7 @@ class DiffOpBound(object):
         maj = self(n)
         # XXX Better without maj? (speed/tightness trade-off)
         rhs = self.rhs(n, normalized_residuals, maj)
-        logger.debug("n=%s, maj(n)=%s, rhs=%s", n, maj, rhs)
+        # logger.debug("n=%s, maj(n)=%s, rhs=%s", n, maj, rhs)
         # Shift by n to account for the implicit z^n, then by -1 because of the
         # formula ∫(w⁻¹·(q^)(w)·dw.
         pol = (rhs << (n - 1)).integral() # XXX potential perf issue with <<
