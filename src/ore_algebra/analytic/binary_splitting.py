@@ -59,7 +59,7 @@ corresponding series do not continue::
 More examples::
 
     sage: from ore_algebra.examples import fcc
-    sage: fcc.dop5.numerical_solution( # long time (7.2 s)
+    sage: fcc.dop5.numerical_solution( # long time (4-5 s)
     ....:          [0, 0, 0, 0, 1, 0], [0, 1/5+i/2, 1],
     ....:          1e-60, algorithm='binsplit')
     [1.048852351354914851629563763699992759454025504652066403...] + [+/- ...]*I
@@ -121,8 +121,8 @@ complicated combinations, after improving the code...)::
 
     sage: ((x*Dx)^3-2-x).numerical_transition_matrix([0,1], 1e-5, algorithm="binsplit")
     [[0.75335...] + [-0.09777...]*I  [0.75335...] + [0.09777...]*I  [1.1080...] + [+/- ...]*I]
-    [[-0.78644...] + [-0.8794...]*I  [-0.78644...] + [0.8794...]*I  [1.5074...] + [+/- ...]*I]
-    [  [0.10146...] + [1.2165...]*I  [0.10146...] + [-1.2165...]*I  [0.32506...] + [+/- ...]*I]
+    [ [-0.78644...] + [-0.8794...]*I [-0.78644...] + [0.8794...]*I  [1.5074...] + [+/- ...]*I]
+    [ [0.10146...] + [1.2165...]*I  [0.10146...] + [-1.2165...]*I  [0.32506...] + [+/- ...]*I]
 
     sage: ((x*Dx)^2-2-x).numerical_transition_matrix([0,i], 1e-5, algorithm="binsplit")
     [[-1.4237...] + [0.0706...]*I [-0.7959...] + [0.6169...]*I]
@@ -577,7 +577,8 @@ class SolutionColumn(StepMatrix):
             sage: from ore_algebra import *
             sage: DOP, t, D = DifferentialOperators()
             sage: ode = D + 1/4/(t - 1/2)
-            sage: ode.numerical_transition_matrix([0,1+I,1], 1e-100, algorithm='binsplit')
+            sage: ode.numerical_transition_matrix([0,1+I,1], 1e-110,
+            ....:                                 algorithm='binsplit')
             [[0.707...2078...] + [0.707...]*I]
         """
         # WARNING: this residual must correspond to the operator stored in
@@ -733,7 +734,7 @@ class MatrixRec(object):
             h = max(c.absolute_norm().height().nbits()
                     for pol in dop for c in pol)
             rs = dop.degree()*dop.order()
-            wp = max(prec, h*ZZ(rs).nbits()) + rs*ZZ(prec).nbits() + 8
+            wp = max(prec, h*ZZ(rs).nbits()) + (rs + 2)*(ZZ(prec).nbits() + 8)
             self._init_CBF(deq_Scalars, shift, E, dz, wp)
         else:
             try:
@@ -759,7 +760,7 @@ class MatrixRec(object):
             raise NotImplementedError("recurrence of order zero")
         self.ordrec = self.bwrec.order
 
-        self.binsplit_threshold = max(32, self.ordrec)
+        self.binsplit_threshold = max(128, self.ordrec)
 
         Mat_rec0 = MatrixSpace(self.AlgInts_rec, self.ordrec)
         self.Mat_rec = PolynomialRing(Mat_rec0, 'Sk')
@@ -1035,8 +1036,9 @@ class MatrixRecsUnroller(LocalBasisMapper):
         prev, done = first_singular_index, False
         ord_log = 0
         while True:
-            # Try doubling the number of terms, but stop at exceptional indices
-            self.shift, self.mult = max(2*prev, prev + 4), 0
+            # Try roughly doubling the number of terms, but always stop at
+            # exceptional indices
+            self.shift, self.mult = prev + max(1 << ZZ(prev).nbits(), 128), 0
             if si < len(self.shifts) and self.shift >= self.shifts[si][0]:
                 self.shift, self.mult = self.shifts[si]
                 si += 1
