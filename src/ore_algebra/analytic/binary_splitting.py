@@ -262,8 +262,6 @@ class StepMatrix(object):
             self._init_identity(rec, n1, ord_log)
         elif n0 is not None:
             self._init_range(rec, n0, n1, ord_log)
-        else:
-            assert self.__class__ is SolutionColumn
 
     def _init_identity(self, rec, n, ord_log):
         self.rec_mat = rec.Mat_rec.one()
@@ -451,8 +449,6 @@ class StepMatrix_arb(StepMatrix):
                 for b in a:
                     assert b.is_exact()
 
-# XXX SolutionColumns does not know about MatrixRec.StepMatrix_class... this
-# could become an issue
 class SolutionColumn(StepMatrix):
     r"""
     Partially “unrolled” local canonical solutions.
@@ -485,18 +481,18 @@ class SolutionColumn(StepMatrix):
 
     def __init__(self, rec, n, log_power):
         # n0 = None: can be multiplied on left, not on the right
-        super(self.__class__, self).__init__(rec, None, n, log_power + 1)
+        self.v = rec.StepMatrix_class(rec, None, n, log_power + 1)
         # square matrix because we want to use it as a polynomial coefficient
         mat = rec.Mat_rec().base_ring()()
         mat[-1,-1] = 1
-        self.rec_mat = rec.Mat_rec(mat)
+        self.v.rec_mat = rec.Mat_rec(mat)
         # ordrec columns for compatibility with the square matrix; only the last
         # column is really used
-        self.zero_sum, self.sums_row = rec.Series_sums(self.ord_log)
+        self.v.zero_sum, self.v.sums_row = rec.Series_sums(self.v.ord_log)
 
     def assert_well_formed(self):
-        assert self.rec_mat.degree() < self.ord_log
-        assert len(self.sums_row[-1]) == self.ord_log
+        assert self.v.rec_mat.degree() < self.v.ord_log
+        assert len(self.v.sums_row[-1]) == self.v.ord_log
 
     def iapply(self, fwd, shift):
         r"""
@@ -507,9 +503,9 @@ class SolutionColumn(StepMatrix):
         “Sk⁻¹” is not the identity operation, as it replaces the coefficient
         of Sk^(ord_log-1) (corresponding to log^0) by 0.
         """
-        assert fwd.ord_log >= self.ord_log
+        assert fwd.ord_log >= self.v.ord_log
         self.assert_well_formed()
-        self.imulleft(fwd)
+        self.v.imulleft(fwd)
         # well-formedness may be temporarily broken at this point
         self.fix_product_and_shift_logs(shift)
         self.assert_well_formed()
@@ -550,26 +546,26 @@ class SolutionColumn(StepMatrix):
         for k in range(m):
             # Only the last coefficient counts, because it is the one that's
             # going to be shifted.
-            if self.rec_mat[k][-1][-1].is_zero():
+            if self.v.rec_mat[k][-1][-1].is_zero():
                 z += 1
             else:
                 break
-        Mat = self.rec_mat.base_ring()
+        Mat = self.v.rec_mat.base_ring()
         new_mats = [Mat() for _ in range(m - z)]
-        new_mats.extend(self.rec_mat[k].__copy__()
-                        for k in range(self.ord_log))
-        for k in range(self.ord_log):
-            new_mats[k][-1,-1] = self.rec_mat[k + z][-1,-1]
-        for k in range(self.ord_log, self.ord_log + m - z):
+        new_mats.extend(self.v.rec_mat[k].__copy__()
+                        for k in range(self.v.ord_log))
+        for k in range(self.v.ord_log):
+            new_mats[k][-1,-1] = self.v.rec_mat[k + z][-1,-1]
+        for k in range(self.v.ord_log, self.v.ord_log + m - z):
             new_mats[k][-1,-1] = 0
-        self.rec_mat = self.rec_mat.parent()(new_mats)
-        zeros = [[self.zero_sum]*self.ord_diff for _ in xrange(m - z)]
-        for p in self.sums_row[:-1]:
-            p[self.ord_log:] = [] # useful?
+        self.v.rec_mat = self.v.rec_mat.parent()(new_mats)
+        zeros = [[self.v.zero_sum]*self.v.ord_diff for _ in xrange(m - z)]
+        for p in self.v.sums_row[:-1]:
+            p[self.v.ord_log:] = [] # useful?
             p.extend(zeros)
-        self.sums_row[-1][self.ord_log:] = []
-        self.sums_row[-1][:0] = zeros
-        self.ord_log += m - z
+        self.v.sums_row[-1][self.v.ord_log:] = []
+        self.v.sums_row[-1][:0] = zeros
+        self.v.ord_log += m - z
 
     def normalized_residual(self, maj, abstract_alg, alg, n):
         r"""
@@ -593,32 +589,32 @@ class SolutionColumn(StepMatrix):
         IC = bounds.IC
 
         # Specialize abstract algebraic exponent
-        alg_to_IC = _specialization_map(self.rec_mat.base_ring().base_ring(),
+        alg_to_IC = _specialization_map(self.v.rec_mat.base_ring().base_ring(),
                                         IC, abstract_alg, alg)
 
         # last = [[u(n-1) for log⁰, log¹, ...], ..., [u(n-s) for all logs]]
-        rec_den = IC(self.rec_den)
-        last = [[alg_to_IC(self.rec_mat[self.ord_log-1-k][-j,-1])/rec_den # (?)
-                 for k in range(self.ord_log)
-                ] for j in range(self.rec_mat.base_ring().nrows())]
+        rec_den = IC(self.v.rec_den)
+        last = [[alg_to_IC(self.v.rec_mat[self.v.ord_log-1-k][-j,-1])/rec_den # (?)
+                 for k in range(self.v.ord_log)
+                ] for j in range(self.v.rec_mat.base_ring().nrows())]
         res = maj.normalized_residual(n, last)
         return res
 
     def partial_sum(self, Jets, dz, abstract_alg, alg, shift, tail_bound):
         # Extract the (abstract numerator of) series part
-        op_k = self.sums_row[-1] # K[λ][δ][Sk]
+        op_k = self.v.sums_row[-1] # K[λ][δ][Sk]
         numer = list(reversed(op_k))
         Scalars = Jets.base_ring()
         # Specialize abstract algebraic exponent
-        specialize = _specialization_map(self.zero_sum.parent(), Scalars,
+        specialize = _specialization_map(self.v.zero_sum.parent(), Scalars,
                                          abstract_alg, alg)
         # (overestimation: we are using a single bound for all subseries)
         numer = vector([Jets([specialize(c).add_error(tail_bound) for c in ser])
                        for ser in numer])
         # TODO: support other branches (perhaps by using EvaluationPoint?)
-        numer = log_series_value(Jets, self.ord_diff, alg + shift, numer,
+        numer = log_series_value(Jets, self.v.ord_diff, alg + shift, numer,
                                  Scalars(dz), branch=(0,))
-        denom = specialize(self.rec_den)*Scalars(self.pow_den)
+        denom = specialize(self.v.rec_den)*Scalars(self.v.pow_den)
         # slightly redundant: should actually be the same for all columns...
         return numer/denom
 
@@ -629,9 +625,9 @@ class SolutionColumn(StepMatrix):
             except TypeError:
                 return bounds.IC(c[0]) # NF, would work for QQ
         zero = bounds.IR.zero()
-        num1 = max([zero] + [abs(IC_est(m[-1, -1])) for m in self.rec_mat])
-        num2 = sum(abs(IC_est(a)) for a in self.pow_num)
-        den = abs(IC_est(self.rec_den))*bounds.IR(self.pow_den)
+        num1 = max([zero] + [abs(IC_est(m[-1, -1])) for m in self.v.rec_mat])
+        num2 = sum(abs(IC_est(a)) for a in self.v.pow_num)
+        den = abs(IC_est(self.v.rec_den))*bounds.IR(self.v.pow_den)
         return num1*num2/den
 
 class MatrixRec(object):
@@ -1053,7 +1049,7 @@ class MatrixRecsUnroller(LocalBasisMapper):
             # Append “new” solutions starting at the current valuation
             if self.mult > 0: # 'if' only for clarity
                 self.process_valuation()
-                ord_log = max(sol.value.ord_log for sol in self.irred_factor_cols)
+                ord_log = max(sol.value.v.ord_log for sol in self.irred_factor_cols)
             # Check if we have converged
             if self.shift > last_singular_index:
                 est = max(sol.value.error_estimate()
