@@ -22,6 +22,7 @@ from sage.symbolic.all import SR, pi, I
 from .. import ore_algebra
 from . import utilities
 
+from .differential_operator import DifferentialOperator
 from .shiftless import dispersion, my_shiftless_decomposition
 
 logger = logging.getLogger(__name__)
@@ -32,15 +33,14 @@ logger = logging.getLogger(__name__)
 
 def bw_shift_rec(dop, shift=ZZ.zero(), clear_denominators=False):
     Scalars = pushout(dop.base_ring().base_ring(), shift.parent())
-    Pols_x = dop.base_ring().change_ring(Scalars)
-    Pols_n, n = PolynomialRing(Scalars, 'n').objgen()
-    Rops = ore_algebra.OreAlgebra(Pols_n, 'Sn')
-    # Using the primitive part here would break the computation of residuals!
-    # TODO: add test (arctan); better fix?
-    # Other interesting cases: operators of the form P(Θ) (with constant
-    # coefficients)
-    #rop = dop.to_S(Rops).primitive_part().numerator()
-    rop = dop.change_ring(Pols_x).to_S(Rops)
+    if dop.parent().is_D():
+        dop = DifferentialOperator(dop) # compatibility bugware
+        rop = dop._my_to_S()
+    else: # more compatibility bugware
+        Pols_n = PolynomialRing(dop.base_ring().base_ring(), 'n')
+        rop = dop.to_S(ore_algebra.OreAlgebra(Pols_n, 'Sn'))
+    Pols_n, n = rop.base_ring().change_ring(Scalars).objgen()
+    rop = rop.change_ring(Pols_n)
     if clear_denominators:
         den = lcm([p.denominator() for p in rop])
         rop = den*rop

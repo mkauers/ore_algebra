@@ -731,8 +731,7 @@ class MatrixRec(object):
             # space needed for representing the leaves exactly), assuming prec ≈
             # number of terms. (If the coefficients are so large that we want to
             # round them, we probably shouldn't be using binary splitting.)
-            h = max(c.absolute_norm().height().nbits()
-                    for pol in dop for c in pol)
+            h = dop._naive_height()
             rs = dop.degree()*dop.order()
             wp = max(prec, h*ZZ(rs).nbits()) + (rs + 2)*(ZZ(prec).nbits() + 8)
             self._init_CBF(deq_Scalars, shift, E, dz, wp)

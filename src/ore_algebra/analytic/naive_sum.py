@@ -8,7 +8,7 @@ Evaluation of convergent D-finite series by direct summation
 # is reached?
 # - cythonize critical parts?
 
-from __future__ import print_function
+from __future__ import division, print_function
 
 import collections, itertools, logging
 
@@ -233,8 +233,70 @@ def series_sum(dop, ini, pt, tgt_error, maj=None, bwrec=None, stop=None,
     return interval_series_sum_wrapper(doit, dop, ini, pt, tgt_error, bwrec,
                                        stop, fail_fast, max_prec, **kwds)
 
+def guard_bits(dop, maj, pt, ordrec, nterms):
+
+    inf = 1 << 60
+    new_cost = cur_cost = inf
+    new_bits = cur_bits = None
+    new_n0 = cur_n0 = orddeq = dop.order()
+    refine = False
+
+    cst = abs(bounds.IC(maj.dop.leading_coefficient()[0])) # ???
+
+    while True:
+
+        # Roughly speaking, the computation of a new coefficient of the series
+        # *multiplies* the diameter by the order of the recurrence (minus two).
+        # Thus, it is not unreasonable that the loss of precision is of the
+        # order of log2(ordrec^nterms). This observation is far from explaining
+        # everything, though; in particular, it completely ignores the size of
+        # the coefficients. Anyhow, this formula seems to work reasonaly well in
+        # practice. It is perhaps a bit pessimistic for simple equations.
+        guard_bits_intervals = new_n0*max(1, ZZ(ordrec - 2).nbits())
+
+        # est_rnd_err = rough estimate of global round-off error
+        # ≈ (local error for a single term) × (propagation factor)
+        # ≈ (ordrec × working prec epsilon) × (value of majorant series)
+        rnd_maj = maj(new_n0)
+        rnd_maj >>= new_n0
+        est_lg_rnd_fac = (cst*rnd_maj.bound(pt.rad, rows=orddeq)).log(2)
+        est_lg_rnd_err = 2*bounds.IR(ordrec + 1).log(2)
+        if not est_lg_rnd_fac < bounds.IR.zero():
+            est_lg_rnd_err += est_lg_rnd_fac
+        if est_lg_rnd_fac.is_finite():
+            guard_bits_squashed = int(est_lg_rnd_err.ceil().upper()) + 2
+        else:
+            guard_bits_squashed = inf
+
+        # We expect the effective working precision to decrease linearly in the
+        # first phase due to interval blow-up, and then stabilize around (target
+        # prec + guard_bits_squashed).
+        new_cost = (new_n0//2)*guard_bits_intervals + nterms*guard_bits_squashed
+        new_bits = guard_bits_intervals + guard_bits_squashed
+
+        logger.debug(
+                "n0 = %s, terms = %s, guard bits = %s+%s = %s, cost = %s",
+                new_n0, nterms, guard_bits_intervals, guard_bits_squashed,
+                new_bits, new_cost)
+
+        if cur_cost <= new_cost < inf:
+            return cur_n0, cur_bits
+
+        if (refine and maj.can_refine() and
+             guard_bits_squashed > guard_bits_intervals + 50):
+            maj.refine()
+        else:
+            new_n0, cur_n0 = new_n0*2, new_n0
+            cur_cost = new_cost
+            cur_bits = new_bits
+        refine = not refine
+
+        if new_n0 > nterms:
+            return nterms, guard_bits_intervals
+
 def interval_series_sum_wrapper(doit, dop, ini, pt, tgt_error, bwrec, stop,
-                                fail_fast, max_prec, stride=None):
+                                fail_fast, max_prec, stride=None,
+                                squash_intervals=False):
 
     if stride is None:
         stride = max(50, 2*bwrec.order)
@@ -242,30 +304,45 @@ def interval_series_sum_wrapper(doit, dop, ini, pt, tgt_error, bwrec, stop,
            if ini.is_real(dop) and (pt.is_real() or not pt.is_numeric)
            else ComplexBallField)
     input_accuracy = min(pt.accuracy(), ini.accuracy())
-    bit_prec = utilities.prec_from_eps(tgt_error.eps)
-    # Roughly speaking, the computation of a new coefficient of the series
-    # *multiplies* the diameter by the order of the recurrence, so it is not
-    # unreasonable that the loss of precision is of the order of
-    # log2(ordrec^nterms)... but this observation is far from explaining
-    # everything; in particular, it completely ignores the size of the
-    # coefficients of the recurrence. Anyhow, this formula seems to work well in
-    # practice.
-    bit_prec = 8 + bit_prec*(1 + ZZ(bwrec.order - 2).nbits())
+
+    bit_prec0 = utilities.prec_from_eps(tgt_error.eps)
+    old_bit_prec = 8 + bit_prec0*(1 + ZZ(bwrec.order - 2).nbits())
+    if doit is series_sum_ordinary and squash_intervals:
+        nterms, lg_mag = dop.est_terms(pt, bit_prec0)
+        nterms = (bwrec.order*dop.order() + nterms)*1.2 # let's be pragmatic
+        nterms = ZZ((nterms//stride + 1)*stride)
+        bit_prec0 += ZZ(dop._naive_height()).nbits() + lg_mag + nterms.nbits()
+        n0_squash, g = guard_bits(dop, stop.maj, pt, bwrec.order, nterms)
+        # adding twice the computed number of guard bits seems to work better
+        # in practice, but I don't really understand why
+        bit_prec = bit_prec0 + 2*g
+        logger.info("working precision = %s + %s = %s (old = %s), "
+                    "squashing intervals for n >= %s",
+                    bit_prec0, g, bit_prec, old_bit_prec, n0_squash)
+        if bit_prec > 4*bit_prec0 and fail_fast:
+            raise accuracy.PrecisionError
+    else:
+        bit_prec = old_bit_prec
+        n0_squash = 1 << 60
+
     if max_prec is None:
         max_prec = bit_prec*3
     max_prec = min(max_prec, bit_prec + 2*input_accuracy)
     logger.log(logging.INFO - 1, "target error = %s", tgt_error)
     logger.info("initial precision = %s bits", bit_prec)
-    for attempt in itertools.count():
+
+    err=None
+    for attempt in itertools.count(1):
         try:
             Intervals = ivs(bit_prec)
             ini_are_accurate = 2*min(pt.accuracy(), ini.accuracy()) > bit_prec
-            # strictly decrease eps each time to avoid situations where doit
+            # Strictly decrease eps each time to avoid situations where doit
             # would be happy with the result and stop at the same point despite
-            # the higher bit_prec
+            # the higher bit_prec. Since attempt starts at 1, we have a bit of
+            # room for round-off errors.
             stop.reset(tgt_error.eps >> (4*attempt),
                        stop.fast_fail and ini_are_accurate)
-            psum = doit(Intervals, dop, bwrec, ini, pt, stop, stride)
+            psum = doit(Intervals, dop, bwrec, ini, pt, stop, stride, n0_squash)
             err = max(_get_error(c) for c in psum)
             logger.debug("bit_prec=%s, err=%s (tgt=%s)", bit_prec, err,
                     tgt_error)
@@ -289,13 +366,13 @@ def interval_series_sum_wrapper(doit, dop, ini, pt, tgt_error, bwrec, stop,
 # Ordinary points
 ################################################################################
 
-def series_sum_ordinary(Intervals, dop, bwrec, ini, pt, stop, stride):
+def series_sum_ordinary(Intervals, dop, bwrec, ini, pt, stop, stride,
+                        n0_squash):
 
     jet = pt.jet(Intervals)
     Jets = jet.parent() # polynomial ring!
     ord = pt.jet_order
     jetpow = Jets.one()
-    radpow = bounds.IR.one()
 
     ordrec = bwrec.order
     assert ini.expo.is_zero()
@@ -326,6 +403,11 @@ def series_sum_ordinary(Intervals, dop, bwrec, ini, pt, stop, stride):
             return psum
     cb = BoundCallbacks()
 
+    rnd_maj = stop.maj(n0_squash)
+    rnd_maj >>= n0_squash # XXX (a) useful? (b) check correctness
+    rnd_den = rnd_maj.exp_part_coeffs_lbounds()
+    rnd_loc = bounds.IR.zero()
+
     for n in itertools.count():
         last.rotate(1)
         #last[0] = None
@@ -344,24 +426,40 @@ def series_sum_ordinary(Intervals, dop, bwrec, ini, pt, stop, stride):
             bwrec_n = (bwrec_nplus[0] if bwrec_nplus else bwrec_ev(n))
             comb = sum(bwrec_n[k]*last[k] for k in xrange(1, ordrec+1))
             last[0] = -~bwrec_n[0]*comb
+            if n >= n0_squash:
+                rnd_shift, hom_maj_coeff_lb = next(rnd_den)
+                assert n0_squash + rnd_shift == n
+                rnd_loc = rnd_loc.max(
+                        n*bounds.IR(last[0].rad())/hom_maj_coeff_lb)
+                last[0] = last[0].squash()
             bwrec_nplus.append(bwrec_ev(n+bwrec.order))
             # logger.debug("n = %s, [c(n), c(n-1), ...] = %s", n, list(last))
         term = Jets(last[0])._mul_trunc_(jetpow, ord)
         psum += term
         jetpow = jetpow._mul_trunc_(jet, ord)
-        radpow *= pt.rad
-    logger.info("summed %d terms, tail <= %s (est = %s), coeffwise error <= %s",
-            n, tail_bound, bounds.IR(est),
+
+    # Accumulated round-off errors (|ind(n)| = cst·|monic_ind(n)|)
+    cst = abs(bounds.IC(stop.maj.dop.leading_coefficient()[0]))
+    rnd_fac = cst*rnd_maj.bound(pt.rad, rows=ord)/n0_squash
+    rnd_err = rnd_loc*rnd_fac
+
+    logger.info("summed %d terms, tail <= %s (est = %s), rnd err <= %s, "
+                "interval width <= %s",
+            n, tail_bound, bounds.IR(est), rnd_err,
             max(psum[i].rad() for i in range(ord)) if pt.is_numeric else "n/a")
-    # Account for the dropped high-order terms in the intervals we return
+
+    # Account for the truncation and round-off errors in the intervals we return
     # (tail_bound is actually a bound on the Frobenius norm of the error matrix,
-    # so there is some overestimation). WARNING: For symbolic x, the resulting
-    # polynomials have to be interpreted with some care: in particular, it would
-    # be incorrect to evaluate a polynomial result with real coefficients at a
-    # complex point. Our current mechanism to choose whether to add a real or
-    # complex error bound in this case is pretty fragile.
-    tail_bound = tail_bound.abs()
-    res = vector(_add_error(psum[i], tail_bound) for i in xrange(ord))
+    # so there is some overestimation).
+    #
+    # WARNING: For symbolic x, the resulting polynomials have to be interpreted
+    # with some care: in particular, it would be incorrect to evaluate a
+    # polynomial result with real coefficients at a complex point. Our current
+    # mechanism to choose whether to add a real or complex error bound in this
+    # case is pretty fragile.
+    err = tail_bound + rnd_err
+    res = vector(_add_error(psum[i], err) for i in xrange(ord))
+
     return res
 
 # XXX: pass ctx (→ real/complex?)?
@@ -402,19 +500,23 @@ def fundamental_matrix_regular(dop, pt, eps, rows, branch, fail_fast):
 
         sage: from ore_algebra import *
         sage: from ore_algebra.analytic.naive_sum import *
+        sage: from ore_algebra.analytic.differential_operator import DifferentialOperator
         sage: Dops, x, Dx = DifferentialOperators()
 
-        sage: fundamental_matrix_regular(x*Dx^2 + (1-x)*Dx, 1, RBF(1e-10), 2, (0,), 100)
+        sage: fundamental_matrix_regular(
+        ....:         DifferentialOperator(x*Dx^2 + (1-x)*Dx),
+        ....:         1, RBF(1e-10), 2, (0,), 100)
         [[1.317902...] 1.000000...]
         [[2.718281...]           0]
 
-        sage: dop = (x+1)*(x^2+1)*Dx^3-(x-1)*(x^2-3)*Dx^2-2*(x^2+2*x-1)*Dx
+        sage: dop = DifferentialOperator(
+        ....:         (x+1)*(x^2+1)*Dx^3-(x-1)*(x^2-3)*Dx^2-2*(x^2+2*x-1)*Dx)
         sage: fundamental_matrix_regular(dop, 1/3, RBF(1e-10), 3, (0,), 100)
         [1.0000000...  [0.321750554...]  [0.147723741...]]
         [           0  [0.900000000...]  [0.991224850...]]
         [           0  [-0.27000000...]  [1.935612425...]]
 
-        sage: dop = (
+        sage: dop = DifferentialOperator(
         ....:     (2*x^6 - x^5 - 3*x^4 - x^3 + x^2)*Dx^4
         ....:     + (-2*x^6 + 5*x^5 - 11*x^3 - 6*x^2 + 6*x)*Dx^3
         ....:     + (2*x^6 - 3*x^5 - 6*x^4 + 7*x^3 + 8*x^2 - 6*x + 6)*Dx^2
@@ -451,7 +553,7 @@ def fundamental_matrix_regular(dop, pt, eps, rows, branch, fail_fast):
 # past singular indices anyway, we can allow for general initial conditions (at
 # roots of the indicial equation belonging to the same shift-equivalence class),
 # not just initial conditions associated to canonical solutions.
-def series_sum_regular(Intervals, dop, bwrec, ini, pt, stop, stride):
+def series_sum_regular(Intervals, dop, bwrec, ini, pt, stop, stride, n0_squash):
     r"""
     Sum a (logarithmic) series solution of an operator that may have a regular
     singular point at the origin.

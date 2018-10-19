@@ -336,7 +336,7 @@ class DFiniteFunction(object):
             polys = [a.pol for a in self._polys[c]]
             dom = Balls(Ivs(Balls(c).add_error(r)).intersection(Ivs(iv)))
             reduced_dom = dom - c
-            img = sum(ZZ(j).factorial()*coeff(dom)*polys[j](reduced_dom)
+            img = sum(Balls(ZZ(j).factorial()*coeff(dom)*polys[j](reduced_dom))
                   for j, coeff in enumerate(post_transform))
             bound = img if bound is None else bound.union(img)
         return bound

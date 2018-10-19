@@ -6,9 +6,11 @@ Custom differential operators
 from sage.arith.all import lcm
 from sage.categories.pushout import pushout
 from sage.misc.cachefunc import cached_method
-from sage.rings.all import CIF, QQbar, QQ
+from sage.rings.all import CIF, QQbar, QQ, ZZ
 from sage.rings.complex_arb import ComplexBallField
 from sage.rings.complex_interval_field import ComplexIntervalField
+from sage.rings.infinity import infinity
+from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 from sage.structure.coerce_exceptions import CoercionException
 
 from ..ore_algebra import OreAlgebra
@@ -42,6 +44,29 @@ class PlainDifferentialOperator(UnivariateDifferentialOperatorOverUnivariateRing
                 dop.parent(), dop)
 
     @cached_method
+    def _naive_height(self):
+        def h(c):
+            den = c.denominator()
+            num = den*c
+            l = list(num)
+            l.append(den)
+            return max(ZZ(a).nbits() for a in l)
+        return max(h(c) for pol in self for c in pol)
+
+    @cached_method
+    def _my_to_S(self, name='n'):
+        Pols_x = self.base_ring()
+        Scalars = self.base_ring().base_ring()
+        Pols_n, n = PolynomialRing(Scalars, name).objgen()
+        Rops = OreAlgebra(Pols_n, 'S' + name)
+        # Using the primitive part here would break the computation of residuals!
+        # TODO: add test (arctan); better fix?
+        # Other interesting cases: operators of the form P(Θ) (with constant
+        # coefficients)
+        #rop = self.to_S(Rops).primitive_part().numerator()
+        return self.to_S(Rops)
+
+    @cached_method
     def growth_parameters(self):
         from .bounds import growth_parameters
         return growth_parameters(self)
@@ -65,6 +90,56 @@ class PlainDifferentialOperator(UnivariateDifferentialOperatorOverUnivariateRing
     def _sing_as_alg(dop, iv):
         pol = dop.leading_coefficient().radical()
         return QQbar.polynomial_root(pol, CIF(iv))
+
+    @cached_method
+    def est_cvrad(self):
+        # not rigorous! (because of the contains_zero())
+        from .bounds import IR, IC
+        sing = [a for a in self._singularities(IC) if not a.contains_zero()]
+        if not sing:
+            return IR('inf')
+        else:
+            return min(a.below_abs() for a in sing)
+
+    @cached_method
+    def _est_growth(self):
+        from .bounds import growth_parameters, IR, IC
+        kappa, alpha0 = growth_parameters(self)
+        if kappa is infinity:
+            return kappa, IR.zero()
+        # The asymptotic exponential growth may not be such a great estimate
+        # for the actual growth during the pre-convergence stage, so we
+        # complement it by another one.
+        rop = self._my_to_S()
+        lc = rop.leading_coefficient()
+        n0 = 1
+        while lc(n0).is_zero():
+            n0 += 1
+        alpha1 = max(abs(IC(pol(n0))) for pol in list(rop)[:-1])/abs(IR(lc(n0)))
+        alpha = IR(alpha0).max(alpha1)
+        return kappa, alpha
+
+    def est_terms(self, pt, prec):
+        r"""
+        Estimate the number of terms of series expansion at 0 of solutions of
+        this operator necessary to reach prec bits of accuracy at pt, and the
+        maximum log-magnitude of these terms.
+        """
+        from .bounds import IR
+        # pt should be an EvaluationPoint
+        prec = IR(prec)
+        cvrad = self.est_cvrad()
+        if cvrad.is_infinity():
+            kappa, alpha = self._est_growth()
+            if kappa is infinity:
+                return 0, 0
+            hump = IR(1).exp() * IR(alpha*pt.rad)**(~kappa)
+            est = hump + prec/(kappa*prec.log(2))
+            mag = hump.log(2).max(IR.zero())
+        else:
+            est = prec/(cvrad/pt.rad).log(2)
+            mag = IR.zero()
+        return int(est.ceil().upper()), int(mag.ceil().upper())
 
     def extend_scalars(self, pt):
         r"""
