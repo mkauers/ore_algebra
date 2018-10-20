@@ -10,7 +10,7 @@ TESTS::
 
     sage: f = DFiniteFunction((x^2 + 1)*Dx^2 + 2*x*Dx, [0, 1])
 
-    sage: [f(10^i) for i in range(-3, 4)] # long time (2.1 s)
+    sage: [f(10^i) for i in range(-3, 4)]
     [[0.0009999996666...], [0.0099996666866...], [0.0996686524911...],
      [0.7853981633974...], [1.4711276743037...], [1.5607966601082...],
      [1.5697963271282...]]
@@ -185,7 +185,7 @@ class DFiniteFunction(object):
         # let the user impose a maximum width, even in other cases.
         self.max_rad = RBF(max_rad)
         if dop.leading_coefficient().is_constant():
-            kappa, alpha = _growth_parameters(dop)
+            kappa, alpha = bounds.growth_parameters(dop)
             self.max_rad = self.max_rad.min(1/(alpha*RBF(kappa)**kappa))
         self.max_prec = max_prec
 
@@ -266,8 +266,8 @@ class DFiniteFunction(object):
         ini, path = self._path_to(center, prec)
         eps = RBF.one() >> prec
         # keep="all" won't do anything until _path_to returns better paths
-        ctx = ancont.Context(self.dop, path, eps, keep="all")
-        pairs = ancont.analytic_continuation(ctx, ini=ini)
+        ctx = ancont.Context(keep="all")
+        pairs = ancont.analytic_continuation(self.dop, path, eps, ctx, ini=ini)
         for (vert, val) in pairs:
             known = self._inivecs.get(vert)
             if known is None or known[0].accuracy() < val[0][0].accuracy():
@@ -531,41 +531,3 @@ def _guess_prec(pt):
         return pt.parent().precision()
     else:
         return 53
-
-def _growth_parameters(dop):
-    r"""
-    Find κ, α such that the solutions of dop grow at most like
-    sum(α^n*x^n/n!^κ) ≈ exp(κ*(α·x)^(1/κ)).
-
-    EXAMPLES::
-
-        sage: from ore_algebra import *
-        sage: DiffOps, x, Dx = DifferentialOperators()
-        sage: from ore_algebra.analytic.function import _growth_parameters
-        sage: _growth_parameters(Dx^2 + 2*x*Dx) # erf(x)
-        (1/2, [1.4...])
-        sage: _growth_parameters(Dx^2 + 8*x*Dx) # erf(2*x)
-        (1/2, [2.8...])
-        sage: _growth_parameters(Dx^2 - x) # Airy
-        (2/3, [1.0...])
-
-        XXX: todo - add an example with several slopes
-
-    """
-    # Newton polygon. In terms of the coefficient sequence,
-    # (S^(-j)·((n+1)S)^i)(α^n/n!^κ) ≈ α^(i-j)·n^(i+κ(j-i)).
-    # In terms of asymptotics at infinity,
-    # (x^j·D^i)(exp(κ·(α·x)^(1/κ))) ≈ α^(i/κ)·x^((i+κ(j-i))/κ)·exp(...).
-    # The upshot is that we want the smallest κ s.t. i+κ(j-i) is max and reached
-    # twice, and then the largest |α| with sum[edge](a[i,j]·α^(i/κ))=0.
-    # (Note that the equation on α resulting from the first formulation
-    # simplifies thanks to i+κ(j-i)=cst on the edge.)
-    points = [(ZZ(j-i), ZZ(i), c) for (i, pol) in enumerate(dop)
-                                  for (j, c) in enumerate(pol)
-                                  if not c.is_zero()]
-    h0, i0, _ = min(points, key=lambda (h, i, c): (h, -j))
-    slope = max((i-i0)/(h-h0) for (h, i, c) in points if h > h0)
-    Pol = dop.base_ring()
-    eqn = Pol({i: c for (h, i, c) in points if i == i0 + slope*(h-h0)})
-    expo_growth = bounds.abs_min_nonzero_root(eqn)**(-slope)
-    return -slope, expo_growth

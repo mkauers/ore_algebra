@@ -5,7 +5,7 @@ Error bounds
 
 from __future__ import print_function
 
-import collections, itertools, logging, warnings
+import itertools, logging, warnings
 
 from sage.arith.srange import srange
 from sage.misc.cachefunc import cached_function, cached_method
@@ -587,6 +587,54 @@ def abs_min_nonzero_root(pol, tol=RR(1e-2), min_log=RR('-inf'), prec=None):
     if not safe_le(2*res.rad_as_ball()/res, myIR(tol)):
         logger.debug("required tolerance may not be met")
     return res
+
+def growth_parameters(dop):
+    r"""
+    Find κ, α such that the solutions of dop grow at most like
+    sum(α^n*x^n/n!^κ) ≈ exp(κ*(α·x)^(1/κ)).
+
+    EXAMPLES::
+
+        sage: from ore_algebra import *
+        sage: DiffOps, x, Dx = DifferentialOperators()
+        sage: from ore_algebra.analytic.bounds import growth_parameters
+        sage: growth_parameters(Dx^2 + 2*x*Dx) # erf(x)
+        (1/2, [1.4...])
+        sage: growth_parameters(Dx^2 + 8*x*Dx) # erf(2*x)
+        (1/2, [2.8...])
+        sage: growth_parameters(Dx^2 - x) # Airy
+        (2/3, [1.0...])
+        sage: growth_parameters(x*Dx^2 + (1-x)*Dx) # Ei(1, -x)
+        (1, [1.0...])
+        sage: growth_parameters((Dx-1).lclm(Dx-2))
+        (1, [2.0...])
+        sage: growth_parameters((Dx - x).lclm(Dx^2 - 1))
+        (1/2, [1.0...])
+    """
+    assert dop.leading_coefficient().is_term()
+    # Newton polygon. In terms of the coefficient sequence,
+    # (S^(-j)·((n+1)S)^i)(α^n/n!^κ) ≈ α^(i-j)·n^(i+κ(j-i)).
+    # In terms of asymptotics at infinity,
+    # (x^j·D^i)(exp(κ·(α·x)^(1/κ))) ≈ α^(i/κ)·x^((i+κ(j-i))/κ)·exp(...).
+    # Thus, we want the largest (negative) κ s.t. i+κ(j-i) is max and reached
+    # twice, and then the largest |α| with sum[edge](a[i,j]·α^(i/κ))=0.
+    # (Note that the equation on α resulting from the first formulation
+    # simplifies thanks to i+κ(j-i)=cst on the edge.)
+    # For a differential operator of order r, there may be more than r + 1
+    # different values of i (<-> solutions of the associated recurrence), but
+    # at most r + 1 values of h = j-i and hence at most r *negative* slopes.
+    # Or maybe a better way to look at this is to say that we are considering
+    # the classical Newton polygon at infinity (as in Loday-Richaud 2016,
+    # Def. 3.3.10) but we are interested in the inverses of the slopes.
+    points = [(ZZ(j-i), ZZ(i), c) for (i, pol) in enumerate(dop)
+                                  for (j, c) in enumerate(pol)
+                                  if not c.is_zero()]
+    h0, i0, _ = max(points, key=lambda (h, i, c): (i, h))
+    slope = max((i-i0)/(h-h0) for (h, i, c) in points if h > h0 and i < i0)
+    Pol = dop.base_ring()
+    eqn = Pol({i0 - i: c for (h, i, c) in points if i == i0 + slope*(h-h0)})
+    expo_growth = abs_min_nonzero_root(eqn)**slope
+    return -slope, expo_growth
 
 ######################################################################
 # Bounds on rational functions of n
@@ -1278,10 +1326,9 @@ class DiffOpBound(object):
 
         sage: dop = (x+1)*(x^2+1)*Dx^3-(x-1)*(x^2-3)*Dx^2-2*(x^2+2*x-1)*Dx
         sage: DiffOpBound(dop, pol_part_len=3)
-        1.000.../((-x + [0.9965...])^3)*exp(int(POL+1.000...*NUM/(-x + [0.9965...])^3)) where
-        POL=~6.00000*z^0 + ~3.00000*z^1 + ~5.00000*z^2,
-        NUM=~7.00000*z^3 + ~2.00000*z^4 + ~5.00000*z^5
-        <BLANKLINE>
+        1.000.../((-x + [0.99...])^3)*exp(int(POL+1.000...*NUM/(-x + [0.99...])^3)) where
+        POL=~6.000...*z^0 + ~3.000...*z^1 + ~5.000...*z^2,
+        NUM=~7.000...*z^3 + ~2.000...*z^4 + ~5.000...*z^5
 
     Refining::
 
@@ -1531,6 +1578,9 @@ class DiffOpBound(object):
         self.majseq_num = RatSeqBound(
                 [pol(self.alg_idx) for pol in rem_num_nz],
                 self.ind, self.special_shifts)
+
+    def effort(self):
+        return self._effort
 
     def can_refine(self):
         return self._effort < self.max_effort
@@ -2002,7 +2052,7 @@ class DiffOpBound(object):
 
         saved_max_effort = self.max_effort
         self.max_effort = 0
-        recorder = BoundRecorder(maj=self, eps=eps>>2)
+        recorder = accuracy.BoundRecorder(maj=self, eps=eps>>2)
         ref_sum = naive_sum.series_sum(self._dop_D, ini, pt, eps>>2, maj=self,
                                        stride=1, stop=recorder)
         recd = recorder.recd[:-1]
@@ -2069,30 +2119,25 @@ class DiffOpBound(object):
         p.set_legend_options(handlelength=4, shadow=False)
         return p
 
-BoundRecord = collections.namedtuple("BoundRecord", ["n", "psum", "maj", "b"])
+class MultiDiffOpBound(object):
+    r"""
+    Ad hoc wrapper for passing several DiffOpBounds to StoppingCriterion.
 
-class BoundRecorder(accuracy.StoppingCriterion):
+    (Useful for handling several valuation groups at once.)
+    """
 
-    def __init__(self, maj, eps, fast_fail=False):
-        super(self.__class__, self).__init__(maj, eps, fast_fail=True)
-        self.force = True
-        self.recd = []
+    def __init__(self, majs):
+        self.majs = majs
 
-    def check(self, get_bound, get_residuals, get_value, sing, n, *args):
-        if sing:
-            maj = None
-            bound = IR('inf')
-        else:
-            resid = get_residuals()
-            maj = self.maj.tail_majorant(n, resid)
-            bound = get_bound(maj)
-        self.recd.append(BoundRecord(n, get_value(), maj, bound))
-        return super(self.__class__, self).check(
-                get_bound, get_residuals, get_value, sing, n, *args)
+    def can_refine(self):
+        return any(m.can_refine() for m in self.majs)
 
-    def reset(self, *args):
-        super(self.__class__, self).reset(*args)
-        self.recd = []
+    def refine(self):
+        for m in self.majs:
+            m.refine()
+
+    def effort(self):
+        return min(m.effort() for m in self.majs)
 
 # Perhaps better: work with a "true" Ore algebra K[θ][z]. Use Euclidean
 # division to compute the truncation in DiffOpBound._update_num_bound.

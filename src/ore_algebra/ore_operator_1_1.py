@@ -2282,8 +2282,8 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         TESTS::
 
             sage: (4*x^2*Dx^2 + (-x^2+8*x-11)).local_basis_expansions(0, 2)
-            [x^(-sqrt(3) + 1/2) + (-4/11*a+2/11)*x^(-sqrt(3) + 3/2),
-            x^(sqrt(3) + 1/2) - (-4/11*a-2/11)*x^(sqrt(3) + 3/2)]
+            [x^(-1.232050807568878?) + (-4/11*a+2/11)*x^(-0.2320508075688773?),
+            x^2.232050807568878? - (-4/11*a-2/11)*x^3.232050807568878?]
 
             sage: ((27*x^2+4*x)*Dx^2 + (54*x+6)*Dx + 6).local_basis_expansions(0, 2)
             [1/sqrt(x) + 3/8*sqrt(x), 1 - x]
@@ -2314,9 +2314,9 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             ind = ldop.indicial_polynomial(ldop.base_ring().gen())
             order = max(dop.order(), ind.dispersion()) + 3
         class Mapper(LocalBasisMapper):
-            def fun(dop, ini):
-                return log_series(ini, dop.emb_bwrec, order)
-        sols = Mapper().run(ldop)
+            def fun(self, ini):
+                return log_series(ini, self.shifted_bwrec, order)
+        sols = Mapper(ldop).run()
         x = SR.var(dop.base_ring().variable_name())
         dx = x if point.is_zero() else x.add(-point, hold=True)
         # Working with symbolic expressions here is too complicated: let's try
@@ -2518,8 +2518,9 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         post_transform = ancont.normalize_post_transform(dop, post_transform)
         post_mat = matrix(1, dop.order(),
                 lambda i, j: ZZ(j).factorial()*post_transform[j])
-        ctx = ancont.Context(dop, path, eps, **kwds)
-        pairs = ancont.analytic_continuation(ctx, ini=ini, post=post_mat)
+        ctx = ancont.Context(**kwds)
+        pairs = ancont.analytic_continuation(dop, path, eps, ctx, ini=ini,
+                                                                  post=post_mat)
         assert len(pairs) == 1
         _, mat = pairs[0]
         struct = ctx.path.vert[-1].local_basis_structure()
@@ -2677,8 +2678,8 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         from .analytic import analytic_continuation as ancont, local_solutions
         from .analytic.differential_operator import DifferentialOperator
         dop = DifferentialOperator(self)
-        ctx = ancont.Context(dop, path, eps, **kwds)
-        pairs = ancont.analytic_continuation(ctx)
+        ctx = ancont.Context(**kwds)
+        pairs = ancont.analytic_continuation(dop, path, eps, ctx)
         assert len(pairs) == 1
         return pairs[0][1]
 
@@ -4777,11 +4778,35 @@ def _listToOre(l,order,R):
         res = res+l[i]*n**(i%d)*S**(i//d)
     return res
 
-def _simplify_exponent(e): # work around sage bug #21758
-    try:
-        return ZZ(e)
-    except (TypeError, ValueError):
-        return e
+def _simplify_exponent(e): # work around various Sage bugs
+    r"""
+    TESTS::
+
+        sage: from ore_algebra.examples import cbt
+        sage: lc = cbt.dop[10].leading_coefficient()
+        sage: s = sorted(lc.roots(QQbar, multiplicities=False), key=abs)[0]
+        sage: cbt.dop[10].local_basis_monomials(s)
+        [1,
+        z - 0.2651878342412026?,
+        (z - 0.2651878342412026?)^2,
+        (z - 0.2651878342412026?)^3,
+        (z - 0.2651878342412026?)^4,
+        (z - 0.2651878342412026?)^4.260514654474679?,
+        (z - 0.2651878342412026?)^5,
+        (z - 0.2651878342412026?)^6,
+        (z - 0.2651878342412026?)^7,
+        (z - 0.2651878342412026?)^8,
+        (z - 0.2651878342412026?)^9]
+        sage: cbt.dop[10].local_basis_expansions(s, 1)
+        [1, 0, 0, 0, 0, (z - 0.2651878342412026?)^4.260514654474679?, 0, 0, 0,
+        0, 0]
+    """
+    for dom in ZZ, QQ, AA, QQbar:
+        try:
+            return dom(e)
+        except (TypeError, ValueError):
+            pass
+    return e
 
 def _tower(dom):
     if is_PolynomialRing(dom) or is_MPolynomialRing(dom):

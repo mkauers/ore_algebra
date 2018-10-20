@@ -1,11 +1,12 @@
 
 try:
-    import sage.all
+    import sage.env
 except ImportError:
     raise ValueError("this package should be installed inside Sage")
 
 from distutils.core import setup
 from distutils.cmd import Command
+from Cython.Build import cythonize
 
 class TestCommand(Command):
     user_options = []
@@ -30,5 +31,7 @@ setup(
     license = "GPL",
     packages = ["ore_algebra", "ore_algebra.analytic", "ore_algebra.analytic.examples", "ore_algebra.examples"],
     package_dir = {'': 'src/'},
+    ext_modules = cythonize("src/ore_algebra/analytic/binary_splitting_arb.pyx"),
+    include_dirs=sage.env.sage_include_directories(),
     cmdclass = {'test': TestCommand}
     )

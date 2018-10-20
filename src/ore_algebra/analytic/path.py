@@ -278,11 +278,11 @@ class Point(SageObject):
             raise NotImplementedError("can't tell if inexact point is regular")
         assert self.is_exact()
         # Fuchs criterion
-        Pols = self.dop.base_ring().change_ring(self.value.parent())
-        def val(pol):
-            return Pols(pol).valuation(Pols([self.value, -1]))
-        ref = val(self.dop.leading_coefficient()) - self.dop.order()
-        return all(val(coef) - k >= ref for k, coef in enumerate(self.dop))
+        dop, pt = self.dop.extend_scalars(self.value)
+        Pols = dop.base_ring()
+        lin = Pols([pt, -1])
+        ref = dop.leading_coefficient().valuation(lin) - dop.order()
+        return all(coef.valuation(lin) - k >= ref for k, coef in enumerate(dop))
 
     def is_regular_singular(self):
         return not self.is_ordinary() and self.is_regular()
@@ -379,9 +379,7 @@ class Point(SageObject):
                     for expo in range(self.dop.order())]
         elif not self.is_regular():
             raise NotImplementedError("irregular singular point")
-        sols = LocalBasisMapper().run(self.dop.shift(self))
-        sols.sort(key=sort_key_by_asympt)
-        return sols
+        return LocalBasisMapper(self.dop.shift(self)).run()
 
 ######################################################################
 # Paths
@@ -486,9 +484,18 @@ class Step(SageObject):
             z0 = self.start.exact().value
             z1 = self.end.exact().value
             try:
-                return z1 - z0
+                d = z1 - z0
             except TypeError:
-                return as_embedded_number_field_element(QQbar(z1) - QQbar(z0))
+                # Should be coercions, but embedded number fields currently
+                # don't coerce into QQbar...
+                d = QQbar(z1) - QQbar(z0)
+            # When z0, z1 are number field elements, we want another number
+            # field element, not an element of QQbar or AA (even though z1-z0
+            # may succeed and return such an element).
+            if d.parent() is z0.parent() or d.parent() is z1.parent():
+                return d
+            else:
+                return as_embedded_number_field_element(d)
         else:
             return z1 - z0
 

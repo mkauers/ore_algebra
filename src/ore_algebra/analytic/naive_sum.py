@@ -8,6 +8,8 @@ Evaluation of convergent D-finite series by direct summation
 # is reached?
 # - cythonize critical parts?
 
+from __future__ import print_function
+
 import collections, itertools, logging
 
 from sage.categories.pushout import pushout
@@ -19,13 +21,12 @@ from sage.rings.integer import Integer
 from sage.rings.polynomial import polynomial_element
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 from sage.rings.real_arb import RealBallField, RBF, RealBall
-from sage.symbolic.all import pi, I
 
 from .. import ore_algebra
 from . import accuracy, bounds, utilities
 from .differential_operator import DifferentialOperator
 from .local_solutions import (bw_shift_rec, FundamentalSolution,
-        LogSeriesInitialValues, LocalBasisMapper)
+        LogSeriesInitialValues, LocalBasisMapper, log_series_value)
 from .safe_cmp import *
 from .utilities import short_str
 
@@ -63,7 +64,7 @@ class EvaluationPoint(object):
     def jet(self, Intervals):
         base_ring = (Intervals if self.is_numeric
                      else pushout(self.pt.parent(), Intervals))
-        Pol = PolynomialRing(base_ring, 'eta')
+        Pol = PolynomialRing(base_ring, 'delta')
         return Pol([self.pt, 1]).truncate(self.jet_order)
 
     def is_real(self):
@@ -316,13 +317,15 @@ def series_sum_ordinary(Intervals, dop, bwrec, ini, pt, stop, stride):
             (bwrec_ev(start+i) for i in xrange(ordrec)),
             maxlen=ordrec)
 
-    def get_bound(maj):
-        return maj.bound(pt.rad, rows=ord)
-    def get_residuals():
-        return [stop.maj.normalized_residual(n, [[c] for c in last][1:],
-                    [[[c] for c in l] for l in bwrec_nplus])]
-    def get_value():
-        return psum
+    class BoundCallbacks(accuracy.BoundCallbacks):
+        def get_residuals(self):
+            return [stop.maj.normalized_residual(n, [[c] for c in last][1:],
+                        [[[c] for c in l] for l in bwrec_nplus])]
+        def get_bound(self, residuals):
+            return self.get_maj(stop, n, residuals).bound(pt.rad, rows=ord)
+        def get_value(self):
+            return psum
+    cb = BoundCallbacks()
 
     for n in itertools.count():
         last.rotate(1)
@@ -334,8 +337,8 @@ def series_sum_ordinary(Intervals, dop, bwrec, ini, pt, stop, stride):
             radpowest = abs(jetpow[0] if pt.is_numeric
                             else Intervals(pt.rad**n))
             est = sum(abs(a) for a in last)*radpowest
-            done, tail_bound = stop.check(get_bound, get_residuals, get_value,
-                                       (n <= start), n, tail_bound, est, stride)
+            sing = (n <= start)
+            done, tail_bound = stop.check(cb, sing, n, tail_bound, est, stride)
             if done:
                 break
         if n >= start:
@@ -363,7 +366,9 @@ def series_sum_ordinary(Intervals, dop, bwrec, ini, pt, stop, stride):
     return res
 
 # XXX: pass ctx (→ real/complex?)?
-def fundamental_matrix_ordinary(dop, pt, eps, rows, maj, fail_fast):
+def fundamental_matrix_ordinary(dop, pt, eps, rows, branch, fail_fast):
+    if branch != (0,):
+        logger.warn("nontrivial branch choice at ordinary point")
     eps_col = bounds.IR(eps)/bounds.IR(dop.order()).sqrt()
     eps_col = accuracy.AbsoluteError(eps_col)
     evpt = EvaluationPoint(pt, jet_order=rows)
@@ -371,6 +376,8 @@ def fundamental_matrix_ordinary(dop, pt, eps, rows, maj, fail_fast):
     inis = [
         LogSeriesInitialValues(ZZ.zero(), ini, dop, check=False)
         for ini in identity_matrix(dop.order())]
+    maj = bounds.DiffOpBound(dop, pol_part_len=4, bound_inverse="solve")
+    assert len(maj.special_shifts) == 1 and maj.special_shifts[0] == 1
     stop = accuracy.StoppingCriterion(maj, eps_col.eps)
     cols = [
         interval_series_sum_wrapper(series_sum_ordinary, dop, ini, evpt,
@@ -432,59 +439,13 @@ def fundamental_matrix_regular(dop, pt, eps, rows, branch, fail_fast):
             maj = bounds.DiffOpBound(dop, self.leftmost, self.shifts,
                                      bound_inverse="solve")
             self.stop = accuracy.StoppingCriterion(maj, eps_col.eps)
+            super(self.__class__, self).process_modZ_class()
         def fun(self, ini):
             return interval_series_sum_wrapper(series_sum_regular, dop, ini,
-                    evpt, eps_col, self.emb_bwrec, self.stop, fail_fast,
+                    evpt, eps_col, self.shifted_bwrec, self.stop, fail_fast,
                     max_prec=None)
-    cols = Mapper().run(dop)
+    cols = Mapper(dop).run()
     return matrix([sol.value for sol in cols]).transpose()
-
-def _pow_trunc(a, n, ord):
-    pow = a.parent().one()
-    pow2k = a
-    while n:
-        if n & 1:
-            pow = pow._mul_trunc_(pow2k, ord)
-        pow2k = pow2k._mul_trunc_(pow2k, ord)
-        n = n >> 1
-    return pow
-
-def log_series_value(Jets, derivatives, expo, psum, pt, branch=(0,)):
-    r"""
-    Evaluate a logarithmic series.
-
-    * ``branch`` - branch of the logarithm to use; (0) means the standard
-      branch, (k) means log(z) + 2kπi, a tuple of length > 1 averages over the
-      corresponding branches
-    """
-    log_prec = psum.length()
-    if log_prec > 1 or expo not in ZZ or branch != (0,):
-        pt = pt.parent().complex_field()(pt)
-        Jets = Jets.change_ring(Jets.base_ring().complex_field())
-        psum = psum.change_ring(Jets)
-    high = Jets([0] + [(-1)**(k+1)*~pt**k/k
-                       for k in xrange(1, derivatives)])
-    aux = high*expo
-    logger.debug("aux=%s", aux)
-    val = Jets.base_ring().zero()
-    for b in branch:
-        twobpii = pt.parent()(2*b*pi*I)
-        # hardcoded series expansions of log(a+η) and (a+η)^λ
-        # (too cumbersome to compute directly in Sage at the moment)
-        logpt = Jets([pt.log() + twobpii]) + high
-        logger.debug("logpt[%s]=%s", b, logpt)
-        inipow = ((twobpii*expo).exp()*pt**expo
-                *sum(_pow_trunc(aux, k, derivatives)/Integer(k).factorial()
-                    for k in xrange(derivatives)))
-        logger.debug("inipow[%s]=%s", b, inipow)
-        val += inipow.multiplication_trunc(
-                sum(psum[p]._mul_trunc_(_pow_trunc(logpt, p, derivatives),
-                                        derivatives)
-                        /Integer(p).factorial()
-                    for p in xrange(log_prec)),
-                derivatives)
-    val /= len(branch)
-    return val
 
 # This function only handles the case of a “single” series, i.e. a series where
 # all indices differ from each other by integers. But since we need logic to go
@@ -529,42 +490,6 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, stop, stride):
         sage: maj = bounds.DiffOpBound(dop, special_shifts=[(0, 1)], max_effort=0)
         sage: series_sum(dop, ini, QQ(2), 1e-8, stride=1, maj=maj)
         ([0.2238907...])
-
-    Some simple tests involving large non-integer valuations::
-
-        sage: dop = (x*Dx-1001/2).symmetric_product(Dx-1)
-        sage: dop = dop._normalize_base_ring()[-1]
-        sage: (exp(CBF(1/2))/RBF(2)^(1001/2)).overlaps(dop.numerical_transition_matrix([0, 1/2], 1e-10)[0,0])
-        True
-        sage: (exp(CBF(2))/RBF(1/2)^(1001/2)).overlaps(dop.numerical_transition_matrix([0, 2], 1e-10)[0,0])
-        True
-
-        sage: dop = (x*Dx+1001/2).symmetric_product(Dx-1)
-        sage: dop = dop._normalize_base_ring()[-1]
-        sage: (CBF(1/2)^(-1001/2)*exp(CBF(1/2))).overlaps(dop.numerical_transition_matrix([0, 1/2], 1e-10)[0,0])
-        True
-        sage: (CBF(2)^(-1001/2)*exp(CBF(2))).overlaps(dop.numerical_transition_matrix([0, 2], 1e-10)[0,0])
-        True
-
-        sage: h = CBF(1/2)
-        sage: #dop = (Dx-1).lclm(x^2*Dx^2 - x*(2*x+1999)*Dx + (x^2 + 1999*x + 1000^2))
-        sage: dop = x^2*Dx^3 + (-3*x^2 - 1997*x)*Dx^2 + (3*x^2 + 3994*x + 998001)*Dx - x^2 - 1997*x - 998001
-        sage: mat = dop.numerical_transition_matrix([0,1/2], 1e-5) # XXX: long time with the simplified bounds on rational functions
-        sage: mat[0,0].overlaps(exp(h)) # long time
-        True
-        sage: mat[0,1].overlaps(exp(h)*h^1000*log(h)) # long time
-        True
-        sage: mat[0,2].overlaps(exp(h)*h^1000) # long time
-        True
-
-        sage: dop = (x^3 + x^2)*Dx^3 + (-1994*x^2 - 1997*x)*Dx^2 + (994007*x + 998001)*Dx + 998001
-        sage: mat = dop.numerical_transition_matrix([0, 1/2], 1e-5)
-        sage: mat[0,0].overlaps(1/(1+h))
-        True
-        sage: mat[0,1].overlaps(h^1000/(1+h)*log(h))
-        True
-        sage: mat[0,2].overlaps(h^1000/(1+h))
-        True
     """
 
     jet = pt.jet(Intervals)
@@ -598,23 +523,27 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, stop, stride):
     # TODO: improve the automatic increase of precision for large x^λ:
     # we currently check the series part only (which would sort of make
     # sense in a relative error setting)
-    val = [None] # XXX could be more elegant :-)
-    def get_bound(maj):
-        tb = maj.bound(pt.rad, rows=pt.jet_order)
-        my_psum = vector(Jets, [[t[i].add_error(tb.abs())
-                                for i in range(ord)] for t in psum])
-        # XXX decouple this from the summation => less redundant computation of
-        # local monodromy matrices
-        val[0] = log_series_value(Jets, ord, ini.expo, my_psum, jet[0],
-                                  branch=pt.branch)
-        return max([RBF.zero()] + [_get_error(c) for c in val[0]])
-    def get_residuals():
-        return [stop.maj.normalized_residual(n, list(last)[1:], bwrec_nplus)]
-    def get_value():
-        my_psum = vector(Jets, [[t[i] for i in range(ord)] for t in psum])
-        my_val = log_series_value(Jets, ord, ini.expo, my_psum, jet[0],
-                                  branch=pt.branch)
-        return my_val
+    class BoundCallbacks(accuracy.BoundCallbacks):
+        def __init__(self):
+            self.val = None
+        def get_residuals(self):
+            return [stop.maj.normalized_residual(n, list(last)[1:], bwrec_nplus)]
+        def get_bound(self, residuals):
+            maj = self.get_maj(stop, n, residuals)
+            tb = maj.bound(pt.rad, rows=pt.jet_order)
+            my_psum = vector(Jets, [[t[i].add_error(tb.abs())
+                                    for i in range(ord)] for t in psum])
+            # XXX decouple this from the summation => less redundant computation
+            # of local monodromy matrices
+            self.val = log_series_value(Jets, ord, ini.expo, my_psum, jet[0],
+                                        branch=pt.branch)
+            return max([RBF.zero()] + [_get_error(c) for c in self.val])
+        def get_value(self):
+            my_psum = vector(Jets, [[t[i] for i in range(ord)] for t in psum])
+            my_val = log_series_value(Jets, ord, ini.expo, my_psum, jet[0],
+                                    branch=pt.branch)
+            return my_val
+    cb = BoundCallbacks()
 
     precomp_len = max(1, bwrec.order) # hack for recurrences of order zero
     bwrec_nplus = collections.deque(
@@ -631,8 +560,7 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, stop, stride):
             radpowest = abs(jetpow[0])
             est = sum(abs(a) for log_jet in last for a in log_jet) * radpowest
             sing = (n <= last_index_with_ini) or (mult > 0)
-            done, tail_bound = stop.check(get_bound, get_residuals, get_value,
-                                          sing, n, tail_bound, est, stride)
+            done, tail_bound = stop.check(cb, sing, n, tail_bound, est, stride)
             if done:
                 break
 
@@ -651,7 +579,7 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, stop, stride):
         bwrec_nplus.append(bwrec.eval_series(Intervals, n+precomp_len, log_prec))
     logger.info("summed %d terms, global tail bound = %s (est = %s)",
             n, tail_bound, bounds.IR(est))
-    result = vector(val[0][i] for i in xrange(ord))
+    result = vector(cb.val[i] for i in xrange(ord))
     return result
 
 ################################################################################

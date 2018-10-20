@@ -3,7 +3,7 @@ r"""
 Accuracy management
 """
 
-import logging
+import collections, logging
 
 from sage.rings.all import  ZZ, QQ, RR, RBF, CBF
 
@@ -13,8 +13,53 @@ logger = logging.getLogger(__name__)
 
 IR, IC = RBF, CBF # TBI
 
+######################################################################
+# Convergence check
+######################################################################
+
 class PrecisionError(Exception):
     pass
+
+class BoundCallbacks(object):
+    r"""
+    Used by StoppingCriterion.
+    """
+
+    def get_residuals(self):
+        r"""
+        Return the normalized residuals.
+
+        The format is up to the client: the residuals will be passed as is to
+        get_bound and get_maj.
+        """
+        raise NotImplementedError
+
+    def get_bound(self, residuals):
+        r"""
+        Bound on the total error on the current partial sum (should return
+        whatever quantity the client considers the “tail bound” and wants to
+        make < ε, possibly accounting for logs etc.)
+        """
+        raise NotImplementedError
+
+    def get_maj(self, stop, n, resid):
+        r"""
+        Return the majorant of the tail computed from the residuals.
+
+        Optional: only required from clients that support bound recording.
+        """
+        return stop.maj.tail_majorant(n, resid)
+
+    def get_value(self):
+        r"""
+        Return the current partial sum.
+
+        The result should include logs etc. just like get_bound(), but *not*
+        take into account the tail bound in the intervals.
+
+        Optional: only required from clients that support bound recording.
+        """
+        raise NotImplementedError
 
 class StoppingCriterion(object):
 
@@ -25,19 +70,16 @@ class StoppingCriterion(object):
         self.fast_fail = fast_fail
         self.force = False
 
-    def check(self, get_bound, get_residuals, get_value,
-              sing, n, ini_tb, est, next_stride):
+    def check(self, cb, sing, n, ini_tb, est, next_stride):
         r"""
         Test if it is time to halt the computation of the sum of a series.
 
         INPUT:
 
-        - get_bound: function residual -> bound on the total error on the
-          current partial sum (including logs etc.);
-        - get_residuals: nullary function returning the normalized residuals;
-        - get_value: nullary function returning the current partial sum
-          (including logs etc.), *without* taking into account the tail bound in
-          the intervals;
+        - cb: BoundCallbacks object, see the documentation of that class;
+        - sing: boolean, True signals a singular index where we should return
+          infinity without even trying to compute a better bound (this is useful
+          to avoid special-casing singular indices elsewhere);
         - n: current index;
         - ini_tb: previous tail bound (can be infinite);
         - est: real interval, heuristic estimate of the absolute value of the
@@ -93,12 +135,12 @@ class StoppingCriterion(object):
             assert width.is_finite()
             return False, IR('inf')
 
-        resid = get_residuals()
+        resid = cb.get_residuals()
 
         tb = IR('inf')
         while True:
             prev_tb = tb
-            tb = get_bound(self.maj.tail_majorant(n, resid))
+            tb = cb.get_bound(resid)
             logger.debug("n=%d, est=%s, width=%s, tail_bound=%s",
                          n, est, width, tb)
             bound_getting_worse = ini_tb.is_finite() and not safe_lt(tb, ini_tb)
@@ -136,7 +178,7 @@ class StoppingCriterion(object):
                 logger.debug("--> intervals blowing up or bound getting worse")
                 self.maj.refine()
             else:
-                thr = tb*est**(QQ(next_stride*(self.maj._effort**2 + 2))/(n+1))
+                thr = tb*est**(QQ(next_stride*(self.maj.effort()**2 + 2))/(n+1))
                 if safe_le(thr, eps):
                     # Try summing a few more terms before refining
                     logger.debug("--> above refinement threshold ({} <= {})"
@@ -151,6 +193,34 @@ class StoppingCriterion(object):
     def reset(self, eps, fast_fail):
         self.eps = eps
         self.fast_fail = fast_fail
+
+######################################################################
+# Bound recording
+######################################################################
+
+BoundRecord = collections.namedtuple("BoundRecord", ["n", "psum", "maj", "b"])
+
+class BoundRecorder(StoppingCriterion):
+
+    def __init__(self, maj, eps, fast_fail=False):
+        super(self.__class__, self).__init__(maj, eps, fast_fail=True)
+        self.force = True
+        self.recd = []
+
+    def check(self, cb, sing, n, *args):
+        if sing:
+            bound = IR('inf')
+            maj = None
+        else:
+            resid = cb.get_residuals()
+            bound = cb.get_bound(resid)
+            maj = cb.get_maj(self, n, resid)
+        self.recd.append(BoundRecord(n, cb.get_value(), maj, bound))
+        return super(self.__class__, self).check(cb, sing, n, *args)
+
+    def reset(self, *args):
+        super(self.__class__, self).reset(*args)
+        self.recd = []
 
 ######################################################################
 # Absolute and relative errors

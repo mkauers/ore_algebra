@@ -172,6 +172,42 @@ constant::
     sage: mat[1][2].overlaps(CBF(cst))
     True
 
+The EXPERIMENTAL ``assume_analytic`` authorizes paths that go through a singular
+point, and makes the assumption that the solution(s) of interest are analytic at
+that point::
+
+    sage: dop = ((x-1)^2*Dx-1).lclm(Dx-1)
+    sage: dop.local_basis_monomials(0)
+    [1, x^2]
+
+    sage: dop.numerical_solution([1, 1/2],[0, 2])
+    Traceback (most recent call last):
+    ...
+    ValueError: Step 0 --> 2 passes through or too close to singular point 1...
+
+    sage: dop.numerical_solution([1, 1/2],[0, 1, 2])
+    Traceback (most recent call last):
+    ...
+    NotImplementedError: analytic continuation through irregular singular points
+    is not supported
+
+    sage: dop.numerical_solution([1, 1/2],[0, 2], assume_analytic=True)
+    [7.389056098930650...] + [+/- ...]*I
+
+Note that it can lead to surprising results. In this example, the equation has
+order one, and analytic continuation around the singular point yields the same
+value from both sides, but the function is not analytic::
+
+    sage: _.<y> = Pol.fraction_field()[]
+    sage: y = Pol.fraction_field().extension(y^3 - x^2*(x+1)).gen()
+    sage: dop = (x*Dx-1).annihilator_of_composition(y)
+    sage: dop.numerical_solution([1], [0, -1+i, -2], assume_analytic=True)
+    [-1.587401051968199...] + [+/- ...]*I
+    sage: dop.numerical_solution([1], [0, -1-i, -2], assume_analytic=True)
+    [-1.587401051968199...] + [+/- ...]*I
+    sage: dop.numerical_solution([1], [0, -2], assume_analytic=True)
+    [0.7937005259840997...] + [1.374729636998602...]*I
+
 Credits
 =======
 
@@ -218,6 +254,89 @@ A recurrence with constant coefficients::
     sage: (Dx - (x - 1)).numerical_solution(ini=[1], path=[0, i/30])
     [0.99888940314741...] + [-0.03330865088952795...]*I
 
+
+Some simple tests involving large non-integer valuations::
+
+    sage: dop = (x*Dx-1001/2).symmetric_product(Dx-1)
+    sage: dop = dop._normalize_base_ring()[-1]
+
+    sage: ref = exp(CBF(1/2))/RBF(2)^(1001/2)
+    sage: ref.overlaps(dop.numerical_transition_matrix([0, 1/2], 1e-10)[0,0])
+    True
+    sage: ref.overlaps(dop.numerical_transition_matrix([0, 1/2], 1e-10,
+    ....:                                            algorithm="binsplit")[0,0])
+    True
+
+    sage: ref = exp(CBF(2))/RBF(1/2)^(1001/2)
+    sage: ref.overlaps(dop.numerical_transition_matrix([0, 2], 1e-10)[0,0])
+    True
+    sage: ref.overlaps(dop.numerical_transition_matrix([0, 2], 1e-10,
+    ....:                                            algorithm="binsplit")[0,0])
+    True
+
+::
+
+    sage: dop = (x*Dx+1001/2).symmetric_product(Dx-1)
+    sage: dop = dop._normalize_base_ring()[-1]
+
+    sage: val = dop.numerical_transition_matrix([0, 1/2], 1e-10)[0,0]
+    sage: val2 = dop.numerical_transition_matrix([0, 1/2], 1e-10,
+    ....:                                        algorithm="binsplit")[0,0]
+    sage: val2
+    [7.632381510...e+150 +/- ...] + [+/- ...]*I
+    sage: type(val.parent()) is type(val2.parent())
+    True
+    sage: ref = CBF(1/2)^(-1001/2)*exp(CBF(1/2))
+    sage: ref.overlaps(val)
+    True
+    sage: ref.overlaps(val2)
+    True
+
+    sage: (CBF(2)^(-1001/2)*exp(CBF(2))).overlaps(dop.numerical_transition_matrix([0, 2], 1e-10)[0,0])
+    True
+
+::
+
+    sage: h = CBF(1/2)
+    sage: #dop = (Dx-1).lclm(x^2*Dx^2 - x*(2*x+1999)*Dx + (x^2 + 1999*x + 1000^2))
+    sage: dop = x^2*Dx^3 + (-3*x^2 - 1997*x)*Dx^2 + (3*x^2 + 3994*x + 998001)*Dx - x^2 - 1997*x - 998001
+
+    sage: mat = dop.numerical_transition_matrix([0,1/2], 1e-5)
+    sage: mat[0,0].overlaps(exp(h))
+    True
+    sage: mat[0,1].overlaps(exp(h)*h^1000*log(h))
+    True
+    sage: mat[0,2].overlaps(exp(h)*h^1000)
+    True
+
+    sage: mat = dop.numerical_transition_matrix([0,1/2], 1e-5, algorithm="binsplit")
+    sage: mat[0,0].overlaps(exp(h))
+    True
+    sage: mat[0,1].overlaps(exp(h)*h^1000*log(h))
+    True
+    sage: mat[0,2].overlaps(exp(h)*h^1000)
+    True
+
+::
+
+    sage: dop = (x^3 + x^2)*Dx^3 + (-1994*x^2 - 1997*x)*Dx^2 + (994007*x + 998001)*Dx + 998001
+
+    sage: mat = dop.numerical_transition_matrix([0, 1/2], 1e-5)
+    sage: mat[0,0].overlaps(1/(1+h))
+    True
+    sage: mat[0,1].overlaps(h^1000/(1+h)*log(h))
+    True
+    sage: mat[0,2].overlaps(h^1000/(1+h))
+    True
+
+    sage: mat = dop.numerical_transition_matrix([0, 1/2], 1e-5, algorithm="binsplit")
+    sage: mat[0,0].overlaps(1/(1+h))
+    True
+    sage: mat[0,1].overlaps(h^1000/(1+h)*log(h))
+    True
+    sage: mat[0,2].overlaps(h^1000/(1+h))
+    True
+
 A few larger or harder examples::
 
     sage: _, z, Dz = DifferentialOperators()
@@ -242,7 +361,7 @@ A few larger or harder examples::
     sage: dop = (z+1)*(3*z^2-z+2)*Dz^3 + (5*z^3+4*z^2+2*z+4)*Dz^2 \
     ....:       + (z+1)*Dz + (4*z^3+2*z^2+5)
     sage: path = [0,-2/5+3/5*i,-2/5+i,-1/5+7/5*i]
-    sage: dop.numerical_solution([0,i,0], path, 1e-150) # long time (2.1 s)
+    sage: dop.numerical_solution([0,i,0], path, 1e-150)
     [-1.5598481440603221187326507993405933893413346644879595004537063375459901302359572361012065551669069...] +
     [-0.7107764943512671843673286878693314397759047479618104045777076954591551406949345143368742955333566...]*I
 
@@ -309,6 +428,15 @@ to significantly decrease ``eps`` to get precise results::
     [15.685911746183227 +/- ...e-16]
     sage: dop.numerical_solution(ini, [0,5], 1e-150)
     [+/- ...e-35]
+
+Handling of algebraic points::
+
+    sage: (Dx - i).numerical_solution([1], [sqrt(2), 0])
+    [0.1559436947653744...] + [-0.9877659459927355...]*I
+    sage: (Dx - i).numerical_solution([1], [0, sqrt(2)])
+    [0.1559436947653744...] + [0.9877659459927355...]*I
+    sage: (Dx - i).numerical_solution([1], [sqrt(2), sqrt(3)])
+    [0.9499135278648561...] + [0.3125128630622157...]*I
 
 Miscellaneous tests::
 
