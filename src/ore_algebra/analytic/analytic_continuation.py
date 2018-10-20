@@ -103,15 +103,15 @@ def step_transition_matrix(dop, step, eps, rows=None, split=0, ctx=default_ctx):
         raise ValueError(z0, z1)
     try:
         mat = regular_step_transition_matrix(dop, step, eps, rows,
-                  fail_fast=(split < ctx.max_split), ordinary=ordinary, ctx=ctx)
+                  fail_fast=(1 != split < ctx.max_split), ordinary=ordinary, ctx=ctx)
     except (accuracy.PrecisionError, bounds.BoundPrecisionError):
         # XXX it would be nicer to return something in this case...
         if split >= ctx.max_split:
             raise
         logger.info("splitting step...")
         s0, s1 = step.split()
-        m0 = step_transition_matrix(dop, s0, eps/2, None, split+1, ctx)
-        m1 = step_transition_matrix(dop, s1, eps/2, rows, split+1, ctx)
+        m0 = step_transition_matrix(dop, s0, eps/4, None, split+1, ctx)
+        m1 = step_transition_matrix(dop, s1, eps/4, rows, split+1, ctx)
         mat = m1*m0
     if inverse:
         mat = ~mat

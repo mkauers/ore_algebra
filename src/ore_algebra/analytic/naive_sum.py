@@ -276,13 +276,12 @@ def interval_series_sum_wrapper(doit, dop, ini, pt, tgt_error, bwrec, stop,
             if 2*bit_prec > max_prec:
                 logger.info("lost too much precision, giving up")
                 raise
+        if fail_fast:
+            raise accuracy.PrecisionError
         bit_prec *= 2
         if bit_prec > max_prec:
             logger.info("lost too much precision, giving up")
-            if fail_fast:
-                raise accuracy.PrecisionError
-            else:
-                return psum
+            return psum
         logger.info("lost too much precision, restarting with %d bits",
                     bit_prec)
 
