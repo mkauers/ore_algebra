@@ -101,7 +101,7 @@ class MajorantSeries(object):
             ser = self.bound_series(rad, rows)
         else:
             ser = self.bound_tail_series(rad, rows, tail)
-        sqnorm = IR(cols)*sum((c.abs()**2 for c in ser), IR.zero())
+        sqnorm = IR(cols)*sum((c.above_abs()**2 for c in ser), IR.zero())
         return sqnorm.sqrtpos()
 
     def _test(self, fun=0, prec=50, return_difference=False):
@@ -349,7 +349,7 @@ class HyperexpMajorant(MajorantSeries):
             sage: Dops, x, Dx = DifferentialOperators()
             sage: maj = DiffOpBound(Dx-1)(10)
             sage: maj.bound(RBF(1000))
-            [1.97007111401705e+434 +/- ...]
+            [1.97007111401...e+434 +/- ...]
         """
         # Compute the derivatives “by automatic differentiation”. This is
         # crucial for performance with operators of large order.
@@ -404,7 +404,9 @@ class HyperexpMajorant(MajorantSeries):
         aux_rad = IR(numpy.real(aux_rad))
         b1 = self._saddle_point_bound(rad, ord, n, aux_rad)
         Ser = b1.parent().change_ring(IR)
-        return Ser([a0.abs().min(a1.abs()) for a0, a1 in zip(b0, b1)])
+        ser = Ser([a0.above_abs().min(a1.above_abs())
+                  for a0, a1 in zip(b0, b1)])
+        return ser
 
     def __imul__(self, pol):
         r"""
