@@ -103,7 +103,8 @@ def step_transition_matrix(dop, step, eps, rows=None, split=0, ctx=default_ctx):
         raise ValueError(z0, z1)
     try:
         mat = regular_step_transition_matrix(dop, step, eps, rows,
-                  fail_fast=(1 != split < ctx.max_split), ordinary=ordinary, ctx=ctx)
+                  fail_fast=(split < ctx.max_split), effort=split,
+                  ordinary=ordinary, ctx=ctx)
     except (accuracy.PrecisionError, bounds.BoundPrecisionError):
         # XXX it would be nicer to return something in this case...
         if split >= ctx.max_split:
@@ -129,10 +130,10 @@ def _use_binsplit(dop, step, eps):
     else:
         return False
 
-def regular_step_transition_matrix(dop, step, eps, rows, fail_fast, ordinary,
-                                                               ctx=default_ctx):
+def regular_step_transition_matrix(dop, step, eps, rows, fail_fast, effort,
+                                   ordinary, ctx=default_ctx):
     ldop = dop.shift(step.start)
-    args = (ldop, step.delta(), eps, rows, step.branch, fail_fast)
+    args = (ldop, step.delta(), eps, rows, step.branch, fail_fast, effort)
     if ctx.force_binsplit():
         return binary_splitting.fundamental_matrix_regular(*args)
     elif ctx.prefer_binsplit() or _use_binsplit(ldop, step, eps):

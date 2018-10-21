@@ -79,7 +79,7 @@ class EvaluationPoint(object):
             raise ValueError
 
 def series_sum(dop, ini, pt, tgt_error, maj=None, bwrec=None, stop=None,
-        max_prec=100000, fail_fast=False, **kwds):
+               fail_fast=False, effort=2, **kwds):
     r"""
     Sum a (generalized) series solution of dop.
 
@@ -167,20 +167,20 @@ def series_sum(dop, ini, pt, tgt_error, maj=None, bwrec=None, stop=None,
         sage: logger = logging.getLogger('ore_algebra.analytic.naive_sum')
         sage: logger.setLevel(logging.INFO)
 
-        sage: series_sum((x^2 + 1)*Dx^2 + 2*x*Dx, [0, 1/3], 5/7, 1e-16, max_prec=10**1000)
+        sage: series_sum((x^2 + 1)*Dx^2 + 2*x*Dx, [0, 1/3], 5/7, 1e-16, effort=100)
         INFO:...
         ([0.20674982866094049...])
 
-        sage: series_sum((x^2 + 1)*Dx^2 + 2*x*Dx, [0, RBF(1/3)], 5/7, 1e-16, max_prec=10**1000)
+        sage: series_sum((x^2 + 1)*Dx^2 + 2*x*Dx, [0, RBF(1/3)], 5/7, 1e-16, effort=100)
         WARNING:ore_algebra.analytic.naive_sum:input intervals may be too wide compared to requested accuracy
         ...
         ([0.206749828660940...])
 
-        sage: series_sum((x^2 + 1)*Dx^2 + 2*x*Dx, [0, RBF(1/3)], RBF(5/7), 1e-12, max_prec=10**1000)
+        sage: series_sum((x^2 + 1)*Dx^2 + 2*x*Dx, [0, RBF(1/3)], RBF(5/7), 1e-12, effort=100)
         INFO:...
         ([0.2067498286609...])
 
-        sage: series_sum((x^2 + 1)*Dx^2 + 2*x*Dx, [0, RBF(1/3)], RBF(5/7), 1e-20, max_prec=10**1000)
+        sage: series_sum((x^2 + 1)*Dx^2 + 2*x*Dx, [0, RBF(1/3)], RBF(5/7), 1e-20, effort=100)
         WARNING:ore_algebra.analytic.naive_sum:input intervals may be too wide compared to requested accuracy
         ...
         INFO:ore_algebra.analytic.naive_sum:lost too much precision, giving up
@@ -231,7 +231,7 @@ def series_sum(dop, ini, pt, tgt_error, maj=None, bwrec=None, stop=None,
             else series_sum_regular)
 
     return interval_series_sum_wrapper(doit, dop, ini, pt, tgt_error, bwrec,
-                                       stop, fail_fast, max_prec, **kwds)
+                                       stop, fail_fast, effort, **kwds)
 
 def guard_bits(dop, maj, pt, ordrec, nterms):
 
@@ -295,7 +295,7 @@ def guard_bits(dop, maj, pt, ordrec, nterms):
             return nterms, guard_bits_intervals
 
 def interval_series_sum_wrapper(doit, dop, ini, pt, tgt_error, bwrec, stop,
-                                fail_fast, max_prec, stride=None,
+                                fail_fast, effort, stride=None,
                                 squash_intervals=False):
 
     if stride is None:
@@ -319,15 +319,13 @@ def interval_series_sum_wrapper(doit, dop, ini, pt, tgt_error, bwrec, stop,
         logger.info("working precision = %s + %s = %s (old = %s), "
                     "squashing intervals for n >= %s",
                     bit_prec0, g, bit_prec, old_bit_prec, n0_squash)
-        if bit_prec > 4*bit_prec0 and fail_fast:
+        if fail_fast and bit_prec > 4*bit_prec0 and effort <= 1:
             raise accuracy.PrecisionError
     else:
         bit_prec = old_bit_prec
         n0_squash = 1 << 60
 
-    if max_prec is None:
-        max_prec = bit_prec*3
-    max_prec = min(max_prec, bit_prec + 2*input_accuracy)
+    max_prec = bit_prec + 2*input_accuracy
     logger.log(logging.INFO - 1, "target error = %s", tgt_error)
     logger.info("initial precision = %s bits", bit_prec)
 
@@ -350,17 +348,18 @@ def interval_series_sum_wrapper(doit, dop, ini, pt, tgt_error, bwrec, stop,
             if tgt_error.reached(err, abs_sum):
                 return psum
         except accuracy.PrecisionError:
-            if 2*bit_prec > max_prec:
-                logger.info("lost too much precision, giving up")
+            if attempt > effort:
                 raise
+        bit_prec *= 2
+        if attempt <= effort and bit_prec < max_prec:
+            logger.info("lost too much precision, restarting with %d bits",
+                        bit_prec)
+            continue
         if fail_fast:
             raise accuracy.PrecisionError
-        bit_prec *= 2
-        if bit_prec > max_prec:
+        else:
             logger.info("lost too much precision, giving up")
             return psum
-        logger.info("lost too much precision, restarting with %d bits",
-                    bit_prec)
 
 ################################################################################
 # Ordinary points
@@ -463,7 +462,7 @@ def series_sum_ordinary(Intervals, dop, bwrec, ini, pt, stop, stride,
     return res
 
 # XXX: pass ctx (→ real/complex?)?
-def fundamental_matrix_ordinary(dop, pt, eps, rows, branch, fail_fast):
+def fundamental_matrix_ordinary(dop, pt, eps, rows, branch, fail_fast, effort):
     if branch != (0,):
         logger.warn("nontrivial branch choice at ordinary point")
     eps_col = bounds.IR(eps)/bounds.IR(dop.order()).sqrt()
@@ -478,8 +477,7 @@ def fundamental_matrix_ordinary(dop, pt, eps, rows, branch, fail_fast):
     stop = accuracy.StoppingCriterion(maj, eps_col.eps)
     cols = [
         interval_series_sum_wrapper(series_sum_ordinary, dop, ini, evpt,
-                                    eps_col, bwrec, stop, fail_fast,
-                                    max_prec=None)
+                                    eps_col, bwrec, stop, fail_fast, effort)
         for ini in inis]
     return matrix(cols).transpose()
 
@@ -492,7 +490,7 @@ def fundamental_matrix_ordinary(dop, pt, eps, rows, branch, fail_fast):
 # multiplicity, needs partial sums from one root to the next or something
 # similar in the general case).
 
-def fundamental_matrix_regular(dop, pt, eps, rows, branch, fail_fast):
+def fundamental_matrix_regular(dop, pt, eps, rows, branch, fail_fast, effort):
     r"""
     Fundamental matrix at a possibly regular singular point
 
@@ -505,13 +503,13 @@ def fundamental_matrix_regular(dop, pt, eps, rows, branch, fail_fast):
 
         sage: fundamental_matrix_regular(
         ....:         DifferentialOperator(x*Dx^2 + (1-x)*Dx),
-        ....:         1, RBF(1e-10), 2, (0,), 100)
+        ....:         1, RBF(1e-10), 2, (0,), False, 2)
         [[1.317902...] 1.000000...]
         [[2.718281...]           0]
 
         sage: dop = DifferentialOperator(
         ....:         (x+1)*(x^2+1)*Dx^3-(x-1)*(x^2-3)*Dx^2-2*(x^2+2*x-1)*Dx)
-        sage: fundamental_matrix_regular(dop, 1/3, RBF(1e-10), 3, (0,), 100)
+        sage: fundamental_matrix_regular(dop, 1/3, RBF(1e-10), 3, (0,), False, 2)
         [1.0000000...  [0.321750554...]  [0.147723741...]]
         [           0  [0.900000000...]  [0.991224850...]]
         [           0  [-0.27000000...]  [1.935612425...]]
@@ -521,7 +519,7 @@ def fundamental_matrix_regular(dop, pt, eps, rows, branch, fail_fast):
         ....:     + (-2*x^6 + 5*x^5 - 11*x^3 - 6*x^2 + 6*x)*Dx^3
         ....:     + (2*x^6 - 3*x^5 - 6*x^4 + 7*x^3 + 8*x^2 - 6*x + 6)*Dx^2
         ....:     + (-2*x^6 + 3*x^5 + 5*x^4 - 2*x^3 - 9*x^2 + 9*x)*Dx)
-        sage: fundamental_matrix_regular(dop, RBF(1/3), RBF(1e-10), 4, (0,), 100)
+        sage: fundamental_matrix_regular(dop, RBF(1/3), RBF(1e-10), 4, (0,), False, 2)
         [ [3.1788470...] [-1.064032...]  [1.000...] [0.3287250...]]
         [ [-8.981931...] [3.2281834...]    [+/-...] [0.9586537...]]
         [  [26.18828...] [-4.063756...]    [+/-...] [-0.123080...]]
@@ -544,7 +542,7 @@ def fundamental_matrix_regular(dop, pt, eps, rows, branch, fail_fast):
         def fun(self, ini):
             return interval_series_sum_wrapper(series_sum_regular, dop, ini,
                     evpt, eps_col, self.shifted_bwrec, self.stop, fail_fast,
-                    max_prec=None)
+                    effort)
     cols = Mapper(dop).run()
     return matrix([sol.value for sol in cols]).transpose()
 

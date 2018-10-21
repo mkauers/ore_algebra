@@ -1087,7 +1087,7 @@ class MatrixRecsUnroller(LocalBasisMapper):
         # solutions later on.
         return SolutionColumn(self.matrix_rec, self.shift, self.log_power)
 
-def fundamental_matrix_regular(dop, pt, eps, rows, branch, fail_fast):
+def fundamental_matrix_regular(dop, pt, eps, rows, branch, fail_fast, effort):
     if branch != (0,):
         raise NotImplementedError
     cols = MatrixRecsUnroller(dop, pt, eps, rows).run()
