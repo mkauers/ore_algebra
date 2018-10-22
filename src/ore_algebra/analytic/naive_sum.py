@@ -10,7 +10,7 @@ Evaluation of convergent D-finite series by direct summation
 
 from __future__ import division, print_function
 
-import collections, itertools, logging
+import collections, itertools, logging, sys
 
 from sage.categories.pushout import pushout
 from sage.matrix.constructor import identity_matrix, matrix
@@ -235,8 +235,7 @@ def series_sum(dop, ini, pt, tgt_error, maj=None, bwrec=None, stop=None,
 
 def guard_bits(dop, maj, pt, ordrec, nterms):
 
-    inf = 1 << 60
-    new_cost = cur_cost = inf
+    new_cost = cur_cost = sys.maxint
     new_bits = cur_bits = None
     new_n0 = cur_n0 = orddeq = dop.order()
     refine = False
@@ -266,7 +265,7 @@ def guard_bits(dop, maj, pt, ordrec, nterms):
         if est_lg_rnd_fac.is_finite():
             guard_bits_squashed = int(est_lg_rnd_err.ceil().upper()) + 2
         else:
-            guard_bits_squashed = inf
+            guard_bits_squashed = sys.maxint
 
         # We expect the effective working precision to decrease linearly in the
         # first phase due to interval blow-up, and then stabilize around (target
@@ -279,7 +278,7 @@ def guard_bits(dop, maj, pt, ordrec, nterms):
                 new_n0, nterms, guard_bits_intervals, guard_bits_squashed,
                 new_bits, new_cost)
 
-        if cur_cost <= new_cost < inf:
+        if cur_cost <= new_cost < sys.maxint:
             return cur_n0, cur_bits
 
         if (refine and maj.can_refine() and
@@ -323,7 +322,7 @@ def interval_series_sum_wrapper(doit, dop, ini, pt, tgt_error, bwrec, stop,
             raise accuracy.PrecisionError
     else:
         bit_prec = old_bit_prec
-        n0_squash = 1 << 60
+        n0_squash = sys.maxint
 
     max_prec = bit_prec + 2*input_accuracy
     logger.log(logging.INFO - 1, "target error = %s", tgt_error)
@@ -402,10 +401,11 @@ def series_sum_ordinary(Intervals, dop, bwrec, ini, pt, stop, stride,
             return psum
     cb = BoundCallbacks()
 
-    rnd_maj = stop.maj(n0_squash)
-    rnd_maj >>= n0_squash # XXX (a) useful? (b) check correctness
-    rnd_den = rnd_maj.exp_part_coeffs_lbounds()
-    rnd_loc = bounds.IR.zero()
+    if n0_squash < sys.maxint:
+        rnd_maj = stop.maj(n0_squash)
+        rnd_maj >>= n0_squash # XXX (a) useful? (b) check correctness
+        rnd_den = rnd_maj.exp_part_coeffs_lbounds()
+        rnd_loc = bounds.IR.zero()
 
     for n in itertools.count():
         last.rotate(1)
@@ -438,9 +438,12 @@ def series_sum_ordinary(Intervals, dop, bwrec, ini, pt, stop, stride,
         jetpow = jetpow._mul_trunc_(jet, ord)
 
     # Accumulated round-off errors (|ind(n)| = cst·|monic_ind(n)|)
-    cst = abs(bounds.IC(stop.maj.dop.leading_coefficient()[0]))
-    rnd_fac = cst*rnd_maj.bound(pt.rad, rows=ord)/n0_squash
-    rnd_err = rnd_loc*rnd_fac
+    if n0_squash < sys.maxint:
+        cst = abs(bounds.IC(stop.maj.dop.leading_coefficient()[0]))
+        rnd_fac = cst*rnd_maj.bound(pt.rad, rows=ord)/n0_squash
+        rnd_err = rnd_loc*rnd_fac
+    else:
+        rnd_err = bounds.IR.zero()
 
     logger.info("summed %d terms, tail <= %s (est = %s), rnd err <= %s, "
                 "interval width <= %s",
