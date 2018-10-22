@@ -6,6 +6,7 @@ Miscellaneous utilities
 import sage.rings.complex_arb
 import sage.rings.real_arb
 
+from sage.categories.pushout import pushout
 from sage.misc.cachefunc import cached_function
 from sage.misc.misc import cputime
 from sage.rings.all import ZZ, QQ, QQbar, CIF

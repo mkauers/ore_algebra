@@ -12,7 +12,6 @@ from __future__ import division, print_function
 
 import collections, itertools, logging, sys
 
-from sage.categories.pushout import pushout
 from sage.matrix.constructor import identity_matrix, matrix
 from sage.modules.free_module_element import vector
 from sage.rings.all import ZZ, QQ, RR, QQbar, infinity
@@ -27,6 +26,7 @@ from . import accuracy, bounds, utilities
 from .differential_operator import DifferentialOperator
 from .local_solutions import (bw_shift_rec, FundamentalSolution,
         LogSeriesInitialValues, LocalBasisMapper, log_series_value)
+from .path import EvaluationPoint
 from .safe_cmp import *
 from .utilities import short_str
 
@@ -35,48 +35,6 @@ logger = logging.getLogger(__name__)
 ################################################################################
 # Argument processing etc. (common to the ordinary and the regular case)
 ################################################################################
-
-class EvaluationPoint(object):
-    r"""
-    Series evaluation point/jet.
-
-    A ring element (a complex number, a polynomial indeterminate, perhaps
-    someday a matrix) where to evaluate the partial sum of a series, along with
-    a “jet order” used to compute derivatives and a bound on the norm of the
-    mathematical quantity it represents that can be used to bound the truncation
-    error.
-    """
-
-    # XXX: choose a single place to set the default value for jet_order
-    def __init__(self, pt, rad=None, jet_order=1, branch=(0,)):
-        self.pt = pt
-        self.rad = (bounds.IR.coerce(rad) if rad is not None
-                    else bounds.IC(pt).above_abs())
-        self.jet_order = jet_order
-        self.branch=branch
-
-        self.is_numeric = utilities.is_numeric_parent(pt.parent())
-
-    def __repr__(self):
-        fmt = "{} + η + O(η^{}) (with |.| ≤ {})"
-        return fmt.format(self.pt, self.jet_order + 1, self.rad)
-
-    def jet(self, Intervals):
-        base_ring = (Intervals if self.is_numeric
-                     else pushout(self.pt.parent(), Intervals))
-        Pol = PolynomialRing(base_ring, 'delta')
-        return Pol([self.pt, 1]).truncate(self.jet_order)
-
-    def is_real(self):
-        return utilities.is_real_parent(self.pt.parent())
-
-    def accuracy(self):
-        if self.pt.parent().is_exact():
-            return bounds.IR.maximal_accuracy()
-        elif isinstance(self.pt.parent(), (RealBallField, ComplexBallField)):
-            return self.pt.accuracy()
-        else:
-            raise ValueError
 
 def series_sum(dop, ini, pt, tgt_error, maj=None, bwrec=None, stop=None,
                fail_fast=False, effort=2, **kwds):

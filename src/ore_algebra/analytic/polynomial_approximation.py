@@ -20,8 +20,8 @@ from sage.rings.rational_field import QQ
 
 from . import accuracy, analytic_continuation as ancont, bounds, utilities
 
-from .naive_sum import series_sum, EvaluationPoint
-from .path import Path
+from .naive_sum import series_sum
+from .path import EvaluationPoint, Path
 from .safe_cmp import *
 
 def combine_radii(pol):

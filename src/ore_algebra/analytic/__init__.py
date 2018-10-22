@@ -466,6 +466,6 @@ from .bounds import RatSeqBound, DiffOpBound
 from .differential_operator import DifferentialOperator
 from .function import DFiniteFunction
 from .local_solutions import LogSeriesInitialValues
-from .naive_sum import EvaluationPoint
+from .path import EvaluationPoint
 
 from .monodromy import monodromy_matrices
