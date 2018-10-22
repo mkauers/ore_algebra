@@ -83,6 +83,10 @@ def series_sum(dop, ini, pt, tgt_error, maj=None, bwrec=None, stop=None,
     r"""
     Sum a (generalized) series solution of dop.
 
+    This is a somewhat more user-friendly wrapper to the series summation
+    routines, mainly for testing purposes. The analytic continuation code
+    typically calls lower level pieces directly.
+
     EXAMPLES::
 
         sage: from sage.rings.real_arb import RealBallField, RBF
@@ -303,6 +307,7 @@ def interval_series_sum_wrapper(doit, dop, ini, pt, tgt_error, bwrec, stop,
            if ini.is_real(dop) and (pt.is_real() or not pt.is_numeric)
            else ComplexBallField)
     input_accuracy = min(pt.accuracy(), ini.accuracy())
+    logger.log(logging.INFO - 1, "target error = %s", tgt_error)
 
     bit_prec0 = utilities.prec_from_eps(tgt_error.eps)
     old_bit_prec = 8 + bit_prec0*(1 + ZZ(bwrec.order - 2).nbits())
@@ -315,7 +320,7 @@ def interval_series_sum_wrapper(doit, dop, ini, pt, tgt_error, bwrec, stop,
         # adding twice the computed number of guard bits seems to work better
         # in practice, but I don't really understand why
         bit_prec = bit_prec0 + 2*g
-        logger.info("working precision = %s + %s = %s (old = %s), "
+        logger.info("initial working precision = %s + %s = %s (old = %s), "
                     "squashing intervals for n >= %s",
                     bit_prec0, g, bit_prec, old_bit_prec, n0_squash)
         if fail_fast and bit_prec > 4*bit_prec0 and effort <= 1:
@@ -323,32 +328,31 @@ def interval_series_sum_wrapper(doit, dop, ini, pt, tgt_error, bwrec, stop,
     else:
         bit_prec = old_bit_prec
         n0_squash = sys.maxint
-
+        logger.info("initial working precision = %s bits", bit_prec)
     max_prec = bit_prec + 2*input_accuracy
-    logger.log(logging.INFO - 1, "target error = %s", tgt_error)
-    logger.info("initial precision = %s bits", bit_prec)
 
     err=None
     for attempt in itertools.count(1):
+        Intervals = ivs(bit_prec)
+        ini_are_accurate = 2*min(pt.accuracy(), ini.accuracy()) > bit_prec
+        # Strictly decrease eps every time to avoid situations where doit
+        # would be happy with the result and stop at the same point despite
+        # the higher bit_prec. Since attempt starts at 1, we have a bit of
+        # room for round-off errors.
+        stop.reset(tgt_error.eps >> (4*attempt),
+                   stop.fast_fail and ini_are_accurate)
         try:
-            Intervals = ivs(bit_prec)
-            ini_are_accurate = 2*min(pt.accuracy(), ini.accuracy()) > bit_prec
-            # Strictly decrease eps each time to avoid situations where doit
-            # would be happy with the result and stop at the same point despite
-            # the higher bit_prec. Since attempt starts at 1, we have a bit of
-            # room for round-off errors.
-            stop.reset(tgt_error.eps >> (4*attempt),
-                       stop.fast_fail and ini_are_accurate)
             psum = doit(Intervals, dop, bwrec, ini, pt, stop, stride, n0_squash)
-            err = max(_get_error(c) for c in psum)
-            logger.debug("bit_prec=%s, err=%s (tgt=%s)", bit_prec, err,
-                    tgt_error)
-            abs_sum = abs(psum[0]) if pt.is_numeric else None
-            if tgt_error.reached(err, abs_sum):
-                return psum
         except accuracy.PrecisionError:
             if attempt > effort:
                 raise
+        else:
+            err = max(_get_error(c) for c in psum)
+            logger.debug("bit_prec=%s, err=%s (tgt=%s)", bit_prec, err,
+                         tgt_error)
+            abs_sum = abs(psum[0]) if pt.is_numeric else None
+            if tgt_error.reached(err, abs_sum):
+                return psum
         bit_prec *= 2
         if attempt <= effort and bit_prec < max_prec:
             logger.info("lost too much precision, restarting with %d bits",
@@ -488,7 +492,7 @@ def fundamental_matrix_ordinary(dop, pt, eps, rows, branch, fail_fast, effort):
 # Regular singular points
 ################################################################################
 
-# TODO: Avoid redundant computations at multiple roots of the initial equation
+# TODO: Avoid redundant computations at multiple roots of the indicial equation
 # (easy in principle after cleaning up series_sum() for a single root of high
 # multiplicity, needs partial sums from one root to the next or something
 # similar in the general case).
