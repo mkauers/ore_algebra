@@ -2154,8 +2154,9 @@ class DiffOpBound(object):
         recorder = accuracy.BoundRecorder(maj=self, eps=eps>>2)
         ref_sum = naive_sum.series_sum(self._dop_D, ini, pt, eps>>2, maj=self,
                                        stride=1, stop=recorder)
+        P = ref_sum[0].parent()
         recd = recorder.recd[:-1]
-        assert all(ref_sum[0].overlaps(rec.psum[0].add_error(rec.b))
+        assert all(ref_sum[0].overlaps(P(rec.psum[0]).add_error(rec.b))
                    for rec in recd)
         self.max_effort = saved_max_effort
         # Note: this won't work well when the errors get close to the double

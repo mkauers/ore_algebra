@@ -47,7 +47,7 @@ Thanks to Jakob Ablinger and Clemens Raab for the data.
     sage: myini = [0, 0, 0, 1/3, -2/3-i*pi/3, 11/12+2*i*pi/3-pi^2/6]
     sage: iint_value(dop, myini)
     [0.97080469562493...]
-    sage: iint_value(dop, myini, 1e-500) # long time (12 s)
+    sage: iint_value(dop, myini, 1e-500) # long time (9 s)
     [0.97080469562493...0383420...]
 
 Known exact values::
@@ -89,7 +89,7 @@ Known exact values::
     sage: ref[23] = 4/9*(psi1_a - 4*zeta(2))
     sage: ref[24] = sqrt(2)*(2/3*zeta(2) - 2*Li_b - ln(2)^2)
 
-    sage: for k in sorted(word.keys()): # long time (31 s)
+    sage: for k in sorted(word.keys()): # long time (25 s)
     ....:     dop = diffop(word[k])
     ....:     val = iint_value(dop, ini[k])
     ....:     ok = "ok" if k in ref and val in RBF(ref[k]).add_error(1e-10) else ""

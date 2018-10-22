@@ -556,19 +556,19 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, stop, stride, n0_squash):
     """
 
     jet = pt.jet(Intervals)
+    zero = Intervals.zero()
     Jets = jet.parent()
     ord = pt.jet_order
     jetpow = Jets.one()
     radpow = bounds.IR.one() # bound on abs(pt)^n in the series part (=> starts
                              # at 1 regardless of ini.expo)
 
-    log_prec = sum(len(v) for v in ini.shift.itervalues())
     last_index_with_ini = max([dop.order()]
             + [s for s, vals in ini.shift.iteritems()
                  if not all(v.is_zero() for v in vals)])
-    last = collections.deque([vector(Intervals, log_prec)
+    last = collections.deque([vector(Intervals, 0)
                               for _ in xrange(bwrec.order + 1)])
-    psum = vector(Jets, log_prec)
+    psum = vector(Jets, 0)
 
     # Every few iterations, heuristically check if we have converged and if
     # we still have enough precision. If it looks like the target error may
@@ -601,21 +601,29 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, stop, stride, n0_squash):
             return max([RBF.zero()] + [_get_error(c) for c in self.val])
         def get_value(self):
             my_psum = vector(Jets, [[t[i] for i in range(ord)] for t in psum])
+            # log_series_value may decide to introduce complex numbers if there
+            # are logs, and hence the parent of the partial sum may switch from
+            # real to complex over the course of the computation...
             my_val = log_series_value(Jets, ord, ini.expo, my_psum, jet[0],
                                     branch=pt.branch)
             return my_val
     cb = BoundCallbacks()
 
+    log_prec = 0
     precomp_len = max(1, bwrec.order) # hack for recurrences of order zero
+    rec_add_log_prec = sum(len(v) for s, v in ini.shift.iteritems()
+                           if s < precomp_len)
     bwrec_nplus = collections.deque(
-            (bwrec.eval_series(Intervals, i, log_prec)
+            (bwrec.eval_series(Intervals, i, log_prec + rec_add_log_prec)
                 for i in xrange(precomp_len)),
             maxlen=precomp_len)
+
     for n in itertools.count():
+
         last.rotate(1)
+
         logger.log(logging.DEBUG - 2, "n = %s, [c(n), c(n-1), ...] = %s", n, list(last))
         logger.log(logging.DEBUG - 1, "n = %s, sum = %s", n, psum)
-        mult = len(ini.shift.get(n, ()))
 
         if n%stride == 0:
             radpowest = abs(jetpow[0])
@@ -625,19 +633,35 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, stop, stride, n0_squash):
             if done:
                 break
 
-        for p in xrange(log_prec - mult - 1, -1, -1):
-            combin  = sum(bwrec_nplus[0][i][j]*last[i][p+j]
-                          for j in xrange(log_prec - p)
-                          for i in xrange(bwrec.order, 0, -1))
-            combin += sum(bwrec_nplus[0][0][j]*last[0][p+j]
-                          for j in xrange(mult + 1, log_prec - p))
+        mult = len(ini.shift.get(n, ()))
+        if mult > 0:
+            last[0] = vector(Intervals, log_prec + mult)
+        for p in xrange(log_prec - 1, -1, -1):
+            combin  = sum((bwrec_nplus[0][i][j]*last[i][p+j]
+                            for j in xrange(log_prec - p)
+                            for i in xrange(bwrec.order, 0, -1)),
+                          zero)
+            combin += sum((bwrec_nplus[0][0][j]*last[0][p+j]
+                            for j in xrange(mult + 1, mult + log_prec - p)),
+                          zero)
             last[0][mult + p] = - ~bwrec_nplus[0][0][mult] * combin
         for p in xrange(mult - 1, -1, -1):
             last[0][p] = ini.shift[n][p]
+        if mult > 0:
+            nz = mult - _ctz(last[0], mult)
+            log_prec += nz
+            for i in xrange(len(last)):
+                last[i] = _resize_vector(last[i], log_prec)
+            psum = _resize_vector(psum, log_prec)
+
         psum += last[0]*jetpow
         jetpow = jetpow._mul_trunc_(jet, ord)
         radpow *= pt.rad
-        bwrec_nplus.append(bwrec.eval_series(Intervals, n+precomp_len, log_prec))
+
+        rec_add_log_prec += len(ini.shift.get(n + precomp_len, ())) - mult
+        bwrec_nplus.append(bwrec.eval_series(Intervals, n+precomp_len,
+                                             log_prec + rec_add_log_prec))
+
     logger.info("summed %d terms, global tail bound = %s (est = %s)",
             n, tail_bound, bounds.IR(est))
     result = vector(cb.val[i] for i in xrange(ord))
@@ -660,3 +684,18 @@ def _get_error(approx):
         return approx[0].abs().rad_as_ball()
     else:
         return approx.abs().rad_as_ball()
+
+def _ctz(vec, maxlen):
+    z = 0
+    for m in xrange(maxlen):
+        if vec[-1 - m].is_zero():
+            z += 1
+        else:
+            break
+    return z
+
+def _resize_vector(vec, length):
+    new = vector(vec.base_ring(), length)
+    for i in xrange(min(length, len(vec))):
+        new[i] = vec[i]
+    return new
