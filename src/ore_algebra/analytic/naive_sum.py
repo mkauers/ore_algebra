@@ -212,7 +212,7 @@ def series_sum(dop, ini, pt, tgt_error, maj=None, bwrec=None, stop=None,
         pt = EvaluationPoint(pt)
     if isinstance(tgt_error, accuracy.RelativeError) and pt.jet_order > 1:
         raise TypeError("relative error not supported when computing derivatives")
-    if not isinstance(tgt_error, accuracy.OldStoppingCriterion):
+    if not isinstance(tgt_error, accuracy.AccuracyTest):
         tgt_error = accuracy.AbsoluteError(tgt_error)
         input_accuracy = min(pt.accuracy(), ini.accuracy())
         if input_accuracy < -tgt_error.eps.upper().log2().floor():

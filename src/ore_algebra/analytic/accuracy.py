@@ -62,6 +62,14 @@ class BoundCallbacks(object):
         raise NotImplementedError
 
 class StoppingCriterion(object):
+    r"""
+    Condition for dynamically deciding where to truncate a series.
+
+    Based on rigourous (absolute) error bounds, observed interval blow-up, and
+    various heuristics to choose a course of action when, e.g., adding more
+    terms will reduce the method error but possibly increase the round-off error
+    or interval width.
+    """
 
     def __init__(self, maj, eps, fast_fail=True):
         self.maj = maj
@@ -226,10 +234,18 @@ class BoundRecorder(StoppingCriterion):
 # Absolute and relative errors
 ######################################################################
 
-class OldStoppingCriterion(object):
+class AccuracyTest(object):
+    r"""
+    Accuracy test.
+
+    Compared to StoppingCriterion (which is specifically for series summation
+    loops), these classes are intended for higher-level algorithm that just want
+    to check whether a certain result is satisfactory according to some accuracy
+    measure.
+    """
     pass
 
-class AbsoluteError(OldStoppingCriterion):
+class AbsoluteError(AccuracyTest):
 
     def __init__(self, eps):
         self.eps = IR(eps)
@@ -240,7 +256,7 @@ class AbsoluteError(OldStoppingCriterion):
     def __repr__(self):
         return str(self.eps.lower()) + " (absolute)"
 
-class RelativeError(OldStoppingCriterion):
+class RelativeError(AccuracyTest):
 
     def __init__(self, eps, cutoff=None):
         self.eps = IR(eps)
