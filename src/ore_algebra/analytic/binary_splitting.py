@@ -177,6 +177,14 @@ Some other corner cases::
     sage: (Dx - (x - 1)).numerical_solution([1], [0, 1], algorithm="binsplit")
     [0.6065306597126334...]
 
+Nonstandard branches::
+
+    sage: from ore_algebra.examples.iint import f, w, diffop, iint_value
+    sage: iint_value(diffop([f[1/4], w[1], f[1]]),
+    ....:            [0, 0, 16/9*i, -16/27*i*(-3*i*pi+8)],
+    ....:            algorithm="binsplit")
+    [-3.445141853366...]
+
 Miscellaneous examples::
 
     sage: dop = ((x*Dx-3/2)^2).lclm(Dx-1)
@@ -614,7 +622,7 @@ class SolutionColumn(StepMatrix):
                        for ser in numer])
         # TODO: support other branches (perhaps by using EvaluationPoint?)
         numer = log_series_value(Jets, self.v.ord_diff, alg + shift, numer,
-                                 Scalars(dz), branch=(0,))
+                                 Scalars(dz.pt), branch=dz.branch)
         denom = specialize(self.v.rec_den)*Scalars(self.v.pow_den)
         # slightly redundant: should actually be the same for all columns...
         return numer/denom
@@ -932,7 +940,7 @@ class MatrixRecsUnroller(LocalBasisMapper):
                 and self.sl_decomp[0][0][0].is_zero())
         is_real = (int_expos
                 and utilities.is_real_parent(self.dop.base_ring().base_ring())
-                and utilities.is_real_parent(self.pt.parent()))
+                and utilities.is_real_parent(self.pt.pt.parent()))
         # enough to represent individual series, but real jets may still become
         # complex later if there are logs
         Intervals = utilities.ball_field(self.eps, is_real)
@@ -976,13 +984,12 @@ class MatrixRecsUnroller(LocalBasisMapper):
 
         # Generic recurrence matrix
         self.matrix_rec = MatrixRec(self.dop, self.leftmost, self.shifts,
-                self.pt, self.derivatives, utilities.prec_from_eps(self.eps))
+                self.pt.pt, self.derivatives, utilities.prec_from_eps(self.eps))
 
         # Majorants
         maj = {rt: bounds.DiffOpBound(self.dop, rt, self.shifts,
                                       bound_inverse="solve")
                for rt in self.roots}
-        rad = abs(bounds.IC(self.pt))
 
         wrapper = bounds.MultiDiffOpBound(maj.values())
         # TODO: switch to fast_fail=True?
@@ -1022,7 +1029,7 @@ class MatrixRecsUnroller(LocalBasisMapper):
                     # Tail majorant valid for the power series in front of the
                     # logs for all solutions associated to rt
                     tmaj = maj[rt].tail_majorant(self.shift, myres)
-                    sqbound += tmaj.bound(rad, rows=self.derivatives,
+                    sqbound += tmaj.bound(self.pt.rad, rows=self.derivatives,
                                           cols=len(myres))**2
                 return sqbound.sqrtpos()
         cb = BoundCallbacks()
@@ -1087,9 +1094,8 @@ class MatrixRecsUnroller(LocalBasisMapper):
         # solutions later on.
         return SolutionColumn(self.matrix_rec, self.shift, self.log_power)
 
-def fundamental_matrix_regular(dop, pt, eps, rows, branch, fail_fast, effort):
-    if branch != (0,):
-        raise NotImplementedError
+def fundamental_matrix_regular(dop, pt, eps, fail_fast, effort):
+    rows = pt.jet_order
     cols = MatrixRecsUnroller(dop, pt, eps, rows).run()
     coeffs = [sol.value.padded_list(rows) for sol in cols]
     return matrix(coeffs).transpose()

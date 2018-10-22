@@ -393,7 +393,7 @@ class EvaluationPoint(object):
     """
 
     # XXX: choose a single place to set the default value for jet_order
-    def __init__(self, pt, rad=None, jet_order=1, branch=(0,)):
+    def __init__(self, pt, jet_order=1, branch=(0,), rad=None ):
         self.pt = pt
         self.rad = (IR.coerce(rad) if rad is not None
                     else IC(pt).above_abs())
@@ -540,6 +540,9 @@ class Step(SageObject):
                 return as_embedded_number_field_element(d)
         else:
             return z1 - z0
+
+    def evpt(self, order):
+        return EvaluationPoint(self.delta(), order, branch=self.branch)
 
     def direction(self):
         delta = self.end.iv() - self.start.iv()

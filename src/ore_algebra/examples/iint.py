@@ -210,11 +210,11 @@ def get_ini_Hstar():
     from sage.interfaces.maple import maple
     return maple(string.replace(_ini_Hstar_code, '\n', ' '))
 
-def iint_value(dop, ini, eps=1e-16):
+def iint_value(dop, ini, eps=1e-16, **kwds):
     roots = dop.leading_coefficient().roots(AA, multiplicities=False)
     sing = list(reversed(sorted([s for s in roots if 0 < s < 1])))
     path = [1] + [Point(s, dop, outgoing_branch=(0,-1)) for s in sing] + [0]
-    val = dop.numerical_solution(ini, path, eps)
+    val = dop.numerical_solution(ini, path, eps, **kwds)
     return val.real()
 
 _one = ZZ.one()

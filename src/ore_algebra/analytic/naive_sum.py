@@ -86,7 +86,7 @@ def series_sum(dop, ini, pt, tgt_error, maj=None, bwrec=None, stop=None,
 
         sage: from ore_algebra.analytic.accuracy import AbsoluteError
         sage: series_sum(Dx - 1, [RBF(1)],
-        ....:         EvaluationPoint(x, rad=RBF(1), jet_order=2),
+        ....:         EvaluationPoint(x, jet_order=2, rad=RBF(1)),
         ....:         AbsoluteError(1e-3), stride=1)
         (... + [0.0083...]*x^5 + [0.0416...]*x^4 + [0.1666...]*x^3
         + 0.5000...*x^2 + x + [1.000...],
@@ -148,7 +148,7 @@ def series_sum(dop, ini, pt, tgt_error, maj=None, bwrec=None, stop=None,
         INFO:ore_algebra.analytic.naive_sum:lost too much precision, giving up
         ([0.20674982866094...])
 
-        sage: xx = EvaluationPoint(x, rad=RBF(1/4), jet_order=2)
+        sage: xx = EvaluationPoint(x, jet_order=2, rad=RBF(1/4))
         sage: series_sum((x^2 + 1)*Dx^2 + 2*x*Dx, [0, 1/3], xx, 1e-30)[0](1/6)
         INFO:...
         [0.05504955913820894609304276321...]
@@ -427,12 +427,11 @@ def series_sum_ordinary(Intervals, dop, bwrec, ini, pt, stop, stride,
     return res
 
 # XXX: pass ctx (→ real/complex?)?
-def fundamental_matrix_ordinary(dop, pt, eps, rows, branch, fail_fast, effort):
-    if branch != (0,):
+def fundamental_matrix_ordinary(dop, pt, eps, fail_fast, effort):
+    if pt.branch != (0,):
         logger.warn("nontrivial branch choice at ordinary point")
     eps_col = bounds.IR(eps)/bounds.IR(dop.order()).sqrt()
     eps_col = accuracy.AbsoluteError(eps_col)
-    evpt = EvaluationPoint(pt, jet_order=rows)
     bwrec = bw_shift_rec(dop)
     inis = [
         LogSeriesInitialValues(ZZ.zero(), ini, dop, check=False)
@@ -441,7 +440,7 @@ def fundamental_matrix_ordinary(dop, pt, eps, rows, branch, fail_fast, effort):
     assert len(maj.special_shifts) == 1 and maj.special_shifts[0] == 1
     stop = accuracy.StoppingCriterion(maj, eps_col.eps)
     cols = [
-        interval_series_sum_wrapper(series_sum_ordinary, dop, ini, evpt,
+        interval_series_sum_wrapper(series_sum_ordinary, dop, ini, pt,
                                     eps_col, bwrec, stop, fail_fast, effort)
         for ini in inis]
     return matrix(cols).transpose()
@@ -455,7 +454,7 @@ def fundamental_matrix_ordinary(dop, pt, eps, rows, branch, fail_fast, effort):
 # multiplicity, needs partial sums from one root to the next or something
 # similar in the general case).
 
-def fundamental_matrix_regular(dop, pt, eps, rows, branch, fail_fast, effort):
+def fundamental_matrix_regular(dop, pt, eps, fail_fast, effort):
     r"""
     Fundamental matrix at a possibly regular singular point
 
@@ -464,17 +463,18 @@ def fundamental_matrix_regular(dop, pt, eps, rows, branch, fail_fast, effort):
         sage: from ore_algebra import *
         sage: from ore_algebra.analytic.naive_sum import *
         sage: from ore_algebra.analytic.differential_operator import DifferentialOperator
+        sage: from ore_algebra.analytic.path import EvaluationPoint as EP
         sage: Dops, x, Dx = DifferentialOperators()
 
         sage: fundamental_matrix_regular(
         ....:         DifferentialOperator(x*Dx^2 + (1-x)*Dx),
-        ....:         1, RBF(1e-10), 2, (0,), False, 2)
+        ....:         EP(1, 2), RBF(1e-10), False, 2)
         [[1.317902...] 1.000000...]
         [[2.718281...]           0]
 
         sage: dop = DifferentialOperator(
         ....:         (x+1)*(x^2+1)*Dx^3-(x-1)*(x^2-3)*Dx^2-2*(x^2+2*x-1)*Dx)
-        sage: fundamental_matrix_regular(dop, 1/3, RBF(1e-10), 3, (0,), False, 2)
+        sage: fundamental_matrix_regular(dop, EP(1/3, 3), RBF(1e-10), False, 2)
         [1.0000000...  [0.321750554...]  [0.147723741...]]
         [           0  [0.900000000...]  [0.991224850...]]
         [           0  [-0.27000000...]  [1.935612425...]]
@@ -484,7 +484,7 @@ def fundamental_matrix_regular(dop, pt, eps, rows, branch, fail_fast, effort):
         ....:     + (-2*x^6 + 5*x^5 - 11*x^3 - 6*x^2 + 6*x)*Dx^3
         ....:     + (2*x^6 - 3*x^5 - 6*x^4 + 7*x^3 + 8*x^2 - 6*x + 6)*Dx^2
         ....:     + (-2*x^6 + 3*x^5 + 5*x^4 - 2*x^3 - 9*x^2 + 9*x)*Dx)
-        sage: fundamental_matrix_regular(dop, RBF(1/3), RBF(1e-10), 4, (0,), False, 2)
+        sage: fundamental_matrix_regular(dop, EP(RBF(1/3), 4), RBF(1e-10), False, 2)
         [ [3.1788470...] [-1.064032...]  [1.000...] [0.3287250...]]
         [ [-8.981931...] [3.2281834...]    [+/-...] [0.9586537...]]
         [  [26.18828...] [-4.063756...]    [+/-...] [-0.123080...]]
@@ -495,7 +495,6 @@ def fundamental_matrix_regular(dop, pt, eps, rows, branch, fail_fast, effort):
         sage: dop.numerical_solution(ini, [0, RBF(1/3)], 1e-14)
         [-0.549046117782...]
     """
-    evpt = EvaluationPoint(pt, jet_order=rows, branch=branch)
     eps_col = bounds.IR(eps)/bounds.IR(dop.order()).sqrt()
     eps_col = accuracy.AbsoluteError(eps_col)
     class Mapper(LocalBasisMapper):
@@ -506,7 +505,7 @@ def fundamental_matrix_regular(dop, pt, eps, rows, branch, fail_fast, effort):
             super(self.__class__, self).process_modZ_class()
         def fun(self, ini):
             return interval_series_sum_wrapper(series_sum_regular, dop, ini,
-                    evpt, eps_col, self.shifted_bwrec, self.stop, fail_fast,
+                    pt, eps_col, self.shifted_bwrec, self.stop, fail_fast,
                     effort)
     cols = Mapper(dop).run()
     return matrix([sol.value for sol in cols]).transpose()
