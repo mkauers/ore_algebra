@@ -580,8 +580,6 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, stop, stride, n0_squash):
     # and (2) if we had code to compute lower bounds on coefficients of
     # series expansions of majorants.)
     tail_bound = bounds.IR(infinity)
-    bit_prec = Intervals.precision()
-    ini_are_accurate = 2*min(pt.accuracy(), ini.accuracy()) > bit_prec
 
     # TODO: improve the automatic increase of precision for large x^λ:
     # we currently check the series part only (which would sort of make
