@@ -415,6 +415,9 @@ class EvaluationPoint(object):
     def is_real(self):
         return is_real_parent(self.pt.parent())
 
+    def is_real_or_symbolic(self):
+        return self.is_real() or not self.is_numeric
+
     def accuracy(self):
         if self.pt.parent().is_exact():
             return IR.maximal_accuracy()

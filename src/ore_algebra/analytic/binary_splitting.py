@@ -232,7 +232,7 @@ from sage.structure.coerce_exceptions import CoercionException
 from . import accuracy, bounds, utilities
 
 from .local_solutions import (bw_shift_rec, FundamentalSolution,
-        LocalBasisMapper, log_series_value)
+        LocalBasisMapper, log_series_values)
 from .safe_cmp import *
 
 logger = logging.getLogger(__name__)
@@ -621,8 +621,8 @@ class SolutionColumn(StepMatrix):
         numer = vector([Jets([specialize(c).add_error(tail_bound) for c in ser])
                        for ser in numer])
         # TODO: support other branches (perhaps by using EvaluationPoint?)
-        numer = log_series_value(Jets, self.v.ord_diff, alg + shift, numer,
-                                 Scalars(dz.pt), branch=dz.branch)
+        [numer] = log_series_values(Jets, self.v.ord_diff, alg + shift, numer,
+                                    Scalars(dz.pt), branch=dz.branch)
         denom = specialize(self.v.rec_den)*Scalars(self.v.pow_den)
         # slightly redundant: should actually be the same for all columns...
         return numer/denom
@@ -1097,8 +1097,7 @@ class MatrixRecsUnroller(LocalBasisMapper):
 def fundamental_matrix_regular(dop, pt, eps, fail_fast, effort):
     rows = pt.jet_order
     cols = MatrixRecsUnroller(dop, pt, eps, rows).run()
-    coeffs = [sol.value.padded_list(rows) for sol in cols]
-    return matrix(coeffs).transpose()
+    return matrix([sol.value for sol in cols]).transpose()
 
 def _can_use_CBF(*doms):
     return all((isinstance(dom, (RealBallField, ComplexBallField))

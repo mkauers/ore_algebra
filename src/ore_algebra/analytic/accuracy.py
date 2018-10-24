@@ -119,6 +119,7 @@ class StoppingCriterion(object):
 
         eps = self.eps
 
+        # XXX We shouldn't force the caller to give a full-precision estimate...
         accuracy = max(est.accuracy(), -int((est.rad() or RR(1)).log(2)))
         width = IR(est.rad())
         est = IR(est)
@@ -262,10 +263,10 @@ class RelativeError(AccuracyTest):
         self.eps = IR(eps)
         self.cutoff = eps if cutoff is None else IR(cutoff)
 
-    def reached(self, err, abs_val):
+    def reached(self, err, val):
         # NOTE: we could provide a slightly faster test when err is a
         # non-rigorous estimate (not a true tail bound)
-        return (safe_le(err.abs(), self.eps*(abs_val - err))
+        return (safe_le(abs(err), self.eps*(abs(val) - err))
                 or safe_le(abs_val + err, self.cutoff))
 
     def __repr__(self):

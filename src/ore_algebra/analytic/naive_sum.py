@@ -10,7 +10,9 @@ Evaluation of convergent D-finite series by direct summation
 
 from __future__ import division, print_function
 
-import collections, itertools, logging, sys
+import collections, logging, sys
+
+from itertools import count, chain
 
 from sage.matrix.constructor import identity_matrix, matrix
 from sage.modules.free_module_element import vector
@@ -25,7 +27,7 @@ from .. import ore_algebra
 from . import accuracy, bounds, utilities
 from .differential_operator import DifferentialOperator
 from .local_solutions import (bw_shift_rec, FundamentalSolution,
-        LogSeriesInitialValues, LocalBasisMapper, log_series_value)
+        LogSeriesInitialValues, LocalBasisMapper, log_series_values)
 from .path import EvaluationPoint
 from .safe_cmp import *
 from .utilities import short_str
@@ -189,11 +191,14 @@ def series_sum(dop, ini, pt, tgt_error, maj=None, bwrec=None, stop=None,
     if stop is None:
         stop = accuracy.StoppingCriterion(maj, tgt_error.eps)
 
-    doit = (series_sum_ordinary if dop.leading_coefficient().valuation() == 0
-            else series_sum_regular)
-
-    return interval_series_sum_wrapper(doit, dop, ini, pt, tgt_error, bwrec,
-                                       stop, fail_fast, effort, **kwds)
+    if dop.leading_coefficient().valuation() == 0:
+        return interval_series_sum_wrapper(True, dop, [ini], pt, tgt_error,
+                                         bwrec, stop, fail_fast, effort, **kwds)
+    else:
+        sols = interval_series_sum_wrapper(False, dop, [ini], pt, tgt_error,
+                                         bwrec, stop, fail_fast, effort, **kwds)
+        assert len(sols) == 1
+        return sols[0].value
 
 def guard_bits(dop, maj, pt, ordrec, nterms):
 
@@ -255,21 +260,23 @@ def guard_bits(dop, maj, pt, ordrec, nterms):
         if new_n0 > nterms:
             return nterms, guard_bits_intervals
 
-def interval_series_sum_wrapper(doit, dop, ini, pt, tgt_error, bwrec, stop,
+def interval_series_sum_wrapper(ordinary, dop, inis, pt, tgt_error, bwrec, stop,
                                 fail_fast, effort, stride=None,
                                 squash_intervals=False):
 
     if stride is None:
         stride = max(50, 2*bwrec.order)
-    ivs = (RealBallField
-           if ini.is_real(dop) and (pt.is_real() or not pt.is_numeric)
-           else ComplexBallField)
-    input_accuracy = min(pt.accuracy(), ini.accuracy())
+    if pt.is_real_or_symbolic() and all(ini.is_real(dop) for ini in inis):
+        ivs = RealBallField
+    else:
+        ivs = ComplexBallField
+    input_accuracy = min(chain([pt.accuracy()],
+                               (ini.accuracy() for ini in inis)))
     logger.log(logging.INFO - 1, "target error = %s", tgt_error)
 
     bit_prec0 = utilities.prec_from_eps(tgt_error.eps)
     old_bit_prec = 8 + bit_prec0*(1 + ZZ(bwrec.order - 2).nbits())
-    if doit is series_sum_ordinary and squash_intervals:
+    if ordinary and squash_intervals:
         nterms, lg_mag = dop.est_terms(pt, bit_prec0)
         nterms = (bwrec.order*dop.order() + nterms)*1.2 # let's be pragmatic
         nterms = ZZ((nterms//stride + 1)*stride)
@@ -290,27 +297,45 @@ def interval_series_sum_wrapper(doit, dop, ini, pt, tgt_error, bwrec, stop,
     max_prec = bit_prec + 2*input_accuracy
 
     err=None
-    for attempt in itertools.count(1):
+    for attempt in count(1):
         Intervals = ivs(bit_prec)
-        ini_are_accurate = 2*min(pt.accuracy(), ini.accuracy()) > bit_prec
+        ini_are_accurate = 2*input_accuracy > bit_prec
         # Strictly decrease eps every time to avoid situations where doit
         # would be happy with the result and stop at the same point despite
         # the higher bit_prec. Since attempt starts at 1, we have a bit of
         # room for round-off errors.
         stop.reset(tgt_error.eps >> (4*attempt),
                    stop.fast_fail and ini_are_accurate)
-        try:
-            psum = doit(Intervals, dop, bwrec, ini, pt, stop, stride, n0_squash)
-        except accuracy.PrecisionError:
-            if attempt > effort:
-                raise
+
+        if ordinary: # temporarily need two variants
+            try:
+                assert len(inis) == 1
+                psum = series_sum_ordinary(Intervals, dop, bwrec, inis[0], pt,
+                                           stop, stride, n0_squash)
+            except accuracy.PrecisionError:
+                if attempt > effort:
+                    raise
+            else:
+                err = max(_get_error(c) for c in psum)
+                logger.debug("bit_prec=%s, err=%s (tgt=%s)", bit_prec, err,
+                            tgt_error)
+                abs_sum = abs(psum[0]) if pt.is_numeric else None
+                if tgt_error.reached(err, abs_sum):
+                    return psum
         else:
-            err = max(_get_error(c) for c in psum)
-            logger.debug("bit_prec=%s, err=%s (tgt=%s)", bit_prec, err,
-                         tgt_error)
-            abs_sum = abs(psum[0]) if pt.is_numeric else None
-            if tgt_error.reached(err, abs_sum):
-                return psum
+            try:
+                sols = series_sum_regular(Intervals, dop, bwrec, inis, pt, stop,
+                                          stride, n0_squash)
+            except accuracy.PrecisionError:
+                if attempt > effort:
+                    raise
+            else:
+                logger.debug("bit_prec = %s, err = %s (tgt = %s)", bit_prec,
+                            max(sol.total_error for sol in sols), tgt_error)
+                if all(tgt_error.reached(sol.total_error, abs(sol.value[0]))
+                        for sol in sols):
+                    return sols
+
         bit_prec *= 2
         if attempt <= effort and bit_prec < max_prec:
             logger.info("lost too much precision, restarting with %d bits",
@@ -320,7 +345,7 @@ def interval_series_sum_wrapper(doit, dop, ini, pt, tgt_error, bwrec, stop,
             raise accuracy.PrecisionError
         else:
             logger.info("lost too much precision, giving up")
-            return psum
+            return psum if ordinary else sols
 
 ################################################################################
 # Ordinary points
@@ -369,7 +394,7 @@ def series_sum_ordinary(Intervals, dop, bwrec, ini, pt, stop, stride,
         rnd_den = rnd_maj.exp_part_coeffs_lbounds()
         rnd_loc = bounds.IR.zero()
 
-    for n in itertools.count():
+    for n in count():
         last.rotate(1)
         #last[0] = None
         # At this point last[0] should be considered undefined (it will hold
@@ -440,7 +465,7 @@ def fundamental_matrix_ordinary(dop, pt, eps, fail_fast, effort):
     assert len(maj.special_shifts) == 1 and maj.special_shifts[0] == 1
     stop = accuracy.StoppingCriterion(maj, eps_col.eps)
     cols = [
-        interval_series_sum_wrapper(series_sum_ordinary, dop, ini, pt,
+        interval_series_sum_wrapper(True, dop, [ini], pt,
                                     eps_col, bwrec, stop, fail_fast, effort)
         for ini in inis]
     return matrix(cols).transpose()
@@ -469,15 +494,15 @@ def fundamental_matrix_regular(dop, pt, eps, fail_fast, effort):
         sage: fundamental_matrix_regular(
         ....:         DifferentialOperator(x*Dx^2 + (1-x)*Dx),
         ....:         EP(1, 2), RBF(1e-10), False, 2)
-        [[1.317902...] 1.000000...]
-        [[2.718281...]           0]
+        [[1.317902...] [1.000000...]]
+        [[2.718281...]     [+/- ...]]
 
         sage: dop = DifferentialOperator(
         ....:         (x+1)*(x^2+1)*Dx^3-(x-1)*(x^2-3)*Dx^2-2*(x^2+2*x-1)*Dx)
         sage: fundamental_matrix_regular(dop, EP(1/3, 3), RBF(1e-10), False, 2)
-        [1.0000000...  [0.321750554...]  [0.147723741...]]
-        [           0  [0.900000000...]  [0.991224850...]]
-        [           0  [-0.27000000...]  [1.935612425...]]
+        [ [1.000000...]  [0.321750554...]  [0.147723741...]]
+        [     [+/- ...]  [0.900000000...]  [0.991224850...]]
+        [     [+/- ...]  [-0.27000000...]  [1.935612425...]]
 
         sage: dop = DifferentialOperator(
         ....:     (2*x^6 - x^5 - 3*x^4 - x^3 + x^2)*Dx^4
@@ -499,26 +524,135 @@ def fundamental_matrix_regular(dop, pt, eps, fail_fast, effort):
     eps_col = accuracy.AbsoluteError(eps_col)
     class Mapper(LocalBasisMapper):
         def process_modZ_class(self):
+            logger.info(r"solutions z^(%s+n)·log(z)^k/k! + ···, n = %s",
+                        self.leftmost, ", ".join(str(s) for s, _ in self.shifts))
             maj = bounds.DiffOpBound(dop, self.leftmost, self.shifts,
                                      bound_inverse="solve")
-            self.stop = accuracy.StoppingCriterion(maj, eps_col.eps)
+            stop = accuracy.StoppingCriterion(maj, eps_col.eps)
+            # Compute the "highest" (in terms powers of log) solution of each
+            # valuation
+            inis = [LogSeriesInitialValues(
+                        expo=self.leftmost,
+                        mults=self.shifts,
+                        values={(s, m-1): ZZ.one()})
+                    for s, m in self.shifts]
+            highest_sols = interval_series_sum_wrapper(False, dop, inis, pt,
+                         eps_col, self.shifted_bwrec, stop, fail_fast, effort)
+            self.highest_sols = {}
+            for (s, m), sol in zip(self.shifts, highest_sols):
+                sol.update_downshifts(pt, range(m))
+                self.highest_sols[s] = sol
+            self.sols = {}
             super(self.__class__, self).process_modZ_class()
         def fun(self, ini):
-            return interval_series_sum_wrapper(series_sum_regular, dop, ini,
-                    pt, eps_col, self.shifted_bwrec, self.stop, fail_fast,
-                    effort)
+            # Non-highest solutions of a given valuation can be deduced from the
+            # highest one up to correcting factors that only involve solutions
+            # further to the right. We are relying on the iteration order, which
+            # ensures that all other solutions involved already have been
+            # computed.
+            highest = self.highest_sols[self.shift]
+            delta = self.mult - 1 - self.log_power
+            value = highest.downshifts[delta]
+            for s, m in self.shifts:
+                if s > self.shift:
+                    for k in range(max(m - delta, 0), m):
+                        cc = highest.critical_coeffs[s][k+delta]
+                        value -= cc*self.sols[s,k]
+            self.sols[self.shift, self.log_power] = value
+            return vector(value)
+
     cols = Mapper(dop).run()
     return matrix([sol.value for sol in cols]).transpose()
 
-# This function only handles the case of a “single” series, i.e. a series where
-# all indices differ from each other by integers. But since we need logic to go
-# past singular indices anyway, we can allow for general initial conditions (at
-# roots of the indicial equation belonging to the same shift-equivalence class),
-# not just initial conditions associated to canonical solutions.
-def series_sum_regular(Intervals, dop, bwrec, ini, pt, stop, stride, n0_squash):
+class PartialSum(object):
+
+    def __init__(self, Jets, ini, ordrec):
+        self.Scalars = Jets.base_ring()
+        self.ini = ini
+        self.ordrec = ordrec
+        self.log_prec = 0
+        self.trunc = 0 # first term _not_ in the sum
+        last = [vector(self.Scalars, 0) for _ in xrange(ordrec + 1)]
+        self.last = collections.deque(last) # u[trunc-1], u[trunc-2], ...
+        self.psum = vector(Jets, 0)
+        self.tail_bound = bounds.IR(infinity)
+        self.total_error = bounds.IR(infinity)
+        self.critical_coeffs = {}
+
+    def coeff_estimate(self):
+        return sum(abs(a) for log_jet in self.last for a in log_jet)
+
+    def next_term(self, n, mult, bwrec_nplus, cst, jetpow):
+
+        assert n == self.trunc
+        self.last.rotate(1)
+        self.trunc += 1
+
+        if mult > 0:
+            self.last[0] = vector(self.Scalars, self.log_prec + mult)
+
+        zero = self.Scalars.zero()
+
+        for p in xrange(self.log_prec - 1, -1, -1):
+            combin  = sum((bwrec_nplus[0][i][j]*self.last[i][p+j]
+                            for j in xrange(self.log_prec - p)
+                            for i in xrange(self.ordrec, 0, -1)),
+                          zero)
+            combin += sum((bwrec_nplus[0][0][j]*self.last[0][p+j]
+                           for j in xrange(mult + 1, mult + self.log_prec - p)),
+                          zero)
+            self.last[0][mult + p] = cst * combin
+        for p in xrange(mult - 1, -1, -1):
+            self.last[0][p] = self.ini.shift[n][p]
+
+        if mult > 0:
+
+            self.critical_coeffs[n] = self.last[0]
+
+            nz = mult - _ctz(self.last[0], mult)
+            self.log_prec += nz
+            for i in xrange(len(self.last)):
+                self.last[i] = _resize_vector(self.last[i], self.log_prec)
+            self.psum = _resize_vector(self.psum, self.log_prec)
+
+        self.psum += self.last[0]*jetpow
+
+    def update_enclosure(self, Jets, pt, tb):
+        self.series = vector(Jets, self.log_prec)
+        for i, t in enumerate(self.psum):
+            self.series[i] = Jets([t[k].add_error(tb)
+                                   for k in xrange(pt.jet_order)])
+        # log_series_values() may decide to introduce complex numbers if there
+        # are logs, and hence the parent of the partial sum may switch from real
+        # to complex during the computation...
+        [self.value] = log_series_values(Jets, pt.jet_order, self.ini.expo,
+                                         self.series, pt.pt, pt.branch)
+        self.total_error = max(chain(iter([bounds.IR.zero()]),
+                                     (bounds.IR(c.rad()) for c in self.value)))
+
+    def update_downshifts(self, pt, downshift):
+        self.downshifts = log_series_values(self.series.base_ring(),
+                pt.jet_order, self.ini.expo, self.series, pt.pt, pt.branch,
+                downshift=downshift)
+
+    def bare_value(self, Jets, pt):
+        r"""
+        Value taking into account logs etc. but ignoring the truncation error.
+        """
+        [v] = log_series_values(Jets, pt.jet_order, self.ini.expo, self.psum,
+                                pt.pt, pt.branch)
+        return v
+
+def series_sum_regular(Intervals, dop, bwrec, inis, pt, stop, stride,
+                        n0_squash):
     r"""
-    Sum a (logarithmic) series solution of an operator that may have a regular
-    singular point at the origin.
+    Compute partial sums of one or several logarithmic series solution of an
+    operator that may have a regular singular point at the origin.
+
+    The solutions must be logarithmic series with exponents in a same single
+    coset of ℂ/ℤ. They will be evaluated at the same point and using the same
+    evaluation parameters. In other words, the only thing in which they can
+    differ is the initial conditions.
 
     TESTS::
 
@@ -536,11 +670,10 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, stop, stride, n0_squash):
         sage: dop = (x^2-1000*x)*Dx^2 + (-x^2+999000)*Dx + 1000*x - 999000
         sage: logger = logging.getLogger('ore_algebra.analytic.naive_sum')
         sage: logger.setLevel(logging.INFO) # TBI
-        sage: dop.numerical_transition_matrix([0,1/10000000])
+        sage: series_sum(dop, {0:(1,), 1000:(0,)}, 1/10000000, 1e-16)
         INFO:ore_algebra.analytic.naive_sum:...
         INFO:ore_algebra.analytic.naive_sum:summed 50 terms, ...
-        [ [1.000000100000005...] [1.0000000000000000e-7000...]]
-        [ [1.000000100000005...] [1.0000000000000000e-6990...]]
+        ([1.000000100000005...])
         sage: logger.setLevel(logging.WARNING)
         sage: series_sum(dop, {0: (1,), 1000: (1/1000,)}, 1, 1e-10)
         ([2.719281828...])
@@ -555,61 +688,45 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, stop, stride, n0_squash):
         ([0.2238907...])
     """
 
+    if not inis:
+        return []
+    assert inis[0].compatible(inis)
+    mult_dict = inis[0].mult_dict()
+
     jet = pt.jet(Intervals)
-    zero = Intervals.zero()
-    Jets = jet.parent()
     ord = pt.jet_order
+    Jets = jet.parent()
     jetpow = Jets.one()
     radpow = bounds.IR.one() # bound on abs(pt)^n in the series part (=> starts
                              # at 1 regardless of ini.expo)
-
-    last_index_with_ini = max([dop.order()]
-            + [s for s, vals in ini.shift.iteritems()
-                 if not all(v.is_zero() for v in vals)])
-    last = collections.deque([vector(Intervals, 0)
-                              for _ in xrange(bwrec.order + 1)])
-    psum = vector(Jets, 0)
-
-    # Every few iterations, heuristically check if we have converged and if
-    # we still have enough precision. If it looks like the target error may
-    # be reached, perform a rigorous check. Our stopping criterion currently
-    # (1) only works at “generic” indices, and (2) assumes that the initial
-    # values at exceptional indices larger than n are zero, so we also
-    # ensure that we are in this case. (Both assumptions could be lifted,
-    # (1) by using a slightly more complicated formula for the tail bound,
-    # and (2) if we had code to compute lower bounds on coefficients of
-    # series expansions of majorants.)
     tail_bound = bounds.IR(infinity)
 
-    # TODO: improve the automatic increase of precision for large x^λ:
-    # we currently check the series part only (which would sort of make
-    # sense in a relative error setting)
+    last_index_with_ini = max(chain(iter([dop.order()]),
+                                    (ini.last_index() for ini in inis)))
+    sols = [PartialSum(Jets, ini, bwrec.order) for ini in inis]
+
     class BoundCallbacks(accuracy.BoundCallbacks):
-        def __init__(self):
-            self.val = None
         def get_residuals(self):
-            return [stop.maj.normalized_residual(n, list(last)[1:], bwrec_nplus)]
+            # Since this is called _before_ computing the new term, the relevant
+            # coefficients are given by last[:-1], not last[1:]
+            assert all(sol.trunc == n for sol in sols)
+            return [stop.maj.normalized_residual(n, list(sol.last)[:-1],
+                                                 bwrec_nplus)
+                    for sol in sols]
         def get_bound(self, residuals):
+            # XXX consider maintaining separate tail bounds, and stopping the
+            # summation of some series before the others
             maj = self.get_maj(stop, n, residuals)
-            tb = maj.bound(pt.rad, rows=pt.jet_order)
-            my_psum = vector(Jets, [[t[i].add_error(tb.abs())
-                                    for i in range(ord)] for t in psum])
-            # XXX decouple this from the summation => less redundant computation
-            # of local monodromy matrices
-            self.val = log_series_value(Jets, ord, ini.expo, my_psum, jet[0],
-                                        branch=pt.branch)
-            return max([RBF.zero()] + [_get_error(c) for c in self.val])
+            tb = maj.bound(pt.rad, rows=ord)
+            for sol in sols:
+                sol.update_enclosure(Jets, pt, tb)
+            return max(sol.total_error for sol in sols)
         def get_value(self):
-            my_psum = vector(Jets, [[t[i] for i in range(ord)] for t in psum])
-            # log_series_value may decide to introduce complex numbers if there
-            # are logs, and hence the parent of the partial sum may switch from
-            # real to complex over the course of the computation...
-            my_val = log_series_value(Jets, ord, ini.expo, my_psum, jet[0],
-                                    branch=pt.branch)
-            return my_val
+            assert len(sols) == 1
+            return sols[0].bare_value(Jets, pt)
     cb = BoundCallbacks()
 
-    log_prec = 0
+    log_prec = 1
     precomp_len = max(1, bwrec.order) # hack for recurrences of order zero
     rec_add_log_prec = sum(len(v) for s, v in ini.shift.iteritems()
                            if s < precomp_len)
@@ -618,54 +735,33 @@ def series_sum_regular(Intervals, dop, bwrec, ini, pt, stop, stride, n0_squash):
                 for i in xrange(precomp_len)),
             maxlen=precomp_len)
 
-    for n in itertools.count():
+    for n in count():
 
-        last.rotate(1)
-
-        logger.log(logging.DEBUG - 2, "n = %s, [c(n), c(n-1), ...] = %s", n, list(last))
-        logger.log(logging.DEBUG - 1, "n = %s, sum = %s", n, psum)
-
-        if n%stride == 0:
+        if n%stride == 0 and n > 0:
             radpowest = abs(jetpow[0])
-            est = sum(abs(a) for log_jet in last for a in log_jet) * radpowest
-            sing = (n <= last_index_with_ini) or (mult > 0)
+            est = sum(sol.coeff_estimate() for sol in sols)*radpowest
+            sing = (n <= last_index_with_ini) or (mult > 0) # ?
             done, tail_bound = stop.check(cb, sing, n, tail_bound, est, stride)
             if done:
                 break
 
-        mult = len(ini.shift.get(n, ()))
+        mult = mult_dict[n]
+        cst = - ~bwrec_nplus[0][0][mult]
+        for sol in sols:
+            sol.next_term(n, mult, bwrec_nplus, cst, jetpow)
         if mult > 0:
-            last[0] = vector(Intervals, log_prec + mult)
-        for p in xrange(log_prec - 1, -1, -1):
-            combin  = sum((bwrec_nplus[0][i][j]*last[i][p+j]
-                            for j in xrange(log_prec - p)
-                            for i in xrange(bwrec.order, 0, -1)),
-                          zero)
-            combin += sum((bwrec_nplus[0][0][j]*last[0][p+j]
-                            for j in xrange(mult + 1, mult + log_prec - p)),
-                          zero)
-            last[0][mult + p] = - ~bwrec_nplus[0][0][mult] * combin
-        for p in xrange(mult - 1, -1, -1):
-            last[0][p] = ini.shift[n][p]
-        if mult > 0:
-            nz = mult - _ctz(last[0], mult)
-            log_prec += nz
-            for i in xrange(len(last)):
-                last[i] = _resize_vector(last[i], log_prec)
-            psum = _resize_vector(psum, log_prec)
-
-        psum += last[0]*jetpow
+            log_prec = max(sol.log_prec for sol in sols)
         jetpow = jetpow._mul_trunc_(jet, ord)
         radpow *= pt.rad
 
-        rec_add_log_prec += len(ini.shift.get(n + precomp_len, ())) - mult
+        rec_add_log_prec += mult_dict[n + precomp_len] - mult
         bwrec_nplus.append(bwrec.eval_series(Intervals, n+precomp_len,
                                              log_prec + rec_add_log_prec))
 
     logger.info("summed %d terms, global tail bound = %s (est = %s)",
             n, tail_bound, bounds.IR(est))
-    result = vector(cb.val[i] for i in xrange(ord))
-    return result
+
+    return sols
 
 ################################################################################
 # Miscellaneous utilities

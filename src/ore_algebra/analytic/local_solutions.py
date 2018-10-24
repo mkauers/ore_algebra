@@ -149,6 +149,11 @@ class BwShiftRec(object):
     def lc_as_rec(self):
         return BwShiftRec([self.coeff[0]])
 
+class MultDict(dict):
+
+    def __missing__(self, k):
+        return 0
+
 class LogSeriesInitialValues(object):
     r"""
     Initial values defining a logarithmic series.
@@ -218,7 +223,8 @@ class LogSeriesInitialValues(object):
             "[z^({expo}+{shift})·log(z)^{log_power}/{log_power}!] = {val}"
             .format(expo=self.expo, shift=s, log_power=log_power, val=val)
             for s, ini in self.shift.iteritems()
-            for log_power, val in enumerate(ini))
+            for log_power, val in enumerate(ini)
+            if ini)
 
     def is_valid_for(self, dop):
         ind = dop.indicial_polynomial(dop.base_ring().gen())
@@ -264,6 +270,17 @@ class LogSeriesInitialValues(object):
                                    for x in val))
         else:
             raise ValueError
+
+    def last_index(self):
+        return max(s for s, vals in self.shift.iteritems()
+                   if not all(v.is_zero() for v in vals))
+
+    @cached_method
+    def mult_dict(self):
+        return MultDict((s, len(vals)) for s, vals in self.shift.iteritems())
+
+    def compatible(self, others):
+        return all(self.mult_dict() == other.mult_dict() for other in others)
 
 def random_ini(dop):
     import random
@@ -369,21 +386,18 @@ class LocalBasisMapper(object):
 
     def process_irred_factor(self):
         for self.leftmost in self.roots:
+            self.shifted_bwrec = self.bwrec.shift(self.leftmost)
             self.process_modZ_class()
 
     def process_modZ_class(self):
-        self.shifted_bwrec = self.bwrec.shift(self.leftmost)
-        for self.shift, self.mult in self.shifts:
+        for self.shift, self.mult in reversed(self.shifts):
             self.process_valuation()
 
     def process_valuation(self):
-        for self.log_power in xrange(self.mult):
+        for self.log_power in reversed(xrange(self.mult)):
             self.process_solution()
 
     def process_solution(self):
-        logger.info(r"solution z^(%s+%s)·log(z)^%s/%s! + ···",
-                    self.leftmost, self.shift,
-                    self.log_power, self.log_power)
         ini = LogSeriesInitialValues(
             dop = self.dop,
             expo = self.leftmost,
@@ -437,16 +451,19 @@ def log_series(ini, bwrec, order):
         bwrec_nplus.append(bwrec.eval_series(Coeffs, n+precomp_len, log_prec))
     return series
 
-def log_series_value(Jets, derivatives, expo, psum, pt, branch):
+def log_series_values(Jets, derivatives, expo, psum, pt, branch, downshift=[0]):
     r"""
-    Evaluate a logarithmic series.
+    Evaluate a logarithmic series, and optionally its downshifts.
 
-    That is, compute ::
+    That is, compute the vectors (v[0], ..., v[r-1]) such that ::
 
-        (pt + η)^expo * Σ_k (psum[k]*log(pt + η)^k/k!) + O(η^derivatives),
+        Σ[k=0..r] v[k] η^k
+            = (pt + η)^expo * Σ_k (psum[d+k]*log(pt + η)^k/k!) + O(η^r)
 
-    as an element of ``Jets``, optionally using a non-standard branch of the
-    logarithm.
+        (r = derivatives)
+
+    for d ∈ downshift, as an element of ``Jets``, optionally using a
+    non-standard branch of the logarithm.
 
     * ``branch`` - branch of the logarithm to use; ``(0,)`` means the standard
       branch, ``(k,)`` means log(z) + 2kπi, a tuple of length > 1 averages over
@@ -456,6 +473,8 @@ def log_series_value(Jets, derivatives, expo, psum, pt, branch):
     specialize abstract algebraic numbers that might appear in ``psum``.
     """
     log_prec = psum.length()
+    assert all(d < log_prec for d in downshift)
+    pt = Jets.base_ring()(pt)
     if log_prec > 1 or expo not in ZZ or branch != (0,):
         pt = pt.parent().complex_field()(pt)
         Jets = Jets.change_ring(Jets.base_ring().complex_field())
@@ -464,7 +483,7 @@ def log_series_value(Jets, derivatives, expo, psum, pt, branch):
                        for k in xrange(1, derivatives)])
     aux = high*expo
     logger.debug("aux=%s", aux)
-    val = Jets.base_ring().zero()
+    val = [Jets.base_ring().zero() for d in downshift]
     for b in branch:
         twobpii = pt.parent()(2*b*pi*I)
         # hardcoded series expansions of log(a+η) and (a+η)^λ
@@ -475,13 +494,14 @@ def log_series_value(Jets, derivatives, expo, psum, pt, branch):
                 *sum(_pow_trunc(aux, k, derivatives)/Integer(k).factorial()
                     for k in xrange(derivatives)))
         logger.debug("inipow[%s]=%s", b, inipow)
-        val += inipow.multiplication_trunc(
-                sum(psum[p]._mul_trunc_(_pow_trunc(logpt, p, derivatives),
-                                        derivatives)
-                        /Integer(p).factorial()
-                    for p in xrange(log_prec)),
-                derivatives)
-    val /= len(branch)
+        logterms = [_pow_trunc(logpt, p, derivatives)/Integer(p).factorial()
+                    for p in xrange(log_prec)]
+        for d in downshift:
+            val[d] += inipow.multiplication_trunc(
+                    sum(psum[d+p]._mul_trunc_(logterms[p], derivatives)
+                        for p in xrange(log_prec - d)),
+                    derivatives)
+    val = [vector(v[i] for i in range(derivatives))/len(branch) for v in val]
     return val
 
 def _pow_trunc(a, n, ord):

@@ -76,7 +76,7 @@ basis (1 + O(z^11), z + O(z^11), ...) to its coefficients in the basis::
 We are interested in the fifth row::
 
     sage: mat.row(5) # long time
-    (0, [4.923936...e-6 +/- ...] + [-5.260478...e-6 +/- ...]*I, ...)
+    (..., [4.923936...e-6 +/- ...] + [-5.260478...e-6 +/- ...]*I, ...)
 
 To get the constant corresponding to the particular solution we are interested
 in, we need to multiply this (row) vector by the (column of) initial values at
