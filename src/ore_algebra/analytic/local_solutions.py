@@ -5,6 +5,8 @@ Local solutions
 
 import collections, logging
 
+from itertools import chain
+
 from sage.arith.all import gcd, lcm
 from sage.categories.pushout import pushout
 from sage.misc.cachefunc import cached_method
@@ -158,7 +160,7 @@ class LogSeriesInitialValues(object):
       x^s·log(x)^k/k! for some k
     """
 
-    def __init__(self, expo, values, dop=None, check=True):
+    def __init__(self, expo, values, dop=None, check=True, mults=None):
         r"""
         TESTS::
 
@@ -170,6 +172,7 @@ class LogSeriesInitialValues(object):
             ...
             ValueError: invalid initial data for x*Dx^3 + 2*Dx^2 + x*Dx at 0
         """
+
         try:
             self.expo = QQ.coerce(expo)
         except TypeError:
@@ -178,16 +181,31 @@ class LogSeriesInitialValues(object):
             except TypeError:
                 # symbolic; won't be sortable
                 self.expo = expo
+
         if isinstance(values, dict):
-            all_values = sum(values.values(), ()) # concatenation of tuples
+            all_values = tuple(chain.from_iterable(
+                            ini if isinstance(ini, tuple) else (ini,)
+                            for ini in values.itervalues()))
         else:
             all_values = values
             values = dict((n, (values[n],)) for n in xrange(len(values)))
         self.universe = Sequence(all_values).universe()
         if not utilities.is_numeric_parent(self.universe):
             raise ValueError("initial values must coerce into a ball field")
-        self.shift = { s: tuple(self.universe(a) for a in ini)
-                       for s, ini in values.iteritems() }
+
+        self.shift = {}
+        if mults is not None:
+            for s, m in mults:
+                self.shift[s] = [self.universe.zero()]*m
+        for k, ini in values.iteritems():
+            if isinstance(k, tuple): # requires mult != None
+                s, m = k
+                s = int(s)
+                self.shift[s][m] = self.universe(ini)
+            else:
+                s = int(k)
+                self.shift[s] = tuple(self.universe(a) for a in ini)
+        self.shift = { s: tuple(ini) for s, ini in self.shift.iteritems() }
 
         try:
             if check and dop is not None and not self.is_valid_for(dop):
@@ -369,11 +387,8 @@ class LocalBasisMapper(object):
         ini = LogSeriesInitialValues(
             dop = self.dop,
             expo = self.leftmost,
-            values = {
-                s: tuple(ZZ.one() if (s, p) == (self.shift, self.log_power)
-                            else ZZ.zero()
-                            for p in xrange(m))
-                for s, m in self.shifts},
+            values = { (self.shift, self.log_power): ZZ.one() },
+            mults = self.shifts,
             check = False)
         # XXX: inefficient if self.shift >> 0
         value = self.fun(ini)
