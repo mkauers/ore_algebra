@@ -522,12 +522,15 @@ def fundamental_matrix_regular(dop, pt, eps, fail_fast, effort):
     """
     eps_col = bounds.IR(eps)/bounds.IR(dop.order()).sqrt()
     eps_col = accuracy.AbsoluteError(eps_col)
+    ordinary = (dop.leading_coefficient()[0] != 0)
     class Mapper(LocalBasisMapper):
         def process_modZ_class(self):
             logger.info(r"solutions z^(%s+n)·log(z)^k/k! + ···, n = %s",
                         self.leftmost, ", ".join(str(s) for s, _ in self.shifts))
-            maj = bounds.DiffOpBound(dop, self.leftmost, self.shifts,
-                                     bound_inverse="solve")
+            maj = bounds.DiffOpBound(dop, self.leftmost,
+                            special_shifts=(None if ordinary else self.shifts),
+                            bound_inverse="solve",
+                            pol_part_len=(4 if ordinary else None))
             stop = accuracy.StoppingCriterion(maj, eps_col.eps)
             # Compute the "highest" (in terms powers of log) solution of each
             # valuation
