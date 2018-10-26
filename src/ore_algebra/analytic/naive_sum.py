@@ -287,7 +287,7 @@ def interval_series_sum_wrapper(ordinary, dop, inis, pt, tgt_error, bwrec, stop,
         bit_prec = bit_prec0 + 2*g
         logger.info("initial working precision = %s + %s = %s (old = %s), "
                     "squashing intervals for n >= %s",
-                    bit_prec0, g, bit_prec, old_bit_prec, n0_squash)
+                    bit_prec0, 2*g, bit_prec, old_bit_prec, n0_squash)
         if fail_fast and bit_prec > 4*bit_prec0 and effort <= 1:
             raise accuracy.PrecisionError
     else:
