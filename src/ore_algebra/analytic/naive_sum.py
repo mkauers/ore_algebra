@@ -711,8 +711,10 @@ def series_sum_regular(Intervals, dop, bwrec, inis, pt, stop, stride,
                              # at 1 regardless of ini.expo)
     tail_bound = bounds.IR(infinity)
 
+    ordinary = (dop.leading_coefficient()[0] != 0)
+
     if n0_squash < sys.maxint:
-        assert dop.leading_coefficient()[0] != 0
+        assert ordinary
         self.rnd_den = rnd_maj.exp_part_coeffs_lbounds()
         self.rnd_loc = bounds.IR.zero()
         rnd_maj = stop.maj(n0_squash)
@@ -745,8 +747,11 @@ def series_sum_regular(Intervals, dop, bwrec, inis, pt, stop, stride,
 
     log_prec = 1
     precomp_len = max(1, bwrec.order) # hack for recurrences of order zero
-    rec_add_log_prec = sum(len(v) for s, v in ini.shift.iteritems()
-                           if s < precomp_len)
+    if ordinary: # TBI?
+        rec_add_log_prec = 1
+    else:
+        rec_add_log_prec = sum(len(v) for s, v in ini.shift.iteritems()
+                                      if s < precomp_len)
     bwrec_nplus = collections.deque(
             (bwrec.eval_series(Intervals, i, log_prec + rec_add_log_prec)
                 for i in xrange(precomp_len)),
@@ -755,6 +760,8 @@ def series_sum_regular(Intervals, dop, bwrec, inis, pt, stop, stride,
     for n in count():
 
         if n%stride == 0 and n > 0:
+            if ordinary:
+                assert log_prec == 1
             radpowest = (abs(jetpow[0]) if pt.is_numeric
                          else Intervals(pt.rad**n))
             est = sum(sol.coeff_estimate() for sol in sols)*radpowest
@@ -777,7 +784,10 @@ def series_sum_regular(Intervals, dop, bwrec, inis, pt, stop, stride,
         jetpow = jetpow._mul_trunc_(jet, ord)
         radpow *= pt.rad
 
-        rec_add_log_prec += mult_dict[n + precomp_len] - mult
+        if ordinary: # TBI?
+            rec_add_log_prec = 1 if mult_dict[n + precomp_len] else 0
+        else:
+            rec_add_log_prec += mult_dict[n + precomp_len] - mult
         bwrec_nplus.append(bwrec.eval_series(Intervals, n+precomp_len,
                                              log_prec + rec_add_log_prec))
 
