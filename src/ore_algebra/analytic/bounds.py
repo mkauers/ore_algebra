@@ -1325,7 +1325,7 @@ def _test_RatSeqBound(number=10, base=QQ, deg=20, verbose=False):
 # Bounds for differential equations
 ################################################################################
 
-def bound_polynomials(pols):
+def bound_polynomials(pols, Poly=None):
     r"""
     Compute a common majorant polynomial for the polynomials in ``pol``.
 
@@ -1345,12 +1345,16 @@ def bound_polynomials(pols):
         IndexError: list index out of range
     """
     assert isinstance(pols, list)
-    PolyIC = pols[0].parent().change_ring(IC)
+    if Poly is None:
+        Poly = pols[0].parent()
+    PolyIC = Poly.change_ring(IC)
+    PolyIR = Poly.change_ring(IR)
+    if not pols:
+        return PolyIR.zero()
     deg = max(pol.degree() for pol in pols)
     val = min(deg, min(pol.valuation() for pol in pols))
     pols = [PolyIC(pol) for pol in pols] # TBI
     order = Integer(len(pols))
-    PolyIR = PolyIC.change_ring(IR)
     def coeff_bound(n):
         return IR.zero().max(*(
             pols[k][n].above_abs()
@@ -1998,7 +2002,8 @@ class DiffOpBound(object):
         # solution. To make the integral easy to compute, we choose
         # (res^) = (q^)(z)*h[n0](z), i.e., as a polynomial multiple of h.
         nres_bound = bound_polynomials([pol for nres in normalized_residuals
-                                            for pol in nres])
+                                            for pol in nres],
+                                        self.Poly)
         Pols = nres_bound.parent()
         aux = Pols([(n1 + j)*c for j, c in enumerate(nres_bound)])
         if maj is None:

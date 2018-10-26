@@ -2590,15 +2590,15 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
 
             sage: dop = (x^2 + 1)*Dx^2 + 2*x*Dx
             sage: dop.numerical_transition_matrix([0, 1+i], 1e-10)
-            [ 1.0000000000 [1.017221967...] + [0.4023594781...]*I]
-            [            0 [0.200000000...] + [-0.400000000...]*I]
+            [ [1.00...] + [+/- ...]*I  [1.017221967...] + [0.4023594781...]*I]
+            [ [+/- ...] + [+/- ...]*I  [0.200000000...] + [-0.400000000...]*I]
 
         By making loops around singular points, we can compute local monodromy
         matrices::
 
             sage: dop.numerical_transition_matrix([0, i + 1, 2*i, i - 1, 0])
-            [ 1.0000000000000000  [3.141592653589793...] + [+/-...]*I]
-            [                  0  [1.000000000000000...] + [+/-...]*I]
+            [ [1.00...] + [+/- ...]*I  [3.141592653589793...] + [+/-...]*I]
+            [ [+/- ...] + [+/- ...]*I  [1.000000000000000...] + [+/-...]*I]
 
         Then we compute a connection matrix to the singularity itself::
 

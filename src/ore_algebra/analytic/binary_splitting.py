@@ -620,9 +620,8 @@ class SolutionColumn(StepMatrix):
         # (overestimation: we are using a single bound for all subseries)
         numer = vector([Jets([specialize(c).add_error(tail_bound) for c in ser])
                        for ser in numer])
-        # TODO: support other branches (perhaps by using EvaluationPoint?)
-        [numer] = log_series_values(Jets, self.v.ord_diff, alg + shift, numer,
-                                    Scalars(dz.pt), branch=dz.branch)
+        assert self.v.ord_diff == dz.jet_order
+        [numer] = log_series_values(Jets, alg + shift, numer, dz)
         denom = specialize(self.v.rec_den)*Scalars(self.v.pow_den)
         # slightly redundant: should actually be the same for all columns...
         return numer/denom

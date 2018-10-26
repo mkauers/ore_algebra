@@ -295,8 +295,8 @@ class LogSeriesInitialValues(object):
             raise ValueError
 
     def last_index(self):
-        return max(s for s, vals in self.shift.iteritems()
-                   if not all(v.is_zero() for v in vals))
+        return max(chain(iter((-1,)), (s for s, vals in self.shift.iteritems()
+                                        if not all(v.is_zero() for v in vals))))
 
     @cached_method
     def mult_dict(self):
@@ -474,31 +474,32 @@ def log_series(ini, bwrec, order):
         bwrec_nplus.append(bwrec.eval_series(Coeffs, n+precomp_len, log_prec))
     return series
 
-def log_series_values(Jets, derivatives, expo, psum, pt, branch, downshift=[0]):
+def log_series_values(Jets, expo, psum, evpt, downshift=[0]):
     r"""
     Evaluate a logarithmic series, and optionally its downshifts.
 
     That is, compute the vectors (v[0], ..., v[r-1]) such that ::
 
         Σ[k=0..r] v[k] η^k
-            = (pt + η)^expo * Σ_k (psum[d+k]*log(pt + η)^k/k!) + O(η^r)
+            = (pt + η)^expo * Σ_k (psum[d+k]*log(x + η)^k/k!) + O(η^r)
 
-        (r = derivatives)
+        (x = evpt.pt, r = evpt.jet_order)
 
     for d ∈ downshift, as an element of ``Jets``, optionally using a
     non-standard branch of the logarithm.
 
-    * ``branch`` - branch of the logarithm to use; ``(0,)`` means the standard
-      branch, ``(k,)`` means log(z) + 2kπi, a tuple of length > 1 averages over
-      the corresponding branches
-
     Note that while this function computes ``pt^expo`` in ℂ, it does NOT
     specialize abstract algebraic numbers that might appear in ``psum``.
     """
+    derivatives = evpt.jet_order
     log_prec = psum.length()
-    assert all(d < log_prec for d in downshift)
-    pt = Jets.base_ring()(pt)
-    if log_prec > 1 or expo not in ZZ or branch != (0,):
+    assert all(d < log_prec for d in downshift) or log_prec == 0
+    if not evpt.is_numeric:
+        if expo != 0 or log_prec > 1:
+            raise NotImplementedError("log-series of symbolic point")
+        return [vector(psum[0][i] for i in range(derivatives))]
+    pt = Jets.base_ring()(evpt.pt)
+    if log_prec > 1 or expo not in ZZ or evpt.branch != (0,):
         pt = pt.parent().complex_field()(pt)
         Jets = Jets.change_ring(Jets.base_ring().complex_field())
         psum = psum.change_ring(Jets)
@@ -507,7 +508,7 @@ def log_series_values(Jets, derivatives, expo, psum, pt, branch, downshift=[0]):
     aux = high*expo
     logger.debug("aux=%s", aux)
     val = [Jets.base_ring().zero() for d in downshift]
-    for b in branch:
+    for b in evpt.branch:
         twobpii = pt.parent()(2*b*pi*I)
         # hardcoded series expansions of log(a+η) and (a+η)^λ
         # (too cumbersome to compute directly in Sage at the moment)
@@ -524,7 +525,8 @@ def log_series_values(Jets, derivatives, expo, psum, pt, branch, downshift=[0]):
                     sum(psum[d+p]._mul_trunc_(logterms[p], derivatives)
                         for p in xrange(log_prec - d)),
                     derivatives)
-    val = [vector(v[i] for i in range(derivatives))/len(branch) for v in val]
+    val = [vector(v[i] for i in range(derivatives))/len(evpt.branch)
+           for v in val]
     return val
 
 def _pow_trunc(a, n, ord):

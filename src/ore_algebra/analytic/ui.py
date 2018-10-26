@@ -21,8 +21,8 @@ def transition_matrices(dop, path, eps=1e-16):
         sage: tms = transition_matrices(dop, [k/5 for k in range(5)], 1e-10)
         sage: tms[2]
         (
-            [ 1.0... [0.3805063771...]]
-        2/5, [      0 [0.8620689655...]]
+             [ [1.00...] [0.3805063771...]]
+        2/5, [ [+/- ...] [0.8620689655...]]
         )
 
         sage: transition_matrices(Dx - 1, [i/5 for i in range(6)], 1e-10)

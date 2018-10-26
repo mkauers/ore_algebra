@@ -390,6 +390,10 @@ class EvaluationPoint(object):
     a “jet order” used to compute derivatives and a bound on the norm of the
     mathematical quantity it represents that can be used to bound the truncation
     error.
+
+    * ``branch`` - branch of the logarithm to use; ``(0,)`` means the standard
+      branch, ``(k,)`` means log(z) + 2kπi, a tuple of length > 1 averages over
+      the corresponding branches
     """
 
     # XXX: choose a single place to set the default value for jet_order

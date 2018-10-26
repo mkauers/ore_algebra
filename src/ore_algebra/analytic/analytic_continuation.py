@@ -157,10 +157,7 @@ def regular_step_transition_matrix(dop, step, eps, rows, fail_fast, effort,
                 raise exn
 
 def _naive_fundamental_matrix_regular(ordinary, *args):
-    if ordinary:
-        return naive_sum.fundamental_matrix_ordinary(*args)
-    else:
-        return naive_sum.fundamental_matrix_regular(*args)
+    return naive_sum.fundamental_matrix_regular(*args)
 
 def _process_path(dop, path, ctx):
 

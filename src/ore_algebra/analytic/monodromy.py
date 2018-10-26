@@ -67,7 +67,8 @@ def _local_monodromy_loop(dop, x, eps):
         logger.debug("center = %s, step = %s", x, step)
         mat = x.dop.numerical_transition_matrix(step, eps, assume_analytic=True)
         prec = utilities.prec_from_eps(eps)
-        assert all(foo.accuracy() >= prec//2 for foo in mat.list())
+        assert all(c.accuracy() >= prec//2 or c.above_abs()**2 <= eps
+                   for c in mat.list())
         mats.append(mat)
     return polygon, mats
 
@@ -132,14 +133,14 @@ def monodromy_matrices(dop, base, eps=1e-16, algorithm="connect"):
 
         sage: monodromy_matrices(Dx*x*Dx, 1, algorithm="loop")
         [
-        [ 1.0000...  [+/- ...] + [6.283185307179...]*I]
-        [         0  [1.000000000000...] + [+/- ...]*I]
+        [[1.0000...] + [+/- ...]*I  [+/- ...] + [6.283185307179...]*I]
+        [  [+/- ...] + [+/- ...]*I           [1.0000...] + [+/- ...]*I]
         ]
 
         sage: monodromy_matrices(Dx*x*Dx, 1/2)
         [
-        [   1.0000... [+/- ...] + [3.1415926535897...]*I]
-        [           0               [1.0000000000000...]]
+        [ [1.0000...] + [+/- ...]*I  [+/- ...] + [3.1415926535897...]*I]
+        [   [+/- ...] + [+/- ...]*I           [1.0000...] + [+/- ...]*I]
         ]
     """
 
