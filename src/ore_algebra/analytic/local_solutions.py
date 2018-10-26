@@ -88,18 +88,17 @@ class BwShiftRec(object):
 
     @cached_method
     def eval_method(self, tgt):
-        if utilities.is_QQi(self.Scalars) and isinstance(tgt, ComplexBallField):
+        if (utilities.is_QQi(self.Scalars)
+                and isinstance(tgt, ComplexBallField)
+                and utilities.has_new_ComplexBall_constructor()):
+
             ZZn = PolynomialRing(ZZ, 'n')
             re_im = [
                     (ZZn([c.real() for c in pol]), ZZn([c.imag() for c in pol]))
                     for pol in self.coeff]
-            if utilities.has_new_ComplexBall_constructor():
-                def ev(point):
-                    return [ComplexBall(tgt, re(point), im(point))
-                            for re, im in re_im]
-            else:
-                def ev(point):
-                    return [tgt(re(point), im(point)) for re, im in re_im]
+            def ev(point):
+                return [ComplexBall(tgt, re(point), im(point))
+                        for re, im in re_im]
         else:
             def ev(point):
                 return [tgt(pol(point)) for pol in self.coeff]
@@ -112,19 +111,43 @@ class BwShiftRec(object):
                                for k in xrange(p.degree() + 1 - j)])
 
     @cached_method
+    def _coeff_series_re_im(self, i, j):
+        ZZn = PolynomialRing(ZZ, 'n')
+        p = self.coeff[i]
+        rng = xrange(p.degree() + 1 - j)
+        bin = [ZZ(k+j).binomial(k) for k in rng]
+        re = ZZn([bin[k]*p[k+j].real() for k in rng])
+        im = ZZn([bin[k]*p[k+j].imag() for k in rng])
+        return re, im
+
+    @cached_method
     def scalars_embedding(self, tgt):
-        if isinstance(self.Scalars, NumberField_absolute):
+        if (utilities.is_QQi(self.Scalars)
+                and isinstance(tgt, ComplexBallField)
+                and utilities.has_new_ComplexBall_constructor()):
+            return True, lambda x, y: ComplexBall(tgt, x, y)
+        elif isinstance(self.Scalars, NumberField_absolute):
             # do complicated coercions via QQbar and CLF only once...
             Pol = PolynomialRing(tgt, 'x')
             x = tgt(self.Scalars.gen())
-            return lambda elt: Pol([tgt(c) for c in elt._coefficients()])(x)
+            def emb(elt):
+                return Pol([tgt(c) for c in elt._coefficients()])(x)
+            return False, emb
         else:
-            return tgt
+            return False, tgt
 
     def eval_series(self, tgt, point, ord):
-        mor = self.scalars_embedding(tgt)
-        point = self.Scalars(point)
-        return [[mor(self._coeff_series(i,j)(point)) for j in xrange(ord)]
+        re_im, mor = self.scalars_embedding(tgt)
+        if re_im:
+            res = [[None]*ord for _ in self.coeff]
+            for i in xrange(len(self.coeff)):
+                for j in xrange(ord):
+                    re, im = self._coeff_series_re_im(i, j)
+                    res[i][j] = mor(re(point), im(point))
+            return res
+        else:
+            point = self.Scalars(point)
+            return [[mor(self._coeff_series(i,j)(point)) for j in xrange(ord)]
                 for i in xrange(len(self.coeff))]
 
     def eval_inv_lc_series(self, point, ord, shift):
