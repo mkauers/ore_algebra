@@ -290,7 +290,8 @@ def interval_series_sum_wrapper(ordinary, dop, inis, pt, tgt_error, bwrec, stop,
 
     bit_prec0 = utilities.prec_from_eps(tgt_error.eps)
     old_bit_prec = 8 + bit_prec0*(1 + ZZ(bwrec.order - 2).nbits())
-    if ordinary and squash_intervals:
+    if squash_intervals:
+        assert dop.leading_coefficient()[0] != 0
         nterms, lg_mag = dop.est_terms(pt, bit_prec0)
         nterms = (bwrec.order*dop.order() + nterms)*1.2 # let's be pragmatic
         nterms = ZZ((nterms//stride + 1)*stride)
@@ -636,9 +637,12 @@ class PartialSum(object):
                 self.last[i] = _resize_vector(self.last[i], self.log_prec)
             self.psum = _resize_vector(self.psum, self.log_prec)
 
+        if self.log_prec == mult == 0:
+            return accuracy.IR.zero()
+
         if squash:
-            err = last[0][0].rad()
-            last[0][0] = last[0][0].squash()
+            err = accuracy.IR(self.last[0][0].rad())
+            self.last[0][0] = self.last[0][0].squash()
         else:
             err = None
 
@@ -734,10 +738,10 @@ def series_sum_regular(Intervals, dop, bwrec, inis, pt, stop, stride,
 
     if n0_squash < sys.maxint:
         assert ordinary
-        self.rnd_den = rnd_maj.exp_part_coeffs_lbounds()
-        self.rnd_loc = bounds.IR.zero()
         rnd_maj = stop.maj(n0_squash)
         rnd_maj >>= n0_squash # XXX (a) useful? (b) check correctness
+        rnd_den = rnd_maj.exp_part_coeffs_lbounds()
+        rnd_loc = bounds.IR.zero()
 
     last_index_with_ini = max(chain(iter([dop.order()]),
                                     (ini.last_index() for ini in inis)))
