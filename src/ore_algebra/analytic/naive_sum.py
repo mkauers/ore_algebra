@@ -81,10 +81,9 @@ def series_sum(dop, ini, pt, tgt_error, maj=None, bwrec=None, stop=None,
         ([-3.5751407034...] + [-2.2884877202...]*I)
 
     In normal usage ``pt`` should be an object coercible to a complex ball or an
-    :class:`EvaluationPoint` that wraps such an object. Polynomials (wrapped in
-    EvaluationPoints) are also supported to some extent (essentially, this is
-    intended for use with polynomial indeterminates, and anything else that
-    works does so by accident). ::
+    :class:`EvaluationPoint` that wraps such an object. In addition, there is
+    some support for ``EvaluationPoints`` wrapping identity polynomials. Other
+    cases might work by accident. ::
 
         sage: from ore_algebra.analytic.accuracy import AbsoluteError
         sage: series_sum(Dx - 1, [RBF(1)],
@@ -197,6 +196,23 @@ def series_sum(dop, ini, pt, tgt_error, maj=None, bwrec=None, stop=None,
     return sols[0].value
 
 def guard_bits(dop, maj, pt, ordrec, nterms):
+    r"""
+    Helper for choosing a working precision.
+
+    This is done under the assumption that the first terms of the coefficient
+    sequence are computed in interval arithmetic, and then, starting from some
+    cutoff index, we switch to something like floating-point arithmetic with an
+    rounding error bound computed on the side. This function returns a suggested
+    cutoff index and a corresponding number of guard bits to add to the
+    precision of the output.
+
+    The computation done by this function is heuristic, but the output does not
+    affect the correctness of the final result (only its sharpness and/or the
+    computation time).
+
+    The algorithm is based on what we can expect to happen at an ordinary point
+    and may or may not work in the regular singular case.
+    """
 
     new_cost = cur_cost = sys.maxint
     new_bits = cur_bits = None
@@ -283,7 +299,7 @@ def interval_series_sum_wrapper(ordinary, dop, inis, pt, tgt_error, bwrec, stop,
         # adding twice the computed number of guard bits seems to work better
         # in practice, but I don't really understand why
         bit_prec = bit_prec0 + 2*g
-        logger.info("initial working precision = %s + %s = %s (old = %s), "
+        logger.info("initial working precision = %s + %s = %s (naive = %s), "
                     "squashing intervals for n >= %s",
                     bit_prec0, 2*g, bit_prec, old_bit_prec, n0_squash)
         if fail_fast and bit_prec > 4*bit_prec0 and effort <= 1:
