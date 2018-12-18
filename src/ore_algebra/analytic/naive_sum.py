@@ -34,9 +34,9 @@ from .utilities import short_str
 
 logger = logging.getLogger(__name__)
 
-################################################################################
-# Argument processing etc. (common to the ordinary and the regular case)
-################################################################################
+##########################
+# Argument processing etc.
+##########################
 
 def series_sum(dop, ini, pt, tgt_error, maj=None, bwrec=None, stop=None,
                fail_fast=False, effort=2, **kwds):
@@ -190,8 +190,8 @@ def series_sum(dop, ini, pt, tgt_error, maj=None, bwrec=None, stop=None,
     if stop is None:
         stop = accuracy.StoppingCriterion(maj, tgt_error.eps)
 
-    sols = interval_series_sum_wrapper(False, dop, [ini], pt, tgt_error,
-                                        bwrec, stop, fail_fast, effort, **kwds)
+    sols = interval_series_sum_wrapper(dop, [ini], pt, tgt_error, bwrec, stop,
+                                       fail_fast, effort, **kwds)
     assert len(sols) == 1
     return sols[0].value
 
@@ -272,11 +272,9 @@ def guard_bits(dop, maj, pt, ordrec, nterms):
         if new_n0 > nterms:
             return nterms, guard_bits_intervals
 
-def interval_series_sum_wrapper(ordinary, dop, inis, pt, tgt_error, bwrec, stop,
+def interval_series_sum_wrapper(dop, inis, pt, tgt_error, bwrec, stop,
                                 fail_fast, effort, stride=None,
                                 squash_intervals=False):
-
-    ordinary = False
 
     if stride is None:
         stride = max(50, 2*bwrec.order)
@@ -322,36 +320,20 @@ def interval_series_sum_wrapper(ordinary, dop, inis, pt, tgt_error, bwrec, stop,
         stop.reset(tgt_error.eps >> (4*attempt),
                    stop.fast_fail and ini_are_accurate)
 
-        if ordinary: # temporarily need two variants
-            try:
-                assert len(inis) == 1
-                psum = series_sum_ordinary(Intervals, dop, bwrec, inis[0], pt,
-                                           stop, stride, n0_squash)
-            except accuracy.PrecisionError:
-                if attempt > effort:
-                    raise
-            else:
-                err = max(_get_error(c) for c in psum)
-                logger.debug("bit_prec=%s, err=%s (tgt=%s)", bit_prec, err,
-                            tgt_error)
-                abs_sum = abs(psum[0]) if pt.is_numeric else None
-                if tgt_error.reached(err, abs_sum):
-                    return psum
+        try:
+            sols = series_sum_regular(Intervals, dop, bwrec, inis, pt, stop,
+                                        stride, n0_squash)
+        except accuracy.PrecisionError:
+            if attempt > effort:
+                raise
         else:
-            try:
-                sols = series_sum_regular(Intervals, dop, bwrec, inis, pt, stop,
-                                          stride, n0_squash)
-            except accuracy.PrecisionError:
-                if attempt > effort:
-                    raise
-            else:
-                logger.debug("bit_prec = %s, err = %s (tgt = %s)", bit_prec,
-                            max(sol.total_error for sol in sols), tgt_error)
-                if all(tgt_error.reached(
-                                sol.total_error,
-                                abs(sol.value[0]) if pt.is_numeric else None)
-                        for sol in sols):
-                    return sols
+            logger.debug("bit_prec = %s, err = %s (tgt = %s)", bit_prec,
+                        max(sol.total_error for sol in sols), tgt_error)
+            if all(tgt_error.reached(
+                            sol.total_error,
+                            abs(sol.value[0]) if pt.is_numeric else None)
+                    for sol in sols):
+                return sols
 
         bit_prec *= 2
         if attempt <= effort and bit_prec < max_prec:
@@ -362,139 +344,11 @@ def interval_series_sum_wrapper(ordinary, dop, inis, pt, tgt_error, bwrec, stop,
             raise accuracy.PrecisionError
         else:
             logger.info("lost too much precision, giving up")
-            return psum if ordinary else sols
-
-################################################################################
-# Ordinary points
-################################################################################
-
-def series_sum_ordinary(Intervals, dop, bwrec, ini, pt, stop, stride,
-                        n0_squash):
-
-    jet = pt.jet(Intervals)
-    Jets = jet.parent() # polynomial ring!
-    ord = pt.jet_order
-    jetpow = Jets.one()
-
-    ordrec = bwrec.order
-    assert ini.expo.is_zero()
-    last = collections.deque([Intervals.zero()]*(ordrec - dop.order() + 1))
-    last.extend(Intervals(ini.shift[n][0])
-                for n in xrange(dop.order() - 1, -1, -1))
-    assert len(last) == ordrec + 1 # not ordrec!
-    psum = Jets.zero()
-
-    tail_bound = bounds.IR(infinity)
-
-    start = dop.order()
-    # Evaluate the coefficients a bit in advance as we are going to need them to
-    # compute the residuals. This is not ideal at high working precision, but
-    # already saves a lot of time compared to doing the evaluations twice.
-    bwrec_ev = bwrec.eval_method(Intervals)
-    bwrec_nplus = collections.deque(
-            (bwrec_ev(start+i) for i in xrange(ordrec)),
-            maxlen=ordrec)
-
-    class BoundCallbacks(accuracy.BoundCallbacks):
-        def get_residuals(self):
-            return [stop.maj.normalized_residual(n, [[c] for c in last][1:],
-                        [[[c] for c in l] for l in bwrec_nplus])]
-        def get_bound(self, residuals):
-            return self.get_maj(stop, n, residuals).bound(pt.rad, rows=ord)
-        def get_value(self):
-            return psum
-    cb = BoundCallbacks()
-
-    if n0_squash < sys.maxint:
-        rnd_maj = stop.maj(n0_squash)
-        rnd_maj >>= n0_squash # XXX (a) useful? (b) check correctness
-        rnd_den = rnd_maj.exp_part_coeffs_lbounds()
-        rnd_loc = bounds.IR.zero()
-
-    for n in count():
-        last.rotate(1)
-        #last[0] = None
-        # At this point last[0] should be considered undefined (it will hold
-        # the coefficient of z^n later in the loop body) and last[1], ...
-        # last[ordrec] are the coefficients of z^(n-1), ..., z^(n-ordrec)
-        if n%stride == 0:
-            radpowest = abs(jetpow[0] if pt.is_numeric
-                            else Intervals(pt.rad**n))
-            est = sum(abs(a) for a in last)*radpowest
-            sing = (n <= start)
-            done, tail_bound = stop.check(cb, sing, n, tail_bound, est, stride)
-            if done:
-                break
-        if n >= start:
-            bwrec_n = (bwrec_nplus[0] if bwrec_nplus else bwrec_ev(n))
-            comb = sum(bwrec_n[k]*last[k] for k in xrange(1, ordrec+1))
-            last[0] = -~bwrec_n[0]*comb
-            if n >= n0_squash:
-                rnd_shift, hom_maj_coeff_lb = next(rnd_den)
-                assert n0_squash + rnd_shift == n
-                rnd_loc = rnd_loc.max(
-                        n*bounds.IR(last[0].rad())/hom_maj_coeff_lb)
-                last[0] = last[0].squash()
-            bwrec_nplus.append(bwrec_ev(n+bwrec.order))
-            # logger.debug("n = %s, [c(n), c(n-1), ...] = %s", n, list(last))
-        term = Jets(last[0])._mul_trunc_(jetpow, ord)
-        psum += term
-        jetpow = jetpow._mul_trunc_(jet, ord)
-
-    # Accumulated round-off errors (|ind(n)| = cst·|monic_ind(n)|)
-    if n0_squash < sys.maxint:
-        cst = abs(bounds.IC(stop.maj.dop.leading_coefficient()[0]))
-        rnd_fac = cst*rnd_maj.bound(pt.rad, rows=ord)/n0_squash
-        rnd_err = rnd_loc*rnd_fac
-    else:
-        rnd_err = bounds.IR.zero()
-
-    logger.info("summed %d terms, tail <= %s (est = %s), rnd err <= %s, "
-                "interval width <= %s",
-            n, tail_bound, bounds.IR(est), rnd_err,
-            max(psum[i].rad() for i in range(ord)) if pt.is_numeric else "n/a")
-
-    # Account for the truncation and round-off errors in the intervals we return
-    # (tail_bound is actually a bound on the Frobenius norm of the error matrix,
-    # so there is some overestimation).
-    #
-    # WARNING: For symbolic x, the resulting polynomials have to be interpreted
-    # with some care: in particular, it would be incorrect to evaluate a
-    # polynomial result with real coefficients at a complex point. Our current
-    # mechanism to choose whether to add a real or complex error bound in this
-    # case is pretty fragile.
-    err = tail_bound + rnd_err
-    res = vector(_add_error(psum[i], err) for i in xrange(ord))
-
-    return res
-
-# XXX: pass ctx (→ real/complex?)?
-def fundamental_matrix_ordinary(dop, pt, eps, fail_fast, effort):
-    if pt.branch != (0,):
-        logger.warn("nontrivial branch choice at ordinary point")
-    eps_col = bounds.IR(eps)/bounds.IR(dop.order()).sqrt()
-    eps_col = accuracy.AbsoluteError(eps_col)
-    bwrec = bw_shift_rec(dop)
-    inis = [
-        LogSeriesInitialValues(ZZ.zero(), ini, dop, check=False)
-        for ini in identity_matrix(dop.order())]
-    maj = bounds.DiffOpBound(dop, pol_part_len=4, bound_inverse="solve")
-    assert len(maj.special_shifts) == 1 and maj.special_shifts[0] == 1
-    stop = accuracy.StoppingCriterion(maj, eps_col.eps)
-    cols = [
-        interval_series_sum_wrapper(True, dop, [ini], pt,
-                                    eps_col, bwrec, stop, fail_fast, effort)
-        for ini in inis]
-    return matrix(cols).transpose()
+            return sols
 
 ################################################################################
 # Regular singular points
 ################################################################################
-
-# TODO: Avoid redundant computations at multiple roots of the indicial equation
-# (easy in principle after cleaning up series_sum() for a single root of high
-# multiplicity, needs partial sums from one root to the next or something
-# similar in the general case).
 
 def fundamental_matrix_regular(dop, pt, eps, fail_fast, effort):
     r"""
@@ -556,7 +410,7 @@ def fundamental_matrix_regular(dop, pt, eps, fail_fast, effort):
                         mults=self.shifts,
                         values={(s, m-1): ZZ.one()})
                     for s, m in self.shifts]
-            highest_sols = interval_series_sum_wrapper(False, dop, inis, pt,
+            highest_sols = interval_series_sum_wrapper(dop, inis, pt,
                          eps_col, self.shifted_bwrec, stop, fail_fast, effort)
             self.highest_sols = {}
             for (s, m), sol in zip(self.shifts, highest_sols):

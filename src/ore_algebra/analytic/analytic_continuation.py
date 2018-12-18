@@ -87,24 +87,20 @@ def step_transition_matrix(dop, step, eps, rows=None, split=0, ctx=default_ctx):
         return identity_matrix(ZZ, order)[:rows]
     elif z0.is_ordinary() and z1.is_ordinary():
         logger.info("%s: ordinary case", step)
-        ordinary = True
         inverse = False
     elif z0.is_regular() and z1.is_ordinary():
         logger.info("%s: regular singular case (going out)", step)
-        ordinary = False
         inverse = False
     elif z0.is_ordinary() and z1.is_regular():
         logger.info("%s: regular singular case (going in)", step)
         step = Step(z1, z0)
-        ordinary = False
         inverse = True
         eps /= 2
     else:
         raise ValueError(z0, z1)
     try:
         mat = regular_step_transition_matrix(dop, step, eps, rows,
-                  fail_fast=(split < ctx.max_split), effort=split,
-                  ordinary=ordinary, ctx=ctx)
+                  fail_fast=(split < ctx.max_split), effort=split, ctx=ctx)
     except (accuracy.PrecisionError, bounds.BoundPrecisionError):
         # XXX it would be nicer to return something in this case...
         if split >= ctx.max_split:
@@ -131,7 +127,7 @@ def _use_binsplit(dop, step, eps):
         return False
 
 def regular_step_transition_matrix(dop, step, eps, rows, fail_fast, effort,
-                                   ordinary, ctx=default_ctx):
+                                   ctx=default_ctx):
     ldop = dop.shift(step.start)
     args = (ldop, step.evpt(rows), eps, fail_fast, effort)
     if ctx.force_binsplit():
@@ -141,12 +137,12 @@ def regular_step_transition_matrix(dop, step, eps, rows, fail_fast, effort,
             return binary_splitting.fundamental_matrix_regular(*args)
         except NotImplementedError:
             logger.info("not implemented: falling back on direct summation")
-            return _naive_fundamental_matrix_regular(ordinary, *args)
+            return naive_sum.fundamental_matrix_regular(*args)
     elif ctx.force_naive() or fail_fast:
-        return _naive_fundamental_matrix_regular(ordinary, *args)
+        return naive_sum.fundamental_matrix_regular(*args)
     else:
         try:
-            return _naive_fundamental_matrix_regular(ordinary, *args)
+            return naive_sum.fundamental_matrix_regular(*args)
         except accuracy.PrecisionError as exn:
             try:
                 logger.info("not enough precision, trying binary splitting "
@@ -155,9 +151,6 @@ def regular_step_transition_matrix(dop, step, eps, rows, fail_fast, effort,
             except NotImplementedError:
                 logger.info("unable to use binary splitting")
                 raise exn
-
-def _naive_fundamental_matrix_regular(ordinary, *args):
-    return naive_sum.fundamental_matrix_regular(*args)
 
 def _process_path(dop, path, ctx):
 
