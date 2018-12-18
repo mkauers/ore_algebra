@@ -594,15 +594,33 @@ class PartialSum(object):
 
         self.log_prec = 0
         self.trunc = 0 # first term _not_ in the sum
-        last = [vector(Intervals, 0) for _ in xrange(ordrec + 1)]
+        # Start with vectors of length 1 instead of 0 (but still with log_prec
+        # == 0) to avoid having to resize them, especially in the ordinary case
+        last = [vector(Intervals, 1) for _ in xrange(ordrec + 1)]
         self.last = collections.deque(last) # u[trunc-1], u[trunc-2], ...
         self.critical_coeffs = {}
+        # ...but starting with partial sums of length 0 is better in some
+        # corner cases
         self.psum = vector(Jets, 0)
         self.tail_bound = bounds.IR(infinity)
         self.total_error = bounds.IR(infinity)
 
     def coeff_estimate(self):
         return sum(abs(a) for log_jet in self.last for a in log_jet)
+
+    def next_term_ordinary_initial_part(self, n, jetpow):
+        r"""
+        Similar to next_term(), but limited to n < orddeq at ordinary points,
+        does not support squasing, and does not require evaluating the
+        recurrence.
+        """
+        self.last.rotate(1)
+        self.trunc += 1
+        self.last[0][0] = self.ini.shift[n][0]
+        if not self.ini.shift[n][0].is_zero():
+            self.log_prec = 1
+            self.psum = _resize_vector(self.psum, self.log_prec)
+            self.psum += self.last[0]*jetpow
 
     def next_term(self, n, mult, bwrec_nplus, cst, jetpow, squash):
 
@@ -770,21 +788,22 @@ def series_sum_regular(Intervals, dop, bwrec, inis, pt, stop, stride,
 
     log_prec = 1
     precomp_len = max(1, bwrec.order) # hack for recurrences of order zero
-    if ordinary: # TBI?
-        rec_add_log_prec = 1
-    else:
-        rec_add_log_prec = sum(len(v) for s, v in ini.shift.iteritems()
-                                      if s < precomp_len)
+    start = dop.order() if ordinary else 0
+    assert start <= n0_squash # the special path doesn't squash its result
+    # The next terms of the sum may need a higher log-prec than the current one.
+    rec_add_log_prec = sum(len(v) for s, v in ini.shift.iteritems()
+                                   if start <= s < start + precomp_len)
+    assert rec_add_log_prec == 0 or not ordinary
     bwrec_nplus = collections.deque(
-            (bwrec.eval_series(Intervals, i, log_prec + rec_add_log_prec)
+            (bwrec.eval_series(Intervals, start + i,
+                               log_prec + rec_add_log_prec)
                 for i in xrange(precomp_len)),
             maxlen=precomp_len)
 
     for n in count():
 
         if n%stride == 0 and n > 0:
-            if ordinary:
-                assert log_prec == 1
+            assert log_prec == 1 or not ordinary
             radpowest = (abs(jetpow[0]) if pt.is_numeric
                          else Intervals(pt.rad**n))
             est = sum(sol.coeff_estimate() for sol in sols)*radpowest
@@ -793,26 +812,31 @@ def series_sum_regular(Intervals, dop, bwrec, inis, pt, stop, stride,
             if done:
                 break
 
-        mult = mult_dict[n]
-        cst = - ~bwrec_nplus[0][0][mult]
-        if n >= n0_squash:
-            rnd_shift, hom_maj_coeff_lb = next(rnd_den)
-            assert n0_squash + rnd_shift == n
-        for sol in sols:
-            err = sol.next_term(n, mult, bwrec_nplus, cst, jetpow, n >= n0_squash)
-            if n >= n0_squash:
-                rnd_loc = rnd_loc.max(n*err/hom_maj_coeff_lb)
-        if mult > 0:
-            log_prec = max(1, max(sol.log_prec for sol in sols))
+        if n < start:
+            assert ordinary
+            for sol in sols:
+                sol.next_term_ordinary_initial_part(n, jetpow)
+
+        else:
+            mult = mult_dict[n]
+            cst = - ~bwrec_nplus[0][0][mult]
+            squash = (n >= n0_squash)
+            if squash:
+                rnd_shift, hom_maj_coeff_lb = next(rnd_den)
+                assert n0_squash + rnd_shift == n
+            for sol in sols:
+                err = sol.next_term(n, mult, bwrec_nplus, cst, jetpow, squash)
+                if squash:
+                    rnd_loc = rnd_loc.max(n*err/hom_maj_coeff_lb)
+            if mult > 0:
+                log_prec = max(1, max(sol.log_prec for sol in sols))
+
+            rec_add_log_prec += mult_dict[n + precomp_len] - mult
+            bwrec_nplus.append(bwrec.eval_series(Intervals, n + precomp_len,
+                                                 log_prec + rec_add_log_prec))
+
         jetpow = jetpow._mul_trunc_(jet, ord)
         radpow *= pt.rad
-
-        if ordinary: # TBI?
-            rec_add_log_prec = 1 if mult_dict[n + precomp_len] else 0
-        else:
-            rec_add_log_prec += mult_dict[n + precomp_len] - mult
-        bwrec_nplus.append(bwrec.eval_series(Intervals, n+precomp_len,
-                                             log_prec + rec_add_log_prec))
 
     # Accumulated round-off errors
     # XXX: maybe move this to PartialSum, and/or do it at every convergence
@@ -863,7 +887,10 @@ def _ctz(vec, maxlen):
     return z
 
 def _resize_vector(vec, length):
+    old_length = len(vec)
+    if length == old_length:
+        return vec
     new = vector(vec.base_ring(), length)
-    for i in xrange(min(length, len(vec))):
+    for i in xrange(min(length, old_length)):
         new[i] = vec[i]
     return new
