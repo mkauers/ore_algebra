@@ -28,26 +28,34 @@ logger = logging.getLogger(__name__)
 class Context(object):
 
     def __init__(self, dop=None, path=None, eps=None,
-            keep="last",
             algorithm=None,
+            assume_analytic=False,
             force_algorithm=False,
-            assume_analytic=False):
+            keep="last",
+            max_split=3,
+        ):
 
         # TODO: dop, path, eps...
-
-        if not keep in ["all", "last"]:
-            raise ValueError("keep", keep)
-        self.keep = keep
 
         if not algorithm in [None, "naive", "binsplit"]:
             raise ValueError("algorithm", algorithm)
         self.algorithm = algorithm
 
-        self.force_algorithm = force_algorithm
-
+        if not isinstance(assume_analytic, bool):
+            raise TypeError("assume_analytic", type(assume_analytic))
         self.assume_analytic = assume_analytic
 
-        self.max_split = 3
+        if not isinstance(force_algorithm, bool):
+            raise TypeError("force_algorithm", type(force_algorithm))
+        self.force_algorithm = force_algorithm
+
+        if not keep in ["all", "last"]:
+            raise ValueError("keep", keep)
+        self.keep = keep
+
+        if not isinstance(max_split, int):
+            raise TypeError("max_split", type(max_split))
+        self.max_split = max_split
 
     def __repr__(self):
         return pprint.pformat(self.__dict__)
@@ -64,9 +72,9 @@ class Context(object):
     def force_naive(self):
         return self.prefer_naive() and self.force_algorithm
 
-default_ctx = Context()
+dctx = Context() # default context
 
-def step_transition_matrix(dop, step, eps, rows=None, split=0, ctx=default_ctx):
+def step_transition_matrix(dop, step, eps, rows=None, split=0, ctx=dctx):
     r"""
     TESTS::
 
@@ -127,7 +135,7 @@ def _use_binsplit(dop, step, eps):
         return False
 
 def regular_step_transition_matrix(dop, step, eps, rows, fail_fast, effort,
-                                   ctx=default_ctx):
+                                   ctx=dctx):
     ldop = dop.shift(step.start)
     args = (ldop, step.evpt(rows), eps, fail_fast, effort)
     if ctx.force_binsplit():
@@ -184,7 +192,7 @@ def _process_path(dop, path, ctx):
 
     return path
 
-def analytic_continuation(dop, path, eps, ctx=default_ctx, ini=None, post=None):
+def analytic_continuation(dop, path, eps, ctx=dctx, ini=None, post=None):
     """
     INPUT:
 
