@@ -374,9 +374,11 @@ class LocalBasisMapper(object):
 
         self.bwrec = bw_shift_rec(self.dop) # XXX wasteful in binsplit case
         ind = self.bwrec[0]
-        self.sl_decomp = my_shiftless_decomposition(ind)
-        logger.debug("indicial polynomial = %s (shiftless decomposition = %s)",
-                     ind, self.sl_decomp)
+        if self.dop.leading_coefficient()[0] != 0:
+            n = ind.parent().gen()
+            self.sl_decomp = [(-n, [(i, 1) for i in xrange(self.dop.order())])]
+        else:
+            self.sl_decomp = my_shiftless_decomposition(ind)
 
         self.process_decomposition()
 
