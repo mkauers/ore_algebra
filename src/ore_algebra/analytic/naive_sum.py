@@ -664,7 +664,8 @@ class PartialSum(object):
         else:
             err = None
 
-        self.psum += self.last[0]*jetpow
+        for k in xrange(self.log_prec):
+            self.psum[k] += jetpow._lmul_(self.last[0][k])
 
         return err
 
