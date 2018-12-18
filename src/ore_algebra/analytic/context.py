@@ -11,6 +11,7 @@ class Context(object):
             force_algorithm=False,
             keep="last",
             max_split=3,
+            squash_intervals=False,
         ):
 
         # TODO: dop, path, eps...
@@ -34,6 +35,10 @@ class Context(object):
         if not isinstance(max_split, int):
             raise TypeError("max_split", type(max_split))
         self.max_split = max_split
+
+        if not isinstance(squash_intervals, bool):
+            raise TypeError("squash_intervals", type(squash_intervals))
+        self.squash_intervals = squash_intervals
 
     def __repr__(self):
         return pprint.pformat(self.__dict__)

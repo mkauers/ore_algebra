@@ -25,6 +25,7 @@ from sage.rings.real_arb import RealBallField, RBF, RealBall
 
 from .. import ore_algebra
 from . import accuracy, bounds, utilities
+from .context import Context, dctx
 from .differential_operator import DifferentialOperator
 from .local_solutions import (bw_shift_rec, FundamentalSolution,
         LogSeriesInitialValues, LocalBasisMapper, log_series_values)
@@ -39,7 +40,7 @@ logger = logging.getLogger(__name__)
 ##########################
 
 def series_sum(dop, ini, pt, tgt_error, maj=None, bwrec=None, stop=None,
-               fail_fast=False, effort=2, **kwds):
+               fail_fast=False, effort=2, stride=None, **kwds):
     r"""
     Sum a (generalized) series solution of dop.
 
@@ -190,8 +191,10 @@ def series_sum(dop, ini, pt, tgt_error, maj=None, bwrec=None, stop=None,
     if stop is None:
         stop = accuracy.StoppingCriterion(maj, tgt_error.eps)
 
+    ctx = Context(**kwds)
+
     sols = interval_series_sum_wrapper(dop, [ini], pt, tgt_error, bwrec, stop,
-                                       fail_fast, effort, **kwds)
+                                       fail_fast, effort, stride, ctx)
     assert len(sols) == 1
     return sols[0].value
 
@@ -273,8 +276,7 @@ def guard_bits(dop, maj, pt, ordrec, nterms):
             return nterms, guard_bits_intervals
 
 def interval_series_sum_wrapper(dop, inis, pt, tgt_error, bwrec, stop,
-                                fail_fast, effort, stride=None,
-                                squash_intervals=False):
+                                fail_fast, effort, stride, ctx=dctx):
 
     if stride is None:
         stride = max(50, 2*bwrec.order)
@@ -286,10 +288,10 @@ def interval_series_sum_wrapper(dop, inis, pt, tgt_error, bwrec, stop,
                                (ini.accuracy() for ini in inis)))
     logger.log(logging.INFO - 1, "target error = %s", tgt_error)
 
+    ordinary = dop.leading_coefficient()[0] != 0
     bit_prec0 = utilities.prec_from_eps(tgt_error.eps)
     old_bit_prec = 8 + bit_prec0*(1 + ZZ(bwrec.order - 2).nbits())
-    if squash_intervals:
-        assert dop.leading_coefficient()[0] != 0
+    if ctx.squash_intervals and ordinary:
         nterms, lg_mag = dop.est_terms(pt, bit_prec0)
         nterms = (bwrec.order*dop.order() + nterms)*1.2 # let's be pragmatic
         nterms = ZZ((nterms//stride + 1)*stride)
@@ -350,7 +352,7 @@ def interval_series_sum_wrapper(dop, inis, pt, tgt_error, bwrec, stop,
 # Regular singular points
 ################################################################################
 
-def fundamental_matrix_regular(dop, pt, eps, fail_fast, effort):
+def fundamental_matrix_regular(dop, pt, eps, fail_fast, effort, ctx=dctx):
     r"""
     Fundamental matrix at a possibly regular singular point
 
@@ -410,8 +412,8 @@ def fundamental_matrix_regular(dop, pt, eps, fail_fast, effort):
                         mults=self.shifts,
                         values={(s, m-1): ZZ.one()})
                     for s, m in self.shifts]
-            highest_sols = interval_series_sum_wrapper(dop, inis, pt,
-                         eps_col, self.shifted_bwrec, stop, fail_fast, effort)
+            highest_sols = interval_series_sum_wrapper(dop, inis, pt, eps_col,
+                    self.shifted_bwrec, stop, fail_fast, effort, None, ctx)
             self.highest_sols = {}
             for (s, m), sol in zip(self.shifts, highest_sols):
                 sol.update_downshifts(pt, range(m))

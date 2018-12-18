@@ -231,6 +231,7 @@ from sage.structure.coerce_exceptions import CoercionException
 
 from . import accuracy, bounds, utilities
 
+from .context import dctx
 from .local_solutions import (bw_shift_rec, FundamentalSolution,
         LocalBasisMapper, log_series_values)
 from .safe_cmp import *
@@ -1093,7 +1094,7 @@ class MatrixRecsUnroller(LocalBasisMapper):
         # solutions later on.
         return SolutionColumn(self.matrix_rec, self.shift, self.log_power)
 
-def fundamental_matrix_regular(dop, pt, eps, fail_fast, effort):
+def fundamental_matrix_regular(dop, pt, eps, fail_fast, effort, ctx=dctx):
     rows = pt.jet_order
     cols = MatrixRecsUnroller(dop, pt, eps, rows).run()
     return matrix([sol.value for sol in cols]).transpose()

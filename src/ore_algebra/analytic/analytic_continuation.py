@@ -89,7 +89,7 @@ def _use_binsplit(dop, step, eps):
 def regular_step_transition_matrix(dop, step, eps, rows, fail_fast, effort,
                                    ctx=dctx):
     ldop = dop.shift(step.start)
-    args = (ldop, step.evpt(rows), eps, fail_fast, effort)
+    args = (ldop, step.evpt(rows), eps, fail_fast, effort, ctx)
     if ctx.force_binsplit():
         return binary_splitting.fundamental_matrix_regular(*args)
     elif ctx.prefer_binsplit() or _use_binsplit(ldop, step, eps):
