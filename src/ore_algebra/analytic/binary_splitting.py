@@ -59,7 +59,7 @@ corresponding series do not continue::
 More examples::
 
     sage: from ore_algebra.examples import fcc
-    sage: fcc.dop5.numerical_solution( # long time (3.8 s)
+    sage: fcc.dop5.numerical_solution( # long time (3.5 s)
     ....:          [0, 0, 0, 0, 1, 0], [0, 1/5+i/2, 1],
     ....:          1e-60, algorithm='binsplit')
     [1.048852351354914851629563763699992759454025504652066403...] + [+/- ...]*I
