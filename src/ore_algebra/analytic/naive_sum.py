@@ -589,6 +589,7 @@ class PartialSum(object):
     def __init__(self, Intervals, Jets, ini, ordrec):
 
         self.Intervals = Intervals
+        self._use_sum_of_products = hasattr(Intervals, '_sum_of_products')
         self.ini = ini
         self.ordrec = ordrec
 
@@ -622,7 +623,7 @@ class PartialSum(object):
             self.psum = _resize_vector(self.psum, self.log_prec)
             self.psum += self.last[0]*jetpow
 
-    def next_term(self, n, mult, bwrec_nplus, cst, jetpow, squash):
+    def next_term(self, n, mult, bwrec_n, cst, jetpow, squash):
 
         assert n == self.trunc
         self.last.rotate(1)
@@ -634,13 +635,16 @@ class PartialSum(object):
         zero = self.Intervals.zero()
 
         for p in xrange(self.log_prec - 1, -1, -1):
-            combin  = sum((bwrec_nplus[0][i][j]*self.last[i][p+j]
-                            for j in xrange(self.log_prec - p)
-                            for i in xrange(self.ordrec, 0, -1)),
-                          zero)
-            combin += sum((bwrec_nplus[0][0][j]*self.last[0][p+j]
-                           for j in xrange(mult + 1, mult + self.log_prec - p)),
-                          zero)
+            terms = chain(
+                    ((bwrec_n[i][j], self.last[i][p+j])
+                        for j in xrange(self.log_prec - p)
+                        for i in xrange(self.ordrec, 0, -1)),
+                    ((bwrec_n[0][j], self.last[0][p+j])
+                        for j in xrange(mult + 1, mult + self.log_prec - p)))
+            if self._use_sum_of_products:
+                combin = self.Intervals._sum_of_products(terms)
+            else:
+                combin = sum((a*b for a, b in terms), zero)
             self.last[0][mult + p] = cst * combin
         for p in xrange(mult - 1, -1, -1):
             self.last[0][p] = self.ini.shift[n][p]
@@ -826,7 +830,7 @@ def series_sum_regular(Intervals, dop, bwrec, inis, pt, stop, stride,
                 rnd_shift, hom_maj_coeff_lb = next(rnd_den)
                 assert n0_squash + rnd_shift == n
             for sol in sols:
-                err = sol.next_term(n, mult, bwrec_nplus, cst, jetpow, squash)
+                err = sol.next_term(n, mult, bwrec_nplus[0], cst, jetpow, squash)
                 if squash:
                     rnd_loc = rnd_loc.max(n*err/hom_maj_coeff_lb)
             if mult > 0:
