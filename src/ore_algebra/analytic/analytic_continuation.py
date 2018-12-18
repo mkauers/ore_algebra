@@ -20,59 +20,11 @@ from sage.rings.real_arb import RealBallField
 from sage.structure.element import Matrix, canonical_coercion
 from sage.structure.sequence import Sequence
 
+from .context import Context, dctx # re-export Context
 from .differential_operator import DifferentialOperator
 from .path import Path, Step
 
 logger = logging.getLogger(__name__)
-
-class Context(object):
-
-    def __init__(self, dop=None, path=None, eps=None,
-            algorithm=None,
-            assume_analytic=False,
-            force_algorithm=False,
-            keep="last",
-            max_split=3,
-        ):
-
-        # TODO: dop, path, eps...
-
-        if not algorithm in [None, "naive", "binsplit"]:
-            raise ValueError("algorithm", algorithm)
-        self.algorithm = algorithm
-
-        if not isinstance(assume_analytic, bool):
-            raise TypeError("assume_analytic", type(assume_analytic))
-        self.assume_analytic = assume_analytic
-
-        if not isinstance(force_algorithm, bool):
-            raise TypeError("force_algorithm", type(force_algorithm))
-        self.force_algorithm = force_algorithm
-
-        if not keep in ["all", "last"]:
-            raise ValueError("keep", keep)
-        self.keep = keep
-
-        if not isinstance(max_split, int):
-            raise TypeError("max_split", type(max_split))
-        self.max_split = max_split
-
-    def __repr__(self):
-        return pprint.pformat(self.__dict__)
-
-    def prefer_binsplit(self):
-        return self.algorithm == "binsplit"
-
-    def force_binsplit(self):
-        return self.prefer_binsplit() and self.force_algorithm
-
-    def prefer_naive(self):
-        return self.algorithm == "naive"
-
-    def force_naive(self):
-        return self.prefer_naive() and self.force_algorithm
-
-dctx = Context() # default context
 
 def step_transition_matrix(dop, step, eps, rows=None, split=0, ctx=dctx):
     r"""
