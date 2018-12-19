@@ -502,6 +502,12 @@ class PartialSum(object):
             else:
                 combin = sum((a*b for a, b in terms), zero)
             self.last[0][mult + p] = cst * combin
+
+        err = None
+        if mult == 0 and squash:
+            err = accuracy.IR(self.last[0][0].rad())
+            self.last[0][0] = self.last[0][0].squash()
+
         for p in xrange(mult - 1, -1, -1):
             self.last[0][p] = self.ini.shift[n][p]
 
@@ -517,12 +523,6 @@ class PartialSum(object):
 
         if self.log_prec == mult == 0:
             return accuracy.IR.zero()
-
-        if squash:
-            err = accuracy.IR(self.last[0][0].rad())
-            self.last[0][0] = self.last[0][0].squash()
-        else:
-            err = None
 
         for k in xrange(self.log_prec):
             self.psum[k] += jetpow._lmul_(self.last[0][k])
