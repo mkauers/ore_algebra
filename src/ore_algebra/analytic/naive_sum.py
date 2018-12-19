@@ -12,7 +12,7 @@ from __future__ import division, print_function
 
 import collections, logging, sys
 
-from itertools import count, chain
+from itertools import count, chain, repeat
 
 from sage.matrix.constructor import identity_matrix, matrix
 from sage.modules.free_module_element import vector
@@ -445,6 +445,7 @@ class PartialSum(object):
     def __init__(self, Intervals, Jets, ini, ordrec):
 
         self.Intervals = Intervals
+        self.Jets = Jets
         self._use_sum_of_products = hasattr(Intervals, '_sum_of_products')
         self.ini = ini
         self.ordrec = ordrec
@@ -453,12 +454,12 @@ class PartialSum(object):
         self.trunc = 0 # first term _not_ in the sum
         # Start with vectors of length 1 instead of 0 (but still with log_prec
         # == 0) to avoid having to resize them, especially in the ordinary case
-        last = [vector(Intervals, 1) for _ in xrange(ordrec + 1)]
+        last = [[Intervals.zero()] for _ in xrange(ordrec + 1)]
         self.last = collections.deque(last) # u[trunc-1], u[trunc-2], ...
         self.critical_coeffs = {}
         # ...but starting with partial sums of length 0 is better in some
         # corner cases
-        self.psum = vector(Jets, 0)
+        self.psum = []
         self.tail_bound = bounds.IR(infinity)
         self.total_error = bounds.IR(infinity)
 
@@ -473,11 +474,12 @@ class PartialSum(object):
         """
         self.last.rotate(1)
         self.trunc += 1
-        self.last[0][0] = self.ini.shift[n][0]
+        self.last[0][0] = self.Intervals(self.ini.shift[n][0])
         if not self.ini.shift[n][0].is_zero():
             self.log_prec = 1
-            self.psum = _resize_vector(self.psum, self.log_prec)
-            self.psum += self.last[0]*jetpow
+            if not self.psum:
+                self.psum.append(self.Jets.zero())
+            self.psum[0] += jetpow._lmul_(self.last[0][0])
 
     def next_term(self, n, mult, bwrec_n, cst, jetpow, squash):
 
@@ -485,10 +487,10 @@ class PartialSum(object):
         self.last.rotate(1)
         self.trunc += 1
 
-        if mult > 0:
-            self.last[0] = vector(self.Intervals, self.log_prec + mult)
-
         zero = self.Intervals.zero()
+
+        if mult > 0:
+            self.last[0] = [zero]*(self.log_prec + mult)
 
         for p in xrange(self.log_prec - 1, -1, -1):
             terms = chain(
@@ -509,17 +511,17 @@ class PartialSum(object):
             self.last[0][0] = self.last[0][0].squash()
 
         for p in xrange(mult - 1, -1, -1):
-            self.last[0][p] = self.ini.shift[n][p]
+            self.last[0][p] = self.Intervals(self.ini.shift[n][p])
 
         if mult > 0:
 
-            self.critical_coeffs[n] = self.last[0]
+            self.critical_coeffs[n] = list(self.last[0])
 
             nz = mult - _ctz(self.last[0], mult)
             self.log_prec += nz
-            for i in xrange(len(self.last)):
-                self.last[i] = _resize_vector(self.last[i], self.log_prec)
-            self.psum = _resize_vector(self.psum, self.log_prec)
+            for l in self.last:
+                _resize_list(l, self.log_prec, zero)
+            _resize_list(self.psum, self.log_prec, self.Jets.zero())
 
         if self.log_prec == mult == 0:
             return accuracy.IR.zero()
@@ -549,7 +551,8 @@ class PartialSum(object):
         r"""
         Value taking into account logs etc. but ignoring the truncation error.
         """
-        [v] = log_series_values(Jets, self.ini.expo, self.psum, pt)
+        psum = vector(Jets, self.psum)
+        [v] = log_series_values(Jets, self.ini.expo, psum, pt)
         return v
 
     def interval_width(self):
@@ -747,11 +750,9 @@ def _ctz(vec, maxlen):
             break
     return z
 
-def _resize_vector(vec, length):
-    old_length = len(vec)
-    if length == old_length:
-        return vec
-    new = vector(vec.base_ring(), length)
-    for i in xrange(min(length, old_length)):
-        new[i] = vec[i]
-    return new
+def _resize_list(l, n, z):
+    n0 = len(l)
+    if n > n0:
+        l.extend(repeat(z, n - n0))
+    elif n < n0:
+        l[n:] = []
