@@ -31,7 +31,7 @@ setup(
     license = "GPL",
     packages = ["ore_algebra", "ore_algebra.analytic", "ore_algebra.analytic.examples", "ore_algebra.examples"],
     package_dir = {'': 'src/'},
-    ext_modules = cythonize("src/ore_algebra/analytic/binary_splitting_arb.pyx"),
+    ext_modules = cythonize("src/ore_algebra/analytic/*.pyx"),
     include_dirs=sage.env.sage_include_directories(),
     cmdclass = {'test': TestCommand}
     )

@@ -10,7 +10,7 @@ Evaluation of convergent D-finite series by direct summation
 
 from __future__ import division, print_function
 
-import collections, logging, sys
+import collections, logging, sys, warnings
 
 from itertools import count, chain, repeat
 
@@ -34,6 +34,15 @@ from .safe_cmp import *
 from .utilities import short_str
 
 logger = logging.getLogger(__name__)
+
+def cyPartialSum():
+    try:
+        from . import naive_sum_c
+        return naive_sum_c.PartialSum
+    except ImportError:
+        warnings.warn("Cython implementation unavailable, "
+                      "falling back to slower Python implementation")
+        return PartialSum
 
 ##########################
 # Argument processing etc.
@@ -196,7 +205,8 @@ def series_sum(dop, ini, pt, tgt_error, maj=None, bwrec=None, stop=None,
     sols = interval_series_sum_wrapper(dop, [ini], pt, tgt_error, bwrec, stop,
                                        fail_fast, effort, stride, ctx)
     assert len(sols) == 1
-    return sols[0].value
+    sols[0].update_downshifts(pt, [0])
+    return sols[0].downshifts[0]
 
 def guard_bits(dop, maj, pt, ordrec, nterms):
     r"""
@@ -280,7 +290,10 @@ def interval_series_sum_wrapper(dop, inis, pt, tgt_error, bwrec, stop,
 
     if stride is None:
         stride = max(50, 2*bwrec.order)
-    if pt.is_real_or_symbolic() and all(ini.is_real(dop) for ini in inis):
+    real = pt.is_real_or_symbolic() and all(ini.is_real(dop) for ini in inis)
+    if pt.is_numeric and cyPartialSum() is not PartialSum:
+        ivs = ComplexBallField
+    elif real:
         ivs = RealBallField
     else:
         ivs = ComplexBallField
@@ -324,7 +337,7 @@ def interval_series_sum_wrapper(dop, inis, pt, tgt_error, bwrec, stop,
 
         try:
             sols = series_sum_regular(Intervals, dop, bwrec, inis, pt, stop,
-                                        stride, n0_squash)
+                                      stride, n0_squash, real)
         except accuracy.PrecisionError:
             if attempt > effort:
                 raise
@@ -442,13 +455,15 @@ def fundamental_matrix_regular(dop, pt, eps, fail_fast, effort, ctx=dctx):
 
 class PartialSum(object):
 
-    def __init__(self, Intervals, Jets, ini, ordrec):
+    def __init__(self, Intervals, Jets, ini, ordrec, real):
 
         self.Intervals = Intervals
         self.Jets = Jets
         self._use_sum_of_products = hasattr(Intervals, '_sum_of_products')
         self.ini = ini
         self.ordrec = ordrec
+
+        self.force_real = real and isinstance(Intervals, ComplexBallField)
 
         self.log_prec = 0
         self.trunc = 0 # first term _not_ in the sum
@@ -462,6 +477,9 @@ class PartialSum(object):
         self.psum = []
         self.tail_bound = bounds.IR(infinity)
         self.total_error = bounds.IR(infinity)
+
+        self.value = None
+        self.downshifts = []
 
     def coeff_estimate(self):
         return sum(abs(a) for log_jet in self.last for a in log_jet)
@@ -480,6 +498,17 @@ class PartialSum(object):
             if not self.psum:
                 self.psum.append(self.Jets.zero())
             self.psum[0] += jetpow._lmul_(self.last[0][0])
+
+    def handle_singular_index(self, n, mult):
+
+        self.critical_coeffs[n] = list(c.real() if self.force_real else c
+                                       for c in self.last[0])
+
+        nz = mult - _ctz(self.last[0], mult)
+        self.log_prec += nz
+        for l in self.last:
+            _resize_list(l, self.log_prec, self.Intervals.zero())
+        _resize_list(self.psum, self.log_prec, self.Jets.zero())
 
     def next_term(self, n, mult, bwrec_n, cst, jetpow, squash):
 
@@ -514,14 +543,7 @@ class PartialSum(object):
             self.last[0][p] = self.Intervals(self.ini.shift[n][p])
 
         if mult > 0:
-
-            self.critical_coeffs[n] = list(self.last[0])
-
-            nz = mult - _ctz(self.last[0], mult)
-            self.log_prec += nz
-            for l in self.last:
-                _resize_list(l, self.log_prec, zero)
-            _resize_list(self.psum, self.log_prec, self.Jets.zero())
+            self.handle_singular_index(n, mult)
 
         if self.log_prec == mult == 0:
             return accuracy.IR.zero()
@@ -544,8 +566,27 @@ class PartialSum(object):
                                      (_get_error(c) for c in self.value)))
 
     def update_downshifts(self, pt, downshift):
-        self.downshifts = log_series_values(self.series.base_ring(),
-                self.ini.expo, self.series, pt, downshift=downshift)
+        r"""
+        Compute the values of the partial sums of this solution and its "down
+        shifts".
+
+        The down shifts are obtained by decreasing k by one in each occurrence
+        of log(z)^k/k!, and removing the terms where k < 0.
+
+        Unlike the other variants, this function forgets the imaginary part of
+        the computed partial sums if self.force_real is set.
+        """
+        Jets = self.series.base_ring()
+        if self.force_real:
+            Jets = Jets.change_ring(Jets.base().base())
+            assert all(c.imag().contains_zero()
+                       for jet in self.series for c in jet)
+            jets = [Jets([c.real() for c in jet]) for jet in self.series]
+            series = vector(Jets, self.log_prec, jets)
+        else:
+            series = self.series
+        self.downshifts = log_series_values(Jets, self.ini.expo, series,
+                pt, downshift=downshift)
 
     def bare_value(self, Jets, pt):
         r"""
@@ -559,7 +600,7 @@ class PartialSum(object):
         return max(c.rad() for c in self.value)
 
 def series_sum_regular(Intervals, dop, bwrec, inis, pt, stop, stride,
-                        n0_squash):
+                       n0_squash, real):
     r"""
     Compute partial sums of one or several logarithmic series solution of an
     operator that may have a regular singular point at the origin.
@@ -627,7 +668,9 @@ def series_sum_regular(Intervals, dop, bwrec, inis, pt, stop, stride,
 
     last_index_with_ini = max(chain(iter([dop.order()]),
                                     (ini.last_index() for ini in inis)))
-    sols = [PartialSum(Intervals, Jets, ini, bwrec.order) for ini in inis]
+
+    PS = cyPartialSum() if pt.is_numeric else PartialSum
+    sols = [PS(Intervals, Jets, ini, bwrec.order, real) for ini in inis]
 
     class BoundCallbacks(accuracy.BoundCallbacks):
         def get_residuals(self):
