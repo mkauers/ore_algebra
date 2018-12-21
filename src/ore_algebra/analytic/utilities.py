@@ -76,7 +76,7 @@ def as_embedded_number_field_elements(algs):
         nf = NumberField(nf.polynomial(), nf.variable_name(),
                     embedding=emb(nf.gen()))
         elts = [elt.polynomial()(nf.gen()) for elt in elts]
-    assert [QQbar.coerce(elt) == alg for alg, elt in zip(algs, elts)]
+    # assert [QQbar.coerce(elt) == alg for alg, elt in zip(algs, elts)]
     return nf, elts
 
 def as_embedded_number_field_element(alg):
