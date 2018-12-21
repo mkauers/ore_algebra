@@ -582,7 +582,7 @@ class Step(SageObject):
         res = []
         for s in sing:
             ds = s - self.start.iv()
-            t = self.delta()/ds
+            t = (self.end.iv() - self.start.iv())/ds
             if (ds.contains_zero() or t.imag().contains_zero()
                     and not safe_lt(t.real(), IR.one())):
                 res.append(s)
