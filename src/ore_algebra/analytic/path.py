@@ -233,8 +233,7 @@ class Point(SageObject):
 
     def rationalize(self):
         a = self.iv()
-        lc = self.dop.leading_coefficient()
-        if lc(a).contains_zero():
+        if any(a.overlaps(s) for s in self.dop._singularities(IC)):
             raise PathPrecisionError
         else:
             return Point(_rationalize(a), self.dop)
