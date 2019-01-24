@@ -448,6 +448,9 @@ Miscellaneous tests::
     sage: ((dop.numerical_transition_matrix([0,1])*dop.numerical_transition_matrix([1, 1+i, 0]) - 1)).norm('frob') < 1e-13
     True
 
+    sage: ((9*x^2 - 1)*Dx + 18*x).numerical_transition_matrix([0,I,1], squash_intervals=True)
+    [[-0.125000000000000...] + [+/- ...]*I]
+
 Test suite
 ==========
 

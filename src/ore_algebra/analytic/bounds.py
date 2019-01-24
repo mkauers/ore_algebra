@@ -164,7 +164,9 @@ class RationalMajorant(MajorantSeries):
     A rational power series with nonnegative coefficients, represented as an
     unevaluated sum of rational fractions with factored denominators.
 
-    The terms must be ordered by decreasing radii of convergence.
+    The terms must be ordered by decreasing radii of convergence as estimated
+    from the denominator (some numerators may be zero, or, more generally,
+    the numerator and denominator may have common factors).
 
     TESTS::
 
@@ -172,7 +174,8 @@ class RationalMajorant(MajorantSeries):
         sage: Pol.<z> = RBF[]
         sage: den = Factorization([(1-z, 2), (2-z, 1)])
         sage: one = Pol.one().factor()
-        sage: maj = RationalMajorant([(1 + z, one), (z^2, den)]) ; maj
+        sage: maj = RationalMajorant([(1 + z, one), (z^2, den), (Pol(0), den)])
+        sage: maj
         1.000... + 1.000...*z + z^2/((-z + 2.000...) * (-z + 1.000...)^2)
         sage: maj(1/2)
         [2.166...]
@@ -187,15 +190,23 @@ class RationalMajorant(MajorantSeries):
         [0, 0, 0, ...]
         sage: maj._test(1 + z + z^2/((1-z)*(2-z)), return_difference=True)
         [0, 0, 0, 0.5000000000000000, 1.250000000000000, ...]
+
+        sage: RationalMajorant([(Pol(0), den), (Pol(0), den)]).cvrad
+        [+/- inf]
     """
 
     def __init__(self, fracs):
         self.Poly = Poly = fracs[0][0].parent().change_ring(IR)
         self._Poly_IC = fracs[0][0].parent().change_ring(IC)
-        cvrad = _zero_free_rad([-fac for fac, _ in fracs[-1][1]
-                                     if fac.degree() > 0])
-        assert cvrad.identical(_zero_free_rad([-fac for _, den in fracs
-                                       for fac, _ in den if fac.degree() > 0]))
+        fracs = [(num, den) for num, den in fracs if num]
+        if fracs:
+            cvrad = _zero_free_rad([-fac for fac, _ in fracs[-1][1]
+                                         if fac.degree() > 0])
+        else:
+            cvrad = IR(infinity)
+        assert cvrad.identical(
+                _zero_free_rad([-fac for num, den in fracs if num
+                                     for fac, _ in den if fac.degree() > 0]))
         super(self.__class__, self).__init__(Poly.variable_name(), cvrad=cvrad)
         self.fracs = []
         for num, den in fracs:
