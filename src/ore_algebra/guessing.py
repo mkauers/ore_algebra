@@ -482,7 +482,6 @@ def guess_hp(data, A, order=-1, degree=-1, lift=None, cut=25, ensure=0, infoleve
             series.append((series[1]*series[-1]).truncate(truncate))
 
     info(2, lazy_string(lambda: datetime.today().ctime() + ": matrix construction completed."))
-    print matrix(R, [series])
     sol = _hermite(True, matrix(R, [series]), [degree], infolevel - 2, truncate = truncate - 1)
     info(2, lazy_string(lambda: datetime.today().ctime() + ": hermite pade approximation completed."))
 
