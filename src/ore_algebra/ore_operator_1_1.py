@@ -1394,7 +1394,10 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             raise TypeError, "not an adequate algebra"
         else:
             rec_algebra = alg
-        
+
+        if self.is_zero():
+            return rec_algebra.zero()
+            
         numer = self.numerator()
         coeffs = [list(c) for c in list(numer)]
         lengths = [len(c) for c in coeffs]
@@ -1433,7 +1436,10 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             if result[i]:
                 from_newton_basis(result[i], range(-i, -i + r))
 
-        return rec_algebra(result)
+        rec = rec_algebra(result)
+        sigma = rec_algebra.sigma()
+        v = rec.valuation()
+        return rec.map_coefficients(lambda p: sigma(p, -v)) // rec_algebra.gen()**v
 
     def to_F(self, alg):
         """
