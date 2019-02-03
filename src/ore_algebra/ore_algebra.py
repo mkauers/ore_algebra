@@ -859,12 +859,14 @@ def OreAlgebra(base_ring, *generators, **kwargs):
                 gens[i] = (gens[i], {}, {x:x})
             elif head == 'Q': # q-shift
                 if kwargs.has_key('q'):
-                    q = kwargs['q']
+                    q = R(kwargs['q'])
                 else:
                     try:
                         q = R('q')
                     except:
                         raise TypeError, "base ring has no element 'q'"
+                if q.is_one():
+                    raise ValueError, "q must not be 1"
                 gens[i] = (gens[i], {x:q*x}, {})
             elif head == 'J': # q-derivative
                 if kwargs.has_key('q'):
@@ -1445,7 +1447,7 @@ class OreAlgebra_generic(UniqueRepresentation, Algebra):
         for x in R.gens():
             try:
                 sx = sigma(x); 
-                if sigma(sx)*x == sx**2 and delta(x) == zero:
+                if sx != x and sigma(sx)*x == sx**2 and delta(x) == zero:
                     candidates.append((x, R.base_ring()(sx(1))))
             except:
                 pass

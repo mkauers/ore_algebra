@@ -688,7 +688,7 @@ def _hermite(early_termination, mat, degrees, infolevel, truncate=None):
     _launch_info(infolevel, "hermite", dim=(n,m), deg=matdeg, domain=mat.parent().base_ring())
 
     if truncate is not None:
-        deg = truncate + matdeg
+        deg = truncate
         early_termination = False
     elif len(degrees) < 1:
         deg = (min(n, m) + 1)*matdeg
@@ -699,7 +699,9 @@ def _hermite(early_termination, mat, degrees, infolevel, truncate=None):
     V, done = _hermite_rec(early_termination, R, mat, deg + 1, [0 for i in xrange(m) ], \
                            _alter_infolevel(infolevel, -1, 1))
     V = V.transpose()
-    if not truncate and not done:
+    if truncate is not None:
+        V = [ v for v in V if max(p.degree() for p in v) <= truncate/m ] 
+    elif not done:
         V = [ v for v in V if max(p.degree() for p in v) <= deg - matdeg ]
     # if the coefficient domain is a field, make the lowest-indexed nonzero component of each vector monic
     if R.base_ring().is_field():

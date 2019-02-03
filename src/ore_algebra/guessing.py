@@ -18,13 +18,13 @@ Guessing
 
 
 ######### development mode ###########
-
+"""
 try:
     if sys.modules.has_key('ore_algebra'):
         del sys.modules['ore_algebra']
 except:
     pass
-
+"""
 #######################################
 
 import math
@@ -298,12 +298,13 @@ def guess_raw(data, A, order=-1, degree=-1, lift=None, solver=None, cut=25, ensu
     info(1, lazy_string(lambda: datetime.today().ctime() + ": raw guessing started."))
     info(1, "len(data)=" + str(len(data)) + ", algebra=" + str(A._latex_()))
 
-    if A.ngens() > 1 or (not A.is_S() and not A.is_Q() and not A.is_D() ):
+    if A.ngens() > 1 or (not A.is_S() and not A.is_Q() and not A.is_D() and not A.is_C()):
         raise TypeError, "unexpected algebra"
 
+    alg_case = True if A.is_C() else False
     diff_case = True if A.is_D() else False
     deform = (lambda n: q[1]**n) if q is not False else (lambda n: n)
-    min_len_data = (order + 1)*(degree + 2)
+    min_len_data = (order + 1)*(degree + 2 - (1 if alg_case else 0))
 
     if cut is not None and len(data) > min_len_data + cut:
         data = data[:min_len_data + cut]
@@ -327,7 +328,17 @@ def guess_raw(data, A, order=-1, degree=-1, lift=None, solver=None, cut=25, ensu
     nn = [deform(n) for n in xrange(len(data))]
     z = [K.zero()]
 
-    if diff_case:
+    if alg_case:
+        # sys[i, j] contains x^i * series(data)^j 
+        series = R(data)
+        sys[0, 0] = R.one()
+        for j in xrange(order):
+            sys[0, j + 1] = (sys[0, j]*series).truncate(len(data))
+        for j in xrange(order + 1):
+            sys[0, j] = sys[0, j].padded_list(len(data))
+            for i in xrange(degree):
+                sys[i + 1, j] = z + sys[i, j]
+    elif diff_case:
         # sys[i, j] contains ( x^i * D^j ) (data)
         nn = nn[1:]
         for j in xrange(order):
@@ -471,6 +482,7 @@ def guess_hp(data, A, order=-1, degree=-1, lift=None, cut=25, ensure=0, infoleve
             series.append((series[1]*series[-1]).truncate(truncate))
 
     info(2, lazy_string(lambda: datetime.today().ctime() + ": matrix construction completed."))
+    print matrix(R, [series])
     sol = _hermite(True, matrix(R, [series]), [degree], infolevel - 2, truncate = truncate - 1)
     info(2, lazy_string(lambda: datetime.today().ctime() + ": hermite pade approximation completed."))
 
