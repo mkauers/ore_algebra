@@ -683,6 +683,8 @@ def _hermite(early_termination, mat, degrees, infolevel, truncate=None):
     """
     internal version of nullspace.hermite_.
     """
+    # if the truncate option is set to an integer, approximation proceeds to order x^truncate
+    # and, if len(degrees)>0, only solutions whose degree is at most degrees[0] are returned. 
     
     n, m = mat.dimensions(); matdeg = max( mat[i,j].degree() for i in xrange(n) for j in xrange(m) )
     _launch_info(infolevel, "hermite", dim=(n,m), deg=matdeg, domain=mat.parent().base_ring())
@@ -700,9 +702,10 @@ def _hermite(early_termination, mat, degrees, infolevel, truncate=None):
                            _alter_infolevel(infolevel, -1, 1))
     V = V.transpose()
     if truncate is not None:
-        V = [ v for v in V if max(p.degree() for p in v) <= truncate/m ] 
+        if len(degrees) > 0:
+            V = [ v for v in V if max(p.degree() for p in v) <= degrees[0] ] 
     elif not done:
-        V = [ v for v in V if max(p.degree() for p in v) <= deg - matdeg ]
+        V = [ v for v in V if max(p.degree() for p in v) <= deg - matdeg ] 
     # if the coefficient domain is a field, make the lowest-indexed nonzero component of each vector monic
     if R.base_ring().is_field():
         one = R.base_ring().one()
