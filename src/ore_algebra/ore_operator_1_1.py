@@ -1905,6 +1905,11 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         minimal exponent `\alpha` is a root of the indicial polynomial. The
         converse may not hold.
 
+        When `p` has degree one (but not in general), the degree of the
+        indicial polynomial is equal to the order of the operator if and only
+        if the root of `p` is an ordinary or regular singular point of the
+        operator.
+
         INPUT:
 
         - ``p`` -- an irreducible polynomial in the base ring of the operator
@@ -1923,6 +1928,23 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             (-1) * 2 * (alpha - 7) * (alpha - 5)
             sage: L.indicial_polynomial(x^2+1).factor()
             5 * 7 * (alpha - 1) * alpha * (2*alpha - 7)
+
+        The indicial polynomial at `p` is not always the same as the indicial
+        polynomial at a root of `p`::
+
+            sage: from ore_algebra.examples import cbt
+            sage: dop = cbt.dop[4]; dop
+            (-z^3 + 6*z^2 - 5*z + 1)*Dz^5 + (2*z^3 - 18*z^2 + 40*z - 15)*Dz^4 +
+            (-z^3 + 16*z^2 - 54*z + 41)*Dz^3 + (-4*z^2 + 22*z - 24)*Dz^2 +
+            (-2*z + 3)*Dz
+            sage: lc = dop.leading_coefficient()
+            sage: dop.indicial_polynomial(lc)
+            alpha^4 - 6*alpha^3 + 11*alpha^2 - 6*alpha
+            sage: K.<s> = QQ.extension(lc)
+            sage: z = dop.base_ring().gen()
+            sage: dop.change_ring(K['z']).indicial_polynomial(z-s)
+            7*alpha^5 + (-3*s - 50)*alpha^4 + (18*s + 125)*alpha^3 +
+            (-33*s - 130)*alpha^2 + (18*s + 48)*alpha
 
         TESTS::
 
