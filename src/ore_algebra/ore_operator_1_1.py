@@ -1384,7 +1384,8 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             (n^2 + n)*Sn + n^2
             sage: ((x^3+x^2-x)*Dx + (x^2+1)).to_S(A2)
             (-n - 1)*Sn^2 + (n + 1)*Sn + n + 1
-
+            sage: ((x+1)*Dx^3 + Dx^2).to_S(A2)
+            (n^3 - n)*Sn + n^3 - 2*n^2 + n
         """
         if type(alg) == str:
             R = self.base_ring(); x = R.gen(); one = R.one()
@@ -1439,7 +1440,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         rec = rec_algebra(result)
         sigma = rec_algebra.sigma()
         v = rec.valuation()
-        return rec.map_coefficients(lambda p: sigma(p, -v)) // rec_algebra.gen()**v
+        return rec_algebra([sigma(p, -v) for p in list(rec)[v:]])
 
     def to_F(self, alg):
         """
