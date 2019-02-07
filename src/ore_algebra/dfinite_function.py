@@ -115,6 +115,8 @@ class DFiniteFunctionRing(Algebra):
             self._backward_calculation = False
         else:
             self._backward_calculation = True
+
+        self._populate_coercion_lists_()
     
 #conversion
 
@@ -161,19 +163,19 @@ class DFiniteFunctionRing(Algebra):
         
         #conversion of rational functions
         sage: D1((n-2)/((n+1)*(n+5)))
-        Univariate D-finite Sequence defined by the annihilating operator (n^4 + 11*n^3 + 26*n^2 - 44*n - 120)*Sn - n^4 - 10*n^3 - 24*n^2 + 10*n + 25 and the initial conditions {0: -2/5, 3: 1/32}
+        Univariate D-finite sequence defined by the annihilating operator (n^4 + 11*n^3 + 26*n^2 - 44*n - 120)*Sn - n^4 - 10*n^3 - 24*n^2 + 10*n + 25 and the initial conditions {0: -2/5, 3: 1/32}
         sage: D2((x^2+4)/(x-1))
         Univariate D-finite function defined by the annihilating operator (x^3 - x^2 + 4*x - 4)*Dx - x^2 + 2*x + 4 and the coefficient sequence defined by (-4*n - 12)*Sn^3 + (4*n + 12)*Sn^2 + (-n + 1)*Sn + n - 1 and {0: -4, 1: -4, 2: -5}
     
         #conversion of symbolic expressions
         sage: D1(harmonic_number(n))
-        Univariate D-finite Sequence defined by the annihilating operator (n + 2)*Sn^2 + (-2*n - 3)*Sn + n + 1 and the initial conditions {0: 0, 1: 1}
+        Univariate D-finite sequence defined by the annihilating operator (n + 2)*Sn^2 + (-2*n - 3)*Sn + n + 1 and the initial conditions {0: 0, 1: 1}
         sage: D2(sin(x^2))
         Univariate D-finite function defined by the annihilating operator x*Dx^2 - Dx + 4*x^3 and the coefficient sequence defined by (n^8 + 9*n^7 + 21*n^6 - 21*n^5 - 126*n^4 - 84*n^3 + 104*n^2 + 96*n)*Sn^4 + 4*n^6 + 12*n^5 - 20*n^4 - 60*n^3 + 16*n^2 + 48*n and {0: 0, 1: 0, 2: 1, 3: 0, 4: 0, 5: 0, 6: -1/6}
         
         """
         n = self.ore_algebra().is_S()
-        
+
         #conversion for D-finite functions:
         if isinstance(x,DFiniteFunction):
             return self._construct_dfinite(x,n)
@@ -182,8 +184,8 @@ class DFiniteFunctionRing(Algebra):
         elif type(x) == list:
             return self._construct_list(x,n)
 
-        #conversion for (symbolic) numbers
-        elif x in QQ or x.is_constant():
+        #conversion for numbers
+        elif x in QQ:
             if n:
                 Sn = self.ore_algebra().gen()
                 return UnivariateDFiniteSequence(self,Sn-1,{0:x})
@@ -194,6 +196,15 @@ class DFiniteFunctionRing(Algebra):
         #conversion for rational functions
         elif x in self.base_ring().fraction_field():
                return self._construct_rational(x,n)
+               
+        #conversion for symbolic constants
+        elif x.is_constant():
+            if n:
+                Sn = self.ore_algebra().gen()
+                return UnivariateDFiniteSequence(self,Sn-1,{0:x})
+            else:
+                Dy = self.ore_algebra().gen()
+                return UnivariateDFiniteFunction(self,Dy,{0:x})
         else:
         #conversion for symbolic expressions
             return self._construct_symbolic(x,n)
@@ -232,6 +243,7 @@ class DFiniteFunctionRing(Algebra):
             Univariate D-finite sequence defined by the annihilating operator n*Sn - n - 1 and the initial conditions {0: 0, 1: 1}
             sage: D2(a1)
             Univariate D-finite sequence defined by the annihilating operator n*Sn - n - 1 and the initial conditions {0: 0, 1: 1}
+
             #D1(a2) would not work since a2 is defined over ``NN`` but D1 has domain ``ZZ``
             
         """
@@ -1412,9 +1424,8 @@ class DFiniteFunction(RingElement):
             sage: D2 = DFiniteFunctionRing(B)
             sage: a = D1(3.4)
             sage: b = D2(4)
-            sage: int(b)
+            sage: int(b) #int(a) would lead to an error message
             4
-            #int(a) would lead to an error message
 
         """
         i = self._test_conversion_()
@@ -1438,9 +1449,8 @@ class DFiniteFunction(RingElement):
             sage: D2 = DFiniteFunctionRing(B)
             sage: a = D1(3.4)
             sage: b = D2(4)
-            sage: ZZ(b)
+            sage: ZZ(b) #ZZ(a) would lead to an error message
             4
-            #ZZ(a) would lead to an error message
 
         """
         return ZZ(int(self))
@@ -1487,9 +1497,8 @@ class DFiniteFunction(RingElement):
             sage: D2 = DFiniteFunctionRing(B)
             sage: a = D1(3.4)
             sage: b = D2(4)
-            sage: long(b)
+            sage: long(b) #long(a) would lead to an error message
             4L
-            #long(a) would lead to an error message
             
         """
         i = self._test_conversion_()
@@ -1877,8 +1886,8 @@ class UnivariateDFiniteSequence(DFiniteFunction):
             sage: b = D(n)
             sage: a._test_conversion_()
             3
-            sage: b._test_conversion_()
-            #None is returend
+            sage: b._test_conversion_() # returns None
+            
             
         """
         ini = self.initial_values()
@@ -2105,7 +2114,7 @@ class UnivariateDFiniteSequence(DFiniteFunction):
         EXAMPLES::
         
             sage: from ore_algebra import *
-            sage: A = OreAlgebra(QQ['n'],'Sn')
+            sage: A.<Sn> = OreAlgebra(QQ['n'],'Sn')
             sage: D = DFiniteFunctionRing(A)
             sage: n = A.base_ring().gen()
             sage: a = UnivariateDFiniteSequence(D, Sn**2 - Sn - 1, [0,1])
@@ -2836,8 +2845,7 @@ class UnivariateDFiniteFunction(DFiniteFunction):
             sage: b = D(x)
             sage: a._test_conversion_()
             17/5
-            sage: b._test_conversion_()
-            #None is returend
+            sage: b._test_conversion_() # returns None            
             
         """
         ini = self.initial_conditions()
