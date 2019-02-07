@@ -88,7 +88,6 @@ class DFiniteFunctionRing(Algebra):
         EXAMPLES::
         
             sage: from ore_algebra import *
-            sage: load("dfinite_function.py")
             
             #This creates an d-finite sequence ring with indices in ``ZZ``
             sage: A = OreAlgebra(ZZ['n'],'Sn')
@@ -115,7 +114,9 @@ class DFiniteFunctionRing(Algebra):
         if domain == NN:
             self._backward_calculation = False
         else:
-            self._backward_calculation = true
+            self._backward_calculation = True
+
+        self._populate_coercion_lists_()
     
 #conversion
 
@@ -173,7 +174,7 @@ class DFiniteFunctionRing(Algebra):
         
         """
         n = self.ore_algebra().is_S()
-        
+
         #conversion for D-finite functions:
         if isinstance(x,DFiniteFunction):
             return self._construct_dfinite(x,n)
@@ -182,8 +183,8 @@ class DFiniteFunctionRing(Algebra):
         elif type(x) == list:
             return self._construct_list(x,n)
 
-        #conversion for (symbolic) numbers
-        elif x in QQ or x.is_constant():
+        #conversion for numbers
+        elif x in QQ:
             if n:
                 Sn = self.ore_algebra().gen()
                 return UnivariateDFiniteSequence(self,Sn-1,{0:x})
@@ -194,6 +195,15 @@ class DFiniteFunctionRing(Algebra):
         #conversion for rational functions
         elif x in self.base_ring().fraction_field():
                return self._construct_rational(x,n)
+               
+        #conversion for symbolic constants
+        elif x.is_constant():
+            if n:
+                Sn = self.ore_algebra().gen()
+                return UnivariateDFiniteSequence(self,Sn-1,{0:x})
+            else:
+                Dy = self.ore_algebra().gen()
+                return UnivariateDFiniteFunction(self,Dy,{0:x})
         else:
         #conversion for symbolic expressions
             return self._construct_symbolic(x,n)
