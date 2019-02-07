@@ -252,7 +252,7 @@ def _has_coefficients(elt):
         return True
     elif isinstance(elt, Element):
         parent = elt.parent()
-        return parent.base_ring() is not parent
+        return parent.base_ring() is not parent and hasattr(parent, 'change_ring')
 
 def clear_denominators(elts, dom=None):
     r"""
