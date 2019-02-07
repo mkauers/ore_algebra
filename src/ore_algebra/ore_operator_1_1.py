@@ -1880,7 +1880,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
                 for (a, b) in e:
                     der_a = dict()
                     for i in range(accum + b):
-                        der_a[i] = PS(list(map(lambda g: g(alpha - a), der[i]), len(der[i])))
+                        der_a[i] = PS(list(map(lambda g: g(alpha - a), der[i])), len(der[i]))
                     for i in range(accum, accum + b):
                         sol = []
                         for j in range(i + 1):
