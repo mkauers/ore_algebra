@@ -69,6 +69,8 @@ def symbolic_database(A, f, inner = None, k = 0):
     EXAMPLES::
     
         #discrete case
+        sage: from ore_algebra import *
+        sage: from ore_algebra.dfinite_symbolic import symbolic_database
         sage: A = OreAlgebra(QQ['n'],'Sn')
         sage: n = var('n')
         sage: f = harmonic_number(n).operator()
@@ -113,9 +115,9 @@ def symbolic_database(A, f, inner = None, k = 0):
             #(a*n+b choose c*n+d) - a,b,c,d fixed, n variable
             else:
                 k = k.constant_coefficient()
-                f1 = prod(inner+i for i in xrange(1,inner[1]+1))
-                f2 = prod(k+i for i in xrange(1,k[1]+1))
-                f3 = prod(inner - k + i for i in xrange(1,inner[1]-k[1]+1))
+                f1 = prod(inner+i for i in range(1,inner[1]+1))
+                f2 = prod(k+i for i in range(1,k[1]+1))
+                f3 = prod(inner - k + i for i in range(1,inner[1]-k[1]+1))
             return A(f2*f3*Sn - f1)
         else:
             raise NotImplementedError
@@ -139,7 +141,7 @@ def symbolic_database(A, f, inner = None, k = 0):
             return A(Dx**2 + d**2)
         #tan
         elif isinstance(f,sage.functions.trig.Function_tan):
-            raise TypeError, "Tan is not D-finite"
+            raise TypeError("Tan is not D-finite")
         #arcsin
         elif isinstance(f,sage.functions.trig.Function_arcsin):
             return A((1-x**2)*Dx**2 - d*x*Dx)
@@ -160,7 +162,7 @@ def symbolic_database(A, f, inner = None, k = 0):
             return A((1+x**2)*Dx**2 + d*x*Dx)
         #arccosh
         elif isinstance(f,sage.functions.hyperbolic.Function_arccosh):
-            raise TypeError, "ArcCosh is not D-finite"
+            raise TypeError("ArcCosh is not D-finite")
         #arctanh
         elif isinstance(f,sage.functions.hyperbolic.Function_arctanh):
             return A((1-x**2)*Dx**2 - 2*d*x*Dx)

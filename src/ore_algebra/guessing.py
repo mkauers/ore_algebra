@@ -139,11 +139,11 @@ def guess(data, algebra, **kwargs):
     EXAMPLES::
 
       sage: from ore_algebra import *
-      sage: rec = guess([(2*i+1)^15 * (1 + 2^i + 3^i)^2 for i in xrange(1000)], OreAlgebra(ZZ['n'], 'Sn'))
+      sage: rec = guess([(2*i+1)^15 * (1 + 2^i + 3^i)^2 for i in range(1000)], OreAlgebra(ZZ['n'], 'Sn'))
       sage: rec.order(), rec.degree()
       (6, 90)
       sage: R.<t> = QQ['t']
-      sage: rec = guess([1/(i+t) + t^i for i in xrange(100)], OreAlgebra(R['n'], 'Sn'))
+      sage: rec = guess([1/(i+t) + t^i for i in range(100)], OreAlgebra(R['n'], 'Sn'))
       sage: rec
       ((-t + 1)*n^2 + (-2*t^2 - t + 2)*n - t^3 - 2*t^2)*Sn^2 + ((t^2 - 1)*n^2 + (2*t^3 + 3*t^2 - 2*t - 1)*n + t^4 + 3*t^3 + t^2 - t)*Sn + (-t^2 + t)*n^2 + (-2*t^3 + t)*n - t^4 - t^3 + t^2
 
@@ -168,12 +168,12 @@ def guess(data, algebra, **kwargs):
     elif A.is_F() is not False:
         # reduce to shift case; note that this does not alter order or degrees
         if kwargs.has_key('infolevel') and kwargs['infolevel'] >= 1:
-            print "Translating problem to shift case..."
+            print("Translating problem to shift case...")
         A0 = OreAlgebra(R, ('S', {x:x+K.one()}, {}))
         return guess(data, A0, **kwargs).change_ring(R).to_F(A)
 
     elif (not A.is_S() and not A.is_D() and not A.is_Q() and not A.is_C()):
-        raise TypeError, "unexpected algebra: " + str(A)
+        raise TypeError("unexpected algebra: " + str(A))
 
     elif K.is_prime_field() and K.characteristic() > 0:
         return _guess_via_gcrd(data, A, **kwargs)
@@ -201,7 +201,7 @@ def guess(data, algebra, **kwargs):
             dn, dd = d.numerator(), d.denominator()
             return KK2(K(nn*dd)/K(nd*dn))
 
-        data = map(cleanup, data)
+        data = list(map(cleanup, data))
 
         def to_hom(mod):
             KK3 = GF(mod); KK4 = KK3[K.gens()]; KK5 = KK4.fraction_field()
@@ -220,7 +220,7 @@ def guess(data, algebra, **kwargs):
         return guess(data, A.change_ring(ZZ[K.gens()][x]), **kwargs)
 
     else:
-        raise TypeError, "unexpected coefficient domain: " + str(K)
+        raise TypeError("unexpected coefficient domain: " + str(K))
 
 ###########################################################################################
 
@@ -280,7 +280,7 @@ def guess_raw(data, A, order=-1, degree=-1, lift=None, solver=None, cut=25, ensu
 
       sage: from ore_algebra import *
       sage: K = GF(1091); R.<n> = K['n']; A = OreAlgebra(R, 'Sn')
-      sage: data = [(5*n+3)/(3*n+4)*fibonacci(n)^3 for n in xrange(200)]
+      sage: data = [(5*n+3)/(3*n+4)*fibonacci(n)^3 for n in range(200)]
       sage: guess_raw(data, A, order=5, degree=3, lift=K)
       [(n^3 + 546*n^2 + 588*n + 786)*Sn^5 + (356*n^3 + 717*n^2 + 381*n + 449)*Sn^4 + (8*n^3 + 569*n^2 + 360*n + 214)*Sn^3 + (31*n^3 + 600*n^2 + 784*n + 287)*Sn^2 + (1078*n^3 + 1065*n^2 + 383*n + 466)*Sn + 359*n^3 + 173*n^2 + 503, (n^3 + 1013*n^2 + 593*n + 754)*Sn^5 + (797*n^3 + 56*n^2 + 7*n + 999)*Sn^4 + (867*n^3 + 1002*n^2 + 655*n + 506)*Sn^3 + (658*n^3 + 834*n^2 + 1036*n + 899)*Sn^2 + (219*n^3 + 479*n^2 + 476*n + 800)*Sn + 800*n^3 + 913*n^2 + 280*n]
     
@@ -293,13 +293,13 @@ def guess_raw(data, A, order=-1, degree=-1, lift=None, solver=None, cut=25, ensu
 
     def info(bound, msg):
         if bound <= infolevel:
-            print msg
+            print(msg)
 
     info(1, lazy_string(lambda: datetime.today().ctime() + ": raw guessing started."))
     info(1, "len(data)=" + str(len(data)) + ", algebra=" + str(A._latex_()))
 
     if A.ngens() > 1 or (not A.is_S() and not A.is_Q() and not A.is_D() and not A.is_C()):
-        raise TypeError, "unexpected algebra"
+        raise TypeError("unexpected algebra")
 
     alg_case = True if A.is_C() else False
     diff_case = True if A.is_D() else False
@@ -310,13 +310,13 @@ def guess_raw(data, A, order=-1, degree=-1, lift=None, solver=None, cut=25, ensu
         data = data[:min_len_data + cut]
 
     if len(data) < min_len_data + ensure:
-        raise ValueError, "not enough terms"
+        raise ValueError("not enough terms")
 
     if lift is not None:
-        data = map(lift, data)
+        data = list(map(lift, data))
 
     if not all(p in K for p in data):
-        raise ValueError, "illegal term in data list"
+        raise ValueError("illegal term in data list")
 
     if solver is None:
         solver = A._solver(K)
@@ -325,40 +325,40 @@ def guess_raw(data, A, order=-1, degree=-1, lift=None, solver=None, cut=25, ensu
         solver = nullspace.sage_native
 
     sys = {(0,0):data}
-    nn = [deform(n) for n in xrange(len(data))]
+    nn = [deform(n) for n in range(len(data))]
     z = [K.zero()]
 
     if alg_case:
         # sys[i, j] contains x^i * series(data)^j 
         series = R(data)
         sys[0, 0] = R.one()
-        for j in xrange(order):
+        for j in range(order):
             sys[0, j + 1] = (sys[0, j]*series).truncate(len(data))
-        for j in xrange(order + 1):
+        for j in range(order + 1):
             sys[0, j] = sys[0, j].padded_list(len(data))
-            for i in xrange(degree):
+            for i in range(degree):
                 sys[i + 1, j] = z + sys[i, j]
     elif diff_case:
         # sys[i, j] contains ( x^i * D^j ) (data)
         nn = nn[1:]
-        for j in xrange(order):
-            sys[0, j + 1] = map(lambda a,b: a*b, sys[0, j][1:], nn)
+        for j in range(order):
+            sys[0, j + 1] = list(map(lambda a,b: a*b, sys[0, j][1:], nn))
             nn.pop(); 
-        for i in xrange(degree):
-            for j in xrange(order + 1):
+        for i in range(degree):
+            for j in range(order + 1):
                 sys[i + 1, j] = z + sys[i, j]
     else:
         # sys[i, j] contains ( (n+j)^i * S^j ) (data)
-        for i in xrange(degree):
-            sys[i + 1, 0] = map(lambda a,b: a*b, sys[i, 0], nn)
-        for j in xrange(order):
-            for i in xrange(degree + 1):
+        for i in range(degree):
+            sys[i + 1, 0] = list(map(lambda a,b: a*b, sys[i, 0], nn))
+        for j in range(order):
+            for i in range(degree + 1):
                 sys[i, j + 1] = sys[i, j][1:]
 
-    sys = [sys[i, j] for j in xrange(order + 1) for i in xrange(degree + 1) ]
+    sys = [sys[i, j] for j in range(order + 1) for i in range(degree + 1) ]
 
     trim = min(len(c) for c in sys)
-    for i in xrange(len(sys)):
+    for i in range(len(sys)):
         if len(sys[i]) > trim:
             sys[i] = sys[i][:trim]
 
@@ -371,9 +371,9 @@ def guess_raw(data, A, order=-1, degree=-1, lift=None, solver=None, cut=25, ensu
     info(2, lazy_string(lambda: datetime.today().ctime() + ": nullspace computation completed. size=" + str(len(sol))))
 
     sigma = A.sigma()
-    for l in xrange(len(sol)):
+    for l in range(len(sol)):
         c = []; s = list(sol[l])
-        for j in xrange(order + 1):
+        for j in range(order + 1):
             c.append(sigma(R(s[j*(degree + 1):(j + 1)*(degree + 1)]), j))
         sol[l] = A(c)
         sol[l] *= ~sol[l].leading_coefficient().leading_coefficient()
@@ -432,7 +432,7 @@ def guess_hp(data, A, order=-1, degree=-1, lift=None, cut=25, ensure=0, infoleve
       sage: from ore_algebra import *
       sage: from ore_algebra.guessing import guess_hp
       sage: K = GF(1091); R.<x> = K['x'];
-      sage: data = [binomial(2*n, n)*fibonacci(n)^3 for n in xrange(2000)]
+      sage: data = [binomial(2*n, n)*fibonacci(n)^3 for n in range(2000)]
       sage: guess_hp(data, OreAlgebra(R, 'Dx'), order=4, degree=4, lift=K)
       [(x^4 + 819*x^3 + 136*x^2 + 17*x + 635)*Dx^4 + (14*x^3 + 417*x^2 + 952*x + 605)*Dx^3 + (598*x^2 + 497*x + 99)*Dx^2 + (598*x + 794)*Dx + 893]
       sage: len(guess_hp(data, OreAlgebra(R, 'C'), order=16, degree=64, lift=K))
@@ -446,13 +446,13 @@ def guess_hp(data, A, order=-1, degree=-1, lift=None, cut=25, ensure=0, infoleve
 
     def info(bound, msg):
         if bound <= infolevel:
-            print msg
+            print(msg)
 
     info(1, lazy_string(lambda: datetime.today().ctime() + ": Hermite/Pade guessing started."))
     info(1, "len(data)=" + str(len(data)) + ", algebra=" + str(A._latex_()))
 
     if A.ngens() > 1 or (not A.is_C() and not A.is_D() ):
-        raise TypeError, "unexpected algebra"
+        raise TypeError("unexpected algebra")
 
     diff_case = True if A.is_D() else False
     min_len_data = (order + 1)*(degree + 2)
@@ -461,31 +461,31 @@ def guess_hp(data, A, order=-1, degree=-1, lift=None, cut=25, ensure=0, infoleve
         data = data[:min_len_data + cut]
 
     if len(data) < min_len_data + ensure:
-        raise ValueError, "not enough terms"
+        raise ValueError("not enough terms")
 
     if lift is not None:
-        data = map(lift, data)
+        data = list(map(lift, data))
 
     if not all(p in K for p in data):
-        raise ValueError, "illegal term in data list"
+        raise ValueError("illegal term in data list")
 
     if diff_case:
         series = [R(data)]
-        for i in xrange(order):
+        for i in range(order):
             series.append(series[-1].derivative())
         truncate = len(data) - order 
         series = [s.truncate(truncate) for s in series]
     else:
         truncate = len(data)
         series = [R.one(), R(data)]
-        for i in xrange(order - 1):
+        for i in range(order - 1):
             series.append((series[1]*series[-1]).truncate(truncate))
 
     info(2, lazy_string(lambda: datetime.today().ctime() + ": matrix construction completed."))
     sol = _hermite(True, matrix(R, [series]), [degree], infolevel - 2, truncate = truncate - 1)
     info(2, lazy_string(lambda: datetime.today().ctime() + ": hermite pade approximation completed."))
 
-    sol = [A(map(R, s)) for s in sol]
+    sol = [A(list(map(R, s))) for s in sol]
     sol = [(~L.leading_coefficient().leading_coefficient())*L for L in sol]
 
     return sol    
@@ -528,7 +528,7 @@ def _guess_via_hom(data, A, modulus, to_hom, **kwargs):
         
     def info(bound, msg):
         if bound <= infolevel:
-            print msg
+            print(msg)
 
     R = A.base_ring(); x = R.gen(); K = R.base_ring(); 
     atomic = not ( is_PolynomialRing(K) and K.base_ring() is ZZ )
@@ -577,7 +577,7 @@ def _guess_via_hom(data, A, modulus, to_hom, **kwargs):
                 d2 = (d1*(r0-1-r1)*(r0-r2) + d0*(r1-r2))/((r0-r1)*(r0-1-r2))
                 r2 = int(math.ceil(r2)); d2 = int(math.ceil(d2))
                 if abs(r2 - r1) >= 2 and abs(d2 - d1) >= 2:
-                    path = [ (i, d2 + ((d1-d2)*(i-r2))/(r1-r2)) for i in xrange(r2, r1, cmp(r1, r2)) ] + path
+                    path = [ (i, d2 + ((d1-d2)*(i-r2))/(r1-r2)) for i in range(r2, r1, cmp(r1, r2)) ] + path
                     kwargs['path'] = path
                 else:
                     del kwargs['return_short_path']
@@ -598,14 +598,14 @@ def _guess_via_hom(data, A, modulus, to_hom, **kwargs):
             # sequential version 
 
             imgs = [];
-            for i in xrange(max(1, nn - 3)): # do several imgs before proceeding with a reconstruction attempt
+            for i in range(max(1, nn - 3)): # do several imgs before proceeding with a reconstruction attempt
                 
                 data_mod = None
                 while data_mod is None:
                     p = modulus.next(); hom = to_hom(p)
                     info(2, "modulus = " + str(p))
                     try:
-                        data_mod = map(hom, data)
+                        data_mod = list(map(hom, data))
                     except ArithmeticError:
                         info(2, "unlucky modulus discarded.")
 
@@ -636,7 +636,7 @@ def _guess_via_hom(data, A, modulus, to_hom, **kwargs):
 
         else:
             # we can assume at this point that nn >= 3 and 'return_short_path' is switched off.
-            primes = [modulus.next() for i in xrange(ncpus)]
+            primes = [modulus.next() for i in range(ncpus)]
             info(2, "moduli = " + str(primes))
             primes = [ (p, to_hom(p)) for p in primes ]
             primes = [ (p, hom, A.change_ring(hom(K.one()).parent()[x])) for (p, hom) in primes ]
@@ -663,7 +663,7 @@ def _guess_via_hom(data, A, modulus, to_hom, **kwargs):
             @parallel(ncpus=ncpus)
             def forked_guess(p, hom, alg):
                 try:
-                    return guess(map(hom, data), alg, **kwargs).polynomial()
+                    return guess(list(map(hom, data)), alg, **kwargs).polynomial()
                 except ArithmeticError:
                     return None
                 
@@ -716,7 +716,7 @@ def _guess_via_gcrd(data, A, **kwargs):
         
     def info(bound, msg):
         if bound <= infolevel:
-            print msg
+            print(msg)
 
     R = A.base_ring(); x = R.gen(); K = R.base_ring(); 
 
@@ -742,7 +742,7 @@ def _guess_via_gcrd(data, A, **kwargs):
         prelude = []
     else:
         r2d = lambda r: (N - 2*r - 2)//(r + 1) # python integer division intended.
-        path = [(r, r2d(r)) for r in xrange(1, N)] 
+        path = [(r, r2d(r)) for r in range(1, N)] 
         path = filter(lambda p: min(p[0] - 1, p[1]) >= 0, path)
         (r, d) = (1, 1); prelude = []
         while d <= r2d(r):
@@ -785,9 +785,9 @@ def _guess_via_gcrd(data, A, **kwargs):
 
     path.sort(key=sort_key)
     # autoreduce
-    for i in xrange(len(prelude), len(path)):
+    for i in range(len(prelude), len(path)):
         (r, d) = path[i]
-        for j in xrange(len(path)):
+        for j in range(len(path)):
             if i != j and path[j] is not None and path[j][0] >= r and path[j][1] >= d:
                 path[i] = None                    
     path = filter(lambda p: p is not None, path)
@@ -809,7 +809,7 @@ def _guess_via_gcrd(data, A, **kwargs):
 
     L = []; short_path = []; 
     
-    for i in xrange(len(path)):
+    for i in range(len(path)):
 
         r, d = path[i]
         for (r1, d1) in short_path:
@@ -847,7 +847,7 @@ def _guess_via_gcrd(data, A, **kwargs):
     info(2, lazy_string(lambda: datetime.today().ctime() + ": search completed."))
 
     if len(L) == 0:
-        raise ValueError, "No relations found."
+        raise ValueError("No relations found.")
     elif len(L) == 1:
         L = L[0]
     else:
@@ -955,7 +955,7 @@ def _merge_homomorphic_images(v, mod, vp, p, reconstruct=True):
         mod0 = R(mod0*p); p0 = R(p0*mod)
 
         coords = []
-        for i in xrange(len(v)):
+        for i in range(len(v)):
             coords.append(mod0*v[i] + p0*B(vp[i]))
 
         vmod = vector(R, coords)
@@ -978,10 +978,10 @@ def _merge_homomorphic_images(v, mod, vp, p, reconstruct=True):
 
     try:
         d = R.one()
-        for i in xrange(len(coords) - 1, -1, -1):
+        for i in range(len(coords) - 1, -1, -1):
             c = coords[i]
             if poly:
-                for l in xrange(c.degree(), -1, -1): 
+                for l in range(c.degree(), -1, -1): 
                     d *= _rat_recon(d*c[l], mod)[1]
             else:
                 d *= _rat_recon(d*c, mod)[1]
@@ -990,7 +990,7 @@ def _merge_homomorphic_images(v, mod, vp, p, reconstruct=True):
 
     # rat recon succeeded, the common denominator is d. clear it and normalize numerators.
 
-    for i in xrange(len(coords)):
+    for i in range(len(coords)):
         c = d*coords[i]
         if adjust is not None:
             c = c.map_coefficients(adjust) if poly else adjust(c)
@@ -1217,7 +1217,7 @@ def guess_mult(data, algebra, **kwargs):
     infolevel = kwargs.setdefault('infolevel', 0)
     def info(bound, msg):
         if bound <= infolevel:
-            print msg
+            print(msg)
 
     # 1. extract configuration from options and check input for plausibility
     l = data; dims = []
@@ -1241,7 +1241,7 @@ def guess_mult(data, algebra, **kwargs):
     # 2. prepare polynomial terms, operator terms (structure set), and all terms
     from itertools import combinations_with_replacement, product
     pol_terms = [tuple(0 for i in range_dim)] # exponent vector (0,...,0)
-    for d in xrange(1, deg + 1): # create exponent vectors for terms of total degree d
+    for d in range(1, deg + 1): # create exponent vectors for terms of total degree d
         for p in combinations_with_replacement(vars, d): 
             pol_terms.append( tuple(p.count(x) for x in vars) )
 
@@ -1268,7 +1268,7 @@ def guess_mult(data, algebra, **kwargs):
         elif algebra.is_Q(i):
             _, q = algebra.is_Q(i); A.append(lambda n, u, v: (q, n*u)); B.append(lambda n, u, v: n + v)
         else:
-            raise TypeError, "unexpected algebra generator: " + str(gens[i])
+            raise TypeError("unexpected algebra generator: " + str(gens[i]))
 
     # 3. prepare evaluation points
     f = kwargs.setdefault('point_filter', lambda *x: True)
@@ -1283,7 +1283,7 @@ def guess_mult(data, algebra, **kwargs):
         info(1, "keeping all " + str(len(points)) + " points.")
 
     if len(terms) + kwargs.setdefault("ensure", 0) >= len(points):
-        raise ValueError, "not enough data"    
+        raise ValueError("not enough data"    )
 
     C = algebra.base_ring().base_ring().fraction_field() ### constant field 
 
@@ -1341,13 +1341,13 @@ def guess_mult(data, algebra, **kwargs):
                     return algebra.ideal([])
                 
                 ## extract support of solutions
-                for i in xrange(len(terms)):
+                for i in range(len(terms)):
                     if all(v[i].is_zero() for v in solp):
                         terms[i] = None
 
                 sol = [[] for i in range(len(solp))]
                 new_terms = []
-                for i in xrange(len(terms)):
+                for i in range(len(terms)):
                     if terms[i] is not None:
                         new_terms.append(terms[i])
                         for j in range(len(solp)):
@@ -1388,7 +1388,7 @@ def guess_mult(data, algebra, **kwargs):
         raise NotImplementedError 
         
     else: 
-        raise NotImplementedError, "unexpected constant domain"
+        raise NotImplementedError("unexpected constant domain")
         
     info(1, lazy_string(lambda: datetime.today().ctime() + " : " + str(len(sol)) + " solutions."))
 
@@ -1401,7 +1401,7 @@ def guess_mult(data, algebra, **kwargs):
     for v in sol:
         coeffs = dict( (o, dict()) for o in op_terms )
         d = C.one()
-        for i in xrange(len(terms)):
+        for i in range(len(terms)):
             coeffs[terms[i][1]][terms[i][0]] = v[i]
             try:
                 d = lcm(d, C(v[i].denominator()))
@@ -1442,7 +1442,7 @@ def guess_mult_raw(C, data, terms, points, power, A, B, **kwargs):
     infolevel = kwargs.setdefault('infolevel', 0)
     def info(bound, msg):
         if bound <= infolevel:
-            print msg
+            print(msg)
 
     phi = kwargs.setdefault('phi', lambda x: x)
     C = C.fraction_field()
@@ -1487,7 +1487,7 @@ def guess_mult_raw(C, data, terms, points, power, A, B, **kwargs):
 
     monomial_cache.clear()
     if len(terms) + kwargs.setdefault('ensure') >= len(mat):
-        raise ValueError, "not enough data, or too many zeros"
+        raise ValueError("not enough data, or too many zeros")
 
     info(1, lazy_string(lambda: datetime.today().ctime() + " : solving modular system..."))
     sol = MatrixSpace(C, len(points), len(terms))(mat).right_kernel().basis()

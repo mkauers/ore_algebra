@@ -275,7 +275,7 @@ class OreOperator(RingElement):
         if R == R.parent().zero():
             return Q
         else:
-            raise ValueError, "Cannot divide the given OreOperators"
+            raise ValueError("Cannot divide the given OreOperators")
                    
     def __floordiv__(self,right):
         """
@@ -368,7 +368,7 @@ class OreOperator(RingElement):
         raise NotImplementedError
 
     def __setitem__(self, n, value):
-        raise IndexError, "Operators are immutable"
+        raise IndexError("Operators are immutable")
 
     def is_primitive(self, n=None, n_prime_divs=None):
         """
@@ -469,8 +469,8 @@ class OreOperator(RingElement):
                 return coeffs[0]
             
             try:
-                a = sum(R(29*i+13)*coeffs[i] for i in xrange(len(coeffs)))
-                b = sum(R(31*i+17)*coeffs[i] for i in xrange(len(coeffs)))
+                a = sum(R(29*i+13)*coeffs[i] for i in range(len(coeffs)))
+                b = sum(R(31*i+17)*coeffs[i] for i in range(len(coeffs)))
                 try:
                     c = a.gcd(b)
                 except:
@@ -698,7 +698,7 @@ class UnivariateOreOperator(OreOperator):
         R = f.parent()
         coeffs = self.coefficients(sparse=False)
         Dif = f; result = R(coeffs[0])*f; 
-        for i in xrange(1, self.order() + 1):
+        for i in range(1, self.order() + 1):
             Dif = D(Dif)
             result += R(coeffs[i])*Dif
         
@@ -819,7 +819,7 @@ class UnivariateOreOperator(OreOperator):
 
         DiB = right.polynomial() # D^i * B, for i=0,1,2,...
         res = self[0]*DiB
-        for i in xrange(1, self.order() + 1):
+        for i in range(1, self.order() + 1):
             DiB = times_D(DiB)
             res += self[i]*DiB
 
@@ -849,7 +849,7 @@ class UnivariateOreOperator(OreOperator):
     def quo_rem(self, other, fractionFree=False):
 
         if other.is_zero(): 
-            raise ZeroDivisionError, "other must be nonzero"
+            raise ZeroDivisionError("other must be nonzero")
 
         if (self.order() < other.order()):
             return (self.parent().zero(),self)
@@ -960,11 +960,11 @@ class UnivariateOreOperator(OreOperator):
         while not r[1].is_zero():
             (r2,q,alpha,beta,correct)=prs(r,additional)
             if not correct:
-                if infolevel>0: print "switching to primitve PRS"
+                if infolevel>0: print("switching to primitve PRS")
                 prs = __primitivePRS__
             else:
                 r=r2
-                if infolevel>1: print r[0].order()
+                if infolevel>1: print(r[0].order())
         r=r[0]
 
         return r.normalize()
@@ -1056,12 +1056,12 @@ class UnivariateOreOperator(OreOperator):
         while not r[1].is_zero():  
             (r2, q, alpha, beta, correct) = prs(r, additional)
             if not correct:
-                if infolevel>0: print "switching to primitve PRS"
+                if infolevel>0: print("switching to primitve PRS")
                 prs = __primitivePRS__
             else:
                 r = r2; bInv = ~beta
                 a11, a12, a21, a22 = a21, a22, bInv*(alpha*a11 - q*a21), bInv*(alpha*a12 - q*a22)
-                if infolevel>1: print r[0].order()
+                if infolevel>1: print(r[0].order())
         if retval == "syzygy":
             c = a21.denominator().lcm(a22.denominator())
             return (c*a21, c*a22)
@@ -1141,7 +1141,7 @@ class UnivariateOreOperator(OreOperator):
             A, B = canonical_coercion(self, other)
             return A.lclm(B, **kwargs)
         elif not isinstance(other, UnivariateOreOperator):
-            raise TypeError, "unexpected argument in lclm"
+            raise TypeError("unexpected argument in lclm")
 
         if not kwargs.has_key("algorithm") or kwargs['algorithm'] == 'linalg':
             return self._lclm_linalg(other, **kwargs)
@@ -1153,7 +1153,7 @@ class UnivariateOreOperator(OreOperator):
             del kwargs['algorithm']
             return self._lclm_guess(other, **kwargs)
         else:
-            raise ValueError, "unknown algorithm: " + str(kwargs['algorithm'])
+            raise ValueError("unknown algorithm: " + str(kwargs['algorithm']))
 
     def _lclm_linalg(self, other, **kwargs):
         """
@@ -1171,23 +1171,23 @@ class UnivariateOreOperator(OreOperator):
         t = max(r, s) # current hypothesis for the order of the lclm
 
         rowsA = [A]
-        for i in xrange(t - r):
+        for i in range(t - r):
             rowsA.append(D*rowsA[-1])
         rowsB = [B]
-        for i in xrange(t - s):
+        for i in range(t - s):
             rowsB.append(D*rowsB[-1])
 
         from sage.matrix.constructor import Matrix
         if solver == None:
             solver = A.parent()._solver()
 
-        sys = Matrix(map(lambda p: p.coefficients(sparse=False,padd=t), rowsA + rowsB)).transpose()
+        sys = Matrix(list(map(lambda p: p.coefficients(sparse=False,padd=t), rowsA + rowsB))).transpose()
         sol = solver(sys)
 
         while len(sol) == 0:
             t += 1
             rowsA.append(D*rowsA[-1]); rowsB.append(D*rowsB[-1])
-            sys = Matrix(map(lambda p: p.coefficients(sparse=False,padd=t), rowsA + rowsB)).transpose()
+            sys = Matrix(list(map(lambda p: p.coefficients(sparse=False,padd=t), rowsA + rowsB))).transpose()
             sol = solver(sys)
 
         U = A.parent()(list(sol[0])[:t+1-r])
@@ -1206,9 +1206,9 @@ class UnivariateOreOperator(OreOperator):
         if kwargs.has_key('to_list'):
             terms = kwargs['to_list']
         elif A.is_S():
-            terms = lambda L, n : L.to_list([K.random_element() for i in xrange(L.order())], n)
+            terms = lambda L, n : L.to_list([K.random_element() for i in range(L.order())], n)
         else:
-            raise TypeError, "don't know how to expand a generic solution for operators in " + str(A)
+            raise TypeError("don't know how to expand a generic solution for operators in " + str(A))
 
         U = self.normalize().numerator(); V = other.normalize().numerator()
 
@@ -1231,7 +1231,7 @@ class UnivariateOreOperator(OreOperator):
 
         n = int(1.20 * (r + 2) * (d + 2) + 10) # number of terms needed + some buffer
 
-        data = map(lambda p, q: 1234*p + 4321*q, terms(U, n), terms(V, n))
+        data = list(map(lambda p, q: 1234*p + 4321*q, terms(U, n), terms(V, n)))
 
         from guessing import guess
         return guess(data, self.parent(), min_order=r_lcm)
@@ -1327,7 +1327,7 @@ class UnivariateOreOperator(OreOperator):
         mat = []; A = None; D = Alg.gen()
 
         # for better performance, we don't use the sylvester matrix 
-        for i in xrange(m):
+        for i in range(m):
             A = self if A == None else D*A
             mat.append((A % other).coefficients(sparse=False,padd=m-1))
 
@@ -1408,7 +1408,7 @@ class UnivariateOreOperator(OreOperator):
         
         """
         if not isinstance(other, UnivariateOreOperator):
-            raise TypeError, "unexpected argument in symmetric_product"
+            raise TypeError("unexpected argument in symmetric_product")
 
         if self.parent() != other.parent():
             A, B = canonical_coercion(self, other)
@@ -1430,7 +1430,7 @@ class UnivariateOreOperator(OreOperator):
 
         pr = Alg._product_rule()
         if pr is None:
-            raise ValueError, "no product rule found"
+            raise ValueError("no product rule found")
 
         if b == 1:
             
@@ -1448,7 +1448,7 @@ class UnivariateOreOperator(OreOperator):
 
             # calculate L with L(u*v)=0 iff A(v)=0 and B(u)=0 using A(1/u * u*v) = 0
             coeffs = A.coefficients(sparse=False); L = coeffs[0]; Dk = A.parent().one()
-            for i in xrange(1, A.order() + 1):
+            for i in range(1, A.order() + 1):
                 #Dk = Dk.map_coefficients(sigma_u)*D + Dk.map_coefficients(delta_u) [[buggy??]]
                 Dk = (p*D + q)*Dk
                 c = coeffs[i]
@@ -1459,15 +1459,15 @@ class UnivariateOreOperator(OreOperator):
 
         # general case via linear algebra
 
-        Ared = tuple(-A[i]/A[a] for i in xrange(a)); Bred = tuple(-B[j]/B[b] for j in xrange(b))
+        Ared = tuple(-A[i]/A[a] for i in range(a)); Bred = tuple(-B[j]/B[b] for j in range(b))
 
         if solver is None:
             solver = Alg._solver()
 
         # Dkuv[i][j] is the coefficient of D^i(u)*D^j(v) in the normal form of D^k(u*v) 
-        Dkuv = [[zero for i in xrange(b + 1)] for j in xrange(a + 1)]; Dkuv[0][0] = one
+        Dkuv = [[zero for i in range(b + 1)] for j in range(a + 1)]; Dkuv[0][0] = one
         
-        mat = [[Dkuv[i][j] for i in xrange(a) for j in xrange(b)]]
+        mat = [[Dkuv[i][j] for i in range(a) for j in range(b)]]
 
         from sage.matrix.constructor import Matrix
         sol = solver(Matrix(mat).transpose())
@@ -1475,8 +1475,8 @@ class UnivariateOreOperator(OreOperator):
         while len(sol) == 0:
 
             # push
-            for i in xrange(a - 1, -1, -1):
-                for j in xrange(b - 1, -1, -1):
+            for i in range(a - 1, -1, -1):
+                for j in range(b - 1, -1, -1):
                     s = sigma(Dkuv[i][j])
                     Dkuv[i + 1][j + 1] += s*pr[2]
                     Dkuv[i][j + 1] += s*pr[1]
@@ -1484,20 +1484,20 @@ class UnivariateOreOperator(OreOperator):
                     Dkuv[i][j] = delta(Dkuv[i][j]) + s*pr[0]
 
             # reduce
-            for i in xrange(a + 1):
+            for i in range(a + 1):
                 if not Dkuv[i][b] == zero:
-                    for j in xrange(b):
+                    for j in range(b):
                         Dkuv[i][j] += Bred[j]*Dkuv[i][b]
                     Dkuv[i][b] = zero
 
-            for j in xrange(b): # not b + 1
+            for j in range(b): # not b + 1
                 if not Dkuv[a][j] == zero:
-                    for i in xrange(a):
+                    for i in range(a):
                         Dkuv[i][j] += Ared[i]*Dkuv[a][j]
                     Dkuv[a][j] = zero
 
             # solve
-            mat.append([Dkuv[i][j] for i in xrange(a) for j in xrange(b)])
+            mat.append([Dkuv[i][j] for i in range(a) for j in range(b)])
             sol = solver(Matrix(mat).transpose())
 
         L = A.parent()(list(sol[0]))
@@ -1528,7 +1528,7 @@ class UnivariateOreOperator(OreOperator):
         
         """
         if exp < 0:
-            raise TypeError, "unexpected exponent received in symmetric_power"
+            raise TypeError("unexpected exponent received in symmetric_power")
         elif exp == 0:
             D = self.parent().gen(); R = D.base_ring()
             return D - R(D(R.one())) # annihilator of 1
@@ -1541,7 +1541,7 @@ class UnivariateOreOperator(OreOperator):
             L = self.symmetric_power(exp/2, solver=solver)
             return L.symmetric_product(L, solver=solver)
         else:
-            raise TypeError, "unexpected exponent received in symmetric_power"
+            raise TypeError("unexpected exponent received in symmetric_power")
 
     def annihilator_of_associate(self, other, solver=None):
         """
@@ -1560,7 +1560,7 @@ class UnivariateOreOperator(OreOperator):
 
         """
         if not isinstance(other, UnivariateOreOperator):
-            raise TypeError, "unexpected argument in symmetric_product"
+            raise TypeError("unexpected argument in symmetric_product")
 
         if self.parent() != other.parent():
             A, B = canonical_coercion(self, other)
@@ -1654,11 +1654,11 @@ class UnivariateOreOperator(OreOperator):
         
         A = self.parent(); pr = A._product_rule(); R = poly.parent(); r = self.order(); vars = R.gens()
         if len(vars) % blocks != 0 or len(vars) < r*blocks:
-            raise TypeError, "illegal number of variables"
+            raise TypeError("illegal number of variables")
         elif R.base_ring().fraction_field() is not self.base_ring().fraction_field():
-            raise TypeError, "poly must live in a ring with coefficient field " + str(self.base_ring()) + "."
+            raise TypeError("poly must live in a ring with coefficient field " + str(self.base_ring()) + ".")
         elif pr is None:
-            raise ValueError, "no product rule found"
+            raise ValueError("no product rule found")
 
         K = R.base_ring().fraction_field()
         A = A.change_ring(K); R = R.change_ring(K); 
@@ -1666,19 +1666,19 @@ class UnivariateOreOperator(OreOperator):
         sigma = A.sigma(); delta = A.delta()
 
         shift_cache = { R.one().exponents()[0] : R.one() }
-        for j in xrange(blocks):
+        for j in range(blocks):
             J = j*len(vars)/blocks
-            for i in xrange(r - 1):
+            for i in range(r - 1):
                 shift_cache[vars[J + i].exponents()[0]] = vars[J + i + 1]
             shift_cache[vars[J + r - 1].exponents()[0]] = \
-                (-1/L.leading_coefficient())*sum(L[i]*vars[J + i] for i in xrange(r))
+                (-1/L.leading_coefficient())*sum(L[i]*vars[J + i] for i in range(r))
 
         def shift(p): # computes D( p ), as element of R
             out = R.zero()
             for m, c in zip(p.monomials(), p.coefficients()):
                 exp = m.exponents()[0]
                 if not shift_cache.has_key(exp):
-                    x = vars[min([i for i in xrange(len(vars)) if exp[i] > 0])]
+                    x = vars[min([i for i in range(len(vars)) if exp[i] > 0])]
                     m0 = m//x; A = shift_cache[x.exponents()[0]]; B = shift(m0)
                     shift_cache[exp] = pr[0]*m + pr[1]*(A*m0 + x*B) + pr[2]*A*B
                 out += sigma(c)*shift_cache[exp]
@@ -1686,9 +1686,9 @@ class UnivariateOreOperator(OreOperator):
         
         if len(vars) > blocks*r:
             subs = {}
-            for j in xrange(blocks):
+            for j in range(blocks):
                 J = j*len(vars)/blocks; p = vars[J]; subs[str(p)] = p
-                for i in xrange(len(vars)/blocks - 1):
+                for i in range(len(vars)/blocks - 1):
                     p = shift(p); subs[str(vars[J + i + 1])] = p
             poly = poly(**subs)
 
@@ -1703,7 +1703,7 @@ class UnivariateOreOperator(OreOperator):
 
             shifts.append(shift(shifts[-1]))
             basis = basis.union(shifts[-1].monomials())
-            sol = solver(Matrix(K, [[shifts[i].monomial_coefficient(m) for i in xrange(len(shifts))] for m in basis ]))
+            sol = solver(Matrix(K, [[shifts[i].monomial_coefficient(m) for i in range(len(shifts))] for m in basis ]))
 
         return self.parent()(list(sol[0]))
 
@@ -1737,7 +1737,7 @@ class UnivariateOreOperator(OreOperator):
         from sage.matrix.constructor import matrix
 
         r = self.order(); assert(1 <= k <= r); B = self.base_ring()
-        R = PolynomialRing(B, ['f' + str(i) + '_' + str(j) for i in xrange(k) for j in xrange(r + len(skip)) ])
+        R = PolynomialRing(B, ['f' + str(i) + '_' + str(j) for i in range(k) for j in range(r + len(skip)) ])
         poly = matrix(R, k, r + len(skip), R.gens()).delete_columns(skip).submatrix(0, 0, k, k).det()
         return self.annihilator_of_polynomial(poly, blocks=k).normalize()
 
@@ -1864,7 +1864,7 @@ class UnivariateOreOperator(OreOperator):
         c = self.polynomial().coefficients(**args)
         if len(c) <= padd:
             z = self.base_ring().zero()
-            c = c + [z for i in xrange(padd + 1 - len(c))]
+            c = c + [z for i in range(padd + 1 - len(c))]
         return c
 
     def exponents(self):
