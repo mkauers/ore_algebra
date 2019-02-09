@@ -41,7 +41,6 @@ from __future__ import absolute_import
 from .ore_algebra import OreAlgebra
 from .dfinite_symbolic import symbolic_database
 from .guessing import guess
-from .ore_operator_1_1 import UnivariateDifferentialOperatorOverUnivariateRing
 
 from sage.rings.ring import Algebra
 from sage.structure.element import RingElement
