@@ -146,7 +146,7 @@ class OreLeftIdeal(Ideal_nc):
             basis = newbasis
 
         basis.sort(cmp=lambda u,v: 1 if (u + v).lm() == u else -1)
-        return map(self.ring(), basis)
+        return list(map(self.ring(), basis))
 
     def multiplication_matrix(self, idx):
         """
@@ -260,16 +260,16 @@ class OreLeftIdeal(Ideal_nc):
 
         A = gens[0].parent()
         A = A.change_ring(A.base_ring().ring())
-        gens = map(A, gens)
+        gens = list(map(A, gens))
         
         # ~~~ relatively naive code ~~~
 
         # tools
         def info(i, msg):
             if infolevel >= i:
-                print msg
+                print(msg)
 
-        X = map(A, self.ring().gens())
+        X = list(map(A, self.ring().gens()))
         def maketerm(e): # exponent vector to monomial
             return prod( x**i for x, i in zip(X, e) )
 
@@ -574,7 +574,7 @@ class OreLeftIdeal(Ideal_nc):
             return self        
         
         R = self.ring()
-        vars = map(R, vars)
+        vars = list(map(R, vars))
         vars = [g for g in R.gens() if g not in vars]
         target_algebra = R.subalgebra(vars)
         
@@ -676,7 +676,7 @@ class OreLeftIdeal(Ideal_nc):
 
         def info(i, msg):
             if infolevel >= i:
-                print msg
+                print(msg)
         
         # domains for outer function
         A = self.ring()                                          ## eg ZZ[x,y][Dx,Dy]
@@ -720,7 +720,7 @@ class OreLeftIdeal(Ideal_nc):
                 for x in K.gens():
                     u = R(kwargs[str(x)])
                     # apply D to image of x=u(y,t) : u_y + u_t*D(t)
-                    der[x, D] = mulmat(R(map(d, u.list())) + R(minpoly.parent()(u.list()).derivative())*p)
+                    der[x, D] = mulmat(R(list(map(d, u.list()))) + R(minpoly.parent()(u.list()).derivative())*p)
                 
         info(1, "Construction of derivatives completed.")
         
@@ -810,9 +810,9 @@ class OreLeftIdeal(Ideal_nc):
            [(-252*x^5 + 108*x^4 + 81*x^3 - 36*x^2)*Dx^2 + (504*x^4 - 108*x^3 - 36*x)*Dx - 224*x^3 - 360*x^2 - 66*x + 16]
         """
 
-        def info(i, m):
+        def info(i, msg):
             if i <= infolevel:
-                print m
+                print(msg)
         
         # D must involve exactly one generator Dgen of the ambient algebra, and this generator must move exactly one
         # generator var of the ground ring. 
@@ -821,7 +821,7 @@ class OreLeftIdeal(Ideal_nc):
         Dgen = [Dgen for Dgen in A.gens() if D.degree(Dgen) != 0] # the unique generator of A appearing in D
         var = [k for k in A.base_ring().gens() if D*k != k*D] # D must commute with all but exactly one 
         if len(Dgen) != 1 or len(var) != 1:
-            raise ValueError, "bad choice of delta"
+            raise ValueError("bad choice of delta")
         Dgen, var = Dgen[0], var[0]
 
         from .ore_algebra import OreAlgebra
@@ -1057,7 +1057,7 @@ def fglm(algebra, one_vector, gen_matrices, infolevel=0, solver=None, early_term
 
     def info(i, msg):
         if infolevel >= i:
-            print msg
+            print(msg)
     
     basis = []; terms = {}
     sigma = dict( (d, algebra.sigma(d)) for d in algebra.gens() )
@@ -1138,7 +1138,7 @@ def uncouple(mat, algebra=None, extended=False, column_swaps=False, infolevel=0)
     
     Arat = A.change_ring(A.base_ring().fraction_field())
     Apol = A.change_ring(Arat.base_ring().ring())
-    mat = [map(Arat, list(row)) for row in mat]
+    mat = [list(map(Arat, list(row))) for row in mat]
     for i, row in enumerate(mat):
         row[:], d = clear_denominators(row)
         row[:] = [Apol(op) for op in row]
@@ -1146,7 +1146,7 @@ def uncouple(mat, algebra=None, extended=False, column_swaps=False, infolevel=0)
             U[i][i] = Apol(d)
             
     r = 0 # all rows before this one have been handled. 
-    for c in xrange(m):
+    for c in range(m):
 
         nonzero = [i for i in range(r, n) if not mat[i][c].is_zero()]
         if len(nonzero) == 0:
@@ -1214,7 +1214,7 @@ def solve_triangular_system(mat, rhs):
       sage: from ore_algebra import *
       sage: from ore_algebra.ideal import solve_triangular_system
       sage: R.<x> = ZZ[]; A.<Dx> = OreAlgebra(R); 
-      sage: solve_triangular_system([map(A, [Dx-x, 2,x]), map(A, [0,x,Dx-4]),map(A, [0,0,Dx])], [[1,0,0],[0,1,0],[0,0,1]])
+      sage: solve_triangular_system([list(map(A, [Dx-x, 2,x])), list(map(A, [0,x,Dx-4])), list(map(A, [0,0,Dx]))], [[1,0,0],[0,1,0],[0,0,1]])
       [([1, 0, 1], [0, -4, 0]), ([x, 4, x], [9, 1, 1])]
 
     """

@@ -119,7 +119,7 @@ def make_factor_iterator(ring, multiplicities=True):
                     if u.degree(x_ext) > 0:
                         yield R(u)
     else:
-        raise NotImplementedError, ring 
+        raise NotImplementedError(ring)
 
     return factors
 
@@ -196,7 +196,7 @@ def shift_factor(p, ram=ZZ.one(), q=1):
 
         # have we already seen a member of the shift equivalence class of q? 
         new = True; 
-        for i in xrange(len(classes)):
+        for i in range(len(classes)):
             u = classes[i][0]
             if u.degree() != q.degree():
                 continue
@@ -252,7 +252,7 @@ def _has_coefficients(elt):
         return True
     elif isinstance(elt, Element):
         parent = elt.parent()
-        return parent.base_ring() is not parent
+        return parent.base_ring() is not parent and hasattr(parent, 'change_ring')
 
 def clear_denominators(elts, dom=None):
     r"""

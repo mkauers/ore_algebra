@@ -46,11 +46,11 @@ AUTHOR:
 
 from __future__ import absolute_import
 
-def unload():
-    for p in [k for k in sys.modules if k.startswith("ore_algebra")]: del sys.modules[p]
-
 """
 ######### development mode ###########
+
+def unload():
+    for p in [k for k in sys.modules if k.startswith("ore_algebra")]: del sys.modules[p]
 
 if True:
 
@@ -209,7 +209,7 @@ class Sigma_class(object):
         else:         
             for x in d:
                 if not R(x) in Rgens:
-                    raise ValueError, str(x) + " is not a generator of " + str(R)
+                    raise ValueError(str(x) + " is not a generator of " + str(R))
                 if R(x) != d[x]:
                     my_dict[str(x)] = R(d[x])
                     is_id = False
@@ -255,7 +255,7 @@ class Sigma_class(object):
         elif exp < 0:
             return self.inverse()(p, -exp)
         else:
-            raise ValueError, "illegal sigma power " + str(exp)
+            raise ValueError("illegal sigma power " + str(exp))
 
     def set_call(self, fun):
         self.__call__ = fun 
@@ -311,7 +311,7 @@ class Sigma_class(object):
             return p
         elif n > 1:
             q = p; out = p
-            for i in xrange(n - 1):
+            for i in range(n - 1):
                 q = self(q)
                 out = out*q
             return out
@@ -319,12 +319,12 @@ class Sigma_class(object):
             s = self.inverse()
             q = ~s(p); out = q
             n = -n 
-            for i in xrange(n - 1):
+            for i in range(n - 1):
                 q = s(q)
                 out = out*q
             return out                
         else:
-            raise ValueError, "illegal argument to Sigma.factorial: " + str(n)
+            raise ValueError("illegal argument to Sigma.factorial: " + str(n))
 
     def inverse(self):
         """
@@ -364,8 +364,8 @@ class Sigma_class(object):
         C_one = R.base_ring().one()
         sigma = self
         sigma_inv_dict = {}
-        for exp in xrange(R.ngens()):
-            exp = tuple( (1 if i==exp else 0) for i in xrange(R.ngens()))
+        for exp in range(R.ngens()):
+            exp = tuple( (1 if i==exp else 0) for i in range(R.ngens()))
             if len(exp) == 1:
                 x = R.gen()
             else:
@@ -384,7 +384,7 @@ class Sigma_class(object):
                     raise ValueError # may raise exception
                 sigma_inv_dict[x] = self.__R((x - b)/a) # may raise exception
             except:
-                raise ValueError, "unable to construct inverse of sigma"
+                raise ValueError("unable to construct inverse of sigma")
 
         sigma_inv = Sigma_class(self.__R, sigma_inv_dict)
         self.__inverse = sigma_inv
@@ -425,7 +425,7 @@ class Delta_class(object):
     def __init__(self, R, d, s):
 
         if R != s.ring():
-            raise ValueError, "delta constructor received incompatible sigma"
+            raise ValueError("delta constructor received incompatible sigma")
 
         Rgens = R.gens(); is_zero = True; zero = R.zero(); my_dict = {}
 
@@ -442,7 +442,7 @@ class Delta_class(object):
         else:
             for x in d:
                 if not R(x) in Rgens:
-                    raise ValueError, str(x) + " is not a generator of " + str(R)
+                    raise ValueError(str(x) + " is not a generator of " + str(R))
                 if d[x] != zero:
                     is_zero = False
                 my_dict[str(x), 1] = R(d[x])
@@ -486,11 +486,11 @@ class Delta_class(object):
             if sigma.is_identity():
                 return p.derivative()*my_dict[strx, 1]
             x = R(x)
-            for i in xrange(2, p.degree() + 1):
+            for i in range(2, p.degree() + 1):
                 if not my_dict.has_key((strx, i)):
                     my_dict[strx, i] = my_dict[strx, i - 1]*x + sigma(x**(i - 1))*my_dict[strx, 1]
             out = R0.zero()
-            for i in xrange(p.degree() + 1):
+            for i in range(p.degree() + 1):
                 out += sigma(p[i])*my_dict[strx, i]
             return out
         elif is_MPolynomialRing(R0):
@@ -506,16 +506,16 @@ class Delta_class(object):
             # fall-back code for general case
             for x in Rgens:
                 strx = str(x)
-                for i in xrange(2, p.degree(x) + 1):
+                for i in range(2, p.degree(x) + 1):
                     if not my_dict.has_key((strx, i)):
                         my_dict[strx, i] = my_dict[strx, i - 1]*x + sigma(x**(i - 1))*my_dict[strx, 1]
             out = R0.zero(); one = R0.one()
             for exp in p.exponents():
                 # x1^e1 x2^e2 x3^e3
                 # ==> delta(x1^e1)*x2^e2*x3^e3 + sigma(x1^e1)*delta(x2^e2)*x3^e3 + sigma(x1^e1)*sigma(x2^e2)*delta(x3^e3)
-                for i in xrange(len(Rgens)):
+                for i in range(len(Rgens)):
                     term = one
-                    for j in xrange(len(Rgens)):
+                    for j in range(len(Rgens)):
                         if j < i:
                             term *= sigma(Rgens[j]**exp[j])
                         elif j == i:
@@ -525,7 +525,7 @@ class Delta_class(object):
                     out += p[exp]*term
             return out
         else:
-            raise TypeError, "don't know how to apply delta to " + str(p)
+            raise TypeError("don't know how to apply delta to " + str(p))
 
     def set_call(self, fun):
         self.__call__ = fun
@@ -632,7 +632,7 @@ class OreAlgebraFunctor(ConstructionFunctor):
         c = cmp(self.vars, other.vars)
         if c != 0:
             return c
-        for i in xrange(len(self.vars)):
+        for i in range(len(self.vars)):
             if self.gens[i][1] != other.gens[i][1]:
                 return cmp(self.gens[i][1], other.gens[i][1])
             if self.gens[i][2] != other.gens[i][2]:
@@ -819,14 +819,14 @@ def OreAlgebra(base_ring, *generators, **kwargs):
     zero = R.zero(); one = R.one()
 
     if not is_suitable_base_ring(R):
-        raise TypeError, "The base ring is not of the required form."
+        raise TypeError("The base ring is not of the required form.")
     if len(gens) == 0:
         try:
             gens = list(kwargs['names'])
         except KeyError:
-            raise TypeError, "Algebra must have at least one generator"
+            raise TypeError("Algebra must have at least one generator")
     if len(gens) == 0:
-        raise TypeError, "Algebra must have at least one generator"
+        raise TypeError("Algebra must have at least one generator")
 
     product_rules = []
     for i in range(len(gens)):
@@ -838,7 +838,7 @@ def OreAlgebra(base_ring, *generators, **kwargs):
             product_rules.append(None)
 
     # expand generator shortcuts, convert dictionaries to callables, and check that sigma(1)=1
-    for i in xrange(len(gens)):
+    for i in range(len(gens)):
         if type(gens[i]) == str:
             head = gens[i][0]; 
             if head == 'C': # commutative
@@ -848,7 +848,7 @@ def OreAlgebra(base_ring, *generators, **kwargs):
             try:
                 x = R(gens[i][1:])
             except:
-                raise TypeError, "base ring has no element '" + str(gens[i][1:]) + "'"
+                raise TypeError("base ring has no element '" + str(gens[i][1:]) + "'")
             if head == 'D': # derivative
                 gens[i] = (gens[i], {}, {x:one})
             elif head == 'S': # shift
@@ -859,12 +859,14 @@ def OreAlgebra(base_ring, *generators, **kwargs):
                 gens[i] = (gens[i], {}, {x:x})
             elif head == 'Q': # q-shift
                 if kwargs.has_key('q'):
-                    q = kwargs['q']
+                    q = R(kwargs['q'])
                 else:
                     try:
                         q = R('q')
                     except:
-                        raise TypeError, "base ring has no element 'q'"
+                        raise TypeError("base ring has no element 'q'")
+                if q.is_one():
+                    raise ValueError("q must not be 1")
                 gens[i] = (gens[i], {x:q*x}, {})
             elif head == 'J': # q-derivative
                 if kwargs.has_key('q'):
@@ -873,16 +875,16 @@ def OreAlgebra(base_ring, *generators, **kwargs):
                     try:
                         q = R('q')
                     except:
-                        raise TypeError, "base ring has no element 'q'"
+                        raise TypeError("base ring has no element 'q'")
                 gens[i] = (gens[i], {x:q*x}, {x:one})
             else:
-                raise TypeError, "unexpected generator declaration"
+                raise TypeError("unexpected generator declaration")
         elif len(gens[i]) != 3:
-            raise TypeError, "unexpected generator declaration"
+            raise TypeError("unexpected generator declaration")
         s = Sigma_class(R, gens[i][1]) # assuming gens[i][1] is either a dict or a callable
         d = Delta_class(R, gens[i][2], s) # assuming gens[i][2] is either a dict or a callable
         if s(one) != one:
-            raise ValueError, "sigma(1) must be 1"
+            raise ValueError("sigma(1) must be 1")
         gens[i] = (gens[i][0], s, d)
 
     # try to recognize standard operators
@@ -891,7 +893,7 @@ def OreAlgebra(base_ring, *generators, **kwargs):
     is_qderivation = [False for q in gens]
     Rgens = R.gens()
 
-    for i in xrange(len(gens)):
+    for i in range(len(gens)):
 
         imgs = [(x, gens[i][1](x), gens[i][2](x)) for x in Rgens]
         imgs = [(x, u, v) for (x, u, v) in imgs if (u != x or v != zero) ]
@@ -937,7 +939,7 @@ def OreAlgebra(base_ring, *generators, **kwargs):
         except:
             pass
 
-    for i in xrange(len(gens)):
+    for i in range(len(gens)):
         
         if product_rules[i] is not None:
             continue
@@ -974,7 +976,7 @@ def OreAlgebra(base_ring, *generators, **kwargs):
     # complain if we got any bogus keyword arguments
     for kw in kwargs:
         if kw not in ("solver", "element_class", "names", "q"):
-            raise TypeError, "OreAlgebra constructor got an unexpected keyword argument " + str(kw)
+            raise TypeError("OreAlgebra constructor got an unexpected keyword argument " + str(kw))
 
     alg = OreAlgebra_generic(base_ring, operator_class, tuple(gens), tuple(product_rules))
 
@@ -1073,9 +1075,9 @@ class OreAlgebra_generic(UniqueRepresentation, Algebra):
             out = self.base_ring()._coerce_map_from_(P.base_ring())
             if out is None or out is False:
                 return False
-            for i in xrange(P.ngens()):
+            for i in range(P.ngens()):
                 found_match = False
-                for j in xrange(self.ngens()):
+                for j in range(self.ngens()):
                     if P.var(i) == self.var(j) and P.sigma(i) == self.sigma(j) and P.delta(i) == self.delta(j):
                         found_match = True; break
                 if not found_match:
@@ -1093,7 +1095,7 @@ class OreAlgebra_generic(UniqueRepresentation, Algebra):
     def _sage_input_(self, sib, coerced):
         # one for generators following the naming convention
         base = sib(self.base_ring())
-        args = map(sib, [self.base_ring()] + [str(g) for g in self.gens()]) 
+        args = list(map(sib, [self.base_ring()] + [str(g) for g in self.gens()]))
         sie = sib.name('OreAlgebra')(*args)
         return sib.parent_with_gens(self, sie, self.variable_names(), 'R')
 
@@ -1154,10 +1156,10 @@ class OreAlgebra_generic(UniqueRepresentation, Algebra):
                 raise IndexError("No such generator.")
             return D
         D = str(D)
-        for i in xrange(self.ngens()):
+        for i in range(self.ngens()):
             if D == self.var(i):
                 return i
-        raise IndexError, "No such generator."
+        raise IndexError("No such generator.")
 
     def sigma(self, n=0):
         """
@@ -1445,7 +1447,7 @@ class OreAlgebra_generic(UniqueRepresentation, Algebra):
         for x in R.gens():
             try:
                 sx = sigma(x); 
-                if sigma(sx)*x == sx**2 and delta(x) == zero:
+                if sx != x and sigma(sx)*x == sx**2 and delta(x) == zero:
                     candidates.append((x, R.base_ring()(sx(1))))
             except:
                 pass
@@ -1706,7 +1708,7 @@ class OreAlgebra_generic(UniqueRepresentation, Algebra):
 
         solver = nullspace.quick_check(solver) 
 
-        for i in xrange(merge_levels):
+        for i in range(merge_levels):
             solver = nullspace.merge(solver) # good for K(x..)(y..) 
 
         self.__solvers[R] = solver
@@ -1750,14 +1752,14 @@ class OreAlgebra_generic(UniqueRepresentation, Algebra):
             self.__product_rules = list(rules)
         else:
             old = self.__product_rules; new = rules
-            for i in xrange(self.ngens()):
+            for i in range(self.ngens()):
                 if new[i] is not None:
                     if old[i] is None:
                         old[i] = tuple(new[i])
                     else:
-                        for j in xrange(3):
+                        for j in range(3):
                             if old[i][j] != new[i][j]:
-                                raise ValueError, "inconsistent product rule specification"
+                                raise ValueError("inconsistent product rule specification")
 
     def change_ring(self, R):
         """

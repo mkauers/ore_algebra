@@ -138,11 +138,11 @@ class MultivariateOreOperator(OreOperator):
     def _mul_(self, other):
 
         A = self.parent(); n = A.ngens()
-        sigma = [ A.sigma(i) for i in xrange(n) ] 
-        delta = [ A.delta(i) for i in xrange(n) ]
-        D = [ A.gen(i).polynomial() for i in xrange(n) ]
+        sigma = [ A.sigma(i) for i in range(n) ] 
+        delta = [ A.delta(i) for i in range(n) ]
+        D = [ A.gen(i).polynomial() for i in range(n) ]
         
-        monomial_times_other = {tuple(0 for i in xrange(n)): other.polynomial()}
+        monomial_times_other = {tuple(0 for i in range(n)): other.polynomial()}
 
         def multiple(exp):
             exp = tuple(int(e) for e in exp)
@@ -177,7 +177,7 @@ class MultivariateOreOperator(OreOperator):
         return self.__poly[n]
 
     def __setitem__(self, n, value):
-        raise IndexError, "Operators are immutable"
+        raise IndexError("Operators are immutable")
 
     def __hash__(self):
         return hash(self.__poly)
@@ -352,7 +352,7 @@ class MultivariateOreOperator(OreOperator):
         
         def info(i, msg):
             if infolevel >= i:
-                print msg
+                print(msg)
 
         try:
             # handle case where input is an ideal 
@@ -382,7 +382,7 @@ class MultivariateOreOperator(OreOperator):
                 out[1] = [o*d for o in out[1]]
                 return tuple(out)
             
-            basis = map(self.parent(), basis)
+            basis = list(map(self.parent(), basis))
 
         exp = [vector(ZZ, b.exp()) for b in basis]
         gens = self.parent().gens(); p = self; r0 = self.parent().zero(); c = self.base_ring().one()

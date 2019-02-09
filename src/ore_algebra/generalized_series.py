@@ -1,6 +1,8 @@
 
 """
-Generalized series
+generalized_series
+==================
+
 """
 
 
@@ -71,13 +73,13 @@ class GeneralizedSeriesMonoid(UniqueRepresentation, Parent):
     def __classcall__(cls, base, x, type="continuous"):
         if not (any(base is P for P in [ZZ, QQ, QQbar])
                 or isinstance(base, NumberField)):
-            raise TypeError, "base ring must be ZZ, QQbar or a number field"
+            raise TypeError("base ring must be ZZ, QQbar or a number field")
         x = str(x)
         if x.find("LOG") >= 0:
-            raise ValueError, "generator name must not contain the substring 'LOG'"
+            raise ValueError("generator name must not contain the substring 'LOG'")
         type = str(type)
         if type != "continuous" and type != "discrete":
-            raise ValueError, "type must be either \"continuous\" or \"discrete\""
+            raise ValueError("type must be either \"continuous\" or \"discrete\"")
         return super(GeneralizedSeriesMonoid, cls).__classcall__(cls, base, x, type)
 
     def __init__(self, base, x, type):
@@ -340,21 +342,21 @@ class ContinuousGeneralizedSeries(RingElement):
         p = parent.tail_ring()(tail)
 
         if ramification not in ZZ or ramification <= 0:
-            raise ValueError, "ramification must be a positive integer"
+            raise ValueError("ramification must be a positive integer")
         elif p.is_zero():
             self.__exp = parent.exp_ring().zero()
             self.__ramification = ZZ(1)
             self.__tail = parent.tail_ring().zero()
         else:
             exp = parent.exp_ring()(exp)
-            
             alpha = min(c.valuation()/ramification for c in p.coefficients())
+            
             if not alpha.is_zero():
                 # move part of the tail to the exponential part
                 exp += alpha
                 x = p.base_ring().gen()
                 p = p.map_coefficients(lambda q: q/(x**ZZ(ramification*alpha)))
-            
+                
             new_ram = lcm([ (e/ramification).denominator() for e in exp.exponents() ])
             if new_ram < ramification:
                 for c in p.coefficients():
@@ -399,7 +401,7 @@ class ContinuousGeneralizedSeries(RingElement):
             p = self.__exp
             x = arg**(-R.one()/self.__ramification)
             q = p[0]*LOG(arg)
-            for i in xrange(1, p.degree() + 1):
+            for i in range(1, p.degree() + 1):
                 q += -(p[i]/i) * x**i
             out *= EXP(q)
 
@@ -411,6 +413,23 @@ class ContinuousGeneralizedSeries(RingElement):
     def __copy__(self):
         return self
 
+    def __getitem__(self, key):
+        """
+        Returns a particular coefficient of the tail. 
+        The tail is regarded as an element of C[[x^(1/r)]][log(x)].
+        The input of the method is either a pair (a,b) where a is the 
+        exponent of log(x) and b the exponent of x, or just a rational 
+        number, which amounts to the same as choosing a=0.
+        Note that the exponent b only refers to the tail, excluding the
+        polynomial part alpha of the series. 
+        """
+        if key in QQ:
+            return self.__tail[0][key*self.__ramification]
+        elif len(key) == 2:
+            return self.__tail[key[0]][key[1]*self.__ramification]
+        else:
+            raise KeyError            
+    
     def base_extend(self, ext, name='a'):
         """
         Lifts ``self`` to a domain with an enlarged coefficient domain.
@@ -452,10 +471,10 @@ class ContinuousGeneralizedSeries(RingElement):
         if s == r:
             return (self.__exp, self.__tail)
 
-        quo = s // r
+        quo = ZZ(s / r)
         
         if r*quo != s or s <= 0:
-            raise ValueError, "s must be a positive integer multiple of the ramification"
+            raise ValueError("s must be a positive integer multiple of the ramification")
 
         exp = self.__exp
         x = exp.parent().gen()
@@ -508,7 +527,7 @@ class ContinuousGeneralizedSeries(RingElement):
             return self
         elif not self.similar(other):
             # could be generalized such as to support x^(1/3) + x^(1/2) = x^(1/2)*(1 + x^(1/6))
-            raise ValueError, "can only add generalized series if they are \"similar\"."
+            raise ValueError("can only add generalized series if they are \"similar\".")
 
         G = self.parent()
         s = lcm(self.ramification(), other.ramification())
@@ -529,7 +548,7 @@ class ContinuousGeneralizedSeries(RingElement):
         if self.is_zero():
             raise ZeroDivisionError
         elif self.has_logarithms():
-            raise ValueError, "generalized series involving logarithms are not invertible"
+            raise ValueError("generalized series involving logarithms are not invertible")
         else:
             return ContinuousGeneralizedSeries(self.parent(), \
                                                ~self.__tail, \
@@ -563,7 +582,7 @@ class ContinuousGeneralizedSeries(RingElement):
                 else:
                     E_rep += "^(" + str(alpha) + ")"
             else:
-                E = E.parent()([E[0]] + [-r/ZZ(i)*E[i] for i in xrange(1, E.degree() + 1)])
+                E = E.parent()([E[0]] + [-r/ZZ(i)*E[i] for i in range(1, E.degree() + 1)])
                 x_ram = '-1' if r == 1 else '-1/' + str(r)
                 x_ram = x + '^(' + x_ram + ')'
                 E_rep = "exp(" + E._repr_().replace(x, x_ram) + ")"
@@ -619,7 +638,7 @@ class ContinuousGeneralizedSeries(RingElement):
                 if not alpha.is_one():
                     E_rep += "^{" + alpha._latex_() + "}"
             else:
-                E = E.parent()([E.base_ring().zero()] + [-r/ZZ(i)*E[i] for i in xrange(1, E.degree() + 1)])
+                E = E.parent()([E.base_ring().zero()] + [-r/ZZ(i)*E[i] for i in range(1, E.degree() + 1)])
                 x_ram = '-1' if r == 1 else '-1/' + str(r)
                 x_ram = x + '^{' + x_ram + '}'
                 E_rep = r"\exp\Bigl(" + E._latex_().replace(x, x_ram) + r"\Bigr)"
@@ -674,10 +693,10 @@ class ContinuousGeneralizedSeries(RingElement):
         return ContinuousGeneralizedSeries(self.parent(), 1, exp=self.__exp, ramification=self.ramification())
 
     def has_exponential_part(self):
-        r"""
+        """
         True if ``self`` has a nontrivial exponential part.
 
-        Note that the exponential part may not show up in form of an "exp" term in the printout,
+        Note that the exponential part may not show up in form of an \"exp\" term in the printout,
         but may also simply consist of some power `x^\alpha` with nonzero `\alpha`.
 
         EXAMPLES::
@@ -699,7 +718,7 @@ class ContinuousGeneralizedSeries(RingElement):
         """
         True if ``self`` contains logarithmic terms. 
         """
-        self.__tail.degree() > 0
+        return self.__tail.degree() > 0
 
     def tail(self):
         """
@@ -858,7 +877,7 @@ class ContinuousGeneralizedSeries(RingElement):
             9/25*x^(6/10)*log(x)^2 + 3/5*x^(3/10)*log(x) + 1
         """
         if not e in QQ or e <= 0:
-            raise TypeError, "exponent must be a rational number"
+            raise TypeError("exponent must be a rational number")
         elif e == 1:
             return self
         
@@ -981,7 +1000,7 @@ class DiscreteGeneralizedSeries(RingElement):
 
         R = parent.tail_ring(); PS = R.base_ring()
         if type(expansion) == list:
-            for i in xrange(len(expansion)):
+            for i in range(len(expansion)):
                 if type(expansion[i]) == list:
                     expansion[i] = PS(expansion[i], len(expansion[i]))
         
@@ -1077,8 +1096,27 @@ class DiscreteGeneralizedSeries(RingElement):
 
             return out            
         else:
-            raise ValueError, "don't know how to evaluate discrete generalized series at" + str(arg)
+            raise ValueError("don't know how to evaluate discrete generalized series at" + str(arg))
 
+
+    def __getitem__(self, key):
+        """
+        Returns a particular coefficient of the tail. 
+        The tail is regarded as an element of C[[x^(-1/r)]][log(x)].
+        The input of the method is either a pair (a,b) where a is the 
+        exponent of log(x) and b the exponent of x, or just a rational 
+        number, which amounts to the same as choosing a=0.
+        Note that the exponent b only refers to the tail, excluding the
+        polynomial part alpha of the series. 
+        """
+        if key in QQ:
+            return self.__expansion[0][-key*self.__ramification]
+        elif len(key) == 2:
+            return self.__expansion[key[0]][-key[1]*self.__ramification]
+        else:
+            raise KeyError            
+        
+        
     def subs(self, *args, **kwargs):
         raise NotImplementedError
         
@@ -1176,7 +1214,7 @@ class DiscreteGeneralizedSeries(RingElement):
             return self
         elif not self.similar(other):
             # could be generalized such as to support x^(1/3) + x^(1/2) = x^(1/2)*(1 + x^(1/6))
-            raise ValueError, "can only add generalized series if they are \"similar\"."
+            raise ValueError("can only add generalized series if they are \"similar\".")
 
         ram = lcm(self.__ramification, other.__ramification)
 
@@ -1202,7 +1240,7 @@ class DiscreteGeneralizedSeries(RingElement):
         if self.is_zero():
             raise ZeroDivisionError
         elif self.has_logarithms():
-            raise ValueError, "generalized series involving logarithms are not invertible"
+            raise ValueError("generalized series involving logarithms are not invertible")
 
         return DiscreteGeneralizedSeries(self.parent(), \
                                          [-self.__gamma, self.__ramification, ~self.__rho, -self.__subexp, \
@@ -1349,19 +1387,19 @@ class DiscreteGeneralizedSeries(RingElement):
 
         prec = min(c.prec() for c in self.__expansion.coefficients()); x = self.parent().exp_ring().gen()
         gamma = self.__gamma; rho = self.__rho; subexp = self.__subexp; alpha = self.__alpha
-        subexp = [subexp[j] for j in xrange(1, max(subexp.degree(), gamma.denominator()) + 1)]
+        subexp = [subexp[j] for j in range(1, max(subexp.degree(), gamma.denominator()) + 1)]
         ram = self.__ramification
         
         factor = _generalized_series_shift_quotient(x, prec=prec + 1, shift=i, gamma=gamma, rho=rho, \
                                                     subexp=subexp, ramification=ram, alpha=alpha).reverse()
 
         # (x+i)^(-1/ram) = x^(-1/ram) * (1+i/x)^(-1/ram) 
-        x_shifted = x*sum(_binomial(-~ram, k)*(i*x**ram)**k for k in xrange(prec + 1))
+        x_shifted = x*sum(_binomial(-~ram, k)*(i*x**ram)**k for k in range(prec + 1))
 
         PS = self.parent().tail_ring().base_ring()
         expansion = self.__expansion.map_coefficients(lambda p: PS(factor*p(x_shifted), prec))
 
-        logx_shifted = expansion.parent().gen() - sum((-i*x**ram)**k/QQ(k) for k in xrange(1, prec + 1))
+        logx_shifted = expansion.parent().gen() - sum((-i*x**ram)**k/QQ(k) for k in range(1, prec + 1))
         expansion = expansion(logx_shifted)
 
         return DiscreteGeneralizedSeries(self.parent(), [self.__gamma, ram, self.__rho, self.__subexp, \
@@ -1386,7 +1424,7 @@ def _binomial(lam, j): # works also when lambda is not an integer
     if type(lam) == int:
         lam = ZZ(lam)
     b = one = lam.parent().one()
-    for jj in xrange(j):
+    for jj in range(j):
         b *= lam/(j - jj)
         lam -= one
     return b # checked.
@@ -1394,9 +1432,9 @@ def _binomial(lam, j): # works also when lambda is not an integer
 def _super_expansion(gamma, i, n, prec):
     # (1 + i/n)^(gamma*n)
     # = exp(gamma*i) * sum( 1/k! * sum( gamma*i^(l+1)/((l+1)*(-n)^l) , l=1..infty)^k , k=0..infty )
-    inner = gamma*i*sum( (-i*n)**l/(l+1) for l in xrange(1, prec + 1) )
+    inner = gamma*i*sum( (-i*n)**l/(l+1) for l in range(1, prec + 1) )
     outer = inner_pow = n.parent().one()
-    for k in xrange(1, prec + 1):
+    for k in range(1, prec + 1):
         inner_pow = (inner_pow * inner) % (n**(prec + 1))
         outer += inner_pow/ZZ(k).factorial()
     coeffs = outer.padded_list(prec + 1)
@@ -1407,10 +1445,10 @@ def _sub_expansion(coeffs, ram, i, n, prec):
     # exp( c_1*((n+i)^(1/ram) - n^(1/ram)) + .. + c_{ram-1} ((n+i)^((ram-1)/ram) - n^((ram-1)/ram)) )
     # = prod( sum( 1/k! * sum(c_l*binom(l/ram, j)*i^j*n^(-j+l/ram), j=1..infty)^k, k=0..infty ), l=1..ram-1 )
     prod = one = n.parent().one()
-    for l in xrange(1, len(coeffs) + 1):
-        inner = coeffs[l - 1]*sum(_binomial(ZZ(l)/ram, j)* i**j * n**(ram*j - l) for j in xrange(1, prec + 1))
+    for l in range(1, len(coeffs) + 1):
+        inner = coeffs[l - 1]*sum(_binomial(ZZ(l)/ram, j)* i**j * n**(ram*j - l) for j in range(1, prec + 1))
         outer = inner_pow = one
-        for k in xrange(1, ram*prec + 1):
+        for k in range(1, ram*prec + 1):
             inner_pow = (inner_pow * inner) % (n**(ram*prec + 1))
             outer += inner_pow/ZZ(k).factorial()
         prod = (prod*outer) % (n**(ram*prec + 1))
@@ -1455,23 +1493,23 @@ def _generalized_series_shift_quotient(x, prec=5, shift=1, gamma=0, rho=1, subex
 
     ram = ZZ(ram)
     if not (ram % gamma.denominator()).is_zero():
-        raise ValueError, "ramification must be a multiple of the denominator of gamma."
+        raise ValueError("ramification must be a multiple of the denominator of gamma.")
 
     if shift == 0:
         return x**(ram*prec)
     elif shift < 0:
-        raise ValueError, "only nonnegative shifts are allowed"
+        raise ValueError("only nonnegative shifts are allowed")
 
     if gamma != 0:
         
         gamma = QQ(gamma); u = gamma.numerator(); v = gamma.denominator()
 
         if prec + shift*gamma < 0:
-            raise ValueError, "insufficient precision"
+            raise ValueError("insufficient precision")
         
         # n^(i*gamma) (1+i/n)^(gamma*i) (1+i/n)^(gamma*n) 
         cert = sum(_binomial(shift*gamma, k) * shift**k * x**(ram*(prec + shift*gamma - k)) \
-                   for k in xrange(prec + shift*gamma + 1))
+                   for k in range(prec + shift*gamma + 1))
         cert = (cert * _super_expansion(gamma, shift, x, prec)(x**ram)).shift(-ram*prec)
         
     else:
@@ -1484,6 +1522,6 @@ def _generalized_series_shift_quotient(x, prec=5, shift=1, gamma=0, rho=1, subex
         cert = (cert*_sub_expansion(subexp, ram, shift, x, prec)).shift(-ram*prec)
 
     if alpha != 0:
-        cert = (cert*sum(_binomial(alpha, k)*(shift**k)*(x**(ram*(prec - k))) for k in xrange(prec + 1))).shift(-ram*prec)
+        cert = (cert*sum(_binomial(alpha, k)*(shift**k)*(x**(ram*(prec - k))) for k in range(prec + 1))).shift(-ram*prec)
 
     return x.parent()(cert)
