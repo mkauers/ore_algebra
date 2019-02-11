@@ -1,5 +1,5 @@
 # coding: utf-8
-"""
+r"""
 dfinite_symbolic
 ================
 
@@ -43,7 +43,7 @@ from sage.all import *
 from operator import pow
 
 def symbolic_database(A, f, inner = None, k = 0):
-    """
+    r"""
     Tries to return an annihilating operator of a symbolic operator `f`, i.e. an element from a (suitable) OreAlgebra `A`
     that represents a differential/recurrence equation for the symoblic epxression ``f(x)``
     

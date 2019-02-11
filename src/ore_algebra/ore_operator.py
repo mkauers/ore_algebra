@@ -392,7 +392,7 @@ class OreOperator(RingElement):
         raise NotImplementedError
 
     def constant_coefficient(self):
-        """
+        r"""
         Return the coefficient of `\partial^0` of this operator. 
         """
         raise NotImplementedError

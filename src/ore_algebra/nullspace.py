@@ -1,7 +1,7 @@
 
 from __future__ import print_function
 
-"""
+r"""
 Kernels of polynomial matrices
 
 This module is about computing the right kernel of matrices with polynomial entries.
@@ -252,7 +252,7 @@ def heuristic_row_content(row, ring):
 #     EXPONENT=2, ALPHA=2, BETA=10, GAMMA=1
 
 def _pivot(mat, r, n, c, m, zero):
-    """
+    r"""
     Given a matrix, find a \"good\" pivot element in the index range (r..n-1) x (c..m-1).
     Returns the index (i, j) of the suggested pivot. The return value is None iff the
     matrix is the zero matrix. The last argument provides the zero element of the ring. 
@@ -520,7 +520,7 @@ def gauss(pivot=_pivot, ncpus=1, fun=None):
     return gauss_solver    
 
 def _gauss(pivot, ncpus, fun, mat, degrees, infolevel):
-    """
+    r"""
     Internal version of nullspace.gauss_
     """
 
@@ -652,7 +652,7 @@ def _gauss(pivot, ncpus, fun, mat, degrees, infolevel):
     return _normalize([vector(R, v) for v in sol])
 
 def hermite(early_termination=True):
-    """
+    r"""
     Creates a solver which computes a nullspace basis of minimal degree.
 
     INPUT:
@@ -683,7 +683,7 @@ def hermite(early_termination=True):
     return hermite_solver
 
 def _hermite(early_termination, mat, degrees, infolevel, truncate=None):
-    """
+    r"""
     internal version of nullspace.hermite_.
     """
     # if the truncate option is set to an integer, approximation proceeds to order x^truncate
@@ -895,7 +895,7 @@ def kronecker(subsolver, presolver=None):
 
     """
     def kronecker_solver(mat, degrees=[], infolevel=0):
-        """See docstring of kronecker() for further information."""
+        r"""See docstring of kronecker() for further information."""
         return _kronecker(subsolver, presolver, mat, degrees, infolevel)
     return kronecker_solver
 
@@ -1021,7 +1021,7 @@ def lagrange(subsolver, start_point=10, ncpus=1):
 
     """
     def lagrange_solver(mat, degrees=[], infolevel=0):
-        """See docstring of lagrange() for further information."""
+        r"""See docstring of lagrange() for further information."""
         return _lagrange(subsolver, start_point, ncpus, mat, degrees, infolevel)
     return lagrange_solver
 
@@ -1240,7 +1240,7 @@ def galois(subsolver, max_modulus=MAX_MODULUS, proof=False):
     
     """
     def galois_solver(mat, degrees=[], infolevel=0):
-        """See docstring of galois() for further information."""
+        r"""See docstring of galois() for further information."""
         return _galois(subsolver, max_modulus, proof, mat, degrees, infolevel)
     return galois_solver
 
@@ -1291,12 +1291,12 @@ def cra(subsolver, max_modulus=MAX_MODULUS, proof=False, ncpus=1):
 
     """
     def cra_solver(mat, degrees=[], infolevel=0) :
-        """See docstring of cra() for further information."""
+        r"""See docstring of cra() for further information."""
         return _cra(subsolver, max_modulus, proof, ncpus, mat, degrees, infolevel)
     return cra_solver
 
 def _cra(subsolver, max_modulus, proof, ncpus, mat, degrees, infolevel):
-    """
+    r"""
     Internal version of nullspace.cra_ 
     """
     R = mat.parent().base_ring(); x = R.gens(); K = R.base_ring()
@@ -1446,7 +1446,7 @@ def newton(subsolver, inverse=lambda mat:mat.inverse()):
        vector as row
     """
     def newton_solver(mat, degrees=[], infolevel=0) :
-        """See docstring of newton() for further information."""
+        r"""See docstring of newton() for further information."""
         return _newton(subsolver, inverse, mat, degrees, infolevel)
     return newton_solver
 
@@ -1530,7 +1530,7 @@ def _newton(subsolver, inverse, mat, degrees, infolevel):
     return [ vector(R, v) for v in V ]
 
 def clear(subsolver):
-    """
+    r"""
     Constructs a solver which clears denominators in a given matrix over `FF(R)[x..]` or `FF(R[x..])`
     and then calls a subsolver on a matrix over `R[x..]`
 
@@ -1577,7 +1577,7 @@ def clear(subsolver):
       
     """
     def clear_solver(mat, degrees=[], infolevel=0):
-        """See docstring of clear() for further information."""
+        r"""See docstring of clear() for further information."""
         return _clear(subsolver, mat, degrees, infolevel)
     return clear_solver
 
@@ -1624,7 +1624,7 @@ def _clear(subsolver, mat, degrees, infolevel):
     return subsolver(newmat, degrees=degrees, infolevel=_alter_infolevel(infolevel, -1, 1))
 
 def merge(subsolver):
-    """
+    r"""
     Constructs a solver which first merges towers of polynomial or rational function extensions
     into a single one and then applies the subsolver.
 
@@ -1657,7 +1657,7 @@ def merge(subsolver):
 
     """
     def merge_solver(mat, degrees=[], infolevel=0):
-        """See docstring of merge() for further information."""
+        r"""See docstring of merge() for further information."""
         return _merge(subsolver, mat, degrees, infolevel)
     return merge_solver
 
@@ -1688,7 +1688,7 @@ def _merge(subsolver, mat, degrees, infolevel):
     return subsolver(mat, degrees=degrees, infolevel=_alter_infolevel(infolevel, -2, 1))
 
 def quick_check(subsolver, modsolver=sage_native, modulus=pp(2**23)):
-    """
+    r"""
     Constructs a solver which first tests in a homomorphic image whether the nullspace is empty
     and applies the subsolver only if it is not.
 
@@ -1718,7 +1718,7 @@ def quick_check(subsolver, modsolver=sage_native, modulus=pp(2**23)):
     
     """
     def quick_check_solver(mat, degrees=[], infolevel=0):
-        """See docstring of quick_check() for further information."""
+        r"""See docstring of quick_check() for further information."""
         return _quick_check(subsolver, modsolver, modulus, mat, degrees, infolevel)
     return quick_check_solver
 
@@ -1754,7 +1754,7 @@ def _quick_check(subsolver, modsolver, modulus, mat, degrees, infolevel):
         return subsolver(mat, degrees=degrees, infolevel=_alter_infolevel(infolevel, -2, 1))
 
 def compress(subsolver, presolver=sage_native, modulus=MAX_MODULUS):
-    """
+    r"""
     Constructs a solver which throws away unnecessary rows and columns and then applies the subsolver
 
     INPUT:
@@ -1792,7 +1792,7 @@ def compress(subsolver, presolver=sage_native, modulus=MAX_MODULUS):
 
     """
     def compress_solver(mat, degrees=[], infolevel=0):
-        """See docstring of compress() for further information."""
+        r"""See docstring of compress() for further information."""
         return _compress(subsolver, presolver, modulus, mat, degrees, infolevel)
     return compress_solver
 
@@ -1898,12 +1898,12 @@ def wiedemann():
 
     """
     def wiedemann_solver(mat, degrees=[], infolevel=0):
-        """See docstring of wiedemann() for further information"""
+        r"""See docstring of wiedemann() for further information"""
         return _wiedemann(mat, degrees, infolevel)
     return wiedemann_solver
 
 def _berlekamp_massey(data):
-    """finds a c-finite recurrence of order len(data)/2 for the given terms. """
+    r"""finds a c-finite recurrence of order len(data)/2 for the given terms. """
 
     R = data[0].parent()
     M = berlekamp_massey(data) #### REIMPLEMENT!

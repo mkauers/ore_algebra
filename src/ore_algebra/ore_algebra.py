@@ -112,13 +112,13 @@ from sage.rings.finite_rings.all import GF
 from . import nullspace
 
 def is_OreAlgebra(A):
-    """
+    r"""
     Checks whether `A` is an Ore algebra object.     
     """
     return isinstance(A, OreAlgebra_generic)
 
 def is_suitable_base_ring(R):
-    """
+    r"""
     Checks whether `R` is suitable as base ring of an Ore algebra.
     This is the case if and only if: (a) `R` is one of `ZZ`, `QQ`,
     `GF(p)` for a prime `p`, or a finite algebraic extension of `QQ`,
@@ -149,7 +149,7 @@ def is_suitable_base_ring(R):
         return False
 
 class Sigma_class(object):
-    """
+    r"""
     A ring endomorphism for suitable rings. 
 
     A sigma object is created by a ring `R` on which it operates, and some piece of defining the action.
@@ -264,7 +264,7 @@ class Sigma_class(object):
         return self.__is_identity
 
     def dict(self):
-        """
+        r"""
         Returns a dictionary representing ``self``
         """
         return self.__dict.copy()
@@ -295,13 +295,13 @@ class Sigma_class(object):
         return "Endomorphism defined through " + str(self.dict())
 
     def ring(self):
-        """
+        r"""
         Returns the ring for which this sigma object is defined
         """
         return self.__R
 
     def factorial(self, p, n):
-        """
+        r"""
         Returns `p\sigma(p)...\sigma^{n-1}(p)` if `n` is nonnegative,
         and and `1/(\sigma(p)...\sigma^n(p)` otherwise.        
         """
@@ -327,7 +327,7 @@ class Sigma_class(object):
             raise ValueError("illegal argument to Sigma.factorial: " + str(n))
 
     def inverse(self):
-        """
+        r"""
         Returns a sigma object which represents the compositional inverse of ``self``.
 
         The inverse can be constructed if `\sigma` is such that it maps every generator `x` of
@@ -392,7 +392,7 @@ class Sigma_class(object):
         return sigma_inv
 
 class Delta_class(object):
-    """
+    r"""
     A skew-derivation for suitable rings. 
 
     A delta object is created by a ring `R` on which it operates, some piece of information defining the action,
@@ -561,13 +561,13 @@ class Delta_class(object):
         return not self.__eq__(other)
 
     def ring(self):
-        """
+        r"""
         Returns the ring for which this sigma object is defined
         """
         return self.__R
 
     def dict(self):
-        """
+        r"""
         Returns a dictionary representing ``self``
         """
 
@@ -589,7 +589,7 @@ class Delta_class(object):
 from sage.categories.pushout import ConstructionFunctor
 
 class OreAlgebraFunctor(ConstructionFunctor):
-    """
+    r"""
     Construction functor for Ore algebras.
 
     Such a functor is made from the same data as an Ore algebra, except for the base ring.
@@ -602,7 +602,7 @@ class OreAlgebraFunctor(ConstructionFunctor):
     rank = 15 # less than polynomial ring
 
     def __init__(self, *gens):
-        """
+        r"""
         INPUT:
 
         - gens: list (or tuple) of generators, each generator is specified by a tuple
@@ -639,7 +639,7 @@ class OreAlgebraFunctor(ConstructionFunctor):
 
 
 def OreAlgebra(base_ring, *generators, **kwargs):
-    u"""
+    r"""
     An Ore algebra is a noncommutative polynomial ring whose elements are
     interpreted as operators.
     
@@ -1013,7 +1013,7 @@ def DifferentialOperators(base=QQ, var='x'):
     return Dop, x, Dx
 
 class OreAlgebra_generic(UniqueRepresentation, Algebra):
-    """
+    r"""
     """
 
     def __init__(self, base_ring, operator_class, gens, product_rules):
@@ -1027,19 +1027,19 @@ class OreAlgebra_generic(UniqueRepresentation, Algebra):
     # information extraction
 
     def is_integral_domain(self, proof = True):
-        """
+        r"""
         Returns True because Ore algebras are always integral domains.
         """
         return True
 
     def is_noetherian(self):
-        """
+        r"""
         Returns True because Ore algebras are always noetherian. 
         """
         return True
 
     def construction(self):
-        """
+        r"""
         Returns a functorial description of this Ore algebra
         """
         R = self.base_ring()
@@ -1047,7 +1047,7 @@ class OreAlgebra_generic(UniqueRepresentation, Algebra):
         return (OreAlgebraFunctor(*gens), self.base_ring())
 
     def _coerce_map_from_(self, P):
-        """
+        r"""
         If `P` is an Ore algebra, then a coercion from `P` to self is possible
         if the base ring of `P` admits coercion to the base ring of ``self`` and
         the generators of `P` form a subset of the generators of ``self``.
@@ -1120,7 +1120,7 @@ class OreAlgebra_generic(UniqueRepresentation, Algebra):
         return r
 
     def var(self, n=0):
-        """
+        r"""
         Returns the name of the `n` th generator of this algebra.
 
         EXAMPLES::
@@ -1133,7 +1133,7 @@ class OreAlgebra_generic(UniqueRepresentation, Algebra):
         return self._gens[n][0]
 
     def _gen_to_idx(self, D):
-        """
+        r"""
         If `D` is a generator of this algebra, given either as string or as an actual algebra element,
         return the index `n` such that ``self.gen(n) == self(D)``.
         If `D` is already an integer, return `D` itself. 
@@ -1151,7 +1151,7 @@ class OreAlgebra_generic(UniqueRepresentation, Algebra):
         raise IndexError("No such generator.")
 
     def sigma(self, n=0):
-        """
+        r"""
         Returns the sigma callable associated to the `n` th generator of this algebra.
         The generator can be specified by index (as integer), or by name (as string),
         or as algebra element.
@@ -1173,7 +1173,7 @@ class OreAlgebra_generic(UniqueRepresentation, Algebra):
         return self._gens[self._gen_to_idx(n)][1]
 
     def delta(self, n=0):
-        """
+        r"""
         Returns the delta callable associated to the `n` th generator of this algebra.
         The generator can be specified by index (as integer), or by name (as string),
         or as algebra element.
@@ -1194,7 +1194,7 @@ class OreAlgebra_generic(UniqueRepresentation, Algebra):
         return self._gens[self._gen_to_idx(n)][2]
 
     def is_D(self, n=0):
-        """
+        r"""
         Checks whether the `n` th generator of this algebra is the standard derivation `d/dx`
         for some generator `x` of the base ring. If so, it returns `x`, otherwise ``False``.
 
@@ -1264,7 +1264,7 @@ class OreAlgebra_generic(UniqueRepresentation, Algebra):
         return self.__is_S[n]        
 
     def is_C(self, n=0):
-        """
+        r"""
         Checks whether the `n` th generator of this algebra is a commutative variable.
         If so, it returns ``True``, otherwise ``False``.
 
@@ -1356,7 +1356,7 @@ class OreAlgebra_generic(UniqueRepresentation, Algebra):
         return self.__is_F[n]        
 
     def is_E(self, n=0):
-        """
+        r"""
         Checks whether the `n` th generator of this algebra is the Euler derivation `x*d/dx`
         for some generator `x` of the base ring. If so, it returns `x`, otherwise ``False``.
 
@@ -1373,7 +1373,7 @@ class OreAlgebra_generic(UniqueRepresentation, Algebra):
         return self.is_T(n)
 
     def is_T(self, n=0):
-        """
+        r"""
         Checks whether the `n` th generator of this algebra is the Euler derivation `x*d/dx`
         for some generator `x` of the base ring. If so, it returns `x`, otherwise ``False``.
 
@@ -1488,7 +1488,7 @@ class OreAlgebra_generic(UniqueRepresentation, Algebra):
         return self.__is_J[n]        
 
     def variable_names(self):
-        """
+        r"""
         Returns a tuple with the names (as strings) of the generators of this algebra. 
 
         EXAMPLES::
@@ -1501,14 +1501,14 @@ class OreAlgebra_generic(UniqueRepresentation, Algebra):
         return tuple(x[0] for x in self._gens)
                         
     def characteristic(self):
-        """
+        r"""
         Return the characteristic of this Ore algebra, which is the
         same as that of its base ring.
         """
         return self.base_ring().characteristic()
 
     def gen(self, n=0):
-        """
+        r"""
         Return the indeterminate generator(s) of this Ore algebra. 
         """
         if n < 0 or n >= self.ngens():
@@ -1516,7 +1516,7 @@ class OreAlgebra_generic(UniqueRepresentation, Algebra):
         return self.gens()[n]
 
     def gens(self):
-        """
+        r"""
         Return a tuple of generators of this Ore algebra. 
         """
         try:
@@ -1526,7 +1526,7 @@ class OreAlgebra_generic(UniqueRepresentation, Algebra):
         return self._gensops
 
     def gens_dict(self):
-        """
+        r"""
         Returns a dictionary whose keys are the variable names of this
         Algebra as strings and whose values are the corresponding
         generators.
@@ -1542,7 +1542,7 @@ class OreAlgebra_generic(UniqueRepresentation, Algebra):
         return d
 
     def subalgebra(self, gens):
-        """
+        r"""
         Returns the subalgebra of 'self' generated by the given generators.
         The given generators must be generators ("variables") of 'self'. 
         The base ring is not affected. 
@@ -1559,7 +1559,7 @@ class OreAlgebra_generic(UniqueRepresentation, Algebra):
         return self.base_ring().is_zero()
     
     def is_finite(self):
-        """
+        r"""
         Return False since Ore algebras are not finite (unless the base ring is 0).
         """
         R = self.base_ring()
@@ -1568,26 +1568,26 @@ class OreAlgebra_generic(UniqueRepresentation, Algebra):
         return False
 
     def is_exact(self):
-        """
+        r"""
         This algebra is exact iff its base ring is
         """
         return self.base_ring().is_exact()
 
     def is_field(self, proof = True):
-        """
+        r"""
         Returns False since Ore algebras are not fields (unless they have 0 generators and the base ring is a field)
         """
         return self.ngens() == 0 and self.base_ring().is_field()
         
     def krull_dimension(self):
-        """
+        r"""
         Returns the Krull dimension of this algebra, which is the Krull dimension of the base ring
         plus the number of generators of this algebra. 
         """
         return self.base_ring().krull_dimension() + self.ngens()
         
     def ngens(self):
-        """
+        r"""
         Return the number of generators of this Ore algebra
         """
         return len(self._gens)
@@ -1595,13 +1595,13 @@ class OreAlgebra_generic(UniqueRepresentation, Algebra):
     # generation of elements
         
     def _element_constructor_(self, *args, **kwds):
-        """
+        r"""
         Create a new element based on the given arguments. 
         """
         return self._operator_class(self, *args, **kwds)
         
     def random_element(self, *args, **kwds):
-        """
+        r"""
         Return a random operator. The random operator is constructed by coercing a random element
         of the associated commutative algebra to an element of this algebra. 
         """
@@ -1613,7 +1613,7 @@ class OreAlgebra_generic(UniqueRepresentation, Algebra):
     # generation of related parent objects
 
     def associated_commutative_algebra(self):
-        """
+        r"""
         Returns a polynomial ring with the same base ring as this algebra and whose generators
         have the same name as this Ore algebra's generators.
 
@@ -1637,7 +1637,7 @@ class OreAlgebra_generic(UniqueRepresentation, Algebra):
         return R
 
     def ideal(self, gens, coerce=True, is_known_to_be_a_groebner_basis=False):
-        """
+        r"""
         Creates the left ideal generated by the given generators.
 
         The generators must be elements of self. 
@@ -1646,13 +1646,13 @@ class OreAlgebra_generic(UniqueRepresentation, Algebra):
         return OreLeftIdeal(self, gens, coerce, is_known_to_be_a_groebner_basis)
 
     def base_extend(self, R):
-        """
+        r"""
         Creates the Ore algebra obtained from ``self`` by replacing the base ring by `R`
         """
         return self.change_ring(R)
 
     def _solver(self, R=None):
-        """
+        r"""
         Returns this Ore algebra's preferred linear system solver.
 
         By default, the method returns a solver for matrices over the base ring of
@@ -1704,7 +1704,7 @@ class OreAlgebra_generic(UniqueRepresentation, Algebra):
         return solver
 
     def _set_solvers(self, solvers):
-        """
+        r"""
         Defines a collection of linear system solvers which Ore algebra prefers.
         The argument is supposed to be a dictionary which some rings `R` to solvers
         for matrices with coefficients in `R`
@@ -1712,7 +1712,7 @@ class OreAlgebra_generic(UniqueRepresentation, Algebra):
         self.__solvers = solvers.copy()
 
     def _product_rule(self, n=0):
-        """
+        r"""
         Returns the product rule associated to the given generator.
 
         The product rule is a tuple `(w_0,w_1,w_2,w_3)` such that for the operator
@@ -1724,7 +1724,7 @@ class OreAlgebra_generic(UniqueRepresentation, Algebra):
         return self.__product_rules[self._gen_to_idx(n)]
 
     def _set_product_rules(self, rules, force=False):
-        """
+        r"""
         Registers product rules for the generators of this algebra.
 
         A product rule for a generator `D` is a tuple `(w_0,w_1,w_2)` such that for the operator
@@ -1751,7 +1751,7 @@ class OreAlgebra_generic(UniqueRepresentation, Algebra):
                                 raise ValueError("inconsistent product rule specification")
 
     def change_ring(self, R):
-        """
+        r"""
         Creates the Ore algebra obtained from ``self`` by replacing the base ring by `R`
         """
         if R is self.base_ring():
@@ -1768,14 +1768,14 @@ class OreAlgebra_generic(UniqueRepresentation, Algebra):
             return A
 
     def change_var(self, var, n=0):
-        """
+        r"""
         Creates the Ore algebra obtained from ``self`` by renaming the `n` th generator to `var`
         """ 
         n = self._gen_to_idx(n)
         return self.change_var_sigma_delta(var, self._gens[n][1], self._gens[n][2], n)
 
     def change_sigma(self, sigma, n=0):
-        """
+        r"""
         Creates the Ore algebra obtained from ``self`` by replacing the homomorphism associated to the
         `n` th generator to `\sigma`, which may be a callable or a dictionary.
         """
@@ -1783,7 +1783,7 @@ class OreAlgebra_generic(UniqueRepresentation, Algebra):
         return self.change_var_sigma_delta(self._gens[n][0], sigma, self._gens[n][2], n)
 
     def change_delta(self, delta, n=0):
-        """
+        r"""
         Creates the Ore algebra obtained from ``self`` by replacing the skew-derivation associated to the
         `n` th generator to `\delta`, which may be a callable or a dictionary.
         """
@@ -1791,7 +1791,7 @@ class OreAlgebra_generic(UniqueRepresentation, Algebra):
         return self.change_var_sigma_delta(self._gens[n][0], self._gens[n][1], delta, n)
 
     def change_var_sigma_delta(self, var, sigma, delta, n=0):
-        """
+        r"""
         Creates the Ore algebra obtained from ``self`` by replacing the
         `n` th generator and its associated homomorphism and skew-derivation
         by `var`, `\sigma`, and `\delta`, respectively.

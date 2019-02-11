@@ -1225,18 +1225,18 @@ class RatSeqBound(object):
                     self._bound_rat(k, self.ord(k), tight=False)[0].upper())
                     for k in rng if k not in self.exn),
                 size=20, color="blue", marker='^', scale='semilogy',
-                legend_label="$M_{\mathrm{gen}}$ (coarse)")
+                legend_label=r"$M_{\mathrm{gen}}$ (coarse)")
         p += list_plot(
                 pltfilter((k,
                     self._bound_rat(k, self.ord(k), tight=True)[0].upper())
                     for k in rng if k not in self.exn),
                 size=20, color='blue', marker="v", scale='semilogy',
-                legend_label="$M_{\mathrm{gen}}$ (tight)")
+                legend_label=r"$M_{\mathrm{gen}}$ (tight)")
         p += list_plot(
                 pltfilter((k, self._bound_exn(k)[0].upper())
                           for k in rng),
                 size=15, color='blue', marker="s", scale='semilogy',
-                legend_label="$M_{\mathrm{exn}}$")
+                legend_label=r"$M_{\mathrm{exn}}$")
         m = max(rng)
         p += list_plot(
                 pltfilter((e, v.upper())

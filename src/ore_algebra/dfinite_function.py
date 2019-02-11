@@ -1,5 +1,5 @@
 # coding: utf-8
-"""
+r"""
 dfinite_function
 ================
 
@@ -59,7 +59,7 @@ from sage.all import *
 
 
 class DFiniteFunctionRing(Algebra):
-    """
+    r"""
     A Ring of Dfinite objects (functions or sequences)
     """
     
@@ -68,7 +68,7 @@ class DFiniteFunctionRing(Algebra):
 # constructor
     
     def __init__(self, ore_algebra, domain = NN, name=None, element_class=None, category=None):
-        """
+        r"""
         Constuctor for a D-finite function ring.
         
         INPUT:
@@ -211,7 +211,7 @@ class DFiniteFunctionRing(Algebra):
 
                 
     def _construct_dfinite(self,x,n):
-        """
+        r"""
         Convert a d-finite object ``x`` into this ring, possibly non-canonically
         
         This is possible if there is a coercion from the Ore algebra of the parent of ``x`` into the Ore algebra of ``self``.
@@ -259,7 +259,7 @@ class DFiniteFunctionRing(Algebra):
             raise TypeError(str(x) + " could not be converted - the underlying Ore Algebras don't match")
 
     def _construct_list(self,x,n):
-        """
+        r"""
         Convert a list of data ``x`` into this ring, possibly non-canonically.
         
         This method may lead to problems when the D-finite object has singularities because these are not considered during
@@ -303,7 +303,7 @@ class DFiniteFunctionRing(Algebra):
             return UnivariateDFiniteFunction(self,ann,x)
 
     def _construct_rational(self,x,n):
-        """
+        r"""
         Convert a rational function ``x`` into this ring, possibly non-canonically.
         Pols of ``x`` will be represented as ``None`` entries.
         
@@ -401,7 +401,7 @@ class DFiniteFunctionRing(Algebra):
             return UnivariateDFiniteFunction(self,ann,seq)
     
     def _construct_symbolic(self,exp,n):
-        """
+        r"""
         Convert a symbolic expression ``exp`` into this ring, possibly non-canonically.
         
         In the shift case the symoblic expression can contain the following symbolic functions:
@@ -553,7 +553,7 @@ class DFiniteFunctionRing(Algebra):
 #testing and information retrieving
 
     def __eq__(self,right):
-        """
+        r"""
         Tests if the two DFiniteFunctionRings ``self``and ``right`` are equal. 
         This is the case if and only if they are defined over equal Ore algebras and have the same domain
         
@@ -576,7 +576,7 @@ class DFiniteFunctionRing(Algebra):
             return False
 
     def is_integral_domain(self, proof = True):
-        """
+        r"""
         Returns whether ``self`` is an integral domain.
         In the discrete case this is False; in the differential case this is true.
         """
@@ -588,24 +588,24 @@ class DFiniteFunctionRing(Algebra):
             raise NotImplementedError
 
     def is_noetherian(self):
-        """
+        r"""
         """
         raise NotImplementedError
     
     def is_commutative(self):
-        """
+        r"""
         Returns whether ``self`` is commutative.
         This is true for the function ring as well as the sequence ring
         """
         return True
             
     def construction(self):
-        """
+        r"""
         """
         raise NotImplementedError
 
     def _coerce_map_from_(self, P):
-        """
+        r"""
         If `P` is a DFiniteFunctionRing, then a coercion from `P` to ``self`` is possible if there is a
         coercion from the Ore algebra of `P` to the Ore algebra of ``self``. If `P`is not a DFiniteFunctionRing,
         then it is sufficient to have a coercion from `P` itself to the Ore algebra from ``self``.
@@ -625,12 +625,12 @@ class DFiniteFunctionRing(Algebra):
             return sib.name('DFiniteFunctionRing')(sib(self.ore_algebra()),sib.name('NN'))
 
     def _is_valid_homomorphism_(self, domain, im_gens):
-        """
+        r"""
         """
         raise NotImplementedError
 
     def __hash__(self):
-        """
+        r"""
         """
         # should be faster than just relying on the string representation
         try:
@@ -641,7 +641,7 @@ class DFiniteFunctionRing(Algebra):
         return h
 
     def _repr_(self):
-        """
+        r"""
         """
         try:
             return self._cached_repr
@@ -655,37 +655,37 @@ class DFiniteFunctionRing(Algebra):
         return r
 
     def _latex_(self):
+        r"""
         """
-        """
-        return "\mathcal{D}(" + self._ore_algebra._latex_() + ")"
+        return r"\mathcal{D}(" + self._ore_algebra._latex_() + ")"
 
     def base_ring(self):
-        """
+        r"""
         Return the base ring over which the Ore algebra of the DFiniteFunctionRing is defined
         """
         return self._base_ring
 
     def ore_algebra(self):
-        """
+        r"""
         Return the Ore algebra over which the DFiniteFunctionRing is defined
         """
         return self._ore_algebra
 
     def domain(self):
-        """
+        r"""
         Return the domain over which the DFiniteFunctionRing is defined
         """
         return self._domain
 
     def characteristic(self):
-        """
+        r"""
         Return the characteristic of this DFiniteFunctionRing, which is the
         same as that of its base ring.
         """
         return self._base_ring.characteristic()
 
     def is_finite(self):
-        """
+        r"""
         Return False since DFiniteFunctionRings are not finite (unless the base
         ring is 0.)
         """
@@ -695,13 +695,13 @@ class DFiniteFunctionRing(Algebra):
         return False
 
     def is_exact(self):
-        """
+        r"""
         Return True if the Ore algebra over which the DFiniteFunctionRing is defined is exact
         """
         return self.ore_algebra().is_exact()
 
     def is_field(self, proof = True):
-        """
+        r"""
         A DFiniteFunctionRing is not a field
         """
         return False
@@ -754,14 +754,14 @@ class DFiniteFunctionRing(Algebra):
             return UnivariateDFiniteFunction(self,ann,int_val)
 
     def _an_element_(self, *args, **kwds):
-        """
+        r"""
         """
         return self.random_element()
 
 #changing
 
     def change_base_ring(self,R):
-        """
+        r"""
         Return a copy of ``self`` but with the base ring `R`
         """
         if R is self._base_ring:
@@ -771,7 +771,7 @@ class DFiniteFunctionRing(Algebra):
             return D
 
     def change_domain(self,R):
-        """
+        r"""
         Return a copy of ``self``but with the domain `R`
         """
         if R != NN and R != ZZ:
@@ -787,7 +787,7 @@ class DFiniteFunctionRing(Algebra):
 
 
 class DFiniteFunction(RingElement):
-    """
+    r"""
     An abstract class representing objects depending on one or more differential and one or more discrete variables
     defined by an annihilating holonomic system and a suitable set of initial conditions. 
     """
@@ -795,7 +795,7 @@ class DFiniteFunction(RingElement):
 #constructor
 
     def __init__(self, parent, ann, initial_val, is_gen = False, construct=False, cache=True):
-        """
+        r"""
         Constructor for D-finite sequences and functions
         
         INPUT:
@@ -876,7 +876,7 @@ class DFiniteFunction(RingElement):
 
     
     def __copy__(self):
-        """
+        r"""
         Return a "copy" of ``self``. This is just ``self``, since D-finite functions are immutable.
         """
         return self
@@ -884,7 +884,7 @@ class DFiniteFunction(RingElement):
 # action
 
     def compress(self):
-        """
+        r"""
         Tries to compress the D-finite object ``self`` as much as
         possible by trying to find a smaller annihilating operator and deleting
         redundant initial conditions.
@@ -1048,7 +1048,7 @@ class DFiniteFunction(RingElement):
                 
                 
     def reduce_factors(self):
-        """
+        r"""
         Tries to delete factors of order 0 of the annihilating operator of ``self`` which appear more than
         once. Additionally this method tries to delete redundant initial conditions. This method is a subroutine
         of compress
@@ -1160,7 +1160,7 @@ class DFiniteFunction(RingElement):
             return self
 
     def __call__(self, *x, **kwds):
-        """
+        r"""
         Lets ``self`` act on ``x`` and returns the result.
         ``x`` may be either a constant, then this computes an evaluation,
         or a (suitable) expression, then it represents composition and we return a new DFiniteFunction object.
@@ -1168,7 +1168,7 @@ class DFiniteFunction(RingElement):
         raise NotImplementedError
     
     def singularities(self, backwards = False):
-        """
+        r"""
         Returns the integer singularities of the annihilating operator of ``self``.
         
         INPUT:
@@ -1197,7 +1197,7 @@ class DFiniteFunction(RingElement):
         return self.__ann.singularities(backwards)
     
     def critical_points(self, order = None, backwards = False):
-        """
+        r"""
         Returns the singularities of ``self`` and the values around those singularities that can be affected.
         
         INPUT:
@@ -1247,7 +1247,7 @@ class DFiniteFunction(RingElement):
 #tests
 
     def __is_zero__(self):
-        """
+        r"""
         Return whether ``self`` is the zero sequence 0,0,0,\dots or the zero function f(x) = 0 \forall x, respectively.
         This is the case iff all the initial conditions are 0 or ``None``.
         
@@ -1275,7 +1275,7 @@ class DFiniteFunction(RingElement):
 
 
     def __eq__(self,right):
-        """
+        r"""
         Return whether the two DFiniteFunctions ``self`` and ``right`` are equal.
         More precicsely it is tested if the difference of ``self`` and ``right`` equals 0.
         
@@ -1296,14 +1296,14 @@ class DFiniteFunction(RingElement):
 
     
     def __ne__(self,right):
-        """
+        r"""
         Return ``True``if the DFiniteFunctions ``self`` and ``right`` are NOT equal; ``False`` otherwise
         
         """
         return not self.__eq__(right)
 
     def _is_atomic(self):
-        """
+        r"""
         """
         raise NotImplementedError
 
@@ -1325,13 +1325,13 @@ class DFiniteFunction(RingElement):
         return False
     
     def prec(self):
-        """
+        r"""
         Return the precision of this object. 
         """
         return Infinity
     
     def change_variable_name(self, var):
-        """
+        r"""
         Return a copy of ``self`` but with an Ore operator in the variable ``var``
         
         INPUT:
@@ -1358,7 +1358,7 @@ class DFiniteFunction(RingElement):
             return UnivariateDFiniteFunction(D,self.__ann, self._initial_values)
         
     def change_ring(self, R):
-        """
+        r"""
         Return a copy of ``self`` but with an annihilating operator of an Ore algebra over ``R``
         
         """
@@ -1369,12 +1369,12 @@ class DFiniteFunction(RingElement):
             return UnivariateDFiniteFunction(D,self.__ann, self._initial_values)
 
     def __getitem__(self, n):
-        """
+        r"""
         """
         raise NotImplementedError
 
     def __setitem__(self, n, value):
-        """
+        r"""
         """
         raise IndexError("D-finite functions are immutable")
 
@@ -1384,7 +1384,7 @@ class DFiniteFunction(RingElement):
 #conversion
 
     def __float__(self):
-        """
+        r"""
         Tries to convert ``self`` into a float.
         This is possible iff ``self`` represents a constant sequence or constant function for some constant values in ``QQ``.
         If the conversion is not possible an error message is displayed.
@@ -1411,7 +1411,7 @@ class DFiniteFunction(RingElement):
         raise TypeError("no conversion possible")
     
     def __int__(self):
-        """
+        r"""
         Tries to convert ``self`` into an integer.
         This is possible iff ``self`` represents a constant sequence or constant function for some constant value in ``ZZ``.
         If the conversion is not possible an error message is displayed.
@@ -1436,7 +1436,7 @@ class DFiniteFunction(RingElement):
         raise TypeError("no conversion possible")
 
     def _integer_(self, ZZ):
-        """
+        r"""
         Tries to convert ``self`` into a Sage integer.
         This is possible iff ``self`` represents a constant sequence or constant function for some constant value in ``ZZ``.
         If the conversion is not possible an error message is displayed.
@@ -1457,7 +1457,7 @@ class DFiniteFunction(RingElement):
         return ZZ(int(self))
 
     def _rational_(self):
-        """
+        r"""
         Tries to convert ``self`` into a Sage rational.
         This is possible iff ``self`` represents a constant sequence or constant function for some constant value in ``QQ``.
         If the conversion is not possible an error message is displayed.
@@ -1484,7 +1484,7 @@ class DFiniteFunction(RingElement):
         raise TypeError("no conversion possible")
     
     def __long__(self):
-        """
+        r"""
         Tries to convert ``self`` into a long integer.
         This is possible iff ``self`` represents a constant sequence or constant function for some constant value in ``ZZ``.
         If the conversion is not possible an error message is displayed.
@@ -1517,7 +1517,7 @@ class DFiniteFunction(RingElement):
         return self._repr_()
 
     def _repr_(self):
-        """
+        r"""
         """
         r = "Univariate D-finite "
         if self.parent().ore_algebra().is_S():
@@ -1532,7 +1532,7 @@ class DFiniteFunction(RingElement):
         return r
 
     def _latex_(self, name=None):
-        """
+        r"""
         """
         if self.parent().ore_algebra().is_S():
             r = '\\text{D-finite sequence defined by the annihilating operator }'
@@ -1568,24 +1568,24 @@ class DFiniteFunction(RingElement):
 # arithmetic
 
     def __invert__(self):
-        """
+        r"""
         works if 1/self is again d-finite. 
         """
         return NotImplementedError
 
     def __div__(self, right):
-        """
+        r"""
         This is division, not division with remainder. Works only if 1/right is d-finite. 
         """
         return self*right.__invert__()
 
     def __pow__(self, n, modulus = None):
-        """
+        r"""
         """
         return self._pow(n)
         
     def _pow(self, n):
-        """
+        r"""
         Return ``self`` to the n-th power
         
         INPUT:
@@ -1637,19 +1637,19 @@ class DFiniteFunction(RingElement):
             return result
                    
     def __floordiv__(self,right):
-        """
+        r"""
         """
         raise NotImplementedError
 
     def __mod__(self, other):
-        """
+        r"""
         """
         raise NotImplementedError
 
 #base ring related functions
         
     def base_ring(self):
-        """
+        r"""
         Return the base ring of the parent of ``self``.
         
         """
@@ -1658,13 +1658,13 @@ class DFiniteFunction(RingElement):
 #part extraction functions
 
     def ann(self):
-        """
+        r"""
         Return the annihilating operator of ``self``
         """
         return self.__ann
     
     def initial_values(self):
-        """
+        r"""
         Return the initial values of ``self`` in form of a list.
         
         In the discrete case those are the first `r` sequence terms, where `r` is the order of the annihilating
@@ -1703,7 +1703,7 @@ class DFiniteFunction(RingElement):
              return self._initial_values.expand(self.__ann.order()-1)
 
     def initial_conditions(self):
-        """
+        r"""
         Return all initial conditions of ``self``.
         
         In the discrete case the initial conditions are all values that are saved, i.e. the initial values and all singularities.
@@ -1736,14 +1736,14 @@ class DFiniteFunction(RingElement):
 #############################################################################################################
     
 class UnivariateDFiniteSequence(DFiniteFunction):
-    """
+    r"""
     D-finite sequence in a single discrete variable.
     """
     
 #constructor
 
     def __init__(self, parent, ann, initial_val, is_gen=False, construct=False, cache=True):
-        """
+        r"""
         Constructor for a D-finite sequence in a single discrete variable.
         
         INPUT:
@@ -1781,7 +1781,7 @@ class UnivariateDFiniteSequence(DFiniteFunction):
 #action
 
     def __call__(self, x):
-        """
+        r"""
         Lets ``self`` act on `x`.
         
         If `x` is an integer (or a float, which then gets ``cut`` to an integer) the x-th sequence term
@@ -1868,7 +1868,7 @@ class UnivariateDFiniteSequence(DFiniteFunction):
         return self[n]
 
     def _test_conversion_(self):
-        """
+        r"""
         Test whether a conversion of ``self`` into an int/float/long/... is possible;
         i.e. whether the sequence is constant or not.
         
@@ -1903,17 +1903,17 @@ class UnivariateDFiniteSequence(DFiniteFunction):
         return None
     
     def dict(self):
-        """
+        r"""
         """
         raise NotImplementedError
 
     def list(self):
-        """
+        r"""
         """
         raise NotImplementedError
     
     def to_polynomial(self):
-        """
+        r"""
         Try to convert ``self`` into a polynomial.
         
         OUTPUT:
@@ -1978,7 +1978,7 @@ class UnivariateDFiniteSequence(DFiniteFunction):
             raise TypeError("the D-finite sequence does not come from a polynomial")
 
     def to_rational(self):
-        """
+        r"""
         Try to convert ``self`` into a rational function.
         
         OUTPUT:
@@ -2047,14 +2047,14 @@ class UnivariateDFiniteSequence(DFiniteFunction):
 
 
     def generating_function(self):
-        """
+        r"""
         """
         A = OreAlgebra(QQ['x'],'Dx')
         D = DFiniteFunctionRing(A)
         return UnivariateDFiniteFunction(D,self.ann().to_D(A),self)
     
     def __add_without_compress__(self,right):
-        """
+        r"""
         Adds the D-finite sequences ``self`` and ``right`` without automatically trying
         to compress the result. This method is called whenever equality testing is done
         because in that case compressing the result would be unnecessary work.
@@ -2104,7 +2104,7 @@ class UnivariateDFiniteSequence(DFiniteFunction):
 #arithmetic
 
     def _add_(self, right):
-        """
+        r"""
         Return the sum of ``self`` and ``right``.
         
         ``_add_`` uses the method ``lclm`` from the OreAlgebra package to get the new annihilator.
@@ -2177,7 +2177,7 @@ class UnivariateDFiniteSequence(DFiniteFunction):
         return sum.compress()
         
     def _neg_(self):
-        """
+        r"""
         Return the negative of ``self``.
         
         EXAMPLES::
@@ -2197,7 +2197,7 @@ class UnivariateDFiniteSequence(DFiniteFunction):
         return UnivariateDFiniteSequence(self.parent(), self.ann(), neg_int_val)
 
     def _mul_(self, right):
-        """
+        r"""
         Return the product of ``self`` and ``right``
         
         The result is the termwise product (Hadamard product) of ``self`` and ``right``. To get the cauchy product
@@ -2266,7 +2266,7 @@ class UnivariateDFiniteSequence(DFiniteFunction):
         
         
     def cauchy_product(self, right):
-        """
+        r"""
         Return the cauchy product of ``self`` and ``right``
         
         The result is the cauchy product of ``self`` and ``right``. To get the termwise product (Hadamard product)
@@ -2380,12 +2380,12 @@ class UnivariateDFiniteSequence(DFiniteFunction):
         return UnivariateDFiniteSequence(self.parent(), prod_ann, int_val_prod)
         
     def __invert__(self):
-        """
+        r"""
         """
         raise NotImplementedError
     
     def interlace(self, right):
-        """
+        r"""
         Return the interlaced sequence of ``self`` and ``right``.
         ``interlace`` uses the method ``annihilator_of_interlacing`` of the OreAlgebra package to get the new operator.
         
@@ -2478,7 +2478,7 @@ class UnivariateDFiniteSequence(DFiniteFunction):
         
     
     def sum(self):
-        """
+        r"""
         Return the sequence (s_n)_{n=0}^\infty with s_n = \sum_{k=0}^n self[k].
         
         EXAMPLES::
@@ -2543,7 +2543,7 @@ class UnivariateDFiniteSequence(DFiniteFunction):
 #evaluation
     
     def expand(self, n):
-        """
+        r"""
         Return all the terms of ``self`` between 0 and ``n``
         
         INPUT:
@@ -2622,7 +2622,7 @@ class UnivariateDFiniteSequence(DFiniteFunction):
 
 
     def __getitem__(self,n):
-        """
+        r"""
         Return the n-th term of ``self``.
         
         INPUT:
@@ -2696,14 +2696,14 @@ class UnivariateDFiniteSequence(DFiniteFunction):
 
 ###############################################################################################################
 class UnivariateDFiniteFunction(DFiniteFunction):
-    """
+    r"""
     D-finite function in a single differentiable variable.
     """
     
 #constructor
     
     def __init__(self, parent, ann, initial_val, is_gen=False, construct=False, cache=True):
-        """
+        r"""
         Constructor for a D-finite function in a single differentiable variable.
         
          INPUT:
@@ -2744,7 +2744,7 @@ class UnivariateDFiniteFunction(DFiniteFunction):
 #action
     
     def __call__(self, r):
-        """
+        r"""
         Lets ``self`` act on `r` and returns the result.
         `r` may be either a constant, then this method tries to evaluate ``self``at `r`. This evaluation might fail if there
         is a singularity of the annihilating operator of ``self`` between 0 and `r`. To then compute an evaluation use 
@@ -2827,7 +2827,7 @@ class UnivariateDFiniteFunction(DFiniteFunction):
 
         
     def _test_conversion_(self):
-        """
+        r"""
         Test whether a conversion of ``self`` into an int/float/long/... is possible;
         i.e. whether the function is constant or not.
         
@@ -2858,7 +2858,7 @@ class UnivariateDFiniteFunction(DFiniteFunction):
         return None
         
     def to_polynomial(self):
-        """
+        r"""
         Try to convert ``self`` into a polynomial.
         
         OUTPUT:
@@ -2920,7 +2920,7 @@ class UnivariateDFiniteFunction(DFiniteFunction):
             raise TypeError("the D-finite function is not a polynomial")
 
     def to_rational(self):
-        """
+        r"""
         Try to convert ``self`` into a rational function.
         
         OUTPUT:
@@ -2986,7 +2986,7 @@ class UnivariateDFiniteFunction(DFiniteFunction):
             raise TypeError("the D-finite function is not a rational function")
 
     def __add_without_compress__(self,right):
-        """
+        r"""
         Adds the D-finite functions ``self`` and ``right`` without automatically trying
         to compress the result. This method is called whenever equality testing is done
         because there compressing the result would be unnecessary work.
@@ -3010,7 +3010,7 @@ class UnivariateDFiniteFunction(DFiniteFunction):
         raise NotImplementedError
     
     def expand(self, n, deriv = False):
-        """
+        r"""
         Return a list of the first `n+1` coefficients of ``self`` if ``deriv``is False.
         If ``deriv`` is True the first `n+1` derivations of self at x=0 are returned.
         
@@ -3042,7 +3042,7 @@ class UnivariateDFiniteFunction(DFiniteFunction):
 #arithmetic
     
     def _add_(self, right):
-        """
+        r"""
         Returns the sum of ``self`` and ``right``
         ``_add_`` uses the method ``lclm`` from the OreAlgebra package to get the new annihilator.
         
@@ -3079,7 +3079,7 @@ class UnivariateDFiniteFunction(DFiniteFunction):
         
     
     def _neg_(self):
-        """
+        r"""
         Return the negative of ``self``
         
         EXAMPLES::
@@ -3101,7 +3101,7 @@ class UnivariateDFiniteFunction(DFiniteFunction):
     
     
     def _mul_(self, right):
-        """
+        r"""
         Return the product of ``self`` and ``right``
         ``_mul_`` uses the method ``symmetric_product`` from the OreAlgebra package to get the new annihilator.
         Here we do not use the method ``cauchy_product`` from the class UnivariateDFiniteSequence, even though it would
@@ -3173,7 +3173,7 @@ class UnivariateDFiniteFunction(DFiniteFunction):
         return prod
         
     def hadamard_product(self,right):
-        """
+        r"""
         Return the D-finite function corresponding to the Hadamard product of ``self`` and ``right``.
         The Hadamard product of two formal power series a(x) = \sum_{n=0}^\infty a_n x^n and b(x) = \sum_{n=0}^\infty b_n x^n
         is defined as a(x) \odot b(x) := \sum_{n=0}^\infty a_nb_n x^n
@@ -3182,12 +3182,12 @@ class UnivariateDFiniteFunction(DFiniteFunction):
         return seq.generating_function()
         
     def __invert__(self):
-        """
+        r"""
         """
         raise NotImplementedError
     
     def integral(self):
-        """
+        r"""
         Return the D-finite function corresponding to the integral of ``self``.
         By integral the formal integral of a power series is meant, i.e. 
         \int a(x) = \int_0^x \sum_{n=0}^\infty a_n x^n = \sum_{n=0}^\infty \frac{a_n}{n+1} x^{n+1}
@@ -3235,7 +3235,7 @@ class UnivariateDFiniteFunction(DFiniteFunction):
 #evaluation
 
     def __getitem__(self, n):
-        """
+        r"""
         Return the n-th coefficient of ``self`` (starting with 0).
         
         INPUT:
@@ -3267,7 +3267,7 @@ class UnivariateDFiniteFunction(DFiniteFunction):
     
     
     def evaluate(self, z, n = 0):
-        """
+        r"""
         Tries to numerically evaluate the n-th derivative of ``self`` at  `z`
         
         INPUT:

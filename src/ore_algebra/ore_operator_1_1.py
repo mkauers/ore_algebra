@@ -52,7 +52,7 @@ from .ore_operator import OreOperator, UnivariateOreOperator
 from .generalized_series import GeneralizedSeriesMonoid, _generalized_series_shift_quotient, _binomial
 
 class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
-    """
+    r"""
     Element of an Ore algebra with a single generator and a commutative rational function field as base ring.     
 
     TESTS::
@@ -85,7 +85,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         super(self.__class__, self).__init__(parent, *data, **kwargs)
 
     def _normalize_base_ring(self):
-        """
+        r"""
         Rewrites ``self`` into an operator from an algebra whose base ring is a univariate
         polynomial ring over a field.
 
@@ -113,7 +113,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         return L.parent(), R, K, L
 
     def degree(self):
-        """
+        r"""
         Returns the maximum degree among the coefficients of ``self``
 
         The degree of the zero operator is `-1`.
@@ -129,7 +129,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
             return max( R(p).degree() for p in self.coefficients() )                
 
     def polynomial_solutions(self, rhs=(), degree=None, solver=None):
-        """
+        r"""
         Computes the polynomial solutions of this operator.
 
         INPUT:
@@ -207,7 +207,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         return sol
 
     def rational_solutions(self, rhs=(), denominator=None, degree=None, solver=None):
-        """
+        r"""
         Computes the rational solutions of this operator.
 
         INPUT:
@@ -280,7 +280,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         return sol
 
     def _degree_bound(self):
-        """
+        r"""
         Computes a degree bound for the polynomial solutions of this operator.
 
         This is an integer `d` such that every polynomial solution of this operator
@@ -304,7 +304,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         return d        
 
     def _denominator_bound(self):
-        """
+        r"""
         Computes a denominator bound for the rational solutions of this operator.
 
         This is a polynomial `q` such that every rational solution of this operator
@@ -368,7 +368,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         return self.parent()(opnum), opden
 
     def dispersion(self, p=0):
-        """
+        r"""
         Returns the dispersion of this operator.
 
         This is the maximum nonnegative integer `i` such that ``sigma(self[0], i)`` and ``sigma(self[r], -r)``
@@ -393,7 +393,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         return max(max(s), -1) if len(s) > 0 else -1
 
     def spread(self, p=0):
-        """
+        r"""
         Returns the spread of this operator.
 
         This is the set of integers `i` such that ``sigma(self[0], i)`` and ``sigma(self[r], -r)``
@@ -419,7 +419,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         raise NotImplementedError # abstract
 
     def newton_polygon(self, p):
-        """
+        r"""
         Computes the Newton polygon of ``self`` at (a root of) ``p``.
 
         INPUT:
@@ -478,7 +478,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         return output
 
     def indicial_polynomial(self, p, var='alpha'):
-        """
+        r"""
         Computes the indicial polynomial of ``self`` at (a root of) ``p``.
 
         The indicial polynomial is a polynomial in the given variable ``var`` with coefficients
@@ -550,7 +550,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         return s
 
     def _coeff_list_for_indicial_polynomial(self):
-        """
+        r"""
         Computes a list of polynomials such that the usual algorithm for computing indicial
         polynomials applied to this list gives the desired result.
 
@@ -562,7 +562,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         raise NotImplementedError # abstract
 
     def _desingularization_order_bound(self):
-        """
+        r"""
         Computes a number `m` such that there exists an operator ``Q`` of order `m` such that ``Q*self``
         is completely desingularized. 
 
@@ -573,7 +573,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         return 0 if len(s) == 0 else max(0, max([-k for k in s]))
 
     def desingularize(self, m=-1):
-        """
+        r"""
         Returns a left multiple of ``self`` whose coefficients are polynomials and whose leading
         coefficient does not contain unnecessary factors.
 
@@ -761,7 +761,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         return [p for p in sol if p is not None]
 
     def center(self,oBound,dBound):
-        """
+        r"""
         Returns a Q-vector space of Ore polynomials that commute with this operator.
 
         INPUT:
@@ -795,7 +795,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         return Matrix(SYS).right_kernel()
 
     def radical(self):
-        """
+        r"""
         Computes the radical of an Ore polynomial P, i.e. an operator L and an integer k such that P=L^k and k is maximal among all the integers for which such an L exists.
 
         OUTPUT:
@@ -827,7 +827,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
                 if sol!=L: return (sol,self.order()/sol.order())
 
     def _radicalExp(self):
-        """
+        r"""
         For an Ore polynomial P, this method computes candidates for possible
         powers k such that there exists an operator L with P=L^k.
 
@@ -849,7 +849,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         return M
 
     def _powerIndicator(self):
-        """
+        r"""
         Returns the coefficient of an Ore polynomial P that is of the form p^k,
         where p is an element from the base ring and k is such that P=L^k where
         L is the radical of P.
@@ -920,7 +920,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         return result
 
     def finite_singularities(self):
-        """
+        r"""
         Returns a list of all the finite singularities of this operator. 
 
         OUTPUT:
@@ -1076,7 +1076,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         return output
 
     def left_factors(self, order=1, early_termination=False, infolevel=0):
-        """
+        r"""
         Returns a list of left-hand factors of this operator.
 
         This is a convenience method which simply returns the adjoints of the right factors
@@ -1097,7 +1097,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
                 self.adjoint().right_factors(order, early_termination, infolevel)]
 
     def right_factors(self, order=1, early_termination=False, infolevel=0):
-        """
+        r"""
         Returns a list of right hand factors of this operator. 
 
         INPUT:
@@ -1345,7 +1345,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
 #############################################################################################################
 
 class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOverUnivariateRing):
-    """
+    r"""
     Element of an Ore algebra K(x)[D], where D acts as derivation d/dx on K(x).
     """
 
@@ -1445,7 +1445,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         return rec_algebra([sigma(p, -v) for p in list(rec)[v:]])
 
     def to_F(self, alg):
-        """
+        r"""
         Returns a difference operator annihilating the coefficient sequence of
         every power series (about the origin) annihilated by ``self``.
 
@@ -1552,7 +1552,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         return self*self.parent().gen()
 
     def annihilator_of_composition(self, a, solver=None):
-        """
+        r"""
         Returns an operator `L` which annihilates all the functions `f(a(x))`
         where `f` runs through the functions annihilated by ``self``.
         The output operator is not necessarily of smallest possible order.
@@ -2065,7 +2065,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
     spread.__doc__ = UnivariateOreOperatorOverUnivariateRing.spread.__doc__
 
     def _denominator_bound(self):
-        """
+        r"""
         Denominator bounding based on indicial polynomial.
 
         TESTS::
@@ -2717,7 +2717,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
 #############################################################################################################
 
 class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUnivariateRing):
-    """
+    r"""
     Element of an Ore algebra K(x)[S], where S is the shift x->x+1.
     """
 
@@ -2858,7 +2858,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
         return out
 
     def to_T(self, alg):
-        """
+        r"""
         Returns a differential operator, expressed in terms of the Euler derivation,
         which annihilates every power series (about the origin) whose coefficient
         sequence is annihilated by ``self``.
@@ -2890,7 +2890,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
         return self.to_D('D').to_T(alg)        
 
     def to_list(self, init, n, start=0, append=False, padd=False):
-        """
+        r"""
         Computes the terms of some sequence annihilated by ``self``.
 
         INPUT:
@@ -3057,7 +3057,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
         return delta_M, delta_Q
 
     def forward_matrix_param_rectangular(self, value, n, start=0, m=None):
-        """
+        r"""
         Assuming the coefficients of self are in `R[x][k]`,
         computes the nth forward matrix with the parameter `x`
         evaluated at ``value``, using rectangular splitting
@@ -3204,7 +3204,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
         return self.map_coefficients(A.sigma())*(A.gen() - A.one())
 
     def annihilator_of_composition(self, a, solver=None):
-        """
+        r"""
         Returns an operator `L` which annihilates all the sequences `f(floor(a(n)))`
         where `f` runs through the functions annihilated by ``self``.
         The output operator is not necessarily of smallest possible order.
@@ -3339,7 +3339,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
             return self.to_F('F').coefficients(sparse=False)
 
     def spread(self, p=0):
-        """
+        r"""
         Returns the spread of this operator.
 
         This is the set of integers `i` such that ``sigma(self[0], i)`` and ``sigma(self[r], -r)``
@@ -3710,7 +3710,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
         return self.coefficients(sparse=False)[0]
 
     def _infinite_singularity(self):
-        """
+        r"""
         Simplified version of generalized_series_solutions, without subexponential parts, without 
         logarithms, and without extensions of the constant field.
 
@@ -3761,7 +3761,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
 #############################################################################################################
 
 class UnivariateQRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUnivariateRing):
-    """
+    r"""
     Element of an Ore algebra K(x)[S], where S is the shift x->q*x for some q in K.
     """
 
@@ -3857,7 +3857,7 @@ class UnivariateQRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverU
         return (alg.gen()**(len(coeffs)-1))*out.numerator().change_ring(alg.base_ring())
 
     def to_list(self, init, n, start=0, append=False, padd=False):
-        """
+        r"""
         Computes the terms of some sequence annihilated by ``self``.
 
         INPUT:
@@ -3913,7 +3913,7 @@ class UnivariateQRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverU
         return self.map_coefficients(A.sigma())*(A.gen() - A.one())
 
     def annihilator_of_composition(self, a, solver=None):
-        """
+        r"""
         Returns an operator `L` which annihilates all the sequences `f(a(n))`
         where `f` runs through the functions annihilated by ``self``.
         The output operator is not necessarily of smallest possible order.
@@ -4046,7 +4046,7 @@ class UnivariateQRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverU
     spread.__doc__ = UnivariateOreOperatorOverUnivariateRing.spread.__doc__
 
     def __to_J_literally(self, gen='J'):
-        """
+        r"""
         Rewrites ``self`` in terms of `J`
         """
         A = self.parent()
@@ -4096,7 +4096,7 @@ class UnivariateQRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverU
         return self.coefficients(sparse=False)[0]
 
     def _local_data_at_special_points(self):
-        """
+        r"""
         Returns information about the local behaviour of this operator's solutions at x=0 and
         at x=infinity.
 
@@ -4135,7 +4135,7 @@ class UnivariateQRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverU
 #############################################################################################################
 
 class UnivariateQDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOverUnivariateRing):
-    """
+    r"""
     Element of an Ore algebra K(x)[J], where J is the Jackson q-differentiation J f(x) = (f(q*x) - f(x))/(q*(x-1))
     """
 
@@ -4260,7 +4260,7 @@ class UnivariateQDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOve
         return _power_series_solutions(self, self.to_Q('Q'), n, lambda n: q**n)
 
     def __to_Q_literally(self, gen='Q'):
-        """
+        r"""
         This computes the q-recurrence operator which corresponds to ``self`` in the sense
         that `J` is rewritten to `1/(q-1)/x * (Q - 1)`
         """
@@ -4317,7 +4317,7 @@ class UnivariateQDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOve
 #############################################################################################################
 
 class UnivariateDifferenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUnivariateRing):
-    """
+    r"""
     Element of an Ore algebra K(x)[F], where F is the forward difference operator F f(x) = f(x+1) - f(x)
     """
 
@@ -4381,7 +4381,7 @@ class UnivariateDifferenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
         return out
 
     def to_D(self, alg):
-        """
+        r"""
         Returns a differential operator which annihilates every power series (about
         the origin) whose coefficient sequence is annihilated by ``self``.
         The output operator may not be minimal. 
@@ -4412,7 +4412,7 @@ class UnivariateDifferenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
         return self.to_S('S').to_D(alg)
 
     def to_T(self, alg):
-        """
+        r"""
         Returns a differential operator, expressed in terms of the Euler derivation,
         which annihilates every power series (about the origin) whose coefficient
         sequence is annihilated by ``self``.
@@ -4481,7 +4481,7 @@ class UnivariateDifferenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
 #############################################################################################################
 
 class UnivariateEulerDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOverUnivariateRing):
-    """
+    r"""
     Element of an Ore algebra K(x)[T], where T is the Euler differential operator T = x*d/dx
     """
 
@@ -4542,7 +4542,7 @@ class UnivariateEulerDifferentialOperatorOverUnivariateRing(UnivariateOreOperato
         return out
 
     def to_S(self, alg):
-        """
+        r"""
         Returns a recurrence operator annihilating the coefficient sequence of
         every power series (at the origin) annihilated by ``self``.
 
@@ -4573,7 +4573,7 @@ class UnivariateEulerDifferentialOperatorOverUnivariateRing(UnivariateOreOperato
         return self.to_D('D').to_S(alg)
 
     def to_F(self, alg):
-        """
+        r"""
         Returns a difference operator annihilating the coefficient sequence of
         every power series (about the origin) annihilated by ``self``.
 
@@ -4636,7 +4636,7 @@ class UnivariateEulerDifferentialOperatorOverUnivariateRing(UnivariateOreOperato
 #############################################################################################################
 
 def _rec2list(L, init, n, start, append, padd, deform, singularity_handler=None):
-    """
+    r"""
     Common code for computing terms of holonomic and q-holonomic sequences.
     """
         
@@ -4694,7 +4694,7 @@ def _rec2list(L, init, n, start, append, padd, deform, singularity_handler=None)
     return terms
     
 def _power_series_solutions(op, rec, n, deform):
-    """
+    r"""
     Common code for computing terms of holonomic and q-holonomic power series.
     """
 
@@ -4734,7 +4734,7 @@ def _power_series_solutions(op, rec, n, deform):
     return sols
         
 def _commutativeRadical(p):
-    """
+    r"""
     Computes the radical in degenerate cases. Used by radical(self)
     """
 
@@ -4756,7 +4756,7 @@ def _commutativeRadical(p):
     return (p.parent()(sgn*(sgn*p.leading_coefficient())**(1/d)/prad.leading_coefficient())*prad,d)
 
 def _orePowerSolver(P):
-    """
+    r"""
     Solver for special algebraic systems used in radical computation
     """
 
@@ -4791,7 +4791,7 @@ def _orePowerSolver(P):
     return []
 
 def _listToOre(l,order,R):
-    """
+    r"""
     Converts a list of values into an Ore polynomial in R. l[0] will be used for the leading coefficient, l[len(l)-1] for the trailing coefficient.
     
     INPUT:
