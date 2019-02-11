@@ -1259,7 +1259,7 @@ class RatSeqBound(object):
             raise NotImplementedError("expected a single sequence")
         deg = self.den.degree()
         # Well-formedness
-        for n, mult in self.exn.iteritems():
+        for n, mult in self.exn.items():
             if n >= 0:
                 pol = self.den
                 for i in range(mult):

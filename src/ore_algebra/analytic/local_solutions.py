@@ -215,7 +215,7 @@ class LogSeriesInitialValues(object):
         if isinstance(values, dict):
             all_values = tuple(chain.from_iterable(
                             ini if isinstance(ini, tuple) else (ini,)
-                            for ini in values.itervalues()))
+                            for ini in values.values()))
         else:
             all_values = values
             values = dict((n, (values[n],)) for n in range(len(values)))
@@ -227,7 +227,7 @@ class LogSeriesInitialValues(object):
         if mults is not None:
             for s, m in mults:
                 self.shift[s] = [self.universe.zero()]*m
-        for k, ini in values.iteritems():
+        for k, ini in values.items():
             if isinstance(k, tuple): # requires mult != None
                 s, m = k
                 s = int(s)
@@ -235,7 +235,7 @@ class LogSeriesInitialValues(object):
             else:
                 s = int(k)
                 self.shift[s] = tuple(self.universe(a) for a in ini)
-        self.shift = { s: tuple(ini) for s, ini in self.shift.iteritems() }
+        self.shift = { s: tuple(ini) for s, ini in self.shift.items() }
 
         try:
             if check and dop is not None and not self.is_valid_for(dop):
@@ -247,7 +247,7 @@ class LogSeriesInitialValues(object):
         return ", ".join(
             "[z^({expo}+{shift})·log(z)^{log_power}/{log_power}!] = {val}"
             .format(expo=self.expo, shift=s, log_power=log_power, val=val)
-            for s, ini in self.shift.iteritems()
+            for s, ini in self.shift.items()
             for log_power, val in enumerate(ini)
             if ini)
 
@@ -291,18 +291,18 @@ class LogSeriesInitialValues(object):
             return infinity
         elif isinstance(self.universe, (RealBallField, ComplexBallField)):
             return min(infinity, *(x.accuracy()
-                                   for val in self.shift.itervalues()
+                                   for val in self.shift.values()
                                    for x in val))
         else:
             raise ValueError
 
     def last_index(self):
-        return max(chain(iter((-1,)), (s for s, vals in self.shift.iteritems()
+        return max(chain(iter((-1,)), (s for s, vals in self.shift.items()
                                         if not all(v.is_zero() for v in vals))))
 
     @cached_method
     def mult_dict(self):
-        return MultDict((s, len(vals)) for s, vals in self.shift.iteritems())
+        return MultDict((s, len(vals)) for s, vals in self.shift.items())
 
     def compatible(self, others):
         return all(self.mult_dict() == other.mult_dict() for other in others)
@@ -456,7 +456,7 @@ def exponent_shifts(dop, leftmost):
 
 def log_series(ini, bwrec, order):
     Coeffs = pushout(bwrec.base_ring.base_ring(), ini.universe)
-    log_prec = sum(len(v) for v in ini.shift.itervalues())
+    log_prec = sum(len(v) for v in ini.shift.values())
     precomp_len = max(1, bwrec.order) # hack for recurrences of order zero
     bwrec_nplus = collections.deque(
             (bwrec.eval_series(Coeffs, i, log_prec)

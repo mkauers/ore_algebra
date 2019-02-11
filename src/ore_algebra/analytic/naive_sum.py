@@ -194,7 +194,7 @@ def series_sum(dop, ini, pt, tgt_error, maj=None, bwrec=None, stop=None,
                         "compared to requested accuracy")
 
     if maj is None:
-        special_shifts = [(s, len(v)) for s, v in ini.shift.iteritems()]
+        special_shifts = [(s, len(v)) for s, v in ini.shift.items()]
         maj = bounds.DiffOpBound(dop, ini.expo, special_shifts)
     if bwrec is None:
         bwrec = bw_shift_rec(dop, shift=ini.expo)
@@ -699,7 +699,7 @@ def series_sum_regular(Intervals, dop, bwrec, inis, pt, stop, stride,
     start = dop.order() if ordinary else 0
     assert start <= n0_squash # the special path doesn't squash its result
     # The next terms of the sum may need a higher log-prec than the current one.
-    rec_add_log_prec = sum(len(v) for s, v in ini.shift.iteritems()
+    rec_add_log_prec = sum(len(v) for s, v in ini.shift.items()
                                    if start <= s < start + precomp_len)
     assert rec_add_log_prec == 0 or not ordinary
     bwrec_nplus = collections.deque(

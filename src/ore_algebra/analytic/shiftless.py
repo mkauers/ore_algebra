@@ -241,11 +241,11 @@ def shiftless_decomposition(self):
         shifts_of[cur] = shifts_of_cur
     # TODO: perhaps return some kind of Factorization object
     assert prod(part(x + s)**mult
-                for part, shifts in shifts_of.iteritems()
+                for part, shifts in shifts_of.items()
                 for (s, mult) in shifts)*unit == self
     return (unit,
         [(part, shifts)
-          for part, shifts in shifts_of.iteritems()])
+          for part, shifts in shifts_of.items()])
 
 def my_shiftless_decomposition(pol):
     x = pol.parent().gen()

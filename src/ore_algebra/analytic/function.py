@@ -50,6 +50,7 @@ TESTS::
 
 """
 
+from six import iteritems
 from six.moves import range
 
 import collections, logging, sys
@@ -456,7 +457,7 @@ class DFiniteFunction(object):
             Graphics object consisting of ... graphics primitives
         """
         g = plot.Graphics()
-        for center, polys in self._polys.iteritems():
+        for center, polys in iteritems(self._polys):
             center, rad = self._disk(Point(center, self.dop))
             x_range = (center - rad).mid(), (center + rad).mid()
             for i, a in enumerate(polys):
@@ -467,7 +468,7 @@ class DFiniteFunction(object):
                                x_range, color=color)
                 g += plot.text(str(a.prec), (center, a.pol(center).mid()),
                                color=color)
-        for point, ini in self._inivecs.iteritems():
+        for point, ini in iteritems(self._inivecs):
             g += plot.point2d((point, 0), size=50)
         return g
 
@@ -514,7 +515,7 @@ class DFiniteFunction(object):
             return val
         wrapper.__name__ = self.name
         self._sollya_object = sollya.sagefunction(wrapper)
-        for pt, ini in self.ini.iteritems():
+        for pt, ini in self.ini.items():
             pt = RIF(pt)
             if pt.is_exact():
                 fun = self._sollya_object
