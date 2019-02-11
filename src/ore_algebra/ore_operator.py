@@ -1672,7 +1672,7 @@ class UnivariateOreOperator(OreOperator):
 
         shift_cache = { R.one().exponents()[0] : R.one() }
         for j in range(blocks):
-            J = j*len(vars)/blocks
+            J = j*len(vars)//blocks
             for i in range(r - 1):
                 shift_cache[vars[J + i].exponents()[0]] = vars[J + i + 1]
             shift_cache[vars[J + r - 1].exponents()[0]] = \
@@ -1692,8 +1692,8 @@ class UnivariateOreOperator(OreOperator):
         if len(vars) > blocks*r:
             subs = {}
             for j in range(blocks):
-                J = j*len(vars)/blocks; p = vars[J]; subs[str(p)] = p
-                for i in range(len(vars)/blocks - 1):
+                J = j*len(vars)//blocks; p = vars[J]; subs[str(p)] = p
+                for i in range(len(vars)//blocks - 1):
                     p = shift(p); subs[str(vars[J + i + 1])] = p
             poly = poly(**subs)
 

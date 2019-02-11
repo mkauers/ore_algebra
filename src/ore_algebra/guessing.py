@@ -577,7 +577,7 @@ def _guess_via_hom(data, A, modulus, to_hom, **kwargs):
                 d2 = (d1*(r0-1-r1)*(r0-r2) + d0*(r1-r2))/((r0-r1)*(r0-1-r2))
                 r2 = int(math.ceil(r2)); d2 = int(math.ceil(d2))
                 if abs(r2 - r1) >= 2 and abs(d2 - d1) >= 2:
-                    path = [ (i, d2 + ((d1-d2)*(i-r2))/(r1-r2)) for i in range(r2, r1, 1 if r1 >= r2 else -1) ] + path
+                    path = [ (i, d2 + ((d1-d2)*(i-r2))//(r1-r2)) for i in range(r2, r1, 1 if r1 >= r2 else -1) ] + path
                     kwargs['path'] = path
                 else:
                     del kwargs['return_short_path']

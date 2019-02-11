@@ -2426,9 +2426,9 @@ class UnivariateDFiniteSequence(DFiniteFunction):
         int_val_interlacing = {}
         for n in initial_val:
             if n % 2 == 0:
-                int_val_interlacing.update({n:self[n/2]})
+                int_val_interlacing.update({n:self[n//2]})
             else:
-                int_val_interlacing.update({n:right[floor(n/2)]})
+                int_val_interlacing.update({n:right[n//2]})
         
         #critical points for forward calculation
         critical_points_positive = set()
@@ -2464,9 +2464,9 @@ class UnivariateDFiniteSequence(DFiniteFunction):
 
         for n in critical_points_negative:
             if n % 2 == 0:
-                int_val_interlacing.update({n:self[n/2]})
+                int_val_interlacing.update({n:self[n//2]})
             else:
-                int_val_interlacing.update({n:right[floor(n/2)]})
+                int_val_interlacing.update({n:right[n//2]})
             interlacing_ann = A(N - (n-min_degree) )*interlacing_ann
             if n >= min_degree:
                 if (n+ord) % 2 == 0:
