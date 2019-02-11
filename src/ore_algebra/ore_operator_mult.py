@@ -21,6 +21,7 @@ from __future__ import absolute_import
 from datetime import datetime
 
 from sage.structure.element import RingElement, canonical_coercion
+from sage.structure.richcmp import richcmp
 from sage.arith.all import gcd, lcm
 from sage.matrix.constructor import Matrix, matrix
 from sage.misc.all import prod, add
@@ -81,8 +82,8 @@ class MultivariateOreOperator(OreOperator):
     def __nonzero__(self):
         return not self.__poly.is_zero()
 
-    def __cmp__(self, other):
-        return cmp(self.__poly, other.__poly)
+    def _richcmp_(self, other, op):
+        return richcmp(self.__poly, other.__poly, op)
 
     def _is_atomic(self):
         return self.__poly._is_atomic()

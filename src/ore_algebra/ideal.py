@@ -14,6 +14,7 @@ Ideals
 #############################################################################
 
 from datetime import datetime
+from functools import cmp_to_key
 from sage.rings.noncommutative_ideals import Ideal_nc
 from sage.arith.all import gcd, lcm
 from sage.misc.all import prod, add
@@ -145,7 +146,7 @@ class OreLeftIdeal(Ideal_nc):
                     newbasis.append(g*newbasis[-1])
             basis = newbasis
 
-        basis.sort(cmp=lambda u,v: 1 if (u + v).lm() == u else -1)
+        basis.sort(key=smallest_lt_first)
         return list(map(self.ring(), basis))
 
     def multiplication_matrix(self, idx):
@@ -289,7 +290,8 @@ class OreLeftIdeal(Ideal_nc):
             if update_hook is not None:
                 info(1, "invoking update_hook...")
                 update_hook(G, B, h)
-            C = [g for g in G]; C.sort(cmp=lambda u,v: -1 if (u.lm() + v.lm()).lm() == u.lm() else 1) # smallest leading term last
+            C = [g for g in G]
+            C.sort(key=smallest_lt_first, reverse=True) # smallest leading term last
             # 1. discard the pairs (C[i],h) for which there is another pair (C[j], h) with lt(C[j],h)|lt(C[i],h)
             for i in range(len(C)): 
                 for j in range(len(C)):
@@ -329,7 +331,7 @@ class OreLeftIdeal(Ideal_nc):
         for i in range(len(G)): 
             G[i] = G[i].reduce(G[:i] + G[i+1:], normalize=True, infolevel=infolevel-3, coerce=False)
         G = [g for g in G if not g.is_zero()]
-        G.sort(cmp=lambda u,v: 1 if (u.lm()+v.lm()).lm() == u.lm() else -1) # smallest leading terms first
+        G.sort(key=smallest_lt_first)
 
         # todo: normalize coefficients of coefficients to ensure uniqueness
         
@@ -1000,7 +1002,7 @@ class MonomialIterator(object):
 
     def __clear_pool(self):
         self.__pool = filter(lambda u: not (u[0]*u[1]).reduce(self.__stairs).is_zero(), self.__pool) # discard stuff above the stairs
-        self.__pool.sort(cmp=lambda u, v: -1 if (u[0]*u[1] + v[0]*v[1]).lm() == u[0]*u[1] else 1) # smallest last
+        self.__pool.sort(key=lambda u: smallest_lt_first(u[0]*u[1]), reverse=True) # smallest last
         prev = None
         for i in range(len(self.__pool)): # discard double entries
             tau = self.__pool[i]
@@ -1236,3 +1238,7 @@ def solve_triangular_system(mat, rhs):
         sol = xsol
 
     return sol
+
+smallest_lt_first = cmp_to_key(
+        lambda u,v: 1 if (u.lm()+v.lm()).lm() == u.lm() else -1)
+

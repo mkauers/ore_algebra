@@ -624,20 +624,9 @@ class OreAlgebraFunctor(ConstructionFunctor):
     def _apply_functor(self, R):
         return OreAlgebra(R, *(self.gens))
 
-    def __cmp__(self, other):
-        
-        c = cmp(type(self), type(other))
-        if c != 0:
-            return c
-        c = cmp(self.vars, other.vars)
-        if c != 0:
-            return c
-        for i in range(len(self.vars)):
-            if self.gens[i][1] != other.gens[i][1]:
-                return cmp(self.gens[i][1], other.gens[i][1])
-            if self.gens[i][2] != other.gens[i][2]:
-                return cmp(self.gens[i][2], other.gens[i][2])
-        return 0
+    def __eq__(self, other):
+        return (type(self) is type(other) and self.vars == other.vars
+                and all(a[1:] == b[1:] for a, b in zip(self.gens, other.gens)))
 
     def merge(self, other):
         if self == other:

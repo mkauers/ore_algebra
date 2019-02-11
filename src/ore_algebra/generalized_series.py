@@ -51,9 +51,8 @@ class GeneralizedSeriesFunctor(ConstructionFunctor):
     def _apply_functor(self, R):
         return GeneralizedSeriesMonoid(R, self.x, self.type)
 
-    def __cmp__(self, other):
-        c = cmp(type(self), type(other))
-        return c if c != 0 else cmp(cmp(self.x, other.x), cmp(self.type, other.type))
+    def __eq__(self, other):
+        return type(self) is type(other) and self.x == other.x
 
     def merge(self, other):
         return self if self == other else None

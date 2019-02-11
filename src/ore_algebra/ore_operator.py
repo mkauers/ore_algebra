@@ -19,6 +19,7 @@ Operators
 from __future__ import absolute_import
 
 from sage.structure.element import RingElement, canonical_coercion
+from sage.structure.richcmp import richcmp
 from sage.arith.all import gcd, lcm
 from sage.rings.rational_field import QQ
 from sage.rings.integer_ring import ZZ
@@ -709,8 +710,8 @@ class UnivariateOreOperator(OreOperator):
     def __nonzero__(self):
         return bool(self._poly).__nonzero__()
 
-    def __cmp__(self, other):
-        return cmp(self.polynomial(), other.polynomial())
+    def _richcmp_(self, other, op):
+        return richcmp(self.polynomial(), other.polynomial(), op)
 
     def _is_atomic(self):
         return self._poly._is_atomic()
