@@ -313,7 +313,7 @@ def _pivot(mat, r, n, c, m, zero):
         if K == ZZ:
             elsize = dict()
             def size(ij):
-                if not elsize.has_key(ij):
+                if not ij in elsize:
                     pol = mat[ij[0] + r][ij[1] + c].coefficients()
                     m = float(max(abs(cc) for cc in pol))
                     # the constant in the line below is 53*log(2)
@@ -326,13 +326,13 @@ def _pivot(mat, r, n, c, m, zero):
         else:
             elsize = dict()
             def size(ij):
-                if not elsize.has_key(ij):
+                if not ij in elsize:
                     elsize[ij] = len(mat[ij[0] + r][ij[1] + c].coefficients())
                 return elsize[ij]
     else:
         elsize = dict()
         def size(ij):
-            if not elsize.has_key(ij):
+            if not ij in elsize:
                 elsize[ij] = len(mat[ij[0] + r][ij[1] + c].coefficients())
             return elsize[ij]
 
@@ -412,7 +412,7 @@ def _select_regular_square_submatrix(V0, n, m, dim, one, zero):
 def _info(infolevel, *message, **kwargs):
     if infolevel in ZZ:
         infolevel = (infolevel, 0)
-    alter = kwargs['alter'] if kwargs.has_key('alter') else (0, 0)
+    alter = kwargs['alter'] if 'alter' in kwargs else (0, 0)
     if alter in ZZ:
         alter = (alter, 0)
     if infolevel[0] + alter[0] <= 0:
@@ -942,7 +942,7 @@ def _kronecker(subsolver, presolver, mat, degrees, infolevel):
             n = exp[0]; d = 1;
             for i in range(len(degrees) - 1):
                 d *= degrees[i]; n += d*exp[i+1]
-            terms[n] = poly[exp] + (terms[n] if terms.has_key(n) else z)
+            terms[n] = poly[exp] + (terms[n] if n in terms else z)
         return Rimg(terms)
     
     # 3. subsolver in k[x]

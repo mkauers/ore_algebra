@@ -20,7 +20,7 @@ Guessing
 ######### development mode ###########
 """
 try:
-    if sys.modules.has_key('ore_algebra'):
+    if 'ore_algebra' in sys.modules:
         del sys.modules['ore_algebra']
 except:
     pass
@@ -167,7 +167,7 @@ def guess(data, algebra, **kwargs):
 
     elif A.is_F() is not False:
         # reduce to shift case; note that this does not alter order or degrees
-        if kwargs.has_key('infolevel') and kwargs['infolevel'] >= 1:
+        if 'infolevel' in kwargs and kwargs['infolevel'] >= 1:
             print("Translating problem to shift case...")
         A0 = OreAlgebra(R, ('S', {x:x+K.one()}, {}))
         return guess(data, A0, **kwargs).change_ring(R).to_F(A)
@@ -520,7 +520,7 @@ def _guess_via_hom(data, A, modulus, to_hom, **kwargs):
 
     """
 
-    if kwargs.has_key('infolevel'):
+    if 'infolevel' in kwargs:
         infolevel = kwargs['infolevel']
         kwargs['infolevel'] = infolevel - 2
     else:
@@ -541,7 +541,7 @@ def _guess_via_hom(data, A, modulus, to_hom, **kwargs):
     order_adjustment = None
 
     nn = 0; path = []; ncpus = 1
-    return_short_path = kwargs.has_key('return_short_path') and kwargs['return_short_path'] is True
+    return_short_path = 'return_short_path' in kwargs and kwargs['return_short_path'] is True
 
     def op2vec(L, r, d):
         # convert an operator L of order <=r and degree <=d to a vector of dimension (r+1)*(d+1).
@@ -587,11 +587,11 @@ def _guess_via_hom(data, A, modulus, to_hom, **kwargs):
             if A.is_C():
                 kwargs['path'] = [(Lp.order(), Lp.degree())] # there is no curve for algebraic equations
 
-        elif kwargs.has_key('return_short_path'):
+        elif 'return_short_path' in kwargs:
             # subsequent iterations: stick to the path we have.                 
             del kwargs['return_short_path']
 
-        if not kwargs.has_key('path'):
+        if not 'path' in kwargs:
             kwargs['return_short_path'] = True
 
         if ncpus == 1:
@@ -654,7 +654,7 @@ def _guess_via_hom(data, A, modulus, to_hom, **kwargs):
             r = Lp.order(); d = Lp.degree()
             info(2, "solution of order " + str(r) + " and degree " + str(d) + " predicted")
 
-        elif nn == 2 and kwargs.has_key('ncpus') and kwargs['ncpus'] > 1:
+        elif nn == 2 and 'ncpus' in kwargs and kwargs['ncpus'] > 1:
             info(2, "Switching to multiprocessor code.")
             ncpus = kwargs['ncpus']
             del kwargs['ncpus']
@@ -667,7 +667,7 @@ def _guess_via_hom(data, A, modulus, to_hom, **kwargs):
                 except ArithmeticError:
                     return None
                 
-        elif nn == 3 and kwargs.has_key('infolevel'):
+        elif nn == 3 and 'infolevel' in kwargs:
             kwargs['infolevel'] = kwargs['infolevel'] - 2
 
         if not Lp.is_zero():
@@ -708,7 +708,7 @@ def _guess_via_gcrd(data, A, **kwargs):
     raises an error if no equation is found.
     """
 
-    if kwargs.has_key('infolevel'):
+    if 'infolevel' in kwargs:
         infolevel = kwargs['infolevel']
         kwargs['infolevel'] = infolevel - 2
     else:
@@ -723,20 +723,20 @@ def _guess_via_gcrd(data, A, **kwargs):
     info(1, lazy_string(lambda: datetime.today().ctime() + ": guessing via gcrd started."))
     info(1, "len(data)=" + str(len(data)) + ", algebra=" + str(A._latex_()))
 
-    if kwargs.has_key('ncpus'):
+    if 'ncpus' in kwargs:
         del kwargs['ncpus']
 
-    if kwargs.has_key('return_short_path'):
+    if 'return_short_path' in kwargs:
         return_short_path = True
         del kwargs['return_short_path']
     else:
         return_short_path = False
         
-    ensure = kwargs['ensure'] if kwargs.has_key('ensure') else 0
+    ensure = kwargs['ensure'] if 'ensure' in kwargs else 0
 
     N = len(data) - ensure
     
-    if kwargs.has_key('path'):
+    if 'path' in kwargs:
         path = kwargs['path']; del kwargs['path']
         sort_key = lambda p: (p[0] + 1)*(p[1] + 1)
         prelude = []
@@ -753,24 +753,24 @@ def _guess_via_gcrd(data, A, **kwargs):
 
     max_deg = max_ord = len(data); min_deg = 0; min_ord = 1;
 
-    if kwargs.has_key('degree'):
+    if 'degree' in kwargs:
         max_deg = kwargs['degree']; del kwargs['degree']
-    elif kwargs.has_key('max_degree'):
+    elif 'max_degree' in kwargs:
         max_deg = kwargs['max_degree']; del kwargs['max_degree']
 
-    if kwargs.has_key('min_degree'):
+    if 'min_degree' in kwargs:
         min_deg = kwargs['min_degree']; del kwargs['min_degree']
 
-    if kwargs.has_key('order'):
+    if 'order' in kwargs:
         max_ord = kwargs['order']; del kwargs['order']
-    elif kwargs.has_key('max_order'):
+    elif 'max_order' in kwargs:
         max_ord = kwargs['max_order']; del kwargs['max_order']
 
-    if kwargs.has_key('min_order'):
+    if 'min_order' in kwargs:
         min_ord = kwargs['min_order']; del kwargs['min_order']
 
     subguesser = guess_hp if A.is_C() else guess_raw # default = hp for algeqs and raw for other
-    if kwargs.has_key('method'):
+    if 'method' in kwargs:
         if kwargs['method'] == 'linalg':
             subguesser = guess_raw
         elif kwargs['method'] == 'hp':

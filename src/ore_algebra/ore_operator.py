@@ -683,7 +683,7 @@ class UnivariateOreOperator(OreOperator):
 
     def __call__(self, f, **kwds):
 
-        if kwds.has_key("action"):
+        if "action" in kwds:
             D = kwds["action"]
         else:
             D = lambda p:p
@@ -932,8 +932,8 @@ class UnivariateOreOperator(OreOperator):
             A, B = canonical_coercion(self, other)
             return A.gcrd(B, **kwargs)
 
-        prs = kwargs["prs"] if kwargs.has_key("prs") else None
-        infolevel = kwargs["infolevel"] if kwargs.has_key("infolevel") else 0
+        prs = kwargs["prs"] if "prs" in kwargs else None
+        infolevel = kwargs["infolevel"] if "infolevel" in kwargs else 0
 
         r = (self,other)
         if (r[0].order()<r[1].order()):
@@ -999,8 +999,8 @@ class UnivariateOreOperator(OreOperator):
            True
 
         """
-        prs = kwargs["prs"] if kwargs.has_key("prs") else None
-        infolevel = kwargs["infolevel"] if kwargs.has_key("infolevel") else 0
+        prs = kwargs["prs"] if "prs" in kwargs else None
+        infolevel = kwargs["infolevel"] if "infolevel" in kwargs else 0
         return self._xeuclid(other, prs, "bezout", infolevel)
 
     def _xeuclid(self, other, prs=None, retval="bezout", infolevel=0):
@@ -1143,7 +1143,7 @@ class UnivariateOreOperator(OreOperator):
         elif not isinstance(other, UnivariateOreOperator):
             raise TypeError("unexpected argument in lclm")
 
-        if not kwargs.has_key("algorithm") or kwargs['algorithm'] == 'linalg':
+        if not "algorithm" in kwargs or kwargs['algorithm'] == 'linalg':
             return self._lclm_linalg(other, **kwargs)
         elif kwargs['algorithm'] == 'euclid':
             del kwargs['algorithm']; kwargs['retval'] = 'syzygy'
@@ -1162,7 +1162,7 @@ class UnivariateOreOperator(OreOperator):
         see docstring of lclm for further information. 
         """
 
-        solver = kwargs["solver"] if kwargs.has_key("solver") else None
+        solver = kwargs["solver"] if "solver" in kwargs else None
 
         A = self.numerator(); r = A.order()
         B = other.numerator(); s = B.order()
@@ -1203,7 +1203,7 @@ class UnivariateOreOperator(OreOperator):
         # lclm based on guessing an operator for a generic linear combination of two solutions. 
         
         A = self.parent(); R = A.base_ring(); K = R.base_ring().fraction_field()
-        if kwargs.has_key('to_list'):
+        if 'to_list' in kwargs:
             terms = kwargs['to_list']
         elif A.is_S():
             terms = lambda L, n : L.to_list([K.random_element() for i in range(L.order())], n)
@@ -1677,7 +1677,7 @@ class UnivariateOreOperator(OreOperator):
             out = R.zero()
             for m, c in zip(p.monomials(), p.coefficients()):
                 exp = m.exponents()[0]
-                if not shift_cache.has_key(exp):
+                if exp not in shift_cache:
                     x = vars[min([i for i in range(len(vars)) if exp[i] > 0])]
                     m0 = m//x; A = shift_cache[x.exponents()[0]]; B = shift(m0)
                     shift_cache[exp] = pr[0]*m + pr[1]*(A*m0 + x*B) + pr[2]*A*B

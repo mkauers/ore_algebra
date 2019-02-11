@@ -146,7 +146,7 @@ class MultivariateOreOperator(OreOperator):
 
         def multiple(exp):
             exp = tuple(int(e) for e in exp)
-            if not monomial_times_other.has_key(exp):
+            if exp not in monomial_times_other:
                 i = n - 1
                 while exp[i] == 0:
                     i -= 1

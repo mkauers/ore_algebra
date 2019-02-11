@@ -1352,7 +1352,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
 
     def __call__(self, f, **kwargs):
         
-        if not kwargs.has_key("action"):
+        if not "action" in kwargs:
             kwargs["action"] = lambda p : p.derivative()
 
         return UnivariateOreOperator.__call__(self, f, **kwargs)
@@ -2745,7 +2745,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
             return type(f)(fun(n) for n in range(len(f) - r))
 
         sigma = self.parent().sigma()
-        if not kwargs.has_key("action"):
+        if not "action" in kwargs:
             x = self.parent().base_ring().gen()
             def shift(p):
                 try:
@@ -3791,7 +3791,7 @@ class UnivariateQRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverU
             return type(f)(fun(n) for n in range(len(f) - r))
 
         R = self.parent(); x = R.base_ring().gen(); qx = R.sigma()(x)
-        if not kwargs.has_key("action"):
+        if not "action" in kwargs:
             kwargs["action"] = lambda p : p.subs({x:qx})
 
         return UnivariateOreOperator.__call__(self, f, **kwargs)
@@ -3847,7 +3847,7 @@ class UnivariateQRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverU
             term = alg.zero()
             c = coeffs[i].coefficients(sparse=False)
             for j in range(len(c)):
-                if not x_pows.has_key(j):
+                if j not in x_pows:
                     x_pows[j] = x_pows[j - 1]*x_pows[1]
                 term += c[j] * x_pows[j]
             out += term*(Q**i)
@@ -4143,7 +4143,7 @@ class UnivariateQDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOve
     def __call__(self, f, **kwargs):
 
         A = self.parent(); x, q = A.is_J(); qx = A.sigma()(x)
-        if not kwargs.has_key("action"):
+        if not "action" in kwargs:
             kwargs["action"] = lambda p : (p.subs({x:qx}) - p)/(x*(q-1))
 
         return UnivariateOreOperator.__call__(self, f, **kwargs)
@@ -4328,7 +4328,7 @@ class UnivariateDifferenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
             return self.to_S('S')(f, **kwargs)
             
         R = self.parent(); x = R.base_ring().gen(); qx = R.sigma()(x)
-        if not kwargs.has_key("action"):
+        if not "action" in kwargs:
             kwargs["action"] = lambda p : p.subs({x:qx}) - p
 
         return UnivariateOreOperator.__call__(self, f, **kwargs)
@@ -4489,7 +4489,7 @@ class UnivariateEulerDifferentialOperatorOverUnivariateRing(UnivariateOreOperato
     def __call__(self, f, **kwargs):
 
         R = self.parent(); x = R.base_ring().gen(); 
-        if not kwargs.has_key("action"):
+        if not "action" in kwargs:
             kwargs["action"] = lambda p : x*p.derivative()
 
         return UnivariateOreOperator.__call__(self, f, **kwargs)

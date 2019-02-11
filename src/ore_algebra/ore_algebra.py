@@ -214,7 +214,7 @@ class Sigma_class(object):
                     my_dict[str(x)] = R(d[x])
                     is_id = False
             for x in Rgens:
-                if not my_dict.has_key(str(x)):
+                if not str(x) in my_dict:
                     my_dict[str(x)] = R(x)
         self.__R = R
         self.__dict = my_dict
@@ -240,7 +240,7 @@ class Sigma_class(object):
                 return d
             
             def pow_dict(n):
-                if pows.has_key(n):
+                if n in pows:
                     return pows[n].copy()
                 elif n % 2 == 0:
                     d = pow_dict(n/2)
@@ -481,13 +481,13 @@ class Delta_class(object):
         
         elif is_PolynomialRing(R0):
             x = R0.gen(); strx = str(x)
-            if not my_dict.has_key((strx, 0)):
+            if (strx, 0) not in my_dict:
                 return R0.zero()
             if sigma.is_identity():
                 return p.derivative()*my_dict[strx, 1]
             x = R(x)
             for i in range(2, p.degree() + 1):
-                if not my_dict.has_key((strx, i)):
+                if (strx, i) not in my_dict:
                     my_dict[strx, i] = my_dict[strx, i - 1]*x + sigma(x**(i - 1))*my_dict[strx, 1]
             out = R0.zero()
             for i in range(p.degree() + 1):
@@ -500,14 +500,14 @@ class Delta_class(object):
                 out = R0.zero()
                 for x in Rgens:
                     strx = str(x)
-                    if my_dict.has_key((strx, 1)) and not my_dict[strx, 1].is_zero():
+                    if (strx, 1) in my_dict and not my_dict[strx, 1].is_zero():
                         out += p.derivative(x)*my_dict[strx, 1]
                 return out
             # fall-back code for general case
             for x in Rgens:
                 strx = str(x)
                 for i in range(2, p.degree(x) + 1):
-                    if not my_dict.has_key((strx, i)):
+                    if (strx, i) not in my_dict:
                         my_dict[strx, i] = my_dict[strx, i - 1]*x + sigma(x**(i - 1))*my_dict[strx, 1]
             out = R0.zero(); one = R0.one()
             for exp in p.exponents():
@@ -858,7 +858,7 @@ def OreAlgebra(base_ring, *generators, **kwargs):
             elif head == 'T' or head == u'\u03B8' or head == 'E': # eulerian derivative
                 gens[i] = (gens[i], {}, {x:x})
             elif head == 'Q': # q-shift
-                if kwargs.has_key('q'):
+                if 'q' in kwargs:
                     q = R(kwargs['q'])
                 else:
                     try:
@@ -869,7 +869,7 @@ def OreAlgebra(base_ring, *generators, **kwargs):
                     raise ValueError("q must not be 1")
                 gens[i] = (gens[i], {x:q*x}, {})
             elif head == 'J': # q-derivative
-                if kwargs.has_key('q'):
+                if 'q' in kwargs:
                     q = kwargs['q']
                 else:
                     try:
@@ -950,7 +950,7 @@ def OreAlgebra(base_ring, *generators, **kwargs):
 
     # Select element class
     from . import ore_operator, ore_operator_1_1, ore_operator_mult
-    if kwargs.has_key("element_class"):
+    if "element_class" in kwargs:
         operator_class = kwargs["element_class"]
     elif len(gens) > 1:
         operator_class = ore_operator_mult.MultivariateOreOperator
@@ -981,7 +981,7 @@ def OreAlgebra(base_ring, *generators, **kwargs):
     alg = OreAlgebra_generic(base_ring, operator_class, tuple(gens), tuple(product_rules))
 
     # Select the linear system solver for matrices over the base ring
-    if kwargs.has_key("solver"):
+    if "solver" in kwargs:
         solvers = kwargs["solver"]
         if not isinstance(solvers, dict):
             solvers = {R : solvers}
