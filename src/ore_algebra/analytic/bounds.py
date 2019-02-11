@@ -933,7 +933,7 @@ class RatSeqBound(object):
             fmt += "      ..., {asympt}"
             fmt += "{stairs}"
         n = self.den.variable_name()
-        bnds = zip(*(self(k) for k in range(8)))
+        bnds = list(zip(*(self(k) for k in range(8))))
         stairs = self._stairs(len(self))
         dscs = []
         assert len(self.nums) == len(bnds) == len(stairs)
@@ -1918,9 +1918,9 @@ class DiffOpBound(object):
                             for j in range(logs - k))
                 else:
                     res[k][d] = sum(
-                            Ring(bwrec_nplus[d][d+i+1][j])*Ring(last[i][k+j])
+                            [Ring(bwrec_nplus[d][d+i+1][j])*Ring(last[i][k+j])
                             for i in range(deg - d)
-                            for j in range(logs - k))
+                            for j in range(logs - k)])
                 # Deduce the corresponding coefficient of nres
                 # XXX For simplicity, we limit ourselves to the “generic” case
                 # where none of the n+d is a root of the indicial polynomial.

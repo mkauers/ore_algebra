@@ -18,6 +18,8 @@ Operators
 
 from __future__ import absolute_import
 
+from functools import reduce
+
 from sage.structure.element import RingElement, canonical_coercion
 from sage.structure.richcmp import richcmp
 from sage.arith.all import gcd, lcm
@@ -1218,7 +1220,9 @@ class UnivariateOreOperator(OreOperator):
 
         # expected degree of the non-removable part of the leading coefficient
         # heuristic: assume a factor of lc is removable if its multiplicity is 1 and its degree is >20
-        d_ess = sum([ p.degree() for L in U, V for p, e in L.leading_coefficient().factor() if e==1 and p.degree() > 20 ])
+        d_ess = sum([ p.degree() for L in (U, V)
+                                 for p, e in L.leading_coefficient().factor()
+                                 if e==1 and p.degree() > 20 ])
         d_ess = U.leading_coefficient().degree() + V.leading_coefficient().degree() - d_ess
 
         # expected degree of the removable part of the leading coefficient

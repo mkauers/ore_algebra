@@ -14,7 +14,7 @@ Ideals
 #############################################################################
 
 from datetime import datetime
-from functools import cmp_to_key
+from functools import cmp_to_key, reduce
 from sage.rings.noncommutative_ideals import Ideal_nc
 from sage.arith.all import gcd, lcm
 from sage.misc.all import prod, add
@@ -1002,6 +1002,7 @@ class MonomialIterator(object):
 
     def __clear_pool(self):
         self.__pool = filter(lambda u: not (u[0]*u[1]).reduce(self.__stairs).is_zero(), self.__pool) # discard stuff above the stairs
+        self.__pool = list(self.__pool)
         self.__pool.sort(key=lambda u: smallest_lt_first(u[0]*u[1]), reverse=True) # smallest last
         prev = None
         for i in range(len(self.__pool)): # discard double entries

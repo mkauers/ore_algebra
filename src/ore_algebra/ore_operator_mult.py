@@ -19,6 +19,7 @@ Multivariate operators
 from __future__ import absolute_import
 
 from datetime import datetime
+from functools import reduce
 
 from sage.structure.element import RingElement, canonical_coercion
 from sage.structure.richcmp import richcmp

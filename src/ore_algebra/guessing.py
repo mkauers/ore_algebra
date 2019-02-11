@@ -602,7 +602,7 @@ def _guess_via_hom(data, A, modulus, to_hom, **kwargs):
                 
                 data_mod = None
                 while data_mod is None:
-                    p = modulus.next(); hom = to_hom(p)
+                    p = next(modulus); hom = to_hom(p)
                     info(2, "modulus = " + str(p))
                     try:
                         data_mod = list(map(hom, data))
@@ -636,7 +636,7 @@ def _guess_via_hom(data, A, modulus, to_hom, **kwargs):
 
         else:
             # we can assume at this point that nn >= 3 and 'return_short_path' is switched off.
-            primes = [modulus.next() for i in range(ncpus)]
+            primes = [next(modulus) for i in range(ncpus)]
             info(2, "moduli = " + str(primes))
             primes = [ (p, to_hom(p)) for p in primes ]
             primes = [ (p, hom, A.change_ring(hom(K.one()).parent()[x])) for (p, hom) in primes ]
@@ -684,7 +684,7 @@ def _guess_via_hom(data, A, modulus, to_hom, **kwargs):
             L, mod = _merge_homomorphic_images(op2vec(L, r, d), mod, op2vec(Lp, r, d), p)
             L = vec2op(L, r, d)
 
-    if order_adjustment > 0:
+    if order_adjustment:
         s = L.parent().sigma()
         L = L.map_coefficients(lambda p: s(p, order_adjustment))
 
@@ -743,7 +743,7 @@ def _guess_via_gcrd(data, A, **kwargs):
     else:
         r2d = lambda r: (N - 2*r - 2)//(r + 1) # python integer division intended.
         path = [(r, r2d(r)) for r in range(1, N)] 
-        path = filter(lambda p: min(p[0] - 1, p[1]) >= 0, path)
+        path = [p for p in path if min(p[0] - 1, p[1]) >= 0]
         (r, d) = (1, 1); prelude = []
         while d <= r2d(r):
             prelude.append((r, d))
@@ -781,7 +781,7 @@ def _guess_via_gcrd(data, A, **kwargs):
             subguesser = kwargs['method'] # callable
         del kwargs['method']
         
-    path = filter(lambda p: min_ord <= p[0] and p[0] <= max_ord and min_deg <= p[1] and p[1] <= max_deg, path)
+    path = [p for p in path if min_ord <= p[0] and p[0] <= max_ord and min_deg <= p[1] and p[1] <= max_deg]
 
     path.sort(key=sort_key)
     # autoreduce
@@ -790,7 +790,7 @@ def _guess_via_gcrd(data, A, **kwargs):
         for j in range(len(path)):
             if i != j and path[j] is not None and path[j][0] >= r and path[j][1] >= d:
                 path[i] = None                    
-    path = filter(lambda p: p is not None, path)
+    path = [p for p in path if p is not None]
 
     info(2, "Going through a path with " + str(len(path)) + " points")
 
@@ -1247,7 +1247,7 @@ def guess_mult(data, algebra, **kwargs):
 
     op_terms = []
     f = kwargs.setdefault('term_filter', lambda x: True)
-    for o in apply(product, [range(ord[i] + 1) for i in range_dim]):
+    for o in product(*[range(ord[i] + 1) for i in range_dim]):
         if f(o) or f(prod(gens[i]**o[i] for i in range_dim)):
             op_terms.append(o)
 
@@ -1272,7 +1272,7 @@ def guess_mult(data, algebra, **kwargs):
 
     # 3. prepare evaluation points
     f = kwargs.setdefault('point_filter', lambda *x: True)
-    points = [p for p in apply(product, [range(offset[i], dims[i] - ord[i]) for i in range_dim]) if f(*p)]
+    points = [p for p in product(*[range(offset[i], dims[i] - ord[i]) for i in range_dim]) if f(*p)]
     info(1, str(len(points)) + " points.")
 
     cut = kwargs.setdefault("cut", 100)
@@ -1314,7 +1314,7 @@ def guess_mult(data, algebra, **kwargs):
 
         while not all(m.is_zero() for m in mod):
 
-            p = modulus_generator.next()
+            p = next(modulus_generator)
             info(1, "modulus = " + str(p))
             C_mod = GF(p) if C is QQ else C.base_ring()
             phi = to_hom(p)

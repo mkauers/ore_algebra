@@ -21,6 +21,8 @@ one generator.
 
 from __future__ import absolute_import
 
+from functools import reduce
+
 import sage.functions.log as symbolic_log
 
 from sage.arith.all import previous_prime as pp
@@ -756,7 +758,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
                 DM -= D*sigma(a, -1)*(D**(r-1))
             sol[i] = (M, rat)
 
-        return filter(lambda p: p is not None, sol)
+        return [p for p in sol if p is not None]
 
     def center(self,oBound,dBound):
         """
@@ -1195,7 +1197,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         finite_local_data = filter(lambda u: len(u[1])>1 or u[1][0][0]!=0 or u[1][0][2]!=1, 
                                    SELF.finite_singularities())
         info(1, "Analysis of finite singularities completed. There are " + 
-             str(len(finite_local_data)) + " of them.")
+             str(len(list(finite_local_data))) + " of them.")
         # precompute some data that is handy to have available later during the big loop
         for p, u in finite_local_data:
             d = p.degree()
@@ -1295,12 +1297,14 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
             
             # possible phi's are those that meet the current gamma and alpha+ZZ
             gamma_phis = filter(lambda u: equiv(u[2], alpha), special_local_data.setdefault(valg, []))
+            gamma_phis = list(gamma_phis)
             if len(gamma_phis) == 0: # Fuchs filter
                 stat[3] += 1
                 continue
 
             # check whether all solutions with this behaviour at infinity have already been found
             gamma_phis = filter(lambda u: u[3] > 0, gamma_phis)
+            gamma_phis = list(gamma_phis)
             if len(gamma_phis) == 0:
                 stat[2] += 1 
                 continue
@@ -2101,7 +2105,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         # specialize additional variables
         K1, vars = _tower(K)
         K1 = K1.fraction_field()
-        L1, p1, fac1 = L, p, fac
+        L1, fac1 = L, fac
         if vars and K1 is QQ:
             R1 = R.change_ring(K1)
             A1 = A.change_ring(R1)
@@ -2115,7 +2119,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
                     continue
                 break
         else:
-            L1, p1, fac1 = L, p, fac
+            L1, fac1 = L, fac
 
         bound = []
         for (p, p1) in zip(fac, fac1):
