@@ -924,7 +924,7 @@ def OreAlgebra(base_ring, *generators, **kwargs):
                         else:
                             gens[i][1].set_call(lambda p, k=1: taylor_shift_univ_int_poly(R(p), k))
                             gens[i][1].inverse().set_call(lambda p, k=1: taylor_shift_univ_int_poly(R(p), -k))
-                    elif 0 < R.characteristic() < sys.maxint and R.ngens() == 1:
+                    elif 0 < R.characteristic() < sys.maxsize and R.ngens() == 1:
                         if R.is_field():
                             gens[i][1].set_call(lambda q, k=1: taylor_shift_univ_modp_ratfun(R(q), k))
                             gens[i][1].inverse().set_call(lambda q, k=1: taylor_shift_univ_modp_ratfun(R(q), -k))

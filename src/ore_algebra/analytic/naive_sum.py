@@ -228,7 +228,7 @@ def guard_bits(dop, maj, pt, ordrec, nterms):
     and may or may not work in the regular singular case.
     """
 
-    new_cost = cur_cost = sys.maxint
+    new_cost = cur_cost = sys.maxsize
     new_bits = cur_bits = None
     new_n0 = cur_n0 = orddeq = dop.order()
     refine = False
@@ -258,7 +258,7 @@ def guard_bits(dop, maj, pt, ordrec, nterms):
         if est_lg_rnd_fac.is_finite():
             guard_bits_squashed = int(est_lg_rnd_err.ceil().upper()) + 2
         else:
-            guard_bits_squashed = sys.maxint
+            guard_bits_squashed = sys.maxsize
 
         # We expect the effective working precision to decrease linearly in the
         # first phase due to interval blow-up, and then stabilize around (target
@@ -271,7 +271,7 @@ def guard_bits(dop, maj, pt, ordrec, nterms):
                 new_n0, nterms, guard_bits_intervals, guard_bits_squashed,
                 new_bits, new_cost)
 
-        if cur_cost <= new_cost < sys.maxint:
+        if cur_cost <= new_cost < sys.maxsize:
             return cur_n0, cur_bits
 
         if (refine and maj.can_refine() and
@@ -321,7 +321,7 @@ def interval_series_sum_wrapper(dop, inis, pt, tgt_error, bwrec, stop,
             raise accuracy.PrecisionError
     else:
         bit_prec = old_bit_prec
-        n0_squash = sys.maxint
+        n0_squash = sys.maxsize
         logger.info("initial working precision = %s bits", bit_prec)
     max_prec = bit_prec + 2*input_accuracy
 
@@ -660,7 +660,7 @@ def series_sum_regular(Intervals, dop, bwrec, inis, pt, stop, stride,
 
     ordinary = (dop.leading_coefficient()[0] != 0)
 
-    if n0_squash < sys.maxint:
+    if n0_squash < sys.maxsize:
         assert ordinary
         rnd_maj = stop.maj(n0_squash)
         rnd_maj >>= n0_squash # XXX (a) useful? (b) check correctness
@@ -749,7 +749,7 @@ def series_sum_regular(Intervals, dop, bwrec, inis, pt, stop, stride,
     # Accumulated round-off errors
     # XXX: maybe move this to PartialSum, and/or do it at every convergence
     # check
-    if n0_squash < sys.maxint:
+    if n0_squash < sys.maxsize:
         # |ind(n)| = cst·|monic_ind(n)|
         cst = abs(bounds.IC(stop.maj.dop.leading_coefficient()[0]))
         rnd_fac = cst*rnd_maj.bound(pt.rad, rows=ord)/n0_squash
