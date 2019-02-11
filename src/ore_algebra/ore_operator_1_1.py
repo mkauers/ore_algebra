@@ -1194,8 +1194,8 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
                 print((i - 1)*"  " + msg)
 
         # 1. determine the local behaviour at the finite singularities (discard apparent ones)
-        finite_local_data = filter(lambda u: len(u[1])>1 or u[1][0][0]!=0 or u[1][0][2]!=1, 
-                                   SELF.finite_singularities())
+        finite_local_data = [u for u in SELF.finite_singularities()
+                            if len(u[1])>1 or u[1][0][0]!=0 or u[1][0][2]!=1]
         info(1, "Analysis of finite singularities completed. There are " + 
              str(len(list(finite_local_data))) + " of them.")
         # precompute some data that is handy to have available later during the big loop
@@ -1233,7 +1233,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         spec = {}
         for gamma, phi, beta, alpha in special_local_data:
             try:
-                u = filter(lambda u: u[1]==phi and equiv(u[2], alpha), spec[beta] )
+                u = [u for u in spec[beta] if u[1]==phi and equiv(u[2], alpha)]
             except:
                 u = spec[beta] = []
             if len(u) == 0:
@@ -1296,15 +1296,13 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
                 continue
             
             # possible phi's are those that meet the current gamma and alpha+ZZ
-            gamma_phis = filter(lambda u: equiv(u[2], alpha), special_local_data.setdefault(valg, []))
-            gamma_phis = list(gamma_phis)
+            gamma_phis = [u for u in special_local_data.setdefault(valg, []) if equiv(u[2], alpha)]
             if len(gamma_phis) == 0: # Fuchs filter
                 stat[3] += 1
                 continue
 
             # check whether all solutions with this behaviour at infinity have already been found
-            gamma_phis = filter(lambda u: u[3] > 0, gamma_phis)
-            gamma_phis = list(gamma_phis)
+            gamma_phis = [u for u in gamma_phis if u[3] > 0]
             if len(gamma_phis) == 0:
                 stat[2] += 1 
                 continue
@@ -3527,7 +3525,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
 
         if dominant_only:
             max_gamma = max( [g for (g, _) in solutions ] )
-            solutions = filter(lambda s: s[0]==max_gamma, solutions)
+            solutions = [s for s in solutions if s[0]==max_gamma]
 
         info(1, "superexponential parts isolated: " + str([g for g, _ in solutions]))
 
@@ -3545,7 +3543,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
 
         if dominant_only:
             max_rho = max( [abs(rho) for (_, rho, _, _) in refined_solutions ] )
-            refined_solutions = filter(lambda s: abs(s[1])==max_rho, refined_solutions)
+            refined_solutions = [s for s in refined_solutions if abs(s[1])==max_rho]
 
         info(1, "exponential parts isolated: " + str([(gamma, rho) for (gamma, rho, _, _) in refined_solutions]))
 
@@ -3741,7 +3739,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
         r = self.order()
 
         # determine the possible values of gamma and phi
-        points = filter(lambda p: p[1] >= 0, [ (i, coeffs[i].degree()) for i in range(len(coeffs)) ])
+        points = list(filter(lambda p: p[1] >= 0, [ (i, coeffs[i].degree()) for i in range(len(coeffs)) ]))
         deg = max(list(map(lambda p: p[1], points)))
         output = []
 
