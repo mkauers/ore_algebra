@@ -18,6 +18,7 @@ from sage.rings.complex_arb import CBF, ComplexBallField, ComplexBall
 from sage.rings.real_arb import RBF, RealBallField, RealBall
 from sage.structure.sage_object import SageObject
 
+from .accuracy import IR, IC
 from .differential_operator import DifferentialOperator
 from .local_solutions import (FundamentalSolution, sort_key_by_asympt,
         LocalBasisMapper)
@@ -26,7 +27,6 @@ from .utilities import *
 
 logger = logging.getLogger(__name__)
 
-IR, IC = RBF, CBF # TBI
 QQi = number_field.QuadraticField(-1, 'i')
 
 class PathPrecisionError(Exception):
@@ -233,8 +233,7 @@ class Point(SageObject):
 
     def rationalize(self):
         a = self.iv()
-        lc = self.dop.leading_coefficient()
-        if lc(a).contains_zero():
+        if any(a.overlaps(s) for s in self.dop._singularities(IC)):
             raise PathPrecisionError
         else:
             return Point(_rationalize(a), self.dop)
@@ -278,11 +277,11 @@ class Point(SageObject):
             raise NotImplementedError("can't tell if inexact point is regular")
         assert self.is_exact()
         # Fuchs criterion
-        Pols = self.dop.base_ring().change_ring(self.value.parent())
-        def val(pol):
-            return Pols(pol).valuation(Pols([self.value, -1]))
-        ref = val(self.dop.leading_coefficient()) - self.dop.order()
-        return all(val(coef) - k >= ref for k, coef in enumerate(self.dop))
+        dop, pt = self.dop.extend_scalars(self.value)
+        Pols = dop.base_ring()
+        lin = Pols([pt, -1])
+        ref = dop.leading_coefficient().valuation(lin) - dop.order()
+        return all(coef.valuation(lin) - k >= ref for k, coef in enumerate(dop))
 
     def is_regular_singular(self):
         return not self.is_ordinary() and self.is_regular()
@@ -379,9 +378,56 @@ class Point(SageObject):
                     for expo in range(self.dop.order())]
         elif not self.is_regular():
             raise NotImplementedError("irregular singular point")
-        sols = LocalBasisMapper().run(self.dop.shift(self))
-        sols.sort(key=sort_key_by_asympt)
-        return sols
+        return LocalBasisMapper(self.dop.shift(self)).run()
+
+class EvaluationPoint(object):
+    r"""
+    Series evaluation point/jet.
+
+    A ring element (a complex number, a polynomial indeterminate, perhaps
+    someday a matrix) where to evaluate the partial sum of a series, along with
+    a “jet order” used to compute derivatives and a bound on the norm of the
+    mathematical quantity it represents that can be used to bound the truncation
+    error.
+
+    * ``branch`` - branch of the logarithm to use; ``(0,)`` means the standard
+      branch, ``(k,)`` means log(z) + 2kπi, a tuple of length > 1 averages over
+      the corresponding branches
+    """
+
+    # XXX: choose a single place to set the default value for jet_order
+    def __init__(self, pt, jet_order=1, branch=(0,), rad=None ):
+        self.pt = pt
+        self.rad = (IR.coerce(rad) if rad is not None
+                    else IC(pt).above_abs())
+        self.jet_order = jet_order
+        self.branch=branch
+
+        self.is_numeric = is_numeric_parent(pt.parent())
+
+    def __repr__(self):
+        fmt = "{} + η + O(η^{}) (with |.| ≤ {})"
+        return fmt.format(self.pt, self.jet_order + 1, self.rad)
+
+    def jet(self, Intervals):
+        base_ring = (Intervals if self.is_numeric
+                     else pushout(self.pt.parent(), Intervals))
+        Pol = PolynomialRing(base_ring, 'delta')
+        return Pol([self.pt, 1]).truncate(self.jet_order)
+
+    def is_real(self):
+        return is_real_parent(self.pt.parent())
+
+    def is_real_or_symbolic(self):
+        return self.is_real() or not self.is_numeric
+
+    def accuracy(self):
+        if self.pt.parent().is_exact():
+            return IR.maximal_accuracy()
+        elif isinstance(self.pt.parent(), (RealBallField, ComplexBallField)):
+            return self.pt.accuracy()
+        else:
+            raise ValueError
 
 ######################################################################
 # Paths
@@ -486,11 +532,23 @@ class Step(SageObject):
             z0 = self.start.exact().value
             z1 = self.end.exact().value
             try:
-                return z1 - z0
+                d = z1 - z0
             except TypeError:
-                return as_embedded_number_field_element(QQbar(z1) - QQbar(z0))
+                # Should be coercions, but embedded number fields currently
+                # don't coerce into QQbar...
+                d = QQbar(z1) - QQbar(z0)
+            # When z0, z1 are number field elements, we want another number
+            # field element, not an element of QQbar or AA (even though z1-z0
+            # may succeed and return such an element).
+            if d.parent() is z0.parent() or d.parent() is z1.parent():
+                return d
+            else:
+                return as_embedded_number_field_element(d)
         else:
             return z1 - z0
+
+    def evpt(self, order):
+        return EvaluationPoint(self.delta(), order, branch=self.branch)
 
     def direction(self):
         delta = self.end.iv() - self.start.iv()
@@ -523,7 +581,7 @@ class Step(SageObject):
         res = []
         for s in sing:
             ds = s - self.start.iv()
-            t = self.delta()/ds
+            t = (self.end.iv() - self.start.iv())/ds
             if (ds.contains_zero() or t.imag().contains_zero()
                     and not safe_lt(t.real(), IR.one())):
                 res.append(s)

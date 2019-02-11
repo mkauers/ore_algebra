@@ -21,8 +21,8 @@ def transition_matrices(dop, path, eps=1e-16):
         sage: tms = transition_matrices(dop, [k/5 for k in range(5)], 1e-10)
         sage: tms[2]
         (
-            [ 1.0... [0.3805063771...]]
-        2/5, [      0 [0.8620689655...]]
+             [ [1.00...] [0.3805063771...]]
+        2/5, [ [+/- ...] [0.8620689655...]]
         )
 
         sage: transition_matrices(Dx - 1, [i/5 for i in range(6)], 1e-10)
@@ -35,8 +35,8 @@ def transition_matrices(dop, path, eps=1e-16):
     """
     from .differential_operator import DifferentialOperator
     dop = DifferentialOperator(dop)
-    ctx = ancont.Context(dop, path, eps, keep="all")
-    pairs = ancont.analytic_continuation(ctx)
+    ctx = ancont.Context(keep="all")
+    pairs = ancont.analytic_continuation(dop, path, eps, ctx)
     return pairs
 
 def _value_from_mat(mat):
@@ -79,8 +79,8 @@ def multi_eval_diffeq(dop, ini, path, eps=1e-16):
     """
     from .differential_operator import DifferentialOperator
     dop = DifferentialOperator(dop)
-    ctx = ancont.Context(dop, path, eps, keep="all")
-    pairs = ancont.analytic_continuation(ctx, ini=ini)
+    ctx = ancont.Context(keep="all")
+    pairs = ancont.analytic_continuation(dop, path, eps, ctx, ini=ini)
     return [(point, _value_from_mat(mat)) for point, mat in pairs]
 
 polynomial_approximation_on_disk = polapprox.on_disk

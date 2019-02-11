@@ -16,18 +16,18 @@ functions of walks with small steps in the quarter plane, arXiv:1606.02982
 
     sage: from ore_algebra.examples import ssw
 
-    sage: mat = ssw.dop[5,1,1].numerical_transition_matrix([0, 1/3+i/10, 1/3]) # long time (2.5 s)
+    sage: mat = ssw.dop[5,1,1].numerical_transition_matrix([0, 1/3+i/10, 1/3]) # (1.8 s)
     sage: (mat*vector([0, 0, 1, 3, 7]))[0] # long time
     [...] + [0.50000...]*I
 
     sage: ssw.dop[1, 0, 0].numerical_transition_matrix([0, 1/4])
-    [ [-206.5126691369...] + [...]*I             [16.000000000000...] + [...]*I  [1.20938909474579...] + [...]*I]
-    [ [1489.126691369...] + [...]*I              [-128.00000000000...] + [...]*I [3.9061090525420...] + [...]*I]
-    [ [1925.57548817...] + [-1536.00000000...]*I [768.000000000...] + [...]*I    [-124.21690469554...] + [128.000000000000...]*I]
+    [ [-206.5126691369...] + [...]*I            [16.000000000000...] + [...]*I  [1.20938909474579...] + [...]*I]
+    [ [1489.126691369...] + [...]*I             [-128.00000000000...] + [...]*I [3.9061090525420...] + [...]*I]
+    [[1925.57548817...] + [-1536.00000000...]*I [768.000000000...] + [...]*I    [-124.21690469554...] + [128.000000000000...]*I]
 
 An example provided by Bruno Salvy, also related to small-step walks::
 
-    sage: ssw.aux_dop.numerical_solution(ssw.aux_ini, [0,1]) # long time (2.3 s), TODO: double-check result
+    sage: ssw.aux_dop.numerical_solution(ssw.aux_ini, [0,1]) # (1.5 s), TODO: double-check result
     [10.662510694...]
 
 """

@@ -47,8 +47,8 @@ Thanks to Jakob Ablinger and Clemens Raab for the data.
     sage: myini = [0, 0, 0, 1/3, -2/3-i*pi/3, 11/12+2*i*pi/3-pi^2/6]
     sage: iint_value(dop, myini)
     [0.97080469562493...]
-    sage: iint_value(dop, myini, 1e-500) # long time (16 s, unstable)
-    [0.97080469562493...03834204...]
+    sage: iint_value(dop, myini, 1e-500) # long time (4.7 s)
+    [0.97080469562493...0383420...]
 
 Known exact values::
 
@@ -89,7 +89,7 @@ Known exact values::
     sage: ref[23] = 4/9*(psi1_a - 4*zeta(2))
     sage: ref[24] = sqrt(2)*(2/3*zeta(2) - 2*Li_b - ln(2)^2)
 
-    sage: for k in sorted(word.keys()): # long time (~35 s, unstable)
+    sage: for k in sorted(word.keys()): # long time (21 s)
     ....:     dop = diffop(word[k])
     ....:     val = iint_value(dop, ini[k])
     ....:     ok = "ok" if k in ref and val in RBF(ref[k]).add_error(1e-10) else ""
@@ -100,12 +100,12 @@ Known exact values::
     (A.4)   [8.18648809789096...]  ok
     (A.5)   [4.35517218060720...]  ok
     (A.6)   [0.86983785563201...]  ok
-    (A.7)   [+/- ...e-17]          ok
+    (A.7)   [+/- ...e-1...]        ok
     (A.8)   [-3.4451418533666...]  ok
     (A.9)   [8.38881875897492...]  ok
     (A.10)  [-2.5175820907753...]  ok
     (A.11)  [3.02354306885557...]  ok
-    (A.12)  [4.95764042186371...]  ok
+    (A.12)  [4.9576404218637...]   ok
     (A.13)  [-5.1677127800499...]  ok
     (A.14)  [2.44339103708582...]  ok
     (A.15)  [4.93480220054467...]  ok
@@ -210,11 +210,11 @@ def get_ini_Hstar():
     from sage.interfaces.maple import maple
     return maple(string.replace(_ini_Hstar_code, '\n', ' '))
 
-def iint_value(dop, ini, eps=1e-16):
+def iint_value(dop, ini, eps=1e-16, **kwds):
     roots = dop.leading_coefficient().roots(AA, multiplicities=False)
     sing = list(reversed(sorted([s for s in roots if 0 < s < 1])))
     path = [1] + [Point(s, dop, outgoing_branch=(0,-1)) for s in sing] + [0]
-    val = dop.numerical_solution(ini, path, eps)
+    val = dop.numerical_solution(ini, path, eps, **kwds)
     return val.real()
 
 _one = ZZ.one()

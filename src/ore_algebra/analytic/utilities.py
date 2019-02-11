@@ -6,11 +6,14 @@ Miscellaneous utilities
 import sage.rings.complex_arb
 import sage.rings.real_arb
 
+from sage.categories.pushout import pushout
 from sage.misc.cachefunc import cached_function
 from sage.misc.misc import cputime
-from sage.rings.all import QQ, QQbar, CIF
-from sage.rings.number_field.number_field import NumberField_quadratic
+from sage.rings.all import ZZ, QQ, QQbar, CIF
+from sage.rings.number_field.number_field import (NumberField,
+        NumberField_quadratic)
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
+from sage.rings.qqbar import number_field_elements_from_algebraics
 
 ######################################################################
 # Timing
@@ -56,6 +59,68 @@ def is_QQi(parent):
     return (isinstance(parent, NumberField_quadratic)
                 and list(parent.polynomial()) == [1,0,1])
 
+def ball_field(eps, real):
+    prec = prec_from_eps(eps)
+    if real:
+        return sage.rings.real_arb.RealBallField(prec)
+    else:
+        return sage.rings.complex_arb.ComplexBallField(prec)
+
+################################################################################
+# Number fields and orders
+################################################################################
+
+def as_embedded_number_field_elements(algs):
+    nf, elts, emb = number_field_elements_from_algebraics(algs)
+    if nf is not QQ:
+        nf = NumberField(nf.polynomial(), nf.variable_name(),
+                    embedding=emb(nf.gen()))
+        elts = [elt.polynomial()(nf.gen()) for elt in elts]
+    # assert [QQbar.coerce(elt) == alg for alg, elt in zip(algs, elts)]
+    return nf, elts
+
+def as_embedded_number_field_element(alg):
+    return as_embedded_number_field_elements([alg])[1][0]
+
+def number_field_with_integer_gen(K):
+    r"""
+    TESTS::
+
+        sage: from ore_algebra.analytic.utilities import number_field_with_integer_gen
+        sage: K = NumberField(6*x^2 + (2/3)*x - 9/17, 'a')
+        sage: number_field_with_integer_gen(K)[0]
+        Number Field in x306a with defining polynomial x^2 + 34*x - 8262
+    """
+    if K is QQ:
+        return QQ, ZZ
+    den = K.polynomial().monic().denominator()
+    if den.is_one():
+        # Ensure that we return the same number field object (coercions can be
+        # slow!)
+        intNF = K
+    else:
+        intgen = K.gen() * den
+        ### Attempt to work around various problems with embeddings
+        emb = K.coerce_embedding()
+        embgen = emb(intgen) if emb else intgen
+        intNF = NumberField(intgen.minpoly(), "x" + str(den) + str(K.gen()),
+                            embedding=embgen)
+        assert intNF != K
+    # Work around weaknesses in coercions involving order elements,
+    # including #14982 (fixed). Used to trigger #14989 (fixed).
+    #return intNF, intNF.order(intNF.gen())
+    return intNF, intNF
+
+def invert_order_element(alg):
+    if alg in ZZ:
+        return 1, alg
+    else:
+        Order = alg.parent()
+        pol = alg.polynomial().change_ring(ZZ)
+        modulus = Order.gen(1).minpoly()
+        den, num, _ = pol.xgcd(modulus)  # hopefully fraction-free!
+        return Order(num), ZZ(den)
+
 ######################################################################
 # Sage features
 ######################################################################
@@ -77,30 +142,11 @@ def has_new_ComplexBall_constructor():
 def prec_from_eps(eps):
     return -eps.lower().log2().floor() + 4
 
-def ball_field(eps, real):
-    prec = prec_from_eps(eps)
-    if real:
-        return sage.rings.real_arb.RealBallField(prec)
-    else:
-        return sage.rings.complex_arb.ComplexBallField(prec)
-
 def split(cond, objs):
     matching, not_matching = [], []
     for x in objs:
         (matching if cond(x) else not_matching).append(x)
     return matching, not_matching
-
-def as_embedded_number_field_element(alg):
-    from sage.rings.number_field.number_field import NumberField
-    nf, elt, emb = alg.as_number_field_element()
-    if nf is QQ:
-        res = elt
-    else:
-        embnf = NumberField(nf.polynomial(), nf.variable_name(),
-                    embedding=emb(nf.gen()))
-        res = elt.polynomial()(embnf.gen())
-    # assert QQbar.coerce(res) == alg
-    return res
 
 def short_str(obj, n=60):
     s = str(obj)

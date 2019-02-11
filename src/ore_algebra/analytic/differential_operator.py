@@ -3,15 +3,22 @@ r"""
 Custom differential operators
 """
 
-import sage.categories.pushout as pushout
-
 from sage.arith.all import lcm
+from sage.categories.pushout import pushout
 from sage.misc.cachefunc import cached_method
-from sage.rings.all import CIF, QQbar
+from sage.rings.all import CIF, QQbar, QQ, ZZ
 from sage.rings.complex_arb import ComplexBallField
 from sage.rings.complex_interval_field import ComplexIntervalField
+from sage.rings.infinity import infinity
+from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
+from sage.structure.coerce_exceptions import CoercionException
 
+from ..ore_algebra import OreAlgebra
 from ..ore_operator_1_1 import UnivariateDifferentialOperatorOverUnivariateRing
+
+from .utilities import as_embedded_number_field_elements
+
+from . import utilities
 
 def DifferentialOperator(dop):
     if isinstance(dop, PlainDifferentialOperator):
@@ -36,6 +43,34 @@ class PlainDifferentialOperator(UnivariateDifferentialOperatorOverUnivariateRing
         super(PlainDifferentialOperator, self).__init__(
                 dop.parent(), dop)
 
+    @cached_method
+    def _naive_height(self):
+        def h(c):
+            den = c.denominator()
+            num = den*c
+            l = list(num)
+            l.append(den)
+            return max(ZZ(a).nbits() for a in l)
+        return max(h(c) for pol in self for c in pol)
+
+    @cached_method
+    def _my_to_S(self, name='n'):
+        Pols_x = self.base_ring()
+        Scalars = self.base_ring().base_ring()
+        Pols_n, n = PolynomialRing(Scalars, name).objgen()
+        Rops = OreAlgebra(Pols_n, 'S' + name)
+        # Using the primitive part here would break the computation of residuals!
+        # TODO: add test (arctan); better fix?
+        # Other interesting cases: operators of the form P(Θ) (with constant
+        # coefficients)
+        #rop = self.to_S(Rops).primitive_part().numerator()
+        return self.to_S(Rops)
+
+    @cached_method
+    def growth_parameters(self):
+        from .bounds import growth_parameters
+        return growth_parameters(self)
+
     def singularities(self, *args):
         raise NotImplementedError("use _singularities()")
 
@@ -56,6 +91,83 @@ class PlainDifferentialOperator(UnivariateDifferentialOperatorOverUnivariateRing
         pol = dop.leading_coefficient().radical()
         return QQbar.polynomial_root(pol, CIF(iv))
 
+    @cached_method
+    def est_cvrad(self):
+        # not rigorous! (because of the contains_zero())
+        from .bounds import IR, IC
+        sing = [a for a in self._singularities(IC) if not a.contains_zero()]
+        if not sing:
+            return IR('inf')
+        else:
+            return min(a.below_abs() for a in sing)
+
+    @cached_method
+    def _est_growth(self):
+        from .bounds import growth_parameters, IR, IC
+        kappa, alpha0 = growth_parameters(self)
+        if kappa is infinity:
+            return kappa, IR.zero()
+        # The asymptotic exponential growth may not be such a great estimate
+        # for the actual growth during the pre-convergence stage, so we
+        # complement it by another one.
+        rop = self._my_to_S()
+        lc = rop.leading_coefficient()
+        n0 = 1
+        while lc(n0).is_zero():
+            n0 += 1
+        alpha1 = max(abs(IC(pol(n0))) for pol in list(rop)[:-1])/abs(IR(lc(n0)))
+        alpha = IR(alpha0).max(alpha1)
+        return kappa, alpha
+
+    def est_terms(self, pt, prec):
+        r"""
+        Estimate the number of terms of series expansion at 0 of solutions of
+        this operator necessary to reach prec bits of accuracy at pt, and the
+        maximum log-magnitude of these terms.
+        """
+        from .bounds import IR
+        # pt should be an EvaluationPoint
+        prec = IR(prec)
+        cvrad = self.est_cvrad()
+        if cvrad.is_infinity():
+            kappa, alpha = self._est_growth()
+            if kappa is infinity:
+                return 0, 0
+            hump = IR(1).exp() * IR(alpha*pt.rad)**(~kappa)
+            est = hump + prec/(kappa*prec.log(2))
+            mag = hump.log(2).max(IR.zero())
+        else:
+            est = prec/(cvrad/pt.rad).log(2)
+            mag = IR.zero()
+        return int(est.ceil().upper()), int(mag.ceil().upper())
+
+    def extend_scalars(self, pt):
+        r"""
+        Extend the ground field so that the new field contains pt.
+        """
+        Dops = self.parent()
+        Pols = Dops.base_ring()
+        Scalars = Pols.base_ring()
+        if Scalars.has_coerce_map_from(pt.parent()):
+            return self, pt
+        gen = Scalars.gen()
+        try:
+            # Largely redundant with the other branch, but may do a better job
+            # in some cases, e.g. pushout(QQ, QQ(α)), where as_enf_elts() would
+            # invent new generator names.
+            NF = pushout(Scalars, pt.parent())
+            gen1 = NF.coerce(gen)
+            pt1 = NF.coerce(pt)
+        except CoercionException:
+            NF, (gen1, pt1) = as_embedded_number_field_elements([gen,pt])
+        hom = Scalars.hom([gen1], codomain=NF)
+        Dops1 = OreAlgebra(Pols.change_ring(NF),
+                (Dops.variable_name(), {}, {Pols.gen(): Pols.one()}))
+        dop1 = Dops1([pol.map_coefficients(hom) for pol in self])
+        dop1 = PlainDifferentialOperator(dop1)
+        assert dop1.base_ring().base_ring() is NF
+        return dop1, pt1
+
     def shift(self, delta):
         r"""
         TESTS::
@@ -72,25 +184,15 @@ class PlainDifferentialOperator(UnivariateDifferentialOperatorOverUnivariateRing
         """
         Pols_dop = self.base_ring()
         # NOTE: pushout(QQ[x], K) doesn't handle embeddings well, and creates
-        # an L equal but not identical to K. But then other constructors like
+        # an L equal but not identical to K. And then other constructors like
         # PolynomialRing(L, x) sometimes return objects over K found in cache,
-        # leading to endless headaches with slow coercions. But the version here
-        # may be closer to what I really want in any case.
-        # XXX: This seems to work in the usual trivial case where we are looking
-        # for a scalar domain containing QQ and QQ[i], but probably won't be
-        # enough if we really have two different number fields with embeddings
-        ex = delta.exact()
-        Scalars = pushout.pushout(Pols_dop.base_ring(), ex.value.parent())
-        Pols = Pols_dop.change_ring(Scalars)
-        A, B = self.base_ring().base_ring(), ex.value.parent()
-        C = Pols.base_ring()
-        assert C is A or C != A
-        assert C is B or C != B
-        dop_P = self.change_ring(Pols)
+        # leading to endless headaches with slow coercions.
+        dop_P, ex = self.extend_scalars(delta.exact().value)
+        Pols = dop_P.base_ring()
         # Gcd-avoiding shift by an algebraic delta
         deg = dop_P.degree()
-        den = ex.value.denominator()
-        num = den*ex.value
+        den = ex.denominator()
+        num = den*ex
         lin = Pols([num, den])
         x = Pols.gen()
         def shift_poly(pol):
