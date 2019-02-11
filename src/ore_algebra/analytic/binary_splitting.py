@@ -211,6 +211,7 @@ Miscellaneous examples::
 """
 
 from __future__ import print_function
+from six.moves import range
 
 import copy
 import logging
@@ -283,7 +284,7 @@ class StepMatrix(object):
 
         self.zero_sum, self.sums_row, seqs = self._seq_init(rec, ord_log)
 
-        for n in xrange(n0+1, n1+1):
+        for n in range(n0+1, n1+1):
 
             bwrec_n, rec_den_n = self._coeff_series_num_den(rec, n, ord_log)
             den = rec.pow_den*rec_den_n
@@ -299,10 +300,10 @@ class StepMatrix(object):
         # Polynomial of matrices.
         rec_mat = []
         Mat = rec.Mat_rec.base_ring()
-        for k in xrange(ord_log):
+        for k in range(ord_log):
             mat = Mat.matrix()
             for j, u in enumerate(seqs):
-                for i in xrange(1, rec.ordrec + 1):
+                for i in range(1, rec.ordrec + 1):
                     mat[-i,j] = u[-i][k]
             rec_mat.append(mat)
         self.rec_mat = rec.Mat_rec.element_class(rec.Mat_rec, rec_mat,
@@ -329,13 +330,13 @@ class StepMatrix(object):
 
     def _seq_next(self, num, psum, bwrec_n, rec_den_n, den, ord_log):
 
-        for q in xrange(ord_log):
-            for p in xrange(self.ord_diff):
+        for q in range(ord_log):
+            for p in range(self.ord_diff):
                 psum[q][p] += self.pow_num[p]*num[-1][q]
                 psum[q][p] *= den
 
         u_n = -sum(bwrec_n[k]._mul_trunc_(num[-k], ord_log)
-                    for k in xrange(1, len(bwrec_n)))
+                    for k in range(1, len(bwrec_n)))
         num[:] = [rec_den_n*term for term in num[1:]]
         num.append(u_n)
 
@@ -362,11 +363,11 @@ class StepMatrix(object):
         # TODO: maybe try introducing matrix-matrix multiplications
 
         res1 = [None]*len(high.sums_row)
-        for j in xrange(ordrec):
+        for j in range(ordrec):
             res2 = [None]*high.ord_log
-            for q in xrange(high.ord_log):
+            for q in range(high.ord_log):
                 res3 = [None]*low.ord_diff
-                for p in xrange(low.ord_diff):
+                for p in range(low.ord_diff):
                     # one coefficient of one entry the first term
                     # high.sums_row*low.rec_mat*low.pow_num
                     if use_sum_of_products:
@@ -376,17 +377,17 @@ class StepMatrix(object):
                                ( high.sums_row[k][v][u],
                                  low.pow_num[p-u],
                                  low.rec_mat[q-v][k,j] )
-                               for k in xrange(ordrec)
-                               for u in xrange(p + 1)
-                               for v in xrange(q + 1))
+                               for k in range(ordrec)
+                               for u in range(p + 1)
+                               for v in range(q + 1))
                     else:
                         t = sum(
                                high.sums_row[k][v][u]
                                    * Scalars(low.pow_num[p-u]
                                                * low.rec_mat[q-v][k,j])
-                               for k in xrange(ordrec)
-                               for u in xrange(p + 1)
-                               for v in xrange(q + 1))
+                               for k in range(ordrec)
+                               for u in range(p + 1)
+                               for v in range(q + 1))
                     # same for the second term
                     # high.rec_den*pow_den.rec_den*low.sums_row
                     if q < low.ord_log: # usually true, but low might be
@@ -568,7 +569,7 @@ class SolutionColumn(StepMatrix):
         for k in range(self.v.ord_log, self.v.ord_log + m - z):
             new_mats[k][-1,-1] = 0
         self.v.rec_mat = self.v.rec_mat.parent()(new_mats)
-        zeros = [[self.v.zero_sum]*self.v.ord_diff for _ in xrange(m - z)]
+        zeros = [[self.v.zero_sum]*self.v.ord_diff for _ in range(m - z)]
         for p in self.v.sums_row[:-1]:
             p[self.v.ord_log:] = [] # useful?
             p.extend(zeros)
@@ -785,8 +786,8 @@ class MatrixRec(object):
 
     def Series_sums(self, ord_log):
         zero = self.AlgInts_sums.zero()
-        row = [[[zero]*self.derivatives for _ in xrange(ord_log)]
-               for _ in xrange(self.ordrec)]
+        row = [[[zero]*self.derivatives for _ in range(ord_log)]
+               for _ in range(self.ordrec)]
         return zero, row
 
     def _init_CBF(self, deq_Scalars, shift, E, dz, prec):
@@ -892,14 +893,14 @@ class MatrixRec(object):
                 [self.AlgInts_rec(a) for a in invlc], check=False)
         den = self.AlgInts_rec(den)
 
-        for i in xrange(self.ordrec):
+        for i in range(self.ordrec):
             bwrec_n[1+i] = bwrec_n[1+i]._mul_trunc_(invlc, ord_log)
 
         if self.AlgInts_rec is QQ: # TODO: generalize (den might be a ball!)
             g = gcd([den] + [c for p in bwrec_n[1:] for c in p])
             den //= g
             if not g.is_one():
-                for i in xrange(self.ordrec):
+                for i in range(self.ordrec):
                     bwrec_n[1+i] = bwrec_n[1+i]/g
 
         return bwrec_n, den

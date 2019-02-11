@@ -3,6 +3,8 @@ r"""
 Local solutions
 """
 
+from six.moves import range
+
 import collections, logging
 
 from itertools import chain
@@ -63,7 +65,7 @@ def bw_shift_rec(dop, shift=ZZ.zero(), clear_denominators=False):
         rop = (1/g)*rop
     ordrec = rop.order()
     coeff = [rop[ordrec-k](n-ordrec+shift)
-             for k in xrange(ordrec+1)]
+             for k in range(ordrec+1)]
     return BwShiftRec(coeff)
 
 class BwShiftRec(object):
@@ -108,13 +110,13 @@ class BwShiftRec(object):
     def _coeff_series(self, i, j):
         p = self.coeff[i]
         return self.base_ring([ZZ(k+j).binomial(k)*p[k+j]
-                               for k in xrange(p.degree() + 1 - j)])
+                               for k in range(p.degree() + 1 - j)])
 
     @cached_method
     def _coeff_series_re_im(self, i, j):
         ZZn = PolynomialRing(ZZ, 'n')
         p = self.coeff[i]
-        rng = xrange(p.degree() + 1 - j)
+        rng = range(p.degree() + 1 - j)
         bin = [ZZ(k+j).binomial(k) for k in rng]
         re = ZZn([bin[k]*p[k+j].real() for k in rng])
         im = ZZn([bin[k]*p[k+j].imag() for k in rng])
@@ -140,20 +142,20 @@ class BwShiftRec(object):
         re_im, mor = self.scalars_embedding(tgt)
         if re_im:
             res = [[None]*ord for _ in self.coeff]
-            for i in xrange(len(self.coeff)):
-                for j in xrange(ord):
+            for i in range(len(self.coeff)):
+                for j in range(ord):
                     re, im = self._coeff_series_re_im(i, j)
                     res[i][j] = mor(re(point), im(point))
             return res
         else:
             point = self.Scalars(point)
-            return [[mor(self._coeff_series(i,j)(point)) for j in xrange(ord)]
-                for i in xrange(len(self.coeff))]
+            return [[mor(self._coeff_series(i,j)(point)) for j in range(ord)]
+                for i in range(len(self.coeff))]
 
     def eval_inv_lc_series(self, point, ord, shift):
         ser = self.base_ring.element_class(
                 self.base_ring, # polynomials, viewed as jets
-                [self._coeff_series(0, j)(point) for j in xrange(shift, ord)],
+                [self._coeff_series(0, j)(point) for j in range(shift, ord)],
                 check=False)
         return ser.inverse_series_trunc(ord)
 
@@ -216,7 +218,7 @@ class LogSeriesInitialValues(object):
                             for ini in values.itervalues()))
         else:
             all_values = values
-            values = dict((n, (values[n],)) for n in xrange(len(values)))
+            values = dict((n, (values[n],)) for n in range(len(values)))
         self.universe = Sequence(all_values).universe()
         if not utilities.is_numeric_parent(self.universe):
             raise ValueError("initial values must coerce into a ball field")
@@ -376,7 +378,7 @@ class LocalBasisMapper(object):
         ind = self.bwrec[0]
         if self.dop.leading_coefficient()[0] != 0:
             n = ind.parent().gen()
-            self.sl_decomp = [(-n, [(i, 1) for i in xrange(self.dop.order())])]
+            self.sl_decomp = [(-n, [(i, 1) for i in range(self.dop.order())])]
         else:
             self.sl_decomp = my_shiftless_decomposition(ind)
 
@@ -419,7 +421,7 @@ class LocalBasisMapper(object):
             self.process_valuation()
 
     def process_valuation(self):
-        for self.log_power in reversed(xrange(self.mult)):
+        for self.log_power in reversed(range(self.mult)):
             self.process_solution()
 
     def process_solution(self):
@@ -458,20 +460,20 @@ def log_series(ini, bwrec, order):
     precomp_len = max(1, bwrec.order) # hack for recurrences of order zero
     bwrec_nplus = collections.deque(
             (bwrec.eval_series(Coeffs, i, log_prec)
-                for i in xrange(precomp_len)),
+                for i in range(precomp_len)),
             maxlen=precomp_len)
     series = []
-    for n in xrange(order):
+    for n in range(order):
         new_term = vector(Coeffs, log_prec)
         mult = len(ini.shift.get(n, ()))
-        for p in xrange(log_prec - mult - 1, -1, -1):
+        for p in range(log_prec - mult - 1, -1, -1):
             combin  = sum(bwrec_nplus[0][i][j]*series[-i][p+j]
-                          for j in xrange(log_prec - p)
-                          for i in xrange(min(bwrec.order, n), 0, -1))
+                          for j in range(log_prec - p)
+                          for i in range(min(bwrec.order, n), 0, -1))
             combin += sum(bwrec_nplus[0][0][j]*new_term[p+j]
-                          for j in xrange(mult + 1, log_prec - p))
+                          for j in range(mult + 1, log_prec - p))
             new_term[mult + p] = - ~bwrec_nplus[0][0][mult] * combin
-        for p in xrange(mult - 1, -1, -1):
+        for p in range(mult - 1, -1, -1):
             new_term[p] = ini.shift[n][p]
         series.append(new_term)
         bwrec_nplus.append(bwrec.eval_series(Coeffs, n+precomp_len, log_prec))
@@ -507,7 +509,7 @@ def log_series_values(Jets, expo, psum, evpt, downshift=[0]):
         Jets = Jets.change_ring(Jets.base_ring().complex_field())
         psum = psum.change_ring(Jets)
     high = Jets([0] + [(-1)**(k+1)*~pt**k/k
-                       for k in xrange(1, derivatives)])
+                       for k in range(1, derivatives)])
     aux = high*expo
     logger.debug("aux=%s", aux)
     val = [Jets.base_ring().zero() for d in downshift]
@@ -519,14 +521,14 @@ def log_series_values(Jets, expo, psum, evpt, downshift=[0]):
         logger.debug("logpt[%s]=%s", b, logpt)
         inipow = ((twobpii*expo).exp()*pt**expo
                 *sum(_pow_trunc(aux, k, derivatives)/Integer(k).factorial()
-                    for k in xrange(derivatives)))
+                    for k in range(derivatives)))
         logger.debug("inipow[%s]=%s", b, inipow)
         logterms = [_pow_trunc(logpt, p, derivatives)/Integer(p).factorial()
-                    for p in xrange(log_prec)]
+                    for p in range(log_prec)]
         for d in downshift:
             val[d] += inipow.multiplication_trunc(
                     sum(psum[d+p]._mul_trunc_(logterms[p], derivatives)
-                        for p in xrange(log_prec - d)),
+                        for p in range(log_prec - d)),
                     derivatives)
     val = [vector(v[i] for i in range(derivatives))/len(evpt.branch)
            for v in val]

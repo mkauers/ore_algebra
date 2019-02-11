@@ -10,6 +10,8 @@ Rigorous approximation of D-finite functions by polynomials
 # - support returning polynomials with point interval or non-interval
 #   coefficients
 
+from six.moves import range
+
 import logging
 logger = logging.getLogger(__name__)
 
@@ -26,7 +28,7 @@ from .safe_cmp import *
 
 def combine_radii(pol):
     coeff = list(pol)
-    for i in xrange(1, len(coeff)):
+    for i in range(1, len(coeff)):
         coeff[0] = coeff[0].add_error(coeff[i].rad())
         coeff[i] = coeff[i].squash()
     return pol.parent()(coeff)
@@ -67,7 +69,7 @@ def taylor_economization(pol, eps):
     coef = list(pol)
     delta_bound = eps.parent().zero()
     zero = Coefs.zero()
-    for i in xrange(pol.degree(), -1, -1):
+    for i in range(pol.degree(), -1, -1):
         tmp_bound = delta_bound + abs(pol[i])
         if safe_lt(tmp_bound, eps):
             delta_bound = tmp_bound
@@ -98,7 +100,7 @@ def chebyshev_polynomials(ring, n):
         cheb_T[0] = ring.one()
     if n >= 2:
         cheb_T[1] = x
-    for k in xrange(1, n - 1):
+    for k in range(1, n - 1):
         cheb_T[k+1] = 2*x*cheb_T[k] - cheb_T[k-1]
     return cheb_T
 
@@ -142,7 +144,7 @@ def general_economization(economization_polynomials, pol, eps):
     ecopol = economization_polynomials(pol.parent(), pol.degree() + 1)
     delta_bound = eps.parent().zero()
     newpol = pol
-    for k in xrange(pol.degree(), -1, -1):
+    for k in range(pol.degree(), -1, -1):
         c = newpol[k]/ecopol[k].leading_coefficient()
         tmp_bound = delta_bound + abs(c)
         if safe_lt(tmp_bound, eps):
@@ -324,7 +326,7 @@ def _test_fun_approx(pol, ref, disk_rad=None, interval_rad=None,
     if bool(disk_rad) == bool(interval_rad):
         raise ValueError
     rad = disk_rad or interval_rad
-    for _ in xrange(test_count):
+    for _ in range(test_count):
         rho = my_RBF(my_RR.random_element(-rad, rad))
         if disk_rad:
             exp_i_theta = my_CBF(my_RR.random_element(0, 1)).exppii()

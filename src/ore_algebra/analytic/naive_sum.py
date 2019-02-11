@@ -9,6 +9,7 @@ Evaluation of convergent D-finite series by direct summation
 # - cythonize critical parts?
 
 from __future__ import division, print_function
+from six.moves import range
 
 import collections, logging, sys, warnings
 
@@ -469,7 +470,7 @@ class PartialSum(object):
         self.trunc = 0 # first term _not_ in the sum
         # Start with vectors of length 1 instead of 0 (but still with log_prec
         # == 0) to avoid having to resize them, especially in the ordinary case
-        last = [[Intervals.zero()] for _ in xrange(ordrec + 1)]
+        last = [[Intervals.zero()] for _ in range(ordrec + 1)]
         self.last = collections.deque(last) # u[trunc-1], u[trunc-2], ...
         self.critical_coeffs = {}
         # ...but starting with partial sums of length 0 is better in some
@@ -521,13 +522,13 @@ class PartialSum(object):
         if mult > 0:
             self.last[0] = [zero]*(self.log_prec + mult)
 
-        for p in xrange(self.log_prec - 1, -1, -1):
+        for p in range(self.log_prec - 1, -1, -1):
             terms = chain(
                     ((bwrec_n[i][j], self.last[i][p+j])
-                        for j in xrange(self.log_prec - p)
-                        for i in xrange(self.ordrec, 0, -1)),
+                        for j in range(self.log_prec - p)
+                        for i in range(self.ordrec, 0, -1)),
                     ((bwrec_n[0][j], self.last[0][p+j])
-                        for j in xrange(mult + 1, mult + self.log_prec - p)))
+                        for j in range(mult + 1, mult + self.log_prec - p)))
             if self._use_sum_of_products:
                 combin = self.Intervals._sum_of_products(terms)
             else:
@@ -539,7 +540,7 @@ class PartialSum(object):
             err = accuracy.IR(self.last[0][0].rad())
             self.last[0][0] = self.last[0][0].squash()
 
-        for p in xrange(mult - 1, -1, -1):
+        for p in range(mult - 1, -1, -1):
             self.last[0][p] = self.Intervals(self.ini.shift[n][p])
 
         if mult > 0:
@@ -548,7 +549,7 @@ class PartialSum(object):
         if self.log_prec == mult == 0:
             return accuracy.IR.zero()
 
-        for k in xrange(self.log_prec):
+        for k in range(self.log_prec):
             self.psum[k] += jetpow._lmul_(self.last[0][k])
 
         return err
@@ -557,7 +558,7 @@ class PartialSum(object):
         self.series = vector(Jets, self.log_prec)
         for i, t in enumerate(self.psum):
             self.series[i] = Jets([_add_error(t[k], tb)
-                                   for k in xrange(pt.jet_order)])
+                                   for k in range(pt.jet_order)])
         # log_series_values() may decide to introduce complex numbers if there
         # are logs, and hence the parent of the partial sum may switch from real
         # to complex during the computation...
@@ -704,7 +705,7 @@ def series_sum_regular(Intervals, dop, bwrec, inis, pt, stop, stride,
     bwrec_nplus = collections.deque(
             (bwrec.eval_series(Intervals, start + i,
                                log_prec + rec_add_log_prec)
-                for i in xrange(precomp_len)),
+                for i in range(precomp_len)),
             maxlen=precomp_len)
 
     for n in count():
@@ -786,7 +787,7 @@ def _get_error(approx):
 
 def _ctz(vec, maxlen):
     z = 0
-    for m in xrange(maxlen):
+    for m in range(maxlen):
         if vec[-1 - m].is_zero():
             z += 1
         else:

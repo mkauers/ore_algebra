@@ -6,6 +6,8 @@ Shiftless decomposition
 # Most of the functions in this file should be upstreamed, as methods of the
 # indicated classes.
 
+from six.moves import range
+
 from sage.misc.misc_c import prod
 from sage.structure.sequence import Sequence
 from sage.rings.infinity import minus_infinity
@@ -221,7 +223,7 @@ def shiftless_decomposition(self):
                      for eps in [1, -1])
         parts = gcd_free_basis(Pol, parts)
     def mult(part):
-        for m in xrange(len(by_mult) - 1, -1, -1):
+        for m in range(len(by_mult) - 1, -1, -1):
             if part.divides(by_mult[m]): # the paper says part^m?!
                 return m
         assert False

@@ -50,6 +50,8 @@ TESTS::
 
 """
 
+from six.moves import range
+
 import collections, logging, sys
 
 import sage.plot.all as plot
@@ -408,7 +410,7 @@ class DFiniteFunction(object):
     def __call__(self, x, prec=None):
         return self.approx(x, prec=prec)
 
-    def plot(self, xrange, **options):
+    def plot(self, x_range, **options):
         r"""
         Plot this function.
 
@@ -429,7 +431,7 @@ class DFiniteFunction(object):
         """
         mids = generate_plot_points(
                 lambda x: self.approx(x, 20).mid(),
-                xrange, plot_points=200)
+                x_range, plot_points=200)
         ivs = [(x, self.approx(x, 20)) for x, _ in mids]
         bounds  = [(x, y.upper()) for x, y in ivs]
         bounds += [(x, y.lower()) for x, y in reversed(ivs)]
@@ -456,13 +458,13 @@ class DFiniteFunction(object):
         g = plot.Graphics()
         for center, polys in self._polys.iteritems():
             center, rad = self._disk(Point(center, self.dop))
-            xrange = (center - rad).mid(), (center + rad).mid()
+            x_range = (center - rad).mid(), (center + rad).mid()
             for i, a in enumerate(polys):
                 # color palette copied from sage.plot.plot.plot
                 color = plot.Color((0.66666+i*0.61803)%1, 1, 0.4, space='hsl')
                 Balls = a.pol.base_ring()
                 g += plot.plot(lambda x: a.pol(Balls(x)).mid(),
-                               xrange, color=color)
+                               x_range, color=color)
                 g += plot.text(str(a.prec), (center, a.pol(center).mid()),
                                color=color)
         for point, ini in self._inivecs.iteritems():

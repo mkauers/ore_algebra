@@ -4,6 +4,7 @@ Error bounds
 """
 
 from __future__ import print_function
+from six.moves import range
 
 import collections, itertools, logging, warnings
 
@@ -409,7 +410,7 @@ class HyperexpMajorant(MajorantSeries):
         # # Find the term of highest degree d with a
         # # non-negligible coefficient, for a bound ~1/n!^(1/d).
         # thr = IR('-inf').max(*iter(num)) >> (IR.precision()//2)
-        # for d in xrange(length - 1, -1, -1):
+        # for d in range(length - 1, -1, -1):
         #     if safe_gt(num[d], thr):
         #         shift = d
         #         break
@@ -559,8 +560,8 @@ def graeffe(pol):
     """
     deg = pol.degree()
     Parent = pol.parent()
-    pol_even = Parent([pol[2*i] for i in xrange(deg/2+1)])
-    pol_odd = Parent([pol[2*i+1] for i in xrange(deg/2+1)])
+    pol_even = Parent([pol[2*i] for i in range(deg/2+1)])
+    pol_odd = Parent([pol[2*i+1] for i in range(deg/2+1)])
     graeffe_iterate = (-1)**deg * (pol_even**2 - (pol_odd**2).shift(1))
     return graeffe_iterate
 
@@ -670,7 +671,7 @@ def abs_min_nonzero_root(pol, tol=RR(1e-2), min_log=RR('-inf'), prec=None):
         # The smallest root of the current mypol is between 2^(-1-m) and
         # (2·deg)·2^(-1-m), cf. Davenport & Mignotte (1990), Grégoire (2012).
         m = myRIF(-infinity).max(*(myRIF(_log2abs(mypol[k])/k)
-                                for k in xrange(1, deg+1)))
+                                for k in range(1, deg+1)))
         lg_rad = (-(1 + m) + encl) >> i
         lg_rad = prev_lg_rad.intersection(lg_rad)
         stalled = (lg_rad.endpoints() == prev_lg_rad.endpoints())
@@ -736,7 +737,7 @@ def growth_parameters(dop):
     points = [(ZZ(j-i), ZZ(i), c) for (i, pol) in enumerate(dop)
                                   for (j, c) in enumerate(pol)
                                   if not c.is_zero()]
-    h0, i0, _ = max(points, key=lambda (h, i, c): (i, h))
+    h0, i0, _ = max(points, key=lambda h, i, c: (i, h))
     hull = [(h, i, c) for (h, i, c) in points if h > h0 and i < i0]
     if not hull: # generalized polynomial
         return infinity, ZZ.zero()
@@ -1182,7 +1183,7 @@ class RatSeqBound(object):
         my_n = IR(n)
         return [my_n*sum((c.abs() for c in ser), IR.zero()) for ser in sers]
 
-    def plot(self, rng=xrange(40), tight=None):
+    def plot(self, rng=range(40), tight=None):
         r"""
         Plot this bound and its reference function.
 
@@ -1197,7 +1198,7 @@ class RatSeqBound(object):
             ....:     [CBF(i)*n+42], n*(n-3)*(n-i-20), {0:1,3:1})
             sage: bnd.plot()
             Graphics object consisting of ... graphics primitives
-            sage: bnd.plot(xrange(30))
+            sage: bnd.plot(range(30))
             Graphics object consisting of ... graphics primitives
         """
         if len(self.nums) != 1:
@@ -1369,8 +1370,8 @@ def bound_polynomials(pols, Poly=None):
     def coeff_bound(n):
         return IR.zero().max(*(
             pols[k][n].above_abs()
-            for k in xrange(order)))
-    maj = PolyIR([coeff_bound(n) for n in xrange(val, deg + 1)])
+            for k in range(order)))
+    maj = PolyIR([coeff_bound(n) for n in range(val, deg + 1)])
     maj <<= val
     return maj
 
@@ -1478,7 +1479,7 @@ class DiffOpBound(object):
         ....: ]:
         ....:     DiffOpBound(dop)._test()
 
-        sage: for l in xrange(10):
+        sage: for l in range(10):
         ....:     DiffOpBound(Dx - 5*x^4, pol_part_len=l)._test()
         ....:     DiffOpBound((1-x^5)*Dx - 5*x^4, pol_part_len=l)._test()
 
@@ -1687,7 +1688,7 @@ class DiffOpBound(object):
         # definition, majseq_num starts at the degree following that of
         # majseq_pol_part, it gets shifted as well.
         self.majseq_pol_part.extend([first_nz[i](self.alg_idx)
-                for i in xrange(old_pol_part_len + 1, pol_part_len + 1)])
+                for i in range(old_pol_part_len + 1, pol_part_len + 1)])
         assert len(self.majseq_pol_part) == pol_part_len
         self.majseq_num = RatSeqBound(
                 [pol(self.alg_idx) for pol in rem_num_nz],
@@ -1883,7 +1884,7 @@ class DiffOpBound(object):
             # Suboptimal: For a given i, we are only going to need the
             # b[i](λ+n+i+j+ε) for j < s - i.
             bwrec_nplus = [bwrec.eval_series(Ring, n+i, logs)
-                           for i in xrange(deg)]
+                           for i in range(deg)]
         # Check that we have been given/computed enough shifts of the
         # recurrence, and that the orders are consistent. We only have
         # len(bwrec_nplus[0]) - 1 == ordrec >= deg, not ordrec == deg,
@@ -1893,8 +1894,8 @@ class DiffOpBound(object):
 
         # res(z) = z^(λ + n)·sum[k,d]( res[k][d]·z^d·log^k(z)/k!)
         #   f(z) = z^(λ + n)·sum[k,d](nres[k][d]·z^d·log^k(z)/k!)
-        res = [[None]*deg for _ in xrange(logs)]
-        nres = [[None]*deg for _ in xrange(logs)]
+        res = [[None]*deg for _ in range(logs)]
+        nres = [[None]*deg for _ in range(logs)]
         # Since our indicial polynomial is monic,
         # b₀(n) = bwrec_nplus[0][0][0] = lc(dop)(0)·ind(n) = cst·ind(n)
         cst = self.dop.leading_coefficient()[0]
@@ -1904,7 +1905,7 @@ class DiffOpBound(object):
         # normalized residual. This is done by solving a triangular system with
         # (cst ×) the coefficients of the residual corresponding to the same d
         # on the rhs. The coefficients of the residual are computed on the fly.
-        for d in xrange(deg):
+        for d in range(deg):
             lc = bwrec_nplus[d][0][0]
             assert not (lc.parent() is IC and lc.contains_zero())
             inv = ~lc
@@ -1913,18 +1914,18 @@ class DiffOpBound(object):
                 if use_sum_of_products:
                     res[k][d] = Ring._sum_of_products(
                             (bwrec_nplus[d][d+i+1][j], last[i][k+j])
-                            for i in xrange(deg - d)
-                            for j in xrange(logs - k))
+                            for i in range(deg - d)
+                            for j in range(logs - k))
                 else:
                     res[k][d] = sum(
                             Ring(bwrec_nplus[d][d+i+1][j])*Ring(last[i][k+j])
-                            for i in xrange(deg - d)
-                            for j in xrange(logs - k))
+                            for i in range(deg - d)
+                            for j in range(logs - k))
                 # Deduce the corresponding coefficient of nres
                 # XXX For simplicity, we limit ourselves to the “generic” case
                 # where none of the n+d is a root of the indicial polynomial.
                 cor = sum(bwrec_nplus[d][0][u]*nres[k+u][d]
-                          for u in xrange(1, logs-k))
+                          for u in range(1, logs-k))
                 nres[k][d] = inv*(cst*res[k][d] - cor)
         Poly = self.__CPoly if Ring is IC else self.Poly.change_ring(Ring)
         return [Poly(coeff) for coeff in nres]
@@ -2086,10 +2087,10 @@ class DiffOpBound(object):
         if ini is None:
             from sage.rings.number_field.number_field import QuadraticField
             QQi = QuadraticField(-1)
-            ini = [QQi.random_element() for _ in xrange(ord)]
+            ini = [QQi.random_element() for _ in range(ord)]
         sol = self.dop.power_series_solutions(prec)
         Series = PowerSeriesRing(CBF, self.dop.base_ring().variable_name())
-        ref = sum((ini[k]*sol[k] for k in xrange(ord)), Series(0)).polynomial()
+        ref = sum((ini[k]*sol[k] for k in range(ord)), Series(0)).polynomial()
         # XXX This won't work at regular singular points (even for power series
         # solutions), because tail_majorant(), by basing on rhs(), assumes that
         # we are past all nonzero initial conditions.
@@ -2289,14 +2290,14 @@ def _dop_rcoeffs_of_T(dop, base_ring):
     binomial = [[0]*(ordlen) for _ in range(ordlen)]
     for n in range(ordlen):
         binomial[n][0] = 1
-        for k in xrange(1, n + 1):
+        for k in range(1, n + 1):
             binomial[n][k] = binomial[n-1][k-1] + binomial[n-1][k]
     res = [None]*(ordlen)
     for k in range(ordlen):
         pol = [base_ring.zero()]*(deglen)
-        for j in xrange(deglen):
+        for j in range(deglen):
             pow = 1
-            for i in xrange(ordlen - k):
+            for i in range(ordlen - k):
                 pol[j] += pow*binomial[k+i][i]*base_ring(dop[k+i][j])
                 pow *= (-j)
         res[k] = Pols(pol)
@@ -2304,8 +2305,8 @@ def _dop_rcoeffs_of_T(dop, base_ring):
 
 @random_testing
 def _test_diffop_bound(
-        ords=xrange(1, 5),
-        degs=xrange(5),
+        ords=range(1, 5),
+        degs=range(5),
         pplens=[1, 2, 5],
         prec=100,
         verbose=False
@@ -2335,7 +2336,7 @@ def _test_diffop_bound(
             while dop.leading_coefficient()(0).is_zero():
                 dop = Dops([Pols.random_element(degree=(0, deg))
                                 /ZZ.random_element(1,1000)
-                            for _ in xrange(ord + 1)])
+                            for _ in range(ord + 1)])
             if verbose:
                 print("testing operator:", dop)
             for pplen in pplens:
@@ -2352,7 +2353,7 @@ def _switch_vars(pol):
         return Ayx.zero()
     dy = pol.degree()
     dx = max(c.degree() for c in pol)
-    return Ayx([Ay([pol[j][i] for j in xrange(dy+1)]) for i in xrange(dx+1)])
+    return Ayx([Ay([pol[j][i] for j in range(dy+1)]) for i in range(dx+1)])
 
 def _use_sum_of_products(last, bwrec_nplus):
     if not (last and last[0] and bwrec_nplus and bwrec_nplus[0] and
