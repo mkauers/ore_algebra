@@ -699,7 +699,7 @@ def series_sum_regular(Intervals, dop, bwrec, inis, pt, stop, stride,
     start = dop.order() if ordinary else 0
     assert start <= n0_squash # the special path doesn't squash its result
     # The next terms of the sum may need a higher log-prec than the current one.
-    rec_add_log_prec = sum(len(v) for s, v in ini.shift.items()
+    rec_add_log_prec = sum(len(v) for s, v in inis[0].shift.items()
                                    if start <= s < start + precomp_len)
     assert rec_add_log_prec == 0 or not ordinary
     bwrec_nplus = collections.deque(

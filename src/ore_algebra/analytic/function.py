@@ -260,7 +260,7 @@ class DFiniteFunction(object):
         #   initial values if loosing too much precision]
         # - return a path passing through "interesting" points (and cache the
         #   associated initial vectors)
-        start, ini = self.ini.items()[0]
+        start, ini = list(self.ini.items())[0]
         return ini, [start, dest]
 
     # Having the update (rather than the full test-and-update) logic in a

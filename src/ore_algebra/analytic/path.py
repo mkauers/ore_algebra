@@ -246,6 +246,12 @@ class Point(SageObject):
     def __hash__(self):
         return id(self)
 
+    def __lt__(self, other):
+        r"""
+        Temporary kludge (Sage graphs require vertices to be comparable).
+        """
+        return id(self) < id(other)
+
     ### Methods that depend on dop
 
     @cached_method

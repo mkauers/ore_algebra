@@ -92,7 +92,7 @@ def _local_monodromy(dop, x, eps, algorithm):
 
 def _closest_unsafe(lst, x):
     x = CC(x.value)
-    return min(enumerate(lst), key=lambda (i, y): abs(CC(y.value) - x))
+    return min(enumerate(lst), key=lambda y: abs(CC(y[1].value) - x))
 
 def _sing_tree(dop, base):
     sing = dop._singularities(QQbar, include_apparent=False)
