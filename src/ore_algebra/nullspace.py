@@ -532,7 +532,7 @@ def _gauss(pivot, ncpus, fun, mat, degrees, infolevel):
 
     if n == 0:
         return [vector(R, v) for v in VectorSpace(QQ, m).basis()]
-    mat = filter(any, [ [ R(el) for el in row ] for row in mat ] ) # discard zero rows.
+    mat = list(filter(any, [ [ R(el) for el in row ] for row in mat ] )) # discard zero rows.
     n = len(mat)
     
     r = 0; # current row
@@ -762,6 +762,7 @@ def _hermite_base(early_termination, R, A, u, D):
             candidates = filter(lambda j : not any(A[i][j][k] for i in range(n)), range(m))
             # for the candidates, check whether also the higher degree coefficients are zero
             candidates = filter(lambda j : not any(A[i][j][l] for i in range(n) for l in range(k+1, u)), candidates)
+            candidates = list(candidates)
             if len(candidates) > 0:
                 return Matrix(R, [[v[c] for c in candidates] for v in V ]), True
         for i in range(n):
@@ -1826,7 +1827,7 @@ def _compress(subsolver, presolver, modulus, mat, degrees, infolevel):
     # determine row weights
     row_idx = [ 10**13*sum(1 for p in row if p) + sum(p.degree() for p in row if p) for row in mat ]
     row_idx = zip(range(n), row_idx)
-    row_idx.sort(key=lambda p: -p[1])
+    row_idx = sorted(row_idx, key=lambda p: -p[1])
     row_idx = list(map(lambda p: p[0], row_idx))
     # now row_idx[0] is the heaviest row, row_idx[1], the second heaviest, etc., until row_idx[-1] being the lightest.
 

@@ -403,7 +403,7 @@ class MultivariateOreOperator(OreOperator):
             info(1, lazy_string(lambda: datetime.today().ctime() + ": " + str(len(p.coefficients())) + " terms left; continuing with " + str(p.lm())))
             
             e = vector(ZZ, p.exp())
-            candidates = filter(lambda i: min(e - exp[i]) >= 0, range_basis)
+            candidates = list(filter(lambda i: min(e - exp[i]) >= 0, range_basis))
 
             if len(candidates) == 0:
                 info(2, "term goes to remainder")
