@@ -36,7 +36,7 @@ AUTHOR:
 #  http://www.gnu.org/licenses/                                             #
 #############################################################################
 
-from __future__ import absolute_import
+from __future__ import absolute_import, division, print_function
 
 from .ore_algebra import OreAlgebra
 from .dfinite_symbolic import symbolic_database

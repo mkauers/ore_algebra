@@ -1,6 +1,3 @@
-
-from __future__ import print_function
-
 r"""
 Kernels of polynomial matrices
 
@@ -153,6 +150,7 @@ AUTHOR:
 #  http://www.gnu.org/licenses/                                             #
 #############################################################################
 
+from __future__ import absolute_import, division, print_function
 
 """ todo:
 

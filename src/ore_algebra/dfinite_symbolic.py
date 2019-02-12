@@ -37,7 +37,7 @@ AUTHOR:
 #  http://www.gnu.org/licenses/                                             #
 #############################################################################
 
-from __future__ import absolute_import
+from __future__ import absolute_import, division
 
 from sage.all import *
 from operator import pow

@@ -18,6 +18,8 @@ generalized_series
 #  http://www.gnu.org/licenses/                                             #
 #############################################################################
 
+from __future__ import absolute_import, division
+
 from sage.arith.all import gcd, lcm
 from sage.rings.power_series_ring import PowerSeriesRing
 from sage.rings.polynomial.polynomial_ring import is_PolynomialRing
