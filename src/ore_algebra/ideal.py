@@ -437,7 +437,7 @@ class OreLeftIdeal(Ideal_nc):
            sage: id2 = A.ideal([Dy - x, Dx - y])
            sage: id3 = id1.intersection(id2)
            sage: id3
-           Left Ideal ((x^2 - 4*y^2)*Dy^2 + (2*x^3 + 4*x^2*y + 2*x)*Dx + (-x^3 - 2*x^2*y - 2*y)*Dy, (x^2 - 4*y^2)*Dx*Dy + (2*x^2*y + 4*x*y^2 + 3*x + 4*y)*Dx + (-x^2*y - 2*x*y^2 - x - 3*y)*Dy, (2*x^2 - 8*y^2)*Dx^2 + (4*x*y^2 + 8*y^3 + x)*Dx + (-2*x*y^2 - 4*y^3 - y)*Dy) of Multivariate Ore algebra in Dx, Dy over Fraction Field of Multivariate Polynomial Ring in x, y over Integer Ring
+           Left Ideal ((-x^2 + 4*y^2)*Dy^2 + (-2*x^3 - 4*x^2*y - 2*x)*Dx + (x^3 + 2*x^2*y + 2*y)*Dy, (-x^2 + 4*y^2)*Dx*Dy + (-2*x^2*y - 4*x*y^2 - 3*x - 4*y)*Dx + (x^2*y + 2*x*y^2 + x + 3*y)*Dy, (-2*x^2 + 8*y^2)*Dx^2 + (-4*x*y^2 - 8*y^3 - x)*Dx + (2*x*y^2 + 4*y^3 + y)*Dy) of Multivariate Ore algebra in Dx, Dy over Fraction Field of Multivariate Polynomial Ring in x, y over Integer Ring
            sage: id3 == id3.intersection(id3)
            True
            sage: id3 <= id1
@@ -618,7 +618,7 @@ class OreLeftIdeal(Ideal_nc):
            sage: A.<Dx,Dy> = OreAlgebra(R)
            sage: I = A.ideal([(-4*y^3 + 2*y)*Dy^2 + (20*y^4 + 4*y^2 - 3)*Dy - 50*y^3 + 5*y, (-10*y^2 + 5)*Dx^2 + (-6*x*y + 10*y)*Dy + 30*x*y^2 - 25])
            sage: I.annihilator_of_associate(3*y*Dx-5*x*Dy)
-           Left Ideal ((-2400*x*y^7 + 480*x*y^5 - 120*x*y^3)*Dx*Dy + (864*x*y^10 - 864*x*y^8 - 5000*x^2*y^6 - 1200*y^8 + 216*x*y^6 + 1000*x^2*y^4 + 720*y^6 - 50*x^2*y^2 - 60*y^4)*Dy^2 + (12000*x*y^8 + 120*x*y^4 + 120*x*y^2)*Dx + (-4320*x*y^11 - 432*x*y^9 + 25000*x^2*y^7 + 6000*y^9 + 2808*x*y^7 + 12500*x^2*y^5 + 3000*y^7 - 756*x*y^5 - 2250*x^2*y^3 - 2460*y^5 + 75*x^2*y + 210*y^3)*Dy + 15120*x*y^10 - 6048*x*y^8 - 37500*x^2*y^6 - 21000*y^8 - 2268*x*y^6 - 15000*x^2*y^4 + 756*x*y^4 + 2625*x^2*y^2 + 2310*y^4 - 75*x^2 - 210*y^2, (-62500*x^3*y^6 + 12500*x^3*y^4 - 3000*x*y^6 - 3125*x^3*y^2 + 600*x*y^4 - 150*x*y^2)*Dx^2 + (4500*x^2*y^8 - 7500*x^4*y^4 - 2250*x^2*y^6 - 216*y^8 + 12500*x^3*y^4 - 12500*x*y^6 - 360*x^2*y^4 + 108*y^6 + 7350*x*y^4 - 250*x*y^2)*Dy^2 + (125000*x^2*y^6 - 25000*x^2*y^4 + 6250*x^2*y^2)*Dx + (-22500*x^2*y^9 - 13500*x^2*y^7 + 1080*y^9 + 62500*x*y^7 + 30000*x^4*y^3 + 7875*x^2*y^5 + 648*y^7 - 50000*x^3*y^3 + 25000*x*y^5 + 1440*x^2*y^3 - 378*y^5 - 23775*x*y^3 + 375*x*y)*Dy + 187500*x^4*y^6 + 78750*x^2*y^8 - 37500*x^4*y^4 + 16875*x^2*y^6 - 3780*y^8 - 218750*x*y^6 - 30000*x^4*y^2 - 9675*x^2*y^4 - 378*y^6 + 65625*x^3*y^2 - 3125*x*y^4 - 1440*x^2*y^2 + 378*y^4 + 23900*x*y^2 - 375*x, (-80*y^7 + 16*y^5 - 4*y^3)*Dy^3 + (400*y^8 + 480*y^6 - 60*y^4 + 12*y^2)*Dy^2 + (-1600*y^7 - 1380*y^5 + 132*y^3 - 21*y)*Dy + 2100*y^6 + 1680*y^4 - 147*y^2 + 21) of Multivariate Ore algebra in Dx, Dy over Fraction Field of Multivariate Polynomial Ring in x, y over Integer Ring
+           Left Ideal ((2400*x*y^7 - 480*x*y^5 + 120*x*y^3)*Dx*Dy + (-864*x*y^10 + 864*x*y^8 + 5000*x^2*y^6 + 1200*y^8 - 216*x*y^6 - 1000*x^2*y^4 - 720*y^6 + 50*x^2*y^2 + 60*y^4)*Dy^2 + (-12000*x*y^8 - 120*x*y^4 - 120*x*y^2)*Dx + (4320*x*y^11 + 432*x*y^9 - 25000*x^2*y^7 - 6000*y^9 - 2808*x*y^7 - 12500*x^2*y^5 - 3000*y^7 + 756*x*y^5 + 2250*x^2*y^3 + 2460*y^5 - 75*x^2*y - 210*y^3)*Dy - 15120*x*y^10 + 6048*x*y^8 + 37500*x^2*y^6 + 21000*y^8 + 2268*x*y^6 + 15000*x^2*y^4 - 756*x*y^4 - 2625*x^2*y^2 - 2310*y^4 + 75*x^2 + 210*y^2, (62500*x^3*y^6 - 12500*x^3*y^4 + 3000*x*y^6 + 3125*x^3*y^2 - 600*x*y^4 + 150*x*y^2)*Dx^2 + (-4500*x^2*y^8 + 7500*x^4*y^4 + 2250*x^2*y^6 + 216*y^8 - 12500*x^3*y^4 + 12500*x*y^6 + 360*x^2*y^4 - 108*y^6 - 7350*x*y^4 + 250*x*y^2)*Dy^2 + (-125000*x^2*y^6 + 25000*x^2*y^4 - 6250*x^2*y^2)*Dx + (22500*x^2*y^9 + 13500*x^2*y^7 - 1080*y^9 - 62500*x*y^7 - 30000*x^4*y^3 - 7875*x^2*y^5 - 648*y^7 + 50000*x^3*y^3 - 25000*x*y^5 - 1440*x^2*y^3 + 378*y^5 + 23775*x*y^3 - 375*x*y)*Dy - 187500*x^4*y^6 - 78750*x^2*y^8 + 37500*x^4*y^4 - 16875*x^2*y^6 + 3780*y^8 + 218750*x*y^6 + 30000*x^4*y^2 + 9675*x^2*y^4 + 378*y^6 - 65625*x^3*y^2 + 3125*x*y^4 + 1440*x^2*y^2 - 378*y^4 - 23900*x*y^2 + 375*x, (80*y^7 - 16*y^5 + 4*y^3)*Dy^3 + (-400*y^8 - 480*y^6 + 60*y^4 - 12*y^2)*Dy^2 + (1600*y^7 + 1380*y^5 - 132*y^3 + 21*y)*Dy - 2100*y^6 - 1680*y^4 + 147*y^2 - 21) of Multivariate Ore algebra in Dx, Dy over Fraction Field of Multivariate Polynomial Ring in x, y over Integer Ring
 
         """
         if self.dimension() == -1:
@@ -811,7 +811,7 @@ class OreLeftIdeal(Ideal_nc):
            sage: K.<t> = R.fraction_field().extension((x-y)*t^3 + t - x^2*y - x^2)
            sage: A.<Dx,Dy> = OreAlgebra(R)
            sage: A.ideal([x*Dx-1,y*Dy-1]).annihilator_of_composition(x=t).ct(Dy, certificates=False)
-           [(-252*x^5 + 108*x^4 + 81*x^3 - 36*x^2)*Dx^2 + (504*x^4 - 108*x^3 - 36*x)*Dx - 224*x^3 - 360*x^2 - 66*x + 16]
+           [(252*x^5 - 108*x^4 - 81*x^3 + 36*x^2)*Dx^2 + (-504*x^4 + 108*x^3 + 36*x)*Dx + 224*x^3 + 360*x^2 + 66*x - 16]
         """
 
         def info(i, msg):
@@ -1051,9 +1051,9 @@ def fglm(algebra, one_vector, gen_matrices, infolevel=0, solver=None, early_term
       sage: id1 = A.ideal([2*Dx-Dy, (x+2*y)*Dy^2 + Dy])
       sage: id2 = A.ideal([Dy - x, Dx - y])
       sage: id1.intersection(id2)
-      Left Ideal ((x^2 - 4*y^2)*Dy^2 + (2*x^3 + 4*x^2*y + 2*x)*Dx + (-x^3 - 2*x^2*y - 2*y)*Dy, (x^2 - 4*y^2)*Dx*Dy + (2*x^2*y + 4*x*y^2 + 3*x + 4*y)*Dx + (-x^2*y - 2*x*y^2 - x - 3*y)*Dy, (2*x^2 - 8*y^2)*Dx^2 + (4*x*y^2 + 8*y^3 + x)*Dx + (-2*x*y^2 - 4*y^3 - y)*Dy) of Multivariate Ore algebra in Dx, Dy over Fraction Field of Multivariate Polynomial Ring in x, y over Integer Ring
+      Left Ideal ((-x^2 + 4*y^2)*Dy^2 + (-2*x^3 - 4*x^2*y - 2*x)*Dx + (x^3 + 2*x^2*y + 2*y)*Dy, (-x^2 + 4*y^2)*Dx*Dy + (-2*x^2*y - 4*x*y^2 - 3*x - 4*y)*Dx + (x^2*y + 2*x*y^2 + x + 3*y)*Dy, (-2*x^2 + 8*y^2)*Dx^2 + (-4*x*y^2 - 8*y^3 - x)*Dx + (2*x*y^2 + 4*y^3 + y)*Dy) of Multivariate Ore algebra in Dx, Dy over Fraction Field of Multivariate Polynomial Ring in x, y over Integer Ring
       sage: _.intersection(_)
-      Left Ideal ((x^2 - 4*y^2)*Dy^2 + (2*x^3 + 4*x^2*y + 2*x)*Dx + (-x^3 - 2*x^2*y - 2*y)*Dy, (x^2 - 4*y^2)*Dx*Dy + (2*x^2*y + 4*x*y^2 + 3*x + 4*y)*Dx + (-x^2*y - 2*x*y^2 - x - 3*y)*Dy, (2*x^2 - 8*y^2)*Dx^2 + (4*x*y^2 + 8*y^3 + x)*Dx + (-2*x*y^2 - 4*y^3 - y)*Dy) of Multivariate Ore algebra in Dx, Dy over Fraction Field of Multivariate Polynomial Ring in x, y over Integer Ring
+      Left Ideal ((-x^2 + 4*y^2)*Dy^2 + (-2*x^3 - 4*x^2*y - 2*x)*Dx + (x^3 + 2*x^2*y + 2*y)*Dy, (-x^2 + 4*y^2)*Dx*Dy + (-2*x^2*y - 4*x*y^2 - 3*x - 4*y)*Dx + (x^2*y + 2*x*y^2 + x + 3*y)*Dy, (-2*x^2 + 8*y^2)*Dx^2 + (-4*x*y^2 - 8*y^3 - x)*Dx + (2*x*y^2 + 4*y^3 + y)*Dy) of Multivariate Ore algebra in Dx, Dy over Fraction Field of Multivariate Polynomial Ring in x, y over Integer Ring
 
     """
 
