@@ -190,8 +190,8 @@ def series_sum(dop, ini, pt, tgt_error, maj=None, bwrec=None, stop=None,
         tgt_error = accuracy.AbsoluteError(tgt_error)
         input_accuracy = min(pt.accuracy(), ini.accuracy())
         if input_accuracy < -tgt_error.eps.upper().log2().floor():
-            logger.warn("input intervals may be too wide "
-                        "compared to requested accuracy")
+            logger.warning("input intervals may be too wide "
+                           "compared to requested accuracy")
 
     if maj is None:
         special_shifts = [(s, len(v)) for s, v in ini.shift.items()]

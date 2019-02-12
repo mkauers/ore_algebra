@@ -795,8 +795,8 @@ class MatrixRec(object):
             from . import binary_splitting_arb
             self.StepMatrix_class = binary_splitting_arb.StepMatrix_arb
         except ImportError:
-            logger.warn("Cython implementation unavailable, "
-                        "falling back to slower Python implementation")
+            logger.warning("Cython implementation unavailable, "
+                           "falling back to slower Python implementation")
             self.StepMatrix_class = StepMatrix_arb
         if _can_use_RBF(E, deq_Scalars, shift):
             dom = RealBallField(prec)
