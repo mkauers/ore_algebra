@@ -235,51 +235,6 @@ class OreOperator(RingElement):
 
     # arithmetic
 
-    def __invert__(self):
-        """
-        This returns ``1/self``, an object which is meaningful only if ``self`` can be coerced
-        to the base ring of its parent, and admits a multiplicative inverse, possibly in a
-        suitably extended ring.
-
-        EXAMPLES::
-
-           sage: from ore_algebra import *
-           sage: R.<x> = QQ['x']
-           sage: A.<Dx> = OreAlgebra(R, 'Dx')
-           sage: A
-           Univariate Ore algebra in Dx over Univariate Polynomial Ring in x over Rational Field
-           sage: ~A(x)
-           1/x
-           sage: _.parent()
-           Univariate Ore algebra in Dx over Fraction Field of Univariate Polynomial Ring in x over Rational Field
-        
-        """
-        return self.parent().one()/self
-
-    def __div__(self, right):
-        """
-        Exact right division. Uses division with remainder, and returns the quotient if the
-        remainder is zero. Otherwise a ``ValueError`` is raised.
-
-        EXAMPLES::
-
-           sage: from ore_algebra import *
-           sage: R.<x> = QQ['x']
-           sage: A.<Dx> = OreAlgebra(R, 'Dx')
-           sage: U = (15*x^2 + 28*x + 5)*Dx^2 + (5*x^2 - 50*x - 41)*Dx - 2*x + 64
-           sage: V = (3*x+5)*Dx + (x-9)
-           sage: U/V
-           (5*x + 1)*Dx - 7
-           sage: _*V == U
-           True
-        
-        """
-        Q, R = self.quo_rem(right)
-        if R == R.parent().zero():
-            return Q
-        else:
-            raise ValueError("Cannot divide the given OreOperators")
-                   
     def __floordiv__(self,right):
         """
         Quotient of quotient with remainder.
