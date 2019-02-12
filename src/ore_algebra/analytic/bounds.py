@@ -3,7 +3,7 @@ r"""
 Error bounds
 """
 
-from __future__ import print_function
+from __future__ import division, print_function
 from six.moves import range
 
 import collections, itertools, logging, warnings
@@ -560,8 +560,8 @@ def graeffe(pol):
     """
     deg = pol.degree()
     Parent = pol.parent()
-    pol_even = Parent([pol[2*i] for i in range(deg/2+1)])
-    pol_odd = Parent([pol[2*i+1] for i in range(deg/2+1)])
+    pol_even = Parent([pol[2*i] for i in range(deg//2+1)])
+    pol_odd = Parent([pol[2*i+1] for i in range(deg//2+1)])
     graeffe_iterate = (-1)**deg * (pol_even**2 - (pol_odd**2).shift(1))
     return graeffe_iterate
 
@@ -737,7 +737,7 @@ def growth_parameters(dop):
     points = [(ZZ(j-i), ZZ(i), c) for (i, pol) in enumerate(dop)
                                   for (j, c) in enumerate(pol)
                                   if not c.is_zero()]
-    h0, i0, _ = max(points, key=lambda h, i, c: (i, h))
+    h0, i0, _ = max(points, key=lambda p: (p[1], p[0]))
     hull = [(h, i, c) for (h, i, c) in points if h > h0 and i < i0]
     if not hull: # generalized polynomial
         return infinity, ZZ.zero()
@@ -1243,7 +1243,7 @@ class RatSeqBound(object):
                           for (e, v) in self._stairs(1)[0]
                           if e <= m),
                 size=20, marker='x', color='blue', scale='semilogy',
-                legend_label="$\{S(n)\}$")
+                legend_label=r"$\{S(n)\}$")
         p.set_legend_options(handlelength=2, numpoints=3, shadow=False)
         return p
 
@@ -1272,7 +1272,7 @@ class RatSeqBound(object):
                 assert not (lb*IR(n)**deg > IC(self.den(n)).abs())
                 if n + 1 not in self.exn:
                     assert not (self._lbound_den(n+1) < lb)
-        testrange = range(nmax) + [nmax + (1 << k) for k in range(kmax)]
+        testrange = list(range(nmax)) + [nmax + (1 << k) for k in range(kmax)]
         testrange.reverse()
         # Test _bound_rat()
         ref = [IR(0) for _ in range(ordmax + 1)]
@@ -1949,9 +1949,9 @@ class DiffOpBound(object):
         often doesn't work due to various weaknesses of Sage.
         """
         ordrec = self.dop.degree()
-        last = list(reversed(zip(*(pol.padded_list(n)[n-ordrec:n]
+        last = reversed(list(zip(*(pol.padded_list(n)[n-ordrec:n]
                                    for pol in trunc))))
-        coeff = self.normalized_residual(n, last, Ring=Ring)
+        coeff = self.normalized_residual(n, list(last), Ring=Ring)
         from sage.all import log, SR
         z = SR.var(self.Poly.variable_name())
         nres = z**(self.leftmost + n)*sum(pol*log(z)**k/ZZ(k).factorial()
