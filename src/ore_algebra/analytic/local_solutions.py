@@ -447,7 +447,8 @@ def exponent_shifts(dop, leftmost):
     sl_decomp = my_shiftless_decomposition(ind)
     cand = [shifts for fac, shifts in sl_decomp if fac(leftmost).is_zero()]
     assert len(cand) == 1
-    shifts = [s for s in cand[0] if s >= 0]
+    shifts = cand[0]
+    assert all(s >=0 for s, m in shifts)
     assert shifts[0][0] == 0
     return shifts
 
