@@ -190,7 +190,8 @@ def analytic_continuation(dop, path, eps, ctx=dctx, ini=None, post=None):
         if point.options.get('keep_value'):
             value = path_mat
             if ini is not None:  value = value*ini
-            if post is not None: value = post(point.value)*value
+            if post is not None and not post.is_one():
+                value = post(point.value)*value
             res.append((point.value, value))
     store_value_if_wanted(path.vert[0])
     for step in path:
