@@ -725,14 +725,14 @@ class DFiniteFunctionRing(Algebra):
             sage: from ore_algebra import *
             sage: A = OreAlgebra(QQ['n'],'Sn')
             sage: D1 = DFiniteFunctionRing(A,ZZ)
-            sage: D1.random_element()
+            sage: D1.random_element() # random
             Univariate D-finite sequence defined by the annihilating operator (-n^2 + n)*Sn^2 + (22/9*n - 1/622)*Sn - 5/6*n^2 - n - 1 and the initial conditions {0: -88, 1: 18, 2: -49, 3: -67}
         
             #differential case
             sage: from ore_algebra import *
             sage: B = OreAlgebra(QQ['x'],'Dx')
             sage: D2 = DFiniteFunctionRing(B)
-            sage: D2.random_element(3)
+            sage: D2.random_element(3) # random
             Univariate D-finite function defined by the annihilating operator 20*x*Dx^3 + (2/31*x^2 + 1/2*x + 1/2)*Dx^2 + (2*x^2 - 2*x + 1)*Dx + x^2 - 1/6 and the coefficient sequence defined by (20*n^3 + 361/2*n^2 + 1047/2*n + 486)*Sn^4 + (1/2*n^2 + 7/2*n + 6)*Sn^3 + (2/31*n^2 - 56/31*n - 751/186)*Sn^2 + (2*n + 2)*Sn + 1 and {0: -53, 1: 69, 2: -90, 3: -86}
             
         """
@@ -3296,11 +3296,11 @@ class UnivariateDFiniteFunction(DFiniteFunction):
             sage: a.evaluate(0,0)
             13
             sage: a.evaluate(0,1)
-            [-8.00000000000000000000000000000000000000000000000000 +/- 1.22e-51]
+            [-8.00000000000000000000000000000000000000000000000...]
             sage: sin.evaluate(pi/2,0)
-            [1.00000000000000000000000000000000000000000000000000 +/- 9.52e-53]
+            [1.000000000000000000000000000000000000000000000000...]
             sage: sin.evaluate(pi,1)
-            [-1.00000000000000000000000000000000000000000000000000 +/- 1.22e-52]
+            [-1.00000000000000000000000000000000000000000000000...]
             
         """
         ini = self.initial_values()
