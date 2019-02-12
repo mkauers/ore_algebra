@@ -74,23 +74,23 @@ def symbolic_database(A, f, inner = None, k = 0):
         sage: A = OreAlgebra(QQ['n'],'Sn')
         sage: n = var('n')
         sage: f = harmonic_number(n).operator()
-        sage: symbolic_database(A,f,A.is_S())
+        sage: symbolic_database(A,f)
         (n + 2)*Sn^2 + (-2*n - 3)*Sn + n + 1
         sage: g = binomial(5,n).operator()
-        sage: symbolic_database(A,g,A.is_S(),None,5)
+        sage: symbolic_database(A,g,None,5)
         (n + 1)*Sn + n - 5
         
         #differential case
         sage: B = OreAlgebra(QQ['x'],'Dx')
         sage: x = var('x')
         sage: f = sin(x).operator()
-        sage: symbolic_database(B,f,B.is_S())
+        sage: symbolic_database(B,f)
         Dx^2 + 1
         sage: g = log(3*x+4).operator()
-        sage: symbolic_database(B,g,B.is_S(),3*x+4)
+        sage: symbolic_database(B,g,3*x+4)
         (3*x + 4)*Dx^2 + 3*Dx
         sage: h = bessel_I(4,2*x+1).operator()
-        sage: symbolic_database(B,h,B.is_S(),2*x+1,4)
+        sage: symbolic_database(B,h,2*x+1,4)
         (4*x^2 + 4*x + 1)*Dx^2 + (4*x + 2)*Dx - 16*x^2 - 16*x - 68
         
     """
