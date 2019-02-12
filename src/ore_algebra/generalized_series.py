@@ -1510,7 +1510,7 @@ def _generalized_series_shift_quotient(x, prec=5, shift=1, gamma=0, rho=1, subex
         
         # n^(i*gamma) (1+i/n)^(gamma*i) (1+i/n)^(gamma*n) 
         cert = sum(_binomial(shift*gamma, k) * shift**k * x**(ram*(prec + shift*gamma - k)) \
-                   for k in range(prec + shift*gamma + 1))
+                   for k in range(prec + (shift*gamma).floor() + 1))
         cert = (cert * _super_expansion(gamma, shift, x, prec)(x**ram)).shift(-ram*prec)
         
     else:
