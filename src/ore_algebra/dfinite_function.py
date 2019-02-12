@@ -38,6 +38,8 @@ AUTHOR:
 
 from __future__ import absolute_import, division, print_function
 
+import pprint
+
 from .ore_algebra import OreAlgebra
 from .dfinite_symbolic import symbolic_database
 from .guessing import guess
@@ -238,7 +240,7 @@ class DFiniteFunctionRing(Algebra):
             sage: a1 = D1(n)
             sage: a2 = D2(n)
             sage: a1
-            Univariate D-finite sequence defined by the annihilating operator n*Sn - n - 1 and the initial conditions {0: 0, 1: 1, -1: -1}
+            Univariate D-finite sequence defined by the annihilating operator n*Sn - n - 1 and the initial conditions {-1: -1, 0: 0, 1: 1}
             sage: a2
             Univariate D-finite sequence defined by the annihilating operator n*Sn - n - 1 and the initial conditions {0: 0, 1: 1}
             sage: D2(a1)
@@ -323,7 +325,7 @@ class DFiniteFunctionRing(Algebra):
             sage: D1 = DFiniteFunctionRing(A,ZZ)
             sage: n = A.base_ring().gen()
             sage: D1(1/n)
-            Univariate D-finite sequence defined by the annihilating operator (n^3 + 3*n^2 + 2*n)*Sn - n^3 - 2*n^2 and the initial conditions {0: None, 1: 1, -1: -1, -2: -1/2}
+            Univariate D-finite sequence defined by the annihilating operator (n^3 + 3*n^2 + 2*n)*Sn - n^3 - 2*n^2 and the initial conditions {-2: -1/2, -1: -1, 0: None, 1: 1}
 
             #differential case
             sage: from ore_algebra import *
@@ -1523,11 +1525,12 @@ class DFiniteFunction(RingElement):
         if self.parent().ore_algebra().is_S():
             r = r + "sequence defined by the annihilating operator "
             r = r + str(self.__ann) + " and the initial conditions "
-            r = r + str(self._initial_values)
+            r = r + pprint.pformat(self._initial_values, width=2**30)
         else:
             r = r + "function defined by the annihilating operator "
             r = r + str(self.__ann) + " and the coefficient sequence defined by "
-            r = r + str(self.initial_conditions().__ann) + " and " + str(self.initial_conditions().initial_conditions())
+            r = r + str(self.initial_conditions().__ann) + " and "
+            r = r + pprint.pformat(self.initial_conditions().initial_conditions(), width=2**30)
             
         return r
 
@@ -1605,7 +1608,7 @@ class DFiniteFunction(RingElement):
             sage: n = A.base_ring().gen()
             sage: a = D1(n)
             sage: a**3
-            Univariate D-finite sequence defined by the annihilating operator (n^10 + 4*n^9 - 2*n^8 - 20*n^7 - 11*n^6 + 16*n^5 + 12*n^4)*Sn - n^10 - 7*n^9 - 13*n^8 + 13*n^7 + 73*n^6 + 79*n^5 - 7*n^4 - 73*n^3 - 52*n^2 - 12*n and the initial conditions {0: 0, 1: 1, 2: 8, 3: 27, -1: -1, -3: -27, -2: -8}
+            Univariate D-finite sequence defined by the annihilating operator (n^10 + 4*n^9 - 2*n^8 - 20*n^7 - 11*n^6 + 16*n^5 + 12*n^4)*Sn - n^10 - 7*n^9 - 13*n^8 + 13*n^7 + 73*n^6 + 79*n^5 - 7*n^4 - 73*n^3 - 52*n^2 - 12*n and the initial conditions {-3: -27, -2: -8, -1: -1, 0: 0, 1: 1, 2: 8, 3: 27}
             
             #differential case
             sage: from ore_algebra import *
@@ -1771,7 +1774,7 @@ class UnivariateDFiniteSequence(DFiniteFunction):
             sage: UnivariateDFiniteSequence(D,Sn^2 - Sn - 1, [0,1])
             Univariate D-finite sequence defined by the annihilating operator Sn^2 - Sn - 1 and the initial conditions {0: 0, 1: 1}
             sage: UnivariateDFiniteSequence(D, (n^2 - n)*Sn - n^2 - n, {0: 0, 1: 0, 2: 2, -1: 2})
-            Univariate D-finite sequence defined by the annihilating operator (n^2 - n)*Sn - n^2 - n and the initial conditions {0: 0, 1: 0, 2: 2, -1: 2}
+            Univariate D-finite sequence defined by the annihilating operator (n^2 - n)*Sn - n^2 - n and the initial conditions {-1: 2, 0: 0, 1: 0, 2: 2}
             
         """
         if not parent.ore_algebra().is_S():
@@ -1932,7 +1935,7 @@ class UnivariateDFiniteSequence(DFiniteFunction):
             3*n^3 + 5*n - 10
             sage: l = D(legendre_P(5,n))
             sage: l
-            Univariate D-finite sequence defined by the annihilating operator (63/8*n^5 - 35/4*n^3 + 15/8*n)*Sn - 63/8*n^5 - 315/8*n^4 - 70*n^3 - 105/2*n^2 - 15*n - 1 and the initial conditions {0: 0, 1: 1, -1: -1}
+            Univariate D-finite sequence defined by the annihilating operator (63/8*n^5 - 35/4*n^3 + 15/8*n)*Sn - 63/8*n^5 - 315/8*n^4 - 70*n^3 - 105/2*n^2 - 15*n - 1 and the initial conditions {-1: -1, 0: 0, 1: 1}
             sage: l.to_polynomial()
             63/8*n^5 - 35/4*n^3 + 15/8*n
 
@@ -2188,7 +2191,7 @@ class UnivariateDFiniteSequence(DFiniteFunction):
             sage: n = A.base_ring().gen()
             sage: a = D(n)
             sage: -a
-            Univariate D-finite sequence defined by the annihilating operator n*Sn - n - 1 and the initial conditions {0: 0, 1: -1, -1: 1}
+            Univariate D-finite sequence defined by the annihilating operator n*Sn - n - 1 and the initial conditions {-1: 1, 0: 0, 1: -1}
             sage: (-a).expand(10)
             [0, -1, -2, -3, -4, -5, -6, -7, -8, -9, -10]
 
@@ -2729,7 +2732,7 @@ class UnivariateDFiniteFunction(DFiniteFunction):
             sage: Dx = A.gen()
             sage: D1 = DFiniteFunctionRing(A)
             sage: UnivariateDFiniteFunction(D1,(3*x^2 + 4*x - 5)*Dx - 6*x - 4, {0:-5})
-            Univariate D-finite function defined by the annihilating operator (3*x^2 + 4*x - 5)*Dx - 6*x - 4 and the coefficient sequence defined by (-5*n - 10)*Sn^2 + 4*n*Sn + 3*n - 6 and {0: -5, -1: 0}
+            Univariate D-finite function defined by the annihilating operator (3*x^2 + 4*x - 5)*Dx - 6*x - 4 and the coefficient sequence defined by (-5*n - 10)*Sn^2 + 4*n*Sn + 3*n - 6 and {-1: 0, 0: -5}
             sage: B = OreAlgebra(QQ['n'],'Sn')
             sage: D2 = DFiniteFunctionRing(B)
             sage: coeffs = D2([1,-1,1,-1,1,-1])  #a UnivariateDFiniteSequence
