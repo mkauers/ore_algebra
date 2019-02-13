@@ -1381,7 +1381,7 @@ class DFiniteFunction(RingElement):
         raise IndexError("D-finite functions are immutable")
 
     def __iter__(self):
-        return NotImplementedError
+        raise NotImplementedError
 
 #conversion
 
@@ -1574,7 +1574,7 @@ class DFiniteFunction(RingElement):
         r"""
         works if 1/self is again d-finite. 
         """
-        return NotImplementedError
+        raise NotImplementedError
 
     def __div__(self, right):
         r"""
