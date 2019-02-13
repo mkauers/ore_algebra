@@ -191,24 +191,6 @@ class OreOperator(RingElement):
     def __iter__(self):
         return iter(self.list())
 
-    def __float__(self):
-        raise NotImplementedError
-
-    def __int__(self):
-        raise NotImplementedError
-
-    def _integer_(self, ZZ):
-        raise NotImplementedError
-
-    def _rational_(self):
-        raise NotImplementedError
-
-    def _symbolic_(self, R):
-        raise NotImplementedError
-
-    def __long__(self):
-        raise NotImplementedError
-
     def _repr(self, name=None):
         raise NotImplementedError
 
