@@ -919,10 +919,10 @@ def _kronecker(subsolver, presolver, mat, degrees, infolevel):
         _info(infolevel, "probing for output degrees...", alter = -1)
         if presolver is None:
             presolver = subsolver
-        degrees = []; evaluator = dict( (x[j], Rimg(59 + 17*j)) for j in range(len(x)) )
+        degrees = []; evaluator = [Rimg(59 + 17*j) for j in range(len(x))]
         for i in range(len(x)):
-            myev = evaluator.copy(); myev[x[i]] = Rimg(x0)
-            sol = presolver(mat.apply_map(lambda p: p.subs(myev), Rimg), infolevel=_alter_infolevel(infolevel, -1, 1))
+            myev = list(evaluator); myev[i] = Rimg(x0)
+            sol = presolver(mat.apply_map(lambda p: p(*myev), Rimg), infolevel=_alter_infolevel(infolevel, -1, 1))
             if len(sol) == 0:
                 return []
             degrees.append(max(max(p.degree() for p in v) for v in sol) + 3)
@@ -934,9 +934,9 @@ def _kronecker(subsolver, presolver, mat, degrees, infolevel):
     # all variables are translated by some offset in order to make it unlikely that
     # we get solutions like (x^2,y) which after kronecker substitution become (x^2,x^1000)
     # but are returned by the subsolver as (1,x^998).
-    Rimg = K[x0]; z = K.zero(); shift = dict( (x[j], R(x[j] - (159 + 117*j))) for j in range(len(x)) )
+    Rimg = K[x0]; z = K.zero(); shift = [ R(x[j] - (159 + 117*j)) for j in range(len(x)) ]
     def phi(poly): ##### MOST TIME IS SPENT IN THIS FUNCTION (in particular by .subs and .dict)
-        terms = {}; poly = poly.subs(shift).dict(); 
+        terms = {}; poly = poly(*shift).dict(); 
         for exp in poly.keys():
             n = exp[0]; d = 1;
             for i in range(len(degrees) - 1):
@@ -950,7 +950,7 @@ def _kronecker(subsolver, presolver, mat, degrees, infolevel):
 
     # 4. undo kronecker substitution x^u |--> prod(x[i]^(u quo degprod[i-1] rem deg[i]), i=0..len(x))
     _info(infolevel, "undo substitution.", alter = -1)
-    unshift = dict( (x[j], R(x[j] + (159 + 117*j))) for j in range(len(x)) )
+    unshift = [ R(x[j] + (159 + 117*j)) for j in range(len(x)) ]
     def unphi(p):
         exp = [0 for i in range(len(x))]; d = {}
         for c in p.coefficients(sparse=False):
@@ -962,7 +962,7 @@ def _kronecker(subsolver, presolver, mat, degrees, infolevel):
                     exp[i] = 0; exp[i+1] += 1
                 else:
                     break
-        return R(d).subs(unshift)
+        return R(d)(*unshift)
     sol = [ v.apply_map(unphi, R) for v in sol ]
 
     if R.base_ring().is_field():
@@ -1310,9 +1310,9 @@ def _cra(subsolver, max_modulus, proof, ncpus, mat, degrees, infolevel):
 
     # precomputed material used in the homomorphic termination check
     check_prime = pp(max_modulus)
-    check_eval = dict(zip(x, [ 17*j + 13 for j in range(len(x)) ]))
+    check_eval = [ 17*j + 13 for j in range(len(x)) ]
     check_field = GF(check_prime)
-    check_mat = mat.apply_map( lambda pol : pol.substitute(check_eval), check_field )
+    check_mat = mat.apply_map( lambda pol : pol(*check_eval), check_field )
     
     V = None; M = 1; p = check_prime
 
@@ -1392,7 +1392,7 @@ def _cra(subsolver, max_modulus, proof, ncpus, mat, degrees, infolevel):
                     for c in e.coefficients():
                         d *= (d*c).rational_reconstruction(M).denominator()
                 w = vector(R, [e.map_coefficients( lambda c: ((d*c + m) % M) - m, ZZ ) for e in v ])
-                if (not proof and any(check_mat * vector(check_field, [e.substitute(check_eval) for e in w]))) or \
+                if (not proof and any(check_mat * vector(check_field, [e(*check_eval) for e in w]))) or \
                        (proof and any(mat * w) ):
                     raise ArithmeticError # more primes needed
                 sol.append(w)
@@ -1803,8 +1803,8 @@ def _compress(subsolver, presolver, modulus, mat, degrees, infolevel):
     if p == 0:
         p = pp(modulus+1)
 
-    phi = dict(zip(x, [GF(p)(53 + k*17) for k in range(len(x))])); z = GF(p).zero()
-    matp = mat.apply_map(lambda q: q.subs(phi), GF(p))
+    phi = [GF(p)(53 + k*17) for k in range(len(x))]; z = GF(p).zero()
+    matp = mat.apply_map(lambda q: q(phi), GF(p))
     Vp = presolver(matp, degrees=[], infolevel=_alter_infolevel(infolevel, -2, 1))
 
     if len(Vp) == 0:
