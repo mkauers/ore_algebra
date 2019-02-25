@@ -1,7 +1,12 @@
 """
 Guessing
-"""
 
+TESTS::
+
+    sage: from ore_algebra import OreAlgebra, guess
+    sage: guess([SR(1/(i+1)) for i in range(10)], OreAlgebra(QQ['n'], 'Sn'))
+    (-n - 2)*Sn + n + 1
+"""
 
 #############################################################################
 #  Copyright (C) 2013, 2014                                                 #
