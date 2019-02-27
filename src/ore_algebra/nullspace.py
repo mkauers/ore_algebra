@@ -178,6 +178,7 @@ from sage.arith.all import CRT_basis, xgcd, gcd, lcm, previous_prime as pp
 from sage.misc.all import prod
 from sage.misc.lazy_string import lazy_string
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
+from sage.rings.polynomial.multi_polynomial_libsingular import MPolynomialRing_libsingular
 from sage.rings.fraction_field import FractionField
 from sage.rings.integer_ring import ZZ
 from sage.rings.rational_field import QQ
@@ -936,7 +937,7 @@ def _kronecker(subsolver, presolver, mat, degrees, infolevel):
     # but are returned by the subsolver as (1,x^998).
     Rimg = K[x0]; z = K.zero(); shift = [ R(x[j] - (159 + 117*j)) for j in range(len(x)) ]
     def phi(poly): ##### MOST TIME IS SPENT IN THIS FUNCTION (in particular by .subs and .dict)
-        terms = {}; poly = poly(*shift).dict(); 
+        terms = {}; poly = poly(*shift).dict();
         for exp in poly.keys():
             n = exp[0]; d = 1;
             for i in range(len(degrees) - 1):
@@ -1735,9 +1736,20 @@ def _quick_check(subsolver, modsolver, modulus, mat, degrees, infolevel):
         return subsolver(mat, degrees=degrees, infolevel=_alter_infolevel(infolevel, -1, 1))
     
     check_prime = pp(modulus) if R.characteristic() == 0 else R.characteristic()
-    check_eval = dict(zip(x, [ 17*j + 13 for j in range(len(x)) ]))
-    check_mat_ring = MatrixSpace(GF(check_prime), mat.nrows(), mat.ncols())
-    check_mat = check_mat_ring.matrix([mat[i,j].substitute(check_eval)
+    K_check = GF(check_prime)
+    check_mat_ring = MatrixSpace(K_check, mat.nrows(), mat.ncols())
+    if isinstance(R, MPolynomialRing_libsingular):
+        check_x = [ K_check(17*j + 13) for j in range(len(x)) ]
+        def check_eval(pol):
+            y = K_check.zero()
+            for (m,c) in pol.dict().iteritems():
+                y += K_check(c)*prod([check_x[i]**m[i] for i in m.nonzero_positions()])
+            return y
+    else:
+        check_dict = dict(zip(x, [ 17*j + 13 for j in range(len(x)) ]))
+        def check_eval(elt):
+            return elt.substitute(check_dict)
+    check_mat = check_mat_ring.matrix([check_eval(mat[i,j])
                                        for i in range(mat.nrows())
                                        for j in range(mat.ncols())])
 
