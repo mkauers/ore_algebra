@@ -176,6 +176,7 @@ testsuite
 
 from sage.arith.all import CRT_basis, xgcd, gcd, lcm, previous_prime as pp
 from sage.misc.all import prod
+from sage.misc.cachefunc import cached_function
 from sage.misc.lazy_string import lazy_string
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 from sage.rings.polynomial.multi_polynomial_libsingular import MPolynomialRing_libsingular
@@ -936,7 +937,8 @@ def _kronecker(subsolver, presolver, mat, degrees, infolevel):
     # we get solutions like (x^2,y) which after kronecker substitution become (x^2,x^1000)
     # but are returned by the subsolver as (1,x^998).
     Rimg = K[x0]; z = K.zero(); shift = [ R(x[j] - (159 + 117*j)) for j in range(len(x)) ]
-    def phi(poly): ##### MOST TIME IS SPENT IN THIS FUNCTION (in particular by .subs and .dict)
+    @cached_function
+    def phi(poly): ##### MOST TIME IS SPENT IN THIS FUNCTION (in particular by __call__)
         terms = {}; poly = poly(*shift).dict();
         for exp in poly.keys():
             n = exp[0]; d = 1;
@@ -946,8 +948,9 @@ def _kronecker(subsolver, presolver, mat, degrees, infolevel):
         return Rimg(terms)
     
     # 3. subsolver in k[x]
-    from sage.misc.all import prod
-    sol = subsolver(mat.apply_map(phi, Rimg), degrees=[prod(degrees)], infolevel=_alter_infolevel(infolevel, -1, 1))
+    mat = mat.apply_map(phi, Rimg)
+    phi.clear_cache()
+    sol = subsolver(mat, degrees=[prod(degrees)], infolevel=_alter_infolevel(infolevel, -1, 1))
 
     # 4. undo kronecker substitution x^u |--> prod(x[i]^(u quo degprod[i-1] rem deg[i]), i=0..len(x))
     _info(infolevel, "undo substitution.", alter = -1)
