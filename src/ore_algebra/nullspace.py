@@ -205,6 +205,14 @@ class NoSolution(ArithmeticError):
     def __str__(self):
         return "no solution"
     
+def row_content(row, ring):
+    # used in nullspace_gauss
+    if not row:
+        return ring.zero()
+    else:
+        row = list(sorted(row, key=lambda pol: pol.degree()))
+        return gcd(row)
+
 def heuristic_row_content(row, ring):
     # used in nullspace_gauss
 
@@ -242,6 +250,18 @@ def heuristic_row_content(row, ring):
                  sum(row[i] for i in range(n) if i%2==1)])
     except:
         return ring.one()
+
+def cancel_heuristic_content(g, orig_row, cancel_constants=True):
+    if not g or g.is_one() or (not cancel_constants and g.is_constant()):
+        return orig_row
+    row = list(orig_row)
+    for j, a in enumerate(row):
+        if not a:
+            continue
+        row[j], rem =  a.quo_rem(g)
+        if rem:
+            return orig_row
+    return row
 
 ### good pivot selection strategy:
 #  1. measure nz_fillin by rows^EXPONENT*cols
@@ -569,34 +589,25 @@ def _gauss(pivot, ncpus, fun, mat, degrees, infolevel):
         for i in range(r + 1, n):
             if mat[i][c]:
                 affected_rows.append(i); matr = mat[r]; piv = matr[c]; mati = mat[i]; elim = mati[c]
-                try: 
-                    g = gcd(piv, elim)
-                    if g != one:
-                        piv //= g; elim //= g
-                    del g
-                except:
-                    pass
+                g = gcd(piv, elim)
+                if g != one:
+                    piv //= g; elim //= g
+                del g
                 for j in range(c + 1, m):
                     mati[j] = (piv*mati[j] - elim*matr[j])
                 mati[c] = zero
 
         # 3. cancel common content of all affected rows
-        g = heuristic_row_content([mat[i][j] for i in affected_rows for j in range(c + 1, m) if mat[i][j]], R)
-        if g and not g.is_one() and (cancel_constants or not g.is_constant()):
-            for i in affected_rows:
-                mati = mat[i]
-                for j in range(c + 1, m):
-                    if mati[j]:
-                        mati[j] //= g
+        g = row_content([mat[i][j] for i in affected_rows for j in range(c + 1, m) if mat[i][j]], R)
+        for i in affected_rows:
+            mat[i][c:] = cancel_heuristic_content(g, mat[i][c:], cancel_constants)
         del g
 
         # 4. cancel remaining content of individual rows
         for i in affected_rows:
-            mati = mat[i]
-            g = heuristic_row_content([mati[j] for j in range(m) if mati[j]], R)
-            if g and g != one and (cancel_constants or not g.is_constant()):
-                for j in range(c + 1, m):
-                    mati[j] //= g
+            row = mat[i][c:]
+            g = heuristic_row_content(row, R)
+            mat[i][c:] = cancel_heuristic_content(g, row, cancel_constants)
             del g
 
         r = r + 1
@@ -645,9 +656,7 @@ def _gauss(pivot, ncpus, fun, mat, degrees, infolevel):
 
     for v in sol:
         g = heuristic_row_content([p for p in v if p], R)
-        if g and not g.is_one():
-            for j in range(m):
-                v[j] //= g
+        v[:] = cancel_heuristic_content(g, v)
 
     return _normalize([vector(R, v) for v in sol])
 
