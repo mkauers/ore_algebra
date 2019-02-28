@@ -204,9 +204,10 @@ class NoSolution(ArithmeticError):
     
     def __str__(self):
         return "no solution"
-    
+
+# used in nullspace_gauss
+
 def row_content(row, ring):
-    # used in nullspace_gauss
     if not row:
         return ring.zero()
     else:
@@ -214,42 +215,21 @@ def row_content(row, ring):
         return gcd(row)
 
 def heuristic_row_content(row, ring):
-    # used in nullspace_gauss
 
+    if not row:
+        return ring.zero()
+
+    row = list(sorted(row, key=lambda pol: pol.degree()))
     n = len(row)
 
-    if n == 0:
-        return ring.zero()
-    elif n <= 5:
-        try:
-            return gcd(row)
-        except:
-            return ring.one()
+    if n <= 5 or sum(pol.degree() for pol in row) < 100*n:
+        return gcd(row)
 
-    degrees = [p.degree() for p in row]
-
-    if sum(degrees) < 100*n:
-        try:
-            return gcd(row)
-        except:
-            return ring.one()
-
-    # taking gcd of least-degree element, the second-least-element element,
+    # taking gcd of least-degree element, the second-least-degree element,
     # the sum of elements at odd indices, and the sum of the other elements
-    m1 = row[0]; m2 = row[1]; d1 = degrees[0]; d2 = degrees[1]
-    if d2 < d1:
-        m1, m2, d1, d2 = m2, m1, d2, d1
-    for i in range(2, n):
-        if degrees[i] < d2:
-            m2, d2 = row[i], degrees[i]
-            if d2 < d1:
-                m1, m2, d1, d2 = m2, m1, d2, d1
-
-    try:
-        return gcd([m1, m2, sum(row[i] for i in range(n) if i%2==0),
-                 sum(row[i] for i in range(n) if i%2==1)])
-    except:
-        return ring.one()
+    return gcd([row[0], row[1],
+        sum(row[i] for i in range(2,n) if i%2==0),
+        sum(row[i] for i in range(2,n) if i%2==1)])
 
 def cancel_heuristic_content(g, orig_row, cancel_constants=True):
     if not g or g.is_one() or (not cancel_constants and g.is_constant()):
@@ -590,7 +570,7 @@ def _gauss(pivot, ncpus, fun, mat, degrees, infolevel):
             if mat[i][c]:
                 affected_rows.append(i); matr = mat[r]; piv = matr[c]; mati = mat[i]; elim = mati[c]
                 g = gcd(piv, elim)
-                if g != one:
+                if not g.is_one():
                     piv //= g; elim //= g
                 del g
                 for j in range(c + 1, m):
@@ -634,13 +614,10 @@ def _gauss(pivot, ncpus, fun, mat, degrees, infolevel):
                 continue
             den = mati[i] 
             # now solj[i] = num/den, but we do it without rational functions
-            try:
-                g = gcd(num, den)
-                if g != one:
-                    num //= g; den //= g
-                del g
-            except:
-                pass
+            g = gcd(num, den)
+            if g != one:
+                num //= g; den //= g
+            del g
             if den == -one:
                 den = one; num = -num
             if den != one:
