@@ -216,20 +216,22 @@ def row_content(row, ring):
 
 def heuristic_row_content(row, ring):
 
+    row = [p for p in row if not p.is_zero()]
+
     if not row:
         return ring.zero()
 
     row = list(sorted(row, key=lambda pol: pol.degree()))
     n = len(row)
 
-    if n <= 5 or sum(pol.degree() for pol in row) < 100*n:
-        return gcd(row)
+    if n <= 5 or row[-1].degree() < 50:
+        return gcd(row) 
+    
+    if row[-1].degree() < 50*n:
+        return ring.one() # don't bother canceling, it's still small
 
-    # taking gcd of least-degree element, the second-least-degree element,
-    # the sum of elements at odd indices, and the sum of the other elements
-    return gcd([row[0], row[1],
-        sum(row[i] for i in range(2,n) if i%2==0),
-        sum(row[i] for i in range(2,n) if i%2==1)])
+    k = QQ(n).sqrt().n().ceil()
+    return gcd([row[0], row[1]] + [sum(row[i] for i in range(2,n) if i%k==l) for l in range(k)])
 
 def cancel_heuristic_content(g, orig_row, cancel_constants=True):
     if not g or g.is_one() or (not cancel_constants and g.is_constant()):
@@ -547,7 +549,7 @@ def _gauss(pivot, ncpus, fun, mat, degrees, infolevel):
     # forward elimination
     for c in range(m):
 
-        _info(infolevel, "column", c, "out of", m, "...", alter = -2)
+        _info(infolevel, "column ", c, " out of ", m, "...", alter = -2)
 
         if fun is not None:
             fun(mat, c)
@@ -578,7 +580,7 @@ def _gauss(pivot, ncpus, fun, mat, degrees, infolevel):
                 mati[c] = zero
 
         # 3. cancel common content of all affected rows
-        g = row_content([mat[i][j] for i in affected_rows for j in range(c + 1, m) if mat[i][j]], R)
+        g = heuristic_row_content([mat[i][j] for i in affected_rows for j in range(c + 1, m) if mat[i][j]], R)
         for i in affected_rows:
             mat[i][c:] = cancel_heuristic_content(g, mat[i][c:], cancel_constants)
         del g
@@ -598,14 +600,14 @@ def _gauss(pivot, ncpus, fun, mat, degrees, infolevel):
         _info(infolevel, "No solution.", alter = -1)
         return [] # no solution
 
-    _info(infolevel, "Constructing", dim, "nullspace basis vectors.", alter = -1)
+    _info(infolevel, "Constructing ", dim, " nullspace basis vectors.", alter = -1)
 
     sol = [[ zero for i in range(m) ] for j in range(dim) ]
     for i in range(dim):
         sol[-i-1][-i-1] = one
 
     for i in range(r - 1, -1, -1):
-        _info(infolevel, "Coordinate", i, alter = -2)
+        _info(infolevel, "Coordinate ", i, alter = -2)
         mati = mat[i]
         for j in range(dim):
             solj = sol[j]
@@ -889,6 +891,7 @@ def _kronecker(subsolver, presolver, mat, degrees, infolevel):
     r"""
     Internal version of nullspace.kronecker_.
     """
+    
     _launch_info(infolevel, "kronecker", dim=mat.dimensions(), domain=mat.parent().base_ring())
 
     R = mat.parent().base_ring(); x = R.gens(); x0 = x[0]
@@ -903,17 +906,23 @@ def _kronecker(subsolver, presolver, mat, degrees, infolevel):
     # 1. for each variable, determine the maximal degree of the nullspace basis
     Kimg = GF(pp(MAX_MODULUS)) if K.characteristic() == 0 else K
     Rimg = Kimg[x0]
+    def freeof(u, x):
+        return u.is_zero() or u.degree(x) == 0
     if len(degrees) < len(x) - 1:
         _info(infolevel, "probing for output degrees...", alter = -1)
         if presolver is None:
             presolver = subsolver
         degrees = []; evaluator = [Rimg(59 + 17*j) for j in range(len(x))]
         for i in range(len(x)):
-            myev = list(evaluator); myev[i] = Rimg(x0)
-            sol = presolver(mat.apply_map(lambda p: p(*myev), Rimg), infolevel=_alter_infolevel(infolevel, -1, 1))
-            if len(sol) == 0:
-                return []
-            degrees.append(max(max(p.degree() for p in v) for v in sol) + 3)
+            if all(freeof(u, x[i]) for r in mat for u in r):
+                degrees.append(1) ## variable does not appear in matrix, won't appear in solution
+            else:
+                myev = list(evaluator); myev[i] = Rimg(x0)
+                sol = presolver(mat.apply_map(lambda p: p(*myev), Rimg), infolevel=_alter_infolevel(infolevel, -1, 1))
+                if len(sol) == 0:
+                    return []
+                
+                degrees.append(max(max(p.degree() for p in v) for v in sol) + 3)
         _info(infolevel, "... done. Expecting degree vector to be ", degrees, alter = -1)
     else:
         degrees = [ d + 3 for d in degrees ]
@@ -1074,7 +1083,7 @@ def _lagrange(subsolver, start_point, ncpus, mat, degrees, infolevel):
     while not done:
 
         start_point += bound; bound *= 2
-        _info(infolevel, "Taking", bound, "more interpolation points...", alter = -1)
+        _info(infolevel, "Taking ", bound, " more interpolation points...", alter = -1)
         if start_point + bound > char:
             raise ValueError("not enough evaluation points")
         points = list(map(lambda p: R(start_point + p), range(bound)))
@@ -1833,7 +1842,7 @@ def _compress(subsolver, presolver, modulus, mat, degrees, infolevel):
     # remove unnecessary rows in descending order of weight
     useless_rows = []
     for r in row_idx:
-        _info(infolevel, "considering row", r, "for deletion...", alter=-2)
+        _info(infolevel, "considering row ", r, " for deletion...", alter=-2)
         row = [q for q in matp[r]]; matp.set_row(r, [z for q in range(m)]) # replace r-th row by zeros
         if len(presolver(matp, degrees=[], infolevel=_alter_infolevel(infolevel, -3, 1))) == len(Vp):
             useless_rows.append(r) # not needed; keep the zeros and proceed
@@ -1843,7 +1852,7 @@ def _compress(subsolver, presolver, modulus, mat, degrees, infolevel):
             break # all other rows are needed for dimension reasons
 
     if len(useless_rows) > 0:
-        _info(infolevel, "discarding", len(useless_rows), "rows", alter=-1)
+        _info(infolevel, "discarding ", len(useless_rows), " rows", alter=-1)
         mat = mat.delete_rows(useless_rows)
 
     # call subsolver on reduced matrix
@@ -1933,7 +1942,7 @@ def _wiedemann(A, degrees, infolevel):
     _info(infolevel, "Computing Krylov basis", alter=-1)
     data = [y*x]
     for i in range(2*n + 1):
-        _info(infolevel, "power", i, alter=-2)
+        _info(infolevel, "power ", i, alter=-2)
         x = A*x ###### MOST EXPENSIVE STEP (if matrix is big and entries are small)
         data.append(y*x)
 
@@ -1943,7 +1952,7 @@ def _wiedemann(A, degrees, infolevel):
     _info(infolevel, "Computing solution vector", alter=-1)
     xi = x_base; x = M[0]*xi
     for i in range(1, len(M)):
-        _info(infolevel, "power", i, alter=-2)
+        _info(infolevel, "power ", i, alter=-2)
         xi = A*xi  ###### MOST EXPENSIVE STEP (if matrix is big and entries are small)
         x += M[i]*xi
 

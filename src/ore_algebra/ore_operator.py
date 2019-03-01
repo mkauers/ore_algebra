@@ -855,8 +855,12 @@ class UnivariateOreOperator(OreOperator):
             b = rem.leading_coefficient()
 
             g = a.gcd(b)
-            a //= g
-            b //= g
+            try:
+                a //= g
+                b //= g
+            except TypeError:
+                a = sigma_lc[rem.order() - ord]
+                b = rem.leading_coefficient()
 
             cfquo = b*D**(rem.order() - ord)
             den = a*den
