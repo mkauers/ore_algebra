@@ -221,14 +221,11 @@ def heuristic_row_content(row, ring):
     if not row:
         return ring.zero()
 
-    row = list(sorted(row, key=lambda pol: pol.degree()))
+    row = list(sorted(set(row), key=lambda pol: pol.degree()))
     n = len(row)
 
     if n <= 5 or row[-1].degree() < 50:
         return gcd(row) 
-    
-    if row[-1].degree() < 50*n:
-        return ring.one() # don't bother canceling, it's still small
 
     k = QQ(n).sqrt().n().ceil()
     return gcd([row[0], row[1]] + [sum(row[i] for i in range(2,n) if i%k==l) for l in range(k)])
@@ -240,9 +237,18 @@ def cancel_heuristic_content(g, orig_row, cancel_constants=True):
     for j, a in enumerate(row):
         if not a:
             continue
-        row[j], rem =  a.quo_rem(g)
+        quo, rem =  a.quo_rem(g)
         if rem:
-            return orig_row
+            gnew = g.gcd(rem)
+            if gnew.is_one():
+                return orig_row
+            q, _ = g.quo_rem(gnew)
+            for i in range(j):
+                row[i] *= q
+            g = gnew
+            row[j] = a.quo_rem(g)[0]
+        else:
+            row[j] = quo
     return row
 
 ### good pivot selection strategy:
@@ -580,7 +586,9 @@ def _gauss(pivot, ncpus, fun, mat, degrees, infolevel):
                 mati[c] = zero
 
         # 3. cancel common content of all affected rows
-        g = heuristic_row_content([mat[i][j] for i in affected_rows for j in range(c + 1, m) if mat[i][j]], R)
+        l = len(affected_rows)
+        my_rows = affected_rows[:l//2] if l >= 4 else affected_rows
+        g = heuristic_row_content([mat[i][j] for i in my_rows for j in range(c + 1, m) if mat[i][j]], R)
         for i in affected_rows:
             mat[i][c:] = cancel_heuristic_content(g, mat[i][c:], cancel_constants)
         del g
@@ -1684,7 +1692,7 @@ def _merge(subsolver, mat, degrees, infolevel):
 
     return subsolver(mat, degrees=degrees, infolevel=_alter_infolevel(infolevel, -2, 1))
 
-def quick_check(subsolver, modsolver=sage_native, modulus=pp(2**23)):
+def quick_check(subsolver, modsolver=sage_native, modulus=pp(2**23), cutoffdim=0):
     r"""
     Constructs a solver which first tests in a homomorphic image whether the nullspace is empty
     and applies the subsolver only if it is not.
@@ -1695,6 +1703,7 @@ def quick_check(subsolver, modsolver=sage_native, modulus=pp(2**23)):
     - ``modsolver`` -- a solver for matrices over `GF(p)`, defaults to `sage_native`_
     - ``modulus`` -- modulus used for the precomputation in the homomorphic image if `R.characteristic()==0`.
       If this number is not a prime, it will be replaced by the next smaller integer which is a prime.
+    - ``cutoff`` -- if the nullspace is likely to have at most this dimension, solver may return empty list
 
     OUTPUT:
 
@@ -1716,10 +1725,10 @@ def quick_check(subsolver, modsolver=sage_native, modulus=pp(2**23)):
     """
     def quick_check_solver(mat, degrees=[], infolevel=0):
         r"""See docstring of quick_check() for further information."""
-        return _quick_check(subsolver, modsolver, modulus, mat, degrees, infolevel)
+        return _quick_check(subsolver, modsolver, modulus, cutoffdim, mat, degrees, infolevel)
     return quick_check_solver
 
-def _quick_check(subsolver, modsolver, modulus, mat, degrees, infolevel):
+def _quick_check(subsolver, modsolver, modulus, cutoffdim, mat, degrees, infolevel):
 
     R = mat.base_ring()
     _launch_info(infolevel, "quick_check", dim=mat.dimensions(), domain=R)
@@ -1756,7 +1765,7 @@ def _quick_check(subsolver, modsolver, modulus, mat, degrees, infolevel):
 
     _info(infolevel, "Modular solver predicts " + str(len(check_sol)) + " solutions", alter = -1)
 
-    if len(check_sol) == 0:
+    if len(check_sol) <= cutoffdim:
         return []
     else:
         return subsolver(mat, degrees=degrees, infolevel=_alter_infolevel(infolevel, -2, 1))

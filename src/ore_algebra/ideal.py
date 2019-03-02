@@ -892,9 +892,20 @@ class OreLeftIdeal(Ideal_nc):
         telescopers = []
         iterator = MonomialIterator(algebra)
         terms = {iterator.next()[0] : vector(GG, [1] + [0]*(len(T)-1))}
+        coresolver = nullspace.kronecker(nullspace.gauss())
+        zerocount = [0] # so many zero telescopers have been found so far
+        solver = [nullspace.quick_check(coresolver, cutoffdim=0)]
 
         def findrelation():
-            sol = [(g, c) for g, c in solve_triangular_system(T, rhs) if not all(q.is_zero() for q in c)]
+            zero = 0; sol = []
+            for (g, c) in solve_triangular_system(T, rhs, solver=solver[0]):
+                if all(q.is_zero() for q in c):
+                    zero += 1
+                else:
+                    sol.append((g, c))
+            if zero > zerocount[0]:
+                zerocount[0] = zero
+                solver[0] = nullspace.quick_check(coresolver, cutoffdim=zero)
             if len(sol) == 0:
                 return None
             P, Q = add([sol[0][1][i]*B[i] for i in range(len(B))]), None
@@ -1210,7 +1221,7 @@ def uncouple(mat, algebra=None, extended=False, column_swaps=False, infolevel=0)
         return mat
 
     
-def solve_triangular_system(mat, rhs):
+def solve_triangular_system(mat, rhs, solver=None):
     """
     Constructs a vector space basis for the uncoupled system mat*f = rhs
 
@@ -1245,7 +1256,7 @@ def solve_triangular_system(mat, rhs):
     sol = tuple(([0]*len(mat), [1 if i==j else 0 for j in range(len(rhs))]) for i in range(len(rhs))) # init
     for i in range(m - 1, -1, -1):
         xrhs = tuple(sum(s[1][j]*rhs[j][i] for j in range(len(rhs)))-sum(mat[i][j](s[0][j]) for j in range(i+1, m)) for s in sol)
-        xsol = list(map(list, mat[i][i].rational_solutions(rhs=xrhs)))
+        xsol = list(map(list, mat[i][i].rational_solutions(rhs=xrhs,solver=solver)))
         for k in range(len(xsol)):
             xsol[k][0] = [xsol[k][0]]*(i+1) + [sum(xsol[k][l+1]*sol[l][0][j] for l in range(len(xrhs))) for j in range(i+1, m)]
             xsol[k] = (xsol[k][0], [sum(xsol[k][l+1]*sol[l][1][j] for l in range(len(xrhs))) for j in range(len(rhs))])
