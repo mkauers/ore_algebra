@@ -221,7 +221,8 @@ def heuristic_row_content(row, ring):
     if not row:
         return ring.zero()
 
-    row = list(sorted(set(row), key=lambda pol: pol.degree()))
+    row = sorted(row, key=lambda pol: pol.degree())
+    row = [row[i] for i in range(len(row)) if i == 0 or row[i] != row[i-1]]
     n = len(row)
 
     if n <= 5 or row[-1].degree() < 50:
