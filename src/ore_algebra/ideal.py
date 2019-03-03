@@ -24,6 +24,7 @@ from sage.rings.rational_field import QQ
 from sage.rings.integer_ring import ZZ
 from sage.modules.free_module_element import vector
 from sage.matrix.constructor import Matrix, matrix
+from sage.misc.cachefunc import cached_function
 from sage.misc.lazy_string import lazy_string
 from sage.structure.all import coercion_model
 from sage.structure.element import RingElement, canonical_coercion
@@ -884,7 +885,13 @@ class OreLeftIdeal(Ideal_nc):
         info(1, lazy_string(lambda: datetime.today().ctime() + ": Uncoupling coupled system..."))
         T, U = uncouple(sys, extended=True, infolevel=infolevel+2)
         info(2, lazy_string(lambda: datetime.today().ctime() + ": Uncoupling completed."))
-        Ufy = lambda v: [sum(U[i][j](v[j]) for j in range(len(v))) for i in range(len(U))]
+        if algebra.is_D():
+            @cached_function
+            def action(p):
+                return p.derivative()
+        else:
+            action = None
+        Ufy = lambda v: [sum(U[i][j](v[j], action=action) for j in range(len(v))) for i in range(len(U))]
 
         # start fglm-like procedure
         info(1, "Initiating FGLM-like iteration...")
