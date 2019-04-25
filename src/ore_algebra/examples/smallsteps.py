@@ -5,15 +5,16 @@ of walks with small steps in the quarter plane" by Bostan, Chyzak, van Hoeij,
 Kauers, and Pech (2017).
 
 For the rational functions rat[1], ..., rat[19], the task consists in computing
-a telescoper wrt Du and Dv. The variables x and y may be set to 1. 
+a telescoper wrt Du and Dv. Interesting settings are when x and y are both set
+to 1 or one of them is set to 0 and the other is left symbolic. 
 
 Example: 
 
    sage: from ore_algebra.examples.smallsteps import rat
    sage: from ore_algebra import OreAlgebra
-   sage: A.<Du,Dv,Dt> = OreAlgebra(rat[1](x=1,y=1).parent(), 'Du', 'Dv', 'Dt')
+   sage: A.<Du,Dv,Dt> = OreAlgebra(ZZ['u','v','t'].fraction_field(), 'Du', 'Dv', 'Dt')
    
-   sage: q = rat[1](x=1,y=1)
+   sage: q = A.base_ring()(rat[1](x=1,y=1))
    sage: ct1 = A.ideal([q*D - D(q) for D in Du,Dv,Dt]).ct(Dv)[0]
    sage: ct2 = ct1[0].parent().ideal(ct1).ct(Du)[0]
 
