@@ -22,7 +22,6 @@ TESTS::
 
 from __future__ import absolute_import, division, print_function
 
-
 ######### development mode ###########
 """
 try:
@@ -161,16 +160,48 @@ def guess(data, algebra, **kwargs):
 
     A = algebra; R = A.base_ring(); K = R.base_ring(); x = R.gen()
 
+    if A.ngens() > 1 or R.ngens() > 1:
+        return guess_mult(data, algebra, **kwargs)
+    
     if type(data) == str:
         with open(data, 'r') as f:
             data = [ K(line) for line in f ]
 
-    if A.ngens() > 1 or R.ngens() > 1:
-        return guess_mult(data, algebra, **kwargs)
-    
-    elif R.is_field():
-        return guess(data, A.change_ring(R.ring()), **kwargs)
+    if (data[0].is_zero() or data[1].is_zero()) and (A.is_C() or A.is_S()):
+        
+        if all( d.is_zero() for d in data ):
+            return A.one()
+        for i in range(len(data)):
+            if not data[i].is_zero():
+                a = i
+                break
+        m = None; b = ZZ(a)
+        for i in range(b + 1, len(data)):
+            if not data[i].is_zero():
+                m = i - b if m is None else m.gcd(i - b)
+                b = i
+                if m.is_one():
+                    break
 
+        if m is not None and m > 1 and m > a:
+            if 'infolevel' in kwargs and kwargs['infolevel'] >= 1:
+                print("Recognized that only 1 out of " + str(m) + " terms is nonzero; removing zeros...")
+            eq = guess([data[m*k + a] for k in range((len(data) - a)/m)], A, **kwargs)
+            if 'infolevel' in kwargs and kwargs['infolevel'] >= 1:
+                print("Adjusting equation to restore deleted zeros...")
+            x = R.gen()
+            if A.is_S():
+                ops = [A.one()]*m; ops[a] = eq
+                return ops[0].annihilator_of_interlacing(*(ops[1:]))
+            else:
+                eq = eq.polynomial().map_coefficients(lambda p: p(x**m))
+                if a != 0:
+                    eq = eq(x**(-a)*eq.parent().gen())*x**(a*eq.degree())
+                return A(eq)
+                
+    if R.is_field():
+        return guess(data, A.change_ring(R.ring()), **kwargs)
+                
     elif A.is_F() is not False:
         # reduce to shift case; note that this does not alter order or degrees
         if 'infolevel' in kwargs and kwargs['infolevel'] >= 1:
