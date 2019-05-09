@@ -41,10 +41,21 @@ An example provided by Bruno Salvy, also related to small-step walks::
     sage: ssw.aux_dop.numerical_solution(ssw.aux_ini, [0,1]) # (1.5 s), TODO: double-check result
     [10.662510694...]
 
+TESTS::
+
+    sage: for i in [2, 5, 12, 18]: # long time (1 min 40 s)
+    ....:     for xx, yy in [(0, 1), (1, 0)]:
+    ....:         ssw.test_ct(i, xx, yy)
+
+    sage: for i in [1..19]: # not tested (9 min 31 s)
+    ....:     for xx in [0, 1]:
+    ....:         for yy in [0, 1]:
+    ....:             ssw.test_ct(i, xx, yy)
+
 """
 
-from sage.rings.all import Integer, PolynomialRing, ZZ, QQ
-from ore_algebra import DifferentialOperators
+from sage.rings.all import Frac, Integer, PolynomialRing, ZZ, QQ
+from ore_algebra import DifferentialOperators, OreAlgebra
 
 Pols, (u, v, x, y, t) = PolynomialRing(ZZ, ('u', 'v', 'x', 'y', 't')).objgens()
 DiffOps, t, Dt = DifferentialOperators(QQ, 't')
@@ -1414,6 +1425,16 @@ aux_dop = (
     - 15345679965249398832*t**7
     - 3938256369400303296*t**6)*Dt**7
 )
+
+def test_ct(i, xx, yy, infolevel=0):
+    A, (Du,Dv,Dt) = OreAlgebra(Frac(ZZ['t,u,v']), 'Du', 'Dv', 'Dt').objgens()
+    q = A.base_ring()(rat[i](x=xx, y=yy))
+    ct1, _ = A.ideal([q*D - D(q) for D in Du,Dv,Dt]).ct(Dv)
+    ct2, _ = ct1[0].parent().ideal(ct1).ct(Du, infolevel=infolevel)
+    assert len(ct2) == 1
+    tel = ct2[0]
+    cst = tel//dop[i,xx,yy]
+    assert cst == 1 or cst == -1
 
 aux_ini = [ Integer(59)/Integer(36), Integer(547)/Integer(2160),
         Integer(1)/Integer(2)*Integer(229)/Integer(252),
