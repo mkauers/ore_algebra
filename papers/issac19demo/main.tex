@@ -1,12 +1,15 @@
 \documentclass[11pt]{article}
-\usepackage{sigsam, amsmath, sagetex, tikz}
+\usepackage[fleqn]{amsmath}
+\usepackage{sigsam, sagetex, tikz}
+\usepackage{hyperref}
+\usepackage{booktabs}
 
 % PAGE LIMIT: FOUR PAGES!
 
 % leave as is
 \issue{Vol.xx, No.xx, Issue xxx, month 201x}
 \articlehead{ISSAC 2019 abstracts}
-\titlehead{Multivariate Ore Polynomials in Sage}
+\titlehead{Multivariate Ore Polynomials in SageMath}
 \authorhead{Manuel Kauers, Marc Mezzarobba}
 %\titlehead{Title of your paper}
 %\authorhead{Author's Name}
@@ -16,54 +19,71 @@
 \let\Bold\mathbb
 \let\set\mathbb
 
+% \setkeys{FV}{vspace=0pt}
+\makeatletter
+\let\FV@ListVSpace\relax
+\makeatother
+
+\date{}
+
 \begin{document}
 
-\title{Multivariate Ore Polynomials in Sage}
+\title{Multivariate Ore Polynomials in SageMath}
 
 \author{%
   Manuel Kauers\footnote{Supported by the Austrian FWF grants P31571-N32, F5004} \
-  and Marc Mezzarobba\footnote{??}\\[\medskipamount]
+  and Marc Mezzarobba%
+  \footnote{Supported in part by ANR grant ANR-14-CE25-0018-01 (FastRelax).}%
+  \\[\medskipamount]
   Institute for Algebra $\cdot$ Johannes Kepler University $\cdot$ Linz, Austria\\
-  CNRS, LIB6 $\cdot$ Sorbonne Universit\'e $\cdot$ Paris, France\\[\medskipamount]
-  \url{manuel@kauers.de} $\cdot$ \url{marc@mezzarobba.net}
+  Sorbonne Université, CNRS, Laboratoire d'informatique de Paris~6, LIP6,
+  F-75005 Paris, France\\[\medskipamount]
+  \href{mailto:manuel@kauers.de}{\nolinkurl{manuel@kauers.de}} $\cdot$
+  \href{mailto:marc@mezzarobba.net}{\nolinkurl{marc@mezzarobba.net}}
 }
-
-\date{}
 
 \maketitle
 
 \begin{abstract}
-  We present the latest update of the ore\_algebra package for Sage.
+  We present the latest update of the ore\_algebra package for SageMath.
   The main new feature in this release is the support of operators in several variables.
 \end{abstract}
 
 \section{Introduction}
 
 Ore polynomials are important features of computer algebra systems because they provide
-functionality for working with differential and recurrence operators that describe
-so-called D-finite functions and sequences~\cite{stanley80,kauers10j,kauers13}. Maple has
-the OreTools package~\cite{abramov03} and gfun~\cite{salvy94}, for Mathematica we have
-the package of Koutschan~\cite{koutschan10c},
-and there is the ore\_algebra package by Kauers, Jaroschek and Johansson~\cite{kauers14b} for
-Sage~\cite{zimmermann18}. This software demo abstract is about the most recent version of the
-latter package, which is freely available at \url{https://github.com/mkauers/ore_algebra} and
-works with Sage~8.7.
+functionality for manipulating differential and recurrence operators that describe
+so-called D-finite functions and sequences~\cite{stanley80,kauers10j,kauers13}.
+Packages for working with Ore polynomials include, among others,
+OreTools~\cite{abramov03} and gfun~\cite{salvy94} for Maple,
+the HolonomicFunctions package of Koutschan~\cite{koutschan10c} for Mathematica,
+and ore\_algebra package by Kauers, Jaroschek and Johansson~\cite{kauers14b} for
+SageMath (Sage)~\cite{zimmermann18}. This software demo abstract is about the most recent version of the
+latter package, which works with Sage~8.7.
 
 Earlier versions of the ore\_algebra package already provided functionality for basic arithmetic
 and actions; GCRD and LCLM; D-finite closure properties; natural transformations between related
 algebras; guessing; desingularization; solvers for polynomials, rational functions and (generalized)
-power series. Mezzarobba~\cite{mezzarobba16} added a subpackage ore\_algebra.analytic for arbitrary-precision
-evaluation of D-finite functions, which is now fully integrated into the main version of the package.
+power series. Mezzarobba~\cite{mezzarobba16} added a subpackage ore\_algebra.analytic for symbolic-numeric
+computations with D-finite analytic functions, which is now fully integrated into the main version of the package.
 Hofstadler~\cite{hofstadler19} contributed a set of convenience functions which support a better integration
 with symbolic expressions.
 
-Almost all the features so far were limited to the univariate case. The main contribution in the
-latest version is an extension to the multivariate case. While basic arithmetic of Ore polynomials
-in several variables has been supported since the beginning, we now also offer implementations of
-D-finite closure properties and creative telescoping as well as a (rudimentary) implementation of
-Gr\"obner bases. 
+While basic arithmetic of Ore polynomials in several variables has been supported since the
+beginning, everything else so far was limited to the univariate case.
+The main new feature in versions~0.3--0.4 of the package is an extension of the core
+functionality to multivariate operators, with efficient support of D-finite closure properties and
+creative telescoping as well as a rudimentary implementation of Gr\"obner bases.
+Other novelties include substantially improved numerical evaluation code compared to the status
+described in~\cite{mezzarobba16}, and preliminary support for Python~3.
 
 \section{Basic Examples}
+
+With a typical Sage setup, ore\_algebra~v0.4 can be installed using the shell command
+\begin{verbatim}
+  $ sage -pip install git+https://github.com/mkauers/ore_algebra.git@0.4
+\end{verbatim}
+(Omit the \verb!@0.4! suffix for the latest development version.)
 
 After loading the package and creating the base ring $\set Z[x,y]$, the Ore algebra of differential
 operators for $x$ and $y$ can be created as follows. 
@@ -84,12 +104,12 @@ by base ring elements:
   sage: (Dx + Dy)(sin(x*y))
 \end{sageexample}
 Using $Sx,Sy$ instead of $Dx,Dy$ creates an Ore algebra with shift operators instead of differential operators.
-Of course, also combinations like $\set Z[x,y]\<Sx,Dy>$ and other generators besides shift and derivation are possible.
+Of course, combinations like $\set Z[x,y]\<Sx,Dy>$ and other generators besides shift and derivation are also possible.
 The available operators are the same as in the univariate case, see~\cite{kauers14b} for more details.
 
 In the univariate case, methods for executing closure properties were directly attached to the annihilating operators.
 In the multivariate case, where several annihilating operators are needed to describe a D-finite object, we must work
-with left ideals of Ore algebras. They can be constructed as follows.
+with left ideals of Ore algebras. Ideals can be constructed as follows.
 \begin{sageexample}
   sage: I = A.ideal([Dy^2, Dx*Dy, Dx^2 - y*Dy + 1])
   sage: I
@@ -115,6 +135,7 @@ not highly optimized.
 \begin{sageexample}
   sage: I.groebner_basis()
 \end{sageexample}
+
 All operations discussed so far are generalizations of the univariate counterparts that already existed
 in earlier versions. A feature that is inherently multivariate is creative telescoping~\cite{zeilberger91,chyzak00,chyzak14}.
 Here, the input is a left ideal $I\subseteq A$, say $A=\set Q(x,y)\<Dx,Dy>$ and the task is to find
@@ -134,6 +155,7 @@ of a proof of the binomial theorem $\sum_k\binom nk=2^n$:
   sage: B.<Sx,Sy> = OreAlgebra(R)
   sage: B.ideal([(y+1)*Sy + (y-x), (x-y+1)*Sx - (x+1)]).ct(Sy - 1)
 \end{sageexample}
+
 Finally, also the guessing features have been extended to the multivariate setting. For example, annihilating operators
 for the binomial coefficients can be found as follows.
 \begin{sageexample}
@@ -154,32 +176,42 @@ we first have to compute the ideal $T_v$ in $\set Q(u,t)\<Du,Dt>$ of all telesco
 the ideal $T_{u,v}$ in $\set Q(t)\<Dt>$ of telescopers of $T_v$ with respect to~$Du$. The smallest rational function in
 the collection is
 \[
-\tfrac{-u^2 v^2+u^2+v^2-1}{t u^3 v^2-t u^3 v+t u^2 v^3-2 t u^2 v^2+2 t u^2 v-t u^2-t u v^3+2 t u v^2-2 t
+\frac{{-}u^2 v^2{+}u^2{+}v^2{-}1}{t u^3 v^2{-}t u^3 v{+}t u^2 v^3{-}2 t u^2 v^2{+}2 t u^2 v{-}t u^2{-}t u v^3{+}2 t u v^2{-}2 t
   u v+t u-t v^2+t v-u^2 v^2+u^2 v+u v^2-u v},
 \]
-and the largest is about twice as long. The complete data is available in ore\_algebra.examples.smallsteps.
+and the largest is about twice as long. The complete data is available in ore\_algebra.examples.ssw.
 
 In the table below, we compare our performance to that of Koutschan's package~\cite{koutschan10c}. We do not claim that a
 performance comparison will look similarly for any creative telescoping problem, but we think the experiment is at least
 an indication that our implementation is not too bad.
+Note in passing that reaching an acceptable performance level required a number of improvements to
+the implementation of multivariate polynomials and rational functions in Sage itself.
+Although ore\_algebra is developed as an external Sage package, a significant part of the
+development effort reported here will thus directly benefit other Sage users.
 
 \begin{center}
   % timings taken on picard.algebra.uni-linz.ac.at
   % with Sage 8.7 and ore_algebra version 7ab0f7e821cde38e1ace6ae0844bc34e726aaf5a
   % with Mathematica 12 and HolonomicFunctions.m version 1.7.3
   % on 2019-04-25
-  \begin{tabular}{c|ccccccccccccccccccc}
-    case & 1 & 2 & 3 & 4 & 5 & 6 & 7 & 8 & 9  \\\hline
-    ore\_algebra & 601ms & 668ms & 705ms & 862ms & 4.82s & 10.3s & 5.22s & 10.7s & 11.1s \\
-    HolonomicFunctions.m & 1.55s & 1.59s & 1.86s & 2.09s & 25.2s & 51.9s & 26.8s & 55.1s & 51.5s
-  \end{tabular}
-
-  \begin{tabular}{c|ccccccccccccccccccc}
-    case & 10 & 11 & 12 & 13 & 14 & 15 & 16 & 17 & 18 & 19 \\\hline
-    ore\_algebra & 11.9s & 4.46s & 8.57s & 11.1s & 11.7s & 4.21s & 8.27s & 18.9s & 36.2s & 2.05s \\
-    HolonomicFunctions.m & 63.4s & 19.4s & 35.4s & 51.3s & 62.3s & 19.1s & 34.7s & 198s & 445s & 5.77s
+  \begin{tabular}{rccccccccccccccccccc}
+    \toprule
+    case & 1 & 2 & 3 & 4 & 5 & 6 & 7 & 8 & 9 & 10 \\\midrule
+    ore\_algebra & 601ms & 668ms & 705ms & 862ms & 4.82s & 10.3s & 5.22s & 10.7s & 11.1s & 11.9s \\
+    HolonomicFunctions.m & 1.55s & 1.59s & 1.86s & 2.09s & 25.2s & 51.9s & 26.8s & 55.1s & 51.5s &
+    63.4s \\
+    \midrule
+    case & 11 & 12 & 13 & 14 & 15 & 16 & 17 & 18 & 19 \\\midrule
+    ore\_algebra & 4.46s & 8.57s & 11.1s & 11.7s & 4.21s & 8.27s & 18.9s & 36.2s & 2.05s \\
+    HolonomicFunctions.m & 19.4s & 35.4s & 51.3s & 62.3s & 19.1s & 34.7s & 198s & 445s & 5.77s \\
+    \bottomrule
   \end{tabular}
 \end{center}
+
+\paragraph{Acknowledgements.}
+
+We thank Bruno Grenet, Ben Hutz, Julian Rüth, and Travis Scrimshaw for reviewing the Sage patches
+mentioned above.
 
 \small
 \bibliographystyle{plain}

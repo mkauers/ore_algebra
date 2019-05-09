@@ -1,8 +1,10 @@
+.PHONY: all clean
 
 all:
 	pdflatex main
 	sage main.sagetex.sage
 	bibtex main
+	pdflatex main
 	pdflatex main
 
 clean:  
