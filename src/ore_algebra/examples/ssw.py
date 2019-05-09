@@ -2,19 +2,30 @@
 r"""
 Small-step walks
 
-Operators and connection problems related to work by Alin Bostan, Frédéric
-Chyzak, Mark van Hoeij, Manuel Kauers and Lucien Pech on the combinatorics of
-walks with small steps in the quarter plane. (A. Bostan and M. Kauers, Automatic
-Classification of Restricted Lattice Walks, FPSAC'09; A. Bostan, F. Chyzak,
-M. van Hoeij, M. Kauers and L. Pech, Hypergeometric expressions for generating
-functions of walks with small steps in the quarter plane, arXiv:1606.02982
-[math.CO], <URL: http://specfun.inria.fr/chyzak/ssw/index.html>)::
+Examples from the paper "Hypergeometric expressions for generating functions
+of walks with small steps in the quarter plane" by Alin Bostan, Frédéric
+Chyzak, Mark van Hoeij, Manuel Kauers and Lucien Pech (European Journal of
+Combinatorics, 2017; arXiv:1606.02982 [math.CO],
+<URL: http://specfun.inria.fr/chyzak/ssw/index.html>)::
 
-    sage: from ore_algebra import *
-    sage: Pols.<t> = QQ[]
-    sage: Dops.<Dt> = OreAlgebra(Pols)
+For the rational functions rat[1], ..., rat[19], the task consists in computing
+a telescoper wrt Du and Dv. Interesting settings are when x and y are both set
+to 1 or one of them is set to 0 and the other is left symbolic. For example::
+
+    sage: from ore_algebra import OreAlgebra
+    sage: A.<Du,Dv,Dt> = OreAlgebra(ZZ['u','v','t'].fraction_field(), 'Du', 'Dv', 'Dt')
 
     sage: from ore_algebra.examples import ssw
+    sage: q = A.base_ring()(ssw.rat[1](x=1,y=1))
+    sage: ct1 = A.ideal([q*D - D(q) for D in Du,Dv,Dt]).ct(Dv)[0]
+    sage: ct2 = ct1[0].parent().ideal(ct1).ct(Du)[0]
+    sage: ct2
+    [(16*t^4 - t^2)*Dt^3 + (128*t^3 + 8*t^2 - 6*t)*Dt^2 + (224*t^2 + 28*t - 6)*Dt + 64*t + 12]
+    sage: ct2 == [ssw.dop[1,1,1]]
+    True
+
+After obtaining the telescopers, we can use them to compute connection matrices
+that encode information on the asymptotics of the corresponding lattice walks::
 
     sage: mat = ssw.dop[5,1,1].numerical_transition_matrix([0, 1/3+i/10, 1/3]) # (1.8 s)
     sage: (mat*vector([0, 0, 1, 3, 7]))[0] # long time
@@ -32,12 +43,171 @@ An example provided by Bruno Salvy, also related to small-step walks::
 
 """
 
-from sage.rings.all import Integer, QQ
+from sage.rings.all import Integer, PolynomialRing, ZZ, QQ
 from ore_algebra import DifferentialOperators
 
+Pols, (u, v, x, y, t) = PolynomialRing(ZZ, ('u', 'v', 'x', 'y', 't')).objgens()
 DiffOps, t, Dt = DifferentialOperators(QQ, 't')
 
 # Data adapted from https://specfun.inria.fr/chyzak/ssw/ct-P.mpl
+# Indexed from 1 on in order to be consistent with the paper
+
+rat = {}
+
+rat[1] = (-1+u**2-u**2*v**2+v**2)/(-u*v+u*v**2*y+u**2*v*x-u**2*v**2*x*y+t*v
+        -t*v**2*y-t*v*x*u+t*v**2*x*u*y+t*u-t*u*y*v-t*u**2*x+t*u**2*x*y*v
+        +t*u**2*v-t*u**2*v**2*y-t*u**3*v*x+t*u**3*v**2*x*y+t*u*v**2-t*u*v**3*y
+        -t*u**2*v**2*x+t*u**2*v**3*x*y)
+
+rat[2] = (-1+u**2-u**2*v**2+v**2)/(-u*v+u*v**2*y+u**2*v*x-u**2*v**2*x*y+t
+        -t*y*v-t*x*u+t*x*u*y*v+t*u**2-t*u**2*y*v-t*u**3*x+t*u**3*x*y*v
+        +t*u**2*v**2-t*u**2*v**3*y-t*u**3*v**2*x+t*u**3*v**3*x*y+t*v**2
+        -t*v**3*y-t*v**2*x*u+t*v**3*x*u*y)
+
+rat[3] = (-1+u**2-u**2*v**2+v**2)/(t+t*u*v**2-t*u**2*v**2*x-u**2*v**2*x*y
+        -t*u*y*v-t*u*v**3*y+t*u**2*v**2-u*v+t*u+u**2*v*x-t*u**2*x+u*v**2*y
+        +t*u**2*x*y*v+t*u**2*v**3*x*y+t*u**2+t*v**2-t*u**2*y*v-t*u**2*v**3*y
+        -t*v**2*x*u-t*u**3*v**2*x-t*y*v-t*v**3*y-t*x*u-t*u**3*x+t*x*u*y*v
+        +t*u**3*x*y*v+t*u**3*v**3*x*y+t*v**3*x*u*y)
+
+rat[4] = (-1+u**2-u**2*v**2+v**2)/(t+t*u**2*v+t*u*v**2-t*v*x*u-t*u**3*v*x
+        -t*u**2*v**2*x-u**2*v**2*x*y-t*u*y*v-t*u**2*v**2*y-t*u*v**3*y
+        +t*u**2*v**2-u*v+t*v+t*u+u**2*v*x-t*u**2*x+u*v**2*y-t*v**2*y
+        +t*v**2*x*u*y+t*u**2*x*y*v+t*u**3*v**2*x*y+t*u**2*v**3*x*y+t*u**2
+        +t*v**2-t*u**2*y*v-t*u**2*v**3*y-t*v**2*x*u-t*u**3*v**2*x-t*y*v
+        -t*v**3*y-t*x*u-t*u**3*x+t*x*u*y*v+t*u**3*x*y*v+t*u**3*v**3*x*y
+        +t*v**3*x*u*y)
+
+rat[5] = (-1+u**4-u**3*v**2+u*v**2)/(t+t*u*v**2-t*u**2*v**2*x
+        -u**2*v**2*x*y-t*u*v**3*y-u*v+u**2*v*x+u*v**2*y+t*u**2*v**3*x*y
+        +2*t*u**2-2*t*u**2*y*v-t*y*v-u**5*t*x+u**3*v**2*y+t*u**3*v**2
+        -t*x*u-2*t*u**3*x+t*x*u*y*v+2*t*u**3*x*y*v-t*u**3*v**3*y+u**4*v*x
+        -t*u**4*v**2*x-u**4*v**2*x*y-u**4*t*y*v-u**3*v+u**4*t+u**5*t*x*y*
+        v+t*u**4*v**3*x*y)
+
+rat[6] = (-1+u**4-u**3*v**2+u*v**2)/(t+2*t*u**2*v+t*u*v**2-t*v*x*u
+        -2*t*u**3*v*x-t*u**2*v**2*x-u**2*v**2*x*y-2*t*u**2*v**2*y-t*u*v**3*y
+        -u*v+t*v+u**2*v*x+u*v**2*y-t*v**2*y+t*v**2*x*u*y+2*t*u**3*v**2*x*y
+        +t*u**2*v**3*x*y+2*t*u**2-2*t*u**2*y*v-t*y*v-u**5*t*x+u**3*v**2*y
+        +t*u**3*v**2-t*x*u-2*t*u**3*x+t*x*u*y*v+2*t*u**3*x*y*v-t*u**3*v**3*y
+        +u**4*v*x-t*u**4*v**2*x-u**4*v**2*x*y-u**4*t*y*v+u**4*t*v-u**3*v
+        +u**4*t+u**5*t*x*y*v+t*u**4*v**3*x*y-u**5*t*x*v-u**4*t*v**2*y
+        +u**5*t*x*v**2*y)
+
+rat[7] = (-u-1+u**4+u**3-u**3*v**2+u*v**2)/(t+t*u*v**2-t*u**2*v**2*x
+        -u**2*v**2*x*y-2*t*u*y*v-t*u*v**3*y+u**2*v**2*y+u**3*v*x+t*u**2*v**2
+        -u*v-u**2*v+2*t*u+u**2*v*x-2*t*u**2*x+u*v**2*y+2*t*u**2*x*y*v
+        +t*u**2*v**3*x*y-u**3*v**2*x*y+3*t*u**2-3*t*u**2*y*v-t*u**2*v**3*y
+        -t*u**3*v**2*x-t*y*v-2*t*u**4*x-u**5*t*x+u**3*v**2*y+t*u**3*v**2-t*x*u
+        -3*t*u**3*x+t*x*u*y*v+3*t*u**3*x*y*v+t*u**3*v**3*x*y+2*t*u**3
+        -2*t*u**3*y*v-t*u**3*v**3*y+u**4*v*x-t*u**4*v**2*x-u**4*v**2*x*y
+        -u**4*t*y*v-u**3*v+u**4*t+u**5*t*x*y*v+t*u**4*v**3*x*y+2*t*u**4*x*y*v)
+
+rat[8] = (-u-1+u**4+u**3-u**3*v**2+u*v**2)/(t+2*t*u**2*v+t*u*v**2-t*v*x*u
+        -2*t*u**3*v*x-t*u**2*v**2*x-u**2*v**2*x*y-2*t*u*y*v-2*t*u**2*v**2*y
+        -t*u*v**3*y+u**2*v**2*y+u**3*v*x+t*v*u+t*u**3*v+t*u**2*v**2-u*v-u**2*v
+        +t*v+2*t*u+u**2*v*x-2*t*u**2*x+u*v**2*y-t*v**2*y+t*v**2*x*u*y
+        +2*t*u**2*x*y*v+2*t*u**3*v**2*x*y+t*u**2*v**3*x*y-u**3*v**2*x*y
+        +3*t*u**2-t*v**2*u*y-3*t*u**2*y*v-t*u**3*v**2*y-t*u**2*v**3*y
+        -t*u**2*x*v-t*u**3*v**2*x-t*y*v-2*t*u**4*x-u**5*t*x+u**3*v**2*y
+        +t*u**3*v**2-t*x*u-3*t*u**3*x+t*x*u*y*v+3*t*u**3*x*y*v+t*u**3*v**3*x*y
+        +2*t*u**3-2*t*u**3*y*v-t*u**3*v**3*y+u**4*v*x-t*u**4*v**2*x
+        -u**4*v**2*x*y-u**4*t*y*v+u**4*t*v-u**3*v+u**4*t+u**5*t*x*y*v
+        +t*u**4*v**3*x*y-u**5*t*x*v-u**4*t*v**2*y+u**5*t*x*v**2*y
+        +2*t*u**4*x*y*v-t*u**4*x*v+t*u**2*x*v**2*y+t*u**4*x*v**2*y)
+
+rat[9] = (-u-1+u**4+u**3-u**4*v**2+v**2)/(t+t*u*v**2-t*u**2*v**2*x
+        -u**2*v**2*x*y-2*t*u*y*v-t*u*v**3*y+u**2*v**2*y+u**3*v*x+2*t*u**2*v**2
+        -u*v-u**2*v+2*t*u+u**2*v*x-2*t*u**2*x+u*v**2*y+2*t*u**2*x*y*v
+        +t*u**2*v**3*x*y-u**3*v**2*x*y+3*t*u**2+t*v**2-3*t*u**2*y*v
+        -2*t*u**2*v**3*y-t*v**2*x*u-2*t*u**3*v**2*x-t*y*v-t*v**3*y-2*t*u**4*x
+        -u**5*t*x+u**3*v**2*y+t*u**3*v**2-t*x*u-3*t*u**3*x+t*x*u*y*v
+        +3*t*u**3*x*y*v+2*t*u**3*v**3*x*y+t*v**3*x*u*y+2*t*u**3-2*t*u**3*y*v
+        -t*u**3*v**3*y+u**4*v*x-t*u**4*v**2*x-u**4*v**2*x*y-u**4*t*y*v
+        +t*u**4*v**2-u**3*v+u**4*t+u**5*t*x*y*v+t*u**4*v**3*x*y-t*u**4*v**3*y
+        -u**5*t*x*v**2+2*t*u**4*x*y*v+u**5*t*x*v**3*y)
+
+rat[10] = (-u-1+u**4+u**3-u**4*v**2+v**2)/(t+2*t*u**2*v+t*u*v**2-t*v*x*u
+        -2*t*u**3*v*x-t*u**2*v**2*x-u**2*v**2*x*y-2*t*u*y*v-2*t*u**2*v**2*y
+        -t*u*v**3*y+u**2*v**2*y+u**3*v*x+t*v*u+t*u**3*v+2*t*u**2*v**2-u*v
+        -u**2*v+t*v+2*t*u+u**2*v*x-2*t*u**2*x+u*v**2*y-t*v**2*y+t*v**2*x*u*y
+        +2*t*u**2*x*y*v+2*t*u**3*v**2*x*y+t*u**2*v**3*x*y-u**3*v**2*x*y
+        +3*t*u**2+t*v**2-t*v**2*u*y-3*t*u**2*y*v-t*u**3*v**2*y-2*t*u**2*v**3*y
+        -t*v**2*x*u-t*u**2*x*v-2*t*u**3*v**2*x-t*y*v-t*v**3*y-2*t*u**4*x
+        -u**5*t*x+u**3*v**2*y+t*u**3*v**2-t*x*u-3*t*u**3*x+t*x*u*y*v
+        +3*t*u**3*x*y*v+2*t*u**3*v**3*x*y+t*v**3*x*u*y+2*t*u**3-2*t*u**3*y*v
+        -t*u**3*v**3*y+u**4*v*x-t*u**4*v**2*x-u**4*v**2*x*y-u**4*t*y*v
+        +t*u**4*v**2+u**4*t*v-u**3*v+u**4*t+u**5*t*x*y*v+t*u**4*v**3*x*y
+        -t*u**4*v**3*y-u**5*t*x*v-u**4*t*v**2*y+u**5*t*x*v**2*y-u**5*t*x*v**2
+        +2*t*u**4*x*y*v-t*u**4*x*v+t*u**2*x*v**2*y+t*u**4*x*v**2*y
+        +u**5*t*x*v**3*y)
+
+rat[11] = (-u+u**3-u**4*v**2-u**3*v**2+u*v**2+v**2)/(-u**2*v+u**2*v**2*y
+        +u**3*v*x-u**3*v**2*x*y+t*u**2-t*u**2*y*v-t*u**3*x+t*u**3*x*y*v
+        +t*u**3*v**2-t*u**3*v**3*y-t*u**4*v**2*x+t*u**4*v**3*x*y+t*u**2*v**2
+        -t*u**2*v**3*y-t*u**3*v**2*x+t*u**3*v**3*x*y+t*u*v**2-t*u*v**3*y
+        -t*u**2*v**2*x+t*u**2*v**3*x*y)
+
+rat[12] = (-u+u**3-u**4*v**2-u**3*v**2+u*v**2+v**2)/(t*u*v**2-t*u**2*v**2*x
+        -t*u*v**3*y+u**2*v**2*y+u**3*v*x+t*v*u+t*u**3*v+t*u**2*v**2-u**2*v
+        +t*u**2*v**3*x*y-u**3*v**2*x*y+t*u**2-t*v**2*u*y-t*u**2*y*v
+        -t*u**3*v**2*y-t*u**2*v**3*y-t*u**2*x*v-t*u**3*v**2*x+t*u**3*v**2
+        -t*u**3*x+t*u**3*x*y*v+t*u**3*v**3*x*y-t*u**3*v**3*y-t*u**4*v**2*x
+        +t*u**4*v**3*x*y-t*u**4*x*v+t*u**2*x*v**2*y+t*u**4*x*v**2*y)
+
+rat[13] = (-1+u**4-u**4*v**2-u**3*v**2+u*v**2+v**2)/(t+t*u*v**2-t*u**2*v**2*x
+        -u**2*v**2*x*y-t*u*v**3*y+2*t*u**2*v**2-u*v+u**2*v*x+u*v**2*y
+        +t*u**2*v**3*x*y+2*t*u**2+t*v**2-2*t*u**2*y*v-2*t*u**2*v**3*y
+        -t*v**2*x*u-2*t*u**3*v**2*x-t*y*v-t*v**3*y-u**5*t*x+u**3*v**2*y
+        +t*u**3*v**2-t*x*u-2*t*u**3*x+t*x*u*y*v+2*t*u**3*x*y*v
+        +2*t*u**3*v**3*x*y+t*v**3*x*u*y-t*u**3*v**3*y+u**4*v*x-t*u**4*v**2*x
+        -u**4*v**2*x*y-u**4*t*y*v+t*u**4*v**2-u**3*v+u**4*t+u**5*t*x*y*v
+        +t*u**4*v**3*x*y-t*u**4*v**3*y-u**5*t*x*v**2+u**5*t*x*v**3*y)
+
+rat[14] = (-1+u**4-u**4*v**2-u**3*v**2+u*v**2+v**2)/(t+2*t*u**2*v+t*u*v**2
+        -t*v*x*u-2*t*u**3*v*x-t*u**2*v**2*x-u**2*v**2*x*y-2*t*u**2*v**2*y
+        -t*u*v**3*y+2*t*u**2*v**2-u*v+t*v+u**2*v*x+u*v**2*y-t*v**2*y
+        +t*v**2*x*u*y+2*t*u**3*v**2*x*y+t*u**2*v**3*x*y+2*t*u**2+t*v**2
+        -2*t*u**2*y*v-2*t*u**2*v**3*y-t*v**2*x*u-2*t*u**3*v**2*x-t*y*v
+        -t*v**3*y-u**5*t*x+u**3*v**2*y+t*u**3*v**2-t*x*u-2*t*u**3*x+t*x*u*y*v
+        +2*t*u**3*x*y*v+2*t*u**3*v**3*x*y+t*v**3*x*u*y-t*u**3*v**3*y+u**4*v*x
+        -t*u**4*v**2*x-u**4*v**2*x*y-u**4*t*y*v+t*u**4*v**2+u**4*t*v-u**3*v
+        +u**4*t+u**5*t*x*y*v+t*u**4*v**3*x*y-t*u**4*v**3*y-u**5*t*x*v
+        -u**4*t*v**2*y+u**5*t*x*v**2*y-u**5*t*x*v**2+u**5*t*x*v**3*y)
+
+rat[15] = (-u+u**3-u**4*v**2+v**2)/(-u**2*v+u**2*v**2*y+u**3*v*x-u**3*v**2*x*y
+        +t*u**2-t*u**2*y*v-t*u**3*x+t*u**3*x*y*v+t*u**3*v**2-t*u**3*v**3*y
+        -t*u**4*v**2*x+t*u**4*v**3*x*y+t*u*v**2-t*u*v**3*y-t*u**2*v**2*x
+        +t*u**2*v**3*x*y)
+
+rat[16] = (-u+u**3-u**4*v**2+v**2)/(-u**2*v+u**2*v**2*y+u**3*v*x-u**3*v**2*x*y
+        +t*v*u-t*v**2*u*y-t*u**2*x*v+t*u**2*x*v**2*y+t*u**2-t*u**2*y*v
+        -t*u**3*x+t*u**3*x*y*v+t*u**3*v-t*u**3*v**2*y-t*u**4*x*v
+        +t*u**4*x*v**2*y+t*u**3*v**2-t*u**3*v**3*y-t*u**4*v**2*x
+        +t*u**4*v**3*x*y+t*u*v**2-t*u*v**3*y-t*u**2*v**2*x
+        +t*u**2*v**3*x*y)
+
+rat[17] = (-u*v+u**3-u**4*v+u**3*v**3-v**4*u+v**3)/(-u**2*v**2+u**2*v**3*y
+        +u**3*v**2*x-u**3*v**3*x*y+t*u**2*v-t*u**2*v**2*y-t*u**3*v*x
+        +t*u**3*v**2*x*y+t*u**3*v**2-t*u**3*v**3*y-t*u**4*v**2*x
+        +t*u**4*v**3*x*y+t*u*v**3-u*v**4*t*y-t*u**2*v**3*x
+        +u**2*v**4*t*x*y)
+
+rat[18] = (-u*v+u**3-u**4*v+u**3*v**3-v**4*u+v**3)/(t*u**2*v+t*u*v**2
+        -t*u**3*v*x-t*u**2*v**2*x-t*u**2*v**2*y-t*u*v**3*y+t*u**3*v-u**2*v**2
+        +u**2*v**4*t*x*y+t*u**3*v**2*x*y+t*u**2*v**3*x*y-t*u**3*v**2*y
+        -t*u**2*v**3*x+t*u**2*v**3+t*u*v**3-t*u**3*v**3*x+u**2*v**3*y
+        +u**3*v**2*x+t*u**3*v**2-u**3*v**3*x*y-t*u**3*v**3*y-t*u**4*v**2*x
+        +t*u**4*v**3*x*y+u**3*v**4*t*x*y-t*u**4*x*v+t*u**4*x*v**2*y
+        -u**2*v**4*t*y-u*v**4*t*y)
+
+rat[19] = (-u**2*v+u**4-u**6+u**6*v-u**4*v**3+v**4*u**2-v**4+v**3)/(-u**3*v**2
+        +u**3*v**3*y+u**4*v**2*x-u**4*v**3*x*y+t*u**2*v**2-t*u**2*v**3*y
+        -t*u**3*v**2*x+t*u**3*v**3*x*y+u**4*t*v-u**4*t*v**2*y-u**5*t*x*v
+        +u**5*t*x*v**2*y+t*u**4*v**2-t*u**4*v**3*y-u**5*t*x*v**2
+        +u**5*t*x*v**3*y+t*u**2*v**3-u**2*v**4*t*y-t*u**3*v**3*x
+        +u**3*v**4*t*x*y)
+
 
 dop = {}
 
