@@ -18,6 +18,14 @@ Documentation of ore_algebra
     ore_algebra.ore_operator_1_1
     ore_algebra.ore_operator_mult
 
+.. rubric:: Differentially finite functions
+
+.. autosummary::
+    :toctree: generated
+
+    ore_algebra.dfinite_function
+    ore_algebra.dfinite_symbolic
+
 .. rubric:: Tools
 
 .. autosummary::

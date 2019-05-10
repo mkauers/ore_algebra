@@ -1,7 +1,6 @@
 # coding: utf-8
 r"""
-dfinite_symbolic
-================
+Database of annihilators
 
 Database for annihilating operators, i.e. elements of certain OreAlgebras, for various discrete and differentiable
 symbolic functions.
@@ -39,7 +38,18 @@ AUTHOR:
 
 from __future__ import absolute_import, division
 
-from sage.all import *
+import sage.functions.airy
+import sage.functions.bessel
+import sage.functions.error
+import sage.functions.exp_integral
+import sage.functions.hyperbolic
+import sage.functions.log
+import sage.functions.other
+import sage.functions.special
+import sage.functions.trig
+
+from sage.rings.all import QQ
+
 from operator import pow
 
 def symbolic_database(A, f, inner = None, k = 0):
