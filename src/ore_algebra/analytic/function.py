@@ -1,54 +1,8 @@
 # -*- coding: utf-8 - vim: tw=80
 r"""
 D-Finite analytic functions
-
-TESTS::
-
-    sage: from ore_algebra import *
-    sage: from ore_algebra.analytic.function import DFiniteFunction
-    sage: DiffOps, x, Dx = DifferentialOperators()
-
-    sage: f = DFiniteFunction((x^2 + 1)*Dx^2 + 2*x*Dx, [0, 1])
-
-    sage: [f(10^i) for i in range(-3, 4)] # long time (3 s)
-    [[0.0009999996666...], [0.0099996666866...], [0.0996686524911...],
-     [0.7853981633974...], [1.4711276743037...], [1.5607966601082...],
-     [1.5697963271282...]]
-
-    sage: f(0)
-    [+/- ...]
-
-    sage: f(-1)
-    [-0.78539816339744...]
-
-    sage: (f(1.23456) - RBF(1.23456).arctan()).abs() < RBF(1)>>50
-    True
-    sage: R200 = RealBallField(200)
-    sage: (f(1.23456, 100) - R200(1.23456).arctan()).abs() < (RBF(1) >> 99)
-    True
-
-    sage: plot(lambda x: RR(f(x, prec=10)), (-3, 3))
-    Graphics object consisting of 1 graphics primitive
-
-    sage: f.approx(0, post_transform=Dx)
-    [1.00000000000000...]
-    sage: f.approx(2, post_transform=x*Dx+1)
-    [1.50714871779409...]
-    sage: 2/(1+2^2) + arctan(2.)
-    1.50714871779409
-
-    sage: g = DFiniteFunction(Dx-1, [1])
-
-    sage: [g(10^i) for i in range(-3, 4)]
-    [[1.001000500166...],
-     [1.010050167084...],
-     [1.105170918075...],
-     [2.718281828459...],
-     [22026.46579480...],
-     [2.688117141816...e+43...],
-     [1.9700711140170...+434...]]
-
 """
+
 
 # Copyright 2017, 2018, 2019 Marc Mezzarobba
 # Copyright 2017, 2018, 2019 Centre national de la recherche scientifique
@@ -486,7 +440,7 @@ class DFiniteFunction(object):
         r"""
         EXAMPLES::
 
-            sage: import logging; logging.basicConfig(level=logging.INFO)
+            sage: import logging; logging.basicConfig()
             sage: logger = logging.getLogger("ore_algebra.analytic.function.sollya")
             sage: logger.setLevel(logging.DEBUG)
 
@@ -544,3 +498,54 @@ def _guess_prec(pt):
         return pt.parent().precision()
     else:
         return 53
+
+def _tests():
+    r"""
+    TESTS::
+
+        sage: from ore_algebra import *
+        sage: from ore_algebra.analytic.function import DFiniteFunction
+        sage: DiffOps, x, Dx = DifferentialOperators()
+
+        sage: f = DFiniteFunction((x^2 + 1)*Dx^2 + 2*x*Dx, [0, 1])
+
+        sage: [f(10^i) for i in range(-3, 4)] # long time (3 s)
+        [[0.0009999996666...], [0.0099996666866...], [0.0996686524911...],
+        [0.7853981633974...], [1.4711276743037...], [1.5607966601082...],
+        [1.5697963271282...]]
+
+        sage: f(0)
+        [+/- ...]
+
+        sage: f(-1)
+        [-0.78539816339744...]
+
+        sage: (f(1.23456) - RBF(1.23456).arctan()).abs() < RBF(1)>>50
+        True
+        sage: R200 = RealBallField(200)
+        sage: (f(1.23456, 100) - R200(1.23456).arctan()).abs() < (RBF(1) >> 99)
+        True
+
+        sage: plot(lambda x: RR(f(x, prec=10)), (-3, 3))
+        Graphics object consisting of 1 graphics primitive
+
+        sage: f.approx(0, post_transform=Dx)
+        [1.00000000000000...]
+        sage: f.approx(2, post_transform=x*Dx+1)
+        [1.50714871779409...]
+        sage: 2/(1+2^2) + arctan(2.)
+        1.50714871779409
+
+        sage: g = DFiniteFunction(Dx-1, [1])
+
+        sage: [g(10^i) for i in range(-3, 4)]
+        [[1.001000500166...],
+        [1.010050167084...],
+        [1.105170918075...],
+        [2.718281828459...],
+        [22026.46579480...],
+        [2.688117141816...e+43...],
+        [1.9700711140170...+434...]]
+
+    """
+    pass

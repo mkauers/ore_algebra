@@ -1,38 +1,6 @@
 # -*- coding: utf-8 - vim: tw=80
 r"""
 Monodromy matrices
-
-TESTS::
-
-    sage: from ore_algebra import *
-    sage: from ore_algebra.analytic.monodromy import monodromy_matrices
-    sage: Dops, x, Dx = DifferentialOperators()
-
-    sage: def norm(m):
-    ....:     return sum(c.abs()**2 for c in m.list()).sqrtpos()
-
-    sage: dop = x*(x-3)*(x-4)*(x^2 - 6*x + 10)*Dx^2 - 1
-    sage: mon = monodromy_matrices(dop, -1)
-
-    sage: mon[0]
-    [[1.00000000000...] + [-0.0519404348206...]*I          [+/- ...] + [-0.052049785176...]*I]
-    [         [+/- ...] + [0.0518313141967...]*I  [1.00000000000...] + [0.0519404348206...]*I]
-    sage: m0 = dop.numerical_transition_matrix([-1, -i, 1, i, -1])
-    sage: norm(m0 - mon[0]) < RBF(1e-10)
-    True
-
-    sage: m1 = dop.numerical_transition_matrix([-1, -i, 3-i, 3+1/2, 3+i, 2-i, -1])
-    sage: norm(m1 - mon[1]) < RBF(1e-10)
-    True
-
-    sage: m2 = dop.numerical_transition_matrix([-1, -3-2*i, 4-i, 3-i/2, -1])
-    sage: m3 = dop.numerical_transition_matrix([-1, -i, 5, 4+i, 3-i, -i, -1])
-    sage: m4 = dop.numerical_transition_matrix([-1, -3-i/2, 3+1/2, 3+1/2+i, 3+2*i, 3-1/2+i, 3+1/2, 3-i/2, -1])
-
-    sage: any(norm(m2 - mon[i]) < RBF(1e-10) and norm(m3 - mon[j]) < RBF(1e-10)
-    ....:                                    and norm(m4 - mon[k]) < RBF(1e-10)
-    ....:     for (i, j, k) in Permutations([2, 3, 4]))
-    True
 """
 
 # Copyright 2017, 2018, 2019 Marc Mezzarobba
@@ -203,3 +171,39 @@ def monodromy_matrices(dop, base, eps=1e-16, algorithm="connect"):
         x.seen = False
     dfs(base, [base], id_mat, polygon_base, local_monodromy_base)
     return result
+
+def _tests():
+    r"""
+    TESTS::
+
+        sage: from ore_algebra import *
+        sage: from ore_algebra.analytic.monodromy import monodromy_matrices
+        sage: Dops, x, Dx = DifferentialOperators()
+
+        sage: def norm(m):
+        ....:     return sum(c.abs()**2 for c in m.list()).sqrtpos()
+
+        sage: dop = x*(x-3)*(x-4)*(x^2 - 6*x + 10)*Dx^2 - 1
+        sage: mon = monodromy_matrices(dop, -1)
+
+        sage: mon[0]
+        [[1.00000000000...] + [-0.0519404348206...]*I          [+/- ...] + [-0.052049785176...]*I]
+        [         [+/- ...] + [0.0518313141967...]*I  [1.00000000000...] + [0.0519404348206...]*I]
+        sage: m0 = dop.numerical_transition_matrix([-1, -i, 1, i, -1])
+        sage: norm(m0 - mon[0]) < RBF(1e-10)
+        True
+
+        sage: m1 = dop.numerical_transition_matrix([-1, -i, 3-i, 3+1/2, 3+i, 2-i, -1])
+        sage: norm(m1 - mon[1]) < RBF(1e-10)
+        True
+
+        sage: m2 = dop.numerical_transition_matrix([-1, -3-2*i, 4-i, 3-i/2, -1])
+        sage: m3 = dop.numerical_transition_matrix([-1, -i, 5, 4+i, 3-i, -i, -1])
+        sage: m4 = dop.numerical_transition_matrix([-1, -3-i/2, 3+1/2, 3+1/2+i, 3+2*i, 3-1/2+i, 3+1/2, 3-i/2, -1])
+
+        sage: any(norm(m2 - mon[i]) < RBF(1e-10) and norm(m3 - mon[j]) < RBF(1e-10)
+        ....:                                    and norm(m4 - mon[k]) < RBF(1e-10)
+        ....:     for (i, j, k) in Permutations([2, 3, 4]))
+        True
+    """
+    pass
