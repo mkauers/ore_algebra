@@ -1,4 +1,14 @@
 MANIFEST
+build
 dist/
 doc/_build
 doc/generated
+src/.tags
+papers/*/*.bbl
+papers/*/*.blg
+papers/*/*.out
+papers/*/*.pdf
+papers/*/*.sagetex.*
+papers/*/*_doctest.sage
+*.c
+*.so
