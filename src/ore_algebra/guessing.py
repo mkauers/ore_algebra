@@ -167,17 +167,17 @@ def guess(data, algebra, **kwargs):
         with open(data, 'r') as f:
             data = [ K(line) for line in f ]
 
-    if (data[0].is_zero() or data[1].is_zero()) and (A.is_C() or A.is_S()):
+    if (data[0] == 0 or data[1] == 0) and (A.is_C() or A.is_S()):
         
-        if all( d.is_zero() for d in data ):
+        if all( d == 0 for d in data ):
             return A.one()
         for i in range(len(data)):
-            if not data[i].is_zero():
+            if data[i] != 0:
                 a = i
                 break
         m = None; b = ZZ(a)
         for i in range(b + 1, len(data)):
-            if not data[i].is_zero():
+            if data[i] != 0:
                 m = i - b if m is None else m.gcd(i - b)
                 b = i
                 if m.is_one():
