@@ -12,6 +12,8 @@ Analytic continuation contexts
 #
 # http://www.gnu.org/licenses/
 
+import pprint
+
 class Context(object):
 
     def __init__(self, dop=None, path=None, eps=None,

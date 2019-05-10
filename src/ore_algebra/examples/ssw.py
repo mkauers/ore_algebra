@@ -4,9 +4,9 @@ Small-step walks
 
 Examples from the paper "Hypergeometric expressions for generating functions
 of walks with small steps in the quarter plane" by Alin Bostan, Frédéric
-Chyzak, Mark van Hoeij, Manuel Kauers and Lucien Pech (European Journal of
-Combinatorics, 2017; arXiv:1606.02982 [math.CO],
-<URL: http://specfun.inria.fr/chyzak/ssw/index.html>)::
+Chyzak, Mark van Hoeij, Manuel Kauers and Lucien Pech (*European Journal of
+Combinatorics*, 2017; arXiv:1606.02982 [math.CO],
+<URL: http://specfun.inria.fr/chyzak/ssw/index.html>.
 
 For the rational functions rat[1], ..., rat[19], the task consists in computing
 a telescoper wrt Du and Dv. Interesting settings are when x and y are both set
@@ -36,11 +36,6 @@ that encode information on the asymptotics of the corresponding lattice walks::
     [ [1489.126691369...] + [...]*I             [-128.00000000000...] + [...]*I [3.9061090525420...] + [...]*I]
     [[1925.57548817...] + [-1536.00000000...]*I [768.000000000...] + [...]*I    [-124.21690469554...] + [128.000000000000...]*I]
 
-An example provided by Bruno Salvy, also related to small-step walks::
-
-    sage: ssw.aux_dop.numerical_solution(ssw.aux_ini, [0,1]) # (1.5 s), TODO: double-check result
-    [10.662510694...]
-
 TESTS::
 
     sage: for i in [2, 5, 12, 18]: # long time (1 min 40 s)
@@ -51,6 +46,11 @@ TESTS::
     ....:     for xx in [0, 1]:
     ....:         for yy in [0, 1]:
     ....:             ssw.test_ct(i, xx, yy)
+
+Plus an example provided by Bruno Salvy, also related to small-step walks::
+
+    sage: ssw.aux_dop.numerical_solution(ssw.aux_ini, [0,1]) # (1.5 s), TODO: double-check result
+    [10.662510694...]
 
 """
 

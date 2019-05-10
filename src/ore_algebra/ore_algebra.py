@@ -23,7 +23,7 @@ Ore polynomials are created using ``OreAlgebra`` objects, and most of the functi
 doing calculations with Ore polynomials is available in the methods attached to them. 
 
 For examples and further information, see the docstring of ``OreAlgebra`` below, or the 
-tutorial paper /Ore Polynomials in Sage/ by the authors. 
+tutorial paper *Ore Polynomials in Sage* by the authors. 
 
 
 AUTHOR:

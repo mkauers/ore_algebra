@@ -672,7 +672,7 @@ class MatrixRec(object):
 
     - Sk is an operator that shifts coefficient sequences wrt log(z)^k/k!
 
-    The recurrence is:
+    The recurrence reads::
 
         [ u(n-s+1)·z^n ]   [ 0 z     |   ]  [ u(n-s)·z^(n-1) ]
         [      ⋮       ]   [     ⋱   |   ]  [       ⋮        ]
@@ -685,7 +685,7 @@ class MatrixRec(object):
 
         [so that U(n) = B(n)···B(1)·U(0)]
 
-    where
+    where::
 
                [ (rec_mat/rec_den)·(pow_num/pow_den) | 0  ]
         B(n) = [ ------------------------------------+--- ]
@@ -702,7 +702,7 @@ class MatrixRec(object):
         sums_row ∈ ((K[λ][δ]/(δ^r'))[Sk]/(Sk^τ))^(1×s)
                                             ≈ (Series_sums/(δ^r',Sk^τ))^(1×s)
 
-    In the code:
+    In the code::
 
         AlgInts_rec = K₀[λ]
         AlgInts_pow = K₁

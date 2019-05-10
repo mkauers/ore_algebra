@@ -1,6 +1,12 @@
 # -*- coding: utf-8 - vim: tw=79
 r"""
 Error bounds
+
+Reference:
+
+    Marc Mezzarobba, Truncation Bounds for Differentially Finite Series. 2018.
+    *Annales Henri Lebesgue*, to appear.
+    <https://hal.archives-ouvertes.fr/hal-01817568>
 """
 
 # Copyright 2015, 2016, 2017, 2018, 2019 Marc Mezzarobba
