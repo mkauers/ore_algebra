@@ -1,4 +1,4 @@
-# cython: profile=True
+# cython: language_level=3, profile=True
 r"""
 Lower-level reimplementation of key subroutines of naive_sum
 """
