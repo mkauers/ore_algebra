@@ -1,15 +1,20 @@
 Ore algebra
 ============
 
+https://github.com/mkauers/ore_algebra/
+
 Description
 -----------
 
-A Sage implementation of Ore algebras and Ore polynomials.
+A Sage implementation of Ore algebras, Ore polynomials, and differentially
+finite functions
 
 Main features for the most common algebras include basic arithmetic and actions;
-gcrd and lclm; D-finite closure properties; natural transformations between
-related algebras; guessing; desingularization; solvers for polynomials, rational
-functions and (generalized) power series.
+gcrd and lclm; D-finite closure properties; creative telescoping; natural
+transformations between related algebras; guessing; desingularization; solvers
+for polynomials, rational functions and (generalized) power series. Univariate
+differential operators also support the numerical computation of analytic
+solutions with rigorous error bounds and related features.
 
 License
 -------
@@ -19,31 +24,50 @@ COPYING file), either version 2 or (at your option).
 
 http://www.gnu.org/licenses/
 
+Requirements
+------------
+
+Sage 8.7 or later is recommended. Some features should work with older versions.
+
 Installation
 ------------
 
-To install the development version, simply run
+To download and install the latest development version on a system where Sage
+was built from source or installed from official packages, run
 
-    sage -pip install git+https://github.com/mkauers/ore_algebra/ [--user]
+    sage -pip install [--user] git+https://github.com/mkauers/ore_algebra/
 
-The optional option `--user` allows to install the package in your home directory
-instead of the Sage installation tree.
+Alternatively, run
+
+    sage -pip install [--user] .
+
+to install from the root of a git checkout.
+
+The optional `--user` flag causes the package to be installed in your .sage
+directory instead of the Sage installation tree.
+
+If your copy of Sage comes from system packages of a Linux distribution, try
+replacing "sage -pip" by "pip" or "pip2" above.
+
+Notes:
+
+* To use ore_algebra directly from a git checkout (without installation), run
+  "sage -python setup.py build_ext --inplace from the root of the checkout", and
+  add the src/ directory to your Python sys.path.
+
+* ore_algebra contains compiled (cython) modules which are automatically built
+  as part of the installation procedure. Only some specific features depend on
+  these modules, though, and the core features should work even if they are
+  unavailable.
 
 Testing
 -------
 
-To launch the doctests simply run
-
-    sage -python setup.py test
-
-Or alternatively
+To run the test suite, install the package and run the command
 
     sage -tp --long --force-lib src/
 
-Source code
------------
-
-See https://github.com/mkauers/ore_algebra/
+at the root of the git checkout.
 
 Contact
 -------
