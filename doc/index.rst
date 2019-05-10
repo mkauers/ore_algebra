@@ -18,7 +18,7 @@ Documentation of ore_algebra
     ore_algebra.ore_operator_1_1
     ore_algebra.ore_operator_mult
 
-.. rubric:: Differentially finite functions
+.. rubric:: Differentially Finite Functions
 
 .. autosummary::
     :toctree: generated
@@ -26,7 +26,7 @@ Documentation of ore_algebra
     ore_algebra.dfinite_function
     ore_algebra.dfinite_symbolic
 
-.. rubric:: Tools
+.. rubric:: Main Other Submodules
 
 .. autosummary::
     :toctree: generated
@@ -41,7 +41,9 @@ Documentation of ore_algebra
 .. autosummary::
     :toctree: generated
 
+    ore_algebra.examples
     ore_algebra.examples.cbt
+    ore_algebra.examples.ct
     ore_algebra.examples.fcc
     ore_algebra.examples.iint
     ore_algebra.examples.periods

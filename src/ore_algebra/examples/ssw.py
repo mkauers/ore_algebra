@@ -5,8 +5,8 @@ Small-step walks
 Examples from the paper "Hypergeometric expressions for generating functions
 of walks with small steps in the quarter plane" by Alin Bostan, Frédéric
 Chyzak, Mark van Hoeij, Manuel Kauers and Lucien Pech (*European Journal of
-Combinatorics*, 2017; arXiv:1606.02982 [math.CO],
-<URL: http://specfun.inria.fr/chyzak/ssw/index.html>.
+Combinatorics*, 2017; arXiv:1606.02982 [math.CO];
+<http://specfun.inria.fr/chyzak/ssw/index.html>).
 
 For the rational functions rat[1], ..., rat[19], the task consists in computing
 a telescoper wrt Du and Dv. Interesting settings are when x and y are both set

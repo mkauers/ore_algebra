@@ -1,8 +1,5 @@
-
-"""
-generalized_series
-==================
-
+r"""
+Generalized series found in expansions at singularities
 """
 
 

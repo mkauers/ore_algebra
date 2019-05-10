@@ -2,7 +2,7 @@
 r"""
 Elementary and special functions
 
-TESTS::
+::
 
     sage: from ore_algebra.examples import stdfun
 

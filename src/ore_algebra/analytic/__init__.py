@@ -17,6 +17,7 @@ A short introduction to the features most likely to be of interest to casual
 users can be found in the paper *Rigorous Multiple-Precision Evaluation of
 D-Finite Functions in SageMath* by the author, available at
 <https://arxiv.org/abs/1607.01967>.
+See also :mod:`ore_algebra.examples` for more examples.
 
 Please note that this software is intended both for “end users” interested in
 performing symbolic-numeric computations with D-finite functions, and as a
@@ -35,6 +36,13 @@ consequence, some features may be undocumented and/or very experimental.
     ore_algebra.analytic.path
     ore_algebra.analytic.polynomial_approximation
     ore_algebra.analytic.ui
+
+.. rubric:: Additional examples
+
+.. autosummary::
+    :toctree: generated
+
+    ore_algebra.analytic.examples.misc
 
 Basic Usage
 ===========

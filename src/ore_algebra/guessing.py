@@ -1,5 +1,5 @@
 """
-Guessing
+Guessing tools
 
 TESTS::
 

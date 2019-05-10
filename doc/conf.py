@@ -44,7 +44,6 @@ release = u'0.3'
 # ones.
 extensions = [
     'sphinx.ext.autodoc',
-    'sphinx.ext.doctest',
     'sphinx.ext.mathjax',
     'sphinx.ext.autosummary',
 ]
