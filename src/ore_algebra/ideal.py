@@ -889,9 +889,10 @@ class OreLeftIdeal(Ideal_nc):
             @cached_function
             def action(p):
                 return p.derivative()
+            action_kw = {"action": action}
         else:
-            action = None
-        Ufy = lambda v: [sum(U[i][j](v[j], action=action) for j in range(len(v))) for i in range(len(U))]
+            action_kw = {}
+        Ufy = lambda v: [sum(U[i][j](v[j], **action_kw) for j in range(len(v))) for i in range(len(U))]
 
         # start fglm-like procedure
         info(1, "Initiating FGLM-like iteration...")
