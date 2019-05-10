@@ -2,7 +2,26 @@
 r"""
 Symbolic-numeric tools
 
-TODO: add general information about the subpackage here
+This module implements symbolic-numeric features such as the computation of
+values of univariate D-finite functions, and connection matrices between regular
+points of univariate differential operators.
+
+The basic features are accessible through methods of univariate differential
+operators, such as
+:meth:`~ore_algebra.ore_operator_1_1.UnivariateDifferentialOperatorOverUnivariateRing.numerical_solution`
+and
+:meth:`~ore_algebra.ore_operator_1_1.UnivariateDifferentialOperatorOverUnivariateRing.numerical_transition_matrix`.
+Only more advanced or experimental functionality requires calling this module
+directly.
+A short introduction to the features most likely to be of interest to casual
+users can be found in the paper *Rigorous Multiple-Precision Evaluation of
+D-Finite Functions in SageMath* by the author, available at
+<https://arxiv.org/abs/1607.01967>.
+
+Please note that this software is intended both for “end users” interested in
+performing symbolic-numeric computations with D-finite functions, and as a
+playground for experimenting with algorithms doing such computations. As a
+consequence, some features may be undocumented and/or very experimental.
 
 .. rubric:: Advanced API (unstable)
 
@@ -10,27 +29,12 @@ TODO: add general information about the subpackage here
     :toctree: generated
 
     ore_algebra.analytic.bounds
+    ore_algebra.analytic.context
     ore_algebra.analytic.function
     ore_algebra.analytic.monodromy
     ore_algebra.analytic.path
     ore_algebra.analytic.polynomial_approximation
     ore_algebra.analytic.ui
-
-.. rubric:: Internals
-
-.. autosummary::
-    :toctree: generated
-
-    ore_algebra.analytic.accuracy
-    ore_algebra.analytic.analytic_continuation
-    ore_algebra.analytic.binary_splitting
-    ore_algebra.analytic.differential_operator
-    ore_algebra.analytic.local_solutions
-    ore_algebra.analytic.naive_sum
-    ore_algebra.analytic.rectangular_splitting
-    ore_algebra.analytic.safe_cmp
-    ore_algebra.analytic.shiftless
-    ore_algebra.analytic.utilities
 
 Basic Usage
 ===========
@@ -213,24 +217,24 @@ Credits
 The author would like to thank the following people for comments, examples, bug
 reports, or feedback:
 
-    - Jakob Ablinger
-    - Frédéric Chyzak
-    - Manuel Kauers
-    - Christoph Koutschan
-    - Christoph Lauter
-    - Pierre Lairez
-    - Yvan Le Borgne
-    - Steve Melczer
-    - Clemens Raab
-    - Bruno Salvy
-    - Emre Sertoz
-    - Armin Straub
-    - Michael Wallner
+    Jakob Ablinger,
+    Frédéric Chyzak,
+    Manuel Kauers,
+    Christoph Koutschan,
+    Christoph Lauter,
+    Pierre Lairez,
+    Yvan Le Borgne,
+    Steve Melczer,
+    Clemens Raab,
+    Bruno Salvy,
+    Emre Sertoz,
+    Armin Straub,
+    Michael Wallner.
 
 Tests
 =====
 
-TESTS:
+TESTS::
 
     sage: import ore_algebra.analytic.polynomial_approximation as pa
 
@@ -458,6 +462,16 @@ To run the test suite of the ``ore_algebra.analytic`` subpackage, run::
 
     src$ PYTHONPATH="$PWD" sage -t ore_algebra/analytic/
 """
+
+# Copyright 2015, 2016, 2017, 2018, 2019 Marc Mezzarobba
+# Copyright 2015, 2016, 2017, 2018, 2019 Centre national de la recherche scientifique
+# Copyright 2015, 2016, 2017, 2018 Université Pierre et Marie Curie
+# Copyright 2019 Sorbonne Université
+#
+# Distributed under the terms of the GNU General Public License (GPL) either
+# version 2, or (at your option) any later version
+#
+# http://www.gnu.org/licenses/
 
 from __future__ import absolute_import
 

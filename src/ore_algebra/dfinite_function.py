@@ -1,9 +1,8 @@
 # coding: utf-8
 r"""
-dfinite_function
-================
+Differentially finite functions and sequences
 
-The dfinite_function package provides functionality for doing computations with D-finite functions and sequences.
+The dfinite_function module provides functionality for doing computations with D-finite functions and sequences.
 
 A D-finite sequence can be represented by an ore operator which annihilates the sequence (for further information
 about ore operators check the ``ore_algebra`` package), the operators singularities and a finite amount of initial values.
@@ -40,25 +39,28 @@ from __future__ import absolute_import, division, print_function
 
 import pprint
 
+from copy import copy
+from math import factorial
+from operator import pow
+
+from numpy import random
+
+from sage.arith.all import gcd
+from sage.calculus.var import var
+from sage.functions.other import floor, ceil
+from sage.matrix.constructor import matrix
+from sage.matrix.constructor import Matrix
+from sage.misc.all import prod, randint
+from sage.rings.all import ZZ, QQ, CC
+from sage.rings.ring import Algebra
+from sage.rings.semirings.non_negative_integer_semiring import NN
+from sage.structure.element import RingElement
+from sage.symbolic.operators import add_vararg, mul_vararg
+from sage.symbolic.relation import solve
+
 from .ore_algebra import OreAlgebra
 from .dfinite_symbolic import symbolic_database
 from .guessing import guess
-
-from sage.rings.ring import Algebra
-from sage.structure.element import RingElement
-from numpy import random
-from math import factorial
-from operator import pow
-from sage.symbolic.operators import add_vararg, mul_vararg
-from sage.rings.semirings.non_negative_integer_semiring import NN
-from sage.rings.integer_ring import ZZ
-from sage.rings.rational_field import QQ
-from sage.misc.prandom import randint
-from sage.calculus.var import var
-from sage.matrix.constructor import matrix
-
-from sage.all import *
-
 
 class DFiniteFunctionRing(Algebra):
     r"""
@@ -774,7 +776,7 @@ class DFiniteFunctionRing(Algebra):
 
     def change_domain(self,R):
         r"""
-        Return a copy of ``self``but with the domain `R`
+        Return a copy of ``self`` but with the domain `R`
         """
         if R != NN and R != ZZ:
             raise TypeError("domain not supported")
@@ -1062,22 +1064,21 @@ class DFiniteFunction(RingElement):
         reduction is possible ``self`` is returned.
         
         EXAMPLES::
-        
-        sage: from ore_algebra import *
-        sage: A = OreAlgebra(QQ['n'],'Sn')
-        sage: D1 = DFiniteFunctionRing(A)
-        sage: UnivariateDFiniteSequence(D1,"((n-3)*(n-5))*(Sn^2 - Sn - 1)",{0:0,1:1,5:5,7:13})
-        Univariate D-finite sequence defined by the annihilating operator (n^2 - 8*n + 15)*Sn^2 + (-n^2 + 8*n - 15)*Sn - n^2 + 8*n - 15 and the initial conditions {0: 0, 1: 1, 5: 5, 7: 13}
-        sage: _.reduce_factors()
-        Univariate D-finite sequence defined by the annihilating operator Sn^2 - Sn - 1 and the initial conditions {0: 0, 1: 1}
-            
-        sage: B = OreAlgebra(QQ[x],'Dx')
-        sage: D2 = DFiniteFunctionRing(B)
-        sage: D2(sin(x)^2*cos(x)^2)
-        Univariate D-finite function defined by the annihilating operator Dx^5 + 20*Dx^3 + 64*Dx and the coefficient sequence defined by (n^14 + 10*n^13 + 5*n^12 - 250*n^11 - 753*n^10 + 1230*n^9 + 8015*n^8 + 5450*n^7 - 21572*n^6 - 35240*n^5 + 480*n^4 + 28800*n^3 + 13824*n^2)*Sn^4 + (20*n^12 + 60*n^11 - 560*n^10 - 1800*n^9 + 4260*n^8 + 16380*n^7 - 5480*n^6 - 49200*n^5 - 21280*n^4 + 34560*n^3 + 23040*n^2)*Sn^2 + 64*n^10 - 1920*n^8 + 17472*n^6 - 52480*n^4 + 36864*n^2 and {0: 0, 1: 0, 2: 1, 3: 0, 4: -4/3, 5: 0, 6: 32/45, 7: 0, 8: -64/315}
-        sage: _.reduce_factors()
-        Univariate D-finite function defined by the annihilating operator Dx^5 + 20*Dx^3 + 64*Dx and the coefficient sequence defined by (n^9 + 20*n^8 + 170*n^7 + 800*n^6 + 2273*n^5 + 3980*n^4 + 4180*n^3 + 2400*n^2 + 576*n)*Sn^4 + (20*n^7 + 260*n^6 + 1340*n^5 + 3500*n^4 + 4880*n^3 + 3440*n^2 + 960*n)*Sn^2 + 64*n^5 + 640*n^4 + 2240*n^3 + 3200*n^2 + 1536*n and {0: 0, 1: 0, 2: 1, 3: 0, 4: -4/3}
-        
+
+            sage: from ore_algebra import *
+            sage: A = OreAlgebra(QQ['n'],'Sn')
+            sage: D1 = DFiniteFunctionRing(A)
+            sage: UnivariateDFiniteSequence(D1,"((n-3)*(n-5))*(Sn^2 - Sn - 1)",{0:0,1:1,5:5,7:13})
+            Univariate D-finite sequence defined by the annihilating operator (n^2 - 8*n + 15)*Sn^2 + (-n^2 + 8*n - 15)*Sn - n^2 + 8*n - 15 and the initial conditions {0: 0, 1: 1, 5: 5, 7: 13}
+            sage: _.reduce_factors()
+            Univariate D-finite sequence defined by the annihilating operator Sn^2 - Sn - 1 and the initial conditions {0: 0, 1: 1}
+
+            sage: B = OreAlgebra(QQ[x],'Dx')
+            sage: D2 = DFiniteFunctionRing(B)
+            sage: D2(sin(x)^2*cos(x)^2)
+            Univariate D-finite function defined by the annihilating operator Dx^5 + 20*Dx^3 + 64*Dx and the coefficient sequence defined by (n^14 + 10*n^13 + 5*n^12 - 250*n^11 - 753*n^10 + 1230*n^9 + 8015*n^8 + 5450*n^7 - 21572*n^6 - 35240*n^5 + 480*n^4 + 28800*n^3 + 13824*n^2)*Sn^4 + (20*n^12 + 60*n^11 - 560*n^10 - 1800*n^9 + 4260*n^8 + 16380*n^7 - 5480*n^6 - 49200*n^5 - 21280*n^4 + 34560*n^3 + 23040*n^2)*Sn^2 + 64*n^10 - 1920*n^8 + 17472*n^6 - 52480*n^4 + 36864*n^2 and {0: 0, 1: 0, 2: 1, 3: 0, 4: -4/3, 5: 0, 6: 32/45, 7: 0, 8: -64/315}
+            sage: _.reduce_factors()
+            Univariate D-finite function defined by the annihilating operator Dx^5 + 20*Dx^3 + 64*Dx and the coefficient sequence defined by (n^9 + 20*n^8 + 170*n^7 + 800*n^6 + 2273*n^5 + 3980*n^4 + 4180*n^3 + 2400*n^2 + 576*n)*Sn^4 + (20*n^7 + 260*n^6 + 1340*n^5 + 3500*n^4 + 4880*n^3 + 3440*n^2 + 960*n)*Sn^2 + 64*n^5 + 640*n^4 + 2240*n^3 + 3200*n^2 + 1536*n and {0: 0, 1: 0, 2: 1, 3: 0, 4: -4/3}
         """
         A = self.parent().ore_algebra()
         n = A.is_S()
@@ -1217,15 +1218,15 @@ class DFiniteFunction(RingElement):
         
         EXAMPLES::
         
-        sage: from ore_algebra import *
-        sage: A = OreAlgebra(QQ['n'],'Sn')
-        sage: D = DFiniteFunctionRing(A,ZZ)
-        sage: a = UnivariateDFiniteSequence(D,"(n-3)*(n+2)*Sn^3 + n^2*Sn^2 - (n-1)*(n+5)*Sn", {0:0,1:1,2:2,6:1,-4:1})
-        sage: a.critical_points()
-        {1, 2, 3, 4, 6, 7, 8, 9}
-        sage: a.critical_points(2,True)
-        {-6, -5, -4}
-        
+            sage: from ore_algebra import *
+            sage: A = OreAlgebra(QQ['n'],'Sn')
+            sage: D = DFiniteFunctionRing(A,ZZ)
+            sage: a = UnivariateDFiniteSequence(D,"(n-3)*(n+2)*Sn^3 + n^2*Sn^2 - (n-1)*(n+5)*Sn", {0:0,1:1,2:2,6:1,-4:1})
+            sage: a.critical_points()
+            {1, 2, 3, 4, 6, 7, 8, 9}
+            sage: a.critical_points(2,True)
+            {-6, -5, -4}
+            
         """
         if order == None:
             ord = self.__ann.order()
@@ -1312,9 +1313,9 @@ class DFiniteFunction(RingElement):
     def is_unit(self):
         r"""
         Return ``True`` if ``self`` is a unit.
-        This is the case if the annihialting operator of ``self`` has order 1. Otherwise we can not decide whether
-        ``self``is a unit or not.
-        
+
+        This is the case if the annihialting operator of ``self`` has order 1.
+        Otherwise we can not decide whether ``self`` is a unit or not.
         """
         if self.__ann.order() == 1:
             return True
@@ -2597,11 +2598,11 @@ class UnivariateDFiniteSequence(DFiniteFunction):
                 if len(r) == m:
                     r.append(self._initial_values[m])
                 else:
-                    r2 = self.ann().to_list( r[len(r)-ord:], m-len(r)+ord, -start+len(r)-ord,true)
+                    r2 = self.ann().to_list( r[len(r)-ord:], m-len(r)+ord, -start+len(r)-ord,True)
                     r = r + r2[ord:] + [self._initial_values[m]]
                 s.remove(m)
             
-            r2 = self.ann().to_list( r[len(r)-ord:], n-len(r)+ord, -start+len(r)-ord,true)
+            r2 = self.ann().to_list( r[len(r)-ord:], n-len(r)+ord, -start+len(r)-ord,True)
             r = r + r2[ord:]
 
             return r[start:]

@@ -1,27 +1,25 @@
+from distutils.core import setup
+from distutils.cmd import Command
+from Cython.Build import cythonize
 
 try:
     import sage.env
 except ImportError:
-    raise ValueError("this package should be installed inside Sage")
-
-from distutils.core import setup
-from distutils.cmd import Command
-from Cython.Build import cythonize
+    raise ValueError("this package requires SageMath")
 
 class TestCommand(Command):
     user_options = []
 
     def initialize_options(self):
         pass
+
     def finalize_options(self):
         pass
 
     def run(self):
         import subprocess
-
-        if subprocess.call(['sage', '-tp', '--long', '--force-lib', 'src/']):
+        if subprocess.call(['sage', '-tp', '--force-lib', 'src/']):
             raise SystemExit("Doctest failures")
-
 
 setup(
     name = "ore_algebra",
@@ -29,9 +27,14 @@ setup(
     author = "Manuel Kauers, Maximilian Jaroschek, Fredrik Johansson",
     author_email = "manuel@kauers.de",
     license = "GPL",
-    packages = ["ore_algebra", "ore_algebra.analytic", "ore_algebra.analytic.examples", "ore_algebra.examples"],
+    packages = [
+        "ore_algebra",
+        "ore_algebra.analytic",
+        "ore_algebra.analytic.examples",
+        "ore_algebra.examples",
+    ],
     package_dir = {'': 'src/'},
     ext_modules = cythonize("src/ore_algebra/analytic/*.pyx"),
-    include_dirs=sage.env.sage_include_directories(),
+    include_dirs = sage.env.sage_include_directories(),
     cmdclass = {'test': TestCommand}
     )

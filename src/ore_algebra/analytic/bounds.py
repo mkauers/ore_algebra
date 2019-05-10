@@ -1,7 +1,23 @@
 # -*- coding: utf-8 - vim: tw=79
 r"""
 Error bounds
+
+Reference:
+
+    Marc Mezzarobba, Truncation Bounds for Differentially Finite Series. 2018.
+    *Annales Henri Lebesgue*, to appear.
+    <https://hal.archives-ouvertes.fr/hal-01817568>
 """
+
+# Copyright 2015, 2016, 2017, 2018, 2019 Marc Mezzarobba
+# Copyright 2015, 2016, 2017, 2018, 2019 Centre national de la recherche scientifique
+# Copyright 2015, 2016, 2017, 2018 Université Pierre et Marie Curie
+# Copyright 2019 Sorbonne Université
+#
+# Distributed under the terms of the GNU General Public License (GPL) either
+# version 2, or (at your option) any later version
+#
+# http://www.gnu.org/licenses/
 
 from __future__ import division, print_function
 from six.moves import range

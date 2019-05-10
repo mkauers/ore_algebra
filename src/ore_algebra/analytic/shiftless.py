@@ -3,6 +3,13 @@ r"""
 Shiftless decomposition
 """
 
+# Copyright 2016 Marc Mezzarobba
+#
+# Distributed under the terms of the GNU General Public License (GPL) either
+# version 2, or (at your option) any later version
+#
+# http://www.gnu.org/licenses/
+
 # Most of the functions in this file should be upstreamed, as methods of the
 # indicated classes.
 

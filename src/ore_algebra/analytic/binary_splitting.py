@@ -210,6 +210,16 @@ Miscellaneous examples::
     sage: logger.setLevel(logging.WARNING)
 """
 
+# Copyright 2015, 2016, 2017, 2018, 2019 Marc Mezzarobba
+# Copyright 2015, 2016, 2017, 2018, 2019 Centre national de la recherche scientifique
+# Copyright 2015, 2016, 2017, 2018 Université Pierre et Marie Curie
+# Copyright 2019 Sorbonne Université
+#
+# Distributed under the terms of the GNU General Public License (GPL) either
+# version 2, or (at your option) any later version
+#
+# http://www.gnu.org/licenses/
+
 from __future__ import print_function
 from six.moves import range
 
@@ -662,7 +672,7 @@ class MatrixRec(object):
 
     - Sk is an operator that shifts coefficient sequences wrt log(z)^k/k!
 
-    The recurrence is:
+    The recurrence reads::
 
         [ u(n-s+1)·z^n ]   [ 0 z     |   ]  [ u(n-s)·z^(n-1) ]
         [      ⋮       ]   [     ⋱   |   ]  [       ⋮        ]
@@ -675,7 +685,7 @@ class MatrixRec(object):
 
         [so that U(n) = B(n)···B(1)·U(0)]
 
-    where
+    where::
 
                [ (rec_mat/rec_den)·(pow_num/pow_den) | 0  ]
         B(n) = [ ------------------------------------+--- ]
@@ -692,7 +702,7 @@ class MatrixRec(object):
         sums_row ∈ ((K[λ][δ]/(δ^r'))[Sk]/(Sk^τ))^(1×s)
                                             ≈ (Series_sums/(δ^r',Sk^τ))^(1×s)
 
-    In the code:
+    In the code::
 
         AlgInts_rec = K₀[λ]
         AlgInts_pow = K₁
