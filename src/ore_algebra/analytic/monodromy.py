@@ -35,6 +35,16 @@ TESTS::
     True
 """
 
+# Copyright 2017, 2018, 2019 Marc Mezzarobba
+# Copyright 2017, 2018, 2019 Centre national de la recherche scientifique
+# Copyright 2017, 2018 Université Pierre et Marie Curie
+# Copyright 2019 Sorbonne Université
+#
+# Distributed under the terms of the GNU General Public License (GPL) either
+# version 2, or (at your option) any later version
+#
+# http://www.gnu.org/licenses/
+
 import logging
 
 import sage.matrix.special as matrix

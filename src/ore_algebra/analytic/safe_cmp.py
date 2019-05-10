@@ -3,6 +3,15 @@ r"""
 Safe comparisons
 """
 
+# Copyright 2015 Marc Mezzarobba
+# Copyright 2015 Centre national de la recherche scientifique
+# Copyright 2015 Université Pierre et Marie Curie
+#
+# Distributed under the terms of the GNU General Public License (GPL) either
+# version 2, or (at your option) any later version
+#
+# http://www.gnu.org/licenses/
+
 __all__ = ["safe_lt", "safe_le", "safe_gt", "safe_ge", "safe_eq", "safe_ne"]
 
 import logging

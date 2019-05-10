@@ -3,6 +3,15 @@ r"""
 Lower-level reimplementation of key subroutines of binary_splitting
 """
 
+# Copyright 2018 Marc Mezzarobba
+# Copyright 2018 Centre national de la recherche scientifique
+# Copyright 2018 Université Pierre et Marie Curie
+#
+# Distributed under the terms of the GNU General Public License (GPL) either
+# version 2, or (at your option) any later version
+#
+# http://www.gnu.org/licenses/
+
 from __future__ import print_function
 
 from sage.libs.arb.types cimport *

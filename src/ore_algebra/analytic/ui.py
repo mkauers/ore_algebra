@@ -4,6 +4,15 @@ Some convenience functions for features not yet easily accessible from methods
 of differential operators.
 """
 
+# Copyright 2015, 2016, 2017, 2018 Marc Mezzarobba
+# Copyright 2015, 2016, 2017, 2018 Centre national de la recherche scientifique
+# Copyright 2015, 2016, 2017, 2018 Université Pierre et Marie Curie
+#
+# Distributed under the terms of the GNU General Public License (GPL) either
+# version 2, or (at your option) any later version
+#
+# http://www.gnu.org/licenses/
+
 from ..ore_algebra import DifferentialOperators
 from . import analytic_continuation as ancont
 from . import polynomial_approximation as polapprox

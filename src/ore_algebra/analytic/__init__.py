@@ -459,6 +459,16 @@ To run the test suite of the ``ore_algebra.analytic`` subpackage, run::
     src$ PYTHONPATH="$PWD" sage -t ore_algebra/analytic/
 """
 
+# Copyright 2015, 2016, 2017, 2018, 2019 Marc Mezzarobba
+# Copyright 2015, 2016, 2017, 2018, 2019 Centre national de la recherche scientifique
+# Copyright 2015, 2016, 2017, 2018 Université Pierre et Marie Curie
+# Copyright 2019 Sorbonne Université
+#
+# Distributed under the terms of the GNU General Public License (GPL) either
+# version 2, or (at your option) any later version
+#
+# http://www.gnu.org/licenses/
+
 from __future__ import absolute_import
 
 from . import analytic_continuation as ancont
