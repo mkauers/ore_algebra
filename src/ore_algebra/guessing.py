@@ -829,6 +829,11 @@ def _guess_via_gcrd(data, A, **kwargs):
                 path[i] = None                    
     path = [p for p in path if p is not None]
 
+    if 'max_path_length' in kwargs:
+        b = kwargs['max_path_length']
+        if b > len(path):
+            path = path[:b]
+    
     info(2, "Going through a path with " + str(len(path)) + " points")
 
     # search equation
