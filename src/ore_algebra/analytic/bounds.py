@@ -22,7 +22,7 @@ Reference:
 from __future__ import division, print_function
 from six.moves import range
 
-import collections, itertools, logging, warnings
+import collections, itertools, logging, sys, warnings
 
 from sage.arith.srange import srange
 from sage.misc.cachefunc import cached_function, cached_method
@@ -988,12 +988,25 @@ class RatSeqBound(object):
         - root ranges over a subset of the roots of den;
         - mult is the multiplicity of root in den;
         - n_min is an integer s.t. |1-root/n| is nondecreasing for n ≥ nmin;
-        - global_lbound is a real (ball) s.t. |1-root/n| ≥ global_lbound for
-          all n ∈ ⟦1,∞) ∖ exn (in particular, for n < n_min).
+        - global_lbound is a real (ball) s.t. |1-root/n|**mult ≥ global_lbound
+          for all n ∈ ⟦1,∞) ∖ exn (in particular, for n < n_min).
 
         Often (but not always), all integer roots of den will belong to the
         exceptional set, and in this case the returned global_lbound will be
         strictly positive.
+
+        TESTS::
+
+            sage: from ore_algebra.analytic.bounds import RatSeqBound
+            sage: Pols.<n> = QQ[]
+            sage: num = -2*n^9 - n^8 + 2*n^6 - 16*n^5 - 1/8*n^3 - n^2 - 11*n - 3/4
+            sage: den = (n^13 - 12727/82*n^12 + 14847/656*n^11 + 1865161/1312
+            ....: *n^10 + 1678935/2624*n^9 - 14402125/5248*n^8 - 7555021/5248*
+            ....: n^7 + 2333839/1312*n^6 + 612159/656*n^5 - 1590097/5248*n^4 -
+            ....: 830505/5248*n^3 + 5375/2624*n^2 + 795/656*n)
+            sage: exns = {-1: 1}
+            sage: bnd = RatSeqBound([num], den, exns)
+            sage: bnd._test()
         """
         den_data = []
         for root, mult in _complex_roots(self.den):
@@ -1003,27 +1016,31 @@ class RatSeqBound(object):
                 continue
             # Otherwise, it first decreases to its minimum (which may be 0 if α
             # is an integer), then increases to 1. We compute the minimum and a
-            # value of n after which the sequence is nondecreasing. The
-            # interval re may contain zero, but it is okay to replace it by an
-            # upper bound since the (lower bound on the) distance to 1
-            # decreases when re increases.
-            crit_n = root.abs()**2/re.above_abs()
-            ns = srange(crit_n.lower().floor(), crit_n.upper().ceil() + 1)
-            n_min = ns[-1]
-            # We skip exceptional indices among the candidates in the
-            # computation of the global lower bound, and consider the adjacent
-            # integers above and below instead. In particular, when the current
-            # root is equal to an exceptional index, the global minimum over ℕ
-            # is zero, but we want a nonzero lower bound over ℕ ∖ exn.
-            # There can be several consecutive exceptional indices (this is
-            # even quite typical).
-            while ns[-1] in self.exn:
-                ns.append(ns[-1] + 1) # append to avoid overwriting ns[0]
-            while ns[0] in self.exn:
-                ns[0] -= 1
-            global_lbound = IR.one().min(*(
-                    (IC.one() - root/n).abs()
-                    for n in ns if n >= 1 and not n in self.exn))
+            # value of n after which the sequence is nondecreasing.
+            crit_n = root.abs()**2/re
+            if crit_n.diameter() > 16:
+                # This includes the case where re contains zero.
+                n_min = sys.maxsize # infinity
+                # Lower bound valid for all real n > 0, i.e., not taking
+                # account the discrete effects.
+                global_lbound = (root.imag()/root.abs()).below_abs()
+            else:
+                ns = srange(crit_n.lower().floor(), crit_n.upper().ceil() + 1)
+                n_min = ns[-1]
+                # We skip exceptional indices among the candidates in the
+                # computation of the global lower bound, and consider the
+                # adjacent integers above and below instead. In particular,
+                # when the current root is equal to an exceptional index, the
+                # global minimum over ℕ is zero, but we want a nonzero lower
+                # bound over ℕ ∖ exn. There can be several consecutive
+                # exceptional indices (this is even quite typical).
+                while ns[-1] in self.exn:
+                    ns.append(ns[-1] + 1) # append to avoid overwriting ns[0]
+                while ns[0] in self.exn:
+                    ns[0] -= 1
+                global_lbound = IR.one().min(*(
+                        (IC.one() - root/n).abs()
+                        for n in ns if n >= 1 and not n in self.exn))
             global_lbound = global_lbound.below_abs()**mult # point ball
             den_data.append((root, mult, n_min, global_lbound))
         return den_data
