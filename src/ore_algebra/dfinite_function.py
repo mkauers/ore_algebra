@@ -47,7 +47,7 @@ from numpy import random
 
 from sage.arith.all import gcd
 from sage.calculus.var import var
-from sage.functions.other import floor, ceil
+from sage.functions.other import floor, ceil, binomial
 from sage.matrix.constructor import matrix
 from sage.matrix.constructor import Matrix
 from sage.misc.all import prod, randint
