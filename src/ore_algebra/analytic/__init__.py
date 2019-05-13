@@ -162,7 +162,7 @@ expansion of Apéry numbers (compare M. D. Hirschhorn, Estimating the Apéry
 numbers, *Fibonacci Quart.* 50, 2012, 129--131), computed as a connection
 constant::
 
-    sage: Dops, z, Dz = DifferentialOperators(QQ, 'z')
+    sage: _, z, Dz = DifferentialOperators(QQ, 'z')
     sage: dop = (z^2*(z^2-34*z+1)*Dz^3 + 3*z*(2*z^2-51*z+1)*Dz^2
     ....:       + (7*z^2-112*z+1)*Dz + (z-5))
     sage: roots = dop.leading_coefficient().roots(AA)
@@ -245,6 +245,67 @@ Tests
 TESTS::
 
     sage: import ore_algebra.analytic.polynomial_approximation as pa
+
+::
+
+    sage: Dop(x).numerical_solution([], [0, 1])
+    0
+    sage: (Dx - 1).numerical_solution([42], [1])
+    42.000000000000000
+    sage: Dx.numerical_solution([1], [0, 1], 1e-10).parent()
+    Real ball field with 3... precision
+
+    sage: logger = logging.getLogger('ore_algebra.analytic.binary_splitting')
+    sage: logger.setLevel(logging.INFO)
+    sage: (Dx - 1).numerical_solution([1], [0, i + pi], algorithm="binsplit")
+    INFO:ore_algebra.analytic.binary_splitting:...
+    [12.5029695888765...] + [19.4722214188416...]*I
+    sage: logger.setLevel(logging.WARNING)
+
+    sage: (Dx^2 + 1).numerical_solution(vector([1, 0]), [0, 1])
+    [0.540302305868139...]
+    sage: (Dx^2 + 1).numerical_solution(column_matrix([0, 1]), [0, 1])
+    [0.841470984807896...]
+    sage: (Dx^2 + 1).numerical_solution(range(2), [0, 1])
+    [0.841470984807896...]
+
+    sage: _, y, Dy = DifferentialOperators(QQ, 'y')
+    sage: (Dx^2 - x).numerical_solution(ini, [0, 2], post_transform=Dy)
+    Traceback (most recent call last):
+    ...
+    TypeError: ...
+
+    sage: dop = x*Dx^3 + 2*Dx^2 + x*Dx
+    sage: ini = [1, CBF(euler_gamma), 0] # Cosine integral
+    sage: dop.numerical_solution(ini, path=[0, sqrt(2)], post_transform=Dx^10)
+    [-11340.0278985950...]
+
+::
+
+    sage: (Dx^2 - 1).numerical_transition_matrix([1, 1])
+    [1.0000000000000000                  0]
+    [                 0 1.0000000000000000]
+    sage: Dop(x).numerical_transition_matrix([0, 1])
+    []
+    sage: _, y, Dy = DifferentialOperators(QuadraticField(-2))
+    sage: Dy.numerical_transition_matrix([0]).parent()
+    Full MatrixSpace of 1 by 1 dense matrices over Complex ball field...
+
+    sage: (x^2*Dx + 1).numerical_solution([1], [-1, 0])
+    Traceback (most recent call last):
+    ...
+    NotImplementedError: analytic continuation through irregular
+    singular points is not supported
+
+    sage: import logging; logging.basicConfig()
+    sage: logger = logging.getLogger('ore_algebra.analytic.binary_splitting')
+    sage: logger.setLevel(logging.INFO)
+    sage: dop = (x^2 + 1)*Dx^2 + 2*x*Dx
+    sage: dop.numerical_transition_matrix([0,1], algorithm="binsplit")
+    INFO:ore_algebra.analytic.binary_splitting:...
+    [ [1.0000000000000...] [0.785398163397448...]]
+    [            [+/- ...] [0.500000000000000...]]
+    sage: logger.setLevel(logging.WARNING)
 
 Some corner cases::
 

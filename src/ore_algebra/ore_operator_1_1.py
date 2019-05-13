@@ -2271,9 +2271,9 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
 
         * point - Point where the local basis is to be computed
 
-        * order (optional) - Number of terms to compute, **starting from each
+        * order (optional) - Number of terms to compute, *starting from each
           “leftmost” valuation of a group of solutions with valuations differing by
-          integers**. (Thus, the absolute truncation order will be the same for all
+          integers*. (Thus, the absolute truncation order will be the same for all
           solutions in such a group, with some solutions having more actual
           coefficients computed that others.)
 
@@ -2282,7 +2282,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
           terms appear if logarithms are involved at all in that basis. The
           corresponding order may be very large in some cases.
 
-        * ring (optional) - Ring in which to coerce the coefficients of the
+        * ring (optional) - Ring into which to coerce the coefficients of the
           expansion
 
         .. seealso::
@@ -2414,15 +2414,15 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
 
         OUTPUT:
 
-        A real or complex ball enclosing the value at `z_n` of the solution `y`
+        A real or complex ball *enclosing* the value at `z_n` of the solution `y`
         defined in the neighborhood of `z_0` by the initial values ``ini`` and
         extended by analytic continuation along ``path``.
 
         When `z_0` is an ordinary point, the initial values are defined as the
         first `r` coefficients of the power series expansion at `z_0` of the
-        desired solution `f`. In other words, ``ini`` should contain
+        desired solution `f`. In other words, ``ini`` must be equal to
 
-        .. math:: `f(z_0), f'(z_0), f''(z_0)/2, \dots, f^{(r-1)}(z_0)/(r-1)!`.
+        .. math:: [f(z_0), f'(z_0), f''(z_0)/2, \dots, f^{(r-1)}(z_0)/(r-1)!].
 
         Generalized initial conditions at regular singular points are also
         supported. If `z_0` is a regular point, the entries of ``ini`` are
@@ -2434,7 +2434,8 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         The accuracy parameter ``eps`` is used as an indication of the
         *absolute* error the code should aim for. The diameter of the result
         will typically be of the order of magnitude of ``eps``, but this is not
-        guaranteed to be the case.
+        guaranteed to be the case. (It is a bug, however, if the returned ball
+        does not contain the exact result.)
 
         See :mod:`ore_algebra.analytic` for more information.
 
@@ -2454,7 +2455,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             sage: (Dx - 1).numerical_solution([1], [0, i + pi])
             [12.5029695888765...] + [19.4722214188416...]*I
 
-        Here, we use a more complex analytic continuation path in order to
+        Here, we use a more complicated analytic continuation path in order to
         evaluate the branch of the complex arctangent function obtained by
         turning around its singularity at `i` once::
 
@@ -2533,41 +2534,6 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             Traceback (most recent call last):
             ...
             TypeError: unexpected value for point: 'a'
-
-        TESTS::
-
-            sage: Dops(x).numerical_solution([], [0, 1])
-            0
-            sage: (Dx - 1).numerical_solution([42], [1])
-            42.000000000000000
-            sage: Dx.numerical_solution([1], [0, 1], 1e-10).parent()
-            Real ball field with 3... precision
-
-            sage: import logging; logging.basicConfig()
-            sage: logger = logging.getLogger('ore_algebra.analytic.binary_splitting')
-            sage: logger.setLevel(logging.INFO)
-            sage: (Dx - 1).numerical_solution([1], [0, i + pi], algorithm="binsplit")
-            INFO:ore_algebra.analytic.binary_splitting:...
-            [12.5029695888765...] + [19.4722214188416...]*I
-            sage: logger.setLevel(logging.WARNING)
-
-            sage: (Dx^2 + 1).numerical_solution(vector([1, 0]), [0, 1])
-            [0.540302305868139...]
-            sage: (Dx^2 + 1).numerical_solution(column_matrix([0, 1]), [0, 1])
-            [0.841470984807896...]
-            sage: (Dx^2 + 1).numerical_solution(range(2), [0, 1])
-            [0.841470984807896...]
-
-            sage: _, y, Dy = DifferentialOperators(QQ, 'y')
-            sage: (Dx^2 - x).numerical_solution(ini, [0, 2], post_transform=Dy)
-            Traceback (most recent call last):
-            ...
-            TypeError: ...
-
-            sage: dop = x*Dx^3 + 2*Dx^2 + x*Dx
-            sage: ini = [1, CBF(euler_gamma), 0] # Cosine integral
-            sage: dop.numerical_solution(ini, path=[0, sqrt(2)], post_transform=Dx^10)
-            [-11340.0278985950...]
         """
         from .analytic import analytic_continuation as ancont, local_solutions
         from .analytic.differential_operator import DifferentialOperator
@@ -2606,23 +2572,24 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         OUTPUT:
 
         When ``self`` is an operator of order `r`, this method returns an `r×r`
-        matrix of real or complex balls. The returned matrix sends a vector of
+        matrix of real or complex balls. The returned matrix maps a vector of
         “initial values at `z_0`” (i.e., the coefficients of the decomposition
         of a solution in a certain canonical local basis at `z_0`) to “initial
-        values at `z_n`” that define the same solution, analytically continued
-        along ``path``.
+        values at `z_n`” that define the same solution, extended by analytic
+        continuation along the path ``path``.
 
-        These “initial values” are the coefficients of the monomials returned by
+        The “initial values” are the coefficients of the monomials returned by
         :meth:`local_basis_monomials` in the local logarithmic power series
         expansions of the solution at the corresponding point. When `z_i` is an
         ordinary point, the corresponding vector of initial values is simply
 
-        .. math:: `[f(z_i), f'(z_i), f''(z_i)/2, \dots, f^{(r-1)}(z_i)/(r-1)!]`.
+        .. math:: [f(z_i), f'(z_i), f''(z_i)/2, \dots, f^{(r-1)}(z_i)/(r-1)!].
 
         The accuracy parameter ``eps`` is used as an indication of the
-        *absolute* error the code should aim for. The diameter of each entry of
-        the result will typically be of the order of magnitude of ``eps``, but
-        this is not guaranteed to be the case.
+        *absolute* error that the code should aim for. The diameter of each
+        entry of the result will typically be of the order of magnitude of
+        ``eps``, but this is not guaranteed to be the case. (It is a bug,
+        however, if the returned ball does not contain the exact result.)
 
         See :mod:`ore_algebra.analytic` for more information.
 
@@ -2704,33 +2671,6 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             Traceback (most recent call last):
             ...
             ValueError: operator must be nonzero
-
-        TESTS::
-
-            sage: (Dx^2 - 1).numerical_transition_matrix([1, 1])
-            [1.0000000000000000                  0]
-            [                 0 1.0000000000000000]
-            sage: Dops(x).numerical_transition_matrix([0, 1])
-            []
-            sage: _, y, Dy = DifferentialOperators(QuadraticField(-2))
-            sage: Dy.numerical_transition_matrix([0]).parent()
-            Full MatrixSpace of 1 by 1 dense matrices over Complex ball field...
-
-            sage: (x^2*Dx + 1).numerical_solution([1], [-1, 0])
-            Traceback (most recent call last):
-            ...
-            NotImplementedError: analytic continuation through irregular
-            singular points is not supported
-
-            sage: import logging; logging.basicConfig()
-            sage: logger = logging.getLogger('ore_algebra.analytic.binary_splitting')
-            sage: logger.setLevel(logging.INFO)
-            sage: dop = (x^2 + 1)*Dx^2 + 2*x*Dx
-            sage: dop.numerical_transition_matrix([0,1], algorithm="binsplit")
-            INFO:ore_algebra.analytic.binary_splitting:...
-            [ [1.0000000000000...] [0.785398163397448...]]
-            [            [+/- ...] [0.500000000000000...]]
-            sage: logger.setLevel(logging.WARNING)
         """
         from .analytic import analytic_continuation as ancont, local_solutions
         from .analytic.differential_operator import DifferentialOperator
