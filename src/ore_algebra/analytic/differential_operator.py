@@ -173,7 +173,7 @@ class PlainDifferentialOperator(UnivariateDifferentialOperatorOverUnivariateRing
                 raise CoercionException
             gen1 = NF.coerce(gen)
             pt1 = NF.coerce(pt)
-        except CoercionException:
+        except (CoercionException, TypeError):
             NF, (gen1, pt1) = as_embedded_number_field_elements([gen,pt])
         hom = Scalars.hom([gen1], codomain=NF)
         Dops1 = OreAlgebra(Pols.change_ring(NF),

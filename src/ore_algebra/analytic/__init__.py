@@ -512,6 +512,9 @@ Handling of algebraic points::
     sage: (((x-i)*Dx)^2+1-x).numerical_transition_matrix([i, 2*i])
     [ [2.582900...] + [-2.3669708...]*I [0.13647705...] + [0.1829854...]*I]
     [[-0.831495...] + [5.21969896...]*I [0.30502246...] + [0.1440307...]*I]
+    sage: ((x*Dx)^2 + 1 - x*i).numerical_transition_matrix([0,i])
+    [ [3.75401556...] + [-1.58459278...]*I [0.16222572...] + [0.06847646...]*I]
+    [ [-5.01978846...] + [2.71131400...]*I  [0.21692472...] + [0.11716650...]*I]
 
 This used to yield a very coarse enclosure with some earlier versions::
 
