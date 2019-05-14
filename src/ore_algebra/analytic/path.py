@@ -427,7 +427,7 @@ class EvaluationPoint(object):
 
     def jet(self, Intervals):
         base_ring = (Intervals if self.is_numeric
-                     else pushout(self.pt.parent(), Intervals))
+                     else mypushout(self.pt.parent(), Intervals))
         Pol = PolynomialRing(base_ring, 'delta')
         return Pol([self.pt, 1]).truncate(self.jet_order)
 

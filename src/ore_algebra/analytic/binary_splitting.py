@@ -116,8 +116,7 @@ Whittaker functions with irrational exponents::
     [[-3.829367993175840...] + [+/-...]*I  [7.857756823216...] + [+/-...]*I]
     [[-1.135875563239369...] + [+/-...]*I  [1.426170676718...] + [+/-...]*I]
 
-Various mixes of algebraic exponents and evaluation points (TODO: add more
-complicated combinations, after improving the code...)::
+Various mixes of algebraic exponents and evaluation points::
 
     sage: ((x*Dx)^3-2-x).numerical_transition_matrix([0,1], 1e-5, algorithm="binsplit")
     [ [0.75335...] + [-0.09777...]*I  [0.75335...] + [0.09777...]*I  [1.1080...] + [+/- ...]*I]
@@ -145,6 +144,9 @@ complicated combinations, after improving the code...)::
     sage: (((x-i)*Dx)^2+1-x).numerical_transition_matrix([i, sqrt(2)], algorithm="binsplit")
     [ [0.69261048...] + [0.16794895...]*I  [2.70326173...] + [-0.78385034...]*I]
     [[0.2516164...] + [-0.10376355...]*I   [0.68776459...] + [1.07708951...]*I]
+
+    sage: (Dx - i).numerical_solution([1], [0, sqrt(2)], algorithm="binsplit")
+    [0.1559436947653...] + [0.9877659459927...]*I
 
 An interesting “real-world” example, where one of the local exponents is
 irrational, but in the same extension as the singularity itself::
@@ -240,7 +242,6 @@ import sage.rings.polynomial.polynomial_ring as polyring
 import sage.rings.polynomial.polynomial_ring_constructor as polyringconstr
 
 from sage.arith.all import gcd
-from sage.categories.pushout import pushout
 from sage.matrix.constructor import matrix
 from sage.matrix.matrix_space import MatrixSpace
 from sage.modules.free_module_element import vector
@@ -768,8 +769,9 @@ class MatrixRec(object):
             except CoercionException:
                 # Not great, but allows us to handle a few combination of
                 # algebraic points that we couldn't otherwise...
-                dop, dz = dop.extend_scalars(dz)
+                dop, dz, shift = dop.extend_scalars(dz, shift)
                 deq_Scalars = dop.base_ring().base_ring()
+                E = dz.parent()
                 self._init_generic(deq_Scalars, shift, E, dz)
         self.dz = dz
 
@@ -860,7 +862,7 @@ class MatrixRec(object):
             AlgInts_rec = NF_rec = NF_deq
             # We need a parent containing both the coefficients of the operator
             # and the evaluation point.
-            AlgInts_sums = pushout(AlgInts_rec, AlgInts_pow)
+            AlgInts_sums = utilities.mypushout(AlgInts_rec, AlgInts_pow)
             self.shift = shift
         else:
             pol = shift.parent().polynomial()
@@ -868,7 +870,7 @@ class MatrixRec(object):
             assert pol.is_monic()
             assert den*shift == shift.parent().gen()
             name = str(shift.parent().gen())
-            AlgInts_sums = pushout(NF_deq, AlgInts_pow).extension(pol, name)
+            AlgInts_sums = utilities.mypushout(NF_deq, AlgInts_pow).extension(pol, name)
             AlgInts_rec = AlgInts_sums # for now at least
             self.shift = AlgInts_rec.gen()/den
 

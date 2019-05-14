@@ -20,7 +20,6 @@ import collections, logging
 from itertools import chain
 
 from sage.arith.all import gcd, lcm
-from sage.categories.pushout import pushout
 from sage.misc.cachefunc import cached_method
 from sage.misc.lazy_attribute import lazy_attribute
 from sage.modules.free_module_element import vector
@@ -46,7 +45,7 @@ logger = logging.getLogger(__name__)
 ##############################################################################
 
 def bw_shift_rec(dop, shift=ZZ.zero(), clear_denominators=False):
-    Scalars = pushout(dop.base_ring().base_ring(), shift.parent())
+    Scalars = utilities.mypushout(dop.base_ring().base_ring(), shift.parent())
     if dop.parent().is_D():
         dop = DifferentialOperator(dop) # compatibility bugware
         rop = dop._my_to_S()
@@ -470,7 +469,7 @@ def exponent_shifts(dop, leftmost):
     return shifts
 
 def log_series(ini, bwrec, order):
-    Coeffs = pushout(bwrec.base_ring.base_ring(), ini.universe)
+    Coeffs = utilities.mypushout(bwrec.base_ring.base_ring(), ini.universe)
     log_prec = sum(len(v) for v in ini.shift.values())
     precomp_len = max(1, bwrec.order) # hack for recurrences of order zero
     bwrec_nplus = collections.deque(

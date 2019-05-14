@@ -20,7 +20,7 @@ from sage.misc.cachefunc import cached_function
 from sage.misc.misc import cputime
 from sage.rings.all import ZZ, QQ, QQbar, CIF
 from sage.rings.number_field.number_field import (NumberField,
-        NumberField_quadratic)
+        NumberField_quadratic, is_NumberField)
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 from sage.rings.qqbar import number_field_elements_from_algebraics
 
@@ -129,6 +129,17 @@ def invert_order_element(alg):
         modulus = Order.gen(1).minpoly()
         den, num, _ = pol.xgcd(modulus)  # hopefully fraction-free!
         return Order(num), ZZ(den)
+
+def mypushout(X, Y):
+    if X.has_coerce_map_from(Y):
+        return X
+    elif Y.has_coerce_map_from(X):
+        return Y
+    else:
+        Z = pushout(X, Y)
+        assert (is_NumberField(Z) if is_NumberField(X) and is_NumberField(Y)
+                                  else True)
+        return Z
 
 ######################################################################
 # Sage features
