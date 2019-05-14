@@ -47,6 +47,8 @@ Thanks to Jakob Ablinger and Clemens Raab for the data.
     sage: myini = [0, 0, 0, 1/3, -2/3-i*pi/3, 11/12+2*i*pi/3-pi^2/6]
     sage: iint_value(dop, myini)
     [0.97080469562493...]
+    sage: iint_value(dop, myini, algorithm="binsplit")
+    [0.97080469...]
     sage: iint_value(dop, myini, 1e-500) # long time (4.7 s)
     [0.97080469562493...0383420...]
 

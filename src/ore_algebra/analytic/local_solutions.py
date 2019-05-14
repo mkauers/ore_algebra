@@ -53,7 +53,9 @@ def bw_shift_rec(dop, shift=ZZ.zero(), clear_denominators=False):
         Pols_n = PolynomialRing(dop.base_ring().base_ring(), 'n')
         rop = dop.to_S(ore_algebra.OreAlgebra(Pols_n, 'Sn'))
     Pols_n, n = rop.base_ring().change_ring(Scalars).objgen()
-    rop = rop.change_ring(Pols_n)
+    Rops = ore_algebra.OreAlgebra(Pols_n, 'Sn')
+    ordrec = rop.order()
+    rop = Rops([p(n-ordrec+shift) for p in rop])
     if clear_denominators:
         den = lcm([p.denominator() for p in rop])
         rop = den*rop
@@ -72,9 +74,7 @@ def bw_shift_rec(dop, shift=ZZ.zero(), clear_denominators=False):
         g = None
     if g is not None:
         rop = (1/g)*rop
-    ordrec = rop.order()
-    coeff = [rop[ordrec-k](n-ordrec+shift)
-             for k in range(ordrec+1)]
+    coeff = [rop[ordrec-k] for k in range(ordrec+1)]
     return BwShiftRec(coeff)
 
 class BwShiftRec(object):
