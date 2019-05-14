@@ -19,6 +19,7 @@ from sage.rings.all import CIF, QQbar, QQ, ZZ
 from sage.rings.complex_arb import ComplexBallField
 from sage.rings.complex_interval_field import ComplexIntervalField
 from sage.rings.infinity import infinity
+from sage.rings.number_field.number_field import is_NumberField
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 from sage.structure.coerce_exceptions import CoercionException
 
@@ -91,7 +92,10 @@ class PlainDifferentialOperator(UnivariateDifferentialOperatorOverUnivariateRing
         else:
             dom1 = dom
         lc = dop.leading_coefficient()
-        sing = lc.roots(dom1, multiplicities=multiplicities)
+        try:
+            sing = lc.roots(dom1, multiplicities=multiplicities)
+        except NotImplementedError:
+            sing = lc.change_ring(QQbar).roots(dom1, multiplicities=multiplicities)
         if dom1 is not dom:
             sing = [dom(s) for s in sing]
         return sing
@@ -165,6 +169,8 @@ class PlainDifferentialOperator(UnivariateDifferentialOperatorOverUnivariateRing
             # in some cases, e.g. pushout(QQ, QQ(α)), where as_enf_elts() would
             # invent new generator names.
             NF = pushout(Scalars, pt.parent())
+            if not is_NumberField(NF):
+                raise CoercionException
             gen1 = NF.coerce(gen)
             pt1 = NF.coerce(pt)
         except CoercionException:

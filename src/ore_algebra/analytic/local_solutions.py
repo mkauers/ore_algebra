@@ -423,7 +423,12 @@ class LocalBasisMapper(object):
 
     def process_irred_factor(self):
         for self.leftmost in self.roots:
-            self.shifted_bwrec = self.bwrec.shift(self.leftmost)
+            self.edop, self.leftmost = self.dop.extend_scalars(self.leftmost)
+            if self.edop is self.dop:
+                self.shifted_bwrec = self.bwrec.shift(self.leftmost)
+            else:
+                mybwrec = bw_shift_rec(self.edop)
+                self.shifted_bwrec = mybwrec.shift(self.leftmost)
             self.process_modZ_class()
 
     def process_modZ_class(self):
@@ -436,7 +441,7 @@ class LocalBasisMapper(object):
 
     def process_solution(self):
         ini = LogSeriesInitialValues(
-            dop = self.dop,
+            dop = self.edop,
             expo = self.leftmost,
             values = { (self.shift, self.log_power): ZZ.one() },
             mults = self.shifts,

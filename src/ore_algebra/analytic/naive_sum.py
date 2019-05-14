@@ -424,7 +424,7 @@ def fundamental_matrix_regular(dop, pt, eps, fail_fast, effort, ctx=dctx):
         def process_modZ_class(self):
             logger.info(r"solutions z^(%s+n)·log(z)^k/k! + ···, n = %s",
                         self.leftmost, ", ".join(str(s) for s, _ in self.shifts))
-            maj = bounds.DiffOpBound(dop, self.leftmost,
+            maj = bounds.DiffOpBound(self.edop, self.leftmost,
                             special_shifts=(None if ordinary else self.shifts),
                             bound_inverse="solve",
                             pol_part_len=(4 if ordinary else None))

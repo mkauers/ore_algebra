@@ -138,6 +138,14 @@ complicated combinations, after improving the code...)::
     [[-0.59869...] + [-0.24297...]*I  [-0.59869...] + [0.24297...]*I  [1.7859825...] + [+/- ...]*I]
     [  [0.23589...] + [0.39342...]*I  [0.23589...] + [-0.39342...]*I  [0.3084151...] + [+/- ...]*I]
 
+    sage: (((x-i)*Dx)^2+1-x).numerical_transition_matrix([i, 2*i], algorithm="binsplit")
+    [ [2.582900...] + [-2.3669708...]*I [0.13647705...] + [0.1829854...]*I]
+    [[-0.831495...] + [5.21969896...]*I [0.30502246...] + [0.1440307...]*I]
+
+    sage: (((x-i)*Dx)^2+1-x).numerical_transition_matrix([i, sqrt(2)], algorithm="binsplit")
+    [ [0.69261048...] + [0.16794895...]*I  [2.70326173...] + [-0.78385034...]*I]
+    [[0.2516164...] + [-0.10376355...]*I   [0.68776459...] + [1.07708951...]*I]
+
 An interesting “real-world” example, where one of the local exponents is
 irrational, but in the same extension as the singularity itself::
 
@@ -963,6 +971,7 @@ class MatrixRecsUnroller(LocalBasisMapper):
         # with an abstract algebraic number. It then computes all possible
         # embeddings of the resulting abstract solutions.
 
+        self.edop = self.dop
         if self.irred_factor.degree() == 1:
             # exponent is in the ground field, but not necessarily in QQ, since
             # the differential equation can have coefficients in an embedded
