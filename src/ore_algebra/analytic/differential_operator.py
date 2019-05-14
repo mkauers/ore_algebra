@@ -13,7 +13,6 @@ Custom differential operators
 # http://www.gnu.org/licenses/
 
 from sage.arith.all import lcm
-from sage.categories.pushout import pushout
 from sage.misc.cachefunc import cached_method
 from sage.rings.all import CIF, QQbar, QQ, ZZ
 from sage.rings.complex_arb import ComplexBallField
@@ -22,6 +21,7 @@ from sage.rings.infinity import infinity
 from sage.rings.number_field.number_field import is_NumberField
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 from sage.structure.coerce_exceptions import CoercionException
+from sage.structure.element import coercion_model
 
 from ..ore_algebra import OreAlgebra
 from ..ore_operator_1_1 import UnivariateDifferentialOperatorOverUnivariateRing
@@ -154,34 +154,35 @@ class PlainDifferentialOperator(UnivariateDifferentialOperatorOverUnivariateRing
             mag = IR.zero()
         return int(est.ceil().upper()), int(mag.ceil().upper())
 
-    def extend_scalars(self, pt):
+    def extend_scalars(self, *pts):
         r"""
-        Extend the ground field so that the new field contains pt.
+        Extend the ground field so that the new field contains pts.
         """
         Dops = self.parent()
         Pols = Dops.base_ring()
         Scalars = Pols.base_ring()
-        if Scalars.has_coerce_map_from(pt.parent()):
-            return self, pt
+        if all(Scalars.has_coerce_map_from(pt.parent()) for pt in pts):
+            return (self,) + pts
         gen = Scalars.gen()
         try:
             # Largely redundant with the other branch, but may do a better job
             # in some cases, e.g. pushout(QQ, QQ(α)), where as_enf_elts() would
             # invent new generator names.
-            NF = pushout(Scalars, pt.parent())
+            NF = coercion_model.common_parent(Scalars, **pts)
             if not is_NumberField(NF):
                 raise CoercionException
             gen1 = NF.coerce(gen)
-            pt1 = NF.coerce(pt)
+            pts1 = tuple(NF.coerce(pt) for pt in pts)
         except (CoercionException, TypeError):
-            NF, (gen1, pt1) = as_embedded_number_field_elements([gen,pt])
+            NF, val1 = as_embedded_number_field_elements((gen,)+pts)
+            gen1, pts1 = val1[0], tuple(val1[1:])
         hom = Scalars.hom([gen1], codomain=NF)
         Dops1 = OreAlgebra(Pols.change_ring(NF),
                 (Dops.variable_name(), {}, {Pols.gen(): Pols.one()}))
         dop1 = Dops1([pol.map_coefficients(hom) for pol in self])
         dop1 = PlainDifferentialOperator(dop1)
         assert dop1.base_ring().base_ring() is NF
-        return dop1, pt1
+        return (dop1,) + pts1
 
     def shift(self, delta):
         r"""
