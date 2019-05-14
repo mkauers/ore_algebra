@@ -19,11 +19,14 @@ import collections, logging
 
 from itertools import chain
 
+import sage.functions.log as symbolic_log
+
 from sage.arith.all import gcd, lcm
 from sage.misc.cachefunc import cached_method
 from sage.misc.lazy_attribute import lazy_attribute
 from sage.modules.free_module_element import vector
-from sage.rings.all import ZZ, QQ, QQbar, RBF, RealBallField, ComplexBallField
+from sage.rings.all import ZZ, QQ, AA, QQbar, RBF
+from sage.rings.all import RealBallField, ComplexBallField
 from sage.rings.complex_arb import ComplexBall
 from sage.rings.integer import Integer
 from sage.rings.number_field.number_field import NumberField_absolute
@@ -558,3 +561,72 @@ def _pow_trunc(a, n, ord):
         n = n >> 1
     return pow
 
+##############################################################################
+# Human-readable representations that avoid various issues with symbolic
+# expressions
+##############################################################################
+
+def simplify_exponent(e):
+    r"""
+    TESTS::
+
+        sage: from ore_algebra.examples import cbt
+        sage: lc = cbt.dop[10].leading_coefficient()
+        sage: s = sorted(lc.roots(QQbar, multiplicities=False), key=abs)[0]
+        sage: cbt.dop[10].local_basis_monomials(s)
+        [1,
+        z - 0.2651878342412026?,
+        (z - 0.2651878342412026?)^2,
+        (z - 0.2651878342412026?)^3,
+        (z - 0.2651878342412026?)^4,
+        (z - 0.2651878342412026?)^4.260514654474679?,
+        (z - 0.2651878342412026?)^5,
+        (z - 0.2651878342412026?)^6,
+        (z - 0.2651878342412026?)^7,
+        (z - 0.2651878342412026?)^8,
+        (z - 0.2651878342412026?)^9]
+        sage: cbt.dop[10].local_basis_expansions(s, 1)
+        [1, 0, 0, 0, 0, (z - 0.2651878342412026?)^4.260514654474679?, 0, 0, 0,
+        0, 0]
+    """
+    for dom in ZZ, QQ, AA, QQbar:
+        try:
+            return dom(e)
+        except (TypeError, ValueError):
+            pass
+    return e
+
+class LogMonomial(object):
+
+    def __init__(self, dx, expo, shift, k):
+        self.dx = dx
+        self.expo = simplify_exponent(expo)
+        self.shift = shift
+        self.n = self.expo + shift
+        self.k = k
+
+    def __repr__(self):
+        dx = repr(self.dx)
+        if self.n.is_zero():
+            if self.k == 0:
+                s = "1"
+            else:
+                s = ""
+        else:
+            s = dx if self.dx.operator() is None else "(" + dx + ")"
+            if not self.n.is_one():
+                n = repr(self.n)
+                if (self.n in ZZ or self.n.parent() is AA) and self.n >= 0:
+                    s += "^" + n
+                else:
+                    s += "^(" + n + ")"
+        if self.k > 0:
+            if not self.n.is_zero():
+                s += "*"
+            s += "log(" + dx + ")"
+        if self.k > 1:
+            s += "^" + repr(self.k)
+        return s
+
+    def _symbolic_(self):
+        return dx**self.n*symbolic_log.log(x, hold=True)**self.k

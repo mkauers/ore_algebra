@@ -2253,11 +2253,12 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             [1, sqrt(x), x]
         """
         from .analytic.differential_operator import DifferentialOperator
+        from .analytic.local_solutions import simplify_exponent
         from .analytic.path import Point
         dop = DifferentialOperator(self)
         struct = Point(point, dop).local_basis_structure()
         x = SR(dop.base_ring().gen()) - point
-        return [x**_simplify_exponent(sol.valuation)
+        return [x**simplify_exponent(sol.valuation)
                     *symbolic_log.log(x, hold=True)**sol.log_power
                     /sol.log_power.factorial()
                 for sol in struct]
@@ -2301,9 +2302,9 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
 
             sage: from ore_algebra.examples import ssw
             sage: ssw.dop[1,0,0].local_basis_expansions(0)
-            [t^(-4) + 24*log(t)/t^2 - 48*log(t) - 96*t^2*log(t) - 88*t^2,
-            t^(-2),
-            1 + 2*t^2]
+            [t^(-4) + 24*t^(-2)*log(t) - 48*log(t) - 96*t^2*log(t) - 88*t^2,
+             t^(-2),
+             1 + 2*t^2]
 
             sage: dop = (x^2*(x^2-34*x+1)*Dx^3 + 3*x*(2*x^2-51*x+1)*Dx^2
             ....:     + (7*x^2-112*x+1)*Dx + (x-5))
@@ -2317,10 +2318,8 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             sage: basis = dop.local_basis_expansions(roots[1][0], order=3)
             sage: basis
             [1 - (-239/12*a+169/6)*(x - 0.02943725152285942?)^2,
-            sqrt(x - 0.02943725152285942?)
-            - (-203/32*a+9)*(x - 0.02943725152285942?)^(3/2)
-            + (-24031/160*a+1087523/5120)*(x - 0.02943725152285942?)^(5/2),
-            x - 0.02943725152285942? - (-55/6*a+13)*(x - 0.02943725152285942?)^2]
+             (x - 0.02943725152285942?)^(1/2) - (-203/32*a+9)*(x - 0.02943725152285942?)^(3/2) + (-24031/160*a+1087523/5120)*(x - 0.02943725152285942?)^(5/2),
+             (x - 0.02943725152285942?) - (-55/6*a+13)*(x - 0.02943725152285942?)^2]
             sage: basis[0].base_ring()
             Number Field in a with defining polynomial y^2 - 2
             sage: RR(basis[0].base_ring().gen())
@@ -2330,11 +2329,8 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
 
             sage: dop.local_basis_expansions(roots[1][0], order=3, ring=QQbar)
             [1 - 56.33308678393081?*(x - 0.02943725152285942?)^2,
-            sqrt(x - 0.02943725152285942?)
-            - 17.97141728630432?*(x - 0.02943725152285942?)^(3/2)
-            + 424.8128741711741?*(x - 0.02943725152285942?)^(5/2),
-            x - 0.02943725152285942?
-            - 25.96362432175337?*(x - 0.02943725152285942?)^2]
+             (x - 0.02943725152285942?)^(1/2) - 17.97141728630432?*(x - 0.02943725152285942?)^(3/2) + 424.8128741711741?*(x - 0.02943725152285942?)^(5/2),
+             (x - 0.02943725152285942?) - 25.96362432175337?*(x - 0.02943725152285942?)^2]
 
         TESTS::
 
@@ -2343,12 +2339,12 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             x^2.232050807568878? - (-4/11*a-2/11)*x^3.232050807568878?]
 
             sage: ((27*x^2+4*x)*Dx^2 + (54*x+6)*Dx + 6).local_basis_expansions(0, 2)
-            [1/sqrt(x) + 3/8*sqrt(x), 1 - x]
+            [x^(-1/2) + 3/8*x^(1/2), 1 - x]
 
             sage: dop = (Dx^3 + ((24*x^2 - 4*x - 12)/(8*x^3 - 8*x))*Dx^2 +
             ....:   ((32*x^2 + 32*x - 16)/(32*x^4 + 32*x^3 - 32*x^2 - 32*x))*Dx)
             sage: dop.local_basis_expansions(0, 3)
-            [1, sqrt(x) - 1/6*x^(3/2) + 3/40*x^(5/2), x - 1/6*x^2]
+            [1, x^(1/2) - 1/6*x^(3/2) + 3/40*x^(5/2), x - 1/6*x^2]
 
         Thanks to Armin Straub for this example::
 
@@ -2357,12 +2353,19 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             ....:       + (567*x^2 + 48*x + 1)*Dx + 81*x + 3)
             sage: dop.local_basis_expansions(QQbar((4*sqrt(2)*I-7)/81), 2)
             [1,
-            sqrt(x + 0.0864...? - 0.0698...?*I)
-            + (365/96*a^3+365/96*a+13/3)*(x + 0.0864...? - 0.0698...?*I)^(3/2),
-            x + 0.0864...? - 0.0698...?*I]
+             (x + 0.0864197530864198? - 0.06983770678385654?*I)^(1/2) + (365/96*a^3+365/96*a+13/3)*(x + 0.0864197530864198? - 0.06983770678385654?*I)^(3/2),
+             (x + 0.0864197530864198? - 0.06983770678385654?*I)]
+
+        and to Emre Sertöz for this one::
+
+            sage: ode = (Dx^2 + (2*x - 7/4)/(x^2 - 7/4*x + 3/4)*Dx
+            ....:       + 3/16/(x^2 - 7/4*x + 3/4))
+            sage: ode.local_basis_expansions(1, 3)[1]
+            1 - 3/4*(x - 1) + 105/64*(x - 1)^2
         """
         from .analytic.differential_operator import DifferentialOperator
-        from .analytic.local_solutions import log_series, LocalBasisMapper
+        from .analytic.local_solutions import (log_series, LocalBasisMapper,
+                simplify_exponent, LogMonomial)
         from .analytic.path import Point
         mypoint = Point(point, self)
         dop = DifferentialOperator(self)
@@ -2376,11 +2379,6 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         sols = Mapper(ldop).run()
         x = SR.var(dop.base_ring().variable_name())
         dx = x if point.is_zero() else x.add(-point, hold=True)
-        # Working with symbolic expressions here is too complicated: let's try
-        # returning FormalSums.
-        def log_monomial(expo, n, k):
-            expo = _simplify_exponent(expo)
-            return dx**(expo + n) * symbolic_log.log(dx, hold=True)**k
         if ring is None:
             cm = get_coercion_model()
             ring = cm.common_parent(
@@ -2388,7 +2386,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
                     mypoint.value.parent(),
                     *(sol.leftmost for sol in sols))
         res = [FormalSum(
-                    [(c/ZZ(k).factorial(), log_monomial(sol.leftmost, n, k))
+                    [(c/ZZ(k).factorial(), LogMonomial(dx, sol.leftmost, n, k))
                         for n, vec in enumerate(sol.value)
                         for k, c in reversed(list(enumerate(vec)))],
                     FormalSums(ring),
@@ -4774,36 +4772,6 @@ def _listToOre(l,order,R):
     for i in range(len(l)):
         res = res+l[i]*n**(i%d)*S**(i//d)
     return res
-
-def _simplify_exponent(e): # work around various Sage bugs
-    r"""
-    TESTS::
-
-        sage: from ore_algebra.examples import cbt
-        sage: lc = cbt.dop[10].leading_coefficient()
-        sage: s = sorted(lc.roots(QQbar, multiplicities=False), key=abs)[0]
-        sage: cbt.dop[10].local_basis_monomials(s)
-        [1,
-        z - 0.2651878342412026?,
-        (z - 0.2651878342412026?)^2,
-        (z - 0.2651878342412026?)^3,
-        (z - 0.2651878342412026?)^4,
-        (z - 0.2651878342412026?)^4.260514654474679?,
-        (z - 0.2651878342412026?)^5,
-        (z - 0.2651878342412026?)^6,
-        (z - 0.2651878342412026?)^7,
-        (z - 0.2651878342412026?)^8,
-        (z - 0.2651878342412026?)^9]
-        sage: cbt.dop[10].local_basis_expansions(s, 1)
-        [1, 0, 0, 0, 0, (z - 0.2651878342412026?)^4.260514654474679?, 0, 0, 0,
-        0, 0]
-    """
-    for dom in ZZ, QQ, AA, QQbar:
-        try:
-            return dom(e)
-        except (TypeError, ValueError):
-            pass
-    return e
 
 def _tower(dom):
     if is_PolynomialRing(dom) or is_MPolynomialRing(dom):
