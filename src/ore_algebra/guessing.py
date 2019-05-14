@@ -144,8 +144,8 @@ def guess(data, algebra, **kwargs):
     EXAMPLES::
 
       sage: from ore_algebra import *
-      sage: rec = guess([(2*i+1)^15 * (1 + 2^i + 3^i)^2 for i in range(1000)], OreAlgebra(ZZ['n'], 'Sn'))
-      sage: rec.order(), rec.degree()
+      sage: rec = guess([(2*i+1)^15 * (1 + 2^i + 3^i)^2 for i in range(1000)], OreAlgebra(ZZ['n'], 'Sn')) # long time (5 s)
+      sage: rec.order(), rec.degree() # long time
       (6, 90)
       sage: R.<t> = QQ['t']
       sage: rec = guess([1/(i+t) + t^i for i in range(100)], OreAlgebra(R['n'], 'Sn'))

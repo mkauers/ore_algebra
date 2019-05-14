@@ -49,7 +49,7 @@ TESTS::
 
 Plus an example provided by Bruno Salvy, also related to small-step walks::
 
-    sage: ssw.aux_dop.numerical_solution(ssw.aux_ini, [0,1]) # (1.5 s), TODO: double-check result
+    sage: ssw.aux_dop.numerical_solution(ssw.aux_ini, [0,1]) # TODO: double-check result
     [10.662510694...]
 
 """

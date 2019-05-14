@@ -49,7 +49,7 @@ Thanks to Jakob Ablinger and Clemens Raab for the data.
     [0.97080469562493...]
     sage: iint_value(dop, myini, algorithm="binsplit")
     [0.97080469...]
-    sage: iint_value(dop, myini, 1e-500) # long time (4.7 s)
+    sage: iint_value(dop, myini, 1e-500) # long time (3.4 s)
     [0.97080469562493...0383420...]
 
 Known exact values::
@@ -91,7 +91,7 @@ Known exact values::
     sage: ref[23] = 4/9*(psi1_a - 4*zeta(2))
     sage: ref[24] = sqrt(2)*(2/3*zeta(2) - 2*Li_b - ln(2)^2)
 
-    sage: for k in sorted(word.keys()): # long time (21 s)
+    sage: for k in sorted(word.keys()): # long time (16 s)
     ....:     dop = diffop(word[k])
     ....:     val = iint_value(dop, ini[k])
     ....:     ok = "ok" if k in ref and val in RBF(ref[k]).add_error(1e-10) else ""
