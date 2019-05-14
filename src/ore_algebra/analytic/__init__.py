@@ -515,6 +515,10 @@ Handling of algebraic points::
     sage: ((x*Dx)^2 + 1 - x*i).numerical_transition_matrix([0,i])
     [ [3.75401556...] + [-1.58459278...]*I [0.16222572...] + [0.06847646...]*I]
     [ [-5.01978846...] + [2.71131400...]*I  [0.21692472...] + [0.11716650...]*I]
+    sage: NF.<sqrt2> = QuadraticField(2)
+    sage: ((x*Dx)^2 + 1 - x*sqrt2).numerical_transition_matrix([0,1])
+    [ [1.21483503...] + [0.72868035...]*I  [1.21483503...] + [-0.72868035...]*I]
+    [[0.8557200...] + [-0.30988046...]*I  [0.85572000...] + [0.30988046...]*I]
 
 This used to yield a very coarse enclosure with some earlier versions::
 
