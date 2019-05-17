@@ -142,6 +142,8 @@ in earlier versions. A feature that is inherently multivariate is creative teles
 Here, the input is a left ideal $I\subseteq A$, say $A=\set Q(x,y)\<Dx,Dy>$ and the task is to find
 the ideal consisting of all operators $P\in\set Q(x)\<Dx>$ such that there exists $Q\in A$ with $P-D_yQ\in I$.
 The operators $P$ are called \emph{telescopers,} and the corresponding operators $Q$ are called their \emph{certificates.}
+Our new version of ore\_algebra includes an implementation of Chyzak's algorithm~\cite{chyzak00} for creative telescoping in the general D-finite setting.
+
 Creative telescoping is a central operation for evaluating definite sums and integrals~\cite{chyzak14}.
 We cannot explain here in detail the relevance of creative telescoping for these applications, but the use of the
 package is easily demonstrated:

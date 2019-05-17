@@ -60,6 +60,13 @@ Notes:
   these modules, though, and the core features should work even if they are
   unavailable.
 
+Documentation
+-------------
+
+The documentation generated from the doc strings is available online at
+
+    http://www.algebra.uni-linz.ac.at/people/mkauers/ore_algebra
+
 Testing
 -------
 
