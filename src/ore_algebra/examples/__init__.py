@@ -12,6 +12,7 @@ starting from this data.
     fcc
     iint
     periods
+    polya
     ssw
     stdfun
 
