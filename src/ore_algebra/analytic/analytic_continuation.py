@@ -150,11 +150,10 @@ def _process_path(dop, path, ctx):
     path.check_singularity()
     path.check_convergence()
 
-    ctx.path = path # TBI
-
     return path
 
-def analytic_continuation(dop, path, eps, ctx=dctx, ini=None, post=None):
+def analytic_continuation(dop, path, eps, ctx=dctx, ini=None, post=None,
+                          return_local_bases=False):
     """
     INPUT:
 
@@ -163,6 +162,14 @@ def analytic_continuation(dop, path, eps, ctx=dctx, ini=None, post=None):
     - ``post`` (matrix of polynomial/rational functions, optional) - linear
       combinations of the first Taylor coefficients to take, as a function of
       the evaluation point
+    - ``return_local_bases`` (boolean) - if True, also compute and return the
+      structure of local bases at all points where we are computing values of
+      the solution
+
+    OUTPUT:
+
+    A list of dictionaries with information on the computed solution(s) at each
+    evaluation point.
 
     TESTS::
 
@@ -202,7 +209,10 @@ def analytic_continuation(dop, path, eps, ctx=dctx, ini=None, post=None):
             if ini is not None:  value = value*ini
             if post is not None and not post.is_one():
                 value = post(point.value)*value
-            res.append((point.value, value))
+            point_dict = {"point": point.value, "value": value}
+            if return_local_bases:
+                point_dict["structure"] = point.local_basis_structure()
+            res.append(point_dict)
     store_value_if_wanted(path.vert[0])
     for step in path:
         step_mat = step_transition_matrix(dop, step, eps1, ctx=ctx)
@@ -213,8 +223,10 @@ def analytic_continuation(dop, path, eps, ctx=dctx, ini=None, post=None):
             and all(v.is_real() for v in path.vert))
     OutputIntervals = cm.common_parent(
             utilities.ball_field(eps, real),
-            *[mat.base_ring() for pt, mat in res])
-    return [(pt, mat.change_ring(OutputIntervals)) for pt, mat in res]
+            *[point_dict["value"].base_ring() for point_dict in res])
+    for point_dict in res:
+        point_dict["value"] = point_dict["value"].change_ring(OutputIntervals)
+    return res
 
 def normalize_post_transform(dop, post_transform):
     if post_transform is None:

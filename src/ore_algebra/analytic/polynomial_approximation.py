@@ -204,8 +204,8 @@ def doit(dop, ini, path, rad, eps, derivatives, economization, x_is_real):
     if not safe_le(rad, center.dist_to_sing()):
         raise ValueError("approximation domain too large")
 
-    pairs = ancont.analytic_continuation(dop, path, eps/2, ini=ini)
-    local_ini = pairs[0][1]
+    sol = ancont.analytic_continuation(dop, path, eps/2, ini=ini)
+    local_ini = sol[0]["value"]
 
     _, base, _, dop = dop._normalize_base_ring()
     x = base.change_ring(QQ).gen()
