@@ -54,6 +54,14 @@ class Context(object):
     def __repr__(self):
         return pprint.pformat(self.__dict__)
 
+    def __call__(self, **kwds):
+        # XXX Should check the new values, and maybe return a wrapper that
+        # shadows some attributes rather than a copy.
+        new = self.__new__(Context)
+        new.__dict__ = self.__dict__.copy()
+        new.__dict__.update(kwds)
+        return new
+
     def prefer_binsplit(self):
         return self.algorithm == "binsplit"
 
