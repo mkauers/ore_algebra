@@ -21,7 +21,6 @@ class Context(object):
             assume_analytic=False,
             force_algorithm=False,
             keep="last",
-            max_split=3,
             squash_intervals=False,
         ):
 
@@ -42,10 +41,6 @@ class Context(object):
         if not keep in ["all", "last"]:
             raise ValueError("keep", keep)
         self.keep = keep
-
-        if not isinstance(max_split, int):
-            raise TypeError("max_split", type(max_split))
-        self.max_split = max_split
 
         if not isinstance(squash_intervals, bool):
             raise TypeError("squash_intervals", type(squash_intervals))

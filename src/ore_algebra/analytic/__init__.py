@@ -520,6 +520,21 @@ Handling of algebraic points::
     [ [1.21483503...] + [0.72868035...]*I  [1.21483503...] + [-0.72868035...]*I]
     [[0.8557200...] + [-0.30988046...]*I  [0.85572000...] + [0.30988046...]*I]
 
+Inexact points::
+
+    sage: (Dx-1).numerical_solution([1], [0, RBF(1, .01)])
+    [2.7 +/- 0.0...]
+    sage: (Dx-1).numerical_solution([1],[0, RBF(1, .5), 2])
+    [7.38905609893065...]
+    sage: (Dx - 1).numerical_solution([1], [RBF(0, .001), 1])
+    [2.72 +/- ...e-3]
+    sage: (Dx - 1).numerical_solution([1], [RBF(0, .001)])
+    1.0000000000000000
+    sage: (Dx - 1).numerical_solution([1], [RBF(0, .001), 0])
+    [1.00 +/- 1...e-3]
+    sage: (Dx - 1).numerical_solution([1], [RBF(0, .001), RBF(0, .001)])
+    [1.00 +/- 2...e-3]
+
 This used to yield a very coarse enclosure with some earlier versions::
 
     sage: (Dx^2 + x).numerical_solution([1, 0], [0,108])

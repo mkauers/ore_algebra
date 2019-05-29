@@ -79,12 +79,15 @@ def multi_eval_diffeq(dop, ini, path, eps=1e-16):
          (i,  [...] + [1.57079632679489...]*I),
          (-1, [...] + [3.14159265358979...]*I)]
 
-    XXX: make similar examples work with points in RLF/CLF (bug with binsplit?)
-
     TESTS::
 
         sage: multi_eval_diffeq(Dx - 1, ini=[42], path=[1])
         [(1, 42.000...)]
+
+        sage: multi_eval_diffeq(Dx - 1, [1], [0, RBF(1, .01), 2])
+        [(0, 1.000000000000000...),
+         ([1.0 +/- 0.0101], [2.7 +/- 0.0...]),
+         (2, [7.38905609893065...])]
     """
     from .differential_operator import DifferentialOperator
     dop = DifferentialOperator(dop)

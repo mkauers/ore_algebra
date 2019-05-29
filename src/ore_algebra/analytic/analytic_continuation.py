@@ -50,14 +50,19 @@ def step_transition_matrix(dop, step, eps, rows=None, split=0, ctx=dctx):
         rows = order
     z0, z1 = step
     if order == 0:
-        logger.info("%s: trivial case", step)
+        logger.debug("%s: trivial case", step)
         return matrix(ZZ) # 0 by 0
     elif z0.value == z1.value:
-        logger.info("%s: trivial case", step)
+        logger.debug("%s: trivial case", step)
         return identity_matrix(ZZ, order)[:rows]
     elif z0.is_ordinary() and z1.is_ordinary():
         logger.info("%s: ordinary case", step)
-        inverse = False
+        if z0.is_exact():
+            inverse = False
+        # XXX maybe also invert the step when z1 is much simpler than z0
+        else: # can happen with the very first step
+            step = Step(z1, z0, max_split=0)
+            inverse = True
     elif z0.is_regular() and z1.is_ordinary():
         logger.info("%s: regular singular case (going out)", step)
         inverse = False
@@ -70,11 +75,10 @@ def step_transition_matrix(dop, step, eps, rows=None, split=0, ctx=dctx):
         raise ValueError(z0, z1)
     try:
         mat = regular_step_transition_matrix(dop, step, eps, rows,
-                  fail_fast=(split < ctx.max_split), effort=split, ctx=ctx)
+                fail_fast=(step.max_split > 0), effort=split, ctx=ctx)
     except (accuracy.PrecisionError, bounds.BoundPrecisionError):
-        # XXX it would be nicer to return something in this case...
-        if split >= ctx.max_split:
-            raise
+        if step.max_split == 0:
+            raise # XXX: can we return something?
         logger.info("splitting step...")
         s0, s1 = step.split()
         m0 = step_transition_matrix(dop, s0, eps/4, None, split+1, ctx)
@@ -201,31 +205,38 @@ def analytic_continuation(dop, path, eps, ctx=dctx, ini=None, post=None,
         except (TypeError, ValueError):
             ini = ini.change_ring(ComplexBallField(prec))
 
+    def point_dict(point, value):
+        if ini is not None:
+            value = value*ini
+        if post is not None and not post.is_one():
+            value = post(point.value)*value
+        rec = {"point": point.value, "value": value}
+        if return_local_bases:
+            rec["structure"] = point.local_basis_structure()
+        return rec
+
     res = []
-    path_mat = identity_matrix(ZZ, dop.order())
-    def store_value_if_wanted(point):
-        if point.options.get('keep_value'):
-            value = path_mat
-            if ini is not None:  value = value*ini
-            if post is not None and not post.is_one():
-                value = post(point.value)*value
-            point_dict = {"point": point.value, "value": value}
-            if return_local_bases:
-                point_dict["structure"] = point.local_basis_structure()
-            res.append(point_dict)
-    store_value_if_wanted(path.vert[0])
+    z0 = path.vert[0]
+    main = Step(z0, z0.simple_approx())
+    path_mat = step_transition_matrix(dop, main, eps1, ctx=ctx)
+    if z0.keep_value():
+        res.append(point_dict(z0, identity_matrix(ZZ, dop.order())))
     for step in path:
-        step_mat = step_transition_matrix(dop, step, eps1, ctx=ctx)
-        path_mat = step_mat*path_mat
-        store_value_if_wanted(step.end)
+        main, dev = step.chain_simple(main)
+        main_mat = step_transition_matrix(dop, main, eps1, ctx=ctx)
+        path_mat = main_mat*path_mat
+        if dev is not None:
+            dev_mat = step_transition_matrix(dop, dev, eps1, ctx=ctx)
+            res.append(point_dict(dev.end, dev_mat*path_mat))
+
     cm = sage.structure.element.get_coercion_model()
     real = (rings.RIF.has_coerce_map_from(dop.base_ring().base_ring())
             and all(v.is_real() for v in path.vert))
     OutputIntervals = cm.common_parent(
             utilities.ball_field(eps, real),
-            *[point_dict["value"].base_ring() for point_dict in res])
-    for point_dict in res:
-        point_dict["value"] = point_dict["value"].change_ring(OutputIntervals)
+            *[rec["value"].base_ring() for rec in res])
+    for rec in res:
+        rec["value"] = rec["value"].change_ring(OutputIntervals)
     return res
 
 def normalize_post_transform(dop, post_transform):

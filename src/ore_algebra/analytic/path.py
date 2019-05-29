@@ -139,6 +139,7 @@ class Point(SageObject):
                 self.value = RLF.coerce(point)
             except TypeError:
                 self.value = CLF.coerce(point)
+
         parent = self.value.parent()
         assert (isinstance(parent, (number_field_base.NumberField,
                                     RealBallField, ComplexBallField))
@@ -171,6 +172,9 @@ class Point(SageObject):
         except AttributeError:
             pass
         return repr(self.value)
+
+    def keep_value(self):
+        return bool(self.options.get("keep_value"))
 
     # Numeric representations
 
@@ -210,10 +214,10 @@ class Point(SageObject):
         if self.value.parent().is_exact():
             return self
         elif isinstance(self.value, RealBall) and self.value.is_exact():
-            return Point(QQ(self.value), self.dop)
+            return Point(QQ(self.value), self.dop, **self.options)
         elif isinstance(self.value, ComplexBall) and self.value.is_exact():
             value = QQi((QQ(self.value.real()), QQ(self.value.imag())))
-            return Point(value, self.dop)
+            return Point(value, self.dop, **self.options)
         raise ValueError
 
     def approx_abs_real(self, prec):
@@ -396,6 +400,27 @@ class Point(SageObject):
             raise NotImplementedError("irregular singular point")
         return LocalBasisMapper(self.dop.shift(self)).run()
 
+    @cached_method
+    def simple_approx(self, alg=True):
+        # Point options become meaningless (and are lost) when not returning
+        # self.
+        if isinstance(self.value, (RealBall, ComplexBall)):
+            if self.value.is_exact():
+                return self
+            else:
+                return Point(self.value.squash(), self.dop)
+        # XXX: Not sure if this case is useful. Probably yes in the context of
+        # binary splitting, but then there is some overlap with the bit-burst
+        # method, which applies to rationals etc. as well.
+        elif alg and isinstance(self.value, rings.NumberFieldElement):
+            if self.value.parent().degree() > 2 and self.is_ordinary():
+                ball = self.iv().add_error(self.dist_to_sing()/16)
+                if any(s.overlaps(ball) for s in self.dop._singularities(IC)):
+                    return self
+                rat = _rationalize(ball, real=self.is_real())
+                return Point(rat, self.dop)
+        return self
+
 class EvaluationPoint(object):
     r"""
     Series evaluation point/jet.
@@ -449,7 +474,6 @@ class EvaluationPoint(object):
 # Paths
 ######################################################################
 
-# XXX: do we need special *Steps* for connections to singular points?
 class Step(SageObject):
     r"""
     Analytic continuation step from a :class:`Point` to another
@@ -510,17 +534,20 @@ class Step(SageObject):
         [-3.17249673357...] + [-4.486587907205...]*I
     """
 
-    def __init__(self, start, end, branch=(0,)):
+    def __init__(self, start, end, type=None, branch=None, max_split=None):
         if not (isinstance(start, Point) and isinstance(end, Point)):
             raise TypeError
         if start.dop != end.dop:
             raise ValueError
         self.start = start
         self.end = end
-        self.branch = branch
+        self.branch = (0,) if branch is None else branch
+        self.type = type
+        self.max_split = 3 if max_split is None else max_split
 
     def _repr_(self):
-        return repr(self.start) + " --> " + repr(self.end)
+        s = "" if self.type is None else "[{}] ".format(self.type)
+        return s + repr(self.start) + " --> " + repr(self.end)
 
     def __getitem__(self, i):
         if i == 0:
@@ -579,6 +606,8 @@ class Step(SageObject):
     def split(self):
         # Ensure that the substeps correspond to convergent series when
         # splitting a singular step
+        if self.max_split <= 0:
+            raise ValueError
         if self.start.is_singular():
             mid = (self.start.iv() + 2*self.end.iv())/3
         elif self.end.is_singular():
@@ -587,7 +616,20 @@ class Step(SageObject):
             mid = (self.start.iv() + self.end.iv())/2
         mid = Point(mid, self.start.dop)
         mid = mid.rationalize()
-        return (Step(self.start, mid, branch=self.branch), Step(mid, self.end))
+        s0 = Step(self.start, mid, type="split", branch=self.branch,
+                  max_split=self.max_split-1)
+        s1 = Step(mid, self.end, type="split", branch=None,
+                  max_split=self.max_split-1)
+        return (s0, s1)
+
+    def chain_simple(self, prev):
+        assert prev.end is self.start.simple_approx()
+        main = Step(prev.end, self.end.simple_approx(), branch=self.branch)
+        if self.end.keep_value():
+            dev = Step(main.end, self.end, type="deviation", max_split=0)
+        else:
+            dev = None
+        return main, dev
 
     def singularities(self):
         dop = self.start.dop
@@ -734,8 +776,8 @@ class Path(SageObject):
         if len(self.vert) < 2:
             raise IndexError
         else:
-            branch = self.vert[i].options.get("outgoing_branch", (0,))
-            return Step(self.vert[i], self.vert[i+1], branch)
+            return Step(self.vert[i], self.vert[i+1],
+                    branch=self.vert[i].options.get("outgoing_branch"))
 
     def __len__(self):
         return len(self.vert) - 1
