@@ -534,6 +534,11 @@ Miscellaneous tests::
     sage: ((9*x^2 - 1)*Dx + 18*x).numerical_transition_matrix([0,I,1], squash_intervals=True)
     [[-0.125000000000000...] + [+/- ...]*I]
 
+    sage: dop = x*Dx^3 + 2*Dx^2 + x*Dx
+    sage: mat = (dop.numerical_transition_matrix([1/3, RBF(1/3)]) - 1)
+    sage: sum(abs(c) for c in mat.list()) < RBF(1e-14)
+    True
+
 Test suite
 ==========
 
