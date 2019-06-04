@@ -2321,7 +2321,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
              (x - 0.02943725152285942?)^(1/2) - (-203/32*a+9)*(x - 0.02943725152285942?)^(3/2) + (-24031/160*a+1087523/5120)*(x - 0.02943725152285942?)^(5/2),
              (x - 0.02943725152285942?) - (-55/6*a+13)*(x - 0.02943725152285942?)^2]
             sage: basis[0].base_ring()
-            Number Field in a with defining polynomial y^2 - 2
+            Number Field in a with defining polynomial y^2 - 2 with a = -1.414...
             sage: RR(basis[0].base_ring().gen())
             -1.41421356237309
             sage: basis[0][-1]
