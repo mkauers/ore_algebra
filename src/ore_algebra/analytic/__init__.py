@@ -537,6 +537,15 @@ Inexact points::
     sage: (Dx - 1).numerical_solution([1], [-pi, pi])
     [535.491655524764...]
 
+Large/inexact points at high precision::
+
+    sage: (Dx - 1).numerical_solution([1], [0, pi], 1e-20000)
+    [23.14069...908890274... +/- ...e-2...]
+    sage: (Dx - 1).numerical_solution([1], [-pi, 0], 1e-20000)
+    [23.14069...908890274... +/- ...e-2...]
+    sage: (Dx - 1).numerical_solution([1], [-pi/2, pi/2], 1e-1000)
+    [23.14069...432104147... +/- ...e-1...]
+
 This used to yield a very coarse enclosure with some earlier versions::
 
     sage: (Dx^2 + x).numerical_solution([1, 0], [0,108])

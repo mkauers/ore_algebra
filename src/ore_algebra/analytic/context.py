@@ -22,6 +22,7 @@ class Context(object):
             force_algorithm=False,
             keep="last",
             squash_intervals=False,
+            bit_burst_thr=32,
         ):
 
         # TODO: dop, path, eps...
@@ -45,6 +46,8 @@ class Context(object):
         if not isinstance(squash_intervals, bool):
             raise TypeError("squash_intervals", type(squash_intervals))
         self.squash_intervals = squash_intervals
+
+        self.bit_burst_thr = int(bit_burst_thr)
 
     def __repr__(self):
         return pprint.pformat(self.__dict__)

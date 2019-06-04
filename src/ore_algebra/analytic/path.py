@@ -13,7 +13,7 @@ Analytic continuation paths
 #
 # http://www.gnu.org/licenses/
 
-import logging
+import logging, sys
 
 import sage.plot.all as plot
 import sage.rings.all as rings
@@ -75,8 +75,8 @@ class Point(SageObject):
             ....:  for z in [1, 1/2, 1+I, QQbar(I), RIF(1/3), CIF(1/3), pi,
             ....:  RDF(1), CDF(I), 0.5r, 0.5jr, 10r, QQbar(1), AA(1/3)]]
             [1, 1/2, I + 1, I, [0.333333333333333...], [0.333333333333333...],
-            3.141592653589794?, 1.000000000000000, 1.000000000000000*I,
-            0.5000000000000000, 0.5000000000000000*I, 10, 1, 1/3]
+            3.141592653589794?, ~1.0000, ~1.0000*I, ~0.50000, ~0.50000*I, 10,
+            1, 1/3]
             sage: Point(sqrt(2), Dx).iv()
             [1.414...]
             sage: Point(RBF(0), (x-1)*x*Dx, singular=True).dist_to_sing()
@@ -153,7 +153,7 @@ class Point(SageObject):
         self._force_singular = bool(singular)
         self.options = kwds
 
-    def _repr_(self):
+    def _repr_(self, size=False):
         """
         TESTS::
 
@@ -163,18 +163,41 @@ class Point(SageObject):
             sage: Point(10**20, Dx)
             ~1.0000e20
         """
-        try:
-            len = (self.value.numerator().real().numerator().nbits() +
-                   self.value.numerator().imag().numerator().nbits() +
-                   self.value.denominator().nbits())
-            if len > 50:
-                return '~' + repr(self.value.n(digits=5))
-        except AttributeError:
-            pass
+        if self.is_exact():
+            try:
+                len = (self.value.parent().precision()
+                        if isinstance(self.value, (RealBall, ComplexBall))
+                        else self.nbits())
+                if len > 50:
+                    res = repr(self.value.n(digits=5))
+                    if size:
+                        return "~[{}b]{}".format(self.nbits(), res)
+                    else:
+                        return "~" + res
+            except AttributeError:
+                pass
         return repr(self.value)
 
     def keep_value(self):
         return bool(self.options.get("keep_value"))
+
+    def nbits(self):
+        if isinstance(self.value, (RealBall, ComplexBall)):
+            return self.value.nbits()
+        else:
+            res = self.value.denominator().nbits()
+            res += max(self.value.numerator().real().numerator().nbits(),
+                        self.value.numerator().imag().numerator().nbits())
+            return res
+
+    def bit_burst_bits(self, tgt_prec):
+        parent = self.value.parent()
+        if isinstance(self.value, (RealBall, ComplexBall, rings.Integer,
+                                             rings.Rational)) or is_QQi(parent):
+            return self.nbits()
+        else:
+            # RLF, CLF, other number fields (debatable!)
+            return tgt_prec
 
     # Numeric representations
 
@@ -255,6 +278,15 @@ class Point(SageObject):
             raise PathPrecisionError
         else:
             return Point(_rationalize(a), self.dop)
+
+    def truncate(self, prec, tgt_prec):
+        Ivs = RealBallField if self.is_real() else ComplexBallField
+        approx = Ivs(prec)(self.value).round()
+        lc = self.dop.leading_coefficient()
+        if lc(approx).contains_zero():
+            raise PathPrecisionError # appropriate?
+        approx = approx.squash()
+        return Point(Ivs(tgt_prec)(approx), self.dop)
 
     # Point equality is identity
 
@@ -409,6 +441,8 @@ class Point(SageObject):
         # Point options become meaningless (and are lost) when not returning
         # self.
         if isinstance(self.value, (RealBall, ComplexBall)):
+            # XXX In the binary splitting regime, we should use a low-precision
+            # approximation or a rational approx as in the other branch.
             if self.value.is_exact():
                 return self
             else:
@@ -550,8 +584,11 @@ class Step(SageObject):
         self.max_split = 3 if max_split is None else max_split
 
     def _repr_(self):
-        s = "" if self.type is None else "[{}] ".format(self.type)
-        return s + repr(self.start) + " --> " + repr(self.end)
+        type = "" if self.type is None else "[{}] ".format(self.type)
+        bb = (self.type == "bit-burst")
+        start = self.start._repr_(size=bb)
+        end = self.end._repr_(size=bb)
+        return type + start + " --> " + end
 
     def __getitem__(self, i):
         if i == 0:
@@ -574,10 +611,19 @@ class Step(SageObject):
             [2.71828182845904...]
         """
         z0, z1 = self.start.value, self.end.value
-        if (z0.parent() is not z1.parent()
-                and self.start.is_exact() and self.end.is_exact()):
-            z0 = self.start.exact().value
-            z1 = self.end.exact().value
+        if z0.parent() is z1.parent():
+            return z1 - z0
+        elif (isinstance(z0, (RealBall, ComplexBall))
+                and isinstance(z1, (RealBall, ComplexBall))):
+            p0, p1 = z0.parent().precision(), z1.parent().precision()
+            real = isinstance(z0, RealBall) and isinstance(z1, RealBall)
+            Tgt = (RealBallField if real else ComplexBallField)(max(p0, p1))
+            return Tgt(z1) - Tgt(z0)
+        else: # XXX not great when one is in a number field != QQ[i]
+            if self.start.is_exact():
+                z0 = self.start.exact().value
+            if self.end.is_exact():
+                z1 = self.end.exact().value
             try:
                 d = z1 - z0
             except TypeError:
@@ -591,8 +637,6 @@ class Step(SageObject):
                 return d
             else:
                 return as_embedded_number_field_element(d)
-        else:
-            return z1 - z0
 
     def evpt(self, order):
         return EvaluationPoint(self.delta(), order, branch=self.branch)
@@ -603,6 +647,14 @@ class Step(SageObject):
 
     def length(self):
         return IC(self.delta()).abs()
+
+    def prec(self, tgt_prec):
+        myIC = ComplexBallField(tgt_prec + 10) # not ideal...
+        len = IC(myIC(self.end.value) - myIC(self.start.value)).abs()
+        if len.contains_zero():
+            return ZZ(sys.maxsize)
+        else:
+            return -ZZ(len.log(2).upper().ceil())
 
     def cvg_ratio(self):
         return self.length()/self.start.dist_to_sing()
@@ -624,6 +676,23 @@ class Step(SageObject):
                   max_split=self.max_split-1)
         s1 = Step(mid, self.end, type="split", branch=None,
                   max_split=self.max_split-1)
+        return (s0, s1)
+
+    def bit_burst_split(self, tgt_prec, bit_burst_prec):
+        z0, z1 = self
+        p0, p1 = z0.bit_burst_bits(tgt_prec), z1.bit_burst_bits(tgt_prec)
+        if max(p0, p1) <= 2*bit_burst_prec:
+            return ()
+        elif p0 <= p1:
+            z1_tr = z1.truncate(bit_burst_prec, tgt_prec)
+            s0 = Step(z0, z1_tr, type="bit-burst",
+                      branch=self.branch, max_split=0)
+            s1 = Step(z1_tr, z1, type="bit-burst", max_split=0)
+        else:
+            z0_tr = z0.truncate(bit_burst_prec, tgt_prec)
+            s0 = Step(z0, z0_tr, type="bit-burst",
+                      branch=self.branch, max_split=0)
+            s1 = Step(z0_tr, z1, type="bit-burst", max_split=0)
         return (s0, s1)
 
     def chain_simple(self, prev):
@@ -734,7 +803,7 @@ class Path(SageObject):
 
         sage: path = Path([0, 1+I, CBF(2*I)], dop)
         sage: path
-        0 --> I + 1 --> 2.000...*I
+        0 --> I + 1 --> ~2.0000*I
         sage: path[0]
         0 --> I + 1
         sage: path.vert[0]

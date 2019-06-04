@@ -88,43 +88,79 @@ def step_transition_matrix(dop, step, eps, rows=None, split=0, ctx=dctx):
         mat = ~mat
     return mat
 
-def _use_binsplit(dop, step, eps):
-    if step.is_exact() and step.branch == (0,):
-        # very very crude
-        logprec = -eps.log()
-        logratio = -step.cvg_ratio().log() # may be nan (entire functions)
-        # don't discourage binary splitting too much for very small steps /
-        # entire functions
-        terms_est = logprec/logratio.min(logprec.log())
-        return (terms_est >= 256 + 32*dop.degree()**2)
+def _use_binsplit(dop, step, tgt_prec, base_point_size, ctx):
+    if ctx.prefer_binsplit():
+        return True
+    elif ctx.prefer_naive():
+        return False
+    elif step.branch == (0,): # crude heuristic
+        # (cost of a bit burst step via a truncation at prec base_point_size)
+        #   ≈ ordrec³·nterms·(op_height + base_point_size)
+        # (cost of direct summation) ≈ ordrec·nterms·prec,
+        # assuming that the costs related to polynomial evaluation, basis size
+        # and structure, etc., are the same in both cases, and neglecting
+        # interval issues that may increase the cost of direct summation to
+        # something like ordrec·nterms·(prec + nterms·log(ordrec))
+        sz = dop._naive_height() + base_point_size
+        est = 256 + (sz + 128) * (dop.order() + dop.degree())**2
+        use_binsplit = (tgt_prec >= est)
+        logger.debug("tgt_prec = %s %s %s", tgt_prec,
+                ">=" if use_binsplit else "<", est)
+        return use_binsplit
     else:
         return False
 
 def regular_step_transition_matrix(dop, step, eps, rows, fail_fast, effort,
                                    ctx=dctx):
-    ldop = dop.shift(step.start)
-    args = (ldop, step.evpt(rows), eps, fail_fast, effort, ctx)
-    if ctx.force_binsplit():
-        return binary_splitting.fundamental_matrix_regular(*args)
-    elif ctx.prefer_binsplit() or _use_binsplit(ldop, step, eps):
-        try:
-            return binary_splitting.fundamental_matrix_regular(*args)
-        except NotImplementedError:
-            logger.info("not implemented: falling back on direct summation")
-            return naive_sum.fundamental_matrix_regular(*args)
-    elif ctx.force_naive() or fail_fast:
-        return naive_sum.fundamental_matrix_regular(*args)
-    else:
-        try:
-            return naive_sum.fundamental_matrix_regular(*args)
-        except accuracy.PrecisionError as exn:
+
+    def args():
+        ldop = dop.shift(step.start)
+        return (ldop, step.evpt(rows), eps, fail_fast, effort, ctx)
+
+    tgt_prec = utilities.prec_from_eps(eps)
+    bit_burst_prec = max(2*step.prec(tgt_prec), ctx.bit_burst_thr)
+    use_binsplit = _use_binsplit(dop, step, tgt_prec, bit_burst_prec, ctx)
+    use_fallback = not ctx.force_algorithm and (use_binsplit or not fail_fast)
+
+    while True:
+
+        if use_binsplit:
+            sub = step.bit_burst_split(tgt_prec, bit_burst_prec)
+            if sub:
+                # Assuming bitsize(step.start) << bitsize(step.end):
+                # * this step should fall into the bb/bs branch again (and in
+                #   the pure bb sub-branch if bitsize(step.start) is small):
+                mat0 = regular_step_transition_matrix(dop, sub[0], eps>>1,
+                        dop.order(), fail_fast, effort, ctx)
+                # * this one will typically come back to the bit-burst
+                #   sub-branch in the first few iterations, and then to one of
+                #   the other ones (typically direct summation, unless
+                #   target prec >> prec of endpoints >> 0):
+                mat1 = regular_step_transition_matrix(dop, sub[1], eps>>1,
+                        rows, fail_fast, effort, ctx)
+                return mat1*mat0
+
+        if step.type == "bit-burst":
+            logger.info("%s", step)
+
+        if use_binsplit:
             try:
+                return binary_splitting.fundamental_matrix_regular(*args())
+            except NotImplementedError:
+                if not use_fallback:
+                    raise
+                logger.info("falling back to direct summation")
+        else:
+            try:
+                return naive_sum.fundamental_matrix_regular(*args())
+            except accuracy.PrecisionError:
+                if not use_fallback:
+                    raise
                 logger.info("not enough precision, trying binary splitting "
                             "as a fallback")
-                return binary_splitting.fundamental_matrix_regular(*args)
-            except NotImplementedError:
-                logger.info("unable to use binary splitting")
-                raise exn
+
+        use_binsplit = not use_binsplit
+        use_fallback = False
 
 def _process_path(dop, path, ctx):
 
