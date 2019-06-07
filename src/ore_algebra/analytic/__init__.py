@@ -534,6 +534,8 @@ Inexact points::
     [1.00 +/- 1...e-3]
     sage: (Dx - 1).numerical_solution([1], [RBF(0, .001), RBF(0, .001)])
     [1.00 +/- 2...e-3]
+    sage: (Dx - 1).numerical_solution([1], [-pi, pi])
+    [535.491655524764...]
 
 This used to yield a very coarse enclosure with some earlier versions::
 

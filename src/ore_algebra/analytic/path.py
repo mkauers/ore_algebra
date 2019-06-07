@@ -240,6 +240,10 @@ class Point(SageObject):
         return is_real_parent(self.value.parent())
 
     def is_exact(self):
+        r"""
+        Is this point exact in the sense that we can use it in the coefficients
+        of an operator?
+        """
         return (isinstance(self.value, (rings.Integer, rings.Rational,
                                         rings.NumberFieldElement))
                 or isinstance(self.value, (RealBall, ComplexBall))
@@ -409,16 +413,16 @@ class Point(SageObject):
                 return self
             else:
                 return Point(self.value.squash(), self.dop)
-        # XXX: Not sure if this case is useful. Probably yes in the context of
-        # binary splitting, but then there is some overlap with the bit-burst
-        # method, which applies to rationals etc. as well.
-        elif alg and isinstance(self.value, rings.NumberFieldElement):
-            if self.value.parent().degree() > 2 and self.is_ordinary():
-                ball = self.iv().add_error(self.dist_to_sing()/16)
-                if any(s.overlaps(ball) for s in self.dop._singularities(IC)):
-                    return self
-                rat = _rationalize(ball, real=self.is_real())
-                return Point(rat, self.dop)
+        # XXX: Should ideally be integrated with the bit-burst method when
+        # relevant in order to get better paths.
+        elif (self.value.parent() in (RLF, CLF)
+                or isinstance(self.value, rings.NumberFieldElement)
+                and self.value.parent().degree() > 2 and self.is_ordinary()):
+            ball = self.iv().add_error(self.dist_to_sing()/16)
+            if any(s.overlaps(ball) for s in self.dop._singularities(IC)):
+                return self
+            rat = _rationalize(ball, real=self.is_real())
+            return Point(rat, self.dop)
         return self
 
 class EvaluationPoint(object):
