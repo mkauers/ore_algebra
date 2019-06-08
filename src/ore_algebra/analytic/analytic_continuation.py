@@ -253,17 +253,22 @@ def analytic_continuation(dop, path, eps, ctx=dctx, ini=None, post=None,
 
     res = []
     z0 = path.vert[0]
-    main = Step(z0, z0.simple_approx())
+    # XXX still imperfect in the case of a high-precision starting point with
+    # relatively large radius... (do we care?)
+    main = Step(z0, z0.simple_approx(ctx=ctx))
     path_mat = step_transition_matrix(dop, main, eps1, ctx=ctx)
     if z0.keep_value():
         res.append(point_dict(z0, identity_matrix(ZZ, dop.order())))
     for step in path:
-        main, dev = step.chain_simple(main)
+        main, dev = step.chain_simple(main.end, ctx=ctx)
         main_mat = step_transition_matrix(dop, main, eps1, ctx=ctx)
         path_mat = main_mat*path_mat
         if dev is not None:
-            dev_mat = step_transition_matrix(dop, dev, eps1, ctx=ctx)
-            res.append(point_dict(dev.end, dev_mat*path_mat))
+            dev_mat = path_mat
+            for sub in dev:
+                sub_mat = step_transition_matrix(dop, sub, eps1, ctx=ctx)
+                dev_mat = sub_mat*dev_mat
+            res.append(point_dict(step.end, dev_mat))
 
     cm = sage.structure.element.get_coercion_model()
     real = (rings.RIF.has_coerce_map_from(dop.base_ring().base_ring())

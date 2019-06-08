@@ -546,9 +546,19 @@ Large/inexact points at high precision::
     sage: (Dx - 1).numerical_solution([1], [-pi/2, pi/2], 1e-1000)
     [23.14069...432104147... +/- ...e-1...]
 
+Algebraic points at high precision::
+
+    sage: NF.<sqrt2> = QuadraticField(2)
+    sage: dop = (x^2 - 3)*Dx^2 + x + 1
+    sage: dop.numerical_transition_matrix([1, sqrt2], 1e-10000) # long time (2.6 s)
+    [ [1.11...015121538...] [0.43...3856086567...]]
+    [ [0.65...812947177...] [1.15...5867289418...]]
+
 This used to yield a very coarse enclosure with some earlier versions::
 
     sage: (Dx^2 + x).numerical_solution([1, 0], [0,108])
+    [0.2731261535202004...]
+    sage: (Dx^2 + x).numerical_solution([1, 0], [0,108], simple_approx_thr=0)
     [0.2731261535202004...]
 
 Miscellaneous tests::

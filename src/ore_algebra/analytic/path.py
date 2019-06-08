@@ -29,6 +29,7 @@ from sage.rings.real_arb import RBF, RealBallField, RealBall
 from sage.structure.sage_object import SageObject
 
 from .accuracy import IR, IC
+from .context import dctx
 from .differential_operator import DifferentialOperator
 from .local_solutions import (FundamentalSolution, sort_key_by_asympt,
         LocalBasisMapper)
@@ -189,10 +190,13 @@ class Point(SageObject):
                         self.value.numerator().imag().numerator().nbits())
             return res
 
+    @cached_method
+    def is_fast(self):
+        return isinstance(self.value, (RealBall, ComplexBall, rings.Integer,
+                                 rings.Rational)) or is_QQi(self.value.parent())
+
     def bit_burst_bits(self, tgt_prec):
-        parent = self.value.parent()
-        if isinstance(self.value, (RealBall, ComplexBall, rings.Integer,
-                                             rings.Rational)) or is_QQi(parent):
+        if self.is_fast():
             return self.nbits()
         else:
             # RLF, CLF, other number fields (debatable!)
@@ -342,7 +346,7 @@ class Point(SageObject):
         return not self.is_ordinary() and self.is_regular()
 
     def is_irregular(self):
-        return not is_regular(self)
+        return not self.is_regular()
 
     def singularity_type(self, short=False):
         r"""
@@ -436,26 +440,37 @@ class Point(SageObject):
         return LocalBasisMapper(self.dop.shift(self)).run()
 
     @cached_method
-    def simple_approx(self, alg=True):
+    def simple_approx(self, ctx=dctx):
+        r"""
+        Return an approximation of this point suitable as a starting point for
+        the next analytic continuation step.
+
+        For intermediate steps via simple points to reach points of large bit
+        size or with irrational coordinates in the context of binary splitting,
+        see bit_burst_split().
+
+        For intermediate steps where thick balls are shrinked to their center,
+        see exact_approx().
+        """
         # Point options become meaningless (and are lost) when not returning
         # self.
-        if isinstance(self.value, (RealBall, ComplexBall)):
-            # XXX In the binary splitting regime, we should use a low-precision
-            # approximation or a rational approx as in the other branch.
-            if self.value.is_exact():
-                return self
-            else:
-                return Point(self.value.squash(), self.dop)
-        # XXX: Should ideally be integrated with the bit-burst method when
-        # relevant in order to get better paths.
-        elif (self.value.parent() in (RLF, CLF)
-                or isinstance(self.value, rings.NumberFieldElement)
-                and self.value.parent().degree() > 2 and self.is_ordinary()):
-            ball = self.iv().add_error(self.dist_to_sing()/16)
+        thr = ctx.simple_approx_thr
+        if (self.is_singular()
+                or self.is_fast() and self.is_exact() and self.nbits() <= thr):
+            return self
+        else:
+            rad = RBF.one().min(self.dist_to_sing()/16)
+            ball = self.iv().add_error(rad)
             if any(s.overlaps(ball) for s in self.dop._singularities(IC)):
                 return self
             rat = _rationalize(ball, real=self.is_real())
             return Point(rat, self.dop)
+
+    @cached_method
+    def exact_approx(self):
+        if isinstance(self.value, (RealBall, ComplexBall)):
+            if not self.value.is_exact():
+                return Point(self.value.trim().squash(), self.dop)
         return self
 
 class EvaluationPoint(object):
@@ -679,6 +694,8 @@ class Step(SageObject):
 
     def bit_burst_split(self, tgt_prec, bit_burst_prec):
         z0, z1 = self
+        if z0.is_singular() or z1.is_singular():
+            return ()
         p0, p1 = z0.bit_burst_bits(tgt_prec), z1.bit_burst_bits(tgt_prec)
         if max(p0, p1) <= 2*bit_burst_prec:
             return ()
@@ -694,13 +711,24 @@ class Step(SageObject):
             s1 = Step(z0_tr, z1, type="bit-burst", max_split=0)
         return (s0, s1)
 
-    def chain_simple(self, prev):
-        assert prev.end is self.start.simple_approx()
-        main = Step(prev.end, self.end.simple_approx(), branch=self.branch)
-        if self.end.keep_value():
-            dev = Step(main.end, self.end, type="deviation", max_split=0)
-        else:
+    def chain_simple(self, prev=None, ctx=dctx):
+        start = self.start.simple_approx(ctx=ctx)
+        if prev is not None:
+            assert prev is start
+        main = Step(start, self.end.simple_approx(ctx=ctx), branch=self.branch)
+        if not self.end.keep_value():
             dev = None
+        elif main.end is self.end:
+            dev = []
+        else:
+            ex = self.end.exact_approx()
+            if ex is self.end:
+                dev = [Step(main.end, self.end, type="deviation", max_split=0)]
+            else:
+                dev = [
+                    Step(main.end, ex, type="deviation", max_split=0),
+                    Step(ex, self.end, type="deviation", max_split=0)
+                ]
         return main, dev
 
     def singularities(self):
@@ -981,7 +1009,7 @@ class Path(SageObject):
         new = Path(new, self.dop)
         return new
 
-    def subdivide(self, threshold=IR(0.6), factor=IR(0.5)):
+    def subdivide(self, threshold=IR(0.6), factor=IR(0.5), slow_thr=IR(0.6)):
         # TODO:
         # - support paths passing very close to singular points
         new = [self.vert[0]]
@@ -990,10 +1018,21 @@ class Path(SageObject):
             cur, next = new[-1], self.vert[i]
             rad = cur.dist_to_sing()
             dist_to_next = (next.iv() - cur.iv()).abs()
-            if (dist_to_next <= threshold*rad if next.is_ordinary()
-                else (cur.value == next.value
-                      or cur.is_ordinary()
-                         and dist_to_next <= threshold*next.dist_to_sing())):
+            split = True
+            local_thr = threshold
+            if next.is_ordinary():
+                if cur.is_singular() and not cur.is_fast():
+                    local_thr = slow_thr
+                if dist_to_next <= local_thr*rad:
+                    split = False
+            elif cur.is_ordinary:
+                if not next.is_fast(): # next is singular
+                    local_thr = slow_thr
+                if dist_to_next <= local_thr*next.dist_to_sing():
+                    split = False
+            elif cur.value == next.value:
+                split = False
+            if not split:
                 new.append(next)
                 i += 1
             else:

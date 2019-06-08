@@ -23,6 +23,7 @@ class Context(object):
             keep="last",
             squash_intervals=False,
             bit_burst_thr=32,
+            simple_approx_thr=64,
         ):
 
         # TODO: dop, path, eps...
@@ -48,6 +49,8 @@ class Context(object):
         self.squash_intervals = squash_intervals
 
         self.bit_burst_thr = int(bit_burst_thr)
+
+        self.simple_approx_thr = int(simple_approx_thr)
 
     def __repr__(self):
         return pprint.pformat(self.__dict__)
