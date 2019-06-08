@@ -104,20 +104,6 @@ class Point(SageObject):
             self.value = point
         elif QQ.has_coerce_map_from(parent):
             self.value = QQ.coerce(point)
-        # must come before QQbar, due to a bogus coerce map (#14485)
-        elif parent is sage.symbolic.ring.SR:
-            try:
-                return self.__init__(point.pyobject(), dop)
-            except TypeError:
-                pass
-            try:
-                return self.__init__(QQbar(point), dop)
-            except (TypeError, ValueError, NotImplementedError):
-                pass
-            try:
-                self.value = RLF(point)
-            except (TypeError, ValueError):
-                self.value = CLF(point)
         elif QQbar.has_coerce_map_from(parent):
             alg = QQbar.coerce(point)
             NF, val, hom = alg.as_number_field_element()
@@ -134,6 +120,19 @@ class Point(SageObject):
         elif isinstance(parent, (ComplexField_class, ComplexDoubleField_class,
                                  ComplexIntervalField_class)):
             self.value = ComplexBallField(point.prec())(point)
+        elif parent is sage.symbolic.ring.SR:
+            try:
+                return self.__init__(point.pyobject(), dop)
+            except TypeError:
+                pass
+            try:
+                return self.__init__(QQbar(point), dop)
+            except (TypeError, ValueError, NotImplementedError):
+                pass
+            try:
+                self.value = RLF(point)
+            except (TypeError, ValueError):
+                self.value = CLF(point)
         else:
             try:
                 self.value = RLF.coerce(point)
