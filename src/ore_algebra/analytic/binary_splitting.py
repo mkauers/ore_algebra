@@ -737,7 +737,7 @@ class MatrixRec(object):
     """
 
     def __init__(self, dop, shift, singular_indices,
-                 dz, derivatives, prec):
+                 dz, derivatives, prec, binsplit_threshold):
 
         # TODO: perhaps dynamically optimize the representation when there are
         # no logs, algebraic exponents, etc.
@@ -788,7 +788,7 @@ class MatrixRec(object):
             raise NotImplementedError("recurrence of order zero")
         self.ordrec = self.bwrec.order
 
-        self.binsplit_threshold = max(128, self.ordrec)
+        self.binsplit_threshold = max(binsplit_threshold, self.ordrec)
 
         Mat_rec0 = MatrixSpace(self.AlgInts_rec, self.ordrec)
         self.Mat_rec = PolynomialRing(Mat_rec0, 'Sk')
@@ -949,11 +949,13 @@ class MatrixRec(object):
 
 class MatrixRecsUnroller(LocalBasisMapper):
 
-    def __init__(self, dop, pt, eps, derivatives):
+    def __init__(self, dop, pt, eps, derivatives, ctx=dctx):
         super(self.__class__, self).__init__(dop)
         self.pt = pt
         self.eps = eps
         self.derivatives = derivatives
+        self.ctx = ctx
+        self._est_terms, _ = dop.est_terms(pt, utilities.prec_from_eps(eps))
 
     def process_decomposition(self):
         int_expos = (len(self.sl_decomp) == 1
@@ -1006,7 +1008,8 @@ class MatrixRecsUnroller(LocalBasisMapper):
 
         # Generic recurrence matrix
         self.matrix_rec = MatrixRec(self.dop, self.leftmost, self.shifts,
-                self.pt.pt, self.derivatives, utilities.prec_from_eps(self.eps))
+                self.pt.pt, self.derivatives, utilities.prec_from_eps(self.eps),
+                min(self.ctx.binsplit_thr, self._est_terms))
 
         # Majorants
         maj = {rt: bounds.DiffOpBound(self.dop, rt, self.shifts,
@@ -1066,7 +1069,10 @@ class MatrixRecsUnroller(LocalBasisMapper):
         while True:
             # Try roughly doubling the number of terms, but always stop at
             # exceptional indices
-            self.shift, self.mult = prev + max(1 << ZZ(prev).nbits(), 128), 0
+            stride = min(max(1 << ZZ(prev).nbits(), self.ctx.binsplit_thr),
+                         self._est_terms)
+            self.shift = prev + stride
+            self.mult = 0
             if si < len(self.shifts) and self.shift >= self.shifts[si][0]:
                 self.shift, self.mult = self.shifts[si]
                 si += 1
@@ -1118,7 +1124,7 @@ class MatrixRecsUnroller(LocalBasisMapper):
 
 def fundamental_matrix_regular(dop, pt, eps, fail_fast, effort, ctx=dctx):
     rows = pt.jet_order
-    cols = MatrixRecsUnroller(dop, pt, eps, rows).run()
+    cols = MatrixRecsUnroller(dop, pt, eps, rows, ctx).run()
     return matrix([sol.value for sol in cols]).transpose()
 
 def _can_use_CBF(*doms):

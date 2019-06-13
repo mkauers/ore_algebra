@@ -116,6 +116,8 @@ class PlainDifferentialOperator(UnivariateDifferentialOperatorOverUnivariateRing
 
     @cached_method
     def _est_growth(self):
+        # Originally intended for the case of ordinary points only; may need
+        # improvements for singular points.
         from .bounds import growth_parameters, IR, IC
         kappa, alpha0 = growth_parameters(self)
         if kappa is infinity:
@@ -128,7 +130,7 @@ class PlainDifferentialOperator(UnivariateDifferentialOperatorOverUnivariateRing
         n0 = 1
         while lc(n0).is_zero():
             n0 += 1
-        alpha1 = max(abs(IC(pol(n0))) for pol in list(rop)[:-1])/abs(IR(lc(n0)))
+        alpha1 = max(abs(IC(pol(n0))) for pol in list(rop)[:-1])/abs(IC(lc(n0)))
         alpha = IR(alpha0).max(alpha1)
         return kappa, alpha
 
@@ -146,8 +148,10 @@ class PlainDifferentialOperator(UnivariateDifferentialOperatorOverUnivariateRing
             kappa, alpha = self._est_growth()
             if kappa is infinity:
                 return 0, 0
-            hump = IR(1).exp() * IR(alpha*pt.rad)**(~kappa)
-            est = hump + prec/(kappa*prec.log(2))
+            ratio = IR(alpha*pt.rad)
+            hump = IR.one().exp() * ratio**(~kappa)
+            klgp = kappa*prec.log(2)
+            est = hump + prec/(klgp.max(-ratio.log(2)))
             mag = hump.log(2).max(IR.zero())
         else:
             est = prec/(cvrad/pt.rad).log(2)

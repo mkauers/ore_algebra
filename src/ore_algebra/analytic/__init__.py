@@ -541,6 +541,8 @@ Large/inexact points at high precision::
 
     sage: (Dx - 1).numerical_solution([1], [0, pi], 1e-20000)
     [23.14069...908890274... +/- ...e-2...]
+    sage: (Dx - 1).numerical_solution([1], [0, pi], 1e-20000, algorithm="binsplit")
+    [23.14069...908890274... +/- ...e-2...]
     sage: (Dx - 1).numerical_solution([1], [-pi, 0], 1e-20000)
     [23.14069...908890274... +/- ...e-2...]
     sage: (Dx - 1).numerical_solution([1], [-pi/2, pi/2], 1e-1000)
@@ -550,7 +552,12 @@ Algebraic points at high precision::
 
     sage: NF.<sqrt2> = QuadraticField(2)
     sage: dop = (x^2 - 3)*Dx^2 + x + 1
+    sage: x + sqrt2 # populate coercion cache
+    x + sqrt2
     sage: dop.numerical_transition_matrix([1, sqrt2], 1e-10000) # long time (2.6 s)
+    [ [1.11...015121538...] [0.43...3856086567...]]
+    [ [0.65...812947177...] [1.15...5867289418...]]
+    sage: dop.numerical_transition_matrix([1, sqrt2], 1e-10000, algorithm="binsplit") # long time (2.8 s)
     [ [1.11...015121538...] [0.43...3856086567...]]
     [ [0.65...812947177...] [1.15...5867289418...]]
 

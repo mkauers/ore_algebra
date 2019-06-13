@@ -22,6 +22,7 @@ class Context(object):
             force_algorithm=False,
             keep="last",
             squash_intervals=False,
+            binsplit_thr=128,
             bit_burst_thr=32,
             simple_approx_thr=64,
         ):
@@ -47,6 +48,8 @@ class Context(object):
         if not isinstance(squash_intervals, bool):
             raise TypeError("squash_intervals", type(squash_intervals))
         self.squash_intervals = squash_intervals
+
+        self.binsplit_thr = int(binsplit_thr)
 
         self.bit_burst_thr = int(bit_burst_thr)
 
