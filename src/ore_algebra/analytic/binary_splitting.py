@@ -15,6 +15,7 @@ TESTS::
 
     sage: ((x^2 + 1)*Dx^2 + 2*x*Dx).numerical_solution([0, 1],
     ....:         [0, i+1, 2*i, i-1, 0], algorithm="binsplit")
+    INFO:...
     DEBUG:ore_algebra.analytic.binary_splitting:coefficients in: ... Complex
     ball field ...
     [3.14159265358979...] + [+/- ...]*I
@@ -22,13 +23,14 @@ TESTS::
     sage: NF.<sqrt2> = QuadraticField(2)
     sage: dop = (x^2 - 3)*Dx^2 + x + 1
     sage: dop.numerical_transition_matrix([0, sqrt2], 1e-10, algorithm="binsplit")
-    DEBUG:...
+    INFO:...
     DEBUG:ore_algebra.analytic.binary_splitting:evaluation point in: ... Number
     Field ...
     [[1.669017372...] [1.809514316...]]
     [[1.556515516...] [2.286697055...]]
 
     sage: (Dx - 1).numerical_solution([1], [0, i + pi], algorithm="binsplit")
+    INFO:...
     DEBUG:ore_algebra.analytic.binary_splitting:coefficients in: ... Complex
     ball field ...
     [12.5029695888765...] + [19.4722214188416...]*I
@@ -76,6 +78,7 @@ Elementary examples::
     sage: logger.setLevel(logging.DEBUG)
     sage: (x*Dx^2 + x + 1).numerical_transition_matrix([0, 1], 1e-10,
     ....:                                             algorithm="binsplit")
+    INFO:...
     DEBUG:ore_algebra.analytic.binary_splitting:coefficients in: ... Complex
     ball field ...
     [[-0.006152006884...]    [0.4653635461...]]
@@ -213,6 +216,7 @@ Miscellaneous examples::
 
     sage: logger.setLevel(logging.DEBUG)
     sage: ((x*Dx - 3/7)).lclm(Dx - 1).numerical_transition_matrix([0,1/3], algorithm="binsplit")
+    INFO:...
     DEBUG:ore_algebra.analytic.binary_splitting:coefficients in: ... Complex
     ball field ...
     [[1.395612425086089...] + [+/- ...]*I  [0.6244813348581596...]]
@@ -940,6 +944,8 @@ class MatrixRec(object):
         else:
             mid = (low + high) // 2
             mat = self.step_matrix_binsplit(low, mid, ord_log)
+            if high - low > 400000//self.ordrec**3:
+                logger.info("(n=%s)", mid)
             mat.imulleft(self.step_matrix_binsplit(mid, high, ord_log))
         assert mat.idx_start == low and mat.idx_end == high
         return mat
@@ -1003,6 +1009,11 @@ class MatrixRecsUnroller(LocalBasisMapper):
                 == sum(m for _, m in self.shifts)*self.irred_factor.degree())
 
     def process_modZ_class(self):
+
+        logger.info(
+                r"solutions z^(%s+n)·log(z)^k/k!+···, n=%s, est.#terms=%s",
+                self.leftmost, ", ".join(str(s) for s, _ in self.shifts),
+                self._est_terms)
 
         self.modZ_class_tail_bound = None
 
