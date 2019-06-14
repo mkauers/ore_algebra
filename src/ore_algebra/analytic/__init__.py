@@ -561,6 +561,11 @@ Algebraic points at high precision::
     [ [1.11...015121538...] [0.43...3856086567...]]
     [ [0.65...812947177...] [1.15...5867289418...]]
 
+Binary splitting when the bit-burst method is disabled::
+
+    sage: (Dx - 1).numerical_solution([1], [0, 1], 1e-100000, bit_burst_thr=10^10)
+    [2.718...91079721004271...]
+
 This used to yield a very coarse enclosure with some earlier versions::
 
     sage: (Dx^2 + x).numerical_solution([1, 0], [0,108])

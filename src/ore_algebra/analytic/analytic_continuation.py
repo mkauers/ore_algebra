@@ -119,7 +119,12 @@ def regular_step_transition_matrix(dop, step, eps, rows, fail_fast, effort,
 
     tgt_prec = utilities.prec_from_eps(eps)
     bit_burst_prec = max(2*step.prec(tgt_prec), ctx.bit_burst_thr)
-    use_binsplit = _use_binsplit(dop, step, tgt_prec, bit_burst_prec, ctx)
+    # binsplit_prec only matters when bit_burst_thr is large, could be replaced
+    # by bit_burst_prec otherwise
+    binsplit_prec = min(bit_burst_prec,
+                        max(step.start.bit_burst_bits(tgt_prec),
+                            step.end.bit_burst_bits(tgt_prec)))
+    use_binsplit = _use_binsplit(dop, step, tgt_prec, binsplit_prec, ctx)
     use_fallback = not ctx.force_algorithm and (use_binsplit or not fail_fast)
 
     while True:
