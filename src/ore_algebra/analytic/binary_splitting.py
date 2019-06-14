@@ -1067,10 +1067,16 @@ class MatrixRecsUnroller(LocalBasisMapper):
         prev, done = first_singular_index, False
         ord_log = 0
         while True:
-            # Try roughly doubling the number of terms, but always stop at
-            # exceptional indices
-            stride = min(max(1 << ZZ(prev).nbits(), self.ctx.binsplit_thr),
-                         self._est_terms)
+            # Below the expected truncation point, aim roughly for it. Above,
+            # start with a small stride and roughly double the number of terms
+            # every time. Always stop at exceptional indices in any case.
+            stride = self._est_terms - prev
+            if stride > 2*self.ctx.binsplit_thr:
+                resolution = ZZ(self.ctx.binsplit_thr).nbits()
+                stride = ((stride >> resolution)) << resolution
+            elif stride <= 0:
+                stride = max(1 << ZZ(stride).nbits(), self.ctx.binsplit_thr)
+                stride = min(prev, stride)
             self.shift = prev + stride
             self.mult = 0
             if si < len(self.shifts) and self.shift >= self.shifts[si][0]:
