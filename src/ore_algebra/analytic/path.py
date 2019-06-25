@@ -825,10 +825,11 @@ class Path(SageObject):
 
         sage: from ore_algebra import *
         sage: from ore_algebra.analytic.path import Path
+        sage: from ore_algebra.analytic.differential_operator import DifferentialOperator
         sage: Dops, x, Dx = DifferentialOperators()
         sage: dop = (x^2 + 1)*Dx^2 + 2*x*Dx
 
-        sage: path = Path([0, 1+I, CBF(2*I)], dop)
+        sage: path = Path([0, 1+I, CBF(2*I)], DifferentialOperator(dop))
         sage: path
         0 --> I + 1 --> ~2.0000*I
         sage: path[0]
