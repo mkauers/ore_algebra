@@ -2,6 +2,9 @@
 r"""
 Elementary and special functions
 
+This file contains a small collection of definitions of classical functions as
+solutions of differential initial value problems.
+
 ::
 
     sage: from ore_algebra.examples import stdfun
