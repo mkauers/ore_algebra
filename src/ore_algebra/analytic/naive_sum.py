@@ -299,8 +299,6 @@ def guard_bits(dop, maj, pt, ordrec, nterms):
 def interval_series_sum_wrapper(dop, inis, pt, tgt_error, bwrec, stop,
                                 fail_fast, effort, stride, ctx=dctx):
 
-    if stride is None:
-        stride = max(50, 2*bwrec.order)
     real = pt.is_real_or_symbolic() and all(ini.is_real(dop) for ini in inis)
     if pt.is_numeric and cyPartialSum() is not PartialSum:
         ivs = ComplexBallField
@@ -308,9 +306,11 @@ def interval_series_sum_wrapper(dop, inis, pt, tgt_error, bwrec, stop,
         ivs = RealBallField
     else:
         ivs = ComplexBallField
-    input_accuracy = min(chain([pt.accuracy()],
-                               (ini.accuracy() for ini in inis)))
+    input_accuracy = max(0, min(chain([pt.accuracy()],
+                                      (ini.accuracy() for ini in inis))))
     logger.log(logging.INFO - 1, "target error = %s", tgt_error)
+    if stride is None:
+        stride = min(max(50, 2*bwrec.order), max(2, input_accuracy))
 
     ordinary = dop.leading_coefficient()[0] != 0
     bit_prec0 = utilities.prec_from_eps(tgt_error.eps)

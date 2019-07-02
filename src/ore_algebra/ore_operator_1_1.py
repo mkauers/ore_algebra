@@ -2453,6 +2453,12 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             sage: (Dx - 1).numerical_solution([1], [0, i + pi])
             [12.5029695888765...] + [19.4722214188416...]*I
 
+        They can even be real or complex balls. In this case, the result
+        contains the image of the ball::
+
+            sage: (Dx - 1).numerical_solution([1], [0, CBF(1+i).add_error(0.01)])
+            [1.5 +/- 0.0693] + [2.3 +/- 0.0506]*I
+
         Here, we use a more complicated analytic continuation path in order to
         evaluate the branch of the complex arctangent function obtained by
         turning around its singularity at `i` once::
