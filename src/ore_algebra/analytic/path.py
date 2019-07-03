@@ -207,35 +207,39 @@ class Point(SageObject):
     @cached_method
     def iv(self):
         """
-        sage: from ore_algebra import *
-        sage: from ore_algebra.analytic.path import Point
-        sage: Dops, x, Dx = DifferentialOperators()
-        sage: [Point(z, Dx).iv()
-        ....: for z in [1, 1/2, 1+I, QQbar(I), RIF(1/3), CIF(1/3), pi]]
-        [1.000000000000000,
-        0.5000000000000000,
-        1.000000000000000 + 1.000000000000000*I,
-        1.000000000000000*I,
-        [0.333333333333333 +/- 3.99e-16],
-        [0.333333333333333 +/- 3.99e-16],
-        [3.141592653589793 +/- 7.83e-16]]
+        EXAMPLES::
+
+            sage: from ore_algebra import *
+            sage: from ore_algebra.analytic.path import Point
+            sage: Dops, x, Dx = DifferentialOperators()
+            sage: [Point(z, Dx).iv()
+            ....: for z in [1, 1/2, 1+I, QQbar(I), RIF(1/3), CIF(1/3), pi]]
+            [1.000000000000000,
+            0.5000000000000000,
+            1.000000000000000 + 1.000000000000000*I,
+            1.000000000000000*I,
+            [0.333333333333333 +/- 3.99e-16],
+            [0.333333333333333 +/- 3.99e-16],
+            [3.141592653589793 +/- 7.83e-16]]
         """
         return IC(self.value)
 
     def exact(self):
         r"""
-        sage: from ore_algebra import *
-        sage: from ore_algebra.analytic.path import Point
-        sage: Dops, x, Dx = DifferentialOperators()
-        sage: QQi.<i> = QuadraticField(-1)
-        sage: [Point(z, Dx).exact() for z in [1, 1/2, 1+i, QQbar(I)]]
-        [1, 1/2, i + 1, I]
-        sage: [Point(z, Dx).exact() for z in [RBF(3/4), RBF(1) + I]]
-        [3/4, i + 1]
-        sage: Point(RIF(1/3), Dx).exact()
-        Traceback (most recent call last):
-        ...
-        ValueError
+        EXAMPLES::
+
+            sage: from ore_algebra import *
+            sage: from ore_algebra.analytic.path import Point
+            sage: Dops, x, Dx = DifferentialOperators()
+            sage: QQi.<i> = QuadraticField(-1)
+            sage: [Point(z, Dx).exact() for z in [1, 1/2, 1+i, QQbar(I)]]
+            [1, 1/2, i + 1, I]
+            sage: [Point(z, Dx).exact() for z in [RBF(3/4), RBF(1) + I]]
+            [3/4, i + 1]
+            sage: Point(RIF(1/3), Dx).exact()
+            Traceback (most recent call last):
+            ...
+            ValueError
         """
         if self.value.parent().is_exact():
             return self

@@ -108,7 +108,7 @@ Sage's AsymptoticRing apparently doesn't digest the algebraic exponent yet, so
 let's do the singularity analysis by hand. Slightly annoyingly, the local basis
 used by the analytic continuation code is defined in terms of (z-s)^α, while
 extraction of coefficients and application of transfer theorems are easier with
-expressions of the form (1-z/s)^α. Since::
+expressions of the form (1-z/s)^α. Since ::
 
     [z^n] (1-z/s)^α ~ (1/s)^n·n^(-α-1)/Γ(-α),
 
@@ -134,7 +134,7 @@ solution to which the output of numerical_transition_matrix() refer.
 This is exactly what we need in the context of singularity analysis, and
 hence everything should be fine with the above formula. If however we had
 used, say, an analytic continuation path of the form [0, -i, s], then
-the correction needed may have been something else than (-1)^α.
+the required correction may have been something else than (-1)^α.
 
 With a quick and dirty implementation of some cases of singularity analysis, we
 can automate the process for other values of k::

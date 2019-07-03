@@ -98,7 +98,7 @@ def number_field_with_integer_gen(K):
         sage: from ore_algebra.analytic.utilities import number_field_with_integer_gen
         sage: K = NumberField(6*x^2 + (2/3)*x - 9/17, 'a')
         sage: number_field_with_integer_gen(K)[0]
-        Number Field in x306a with defining polynomial x^2 + 34*x - 8262
+        Number Field in x306a with defining polynomial x^2 + 34*x - 8262 ...
     """
     if K is QQ:
         return QQ, ZZ

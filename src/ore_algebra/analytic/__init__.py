@@ -183,9 +183,9 @@ constant::
     sage: mat[1][2].overlaps(CBF(cst))
     True
 
-The EXPERIMENTAL ``assume_analytic`` authorizes paths that go through a singular
-point, and makes the assumption that the solution(s) of interest are analytic at
-that point::
+The EXPERIMENTAL ``assume_analytic`` flag authorizes paths that go through a
+singular point, and makes the assumption that the solution(s) of interest are
+analytic at that point::
 
     sage: dop = ((x-1)^2*Dx-1).lclm(Dx-1)
     sage: dop.local_basis_monomials(0)

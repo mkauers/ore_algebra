@@ -4,13 +4,18 @@ Iterated integrals
 
 After J. Ablinger, J. Blümlein, C. G. Raab, and C. Schneider,
 *Iterated Binomial Sums and their Associated Iterated Integrals*,
-Journal of Mathematical Physics 55(11), 2014.
+Journal of Mathematical Physics 55(11), 2014,
+<https://doi.org/10.1063/1.4900836>.
 
 Thanks to Jakob Ablinger and Clemens Raab for the data.
 
-::
+We first import some data from the paper as well as utility functions defined
+in the example.iint submodule::
 
     sage: from ore_algebra.examples.iint import *
+
+Using this data, we compute numerical enclosures of some of the iterated
+integrals studied in the paper::
 
     sage: dop = diffop([f[1], w[3]]) # (A.15)
     sage: dop.local_basis_monomials(1)
@@ -20,6 +25,8 @@ Thanks to Jakob Ablinger and Clemens Raab for the data.
     sage: n(pi^2/2)
     4.934802200544...
 
+::
+
     sage: dop = diffop([f[1/4], w[1], f[1]]) # (A.8)
     sage: dop.local_basis_monomials(1)
     [1, x - 1, (x - 1)^(3/2)*log(x - 1), (x - 1)^(3/2)]
@@ -28,6 +35,8 @@ Thanks to Jakob Ablinger and Clemens Raab for the data.
     sage: n(-pi^3/9)
     -3.445141853366...
 
+::
+
     sage: dop = diffop([w[29], w[8]]) # (A.23)
     sage: dop.local_basis_monomials(1)
     [log(x - 1), 1, x - 1]
@@ -35,6 +44,8 @@ Thanks to Jakob Ablinger and Clemens Raab for the data.
     [1.562604825792972...]
     sage: n(4/9*(psi(1,1/3)-2/3*pi^2))
     1.562604825792...
+
+::
 
     sage: dop = diffop([h[0], w[8], w[8], f[1], f[1]]) # (A.69)
     sage: dop.local_basis_monomials(1)
@@ -52,7 +63,7 @@ Thanks to Jakob Ablinger and Clemens Raab for the data.
     sage: iint_value(dop, myini, 1e-500) # long time (3.4 s)
     [0.97080469562493...0383420...]
 
-Known exact values::
+Here are the known exact values for reference::
 
     sage: psi1_a = RBF(10.09559712542709408179200409989251636051890, rad=1e-35)
     sage: Li_a = RBF(0.67795750683172255251567721037981473544402459, rad=1e-35)
@@ -91,6 +102,9 @@ Known exact values::
     sage: ref[23] = 4/9*(psi1_a - 4*zeta(2))
     sage: ref[24] = sqrt(2)*(2/3*zeta(2) - 2*Li_b - ln(2)^2)
 
+Finally, we compute all the integrals and compare with the exact values when
+applicable::
+
     sage: for k in sorted(word.keys()): # long time (16 s)
     ....:     dop = diffop(word[k])
     ....:     val = iint_value(dop, ini[k])
@@ -122,7 +136,7 @@ Known exact values::
     (A.24)  [2.13970244864910...]  ok
     (A.27)  [-0.5342475125153...]
     (A.28)  [0.14083166505781...]
-    (A.29)  [0.00671775899937...]
+    (A.29)  [0.08671923333638...]
     (A.30)  [9.29746030760470...]
     (A.31)  [-1.2068741628578...]
     (A.32)  [0.76813058387865...]
@@ -236,6 +250,7 @@ h[2] = sqrt(x)/((x+1)*sqrt(8-x)) # rename?
 h[3] = x/(x+1)
 h[4] = x/((x+1)*sqrt(x+_one/4))
 h[5] = x/((x-1)*sqrt(x-_one/4))
+h[6] = 1/(x+1)
 
 w = dict()
 w[1]  = 1/(sqrt(x)*sqrt(1-x))
@@ -295,7 +310,7 @@ word[23] = [w[29], w[8]]
 word[24] = [f[-_one/2], w[28]]
 word[27] = [h[0], w[8], w[8]]
 word[28] = [h[3], w[14], w[14]]
-word[29] = [h[3], f[-_one/2], f[0], f[0], f[0]]
+word[29] = [h[6], f[-_one/2], f[0], f[0], f[0]]
 word[30] = [f[_one/4], f[0], w[1], f[1]]
 word[31] = [f[_one/4], w[2], w[2], w[1]]
 word[32] = [f[-_one/4], w[2], w[2], w[1]]

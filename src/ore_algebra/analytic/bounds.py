@@ -4,9 +4,10 @@ Error bounds
 
 Reference:
 
-    Marc Mezzarobba, Truncation Bounds for Differentially Finite Series. 2018.
-    *Annales Henri Lebesgue*, to appear.
+    Marc Mezzarobba, Truncation Bounds for Differentially Finite Series.
+    *Annales Henri Lebesgue* 2:99–148, 2019.
     <https://hal.archives-ouvertes.fr/hal-01817568>
+    <https://doi.org/10.5802/ahl.17>
 """
 
 # Copyright 2015, 2016, 2017, 2018, 2019 Marc Mezzarobba

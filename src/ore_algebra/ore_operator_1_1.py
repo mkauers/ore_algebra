@@ -2192,19 +2192,20 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
 
         A list of expressions of the form ``(x-point)^λ*log(x-point)^k/k!``
         where ``λ`` is a root of the :meth:`indicial polynomial <indicial_polynomial>`
-        of the operator at ``point``, and ``k`` is a nonnegative integer less
-        than the multiplicity of that root.
+        (over the algebraic numbers) of the operator at ``point``, and ``k`` is
+        a nonnegative integer less than the multiplicity of that root.
 
         If ``point`` is an ordinary point, the output is ``[1, x, x^2, ...]``.
         More generally, a solution of the operator is characterized by the
         coefficients in its logarithmic power series expansion at ``point`` of
-        the monomials returned by this method. The basis of solutions consisting
-        of the local solutions in which exactly one of the monomials appears
-        (with a coefficient equal to one), ordered as in the output of this
-        method, is used in several functions of this package to specify vectors
-        of “generalized initial values” at regular singular points. (The order
-        is essentially that of asymptotic dominance as ``x`` tends to
-        ``point``.) Note however that this basis may not coincide with the one
+        the monomials returned by this method. The basis of solutions
+        consisting of the local solutions in which exactly one of the monomials
+        appears (with a coefficient equal to one), ordered as in the output of
+        this method, is used in several functions of this package to specify
+        vectors of “generalized initial values” at regular singular points.
+        (The order is essentially that of asymptotic dominance as ``x`` tends
+        to ``point``, with oscillating functions being ordered in an arbitrary
+        but consistent way.) Note that this basis may not coincide with the one
         computed by :meth:`generalized_series_solutions`.
 
         .. seealso::
@@ -2321,7 +2322,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
              (x - 0.02943725152285942?)^(1/2) - (-203/32*a+9)*(x - 0.02943725152285942?)^(3/2) + (-24031/160*a+1087523/5120)*(x - 0.02943725152285942?)^(5/2),
              (x - 0.02943725152285942?) - (-55/6*a+13)*(x - 0.02943725152285942?)^2]
             sage: basis[0].base_ring()
-            Number Field in a with defining polynomial y^2 - 2
+            Number Field in a with defining polynomial y^2 - 2 with a = -1.414...
             sage: RR(basis[0].base_ring().gen())
             -1.41421356237309
             sage: basis[0][-1]
@@ -2435,7 +2436,8 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         guaranteed to be the case. (It is a bug, however, if the returned ball
         does not contain the exact result.)
 
-        See :mod:`ore_algebra.analytic` for more information.
+        See :mod:`ore_algebra.analytic` for more information, and
+        :mod:`ore_algebra.examples` for additional examples.
 
         .. seealso:: :meth:`numerical_transition_matrix`
 
@@ -2595,7 +2597,8 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         ``eps``, but this is not guaranteed to be the case. (It is a bug,
         however, if the returned ball does not contain the exact result.)
 
-        See :mod:`ore_algebra.analytic` for more information.
+        See :mod:`ore_algebra.analytic` for more information, and
+        :mod:`ore_algebra.examples` for additional examples.
 
         .. seealso:: :meth:`numerical_solution`
 
