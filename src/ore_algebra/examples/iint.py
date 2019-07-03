@@ -4,7 +4,8 @@ Iterated integrals
 
 After J. Ablinger, J. Blümlein, C. G. Raab, and C. Schneider,
 *Iterated Binomial Sums and their Associated Iterated Integrals*,
-Journal of Mathematical Physics 55(11), 2014.
+Journal of Mathematical Physics 55(11), 2014,
+<https://doi.org/10.1063/1.4900836>.
 
 Thanks to Jakob Ablinger and Clemens Raab for the data.
 
@@ -135,7 +136,7 @@ applicable::
     (A.24)  [2.13970244864910...]  ok
     (A.27)  [-0.5342475125153...]
     (A.28)  [0.14083166505781...]
-    (A.29)  [0.00671775899937...]
+    (A.29)  [0.08671923333638...]
     (A.30)  [9.29746030760470...]
     (A.31)  [-1.2068741628578...]
     (A.32)  [0.76813058387865...]
@@ -249,6 +250,7 @@ h[2] = sqrt(x)/((x+1)*sqrt(8-x)) # rename?
 h[3] = x/(x+1)
 h[4] = x/((x+1)*sqrt(x+_one/4))
 h[5] = x/((x-1)*sqrt(x-_one/4))
+h[6] = 1/(x+1)
 
 w = dict()
 w[1]  = 1/(sqrt(x)*sqrt(1-x))
@@ -308,7 +310,7 @@ word[23] = [w[29], w[8]]
 word[24] = [f[-_one/2], w[28]]
 word[27] = [h[0], w[8], w[8]]
 word[28] = [h[3], w[14], w[14]]
-word[29] = [h[3], f[-_one/2], f[0], f[0], f[0]]
+word[29] = [h[6], f[-_one/2], f[0], f[0], f[0]]
 word[30] = [f[_one/4], f[0], w[1], f[1]]
 word[31] = [f[_one/4], w[2], w[2], w[1]]
 word[32] = [f[-_one/4], w[2], w[2], w[1]]
