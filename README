@@ -35,7 +35,7 @@ Installation
 To download and install the latest development version on a system where Sage
 was built from source or installed from official packages, run
 
-    sage -pip install [--user] git+https://github.com/mkauers/ore_algebra/
+    sage -pip install [--user] git+https://github.com/mkauers/ore_algebra.git
 
 Alternatively, run
 
