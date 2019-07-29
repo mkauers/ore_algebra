@@ -768,7 +768,9 @@ def growth_parameters(dop):
 # Bounds on rational functions of n
 ######################################################################
 
-@cached_function # XXX: tie life to a suitable object
+# key=... to avoid comparing number fields
+# XXX: tie life to a suitable object
+@cached_function(key=lambda p: (id(p.parent()), p))
 def _complex_roots(pol):
     if not pol.parent() is QQ: # QQ typical (ordinary points)
         pol = pol.change_ring(QQbar)
