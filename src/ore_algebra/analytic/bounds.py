@@ -1688,7 +1688,11 @@ class DiffOpBound(object):
         lc = self.dop.leading_coefficient()
         # Doing the inversion exactly yields much better bounds (at least when
         # the coefficients do not fit on IC.prec() bits)
-        inv = lc.inverse_series_trunc(pol_part_len + 1).change_ring(IC)
+        prec = max(a.absolute_norm() for a in lc).ceil().nbits() + 50
+        inv = lc.inverse_series_trunc(pol_part_len + 1)
+        inv = inv.change_ring(ComplexBallField(prec))
+        if inv[0].contains_zero():
+            logging.warn("probable interval blow-up in bound computation")
         # Including rcoeffs[-1] here actually is redundant: by construction,
         # the only term involving n^ordeq  in first will be 1·n^ordeq·z^0.
         first_zn = Pol_zn([pol._mul_trunc_(inv, pol_part_len + 1)
