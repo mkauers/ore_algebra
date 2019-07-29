@@ -1964,6 +1964,10 @@ class DiffOpBound(object):
                 # where none of the n+d is a root of the indicial polynomial.
                 cor = sum(bwrec_nplus[d][0][u]*nres[k+u][d]
                           for u in range(1, logs-k))
+                # It is expected that both cst and res are large (and inv only
+                # balances one of them) when the operator “dilates” its
+                # argument. This is because the normalized residual is defined
+                # using a monic indicial polynomial.
                 nres[k][d] = inv*(cst*res[k][d] - cor)
         Poly = self.__CPoly if Ring is IC else self.Poly.change_ring(Ring)
         return [Poly(coeff) for coeff in nres]
