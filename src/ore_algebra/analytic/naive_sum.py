@@ -608,7 +608,10 @@ class PartialSum(object):
         return v
 
     def interval_width(self):
-        return max(c.rad() for c in self.value)
+        try:
+            return max(c.rad() for c in self.value)
+        except RuntimeError:
+            return RealField(30)('inf')
 
 def series_sum_regular(Intervals, dop, bwrec, inis, pt, stop, stride,
                        n0_squash, real):
