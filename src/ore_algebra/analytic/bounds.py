@@ -1688,11 +1688,9 @@ class DiffOpBound(object):
 
         # Compute the initial part of the series expansion.
         lc = self.dop.leading_coefficient()
-        # Doing the inversion exactly yields much better bounds (at least when
-        # the coefficients do not fit on IC.prec() bits)
-        prec = max(a.absolute_norm() for a in lc).ceil().nbits() + 50
+        prec = max(a.numerator().nbits() for c in lc for a in c) + 50
+        lc = lc.change_ring(ComplexBallField(prec))
         inv = lc.inverse_series_trunc(pol_part_len + 1)
-        inv = inv.change_ring(ComplexBallField(prec))
         if inv[0].contains_zero():
             logging.warn("probable interval blow-up in bound computation")
         # Including rcoeffs[-1] here actually is redundant: by construction,
