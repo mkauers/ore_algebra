@@ -61,7 +61,7 @@ corresponding series do not continue::
 More examples::
 
     sage: from ore_algebra.examples import fcc
-    sage: fcc.dop5.numerical_solution( # long time (3.5 s)
+    sage: fcc.dop5.numerical_solution( # long time (3.7 s)
     ....:          [0, 0, 0, 0, 1, 0], [0, 1/5+i/2, 1],
     ....:          1e-60, algorithm='binsplit', bit_burst_thr=1000)
     [1.048852351354914851629563763699992759454025504652066403...] + [+/- ...]*I
@@ -122,7 +122,7 @@ Whittaker functions with irrational exponents::
 Various mixes of algebraic exponents and evaluation points::
 
     sage: ((x*Dx)^3-2-x).numerical_transition_matrix([0,1], 1e-5, algorithm="binsplit")
-    [ [0.75335...] + [-0.09777...]*I  [0.75335...] + [0.09777...]*I  [1.1080...] + [+/- ...]*I]
+    [[0.75335...] + [-0.09777...]*I  [0.75335...] + [0.09777...]*I  [1.1080...] + [+/- ...]*I]
     [[-0.78644...] + [-0.8794...]*I [-0.78644...] + [0.8794...]*I  [1.5074...] + [+/- ...]*I]
     [ [0.10146...] + [1.2165...]*I  [0.10146...] + [-1.2165...]*I  [0.32506...] + [+/- ...]*I]
 

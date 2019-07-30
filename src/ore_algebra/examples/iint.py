@@ -60,7 +60,7 @@ integrals studied in the paper::
     [0.97080469562493...]
     sage: iint_value(dop, myini, algorithm="binsplit")
     [0.97080469...]
-    sage: iint_value(dop, myini, 1e-500) # long time (3.4 s)
+    sage: iint_value(dop, myini, 1e-500) # long time (3.3 s)
     [0.97080469562493...0383420...]
 
 Here are the known exact values for reference::
