@@ -779,7 +779,7 @@ class MatrixRec(object):
                 self._init_generic(deq_Scalars, shift, E, dz)
         self.dz = dz
 
-        bwrec = bw_shift_rec(dop, shift=self.shift, clear_denominators=True)
+        bwrec = bw_shift_rec(dop, shift=self.shift)
         # Also store an exact version of the leading coefficient to be able to
         # compute the inverse exactly (and simplify the result) when working
         # with arb balls. (Would it be enough to increase the working precision

@@ -47,7 +47,7 @@ logger = logging.getLogger(__name__)
 # Recurrence relations
 ##############################################################################
 
-def bw_shift_rec(dop, shift=ZZ.zero(), clear_denominators=False):
+def bw_shift_rec(dop, shift=ZZ.zero()):
     Scalars = utilities.mypushout(dop.base_ring().base_ring(), shift.parent())
     if dop.parent().is_D():
         dop = DifferentialOperator(dop) # compatibility bugware
@@ -59,9 +59,9 @@ def bw_shift_rec(dop, shift=ZZ.zero(), clear_denominators=False):
     Rops = ore_algebra.OreAlgebra(Pols_n, 'Sn')
     ordrec = rop.order()
     rop = Rops([p(n-ordrec+shift) for p in rop])
-    if clear_denominators:
-        den = lcm([p.denominator() for p in rop])
-        rop = den*rop
+    # Clear_denominators
+    den = lcm([p.denominator() for p in rop])
+    rop = den*rop
     # Remove constant common factors to make the recurrence smaller
     if Scalars is QQ:
         g = gcd(c for p in rop for c in p)
