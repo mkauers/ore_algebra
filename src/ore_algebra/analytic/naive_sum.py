@@ -30,6 +30,7 @@ from sage.modules.free_module_element import vector
 from sage.rings.all import ZZ, QQ, RR, QQbar, infinity
 from sage.rings.complex_arb import ComplexBallField, CBF, ComplexBall
 from sage.rings.integer import Integer
+from sage.rings.number_field.number_field_base import is_NumberField
 from sage.rings.polynomial import polynomial_element
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 from sage.rings.real_arb import RealBallField, RBF, RealBall
@@ -296,6 +297,18 @@ def guard_bits(dop, maj, pt, ordrec, nterms):
         if new_n0 > nterms:
             return nterms, guard_bits_intervals
 
+def _use_inexact_recurrence(bwrec, prec):
+    Scalars = bwrec.Scalars
+    if not is_NumberField(Scalars):
+        return False
+    if ((Scalars is QQ or utilities.is_QQi(Scalars))
+            and bwrec[-1][0][0].numerator().nbits() < 10*prec):
+        return False
+    h = max(a.numerator().nbits() for p in bwrec.coeff
+                                  for c in p
+                                  for a in c)
+    return (h + 20)*Scalars.degree()**2 >= 16*prec
+
 def interval_series_sum_wrapper(dop, inis, pt, tgt_error, bwrec, stop,
                                 fail_fast, effort, stride, ctx=dctx):
 
@@ -346,8 +359,13 @@ def interval_series_sum_wrapper(dop, inis, pt, tgt_error, bwrec, stop,
         stop.reset(tgt_error.eps >> (4*attempt),
                    stop.fast_fail and ini_are_accurate)
 
+        if _use_inexact_recurrence(bwrec, bit_prec):
+            bwrec1 = bwrec.change_base(Intervals)
+        else:
+            bwrec1 = bwrec
+
         try:
-            sols = series_sum_regular(Intervals, dop, bwrec, inis, pt, stop,
+            sols = series_sum_regular(Intervals, dop, bwrec1, inis, pt, stop,
                                       stride, n0_squash, real)
         except accuracy.PrecisionError:
             if attempt > effort:
