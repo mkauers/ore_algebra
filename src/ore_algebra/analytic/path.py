@@ -296,6 +296,9 @@ class Point(SageObject):
         approx = approx.squash()
         return Point(Ivs(tgt_prec)(approx), self.dop)
 
+    def __complex__(self):
+        return complex(self.value)
+
     # Point equality is identity
 
     def __eq__(self, other):
