@@ -34,7 +34,10 @@ setup(
         "ore_algebra.examples",
     ],
     package_dir = {'': 'src/'},
-    ext_modules = cythonize("src/ore_algebra/analytic/*.pyx"),
+    ext_modules = cythonize(
+        "src/ore_algebra/analytic/*.pyx",
+        aliases = sage.env.cython_aliases()
+        ),
     include_dirs = sage.env.sage_include_directories(),
     cmdclass = {'test': TestCommand}
     )
