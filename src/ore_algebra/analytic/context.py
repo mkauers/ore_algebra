@@ -21,8 +21,10 @@ class Context(object):
             assume_analytic=False,
             force_algorithm=False,
             keep="last",
-            max_split=3,
             squash_intervals=False,
+            binsplit_thr=128,
+            bit_burst_thr=32,
+            simple_approx_thr=64,
         ):
 
         # TODO: dop, path, eps...
@@ -43,16 +45,26 @@ class Context(object):
             raise ValueError("keep", keep)
         self.keep = keep
 
-        if not isinstance(max_split, int):
-            raise TypeError("max_split", type(max_split))
-        self.max_split = max_split
-
         if not isinstance(squash_intervals, bool):
             raise TypeError("squash_intervals", type(squash_intervals))
         self.squash_intervals = squash_intervals
 
+        self.binsplit_thr = int(binsplit_thr)
+
+        self.bit_burst_thr = int(bit_burst_thr)
+
+        self.simple_approx_thr = int(simple_approx_thr)
+
     def __repr__(self):
         return pprint.pformat(self.__dict__)
+
+    def __call__(self, **kwds):
+        # XXX Should check the new values, and maybe return a wrapper that
+        # shadows some attributes rather than a copy.
+        new = self.__new__(Context)
+        new.__dict__ = self.__dict__.copy()
+        new.__dict__.update(kwds)
+        return new
 
     def prefer_binsplit(self):
         return self.algorithm == "binsplit"

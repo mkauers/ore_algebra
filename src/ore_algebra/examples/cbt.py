@@ -71,7 +71,7 @@ basis (1 + O(z^11), z + O(z^11), ...) to its coefficients in the basis::
 
 ::
 
-    sage: mat = dop.numerical_transition_matrix([0,s], 1e-30) # long time (3.6 s)
+    sage: mat = dop.numerical_transition_matrix([0,s], 1e-30) # long time (2.3 s)
 
 We are interested in the fifth row::
 
@@ -176,7 +176,7 @@ can automate the process for other values of k::
 
 We obtain::
 
-    sage: for k, dop in cbt.dop.items(): # long time (10 s)
+    sage: for k, dop in cbt.dop.items(): # long time (7.7 s)
     ....:     print("{}\t{}".format(k, asy(dop, 50)))
     2  [0.5613226189564568270393235883810334361992061196...]
     3  [0.6049645385653542644762421366594344081594004532...]

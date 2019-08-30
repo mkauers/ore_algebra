@@ -2455,6 +2455,12 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             sage: (Dx - 1).numerical_solution([1], [0, i + pi])
             [12.5029695888765...] + [19.4722214188416...]*I
 
+        They can even be real or complex balls. In this case, the result
+        contains the image of the ball::
+
+            sage: (Dx - 1).numerical_solution([1], [0, CBF(1+i).add_error(0.01)])
+            [1.5 +/- 0.0693] + [2.3 +/- 0.0506]*I
+
         Here, we use a more complicated analytic continuation path in order to
         evaluate the branch of the complex arctangent function obtained by
         turning around its singularity at `i` once::
@@ -2542,11 +2548,11 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         post_mat = matrix(1, dop.order(),
                 lambda i, j: ZZ(j).factorial()*post_transform[j])
         ctx = ancont.Context(**kwds)
-        pairs = ancont.analytic_continuation(dop, path, eps, ctx, ini=ini,
-                                                                  post=post_mat)
-        assert len(pairs) == 1
-        _, mat = pairs[0]
-        struct = ctx.path.vert[-1].local_basis_structure()
+        sol = ancont.analytic_continuation(dop, path, eps, ctx, ini=ini,
+                                         post=post_mat, return_local_bases=True)
+        assert len(sol) == 1
+        mat = sol[0]["value"]
+        struct = sol[0]["structure"]
         if dop.order() == 0:
             return mat.base_ring().zero()
         asympt = local_solutions.sort_key_by_asympt(struct[0])
@@ -2677,9 +2683,9 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         from .analytic.differential_operator import DifferentialOperator
         dop = DifferentialOperator(self)
         ctx = ancont.Context(**kwds)
-        pairs = ancont.analytic_continuation(dop, path, eps, ctx)
-        assert len(pairs) == 1
-        return pairs[0][1]
+        sol = ancont.analytic_continuation(dop, path, eps, ctx)
+        assert len(sol) == 1
+        return sol[0]["value"]
 
 #############################################################################################################
 

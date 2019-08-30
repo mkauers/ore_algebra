@@ -520,9 +520,57 @@ Handling of algebraic points::
     [ [1.21483503...] + [0.72868035...]*I  [1.21483503...] + [-0.72868035...]*I]
     [[0.8557200...] + [-0.30988046...]*I  [0.85572000...] + [0.30988046...]*I]
 
+Inexact points::
+
+    sage: (Dx-1).numerical_solution([1], [0, RBF(1, .01)])
+    [2.7 +/- 0.0...]
+    sage: (Dx-1).numerical_solution([1],[0, RBF(1, .5), 2])
+    [7.38905609893065...]
+    sage: (Dx - 1).numerical_solution([1], [RBF(0, .001), 1])
+    [2.72 +/- ...e-3]
+    sage: (Dx - 1).numerical_solution([1], [RBF(0, .001)])
+    1.0000000000000000
+    sage: (Dx - 1).numerical_solution([1], [RBF(0, .001), 0])
+    [1.00 +/- 1...e-3]
+    sage: (Dx - 1).numerical_solution([1], [RBF(0, .001), RBF(0, .001)])
+    [1.00 +/- 2...e-3]
+    sage: (Dx - 1).numerical_solution([1], [-pi, pi])
+    [535.491655524764...]
+
+Large/inexact points at high precision::
+
+    sage: (Dx - 1).numerical_solution([1], [0, pi], 1e-20000)
+    [23.14069...908890274... +/- ...e-2...]
+    sage: (Dx - 1).numerical_solution([1], [0, pi], 1e-20000, algorithm="binsplit")
+    [23.14069...908890274... +/- ...e-2...]
+    sage: (Dx - 1).numerical_solution([1], [-pi, 0], 1e-20000)
+    [23.14069...908890274... +/- ...e-2...]
+    sage: (Dx - 1).numerical_solution([1], [-pi/2, pi/2], 1e-1000)
+    [23.14069...432104147... +/- ...e-1...]
+
+Algebraic points at high precision::
+
+    sage: NF.<sqrt2> = QuadraticField(2)
+    sage: dop = (x^2 - 3)*Dx^2 + x + 1
+    sage: x + sqrt2 # populate coercion cache
+    x + sqrt2
+    sage: dop.numerical_transition_matrix([1, sqrt2], 1e-10000)
+    [ [1.11...015121538...] [0.43...3856086567...]]
+    [ [0.65...812947177...] [1.15...5867289418...]]
+    sage: dop.numerical_transition_matrix([1, sqrt2], 1e-10000, algorithm="binsplit")
+    [ [1.11...015121538...] [0.43...3856086567...]]
+    [ [0.65...812947177...] [1.15...5867289418...]]
+
+Binary splitting when the bit-burst method is disabled::
+
+    sage: (Dx - 1).numerical_solution([1], [0, 1], 1e-100000, bit_burst_thr=10^10)
+    [2.718...91079721004271...]
+
 This used to yield a very coarse enclosure with some earlier versions::
 
     sage: (Dx^2 + x).numerical_solution([1, 0], [0,108])
+    [0.2731261535202004...]
+    sage: (Dx^2 + x).numerical_solution([1, 0], [0,108], simple_approx_thr=0)
     [0.2731261535202004...]
 
 Miscellaneous tests::
@@ -533,6 +581,11 @@ Miscellaneous tests::
 
     sage: ((9*x^2 - 1)*Dx + 18*x).numerical_transition_matrix([0,I,1], squash_intervals=True)
     [[-0.125000000000000...] + [+/- ...]*I]
+
+    sage: dop = x*Dx^3 + 2*Dx^2 + x*Dx
+    sage: mat = (dop.numerical_transition_matrix([1/3, RBF(1/3)]) - 1)
+    sage: sum(abs(c) for c in mat.list()) < RBF(1e-14)
+    True
 
 Test suite
 ==========

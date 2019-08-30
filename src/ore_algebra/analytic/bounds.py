@@ -768,7 +768,9 @@ def growth_parameters(dop):
 # Bounds on rational functions of n
 ######################################################################
 
-@cached_function # XXX: tie life to a suitable object
+# key=... to avoid comparing number fields
+# XXX: tie life to a suitable object
+@cached_function(key=lambda p: (id(p.parent()), p))
 def _complex_roots(pol):
     if not pol.parent() is QQ: # QQ typical (ordinary points)
         pol = pol.change_ring(QQbar)
@@ -1686,9 +1688,11 @@ class DiffOpBound(object):
 
         # Compute the initial part of the series expansion.
         lc = self.dop.leading_coefficient()
-        # Doing the inversion exactly yields much better bounds (at least when
-        # the coefficients do not fit on IC.prec() bits)
-        inv = lc.inverse_series_trunc(pol_part_len + 1).change_ring(IC)
+        prec = max(a.numerator().nbits() for c in lc for a in c) + 50
+        lc = lc.change_ring(ComplexBallField(prec))
+        inv = lc.inverse_series_trunc(pol_part_len + 1)
+        if inv[0].contains_zero():
+            logging.warn("probable interval blow-up in bound computation")
         # Including rcoeffs[-1] here actually is redundant: by construction,
         # the only term involving n^ordeq  in first will be 1·n^ordeq·z^0.
         first_zn = Pol_zn([pol._mul_trunc_(inv, pol_part_len + 1)
@@ -1960,6 +1964,10 @@ class DiffOpBound(object):
                 # where none of the n+d is a root of the indicial polynomial.
                 cor = sum(bwrec_nplus[d][0][u]*nres[k+u][d]
                           for u in range(1, logs-k))
+                # It is expected that both cst and res are large (and inv only
+                # balances one of them) when the operator “dilates” its
+                # argument. This is because the normalized residual is defined
+                # using a monic indicial polynomial.
                 nres[k][d] = inv*(cst*res[k][d] - cor)
         Poly = self.__CPoly if Ring is IC else self.Poly.change_ring(Ring)
         return [Poly(coeff) for coeff in nres]
