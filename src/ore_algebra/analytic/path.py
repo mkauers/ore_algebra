@@ -998,6 +998,7 @@ class Path(SageObject):
             new.append(step.start)
             dir = step.direction()
             sings = step.singularities()
+            sings.sort(key=lambda s: (s-step.start.iv()).abs())
             for s in sings:
                 ds = Point(s, self.dop, singular=True).dist_to_sing()
                 d0 = abs(s - step.start.iv())
