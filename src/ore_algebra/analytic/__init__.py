@@ -573,6 +573,24 @@ This used to yield a very coarse enclosure with some earlier versions::
     sage: (Dx^2 + x).numerical_solution([1, 0], [0,108], simple_approx_thr=0)
     [0.2731261535202004...]
 
+Bypassing multiple singularities lying on the same segment of the input path
+should now handle them in the right order::
+
+    sage: dop = ((x+1)*Dx-2).lclm((x+2)*Dx-2)
+    sage: dop.numerical_transition_matrix([0,-3], assume_analytic=True)
+    [[-3.50000000...] + [+/- ...]*I  [3.75000000...] + [+/- ...]*I]
+    [ [3.00000000...] + [+/- ...]*I [-3.50000000...] + [+/- ...]*I]
+    sage: dop.numerical_transition_matrix([-3,0], assume_analytic=True)
+    [[-3.50000000...] + [+/- ...]*I [-3.75000000...] + [+/- ...]*I]
+    [[-3.00000000...] + [+/- ...]*I [-3.50000000...] + [+/- ...]*I]
+    sage: dop = ((x-1)*Dx-2).lclm((x-2)*Dx-2)
+    sage: dop.numerical_transition_matrix([0,3], assume_analytic=True)
+    [[-3.50000000...] + [+/- ...]*I [-3.75000000...] + [+/- ...]*I]
+    [[-3.00000000...] + [+/- ...]*I [-3.50000000...] + [+/- ...]*I]
+    sage: dop.numerical_transition_matrix([3,0], assume_analytic=True)
+    [[-3.50000000...] + [+/- ...]*I  [3.75000000...] + [+/- ...]*I]
+    [ [3.00000000...] + [+/- ...]*I [-3.50000000...] + [+/- ...]*I]
+
 Miscellaneous tests::
 
     sage: dop =  -452*Dx^10 + (-2*x^2 - x - 1/2)*Dx^9 + (1/2*x + 22)*Dx^8 + (1/4*x^2 + x)*Dx^7 + (1/3*x^2 - 1/2*x + 1/3)*Dx^6 + (-3*x^2 + x + 1)*Dx^5 + (x^2 - 4/3*x)*Dx^4 + (2*x^2 - 2*x)*Dx^3 + (2*x^2 + x)*Dx^2 + (-2/3*x^2 - 5/27*x - 1/3)*Dx - 18*x^2 + 6/5*x - 6
