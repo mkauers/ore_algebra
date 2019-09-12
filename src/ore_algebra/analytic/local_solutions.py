@@ -29,7 +29,10 @@ from sage.rings.all import ZZ, QQ, AA, QQbar, RBF
 from sage.rings.all import RealBallField, ComplexBallField
 from sage.rings.complex_arb import ComplexBall
 from sage.rings.integer import Integer
-from sage.rings.number_field.number_field import NumberField_absolute
+from sage.rings.number_field.number_field import (
+        NumberField_absolute,
+        NumberField_quadratic,
+    )
 from sage.rings.polynomial import polynomial_element
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 from sage.structure.sequence import Sequence
@@ -102,74 +105,73 @@ class BwShiftRec(object):
                           for j, c in enumerate(self.coeff))
 
     @cached_method
-    def eval_method(self, tgt):
-        if (utilities.is_QQi(self.Scalars)
-                and isinstance(tgt, ComplexBallField)
-                and utilities.has_new_ComplexBall_constructor()):
-
-            ZZn = PolynomialRing(ZZ, 'n')
-            re_im = [
-                    (ZZn([c.real() for c in pol]), ZZn([c.imag() for c in pol]))
-                    for pol in self.coeff]
-            def ev(point):
-                return [ComplexBall(tgt, re(point), im(point))
-                        for re, im in re_im]
-        else:
-            def ev(point):
-                return [tgt(pol(point)) for pol in self.coeff]
-        return ev
-
-    @cached_method
-    def _coeff_series(self, i, j):
-        p = self.coeff[i]
-        return self.base_ring([ZZ(k+j).binomial(k)*p[k+j]
-                               for k in range(p.degree() + 1 - j)])
-
-    @cached_method
-    def _coeff_series_re_im(self, i, j):
-        ZZn = PolynomialRing(ZZ, 'n')
+    def _coeff_series(self, i, j, components):
         p = self.coeff[i]
         rng = range(p.degree() + 1 - j)
         bin = [ZZ(k+j).binomial(k) for k in rng]
-        re = ZZn([bin[k]*p[k+j].real() for k in rng])
-        im = ZZn([bin[k]*p[k+j].imag() for k in rng])
-        return re, im
+        if components:
+            ZZpol = self.base_ring.change_ring(ZZ)
+            deg = p.base_ring().degree() # intended for number fields
+            return [ZZpol([bin[k]*p[k+j][l] for k in rng]) for l in range(deg)]
+        else:
+            return self.base_ring([bin[k]*p[k+j] for k in rng])
 
-    @cached_method
     def scalars_embedding(self, tgt):
-        if (utilities.is_QQi(self.Scalars)
-                and isinstance(tgt, ComplexBallField)
-                and utilities.has_new_ComplexBall_constructor()):
-            return True, lambda x, y: ComplexBall(tgt, x, y)
-        elif (isinstance(self.Scalars, NumberField_absolute)
+        if (isinstance(self.Scalars, NumberField_absolute)
                 and self.Scalars.degree() > 2):
             # do complicated coercions via QQbar and CLF only once...
             Pol = PolynomialRing(tgt, 'x')
             x = tgt(self.Scalars.gen())
             def emb(elt):
                 return Pol([tgt(c) for c in elt._coefficients()])(x)
-            return False, emb
+            return emb
         else:
-            return False, tgt
+            return tgt
+
+    @cached_method
+    def poly_eval_strategy(self, tgt):
+
+        mor = self.scalars_embedding(tgt)
+        def generic_eval(pol, x, _tgt):
+            assert _tgt is tgt
+            return mor(pol(x))
+
+        try:
+            from . import eval_poly_at_int
+        except ImportError:
+            warnings.warn("Cython code not found")
+            return generic_eval, False
+
+        if isinstance(self.Scalars, ComplexBallField):
+            if isinstance(tgt, ComplexBallField):
+                return eval_poly_at_int.cbf, False
+        elif isinstance(self.Scalars, NumberField_quadratic):
+            self.Scalars.zero() # cache for direct cython access
+            if tgt is self.Scalars:
+                return eval_poly_at_int.qnf, False
+            elif isinstance(tgt, ComplexBallField):
+                if utilities.is_QQi(self.Scalars):
+                    return eval_poly_at_int.qqi_to_cbf, True
+                else:
+                    return eval_poly_at_int.qnf_to_cbf, False
+        else:
+            return generic_eval, False
 
     def eval_series(self, tgt, point, ord):
-        re_im, mor = self.scalars_embedding(tgt)
-        if re_im:
-            res = [[None]*ord for _ in self.coeff]
-            for i in range(len(self.coeff)):
-                for j in range(ord):
-                    re, im = self._coeff_series_re_im(i, j)
-                    res[i][j] = mor(re(point), im(point))
-            return res
-        else:
-            point = self.Scalars(point)
-            return [[mor(self._coeff_series(i,j)(point)) for j in range(ord)]
+        # typically ord << deg => probably not worth trying to use a fast Taylor
+        # shift
+        eval_poly, components = self.poly_eval_strategy(tgt)
+        return [ [eval_poly(self._coeff_series(i,j,components), point, tgt)
+                  for j in range(ord)]
                 for i in range(len(self.coeff))]
 
     def eval_inv_lc_series(self, point, ord, shift):
+        eval_poly, components = self.poly_eval_strategy(self.Scalars)
         ser = self.base_ring.element_class(
                 self.base_ring, # polynomials, viewed as jets
-                [self._coeff_series(0, j)(point) for j in range(shift, ord)],
+                [eval_poly(self._coeff_series(0, j, components),
+                           point, self.Scalars)
+                    for j in range(shift, ord)],
                 check=False)
         return ser.inverse_series_trunc(ord)
 

@@ -727,7 +727,7 @@ def series_sum_regular(Intervals, dop, bwrec, inis, pt, stop, stride,
 
     log_prec = 1
     precomp_len = max(1, bwrec.order) # hack for recurrences of order zero
-    start = dop.order() if ordinary else 0
+    start = int(dop.order()) if ordinary else 0
     assert start <= n0_squash # the special path doesn't squash its result
     # The next terms of the sum may need a higher log-prec than the current one.
     rec_add_log_prec = sum(len(v) for s, v in inis[0].shift.items()
