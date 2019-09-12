@@ -141,7 +141,8 @@ class BwShiftRec(object):
                 and isinstance(tgt, ComplexBallField)
                 and utilities.has_new_ComplexBall_constructor()):
             return True, lambda x, y: ComplexBall(tgt, x, y)
-        elif isinstance(self.Scalars, NumberField_absolute):
+        elif (isinstance(self.Scalars, NumberField_absolute)
+                and self.Scalars.degree() > 2):
             # do complicated coercions via QQbar and CLF only once...
             Pol = PolynomialRing(tgt, 'x')
             x = tgt(self.Scalars.gen())
