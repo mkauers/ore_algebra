@@ -20,7 +20,7 @@ import sage.rings.real_arb
 from sage.categories.pushout import pushout
 from sage.misc.cachefunc import cached_function
 from sage.misc.misc import cputime
-from sage.rings.all import ZZ, QQ, QQbar, CIF
+from sage.rings.all import ZZ, QQ, QQbar, CIF, CBF
 from sage.rings.number_field.number_field import (NumberField,
         NumberField_quadratic, is_NumberField)
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
@@ -68,7 +68,8 @@ def is_real_parent(parent):
 
 def is_QQi(parent):
     return (isinstance(parent, NumberField_quadratic)
-                and list(parent.polynomial()) == [1,0,1])
+                and list(parent.polynomial()) == [1,0,1]
+                and CBF(parent.gen()).imag().is_one())
 
 def ball_field(eps, real):
     prec = prec_from_eps(eps)
