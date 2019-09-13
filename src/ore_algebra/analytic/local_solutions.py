@@ -90,6 +90,7 @@ class BwShiftRec(object):
 
     def __init__(self, coeff):
         assert isinstance(coeff[0], polynomial_element.Polynomial)
+        assert all(c.denominator().is_one() for c in coeff)
         self.coeff = coeff
         self.base_ring = coeff[0].parent()
         self.Scalars = self.base_ring.base_ring()
@@ -176,7 +177,9 @@ class BwShiftRec(object):
 
     def shift(self, sh):
         n = self.coeff[0].parent().gen()
-        return BwShiftRec([pol(sh + n) for pol in self.coeff])
+        coeff = [pol(sh + n) for pol in self.coeff]
+        den = lcm([p.denominator() for p in coeff])
+        return BwShiftRec([den*c for c in coeff])
 
     def change_base(self, base):
         if base is self.base_ring:
