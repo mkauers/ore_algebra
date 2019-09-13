@@ -99,10 +99,11 @@ class Point(SageObject):
             raise TypeError("unexpected value for point: " + repr(point))
         if isinstance(point, Point):
             self.value = point.value
-        elif isinstance(parent, (
-                number_field_base.NumberField,
-                RealBallField, ComplexBallField)):
+        elif isinstance(parent, (RealBallField, ComplexBallField)):
             self.value = point
+        elif isinstance(parent, number_field_base.NumberField):
+            _, hom = good_number_field(point.parent())
+            self.value = hom(point)
         elif QQ.has_coerce_map_from(parent):
             self.value = QQ.coerce(point)
         elif QQbar.has_coerce_map_from(parent):

@@ -79,12 +79,25 @@ def ball_field(eps, real):
 # Number fields and orders
 ################################################################################
 
+def good_number_field(nf):
+    if isinstance(nf, NumberField_quadratic):
+        # avoid denominators in the representation of elements
+        disc = nf.discriminant()
+        if disc % 4 == 1:
+            nf, _, hom = nf.change_generator(nf(nf.discriminant()).sqrt())
+            return nf, hom
+    return nf, nf.hom(nf)
+
 def as_embedded_number_field_elements(algs):
+    # number_field_elements_from_algebraics() now takes an embedded=...
+    # argument, but doesn't yet support all cases we need
     nf, elts, emb = number_field_elements_from_algebraics(algs)
     if nf is not QQ:
         nf = NumberField(nf.polynomial(), nf.variable_name(),
                     embedding=emb(nf.gen()))
         elts = [elt.polynomial()(nf.gen()) for elt in elts]
+        nf, hom = good_number_field(nf)
+        elts = [hom(elt) for elt in elts]
     # assert [QQbar.coerce(elt) == alg for alg, elt in zip(algs, elts)]
     return nf, elts
 
@@ -115,6 +128,7 @@ def number_field_with_integer_gen(K):
         intNF = NumberField(intgen.minpoly(), "x" + str(den) + str(K.gen()),
                             embedding=embgen)
         assert intNF != K
+    intNF, _ = good_number_field(intNF)
     # Work around weaknesses in coercions involving order elements,
     # including #14982 (fixed). Used to trigger #14989 (fixed).
     #return intNF, intNF.order(intNF.gen())
