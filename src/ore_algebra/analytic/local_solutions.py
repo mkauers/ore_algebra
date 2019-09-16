@@ -34,6 +34,7 @@ from sage.rings.number_field.number_field import (
         NumberField_quadratic,
     )
 from sage.rings.polynomial import polynomial_element
+from sage.rings.polynomial.complex_roots import complex_roots
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 from sage.structure.sequence import Sequence
 from sage.symbolic.all import SR, pi, I
@@ -93,7 +94,7 @@ class BwShiftRec(object):
 
     def __init__(self, coeff):
         assert isinstance(coeff[0], polynomial_element.Polynomial)
-        assert all(c.denominator().is_one() for c in coeff)
+        # assert all(c.denominator().is_one() for c in coeff)
         self.coeff = coeff
         self.base_ring = coeff[0].parent()
         self.Scalars = self.base_ring.base_ring()
@@ -407,9 +408,16 @@ class LocalBasisMapper(object):
         for self.sl_factor, self.shifts in self.sl_decomp:
             for self.irred_factor, irred_mult in self.sl_factor.factor():
                 assert irred_mult == 1
-                roots = self.irred_factor.roots(QQbar, multiplicities=False)
-                self.roots = [utilities.as_embedded_number_field_element(rt)
-                              for rt in roots]
+                if self.irred_factor.degree() == 1:
+                    rt = -self.irred_factor[0]/self.irred_factor[1]
+                    if rt.is_rational():
+                        rt = QQ(rt)
+                    self.roots = [rt]
+                else:
+                    roots = complex_roots(self.irred_factor,
+                            skip_squarefree=True, retval='algebraic')
+                    self.roots = [utilities.as_embedded_number_field_element(rt)
+                                  for rt, _ in roots]
                 logger.debug("indicial factor = %s, roots = %s",
                              self.irred_factor, self.roots)
                 self.irred_factor_cols = []
