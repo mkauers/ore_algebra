@@ -304,9 +304,9 @@ def _use_inexact_recurrence(bwrec, prec):
     if ((Scalars is QQ or utilities.is_QQi(Scalars))
             and bwrec[-1][0][0].numerator().nbits() < 10*prec):
         return False
-    h = max(a.numerator().nbits() for p in bwrec.coeff
-                                  for c in p
-                                  for a in c)
+    h = max(a.numerator().nbits() for p in bwrec.coeff[::3]
+                                  for i in range(0, p.degree(), 10)
+                                  for a in p[i])
     return (h + 20)*Scalars.degree()**2 >= 16*prec
 
 def interval_series_sum_wrapper(dop, inis, pt, tgt_error, bwrec, stop,

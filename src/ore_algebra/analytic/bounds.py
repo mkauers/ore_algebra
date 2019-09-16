@@ -1688,7 +1688,10 @@ class DiffOpBound(object):
 
         # Compute the initial part of the series expansion.
         lc = self.dop.leading_coefficient()
-        prec = max(a.numerator().nbits() for c in lc for a in c) + 50
+        lcdeg = lc.degree()
+        prec = max(a.numerator().nbits() for i in range(0, lcdeg+1, 1+lcdeg//3)
+                                         for a in lc[i])
+        prec += 50
         lc = lc.change_ring(ComplexBallField(prec))
         inv = lc.inverse_series_trunc(pol_part_len + 1)
         if inv[0].contains_zero():
