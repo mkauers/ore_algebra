@@ -86,19 +86,19 @@ class PlainDifferentialOperator(UnivariateDifferentialOperatorOverUnivariateRing
 
     @cached_method
     def _singularities(self, dom, include_apparent=True, multiplicities=False):
-        dop = self if include_apparent else self.desingularize() # TBI
+        if not multiplicities:
+            rts = self._singularities(dom, include_apparent, multiplicities=True)
+            return [s for s, _ in rts]
         if isinstance(dom, ComplexBallField): # TBI
             dom1 = ComplexIntervalField(dom.precision())
-        else:
-            dom1 = dom
+            rts = self._singularities(dom1, include_apparent, multiplicities)
+            return [(dom(s), m) for s, m in rts]
+        dop = self if include_apparent else self.desingularize() # TBI
         lc = dop.leading_coefficient()
         try:
-            sing = lc.roots(dom1, multiplicities=multiplicities)
+            return lc.roots(dom)
         except NotImplementedError:
-            sing = lc.change_ring(QQbar).roots(dom1, multiplicities=multiplicities)
-        if dom1 is not dom:
-            sing = [dom(s) for s in sing]
-        return sing
+            return lc.change_ring(QQbar).roots(dom)
 
     def _sing_as_alg(dop, iv):
         pol = dop.leading_coefficient().radical()
