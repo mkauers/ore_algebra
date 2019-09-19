@@ -424,7 +424,7 @@ class Delta_class(object):
 
     def __init__(self, R, d, s):
 
-        if R != s.ring():
+        if R is not s.ring():
             raise ValueError("delta constructor received incompatible sigma")
 
         Rgens = R.gens(); is_zero = True; zero = R.zero(); my_dict = {}
@@ -433,19 +433,17 @@ class Delta_class(object):
             my_dict[str(x), 0] = zero
             my_dict[str(x), 1] = zero
 
-        if type(d) != dict:
+        if not isinstance(d, dict):
             for x in Rgens:
                 dx = R(d(x))
-                if dx != zero:
-                    is_zero = False
-                my_dict[str(x), 1] = R(d(x))
+                is_zero = is_zero and dx.is_zero()
+                my_dict[str(x), 1] = R(dx)
         else:
-            for x in d:
+            for x, dx in d.items():
                 if not R(x) in Rgens:
                     raise ValueError(str(x) + " is not a generator of " + str(R))
-                if d[x] != zero:
-                    is_zero = False
-                my_dict[str(x), 1] = R(d[x])
+                is_zero = is_zero and dx.is_zero()
+                my_dict[str(x), 1] = R(dx)
 
         self.__is_zero = is_zero
         self.__R = R
