@@ -64,17 +64,13 @@ class PlainDifferentialOperator(UnivariateDifferentialOperatorOverUnivariateRing
         return max(h(c) for pol in self for c in pol)
 
     @cached_method
-    def _my_to_S(self, name='n'):
-        Pols_x = self.base_ring()
-        Scalars = self.base_ring().base_ring()
-        Pols_n, n = PolynomialRing(Scalars, name).objgen()
-        Rops = OreAlgebra(Pols_n, 'S' + name)
+    def _my_to_S(self):
         # Using the primitive part here would break the computation of residuals!
         # TODO: add test (arctan); better fix?
         # Other interesting cases: operators of the form P(Θ) (with constant
         # coefficients)
         #rop = self.to_S(Rops).primitive_part().numerator()
-        return self.to_S(Rops)
+        return self.to_S(self._shift_alg())
 
     @cached_method
     def growth_parameters(self):
@@ -221,6 +217,24 @@ class PlainDifferentialOperator(UnivariateDifferentialOperatorOverUnivariateRing
         shifted = dop_P.map_coefficients(shift_poly)
         return ShiftedDifferentialOperator(shifted, self, delta)
 
+    @cached_method
+    def _theta_alg_with_base(self, Scalars):
+        Dop = self.parent()
+        Pol = Dop.base_ring().change_ring(Scalars)
+        x = Pol.gen()
+        return OreAlgebra(Pol, 'T'+str(x))
+
+    def _theta_alg(self):
+        return self._theta_alg_with_base(self.parent().base_ring().base_ring())
+
+    @cached_method
+    def _shift_alg_with_base(self, Scalars):
+        Pols_n, n = PolynomialRing(Scalars, 'n').objgen()
+        return OreAlgebra(Pols_n, 'Sn')
+
+    def _shift_alg(self):
+        return self._shift_alg_with_base(self.base_ring().base_ring())
+
 class ShiftedDifferentialOperator(PlainDifferentialOperator):
 
     def __init__(self, dop, orig, delta):
@@ -235,3 +249,9 @@ class ShiftedDifferentialOperator(PlainDifferentialOperator):
             return [(s - delta, m) for s, m in sing]
         else:
             return [s - delta for s in sing]
+
+    def _theta_alg(self):
+        return self._orig._theta_alg_with_base(self.base_ring().base_ring())
+
+    def _shift_alg(self):
+        return self._orig._shift_alg_with_base(self.base_ring().base_ring())

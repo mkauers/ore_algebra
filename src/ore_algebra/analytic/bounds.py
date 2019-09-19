@@ -1565,7 +1565,7 @@ class DiffOpBound(object):
 
         self._dop_D = dop = DifferentialOperator(dop)
         Pols_z = dop.base_ring()
-        self.dop = dop_T = dop.to_T('T' + Pols_z.variable_name())
+        self.dop = dop_T = dop.to_T(dop._theta_alg())
 
         lc = dop_T.leading_coefficient()
         if lc.is_term() and not lc.is_constant():
