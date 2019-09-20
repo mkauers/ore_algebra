@@ -35,6 +35,7 @@ from sage.rings.complex_arb import CBF, ComplexBallField, ComplexBall
 from sage.rings.infinity import infinity
 from sage.rings.integer import Integer
 from sage.rings.integer_ring import ZZ
+from sage.rings.number_field.number_field import NumberField_quadratic
 from sage.rings.polynomial.complex_roots import complex_roots
 from sage.rings.polynomial.polynomial_element import Polynomial
 from sage.rings.polynomial.polynomial_ring import polygen
@@ -284,6 +285,7 @@ class RationalMajorant(MajorantSeries):
         for num, den in self.fracs:
             den_ser = Pol.one()
             for lin, mult in den:
+                # composing with pert_rad is slow
                 fac_ser = lin(pert_rad).power_trunc(mult, ord)
                 den_ser = den_ser._mul_trunc_(fac_ser, ord)
             num_ser = Pol(num.integral()).compose_trunc(pert_rad, ord)
@@ -1597,10 +1599,14 @@ class DiffOpBound(object):
             self._effort += (ZZ(pol_part_len)//default_pol_part_len).nbits()
 
         self.Poly = Pols_z.change_ring(IR) # TBI
-        self.__CPoly = Pols_z.change_ring(IC)
         one = self.Poly.one()
         self.__facto_one = Factorization([(one, 1)], unit=one, sort=False,
                                                      simplify=False)
+
+        self.CPol_z = Pols_z.change_ring(IC)
+        self.CPol_zn = PolynomialRing(self.CPol_z, 'n')
+        CPol_n = PolynomialRing(IC, 'n')
+        self.CPol_nz = PolynomialRing(CPol_n, Pols_z.variable_name())
 
         self._update_den_bound()
         first_nz, rem_num_nz = self._split_dop(pol_part_len)
@@ -1662,6 +1668,19 @@ class DiffOpBound(object):
         self.maj_den = Factorization(facs, unit=self.Poly.one(),
                                      sort=False, simplify=False)
 
+    @cached_method
+    def _dop_ball_lc(self):
+        lc = self.dop.leading_coefficient()
+        lcdeg = lc.degree()
+        some_coeffs = [lc[i] for i in range(0, lcdeg+1, 1+lcdeg//3)]
+        if isinstance(lc.base_ring(), NumberField_quadratic):
+            some_coeffs = [c.numerator() for c in some_coeffs]
+        prec = max(a.numerator().nbits() for c in some_coeffs for a in c)
+        prec += 50
+        CBFp = ComplexBallField(prec)
+        Pol = PolynomialRing(CBFp, self.Poly.variable_name())
+        return Pol([CBF(c) for c in lc], check=False)
+
     def _split_dop(self, pol_part_len):
         r"""
         Split self.dop.monic() into a truncated series in z and a remainder.
@@ -1681,17 +1700,11 @@ class DiffOpBound(object):
         """
         # XXX: This function recomputes the series expansion from scratch every
         # time. Use Newton's method to update it instead?
-        Pol_z = self.dop.base_ring().change_ring(IC)
-        Pol_zn = PolynomialRing(Pol_z, 'n')
+        Pol_zn = self.CPol_zn
         orddeq = self.dop.order()
 
         # Compute the initial part of the series expansion.
-        lc = self.dop.leading_coefficient()
-        lcdeg = lc.degree()
-        prec = max(a.numerator().nbits() for i in range(0, lcdeg+1, 1+lcdeg//3)
-                                         for a in lc[i])
-        prec += 50
-        lc = lc.change_ring(ComplexBallField(prec))
+        lc = self._dop_ball_lc()
         inv = lc.inverse_series_trunc(pol_part_len + 1)
         if inv[0].contains_zero():
             logging.warn("probable interval blow-up in bound computation")
@@ -1701,9 +1714,9 @@ class DiffOpBound(object):
                            for pol in self._rcoeffs])
         # Force the leading coefficient to one after interval computations
         assert all(pol.contains_zero() for pol in first_zn[orddeq] >> 1)
-        first_zn = Pol_zn.gen()**orddeq + first_zn[:orddeq]
-        first_nz = _switch_vars(first_zn)
-        z = Pol_z.gen(); n = Pol_zn.gen()
+        n = Pol_zn.gen()
+        first_zn = n**orddeq + first_zn[:orddeq]
+        first_nz = _switch_vars(first_zn, self.CPol_nz)
         # Would hold in exact arithmetic
         # assert first_nz[0] == self._dop_D.indicial_polynomial(z, n).monic()
         assert all(pol.degree() < self.dop.order() for pol in first_nz >> 1)
@@ -1714,7 +1727,7 @@ class DiffOpBound(object):
         # first_nz = 1·n^orddeq + ···), rem_num_0_zn has degree < orddeq in n.
         # Truncate as the interval subtraction may leave inexact zeros.
         rem_num_0_zn = (dop_zn - first_zn*lc)[:orddeq]
-        rem_num_0_nz = _switch_vars(rem_num_0_zn)
+        rem_num_0_nz = _switch_vars(rem_num_0_zn, self.CPol_nz)
         # Would hold in exact arithmetic
         # assert rem_num_0_nz.valuation() >= pol_part_len + 1
         rem_num_nz = rem_num_0_nz >> (pol_part_len + 1)
@@ -1971,7 +1984,7 @@ class DiffOpBound(object):
                 # argument. This is because the normalized residual is defined
                 # using a monic indicial polynomial.
                 nres[k][d] = inv*(cst*res[k][d] - cor)
-        Poly = self.__CPoly if Ring is IC else self.Poly.change_ring(Ring)
+        Poly = self.CPol_z if Ring is IC else self.Poly.change_ring(Ring)
         return [Poly(coeff) for coeff in nres]
 
     def _check_normalized_residual(self, n, trunc, expo, Ring):
@@ -2390,12 +2403,8 @@ def _test_diffop_bound(
                 maj = DiffOpBound(dop, pol_part_len=pplen)
                 maj._test(prec=prec)
 
-def _switch_vars(pol):
-    Ax = pol.base_ring()
-    x = Ax.variable_name()
-    y = pol.variable_name()
-    Ay = PolynomialRing(Ax.base_ring(), y)
-    Ayx = PolynomialRing(Ay, x)
+def _switch_vars(pol, Ayx):
+    Ay = Ayx.base_ring()
     if pol.is_zero():
         return Ayx.zero()
     dy = pol.degree()
