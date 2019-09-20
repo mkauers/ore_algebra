@@ -255,10 +255,11 @@ class RationalMajorant(MajorantSeries):
         pert_rad = Pol([rad, 1])
         res = Pol.zero()
         for num, den in self.fracs:
-            den_ser = Pol.one()
+            den_ser = self.fracs[0][0].parent().one()
             for lin, mult in den:
                 fac_ser = lin(pert_rad).power_trunc(mult, ord)
                 den_ser = den_ser._mul_trunc_(fac_ser, ord)
+            den_ser = Pol(den_ser)
             # slow; hopefully the fast Taylor shift will help...
             num_ser = Pol(num).compose_trunc(pert_rad, ord)
             res += num_ser._mul_trunc_(den_ser.inverse_series_trunc(ord), ord)
@@ -295,7 +296,7 @@ class RationalMajorant(MajorantSeries):
         Pol = self._Poly_IC # XXX should be IR eventually
         res = Pol.zero()
         for num, den_facto in self.fracs:
-            den = prod((lin**mult for lin, mult in den_facto), Pol.one())
+            den = prod((lin**mult for lin, mult in den_facto), Pol.one()) #slow
             res += num._mul_trunc_(den.inverse_series_trunc(ord), ord)
         return res
 
@@ -1395,17 +1396,15 @@ def bound_polynomials(pols, Poly=None):
     assert isinstance(pols, list)
     if Poly is None:
         Poly = pols[0].parent()
-    PolyIC = Poly.change_ring(IC)
     PolyIR = Poly.change_ring(IR)
     if not pols:
         return PolyIR.zero()
     deg = max(pol.degree() for pol in pols)
     val = min(deg, min(pol.valuation() for pol in pols))
-    pols = [PolyIC(pol) for pol in pols] # TBI
-    order = Integer(len(pols))
+    order = len(pols)
     def coeff_bound(n):
         return IR.zero().max(*(
-            pols[k][n].above_abs()
+            IC(pols[k][n]).above_abs()
             for k in range(order)))
     maj = PolyIR([coeff_bound(n) for n in range(val, deg + 1)])
     maj <<= val
@@ -2062,7 +2061,8 @@ class DiffOpBound(object):
                                             for pol in nres],
                                         self.Poly)
         Pols = nres_bound.parent()
-        aux = Pols([(n1 + j)*c for j, c in enumerate(nres_bound)])
+        aux = Pols([(n1 + j)*c for j, c in enumerate(nres_bound)],
+                   check=False)
         if maj is None:
             # As h[n0](z) has nonnegative coefficients and h[n0](0) = 1, it is
             # always enough to take (q^)[n] ≥ |λ+n|*max[k](|res[n,k]|), that
@@ -2073,10 +2073,12 @@ class DiffOpBound(object):
             # aux(z)/h(z) s.t. aux(z) = f(z)*h(z) + O(z^(1+deg(aux))). Then,
             # any f^ s.t. f^[n] ≥ max(0,f[n]) is a valid q^.
             ord = aux.degree() + 1
-            inv = Pols(maj.inv_exp_part_series0(ord))
+            inv = maj.inv_exp_part_series0(ord) # XXX slow
+            # assert all(c.imag().contains_zero() for c in inv)
+            inv = Pols([c.real() for c in inv], check=False)
             f = aux._mul_trunc_(inv, ord)
-            # assert all(c.imag().contains_zero() for c in f)
-            return Pols([IR.zero().max(c) for c in f])
+            z = IR.zero()
+            return Pols([z.max(c) for c in f], check=False)
 
     def tail_majorant(self, n, normalized_residuals):
         r"""
