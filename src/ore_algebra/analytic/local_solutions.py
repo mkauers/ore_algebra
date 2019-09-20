@@ -215,8 +215,10 @@ class LogSeriesInitialValues(object):
 
             sage: from ore_algebra import *
             sage: from ore_algebra.analytic.naive_sum import *
+            sage: from ore_algebra.analytic.differential_operator import DifferentialOperator
             sage: Dops, x, Dx = DifferentialOperators()
-            sage: LogSeriesInitialValues(0, {0: (1, 0)}, x*Dx^3 + 2*Dx^2 + x*Dx)
+            sage: LogSeriesInitialValues(0, {0: (1, 0)},
+            ....:         DifferentialOperator(x*Dx^3 + 2*Dx^2 + x*Dx))
             Traceback (most recent call last):
             ...
             ValueError: invalid initial data for x*Dx^3 + 2*Dx^2 + x*Dx at 0
@@ -271,7 +273,7 @@ class LogSeriesInitialValues(object):
             if ini)
 
     def is_valid_for(self, dop):
-        ind = dop.indicial_polynomial(dop.base_ring().gen())
+        ind = dop._indicial_polynomial_at_zero()
         for sl_factor, shifts in my_shiftless_decomposition(ind):
             for k, (val_shift, _) in enumerate(shifts):
                 if sl_factor(self.expo - val_shift).is_zero():

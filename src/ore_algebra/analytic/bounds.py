@@ -1620,7 +1620,7 @@ class DiffOpBound(object):
         # has interval coefficients, and we need an exact version to compute
         # the roots)
         z = Pols_z.gen()
-        self.ind = self._dop_D.indicial_polynomial(z, z).monic()(self.alg_idx)
+        self.ind = self._dop_D._indicial_polynomial_at_zero().monic()(self.alg_idx)
         assert self.ind.is_monic()
         assert self.ind.base_ring().is_exact()
         self.majseq_pol_part = RatSeqBound([], self.ind, self.special_shifts)
@@ -2185,6 +2185,7 @@ class DiffOpBound(object):
         EXAMPLES::
 
             sage: from ore_algebra import *
+            sage: from ore_algebra.analytic.differential_operator import DifferentialOperator
             sage: from ore_algebra.analytic.bounds import DiffOpBound
             sage: from ore_algebra.analytic.local_solutions import LogSeriesInitialValues
             sage: Dops, x, Dx = DifferentialOperators()
@@ -2195,7 +2196,7 @@ class DiffOpBound(object):
             sage: DiffOpBound(x*Dx^3 + 2*Dx^2 + x*Dx).plot(eps=1e-8)
             Graphics object consisting of 4 graphics primitives
 
-            sage: dop = x*Dx^2 + Dx + x
+            sage: dop = DifferentialOperator(x*Dx^2 + Dx + x)
             sage: DiffOpBound(dop, 0, [(0,2)]).plot(eps=1e-8,
             ....:       ini=LogSeriesInitialValues(0, {0: (1, 0)}, dop))
             Graphics object consisting of 4 graphics primitives

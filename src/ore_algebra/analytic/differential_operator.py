@@ -54,6 +54,24 @@ class PlainDifferentialOperator(UnivariateDifferentialOperatorOverUnivariateRing
                 dop.parent(), dop)
 
     @cached_method
+    def _indicial_polynomial_at_zero(self):
+        # Adapted from the version in ore_operator_1_1
+
+        op = self.numerator()
+        R = op.base_ring()
+        y = R.gen()
+
+        b = min(c.valuation() - j for j, c in enumerate(op))
+
+        s = R.zero()
+        y_ff_i = R.one()
+        for i, c in enumerate(op):
+            s += c[b + i]*y_ff_i
+            y_ff_i *= y - i
+
+        return s
+
+    @cached_method
     def _naive_height(self):
         def h(c):
             den = c.denominator()

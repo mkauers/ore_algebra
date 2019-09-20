@@ -519,7 +519,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
             raise NotImplementedError # leave this case to the subclass
         
         op = self.numerator()._coeff_list_for_indicial_polynomial()
-        R = op[0].parent().base_ring()[var]
+        R = PolynomialRing(op[0].parent().base_ring(), var)
         y = R.gen()
 
         A = self.parent()
