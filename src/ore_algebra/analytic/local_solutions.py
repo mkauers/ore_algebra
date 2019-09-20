@@ -24,7 +24,7 @@ import sage.functions.log as symbolic_log
 from sage.arith.all import gcd, lcm
 from sage.misc.cachefunc import cached_method
 from sage.misc.lazy_attribute import lazy_attribute
-from sage.modules.free_module_element import vector
+from sage.modules.free_module_element import vector, FreeModuleElement_generic_dense
 from sage.rings.all import ZZ, QQ, AA, QQbar, RBF
 from sage.rings.all import RealBallField, ComplexBallField
 from sage.rings.complex_arb import ComplexBall
@@ -567,7 +567,10 @@ def log_series_values(Jets, expo, psum, evpt, downshift=[0]):
                     sum(psum[d+p]._mul_trunc_(logterms[p], derivatives)
                         for p in range(log_prec - d)),
                     derivatives)
-    val = [vector(v[i] for i in range(derivatives))/len(evpt.branch)
+    Vectors = Jets.base_ring()**derivatives
+    l = len(evpt.branch)
+    val = [FreeModuleElement_generic_dense(Vectors,
+               [v[i] for i in range(derivatives)], coerce=False, copy=False)/l
            for v in val]
     return val
 
