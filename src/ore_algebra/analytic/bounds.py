@@ -170,9 +170,10 @@ def _zero_free_rad(pols):
     """
     if all(pol.degree() == 0 for pol in pols):
         return IR(infinity)
-    if all(pol.degree() == 1 and pol.leading_coefficient().abs().is_one()
-            for pol in pols):
-        rad = IR(infinity).min(*(IR(pol[0].abs()) for pol in pols))
+    if all(pol.degree() == 1 and (pol.leading_coefficient().is_one()
+                                  or pol.leading_coefficient().abs().is_one())
+           for pol in pols):
+        rad = IR(infinity).min(*(IC(pol[0]).abs() for pol in pols))
         rad = IR(rad.lower())
         assert rad >= IR.zero()
         return rad
@@ -223,9 +224,9 @@ class RationalMajorant(MajorantSeries):
                                          if fac.degree() > 0])
         else:
             cvrad = IR(infinity)
-        assert cvrad.identical(
-                _zero_free_rad([-fac for num, den in fracs if num
-                                     for fac, _ in den if fac.degree() > 0]))
+        # assert cvrad.identical(
+        #         _zero_free_rad([-fac for num, den in fracs if num
+        #                              for fac, _ in den if fac.degree() > 0]))
         super(self.__class__, self).__init__(Poly.variable_name(), cvrad=cvrad)
         self.fracs = []
         for num, den in fracs:
@@ -1032,7 +1033,7 @@ class RatSeqBound(object):
                 # account the discrete effects.
                 global_lbound = (root.imag()/root.abs()).below_abs()
             else:
-                ns = range(crit_n.lower().floor(), crit_n.upper().ceil() + 1)
+                ns = list(range(crit_n.lower().floor(), crit_n.upper().ceil() + 1))
                 n_min = ns[-1]
                 # We skip exceptional indices among the candidates in the
                 # computation of the global lower bound, and consider the
@@ -1593,7 +1594,8 @@ class DiffOpBound(object):
         self._effort = 0
         if bound_inverse == "solve":
             self._effort += 1
-        default_pol_part_len = self.dop.degree()//2 + 2
+        self._dop_deg = self.dop.degree()
+        default_pol_part_len = self._dop_deg//2 + 2
         if pol_part_len is None:
             pol_part_len = default_pol_part_len
         else:
@@ -1927,7 +1929,7 @@ class DiffOpBound(object):
             sage: maj._check_normalized_residual(n, trunc, 1/3, QQ)
             0
         """
-        deg = self.dop.degree()
+        deg = self._dop_deg
         logs = max(len(logpol) for logpol in last) if last else 1
         if Ring is None:
             use_sum_of_products, Ring = _use_sum_of_products(last, bwrec_nplus)
