@@ -919,7 +919,8 @@ class RatSeqBound(object):
         self.den = den
         self._ivden = den.change_ring(IC)
         self._rcpq_den = den.change_ring(IC).reverse()
-        self.exn = exceptional_indices
+        self.exn = dict((int(n), int(m))
+                        for n, m in exceptional_indices.items())
         # temporary(?), for compatibility with the previous version
         if not self.exn:
             self.exn = {0: 1}
@@ -1031,7 +1032,7 @@ class RatSeqBound(object):
                 # account the discrete effects.
                 global_lbound = (root.imag()/root.abs()).below_abs()
             else:
-                ns = srange(crit_n.lower().floor(), crit_n.upper().ceil() + 1)
+                ns = range(crit_n.lower().floor(), crit_n.upper().ceil() + 1)
                 n_min = ns[-1]
                 # We skip exceptional indices among the candidates in the
                 # computation of the global lower bound, and consider the
