@@ -379,6 +379,10 @@ def interval_series_sum_wrapper(dop, inis, pt, tgt_error, bwrec, stop,
                     for sol in sols):
                 return sols
 
+        # if interval squashing didn't give accurate result, switch back to the
+        # classical method
+        n0_squash = sys.maxsize
+
         bit_prec *= 2
         if attempt <= effort and bit_prec < max_prec:
             logger.info("lost too much precision, restarting with %d bits",
@@ -766,7 +770,11 @@ def series_sum_regular(Intervals, dop, bwrec, inis, pt, stop, stride,
             for sol in sols:
                 err = sol.next_term(n, mult, bwrec_nplus[0], cst, jetpow, squash)
                 if squash:
+                    # XXX it can happen that hom_maj_coeff_lb = 0; clarify what
+                    # to do in this case
                     rnd_loc = rnd_loc.max(n*err/hom_maj_coeff_lb)
+                    if not rnd_loc.is_finite(): # normalize NaNs and infinities
+                        rnd_loc = rnd_loc.parent()('inf')
             if mult > 0:
                 log_prec = max(1, max(sol.log_prec for sol in sols))
 
