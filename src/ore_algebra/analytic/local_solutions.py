@@ -99,13 +99,14 @@ class BwShiftRec(object):
         self.base_ring = coeff[0].parent()
         self.Scalars = self.base_ring.base_ring()
         self.order = len(coeff) - 1
+        self._coeff_series_cache = [[[] for _ in self.coeff] for _ in [0,1]]
+        self._ord = [0, 0]
 
     def __repr__(self):
         n = self.base_ring.variable_name()
         return " + ".join("({})*S{}^(-{})".format(c, n, j)
                           for j, c in enumerate(self.coeff))
 
-    @cached_method
     def _coeff_series(self, i, j, components):
         p = self.coeff[i]
         rng = range(p.degree() + 1 - j)
@@ -116,6 +117,14 @@ class BwShiftRec(object):
             return [ZZpol([bin[k]*p[k+j][l] for k in rng]) for l in range(deg)]
         else:
             return self.base_ring([bin[k]*p[k+j] for k in rng])
+
+    def _compute_coeff_series(self, ord, components):
+        components = int(components)
+        cache = self._coeff_series_cache[components]
+        for j in range(self._ord[components], ord):
+            for (i, c) in enumerate(cache):
+                c.append(self._coeff_series(i, j, components))
+        self._ord[components] = ord
 
     def scalars_embedding(self, tgt):
         if (isinstance(self.Scalars, NumberField_absolute)
@@ -162,16 +171,20 @@ class BwShiftRec(object):
         # typically ord << deg => probably not worth trying to use a fast Taylor
         # shift
         eval_poly, components = self.poly_eval_strategy(tgt)
-        return [ [eval_poly(self._coeff_series(i,j,components), point, tgt)
-                  for j in range(ord)]
-                for i in range(len(self.coeff))]
+        if self._ord[int(components)] < ord:
+            self._compute_coeff_series(ord, components)
+        coeff = self._coeff_series_cache[components]
+        rng = range(ord)
+        return [ [eval_poly(c[j], point, tgt) for j in rng] for c in coeff]
 
     def eval_inv_lc_series(self, point, ord, shift):
         eval_poly, components = self.poly_eval_strategy(self.Scalars)
+        if self._ord[int(components)] < ord:
+            self._compute_coeff_series(ord, components)
+        c = self._coeff_series_cache[components][0]
         ser = self.base_ring.element_class(
                 self.base_ring, # polynomials, viewed as jets
-                [eval_poly(self._coeff_series(0, j, components),
-                           point, self.Scalars)
+                [eval_poly(c[j], point, self.Scalars)
                     for j in range(shift, ord)],
                 check=False)
         return ser.inverse_series_trunc(ord)
