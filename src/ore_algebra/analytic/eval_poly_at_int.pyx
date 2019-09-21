@@ -17,7 +17,7 @@ from sage.rings.complex_arb cimport ComplexBall
 from sage.rings.integer cimport Integer
 from sage.rings.number_field.number_field_element_quadratic cimport NumberFieldElement_quadratic
 from sage.rings.polynomial.polynomial_complex_arb cimport Polynomial_complex_arb
-from sage.rings.polynomial.polynomial_element cimport Polynomial
+from sage.rings.polynomial.polynomial_element cimport Polynomial, Polynomial_generic_dense
 from sage.rings.polynomial.polynomial_integer_dense_flint cimport Polynomial_integer_dense_flint
 from sage.rings.ring cimport Ring
 from sage.structure.parent cimport Parent
@@ -41,17 +41,17 @@ def cbf(pol, n, tgt):
 
     return res
 
-cdef void _qnf(mpz_t a, mpz_t b, Polynomial pol, n):
+cdef void _qnf(mpz_t a, mpz_t b, Polynomial_generic_dense pol, n):
 
     cdef unsigned long _n = PyInt_AsLong(n)
-    cdef unsigned long i
+    cdef long i
 
     cdef NumberFieldElement_quadratic c
 
     mpz_set_ui(a, 0)
     mpz_set_ui(b, 0)
 
-    for i in range(pol.degree(), -1, -1):
+    for i in range(len(pol.__coeffs) - 1, -1, -1):
         mpz_mul_ui(a, a, _n)
         mpz_mul_ui(b, b, _n)
         c = pol.get_unsafe(i)
@@ -63,7 +63,7 @@ cdef void _qnf(mpz_t a, mpz_t b, Polynomial pol, n):
         mpz_add(b, b, c.b)
 
 def qnf(pol, n, tgt):
-    cdef Polynomial _pol = (<Polynomial> pol)
+    cdef Polynomial _pol = (<Polynomial_generic_dense> pol)
     assert tgt is _pol._parent._base
 
     cdef NumberFieldElement_quadratic res
@@ -74,7 +74,7 @@ def qnf(pol, n, tgt):
 
 def qnf_to_cbf(pol, n, tgt):
     # Adapted from the implementation of NumberFieldElement_quadratic._a[rc]_ in Sage.
-    cdef Polynomial _pol = <Polynomial> pol
+    cdef Polynomial _pol = <Polynomial_generic_dense> pol
     cdef Integer D = <Integer> _pol._parent._base._D
     cdef bint standard_embedding = _pol._parent._base._standard_embedding
 
