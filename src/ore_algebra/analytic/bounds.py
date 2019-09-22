@@ -30,7 +30,7 @@ from sage.misc.cachefunc import cached_function, cached_method
 from sage.misc.lazy_string import lazy_string
 from sage.misc.misc_c import prod
 from sage.misc.random_testing import random_testing
-from sage.rings.all import CIF
+from sage.rings.all import ComplexIntervalField
 from sage.rings.complex_arb import CBF, ComplexBallField, ComplexBall
 from sage.rings.infinity import infinity
 from sage.rings.integer import Integer
@@ -54,6 +54,8 @@ from . import accuracy, local_solutions, utilities
 from .differential_operator import DifferentialOperator
 from .safe_cmp import *
 from .accuracy import IR, IC
+
+myCIF = ComplexIntervalField(IC.precision())
 
 logger = logging.getLogger(__name__)
 
@@ -147,7 +149,7 @@ class MajorantSeries(object):
         """
         Series = PowerSeriesRing(IR, self.variable_name, prec)
         # CIF to work around problem with sage power series, should be IC
-        ComplexSeries = PowerSeriesRing(CIF, self.variable_name, prec)
+        ComplexSeries = PowerSeriesRing(myCIF, self.variable_name, prec)
         maj = Series(self.bound_series(0, prec))
         ref = Series([iv.abs() for iv in ComplexSeries(fun)], prec=prec)
         delta = (maj - ref).padded_list()
@@ -778,7 +780,7 @@ def growth_parameters(dop):
 def _complex_roots(pol):
     if not pol.parent() is QQ: # QQ typical (ordinary points)
         pol = pol.change_ring(QQbar)
-    return [(IC(rt), mult) for rt, mult in pol.roots(CIF)]
+    return [(IC(rt), mult) for rt, mult in pol.roots(myCIF)]
 
 # Possible improvements:
 # - better take into account the range of derivatives needed at each step,
@@ -1643,7 +1645,7 @@ class DiffOpBound(object):
 
     @cached_method
     def _poles(self):
-        sing = self._dop_D._singularities(CIF, multiplicities=True)
+        sing = self._dop_D._singularities(myCIF, multiplicities=True)
         nz = [(s, m) for s, m in sing if not s.contains_zero()]
         if sum(m for s, m in nz) == self.dop.leading_coefficient().degree():
             return nz
@@ -1682,7 +1684,7 @@ class DiffOpBound(object):
         prec += 50
         CBFp = ComplexBallField(prec)
         Pol = PolynomialRing(CBFp, self.Poly.variable_name())
-        return Pol([CBF(c) for c in lc], check=False)
+        return Pol([IC(c) for c in lc], check=False)
 
     def _split_dop(self, pol_part_len):
         r"""

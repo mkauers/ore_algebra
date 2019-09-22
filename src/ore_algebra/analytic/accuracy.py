@@ -15,13 +15,15 @@ Accuracy management
 
 import collections, logging
 
-from sage.rings.all import  ZZ, QQ, RR, RBF, CBF
+from sage.rings.all import  ZZ, QQ, RR
+from sage.rings.all import RealBallField, ComplexBallField
 
 from .safe_cmp import *
 
 logger = logging.getLogger(__name__)
 
-IR, IC = RBF, CBF # TBI
+IR = RealBallField()
+IC = IR.complex_field()
 
 ######################################################################
 # Convergence check
