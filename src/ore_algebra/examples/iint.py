@@ -93,7 +93,7 @@ Here are the known exact values for reference::
     sage: ref[15] = 3*zeta(2)
     sage: ref[16] = zeta(2)/3
     sage: ref[17] = 2*arccot(sqrt(7))^2
-    sage: ref[18] = 1/4*hypergeometric([1]*5, [3/2, 2, 2, 2], 1/8)
+    sage: ref[18] = 1/4*CBF(1/8).hypergeometric([1]*5, [3/2, 2, 2, 2])
     sage: ref[19] = (1/3*ln(3/2)^3 + ln(3/2)*zeta(2) + ln(3/2)*Li_b
     ....:            - Li_c - 2*Li_d)
     sage: ref[20] = -1/3*ln(2)^2 + 4/9*zeta(2) - 2/3*Li_b
