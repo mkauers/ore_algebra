@@ -1970,8 +1970,9 @@ class DiffOpBound(object):
             for k in reversed(range(logs)):
                 # Coefficient of z^(λ+n+d)·log(z)^k/k! in dop(ỹ)
                 if use_sum_of_products:
+                    bwrec_nplusd = bwrec_nplus[d]
                     res[k][d] = Ring._sum_of_products(
-                            (bwrec_nplus[d][d+i+1][j], last[i][k+j])
+                            (bwrec_nplusd[d+i+1][j], last[i][k+j])
                             for i in range(deg - d)
                             for j in range(logs - k))
                 else:

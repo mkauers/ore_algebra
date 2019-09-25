@@ -107,14 +107,25 @@ class BwShiftRec(object):
         return " + ".join("({})*S{}^(-{})".format(c, n, j)
                           for j, c in enumerate(self.coeff))
 
+    @lazy_attribute
+    def ZZpol(self):
+        return self.base_ring.change_ring(ZZ)
+
+    @lazy_attribute
+    def base_ring_degree(self):
+        # intended for number fields
+        return self.Scalars.degree()
+
     def _coeff_series(self, i, j, components):
         p = self.coeff[i]
         rng = range(p.degree() + 1 - j)
         bin = [ZZ(k+j).binomial(k) for k in rng]
         if components:
-            ZZpol = self.base_ring.change_ring(ZZ)
-            deg = p.base_ring().degree() # intended for number fields
-            return [ZZpol([bin[k]*p[k+j][l] for k in rng]) for l in range(deg)]
+            pjplus = [a._coefficients() for a in list(p)[j:]]
+            return [self.ZZpol([bin[k]*pjplus[k][l]
+                                if len(pjplus[k]) > l else 0
+                                for k in rng])
+                    for l in range(self.base_ring_degree)]
         else:
             return self.base_ring([bin[k]*p[k+j] for k in rng])
 
