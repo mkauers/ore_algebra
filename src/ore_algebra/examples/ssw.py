@@ -27,7 +27,7 @@ to 1 or one of them is set to 0 and the other is left symbolic. For example::
 After obtaining the telescopers, we can use them to compute connection matrices
 that encode information on the asymptotics of the corresponding lattice walks::
 
-    sage: mat = ssw.dop[5,1,1].numerical_transition_matrix([0, 1/3+i/10, 1/3]) # (1.5 s)
+    sage: mat = ssw.dop[5,1,1].numerical_transition_matrix([0, 1/3+i/10, 1/3]) # (1.3 s)
     sage: (mat*vector([0, 0, 1, 3, 7]))[0]
     [...] + [0.50000...]*I
 
@@ -38,7 +38,7 @@ that encode information on the asymptotics of the corresponding lattice walks::
 
 TESTS::
 
-    sage: for i in [2, 5, 12, 18]: # long time (1 min 40 s)
+    sage: for i in [2, 5, 12, 18]: # long time (1 min 32 s)
     ....:     for xx, yy in [(0, 1), (1, 0)]:
     ....:         ssw.test_ct(i, xx, yy)
 

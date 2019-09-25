@@ -40,7 +40,7 @@ test case for “rounded” recurrences::
 
     sage: from ore_algebra.analytic.examples.misc import quadric_slice_dop, quadric_slice_crit
     sage: mat = quadric_slice_dop.numerical_transition_matrix(
-    ....:         [quadric_slice_crit, -46997/133120], 1e-30, assume_analytic=True) # long time (4-4.3s)
+    ....:         [quadric_slice_crit, -46997/133120], 1e-30, assume_analytic=True) # long time (3.5s)
     sage: mat[1,1]
     [5.3541199515575366362961159...] + [+/- ...]*I
     sage: mat[3,3]
@@ -51,7 +51,7 @@ handling elements of quadratic number fields other than ℚ[i] somewhat
 efficiently::
 
     sage: from ore_algebra.analytic.examples.misc import iint_quadratic_alg as pb
-    sage: pb.dop.numerical_solution(pb.ini, [0, 1/5000*sqrt(277774997191/11111)], 2^(-100)) # 1.75 s
+    sage: pb.dop.numerical_solution(pb.ini, [0, 1/5000*sqrt(277774997191/11111)], 2^(-100)) # 1.6 s
     [3368168.805821918535950852115...]
 """
 import collections
