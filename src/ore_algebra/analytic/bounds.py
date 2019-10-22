@@ -788,7 +788,7 @@ def _complex_roots(pol):
 
 class RatSeqBound(object):
     r"""
-    Bounds on the tails of a.e. rational sequences and their derivatives.
+    Bounds on the tails of a.e. rational sequences and their derivatives.
 
     Consider a vector of rational sequences sharing the same denominator, ::
 
