@@ -217,7 +217,7 @@ def shiftless_decomposition(self):
 
         sage: from ore_algebra.analytic.shiftless import *
         sage: Pol.<y> = QQ[]
-        sage: shiftless_decomposition((y-1)*(y-1/2)*y)
+        sage: shiftless_decomposition((y-1)*(y-1/2)*y) # random order
         (1, [(y - 1/2, [(0, 1)]), (y - 1, [(0, 1), (1, 1)])])
     """
     quo = self.monic()

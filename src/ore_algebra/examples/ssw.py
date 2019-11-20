@@ -17,7 +17,7 @@ to 1 or one of them is set to 0 and the other is left symbolic. For example::
 
     sage: from ore_algebra.examples import ssw
     sage: q = A.base_ring()(ssw.rat[1](x=1,y=1))
-    sage: ct1 = A.ideal([q*D - D(q) for D in Du,Dv,Dt]).ct(Dv)[0]
+    sage: ct1 = A.ideal([q*D - D(q) for D in (Du,Dv,Dt)]).ct(Dv)[0]
     sage: ct2 = ct1[0].parent().ideal(ct1).ct(Du)[0]
     sage: ct2
     [(16*t^4 - t^2)*Dt^3 + (128*t^3 + 8*t^2 - 6*t)*Dt^2 + (224*t^2 + 28*t - 6)*Dt + 64*t + 12]
@@ -1429,7 +1429,7 @@ aux_dop = (
 def test_ct(i, xx, yy, infolevel=0):
     A, (Du,Dv,Dt) = OreAlgebra(Frac(ZZ['t,u,v']), 'Du', 'Dv', 'Dt').objgens()
     q = A.base_ring()(rat[i](x=xx, y=yy))
-    ct1, _ = A.ideal([q*D - D(q) for D in Du,Dv,Dt]).ct(Dv)
+    ct1, _ = A.ideal([q*D - D(q) for D in (Du,Dv,Dt)]).ct(Dv)
     ct2, _ = ct1[0].parent().ideal(ct1).ct(Du, infolevel=infolevel)
     assert len(ct2) == 1
     tel = ct2[0]

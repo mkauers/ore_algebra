@@ -1620,8 +1620,8 @@ class UnivariateOreOperator(OreOperator):
           sage: K.<x> = ZZ['x']; K = K.fraction_field(); R.<n> = K['n']
           sage: A.<Sn> = OreAlgebra(R, 'Sn'); R.<y0,y1,y2> = K['n'][]
           sage: L = (n+2)*Sn^2 - (2*n+3)*x*Sn + (n+1)
-          sage: L.annihilator_of_polynomial(y1^2-y2*y0) # Turan's determinant
-          (-2*n^4 - 31*n^3 - 177*n^2 - 440*n - 400)*Sn^3 + ((8*x^2 - 2)*n^4 + (100*x^2 - 21)*n^3 + (462*x^2 - 75)*n^2 + (935*x^2 - 99)*n + 700*x^2 - 28)*Sn^2 + ((-8*x^2 + 2)*n^4 + (-92*x^2 + 27)*n^3 + (-390*x^2 + 129)*n^2 + (-721*x^2 + 261)*n - 490*x^2 + 190)*Sn + 2*n^4 + 17*n^3 + 51*n^2 + 64*n + 28
+          sage: L.annihilator_of_polynomial(y1^2-y2*y0) # random; Turan's determinant
+          (2*n^4 + 31*n^3 + 177*n^2 + 440*n + 400)*Sn^3 + ((-8*x^2 + 2)*n^4 + (-100*x^2 + 21)*n^3 + (-462*x^2 + 75)*n^2 + (-935*x^2 + 99)*n - 700*x^2 + 28)*Sn^2 + ((8*x^2 - 2)*n^4 + (92*x^2 - 27)*n^3 + (390*x^2 - 129)*n^2 + (721*x^2 - 261)*n + 490*x^2 - 190)*Sn - 2*n^4 - 17*n^3 - 51*n^2 - 64*n - 28
           sage: M = L.annihilator_of_associate(Sn).symmetric_power(2).lclm(L.annihilator_of_associate(Sn^2).symmetric_product(L)) # same by lower level methods. 
           sage: M.order() # overshoots
           7

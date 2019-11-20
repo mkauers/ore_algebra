@@ -173,6 +173,8 @@ testsuite
 
 """
 
+import math
+import six
 
 from sage.arith.all import CRT_basis, xgcd, gcd, lcm, previous_prime as pp
 from sage.misc.all import prod
@@ -191,7 +193,6 @@ from sage.matrix.constructor import Matrix, matrix
 from sage.matrix.matrix_space import MatrixSpace
 from sage.modules.free_module_element import vector
 from datetime import datetime
-import math
 
 #####################
 ####### tools #######
@@ -1750,7 +1751,7 @@ def _quick_check(subsolver, modsolver, modulus, cutoffdim, mat, degrees, infolev
         check_x = [ K_check(17*j + 13) for j in range(len(x)) ]
         def check_eval(pol):
             y = K_check.zero()
-            for (m,c) in pol.dict().iteritems():
+            for (m,c) in six.iteritems(pol.dict()):
                 y += K_check(c)*prod([check_x[i]**m[i] for i in m.nonzero_positions()])
             return y
     else:
