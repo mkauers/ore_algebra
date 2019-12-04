@@ -357,18 +357,18 @@ class DFiniteFunctionRing(Algebra):
             #initial values, singularities and pols of the new operator
             singularities_positive = ann.singularities()
             singularities_negative = set()
-            if self._backward_calculation == True:
+            if self._backward_calculation is True:
                 singularities_negative = set([n for n in ann.singularities(True) if n < 0])
 
             initial_val = set(range(ord)).union(singularities_positive, singularities_negative)
-            if self._backward_calculation == True:
+            if self._backward_calculation is True:
                 pols = set(r for (r,m) in g.roots() if r in ZZ)
             else:
                 pols = set(r for (r,m) in g.roots() if r in NN)
                     
             int_val = {n:x(n) if n not in pols else None for n in initial_val}
             for n in pols:
-                if self._backward_calculation == True and n-1 not in int_val:
+                if self._backward_calculation is True and n-1 not in int_val:
                     int_val.update({n-1:x(n-1)})
                     ann = A(N - (n - 2))*ann
                     if n < 2:
@@ -507,7 +507,7 @@ class DFiniteFunctionRing(Algebra):
                     ord = ann.order()
                     singularities_positive = ann.singularities()
                     singularities_negative = set()
-                    if self._backward_calculation == True:
+                    if self._backward_calculation is True:
                         singularities_negative = set([i for i in ann.singularities(True) if i < 0])
                     int_val = set(range(ord)).union(singularities_positive, singularities_negative)
                     initial_val = {i: exp(n = i) for i in int_val}
@@ -525,7 +525,7 @@ class DFiniteFunctionRing(Algebra):
                     ord = ann.order()
                     singularities_positive = ann.singularities()
                     singularities_negative = set()
-                    if self._backward_calculation == True:
+                    if self._backward_calculation is True:
                         singularities_negative = set([i for i in ann.singularities(True) if i < 0])
                     int_val = set(range(ord)).union(singularities_positive, singularities_negative)
                     initial_val = {i: exp.subs(inner == var('n'))(n = i) for i in int_val}
@@ -746,7 +746,7 @@ class DFiniteFunctionRing(Algebra):
         #initial values and singularities
         singularities_positive = ann.singularities()
         singularities_negative = set()
-        if self._backward_calculation == True:
+        if self._backward_calculation is True:
             singularities_negative = set([i for i in ann.singularities(True) if i < 0])
         
         initial_val = set(range(degree)).union(singularities_positive, singularities_negative)
@@ -829,7 +829,7 @@ class DFiniteFunction(RingElement):
         self.__ann = parent._ore_algebra(ann)
         ord = self.__ann.order()
         singularities = self.__ann.singularities()
-        if parent._backward_calculation == True:
+        if parent._backward_calculation is True:
             singularities.update([a for a in self.__ann.singularities(True) if a < 0])
         
         #converting the initial values into sage rationals if possible
@@ -846,7 +846,7 @@ class DFiniteFunction(RingElement):
             if type(initial_val) == list:
                 self._initial_values = {i:initial_val[i] for i in range(min(ord,len(initial_val)))}
             else:
-                if self.parent()._backward_calculation == False:
+                if self.parent()._backward_calculation is False:
                     self._initial_values = {keys: initial_val[keys] for keys in initial_val if keys >= 0}
                 else:
                     self._initial_values = initial_val
@@ -961,19 +961,19 @@ class DFiniteFunction(RingElement):
                     k = min(singularities_missing)
                     
                     #taking care about NONE entries
-                    if self[k] == None:
+                    if self[k] is None:
                         for l in range(k,k+ord+1):
                             ann = A(n - (l - ord))*ann
                             ini.update({l: self[l]})
                             
-                            if self.parent()._backward_calculation == True and l < ord - min_degree:
+                            if self.parent()._backward_calculation is True and l < ord - min_degree:
                                 ini.update({l-ord+min_degree: self[l-ord+min_degree]})
                             singularities_missing.remove(l)
                 
                     #normal entries
                     else:
                         if self[k] == ann.to_list(self.expand(k-1)[k-ord:],ord+1,k-ord)[ord]:
-                            if self.parent()._backward_calculation == True and k < ord - min_degree:
+                            if self.parent()._backward_calculation is True and k < ord - min_degree:
                                 if self[k-ord+min_degree] == ann.to_list(self.expand(k-ord+min_degree-1)[k-ord+min_degree - ord:],ord+1,k-ord+min_degree - ord)[ord]:
                                     ini.pop(k)
                                     ini.pop(k-ord+min_degree)
@@ -982,12 +982,12 @@ class DFiniteFunction(RingElement):
                         else:
                             ann = A(n - (k - ord))*ann
                             ini.update({k: self[k]})
-                            if self.parent()._backward_calculation == True and k < ord - min_degree:
+                            if self.parent()._backward_calculation is True and k < ord - min_degree:
                                 ini.update({k-ord+min_degree: self[k-ord+min_degree]})
                         singularities_missing.remove(k)
                 
                 #checking if the singularities for backward calculation are really needed
-                if self.parent()._backward_calculation == True:
+                if self.parent()._backward_calculation is True:
                     singularities_old = self.singularities(True)
                     singularities_new = ann.singularities(True)
                     singularities_missing = set([x for x in singularities_old.symmetric_difference(singularities_new) if x < 0])
@@ -999,7 +999,7 @@ class DFiniteFunction(RingElement):
                     while len(singularities_missing) > 0:
                         k = max(singularities_missing)
                         #taking care about NONE entries
-                        if self[k] == None:
+                        if self[k] is None:
                             for l in range(k-ord,k+1):
                                 ann = A(n - (l - min_degree))*ann
                                 ini.update({l: self[l]})
@@ -1102,7 +1102,7 @@ class DFiniteFunction(RingElement):
             while len(singularities_pos) > 0:
                 k = min(singularities_pos)
                 #taking care about NONE entries
-                if self[k] == None:
+                if self[k] is None:
                     for l in range(k,k+ord+1):
                         singularities_pos.remove(l)
                 
@@ -1110,7 +1110,7 @@ class DFiniteFunction(RingElement):
                 else:
                     ann = A([coeff/(n - (k - ord)) for coeff in ann.coefficients(sparse = False)])
                     if self[k] == ann.to_list(self.expand(k-1)[k-ord:],ord+1,k-ord)[ord]:
-                        if self.parent()._backward_calculation == True and k < ord - min_degree:
+                        if self.parent()._backward_calculation is True and k < ord - min_degree:
                             if self[k-ord+min_degree] == ann.to_list(self.expand(k-ord+min_degree-1)[k-ord+min_degree -ord:],ord+1,k-ord+min_degree-ord)[ord]:
                                 ini.pop(k)
                                 ini.pop(k-ord+min_degree)
@@ -1123,7 +1123,7 @@ class DFiniteFunction(RingElement):
                     singularities_pos.remove(k)
         
             #checking if all negative initial conditions are really needed
-            if self.parent()._backward_calculation == True:
+            if self.parent()._backward_calculation is True:
                 start = self.expand(ord-1)
                 start.reverse()
                 start.pop()
@@ -1131,7 +1131,7 @@ class DFiniteFunction(RingElement):
                 while len(singularities_neg) > 0:
                     k = max(singularities_neg)
                     #taking care of None entries
-                    if self[k] == None:
+                    if self[k] is None:
                         for l in range(k-ord,k+1):
                             singularities_neg.remove(l)
                     #normal entries
@@ -1208,9 +1208,9 @@ class DFiniteFunction(RingElement):
         - ``order`` (default: the order of the annihilating operator of ``self``) -- nonnegative integer that determines how many values
           after or before each singularity are returned
         
-        - ``backwards`` (default ``False``) -- boolean value that determines whether we are interested in the critial points for forward calculation, 
+        - ``backwards`` (default ``False``) -- boolean value that determines whether we are interested in the critical points for forward calculation, 
           i.e. the singularities of the leading coefficent and ``order`` many values after each singularity, or in those for backward calculation, i.e.
-          the singularities of the coefficient of minimal degree (regarding `Sn` or `Dx`respectively) and ``order`` many values before each singularity.
+          the singularities of the coefficient of minimal degree (regarding `Sn` or `Dx` respectively) and ``order`` many values before each singularity.
         
         OUTPUT:
         
@@ -1228,19 +1228,19 @@ class DFiniteFunction(RingElement):
             {-6, -5, -4}
             
         """
-        if order == None:
+        if order is None:
             ord = self.__ann.order()
         else:
             ord = order
         
         critical_points = set()
         
-        if backwards == False:
+        if backwards is False:
             singularities_positive = self.__ann.singularities()
             for n in singularities_positive:
                 critical_points.update(range(n,n+ord+1))
         
-        elif self.parent()._backward_calculation == True:
+        elif self.parent()._backward_calculation is True:
             singularities_negative = set([i for i in self.__ann.singularities(True) if i < 0])
             for n in singularities_negative:
                 critical_points.update(range(n-ord,n+1))
@@ -1269,7 +1269,7 @@ class DFiniteFunction(RingElement):
         """
         if self.parent().ore_algebra().is_S():
             for x in self.initial_conditions():
-                if self[x] != 0 and self[x] != None:
+                if self[x] != 0 and self[x] is not None:
                     return False
             return True
         else:
@@ -1408,7 +1408,7 @@ class DFiniteFunction(RingElement):
             
         """
         i = self._test_conversion_()
-        if i != None:
+        if i is not None:
             return float(i)
         
         raise TypeError("no conversion possible")
@@ -1433,7 +1433,7 @@ class DFiniteFunction(RingElement):
 
         """
         i = self._test_conversion_()
-        if i != None and i in ZZ:
+        if i is not None and i in ZZ:
             return int(i)
         
         raise TypeError("no conversion possible")
@@ -1481,7 +1481,7 @@ class DFiniteFunction(RingElement):
             
         """
         i = self._test_conversion_()
-        if i != None and i in QQ:
+        if i is not None and i in QQ:
             return QQ(i)
         
         raise TypeError("no conversion possible")
@@ -1506,7 +1506,7 @@ class DFiniteFunction(RingElement):
             
         """
         i = self._test_conversion_()
-        if i != None and i in ZZ:
+        if i is not None and i in ZZ:
             return long(i)
 
         raise TypeError("no conversion possible")
@@ -1829,7 +1829,7 @@ class UnivariateDFiniteSequence(DFiniteFunction):
             #initial values and singularities of the new operator
             singularities_positive = ann.singularities()
             singularities_negative = set()
-            if self.parent()._backward_calculation == True:
+            if self.parent()._backward_calculation is True:
                 singularities_negative = set([i for i in ann.singularities(True) if i < 0])
         
             initial_val = set(range(ord)).union(singularities_positive, singularities_negative)
@@ -1848,7 +1848,7 @@ class UnivariateDFiniteSequence(DFiniteFunction):
             for n in critical_points_positive:
                 int_val.update({n:self[floor(x(n))]})
                 ann = A(N - (n - ord) )*ann
-                if self.parent()._backward_calculation == True and n < ord - min_degree:
+                if self.parent()._backward_calculation is True and n < ord - min_degree:
                     int_val.update({(n-ord)+min_degree: self[floor(x(n-ord+min_degree))]})
                 
             #critical points for backward calculation
@@ -1976,7 +1976,7 @@ class UnivariateDFiniteSequence(DFiniteFunction):
         result = sum(list(a*b for a,b in zip(coeffs_result,base)))
         
         #checking if the polynomial also yields the correct values for all singularities (except from pols)
-        if all(result(n = k) == self[k] for k in self.initial_conditions() if self[k] != None):
+        if all(result(n = k) == self[k] for k in self.initial_conditions() if self[k] is not None):
             return R(result)
         else:
             raise TypeError("the D-finite sequence does not come from a polynomial")
@@ -2044,7 +2044,7 @@ class UnivariateDFiniteSequence(DFiniteFunction):
         result = sum(list(a*b for a,b in zip(coeffs_result,base)))
         
         #checking if the ratinoal function also yields the correct values for all singularities (except from pols)
-        if all(result(n = k) == self[k] for k in self.initial_conditions() if self[k] != None):
+        if all(result(n = k) == self[k] for k in self.initial_conditions() if self[k] is not None):
             return R.fraction_field()(result)
         else:
             raise TypeError("the D-finite sequence does not come from a rational function")
@@ -2075,11 +2075,11 @@ class UnivariateDFiniteSequence(DFiniteFunction):
         #initial values and singularities of the new operator
         singularities_positive = sum_ann.singularities()
         singularities_negative = set()
-        if self.parent()._backward_calculation == True:
+        if self.parent()._backward_calculation is True:
             singularities_negative = set([i for i in sum_ann.singularities(True) if i < 0])
     
         initial_val = set(range(ord)).union(singularities_positive, singularities_negative)
-        int_val_sum = {n:self[n] + right[n] if (self[n] != None and right[n] != None) else None for n in initial_val}
+        int_val_sum = {n:self[n] + right[n] if (self[n] is not None and right[n] is not None) else None for n in initial_val}
 
         #critical points for forward calculation
         critical_points_positive = self.critical_points(ord).union( right.critical_points(ord) )
@@ -2087,10 +2087,10 @@ class UnivariateDFiniteSequence(DFiniteFunction):
             critical_points_positive.update(range(n+1,n+ord+1))
         
         for n in critical_points_positive:
-            int_val_sum.update({n:self[n] + right[n] if (self[n] != None and right[n] != None) else None})
+            int_val_sum.update({n:self[n] + right[n] if (self[n] is not None and right[n] is not None) else None})
             sum_ann = A(N - (n - ord) )*sum_ann
-            if self.parent()._backward_calculation == True and n < ord - min_degree:
-                int_val_sum.update({(n-ord)+min_degree: self[(n-ord)+min_degree] + right[(n-ord)+min_degree] if (self[(n-ord)+min_degree] != None and right[(n-ord)+min_degree] != None) else None})
+            if self.parent()._backward_calculation is True and n < ord - min_degree:
+                int_val_sum.update({(n-ord)+min_degree: self[(n-ord)+min_degree] + right[(n-ord)+min_degree] if (self[(n-ord)+min_degree] is not None and right[(n-ord)+min_degree] is not None) else None})
         
         #critical points for backward calculation
         critical_points_negative = self.critical_points(ord,True).union( right.critical_points(ord,True) )
@@ -2098,10 +2098,10 @@ class UnivariateDFiniteSequence(DFiniteFunction):
             critical_points_negative.update(range(n-ord,n))
             
         for n in critical_points_negative:
-            int_val_sum.update({n:self[n] + right[n] if (self[n] != None and right[n] != None) else None})
+            int_val_sum.update({n:self[n] + right[n] if (self[n] is not None and right[n] is not None) else None})
             sum_ann = A(N - (n - min_degree) )*sum_ann
             if n >= min_degree:
-                int_val_sum.update({(n-min_degree)+ord:self[(n-min_degree)+ord] + right[(n-min_degree)+ord] if (self[(n-min_degree)+ord] != None and right[(n-min_degree)+ord] != None) else None})
+                int_val_sum.update({(n-min_degree)+ord:self[(n-min_degree)+ord] + right[(n-min_degree)+ord] if (self[(n-min_degree)+ord] is not None and right[(n-min_degree)+ord] is not None) else None})
                 
         return UnivariateDFiniteSequence(self.parent(), sum_ann, int_val_sum)
 
@@ -2148,7 +2148,7 @@ class UnivariateDFiniteSequence(DFiniteFunction):
         #initial values and singularities of the new operator
         singularities_positive = sum_ann.singularities()
         singularities_negative = set()
-        if self.parent()._backward_calculation == True:
+        if self.parent()._backward_calculation is True:
             singularities_negative = set([i for i in sum_ann.singularities(True) if i < 0])
     
         initial_val = set(range(ord)).union(singularities_positive, singularities_negative)
@@ -2162,7 +2162,7 @@ class UnivariateDFiniteSequence(DFiniteFunction):
         for n in critical_points_positive:
             int_val_sum.update({n:self[n] + right[n] if (self[n] != None and right[n] != None) else None})
             sum_ann = A(N - (n - ord) )*sum_ann
-            if self.parent()._backward_calculation == True and n < ord - min_degree:
+            if self.parent()._backward_calculation is True and n < ord - min_degree:
                 int_val_sum.update({(n-ord)+min_degree: self[(n-ord)+min_degree] + right[(n-ord)+min_degree] if (self[(n-ord)+min_degree] != None and right[(n-ord)+min_degree] != None) else None})
         
         #critical points for backward calculation
@@ -2237,7 +2237,7 @@ class UnivariateDFiniteSequence(DFiniteFunction):
         #initial values and singularities of the new operator
         singularities_positive = prod_ann.singularities()
         singularities_negative = set()
-        if self.parent()._backward_calculation == True:
+        if self.parent()._backward_calculation is True:
             singularities_negative = set([i for i in prod_ann.singularities(True) if i < 0])
     
         initial_val = set(range(ord)).union(singularities_positive, singularities_negative)
@@ -2251,7 +2251,7 @@ class UnivariateDFiniteSequence(DFiniteFunction):
         for n in critical_points_positive:
             int_val_prod.update({n:self[n] * right[n] if (self[n] != None and right[n] != None) else None})
             prod_ann = A(N - (n - ord) )*prod_ann
-            if self.parent()._backward_calculation == True and n < ord - min_degree:
+            if self.parent()._backward_calculation is True and n < ord - min_degree:
                 int_val_prod.update({(n-ord)+min_degree: self[(n-ord)+min_degree] * right[(n-ord)+min_degree] if (self[(n-ord)+min_degree] != None and right[(n-ord)+min_degree] != None) else None})
         
         #critical points for backward calculation
@@ -2315,7 +2315,7 @@ class UnivariateDFiniteSequence(DFiniteFunction):
         #initial values and singularities of the new operator
         singularities_positive = prod_ann.singularities()
         singularities_negative = set()
-        if self.parent()._backward_calculation == True:
+        if self.parent()._backward_calculation is True:
             singularities_negative = set([i for i in prod_ann.singularities(True) if i < 0])
     
         initial_val = set(range(ord)).union(singularities_positive, singularities_negative)
@@ -2345,7 +2345,7 @@ class UnivariateDFiniteSequence(DFiniteFunction):
                 cauchy = None
             int_val_prod.update({n:cauchy})
             prod_ann = A(N - (n - ord) )*prod_ann
-            if self.parent()._backward_calculation == True and n < ord - min_degree:
+            if self.parent()._backward_calculation is True and n < ord - min_degree:
                 a = self.expand((n-ord)+min_degree)
                 b = right.expand((n-ord)+min_degree)
                 b.reverse()
@@ -2423,7 +2423,7 @@ class UnivariateDFiniteSequence(DFiniteFunction):
         #initial values and singularities of the new operator
         singularities_positive = interlacing_ann.singularities()
         singularities_negative = set()
-        if self.parent()._backward_calculation == True:
+        if self.parent()._backward_calculation is True:
             singularities_negative = set([i for i in interlacing_ann.singularities(True) if i < 0])
         
         initial_val = set(range(ord)).union(singularities_positive, singularities_negative)
@@ -2450,7 +2450,7 @@ class UnivariateDFiniteSequence(DFiniteFunction):
             else:
                 int_val_interlacing.update({n:right[floor(n/2)]})
             interlacing_ann = A(N -(n - ord))*interlacing_ann
-            if self.parent()._backward_calculation == True and n < ord - min_degree:
+            if self.parent()._backward_calculation is True and n < ord - min_degree:
                 if (n-ord+min_degree) % 2 == 0:
                     int_val_interlacing.update({n-ord+min_degree:self[(n-ord+min_degree)/2]})
                 else:
@@ -2514,7 +2514,7 @@ class UnivariateDFiniteSequence(DFiniteFunction):
         #initial values and singularities of the new operator
         singularities_positive = sum_ann.singularities()
         singularities_negative = set()
-        if self.parent()._backward_calculation == True:
+        if self.parent()._backward_calculation is True:
             singularities_negative = set([i for i in sum_ann.singularities(True) if i < 0])
     
         initial_val = set(range(ord)).union(singularities_positive, singularities_negative)
@@ -2528,7 +2528,7 @@ class UnivariateDFiniteSequence(DFiniteFunction):
         for n in critical_points_positive:
             int_val_sum.update({n : sum(self.expand(n)) if all(self[k] != None for k in range(n+1)) else None})
             sum_ann = A(N - (n - ord) )*sum_ann
-            if self.parent()._backward_calculation == True and n < ord - min_degree:
+            if self.parent()._backward_calculation is True and n < ord - min_degree:
                 int_val_sum.update({(n-ord)+min_degree : sum(self.expand((n-ord)+min_degree)) if all(self[k] != None for k in range((n-ord)+min_degree+1)) else None})
         
         #critical points for backward calculation
@@ -2663,15 +2663,15 @@ class UnivariateDFiniteSequence(DFiniteFunction):
             return self.expand(n)[-n]
     
         #normal case: n >= 0
-        if self.parent()._backward_calculation == False and min(self.initial_conditions()) < 0:
+        if self.parent()._backward_calculation is False and min(self.initial_conditions()) < 0:
             start = min(self.initial_conditions())
         else:
             start = 0
         
         #handling None entries
         values = [self.initial_conditions()[i] for i in self.initial_conditions() if 0 <= i < n]
-        if not all( x!= None for x in values):
-            index = max([i for i in self.initial_conditions() if self.initial_conditions()[i] == None and 0 <= i < n])
+        if not all(x is not None for x in values):
+            index = max([i for i in self.initial_conditions() if self.initial_conditions()[i] is None and 0 <= i < n])
             start += index+1
             int_val = [ self.initial_conditions()[i] for i in range(index+1,index+ord+1) ]
             roots = [ x - ord for x in self.singularities() if start <= x-ord <= n ]
@@ -3038,7 +3038,7 @@ class UnivariateDFiniteFunction(DFiniteFunction):
 
         """
         result = self._initial_values.expand(n)
-        if deriv == True:
+        if deriv is True:
             result = [result[i]* factorial(i) for i in range(len(result))]
         
         return result
