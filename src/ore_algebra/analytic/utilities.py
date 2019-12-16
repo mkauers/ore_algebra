@@ -128,6 +128,10 @@ def number_field_with_integer_gen(K):
         ### Attempt to work around various problems with embeddings
         emb = K.coerce_embedding()
         embgen = emb(intgen) if emb else intgen
+        # Write K.gen() = α = β/q where q = den, and
+        # K.polynomial() = q + p[d-1]·X^(d-1) + ··· + p[0].
+        # By clearing denominators in P(β/q) = 0, one gets
+        # β^d + q·p[d-1]·β^(d-1) + ··· + p[0]·q^(d-1) = 0.
         intNF = NumberField(intgen.minpoly(), "x" + str(den) + str(K.gen()),
                             embedding=embgen)
         assert intNF != K
