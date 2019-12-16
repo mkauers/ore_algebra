@@ -84,15 +84,15 @@ class DFiniteFunction(object):
         [+/- inf]
 
         sage: f = DFiniteFunction((x^2 + 1)*Dx^2 + 2*x*Dx, [0, 1])
-        sage: f.plot((0, 4))
+        sage: f.plot((0, 4)) # long time (1 s)
         Graphics object consisting of 1 graphics primitive
-        sage: f._known_bound(RBF(RIF(1,4)), Dops.one())
+        sage: f._known_bound(RBF(RIF(1,4)), Dops.one()) # long time
         [1e+0 +/- 0.3...]
-        sage: f.approx(1, post_transform=Dx), f.approx(2, post_transform=Dx)
+        sage: f.approx(1, post_transform=Dx), f.approx(2, post_transform=Dx) # long time
         ([0.5000000000000...], [0.2000000000000...])
-        sage: f._known_bound(RBF(RIF(1.1, 2.9)), post_transform=Dx)
+        sage: f._known_bound(RBF(RIF(1.1, 2.9)), post_transform=Dx) # long time
         [+/- 0.4...]
-        sage: f._known_bound(RBF(AnInfinity()), Dops.one())
+        sage: f._known_bound(RBF(AnInfinity()), Dops.one()) # long time
         [+/- inf]
 
         sage: f = DFiniteFunction((x + 1)*Dx^2 + 2*x*Dx, [0, 1])
@@ -414,11 +414,11 @@ class DFiniteFunction(object):
             sage: DiffOps, x, Dx = DifferentialOperators()
 
             sage: f = DFiniteFunction((x^2 + 1)*Dx^2 + 2*x*Dx, [0, 1])
-            sage: f(-10, 100) # long time
+            sage: f(-10, 100)
             [-1.4711276743037345918528755717...]
-            sage: f.approx(5, post_transform=Dx) # long time
+            sage: f.approx(5, post_transform=Dx)
             [0.038461538461538...]
-            sage: f.plot_known() # long time
+            sage: f.plot_known()
             Graphics object consisting of ... graphics primitives
         """
         g = plot.Graphics()
@@ -510,7 +510,7 @@ def _tests():
 
         sage: f = DFiniteFunction((x^2 + 1)*Dx^2 + 2*x*Dx, [0, 1])
 
-        sage: [f(10^i) for i in range(-3, 4)] # long time (2.5 s)
+        sage: [f(10^i) for i in range(-3, 4)] # long time (1.9 s)
         [[0.0009999996666...], [0.0099996666866...], [0.0996686524911...],
         [0.7853981633974...], [1.4711276743037...], [1.5607966601082...],
         [1.5697963271282...]]

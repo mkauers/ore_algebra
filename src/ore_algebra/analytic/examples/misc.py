@@ -51,7 +51,7 @@ handling elements of quadratic number fields other than ℚ[i] somewhat
 efficiently::
 
     sage: from ore_algebra.analytic.examples.misc import iint_quadratic_alg as pb
-    sage: pb.dop.numerical_solution(pb.ini, [0, 1/5000*sqrt(277774997191/11111)], 2^(-100)) # 1.6 s
+    sage: pb.dop.numerical_solution(pb.ini, [0, 1/5000*sqrt(277774997191/11111)], 2^(-100)) # long time (1.6 s)
     [3368168.805821918535950852115...]
 """
 import collections

@@ -199,7 +199,7 @@ def _tests():
 
         sage: m2 = dop.numerical_transition_matrix([-1, -3-2*i, 4-i, 3-i/2, -1])
         sage: m3 = dop.numerical_transition_matrix([-1, -i, 5, 4+i, 3-i, -i, -1])
-        sage: m4 = dop.numerical_transition_matrix([-1, -3-i/2, 3+1/2, 3+1/2+i, 3+2*i, 3-1/2+i, 3+1/2, 3-i/2, -1])
+        sage: m4 = dop.numerical_transition_matrix([-1, -3-i/2, 3+1/2, 3+1/2+i, 3+2*i, 3-1/2+i, 3+1/2, 3-i/2, -1]) # long time (1 s)
 
         sage: any(norm(m2 - mon[i]) < RBF(1e-10) and norm(m3 - mon[j]) < RBF(1e-10)
         ....:                                    and norm(m4 - mon[k]) < RBF(1e-10)
