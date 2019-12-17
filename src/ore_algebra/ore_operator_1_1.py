@@ -182,10 +182,10 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         if degree is None:
             degree = L._degree_bound()
 
-        if len(rhs) > 0:
+        if rhs:
             degree = max(degree, max(list(map(lambda p: L.order() + p.degree(), rhs))))
 
-        if degree < 0 and len(rhs) == 0:
+        if degree < 0 and not rhs:
             return []
 
         from sage.matrix.constructor import matrix
@@ -842,7 +842,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         exponents=[divisors(d) for (c,d) in p.squarefree_decomposition()]
         M=[]
         for a in exponents[0]:
-            contained = true
+            contained = True
             for i in range(1,len(exponents)):
                 contained = contained and a in exponents[i]
             if contained: M.append(a)
@@ -1437,7 +1437,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
                     set_coeff(result[i], j, coeffs[j][v])
 
             if result[i]:
-                from_newton_basis(result[i], range(-i, -i + r))
+                from_newton_basis(result[i], list(range(-i, -i + r)))
 
         rec = rec_algebra(result)
         sigma = rec_algebra.sigma()

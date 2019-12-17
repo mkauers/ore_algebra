@@ -1267,7 +1267,7 @@ def guess_mult(data, algebra, **kwargs):
         dims.append(len(l))
         l = l[0]
     dim = len(dims)
-    range_dim = range(dim)
+    range_dim = list(range(dim))
 
     deg = kwargs.setdefault('degree', 3)
     ord = kwargs.setdefault('order', 2)
@@ -1289,7 +1289,7 @@ def guess_mult(data, algebra, **kwargs):
 
     op_terms = []
     f = kwargs.setdefault('term_filter', lambda x: True)
-    for o in product(*[range(ord[i] + 1) for i in range_dim]):
+    for o in product(*[list(range(ord[i] + 1)) for i in range_dim]):
         if f(o) or f(prod(gens[i]**o[i] for i in range_dim)):
             op_terms.append(o)
 
@@ -1314,7 +1314,8 @@ def guess_mult(data, algebra, **kwargs):
 
     # 3. prepare evaluation points
     f = kwargs.setdefault('point_filter', lambda *x: True)
-    points = [p for p in product(*[range(offset[i], dims[i] - ord[i]) for i in range_dim]) if f(*p)]
+    points = [p for p in product(*[list(range(offset[i], dims[i] - ord[i]))
+                                   for i in range_dim]) if f(*p)]
     info(1, str(len(points)) + " points.")
 
     cut = kwargs.setdefault("cut", 100)
@@ -1491,7 +1492,7 @@ def guess_mult_raw(C, data, terms, points, power, A, B, **kwargs):
     mat = []
     info(1, lazy_string(lambda: datetime.today().ctime() + " : setting up modular system..."))
     monomial_cache = dict()
-    range_dim = range(len(A))
+    range_dim = list(range(len(A)))
 
     for k, n in enumerate(points):
 
