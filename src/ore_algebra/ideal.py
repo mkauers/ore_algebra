@@ -899,7 +899,7 @@ class OreLeftIdeal(Ideal_nc):
 
         telescopers = []
         iterator = MonomialIterator(algebra)
-        terms = {iterator.next()[0] : vector(GG, [1] + [0]*(len(T)-1))}
+        terms = {next(iterator)[0] : vector(GG, [1] + [0]*(len(T)-1))}
         coresolver = nullspace.kronecker(nullspace.gauss())
         zerocount = [0] # so many zero telescopers have been found so far
         solver = [nullspace.quick_check(coresolver, cutoffdim=0)]
@@ -933,7 +933,7 @@ class OreLeftIdeal(Ideal_nc):
         else:
             try:
                 while True:
-                    tau, d = iterator.next()
+                    tau, d = next(iterator)
                     info(1, "next monomial: " + str(tau*d))
                     
                     # construct corresponding vector
@@ -996,7 +996,7 @@ class MonomialIterator(object):
         self.__prev = None
         self.__stairs = [] 
 
-    def next(self):
+    def __next__(self):
         """
         Returns (tau, D) such that tau*D is the next term in the iteration, D is an algebra generator, and tau
         is a term that was output earlier. The first output does not follow this rule but is (1, 1). 
@@ -1023,8 +1023,9 @@ class MonomialIterator(object):
         self.__clear_pool()
 
     def __clear_pool(self):
-        self.__pool = filter(lambda u: not (u[0]*u[1]).reduce(self.__stairs).is_zero(), self.__pool) # discard stuff above the stairs
-        self.__pool = list(self.__pool)
+        self.__pool = [u for u in self.__pool
+                       if not (u[0]*u[1]).reduce(self.__stairs).is_zero()]
+        # discard stuff above the stairs
         self.__pool.sort(key=lambda u: smallest_lt_first(u[0]*u[1]), reverse=True) # smallest last
         prev = None
         for i in range(len(self.__pool)): # discard double entries
@@ -1089,7 +1090,7 @@ def fglm(algebra, one_vector, gen_matrices, infolevel=0, solver=None, early_term
     delta = dict( (d, algebra.delta(d)) for d in algebra.gens() )
 
     iterator = MonomialIterator(algebra)
-    terms[iterator.next()[0]] = one_vector ## map terms->vectors
+    terms[next(iterator)[0]] = one_vector ## map terms->vectors
 
     B = [algebra.one()] ## terms under the stairs
     M = matrix(algebra.base_ring(), len(one_vector), 1, one_vector) ## matrix whose columns are the vectors corresponding to B
@@ -1099,7 +1100,7 @@ def fglm(algebra, one_vector, gen_matrices, infolevel=0, solver=None, early_term
     
     try:
         while True:
-            tau, d = iterator.next() # current term
+            tau, d = next(iterator) # current term
             info(1, "next monomial: " + str(tau*d))
 
             # corresponding vector

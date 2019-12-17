@@ -212,8 +212,8 @@ def row_content(row, ring):
     if not row:
         return ring.zero()
     else:
-        row = list(sorted(row, key=lambda pol: pol.degree()))
-        return gcd(row)
+        return gcd(sorted(row, key=lambda pol: pol.degree()))
+
 
 def heuristic_row_content(row, ring):
 
@@ -757,11 +757,13 @@ def _hermite_base(early_termination, R, A, u, D):
         # consider the coefficient of x^k in the entries of A
         if early_termination and k < u - 1:
             # if V[j] is already a solution vector, then the j-th row of A must be zero.
-            candidates = filter(lambda j : not any(A[i][j][k] for i in range(n)), range(m))
+            candidates = (j for j in range(m)
+                          if not any(A[i][j][k] for i in range(n)))
             # for the candidates, check whether also the higher degree coefficients are zero
-            candidates = filter(lambda j : not any(A[i][j][l] for i in range(n) for l in range(k+1, u)), candidates)
-            candidates = list(candidates)
-            if len(candidates) > 0:
+            candidates = [j for j in candidates
+                          if not any(A[i][j][l] for i in range(n)
+                                     for l in range(k+1, u))]
+            if candidates:
                 return Matrix(R, [[v[c] for c in candidates] for v in V ]), True
         for i in range(n):
             row = A[i]
@@ -1053,7 +1055,7 @@ def _lagrange(subsolver, start_point, ncpus, mat, degrees, infolevel):
     if char > 0 and char < start_point + bound:
         raise ValueError("not enough evaluation points")
 
-    points = list(map(lambda p: R(start_point + p), range(bound)))
+    points = [R(start_point + p) for p in range(bound)]
     M = product_tree(x, points, 0, bound); mod = M[0]; Mprime = []
     multipoint_evaluate(mod.derivative(), points, 0, bound, M, Mprime)
 
@@ -1096,7 +1098,7 @@ def _lagrange(subsolver, start_point, ncpus, mat, degrees, infolevel):
         _info(infolevel, "Taking ", bound, " more interpolation points...", alter = -1)
         if start_point + bound > char:
             raise ValueError("not enough evaluation points")
-        points = list(map(lambda p: R(start_point + p), range(bound)))
+        points = [R(start_point + p) for p in range(bound)]
         M = product_tree(x, points, 0, bound); mod = M[0]; Mprime = []
         multipoint_evaluate(mod.derivative(), points, 0, bound, M, Mprime)
 
@@ -1845,9 +1847,8 @@ def _compress(subsolver, presolver, modulus, mat, degrees, infolevel):
 
     # determine row weights
     row_idx = [ 10**13*sum(1 for p in row if p) + sum(p.degree() for p in row if p) for row in mat ]
-    row_idx = zip(range(n), row_idx)
-    row_idx = sorted(row_idx, key=lambda p: -p[1])
-    row_idx = list(map(lambda p: p[0], row_idx))
+    row_idx = sorted(zip(range(n), row_idx), key=lambda p: -p[1])
+    row_idx = [p[0] for p in row_idx]
     # now row_idx[0] is the heaviest row, row_idx[1], the second heaviest, etc., until row_idx[-1] being the lightest.
 
     # remove unnecessary rows in descending order of weight
