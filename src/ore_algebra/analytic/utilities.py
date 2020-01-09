@@ -13,6 +13,7 @@ Miscellaneous utilities
 # http://www.gnu.org/licenses/
 
 import itertools
+from builtins import zip
 
 import sage.rings.complex_arb
 import sage.rings.real_arb
@@ -200,4 +201,4 @@ def short_str(obj, n=60):
 def pairwise(iterable):
     a, b = itertools.tee(iterable)
     next(b, None)
-    return itertools.izip(a, b)
+    return zip(a, b)
