@@ -1173,5 +1173,8 @@ def _specialization_map(source, dest, abstract_alg, alg):
         hom = Homset([dest(den*alg)], check=False)
     else:
         base_hom = base.hom([dest(base.gen())], check=False)
-        hom = Homset([dest(den*alg)], base_map=base_hom, check=False)
+        try:
+            hom = Homset([dest(den*alg)], base_map=base_hom, check=False)
+        except TypeError: # temporary kludge for sage < 9.0
+            hom = Homset([dest(den*alg)], base_hom=base_hom, check=False)
     return hom
