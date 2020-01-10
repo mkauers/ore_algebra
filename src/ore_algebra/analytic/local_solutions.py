@@ -15,7 +15,7 @@ Local solutions
 
 from six.moves import range
 
-import collections, logging
+import collections, logging, warnings
 
 from itertools import chain
 
