@@ -770,8 +770,6 @@ def series_sum_regular(Intervals, dop, bwrec, inis, pt, stop, stride,
             for sol in sols:
                 err = sol.next_term(n, mult, bwrec_nplus[0], cst, jetpow, squash)
                 if squash:
-                    # XXX it can happen that hom_maj_coeff_lb = 0; clarify what
-                    # to do in this case
                     rnd_loc = rnd_loc.max(n*err/hom_maj_coeff_lb)
                     if not rnd_loc.is_finite(): # normalize NaNs and infinities
                         rnd_loc = rnd_loc.parent()('inf')

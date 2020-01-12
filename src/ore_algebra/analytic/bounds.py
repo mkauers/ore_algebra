@@ -454,10 +454,21 @@ class HyperexpMajorant(MajorantSeries):
         alpha = 1/self.integrand.cvrad
 
         # The term involving α vanishes for n = 1. Some terms lb[1], lb[2],
-        # may be zero, but we have lb[start] ≥ (num[start]/start)lb[0] > 0
+        # may be zero (typically *will* be zero, due to the use of polynomial
+        # parts). We want strictly positive lower bounds, so we compute
+        # these first few terms separately. (It may also be possible to avoid
+        # the issue by changing the algorithm to use a slightly different
+        # minorant. This remains to be investigated.)
         start = num.valuation()
+        ser = self.integrand.series0(start - 1)
+        initial_terms = ser.integral()._exp_series(start)
         for n in range(start):
-            yield n, IR.zero()
+            val = initial_terms[n].below_abs()
+            if val.is_zero():
+                zob
+            yield n, val
+
+        # Then we have lb[start] ≥ (num[start]/(start+1))lb[0] > 0.
         cur = num[start]/(start + 1)
         yield start, cur
 
