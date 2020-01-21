@@ -71,7 +71,7 @@ basis (1 + O(z^11), z + O(z^11), ...) to its coefficients in the basis::
 
 ::
 
-    sage: mat = dop.numerical_transition_matrix([0,s], 1e-30) # long time (2.2 s)
+    sage: mat = dop.numerical_transition_matrix([0,s], 1e-30) # long time (2.4 s)
 
 We are interested in the fifth row::
 

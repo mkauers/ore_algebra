@@ -40,7 +40,7 @@ test case for “rounded” recurrences::
 
     sage: from ore_algebra.analytic.examples.misc import quadric_slice_dop, quadric_slice_crit
     sage: mat = quadric_slice_dop.numerical_transition_matrix(
-    ....:         [quadric_slice_crit, -46997/133120], 1e-30, assume_analytic=True) # long time (3.5s)
+    ....:         [quadric_slice_crit, -46997/133120], 1e-30, assume_analytic=True) # long time (3.7s)
     sage: mat[1,1]
     [5.3541199515575366362961159...] + [+/- ...]*I
     sage: mat[3,3]

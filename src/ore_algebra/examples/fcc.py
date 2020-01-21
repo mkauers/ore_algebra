@@ -44,7 +44,7 @@ In this case, the segment [0, 1] contains a singularity of the operator::
 We can nevertheless evaluate the solution of interest using an integration path
 that passes above the singular point::
 
-    sage: fcc.dop5.numerical_solution([0, 0, 0, 0, 1, 0], [0, 1/5+i/2, 1], 1e-60) # long time (1 s)
+    sage: fcc.dop5.numerical_solution([0, 0, 0, 0, 1, 0], [0, 1/5+i/2, 1], 1e-60) # long time (1.15 s)
     [1.04885235135491485162956376369999275945402550465206640313845...] + [+/-...]*I
 
 Another option is to pass an experimental flag to asserts that the function we
