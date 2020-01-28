@@ -16,7 +16,7 @@ equation::
     sage: Pols.<z> = QQ[]
     sage: a = AA.polynomial_root(54*z**3+324*z**2-4265*z+432, RIF(0.1, 0.11))
     sage: roots = salvy1_pol(z=a).univariate_polynomial().roots(QQbar)
-    sage: val = salvy1_dop.numerical_solution([0, 0, 0, 0, 0, 1/2], [0, a]) # long time (4 s)
+    sage: val = salvy1_dop.numerical_solution([0, 0, 0, 0, 0, 1/2], [0, a]) # long time (3 s)
     sage: CBF100 = ComplexBallField(100)
     sage: [r for (r, _) in roots if CBF100(r) in val]                       # long time
     [0.0108963334211605...]
@@ -40,7 +40,7 @@ test case for “rounded” recurrences::
 
     sage: from ore_algebra.analytic.examples.misc import quadric_slice_dop, quadric_slice_crit
     sage: mat = quadric_slice_dop.numerical_transition_matrix(
-    ....:         [quadric_slice_crit, -46997/133120], 1e-30, assume_analytic=True) # long time (3.7s)
+    ....:         [quadric_slice_crit, -46997/133120], 1e-30, assume_analytic=True) # long time (2.9s)
     sage: mat[1,1]
     [5.3541199515575366362961159...] + [+/- ...]*I
     sage: mat[3,3]
