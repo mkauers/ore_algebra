@@ -25,7 +25,21 @@ class Context(object):
             binsplit_thr=128,
             bit_burst_thr=32,
             simple_approx_thr=64,
+            recorder=None,
         ):
+        r"""
+        Analytic continuation context
+
+        Options:
+
+        * ``recorder`` -- An object that will be used to record various
+          intermediate results for debugging and analysis purposes. At the
+          moment recording just consists in writing data to some fields of the
+          object. Look at the source code to see what fields are available;
+          define those fields as properties to process the data.
+
+        * (other options still to be documented...)
+        """
 
         # TODO: dop, path, eps...
 
@@ -54,6 +68,8 @@ class Context(object):
         self.bit_burst_thr = int(bit_burst_thr)
 
         self.simple_approx_thr = int(simple_approx_thr)
+
+        self.recorder = recorder
 
     def __repr__(self):
         return pprint.pformat(self.__dict__)

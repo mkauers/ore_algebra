@@ -195,6 +195,9 @@ def _process_path(dop, path, ctx):
     path.check_singularity()
     path.check_convergence()
 
+    if ctx.recorder is not None:
+        ctx.recorder.path = path
+
     return path
 
 def analytic_continuation(dop, path, eps, ctx=dctx, ini=None, post=None,
