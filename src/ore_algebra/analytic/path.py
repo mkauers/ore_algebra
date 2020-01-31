@@ -898,11 +898,10 @@ class Path(SageObject):
         arrow = " --> " if len(self.vert) < 2 else " --> ... --> "
         return repr(self.vert[0]) + arrow + repr(self.vert[-1])
 
-    def plot(self, disks=False):
+    def plot(self, disks=False, **kwds):
         gr  = plot.point2d(self.dop._singularities(CC),
-                           marker='*', size=200, color='red')
-        for step in self:
-            gr += step.plot()
+                           marker='*', color='red', **kwds)
+        gr += plot.line([z.iv().mid() for z in self.vert])
         gr.set_aspect_ratio(1)
         if disks:
             for step in self:
