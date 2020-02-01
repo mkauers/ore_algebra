@@ -22,10 +22,31 @@ class Context(object):
             force_algorithm=False,
             keep="last",
             squash_intervals=False,
+            deform=False,
             binsplit_thr=128,
             bit_burst_thr=32,
             simple_approx_thr=64,
+            recorder=None,
         ):
+        r"""
+        Analytic continuation context
+
+        Options:
+
+        * ``deform`` -- Whether to attempt to automatically deform the analytic
+          continuation path into a faster one. Enabling this should result in
+          significantly faster integration for problems with many
+          singularities, especially at high precision. It may be slower in
+          simple cases, though.
+
+        * ``recorder`` -- An object that will be used to record various
+          intermediate results for debugging and analysis purposes. At the
+          moment recording just consists in writing data to some fields of the
+          object. Look at the source code to see what fields are available;
+          define those fields as properties to process the data.
+
+        * (other options still to be documented...)
+        """
 
         # TODO: dop, path, eps...
 
@@ -49,11 +70,17 @@ class Context(object):
             raise TypeError("squash_intervals", type(squash_intervals))
         self.squash_intervals = squash_intervals
 
+        if not isinstance(deform, bool):
+            raise TypeError("deform", type(deform))
+        self.deform = deform
+
         self.binsplit_thr = int(binsplit_thr)
 
         self.bit_burst_thr = int(bit_burst_thr)
 
         self.simple_approx_thr = int(simple_approx_thr)
+
+        self.recorder = recorder
 
     def __repr__(self):
         return pprint.pformat(self.__dict__)

@@ -13,7 +13,7 @@ Analytic continuation paths
 #
 # http://www.gnu.org/licenses/
 
-import logging, sys
+import itertools, logging, sys
 
 import sage.plot.all as plot
 import sage.rings.all as rings
@@ -30,6 +30,7 @@ from sage.structure.sage_object import SageObject
 
 from .accuracy import IR, IC
 from .context import dctx
+from .deform import PathDeformer, PathDeformationFailed
 from .differential_operator import DifferentialOperator
 from .local_solutions import (FundamentalSolution, sort_key_by_asympt,
         LocalBasisMapper)
@@ -850,6 +851,7 @@ class Path(SageObject):
         (x^2 + 1)*Dx^2 + 2*x*Dx
 
         sage: path.check_singularity()
+        True
         sage: path.check_convergence()
         Traceback (most recent call last):
         ...
@@ -898,11 +900,10 @@ class Path(SageObject):
         arrow = " --> " if len(self.vert) < 2 else " --> ... --> "
         return repr(self.vert[0]) + arrow + repr(self.vert[-1])
 
-    def plot(self, disks=False):
+    def plot(self, disks=False, **kwds):
         gr  = plot.point2d(self.dop._singularities(CC),
-                           marker='*', size=200, color='red')
-        for step in self:
-            gr += step.plot()
+                           marker='*', color='red', **kwds)
+        gr += plot.line([z.iv().mid() for z in self.vert])
         gr.set_aspect_ratio(1)
         if disks:
             for step in self:
@@ -915,6 +916,7 @@ class Path(SageObject):
                                   linestyle='dashed')
         return gr
 
+    @cached_method
     def check_singularity(self):
         """
         EXAMPLES::
@@ -926,8 +928,11 @@ class Path(SageObject):
             sage: dop = (x^2 + 1)*Dx^2 + 2*x*Dx
 
             sage: Path([0], dop).check_singularity()
+            True
             sage: Path([1,3], dop).check_singularity()
+            True
             sage: Path([0, i], dop).check_singularity()
+            True
 
             sage: Path([42, 1+i/2, -1+3*i/2], dop).check_singularity()
             Traceback (most recent call last):
@@ -958,6 +963,7 @@ class Path(SageObject):
         """
         for step in self:
             step.check_singularity()
+        return True # @cached_method doesn't cache None
 
     def check_convergence(self):
         """
@@ -1019,7 +1025,18 @@ class Path(SageObject):
         new = Path(new, self.dop)
         return new
 
-    def subdivide(self, threshold=IR(0.6), factor=IR(0.5), slow_thr=IR(0.6)):
+    def _intermediate_point(self, a, b, factor=IR(0.5)):
+        rad = a.dist_to_sing()
+        vec = b.iv() - a.iv()
+        dir = vec/abs(vec)
+        m = a.iv() + factor*rad*dir
+        is_real = m.imag().is_zero()
+        m = m.add_error(rad/8)
+        Step(a, Point(m, self.dop)).check_singularity() # TBI
+        m = _rationalize(m, is_real)
+        return Point(m, self.dop)
+
+    def subdivide(self, threshold=IR(0.6), slow_thr=IR(0.6)):
         # TODO:
         # - support paths passing very close to singular points
         new = [self.vert[0]]
@@ -1027,7 +1044,8 @@ class Path(SageObject):
         while i < len(self.vert):
             cur, next = new[-1], self.vert[i]
             rad = cur.dist_to_sing()
-            dist_to_next = (next.iv() - cur.iv()).abs()
+            vec = next.iv() - cur.iv()
+            dist_to_next = vec.abs()
             split = True
             local_thr = threshold
             if next.is_ordinary():
@@ -1035,7 +1053,7 @@ class Path(SageObject):
                     local_thr = slow_thr
                 if dist_to_next <= local_thr*rad:
                     split = False
-            elif cur.is_ordinary:
+            elif cur.is_ordinary():
                 if not next.is_fast(): # next is singular
                     local_thr = slow_thr
                 if dist_to_next <= local_thr*next.dist_to_sing():
@@ -1046,25 +1064,159 @@ class Path(SageObject):
                 new.append(next)
                 i += 1
             else:
-                dir = (next.iv() - cur.iv())/dist_to_next
-                interm = cur.iv() + factor*rad*dir
-                is_real = interm.imag().is_zero()
-                interm = interm.add_error(rad/8)
-                Step(cur, Point(interm, self.dop)).check_singularity() # TBI
-                interm = _rationalize(interm, is_real)
-                new.append(Point(interm, self.dop))
+                new.append(self._intermediate_point(cur, next))
                 logger.debug("subdividing %s -> %s", cur, next)
         new = Path(new, self.dop)
         return new
 
-    def find_loops(self): # ???
-        raise NotImplementedError
+    def _sing_connect(self, sing, other, thr=IR(0.6)):
+        if sing.is_ordinary():
+            return sing
+        rad = sing.dist_to_sing()
+        dist = (sing.iv() - other.iv()).abs()
+        if safe_le(dist, thr*rad):
+            return other
+        else:
+            return self._intermediate_point(sing, other)
 
-    def optimize_by_homotopy(self):
-        raise NotImplementedError
+    def deform(self):
 
-    def bit_burst(self, z0, z1):
-        raise NotImplementedError
+        # Sentinels for the rigorous homotopy check
+        # (we need to use exactly the same list of sentinels for both crossing
+        # sequences at each stage)
+        sing = self.dop._singularities(IC)
+        sentinels = [z.squash() for z in sing]
+        sentinels.sort(key=lambda z: (-z.imag(), z.real()))
+
+        new = [self.vert[0]]
+        l = len(self.vert)
+        i = 0
+        # XXX slow vs fast points?
+        while i < l - 1:
+            j = i + 1
+
+            # Split the path at singular vertices and at vertices that we have
+            # to pass through to record the value of the solution
+            while (j < l - 1 and self.vert[j].is_ordinary()
+                   and not self.vert[j].keep_value()):
+                j += 1
+            subpath = self.vert[i:j+1]
+            # Replace singular endpoints by intermediate points on the step
+            # leading to or coming from them.
+            subpath[0] = self._sing_connect(subpath[0], subpath[1])
+            subpath[-1] = self._sing_connect(subpath[-1], subpath[-2])
+
+            # Heuristic deformation of the subpath
+            pdef = PathDeformer(subpath, self.dop)
+
+            # Transform the floating-point vertices returned by the PathDeformer
+            # into exact or interval points. For the extreme points of the
+            # deformed path, use the corresponding input points instead, except
+            # when we had to insert intermediate points to deal with
+            # singularities.
+            new_subpath = []
+            for z in pdef.result:
+                # XXX do we really want to rationalize the vertices?
+                # XXX even if we do, consider doing that after the homotopy
+                # check
+                rad = min(abs(z - w) for w in pdef.sing)
+                z = CBF(z).add_error(rad/16.)
+                z = _rationalize(z, z.imag().contains_zero())
+                new_subpath.append(Point(z, self.dop))
+
+            # Rigorous homotopy check. We first check in interval arithmetic
+            # that none of the “thick segments” with interval endpoints making
+            # up our two paths goes through any of the singularities. If that is
+            # the case, we can conclude by comparing crossing sequences computed
+            # by replacing each of these intervals (both path vertices and
+            # singularities) by a point contained in it.
+            ini_iv = [z.iv() for z in subpath]
+            new_iv = [z.iv() for z in new_subpath]
+            for s in sing:
+                for z0, z1 in itertools.chain(pairwise(ini_iv),
+                                              pairwise(new_iv)):
+                    if may_be_on_segment(z0, z1, s):
+                        raise PathDeformationFailed("too close to singularities"
+                                " for rigorous homotopy check")
+            ini_cs = crossing_sequence(sentinels, ini_iv)
+            new_cs = crossing_sequence(sentinels, new_iv)
+            if ini_cs != new_cs:
+                raise PathDeformationFailed("homotopy test failed", subpath,
+                        new_subpath)
+
+            if subpath[0] is not self.vert[i]:
+                new.append(subpath[0])
+            new.extend(new_subpath[1:-1])
+            if subpath[-1] is not self.vert[j]:
+                new.append(subpath[-1])
+            new.append(self.vert[j])
+
+            i = j
+
+        return Path(new, self.dop)
+
+    def deform_or_subdivide(self):
+        if not self.dop._singularities(IC) or len(self.vert) <= 2:
+            return self.subdivide()
+        try:
+            new = self.deform()
+            logger.info("path homotopy succeeded, old=%s, new=%s, sub=%s", self, new, self.subdivide())
+            return new
+        except PathDeformationFailed:
+            raise
+            logger.warning("path homotopy failed, falling back to subdivision")
+            return self.subdivide()
+
+def orient2d_det(a, b, c):
+    return ((b.real() - a.real())*(c.imag() - a.imag())
+            - (c.real() - a.real())*(b.imag() - a.imag()))
+
+def orient2d(a, b, c):
+    det = orient2d_det(a, b, c)
+    zero = det.parent().zero()
+    if safe_gt(det, zero):
+        return 1
+    elif safe_lt(det, zero):
+        return -1
+    elif det.is_zero():
+        return 0
+    else:
+        raise ValueError
+
+def may_be_on_segment(a, b, z):
+    if a.overlaps(b):
+        return z.overlaps(a.union(b))
+    if orient2d_det(a, b, z).is_nonzero():
+        return False
+    az, bz = z - a, z - b
+    dot = az.real()*bz.real() + az.imag()*bz.imag()
+    return not safe_gt(dot, dot.parent().zero())
+
+def crossing_sequence(sentinels, path):
+    # Compute the reduced crossing sequence with horizontal cuts to the left of
+    # sentinel points at the center of each singular ball.
+    seq = []
+    def append(i):
+        if seq and seq[-1] == -i:
+            seq.pop()
+        else:
+            seq.append(i)
+    path = [z.squash() for z in path]
+    sentinels_enum = list(enumerate(sentinels, start=1))
+    for z0, z1 in pairwise(path):
+        if safe_ge(z0.imag(), z1.imag()):
+            # crossing from above
+            for i, w in sentinels_enum:
+                if (safe_ge(z0.imag(), w.imag()) and safe_lt(z1.imag(), w.imag())
+                        and orient2d(z0, z1, w) == +1):
+                    append(i)
+        else:
+            # crossing from below
+            for i, w in reversed(sentinels_enum):
+                if (safe_lt(z0.imag(), w.imag()) and safe_ge(z1.imag(), w.imag())
+                        and orient2d(z0, z1, w) == -1):
+                    append(-i)
+    return seq
 
 def local_monodromy_path(sing):
     raise NotImplementedError
@@ -1086,6 +1238,7 @@ def polygon_around(point, size=17):
 def _rationalize(civ, real=False):
     from sage.rings.real_mpfi import RealIntervalField
     my_RIF = RealIntervalField(civ.real().parent().precision())
+    # XXX why can't we do this automatically when civ.imag().contains_zero()???
     if real or civ.imag().is_zero():
         return my_RIF(civ.real()).simplest_rational()
     else:

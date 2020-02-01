@@ -47,9 +47,10 @@ TESTS::
     ....:         for yy in [0, 1]:
     ....:             ssw.test_ct(i, xx, yy)
 
-Plus an example provided by Bruno Salvy, also related to small-step walks::
+Plus an example provided by Bruno Salvy, also related to small-step walks (not
+double-checked)::
 
-    sage: ssw.aux_dop.numerical_solution(ssw.aux_ini, [0,1]) # TODO: double-check result
+    sage: ssw.aux_dop.numerical_solution(ssw.aux_ini, [0,1]) # long time (1.1 s)
     [10.662510694...]
 
 """
