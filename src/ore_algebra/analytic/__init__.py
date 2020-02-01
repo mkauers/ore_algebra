@@ -183,6 +183,20 @@ constant::
     sage: mat[1][2].overlaps(CBF(cst))
     True
 
+Path rewriting
+==============
+
+The ``deform`` flag causes the integration path to be deformed using a more
+advanced algorithm than the default method. Setting this flag can lead to
+sustantial speedups for problems with many singularities and complicated paths,
+especially at high precision. Currently, however, the default method is
+typically a bit faster in simple cases. ::
+
+    sage: dop = (x^2 + 1)*Dx^2 + 2*x*Dx
+    sage: mat = dop.numerical_transition_matrix([-2*i, 1, -1, 2*i], deform=True)
+    sage: mat[0,1]
+    [9.424777960769379...] + [-3.295836866004329...]*I
+
 The EXPERIMENTAL ``assume_analytic`` flag authorizes paths that go through a
 singular point, and makes the assumption that the solution(s) of interest are
 analytic at that point::

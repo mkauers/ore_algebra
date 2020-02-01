@@ -191,7 +191,10 @@ def _process_path(dop, path, ctx):
         path = path.bypass_singularities()
         path.check_singularity()
 
-    path = path.subdivide()
+    if ctx.deform:
+        path = path.deform_or_subdivide()
+    else:
+        path = path.subdivide()
     path.check_singularity()
     path.check_convergence()
 

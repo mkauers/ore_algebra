@@ -22,6 +22,7 @@ class Context(object):
             force_algorithm=False,
             keep="last",
             squash_intervals=False,
+            deform=False,
             binsplit_thr=128,
             bit_burst_thr=32,
             simple_approx_thr=64,
@@ -31,6 +32,12 @@ class Context(object):
         Analytic continuation context
 
         Options:
+
+        * ``deform`` -- Whether to attempt to automatically deform the analytic
+          continuation path into a faster one. Enabling this should result in
+          significantly faster integration for problems with many
+          singularities, especially at high precision. It may be slower in
+          simple cases, though.
 
         * ``recorder`` -- An object that will be used to record various
           intermediate results for debugging and analysis purposes. At the
@@ -62,6 +69,10 @@ class Context(object):
         if not isinstance(squash_intervals, bool):
             raise TypeError("squash_intervals", type(squash_intervals))
         self.squash_intervals = squash_intervals
+
+        if not isinstance(deform, bool):
+            raise TypeError("deform", type(deform))
+        self.deform = deform
 
         self.binsplit_thr = int(binsplit_thr)
 
