@@ -60,7 +60,7 @@ integrals studied in the paper::
     [0.97080469562493...]
     sage: iint_value(dop, myini, algorithm="binsplit")
     [0.97080469...]
-    sage: iint_value(dop, myini, 1e-500) # long time (3.4 s)
+    sage: iint_value(dop, myini, 1e-500, deform=True) # long time (3.4 s)
     [0.97080469562493...0383420...]
 
 Here are the known exact values for reference::
@@ -107,7 +107,7 @@ applicable::
 
     sage: for k in sorted(word.keys()): # long time (13.2 s)
     ....:     dop = diffop(word[k])
-    ....:     val = iint_value(dop, ini[k])
+    ....:     val = iint_value(dop, ini[k], deform=True)
     ....:     ok = "ok" if k in ref and val in RBF(ref[k]).add_error(1e-10) else ""
     ....:     print("(A.{})\t{}\t{}".format(k, val, ok))
     (A.1)   [3.66386237670887...]  ok
