@@ -464,8 +464,6 @@ class HyperexpMajorant(MajorantSeries):
         initial_terms = ser.integral()._exp_series(start)
         for n in range(start):
             val = initial_terms[n].below_abs()
-            if val.is_zero():
-                zob
             yield n, val
 
         # Then we have lb[start] ≥ (num[start]/(start+1))lb[0] > 0.
