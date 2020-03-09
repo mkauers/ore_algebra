@@ -1015,7 +1015,10 @@ class OreAlgebra_generic(UniqueRepresentation, Algebra):
     """
 
     def __init__(self, base_ring, operator_class, gens, product_rules):
-        self._no_generic_basering_coercion = True
+        # Attempt to preserve compatibility with sage < 9.1
+        from sage.rings.polynomial.polynomial_ring import PolynomialRing_general
+        if not hasattr(PolynomialRing_general, "_coerce_map_from_base_ring"):
+            self._no_generic_basering_coercion = True
         super(self.__class__, self).__init__(base_ring)
         self._gens = gens
         self._operator_class = operator_class
@@ -1043,6 +1046,9 @@ class OreAlgebra_generic(UniqueRepresentation, Algebra):
         R = self.base_ring()
         gens = tuple((str(x), self.sigma(x).dict(), self.delta(x).dict()) for x in self.gens())
         return (OreAlgebraFunctor(*gens), self.base_ring())
+
+    def _coerce_map_from_base_ring(self):
+        return None
 
     def _coerce_map_from_(self, P):
         r"""

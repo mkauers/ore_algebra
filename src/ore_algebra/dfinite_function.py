@@ -67,8 +67,6 @@ class DFiniteFunctionRing(Algebra):
     A Ring of Dfinite objects (functions or sequences)
     """
     
-    _no_generic_basering_coercion = False
-
 # constructor
     
     def __init__(self, ore_algebra, domain = NN, name=None, element_class=None, category=None):
