@@ -45,7 +45,6 @@ class StepMatrix_arb(binary_splitting.StepMatrix_arb):
     def _coeff_series_num_den(self, rec, py_n, ord_log):
 
         cdef bint success
-        cdef size_t i, j
         cdef ComplexBall den
         cdef Polynomial_complex_arb val_pert
         cdef acb_struct* c
@@ -53,12 +52,12 @@ class StepMatrix_arb(binary_splitting.StepMatrix_arb):
         cdef acb_poly_struct* lc
         cdef fmpz_poly_t lcz
         cdef fmpq_poly_t lcq
-        cdef size_t prec_inv
-        cdef size_t reclen = len(rec.bwrec.coeff)
+        cdef ssize_t prec_inv
+        cdef ssize_t reclen = len(rec.bwrec.coeff)
         cdef list bwrec_n = [None]*reclen
 
-        cdef size_t mult = rec.mult(py_n)
-        cdef size_t prec = rec.bwrec.Scalars.precision()
+        cdef ssize_t mult = rec.mult(py_n)
+        cdef ssize_t prec = rec.bwrec.Scalars.precision()
 
         acb_init(n)
         acb_set_si(n, py_n)
@@ -88,8 +87,8 @@ class StepMatrix_arb(binary_splitting.StepMatrix_arb):
 
         # Compute the inverse exactly
 
-        cdef size_t ord_inv = ord_log# + mult
-        # cdef size_t ord_inv = ord_log
+        cdef ssize_t ord_inv = ord_log# + mult
+        # cdef ssize_t ord_inv = ord_log
         if acb_poly_is_real(lc):
             # Work over ℚ to reduce the bit size of the result
             fmpq_poly_init(lcq)
@@ -172,7 +171,7 @@ class StepMatrix_arb(binary_splitting.StepMatrix_arb):
         # Cython version to avoid the (currently very large) overhead of
         # accessing the coefficients of arb polynomials from Python
 
-        cdef size_t p, q, ord_diff
+        cdef ssize_t ord_diff
         cdef ssize_t k
         cdef long prec
         cdef ComplexBall c, den, rec_den_n
@@ -181,7 +180,7 @@ class StepMatrix_arb(binary_splitting.StepMatrix_arb):
         cdef acb_poly_t tmppol, u_n
         cdef list bwrec_n = <list> py_bwrec_n
         cdef list num = <list> py_num
-        cdef size_t len_num = len(num)
+        cdef ssize_t len_num = len(num)
 
         den = <ComplexBall> py_den
         rec_den_n = <ComplexBall> py_rec_den_n
@@ -189,7 +188,7 @@ class StepMatrix_arb(binary_splitting.StepMatrix_arb):
         mynum = <Polynomial_complex_arb> (num[len_num-1])
 
         prec = den._parent._prec
-        ord_diff = self.ord_diff
+        ord_diff = <size_t> self.ord_diff
 
         for q in range(ord_log):
             for p in range(ord_diff):
@@ -223,7 +222,7 @@ class StepMatrix_arb(binary_splitting.StepMatrix_arb):
     @cython.wraparound(False)
     def compute_sums_row(low, high):
 
-        cdef size_t j, q, p, k, u, v
+        cdef ssize_t j, q, p, k, u, v
         cdef acb_ptr a, b, c
         cdef ComplexBall entry
         cdef acb_mat_struct *mat
