@@ -462,7 +462,7 @@ diffop = ((-1+x)*x\^{}3*(2+x)*(3+x)*(6+x)*(8+x)*(4+
   is nonzero.
   
   \tmsession{sage}{default}{\tminput{sage: }{mat =
-  diffop.numerical\_transition\_matrix([0, sing[1]], 1e-40)}}
+  diffop.numerical\_transition\_matrix([0, s[1]], 1e-40)}}
   
   {\noindent}From the initial values $a_0 = 1$, $a_1 = 5$,  we see that $c_1$
   is equal to
@@ -478,7 +478,7 @@ diffop = ((-1+x)*x\^{}3*(2+x)*(3+x)*(6+x)*(8+x)*(4+
   $\lambda$ is given by
   
   \tmsession{sage}{default}{\tmunfoldedio{sage:
-  }{CBF(-i/(2*sqrt(pi)))*sqrt(sing[1])*(mat[1,2] +
+  }{CBF(-i/(2*sqrt(pi)))*sqrt(s[1])*(mat[1,2] +
   5*mat[1,3])}{[0.220043767112643 +/- 2.06e-16]}}
   
   {\noindent}This result agrees with the closed form $a_n \sim \sqrt{\alpha}
