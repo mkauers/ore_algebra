@@ -325,9 +325,9 @@ def _pivot(mat, r, n, c, m, zero):
             def size(ij):
                 if not ij in elsize:
                     pol = mat[ij[0] + r][ij[1] + c].coefficients()
-                    m = float(max(abs(cc) for cc in pol))
+                    m = max(abs(cc) for cc in pol) # recall that m may be too large to fit a float
                     # the constant in the line below is 53*log(2)
-                    elsize[ij] = (1 + math.floor(math.log(m)/36.7368))*len(pol)
+                    elsize[ij] = (1 + math.floor(m.global_height()/36.7368))*len(pol)
                 return elsize[ij]
         elif K.is_finite():
             def size(ij):
