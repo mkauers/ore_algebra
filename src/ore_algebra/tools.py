@@ -294,3 +294,188 @@ def clear_denominators(elts, dom=None):
     # assert all(b/den == a for a, b in zip(elts, num))
     # assert gcd(num + [den]).is_one()
     return num, den
+
+def val0_part(obj,place=None):
+    r"""
+    Return the valuation 0 or lowest valuation part of an element of a
+    valued ring or field.
+
+    INPUT:
+
+    - ``obj`` -- an element of a valued ring or field. So far power series (without a place, see below) and rational fractions are supported.
+
+    - ``place`` (default: 0) -- the place at which to evaluate the
+      valuation
+
+    OUTPUT:
+
+    The valuation 0 coefficient of a series expansion of ``obj`` at
+    ``place``. If the object has negative valuation, an error is
+    raised.
+
+    EXAMPLES::
+
+        sage: P.<q> = PolynomialRing(QQ)
+        sage: K = P.fraction_field()
+        sage: val0_part(K(1))
+        1
+        sage: val0_part((1+q)/q)
+        Traceback (most recent call last):
+        ...
+        TypeError: The element has negative valuation.
+        sage: val0_part((1+q)/q, place=1+q)
+        0
+
+        sage: L.<t> = LaurentSeriesRing(QQ)
+        sage: val0_part(L(1))
+        1
+        sage: val0_part(1/(1+t^2)-1)
+        0
+        sage: val0_part((1+t)/t)
+        Traceback (most recent call last):
+        ...
+        TypeError: The element has negative valuation.
+        sage: val0_part((1+t)/t, place=1+t)
+        Traceback (most recent call last):
+        ...
+        NotImplementedError: Valuation at specific place not implemented for Laurent series
+
+    """
+    
+    try:
+        num = obj.numerator()
+        polring = num.parent()
+        den = polring(obj.denominator())
+        if place:
+            num = num % place
+            den = den % place
+        if den[0] == 0:
+            raise TypeError("The element has negative valuation.")
+        res = num[0]/den[0]
+        # If we want lowest valuation instead, we can use the first coefficient...
+    except AttributeError: # Dirty...
+        if place:
+            raise NotImplementedError("Valuation at specific place not implemented for Laurent series")
+        if obj.valuation() < 0:
+            raise TypeError("The element has negative valuation.")
+        res = obj[0]
+    return res
+
+def vect_val_fct(v,place=None):
+    r"""
+    Compute the valuation of a vector.
+
+    INPUT:
+
+    - ``v`` -- a vector over a valued field, or anything iterable with values in a valued field.
+
+    - ``place`` (default: None) -- the point at which to evaluate the valuation; not supported over all fields
+
+    OUTPUT:
+
+    The minimum valuation of the coordinates of ``v``
+
+    EXAMPLES::
+
+        sage: P.<q> = PolynomialRing(QQ)
+        sage: K = P.fraction_field()
+        sage: vect_val_fct([K(1),K(1/q)])
+        -1
+        sage: vect_val_fct([K(q),K(q^2)])
+        1
+        sage: vect_val_fct([K(1+q),K(q+q^2)],place=1+q)
+        1
+
+    # TODO: Add examples with power series?
+    """
+    if place:
+        return min(vv.valuation(place) for vv in v)
+    else:
+        return min(vv.valuation() for vv in v)
+        
+
+def vect_elim_fct(basis,dim=None,place=None,infolevel=0):
+    r"""
+    Find a relation between vectors raising the valuation.
+
+    INPUT:
+
+    - ``basis`` -- a list of length ``d`` of vectors over a valued
+      fields, or of iterables with values in a valued field. The
+      elements should be iterable at least up to index ``dim-1``. All
+      elements should have valuation 0, and the valuation 0 part of
+      the first ``(d-1)`` elements of the basis should be linearly
+      independent.
+
+    - ``dim`` (default: length of the basis) -- the dimension of the
+      vector space to consider; it should be at least ``d``.
+
+    - ``place`` (default: None) -- the point at which to evaluate the valuation; not supported over all fields
+
+    OUTPUT:
+
+    A list ``alpha`` of ``d`` elements of the base field such that
+    ``alpha[0]*basis[0] + ... + alpha[d-1]*basis[d-1]`` has positive
+    valuation, or `None` if no such relation exists.
+
+    Under the assumptions, it is guaranteed that ``alpha[d-1] == 1``.
+
+    EXAMPLES::
+
+    # TODO: Add examples with plain vectors?
+
+        sage: k.<q> = LaurentSeriesRing(QQ)
+        sage: V.<t> = PolynomialRing(k)
+        sage: b = [V(1),V(1+q*t)]
+        sage: v = vect_elim_fct(b); print(v)
+        (-1, 1)
+        sage: v[0]*b[0] + v[1]*b[1]
+        q*t
+        sage: v = vect_elim_fct([V(1),V(t)]); print(v)
+        None
+
+    Beware of unexpected results if ``dim`` is not properly set or
+    obviously guessable.
+
+        sage: V.<t> = PolynomialRing(k)
+        sage: v = vect_elim_fct([t+q]); print(v)
+        (1)
+        sage: v = vect_elim_fct([t+q],2); print(v)
+        None
+
+    Over the rationals, we can work over different places:
+    
+        sage: P.<q> = PolynomialRing(QQ)
+        sage: k = P.fraction_field()
+        sage: V.<t> = PolynomialRing(k)
+        sage: b = [V(1),V(1+q*t)]
+        sage: v = vect_elim_fct(b)
+        sage: print(v)
+        (-1, 1)
+        sage: v[0]*b[0] + v[1]*b[1]
+        q*t
+        sage: v = vect_elim_fct(b, place=1+q)
+        sage: print(v)
+        None
+
+    """
+
+    # Helpers
+    print1 = print if infolevel >= 1 else lambda *a, **k: None
+    print2 = print if infolevel >= 2 else lambda *a, **k: None
+    print3 = print if infolevel >= 3 else lambda *a, **k: None
+    
+    d = len(basis)
+    if dim is None:
+        dim = d
+        
+    M = Matrix([[val0_part(basis[i][j],place) for j in range(dim)]
+                for i in range(d)])
+    print2(" [elim_fct] Matrix:")
+    print2(M)
+    K = M.left_kernel().basis()
+    if K:
+        return (1/K[0][-1])*K[0]
+    else:
+        return None
+
