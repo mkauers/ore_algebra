@@ -295,10 +295,9 @@ def clear_denominators(elts, dom=None):
     # assert gcd(num + [den]).is_one()
     return num, den
 
-def val0_part(obj,place=None):
+def _residue(obj,place=None):
     r"""
-    Return the valuation 0 or lowest valuation part of an element of a
-    valued ring or field.
+    Return the residue of an element of a valued ring or field.
 
     INPUT:
 
@@ -317,25 +316,25 @@ def val0_part(obj,place=None):
 
         sage: P.<q> = PolynomialRing(QQ)
         sage: K = P.fraction_field()
-        sage: val0_part(K(1))
+        sage: _residue(K(1))
         1
-        sage: val0_part((1+q)/q)
+        sage: _residue((1+q)/q)
         Traceback (most recent call last):
         ...
         TypeError: The element has negative valuation.
-        sage: val0_part((1+q)/q, place=1+q)
+        sage: _residue((1+q)/q, place=1+q)
         0
 
         sage: L.<t> = LaurentSeriesRing(QQ)
-        sage: val0_part(L(1))
+        sage: _residue(L(1))
         1
-        sage: val0_part(1/(1+t^2)-1)
+        sage: _residue(1/(1+t^2)-1)
         0
-        sage: val0_part((1+t)/t)
+        sage: _residue((1+t)/t)
         Traceback (most recent call last):
         ...
         TypeError: The element has negative valuation.
-        sage: val0_part((1+t)/t, place=1+t)
+        sage: _residue((1+t)/t, place=1+t)
         Traceback (most recent call last):
         ...
         NotImplementedError: Valuation at specific place not implemented for Laurent series
@@ -361,7 +360,7 @@ def val0_part(obj,place=None):
         res = obj[0]
     return res
 
-def vect_val_fct(v,place=None):
+def _vect_val_fct(v,place=None):
     r"""
     Compute the valuation of a vector.
 
@@ -379,11 +378,11 @@ def vect_val_fct(v,place=None):
 
         sage: P.<q> = PolynomialRing(QQ)
         sage: K = P.fraction_field()
-        sage: vect_val_fct([K(1),K(1/q)])
+        sage: _vect_val_fct([K(1),K(1/q)])
         -1
-        sage: vect_val_fct([K(q),K(q^2)])
+        sage: _vect_val_fct([K(q),K(q^2)])
         1
-        sage: vect_val_fct([K(1+q),K(q+q^2)],place=1+q)
+        sage: _vect_val_fct([K(1+q),K(q+q^2)],place=1+q)
         1
 
     # TODO: Add examples with power series?
@@ -394,7 +393,7 @@ def vect_val_fct(v,place=None):
         return min(vv.valuation() for vv in v)
         
 
-def vect_elim_fct(basis,dim=None,place=None,infolevel=0):
+def _vect_elim_fct(basis,dim=None,place=None,infolevel=0):
     r"""
     Find a relation between vectors raising the valuation.
 
@@ -427,20 +426,20 @@ def vect_elim_fct(basis,dim=None,place=None,infolevel=0):
         sage: k.<q> = LaurentSeriesRing(QQ)
         sage: V.<t> = PolynomialRing(k)
         sage: b = [V(1),V(1+q*t)]
-        sage: v = vect_elim_fct(b); print(v)
+        sage: v = _vect_elim_fct(b); print(v)
         (-1, 1)
         sage: v[0]*b[0] + v[1]*b[1]
         q*t
-        sage: v = vect_elim_fct([V(1),V(t)]); print(v)
+        sage: v = _vect_elim_fct([V(1),V(t)]); print(v)
         None
 
     Beware of unexpected results if ``dim`` is not properly set or
     obviously guessable.
 
         sage: V.<t> = PolynomialRing(k)
-        sage: v = vect_elim_fct([t+q]); print(v)
+        sage: v = _vect_elim_fct([t+q]); print(v)
         (1)
-        sage: v = vect_elim_fct([t+q],2); print(v)
+        sage: v = _vect_elim_fct([t+q],2); print(v)
         None
 
     Over the rationals, we can work over different places:
@@ -449,12 +448,12 @@ def vect_elim_fct(basis,dim=None,place=None,infolevel=0):
         sage: k = P.fraction_field()
         sage: V.<t> = PolynomialRing(k)
         sage: b = [V(1),V(1+q*t)]
-        sage: v = vect_elim_fct(b)
+        sage: v = _vect_elim_fct(b)
         sage: print(v)
         (-1, 1)
         sage: v[0]*b[0] + v[1]*b[1]
         q*t
-        sage: v = vect_elim_fct(b, place=1+q)
+        sage: v = _vect_elim_fct(b, place=1+q)
         sage: print(v)
         None
 
@@ -469,7 +468,7 @@ def vect_elim_fct(basis,dim=None,place=None,infolevel=0):
     if dim is None:
         dim = d
         
-    M = Matrix([[val0_part(basis[i][j],place) for j in range(dim)]
+    M = Matrix([[_residue(basis[i][j],place) for j in range(dim)]
                 for i in range(d)])
     print2(" [elim_fct] Matrix:")
     print2(M)
@@ -478,4 +477,5 @@ def vect_elim_fct(basis,dim=None,place=None,infolevel=0):
         return (1/K[0][-1])*K[0]
     else:
         return None
+
 
