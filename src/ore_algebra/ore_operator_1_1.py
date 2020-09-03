@@ -1341,6 +1341,95 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
 
         return factors
 
+    def valuation(self, op, x):
+        r"""
+        Return the valuation of an operator ``op`` in the quotient algebra, at the place ``x``.
+        """
+        raise NotImplementedError # abstract
+
+    def raise_valuation(self, basis, x, dim=0):
+        r"""
+        Return a linear combination of the elements of basis which has higher valuation than the last element of basis. The last coefficient in the linear combination should be 1.
+
+        dim should be set to the dimension of the ambient vector space, in case that dimension is larger than the length of basis.
+
+        # FIXME: Rephrase...
+        """
+        raise NotImplementedError # abstract
+
+    def local_integral_basis(self, x, basis=None, infolevel=0):
+        r"""
+        # TODO: Copy/adapt documentation for interface
+
+        Note: we take a basis and guarantee that the output is integral wherever the basis was integral
+        """
+
+        # Helpers
+        print1 = print if infolevel >= 1 else lambda *a, **k: None
+        print2 = print if infolevel >= 2 else lambda *a, **k: None
+        print3 = print if infolevel >= 3 else lambda *a, **k: None
+        
+        r = self.order()
+        ore = self.parent()
+        DD = ore.gen()
+        if basis is None:
+            basis = [DD^i for i in range(r)]
+
+        k = ore.base_ring()
+
+        F = x.parent().base_ring()
+        deg = F.degree()
+        Fvar = x.parent().gen(0)
+
+        res = []
+        r = len(basis)
+        for d in range(r):
+            print1(" [local] d={}".format(d))
+            print1(" [local] Processing {}".format(basis[d]))
+            res.append(x^(- self.valuation(basis[d],x)) * basis[d])
+            print1(" [local] Basis element after normalizing: {}".format(res[d]))
+            done = False
+            while not done:
+                alpha = self.raise_valuation(res,r,x)
+                if alpha is None:
+                    done = True
+                else:
+                    print1(" [local] Relation found: {}".format(alpha))
+
+                    alpha_rep = [None for i in range(d+1)]
+                    if ext: # Should be harmless even without, but okay
+                        for i in range(d+1):
+                            alpha_rep[i] = add(alpha[i][j]*Fvar^j for j in range(deg))
+                    else:
+                        for i in range(d+1):
+                            alpha_rep[i] = alpha[i]
+
+                    res[d] = add(alpha_rep[i]*res[i] for i in range(d+1))
+                    res[d] = x^(- self.valuation(res[d]))*res[d]
+                    print1(" [local] Basis element after combination: {}".format(res[d]))
+        return res
+
+    def find_candidate_places(self):
+        r"""
+        # TODO
+        """
+        raise NotImplementedError # abstract
+
+    def global_integral_basis(self, places=None, infolevel=0):
+        r"""
+        # TODO
+        """
+
+        if places is None:
+            places = self.find_candidate_places()
+
+        res = None
+        for x in places :
+            res = self.local_integral_basis(res,x,infolevel=infolevel) 
+        return res
+
+
+
 
 #############################################################################################################
 
