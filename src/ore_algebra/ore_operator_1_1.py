@@ -1341,6 +1341,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
 
         return factors
 
+    # FIXME: Find a better name, this one is ambiguous
     def valuation(self, op, x):
         r"""
         Return the valuation of an operator ``op`` in the quotient algebra, at the place ``x``.
@@ -1353,11 +1354,13 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
 
         dim should be set to the dimension of the ambient vector space, in case that dimension is larger than the length of basis.
 
-        # FIXME: Rephrase...
+        # TODO: Rephrase...
+        # TODO: Does this function really need to be provided, or can it be obtained with valuation + something?
         """
         raise NotImplementedError # abstract
 
-    def local_integral_basis(self, x, basis=None, infolevel=0):
+    def local_integral_basis(self, x, basis=None, val_fct=None, raise_val_fct=None,
+                             infolevel=0):
         r"""
         # TODO: Copy/adapt documentation for interface
 
@@ -1368,12 +1371,14 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         print1 = print if infolevel >= 1 else lambda *a, **k: None
         print2 = print if infolevel >= 2 else lambda *a, **k: None
         print3 = print if infolevel >= 3 else lambda *a, **k: None
-        
+
+        if val_fct is None: val_fct = self.valuation
+        if raise_val_fct is None: raise_val_fct = self.raise_valuation
+
         r = self.order()
         ore = self.parent()
         DD = ore.gen()
-        if basis is None:
-            basis = [DD^i for i in range(r)]
+        if basis is None: basis = [DD^i for i in range(r)]
 
         k = ore.base_ring()
 
@@ -1386,11 +1391,11 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         for d in range(r):
             print1(" [local] d={}".format(d))
             print1(" [local] Processing {}".format(basis[d]))
-            res.append(x^(- self.valuation(basis[d],x)) * basis[d])
+            res.append(x^(- self.val_fct(basis[d],x)) * basis[d])
             print1(" [local] Basis element after normalizing: {}".format(res[d]))
             done = False
             while not done:
-                alpha = self.raise_valuation(res,r,x)
+                alpha = self.raise_val_fct(res,r,x)
                 if alpha is None:
                     done = True
                 else:
@@ -1405,7 +1410,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
                             alpha_rep[i] = alpha[i]
 
                     res[d] = add(alpha_rep[i]*res[i] for i in range(d+1))
-                    res[d] = x^(- self.valuation(res[d]))*res[d]
+                    res[d] = x^(- self.val_fct(res[d]))*res[d]
                     print1(" [local] Basis element after combination: {}".format(res[d]))
         return res
 
@@ -1424,8 +1429,17 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
             places = self.find_candidate_places()
 
         res = None
-        for x in places :
-            res = self.local_integral_basis(res,x,infolevel=infolevel) 
+        for p in places :
+            if len(p) == 1 :
+                x = p
+                val_fct = raise_val_fct = None
+            else:
+                x, val_fxt, raise_val_fct = p
+                
+            res = self.local_integral_basis(x,basis=res,
+                                            val_fct = val_fct,
+                                            raise_val_fct = raise_val_fct,
+                                            infolevel=infolevel) 
         return res
 
 
@@ -3818,6 +3832,146 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
                                 output.append([s, phi, -q[0]/q[1]])
         
         return output
+
+    # # TODO: Could be factored with finite_singularities?
+    # def _deformed_operator(self, prec=None):
+    #     r = self.order() 
+    #     Ore = self.parent()
+    #     SS = Ore.gen()
+    #     Pol = Ore.base_ring()
+    #     nn = Pol.gen()
+    #     Coef = Pol.base_ring()
+
+    #     Laur = LaurentSeriesRing(Coef,default_prec=prec)
+    #     qq = Laur.gen()
+    #     Pol_q = Pol.change_ring(Laur)
+
+    #     coeffs_q = [Pol_q(c) for c in self.coefficients(sparse=False)]
+
+    #     def prolong(l,n):
+    #         # Given the values of a function at n-r...n-1, compute the value at n
+    #         l.append(sum(l[-i]*coeffs_q[i](qq+n) for i in range(1, r + 1))/ coeffs_q[i](qq+n))
+
+    #     def call(l,n):
+    #         # Given the values of a function at n-r...n, compute the result of
+    #         # applying the deformed operator at n
+    #         return sum(l[-i-1]*coeffs_q[i](qq+n) for i in range(r+1))
+
+    #     #return Pol_q, coeffs_q, prolong, call
+    #     return call
+
+    def _make_valuation_places(self,phi,Nmin,Nmax,prec=None):
+        # TODO doc
+        # Return [xi+i, val_fct at xi+i, raise_val_fct at xi+o for i in Nmin,
+        # Nmax, F]
+        # where phi is the minimal polynomial of xi and F=QQ(xi)
+
+        # Probably does not work if the base field is not QQ
+        
+        FF.<xi> = NumberField(f)
+        r = self.order() 
+        Ore = self.parent()
+        SS = Ore.gen()
+        Pol = Ore.base_ring()
+        nn = Pol.gen()
+        Coef = Pol.base_ring()
+
+        Laur = LaurentSeriesRing(Coef,default_prec=prec)
+        qq = Laur.gen()
+        Pol_q = Pol.change_ring(Laur)
+
+        coeffs_q = [Pol_q(c) for c in self.coefficients(sparse=False)]
+
+        def prolong(l,n):
+            # Given the values of a function at n-r...n-1, compute the value at n
+            l.append(sum(l[-i]*coeffs_q[i](qq+n) for i in range(1, r + 1))/ coeffs_q[i](qq+n))]
+
+        # TODO: Refactor, not the most efficient
+        def call(op,l,n):
+            # Given another operator, apply its deformed version to l and
+            # compute the value at n
+            r = op.order()
+            coeffs_q = [Pol_q(c) for c in op.coefficients(sparse=False)]
+            return sum(l[-i-1]*coeffs_q[i](qq+n) for i in range(r+1))
+
+        sols = [[1 if i==j else 0 for i in range(r)] for j in range(r)]
+        for n in range(Nmin+r,Nmax+1):
+            for i in range(r):
+                prolong(sols[i],n)
+
+        res = []
+        for n in range(Nmin,Nmax+1):
+            # In both functions the second argument `place` is ignored because captured
+            def val_fct(op,_ignored):
+                vect = [call(op,seq[n-Nmin-r:n-Nmin],xi+n) for seq in sols]
+                return _vect_val_fct(vect)
+            def raise_val_fct(ops,_ignored,dim):
+                mat = [[call(op,seq[n-Nmin-r:n-Nmin],xi+n) for seq in sols]
+                       for call in calls]
+                return vect_elim_fct(mat,dim,None)
+            res.append((phi(xi+n),val_fct,raise_val_fct,FF))
+        return res
+    
+    
+    def find_candidate_places(self, Zmax = None):
+        # TODO doc
+
+        # Helpers
+        print1 = print if infolevel >= 1 else lambda *a, **k: None
+        print2 = print if infolevel >= 2 else lambda *a, **k: None
+        print3 = print if infolevel >= 3 else lambda *a, **k: None
+
+        i = min(i for i in range(r+1) if L[i] != 0)
+        # Should we replace r with r-i when counting solutions?
+        lr = L.leading_coefficient()
+        l0 = L[i]
+        l0lr = l0*lr
+
+        # Find the points of interest
+        fact0 = list(factor(lr))+list(factor(l0))
+
+        # Cleanup the list
+        fact = []
+        for f,m in fact0 :
+            if f.degree() == 0:
+                pass
+            elif exists(i for i in range(len(fact))
+                        if (fact[i][0].degree() == f.degree()
+                            and roots_at_integer_distance(fact[i][0],f) != [])):
+                # f is a shift of a factor already seen
+                fact[i][1] += m
+            else:
+                fact.append(f,m)
+
+        print1("Factors: {}".format(fact))
+
+        places = []
+        for f, m in fact:
+            print1("Computing places for {}".format(f))
+        
+            # Finding the actual indices of interest
+            inds = roots_at_integer_distance(l0lr,f)
+            print1("Integer distances between roots: {}".format(inds))
+            Nmin = min(inds)
+            Nmax = max(inds)+r+1
+            Nmin = Nmin - r
+            if Zmax :
+                Nmax = min(Nmax,Zmax)
+                # Else the default max is Nmax
+            print1("Nmin={} Nmax={}".format(Nmin,Nmax))
+
+            places += self._make_valuation_places(f, Nmin, Nmax, prec=m+1) # is +1 needed?
+
+        return places
+
+    def valuation(self, op, place):
+        val = self._make_valuation_places(place,0,0)[0][1]
+        return val(op)
+
+    def raise_valuation(self, basis, place, dim):
+        fct = self._make_valuation_places(place,0,0)[0][2]
+        return fct(basis, place, dim)
+    
 
 
 #############################################################################################################

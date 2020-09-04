@@ -478,4 +478,49 @@ def _vect_elim_fct(basis,dim=None,place=None,infolevel=0):
     else:
         return None
 
+def roots_at_integer_distance(f1,f2):
+    r"""
+    Return integer distances between two roots of the polynomials.
+
+    INPUT:
+
+    - ``f1,f2`` -- two polynomials in one variable
+
+    OUTPUT:
+    
+    A list of all integers ``i`` such that there is a root ``x`` of ``f1`` such that ``x+i`` is a root of ``f2``.
+
+    EXAMPLES::
+
+        sage: P.<x> = PolynomialRing(QQ)
+        sage: roots_at_integer_distance(x*(x+1),x-2)
+        [3, 2]
+        sage: roots_at_integer_distance(x*(x+1),1)
+        []
+        sage: roots_at_integer_distance(x,2*x)
+        [0]
+
+    With rational numbers:
+    
+        sage: roots_at_integer_distance(x,2*x-1)
+        []
+        sage: roots_at_integer_distance((3*x-1)*(3*x-4),(3*x+2))
+        [-1, -2]
+        sage: roots_at_integer_distance((3*x-1),(3*x+1))
+        []
+
+    With algebraic numbers:
+    
+        sage: roots_at_integer_distance((x^2-2)*((x+1)^2-2),((x-1)^2-2))
+        [2, 1]
+        sage: roots_at_integer_distance(x^2-2,x^2-3)
+        []
+    
+    """
+    Pol = f1.parent().extend_variables("i")
+    xx,ii = Pol.gens()
+    resultant = f1(xx-ii).resultant(Pol(f2)).univariate_polynomial()
+    roots = [a for (a,m) in resultant.roots() if a.is_integer()]
+    return roots
+
 
