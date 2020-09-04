@@ -3833,38 +3833,11 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
         
         return output
 
-    # # TODO: Could be factored with finite_singularities?
-    # def _deformed_operator(self, prec=None):
-    #     r = self.order() 
-    #     Ore = self.parent()
-    #     SS = Ore.gen()
-    #     Pol = Ore.base_ring()
-    #     nn = Pol.gen()
-    #     Coef = Pol.base_ring()
-
-    #     Laur = LaurentSeriesRing(Coef,default_prec=prec)
-    #     qq = Laur.gen()
-    #     Pol_q = Pol.change_ring(Laur)
-
-    #     coeffs_q = [Pol_q(c) for c in self.coefficients(sparse=False)]
-
-    #     def prolong(l,n):
-    #         # Given the values of a function at n-r...n-1, compute the value at n
-    #         l.append(sum(l[-i]*coeffs_q[i](qq+n) for i in range(1, r + 1))/ coeffs_q[i](qq+n))
-
-    #     def call(l,n):
-    #         # Given the values of a function at n-r...n, compute the result of
-    #         # applying the deformed operator at n
-    #         return sum(l[-i-1]*coeffs_q[i](qq+n) for i in range(r+1))
-
-    #     #return Pol_q, coeffs_q, prolong, call
-    #     return call
-
     def _make_valuation_places(self,phi,Nmin,Nmax,prec=None):
         # TODO doc
         # Return [xi+i, val_fct at xi+i, raise_val_fct at xi+o for i in Nmin,
-        # Nmax, F]
-        # where phi is the minimal polynomial of xi and F=QQ(xi)
+        # Nmax]
+        # where phi is the minimal polynomial of xi
 
         # Probably does not work if the base field is not QQ
         
@@ -3909,7 +3882,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
                 mat = [[call(op,seq[n-Nmin-r:n-Nmin],xi+n) for seq in sols]
                        for call in calls]
                 return vect_elim_fct(mat,dim,None)
-            res.append((phi(xi+n),val_fct,raise_val_fct,FF))
+            res.append((phi(xi+n),val_fct,raise_val_fct))
         return res
     
     
