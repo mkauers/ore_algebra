@@ -34,6 +34,7 @@ from sage.rings.fraction_field import FractionField_generic
 from sage.rings.rational_field import QQ
 from sage.rings.integer_ring import ZZ
 from sage.rings.infinity import infinity
+from sage.rings.number_field.number_field import NumberField
 from sage.rings.number_field.number_field_base import is_NumberField
 from sage.rings.qqbar import QQbar
 from sage.rings.qqbar import QQbar, AA
@@ -41,12 +42,13 @@ from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 from sage.rings.polynomial.polynomial_ring import is_PolynomialRing
 from sage.rings.polynomial.multi_polynomial_ring import is_MPolynomialRing
 from sage.rings.power_series_ring import PowerSeriesRing
+from sage.rings.laurent_series_ring import LaurentSeriesRing
 from sage.structure.element import RingElement, canonical_coercion, get_coercion_model
 from sage.structure.factorization import Factorization
 from sage.structure.formal_sum import FormalSum, FormalSums
 from sage.symbolic.all import SR
 
-from .tools import clear_denominators, q_log, make_factor_iterator, shift_factor
+from .tools import clear_denominators, q_log, make_factor_iterator, shift_factor, _vect_val_fct, _vect_elim_fct, roots_at_integer_distance
 from .ore_algebra import OreAlgebra_generic
 from .ore_operator import OreOperator, UnivariateOreOperator
 from .generalized_series import GeneralizedSeriesMonoid, _generalized_series_shift_quotient, _binomial
@@ -1372,13 +1374,15 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         print2 = print if infolevel >= 2 else lambda *a, **k: None
         print3 = print if infolevel >= 3 else lambda *a, **k: None
 
+        print1(" [local] Computing local basis at {}".format(x))
+        
         if val_fct is None: val_fct = self.valuation
         if raise_val_fct is None: raise_val_fct = self.raise_valuation
 
         r = self.order()
         ore = self.parent()
         DD = ore.gen()
-        if basis is None: basis = [DD^i for i in range(r)]
+        if basis is None: basis = [DD**i for i in range(r)]
 
         k = ore.base_ring()
 
@@ -1391,26 +1395,28 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         for d in range(r):
             print1(" [local] d={}".format(d))
             print1(" [local] Processing {}".format(basis[d]))
-            res.append(x^(- self.val_fct(basis[d],x)) * basis[d])
+            v = val_fct(basis[d],x)
+            print1(" [local] Valuation: {}".format(v))
+            res.append(x**(-v) * basis[d])
             print1(" [local] Basis element after normalizing: {}".format(res[d]))
             done = False
             while not done:
-                alpha = self.raise_val_fct(res,r,x)
+                alpha = raise_val_fct(res,x,r,infolevel=infolevel)
                 if alpha is None:
                     done = True
                 else:
                     print1(" [local] Relation found: {}".format(alpha))
 
                     alpha_rep = [None for i in range(d+1)]
-                    if ext: # Should be harmless even without, but okay
+                    if deg > 1: # Should be harmless even without, but okay
                         for i in range(d+1):
-                            alpha_rep[i] = add(alpha[i][j]*Fvar^j for j in range(deg))
+                            alpha_rep[i] = sum(alpha[i][j]*Fvar**j for j in range(deg))
                     else:
                         for i in range(d+1):
                             alpha_rep[i] = alpha[i]
 
-                    res[d] = add(alpha_rep[i]*res[i] for i in range(d+1))
-                    res[d] = x^(- self.val_fct(res[d]))*res[d]
+                    res[d] = sum(alpha_rep[i]*res[i] for i in range(d+1))
+                    res[d] = x**(- val_fct(res[d]))*res[d]
                     print1(" [local] Basis element after combination: {}".format(res[d]))
         return res
 
@@ -1450,7 +1456,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         """
 
         if places is None:
-            places = self.find_candidate_places(**args)
+            places = self.find_candidate_places(infolevel=infolevel,**args)
 
         res = None
         for p in places :
@@ -1458,7 +1464,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
                 x = p
                 val_fct = raise_val_fct = None
             else:
-                x, val_fxt, raise_val_fct = p
+                x, val_fct, raise_val_fct = p
                 
             res = self.local_integral_basis(x,basis=res,
                                             val_fct = val_fct,
@@ -3857,8 +3863,13 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
         
         return output
 
-    def _make_valuation_places(self,phi,Nmin,Nmax,prec=None):
+    def _make_valuation_places(self,phi,Nmin,Nmax,prec=None,infolevel=0):
         r"""
+
+        EXAMPLES::
+
+        
+        
         """
         # TODO doc
         # Return [xi+i, val_fct at xi+i, raise_val_fct at xi+o for i in Nmin,
@@ -3867,7 +3878,15 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
 
         # Probably does not work if the base field is not QQ
 
-        FF = NumberField(phi)
+        print1 = print if infolevel >= 1 else lambda *a, **k: None
+        print2 = print if infolevel >= 2 else lambda *a, **k: None
+        print3 = print if infolevel >= 3 else lambda *a, **k: None
+
+        print1(" [make_places] At (root of {}) + Nmin={}, Nmax={}"
+               .format(phi,Nmin,Nmax))
+        
+        FF = NumberField(phi,"xi")
+        # TODO: Do we have to choose a name?
         xi = FF.gen()
         r = self.order() 
         Ore = self.parent()
@@ -3876,44 +3895,56 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
         nn = Pol.gen()
         Coef = Pol.base_ring()
 
-        Laur = LaurentSeriesRing(Coef,default_prec=prec)
+        Laur = LaurentSeriesRing(Coef,'q',default_prec=prec)
         qq = Laur.gen()
-        Pol_q = Pol.change_ring(Laur)
+        Frac_q = Pol.change_ring(Laur).fraction_field()
 
-        coeffs_q = [Pol_q(c) for c in self.coefficients(sparse=False)]
+        coeffs_q = [Frac_q(c) for c in self.coefficients(sparse=False)]
 
         def prolong(l,n):
-            # Given the values of a function at n-r...n-1, compute the value at n
-            l.append(sum(l[-i]*coeffs_q[i](qq+xi+n) for i in range(1, r+1))/ coeffs_q[i](qq+xi+n))
+            # Given the values of a function at n...n+r-1, compute the value at n+r
+            l.append(sum(l[i]*coeffs_q[i](qq+xi+n) for i in range(r))
+                     / coeffs_q[-1](qq+xi+n))
 
         # TODO: Refactor, not the most efficient
         def call(op,l,n):
-            # Given another operator, apply its deformed version to l and
-            # compute the value at n
+            # Given another operator, and given the values l of a function at n,...,n+r,
+            # apply its deformed version to l and compute the value at n
             r = op.order()
-            coeffs_q = [Pol_q(c) for c in op.coefficients(sparse=False)]
-            return sum(l[-i-1]*coeffs_q[i](qq+xi+n) for i in range(r+1))
+            coeffs_q = [Frac_q(c) for c in op.coefficients(sparse=False)]
+            return sum(l[i]*coeffs_q[i](qq+xi+n) for i in range(r+1))
 
         sols = [[1 if i==j else 0 for i in range(r)] for j in range(r)]
-        for n in range(Nmin+r,Nmax+1):
+        for n in range(Nmin,Nmax+1-r):
             for i in range(r):
                 prolong(sols[i],n)
 
-        res = []
-        for n in range(Nmin,Nmax+1):
+        print1(" [make_places] sols")
+        print1(sols)
+
+        # Capture the relevant variables in the two functions
+        def get_functions(xi,n,Nmin,sols,call):
+
             # In both functions the second argument `place` is ignored because captured
-            def val_fct(op,_ignored):
-                vect = [call(op,seq[n-Nmin-r:n-Nmin],xi+n) for seq in sols]
+            def val_fct(op,place=None):
+                vect = [call(op,seq[n-Nmin:n-Nmin+r],xi+n) for seq in sols]
+                print(vect)
                 return _vect_val_fct(vect)
-            def raise_val_fct(ops,_ignored,dim):
-                mat = [[call(op,seq[n-Nmin-r:n-Nmin],xi+n) for seq in sols]
-                       for call in calls]
-                return vect_elim_fct(mat,dim,None)
-            res.append((phi(xi+n),val_fct,raise_val_fct))
+            def raise_val_fct(ops,place=None,dim=None,infolevel=0):
+                mat = [[call(op,seq[n-Nmin:n-Nmin+r],xi+n) for seq in sols]
+                       for op in ops]
+                # if infolevel >= 2: print(mat)
+                return _vect_elim_fct(mat,place=None,dim=dim,infolevel=infolevel)
+            return val_fct, raise_val_fct
+        
+        res = []
+        for n in range(Nmin+r,Nmax+1):
+            val_fct, raise_val_fct = get_functions(xi,n,Nmin,sols,call)
+            res.append((phi(nn-n),val_fct,raise_val_fct))
         return res
     
     
-    def find_candidate_places(self, Zmax = None):
+    def find_candidate_places(self, Zmax = None, infolevel=0):
         # TODO doc
 
         # Helpers
@@ -3921,27 +3952,30 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
         print2 = print if infolevel >= 2 else lambda *a, **k: None
         print3 = print if infolevel >= 3 else lambda *a, **k: None
 
-        i = min(i for i in range(r+1) if L[i] != 0)
+        coeffs = self.coefficients(sparse=False)
+        
+        r = self.order()
+        i = min(i for i in range(r+1) if coeffs[i] != 0)
         # Should we replace r with r-i when counting solutions?
-        lr = L.leading_coefficient()
-        l0 = L[i]
+        lr = coeffs[-1]
+        l0 = coeffs[i]
         l0lr = l0*lr
 
         # Find the points of interest
-        fact0 = list(factor(lr))+list(factor(l0))
+        fact0 = list(lr.factor())+list(l0.factor())
 
         # Cleanup the list
         fact = []
         for f,m in fact0 :
             if f.degree() == 0:
                 pass
-            elif exists(i for i in range(len(fact))
-                        if (fact[i][0].degree() == f.degree()
-                            and roots_at_integer_distance(fact[i][0],f) != [])):
+            elif any(i for i in range(len(fact))
+                     if (fact[i][0].degree() == f.degree()
+                         and roots_at_integer_distance(fact[i][0],f) != [])):
                 # f is a shift of a factor already seen
                 fact[i][1] += m
             else:
-                fact.append(f,m)
+                fact.append((f,m))
 
         print1("Factors: {}".format(fact))
 
@@ -3960,7 +3994,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
                 # Else the default max is Nmax
             print1("Nmin={} Nmax={}".format(Nmin,Nmax))
 
-            places += self._make_valuation_places(f, Nmin, Nmax, prec=m+1) # is +1 needed?
+            places += self._make_valuation_places(f, Nmin, Nmax, prec=m+1, infolevel=infolevel) # is +1 needed?
 
         return places
 

@@ -18,6 +18,7 @@ from __future__ import absolute_import
 
 from sage.structure.element import Element, RingElement, canonical_coercion, parent
 from sage.arith.all import gcd, lcm, previous_prime as pp
+from sage.matrix.constructor import Matrix
 from sage.rings.qqbar import QQbar
 from sage.rings.rational_field import QQ
 from sage.rings.integer_ring import ZZ
@@ -393,7 +394,7 @@ def _vect_val_fct(v,place=None):
         return min(vv.valuation() for vv in v)
         
 
-def _vect_elim_fct(basis,dim=None,place=None,infolevel=0):
+def _vect_elim_fct(basis,place=None,dim=None,infolevel=0):
     r"""
     Find a relation between vectors raising the valuation.
 
