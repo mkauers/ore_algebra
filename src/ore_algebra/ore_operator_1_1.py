@@ -1420,13 +1420,37 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         """
         raise NotImplementedError # abstract
 
-    def global_integral_basis(self, places=None, infolevel=0):
+    def global_integral_basis(self, places=None, infolevel=0, **args):
         r"""
         # TODO
+
+        EXAMPLES::
+
+        Integral bases can be computed for recurrence operators
+
+            sage: from ore_algebra import OreAlgebra
+            sage: P.<x> = PolynomialRing(QQ)
+            sage: O.<Sx> = OreAlgebra(P)
+            sage: (x*Sx+1).global_integral_basis()
+            [x - 1]
+            sage: (Sx+x).global_integral_basis()
+            [1/(x - 1)]
+            sage: (x*Sx+x).global_integral_basis()
+            [1]
+            sage: ((x+2)^2 + x*Sx^2 + (x+2)*Sx^3).global_integral_basis(Zmax=3)
+            [1, 1/x*Sx + (x - 2)/x^2, (1/(x + 1))*Sx^2 + ((x - 1)/(x^2 + 2*x + 1))*Sx]
+            sage: ((x^2+2)^2 + x*Sx^2 + (x^2+2)*Sx^3).global_integral_basis(Zmax=3)
+            [1,
+             (1/(x^2 - 4*x + 6))*Sx + (x - 2)/(x^4 - 8*x^3 + 28*x^2 - 48*x + 36),
+             (1/(x^2 - 2*x + 3))*Sx^2 + ((x - 1)/(x^4 - 4*x^3 + 10*x^2 - 12*x + 9))*Sx]
+
+
+
+        
         """
 
         if places is None:
-            places = self.find_candidate_places()
+            places = self.find_candidate_places(**args)
 
         res = None
         for p in places :
@@ -3834,14 +3858,17 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
         return output
 
     def _make_valuation_places(self,phi,Nmin,Nmax,prec=None):
+        r"""
+        """
         # TODO doc
         # Return [xi+i, val_fct at xi+i, raise_val_fct at xi+o for i in Nmin,
         # Nmax]
         # where phi is the minimal polynomial of xi
 
         # Probably does not work if the base field is not QQ
-        
-        FF.<xi> = NumberField(f)
+
+        FF = NumberField(phi)
+        xi = FF.gen()
         r = self.order() 
         Ore = self.parent()
         SS = Ore.gen()
@@ -3857,7 +3884,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
 
         def prolong(l,n):
             # Given the values of a function at n-r...n-1, compute the value at n
-            l.append(sum(l[-i]*coeffs_q[i](qq+n) for i in range(1, r + 1))/ coeffs_q[i](qq+n))]
+            l.append(sum(l[-i]*coeffs_q[i](qq+xi+n) for i in range(1, r+1))/ coeffs_q[i](qq+xi+n))
 
         # TODO: Refactor, not the most efficient
         def call(op,l,n):
@@ -3865,7 +3892,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
             # compute the value at n
             r = op.order()
             coeffs_q = [Pol_q(c) for c in op.coefficients(sparse=False)]
-            return sum(l[-i-1]*coeffs_q[i](qq+n) for i in range(r+1))
+            return sum(l[-i-1]*coeffs_q[i](qq+xi+n) for i in range(r+1))
 
         sols = [[1 if i==j else 0 for i in range(r)] for j in range(r)]
         for n in range(Nmin+r,Nmax+1):
