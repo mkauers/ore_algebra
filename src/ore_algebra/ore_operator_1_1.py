@@ -3964,20 +3964,22 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
         # Find the points of interest
         fact0 = list(lr.factor())+list(l0.factor())
 
+        print1("Factors (non unique): {}".format(fact0))
+        
         # Cleanup the list
         fact = []
         for f,m in fact0 :
             if f.degree() == 0:
                 pass
-            elif any(i for i in range(len(fact))
+            elif any(True for i in range(len(fact))
                      if (fact[i][0].degree() == f.degree()
                          and roots_at_integer_distance(fact[i][0],f) != [])):
                 # f is a shift of a factor already seen
                 fact[i][1] += m
             else:
-                fact.append((f,m))
+                fact.append([f,m])
 
-        print1("Factors: {}".format(fact))
+        print1("Factors (unique): {}".format(fact))
 
         places = []
         for f, m in fact:
@@ -3992,9 +3994,12 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
             if Zmax :
                 Nmax = min(Nmax,Zmax)
                 # Else the default max is Nmax
+                # TODO: Should we also update Nmin if Zmax < Nmax?
             print1("Nmin={} Nmax={}".format(Nmin,Nmax))
 
-            places += self._make_valuation_places(f, Nmin, Nmax, prec=m+1, infolevel=infolevel) # is +1 needed?
+            places += self._make_valuation_places(f, Nmin, Nmax, prec=m+1,
+                                                  infolevel=infolevel)
+            # TODO: is +1 needed?
 
         return places
 
@@ -4241,7 +4246,7 @@ class UnivariateQRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverU
 
         while len(sol) == 0:
 
-            p = (Qu*p) % L
+            p = (Qu*p) % L  
             mat.append( p.coefficients(sparse=False, padd=r) )
             sol = solver(Matrix(mat).transpose())
 
