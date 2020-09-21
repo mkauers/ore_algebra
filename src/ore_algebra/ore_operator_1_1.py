@@ -1344,20 +1344,20 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         return factors
 
     # FIXME: Find a better name, this one is ambiguous
-    def valuation(self, op, x):
+    def value_function(self, op, x):
         r"""
-        Return the valuation of an operator ``op`` in the quotient algebra, at the place ``x``.
+        Return the value of an operator ``op`` in the quotient algebra, at the place ``x``.
         """
         raise NotImplementedError # abstract
 
-    def raise_valuation(self, basis, x, dim=0):
+    def raise_value(self, basis, x, dim=0):
         r"""
-        Return a linear combination of the elements of basis which has higher valuation than the last element of basis. The last coefficient in the linear combination should be 1.
+        Return a linear combination of the elements of basis which has higher value_function than the last element of basis. The last coefficient in the linear combination should be 1.
 
         dim should be set to the dimension of the ambient vector space, in case that dimension is larger than the length of basis.
 
         # TODO: Rephrase...
-        # TODO: Does this function really need to be provided, or can it be obtained with valuation + something?
+        # TODO: Does this function really need to be provided, or can it be obtained with value_function + something?
         """
         raise NotImplementedError # abstract
 
@@ -1376,8 +1376,8 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
 
         print1(" [local] Computing local basis at {}".format(x))
         
-        if val_fct is None: val_fct = self.valuation
-        if raise_val_fct is None: raise_val_fct = self.raise_valuation
+        if val_fct is None: val_fct = self.value_function
+        if raise_val_fct is None: raise_val_fct = self.raise_value
 
         r = self.order()
         ore = self.parent()
@@ -2820,6 +2820,38 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         assert len(sol) == 1
         return sol[0]["value"]
 
+    
+    def _make_valuation_place(self, xi, prec=None):
+        ore = self.parent()
+        x = ore.base_ring().gen()
+        reloc = ore([c(x=x-xi) for c in self.coefficients(sparse=False)])
+        sols = reloc.generalized_series_solutions(prec)
+
+        # Capture the objects
+        def get_functions(xi,sols):
+            # In both functions the second argument `place` is ignored because captured
+            def val_fct(op,place=None):
+                vect = [op(s).valuation() for s in sols]
+                return _vect_val_fct(vect)
+            def raise_val_fct(ops,place=None,dim=None,infolevel=0):
+                mat = 
+                
+        
+        pass
+        
+
+    def find_candidate_places(self):
+        pass
+
+    def value_function(self, op, place):
+        pass
+
+    def raise_value(self, basis, place, dim):
+        pass
+
+    
+    
+    
 #############################################################################################################
 
 class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUnivariateRing):
@@ -3928,7 +3960,6 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
             # In both functions the second argument `place` is ignored because captured
             def val_fct(op,place=None):
                 vect = [call(op,seq[n-Nmin:n-Nmin+r],xi+n) for seq in sols]
-                print(vect)
                 return _vect_val_fct(vect)
             def raise_val_fct(ops,place=None,dim=None,infolevel=0):
                 mat = [[call(op,seq[n-Nmin:n-Nmin+r],xi+n) for seq in sols]
@@ -4003,11 +4034,11 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
 
         return places
 
-    def valuation(self, op, place):
+    def value_function(self, op, place):
         val = self._make_valuation_places(place,0,0)[0][1]
         return val(op)
 
-    def raise_valuation(self, basis, place, dim):
+    def raise_value(self, basis, place, dim):
         fct = self._make_valuation_places(place,0,0)[0][2]
         return fct(basis, place, dim)
     

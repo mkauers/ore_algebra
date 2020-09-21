@@ -946,6 +946,55 @@ class ContinuousGeneralizedSeries(RingElement):
         else:
             return min(c.prec() for c in t.coefficients())
 
+    def initial_exponent(self):
+        """
+        Returns the constant coefficient of the exponential part of self
+        """
+        return self.__exp.constant_coefficient()
+        
+    def tail_support(self):
+        """
+        Returns the terms and coefficients of the tail
+        
+        OUTPUT:
+
+            L : the list of all tuples (i,j) such that alpha x^i log(x)^j, with
+        alpha non zero, is a term of the polynomial part of self
+        """
+        cc = self.__tail.coefficients(sparse=False)
+        L = []
+        for j in range(len(cc)):
+            for i in range(cc[j].degree()):
+                if cc[j][i] != 0 :
+                    L.append((i,j))
+        return L
+
+    def non_integral_terms(self, iota=None):
+        """
+        List all terms (i,j) in the support of self which are non integral
+        """
+        z = self.initial_exponent()
+        t = self.tail_support()
+        return [(i,j) for i,j in t
+                if generalized_series_term_valuation(z,i,j,iota=iota) < 0]
+        
+        
+    def valuation(self, iota=None):
+        """
+        Return the valuation of the generalized series at 0.
+
+        TODO explanation on iota
+        The valuation of x^(z+i) log(x)^j is z+i-iota(z+Z,j)
+
+        TODO examples
+        """
+        z = self.initial_exponent()
+        # NOTE: Non optimal, we list too many terms
+        t = self.tail_support()
+        return min(generalized_series_term_valuation(z,i,j,iota=iota)
+                   for i,j in t)
+        
+
 ############################################################################################################
 
 class DiscreteGeneralizedSeries(RingElement):
