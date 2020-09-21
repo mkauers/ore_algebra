@@ -969,9 +969,10 @@ class ContinuousGeneralizedSeries(RingElement):
                     L.append((i,j))
         return L
 
-    def non_integral_terms(self, iota=None):
+    def non_integral_terms(self, iota=None, cutoff=0):
         """
-        List all terms (i,j) in the support of self which are non integral
+        List all terms (i,j) in the support of self which have valuation less than
+        cutoff.
         """
         z = self.initial_exponent()
         t = self.tail_support()

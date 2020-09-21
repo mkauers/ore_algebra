@@ -2821,32 +2821,65 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         return sol[0]["value"]
 
     
-    def _make_valuation_place(self, xi, prec=None):
+    def _make_valuation_place(self, f, iota=None, prec=None):
+        r""""""
+        # TODO doc
+        # Question: should each z,i,j be a place, or just z?
+        # With z, there is a hidden loop in raise_valuation and a possible duplication of
+        # the computation of the operator (or the action on the solutions)
+        # TODO: The latter can be fixed by having raise_val return the new
+        # operator or the new solutions always...
         ore = self.parent()
         x = ore.base_ring().gen()
+        FF = NumberField(f,"xi")
+        xi = FF.gen()
         reloc = ore([c(x=x-xi) for c in self.coefficients(sparse=False)])
         sols = reloc.generalized_series_solutions(prec)
 
         # Capture the objects
         def get_functions(xi,sols):
-            # In both functions the second argument `place` is ignored because captured
+            # In both functions the second argument `place` is ignored because
+            # captured
+            # TODO: Should we also capture iota? In principle there is no reason
+            # to change the iota in the global scope between invokations...
             def val_fct(op,place=None):
-                vect = [op(s).valuation() for s in sols]
-                return _vect_val_fct(vect)
+                vect = [op(s).valuation(iota=iota) for s in sols]
+                return min(vect)
             def raise_val_fct(ops,place=None,dim=None,infolevel=0):
-                mat = 
-                
-        
-        pass
-        
+                ss = [[op(s) for s in sols] for op in ops]
+                res = [1 for i in range(len(ops))-1]
+                cands = {}
+                r = len(sols)
+                for k in range(r):
+                    for t in ss[-1][k].non_integral_terms(iota=iota,cutoff=1):
+                        cands.add(t)
+                for t in cands:
+                    alpha = _vect_elim_fct(ss,place=None,dim=dim,infolevel=infolevel,
+                                           residue_fct = lambda s: s[t])
+                    if alpha is None:
+                        break
+                    else:
+                        for l in range(d-1):
+                            res[l] += alpha[l]
+                            for k in range(r):
+                                ss[-1][k] += alpha[l]*ss[l][k]
+            return val_fct, raise_val_fct
 
-    def find_candidate_places(self):
+        val_fct, raise_val_fct = get_functions(xi,sols)
+        return f,val_fct, raise_val_fct
+
+    def find_candidate_places(self, infolevel=0, iota=None):
+        lr = self.coefficients()[-1]
+        fact = list(lr.factor())
+        places = []
+        for f,m in facts:
+            places.append(self._make_valuation_place(f,prec=m+1,infolevel=infolevel, iota=None))
+        return places
+
+    def value_function(self, op, place, iota=None):
         pass
 
-    def value_function(self, op, place):
-        pass
-
-    def raise_value(self, basis, place, dim):
+    def raise_value(self, basis, place, dim, iota=None):
         pass
 
     

@@ -394,7 +394,7 @@ def _vect_val_fct(v,place=None):
         return min(vv.valuation() for vv in v)
         
 
-def _vect_elim_fct(basis,place=None,dim=None,infolevel=0):
+def _vect_elim_fct(basis,place=None,dim=None,infolevel=0, residue_fct=None):
     r"""
     Find a relation between vectors raising the valuation.
 
@@ -468,8 +468,11 @@ def _vect_elim_fct(basis,place=None,dim=None,infolevel=0):
     d = len(basis)
     if dim is None:
         dim = d
+
+    if residue_fct is None:
+        residue_fct = _residue
         
-    M = Matrix([[_residue(basis[i][j],place) for j in range(dim)]
+    M = Matrix([[residue_fct(basis[i][j],place) for j in range(dim)]
                 for i in range(d)])
     print2(" [elim_fct] Matrix:")
     print2(M)
