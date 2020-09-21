@@ -38,6 +38,8 @@ from sage.categories.pushout import ConstructionFunctor
 from sage.categories.functor import Functor
 from sage.categories.rings import Rings
 
+from .tools import generalized_series_term_valuation, generalized_series_default_iota
+
 class GeneralizedSeriesFunctor(ConstructionFunctor):
     
     rank = 15
@@ -964,7 +966,7 @@ class ContinuousGeneralizedSeries(RingElement):
         cc = self.__tail.coefficients(sparse=False)
         L = []
         for j in range(len(cc)):
-            for i in range(cc[j].degree()):
+            for i in range(cc[j].degree()+1):
                 if cc[j][i] != 0 :
                     L.append((i,j))
         return L
@@ -977,7 +979,7 @@ class ContinuousGeneralizedSeries(RingElement):
         z = self.initial_exponent()
         t = self.tail_support()
         return [(i,j) for i,j in t
-                if generalized_series_term_valuation(z,i,j,iota=iota) < 0]
+                if generalized_series_term_valuation(z,i,j,iota=iota) < cutoff]
         
         
     def valuation(self, iota=None):
