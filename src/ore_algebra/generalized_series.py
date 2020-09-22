@@ -339,6 +339,21 @@ class ContinuousGeneralizedSeries(RingElement):
 
         ramification = ZZ(ramification)
 
+        # Move negative exponents to the exponential part if needed
+        # TODO: Update coercions in doc
+        x = parent.tail_ring().base_ring().gen()
+        laurent = parent.tail_ring().base_ring().fraction_field()
+        try:
+            tail2 = laurent(tail) # if tail does not have y
+            val = tail2.valuation()
+        except TypeError:
+            tail2 = parent.tail_ring().change_ring(laurent)(tail)
+            val = min(c.valuation() for c in tail2.coefficients())
+
+        if val < 0 :
+            tail = tail2*x**(-val)
+            exp += val
+        
         p = parent.tail_ring()(tail)
 
         if ramification not in ZZ or ramification <= 0:
@@ -354,7 +369,6 @@ class ContinuousGeneralizedSeries(RingElement):
             if not alpha.is_zero():
                 # move part of the tail to the exponential part
                 exp += alpha
-                x = p.base_ring().gen()
                 p = p.map_coefficients(lambda q: q/(x**ZZ(ramification*alpha)))
                 
             new_ram = lcm([ (e/ramification).denominator() for e in exp.exponents() ])
