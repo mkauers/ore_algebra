@@ -1387,7 +1387,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         k = ore.base_ring()
 
         F = x.parent().base_ring()
-        deg = F.degree()
+        deg = x.degree() # Requires x to be the minimal polynomial in extension cases
         Fvar = x.parent().gen(0)
 
         res = []
@@ -1414,7 +1414,9 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
                     else:
                         for i in range(d+1):
                             alpha_rep[i] = alpha[i]
-
+                    print2(" [local] In base field: {}".format(alpha_rep))
+                    # __import__("pdb").set_trace()
+                    
                     res[d] = sum(alpha_rep[i]*res[i] for i in range(d+1))
                     res[d] = x**(- val_fct(res[d]))*res[d]
                     print1(" [local] Basis element after combination: {}".format(res[d]))
@@ -3962,7 +3964,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
         nn = Pol.gen()
         Coef = Pol.base_ring()
 
-        Laur = LaurentSeriesRing(Coef,'q',default_prec=prec)
+        Laur = LaurentSeriesRing(FF,'q',default_prec=prec)
         qq = Laur.gen()
         Frac_q = Pol.change_ring(Laur).fraction_field()
 
@@ -4067,7 +4069,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
             inds = roots_at_integer_distance(l0lr,f)
             print1("Integer distances between roots: {}".format(inds))
             Nmin = min(inds)
-            Nmax = max(inds)+1
+            Nmax = max(inds)+r
             Nmin = Nmin - r
             if Zmax :
                 Nmax = min(Nmax,Zmax)
