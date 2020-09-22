@@ -4067,7 +4067,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
             inds = roots_at_integer_distance(l0lr,f)
             print1("Integer distances between roots: {}".format(inds))
             Nmin = min(inds)
-            Nmax = max(inds)+r+1
+            Nmax = max(inds)+1
             Nmin = Nmin - r
             if Zmax :
                 Nmax = min(Nmax,Zmax)
