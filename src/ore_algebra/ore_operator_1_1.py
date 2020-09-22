@@ -2847,7 +2847,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
                 return min(vect)
             def raise_val_fct(ops,place=None,dim=None,infolevel=0):
                 ss = [[op(s) for s in sols] for op in ops]
-                res = [1 for i in range(len(ops))-1]
+                res = [0 for i in range(len(ops))-1]
                 cands = {}
                 r = len(sols)
                 for k in range(r):
@@ -2863,6 +2863,8 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
                             res[l] += alpha[l]
                             for k in range(r):
                                 ss[-1][k] += alpha[l]*ss[l][k]
+                res += [1]
+                return res
             return val_fct, raise_val_fct
 
         val_fct, raise_val_fct = get_functions(xi,sols)
