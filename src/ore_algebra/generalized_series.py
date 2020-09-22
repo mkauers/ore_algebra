@@ -978,9 +978,18 @@ class ContinuousGeneralizedSeries(RingElement):
         """
         z = self.initial_exponent()
         t = self.tail_support()
-        return [(i,j) for i,j in t
+        return [(z,i,j) for i,j in t
                 if generalized_series_term_valuation(z,i,j,iota=iota) < cutoff]
-        
+
+    def coefficient(self,z,a,b):
+        # same as __getitem__ but takes into account the polynomial part
+        # TODO: Should it be merged with __getitem__?
+        zz = self.initial_exponent()
+        if not (z-zz).is_integer():
+            return 0
+        else:
+            return self[(a+z-zz,b)]
+
         
     def valuation(self, iota=None):
         """

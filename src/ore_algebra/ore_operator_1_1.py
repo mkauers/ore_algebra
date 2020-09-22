@@ -1460,6 +1460,9 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         if places is None:
             places = self.find_candidate_places(infolevel=infolevel,**args)
 
+        if len(places) == 0 :
+            return [self.parent()(1)]
+            
         res = None
         for p in places :
             if len(p) == 1 :
@@ -2823,7 +2826,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         return sol[0]["value"]
 
     
-    def _make_valuation_place(self, f, iota=None, prec=None):
+    def _make_valuation_place(self, f, iota=None, prec=None, infolevel=0):
         r""""""
         # TODO doc
         # Question: should each z,i,j be a place, or just z?
@@ -2849,15 +2852,20 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
                 return min(vect)
             def raise_val_fct(ops,place=None,dim=None,infolevel=0):
                 ss = [[op(s) for s in sols] for op in ops]
-                res = [0 for i in range(len(ops))-1]
-                cands = {}
+                if infolevel >= 2: print(ss)
+                d = len(ops)
+                res = [0 for i in range(d-1)]
+                cands = set()
                 r = len(sols)
                 for k in range(r):
                     for t in ss[-1][k].non_integral_terms(iota=iota,cutoff=1):
                         cands.add(t)
                 for t in cands:
+                    if infolevel >= 1:
+                        print(" [raise_val_fct] Processing term x^({}+{}) log(x)^{}".format(*t))
                     alpha = _vect_elim_fct(ss,place=None,dim=dim,infolevel=infolevel,
-                                           residue_fct = lambda s: s[t])
+                                           residue_fct =
+                                           lambda s, _: s.coefficient(*t))
                     if alpha is None:
                         break
                     else:
@@ -2865,8 +2873,11 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
                             res[l] += alpha[l]
                             for k in range(r):
                                 ss[-1][k] += alpha[l]*ss[l][k]
-                res += [1]
-                return res
+                if alpha is None: # Could be made in an else for the for
+                    return None
+                else:
+                    res += [1]
+                    return res
             return val_fct, raise_val_fct
 
         val_fct, raise_val_fct = get_functions(xi,sols)
@@ -2876,7 +2887,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         lr = self.coefficients()[-1]
         fact = list(lr.factor())
         places = []
-        for f,m in facts:
+        for f,m in fact:
             places.append(self._make_valuation_place(f,prec=m+1,infolevel=infolevel, iota=None))
         return places
 
@@ -4010,7 +4021,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
             def raise_val_fct(ops,place=None,dim=None,infolevel=0):
                 mat = [[call(op,seq[n-Nmin:n-Nmin+r+1],n) for seq in sols]
                        for op in ops]
-                if infolevel >= 2: print(mat)
+                #if infolevel >= 2: print(mat)
                 return _vect_elim_fct(mat,place=None,dim=dim,infolevel=infolevel)
             return val_fct, raise_val_fct# , sols, call
         
