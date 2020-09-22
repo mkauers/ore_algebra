@@ -2859,7 +2859,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
                 mtx = [[] for i in range(len(ops))]
                 for t in cands:
                     if infolevel >= 2:
-                        print(" [raise_val_fct] Processing term x^({}+{}) log(x)^{}".format(*t))
+                        print(" [raise_val_fct] Processing term x^({}) log(x)^{}".format(t[1],t[0]))
                     for i in range(len(ops)):
                         for s in ss[i]:
                             mtx[i].append(s.coefficient(*t))

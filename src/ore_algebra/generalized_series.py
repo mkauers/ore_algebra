@@ -1017,8 +1017,12 @@ class ContinuousGeneralizedSeries(RingElement):
         z = self.initial_exponent()
         # NOTE: Non optimal, we list too many terms
         t = self.tail_support()
-        return min(generalized_series_term_valuation(z,j,i,iota=iota)
-                   for i,j in t)
+        if len(t) == 0:
+            return infinity
+        else:
+            return min(generalized_series_term_valuation(
+                        z,j,i,iota=iota)
+                       for i,j in t)
         
 
 ############################################################################################################
