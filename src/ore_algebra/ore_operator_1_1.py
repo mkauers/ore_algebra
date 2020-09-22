@@ -3968,21 +3968,25 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
 
         coeffs_q = [Frac_q(c) for c in self.coefficients(sparse=False)]
 
+        # Variable convention: k is a list index in the whole sequence, n is an
+        # actual position, so k=n-Nmin. The value at index k corresponds to the
+        # values of the sequence at position xi+n = xi+k+Nmin.
+        
         def prolong(l,n):
-            # Given the values of a function at n...n+r-1, compute the value at n+r
-            l.append(-sum(l[-r+i]*coeffs_q[i](qq+xi+n) for i in range(r))
-                     / coeffs_q[-1](qq+xi+n))
+            # Given the values of a function at ...xi+n...xi+n+r-1, compute the value at xi+n+r
+            l.append(-sum(l[-r+i]*coeffs_q[i](qq+xi+n-r) for i in range(r))
+                     / coeffs_q[-1](qq+xi+n-r))
 
         # TODO: Refactor, not the most efficient
         def call(op,l,n):
-            # Given another operator, and given the values l of a function at n,...,n+r,
-            # apply its deformed version to l and compute the value at n
+            # Given another operator, and given the values l of a function at xi+n,...,xi+n+r,
+            # apply its deformed version to l and compute the value at xi+n
             r = op.order()
             coeffs_q = [Frac_q(c) for c in op.coefficients(sparse=False)]
             return sum(l[i]*coeffs_q[i](qq+xi+n) for i in range(r+1))
 
         sols = [[1 if i==j else 0 for i in range(r)] for j in range(r)]
-        for n in range(Nmin,Nmax+1-r):
+        for n in range(Nmin+r,Nmax+r):
             for i in range(r):
                 prolong(sols[i],n)
 
@@ -3994,6 +3998,8 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
 
             # In both functions the second argument `place` is ignored because captured
             def val_fct(op,place=None):
+                # n-Nmin is the index of the value of the function at xi+n in
+                # the list seq
                 vect = [call(op,seq[n-Nmin:n-Nmin+r],xi+n) for seq in sols]
                 return _vect_val_fct(vect)
             def raise_val_fct(ops,place=None,dim=None,infolevel=0):
