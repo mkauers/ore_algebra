@@ -3969,11 +3969,13 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
         coeffs_q = [Frac_q(c) for c in self.coefficients(sparse=False)]
 
         # Variable convention: k is a list index in the whole sequence, n is an
-        # actual position, so k=n-Nmin. The value at index k corresponds to the
+        # actual shift compared to xi, so k=n-Nmin, and the value at index k corresponds to the
         # values of the sequence at position xi+n = xi+k+Nmin.
         
         def prolong(l,n):
-            # Given the values of a function at ...xi+n...xi+n+r-1, compute the value at xi+n+r
+            # Given the values of a function at ...xi+n-r...xi+n-1, compute the
+            # value at xi+n
+            assert(len(l) >= r)
             l.append(-sum(l[-r+i]*coeffs_q[i](qq+xi+n-r) for i in range(r))
                      / coeffs_q[-1](qq+xi+n-r))
 
@@ -3982,6 +3984,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
             # Given another operator, and given the values l of a function at xi+n,...,xi+n+r,
             # apply its deformed version to l and compute the value at xi+n
             r = op.order()
+            assert(len(l) > r)
             coeffs_q = [Frac_q(c) for c in op.coefficients(sparse=False)]
             return sum(l[i]*coeffs_q[i](qq+xi+n) for i in range(r+1))
 
@@ -4000,21 +4003,22 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
             def val_fct(op,place=None):
                 # n-Nmin is the index of the value of the function at xi+n in
                 # the list seq
-                vect = [call(op,seq[n-Nmin:n-Nmin+r],xi+n) for seq in sols]
+                vect = [call(op,seq[n-Nmin:n-Nmin+r+1],n) for seq in sols]
                 return _vect_val_fct(vect)
             def raise_val_fct(ops,place=None,dim=None,infolevel=0):
-                mat = [[call(op,seq[n-Nmin:n-Nmin+r],xi+n) for seq in sols]
+                mat = [[call(op,seq[n-Nmin:n-Nmin+r+1],n) for seq in sols]
                        for op in ops]
                 if infolevel >= 2: print(mat)
                 return _vect_elim_fct(mat,place=None,dim=dim,infolevel=infolevel)
-            return val_fct, raise_val_fct
+            return val_fct, raise_val_fct# , sols, call
         
         res = []
         for n in range(Nmin+r,Nmax+1):
             print1(" [make_places] preparing place at {}+{} (min poly = {})"
                    .format(xi,n,phi(nn-n)))
             val_fct, raise_val_fct = get_functions(xi,n,Nmin,sols,call)
-            res.append((phi(nn-n),val_fct,raise_val_fct))
+            res.append((phi(nn-n),val_fct,raise_val_fct# , sols, call
+            ))
         return res
     
     
