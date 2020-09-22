@@ -3970,7 +3970,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
 
         def prolong(l,n):
             # Given the values of a function at n...n+r-1, compute the value at n+r
-            l.append(sum(l[i]*coeffs_q[i](qq+xi+n) for i in range(r))
+            l.append(-sum(l[-r+i]*coeffs_q[i](qq+xi+n) for i in range(r))
                      / coeffs_q[-1](qq+xi+n))
 
         # TODO: Refactor, not the most efficient
@@ -3999,12 +3999,14 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
             def raise_val_fct(ops,place=None,dim=None,infolevel=0):
                 mat = [[call(op,seq[n-Nmin:n-Nmin+r],xi+n) for seq in sols]
                        for op in ops]
-                # if infolevel >= 2: print(mat)
+                if infolevel >= 2: print(mat)
                 return _vect_elim_fct(mat,place=None,dim=dim,infolevel=infolevel)
             return val_fct, raise_val_fct
         
         res = []
         for n in range(Nmin+r,Nmax+1):
+            print1(" [make_places] preparing place at {}+{} (min poly = {})"
+                   .format(xi,n,phi(nn-n)))
             val_fct, raise_val_fct = get_functions(xi,n,Nmin,sols,call)
             res.append((phi(nn-n),val_fct,raise_val_fct))
         return res
