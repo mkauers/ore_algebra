@@ -2829,11 +2829,6 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
     def _make_valuation_place(self, f, iota=None, prec=None, infolevel=0):
         r""""""
         # TODO doc
-        # Question: should each z,i,j be a place, or just z?
-        # With z, there is a hidden loop in raise_valuation and a possible duplication of
-        # the computation of the operator (or the action on the solutions)
-        # TODO: The latter can be fixed by having raise_val return the new
-        # operator or the new solutions always...
         ore = self.parent()
         x = ore.base_ring().gen()
         FF = NumberField(f,"xi")
@@ -2853,31 +2848,31 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             def raise_val_fct(ops,place=None,dim=None,infolevel=0):
                 ss = [[op(s) for s in sols] for op in ops]
                 if infolevel >= 2: print(ss)
-                d = len(ops)
-                res = [0 for i in range(d-1)]
                 cands = set()
                 r = len(sols)
                 for k in range(r):
-                    for t in ss[-1][k].non_integral_terms(iota=iota,cutoff=1):
-                        cands.add(t)
+                    for i in range(len(ops)):
+                        for t in ss[i][k].non_integral_terms(
+                                iota=iota,cutoff=1):
+                            cands.add(t)
+
+                mtx = [[] for i in range(len(ops))]
                 for t in cands:
-                    if infolevel >= 1:
+                    if infolevel >= 2:
                         print(" [raise_val_fct] Processing term x^({}+{}) log(x)^{}".format(*t))
-                    alpha = _vect_elim_fct(ss,place=None,dim=dim,infolevel=infolevel,
-                                           residue_fct =
-                                           lambda s, _: s.coefficient(*t))
-                    if alpha is None:
-                        break
-                    else:
-                        for l in range(d-1):
-                            res[l] += alpha[l]
-                            for k in range(r):
-                                ss[-1][k] += alpha[l]*ss[l][k]
-                if alpha is None: # Could be made in an else for the for
-                    return None
+                    for i in range(len(ops)):
+                        for s in ss[i]:
+                            mtx[i].append(s.coefficient(*t))
+                    if infolevel >= 2:
+                        print(" [raise_val_fct] Current matrix:\n{}".format(mtx))
+
+                M = matrix(mtx)
+                K = M.left_kernel().basis()
+                if K:
+                    return (1/K[0][-1])*K[0]
                 else:
-                    res += [1]
-                    return res
+                    return None
+            
             return val_fct, raise_val_fct
 
         val_fct, raise_val_fct = get_functions(xi,sols)

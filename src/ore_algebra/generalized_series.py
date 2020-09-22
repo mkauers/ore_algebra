@@ -974,35 +974,35 @@ class ContinuousGeneralizedSeries(RingElement):
         
         OUTPUT:
 
-            L : the list of all tuples (i,j) such that alpha x^i log(x)^j, with
+            L : the list of all tuples (i,j) such that alpha x^j log(x)^i, with
         alpha non zero, is a term of the polynomial part of self
         """
         cc = self.__tail.coefficients(sparse=False)
         L = []
-        for j in range(len(cc)):
-            for i in range(cc[j].degree()+1):
-                if cc[j][i] != 0 :
+        for i in range(len(cc)):
+            for j in range(cc[i].degree()+1):
+                if cc[i][j] != 0 :
                     L.append((i,j))
         return L
 
     def non_integral_terms(self, iota=None, cutoff=0):
         """
-        List all terms (i,j) in the support of self which have valuation less than
+        List all terms (j,i) in the support of self which have valuation less than
         cutoff.
         """
         z = self.initial_exponent()
         t = self.tail_support()
-        return [(z,i,j) for i,j in t
-                if generalized_series_term_valuation(z,i,j,iota=iota) < cutoff]
+        return [(i,j+z) for i,j in t
+                if generalized_series_term_valuation(z,j,i,iota=iota) < cutoff]
 
-    def coefficient(self,z,a,b):
+    def coefficient(self,a,b):
         # same as __getitem__ but takes into account the polynomial part
         # TODO: Should it be merged with __getitem__?
-        zz = self.initial_exponent()
-        if not (z-zz).is_integer():
+        z = self.initial_exponent()
+        if not (b-z).is_integer():
             return 0
         else:
-            return self[(a+z-zz,b)]
+            return self[(a,b-z)]
 
         
     def valuation(self, iota=None):
@@ -1017,7 +1017,7 @@ class ContinuousGeneralizedSeries(RingElement):
         z = self.initial_exponent()
         # NOTE: Non optimal, we list too many terms
         t = self.tail_support()
-        return min(generalized_series_term_valuation(z,i,j,iota=iota)
+        return min(generalized_series_term_valuation(z,j,i,iota=iota)
                    for i,j in t)
         
 
