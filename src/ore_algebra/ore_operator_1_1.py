@@ -1361,8 +1361,10 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         """
         raise NotImplementedError # abstract
 
-    def local_integral_basis(self, x, basis=None, val_fct=None, raise_val_fct=None,
-                             infolevel=0):
+    def local_integral_basis(self, x, basis=None,
+                             val_fct=None, raise_val_fct=None,
+                             infolevel=0,
+                             **val_kwargs):
         r"""
         # TODO: Copy/adapt documentation for interface
 
@@ -1395,20 +1397,20 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         for d in range(r):
             print1(" [local] d={}".format(d))
             print1(" [local] Processing {}".format(basis[d]))
-            v = val_fct(basis[d],x)
+            v = val_fct(basis[d],place=x,**val_kwargs)
             print1(" [local] Valuation: {}".format(v))
             res.append(x**(-v) * basis[d])
             print1(" [local] Basis element after normalizing: {}".format(res[d]))
             done = False
             while not done:
-                alpha = raise_val_fct(res,x,r,infolevel=infolevel)
+                alpha = raise_val_fct(res,place=x,dim=r,infolevel=infolevel,**val_kwargs)
                 if alpha is None:
                     done = True
                 else:
                     print1(" [local] Relation found: {}".format(alpha))
 
                     alpha_rep = [None for i in range(d+1)]
-                    if deg > 1: # Should be harmless even without, but okay
+                    if deg > 1: # Should be harmless even otherwise (then Fvar=1)
                         for i in range(d+1):
                             alpha_rep[i] = sum(alpha[i][j]*Fvar**j for j in range(deg))
                     else:
@@ -1418,17 +1420,17 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
                     # __import__("pdb").set_trace()
                     
                     res[d] = sum(alpha_rep[i]*res[i] for i in range(d+1))
-                    res[d] = x**(- val_fct(res[d]))*res[d]
+                    res[d] = x**(- val_fct(res[d],place=x,**val_kwargs))*res[d]
                     print1(" [local] Basis element after combination: {}".format(res[d]))
         return res
 
-    def find_candidate_places(self):
+    def find_candidate_places(self, **kwargs):
         r"""
         # TODO
         """
         raise NotImplementedError # abstract
 
-    def global_integral_basis(self, places=None, infolevel=0, **args):
+    def global_integral_basis(self, places=None, infolevel=0, **val_kwargs):
         r"""
         # TODO
 
@@ -1458,7 +1460,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         """
 
         if places is None:
-            places = self.find_candidate_places(infolevel=infolevel,**args)
+            places = self.find_candidate_places(infolevel=infolevel,**val_kwargs)
 
         if len(places) == 0 :
             return [self.parent()(1)]
@@ -1474,7 +1476,8 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
             res = self.local_integral_basis(x,basis=res,
                                             val_fct = val_fct,
                                             raise_val_fct = raise_val_fct,
-                                            infolevel=infolevel) 
+                                            infolevel=infolevel,
+                                            **val_kwargs) 
         return res
 
 
@@ -2847,12 +2850,12 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             # captured
             # TODO: Should we also capture iota? In principle there is no reason
             # to change the iota in the global scope between invokations...
-            def val_fct(op,place=None):
+            def val_fct(op,**kwargs):
                 op = ore_ext([c(x=x+xi)
                               for c in op.coefficients(sparse=False)])
                 vect = [op(s).valuation(iota=iota) for s in sols]
                 return min(vect)
-            def raise_val_fct(ops,place=None,dim=None,infolevel=0):
+            def raise_val_fct(ops,**kwargs):
                 ops = [ore_ext([c(x=x+xi)
                                 for c in op.coefficients(sparse=False)])
                        for op in ops]
@@ -4022,12 +4025,12 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
         def get_functions(xi,n,Nmin,sols,call):
 
             # In both functions the second argument `place` is ignored because captured
-            def val_fct(op,place=None):
+            def val_fct(op,**kwargs):
                 # n-Nmin is the index of the value of the function at xi+n in
                 # the list seq
                 vect = [call(op,seq[n-Nmin:n-Nmin+r+1],n) for seq in sols]
                 return _vect_val_fct(vect)
-            def raise_val_fct(ops,place=None,dim=None,infolevel=0):
+            def raise_val_fct(ops,**kwargs):
                 mat = [[call(op,seq[n-Nmin:n-Nmin+r+1],n) for seq in sols]
                        for op in ops]
                 #if infolevel >= 2: print(mat)
