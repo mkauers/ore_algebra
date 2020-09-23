@@ -2833,19 +2833,25 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         x = ore.base_ring().gen()
         FF = NumberField(f,"xi")
         xi = FF.gen()
-        reloc = ore([c(x=x-xi) for c in self.coefficients(sparse=False)])
+        ore_ext = ore.change_ring(ore.base_ring().fraction_field())
+        reloc = ore_ext([c(x=x+xi) for c in self.coefficients(sparse=False)])
         sols = reloc.generalized_series_solutions(prec)
 
         # Capture the objects
-        def get_functions(xi,sols):
+        def get_functions(xi,sols,x,ore_ext):
             # In both functions the second argument `place` is ignored because
             # captured
             # TODO: Should we also capture iota? In principle there is no reason
             # to change the iota in the global scope between invokations...
             def val_fct(op,place=None):
+                op = ore_ext([c(x=x+xi)
+                              for c in op.coefficients(sparse=False)])
                 vect = [op(s).valuation(iota=iota) for s in sols]
                 return min(vect)
             def raise_val_fct(ops,place=None,dim=None,infolevel=0):
+                ops = [ore_ext([c(x=x+xi)
+                                for c in op.coefficients(sparse=False)])
+                       for op in ops]
                 ss = [[op(s) for s in sols] for op in ops]
                 if infolevel >= 2: print(ss)
                 cands = set()
@@ -2875,7 +2881,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             
             return val_fct, raise_val_fct
 
-        val_fct, raise_val_fct = get_functions(xi,sols)
+        val_fct, raise_val_fct = get_functions(xi,sols,x,ore_ext)
         return f,val_fct, raise_val_fct
 
     def find_candidate_places(self, infolevel=0, iota=None):
@@ -2883,14 +2889,18 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         fact = list(lr.factor())
         places = []
         for f,m in fact:
-            places.append(self._make_valuation_place(f,prec=m+1,infolevel=infolevel, iota=None))
+            places.append(self._make_valuation_place(f,prec=m+1,
+                                                     infolevel=infolevel,
+                                                     iota=None))
         return places
 
     def value_function(self, op, place, iota=None):
-        pass
+        val = self._make_valuation_place(place,iota=iota)[1]
+        return val(op)
 
     def raise_value(self, basis, place, dim, iota=None):
-        pass
+        fct = self._make_valuation_place(place,iota=iota)[2]
+        return fct(basis, place, dim)
 
     
     
