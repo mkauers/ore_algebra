@@ -1366,9 +1366,38 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
                              infolevel=0,
                              **val_kwargs):
         r"""
-        # TODO: Copy/adapt documentation for interface
+        Compute a local integral basis at x of the vector obtained by taking the
+        quotient of the parent Ore algebra by this operator.
 
-        Note: we take a basis and guarantee that the output is integral wherever the basis was integral
+        INPUT:
+
+        - ``x`` -- the place at which to compute an integral basis. ``x`` should
+          be an irreducible polynomial in the base ring of the Ore algebra.
+
+        - ``basis`` (default: None) -- starting basis. If provided, the output of the algorithm
+          is guaranteed to be integral at all places where ``basis`` was already
+          a local integral basis.
+
+        - ``val_fct`` (default: None) -- a function computing the value of an
+          operator at the place x. It should have the same interface as the
+          generic method ``value_function``. If not provided, the algorithm
+          calls ``self.value_function``.
+
+        - ``raise_val_fct`` (default: None) -- a function computing a linear combination of operators with higher value. It should have the same interface as the
+          generic method ``raise_value``. If not provided, the algorithm
+          calls ``raise_value``.
+
+        - ``infolevel`` (default:0) -- verbosity flag
+
+        - All remaining named arguments are passed to the functions ``val_fct`` and ``raise_val_fct``.
+
+        OUTPUT:
+
+        An basis of the quotient of the parent Ore algebra by this operator, which is integral at the place ``x``.
+        If a starting basis was provided, the resulting basis is also integral at all places where the starting basis was integral.
+
+        EXAMPLES::
+        # TODO
         """
 
         # Helpers
@@ -4030,7 +4059,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
                 # the list seq
                 vect = [call(op,seq[n-Nmin:n-Nmin+r+1],n) for seq in sols]
                 return _vect_val_fct(vect)
-            def raise_val_fct(ops,**kwargs):
+            def raise_val_fct(ops,dim=None,**kwargs):
                 mat = [[call(op,seq[n-Nmin:n-Nmin+r+1],n) for seq in sols]
                        for op in ops]
                 #if infolevel >= 2: print(mat)
