@@ -2835,7 +2835,11 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         xi = FF.gen()
         ore_ext = ore.change_ring(ore.base_ring().fraction_field())
         reloc = ore_ext([c(x=x+xi) for c in self.coefficients(sparse=False)])
-        sols = reloc.generalized_series_solutions(prec)
+        if prec is None:
+            sols = reloc.generalized_series_solutions()
+        else:
+            sols = reloc.generalized_series_solutions(prec)
+                
 
         # Capture the objects
         def get_functions(xi,sols,x,ore_ext):
