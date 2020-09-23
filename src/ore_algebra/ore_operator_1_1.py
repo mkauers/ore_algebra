@@ -1344,20 +1344,57 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         return factors
 
     # FIXME: Find a better name, this one is ambiguous
-    def value_function(self, op, x):
+    def value_function(self, op, place, **kwargs):
         r"""
-        Return the value of an operator ``op`` in the quotient algebra, at the place ``x``.
+        Compute the value of the operator ``op`` in the algebra quotient of the ambient Ore algebra by `self`, at the place ``place``.
+
+        INPUT:
+
+        - ``op`` -- an Ore operator
+
+        - ``place`` -- the place at which to compute the value. It should be an irreducible polynomial in the base ring of the Ore algebra
+
+        - Implementations of this method can interpret further named arguments.
+
+        OUTPUT:
+
+        The value of ``op`` at the place ``place``
+
+        EXAMPLES::
+        #TODO
+        
         """
         raise NotImplementedError # abstract
 
-    def raise_value(self, basis, x, dim=0):
+    def raise_value(self, vectors, place, dim=None, **kwargs):
         r"""
-        Return a linear combination of the elements of basis which has higher value_function than the last element of basis. The last coefficient in the linear combination should be 1.
+        Given a list of vectors in the quotient of the ambient Ore algebra by this operator, find a linear combination of those vectors which has higher value at ``place`` than the last element of the list.
 
-        dim should be set to the dimension of the ambient vector space, in case that dimension is larger than the length of basis.
+        It is assumed that all vectors have value 0.
 
-        # TODO: Rephrase...
-        # TODO: Does this function really need to be provided, or can it be obtained with value_function + something?
+        Given ``[b_1, ..., b_n]``, the function computes ``a_1, ..., a_n`` in the coefficient field such that ``a_n = 1`` and
+
+            val(a_1*b_1 + ... + a_n*b_n) > 0, 
+
+        If no such combination exists, the function returns None.
+
+        INPUT:
+
+        - ``vectors`` -- a list of vectors in the quotient of the ambient Ore algebra by ``self``
+
+        - ``place`` -- the place at which to consider the value function
+
+        - ``dim`` (default: None) -- the dimension of the quotient of the ambient Ore algebra by ``self``. If not provided, it is assumed that ``vectors`` form a basis of that quotient. This may lead to incorrect results.
+
+        - Implementations of this method can interpret further named arguments.
+
+        OUTPUT:
+
+        A linear combination as described if it exists, and None otherwise.
+
+        EXAMPLES::
+
+        #TODO
         """
         raise NotImplementedError # abstract
 
@@ -1455,7 +1492,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
 
     def find_candidate_places(self, **kwargs):
         r"""
-        # TODO
+        
         """
         raise NotImplementedError # abstract
 
