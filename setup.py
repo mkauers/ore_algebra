@@ -23,7 +23,7 @@ class TestCommand(Command):
 
 setup(
     name = "ore_algebra",
-    version = "0.4",
+    version = "0.5",
     author = "Manuel Kauers, Maximilian Jaroschek, Fredrik Johansson",
     author_email = "manuel@kauers.de",
     license = "GPL",
