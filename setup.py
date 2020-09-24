@@ -1,5 +1,6 @@
 from distutils.core import setup
 from distutils.cmd import Command
+from setuptools import Extension
 from Cython.Build import cythonize
 
 try:
@@ -35,9 +36,13 @@ setup(
     ],
     package_dir = {'': 'src/'},
     ext_modules = cythonize(
-        "src/ore_algebra/analytic/*.pyx",
-        aliases = sage.env.cython_aliases()
-        ),
+        [Extension(
+            "*",
+            ["src/ore_algebra/analytic/*.pyx"],
+            extra_compile_args=['-std=c++11'],
+        )],
+        aliases = sage.env.cython_aliases(),
+    ),
     include_dirs = sage.env.sage_include_directories(),
-    cmdclass = {'test': TestCommand}
-    )
+    cmdclass = {'test': TestCommand},
+)
