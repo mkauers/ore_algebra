@@ -1492,14 +1492,49 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
 
     def find_candidate_places(self, **kwargs):
         r"""
-        
+        Compute all places at which an operator in the quotient of the ambient Ore algebra with `self` may not be integral.
+
+        INPUT:
+
+        - Implementations of this virtual method may interpret named arguments.
+
+        OUTPUT:
+
+        Let ``\partial`` be the generator of the Ore algebra and by ``r`` the order of ``self``.
+        The function returns a list ``L`` of places such that for any operator ``\partial^k``, ``0 \leq k < r``, in the quotient algebra, and for any place ``z`` not in ``L``, ``\partial^k`` is integral at ``z``.
+
+        Such a list is not unique, since adding finitely many elements to it does not break the specification.
+        The caller in global_integral_basis does not require that the list is minimal in any sense.
+
+        Each place may be output as either an irreducible polynomial in the base ring of the parent Ore algebra, or a 3-tuple composed of such a function, as well as suitable functions `value_function` and `raise_valuation`.
+
+        This can be useful in situations where computing the value function involves non-trivial calculations. Defining the functions here allows to capture the relevant data in the function and to minimize the cost at the time of calling.
+
+        EXAMPLES::
+        # TODO
         """
         raise NotImplementedError # abstract
 
     def global_integral_basis(self, places=None, infolevel=0, **val_kwargs):
         r"""
-        # TODO
+        Compute a global integral basis of the quotient of the ambient Ore algebra with this operator.
 
+        INPUT:
+
+        - ``places`` (default: None) -- list of places. Each place is either an irreducible polynomial in the base ring of the Ore algebra, or a 3-tuple composed of such a polynomial, as well as suitable functions `value_function` and `raise_value`.
+
+        - ``infolevel`` (default: 0) -- verbosity flag
+
+        - All remaining named arguments are passed to the value functions.
+
+        OUTPUT:
+
+        A basis of the quotient algebra which is integral everywhere, or at all places in ``places`` if provided.
+
+        It requires that at least the method ``find_candidate_places``, as well as ``value_function`` and ``raise_value`` if not provided by ``find_candidate_places``, be implemented for that Ore operator.
+
+        Currently, those methods are implemented for recurrence and differential operators.
+        
         EXAMPLES::
 
         Integral bases can be computed for recurrence operators
