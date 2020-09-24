@@ -3,12 +3,14 @@ r"""
 Periods of hypersurfaces
 
 This file contains examples of Picard-Fuchs equations taken from
+
 * periods-suite by Emre Sertöz,
   see <URL: https://github.com/period-suite >,
 * numperiods by Pierre Lairez and Emre Sertöz,
   see <URL: https://gitlab.inria.fr/lairez/numperiods >.
 
 References:
+
 * Emre Can Sertöz, *Computing Periods of Hypersurfaces*,
   arXiv:1803.08068 [math.AG], 2018.
 * Pierre Lairez, Emre Can Sertöz, *A numerical transcendental method in
