@@ -2,9 +2,108 @@
 r"""
 Error bounds
 
-Reference:
+This module provides tools for computing rigorous bounds on the tails of
+power series and generalized series expansions of differentially finite
+functions at ordinary points and regular singular points of their defining
+equations.
 
-    Marc Mezzarobba, Truncation Bounds for Differentially Finite Series.
+The main use of these bounds is to decide at which order to truncate the series
+expansions used at each integration step of the numerical solution algorithm.
+In normal usage of the package, this is done automatically, and the resulting
+bounds are taken into account in the returned intervals, so that there is no
+need for users to call this module directly.
+
+We refer to [M19] for a description of the bound computation algorithm. The
+documentation of this module assumes that the reader is familiar with the
+contents of that paper.
+
+EXAMPLE:
+
+This example shows how the features of this module fit together in a simple
+case, but is probably hard to adapt to other situations without some
+familiarity with [M19].
+
+Consider the following operator::
+
+    sage: from ore_algebra import OreAlgebra
+    sage: Pol.<t> = QQ[]
+    sage: Dop.<Dt> = OreAlgebra(Pol)
+    sage: dop = Dt^2 + 3*t^2/(t^3 + 27)*Dt + t/(t^3 + 27)
+
+In order to work with bounds on the tails of its solutions, we first create a
+DiffOpBound object. The DiffOpBound object only depends on the operator itself,
+not on a specific solution or truncation order. ::
+
+    sage: from ore_algebra.analytic.bounds import *
+    sage: maj = DiffOpBound(dop)
+    sage: maj
+    1.000000000000000/((-t + [2.9959...])^3)*exp(int(POL+1.0000...*NUM/(-t + [2.9959...])^3))
+    where
+    POL=~0*n^-2*t^0 + ~0*n^-2*t^1 + ~[0.111111 +/- 1.12e-7]*t^2,
+    NUM=~0*n^-2*t^3 + ~0*n^-2*t^4 + ~[0.111111 +/- 1.12e-7]*t^5
+
+Let us now focus on a particular solution, say ::
+
+    sage: sol = dop.power_series_solutions(20)[0]; sol
+    t - 1/81*t^4 + 25/91854*t^7 - 80/11160261*t^10 + 2420/11751754833*t^13 -
+    847/135984591639*t^16 + 244783/1255681719194526*t^19 + O(t^20)
+
+and compute a bound on the tail hidden in the O() term. We are in the
+ideal situation where we have at our disposal the terms of the series coming
+just before the truncation order in which we are interested. Using the last few
+of these coefficients::
+
+    sage: coeffs = list(sol)[-maj.dop.degree():]; coeffs
+    [0, 0, 244783/1255681719194526]
+
+we compute a “normalized residual” depending on the particular solution and
+truncation point::
+
+    sage: res = maj.normalized_residual(20, [[c] for c in reversed(coeffs)])
+    sage: res
+    [([1.68779500484630e-10 +/- 3.67e-25])*t^2]
+
+We are now in a position to compute a majorant series for the tail::
+
+    sage: tmaj = maj.tail_majorant(20, [res]); tmaj
+    (t^22*([1.687795004846299e-10 +/- 6.55e-26]) * (-t + [2.995941329747438 +/-
+    4.31e-16])^-3)*exp(int([0.1169590648741211 +/- 1.04e-17]*t^2 +
+    [0.1169590648741211 +/- 1.04e-17]*t^5/((-t + [2.995941329747438 +/-
+    4.31e-16])^3)))
+
+Finally, to deduce a numeric bound, we fix a disk of validity |t| ≤ ρ and
+bound the value at ρ of the majorant series::
+
+    sage: tmaj.bound(RBF(1))
+    [2.212445766787241e-11 +/- 5.44e-27]
+    sage: tmaj.bound(RBF(2))
+    [0.00346092101224178 +/- 9.91e-19]
+
+If we are not happy with these bounds, we can spend more computational effort
+trying to make them tighter::
+
+    sage: maj.refine()
+    sage: maj.refine()
+    sage: maj.tail_majorant(20, [res]).bound(RBF(2))
+    [0.001295756152020835 +/- 4.55e-19]
+
+Another object occasionally of interest is ::
+
+    sage: maj(20)
+    (1.00... * (-t + [2.99...])^-2 * (-t + 3.00...)^-1)*exp(int([0.11...]*t^2 +
+    [0.0043...]*t^5 + [0.0043...]*t^8/((-t + 3.00...) * (-t + [2.99...]) * (-t
+    + [2.99...]))))
+
+This is an auxiliary series used internally by ``tail_majorant()`` and in which
+the truncation order is fixed, but not the specific solution. (Actually, what
+is fixed is a _minimal_ truncation order: the auxiliary series can also be used
+to obtain bounds on tails of higher order. However, choosing the order
+parameter of the auxiliary series close to the actual order of truncation
+yields tighter bounds.)
+
+REFERENCE:
+
+    [M19] Marc Mezzarobba, Truncation Bounds for Differentially Finite Series.
     *Annales Henri Lebesgue* 2:99–148, 2019.
     <https://hal.archives-ouvertes.fr/hal-01817568>
     <https://doi.org/10.5802/ahl.17>
@@ -478,6 +577,13 @@ class HyperexpMajorant(MajorantSeries):
 
     def bound_series(self, rad, ord):
         r"""
+        Numeric bounds on the values at rad of this majorant series and of its
+        first few derivatives (up to factorials).
+
+        ALGORITHM:
+
+        [M19, Algorithm 8.1]
+
         TESTS::
 
             sage: from ore_algebra import *
@@ -525,6 +631,10 @@ class HyperexpMajorant(MajorantSeries):
         r"""
         Compute a termwise bound on the first ord derivatives of the *remainder
         of order start_index* of this majorant series.
+
+        ALGORITHM:
+
+        [M19, Section 8.2]
         """
         import numpy
         from sage.numerical.optimize import find_local_minimum
@@ -1068,6 +1178,8 @@ class RatSeqBound(object):
         r"""
         A lower bound on prod[den(α) = 0](|1-α/k|) valid for all k ≥ n with
         n, k ∈ ℕ ∖ exn.
+
+        Reference: [M19, Lemma 7.2]
         """
         assert n not in self.exn
         if n == 0:
@@ -1092,6 +1204,10 @@ class RatSeqBound(object):
         anything clever to take advantage of them.) More generally, a similar
         evaluation on an interval jet of the form [0,1/n] + ε + O(ε^ord)
         yields bounds for the derivatives as well.
+
+        ALGORITHM:
+
+        Essentially [M19, Algorithm 7.1].
         """
         assert n not in self.exn
         iv = IR.zero().union(~IR(n))
@@ -1144,6 +1260,10 @@ class RatSeqBound(object):
 
         A list whose element of index i is a list of pairs (edge, val), ordered
         by increasing edge, and such that |ref(n)[i]| ≤ val for all n ≥ edge.
+
+        ALGORITHM:
+
+        Part of [M19, Algorithm 7.4]
         """
         # consistency check, we need to recompute or at least extend the stairs
         # each time the sequence of numerators is extended
@@ -1184,6 +1304,10 @@ class RatSeqBound(object):
         of each stair: the index associated to a given value is the last time
         this value will be reached by the staircase function _bound_exn().
         One may well have |f[i](n)| > _bound_exn(n)[i] when n is ordinary.)
+
+        ALGORITHM:
+
+        Part of [M19, Algorithm 7.4]
         """
         # Return the value associated to the smallest step larger than n. (This
         # might be counter-intuitive!)
@@ -1201,6 +1325,10 @@ class RatSeqBound(object):
     def __call__(self, n, tight=None):
         r"""
         The bounds.
+
+        ALGORITHM:
+
+        [M19, Algorithm 7.4]
         """
         bound_exn = self._bound_exn(n)
         if n in self.exn:
@@ -1570,6 +1698,10 @@ class DiffOpBound(object):
         The remaining parameters are used to set properties of the DiffOpBound
         object related to the effort/tightness trade-off of the algorithm. They
         have no influence on the semantics of the bound.
+
+        ALGORITHM:
+
+        Essentially corresponds to [M19, Algorithm 6.1].
         """
 
         logger.info("bounding local operator "
@@ -1856,6 +1988,10 @@ class DiffOpBound(object):
             These operators differ by a power-of-x factor, which may change the
             normalized residual.
 
+        ALGORITHM:
+
+        [M19, Algorithm 6.9]
+
         EXAMPLES::
 
             sage: from ore_algebra import *
@@ -2126,6 +2262,10 @@ class DiffOpBound(object):
 
         A HyperexpMajorant representing a common majorant series for the
         tails y[n:](z) of the corresponding solutions.
+
+        ALGORITHM:
+
+        Essentially [M19, Algorithm 6.11]
         """
         maj = self(n)
         # XXX Better without maj? (speed/tightness trade-off)
