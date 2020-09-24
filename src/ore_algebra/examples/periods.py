@@ -37,7 +37,7 @@ TESTS::
     [[0.02222358650439156...] [-0.3691184858549074...]   [1.978544499665723...]  [-2.464594622238230...]   [5.583417676436902...]]
 
     sage: from ore_algebra.examples.periods import dop_140118_4, dop_140118_6_4_2
-    sage: dop_140118_4.numerical_transition_matrix([0,1], 1e-200, assume_analytic=True, squash_intervals=True)[0,0] # long time (3 s)
+    sage: dop_140118_4.numerical_transition_matrix([0,1], 1e-200, assume_analytic=True, squash_intervals=True)[0,0] # long time (2.6 s)
     [0.715789877802957863238550457253731250968474707759494604384565678079788875083797614717578209783780445614354477440408242665736695668023525540188926510250252867846105078425273565096207343428573617619055...]
 
     sage: dop_140118_6_4_2.numerical_transition_matrix([0,0.6+0.2*I,1], 1e-150, assume_analytic=True, deform=True)[0,0] # long time (25 s)

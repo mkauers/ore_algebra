@@ -84,15 +84,15 @@ class DFiniteFunction(object):
         [+/- inf]
 
         sage: f = DFiniteFunction((x^2 + 1)*Dx^2 + 2*x*Dx, [0, 1])
-        sage: f.plot((0, 4)) # long time (1 s)
+        sage: f.plot((0, 4))
         Graphics object consisting of 1 graphics primitive
-        sage: f._known_bound(RBF(RIF(1,4)), Dops.one()) # long time
+        sage: f._known_bound(RBF(RIF(1,4)), Dops.one())
         [1e+0 +/- 0.3...]
-        sage: f.approx(1, post_transform=Dx), f.approx(2, post_transform=Dx) # long time
+        sage: f.approx(1, post_transform=Dx), f.approx(2, post_transform=Dx)
         ([0.5000000000000...], [0.2000000000000...])
-        sage: f._known_bound(RBF(RIF(1.1, 2.9)), post_transform=Dx) # long time
+        sage: f._known_bound(RBF(RIF(1.1, 2.9)), post_transform=Dx)
         [+/- 0.4...]
-        sage: f._known_bound(RBF(AnInfinity()), Dops.one()) # long time
+        sage: f._known_bound(RBF(AnInfinity()), Dops.one())
         [+/- inf]
 
         sage: f = DFiniteFunction((x + 1)*Dx^2 + 2*x*Dx, [0, 1])
@@ -510,7 +510,7 @@ def _tests():
 
         sage: f = DFiniteFunction((x^2 + 1)*Dx^2 + 2*x*Dx, [0, 1])
 
-        sage: [f(10^i) for i in range(-3, 4)] # long time (1.9 s)
+        sage: [f(10^i) for i in range(-3, 4)] # long time (1.8 s)
         [[0.0009999996666...], [0.0099996666866...], [0.0996686524911...],
         [0.7853981633974...], [1.4711276743037...], [1.5607966601082...],
         [1.5697963271282...]]
