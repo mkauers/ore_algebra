@@ -1484,31 +1484,6 @@ class DFiniteFunction(RingElement):
         
         raise TypeError("no conversion possible")
     
-    def __long__(self):
-        r"""
-        Tries to convert ``self`` into a long integer.
-        This is possible iff ``self`` represents a constant sequence or constant function for some constant value in ``ZZ``.
-        If the conversion is not possible an error message is displayed.
-        
-        EXAMPLES::
-        
-            sage: from ore_algebra import *
-            sage: A = OreAlgebra(QQ['n'],'Sn')
-            sage: D1 = DFiniteFunctionRing(A,ZZ)
-            sage: B = OreAlgebra(QQ['x'],'Dx')
-            sage: D2 = DFiniteFunctionRing(B)
-            sage: a = D1(3.4)
-            sage: b = D2(4)
-            sage: long(b) #long(a) would lead to an error message
-            4L
-            
-        """
-        i = self._test_conversion_()
-        if i is not None and i in ZZ:
-            return long(i)
-
-        raise TypeError("no conversion possible")
-
     def _symbolic_(self, R):
         raise NotImplementedError
 
