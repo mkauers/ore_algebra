@@ -1479,8 +1479,8 @@ class DiffOpBound(object):
         1.000.../((-x + [0.994...])^2)*exp(int(POL+1.000...*NUM/(-x + [0.994...])^2))
         where
         POL=0,
-        NUM=bound(0, ord≤1)*z^0 +
-        bound((-2.000...*n + 2.000...)/(n^2 - n), ord≤1)*z^1
+        NUM=bound(0, ord≤1)*x^0 +
+        bound((-2.000...*n + 2.000...)/(n^2 - n), ord≤1)*x^1
 
     A majorant series extracted from that sequence::
 
@@ -1492,8 +1492,8 @@ class DiffOpBound(object):
         sage: dop = (x+1)*(x^2+1)*Dx^3-(x-1)*(x^2-3)*Dx^2-2*(x^2+2*x-1)*Dx
         sage: DiffOpBound(dop, pol_part_len=3)
         1.000.../((-x + [0.99...])^3)*exp(int(POL+1.000...*NUM/(-x + [0.99...])^3)) where
-        POL=~6.000...*z^0 + ~3.000...*z^1 + ~5.000...*z^2,
-        NUM=~7.000...*z^3 + ~2.000...*z^4 + ~5.000...*z^5
+        POL=~6.000...*x^0 + ~3.000...*x^1 + ~5.000...*x^2,
+        NUM=~7.000...*x^3 + ~2.000...*x^4 + ~5.000...*x^5
 
     Refining::
 
@@ -1515,10 +1515,9 @@ class DiffOpBound(object):
     TESTS::
 
         sage: print(DiffOpBound(Dx - 1, pol_part_len=0).__repr__(asympt=False))
-        1.000.../(1.000...)*exp(int(POL+1.000...*NUM/1.000...))
-        where
+        1.000.../(1.000...)*exp(int(POL+1.000...*NUM/1.000...)) where
         POL=0,
-        NUM=bound(-1.000.../n, ord≤1)*z^0
+        NUM=bound(-1.000.../n, ord≤1)*x^0
 
         sage: QQi.<i> = QuadraticField(-1)
         sage: for dop in [
@@ -1645,7 +1644,8 @@ class DiffOpBound(object):
             if len(ratseqbounds) == 0:
                 return 0
             coeff = ratseqbounds.entries_repr("asympt" if asympt else "short")
-            return " + ".join("{}*z^{}".format(c, n + shift)
+            var = self.Poly.variable_name()
+            return " + ".join("{}*{}^{}".format(c, var, n + shift)
                               for n, c in enumerate(coeff))
         return fmt.format(
                 cst=self.cst, den=self.maj_den,
