@@ -4148,7 +4148,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
         print1(" [make_places] At (root of {}) + Nmin={}, Nmax={}"
                .format(f,Nmin,Nmax))
         
-        FF = NumberField(phi,"xi")
+        FF = NumberField(f,"xi")
         # TODO: Do we have to choose a name?
         xi = FF.gen()
         r = self.order() 
