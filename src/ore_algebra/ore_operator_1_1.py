@@ -2974,27 +2974,25 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         r = self.order()
         ore = self.parent()
         x = ore.base_ring().gen()
+        C = ore.base_ring().base_ring()
         if f.degree() > 1:
             FF = NumberField(f,"xi")
-            # # We embed FF into QQbar to be able to compute the real part later
-            # phi = FF.hom([f.any_root(QQbar)])
-            # FF.register_embedding(phi)
-            
             xi = FF.gen()
         else:
+            FF = C
             xi = -f[0]/f[1]
-        ore_ext = ore.change_ring(ore.base_ring().change_ring(xi.parent()).fraction_field())
+        ore_ext = ore.change_ring(ore.base_ring().change_ring(FF).fraction_field())
         reloc = ore_ext([c(x=x+xi) for c in self.coefficients(sparse=False)])
         if prec is None:
             sols = reloc.generalized_series_solutions(exp=False)
         else:
             sols = reloc.generalized_series_solutions(prec, exp=False)
-                
+
         # if any(True for s in sols if s.ramification()>1):
         #     raise NotImplementedError("Some generalized series solutions have ramification")
 
-        if len(sols) < r:
-            raise NotImplementedError("Some series solutions have an exponential part or algebraic exponents")
+        if len(sols) < r or any(not s.is_fuchsian(C) for s in sols):
+            raise ValueError("The operator has non Fuchsian series solutions")
         
         # Capture the objects
         def get_functions(xi,sols,x,ore_ext):
@@ -3005,7 +3003,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             def val_fct(op,**kwargs):
                 op = ore_ext([c(x=x+xi)
                               for c in op.coefficients(sparse=False)])
-                vect = [op(s).valuation(iota=iota) for s in sols]
+                vect = [op(s).valuation(base=C,iota=iota) for s in sols]
                 return min(vect)
             def raise_val_fct(ops,**kwargs):
                 ops = [ore_ext([c(x=x+xi)
@@ -3018,6 +3016,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
                 for k in range(r):
                     for i in range(len(ops)):
                         for t in ss[i][k].non_integral_terms(
+                                base=C,
                                 iota=iota,cutoff=1):
                             cands.add(t)
 

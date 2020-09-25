@@ -985,12 +985,14 @@ class ContinuousGeneralizedSeries(RingElement):
                     L.append((i,j))
         return L
 
-    def non_integral_terms(self, iota=None, cutoff=0):
+    def non_integral_terms(self, base=None, iota=None, cutoff=0):
         """
         List all terms (j,i) in the support of self which have valuation less than
         cutoff.
         """
-        z = self.initial_exponent()
+        if base is None:
+            base = self.base_ring()
+        z = base(self.initial_exponent())
         t = self.tail_support()
         return [(i,j+z) for i,j in t
                 if generalized_series_term_valuation(z,j,i,iota=iota) < cutoff]
@@ -1004,8 +1006,11 @@ class ContinuousGeneralizedSeries(RingElement):
         else:
             return self[(a,int(ZZ(b-z)))]
 
+    def is_fuchsian(self,base):
+        z = self.initial_exponent()
+        return z in base
         
-    def valuation(self, iota=None):
+    def valuation(self, base=None, iota=None):
         """
         Return the valuation of the generalized series at 0.
 
@@ -1014,7 +1019,9 @@ class ContinuousGeneralizedSeries(RingElement):
 
         TODO examples
         """
-        z = self.initial_exponent()
+        if base is None:
+            base = self.base_ring()
+        z = base(self.initial_exponent())
         # NOTE: Non optimal, we list too many terms
         t = self.tail_support()
         if len(t) == 0:
