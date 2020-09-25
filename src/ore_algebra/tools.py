@@ -529,9 +529,9 @@ def roots_at_integer_distance(f1,f2):
 
 def generalized_series_default_iota(z,j):
     if j == 0:
-        return z-z.real().floor()
+        return z-real(z).floor()
     else:
-        return z-z.real().ceil()+1
+        return z-real(z).ceil()+1
 
 def generalized_series_term_valuation(z,i,j,iota=None):
     r"""

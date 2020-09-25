@@ -1631,7 +1631,16 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
             ...
             ValueError: The operator has non Fuchsian series solutions
 
-        The compu
+        The definition of integral bases in the differential case depends on the choice of a function `\iota` evaluating the contribution of each term of the generalized series solution.
+For the conditions that this function must satisfy, see :meth:`ContinuousGeneralizedSeries.valuation`.
+
+        The default value of that function is such that a series is considered integral if and only if it is bounded in a neighborhood of 0.
+
+        Different `\iota` functions give different integral bases.  It can only
+        make a difference if there are logarithmic terms in a fundamental system
+        of solutions, or if the initial exponent is irrational.
+
+        
         
         
         In the recurrence case, integrality is defined on the existence of poles of 
