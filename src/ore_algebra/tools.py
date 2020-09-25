@@ -539,9 +539,8 @@ def generalized_series_term_valuation(z,i,j,iota=None):
     """
     try:
         z = QQbar(z)
-    except (TypeError, ValueError):
-        FF = z.parent()
-        z = FF.embeddings(QQbar)[0](z)
+    except ValueError:
+        raise NotImplementedError("The term is not Fuchsian")
     if iota is None:
         iota = generalized_series_default_iota
     return int(ZZ(z+i-iota(z,j)))
