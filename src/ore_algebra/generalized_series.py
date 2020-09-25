@@ -964,18 +964,24 @@ class ContinuousGeneralizedSeries(RingElement):
 
     def initial_exponent(self):
         """
-        Returns the constant coefficient of the exponential part of self
+        Return the constant coefficient of the exponential part of this series.
+
+        This is the exponent `\alpha` such that the series is `c x^\alpha e^{\ldots} (1 + \ldots)`.
+
+        EXAMPLES::
+        #TODO
         """
         return self.__exp.constant_coefficient()
         
     def tail_support(self):
         """
-        Returns the terms and coefficients of the tail
+        Return the support of the tail.
         
         OUTPUT:
 
-            L : the list of all tuples (i,j) such that alpha x^j log(x)^i, with
-        alpha non zero, is a term of the polynomial part of self
+            L : the list of all tuples (i,j) such that `c x^j log(x)^i`, with
+        `c \neq 0`, is a term of the polynomial part of ``self``.
+
         """
         cc = self.__tail.coefficients(sparse=False)
         L = []
@@ -985,13 +991,71 @@ class ContinuousGeneralizedSeries(RingElement):
                     L.append((i,j))
         return L
 
-    def non_integral_terms(self, base=None, iota=None, cutoff=0):
+    def valuation(self, base=QQ, iota=None):
         """
-        List all terms (j,i) in the support of self which have valuation less than
-        cutoff.
+        Return the valuation of this generalized series.
+
+        INPUT: 
+
+        - ``base`` (default: `QQ`) - a field. The initial exponent of ``self``
+          must be coercible in that field. For the default value of ``iota``,
+          ``base`` must be a subfield of `CC` with computable real part.
+
+        - ``iota`` (default: None) - a function from ``base \times NN`` to
+          ``base``, with the following additional properties:
+        
+            - `iota(z,j)` lies in `z + ZZ`
+
+            - `iota(z1,j1) + iota(z2,j2) - iota(z1+z2,j1+j2) \geq 0`
+
+            - `iota(0,j)=j`
+
+          If not provided, ``iota`` is the function ``QQ \times NN \to QQ``
+          where `iota(z,j)` is the smallest `w=z+k` with `k \in ZZ` such that
+          `x^w \log(x)^j` is bounded in a neighborhood of 0.
+
+        OUTPUT:
+        
+        The valuation of this series, defined as the smallest value of
+        ``z-iota(z,j)`` for all terms ``x^z log(x)^j`` in the expansion of the
+        series.
+
+        With the default value of `iota`, the valuation of the series is
+        non-negative if and only if the series is bounded in a neighborhood of
+        0.
+
+
+        
+        TODO examples
+
         """
-        if base is None:
-            base = self.base_ring()
+        z = base(self.initial_exponent())
+        # NOTE: Non optimal, we list too many terms
+        t = self.tail_support()
+        if len(t) == 0:
+            return infinity
+        else:
+            return min(generalized_series_term_valuation(
+                        z,j,i,iota=iota)
+                       for i,j in t)
+
+    def non_integral_terms(self, base=QQ, iota=None, cutoff=0):
+        """
+        List all terms in the support of self which are not integral
+
+        INPUT:
+
+        - ``base`` (default: `QQ`) - a field, with the same properties as in `:meth:valuation`.
+
+        - ``iota`` (default: None) - a function from `base \times ZZ` to `base`, with the same additional properties and default value as in `:meth:valuation`. 
+
+        - ``cutoff`` (default: 0) - an integer.
+
+        OUTPUT:
+
+        The list of all terms `(i,j)` of ``self`` which have valuation strictly smaller than ``cutoff``.
+        If ``cutoff`` is 0, this is the list of all non-integral terms of ``self``.
+        """
         z = base(self.initial_exponent())
         t = self.tail_support()
         return [(i,j+z) for i,j in t
@@ -1007,29 +1071,11 @@ class ContinuousGeneralizedSeries(RingElement):
             return self[(a,int(ZZ(b-z)))]
 
     def is_fuchsian(self,base):
+        r"""
+        Test whether this series is Fuchsian over the constant field `base`.
+        """
         z = self.initial_exponent()
         return z in base
-        
-    def valuation(self, base=None, iota=None):
-        """
-        Return the valuation of the generalized series at 0.
-
-        TODO explanation on iota
-        The valuation of x^(z+i) log(x)^j is z+i-iota(z+Z,j)
-
-        TODO examples
-        """
-        if base is None:
-            base = self.base_ring()
-        z = base(self.initial_exponent())
-        # NOTE: Non optimal, we list too many terms
-        t = self.tail_support()
-        if len(t) == 0:
-            return infinity
-        else:
-            return min(generalized_series_term_valuation(
-                        z,j,i,iota=iota)
-                       for i,j in t)
         
 
 ############################################################################################################
