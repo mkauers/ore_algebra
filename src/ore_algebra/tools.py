@@ -537,6 +537,7 @@ def generalized_series_term_valuation(z,i,j,iota=None):
     r"""
     Given z, i, j, return the valuation of the term x^(z+i) log(x)^j
     """
+    # z=QQbar(z)
     if iota is None:
         iota = generalized_series_default_iota
     return z+i-iota(z,j)

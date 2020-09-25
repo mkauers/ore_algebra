@@ -1476,12 +1476,12 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
                     print1(" [local] Relation found: {}".format(alpha))
 
                     alpha_rep = [None for i in range(d+1)]
-                    if deg > 1: # Should be harmless even otherwise (then Fvar=1)
+                    if deg > 1: # Should be harmless even otherwise (then Fvar=1), if we also force the cast to k
                         for i in range(d+1):
                             alpha_rep[i] = sum(alpha[i][j]*Fvar**j for j in range(deg))
                     else:
                         for i in range(d+1):
-                            alpha_rep[i] = alpha[i]
+                            alpha_rep[i] = k(alpha[i])
                     print2(" [local] In base field: {}".format(alpha_rep))
                     # __import__("pdb").set_trace()
                     
@@ -2931,8 +2931,41 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
 
     
     def _make_valuation_place(self, f, iota=None, prec=None, infolevel=0):
-        r""""""
-        # TODO doc
+        r"""
+        Compute value functions for the place ``f``.
+
+        INPUT:
+
+        - ``f`` - a place, that is an irreducible polynomial in the base ring of
+          the ambient Ore algebra
+
+        - ``iota`` (default: None) - a function allowing to compute the valuation of logarithmic
+          terms of a series. ``iota(z,j)``, for z in ``\CC`` and j in ``\NN``,
+          should be an element ``z+k`` in ``z + \ZZ``. Furthermore,
+          ``iota(0,j)=j`` and ``iota(z1,j1)+iota(z2,j2)-iota(z1+z2,j1+j2) \geq
+          0`` must hold.
+
+          If ``iota`` is not provided, the function returns the element of
+          ``z+\ZZ`` with real part between 0 (exclusive) and 1 (inclusive) if
+          ``j=0``, and the element with real part between 0 (inclusive) and 1
+          (exclusive) otherwise.
+
+        - ``prec`` (default: None) - how many terms to compute in the series
+          solutions to prepare the functions. If not provided, the default of
+          :meth:``generalized_series_solutions`` is used.
+
+        - ``infolevel`` (default: 0) - verbosity flag
+
+        OUTPUT:
+
+        A tuple composed of ``f``, a suitable function for ``value_function`` at
+        ``f`` and a suitable function for ``raise_value`` at ``f``.
+        
+        EXAMPLES::
+
+        # TODO
+        
+        """
         ore = self.parent()
         x = ore.base_ring().gen()
         FF = NumberField(f,"xi")
@@ -4056,27 +4089,47 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
         
         return output
 
-    def _make_valuation_places(self,phi,Nmin,Nmax,prec=None,infolevel=0):
+    def _make_valuation_places(self,f,Nmin,Nmax,prec=None,infolevel=0):
         r"""
+        Compute value functions for the place ``f``.
 
+        INPUT:
+
+        - ``f`` - a place, that is an irreducible polynomial in the base ring of
+          the ambient Ore algebra
+
+        - ``Nmin`` - an integer
+
+        - ``Nmax`` - an integer
+
+        - ``prec`` (default: None) - precision at which to compute the deformed
+          solutions. If not provided, the default precision of a power series
+          ring is used.
+
+        TODO: Rephrase
+        
+        - ``infolevel`` (default: None) - verbosity flag
+
+        OUTPUT:
+
+        A list of places corresponding to the shifted positions associated to
+        ``f``.  More precisely, if ``xi`` is a root of ``f``, the places
+        correspond to the points ``xi+Nmin, \ldots, xi+Nmax``.
+
+        Each place is a tuple composed of ``f(x+k)``, a suitable function for
+        ``value_function`` and a suitable function for ``raise_value``.
+        
         EXAMPLES::
 
-        
-        
+        # TODO
         """
-        # TODO doc
-        # Return [xi+i, val_fct at xi+i, raise_val_fct at xi+o for i in Nmin,
-        # Nmax]
-        # where phi is the minimal polynomial of xi
-
-        # Probably does not work if the base field is not QQ
 
         print1 = print if infolevel >= 1 else lambda *a, **k: None
         print2 = print if infolevel >= 2 else lambda *a, **k: None
         print3 = print if infolevel >= 3 else lambda *a, **k: None
 
         print1(" [make_places] At (root of {}) + Nmin={}, Nmax={}"
-               .format(phi,Nmin,Nmax))
+               .format(f,Nmin,Nmax))
         
         FF = NumberField(phi,"xi")
         # TODO: Do we have to choose a name?
@@ -4141,9 +4194,9 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
         res = []
         for n in range(Nmin+r,Nmax+1):
             print1(" [make_places] preparing place at {}+{} (min poly = {})"
-                   .format(xi,n,phi(nn-n)))
+                   .format(xi,n,f(nn-n)))
             val_fct, raise_val_fct = get_functions(xi,n,Nmin,sols,call)
-            res.append((phi(nn-n),val_fct,raise_val_fct# , sols, call
+            res.append((f(nn-n),val_fct,raise_val_fct# , sols, call
             ))
         return res
     
