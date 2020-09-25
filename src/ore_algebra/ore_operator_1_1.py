@@ -2976,9 +2976,9 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         x = ore.base_ring().gen()
         if f.degree() > 1:
             FF = NumberField(f,"xi")
-            # We embed FF into QQbar to be able to compute the real part later
-            phi = FF.hom([f.any_root(QQbar)])
-            FF.register_embedding(phi)
+            # # We embed FF into QQbar to be able to compute the real part later
+            # phi = FF.hom([f.any_root(QQbar)])
+            # FF.register_embedding(phi)
             
             xi = FF.gen()
         else:
