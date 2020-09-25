@@ -538,7 +538,7 @@ def generalized_series_term_valuation(z,i,j,iota=None):
     Given z, i, j, return the valuation of the term x^(z+i) log(x)^j
     """
     if not z.is_rational():
-        z = z.minpoly().any_root(QQbar) # TODO: is there anything better?
+        z = QQbar(z)
     if iota is None:
         iota = generalized_series_default_iota
     return int(ZZ(z+i-iota(z,j)))

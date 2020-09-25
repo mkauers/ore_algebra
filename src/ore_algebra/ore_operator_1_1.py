@@ -2974,9 +2974,16 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         r = self.order()
         ore = self.parent()
         x = ore.base_ring().gen()
-        FF = NumberField(f,"xi")
-        xi = FF.gen()
-        ore_ext = ore.change_ring(ore.base_ring().change_ring(FF).fraction_field())
+        if f.degree() > 1:
+            FF = NumberField(f,"xi")
+            # We embed FF into QQbar to be able to compute the real part later
+            phi = FF.hom([f.any_root(QQbar)])
+            FF.register_embedding(phi)
+            
+            xi = FF.gen()
+        else:
+            xi = -f[0]/f[1]
+        ore_ext = ore.change_ring(ore.base_ring().change_ring(xi.parent()).fraction_field())
         reloc = ore_ext([c(x=x+xi) for c in self.coefficients(sparse=False)])
         if prec is None:
             sols = reloc.generalized_series_solutions(exp=False)
