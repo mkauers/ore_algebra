@@ -2966,6 +2966,12 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         # TODO
         
         """
+
+        if infolevel >= 1: print("Preparing place at {}"
+                                 .format(f if f.degree() < 10
+                                         else "{} + ... + {}".format(f[f.degree()]*f.monomials()[0],f[0])))
+
+        r = self.order()
         ore = self.parent()
         x = ore.base_ring().gen()
         FF = NumberField(f,"xi")
@@ -2973,11 +2979,16 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         ore_ext = ore.change_ring(ore.base_ring().change_ring(FF).fraction_field())
         reloc = ore_ext([c(x=x+xi) for c in self.coefficients(sparse=False)])
         if prec is None:
-            sols = reloc.generalized_series_solutions()
+            sols = reloc.generalized_series_solutions(exp=False)
         else:
-            sols = reloc.generalized_series_solutions(prec)
+            sols = reloc.generalized_series_solutions(prec, exp=False)
                 
+        # if any(True for s in sols if s.ramification()>1):
+        #     raise NotImplementedError("Some generalized series solutions have ramification")
 
+        if len(sols) < r:
+            raise NotImplementedError("Some series solutions have an exponential part or algebraic exponents")
+        
         # Capture the objects
         def get_functions(xi,sols,x,ore_ext):
             # In both functions the second argument `place` is ignored because
