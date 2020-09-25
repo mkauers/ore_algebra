@@ -18,6 +18,7 @@ from __future__ import absolute_import
 
 from sage.structure.element import Element, RingElement, canonical_coercion, parent
 from sage.arith.all import gcd, lcm, previous_prime as pp
+from sage.functions.other import real_part
 from sage.matrix.constructor import Matrix
 from sage.rings.qqbar import QQbar
 from sage.rings.rational_field import QQ
@@ -529,9 +530,9 @@ def roots_at_integer_distance(f1,f2):
 
 def generalized_series_default_iota(z,j):
     if j == 0:
-        return z-real(z).floor()
+        return z-real_part(z).floor()
     else:
-        return z-real(z).ceil()+1
+        return z-real_part(z).ceil()+1
 
 def generalized_series_term_valuation(z,i,j,iota=None):
     r"""

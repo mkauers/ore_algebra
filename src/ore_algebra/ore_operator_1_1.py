@@ -3102,14 +3102,14 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         def get_functions(xi,sols,x,ore_ext):
             # In both functions the second argument `place` is ignored because
             # captured
-            # TODO: Should we also capture iota? In principle there is no reason
-            # to change the iota in the global scope between invokations...
-            def val_fct(op,**kwargs):
+            def val_fct(op,place,base=C, iota=None):
                 op = ore_ext([c(x=x+xi)
                               for c in op.coefficients(sparse=False)])
                 vect = [op(s).valuation(base=C,iota=iota) for s in sols]
                 return min(vect)
-            def raise_val_fct(ops,**kwargs):
+            def raise_val_fct(ops,place,dim=None,base=C,iota=None,
+                              infolevel=0):
+                # TODO: Is it okay that we don't use dim?
                 ops = [ore_ext([c(x=x+xi)
                                 for c in op.coefficients(sparse=False)])
                        for op in ops]
@@ -3160,7 +3160,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         val = self._make_valuation_place(place,iota=iota)[1]
         return val(op)
 
-    def raise_value(self, basis, place, dim, iota=None):
+    def raise_value(self, basis, place, dim=None, iota=None):
         fct = self._make_valuation_place(place,iota=iota)[2]
         return fct(basis, place, dim)
 
