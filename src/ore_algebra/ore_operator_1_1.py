@@ -1640,7 +1640,19 @@ For the conditions that this function must satisfy, see :meth:`ContinuousGeneral
         make a difference if there are logarithmic terms in a fundamental system
         of solutions, or if the initial exponent is irrational.
 
-        
+            sage: L = x*Dx^2 + Dx
+            sage: L.generalized_series_solutions(1)
+            [1 + O(x), (1 + O(x))*log(x)]
+            sage: B = L.global_integral_basis(); B
+            [x, x*Dx]
+            sage: B = L.global_integral_basis(iota = lambda i,j : j); B
+            [x, x*Dx]
+            sage: B = L.global_integral_basis(iota = lambda i,j : j if i==0 else 0); B
+            [1, x*Dx]
+            sage: B = L.global_integral_basis(iota = lambda i,j : j if i==0 else 1); B
+            [x, x^2*Dx]
+            sage: B = L.global_integral_basis(iota = lambda i,j : j if i==0 else -1); B
+            [1/x, Dx]       
         
         
         In the recurrence case, integrality is defined on the existence of poles of 

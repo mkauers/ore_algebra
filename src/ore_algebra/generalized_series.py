@@ -1006,6 +1006,8 @@ class ContinuousGeneralizedSeries(RingElement):
         
             - `iota(z,j)` lies in `z + ZZ`
 
+            - `iota(z,j) = iota(z+k,j)` for `k \in \ZZ`
+
             - `iota(z1,j1) + iota(z2,j2) - iota(z1+z2,j1+j2) \geq 0`
 
             - `iota(0,j)=j`
