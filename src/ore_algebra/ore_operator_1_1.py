@@ -1529,16 +1529,114 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
 
         OUTPUT:
 
-        A basis of the quotient algebra which is integral everywhere, or at all places in ``places`` if provided.
+        A basis of the quotient algebra which is integral everywhere, or at all
+        places in ``places`` if provided.
 
-        It requires that at least the method ``find_candidate_places``, as well as ``value_function`` and ``raise_value`` if not provided by ``find_candidate_places``, be implemented for that Ore operator.
+        It requires that at least the method ``find_candidate_places``, as well
+        as ``value_function`` and ``raise_value`` if not provided by
+        ``find_candidate_places``, be implemented for that Ore operator.
 
-        Currently, those methods are implemented for recurrence and differential operators.
-        
         EXAMPLES::
 
-        Integral bases can be computed for recurrence operators
+        Integral bases can be computed for differential and recurrence operators.
 
+        In the differential case, an operator is integral if, applied to a generalized series solution of ``self`` without any pole (except possibly at infinity), the resulting series again does not have any pole.
+        
+            sage: from ore_algebra import OreAlgebra
+            sage: Pol.<x> = PolynomialRing(QQ)
+            sage: OreD.<Dx> = OreAlgebra(Pol)
+            sage: L = x*Dx+1
+            sage: S = L.generalized_series_solutions(); S
+            [x^(-1)]
+            sage: B = L.global_integral_basis(); B
+            [x]
+            sage: [OreD(1)(s) for s in S]
+            [x^(-1)]
+            sage: [B[0](s) for s in S]
+            [1 + O(x^5)] 
+
+            sage: L = Dx+x
+            sage: L.generalized_series_solutions()
+            [1 - 1/2*x^2 + 1/8*x^4 + O(x^5)]
+            sage: L.global_integral_basis()
+            [1]
+
+            sage: L = x-1 + Dx - x*Dx^2
+            sage: L.generalized_series_solutions(2)
+            [x^2*(1 - 1/3*x + O(x^2)), 1 + x + O(x^2)]
+            sage: B = L.global_integral_basis(); B
+            [1, 1/x*Dx - 1/x]
+
+            sage: L = (-1+2*x) + (1-4*x)*Dx + 2*x*Dx^2
+            sage: L.generalized_series_solutions(2)
+            [x^(1/2)*(1 + x + O(x^2)), 1 + x + O(x^2)]
+            sage: B = L.global_integral_basis(); B
+            [1, x*Dx]
+
+            sage: L = x^3*Dx^3 + x*Dx - 1
+            sage: L.generalized_series_solutions(2)
+            [x, x*((1 + O(x^2))*log(x)), x*((1 + O(x^2))*log(x)^2)]
+            sage: B = L.global_integral_basis(); B
+            [1, x*Dx, x*Dx^2 - Dx + 1/x]
+
+            sage: L = 24*x^3*Dx^3 - 134*x^2*Dx^2 + 373*x*Dx - 450
+            sage: L.generalized_series_solutions(2)
+            [x^(15/4), x^(10/3), x^(3/2)]
+            sage: B = L.global_integral_basis(); B
+            [1/x, 1/x^2*Dx - 3/2/x^3, 1/x*Dx^2 - 3/4/x^3]
+
+        Poles may appear outside of 0.  This example is the same as the previous
+        one after a change of variable.
+
+            sage: L = 24*(x-2)^3*Dx^3 - 134*(x-2)^2*Dx^2 + 373*(x-2)*Dx - 450
+            sage: L.generalized_series_solutions(2)
+            [x^2*(1 - 67/72*x + O(x^2)), x*(1 - 103/48*x + O(x^2)), 1 - 139/24*x + O(x^2)]
+            sage: B = L.global_integral_basis(); B
+            [1/(x - 2),
+             (1/(x^2 - 4*x + 4))*Dx - 3/2/(x^3 - 6*x^2 + 12*x - 8),
+             (1/(x - 2))*Dx^2 - 3/4/(x^3 - 6*x^2 + 12*x - 8)]
+
+        Poles may appear at non-rational points.
+        
+            sage: L = ((-x + x^3 + 3*x^4 - 6*x^5 + 3*x^6) * Dx^2
+            ....:      + (-2 + 4*x + 4*x^2 - 9*x^6 + 18*x^7 - 9*x^8) * Dx
+            ....:      + (4 + 2*x - 18*x^4 + 18*x^6 - 18*x^7))
+            sage: a = (x^4 - x^3 + 1/3*x + 1/3).any_root(ComplexField(20)); a
+            -0.39381 - 0.38222*I
+            sage: L[L.order()](a) # abs tol 1e-6
+            -1.9398e-7 + 9.5133e-7*I
+            sage: L.local_basis_expansions(a,2)
+            [1.00000*1, 1.00000*(x + 0.39381 + 0.38222*I)]
+            sage: L.global_integral_basis()
+            [x^3 - 2*x^2 + x,
+             ((x^2 - x)/(x^4 - x^3 + 1/3*x + 1/3))*Dx + (-3*x^6 + 9*x^5 - 9*x^4 + 2*x^3 + x^2 + 3*x - 1)/(x^4 - x^3 + 1/3*x + 1/3)]
+
+        Integrality is not defined for non-Fuchsian operators, that is operators
+        for which some generalized series solutions have non-rational exponents
+        or a non-trivial exponential part.
+
+            sage: L = x^2*Dx^2 + x*Dx + 1
+            sage: L.local_basis_expansions(0)
+            [x^(-1*I), x^(1*I)]
+            sage: L.global_integral_basis()
+            Traceback (most recent call last):
+            ...
+            ValueError: The operator has non Fuchsian series solutions
+
+            sage: L = (x^2-2)*Dx + 1
+            sage: L.local_basis_expansions(sqrt(2),1)
+            [(x - sqrt(2))^(-0.3535533905932738?)]
+            sage: L.global_integral_basis()
+            Traceback (most recent call last):
+            ...
+            ValueError: The operator has non Fuchsian series solutions
+
+        The compu
+        
+        
+        In the recurrence case, integrality is defined on the existence of poles of 
+
+        
             sage: from ore_algebra import OreAlgebra
             sage: P.<x> = PolynomialRing(QQ)
             sage: O.<Sx> = OreAlgebra(P)
@@ -1548,17 +1646,14 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
             [1/(x - 1)]
             sage: (x*Sx+x).global_integral_basis()
             [1]
-            sage: ((x+2)^2 + x*Sx^2 + (x+2)*Sx^3).global_integral_basis(Zmax=3)
-            [1, 1/x*Sx + (x - 2)/x^2, (1/(x + 1))*Sx^2 + ((x - 1)/(x^2 + 2*x + 1))*Sx]
-            sage: ((x^2+2)^2 + x*Sx^2 + (x^2+2)*Sx^3).global_integral_basis(Zmax=3)
-            [1,
-             (1/(x^2 - 4*x + 6))*Sx + (x - 2)/(x^4 - 8*x^3 + 28*x^2 - 48*x + 36),
-             (1/(x^2 - 2*x + 3))*Sx^2 + ((x - 1)/(x^4 - 4*x^3 + 10*x^2 - 12*x + 9))*Sx]
 
-
-
-        
         """
+        # sage: ((x+2)^2 + x*Sx^2 + (x+2)*Sx^3).global_integral_basis(Zmax=3)
+        # [1, 1/x*Sx + (x - 2)/x^2, (1/(x + 1))*Sx^2 + ((x - 1)/(x^2 + 2*x + 1))*Sx]
+        # sage: ((x^2+2)^2 + x*Sx^2 + (x^2+2)*Sx^3).global_integral_basis(Zmax=3)
+        # [1,
+        #  (1/(x^2 - 4*x + 6))*Sx + (x - 2)/(x^4 - 8*x^3 + 28*x^2 - 48*x + 36),
+        #  (1/(x^2 - 2*x + 3))*Sx^2 + ((x - 1)/(x^4 - 4*x^3 + 10*x^2 - 12*x + 9))*Sx]
 
         if places is None:
             places = self.find_candidate_places(infolevel=infolevel,**val_kwargs)
