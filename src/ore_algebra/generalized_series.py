@@ -1002,7 +1002,7 @@ class ContinuousGeneralizedSeries(RingElement):
         if not (b-z).is_integer():
             return 0
         else:
-            return self[(a,b-z)]
+            return self[(a,ZZ(b-z))]
 
         
     def valuation(self, iota=None):

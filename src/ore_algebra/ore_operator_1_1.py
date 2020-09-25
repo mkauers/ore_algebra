@@ -2970,7 +2970,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         x = ore.base_ring().gen()
         FF = NumberField(f,"xi")
         xi = FF.gen()
-        ore_ext = ore.change_ring(ore.base_ring().fraction_field())
+        ore_ext = ore.change_ring(ore.base_ring().change_ring(FF).fraction_field())
         reloc = ore_ext([c(x=x+xi) for c in self.coefficients(sparse=False)])
         if prec is None:
             sols = reloc.generalized_series_solutions()
