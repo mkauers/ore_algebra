@@ -1,5 +1,4 @@
-# cython: language=c++
-# cython: language_level=3
+# cython: language=c++, language_level=3
 r"""
 Evaluation of polynomials at Python integers with limited overhead
 """
