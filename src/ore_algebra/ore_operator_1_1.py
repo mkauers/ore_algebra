@@ -1517,15 +1517,37 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
 
     def global_integral_basis(self, places=None, infolevel=0, **val_kwargs):
         r"""
-        Compute a global integral basis of the quotient of the ambient Ore algebra with this operator.
+        Compute a global integral basis of the quotient of the ambient Ore algebra
+        with this operator.
 
         INPUT:
 
-        - ``places`` (default: None) -- list of places. Each place is either an irreducible polynomial in the base ring of the Ore algebra, or a 3-tuple composed of such a polynomial, as well as suitable functions `value_function` and `raise_value`.
+        - ``places`` (default: None) -- list of places. Each place is either an
+          irreducible polynomial in the base ring of the Ore algebra, or a
+          3-tuple composed of such a polynomial, as well as suitable functions
+          `value_function` and `raise_value`.
 
         - ``infolevel`` (default: 0) -- verbosity flag
 
-        - All remaining named arguments are passed to the value functions.
+        All remaining named arguments are passed to the value functions.
+
+        In the differential case, the function takes an additional optional
+        argument:
+
+        - ``iota`` (default: None) - a function used to filter terms of
+          generalized series solutions which are to be considered
+          integral. For the conditions that this function must satisfy, see
+          :meth:`ContinuousGeneralizedSeries.valuation`.
+
+        In the recurrence case, the function takes an additional optional
+        argument:
+
+        - ``Zmax`` (default: None) - an integer, used to determine an upper
+          bound for points at which to eliminate poles. If not provided, uses a
+          value guaranteed to be an upper bound for all new poles.
+
+        # TODO: Better phrasing
+        # TODO: Rename argument 
 
         OUTPUT:
 
@@ -1540,7 +1562,10 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
 
         Integral bases can be computed for differential and recurrence operators.
 
-        In the differential case, an operator is integral if, applied to a generalized series solution of ``self`` without any pole (except possibly at infinity), the resulting series again does not have any pole.
+        In the differential case, an operator is integral if, applied to a
+        generalized series solution of ``self`` without any pole (except
+        possibly at infinity), the resulting series again does not have any
+        pole.
         
             sage: from ore_algebra import OreAlgebra
             sage: Pol.<x> = PolynomialRing(QQ)
@@ -1654,19 +1679,35 @@ For the conditions that this function must satisfy, see :meth:`ContinuousGeneral
             sage: B = L.global_integral_basis(iota = lambda i,j : j if i==0 else -1); B
             [1/x, Dx]       
         
-        
-        In the recurrence case, integrality is defined on the existence of poles of 
+        In the recurrence case, we consider deformed operators: given a linear
+        recurrence operator `L \in \QQ[x]\<Sx\>`, the deformed operator `L_q` is
+        the operator `L(x+q) \in \QQ[q][x]\<Sx\>`.
+        Such an operator with order `r` always admits `r` linearly independent solutions in `QQ((q))^(z+\ZZ)` for `z \in \CC`.
 
-        
+        Fix `N_{max} \in \ZZ`.
+        Such a solution `f` is said to be integral at `z` if for all `k \in \ZZ` with `k \leq N_{max}`, `f(z+k) \in \QQ[[q]]`.
+        An operator `B` in the algebra quotient by `L` is integral at `z` if for all solutions `f` of `L_q`, `B_q(f)` is integral at `z`.
+
             sage: from ore_algebra import OreAlgebra
-            sage: P.<x> = PolynomialRing(QQ)
-            sage: O.<Sx> = OreAlgebra(P)
+            sage: Pol.<x> = PolynomialRing(QQ)
+            sage: Rec.<Sx> = OreAlgebra(Pol)
             sage: (x*Sx+1).global_integral_basis()
             [x - 1]
             sage: (Sx+x).global_integral_basis()
             [1/(x - 1)]
-            sage: (x*Sx+x).global_integral_basis()
-            [1]
+        
+        If a solution has larger valuation in `q` towards `+\infty` than towards
+        `-\infty`, the algorithm uses `N_{max}` as a cutoff value. In this case,
+        different values of `N_{max}` yield different results, which differ by a
+        rational factor.
+
+            sage: L = ((x+2)^2 + x*Sx^2 + (x+2)*Sx^3)
+            sage: B = L.global_integral_basis(); B
+            [x - 1,
+             1/x*Sx + (x - 2)/x^2,
+             (1/(x^3 - x^2 - x + 1))*Sx^2 + (1/(x^3 + x^2 - x - 1))*Sx + (1/4*x + 1/4)/(x - 1)]
+            sage: B = L.global_integral_basis(Zmax=2); B
+            [1, 1/x*Sx + (x - 2)/x^2, (1/(x + 1))*Sx^2 + ((x - 1)/(x^2 + 2*x + 1))*Sx]
 
         """
         # sage: ((x+2)^2 + x*Sx^2 + (x+2)*Sx^3).global_integral_basis(Zmax=3)
