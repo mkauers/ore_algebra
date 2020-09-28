@@ -1,4 +1,5 @@
-# cython: language=c++, language_level=3
+# cython: language=c++
+# cython: language_level=3
 r"""
 Lower-level reimplementation of key subroutines of binary_splitting
 """
