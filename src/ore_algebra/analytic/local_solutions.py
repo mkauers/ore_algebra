@@ -654,6 +654,13 @@ class LogMonomial(object):
         self.n = self.expo + shift
         self.k = k
 
+    def __eq__(self, other):
+        return (isinstance(other, LogMonomial)
+                and self.__dict__ == other.__dict__)
+
+    def __hash__(self):
+        return hash((self.dx, self.expo, self.shift, self.k))
+
     def __repr__(self):
         dx = repr(self.dx)
         if self.n.is_zero():
