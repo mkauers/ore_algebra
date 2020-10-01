@@ -60,6 +60,12 @@ Notes:
   these modules, though, and the core features should work even if they are
   unavailable.
 
+* To build the Cython modules against a version of Sage distributed as an
+  operating system package, you may need some header files not automatically
+  installed as dependencies. For example, Debian and Ubuntu users will probably
+  need to install the libpari-dev and liblinbox-dev packages in addition to the
+  sagemath package.
+
 Documentation
 -------------
 
