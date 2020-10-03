@@ -320,10 +320,11 @@ class Point(SageObject):
     def is_ordinary(self):
         if self._force_singular:
             return False
-        lc = self.dop.leading_coefficient()
-        if not lc(self.iv()).contains_zero():
+        iv = self.iv()
+        if not any(iv.overlaps(s) for s in self.dop._singularities(IC)):
             return True
         if self.is_exact():
+            lc = self.dop.leading_coefficient()
             try:
                 val = lc(self.value)
             except TypeError: # work around coercion weaknesses
