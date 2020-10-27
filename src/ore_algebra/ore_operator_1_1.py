@@ -1656,10 +1656,13 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
             ...
             ValueError: The operator has non Fuchsian series solutions
 
-        The definition of integral bases in the differential case depends on the choice of a function `\iota` evaluating the contribution of each term of the generalized series solution.
-For the conditions that this function must satisfy, see :meth:`ContinuousGeneralizedSeries.valuation`.
+        The definition of integral bases in the differential case depends on the
+        choice of a function `\iota` evaluating the contribution of each term of
+        the generalized series solution.  For the conditions that this function
+        must satisfy, see :meth:`ContinuousGeneralizedSeries.valuation`.
 
-        The default value of that function is such that a series is considered integral if and only if it is bounded in a neighborhood of 0.
+        The default value of that function is such that a series is considered
+        integral if and only if it is bounded in a neighborhood of 0.
 
         Different `\iota` functions give different integral bases.  It can only
         make a difference if there are logarithmic terms in a fundamental system
@@ -1677,16 +1680,24 @@ For the conditions that this function must satisfy, see :meth:`ContinuousGeneral
             sage: B = L.global_integral_basis(iota = lambda i,j : j if i==0 else 1); B
             [x, x^2*Dx]
             sage: B = L.global_integral_basis(iota = lambda i,j : j if i==0 else -1); B
-            [1/x, Dx]       
+            [1/x, Dx]
+
+        Optionally, we can supply a list of points at which we want to compute
+        an integral basis. Each point is given by its minimal polynomial in the
+        base polynomial ring.
+
+        
         
         In the recurrence case, we consider deformed operators: given a linear
         recurrence operator `L \in \QQ[x]\<Sx\>`, the deformed operator `L_q` is
-        the operator `L(x+q) \in \QQ[q][x]\<Sx\>`.
-        Such an operator with order `r` always admits `r` linearly independent solutions in `QQ((q))^(z+\ZZ)` for `z \in \CC`.
+        the operator `L(x+q) \in \QQ[q][x]\<Sx\>`.  Such an operator with order
+        `r` always admits `r` linearly independent solutions in
+        `QQ((q))^(z+\ZZ)` for `z \in \CC`.
 
-        Fix `N_{max} \in \ZZ`.
-        Such a solution `f` is said to be integral at `z` if for all `k \in \ZZ` with `k \leq N_{max}`, `f(z+k) \in \QQ[[q]]`.
-        An operator `B` in the algebra quotient by `L` is integral at `z` if for all solutions `f` of `L_q`, `B_q(f)` is integral at `z`.
+        Fix `N_{max} \in \ZZ`.  Such a solution `f` is said to be integral at
+        `z` if for all `k \in \ZZ` with `k \leq N_{max}`, `f(z+k) \in \QQ[[q]]`.
+        An operator `B` in the algebra quotient by `L` is integral at `z` if for
+        all solutions `f` of `L_q`, `B_q(f)` is integral at `z`.
 
             sage: from ore_algebra import OreAlgebra
             sage: Pol.<x> = PolynomialRing(QQ)
