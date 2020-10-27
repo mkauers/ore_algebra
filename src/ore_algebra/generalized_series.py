@@ -354,7 +354,7 @@ class ContinuousGeneralizedSeries(RingElement):
             tail = tail2*x**(-val)
             exp += val
         
-        p = parent.tail_ring()(tail)
+        p = parent.tail_ring()(tail2)
 
         if ramification not in ZZ or ramification <= 0:
             raise ValueError("ramification must be a positive integer")
