@@ -4447,7 +4447,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
 
     def value_function(self, op, place):
         val = self._make_valuation_places(place,0,0)[0][1]
-        return val(op)
+        return val(op,place)
 
     def raise_value(self, basis, place, dim):
         fct = self._make_valuation_places(place,0,0)[0][2]

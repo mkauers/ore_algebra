@@ -350,8 +350,9 @@ class ContinuousGeneralizedSeries(RingElement):
             tail2 = parent.tail_ring().change_ring(laurent)(tail)
             val = min(c.valuation() for c in tail2.coefficients())
 
-        tail = tail2*x**(-val)
-        exp += val
+        if val in ZZ :
+            tail = tail2*x**(-val)
+            exp += val
         
         p = parent.tail_ring()(tail)
 
