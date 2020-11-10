@@ -2491,7 +2491,17 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             Traceback (most recent call last):
             ...
             ValueError: solution may not have a finite limit at evaluation
-            point (try using numerical_transition_matrix())
+            point 0 (try using numerical_transition_matrix())
+
+        To obtain the values the solution at serveral points in a single run,
+        enclose the corresponding points of the path in length-one lists. The
+        output then changes to a list of (point, solution value) pairs::
+
+            sage: (Dx - 1).numerical_solution([1], [[i/3] for i in range(4)])
+            [(0, 1.00...), (1/3, [1.39...]), (2/3, [1.94...]), (1, [2.71...])]
+
+            sage: (Dx - 1).numerical_solution([1], [0, [1]])
+            [(1, [2.71828182845904...])]
 
         The ``post_transform`` parameter can be used to compute derivatives or
         linear combinations of derivatives of the solution. Here, we use this
@@ -2540,6 +2550,11 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             Traceback (most recent call last):
             ...
             TypeError: unexpected value for point: 'a'
+
+        TESTS::
+
+            sage: (Dx - 1).numerical_solution([1], [[0], 1])
+            [(0, 1.0000000000000000)]
         """
         from .analytic import analytic_continuation as ancont, local_solutions
         from .analytic.differential_operator import DifferentialOperator
@@ -2550,20 +2565,28 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         ctx = ancont.Context(**kwds)
         sol = ancont.analytic_continuation(dop, path, eps, ctx, ini=ini,
                                          post=post_mat, return_local_bases=True)
-        assert len(sol) == 1
-        mat = sol[0]["value"]
-        struct = sol[0]["structure"]
-        if dop.order() == 0:
-            return mat.base_ring().zero()
-        asympt = local_solutions.sort_key_by_asympt(struct[0])
+        val = []
         asycst = (AA.zero(), ZZ.zero(), AA.zero(), 0)
-        if asympt > asycst:
-            return mat.base_ring().zero()
-        elif asympt == asycst:
-            return mat[0][0]
+        for sol_at_pt in sol:
+            pt = sol_at_pt["point"]
+            mat = sol_at_pt["value"]
+            if dop.order() == 0:
+                val.append((pt, mat.base_ring().zero()))
+                continue
+            asympt = local_solutions.sort_key_by_asympt(sol_at_pt["structure"][0])
+            if asympt > asycst:
+                val.append((pt, mat.base_ring().zero()))
+            elif asympt == asycst:
+                val.append((pt, mat[0][0]))
+            else:
+                raise ValueError("solution may not have a finite limit at "
+                    f"evaluation point {pt} "
+                    "(try using numerical_transition_matrix())")
+        if isinstance(path, list) and any(isinstance(pt, list) for pt in path):
+            return val
         else:
-            raise ValueError("solution may not have a finite limit at "
-                   "evaluation point (try using numerical_transition_matrix())")
+            assert len(val) == 1
+            return val[0][1]
 
     def numerical_transition_matrix(self, path, eps=1e-16, **kwds):
         r"""
@@ -2684,8 +2707,11 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         dop = DifferentialOperator(self)
         ctx = ancont.Context(**kwds)
         sol = ancont.analytic_continuation(dop, path, eps, ctx)
-        assert len(sol) == 1
-        return sol[0]["value"]
+        if isinstance(path, list) and any(isinstance(pt, list) for pt in path):
+            return [(s["point"], s["value"]) for s in sol]
+        else:
+            assert len(sol) == 1
+            return sol[0]["value"]
 
 #############################################################################################################
 

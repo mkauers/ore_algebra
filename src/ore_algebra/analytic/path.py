@@ -878,8 +878,15 @@ class Path(SageObject):
         self.dop = dop
         if not vert:
             raise ValueError("empty path")
-        self.vert = [v if isinstance(v, Point) else Point(v, dop)
-                     for v in vert]
+        self.vert = []
+        for v in vert:
+            if isinstance(v, Point):
+                pass
+            elif isinstance(v, list) and len(v) == 1:
+                v = Point(v[0], dop, keep_value=True)
+            else:
+                v = Point(v, dop)
+            self.vert.append(v)
 
     def __getitem__(self, i):
         r"""

@@ -225,15 +225,14 @@ class DFiniteFunction(object):
         # - return a path passing through "interesting" points (and cache the
         #   associated initial vectors)
         start, ini = list(self.ini.items())[0]
-        return ini, [start, dest]
+        return ini, [start, Point(dest, self.dop, keep_value=True)]
 
     # Having the update (rather than the full test-and-update) logic in a
     # separate method is convenient to override it in subclasses.
     def _update_approx(self, center, rad, prec, derivatives):
         ini, path = self._path_to(center, prec)
         eps = RBF.one() >> prec
-        # keep="all" won't do anything until _path_to returns better paths
-        ctx = ancont.Context(keep="all")
+        ctx = ancont.Context()
         sol = ancont.analytic_continuation(self.dop, path, eps, ctx, ini=ini)
         for point_dict in sol:
             vert, val = point_dict["point"], point_dict["value"]

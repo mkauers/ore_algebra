@@ -44,7 +44,8 @@ def transition_matrices(dop, path, eps=1e-16):
     """
     from .differential_operator import DifferentialOperator
     dop = DifferentialOperator(dop)
-    ctx = ancont.Context(keep="all")
+    ctx = ancont.Context()
+    path = [[pt] for pt in path]
     sol = ancont.analytic_continuation(dop, path, eps, ctx)
     return [(s["point"], s["value"]) for s in sol]
 
@@ -56,7 +57,7 @@ def _value_from_mat(mat):
 
 def multi_eval_diffeq(dop, ini, path, eps=1e-16):
     """
-    Evaluate a solution at several points along a path.
+    (DEPRECATED) Evaluate a solution at several points along a path.
 
     EXAMPLES::
 
@@ -91,7 +92,8 @@ def multi_eval_diffeq(dop, ini, path, eps=1e-16):
     """
     from .differential_operator import DifferentialOperator
     dop = DifferentialOperator(dop)
-    ctx = ancont.Context(keep="all")
+    ctx = ancont.Context()
+    path = [[pt] for pt in path]
     sol = ancont.analytic_continuation(dop, path, eps, ctx, ini=ini)
     return [(s["point"], _value_from_mat(s["value"])) for s in sol]
 

@@ -20,7 +20,6 @@ class Context(object):
             algorithm=None,
             assume_analytic=False,
             force_algorithm=False,
-            keep="last",
             squash_intervals=False,
             deform=False,
             binsplit_thr=128,
@@ -61,10 +60,6 @@ class Context(object):
         if not isinstance(force_algorithm, bool):
             raise TypeError("force_algorithm", type(force_algorithm))
         self.force_algorithm = force_algorithm
-
-        if not keep in ["all", "last"]:
-            raise ValueError("keep", keep)
-        self.keep = keep
 
         if not isinstance(squash_intervals, bool):
             raise TypeError("squash_intervals", type(squash_intervals))

@@ -43,6 +43,8 @@ def _local_monodromy_loop(dop, x, eps):
     for i in range(n):
         step = [polygon[i], polygon[(i+1)%n]]
         logger.debug("center = %s, step = %s", x, step)
+        step[0].options['keep_value'] = False # XXX bugware
+        step[1].options['keep_value'] = True
         mat = x.dop.numerical_transition_matrix(step, eps, assume_analytic=True)
         prec = utilities.prec_from_eps(eps)
         assert all(c.accuracy() >= prec//2 or c.above_abs()**2 <= eps
@@ -157,6 +159,8 @@ def monodromy_matrices(dop, base, eps=1e-16, algorithm="connect"):
                 bypass_mat_y = matprod(local_monodromy_y[anchor_index_y:])
             else:
                 bypass_mat_y = id_mat
+            anchor_x.options["keep_value"] = False # XXX bugware
+            anchor_y.options["keep_value"] = True
             edge_mat = dop.numerical_transition_matrix([anchor_x, anchor_y], eps, assume_analytic=True)
             new_path_mat = bypass_mat_y*edge_mat*bypass_mat_x*path_mat
             assert isinstance(new_path_mat, Matrix_complex_ball_dense)

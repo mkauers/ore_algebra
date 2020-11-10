@@ -171,21 +171,14 @@ def _process_path(dop, path, ctx):
 
     if not isinstance(path, Path):
         path = Path(path, dop)
+        if not any(v.keep_value() for v in path.vert):
+            path.vert[-1].options['keep_value'] = True
 
     if not ctx.assume_analytic:
         path.check_singularity()
     if not all(x.is_regular() for x in path.vert):
         raise NotImplementedError("analytic continuation through irregular "
                                   "singular points is not supported")
-
-    # FIXME: prevents the reuse of points...
-    if ctx.keep == "all":
-        for v in path.vert:
-            v.options['keep_value'] = True
-    elif ctx.keep == "last":
-        for v in path.vert:
-            v.options['keep_value'] = False
-        path.vert[-1].options['keep_value'] = True
 
     if ctx.assume_analytic:
         path = path.bypass_singularities()
