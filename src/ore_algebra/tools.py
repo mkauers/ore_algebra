@@ -21,7 +21,10 @@ from sage.arith.all import gcd, lcm, previous_prime as pp
 from sage.rings.qqbar import QQbar
 from sage.rings.rational_field import QQ
 from sage.rings.integer_ring import ZZ
-from sage.rings.complex_field import ComplexField
+try:
+    from sage.rings.complex_mpfr import ComplexField
+except ImportError:
+    from sage.rings.complex_field import ComplexField
 from sage.rings.number_field.number_field_base import is_NumberField
 from sage.rings.polynomial.polynomial_element import Polynomial
 from sage.rings.polynomial.multi_polynomial_ring import is_MPolynomialRing

@@ -25,7 +25,10 @@ from sage.misc.cachefunc import cached_method
 from sage.plot.plot import generate_plot_points
 from sage.rings.all import ZZ, QQ, RBF, CBF, RIF, CIF
 from sage.rings.complex_arb import ComplexBall, ComplexBallField
-from sage.rings.complex_number import ComplexNumber
+try:
+    from sage.rings.complex_mpfr import ComplexNumber
+except ImportError:
+    from sage.rings.complex_number import ComplexNumber
 from sage.rings.infinity import AnInfinity
 from sage.rings.real_arb import RealBall, RealBallField
 from sage.rings.real_mpfi import RealIntervalField

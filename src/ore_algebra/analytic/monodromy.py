@@ -22,7 +22,7 @@ from sage.matrix.matrix_complex_ball_dense import Matrix_complex_ball_dense
 from sage.misc.misc_c import prod
 from sage.rings.all import (CC, CBF, ComplexBallField, QQ, QQbar,
         QuadraticField, RBF)
-from sage.symbolic.all import I, pi
+from sage.symbolic.all import pi
 
 from . import analytic_continuation as ancont, local_solutions, path, utilities
 

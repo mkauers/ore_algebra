@@ -37,7 +37,8 @@ from sage.rings.polynomial import polynomial_element
 from sage.rings.polynomial.complex_roots import complex_roots
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 from sage.structure.sequence import Sequence
-from sage.symbolic.all import SR, pi, I
+from sage.symbolic.all import SR, pi
+from sage.symbolic.constants import I
 
 from .. import ore_algebra
 from . import utilities
