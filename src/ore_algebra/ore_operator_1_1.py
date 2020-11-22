@@ -3072,7 +3072,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
             sage: Rxks = OreAlgebra(Rxk, 'Sk')
             sage: V = QQ
             sage: Vks = OreAlgebra(V['k'], 'Sk')
-            sage: for i in range(1000): # long time (2.3 s)
+            sage: for i in range(1000): # long time (1.9 s)
             ....:     A = Rxks.random_element(randrange(1,4))
             ....:     r = A.order()
             ....:     v = V.random_element()

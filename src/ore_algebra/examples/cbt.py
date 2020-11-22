@@ -176,7 +176,7 @@ can automate the process for other values of k::
 
 We obtain::
 
-    sage: for k, dop in cbt.dop.items(): # long time (5.7 s)
+    sage: for k, dop in cbt.dop.items(): # long time (4.2 s)
     ....:     print("{}\t{}".format(k, asy(dop, 50)))
     2  [0.5613226189564568270393235883810334361992061196...]
     3  [0.6049645385653542644762421366594344081594004532...]

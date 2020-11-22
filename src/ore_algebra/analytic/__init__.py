@@ -568,10 +568,10 @@ Algebraic points at high precision::
     sage: dop = (x^2 - 3)*Dx^2 + x + 1
     sage: x + sqrt2 # populate coercion cache
     x + sqrt2
-    sage: dop.numerical_transition_matrix([1, sqrt2], 1e-10000) # long time (1.8 s)
+    sage: dop.numerical_transition_matrix([1, sqrt2], 1e-10000) # long time (1.6 s)
     [ [1.11...015121538...] [0.43...3856086567...]]
     [ [0.65...812947177...] [1.15...5867289418...]]
-    sage: dop.numerical_transition_matrix([1, sqrt2], 1e-10000, algorithm="binsplit") # long time (1.8 s)
+    sage: dop.numerical_transition_matrix([1, sqrt2], 1e-10000, algorithm="binsplit") # long time (1.6 s)
     [ [1.11...015121538...] [0.43...3856086567...]]
     [ [0.65...812947177...] [1.15...5867289418...]]
 

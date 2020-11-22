@@ -61,7 +61,7 @@ corresponding series do not continue::
 More examples::
 
     sage: from ore_algebra.examples import fcc
-    sage: fcc.dop5.numerical_solution( # long time (3.6 s)
+    sage: fcc.dop5.numerical_solution( # long time (3.3 s)
     ....:          [0, 0, 0, 0, 1, 0], [0, 1/5+i/2, 1],
     ....:          1e-60, algorithm='binsplit', bit_burst_thr=1000)
     [1.04885235135491485162956376369999275945402550465206640...] + [+/- ...]*I
@@ -195,7 +195,7 @@ Nonstandard branches::
     sage: from ore_algebra.examples.iint import f, w, diffop, iint_value
     sage: iint_value(diffop([f[1/4], w[1], f[1]]),
     ....:            [0, 0, 16/9*i, -16/27*i*(-3*i*pi+8)],
-    ....:            algorithm="binsplit") # long time (1.1 s)
+    ....:            algorithm="binsplit")
     [-3.445141853366...]
 
 Miscellaneous examples::

@@ -635,7 +635,7 @@ def simplify_exponent(e):
         (z - 0.2651878342412026?)^7,
         (z - 0.2651878342412026?)^8,
         (z - 0.2651878342412026?)^9]
-        sage: cbt.dop[10].local_basis_expansions(s, 1) # long time (1.6 s)
+        sage: cbt.dop[10].local_basis_expansions(s, 1) # long time (1.3 s)
         [1, 0, 0, 0, 0, (z - 0.2651878342412026?)^4.260514654474679?, 0, 0, 0,
         0, 0]
     """

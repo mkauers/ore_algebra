@@ -50,7 +50,7 @@ that passes above the singular point::
 Another option is to pass an experimental flag to asserts that the function we
 are interested in is analytic at this singular point::
 
-    sage: fcc.dop5.numerical_solution([0, 0, 0, 0, 1, 0], [0, 1], 1e-60, assume_analytic=True) # long time (1.15 s)
+    sage: fcc.dop5.numerical_solution([0, 0, 0, 0, 1, 0], [0, 1], 1e-60, assume_analytic=True)
     [1.04885235135491485162956376369999275945402550465206640313845...] + [+/-...]*I
 
 In the six-dimensional case, Koutschan gives the following operator::
@@ -59,7 +59,7 @@ In the six-dimensional case, Koutschan gives the following operator::
     (27122036833024*z^43 + ... + 2276991208061142220800000000000000000*z^6)*Dz^8
     + ... - 2428790621931885035520000000000000000
     sage: ini = [0, 0, 0, 0, 0, 1, 0, 0]
-    sage: fcc.dop6.numerical_solution(ini, [0, 3/2 + i, 1], 1e-60, deform=True) # long time (6.4 s)
+    sage: fcc.dop6.numerical_solution(ini, [0, 3/2 + i, 1], 1e-60, deform=True) # long time (4.9 s)
     [1.02774910062749883985936367927396850209243990900114872425...] + [...]*I
 """
 

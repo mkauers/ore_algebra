@@ -38,7 +38,7 @@ that encode information on the asymptotics of the corresponding lattice walks::
 
 TESTS::
 
-    sage: for i in [2, 5, 12, 18]: # long time (1 min 27 s)
+    sage: for i in [2, 5, 12, 18]: # long time (1 min 21 s)
     ....:     for xx, yy in [(0, 1), (1, 0)]:
     ....:         ssw.test_ct(i, xx, yy)
 
@@ -50,7 +50,7 @@ TESTS::
 Plus an example provided by Bruno Salvy, also related to small-step walks (not
 double-checked)::
 
-    sage: ssw.aux_dop.numerical_solution(ssw.aux_ini, [0,1]) # long time (1.1 s)
+    sage: ssw.aux_dop.numerical_solution(ssw.aux_ini, [0,1])
     [10.662510694...]
 
 """
