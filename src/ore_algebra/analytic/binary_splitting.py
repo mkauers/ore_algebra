@@ -482,7 +482,7 @@ class StepMatrix_arb(StepMatrix):
                 for b in a:
                     assert b.is_exact()
 
-class SolutionColumn(StepMatrix):
+class SolutionColumn(object):
     r"""
     Partially “unrolled” local canonical solutions.
 

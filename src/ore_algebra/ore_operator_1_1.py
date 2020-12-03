@@ -2702,7 +2702,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             ...
             ValueError: operator must be nonzero
         """
-        from .analytic import analytic_continuation as ancont, local_solutions
+        from .analytic import analytic_continuation as ancont
         from .analytic.differential_operator import DifferentialOperator
         dop = DifferentialOperator(self)
         ctx = ancont.Context(**kwds)
