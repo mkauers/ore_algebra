@@ -613,9 +613,9 @@ def log_series_values(Jets, expo, psum, evpt, downshift=[0]):
     derivatives = evpt.jet_order
     log_prec = psum.length()
     assert all(d < log_prec for d in downshift) or log_prec == 0
-    if not evpt.is_numeric:
+    if not evpt.is_complex():
         if expo != 0 or log_prec > 1:
-            raise NotImplementedError("log-series of symbolic point")
+            raise NotImplementedError("log-series of non-complex point")
         return [vector(psum[0][i] for i in range(derivatives))]
     pt = Jets.base_ring()(evpt.pt)
     if log_prec > 1 or expo not in ZZ or evpt.branch != (0,):

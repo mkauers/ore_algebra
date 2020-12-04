@@ -317,8 +317,9 @@ def _use_inexact_recurrence(bwrec, prec):
 def interval_series_sum_wrapper(dop, inis, pt, tgt_error, bwrec, stop,
                                 fail_fast, effort, stride, ctx=dctx):
 
-    real = pt.is_real_or_symbolic() and all(ini.is_real(dop) for ini in inis)
-    if pt.is_numeric and cyPartialSum() is not PartialSum:
+    real = ((pt.is_real() or not pt.is_complex())
+            and all(ini.is_real(dop) for ini in inis))
+    if pt.is_complex() and cyPartialSum() is not PartialSum:
         ivs = ComplexBallField
     elif real:
         ivs = RealBallField
@@ -380,7 +381,7 @@ def interval_series_sum_wrapper(dop, inis, pt, tgt_error, bwrec, stop,
                         max(sol.total_error for sol in sols), tgt_error)
             if all(tgt_error.reached(
                             sol.total_error,
-                            abs(sol.value[0]) if pt.is_numeric else None)
+                            abs(sol.value[0]) if pt.is_complex() else None)
                     for sol in sols):
                 return sols
 
@@ -723,7 +724,7 @@ def series_sum_regular(Intervals, dop, bwrec, inis, pt, stop, stride,
     last_index_with_ini = max(chain(iter([dop.order()]),
                                     (ini.last_index() for ini in inis)))
 
-    PS = cyPartialSum() if pt.is_numeric else PartialSum
+    PS = cyPartialSum() if pt.is_complex() else PartialSum
     sols = [PS(Intervals, Jets, ini, bwrec.order, real) for ini in inis]
 
     class BoundCallbacks(accuracy.BoundCallbacks):
@@ -765,7 +766,7 @@ def series_sum_regular(Intervals, dop, bwrec, inis, pt, stop, stride,
 
         if n%stride == 0 and n > 0:
             assert log_prec == 1 or not ordinary
-            radpowest = (abs(jetpow[0]) if pt.is_numeric
+            radpowest = (abs(jetpow[0]) if pt.is_complex()
                          else Intervals(pt.rad**n))
             est = sum(sol.coeff_estimate() for sol in sols)*radpowest
             sing = (n <= last_index_with_ini) or (mult > 0) # ?
@@ -818,7 +819,7 @@ def series_sum_regular(Intervals, dop, bwrec, inis, pt, stop, stride,
     logger.info("summed %d terms, tails = %s (est = %s), rnd_err <= %s, "
                 "interval width <= %s",
             n, tail_bound, bounds.IR(est), rnd_err,
-            max(sol.interval_width() for sol in sols) if pt.is_numeric
+            max(sol.interval_width() for sol in sols) if pt.is_complex()
                                                       else None)
 
     return sols

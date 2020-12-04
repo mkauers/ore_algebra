@@ -503,11 +503,11 @@ class EvaluationPoint(object):
     r"""
     Series evaluation point/jet.
 
-    A ring element (a complex number, a polynomial indeterminate, perhaps
-    someday a matrix) where to evaluate the partial sum of a series, along with
-    a “jet order” used to compute derivatives and a bound on the norm of the
-    mathematical quantity it represents that can be used to bound the truncation
-    error.
+    A ring element (a complex number, a p-adic number, a polynomial
+    indeterminate, perhaps someday a matrix) where to evaluate the partial sum
+    of a series, along with a “jet order” used to compute derivatives and a
+    bound on the norm of the mathematical quantity it represents that can be
+    used to bound the truncation error.
 
     * ``branch`` - branch of the logarithm to use; ``(0,)`` means the standard
       branch, ``(k,)`` means log(z) + 2kπi, a tuple of length > 1 averages over
@@ -517,28 +517,29 @@ class EvaluationPoint(object):
     # XXX: choose a single place to set the default value for jet_order
     def __init__(self, pt, jet_order=1, branch=(0,), rad=None ):
         self.pt = pt
-        self.rad = (IR.coerce(rad) if rad is not None
-                    else IC(pt).above_abs())
+        if rad is not None:
+            self.rad = IR.coerce(rad)
+        elif self.is_complex():
+            self.rad = IC(pt).above_abs()
         self.jet_order = jet_order
-        self.branch=branch
-
-        self.is_numeric = is_numeric_parent(pt.parent())
+        self.branch = branch
 
     def __repr__(self):
         fmt = "{} + η + O(η^{}) (with |.| ≤ {})"
         return fmt.format(self.pt, self.jet_order + 1, self.rad)
 
-    def jet(self, Intervals):
-        base_ring = (Intervals if self.is_numeric
-                     else mypushout(self.pt.parent(), Intervals))
+    def jet(self, Base):
+        base_ring = mypushout(self.pt.parent(), Base)
         Pol = PolynomialRing(base_ring, 'delta')
         return Pol([self.pt, 1]).truncate(self.jet_order)
 
+    @cached_method
+    def is_complex(self):
+        return is_numeric_parent(self.pt.parent())
+
+    @cached_method
     def is_real(self):
         return is_real_parent(self.pt.parent())
-
-    def is_real_or_symbolic(self):
-        return self.is_real() or not self.is_numeric
 
     def accuracy(self):
         if self.pt.parent().is_exact():
