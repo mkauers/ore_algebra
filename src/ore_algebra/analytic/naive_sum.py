@@ -43,7 +43,7 @@ from .local_solutions import (bw_shift_rec, FundamentalSolution,
         LogSeriesInitialValues, LocalBasisMapper, log_series_values)
 from .path import EvaluationPoint
 from .safe_cmp import *
-from .utilities import short_str
+from .utilities import short_str, add_error_method
 
 logger = logging.getLogger(__name__)
 
@@ -510,6 +510,7 @@ class PartialSum(object):
         self.Intervals = Intervals
         self.Jets = Jets
         self._use_sum_of_products = hasattr(Intervals, '_sum_of_products')
+        self._add_error = add_error_method(Jets.base_ring())
         self.ini = ini
         self.ordrec = ordrec
 
@@ -606,7 +607,7 @@ class PartialSum(object):
     def update_enclosure(self, Jets, pt, tb):
         self.series = vector(Jets, self.log_prec)
         for i, t in enumerate(self.psum):
-            self.series[i] = Jets([_add_error(t[k], tb)
+            self.series[i] = Jets([self._add_error(t[k], tb)
                                    for k in range(pt.jet_order)])
         # log_series_values() may decide to introduce complex numbers if there
         # are logs, and hence the parent of the partial sum may switch from real
@@ -825,14 +826,6 @@ def series_sum_regular(Intervals, dop, bwrec, inis, pt, stop, stride,
 ################################################################################
 # Miscellaneous utilities
 ################################################################################
-
-# Temporary: later on, polynomials with ball coefficients could implement
-# add_error themselves.
-def _add_error(approx, error):
-    if isinstance(approx, polynomial_element.Polynomial):
-        return approx[0].add_error(error) + ((approx >> 1) << 1)
-    else:
-        return approx.add_error(error)
 
 def _get_error(approx):
     if isinstance(approx, polynomial_element.Polynomial):

@@ -664,8 +664,9 @@ class SolutionColumn(object):
         # (overestimation: we are using a single bound for all subseries)
         specialize = _specialization_map(self.v.zero_sum.parent(), Scalars,
                                          abstract_alg, alg)
+        add_error = utilities.add_error_method(Scalars)
         denom = specialize(self.v.rec_den)*Scalars(self.v.pow_den)
-        val = vector([Jets([(specialize(c)/denom).add_error(tail_bound)
+        val = vector([Jets([add_error(specialize(c)/denom, tail_bound)
                             for c in ser])
                      for ser in numer])
         assert self.v.ord_diff == dz.jet_order

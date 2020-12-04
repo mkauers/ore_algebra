@@ -15,17 +15,18 @@ Miscellaneous utilities
 import itertools
 from builtins import zip
 
-import sage.rings.complex_arb
-import sage.rings.real_arb
-
 from sage.categories.pushout import pushout
 from sage.misc.cachefunc import cached_function
 from sage.misc.misc import cputime
 from sage.rings.all import ZZ, QQ, QQbar, CIF, CBF
+from sage.rings.complex_arb import ComplexBall, ComplexBallField
 from sage.rings.number_field.number_field import (NumberField,
         NumberField_quadratic, is_NumberField)
+from sage.rings.padics.padic_generic import pAdicGeneric
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
+from sage.rings.polynomial.polynomial_ring import PolynomialRing_general
 from sage.rings.qqbar import number_field_elements_from_algebraics
+from sage.rings.real_arb import RealBallField
 
 ######################################################################
 # Timing
@@ -58,8 +59,8 @@ class Stats(object):
 # Numeric fields
 ######################################################################
 
-_RBFmin = sage.rings.real_arb.RealBallField(2)
-_CBFmin = sage.rings.complex_arb.ComplexBallField(2)
+_RBFmin = RealBallField(2)
+_CBFmin = ComplexBallField(2)
 
 def is_numeric_parent(parent):
     return _CBFmin.has_coerce_map_from(parent)
@@ -75,9 +76,26 @@ def is_QQi(parent):
 def ball_field(eps, real):
     prec = prec_from_eps(eps)
     if real:
-        return sage.rings.real_arb.RealBallField(prec)
+        return RealBallField(prec)
     else:
-        return sage.rings.complex_arb.ComplexBallField(prec)
+        return ComplexBallField(prec)
+
+def add_error_method(parent):
+    r"""
+    TESTS::
+
+        sage: from ore_algebra.analytic.utilities import add_error_method
+        sage: K = Qp(3, 10)
+        sage: add_error_method(K)(K(1/3), K(3^5))
+        3^-1 + O(3^5)
+    """
+    if isinstance(parent, (RealBallField, ComplexBallField)):
+        return lambda val, err: val.add_error(err)
+    elif isinstance(parent, pAdicGeneric):
+        return lambda val, err: val.add_bigoh(err.valuation())
+    elif isinstance(parent, PolynomialRing_general):
+        add_error = add_error_method(parent.base_ring())
+        return lambda val, err: add_error(val[0], err) + ((val >> 1) << 1)
 
 ################################################################################
 # Number fields and orders
@@ -169,7 +187,6 @@ def mypushout(X, Y):
 
 @cached_function
 def has_new_ComplexBall_constructor():
-    from sage.rings.complex_arb import ComplexBall, CBF
     try:
         ComplexBall(CBF, QQ(1), QQ(1))
     except TypeError:
