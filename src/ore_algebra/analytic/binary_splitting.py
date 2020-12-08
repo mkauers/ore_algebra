@@ -974,7 +974,7 @@ class MatrixRec(object):
     def __repr__(self):
         return pprint.pformat(self.__dict__)
 
-class MatrixRecsUnroller(LocalBasisMapper):
+class MatrixRecsUnroller(LocalBasisMapper, accuracy.BoundCallbacks):
 
     def __init__(self, dop, pt, eps, derivatives, ctx=dctx):
         super(self.__class__, self).__init__(dop)
@@ -1029,6 +1029,46 @@ class MatrixRecsUnroller(LocalBasisMapper):
         assert (len(self.irred_factor_cols)
                 == sum(m for _, m in self.shifts)*self.irred_factor.degree())
 
+    def get_residuals(self):
+        r"""
+        Callback used by StoppingCriterion.
+        """
+        # Will need updating if we want to support very large singular
+        # indices efficiently. For the time being, we wait to pass the
+        # last singular index before checking for convergence.
+        assert len(self.irred_factor_cols) == sum(m for _, m in self.shifts)
+        return {(rt, sol.shift, sol.log_power):
+                sol.value.normalized_residual(self.maj[rt], self.leftmost,
+                                                rt, self.shift)
+                for rt in self.roots
+                for sol in self.irred_factor_cols}
+
+    def get_bound(self, residuals):
+        r"""
+        Callback used by StoppingCriterion that bounds the Frobenius norm of
+        the matrix of tail majorants.
+
+        In particular, the result is a common bound on the tails of all power
+        series coefficients of the solution associated to the current
+        irreducible factor of the indicial equation.
+
+        The bound currently does not account for the singular prefactors. This
+        does not affect the correctness of the final result, since the series
+        sums and singular factors will be assembled using interval arithmetic.
+        However, it might lead to pessimistic enclosures or unnecessary
+        computations in some cases.
+        """
+        sqbound = bounds.IR.zero()
+        for rt in self.roots:
+            myres = [residuals[rt,s,k] for (s,m) in self.shifts
+                                       for k in range(m)]
+            # Tail majorant valid for the power series in front of the
+            # logs for all solutions associated to rt
+            tmaj = self.maj[rt].tail_majorant(self.shift, myres)
+            sqbound += tmaj.bound(self.pt.rad, rows=self.derivatives,
+                                  cols=len(myres))**2
+        return sqbound.sqrtpos()
+
     def process_modZ_class(self):
 
         logger.info(
@@ -1044,52 +1084,12 @@ class MatrixRecsUnroller(LocalBasisMapper):
                 min(self.ctx.binsplit_thr, self._est_terms))
 
         # Majorants
-        maj = {rt: bounds.DiffOpBound(self.dop, rt, self.shifts,
-                                      bound_inverse="solve")
-               for rt in self.roots}
-
-        wrapper = bounds.MultiDiffOpBound(maj.values())
+        self.maj = {rt: bounds.DiffOpBound(self.dop, rt, self.shifts,
+                                           bound_inverse="solve")
+                    for rt in self.roots}
+        wrapper = bounds.MultiDiffOpBound(self.maj.values())
         # TODO: switch to fast_fail=True?
         stop = accuracy.StoppingCriterion(wrapper, self.eps, fast_fail=False)
-
-        class BoundCallbacks(accuracy.BoundCallbacks):
-            def get_residuals(_): # “self” refers to the MatrixRecsUnroller
-                # Will need updating if we want to support very large singular
-                # indices efficiently. For the time being, we wait to pass the
-                # last singular index before checking for convergence.
-                assert len(self.irred_factor_cols) == sum(m for _, m in
-                                                                    self.shifts)
-                return {(rt, sol.shift, sol.log_power):
-                        sol.value.normalized_residual(maj[rt], self.leftmost,
-                                                      rt, self.shift)
-                        for rt in self.roots
-                        for sol in self.irred_factor_cols}
-            def get_bound(_, residuals):
-                r"""
-                Bound the Frobenius norm of the matrix of tail majorants.
-
-                In particular, this is a common bound on the tails of all power
-                series coefficients of the solution associated to the current
-                irreducible factor of the indicial equation.
-
-                Note that this bound currently does not account for the singular
-                prefactors. This doesn't affect the correctness of the final
-                result, since the series sums and singular factors will be
-                assembled using interval arithmetic. However, it might lead to
-                pessimistic enclosures or unnecessary computations in some
-                cases.
-                """
-                sqbound = bounds.IR.zero()
-                for rt in self.roots:
-                    myres = [residuals[rt,s,k] for (s,m) in self.shifts
-                                               for k in range(m)]
-                    # Tail majorant valid for the power series in front of the
-                    # logs for all solutions associated to rt
-                    tmaj = maj[rt].tail_majorant(self.shift, myres)
-                    sqbound += tmaj.bound(self.pt.rad, rows=self.derivatives,
-                                          cols=len(myres))**2
-                return sqbound.sqrtpos()
-        cb = BoundCallbacks()
 
         first_singular_index = min(s for s, _ in self.shifts)
         last_singular_index = max(s for s, _ in self.shifts)
@@ -1130,7 +1130,7 @@ class MatrixRecsUnroller(LocalBasisMapper):
             if self.shift > last_singular_index:
                 est = max(sol.value.error_estimate()
                           for sol in self.irred_factor_cols)
-                done, tail_bound = stop.check(cb, False, self.shift, tail_bound,
+                done, tail_bound = stop.check(self, False, self.shift, tail_bound,
                                est, next_stride=self.shift-first_singular_index)
             if self.shift > 16 or self.mult > 0:
                 logger.log(logging.INFO if self.shift > 1000 else logging.DEBUG,
