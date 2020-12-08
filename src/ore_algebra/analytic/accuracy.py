@@ -76,11 +76,96 @@ class BoundCallbacks(object):
 class StoppingCriterion(object):
     r"""
     Condition for dynamically deciding where to truncate a series.
+    """
+
+    def check(self, cb, sing, n, ini_tb, est, next_stride):
+        r"""
+        Test if it is time to halt the computation of the sum of a series.
+
+        INPUT:
+
+        * cb: BoundCallbacks object, see the documentation of that class.
+
+        * sing: boolean, True signals a singular index where we should return
+          infinity without even trying to compute a better bound (this is useful
+          to avoid special*casing singular indices elsewhere).
+
+        * n: current index.
+
+        * ini_tb: previous tail bound (can be infinite).
+
+        * est: real interval, heuristic estimate of the absolute value of the
+          tail of the series, typically something like abs(first nonzero
+          neglected term). The lower bounds of these estimates **must tend to
+          zero or eventually become negative**. Their width should provide an
+          indication of interval blow-up in the computation.
+
+        * next_stride: indication of how many terms the caller intends to add to
+          the sum before the next convergence check.
+
+        OUTPUT:
+
+        A pair (done, bound).
+
+        * done is a boolean indicating if it is time to stop the computation.
+
+        * bound is a rigorous (when applicable), possibly infinite upper bound
+          on the magnitude of the tail of the series.
+        """
+        raise NotImplementedError
+
+class StoppingCriterion_index(StoppingCriterion):
+    r"""
+    Stop just before a certain index, with a rigorous tail bound.
+
+    EXAMPLES::
+
+        sage: from ore_algebra import DifferentialOperators
+        sage: from ore_algebra.analytic.bounds import DiffOpBound
+        sage: from ore_algebra.analytic.naive_sum import series_sum
+        sage: from ore_algebra.analytic.accuracy import StoppingCriterion_index
+        sage: Dops, x, Dx = DifferentialOperators()
+        sage: maj = DiffOpBound(Dx-1, max_effort=3)
+        sage: stop = StoppingCriterion_index(maj, 7)
+        sage: (val,) = series_sum(Dx-1, [1], 2, 1e-20, stop=stop, stride=1)
+        sage: RBF(2).exp() in val
+        True
+        sage: sum(2^k/k.factorial() for k in srange(7)) in val
+        True
+    """
+
+    def __init__(self, maj, n):
+        self.maj = maj
+        self.n = n
+
+    def check(self, cb, sing, n, ini_tb, est, next_stride):
+        if n < self.n:
+            return False, IR('inf')
+        else:
+            return True, cb.get_bound(cb.get_residuals())
+
+    def tighten(self, *args):
+        # bugware, for compatibility with StoppingCriterion_eps
+        pass
+
+class StoppingCriterion_eps(StoppingCriterion):
+    r"""
+    Condition for dynamically deciding where to truncate a series.
 
     Based on rigorous (absolute) error bounds, observed interval blow-up, and
     various heuristics to choose a course of action when, e.g., adding more
     terms will reduce the method error but possibly increase the round-off error
     or interval width.
+
+    TESTS::
+
+        sage: from ore_algebra import DifferentialOperators
+        sage: from ore_algebra.analytic.bounds import DiffOpBound
+        sage: from ore_algebra.analytic.naive_sum import series_sum
+        sage: Dops, x, Dx = DifferentialOperators()
+        sage: maj = DiffOpBound(Dx-1, max_effort=0)
+        sage: series_sum(Dx-1, [1], 2, 1e-50, stride=1)
+        ([7.3890560989306502272304274605750078131803155705...])
     """
 
     def __init__(self, maj, eps, fast_fail=True):
@@ -91,41 +176,6 @@ class StoppingCriterion(object):
         self.force = False
 
     def check(self, cb, sing, n, ini_tb, est, next_stride):
-        r"""
-        Test if it is time to halt the computation of the sum of a series.
-
-        INPUT:
-
-        - cb: BoundCallbacks object, see the documentation of that class;
-        - sing: boolean, True signals a singular index where we should return
-          infinity without even trying to compute a better bound (this is useful
-          to avoid special-casing singular indices elsewhere);
-        - n: current index;
-        - ini_tb: previous tail bound (can be infinite);
-        - est: real interval, heuristic estimate of the absolute value of the
-          tail of the series, **whose lower bound must tend to zero or
-          eventually become negative**, and whose width can be used to provide
-          an indication of interval blow-up in the computation; typically
-          something like abs(first nonzero neglected term);
-        - next_stride: indication of how many additional terms the caller
-          intends to sum before calling us again.
-
-        OUTPUT:
-
-        (done, bound) where done is a boolean indicating if it is time to stop
-        the computation, and bound is a rigorous (possibly infinite) bound on
-        the tail of the series.
-
-        TESTS::
-
-            sage: from ore_algebra import DifferentialOperators
-            sage: from ore_algebra.analytic.bounds import DiffOpBound
-            sage: from ore_algebra.analytic.naive_sum import series_sum
-            sage: Dops, x, Dx = DifferentialOperators()
-            sage: maj = DiffOpBound(Dx-1, max_effort=0)
-            sage: series_sum(Dx-1, [1], 2, 1e-50, stride=1)
-            ([7.3890560989306502272304274605750078131803155705...])
-        """
         if sing:
             return False, IR('inf')
 
@@ -185,7 +235,7 @@ class StoppingCriterion(object):
                     # of a genuine mathematical reason or an evaluation issue.)
                     logger.debug("--> bounds out of control ({} became {})"
                                 .format(ini_tb, tb))
-                    return True, tb
+                    return True, ini_tb
                 else:
                     # Refining no longer seems to help: sum more terms
                     logger.debug("--> refining doesn't help")
@@ -211,9 +261,9 @@ class StoppingCriterion(object):
         logger.debug("--> ko")
         return False, tb
 
-    def reset(self, eps, fast_fail):
-        self.eps = eps
-        self.fast_fail = fast_fail
+    def tighten(self, ini_are_accurate):
+        self.eps >>= 4
+        self.fast_fail = self.fast_fail and ini_are_accurate
 
 ######################################################################
 # Bound recording
@@ -221,7 +271,7 @@ class StoppingCriterion(object):
 
 BoundRecord = collections.namedtuple("BoundRecord", ["n", "psum", "maj", "b"])
 
-class BoundRecorder(StoppingCriterion):
+class BoundRecorder(StoppingCriterion_eps):
 
     def __init__(self, maj, eps, fast_fail=False):
         super(self.__class__, self).__init__(maj, eps, fast_fail=True)
@@ -239,8 +289,8 @@ class BoundRecorder(StoppingCriterion):
         self.recd.append(BoundRecord(n, cb.get_value(), maj, bound))
         return super(self.__class__, self).check(cb, sing, n, *args)
 
-    def reset(self, *args):
-        super(self.__class__, self).reset(*args)
+    def tighten(self, *args):
+        super(self.__class__, self).tighten(*args)
         self.recd = []
 
 ######################################################################

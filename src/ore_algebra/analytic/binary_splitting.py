@@ -1090,7 +1090,7 @@ class MatrixRecsUnroller(LocalBasisMapper, accuracy.BoundCallbacks):
                     for rt in self.roots}
         wrapper = bounds.MultiDiffOpBound(self.maj.values())
         # TODO: switch to fast_fail=True?
-        stop = accuracy.StoppingCriterion(wrapper, self.eps, fast_fail=False)
+        stop = accuracy.StoppingCriterion_eps(wrapper, self.eps, fast_fail=False)
 
         first_singular_index = min(s for s, _ in self.shifts)
         last_singular_index = max(s for s, _ in self.shifts)
