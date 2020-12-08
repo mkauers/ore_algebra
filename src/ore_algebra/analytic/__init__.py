@@ -317,8 +317,8 @@ TESTS::
     sage: dop = (x^2 + 1)*Dx^2 + 2*x*Dx
     sage: dop.numerical_transition_matrix([0,1], algorithm="binsplit")
     INFO:ore_algebra.analytic.binary_splitting:...
-    [ [1.0000000000000...] [0.785398163397448...]]
-    [            [+/- ...] [0.500000000000000...]]
+    [[1.0000000000000...] [0.785398163397448...]]
+    [           [+/- ...] [0.500000000000000...]]
     sage: logger.setLevel(logging.WARNING)
 
 Some corner cases::
@@ -492,7 +492,7 @@ Operators with rational function coefficients::
     [[-0.579827135138349...]   [2.27958530233606...]]
     sage: ((x/1)*Dx^2 - 1).numerical_transition_matrix([0, 1], algorithm='binsplit')
     [[0.0340875989376363...]   [1.59063685463732...]]
-    [[-0.579827135138349...]   [2.27958530233606...]]
+    [ [-0.579827135138349...]  [2.27958530233606...]]
 
 Algorithm choice::
 

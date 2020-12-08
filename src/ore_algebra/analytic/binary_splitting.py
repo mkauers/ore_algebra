@@ -45,8 +45,8 @@ Note that the zeros here shouldn't be exact unless we have proved that the
 corresponding series do not continue::
 
     sage: ((x + 1)*Dx^2 + Dx).numerical_transition_matrix([0,1/2], algorithm='binsplit')
-    [ [1.00000000000000...] [0.4054651081081643...]]
-    [             [+/- ...] [0.6666666666666666...]]
+    [ [1.00000000000000...] [0.405465108108164...]]
+    [             [+/- ...] [0.666666666666666...]]
 
     sage: ((x + 1)*Dx^3 + Dx).numerical_transition_matrix([0,1/2], algorithm='binsplit')
     [  [1.000000000000000...]  [0.4815453970799961...]  [0.2456596136789682...]]
@@ -128,7 +128,7 @@ Various mixes of algebraic exponents and evaluation points::
 
     sage: ((x*Dx)^2-2-x).numerical_transition_matrix([0,i], 1e-5, algorithm="binsplit")
     [[-1.4237...] + [0.0706...]*I [-0.7959...] + [0.6169...]*I]
-    [[1.4514...] + [-0.168...]*I   [0.6742...] + [1.2971...]*I]
+    [ [1.4514...] + [-0.168...]*I  [0.6742...] + [1.2971...]*I]
 
     sage: ((x*Dx)^3-2-x).numerical_transition_matrix([0,i], 1e-8, algorithm="binsplit")
     [  [1.94580...] + [-5.61860...]*I [0.04040867...] + [-0.16436364...]*I    [-0.491906...] + [0.873265...]*I]
@@ -639,17 +639,17 @@ class SolutionColumn(object):
         op_k = self.v.sums_row[-1] # K[λ][δ][Sk]
         numer = list(reversed(op_k))
         Scalars = Jets.base_ring()
-        # Specialize abstract algebraic exponent
+        # Specialize abstract algebraic exponent and add error term
+        # (overestimation: we are using a single bound for all subseries)
         specialize = _specialization_map(self.v.zero_sum.parent(), Scalars,
                                          abstract_alg, alg)
-        # (overestimation: we are using a single bound for all subseries)
-        numer = vector([Jets([specialize(c).add_error(tail_bound) for c in ser])
-                       for ser in numer])
-        assert self.v.ord_diff == dz.jet_order
-        [numer] = log_series_values(Jets, alg + shift, numer, dz)
         denom = specialize(self.v.rec_den)*Scalars(self.v.pow_den)
-        # slightly redundant: should actually be the same for all columns...
-        return numer/denom
+        val = vector([Jets([(specialize(c)/denom).add_error(tail_bound)
+                            for c in ser])
+                     for ser in numer])
+        assert self.v.ord_diff == dz.jet_order
+        [val] = log_series_values(Jets, alg + shift, val, dz)
+        return val
 
     def error_estimate(self):
         def IC_est(c):
