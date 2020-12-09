@@ -287,7 +287,7 @@ def analytic_continuation(dop, path, eps, ctx=dctx, ini=None, post=None,
     real = (rings.RIF.has_coerce_map_from(dop.base_ring().base_ring())
             and all(v.is_real() for v in path.vert))
     OutputIntervals = cm.common_parent(
-            utilities.ball_field(eps, real),
+            utilities.ball_field(eps, real=real),
             *[rec["value"].base_ring() for rec in res])
     for rec in res:
         rec["value"] = rec["value"].change_ring(OutputIntervals)

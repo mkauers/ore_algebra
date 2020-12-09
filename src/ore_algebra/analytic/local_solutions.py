@@ -613,7 +613,7 @@ def log_series_values(Jets, expo, psum, evpt, downshift=[0]):
     derivatives = evpt.jet_order
     log_prec = psum.length()
     assert all(d < log_prec for d in downshift) or log_prec == 0
-    if not evpt.is_complex():
+    if not utilities.is_numeric_parent(Jets.base_ring()):
         if expo != 0 or log_prec > 1:
             raise NotImplementedError("log-series of non-complex point")
         return [vector(psum[0][i] for i in range(derivatives))]

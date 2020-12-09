@@ -22,11 +22,13 @@ from sage.rings.all import ZZ, QQ, QQbar, CIF, CBF
 from sage.rings.complex_arb import ComplexBall, ComplexBallField
 from sage.rings.number_field.number_field import (NumberField,
         NumberField_quadratic, is_NumberField)
+from sage.rings.padics.factory import QpCR
 from sage.rings.padics.padic_generic import pAdicGeneric
+from sage.rings.padics.padic_generic_element import pAdicGenericElement
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 from sage.rings.polynomial.polynomial_ring import PolynomialRing_general
 from sage.rings.qqbar import number_field_elements_from_algebraics
-from sage.rings.real_arb import RealBallField
+from sage.rings.real_arb import RealBall, RealBallField
 
 ######################################################################
 # Timing
@@ -75,10 +77,18 @@ def is_QQi(parent):
 
 def ball_field(eps, real):
     prec = prec_from_eps(eps)
-    if real:
-        return RealBallField(prec)
+    if isinstance(eps, RealBall):
+        if real:
+            return RealBallField(prec)
+        else:
+            return ComplexBallField(prec)
+    elif isinstance(eps, pAdicGenericElement):
+        if real:
+            raise ValueError
+        else:
+            return QpCR(eps.parent().prime(), prec) # (??)
     else:
-        return ComplexBallField(prec)
+        raise TypeError
 
 def add_error_method(parent):
     r"""
@@ -199,7 +209,12 @@ def has_new_ComplexBall_constructor():
 ######################################################################
 
 def prec_from_eps(eps):
-    return -eps.lower().log2().floor() + 4
+    if isinstance(eps, RealBall):
+        return -eps.lower().log2().floor() + 4
+    elif isinstance(eps, pAdicGenericElement):
+        return eps.valuation()
+    else:
+        raise TypeError
 
 def split(cond, objs):
     matching, not_matching = [], []

@@ -515,7 +515,7 @@ class EvaluationPoint(object):
     """
 
     # XXX: choose a single place to set the default value for jet_order
-    def __init__(self, pt, jet_order=1, branch=(0,), rad=None ):
+    def __init__(self, pt, jet_order=1, branch=(0,), rad=None):
         self.pt = pt
         if rad is not None:
             self.rad = IR.coerce(rad)

@@ -148,6 +148,17 @@ class StoppingCriterion_index(StoppingCriterion):
         # bugware, for compatibility with StoppingCriterion_eps
         pass
 
+class StoppingCriterion_valuation_estimate(StoppingCriterion):
+
+    def __init__(self, eps):
+        self.eps = eps
+
+    def check(self, cb, sing, n, ini_tb, est, next_stride):
+        return (est.valuation() >= self.eps.valuation()), est
+
+    def tighten(self, *args):
+        self.eps <<= 4
+
 class StoppingCriterion_eps(StoppingCriterion):
     r"""
     Condition for dynamically deciding where to truncate a series.

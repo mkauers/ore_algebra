@@ -245,12 +245,15 @@ import sage.rings.polynomial.polynomial_element as polyelt
 import sage.rings.polynomial.polynomial_ring as polyring
 import sage.rings.polynomial.polynomial_ring_constructor as polyringconstr
 
+
 from sage.arith.all import gcd
 from sage.matrix.constructor import matrix
 from sage.matrix.matrix_space import MatrixSpace
 from sage.modules.free_module_element import vector
 from sage.rings.all import ZZ, QQ, RLF, CLF, RealBallField, ComplexBallField
 from sage.rings.number_field.number_field import is_NumberField, NumberField
+from sage.rings.padics.padic_generic_element import pAdicGenericElement
+from sage.rings.real_arb import RealBall
 from sage.structure.coerce_exceptions import CoercionException
 
 from . import accuracy, bounds, utilities
@@ -673,16 +676,10 @@ class SolutionColumn(object):
         [val] = log_series_values(Jets, alg + shift, val, dz)
         return val
 
-    def error_estimate(self):
-        def IC_est(c):
-            try:
-                return bounds.IC(c) # arb, QQ
-            except TypeError:
-                return bounds.IC(c[0]) # NF, would work for QQ
-        zero = bounds.IR.zero()
-        num1 = max([zero] + [abs(IC_est(m[-1, -1])) for m in self.v.rec_mat])
-        num2 = sum(abs(IC_est(a)) for a in self.v.pow_num)
-        den = abs(IC_est(self.v.rec_den))*bounds.IR(self.v.pow_den)
+    def error_estimate(self, p=None):
+        num1 = sum(_est_abs(m[-1, -1], p) for m in self.v.rec_mat)
+        num2 = sum(_est_abs(a, p) for a in self.v.pow_num)
+        den = _est_abs(self.v.rec_den, p)*_est_abs(self.v.pow_den, p)
         return num1*num2/den
 
 class MatrixRec(object):
@@ -763,7 +760,7 @@ class MatrixRec(object):
     """
 
     def __init__(self, dop, shift, singular_indices,
-                 dz, derivatives, prec, binsplit_threshold):
+                 dz, prime, derivatives, prec, binsplit_threshold):
 
         # TODO: perhaps dynamically optimize the representation when there are
         # no logs, algebraic exponents, etc.
@@ -776,7 +773,7 @@ class MatrixRec(object):
         assert deq_Scalars is E or deq_Scalars != E
         # Sets self.AlgInts_{rec,pow,sums}, self.pow_{num,den} (pow_num will be
         # modified later), and self.shift.
-        if _can_use_CBF(E, deq_Scalars, shift.parent()):
+        if _can_use_CBF(E, deq_Scalars, shift.parent()) and prime is None:
             # Work with arb balls and matrices, when possible with entries in ZZ
             # or ZZ[i]. Round the entries that are larger than the target
             # precision (+ some guard digits) in the upper levels of the tree.
@@ -896,7 +893,8 @@ class MatrixRec(object):
             assert pol.is_monic()
             assert den*shift == shift.parent().gen()
             name = str(shift.parent().gen())
-            AlgInts_sums = utilities.mypushout(NF_deq, AlgInts_pow).extension(pol, name)
+            AlgInts_sums0 = utilities.mypushout(NF_deq, AlgInts_pow)
+            AlgInts_sums = AlgInts_sums0.extension(pol, names=name)
             AlgInts_rec = AlgInts_sums # for now at least
             self.shift = AlgInts_rec.gen()/den
 
@@ -983,15 +981,23 @@ class MatrixRecsUnroller(LocalBasisMapper, accuracy.BoundCallbacks):
         self.eps = eps
         self.derivatives = derivatives
         self.ctx = ctx
-        self._est_terms, _ = dop.est_terms(pt, utilities.prec_from_eps(eps))
+        if isinstance(self.eps, RealBall):
+            self.prime = None
+            self._est_terms, _ = dop.est_terms(pt, utilities.prec_from_eps(eps))
+        elif isinstance(self.eps, pAdicGenericElement):
+            self.prime = eps.parent().prime()
+            self._est_terms = eps.valuation()
+        else:
+            raise TypeError
 
     def process_decomposition(self):
         int_expos = (len(self.sl_decomp) == 1
                 and self.sl_decomp[0][0].degree() == 1
                 and self.sl_decomp[0][0][0].is_zero())
         is_real = (int_expos
+                and isinstance(self.eps, RealBall)
                 and utilities.is_real_parent(self.dop.base_ring().base_ring())
-                and utilities.is_real_parent(self.pt.pt.parent()))
+                and self.pt.is_real())
         # enough to represent individual series, but real jets may still become
         # complex later if there are logs
         Intervals = utilities.ball_field(self.eps, is_real)
@@ -1080,17 +1086,21 @@ class MatrixRecsUnroller(LocalBasisMapper, accuracy.BoundCallbacks):
         self.modZ_class_tail_bound = None
 
         # Generic recurrence matrix
+        wprec = utilities.prec_from_eps(self.eps)
         self.matrix_rec = MatrixRec(self.dop, self.leftmost, self.shifts,
-                self.pt.pt, self.derivatives, utilities.prec_from_eps(self.eps),
+                self.pt.pt, self.prime, self.derivatives, wprec,
                 min(self.ctx.binsplit_thr, self._est_terms))
 
-        # Majorants
-        self.maj = {rt: bounds.DiffOpBound(self.dop, rt, self.shifts,
-                                           bound_inverse="solve")
-                    for rt in self.roots}
-        wrapper = bounds.MultiDiffOpBound(self.maj.values())
-        # TODO: switch to fast_fail=True?
-        stop = accuracy.StoppingCriterion_eps(wrapper, self.eps, fast_fail=False)
+        if self.prime is None: # XXX TBI
+            # Majorants
+            self.maj = {rt: bounds.DiffOpBound(self.dop, rt, self.shifts,
+                                            bound_inverse="solve")
+                        for rt in self.roots}
+            wrapper = bounds.MultiDiffOpBound(self.maj.values())
+            # TODO: switch to fast_fail=True?
+            stop = accuracy.StoppingCriterion_eps(wrapper, self.eps, fast_fail=False)
+        else:
+            stop = accuracy.StoppingCriterion_valuation_estimate(self.eps)
 
         first_singular_index = min(s for s, _ in self.shifts)
         last_singular_index = max(s for s, _ in self.shifts)
@@ -1129,7 +1139,7 @@ class MatrixRecsUnroller(LocalBasisMapper, accuracy.BoundCallbacks):
                 ord_log = max(sol.value.v.ord_log for sol in self.irred_factor_cols)
             # Check if we have converged
             if self.shift > last_singular_index:
-                est = max(sol.value.error_estimate()
+                est = sum(sol.value.error_estimate(self.prime)
                           for sol in self.irred_factor_cols)
                 done, tail_bound = stop.check(self, False, self.shift, tail_bound,
                                est, next_stride=self.shift-first_singular_index)
@@ -1202,3 +1212,17 @@ def _specialization_map(source, dest, abstract_alg, alg):
         except TypeError: # temporary kludge for sage < 9.0
             hom = Homset([dest(den*alg)], base_hom=base_hom, check=False)
     return hom
+
+def _est_abs(c, p=None):
+    if p is None:
+        try:
+            c = bounds.IC(c) # arb, QQ
+        except TypeError:
+            c = bounds.IC(c[0]) # NF, would work for QQ
+        return abs(c)
+    else:
+        from sage.rings.all import QpCR
+        myQp = QpCR(p, 1)
+        if isinstance(c, pAdicGenericElement):
+            assert c.parent().prime() == p
+        return myQp(c)
