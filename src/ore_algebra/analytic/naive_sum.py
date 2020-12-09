@@ -527,8 +527,8 @@ class PartialSum(object):
         # ...but starting with partial sums of length 0 is better in some
         # corner cases
         self.psum = []
-        self.tail_bound = bounds.IR(infinity)
-        self.total_error = bounds.IR(infinity)
+        self.tail_bound = bounds.IR(infinity) # remainder of each subseries
+        self.total_error = bounds.IR(infinity) # trunc error with logs and such
 
         self.value = None
         self.downshifts = []
@@ -606,6 +606,7 @@ class PartialSum(object):
         return err
 
     def update_enclosure(self, Jets, pt, tb):
+        self.tail_bound = tb
         self.series = vector(Jets, self.log_prec)
         for i, t in enumerate(self.psum):
             self.series[i] = Jets([self._add_error(t[k], tb)
@@ -710,7 +711,7 @@ def series_sum_regular(Intervals, dop, bwrec, inis, pt, stop, stride,
     jetpow = Jets.one()
     radpow = bounds.IR.one() # bound on abs(pt)^n in the series part (=> starts
                              # at 1 regardless of ini.expo)
-    tail_bound = bounds.IR(infinity)
+    trunc_err = bounds.IR(infinity)
 
     ordinary = (dop.leading_coefficient()[0] != 0)
 
@@ -770,7 +771,7 @@ def series_sum_regular(Intervals, dop, bwrec, inis, pt, stop, stride,
                          else Intervals(pt.rad**n))
             est = sum(sol.coeff_estimate() for sol in sols)*radpowest
             sing = (n <= last_index_with_ini) or (mult > 0) # ?
-            done, tail_bound = stop.check(cb, sing, n, tail_bound, est, stride)
+            done, trunc_err = stop.check(cb, sing, n, trunc_err, est, stride)
             if done:
                 break
 
@@ -812,13 +813,13 @@ def series_sum_regular(Intervals, dop, bwrec, inis, pt, stop, stride,
         rnd_fac = cst*rnd_maj.bound(pt.rad, rows=ord)/n0_squash
         rnd_err = rnd_loc*rnd_fac
         for sol in sols:
-            sol.update_enclosure(Jets, pt, tail_bound + rnd_err)
+            sol.update_enclosure(Jets, pt, sol.tail_bound + rnd_err)
     else:
         rnd_err = bounds.IR.zero()
 
     logger.info("summed %d terms, tails = %s (est = %s), rnd_err <= %s, "
                 "interval width <= %s",
-            n, tail_bound, bounds.IR(est), rnd_err,
+            n, trunc_err, bounds.IR(est), rnd_err,
             max(sol.interval_width() for sol in sols) if pt.is_complex()
                                                       else None)
 
