@@ -613,12 +613,19 @@ def log_series_values(Jets, expo, psum, evpt, downshift=[0]):
     derivatives = evpt.jet_order
     log_prec = psum.length()
     assert all(d < log_prec for d in downshift) or log_prec == 0
-    if not utilities.is_numeric_parent(Jets.base_ring()):
-        if expo != 0 or log_prec > 1:
-            raise NotImplementedError("log-series of non-complex point")
-        return [vector(psum[0][i] for i in range(derivatives))]
     pt = Jets.base_ring()(evpt.pt)
-    if log_prec > 1 or expo not in ZZ or evpt.branch != (0,):
+    int_expo = expo in ZZ
+    if int_expo:
+        inipow = _pow_trunc(Jets([pt, 1]), abs(int(expo)), derivatives)
+        if expo < 0:
+            inipow = inipow.inverse_series_trunc(derivatives)
+    log_case = log_prec > 1 or not int_expo or evpt.branch != (0,)
+    if not utilities.is_numeric_parent(Jets.base_ring()):
+        if log_case:
+            raise NotImplementedError("log-series of non-complex point")
+        val = inipow.multiplication_trunc(psum[0], derivatives)
+        return [vector(val[i] for i in range(derivatives))]
+    if log_case:
         pt = pt.parent().complex_field()(pt)
         Jets = Jets.change_ring(Jets.base_ring().complex_field())
         psum = psum.change_ring(Jets)
@@ -633,12 +640,9 @@ def log_series_values(Jets, expo, psum, evpt, downshift=[0]):
         # (too cumbersome to compute directly in Sage at the moment)
         logpt = Jets([pt.log() + twobpii]) + high
         logger.debug("logpt[%s]=%s", b, logpt)
-        if expo in ZZ and expo >= 0:
-            # the general formula in the other branch does not work when pt
-            # contains zero
-            expo = int(expo)
-            inipow = _pow_trunc(Jets([pt, 1]), expo, derivatives)
-        else:
+        if not int_expo:
+            # 'if' needed because the formula here does not work when pt
+            # contains 0 and expo ∈ ℕ
             inipow = ((twobpii*expo).exp()*pt**expo
                      *sum(_pow_trunc(aux, k, derivatives)/Integer(k).factorial()
                           for k in range(derivatives)))
