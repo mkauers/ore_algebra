@@ -979,11 +979,10 @@ class MatrixRec(object):
 
 class MatrixRecsUnroller(LocalBasisMapper, accuracy.BoundCallbacks):
 
-    def __init__(self, dop, pt, eps, derivatives, ctx=dctx):
+    def __init__(self, dop, pt, eps, ctx=dctx):
         super(self.__class__, self).__init__(dop)
         self.pt = pt
         self.eps = eps
-        self.derivatives = derivatives
         self.ctx = ctx
         if isinstance(self.eps, RealBall):
             self.prime = None
@@ -1097,7 +1096,7 @@ class MatrixRecsUnroller(LocalBasisMapper, accuracy.BoundCallbacks):
             # Tail majorant valid for the power series in front of the
             # logs for all solutions associated to rt
             tmaj = self.maj[rt].tail_majorant(self.shift, myres)
-            sqbound += tmaj.bound(self.pt.rad, rows=self.derivatives,
+            sqbound += tmaj.bound(self.pt.rad, rows=self.pt.jet_order,
                                   cols=len(myres))**2
         return sqbound.sqrtpos()
 
@@ -1113,7 +1112,7 @@ class MatrixRecsUnroller(LocalBasisMapper, accuracy.BoundCallbacks):
         # Generic recurrence matrix
         wprec = utilities.prec_from_eps(self.eps)
         self.matrix_rec = MatrixRec(self.dop, self.leftmost, self.shifts,
-                self.pt.pt, self.prime, self.derivatives, wprec,
+                self.pt.pt, self.prime, self.pt.jet_order, wprec,
                 min(self.ctx.binsplit_thr, self._est_terms))
 
         if self.prime is None: # XXX TBI
@@ -1199,8 +1198,7 @@ class MatrixRecsUnroller(LocalBasisMapper, accuracy.BoundCallbacks):
         return SolutionColumn(self.matrix_rec, self.shift, self.log_power)
 
 def fundamental_matrix_regular(dop, pt, eps, fail_fast, effort, ctx=dctx):
-    rows = pt.jet_order
-    cols = MatrixRecsUnroller(dop, pt, eps, rows, ctx).run()
+    cols = MatrixRecsUnroller(dop, pt, eps, ctx).run()
     return matrix([sol.value for sol in cols]).transpose()
 
 def _can_use_CBF(*doms):
