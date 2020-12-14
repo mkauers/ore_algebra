@@ -261,7 +261,7 @@ from . import accuracy, bounds, utilities
 
 from .context import dctx
 from .local_solutions import (bw_shift_rec, FundamentalSolution,
-        LocalBasisMapper, log_series_values)
+        LocalBasisMapper, log_series_values, DummyLogSeriesValues)
 from .safe_cmp import *
 
 logger = logging.getLogger(__name__)
@@ -674,7 +674,10 @@ class SolutionColumn(object):
                             for c in ser])
                      for ser in numer])
         assert self.v.ord_diff == dz.jet_order
-        [val] = log_series_values(Jets, alg + shift, val, dz)
+        try:
+            [val] = log_series_values(Jets, alg + shift, val, dz)
+        except NotImplementedError:
+            val = DummyLogSeriesValues(Jets, alg + shift, val, dz)
         return val
 
     def error_estimate(self, _est_abs):

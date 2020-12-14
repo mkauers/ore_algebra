@@ -563,6 +563,29 @@ def exponent_shifts(dop, leftmost):
     assert shifts[0][0] == 0
     return shifts
 
+class DummyLogSeriesValues:
+
+    def __init__(self, Jets, expo, psum, evpt):
+        self.pt = Jets([evpt.pt, 1])
+        self.derivatives = evpt.jet_order
+        self.var = Jets.variable_name()
+        self.expo = expo
+        self.psum = psum
+
+    def __repr__(self):
+        terms = []
+        for k, ser in enumerate(self.psum):
+            factors = []
+            if self.expo != 0:
+                factors.append(f"({self.pt})^({self.expo})")
+            if k == 1:
+                factors.append(f"log({self.pt})")
+            elif k >= 2:
+                factors.append(f"log({self.pt})^{k}")
+            factors.append(f"({ser/ZZ(k).factorial()})")
+            terms.append("*".join(factors))
+        return " + ".join(terms)
+
 def log_series(ini, bwrec, order):
     Coeffs = utilities.mypushout(bwrec.base_ring.base_ring(), ini.universe)
     log_prec = sum(len(v) for v in ini.shift.values())
