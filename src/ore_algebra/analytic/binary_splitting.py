@@ -762,6 +762,25 @@ class MatrixRec(object):
     - The scalar domains are called AlgInts_* although they are actually number
       fields or numeric (ball) fields because the elements we are working with
       are algebraic integers.
+
+    TESTS:
+
+    P-adic points::
+
+        sage: from ore_algebra import DifferentialOperators
+        sage: from ore_algebra.analytic.binary_splitting import *
+        sage: from ore_algebra.analytic import DifferentialOperator, EvaluationPoint
+        sage: Dops, x, Dx = DifferentialOperators(QQ, 'x')
+        sage: dop = DifferentialOperator(Dx - 1)
+        sage: myZp = Zp(29, 500); pt = myZp(4*29)
+        sage: rec = MatrixRec(dop, 0, dict(), pt.lift(), myZp.prime(), 1, None, 10)
+        sage: sol = SolutionColumn(rec, 0, 0)
+        sage: fwd = rec.step_matrix_binsplit(0, 1000, 1)
+        sage: sol.iapply(fwd, 0)
+        sage: (val,) = sol.partial_sum(myZp['delta'], EvaluationPoint(pt), 0,
+        ....:          0, 0, myZp(0, myZp.precision_cap()))
+        sage: pt.exp() - val
+        O(29^500)
     """
 
     def __init__(self, dop, shift, singular_indices,
@@ -982,6 +1001,27 @@ class MatrixRec(object):
         return pprint.pformat(self.__dict__)
 
 class MatrixRecsUnroller(LocalBasisMapper, accuracy.BoundCallbacks):
+    r"""
+    TESTS:
+
+    An artificial 3rd order p-adic example::
+
+        sage: from ore_algebra import DifferentialOperators
+        sage: from ore_algebra.analytic.binary_splitting import *
+        sage: from ore_algebra.analytic import DifferentialOperator, EvaluationPoint
+        sage: Dops, x, Dx = DifferentialOperators(QQ, 'x')
+        sage: dop = DifferentialOperator((Dx-1).lclm(Dx*(x+1)*Dx))
+        sage: myZp = Zp(29, 500); pt = myZp(4*29)
+        sage: evpt = EvaluationPoint(pt, jet_order=3, rad=RBF(1/29))
+        sage: unroller = MatrixRecsUnroller(dop, evpt, O(29^12))
+        sage: sol = unroller.run()
+        sage: mysol = sol[0].value + 2*sol[1].value
+        sage: myref = vector((exp(pt) + log(1+pt),
+        ....:                exp(pt) + 1/(1+pt),
+        ....:                1/2*(exp(pt) - 1/(1+pt)^2)))
+        sage: mysol - myref
+        (O(29^12), O(29^12), O(29^13))
+    """
 
     def __init__(self, dop, pt, eps, ctx=dctx):
         super(self.__class__, self).__init__(dop)
