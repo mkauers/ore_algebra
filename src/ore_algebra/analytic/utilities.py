@@ -82,11 +82,6 @@ def ball_field(eps, real):
             return RealBallField(prec)
         else:
             return ComplexBallField(prec)
-    elif isinstance(eps, pAdicGenericElement):
-        if real:
-            raise ValueError
-        else:
-            return QpCR(eps.parent().prime(), prec) # (??)
     else:
         raise TypeError
 

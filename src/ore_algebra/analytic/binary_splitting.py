@@ -250,8 +250,9 @@ from sage.arith.all import gcd
 from sage.matrix.constructor import matrix
 from sage.matrix.matrix_space import MatrixSpace
 from sage.modules.free_module_element import vector
-from sage.rings.all import ZZ, QQ, RLF, CLF, RealBallField, ComplexBallField
+from sage.rings.all import ZZ, QQ, RLF, CLF, Qp, RealBallField, ComplexBallField
 from sage.rings.number_field.number_field import is_NumberField, NumberField
+from sage.rings.padics.padic_generic import pAdicGeneric
 from sage.rings.padics.padic_generic_element import pAdicGenericElement
 from sage.rings.real_arb import RealBall
 from sage.structure.coerce_exceptions import CoercionException
@@ -676,10 +677,10 @@ class SolutionColumn(object):
         [val] = log_series_values(Jets, alg + shift, val, dz)
         return val
 
-    def error_estimate(self, p=None):
-        num1 = sum(_est_abs(m[-1, -1], p) for m in self.v.rec_mat)
-        num2 = sum(_est_abs(a, p) for a in self.v.pow_num)
-        den = _est_abs(self.v.rec_den, p)*_est_abs(self.v.pow_den, p)
+    def error_estimate(self, _est_abs):
+        num1 = sum(_est_abs(m[-1, -1]) for m in self.v.rec_mat)
+        num2 = sum(_est_abs(a) for a in self.v.pow_num)
+        den = _est_abs(self.v.rec_den)*_est_abs(self.v.pow_den)
         return num1*num2/den
 
 class MatrixRec(object):
@@ -991,16 +992,37 @@ class MatrixRecsUnroller(LocalBasisMapper, accuracy.BoundCallbacks):
             raise TypeError
 
     def process_decomposition(self):
-        int_expos = (len(self.sl_decomp) == 1
-                and self.sl_decomp[0][0].degree() == 1
-                and self.sl_decomp[0][0][0].is_zero())
-        is_real = (int_expos
-                and isinstance(self.eps, RealBall)
-                and utilities.is_real_parent(self.dop.base_ring().base_ring())
-                and self.pt.is_real())
         # enough to represent individual series, but real jets may still become
         # complex later if there are logs
-        Intervals = utilities.ball_field(self.eps, is_real)
+        if isinstance(self.eps, RealBall):
+            int_expos = (len(self.sl_decomp) == 1
+                    and self.sl_decomp[0][0].degree() == 1
+                    and self.sl_decomp[0][0][0].is_zero())
+            is_real = (int_expos
+                    and utilities.is_real_parent(self.dop.base_ring().base_ring())
+                    and self.pt.is_real())
+            Intervals = utilities.ball_field(self.eps, is_real)
+            self._est_abs = _est_abs_CC
+        elif isinstance(self.eps, pAdicGenericElement):
+            myQp = Qp(self.prime)
+            Points = self.pt.pt.parent()
+            if isinstance(Points, pAdicGeneric): # at any precision
+                Intervals = Points.fraction_field() # (?)
+            elif myQp.has_coerce_map_from(Points):
+                Intervals = myQp
+            else:
+                Intervals = Points.coerce_embedding().codomain()
+                if (Intervals is None or not isinstance(Intervals, pAdicGeneric)
+                        or Intervals.prime() != self.prime):
+                    raise TypeError(f"no {self.prime}-adic embedding found "
+                                    f"for {Points}")
+            # XXX extend to contain the coefficients of the operator and the
+            # exponents...
+            Intervals = Intervals.change(type="capped-rel",
+                                         prec=self.eps.valuation())
+            self._est_abs = Intervals.change(prec=1)
+        else:
+            raise TypeError
         self.Jets = PolynomialRing(Intervals, 'delta')
 
     def process_irred_factor(self):
@@ -1139,7 +1161,7 @@ class MatrixRecsUnroller(LocalBasisMapper, accuracy.BoundCallbacks):
                 ord_log = max(sol.value.v.ord_log for sol in self.irred_factor_cols)
             # Check if we have converged
             if self.shift > last_singular_index:
-                est = sum(sol.value.error_estimate(self.prime)
+                est = sum(sol.value.error_estimate(self._est_abs)
                           for sol in self.irred_factor_cols)
                 done, tail_bound = stop.check(self, False, self.shift, tail_bound,
                                est, next_stride=self.shift-first_singular_index)
@@ -1213,16 +1235,9 @@ def _specialization_map(source, dest, abstract_alg, alg):
             hom = Homset([dest(den*alg)], base_hom=base_hom, check=False)
     return hom
 
-def _est_abs(c, p=None):
-    if p is None:
-        try:
-            c = bounds.IC(c) # arb, QQ
-        except TypeError:
-            c = bounds.IC(c[0]) # NF, would work for QQ
-        return abs(c)
-    else:
-        from sage.rings.all import QpCR
-        myQp = QpCR(p, 1)
-        if isinstance(c, pAdicGenericElement):
-            assert c.parent().prime() == p
-        return myQp(c)
+def _est_abs_CC(c):
+    try:
+        c = bounds.IC(c) # arb, QQ
+    except TypeError:
+        c = bounds.IC(c[0]) # NF, would work for QQ
+    return abs(c)
