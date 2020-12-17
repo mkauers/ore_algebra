@@ -463,7 +463,7 @@ class LocalBasisMapper(object):
     def __init__(self, dop):
         self.dop = dop
 
-    def run(self):
+    def run(self, exponent_field=None):
         r"""
         Compute self.fun() for each element of the local basis at 0 of self.dop.
 
@@ -491,9 +491,12 @@ class LocalBasisMapper(object):
                     if rt.is_rational():
                         rt = QQ(rt)
                     self.roots = [rt]
+                elif exponent_field is not None:
+                    self.roots = self.irred_factor.roots(exponent_field,
+                                                         multiplicities=False)
                 else:
                     roots = complex_roots(self.irred_factor,
-                            skip_squarefree=True, retval='algebraic')
+                                       skip_squarefree=True, retval='algebraic')
                     self.roots = [utilities.as_embedded_number_field_element(rt)
                                   for rt, _ in roots]
                 logger.debug("indicial factor = %s, roots = %s",
@@ -503,7 +506,8 @@ class LocalBasisMapper(object):
                 self.cols.extend(self.irred_factor_cols)
                 if self.irred_factor.degree() >= 2:
                     self.nontrivial_factor_index += 1
-        self.cols.sort(key=sort_key_by_asympt)
+        if exponent_field is None:
+            self.cols.sort(key=sort_key_by_asympt)
         return self.cols
 
     def process_decomposition(self):

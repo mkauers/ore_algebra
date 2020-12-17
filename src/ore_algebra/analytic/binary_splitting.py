@@ -678,7 +678,7 @@ class SolutionColumn(object):
         assert self.v.ord_diff == dz.jet_order
         try:
             [val] = log_series_values(Jets, alg + shift, val, dz)
-        except NotImplementedError:
+        except (NotImplementedError, TypeError):
             val = DummyLogSeriesValues(Jets, alg + shift, val, dz)
         return val
 
@@ -794,14 +794,14 @@ class MatrixRec(object):
             self._init_CBF(deq_Scalars, shift, E, dz, wp)
         else:
             try:
-                self._init_generic(deq_Scalars, shift, E, dz)
+                self._init_generic(deq_Scalars, shift, E, dz, prime)
             except CoercionException:
                 # Not great, but allows us to handle a few combination of
                 # algebraic points that we couldn't otherwise...
                 dop, dz, shift = dop.extend_scalars(dz, shift)
                 deq_Scalars = dop.base_ring().base_ring()
                 E = dz.parent()
-                self._init_generic(deq_Scalars, shift, E, dz)
+                self._init_generic(deq_Scalars, shift, E, dz, prime)
         self.dz = dz
 
         bwrec = bw_shift_rec(dop, shift=self.shift)
@@ -863,7 +863,7 @@ class MatrixRec(object):
         self.shift = shift
         self.AlgInts_rec = self.AlgInts_pow = self.AlgInts_sums = dom
 
-    def _init_generic(self, deq_Scalars, shift, E, dz):
+    def _init_generic(self, deq_Scalars, shift, E, dz, prime):
         self.StepMatrix_class = StepMatrix_generic
 
         if is_NumberField(E): # includes QQ
@@ -901,7 +901,10 @@ class MatrixRec(object):
             name = str(shift.parent().gen())
             AlgInts_sums0 = utilities.mypushout(NF_deq, AlgInts_pow)
             AlgInts_sums = AlgInts_sums0.extension(pol, names=name)
-            AlgInts_rec = AlgInts_sums # for now at least
+            if prime is None:
+                AlgInts_rec = AlgInts_sums # for now at least
+            else:
+                AlgInts_rec = NF_deq.extension(pol, names=name)
             self.shift = AlgInts_rec.gen()/den
 
         # Guard against various problems related to number field embeddings and
@@ -1006,7 +1009,7 @@ class MatrixRecsUnroller(LocalBasisMapper, accuracy.BoundCallbacks):
                     and utilities.is_real_parent(self.dop.base_ring().base_ring())
                     and self.pt.is_real())
             Intervals = utilities.ball_field(self.eps, is_real)
-            self._est_abs = _est_abs_CC
+            _est_abs_base = lambda c: abs(bounds.IC(c))
         elif isinstance(self.eps, pAdicGenericElement):
             myQp = Qp(self.prime)
             Points = self.pt.pt.parent()
@@ -1024,9 +1027,14 @@ class MatrixRecsUnroller(LocalBasisMapper, accuracy.BoundCallbacks):
             # exponents...
             Intervals = Intervals.change(type="capped-rel",
                                          prec=self.eps.valuation())
-            self._est_abs = Intervals.change(prec=1)
+            _est_abs_base = Intervals.change(prec=1)
         else:
             raise TypeError
+        # XXX dubious kludge
+        def _est_abs_ext(c):
+            try: return _est_abs_base(c)
+            except TypeError: return _est_abs_base(c.polynomial()[0])
+        self._est_abs = _est_abs_ext
         self.Jets = PolynomialRing(Intervals, 'delta')
 
     def process_irred_factor(self):
@@ -1240,10 +1248,3 @@ def _specialization_map(source, dest, abstract_alg, alg):
         except TypeError: # temporary kludge for sage < 9.0
             hom = Homset([dest(den*alg)], base_hom=base_hom, check=False)
     return hom
-
-def _est_abs_CC(c):
-    try:
-        c = bounds.IC(c) # arb, QQ
-    except TypeError:
-        c = bounds.IC(c[0]) # NF, would work for QQ
-    return abs(c)
