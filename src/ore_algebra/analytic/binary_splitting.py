@@ -253,7 +253,6 @@ from sage.modules.free_module_element import vector
 from sage.rings.all import ZZ, QQ, RLF, CLF, Qp, RealBallField, ComplexBallField
 from sage.rings.number_field.number_field import is_NumberField, NumberField
 from sage.rings.padics.padic_generic import pAdicGeneric
-from sage.rings.padics.padic_generic_element import pAdicGenericElement
 from sage.rings.real_arb import RealBall
 from sage.structure.coerce_exceptions import CoercionException
 
@@ -989,19 +988,21 @@ class MatrixRecsUnroller(LocalBasisMapper, accuracy.BoundCallbacks):
         self.pt = pt
         self.eps = eps
         self.ctx = ctx
-        if isinstance(self.eps, RealBall):
-            self.prime = None
+        self.prime = accuracy.prime(eps)
+        if self.prime is None:
             self._est_terms, _ = dop.est_terms(pt, utilities.prec_from_eps(eps))
-        elif isinstance(self.eps, pAdicGenericElement):
-            self.prime = eps.parent().prime()
-            self._est_terms = eps.valuation()
         else:
-            raise TypeError
+            if pt.rad.is_zero():
+                self._est_terms = 1
+            else:
+                pt_val = ZZ(-pt.rad.log(self.prime).mid().floor())
+                pt_val = max(pt_val, 1) # XXX
+                self._est_terms = eps.valuation()//pt_val
 
     def process_decomposition(self):
         # enough to represent individual series, but real jets may still become
         # complex later if there are logs
-        if isinstance(self.eps, RealBall):
+        if self.prime is None:
             int_expos = (len(self.sl_decomp) == 1
                     and self.sl_decomp[0][0].degree() == 1
                     and self.sl_decomp[0][0][0].is_zero())
@@ -1010,7 +1011,7 @@ class MatrixRecsUnroller(LocalBasisMapper, accuracy.BoundCallbacks):
                     and self.pt.is_real())
             Intervals = utilities.ball_field(self.eps, is_real)
             _est_abs_base = lambda c: abs(bounds.IC(c))
-        elif isinstance(self.eps, pAdicGenericElement):
+        else:
             myQp = Qp(self.prime)
             Points = self.pt.pt.parent()
             if isinstance(Points, pAdicGeneric): # at any precision
@@ -1028,8 +1029,6 @@ class MatrixRecsUnroller(LocalBasisMapper, accuracy.BoundCallbacks):
             Intervals = Intervals.change(type="capped-rel",
                                          prec=self.eps.valuation())
             _est_abs_base = Intervals.change(prec=1)
-        else:
-            raise TypeError
         # XXX dubious kludge
         def _est_abs_ext(c):
             try: return _est_abs_base(c)
@@ -1210,7 +1209,8 @@ class MatrixRecsUnroller(LocalBasisMapper, accuracy.BoundCallbacks):
 def fundamental_matrix_regular(dop, pt, eps, fail_fast=None, effort=None, ctx=dctx):
     dop = DifferentialOperator(dop)
     if not isinstance(pt, EvaluationPoint):
-        pt = EvaluationPoint(pt, jet_order=dop.order())
+        rad = accuracy.above_abs(pt, accuracy.prime(eps))
+        pt = EvaluationPoint(pt, jet_order=dop.order(), rad=rad)
     cols = MatrixRecsUnroller(dop, pt, eps, ctx).run()
     return matrix([sol.value for sol in cols]).transpose()
 

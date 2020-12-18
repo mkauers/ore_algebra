@@ -17,6 +17,8 @@ import collections, logging
 
 from sage.rings.all import  ZZ, QQ, RR
 from sage.rings.all import RealBallField, ComplexBallField
+from sage.rings.padics.padic_generic import pAdicGeneric
+from sage.rings.padics.padic_generic_element import pAdicGenericElement
 
 from .safe_cmp import *
 
@@ -344,3 +346,34 @@ class RelativeError(AccuracyTest):
 
     def __repr__(self):
         return str(self.eps.lower()) + " (relative)"
+
+######################################################################
+# p-adic compatibility stuff
+######################################################################
+
+def prime(x):
+    if isinstance(x, pAdicGenericElement):
+        return x.parent().prime()
+    else:
+        return None
+
+def valuation(x, p):
+    Parent = x.parent()
+    if isinstance(x, pAdicGenericElement):
+        assert Parent.prime() == p
+        return x.normalized_valuation()
+    elif Parent is ZZ or Parent is QQ:
+        return x.valuation(p)
+    else:
+        Emb = Parent.coerce_embedding().codomain()
+        assert isinstance(Emb, pAdicGeneric) and Emb.prime() == p
+        return Emb(x).valuation()
+
+def above_abs(x, p):
+    if p is None:
+        return IC(x).above_abs()
+    else:
+        if x.is_zero():
+            return IR.zero()
+        else:
+            return IR(p)**(-valuation(x, p))
