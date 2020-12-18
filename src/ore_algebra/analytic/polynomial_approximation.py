@@ -211,7 +211,7 @@ def doit(dop, ini, path, rad, eps, derivatives, economization, x_is_real):
     _, base, _, dop = dop._normalize_base_ring()
     x = base.change_ring(QQ).gen()
 
-    local_dop = dop.shift(center)
+    local_dop = dop.shift(center.exact().value)
     evpt = EvaluationPoint(x, jet_order=derivatives, rad=rad)
     polys = series_sum(local_dop, local_ini.column(0), evpt,
                                 accuracy.AbsoluteError(eps1),

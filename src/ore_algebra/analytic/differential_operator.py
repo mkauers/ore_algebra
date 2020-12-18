@@ -208,13 +208,12 @@ class PlainDifferentialOperator(UnivariateDifferentialOperatorOverUnivariateRing
         TESTS::
 
             sage: from ore_algebra import DifferentialOperators
-            sage: from ore_algebra.analytic.path import Point
             sage: from ore_algebra.analytic.differential_operator import DifferentialOperator
             sage: Dops, x, Dx = DifferentialOperators()
-            sage: DifferentialOperator(x*Dx - 1).shift(Point(1))
+            sage: DifferentialOperator(x*Dx - 1).shift(1)
             (x + 1)*Dx - 1
             sage: dop = DifferentialOperator(x*Dx - 1)
-            sage: dop.shift(Point(RBF(1/2), dop))
+            sage: dop.shift(1/2)
             (2*x + 1)*Dx - 2
         """
         Pols_dop = self.base_ring()
@@ -222,7 +221,7 @@ class PlainDifferentialOperator(UnivariateDifferentialOperatorOverUnivariateRing
         # an L equal but not identical to K. And then other constructors like
         # PolynomialRing(L, x) sometimes return objects over K found in cache,
         # leading to endless headaches with slow coercions.
-        dop_P, ex = self.extend_scalars(delta.exact().value)
+        dop_P, ex = self.extend_scalars(delta)
         Pols = dop_P.base_ring()
         # Gcd-avoiding shift by an algebraic delta
         deg = dop_P.degree()
@@ -263,7 +262,7 @@ class ShiftedDifferentialOperator(PlainDifferentialOperator):
 
     def _singularities(self, dom, include_apparent=True, multiplicities=False):
         sing = self._orig._singularities(dom, include_apparent, multiplicities)
-        delta = dom(self._delta.value)
+        delta = dom(self._delta)
         if multiplicities:
             return [(s - delta, m) for s, m in sing]
         else:

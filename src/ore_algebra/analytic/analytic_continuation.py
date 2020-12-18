@@ -123,7 +123,7 @@ def regular_step_transition_matrix(dop, step, eps, rows, fail_fast, effort,
                                    ctx=dctx):
 
     def args():
-        ldop = dop.shift(step.start)
+        ldop = dop.shift(step.start.exact().value)
         return (ldop, step.evpt(rows), eps, fail_fast, effort, ctx)
 
     tgt_prec = utilities.prec_from_eps(eps)

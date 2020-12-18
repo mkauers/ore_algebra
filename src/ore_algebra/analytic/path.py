@@ -463,7 +463,7 @@ class Point(SageObject):
                     for expo in range(self.dop.order())]
         elif not self.is_regular():
             raise NotImplementedError("irregular singular point")
-        return LocalBasisMapper(self.dop.shift(self)).run()
+        return LocalBasisMapper(self.dop.shift(self.exact().value)).run()
 
     @cached_method
     def simple_approx(self, ctx=dctx):
