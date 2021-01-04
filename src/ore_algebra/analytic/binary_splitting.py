@@ -128,7 +128,7 @@ Various mixes of algebraic exponents and evaluation points::
 
     sage: ((x*Dx)^2-2-x).numerical_transition_matrix([0,i], 1e-5, algorithm="binsplit")
     [[-1.4237...] + [0.0706...]*I [-0.7959...] + [0.6169...]*I]
-    [ [1.4514...] + [-0.168...]*I  [0.6742...] + [1.2971...]*I]
+    [[1.4514...] + [-0.1681...]*I  [0.6742...] + [1.2971...]*I]
 
     sage: ((x*Dx)^3-2-x).numerical_transition_matrix([0,i], 1e-8, algorithm="binsplit")
     [  [1.94580...] + [-5.61860...]*I [0.04040867...] + [-0.16436364...]*I    [-0.491906...] + [0.873265...]*I]

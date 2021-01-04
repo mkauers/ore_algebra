@@ -1500,7 +1500,7 @@ def _test_RatSeqBound(number=10, base=QQ, deg=20, verbose=False):
         den = (den0 * Pols.random_element(degree=drnd)).monic()
         try:
             roots = den.numerator().roots(ZZ)
-        except TypeError:
+        except (TypeError, NotImplementedError):
             # If sage is unable to find the roots over this base ring, test
             # with the part that is guaranteed to factor completely over ℤ.
             roots = den0.roots(ZZ)
