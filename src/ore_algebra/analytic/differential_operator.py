@@ -186,11 +186,12 @@ class PlainDifferentialOperator(UnivariateDifferentialOperatorOverUnivariateRing
             # Largely redundant with the other branch, but may do a better job
             # in some cases, e.g. pushout(QQ, QQ(α)), where as_enf_elts() would
             # invent new generator names.
-            NF = coercion_model.common_parent(Scalars, **pts)
-            if not is_NumberField(NF):
+            NF0 = coercion_model.common_parent(Scalars, *pts)
+            if not is_NumberField(NF0):
                 raise CoercionException
-            gen1 = NF.coerce(gen)
-            pts1 = tuple(NF.coerce(pt) for pt in pts)
+            NF, hom = utilities.good_number_field(NF0)
+            gen1 = hom(NF0.coerce(gen))
+            pts1 = tuple(hom(NF0.coerce(pt)) for pt in pts)
         except (CoercionException, TypeError):
             NF, val1 = as_embedded_number_field_elements((gen,)+pts)
             gen1, pts1 = val1[0], tuple(val1[1:])
