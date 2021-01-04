@@ -88,9 +88,9 @@ class Point(SageObject):
 
         from sage.rings.complex_double import ComplexDoubleField_class
         try:
-            from sage.rings.complex_field import ComplexField_class
-        except ImportError:
             from sage.rings.complex_mpfr import ComplexField_class
+        except ImportError:
+            from sage.rings.complex_field import ComplexField_class
         from sage.rings.complex_interval_field import ComplexIntervalField_class
         from sage.rings.real_double import RealDoubleField_class
         from sage.rings.real_mpfi import RealIntervalField_class
