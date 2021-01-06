@@ -2493,7 +2493,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             ValueError: solution may not have a finite limit at evaluation
             point 0 (try using numerical_transition_matrix())
 
-        To obtain the values the solution at serveral points in a single run,
+        To obtain the values of the solution at several points in a single run,
         enclose the corresponding points of the path in length-one lists. The
         output then changes to a list of (point, solution value) pairs::
 
@@ -2903,7 +2903,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
           by the first entry of ``init``. Defaults to zero.
         - ``append`` (optional) -- if ``True``, the computed terms are appended
           to ``init`` list. Otherwise (default), a new list is created.
-        - ``padd`` (optional) -- if ``True``, the vector of initial values is implicitely
+        - ``padd`` (optional) -- if ``True``, the vector of initial values is implicitly
           prolonged to the left (!) by zeros if it is too short. Otherwise (default),
           the method raises a ``ValueError`` if ``init`` is too short.
 
@@ -3870,7 +3870,7 @@ class UnivariateQRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverU
           by the first entry of ``init``. Defaults to zero.
         - ``append`` (optional) -- if ``True``, the computed terms are appended
           to ``init`` list. Otherwise (default), a new list is created.
-        - ``padd`` (optional) -- if ``True``, the vector of initial values is implicitely
+        - ``padd`` (optional) -- if ``True``, the vector of initial values is implicitly
           prolonged to the left (!) by zeros if it is too short. Otherwise (default),
           the method raises a ``ValueError`` if ``init`` is too short.
 

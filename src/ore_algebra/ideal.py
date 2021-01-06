@@ -646,11 +646,11 @@ class OreLeftIdeal(Ideal_nc):
            to themselves.
 
            infolevel (optional) -- nonnegative integer indicating verbosity of progress reports
-           early_termination (optional) -- if set to true, this stops as soon as the first nonzero ideal element has been fount
+           early_termination (optional) -- if set to true, this stops as soon as the first nonzero ideal element has been found
 
         OUTPUT:
 
-           An annihilating ideal for the composition of a solution of self with the specified algebraic functions. 
+           An annihilating ideal for the composition of a solution of self with the specified algebraic functions.
 
         EXAMPLES::
 

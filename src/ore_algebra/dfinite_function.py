@@ -71,7 +71,7 @@ class DFiniteFunctionRing(Algebra):
     
     def __init__(self, ore_algebra, domain = NN, name=None, element_class=None, category=None):
         r"""
-        Constuctor for a D-finite function ring.
+        Constructor for a D-finite function ring.
         
         INPUT:
         
@@ -408,12 +408,12 @@ class DFiniteFunctionRing(Algebra):
         
         In the shift case the symoblic expression can contain the following symbolic functions:
         ``harmonic_number(n)``, ``binomial(k,n)``, ``binomial(n,k)`` (where ``k`` is a fixed integer) and ``factorial(n)``.
-        Of course all other functions that can be converted into a D-finite sequnces (such as rational functions) can appear.
+        Of course all other functions that can be converted into a D-finite sequences (such as rational functions) can appear.
         Additionally addition and multiplication of these functions and composition of these functions with linear functions are
         supported.
         
-        In the differential case the symbolic expression can contain serveral symbolic functions, including most trigonometric functions, square root, 
-        logarithm, airy functions, bessel functions, error functions,\dots (for a detailled list see the documentation of ``dfinite_symbolic.py``). Of
+        In the differential case the symbolic expression can contain several symbolic functions, including most trigonometric functions, square root, 
+        logarithm, Airy functions, Bessel functions, error functions,\dots (for a detailed list see the documentation of ``dfinite_symbolic.py``). Of
         course all other functions that can be converrted into a D-finite function (such as rational functions) can appear. Additionally addition and
         multiplication of these functions and compostion of these functions with rational functions are supported.
         with linear inner functions
@@ -809,7 +809,7 @@ class DFiniteFunction(RingElement):
         - ``initial_val`` -- a list of initial values, determining the sequence or function, containing at least
           as many values as the order of ``ann`` predicts. For sequences these are the first sequence terms; for functions
           the first taylor coefficients. If the annhilating operator has singularities then ``initial_val`` has to be given
-          in form of a dictionary containing the intial values and the singularities. For functions ``initial_val`` can also
+          in form of a dictionary containing the initial values and the singularities. For functions ``initial_val`` can also
           be a D-finite sequence representing the coefficient sequence of the function
           
                              
@@ -1095,7 +1095,7 @@ class DFiniteFunction(RingElement):
         ann = A([coeff/multiple_factors for coeff in ann.coefficients(sparse = False)])
                 
         if n:
-            #checking if all posiitive initial conditions are really needed
+            # checking if all positive initial conditions are really needed
             singularities_pos = set([x+ord for x in g_roots if x+ord > max(0,ord-1)])
             while len(singularities_pos) > 0:
                 k = min(singularities_pos)
@@ -1207,7 +1207,7 @@ class DFiniteFunction(RingElement):
           after or before each singularity are returned
         
         - ``backwards`` (default ``False``) -- boolean value that determines whether we are interested in the critical points for forward calculation, 
-          i.e. the singularities of the leading coefficent and ``order`` many values after each singularity, or in those for backward calculation, i.e.
+          i.e. the singularities of the leading coefficient and ``order`` many values after each singularity, or in those for backward calculation, i.e.
           the singularities of the coefficient of minimal degree (regarding `Sn` or `Dx` respectively) and ``order`` many values before each singularity.
         
         OUTPUT:
@@ -1517,7 +1517,7 @@ class DFiniteFunction(RingElement):
             r = r + latex(self.initial_conditions())
         else:
             r = '\\text{D-finite function defined by the annihilating operator }'
-            r = r + latex(self.__ann) + '\\text{ and the coefficent sequence defined by }'
+            r = r + latex(self.__ann) + '\\text{ and the coefficient sequence defined by }'
             r = r + latex(self.initial_conditions().__ann) + '\\text{ and }' + latex(self.initial_conditions().initial_conditions())
 
         return r
@@ -3083,7 +3083,7 @@ class UnivariateDFiniteFunction(DFiniteFunction):
         ``_mul_`` uses the method ``symmetric_product`` from the OreAlgebra package to get the new annihilator.
         Here we do not use the method ``cauchy_product`` from the class UnivariateDFiniteSequence, even though it would
         lead to the same (correct) result. But to use that method one would have to use (more) transformations of the annihilating operators
-        beetween the differential and the shift OreAlgebra, which would increase their orders (even more) and would eventually lead to an increased
+        between the differential and the shift OreAlgebra, which would increase their orders (even more) and would eventually lead to an increased
         computation time.
         
         EXAMPLES::
@@ -3291,5 +3291,4 @@ class UnivariateDFiniteFunction(DFiniteFunction):
         elif type(z) == list:
             return self.ann().numerical_solution(ini,z, eps=1e-50, post_transform=Dx**n)
         else:
-            raise NotImplementedError("evalutation point has to be given in form of a single point or in form of a list")
-
+            raise NotImplementedError("evaluation point has to be given in form of a single point or in form of a list")

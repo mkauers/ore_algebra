@@ -106,7 +106,7 @@ def guess(data, algebra, **kwargs):
     - ``ensure`` -- if `N` is the minimum number of terms needed for some particular
       choice of order and degree, and if ``len(data)`` is less than ``N+ensure``,
       raise an error. This must be a nonnegative integer. Default: 0.
-    - ``ncpus`` -- number of processors to be used. Defaut: 1.
+    - ``ncpus`` -- number of processors to be used. Default: 1.
     - ``order`` -- bounds the order of the operators being searched for.
       Default: infinity.
     - ``min_order`` -- smallest order to be considered in the search. The output

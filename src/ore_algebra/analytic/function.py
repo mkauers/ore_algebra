@@ -224,7 +224,7 @@ class DFiniteFunction(object):
         # TODO:
         # - attempt to start as close as possible to the destination
         #   [and perhaps add logic to change for a starting point with exact
-        #   initial values if loosing too much precision]
+        #   initial values if losing too much precision]
         # - return a path passing through "interesting" points (and cache the
         #   associated initial vectors)
         start, ini = list(self.ini.items())[0]

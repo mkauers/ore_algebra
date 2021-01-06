@@ -1734,7 +1734,7 @@ class OreAlgebra_generic(UniqueRepresentation, Algebra):
         A product rule for a generator `D` is a tuple `(w_0,w_1,w_2)` such that for the operator
         application we have `D(u*v) = w_0*u*v + w_1*(D(u)*v + u*D(v)) + w_2*D(u)*D(v)`.
 
-        The input paramter ``rules`` is a list of length ``self.ngens()`` which at index ``i``
+        The input parameter ``rules`` is a list of length ``self.ngens()`` which at index ``i``
         carries either ``None`` or a coefficient tuple representing the rule.
 
         If ``force=False``, rules which are already registered are kept and only new rules are added

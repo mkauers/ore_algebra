@@ -404,7 +404,7 @@ class LocalBasisMapper(object):
     as well as some derived quantities through the instance's field.
 
     The nested loops that iterate over the solutions are spread over several
-    methods that can be overriden to share parts of the computation in a
+    methods that can be overridden to share parts of the computation in a
     class of related solutions. The choice of unconditional computations,
     exported data and hooks is a bit ad hoc.
     """

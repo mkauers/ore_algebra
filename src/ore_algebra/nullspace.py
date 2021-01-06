@@ -353,7 +353,7 @@ def _pivot(mat, r, n, c, m, zero):
         pivot_fillin = size((i, j))*(nz_in_rows_for_col[j] - nz_in_col[j] - nz_in_row[i] + 1)
         # The elimination rule being  ``mat[l][k] = mat[i][j]*mat[l][k] - mat[i][k]*mat[l][j]'', we
         # count only the fillin caused by the multiplication with mat[i][j] and neglect the fillin
-        # caused by the additive term mat[i][k]*mat[l][j], although it ought to be of roughtly the
+        # caused by the additive term mat[i][k]*mat[l][j], although it ought to be of roughly the
         # same size. In experiments, taking also an estimate for the other part into account has
         # led to poorer performance (perhaps because we can't predict the fillin for this part
         # sufficiently accurately).
@@ -505,7 +505,7 @@ def gauss(pivot=_pivot, ncpus=1, fun=None):
     - ``fun`` -- if different from ``None``, at the beginning of each iteration of the outer loops of
       forward and backward elimination, the solver calls ``fun(mat, idx)``, where ``mat`` is the current
       matrix (as list of lists of elements) and ``idx`` is a counter. This functionality is intended
-      for analyzing the elimination process, e.g., for inspecting how well the solver succees in maintaining
+      for analyzing the elimination process, e.g., for inspecting how well the solver succeed in maintaining
       the sparsity of the matrix. The solver assumes that the function won't modify the matrix. 
 
     OUTPUT:
@@ -836,7 +836,7 @@ def _hermite_rec(early_termination, R, A, cut, offset, infolevel):
     # 1. write A = A0 + A1 x^ceil(k/2) with deg(A0), deg(A1) < ceil(k/2)
     cut2 = int(math.ceil(cut/2))
 
-    _info(infolevel, "decending into first recursive call...")
+    _info(infolevel, "descending into first recursive call...")
     # 2. compute V0 such that A0*V0 == 0 mod x^ceil(k/2) recursively
     V0, done = _hermite_rec(early_termination, R, A, cut2, offset, _alter_infolevel(infolevel, -1, 1))
     _info(infolevel, "...done")
@@ -847,7 +847,7 @@ def _hermite_rec(early_termination, R, A, cut, offset, infolevel):
     B = (A*V0).apply_map(lambda p : p.shift(-cut2))
     
     # 4. compute V1 such that B*V1 == 0 mod x^ceil(k/2) recursively
-    _info(infolevel, "decending into second recursive call...")
+    _info(infolevel, "descending into second recursive call...")
     V1, done = _hermite_rec(early_termination, R, B, cut - cut2, offset, _alter_infolevel(infolevel, -1, 1))
     _info(infolevel, "...done")
     
@@ -1383,7 +1383,7 @@ def _cra(subsolver, max_modulus, proof, ncpus, mat, degrees, infolevel):
             _info(infolevel, "unlucky modulus ", m, " discarded (dimension defect)", alter = -1)
             continue
         elif any(degrees[i] < true_degrees[i] for i in range(len(x))): # this prime is unlucky, skip it
-            _info(infolevel, "unlucky modulus ", m, " discarded (degree missmatch: ", true_degrees, ")", alter = -1)
+            _info(infolevel, "unlucky modulus ", m, " discarded (degree mismatch: ", true_degrees, ")", alter = -1)
             continue
         
         # combine the new solution with the known partial solution
