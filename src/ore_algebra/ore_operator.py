@@ -947,7 +947,7 @@ class UnivariateOreOperator(OreOperator):
         while not r[1].is_zero():
             (r2,q,alpha,beta,correct)=prs(r,additional)
             if not correct:
-                if infolevel>0: print("switching to primitve PRS")
+                if infolevel>0: print("switching to primitive PRS")
                 prs = __primitivePRS__
             else:
                 r=r2
@@ -1043,7 +1043,7 @@ class UnivariateOreOperator(OreOperator):
         while not r[1].is_zero():  
             (r2, q, alpha, beta, correct) = prs(r, additional)
             if not correct:
-                if infolevel>0: print("switching to primitve PRS")
+                if infolevel>0: print("switching to primitive PRS")
                 prs = __primitivePRS__
             else:
                 r = r2; bInv = ~beta

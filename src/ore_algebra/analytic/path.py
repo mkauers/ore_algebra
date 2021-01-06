@@ -462,7 +462,7 @@ class Point(SageObject):
         size or with irrational coordinates in the context of binary splitting,
         see bit_burst_split().
 
-        For intermediate steps where thick balls are shrinked to their center,
+        For intermediate steps where thick balls are shrunk to their center,
         see exact_approx().
         """
         # Point options become meaningless (and are lost) when not returning

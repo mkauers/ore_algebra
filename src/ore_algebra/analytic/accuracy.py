@@ -77,7 +77,7 @@ class StoppingCriterion(object):
     r"""
     Condition for dynamically deciding where to truncate a series.
 
-    Based on rigourous (absolute) error bounds, observed interval blow-up, and
+    Based on rigorous (absolute) error bounds, observed interval blow-up, and
     various heuristics to choose a course of action when, e.g., adding more
     terms will reduce the method error but possibly increase the round-off error
     or interval width.
