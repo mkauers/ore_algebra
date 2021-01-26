@@ -34,6 +34,7 @@ from sage.rings.fraction_field import FractionField_generic
 from sage.rings.rational_field import QQ
 from sage.rings.integer_ring import ZZ
 from sage.rings.infinity import infinity
+from sage.rings.number_field.number_field import NumberField
 from sage.rings.number_field.number_field_base import is_NumberField
 from sage.rings.qqbar import QQbar
 from sage.rings.qqbar import QQbar, AA
@@ -41,12 +42,13 @@ from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 from sage.rings.polynomial.polynomial_ring import is_PolynomialRing
 from sage.rings.polynomial.multi_polynomial_ring import is_MPolynomialRing
 from sage.rings.power_series_ring import PowerSeriesRing
+from sage.rings.laurent_series_ring import LaurentSeriesRing
 from sage.structure.element import RingElement, canonical_coercion, get_coercion_model
 from sage.structure.factorization import Factorization
 from sage.structure.formal_sum import FormalSum, FormalSums
 from sage.symbolic.all import SR
 
-from .tools import clear_denominators, q_log, make_factor_iterator, shift_factor
+from .tools import clear_denominators, q_log, make_factor_iterator, shift_factor, _vect_val_fct, _vect_elim_fct, roots_at_integer_distance
 from .ore_algebra import OreAlgebra_generic
 from .ore_operator import OreOperator, UnivariateOreOperator
 from .generalized_series import GeneralizedSeriesMonoid, _generalized_series_shift_quotient, _binomial
@@ -1340,6 +1342,414 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         info(1, "We have found %i factors." % sum(len(f) for f in factors))
 
         return factors
+
+    # FIXME: Find a better name, this one is ambiguous
+    def value_function(self, op, place, **kwargs):
+        r"""
+        Compute the value of the operator ``op`` in the algebra quotient of the ambient Ore algebra by `self`, at the place ``place``.
+
+        INPUT:
+
+        - ``op`` -- an Ore operator
+
+        - ``place`` -- the place at which to compute the value. It should be an irreducible polynomial in the base ring of the Ore algebra
+
+        - Implementations of this method can interpret further named arguments.
+
+        OUTPUT:
+
+        The value of ``op`` at the place ``place``
+
+        EXAMPLES::
+        #TODO
+        
+        """
+        raise NotImplementedError # abstract
+
+    def raise_value(self, vectors, place, dim=None, **kwargs):
+        r"""
+        Given a list of vectors in the quotient of the ambient Ore algebra by this operator, find a linear combination of those vectors which has higher value at ``place`` than the last element of the list.
+
+        It is assumed that all vectors have value 0.
+
+        Given ``[b_1, ..., b_n]``, the function computes ``a_1, ..., a_n`` in the coefficient field such that ``a_n = 1`` and
+
+            val(a_1*b_1 + ... + a_n*b_n) > 0, 
+
+        If no such combination exists, the function returns None.
+
+        INPUT:
+
+        - ``vectors`` -- a list of vectors in the quotient of the ambient Ore algebra by ``self``
+
+        - ``place`` -- the place at which to consider the value function
+
+        - ``dim`` (default: None) -- the dimension of the quotient of the ambient Ore algebra by ``self``. If not provided, it is assumed that ``vectors`` form a basis of that quotient. This may lead to incorrect results.
+
+        - Implementations of this method can interpret further named arguments.
+
+        OUTPUT:
+
+        A linear combination as described if it exists, and None otherwise.
+
+        EXAMPLES::
+
+        #TODO
+        """
+        raise NotImplementedError # abstract
+
+    def local_integral_basis(self, x, basis=None,
+                             val_fct=None, raise_val_fct=None,
+                             infolevel=0,
+                             **val_kwargs):
+        r"""
+        Compute a local integral basis at x of the vector obtained by taking the
+        quotient of the parent Ore algebra by this operator.
+
+        INPUT:
+
+        - ``x`` -- the place at which to compute an integral basis. ``x`` should
+          be an irreducible polynomial in the base ring of the Ore algebra.
+
+        - ``basis`` (default: None) -- starting basis. If provided, the output of the algorithm
+          is guaranteed to be integral at all places where ``basis`` was already
+          a local integral basis.
+
+        - ``val_fct`` (default: None) -- a function computing the value of an
+          operator at the place x. It should have the same interface as the
+          generic method ``value_function``. If not provided, the algorithm
+          calls ``self.value_function``.
+
+        - ``raise_val_fct`` (default: None) -- a function computing a linear combination of operators with higher value. It should have the same interface as the
+          generic method ``raise_value``. If not provided, the algorithm
+          calls ``raise_value``.
+
+        - ``infolevel`` (default:0) -- verbosity flag
+
+        - All remaining named arguments are passed to the functions ``val_fct`` and ``raise_val_fct``.
+
+        OUTPUT:
+
+        An basis of the quotient of the parent Ore algebra by this operator, which is integral at the place ``x``.
+        If a starting basis was provided, the resulting basis is also integral at all places where the starting basis was integral.
+
+        EXAMPLES::
+        # TODO
+        """
+
+        # Helpers
+        print1 = print if infolevel >= 1 else lambda *a, **k: None
+        print2 = print if infolevel >= 2 else lambda *a, **k: None
+        print3 = print if infolevel >= 3 else lambda *a, **k: None
+
+        print1(" [local] Computing local basis at {}".format(x))
+        
+        if val_fct is None: val_fct = self.value_function
+        if raise_val_fct is None: raise_val_fct = self.raise_value
+
+        r = self.order()
+        ore = self.parent()
+        DD = ore.gen()
+        if basis is None: basis = [DD**i for i in range(r)]
+
+        k = ore.base_ring()
+
+        F = x.parent().base_ring()
+        deg = x.degree() # Requires x to be the minimal polynomial in extension cases
+        Fvar = x.parent().gen(0)
+
+        res = []
+        r = len(basis)
+        for d in range(r):
+            print1(" [local] d={}".format(d))
+            print1(" [local] Processing {}".format(basis[d]))
+            v = val_fct(basis[d],place=x,**val_kwargs)
+            print1(" [local] Valuation: {}".format(v))
+            res.append(x**(-v) * basis[d])
+            print1(" [local] Basis element after normalizing: {}".format(res[d]))
+            done = False
+            while not done:
+                alpha = raise_val_fct(res,place=x,dim=r,infolevel=infolevel,**val_kwargs)
+                if alpha is None:
+                    done = True
+                else:
+                    print1(" [local] Relation found: {}".format(alpha))
+
+                    alpha_rep = [None for i in range(d+1)]
+                    if deg > 1: # Should be harmless even otherwise (then Fvar=1), if we also force the cast to k
+                        for i in range(d+1):
+                            alpha_rep[i] = sum(alpha[i][j]*Fvar**j for j in range(deg))
+                    else:
+                        for i in range(d+1):
+                            alpha_rep[i] = k(alpha[i])
+                    print2(" [local] In base field: {}".format(alpha_rep))
+                    # __import__("pdb").set_trace()
+                    
+                    res[d] = sum(alpha_rep[i]*res[i] for i in range(d+1))
+                    res[d] = x**(- val_fct(res[d],place=x,**val_kwargs))*res[d]
+                    print1(" [local] Basis element after combination: {}".format(res[d]))
+        return res
+
+    def find_candidate_places(self, **kwargs):
+        r"""
+        Compute all places at which an operator in the quotient of the ambient Ore algebra with `self` may not be integral.
+
+        INPUT:
+
+        - Implementations of this virtual method may interpret named arguments.
+
+        OUTPUT:
+
+        Let ``\partial`` be the generator of the Ore algebra and by ``r`` the order of ``self``.
+        The function returns a list ``L`` of places such that for any operator ``\partial^k``, ``0 \leq k < r``, in the quotient algebra, and for any place ``z`` not in ``L``, ``\partial^k`` is integral at ``z``.
+
+        Such a list is not unique, since adding finitely many elements to it does not break the specification.
+        The caller in global_integral_basis does not require that the list is minimal in any sense.
+
+        Each place may be output as either an irreducible polynomial in the base ring of the parent Ore algebra, or a 3-tuple composed of such a function, as well as suitable functions `value_function` and `raise_valuation`.
+
+        This can be useful in situations where computing the value function involves non-trivial calculations. Defining the functions here allows to capture the relevant data in the function and to minimize the cost at the time of calling.
+
+        EXAMPLES::
+        # TODO
+        """
+        raise NotImplementedError # abstract
+
+    def global_integral_basis(self, places=None, infolevel=0, **val_kwargs):
+        r"""
+        Compute a global integral basis of the quotient of the ambient Ore algebra
+        with this operator.
+
+        INPUT:
+
+        - ``places`` (default: None) -- list of places. Each place is either an
+          irreducible polynomial in the base ring of the Ore algebra, or a
+          3-tuple composed of such a polynomial, as well as suitable functions
+          `value_function` and `raise_value`.
+
+        - ``infolevel`` (default: 0) -- verbosity flag
+
+        All remaining named arguments are passed to the value functions.
+
+        In the differential case, the function takes an additional optional
+        argument:
+
+        - ``iota`` (default: None) - a function used to filter terms of
+          generalized series solutions which are to be considered
+          integral. For the conditions that this function must satisfy, see
+          :meth:`ContinuousGeneralizedSeries.valuation`.
+
+        In the recurrence case, the function takes an additional optional
+        argument:
+
+        - ``Zmax`` (default: None) - an integer, used to determine an upper
+          bound for points at which to eliminate poles. If not provided, uses a
+          value guaranteed to be an upper bound for all new poles.
+
+        # TODO: Better phrasing
+        # TODO: Rename argument 
+
+        OUTPUT:
+
+        A basis of the quotient algebra which is integral everywhere, or at all
+        places in ``places`` if provided.
+
+        It requires that at least the method ``find_candidate_places``, as well
+        as ``value_function`` and ``raise_value`` if not provided by
+        ``find_candidate_places``, be implemented for that Ore operator.
+
+        EXAMPLES::
+
+        Integral bases can be computed for differential and recurrence operators.
+
+        In the differential case, an operator is integral if, applied to a
+        generalized series solution of ``self`` without any pole (except
+        possibly at infinity), the resulting series again does not have any
+        pole.
+        
+            sage: from ore_algebra import OreAlgebra
+            sage: Pol.<x> = PolynomialRing(QQ)
+            sage: OreD.<Dx> = OreAlgebra(Pol)
+            sage: L = x*Dx+1
+            sage: S = L.generalized_series_solutions(); S
+            [x^(-1)]
+            sage: B = L.global_integral_basis(); B
+            [x]
+            sage: [OreD(1)(s) for s in S]
+            [x^(-1)]
+            sage: [B[0](s) for s in S]
+            [1 + O(x^5)] 
+
+            sage: L = Dx+x
+            sage: L.generalized_series_solutions()
+            [1 - 1/2*x^2 + 1/8*x^4 + O(x^5)]
+            sage: L.global_integral_basis()
+            [1]
+
+            sage: L = x-1 + Dx - x*Dx^2
+            sage: L.generalized_series_solutions(2)
+            [x^2*(1 - 1/3*x + O(x^2)), 1 + x + O(x^2)]
+            sage: B = L.global_integral_basis(); B
+            [1, 1/x*Dx - 1/x]
+
+            sage: L = (-1+2*x) + (1-4*x)*Dx + 2*x*Dx^2
+            sage: L.generalized_series_solutions(2)
+            [x^(1/2)*(1 + x + O(x^2)), 1 + x + O(x^2)]
+            sage: B = L.global_integral_basis(); B
+            [1, x*Dx]
+
+            sage: L = x^3*Dx^3 + x*Dx - 1
+            sage: L.generalized_series_solutions(2)
+            [x, x*((1 + O(x^2))*log(x)), x*((1 + O(x^2))*log(x)^2)]
+            sage: B = L.global_integral_basis(); B
+            [1, x*Dx, x*Dx^2 - Dx + 1/x]
+
+            sage: L = 24*x^3*Dx^3 - 134*x^2*Dx^2 + 373*x*Dx - 450
+            sage: L.generalized_series_solutions(2)
+            [x^(15/4), x^(10/3), x^(3/2)]
+            sage: B = L.global_integral_basis(); B
+            [1/x, 1/x^2*Dx - 3/2/x^3, 1/x*Dx^2 - 3/4/x^3]
+
+        Poles may appear outside of 0.  This example is the same as the previous
+        one after a change of variable.
+
+            sage: L = 24*(x-2)^3*Dx^3 - 134*(x-2)^2*Dx^2 + 373*(x-2)*Dx - 450
+            sage: L.generalized_series_solutions(2)
+            [x^2*(1 - 67/72*x + O(x^2)), x*(1 - 103/48*x + O(x^2)), 1 - 139/24*x + O(x^2)]
+            sage: B = L.global_integral_basis(); B
+            [1/(x - 2),
+             (1/(x^2 - 4*x + 4))*Dx - 3/2/(x^3 - 6*x^2 + 12*x - 8),
+             (1/(x - 2))*Dx^2 - 3/4/(x^3 - 6*x^2 + 12*x - 8)]
+
+        Poles may appear at non-rational points.
+        
+            sage: L = ((-x + x^3 + 3*x^4 - 6*x^5 + 3*x^6) * Dx^2
+            ....:      + (-2 + 4*x + 4*x^2 - 9*x^6 + 18*x^7 - 9*x^8) * Dx
+            ....:      + (4 + 2*x - 18*x^4 + 18*x^6 - 18*x^7))
+            sage: a = (x^4 - x^3 + 1/3*x + 1/3).any_root(ComplexField(20)); a
+            -0.39381 - 0.38222*I
+            sage: L[L.order()](a) # abs tol 1e-6
+            -1.9398e-7 + 9.5133e-7*I
+            sage: L.local_basis_expansions(a,2)
+            [1.00000*1, 1.00000*(x + 0.39381 + 0.38222*I)]
+            sage: L.global_integral_basis()
+            [x^3 - 2*x^2 + x,
+             ((x^2 - x)/(x^4 - x^3 + 1/3*x + 1/3))*Dx + (-3*x^6 + 9*x^5 - 9*x^4 + 2*x^3 + x^2 + 3*x - 1)/(x^4 - x^3 + 1/3*x + 1/3)]
+
+        Integrality is not defined for non-Fuchsian operators, that is operators
+        for which some generalized series solutions have non-rational exponents
+        or a non-trivial exponential part.
+
+            sage: L = x^2*Dx^2 + x*Dx + 1
+            sage: L.local_basis_expansions(0)
+            [x^(-1*I), x^(1*I)]
+            sage: L.global_integral_basis()
+            Traceback (most recent call last):
+            ...
+            ValueError: The operator has non Fuchsian series solutions
+
+            sage: L = (x^2-2)*Dx + 1
+            sage: L.local_basis_expansions(sqrt(2),1)
+            [(x - sqrt(2))^(-0.3535533905932738?)]
+            sage: L.global_integral_basis()
+            Traceback (most recent call last):
+            ...
+            ValueError: The operator has non Fuchsian series solutions
+
+        The definition of integral bases in the differential case depends on the
+        choice of a function `\iota` evaluating the contribution of each term of
+        the generalized series solution.  For the conditions that this function
+        must satisfy, see :meth:`ContinuousGeneralizedSeries.valuation`.
+
+        The default value of that function is such that a series is considered
+        integral if and only if it is bounded in a neighborhood of 0.
+
+        Different `\iota` functions give different integral bases.  It can only
+        make a difference if there are logarithmic terms in a fundamental system
+        of solutions, or if the initial exponent is irrational.
+
+            sage: L = x*Dx^2 + Dx
+            sage: L.generalized_series_solutions(1)
+            [1 + O(x), (1 + O(x))*log(x)]
+            sage: B = L.global_integral_basis(); B
+            [x, x*Dx]
+            sage: B = L.global_integral_basis(iota = lambda i,j : j); B
+            [x, x*Dx]
+            sage: B = L.global_integral_basis(iota = lambda i,j : j if i==0 else 0); B
+            [1, x*Dx]
+            sage: B = L.global_integral_basis(iota = lambda i,j : j if i==0 else 1); B
+            [x, x^2*Dx]
+            sage: B = L.global_integral_basis(iota = lambda i,j : j if i==0 else -1); B
+            [1/x, Dx]
+
+        Optionally, we can supply a list of points at which we want to compute
+        an integral basis. Each point is given by its minimal polynomial in the
+        base polynomial ring.
+
+        
+        
+        In the recurrence case, we consider deformed operators: given a linear
+        recurrence operator `L \in \QQ[x]\<Sx\>`, the deformed operator `L_q` is
+        the operator `L(x+q) \in \QQ[q][x]\<Sx\>`.  Such an operator with order
+        `r` always admits `r` linearly independent solutions in
+        `QQ((q))^(z+\ZZ)` for `z \in \CC`.
+
+        Fix `N_{max} \in \ZZ`.  Such a solution `f` is said to be integral at
+        `z` if for all `k \in \ZZ` with `k \leq N_{max}`, `f(z+k) \in \QQ[[q]]`.
+        An operator `B` in the algebra quotient by `L` is integral at `z` if for
+        all solutions `f` of `L_q`, `B_q(f)` is integral at `z`.
+
+            sage: from ore_algebra import OreAlgebra
+            sage: Pol.<x> = PolynomialRing(QQ)
+            sage: Rec.<Sx> = OreAlgebra(Pol)
+            sage: (x*Sx+1).global_integral_basis()
+            [x - 1]
+            sage: (Sx+x).global_integral_basis()
+            [1/(x - 1)]
+        
+        If a solution has larger valuation in `q` towards `+\infty` than towards
+        `-\infty`, the algorithm uses `N_{max}` as a cutoff value. In this case,
+        different values of `N_{max}` yield different results, which differ by a
+        rational factor.
+
+            sage: L = ((x+2)^2 + x*Sx^2 + (x+2)*Sx^3)
+            sage: B = L.global_integral_basis(); B
+            [x - 1,
+             1/x*Sx + (x - 2)/x^2,
+             (1/(x^3 - x^2 - x + 1))*Sx^2 + (1/(x^3 + x^2 - x - 1))*Sx + (1/4*x + 1/4)/(x - 1)]
+            sage: B = L.global_integral_basis(Zmax=2); B
+            [1, 1/x*Sx + (x - 2)/x^2, (1/(x + 1))*Sx^2 + ((x - 1)/(x^2 + 2*x + 1))*Sx]
+
+        """
+        # sage: ((x+2)^2 + x*Sx^2 + (x+2)*Sx^3).global_integral_basis(Zmax=3)
+        # [1, 1/x*Sx + (x - 2)/x^2, (1/(x + 1))*Sx^2 + ((x - 1)/(x^2 + 2*x + 1))*Sx]
+        # sage: ((x^2+2)^2 + x*Sx^2 + (x^2+2)*Sx^3).global_integral_basis(Zmax=3)
+        # [1,
+        #  (1/(x^2 - 4*x + 6))*Sx + (x - 2)/(x^4 - 8*x^3 + 28*x^2 - 48*x + 36),
+        #  (1/(x^2 - 2*x + 3))*Sx^2 + ((x - 1)/(x^4 - 4*x^3 + 10*x^2 - 12*x + 9))*Sx]
+
+        if places is None:
+            places = self.find_candidate_places(infolevel=infolevel,**val_kwargs)
+
+        if len(places) == 0 :
+            return [self.parent()(1)]
+            
+        res = None
+        for p in places :
+            if len(p) == 1 :
+                x = p
+                val_fct = raise_val_fct = None
+            else:
+                x, val_fct, raise_val_fct = p
+                
+            res = self.local_integral_basis(x,basis=res,
+                                            val_fct = val_fct,
+                                            raise_val_fct = raise_val_fct,
+                                            infolevel=infolevel,
+                                            **val_kwargs) 
+        return res
+
+
 
 
 #############################################################################################################
@@ -2711,6 +3121,140 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             assert len(sol) == 1
             return sol[0]["value"]
 
+    
+    def _make_valuation_place(self, f, iota=None, prec=None, infolevel=0):
+        r"""
+        Compute value functions for the place ``f``.
+
+        INPUT:
+
+        - ``f`` - a place, that is an irreducible polynomial in the base ring of
+          the ambient Ore algebra
+
+        - ``iota`` (default: None) - a function allowing to compute the valuation of logarithmic
+          terms of a series. ``iota(z,j)``, for z in ``\CC`` and j in ``\NN``,
+          should be an element ``z+k`` in ``z + \ZZ``. Furthermore,
+          ``iota(0,j)=j`` and ``iota(z1,j1)+iota(z2,j2)-iota(z1+z2,j1+j2) \geq
+          0`` must hold.
+
+          If ``iota`` is not provided, the function returns the element of
+          ``z+\ZZ`` with real part between 0 (exclusive) and 1 (inclusive) if
+          ``j=0``, and the element with real part between 0 (inclusive) and 1
+          (exclusive) otherwise.
+
+        - ``prec`` (default: None) - how many terms to compute in the series
+          solutions to prepare the functions. If not provided, the default of
+          :meth:``generalized_series_solutions`` is used.
+
+        - ``infolevel`` (default: 0) - verbosity flag
+
+        OUTPUT:
+
+        A tuple composed of ``f``, a suitable function for ``value_function`` at
+        ``f`` and a suitable function for ``raise_value`` at ``f``.
+        
+        EXAMPLES::
+
+        # TODO
+        
+        """
+
+        if infolevel >= 1: print("Preparing place at {}"
+                                 .format(f if f.degree() < 10
+                                         else "{} + ... + {}".format(f[f.degree()]*f.monomials()[0],f[0])))
+
+        r = self.order()
+        ore = self.parent()
+        x = ore.base_ring().gen()
+        C = ore.base_ring().base_ring()
+        if f.degree() > 1:
+            FF = NumberField(f,"xi")
+            xi = FF.gen()
+        else:
+            FF = C
+            xi = -f[0]/f[1]
+        ore_ext = ore.change_ring(ore.base_ring().change_ring(FF).fraction_field())
+        reloc = ore_ext([c(x=x+xi) for c in self.coefficients(sparse=False)])
+        if prec is None:
+            sols = reloc.generalized_series_solutions(exp=False)
+        else:
+            sols = reloc.generalized_series_solutions(prec, exp=False)
+
+        # if any(True for s in sols if s.ramification()>1):
+        #     raise NotImplementedError("Some generalized series solutions have ramification")
+
+        if len(sols) < r or any(not s.is_fuchsian(C) for s in sols):
+            raise ValueError("The operator has non Fuchsian series solutions")
+        
+        # Capture the objects
+        def get_functions(xi,sols,x,ore_ext):
+            # In both functions the second argument `place` is ignored because
+            # captured
+            def val_fct(op,place,base=C, iota=None):
+                op = ore_ext([c(x=x+xi)
+                              for c in op.coefficients(sparse=False)])
+                vect = [op(s).valuation(base=C,iota=iota) for s in sols]
+                return min(vect)
+            def raise_val_fct(ops,place,dim=None,base=C,iota=None,
+                              infolevel=0):
+                # TODO: Is it okay that we don't use dim?
+                ops = [ore_ext([c(x=x+xi)
+                                for c in op.coefficients(sparse=False)])
+                       for op in ops]
+                ss = [[op(s) for s in sols] for op in ops]
+                if infolevel >= 2: print(ss)
+                cands = set()
+                r = len(sols)
+                for k in range(r):
+                    for i in range(len(ops)):
+                        for t in ss[i][k].non_integral_terms(
+                                base=C,
+                                iota=iota,cutoff=1):
+                            cands.add(t)
+
+                mtx = [[] for i in range(len(ops))]
+                for t in cands:
+                    if infolevel >= 2:
+                        print(" [raise_val_fct] Processing term x^({}) log(x)^{}".format(t[1],t[0]))
+                    for i in range(len(ops)):
+                        for s in ss[i]:
+                            mtx[i].append(s.coefficient(*t))
+                    if infolevel >= 2:
+                        print(" [raise_val_fct] Current matrix:\n{}".format(mtx))
+
+                M = matrix(mtx)
+                K = M.left_kernel().basis()
+                if K:
+                    return (1/K[0][-1])*K[0]
+                else:
+                    return None
+            
+            return val_fct, raise_val_fct
+
+        val_fct, raise_val_fct = get_functions(xi,sols,x,ore_ext)
+        return f,val_fct, raise_val_fct
+
+    def find_candidate_places(self, infolevel=0, iota=None):
+        lr = self.coefficients()[-1]
+        fact = list(lr.factor())
+        places = []
+        for f,m in fact:
+            places.append(self._make_valuation_place(f,prec=m+1,
+                                                     infolevel=infolevel,
+                                                     iota=None))
+        return places
+
+    def value_function(self, op, place, iota=None):
+        val = self._make_valuation_place(place,iota=iota)[1]
+        return val(op)
+
+    def raise_value(self, basis, place, dim=None, iota=None):
+        fct = self._make_valuation_place(place,iota=iota)[2]
+        return fct(basis, place, dim)
+
+    
+    
+    
 #############################################################################################################
 
 class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUnivariateRing):
@@ -3752,6 +4296,186 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
         
         return output
 
+    def _make_valuation_places(self,f,Nmin,Nmax,prec=None,infolevel=0):
+        r"""
+        Compute value functions for the place ``f``.
+
+        INPUT:
+
+        - ``f`` - a place, that is an irreducible polynomial in the base ring of
+          the ambient Ore algebra
+
+        - ``Nmin`` - an integer
+
+        - ``Nmax`` - an integer
+
+        - ``prec`` (default: None) - precision at which to compute the deformed
+          solutions. If not provided, the default precision of a power series
+          ring is used.
+
+        TODO: Rephrase
+        
+        - ``infolevel`` (default: None) - verbosity flag
+
+        OUTPUT:
+
+        A list of places corresponding to the shifted positions associated to
+        ``f``.  More precisely, if ``xi`` is a root of ``f``, the places
+        correspond to the points ``xi+Nmin, \ldots, xi+Nmax``.
+
+        Each place is a tuple composed of ``f(x+k)``, a suitable function for
+        ``value_function`` and a suitable function for ``raise_value``.
+        
+        EXAMPLES::
+
+        # TODO
+        """
+
+        print1 = print if infolevel >= 1 else lambda *a, **k: None
+        print2 = print if infolevel >= 2 else lambda *a, **k: None
+        print3 = print if infolevel >= 3 else lambda *a, **k: None
+
+        print1(" [make_places] At (root of {}) + Nmin={}, Nmax={}"
+               .format(f,Nmin,Nmax))
+        
+        FF = NumberField(f,"xi")
+        # TODO: Do we have to choose a name?
+        xi = FF.gen()
+        r = self.order() 
+        Ore = self.parent()
+        SS = Ore.gen()
+        Pol = Ore.base_ring()
+        nn = Pol.gen()
+        Coef = Pol.base_ring()
+
+        Laur = LaurentSeriesRing(FF,'q',default_prec=prec)
+        qq = Laur.gen()
+        Frac_q = Pol.change_ring(Laur).fraction_field()
+
+        coeffs_q = [Frac_q(c) for c in self.coefficients(sparse=False)]
+
+        # Variable convention: k is a list index in the whole sequence, n is an
+        # actual shift compared to xi, so k=n-Nmin, and the value at index k corresponds to the
+        # values of the sequence at position xi+n = xi+k+Nmin.
+        
+        def prolong(l,n):
+            # Given the values of a function at ...xi+n-r...xi+n-1, compute the
+            # value at xi+n
+            assert(len(l) >= r)
+            l.append(-sum(l[-r+i]*coeffs_q[i](qq+xi+n-r) for i in range(r))
+                     / coeffs_q[-1](qq+xi+n-r))
+
+        # TODO: Refactor, not the most efficient
+        def call(op,l,n):
+            # Given another operator, and given the values l of a function at xi+n,...,xi+n+r,
+            # apply its deformed version to l and compute the value at xi+n
+            r = op.order()
+            assert(len(l) > r)
+            coeffs_q = [Frac_q(c) for c in op.coefficients(sparse=False)]
+            return sum(l[i]*coeffs_q[i](qq+xi+n) for i in range(r+1))
+
+        sols = [[1 if i==j else 0 for i in range(r)] for j in range(r)]
+        for n in range(Nmin+r,Nmax+r):
+            for i in range(r):
+                prolong(sols[i],n)
+
+        print1(" [make_places] sols")
+        print1(sols)
+
+        # Capture the relevant variables in the two functions
+        def get_functions(xi,n,Nmin,sols,call):
+
+            # In both functions the second argument `place` is ignored because captured
+            def val_fct(op,**kwargs):
+                # n-Nmin is the index of the value of the function at xi+n in
+                # the list seq
+                vect = [call(op,seq[n-Nmin:n-Nmin+r+1],n) for seq in sols]
+                return _vect_val_fct(vect)
+            def raise_val_fct(ops,dim=None,**kwargs):
+                mat = [[call(op,seq[n-Nmin:n-Nmin+r+1],n) for seq in sols]
+                       for op in ops]
+                #if infolevel >= 2: print(mat)
+                return _vect_elim_fct(mat,place=None,dim=dim,infolevel=infolevel)
+            return val_fct, raise_val_fct# , sols, call
+        
+        res = []
+        for n in range(Nmin+r,Nmax+1):
+            print1(" [make_places] preparing place at {}+{} (min poly = {})"
+                   .format(xi,n,f(nn-n)))
+            val_fct, raise_val_fct = get_functions(xi,n,Nmin,sols,call)
+            res.append((f(nn-n),val_fct,raise_val_fct# , sols, call
+            ))
+        return res
+    
+    
+    def find_candidate_places(self, Zmax = None, infolevel=0):
+        # TODO doc
+
+        # Helpers
+        print1 = print if infolevel >= 1 else lambda *a, **k: None
+        print2 = print if infolevel >= 2 else lambda *a, **k: None
+        print3 = print if infolevel >= 3 else lambda *a, **k: None
+
+        coeffs = self.coefficients(sparse=False)
+        
+        r = self.order()
+        i = min(i for i in range(r+1) if coeffs[i] != 0)
+        # Should we replace r with r-i when counting solutions?
+        lr = coeffs[-1]
+        l0 = coeffs[i]
+        l0lr = l0*lr
+
+        # Find the points of interest
+        fact0 = list(lr.factor())+list(l0.factor())
+
+        print1("Factors (non unique): {}".format(fact0))
+        
+        # Cleanup the list
+        fact = []
+        for f,m in fact0 :
+            if f.degree() == 0:
+                pass
+            elif any(True for i in range(len(fact))
+                     if (fact[i][0].degree() == f.degree()
+                         and roots_at_integer_distance(fact[i][0],f) != [])):
+                # f is a shift of a factor already seen
+                fact[i][1] += m
+            else:
+                fact.append([f,m])
+
+        print1("Factors (unique): {}".format(fact))
+
+        places = []
+        for f, m in fact:
+            print1("Computing places for {}".format(f))
+        
+            # Finding the actual indices of interest
+            inds = roots_at_integer_distance(l0lr,f)
+            print1("Integer distances between roots: {}".format(inds))
+            Nmin = min(inds)
+            Nmax = max(inds)+r
+            Nmin = Nmin - r
+            if Zmax :
+                Nmax = min(Nmax,Zmax)
+                # Else the default max is Nmax
+                # TODO: Should we also update Nmin if Zmax < Nmax?
+            print1("Nmin={} Nmax={}".format(Nmin,Nmax))
+
+            places += self._make_valuation_places(f, Nmin, Nmax, prec=m+1,
+                                                  infolevel=infolevel)
+            # TODO: is +1 needed?
+
+        return places
+
+    def value_function(self, op, place):
+        val = self._make_valuation_places(place,0,0)[0][1]
+        return val(op,place)
+
+    def raise_value(self, basis, place, dim):
+        fct = self._make_valuation_places(place,0,0)[0][2]
+        return fct(basis, place, dim)
+    
+
 
 #############################################################################################################
 
@@ -3986,7 +4710,7 @@ class UnivariateQRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverU
 
         while len(sol) == 0:
 
-            p = (Qu*p) % L
+            p = (Qu*p) % L  
             mat.append( p.coefficients(sparse=False, padd=r) )
             sol = solver(Matrix(mat).transpose())
 

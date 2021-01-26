@@ -38,6 +38,8 @@ from sage.categories.pushout import ConstructionFunctor
 from sage.categories.functor import Functor
 from sage.categories.rings import Rings
 
+from .tools import generalized_series_term_valuation, generalized_series_default_iota
+
 class GeneralizedSeriesFunctor(ConstructionFunctor):
     
     rank = 15
@@ -337,6 +339,21 @@ class ContinuousGeneralizedSeries(RingElement):
 
         ramification = ZZ(ramification)
 
+        # Move negative exponents to the exponential part if needed
+        # TODO: Update coercions in doc
+        x = parent.tail_ring().base_ring().gen()
+        laurent = parent.tail_ring().base_ring().fraction_field()
+        try:
+            tail2 = laurent(tail) # if tail does not have y
+            val = tail2.valuation()
+        except TypeError:
+            tail2 = parent.tail_ring().change_ring(laurent)(tail)
+            val = min(c.valuation() for c in tail2.coefficients())
+
+        if val in ZZ :
+            tail = tail2*x**(-val)
+            exp += val
+        
         p = parent.tail_ring()(tail)
 
         if ramification not in ZZ or ramification <= 0:
@@ -352,7 +369,6 @@ class ContinuousGeneralizedSeries(RingElement):
             if not alpha.is_zero():
                 # move part of the tail to the exponential part
                 exp += alpha
-                x = p.base_ring().gen()
                 p = p.map_coefficients(lambda q: q/(x**ZZ(ramification*alpha)))
                 
             new_ram = lcm([ (e/ramification).denominator() for e in exp.exponents() ])
@@ -945,6 +961,127 @@ class ContinuousGeneralizedSeries(RingElement):
             return infinity
         else:
             return min(c.prec() for c in t.coefficients())
+
+    def initial_exponent(self):
+        """
+        Return the constant coefficient of the exponential part of this series.
+
+        This is the exponent `\alpha` such that the series is `c x^\alpha e^{\ldots} (1 + \ldots)`.
+
+        EXAMPLES::
+        #TODO
+        """
+        return self.__exp.constant_coefficient()
+        
+    def tail_support(self):
+        """
+        Return the support of the tail.
+        
+        OUTPUT:
+
+            L : the list of all tuples (i,j) such that `c x^j log(x)^i`, with
+        `c \neq 0`, is a term of the polynomial part of ``self``.
+
+        """
+        cc = self.__tail.coefficients(sparse=False)
+        L = []
+        for i in range(len(cc)):
+            for j in range(cc[i].degree()+1):
+                if cc[i][j] != 0 :
+                    L.append((i,j))
+        return L
+
+    def valuation(self, base=QQ, iota=None):
+        """
+        Return the valuation of this generalized series.
+
+        INPUT: 
+
+        - ``base`` (default: `QQ`) - a field. The initial exponent of ``self``
+          must be coercible in that field. For the default value of ``iota``,
+          ``base`` must be a subfield of `CC` with computable real part.
+
+        - ``iota`` (default: None) - a function from ``base \times NN`` to
+          ``base``, with the following additional properties:
+        
+            - `iota(z,j)` lies in `z + ZZ`
+
+            - `iota(z,j) = iota(z+k,j)` for `k \in \ZZ`
+
+            - `iota(z1,j1) + iota(z2,j2) - iota(z1+z2,j1+j2) \geq 0`
+
+            - `iota(0,j)=j`
+
+          If not provided, ``iota`` is the function ``QQ \times NN \to QQ``
+          where `iota(z,j)` is the smallest `w=z+k` with `k \in ZZ` such that
+          `x^w \log(x)^j` is bounded in a neighborhood of 0.
+
+        OUTPUT:
+        
+        The valuation of this series, defined as the smallest value of
+        ``z-iota(z,j)`` for all terms ``x^z log(x)^j`` in the expansion of the
+        series.
+
+        With the default value of `iota`, the valuation of the series is
+        non-negative if and only if the series is bounded in a neighborhood of
+        0.
+
+
+        
+        TODO examples
+
+        """
+        z = base(self.initial_exponent())
+        # NOTE: Non optimal, we list too many terms
+        t = self.tail_support()
+        if len(t) == 0:
+            return infinity
+        else:
+            return min(generalized_series_term_valuation(
+                        z,j,i,iota=iota)
+                       for i,j in t)
+
+    def non_integral_terms(self, base=QQ, iota=None, cutoff=0):
+        """
+        List all terms in the support of self which are not integral
+
+        INPUT:
+
+        - ``base`` (default: `QQ`) - a field, with the same properties as in `:meth:valuation`.
+
+        - ``iota`` (default: None) - a function from `base \times ZZ` to `base`, with the same additional properties and default value as in `:meth:valuation`. 
+
+        - ``cutoff`` (default: 0) - an integer.
+
+        OUTPUT:
+
+        The list of all terms `(i,j)` of ``self`` which have valuation strictly smaller than ``cutoff``.
+        If ``cutoff`` is 0, this is the list of all non-integral terms of ``self``.
+        """
+        z = base(self.initial_exponent())
+        t = self.tail_support()
+        return [(i,j+z) for i,j in t
+                if generalized_series_term_valuation(z,j,i,iota=iota) < cutoff]
+
+    def coefficient(self,a,b):
+        # same as __getitem__ but takes into account the polynomial part
+        # TODO: Should it be merged with __getitem__?
+        z = self.initial_exponent()
+        if not (b-z).is_integer():
+            return 0
+        else:
+            try:
+                return self[(a,int(ZZ(b-z)))]
+            except IndexError:
+                return 0
+
+    def is_fuchsian(self,base):
+        r"""
+        Test whether this series is Fuchsian over the constant field `base`.
+        """
+        z = self.initial_exponent()
+        return z in base
+        
 
 ############################################################################################################
 
