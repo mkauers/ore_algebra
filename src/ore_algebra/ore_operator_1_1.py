@@ -1392,9 +1392,8 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         if type(alg) == str:
             R = self.base_ring(); x = R.gen(); one = R.one()
             rec_algebra = self.parent().change_var_sigma_delta(alg, {x:x+one}, {})
-        elif not isinstance(alg, OreAlgebra_generic) or not alg.is_S() \
-             or alg.base_ring().base_ring() is not self.base_ring().base_ring():
-            raise TypeError("not an adequate algebra")
+        elif not isinstance(alg, OreAlgebra_generic) or not alg.is_S():
+            raise TypeError("target algebra is not adequate")
         else:
             rec_algebra = alg
 
@@ -1509,8 +1508,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
 
         if isinstance(alg, str):
             alg = self.parent().change_var_sigma_delta(alg, {}, {x:x})
-        elif not isinstance(alg, OreAlgebra_generic) or not alg.is_T() or \
-             alg.base_ring().base_ring() is not R.base_ring():
+        elif not isinstance(alg, OreAlgebra_generic) or not alg.is_T():
             raise TypeError("target algebra is not adequate")
 
         if self.is_zero():
@@ -2758,8 +2756,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
 
         if type(alg) == str:
             alg = self.parent().change_var_sigma_delta(alg, {}, {x:one})
-        elif not isinstance(alg, OreAlgebra_generic) or not alg.is_D() \
-             or alg.base_ring().base_ring() is not R.base_ring():
+        elif not isinstance(alg, OreAlgebra_generic) or not alg.is_D():
             raise TypeError("target algebra is not adequate")
 
         if self.is_zero():
@@ -2807,8 +2804,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
 
         if type(alg) == str:
             alg = self.parent().change_var_sigma_delta(alg, {x:x+one}, {x:one})
-        elif not isinstance(alg, OreAlgebra_generic) or not alg.is_F() or \
-             alg.base_ring().base_ring() is not R.base_ring():
+        elif not isinstance(alg, OreAlgebra_generic) or not alg.is_F():
             raise TypeError("target algebra is not adequate")
 
         if self.is_zero():
@@ -4330,8 +4326,7 @@ class UnivariateDifferenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
 
         if type(alg) == str:
             alg = self.parent().change_var_sigma_delta(alg, {x:x+one}, {})
-        elif not isinstance(alg, OreAlgebra_generic) or not alg.is_S() or \
-             alg.base_ring().base_ring() is not R.base_ring():
+        elif not isinstance(alg, OreAlgebra_generic) or not alg.is_S():
             raise TypeError("target algebra is not adequate")
 
         if self.is_zero():
@@ -4491,8 +4486,7 @@ class UnivariateEulerDifferentialOperatorOverUnivariateRing(UnivariateOreOperato
 
         if type(alg) == str:
             alg = self.parent().change_var_sigma_delta(alg, {}, {x:one})
-        elif not isinstance(alg, OreAlgebra_generic) or not alg.is_D() or \
-             alg.base_ring().base_ring() is not R.base_ring():
+        elif not isinstance(alg, OreAlgebra_generic) or not alg.is_D():
             raise TypeError("target algebra is not adequate")
 
         if self.is_zero():
