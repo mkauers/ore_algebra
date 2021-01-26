@@ -182,10 +182,10 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         if degree is None:
             degree = L._degree_bound()
 
-        if len(rhs) > 0:
+        if rhs:
             degree = max(degree, max(list(map(lambda p: L.order() + p.degree(), rhs))))
 
-        if degree < 0 and len(rhs) == 0:
+        if degree < 0 and not rhs:
             return []
 
         from sage.matrix.constructor import matrix
@@ -519,7 +519,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
             raise NotImplementedError # leave this case to the subclass
         
         op = self.numerator()._coeff_list_for_indicial_polynomial()
-        R = op[0].parent().base_ring()[var]
+        R = PolynomialRing(op[0].parent().base_ring(), var)
         y = R.gen()
 
         A = self.parent()
@@ -842,7 +842,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         exponents=[divisors(d) for (c,d) in p.squarefree_decomposition()]
         M=[]
         for a in exponents[0]:
-            contained = true
+            contained = True
             for i in range(1,len(exponents)):
                 contained = contained and a in exponents[i]
             if contained: M.append(a)
@@ -1436,7 +1436,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
                     set_coeff(result[i], j, coeffs[j][v])
 
             if result[i]:
-                from_newton_basis(result[i], range(-i, -i + r))
+                from_newton_basis(result[i], list(range(-i, -i + r)))
 
         rec = rec_algebra(result)
         sigma = rec_algebra.sigma()
@@ -2453,6 +2453,12 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             sage: (Dx - 1).numerical_solution([1], [0, i + pi])
             [12.5029695888765...] + [19.4722214188416...]*I
 
+        They can even be real or complex balls. In this case, the result
+        contains the image of the ball::
+
+            sage: (Dx - 1).numerical_solution([1], [0, CBF(1+i).add_error(0.01)])
+            [1.5 +/- 0.0693] + [2.3 +/- 0.0506]*I
+
         Here, we use a more complicated analytic continuation path in order to
         evaluate the branch of the complex arctangent function obtained by
         turning around its singularity at `i` once::
@@ -2483,7 +2489,17 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             Traceback (most recent call last):
             ...
             ValueError: solution may not have a finite limit at evaluation
-            point (try using numerical_transition_matrix())
+            point 0 (try using numerical_transition_matrix())
+
+        To obtain the values of the solution at several points in a single run,
+        enclose the corresponding points of the path in length-one lists. The
+        output then changes to a list of (point, solution value) pairs::
+
+            sage: (Dx - 1).numerical_solution([1], [[i/3] for i in range(4)])
+            [(0, 1.00...), (1/3, [1.39...]), (2/3, [1.94...]), (1, [2.71...])]
+
+            sage: (Dx - 1).numerical_solution([1], [0, [1]])
+            [(1, [2.71828182845904...])]
 
         The ``post_transform`` parameter can be used to compute derivatives or
         linear combinations of derivatives of the solution. Here, we use this
@@ -2532,6 +2548,11 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             Traceback (most recent call last):
             ...
             TypeError: unexpected value for point: 'a'
+
+        TESTS::
+
+            sage: (Dx - 1).numerical_solution([1], [[0], 1])
+            [(0, 1.0000000000000000)]
         """
         from .analytic import analytic_continuation as ancont, local_solutions
         from .analytic.differential_operator import DifferentialOperator
@@ -2540,22 +2561,30 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         post_mat = matrix(1, dop.order(),
                 lambda i, j: ZZ(j).factorial()*post_transform[j])
         ctx = ancont.Context(**kwds)
-        pairs = ancont.analytic_continuation(dop, path, eps, ctx, ini=ini,
-                                                                  post=post_mat)
-        assert len(pairs) == 1
-        _, mat = pairs[0]
-        struct = ctx.path.vert[-1].local_basis_structure()
-        if dop.order() == 0:
-            return mat.base_ring().zero()
-        asympt = local_solutions.sort_key_by_asympt(struct[0])
+        sol = ancont.analytic_continuation(dop, path, eps, ctx, ini=ini,
+                                         post=post_mat, return_local_bases=True)
+        val = []
         asycst = (AA.zero(), ZZ.zero(), AA.zero(), 0)
-        if asympt > asycst:
-            return mat.base_ring().zero()
-        elif asympt == asycst:
-            return mat[0][0]
+        for sol_at_pt in sol:
+            pt = sol_at_pt["point"]
+            mat = sol_at_pt["value"]
+            if dop.order() == 0:
+                val.append((pt, mat.base_ring().zero()))
+                continue
+            asympt = local_solutions.sort_key_by_asympt(sol_at_pt["structure"][0])
+            if asympt > asycst:
+                val.append((pt, mat.base_ring().zero()))
+            elif asympt == asycst:
+                val.append((pt, mat[0][0]))
+            else:
+                raise ValueError("solution may not have a finite limit at "
+                    f"evaluation point {pt} "
+                    "(try using numerical_transition_matrix())")
+        if isinstance(path, list) and any(isinstance(pt, list) for pt in path):
+            return val
         else:
-            raise ValueError("solution may not have a finite limit at "
-                   "evaluation point (try using numerical_transition_matrix())")
+            assert len(val) == 1
+            return val[0][1]
 
     def numerical_transition_matrix(self, path, eps=1e-16, **kwds):
         r"""
@@ -2671,13 +2700,16 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             ...
             ValueError: operator must be nonzero
         """
-        from .analytic import analytic_continuation as ancont, local_solutions
+        from .analytic import analytic_continuation as ancont
         from .analytic.differential_operator import DifferentialOperator
         dop = DifferentialOperator(self)
         ctx = ancont.Context(**kwds)
-        pairs = ancont.analytic_continuation(dop, path, eps, ctx)
-        assert len(pairs) == 1
-        return pairs[0][1]
+        sol = ancont.analytic_continuation(dop, path, eps, ctx)
+        if isinstance(path, list) and any(isinstance(pt, list) for pt in path):
+            return [(s["point"], s["value"]) for s in sol]
+        else:
+            assert len(sol) == 1
+            return sol[0]["value"]
 
 #############################################################################################################
 
@@ -2867,7 +2899,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
           by the first entry of ``init``. Defaults to zero.
         - ``append`` (optional) -- if ``True``, the computed terms are appended
           to ``init`` list. Otherwise (default), a new list is created.
-        - ``padd`` (optional) -- if ``True``, the vector of initial values is implicitely
+        - ``padd`` (optional) -- if ``True``, the vector of initial values is implicitly
           prolonged to the left (!) by zeros if it is too short. Otherwise (default),
           the method raises a ``ValueError`` if ``init`` is too short.
 
@@ -3036,7 +3068,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
             sage: Rxks = OreAlgebra(Rxk, 'Sk')
             sage: V = QQ
             sage: Vks = OreAlgebra(V['k'], 'Sk')
-            sage: for i in range(1000): # long time (2.5 s)
+            sage: for i in range(1000): # long time (1.9 s)
             ....:     A = Rxks.random_element(randrange(1,4))
             ....:     r = A.order()
             ....:     v = V.random_element()
@@ -3431,7 +3463,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
           [0, 0, 0]
 
           sage: L = n^2*(1-2*Sn+Sn^2) + (n+1)*(1+Sn+Sn^2)
-          sage: L.generalized_series_solutions() # long time
+          sage: L.generalized_series_solutions() # long time (1.7 s)
           [exp(3.464101615137755?*I*n^(1/2))*n^(1/4)*(1 - 2.056810333988042?*I*n^(-1/2) - 1107/512*n^(-2/2) + (0.?e-19 + 1.489453749877895?*I)*n^(-3/2) + 2960239/2621440*n^(-4/2) + (0.?e-19 - 0.926161373412572?*I)*n^(-5/2) - 16615014713/46976204800*n^(-6/2) + (0.?e-20 + 0.03266142931818572?*I)*n^(-7/2) + 16652086533741/96207267430400*n^(-8/2) + (0.?e-20 - 0.1615093987591473?*I)*n^(-9/2) + O(n^(-10/2))), exp(-3.464101615137755?*I*n^(1/2))*n^(1/4)*(1 + 2.056810333988042?*I*n^(-1/2) - 1107/512*n^(-2/2) + (0.?e-19 - 1.489453749877895?*I)*n^(-3/2) + 2960239/2621440*n^(-4/2) + (0.?e-19 + 0.926161373412572?*I)*n^(-5/2) - 16615014713/46976204800*n^(-6/2) + (0.?e-20 - 0.03266142931818572?*I)*n^(-7/2) + 16652086533741/96207267430400*n^(-8/2) + (0.?e-20 + 0.1615093987591473?*I)*n^(-9/2) + O(n^(-10/2)))]
 
           sage: L = guess([(-3)^k*(k+1)/(2*k+4) - 2^k*k^3/(k+3) for k in range(500)], A)
@@ -3445,7 +3477,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
             sage: rop = (-8 -12*Sn + (n^2+5*n+6)*Sn^3)
             sage: rop
             (n^2 + 5*n + 6)*Sn^3 - 12*Sn - 8
-            sage: rop.generalized_series_solutions(1) # long time
+            sage: rop.generalized_series_solutions(1) # long time (7 s)
             [(n/e)^(-2/3*n)*2^n*exp(3*n^(1/3))*n^(-2/3)*(1 + 3/2*n^(-1/3) + 9/8*n^(-2/3) + O(n^(-3/3))),
             (n/e)^(-2/3*n)*(-1.000000000000000? + 1.732050807568878?*I)^n*exp((-1.500000000000000? + 2.598076211353316?*I)*n^(1/3))*n^(-2/3)*(1 + (-0.750000000000000? - 1.299038105676658?*I)*n^(-1/3) + (-0.562500000000000? + 0.974278579257494?*I)*n^(-2/3) + O(n^(-3/3))),
             (n/e)^(-2/3*n)*(-1.000000000000000? - 1.732050807568878?*I)^n*exp((-1.500000000000000? - 2.598076211353316?*I)*n^(1/3))*n^(-2/3)*(1 + (-0.750000000000000? + 1.299038105676658?*I)*n^(-1/3) + (-0.562500000000000? - 0.974278579257494?*I)*n^(-2/3) + O(n^(-3/3)))]
@@ -3834,7 +3866,7 @@ class UnivariateQRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverU
           by the first entry of ``init``. Defaults to zero.
         - ``append`` (optional) -- if ``True``, the computed terms are appended
           to ``init`` list. Otherwise (default), a new list is created.
-        - ``padd`` (optional) -- if ``True``, the vector of initial values is implicitely
+        - ``padd`` (optional) -- if ``True``, the vector of initial values is implicitly
           prolonged to the left (!) by zeros if it is too short. Otherwise (default),
           the method raises a ``ValueError`` if ``init`` is too short.
 

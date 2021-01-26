@@ -9,11 +9,11 @@ The following discrete functions are supported:
     - binomial(an+b, cn+d) where a,b,c,d are fixed rational numbers and n is the variable
     - factorial(n)
     - harmonic_number(n)
-    
-The follwing differentiable functions are supported:
+
+The following differentiable functions are supported:
     - Trigonometric functions: sin(x), cos(x), arcsin(x), arccos(x), arctan(x), arccsc(x), arcsec(x)
     - Hyperbolic functions: sinh(x), cosh(x), arcsinh(x), arctanh(x), arccsch(x)
-    - Logarithmic funcions: exp(x), log(x), dilog(x)
+    - Logarithmic functions: exp(x), log(x), dilog(x)
     - Airy functions: airy_ai(x), airy_bi(x), airy_ai_prime(x), airy_bi_prime(x)
     - Bessel functions: bessel_I(k,x), bessel_J(k,x), bessel_K(k,x), bessel_Y(k,x), spherical_bessel_J(k,x) where k is a fixed
       rational number and x is the variable

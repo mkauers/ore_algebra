@@ -25,7 +25,10 @@ from sage.misc.cachefunc import cached_method
 from sage.plot.plot import generate_plot_points
 from sage.rings.all import ZZ, QQ, RBF, CBF, RIF, CIF
 from sage.rings.complex_arb import ComplexBall, ComplexBallField
-from sage.rings.complex_number import ComplexNumber
+try:
+    from sage.rings.complex_mpfr import ComplexNumber
+except ImportError:
+    from sage.rings.complex_number import ComplexNumber
 from sage.rings.infinity import AnInfinity
 from sage.rings.real_arb import RealBall, RealBallField
 from sage.rings.real_mpfi import RealIntervalField
@@ -221,21 +224,21 @@ class DFiniteFunction(object):
         # TODO:
         # - attempt to start as close as possible to the destination
         #   [and perhaps add logic to change for a starting point with exact
-        #   initial values if loosing too much precision]
+        #   initial values if losing too much precision]
         # - return a path passing through "interesting" points (and cache the
         #   associated initial vectors)
         start, ini = list(self.ini.items())[0]
-        return ini, [start, dest]
+        return ini, [start, Point(dest, self.dop, keep_value=True)]
 
     # Having the update (rather than the full test-and-update) logic in a
     # separate method is convenient to override it in subclasses.
     def _update_approx(self, center, rad, prec, derivatives):
         ini, path = self._path_to(center, prec)
         eps = RBF.one() >> prec
-        # keep="all" won't do anything until _path_to returns better paths
-        ctx = ancont.Context(keep="all")
-        pairs = ancont.analytic_continuation(self.dop, path, eps, ctx, ini=ini)
-        for (vert, val) in pairs:
+        ctx = ancont.Context()
+        sol = ancont.analytic_continuation(self.dop, path, eps, ctx, ini=ini)
+        for point_dict in sol:
+            vert, val = point_dict["point"], point_dict["value"]
             known = self._inivecs.get(vert)
             if known is None or known[0].accuracy() < val[0][0].accuracy():
                 self._inivecs[vert] = [c[0] for c in val]
@@ -413,11 +416,11 @@ class DFiniteFunction(object):
             sage: DiffOps, x, Dx = DifferentialOperators()
 
             sage: f = DFiniteFunction((x^2 + 1)*Dx^2 + 2*x*Dx, [0, 1])
-            sage: f(-10, 100) # long time
+            sage: f(-10, 100)
             [-1.4711276743037345918528755717...]
-            sage: f.approx(5, post_transform=Dx) # long time
+            sage: f.approx(5, post_transform=Dx)
             [0.038461538461538...]
-            sage: f.plot_known() # long time
+            sage: f.plot_known()
             Graphics object consisting of ... graphics primitives
         """
         g = plot.Graphics()
@@ -509,7 +512,7 @@ def _tests():
 
         sage: f = DFiniteFunction((x^2 + 1)*Dx^2 + 2*x*Dx, [0, 1])
 
-        sage: [f(10^i) for i in range(-3, 4)] # long time (2.5 s)
+        sage: [f(10^i) for i in range(-3, 4)] # long time (1.3 s)
         [[0.0009999996666...], [0.0099996666866...], [0.0996686524911...],
         [0.7853981633974...], [1.4711276743037...], [1.5607966601082...],
         [1.5697963271282...]]

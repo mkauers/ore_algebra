@@ -13,12 +13,18 @@ Shiftless decomposition
 # Most of the functions in this file should be upstreamed, as methods of the
 # indicated classes.
 
+import logging
+
 from six.moves import range
 
+from sage.misc.cachefunc import cached_function
 from sage.misc.misc_c import prod
 from sage.structure.sequence import Sequence
 from sage.rings.infinity import minus_infinity
 from sage.rings.integer_ring import ZZ
+from sage.rings.rational_field import QQ
+
+logger = logging.getLogger(__name__)
 
 # -> EuclideanDomains.ParentMethods
 
@@ -211,7 +217,7 @@ def shiftless_decomposition(self):
 
         sage: from ore_algebra.analytic.shiftless import *
         sage: Pol.<y> = QQ[]
-        sage: shiftless_decomposition((y-1)*(y-1/2)*y)
+        sage: shiftless_decomposition((y-1)*(y-1/2)*y) # random order
         (1, [(y - 1/2, [(0, 1)]), (y - 1, [(0, 1), (1, 1)])])
     """
     quo = self.monic()
@@ -254,7 +260,14 @@ def shiftless_decomposition(self):
         [(part, shifts)
           for part, shifts in shifts_of.items()])
 
+# key=... to avoid comparing number fields
+# XXX: tie life to a suitable object
+# @cached_function(key=lambda p: (id(p.parent()), p))
 def my_shiftless_decomposition(pol):
+    try:
+        pol = pol.monic().change_ring(QQ)
+    except TypeError:
+        logger.debug("failed to reduce to rational coefficients")
     x = pol.parent().gen()
     _, fac = shiftless_decomposition(pol(-x))
     return [(polynomial(-x), shifts)

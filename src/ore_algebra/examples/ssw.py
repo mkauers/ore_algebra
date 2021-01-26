@@ -17,7 +17,7 @@ to 1 or one of them is set to 0 and the other is left symbolic. For example::
 
     sage: from ore_algebra.examples import ssw
     sage: q = A.base_ring()(ssw.rat[1](x=1,y=1))
-    sage: ct1 = A.ideal([q*D - D(q) for D in Du,Dv,Dt]).ct(Dv)[0]
+    sage: ct1 = A.ideal([q*D - D(q) for D in (Du,Dv,Dt)]).ct(Dv)[0]
     sage: ct2 = ct1[0].parent().ideal(ct1).ct(Du)[0]
     sage: ct2
     [(16*t^4 - t^2)*Dt^3 + (128*t^3 + 8*t^2 - 6*t)*Dt^2 + (224*t^2 + 28*t - 6)*Dt + 64*t + 12]
@@ -27,8 +27,8 @@ to 1 or one of them is set to 0 and the other is left symbolic. For example::
 After obtaining the telescopers, we can use them to compute connection matrices
 that encode information on the asymptotics of the corresponding lattice walks::
 
-    sage: mat = ssw.dop[5,1,1].numerical_transition_matrix([0, 1/3+i/10, 1/3]) # (1.8 s)
-    sage: (mat*vector([0, 0, 1, 3, 7]))[0] # long time
+    sage: mat = ssw.dop[5,1,1].numerical_transition_matrix([0, 1/3+i/10, 1/3]) # (1.3 s)
+    sage: (mat*vector([0, 0, 1, 3, 7]))[0]
     [...] + [0.50000...]*I
 
     sage: ssw.dop[1, 0, 0].numerical_transition_matrix([0, 1/4])
@@ -38,7 +38,7 @@ that encode information on the asymptotics of the corresponding lattice walks::
 
 TESTS::
 
-    sage: for i in [2, 5, 12, 18]: # long time (1 min 40 s)
+    sage: for i in [2, 5, 12, 18]: # long time (1 min 21 s)
     ....:     for xx, yy in [(0, 1), (1, 0)]:
     ....:         ssw.test_ct(i, xx, yy)
 
@@ -47,9 +47,10 @@ TESTS::
     ....:         for yy in [0, 1]:
     ....:             ssw.test_ct(i, xx, yy)
 
-Plus an example provided by Bruno Salvy, also related to small-step walks::
+Plus an example provided by Bruno Salvy, also related to small-step walks (not
+double-checked)::
 
-    sage: ssw.aux_dop.numerical_solution(ssw.aux_ini, [0,1]) # TODO: double-check result
+    sage: ssw.aux_dop.numerical_solution(ssw.aux_ini, [0,1])
     [10.662510694...]
 
 """
@@ -1429,7 +1430,7 @@ aux_dop = (
 def test_ct(i, xx, yy, infolevel=0):
     A, (Du,Dv,Dt) = OreAlgebra(Frac(ZZ['t,u,v']), 'Du', 'Dv', 'Dt').objgens()
     q = A.base_ring()(rat[i](x=xx, y=yy))
-    ct1, _ = A.ideal([q*D - D(q) for D in Du,Dv,Dt]).ct(Dv)
+    ct1, _ = A.ideal([q*D - D(q) for D in (Du,Dv,Dt)]).ct(Dv)
     ct2, _ = ct1[0].parent().ideal(ct1).ct(Du, infolevel=infolevel)
     assert len(ct2) == 1
     tel = ct2[0]

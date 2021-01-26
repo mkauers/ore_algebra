@@ -39,26 +39,38 @@ was built from source or installed from official packages, run
 
 Alternatively, run
 
-    sage -pip install [--user] .
+    sage -pip install [--editable] [--user] .
 
 to install from the root of a git checkout.
+
+The optional `--editable` flags causes the "installed" version to point to your
+git checkout, making it easier to edit the code.
 
 The optional `--user` flag causes the package to be installed in your .sage
 directory instead of the Sage installation tree.
 
-If your copy of Sage comes from system packages of a Linux distribution, try
-replacing "sage -pip" by "pip" or "pip2" above.
+If your copy of Sage comes from operating system packages (e.g., Debian, Ubuntu,
+Gentoo, or Arch Linux packages), try replacing "sage -pip" by "pip" or "pip3"
+above.
 
 Notes:
 
 * To use ore_algebra directly from a git checkout (without installation), run
-  "sage -python setup.py build_ext --inplace from the root of the checkout", and
+  "sage -python setup.py build_ext --inplace" from the root of the checkout, and
   add the src/ directory to your Python sys.path.
 
-* ore_algebra contains compiled (cython) modules which are automatically built
+* ore_algebra contains compiled (Cython) modules which are automatically built
   as part of the installation procedure. Only some specific features depend on
   these modules, though, and the core features should work even if they are
   unavailable.
+
+* To build the Cython modules against a version of Sage distributed as an
+  operating system package, you may need some development packages that are not
+  automatically installed as dependencies of the main SageMath package. For
+  example, Debian and Ubuntu users need to install the liblinbox-dev,
+  libpari-dev and libsingular-dev packages (and possibly others) packages in
+  addition to the sagemath package. The command "apt build-dep sagemath" can be
+  used to install all necessary development packages (and more).
 
 Documentation
 -------------

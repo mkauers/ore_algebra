@@ -4,7 +4,7 @@ Creative telescoping
 EXAMPLE::
 
     sage: from ore_algebra.examples import ct
-    sage: ct.ideal.ct(ct.Dx)
+    sage: ct.ideal.ct(ct.Dx) # long time (1 s)
     ([1],
     [((-144*n^3*x^7 - 300*n^2*x^7 + 324*n^3*x^5 - 204*n*x^7 + 675*n^2*x^5 -
     45*x^7 - 216*n^3*x^3 + 460*n*x^5 - 450*n^2*x^3 + 102*x^5 + 36*n^3*x -

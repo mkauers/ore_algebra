@@ -54,6 +54,24 @@ class PlainDifferentialOperator(UnivariateDifferentialOperatorOverUnivariateRing
                 dop.parent(), dop)
 
     @cached_method
+    def _indicial_polynomial_at_zero(self):
+        # Adapted from the version in ore_operator_1_1
+
+        op = self.numerator()
+        R = op.base_ring()
+        y = R.gen()
+
+        b = min(c.valuation() - j for j, c in enumerate(op))
+
+        s = R.zero()
+        y_ff_i = R.one()
+        for i, c in enumerate(op):
+            s += c[b + i]*y_ff_i
+            y_ff_i *= y - i
+
+        return s
+
+    @cached_method
     def _naive_height(self):
         def h(c):
             den = c.denominator()
@@ -64,17 +82,13 @@ class PlainDifferentialOperator(UnivariateDifferentialOperatorOverUnivariateRing
         return max(h(c) for pol in self for c in pol)
 
     @cached_method
-    def _my_to_S(self, name='n'):
-        Pols_x = self.base_ring()
-        Scalars = self.base_ring().base_ring()
-        Pols_n, n = PolynomialRing(Scalars, name).objgen()
-        Rops = OreAlgebra(Pols_n, 'S' + name)
+    def _my_to_S(self):
         # Using the primitive part here would break the computation of residuals!
         # TODO: add test (arctan); better fix?
         # Other interesting cases: operators of the form P(Θ) (with constant
         # coefficients)
         #rop = self.to_S(Rops).primitive_part().numerator()
-        return self.to_S(Rops)
+        return self.to_S(self._shift_alg())
 
     @cached_method
     def growth_parameters(self):
@@ -86,19 +100,19 @@ class PlainDifferentialOperator(UnivariateDifferentialOperatorOverUnivariateRing
 
     @cached_method
     def _singularities(self, dom, include_apparent=True, multiplicities=False):
-        dop = self if include_apparent else self.desingularize() # TBI
+        if not multiplicities:
+            rts = self._singularities(dom, include_apparent, multiplicities=True)
+            return [s for s, _ in rts]
         if isinstance(dom, ComplexBallField): # TBI
             dom1 = ComplexIntervalField(dom.precision())
-        else:
-            dom1 = dom
+            rts = self._singularities(dom1, include_apparent, multiplicities)
+            return [(dom(s), m) for s, m in rts]
+        dop = self if include_apparent else self.desingularize() # TBI
         lc = dop.leading_coefficient()
         try:
-            sing = lc.roots(dom1, multiplicities=multiplicities)
+            return lc.roots(dom)
         except NotImplementedError:
-            sing = lc.change_ring(QQbar).roots(dom1, multiplicities=multiplicities)
-        if dom1 is not dom:
-            sing = [dom(s) for s in sing]
-        return sing
+            return lc.change_ring(QQbar).roots(dom)
 
     def _sing_as_alg(dop, iv):
         pol = dop.leading_coefficient().radical()
@@ -116,6 +130,8 @@ class PlainDifferentialOperator(UnivariateDifferentialOperatorOverUnivariateRing
 
     @cached_method
     def _est_growth(self):
+        # Originally intended for the case of ordinary points only; may need
+        # improvements for singular points.
         from .bounds import growth_parameters, IR, IC
         kappa, alpha0 = growth_parameters(self)
         if kappa is infinity:
@@ -128,7 +144,7 @@ class PlainDifferentialOperator(UnivariateDifferentialOperatorOverUnivariateRing
         n0 = 1
         while lc(n0).is_zero():
             n0 += 1
-        alpha1 = max(abs(IC(pol(n0))) for pol in list(rop)[:-1])/abs(IR(lc(n0)))
+        alpha1 = max(abs(IC(pol(n0))) for pol in list(rop)[:-1])/abs(IC(lc(n0)))
         alpha = IR(alpha0).max(alpha1)
         return kappa, alpha
 
@@ -146,8 +162,10 @@ class PlainDifferentialOperator(UnivariateDifferentialOperatorOverUnivariateRing
             kappa, alpha = self._est_growth()
             if kappa is infinity:
                 return 0, 0
-            hump = IR(1).exp() * IR(alpha*pt.rad)**(~kappa)
-            est = hump + prec/(kappa*prec.log(2))
+            ratio = IR(alpha*pt.rad)
+            hump = IR.one().exp() * ratio**(~kappa)
+            klgp = kappa*prec.log(2)
+            est = hump + prec/(klgp.max(-ratio.log(2)))
             mag = hump.log(2).max(IR.zero())
         else:
             est = prec/(cvrad/pt.rad).log(2)
@@ -168,11 +186,12 @@ class PlainDifferentialOperator(UnivariateDifferentialOperatorOverUnivariateRing
             # Largely redundant with the other branch, but may do a better job
             # in some cases, e.g. pushout(QQ, QQ(α)), where as_enf_elts() would
             # invent new generator names.
-            NF = coercion_model.common_parent(Scalars, **pts)
-            if not is_NumberField(NF):
+            NF0 = coercion_model.common_parent(Scalars, *pts)
+            if not is_NumberField(NF0):
                 raise CoercionException
-            gen1 = NF.coerce(gen)
-            pts1 = tuple(NF.coerce(pt) for pt in pts)
+            NF, hom = utilities.good_number_field(NF0)
+            gen1 = hom(NF0.coerce(gen))
+            pts1 = tuple(hom(NF0.coerce(pt)) for pt in pts)
         except (CoercionException, TypeError):
             NF, val1 = as_embedded_number_field_elements((gen,)+pts)
             gen1, pts1 = val1[0], tuple(val1[1:])
@@ -217,6 +236,24 @@ class PlainDifferentialOperator(UnivariateDifferentialOperatorOverUnivariateRing
         shifted = dop_P.map_coefficients(shift_poly)
         return ShiftedDifferentialOperator(shifted, self, delta)
 
+    @cached_method
+    def _theta_alg_with_base(self, Scalars):
+        Dop = self.parent()
+        Pol = Dop.base_ring().change_ring(Scalars)
+        x = Pol.gen()
+        return OreAlgebra(Pol, 'T'+str(x))
+
+    def _theta_alg(self):
+        return self._theta_alg_with_base(self.parent().base_ring().base_ring())
+
+    @cached_method
+    def _shift_alg_with_base(self, Scalars):
+        Pols_n, n = PolynomialRing(Scalars, 'n').objgen()
+        return OreAlgebra(Pols_n, 'Sn')
+
+    def _shift_alg(self):
+        return self._shift_alg_with_base(self.base_ring().base_ring())
+
 class ShiftedDifferentialOperator(PlainDifferentialOperator):
 
     def __init__(self, dop, orig, delta):
@@ -231,3 +268,9 @@ class ShiftedDifferentialOperator(PlainDifferentialOperator):
             return [(s - delta, m) for s, m in sing]
         else:
             return [s - delta for s in sing]
+
+    def _theta_alg(self):
+        return self._orig._theta_alg_with_base(self.base_ring().base_ring())
+
+    def _shift_alg(self):
+        return self._orig._shift_alg_with_base(self.base_ring().base_ring())

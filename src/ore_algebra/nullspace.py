@@ -173,6 +173,8 @@ testsuite
 
 """
 
+import math
+import six
 
 from sage.arith.all import CRT_basis, xgcd, gcd, lcm, previous_prime as pp
 from sage.misc.all import prod
@@ -191,7 +193,6 @@ from sage.matrix.constructor import Matrix, matrix
 from sage.matrix.matrix_space import MatrixSpace
 from sage.modules.free_module_element import vector
 from datetime import datetime
-import math
 
 #####################
 ####### tools #######
@@ -211,8 +212,8 @@ def row_content(row, ring):
     if not row:
         return ring.zero()
     else:
-        row = list(sorted(row, key=lambda pol: pol.degree()))
-        return gcd(row)
+        return gcd(sorted(row, key=lambda pol: pol.degree()))
+
 
 def heuristic_row_content(row, ring):
 
@@ -324,9 +325,9 @@ def _pivot(mat, r, n, c, m, zero):
             def size(ij):
                 if not ij in elsize:
                     pol = mat[ij[0] + r][ij[1] + c].coefficients()
-                    m = float(max(abs(cc) for cc in pol))
+                    m = max(abs(cc) for cc in pol) # recall that m may be too large to fit a float
                     # the constant in the line below is 53*log(2)
-                    elsize[ij] = (1 + math.floor(math.log(m)/36.7368))*len(pol)
+                    elsize[ij] = (1 + math.floor(m.global_height()/36.7368))*len(pol)
                 return elsize[ij]
         elif K.is_finite():
             def size(ij):
@@ -352,7 +353,7 @@ def _pivot(mat, r, n, c, m, zero):
         pivot_fillin = size((i, j))*(nz_in_rows_for_col[j] - nz_in_col[j] - nz_in_row[i] + 1)
         # The elimination rule being  ``mat[l][k] = mat[i][j]*mat[l][k] - mat[i][k]*mat[l][j]'', we
         # count only the fillin caused by the multiplication with mat[i][j] and neglect the fillin
-        # caused by the additive term mat[i][k]*mat[l][j], although it ought to be of roughtly the
+        # caused by the additive term mat[i][k]*mat[l][j], although it ought to be of roughly the
         # same size. In experiments, taking also an estimate for the other part into account has
         # led to poorer performance (perhaps because we can't predict the fillin for this part
         # sufficiently accurately).
@@ -504,7 +505,7 @@ def gauss(pivot=_pivot, ncpus=1, fun=None):
     - ``fun`` -- if different from ``None``, at the beginning of each iteration of the outer loops of
       forward and backward elimination, the solver calls ``fun(mat, idx)``, where ``mat`` is the current
       matrix (as list of lists of elements) and ``idx`` is a counter. This functionality is intended
-      for analyzing the elimination process, e.g., for inspecting how well the solver succees in maintaining
+      for analyzing the elimination process, e.g., for inspecting how well the solver succeed in maintaining
       the sparsity of the matrix. The solver assumes that the function won't modify the matrix. 
 
     OUTPUT:
@@ -756,11 +757,13 @@ def _hermite_base(early_termination, R, A, u, D):
         # consider the coefficient of x^k in the entries of A
         if early_termination and k < u - 1:
             # if V[j] is already a solution vector, then the j-th row of A must be zero.
-            candidates = filter(lambda j : not any(A[i][j][k] for i in range(n)), range(m))
+            candidates = (j for j in range(m)
+                          if not any(A[i][j][k] for i in range(n)))
             # for the candidates, check whether also the higher degree coefficients are zero
-            candidates = filter(lambda j : not any(A[i][j][l] for i in range(n) for l in range(k+1, u)), candidates)
-            candidates = list(candidates)
-            if len(candidates) > 0:
+            candidates = [j for j in candidates
+                          if not any(A[i][j][l] for i in range(n)
+                                     for l in range(k+1, u))]
+            if candidates:
                 return Matrix(R, [[v[c] for c in candidates] for v in V ]), True
         for i in range(n):
             row = A[i]
@@ -833,7 +836,7 @@ def _hermite_rec(early_termination, R, A, cut, offset, infolevel):
     # 1. write A = A0 + A1 x^ceil(k/2) with deg(A0), deg(A1) < ceil(k/2)
     cut2 = int(math.ceil(cut/2))
 
-    _info(infolevel, "decending into first recursive call...")
+    _info(infolevel, "descending into first recursive call...")
     # 2. compute V0 such that A0*V0 == 0 mod x^ceil(k/2) recursively
     V0, done = _hermite_rec(early_termination, R, A, cut2, offset, _alter_infolevel(infolevel, -1, 1))
     _info(infolevel, "...done")
@@ -844,7 +847,7 @@ def _hermite_rec(early_termination, R, A, cut, offset, infolevel):
     B = (A*V0).apply_map(lambda p : p.shift(-cut2))
     
     # 4. compute V1 such that B*V1 == 0 mod x^ceil(k/2) recursively
-    _info(infolevel, "decending into second recursive call...")
+    _info(infolevel, "descending into second recursive call...")
     V1, done = _hermite_rec(early_termination, R, B, cut - cut2, offset, _alter_infolevel(infolevel, -1, 1))
     _info(infolevel, "...done")
     
@@ -1052,7 +1055,7 @@ def _lagrange(subsolver, start_point, ncpus, mat, degrees, infolevel):
     if char > 0 and char < start_point + bound:
         raise ValueError("not enough evaluation points")
 
-    points = list(map(lambda p: R(start_point + p), range(bound)))
+    points = [R(start_point + p) for p in range(bound)]
     M = product_tree(x, points, 0, bound); mod = M[0]; Mprime = []
     multipoint_evaluate(mod.derivative(), points, 0, bound, M, Mprime)
 
@@ -1095,7 +1098,7 @@ def _lagrange(subsolver, start_point, ncpus, mat, degrees, infolevel):
         _info(infolevel, "Taking ", bound, " more interpolation points...", alter = -1)
         if start_point + bound > char:
             raise ValueError("not enough evaluation points")
-        points = list(map(lambda p: R(start_point + p), range(bound)))
+        points = [R(start_point + p) for p in range(bound)]
         M = product_tree(x, points, 0, bound); mod = M[0]; Mprime = []
         multipoint_evaluate(mod.derivative(), points, 0, bound, M, Mprime)
 
@@ -1380,7 +1383,7 @@ def _cra(subsolver, max_modulus, proof, ncpus, mat, degrees, infolevel):
             _info(infolevel, "unlucky modulus ", m, " discarded (dimension defect)", alter = -1)
             continue
         elif any(degrees[i] < true_degrees[i] for i in range(len(x))): # this prime is unlucky, skip it
-            _info(infolevel, "unlucky modulus ", m, " discarded (degree missmatch: ", true_degrees, ")", alter = -1)
+            _info(infolevel, "unlucky modulus ", m, " discarded (degree mismatch: ", true_degrees, ")", alter = -1)
             continue
         
         # combine the new solution with the known partial solution
@@ -1750,7 +1753,7 @@ def _quick_check(subsolver, modsolver, modulus, cutoffdim, mat, degrees, infolev
         check_x = [ K_check(17*j + 13) for j in range(len(x)) ]
         def check_eval(pol):
             y = K_check.zero()
-            for (m,c) in pol.dict().iteritems():
+            for (m,c) in six.iteritems(pol.dict()):
                 y += K_check(c)*prod([check_x[i]**m[i] for i in m.nonzero_positions()])
             return y
     else:
@@ -1844,9 +1847,8 @@ def _compress(subsolver, presolver, modulus, mat, degrees, infolevel):
 
     # determine row weights
     row_idx = [ 10**13*sum(1 for p in row if p) + sum(p.degree() for p in row if p) for row in mat ]
-    row_idx = zip(range(n), row_idx)
-    row_idx = sorted(row_idx, key=lambda p: -p[1])
-    row_idx = list(map(lambda p: p[0], row_idx))
+    row_idx = sorted(zip(range(n), row_idx), key=lambda p: -p[1])
+    row_idx = [p[0] for p in row_idx]
     # now row_idx[0] is the heaviest row, row_idx[1], the second heaviest, etc., until row_idx[-1] being the lightest.
 
     # remove unnecessary rows in descending order of weight

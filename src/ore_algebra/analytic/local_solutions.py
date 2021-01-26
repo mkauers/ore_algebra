@@ -15,7 +15,7 @@ Local solutions
 
 from six.moves import range
 
-import collections, logging
+import collections, logging, warnings
 
 from itertools import chain
 
@@ -24,16 +24,21 @@ import sage.functions.log as symbolic_log
 from sage.arith.all import gcd, lcm
 from sage.misc.cachefunc import cached_method
 from sage.misc.lazy_attribute import lazy_attribute
-from sage.modules.free_module_element import vector
+from sage.modules.free_module_element import vector, FreeModuleElement_generic_dense
 from sage.rings.all import ZZ, QQ, AA, QQbar, RBF
 from sage.rings.all import RealBallField, ComplexBallField
 from sage.rings.complex_arb import ComplexBall
 from sage.rings.integer import Integer
-from sage.rings.number_field.number_field import NumberField_absolute
+from sage.rings.number_field.number_field import (
+        NumberField_absolute,
+        NumberField_quadratic,
+    )
 from sage.rings.polynomial import polynomial_element
+from sage.rings.polynomial.complex_roots import complex_roots
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 from sage.structure.sequence import Sequence
-from sage.symbolic.all import SR, pi, I
+from sage.symbolic.all import SR, pi
+from sage.symbolic.constants import I
 
 from .. import ore_algebra
 from . import utilities
@@ -47,7 +52,7 @@ logger = logging.getLogger(__name__)
 # Recurrence relations
 ##############################################################################
 
-def bw_shift_rec(dop, shift=ZZ.zero(), clear_denominators=False):
+def bw_shift_rec(dop, shift=ZZ.zero()):
     Scalars = utilities.mypushout(dop.base_ring().base_ring(), shift.parent())
     if dop.parent().is_D():
         dop = DifferentialOperator(dop) # compatibility bugware
@@ -59,9 +64,9 @@ def bw_shift_rec(dop, shift=ZZ.zero(), clear_denominators=False):
     Rops = ore_algebra.OreAlgebra(Pols_n, 'Sn')
     ordrec = rop.order()
     rop = Rops([p(n-ordrec+shift) for p in rop])
-    if clear_denominators:
-        den = lcm([p.denominator() for p in rop])
-        rop = den*rop
+    # Clear_denominators
+    den = lcm([p.denominator() for p in rop])
+    rop = den*rop
     # Remove constant common factors to make the recurrence smaller
     if Scalars is QQ:
         g = gcd(c for p in rop for c in p)
@@ -90,84 +95,109 @@ class BwShiftRec(object):
 
     def __init__(self, coeff):
         assert isinstance(coeff[0], polynomial_element.Polynomial)
+        # assert all(c.denominator().is_one() for c in coeff)
         self.coeff = coeff
         self.base_ring = coeff[0].parent()
         self.Scalars = self.base_ring.base_ring()
         self.order = len(coeff) - 1
+        self._coeff_series_cache = [[[] for _ in self.coeff] for _ in [0,1]]
+        self._ord = [0, 0]
 
     def __repr__(self):
         n = self.base_ring.variable_name()
         return " + ".join("({})*S{}^(-{})".format(c, n, j)
                           for j, c in enumerate(self.coeff))
 
-    @cached_method
-    def eval_method(self, tgt):
-        if (utilities.is_QQi(self.Scalars)
-                and isinstance(tgt, ComplexBallField)
-                and utilities.has_new_ComplexBall_constructor()):
+    @lazy_attribute
+    def ZZpol(self):
+        return self.base_ring.change_ring(ZZ)
 
-            ZZn = PolynomialRing(ZZ, 'n')
-            re_im = [
-                    (ZZn([c.real() for c in pol]), ZZn([c.imag() for c in pol]))
-                    for pol in self.coeff]
-            def ev(point):
-                return [ComplexBall(tgt, re(point), im(point))
-                        for re, im in re_im]
-        else:
-            def ev(point):
-                return [tgt(pol(point)) for pol in self.coeff]
-        return ev
+    @lazy_attribute
+    def base_ring_degree(self):
+        # intended for number fields
+        return self.Scalars.degree()
 
-    @cached_method
-    def _coeff_series(self, i, j):
-        p = self.coeff[i]
-        return self.base_ring([ZZ(k+j).binomial(k)*p[k+j]
-                               for k in range(p.degree() + 1 - j)])
-
-    @cached_method
-    def _coeff_series_re_im(self, i, j):
-        ZZn = PolynomialRing(ZZ, 'n')
+    def _coeff_series(self, i, j, components):
         p = self.coeff[i]
         rng = range(p.degree() + 1 - j)
         bin = [ZZ(k+j).binomial(k) for k in rng]
-        re = ZZn([bin[k]*p[k+j].real() for k in rng])
-        im = ZZn([bin[k]*p[k+j].imag() for k in rng])
-        return re, im
+        if components:
+            pjplus = [a._coefficients() for a in list(p)[j:]]
+            return [self.ZZpol([bin[k]*pjplus[k][l]
+                                if len(pjplus[k]) > l else 0
+                                for k in rng])
+                    for l in range(self.base_ring_degree)]
+        else:
+            return self.base_ring([bin[k]*p[k+j] for k in rng])
 
-    @cached_method
+    def _compute_coeff_series(self, ord, components):
+        components = int(components)
+        cache = self._coeff_series_cache[components]
+        for j in range(self._ord[components], ord):
+            for (i, c) in enumerate(cache):
+                c.append(self._coeff_series(i, j, components))
+        self._ord[components] = ord
+
     def scalars_embedding(self, tgt):
-        if (utilities.is_QQi(self.Scalars)
-                and isinstance(tgt, ComplexBallField)
-                and utilities.has_new_ComplexBall_constructor()):
-            return True, lambda x, y: ComplexBall(tgt, x, y)
-        elif isinstance(self.Scalars, NumberField_absolute):
+        if (isinstance(self.Scalars, NumberField_absolute)
+                and self.Scalars.degree() > 2):
             # do complicated coercions via QQbar and CLF only once...
             Pol = PolynomialRing(tgt, 'x')
             x = tgt(self.Scalars.gen())
             def emb(elt):
                 return Pol([tgt(c) for c in elt._coefficients()])(x)
-            return False, emb
+            return emb
         else:
-            return False, tgt
+            return tgt
+
+    @cached_method
+    def poly_eval_strategy(self, tgt):
+
+        mor = self.scalars_embedding(tgt)
+        def generic_eval(pol, x, _tgt):
+            assert _tgt is tgt
+            return mor(pol(x))
+
+        try:
+            from . import eval_poly_at_int
+        except ImportError:
+            warnings.warn("Cython code not found")
+            return generic_eval, False
+
+        if isinstance(self.Scalars, ComplexBallField):
+            if isinstance(tgt, ComplexBallField):
+                return eval_poly_at_int.cbf, False
+        elif isinstance(self.Scalars, NumberField_quadratic):
+            self.Scalars.zero() # cache for direct cython access
+            if tgt is self.Scalars:
+                return eval_poly_at_int.qnf, False
+            elif isinstance(tgt, ComplexBallField):
+                if utilities.is_QQi(self.Scalars):
+                    return eval_poly_at_int.qqi_to_cbf, True
+                else:
+                    return eval_poly_at_int.qnf_to_cbf, False
+        else:
+            return generic_eval, False
 
     def eval_series(self, tgt, point, ord):
-        re_im, mor = self.scalars_embedding(tgt)
-        if re_im:
-            res = [[None]*ord for _ in self.coeff]
-            for i in range(len(self.coeff)):
-                for j in range(ord):
-                    re, im = self._coeff_series_re_im(i, j)
-                    res[i][j] = mor(re(point), im(point))
-            return res
-        else:
-            point = self.Scalars(point)
-            return [[mor(self._coeff_series(i,j)(point)) for j in range(ord)]
-                for i in range(len(self.coeff))]
+        # typically ord << deg => probably not worth trying to use a fast Taylor
+        # shift
+        eval_poly, components = self.poly_eval_strategy(tgt)
+        if self._ord[int(components)] < ord:
+            self._compute_coeff_series(ord, components)
+        coeff = self._coeff_series_cache[components]
+        rng = range(ord)
+        return [ [eval_poly(c[j], point, tgt) for j in rng] for c in coeff]
 
     def eval_inv_lc_series(self, point, ord, shift):
+        eval_poly, components = self.poly_eval_strategy(self.Scalars)
+        if self._ord[int(components)] < ord:
+            self._compute_coeff_series(ord, components)
+        c = self._coeff_series_cache[components][0]
         ser = self.base_ring.element_class(
                 self.base_ring, # polynomials, viewed as jets
-                [self._coeff_series(0, j)(point) for j in range(shift, ord)],
+                [eval_poly(c[j], point, self.Scalars)
+                    for j in range(shift, ord)],
                 check=False)
         return ser.inverse_series_trunc(ord)
 
@@ -176,7 +206,9 @@ class BwShiftRec(object):
 
     def shift(self, sh):
         n = self.coeff[0].parent().gen()
-        return BwShiftRec([pol(sh + n) for pol in self.coeff])
+        coeff = [pol(sh + n) for pol in self.coeff]
+        den = lcm([p.denominator() for p in coeff])
+        return BwShiftRec([den*c for c in coeff])
 
     def change_base(self, base):
         if base is self.base_ring:
@@ -208,8 +240,10 @@ class LogSeriesInitialValues(object):
 
             sage: from ore_algebra import *
             sage: from ore_algebra.analytic.naive_sum import *
+            sage: from ore_algebra.analytic.differential_operator import DifferentialOperator
             sage: Dops, x, Dx = DifferentialOperators()
-            sage: LogSeriesInitialValues(0, {0: (1, 0)}, x*Dx^3 + 2*Dx^2 + x*Dx)
+            sage: LogSeriesInitialValues(0, {0: (1, 0)},
+            ....:         DifferentialOperator(x*Dx^3 + 2*Dx^2 + x*Dx))
             Traceback (most recent call last):
             ...
             ValueError: invalid initial data for x*Dx^3 + 2*Dx^2 + x*Dx at 0
@@ -264,7 +298,7 @@ class LogSeriesInitialValues(object):
             if ini)
 
     def is_valid_for(self, dop):
-        ind = dop.indicial_polynomial(dop.base_ring().gen())
+        ind = dop._indicial_polynomial_at_zero()
         for sl_factor, shifts in my_shiftless_decomposition(ind):
             for k, (val_shift, _) in enumerate(shifts):
                 if sl_factor(self.expo - val_shift).is_zero():
@@ -370,7 +404,7 @@ class LocalBasisMapper(object):
     as well as some derived quantities through the instance's field.
 
     The nested loops that iterate over the solutions are spread over several
-    methods that can be overriden to share parts of the computation in a
+    methods that can be overridden to share parts of the computation in a
     class of related solutions. The choice of unconditional computations,
     exported data and hooks is a bit ad hoc.
     """
@@ -401,9 +435,16 @@ class LocalBasisMapper(object):
         for self.sl_factor, self.shifts in self.sl_decomp:
             for self.irred_factor, irred_mult in self.sl_factor.factor():
                 assert irred_mult == 1
-                roots = self.irred_factor.roots(QQbar, multiplicities=False)
-                self.roots = [utilities.as_embedded_number_field_element(rt)
-                              for rt in roots]
+                if self.irred_factor.degree() == 1:
+                    rt = -self.irred_factor[0]/self.irred_factor[1]
+                    if rt.is_rational():
+                        rt = QQ(rt)
+                    self.roots = [rt]
+                else:
+                    roots = complex_roots(self.irred_factor,
+                            skip_squarefree=True, retval='algebraic')
+                    self.roots = [utilities.as_embedded_number_field_element(rt)
+                                  for rt, _ in roots]
                 logger.debug("indicial factor = %s, roots = %s",
                              self.irred_factor, self.roots)
                 self.irred_factor_cols = []
@@ -536,9 +577,15 @@ def log_series_values(Jets, expo, psum, evpt, downshift=[0]):
         # (too cumbersome to compute directly in Sage at the moment)
         logpt = Jets([pt.log() + twobpii]) + high
         logger.debug("logpt[%s]=%s", b, logpt)
-        inipow = ((twobpii*expo).exp()*pt**expo
-                *sum(_pow_trunc(aux, k, derivatives)/Integer(k).factorial()
-                    for k in range(derivatives)))
+        if expo in ZZ and expo >= 0:
+            # the general formula in the other branch does not work when pt
+            # contains zero
+            expo = int(expo)
+            inipow = _pow_trunc(Jets([pt, 1]), expo, derivatives)
+        else:
+            inipow = ((twobpii*expo).exp()*pt**expo
+                     *sum(_pow_trunc(aux, k, derivatives)/Integer(k).factorial()
+                          for k in range(derivatives)))
         logger.debug("inipow[%s]=%s", b, inipow)
         logterms = [_pow_trunc(logpt, p, derivatives)/Integer(p).factorial()
                     for p in range(log_prec)]
@@ -547,7 +594,10 @@ def log_series_values(Jets, expo, psum, evpt, downshift=[0]):
                     sum(psum[d+p]._mul_trunc_(logterms[p], derivatives)
                         for p in range(log_prec - d)),
                     derivatives)
-    val = [vector(v[i] for i in range(derivatives))/len(evpt.branch)
+    Vectors = Jets.base_ring()**derivatives
+    l = len(evpt.branch)
+    val = [FreeModuleElement_generic_dense(Vectors,
+               [v[i] for i in range(derivatives)], coerce=False, copy=False)/l
            for v in val]
     return val
 
@@ -585,7 +635,7 @@ def simplify_exponent(e):
         (z - 0.2651878342412026?)^7,
         (z - 0.2651878342412026?)^8,
         (z - 0.2651878342412026?)^9]
-        sage: cbt.dop[10].local_basis_expansions(s, 1)
+        sage: cbt.dop[10].local_basis_expansions(s, 1) # long time (1.3 s)
         [1, 0, 0, 0, 0, (z - 0.2651878342412026?)^4.260514654474679?, 0, 0, 0,
         0, 0]
     """
@@ -604,6 +654,13 @@ class LogMonomial(object):
         self.shift = shift
         self.n = self.expo + shift
         self.k = k
+
+    def __eq__(self, other):
+        return (isinstance(other, LogMonomial)
+                and self.__dict__ == other.__dict__)
+
+    def __hash__(self):
+        return hash((self.dx, self.expo, self.shift, self.k))
 
     def __repr__(self):
         dx = repr(self.dx)

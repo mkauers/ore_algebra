@@ -50,14 +50,19 @@ def step_transition_matrix(dop, step, eps, rows=None, split=0, ctx=dctx):
         rows = order
     z0, z1 = step
     if order == 0:
-        logger.info("%s: trivial case", step)
+        logger.debug("%s: trivial case", step)
         return matrix(ZZ) # 0 by 0
     elif z0.value == z1.value:
-        logger.info("%s: trivial case", step)
+        logger.debug("%s: trivial case", step)
         return identity_matrix(ZZ, order)[:rows]
     elif z0.is_ordinary() and z1.is_ordinary():
         logger.info("%s: ordinary case", step)
-        inverse = False
+        if z0.is_exact():
+            inverse = False
+        # XXX maybe also invert the step when z1 is much simpler than z0
+        else: # can happen with the very first step
+            step = Step(z1, z0, max_split=0)
+            inverse = True
     elif z0.is_regular() and z1.is_ordinary():
         logger.info("%s: regular singular case (going out)", step)
         inverse = False
@@ -70,11 +75,10 @@ def step_transition_matrix(dop, step, eps, rows=None, split=0, ctx=dctx):
         raise ValueError(z0, z1)
     try:
         mat = regular_step_transition_matrix(dop, step, eps, rows,
-                  fail_fast=(split < ctx.max_split), effort=split, ctx=ctx)
+                fail_fast=(step.max_split > 0), effort=split, ctx=ctx)
     except (accuracy.PrecisionError, bounds.BoundPrecisionError):
-        # XXX it would be nicer to return something in this case...
-        if split >= ctx.max_split:
-            raise
+        if step.max_split == 0:
+            raise # XXX: can we return something?
         logger.info("splitting step...")
         s0, s1 = step.split()
         m0 = step_transition_matrix(dop, s0, eps/4, None, split+1, ctx)
@@ -84,48 +88,91 @@ def step_transition_matrix(dop, step, eps, rows=None, split=0, ctx=dctx):
         mat = ~mat
     return mat
 
-def _use_binsplit(dop, step, eps):
-    if step.is_exact() and step.branch == (0,):
-        # very very crude
-        logprec = -eps.log()
-        logratio = -step.cvg_ratio().log() # may be nan (entire functions)
-        # don't discourage binary splitting too much for very small steps /
-        # entire functions
-        terms_est = logprec/logratio.min(logprec.log())
-        return (terms_est >= 256 + 32*dop.degree()**2)
+def _use_binsplit(dop, step, tgt_prec, base_point_size, ctx):
+    if ctx.prefer_binsplit():
+        return True
+    elif ctx.prefer_naive():
+        return False
+    elif step.branch == (0,): # crude heuristic
+        # (cost of a bit burst step via a truncation at prec base_point_size)
+        #   ≈ ordrec³·nterms·(op_height + base_point_size)
+        # (cost of direct summation) ≈ ordrec·nterms·prec,
+        # assuming that the costs related to polynomial evaluation, basis size
+        # and structure, etc., are the same in both cases, and neglecting
+        # interval issues that may increase the cost of direct summation to
+        # something like ordrec·nterms·(prec + nterms·log(ordrec))
+        sz = dop._naive_height() + base_point_size
+        est = 256 + (sz + 128) * (dop.order() + dop.degree())**2
+        use_binsplit = (tgt_prec >= est)
+        logger.debug("tgt_prec = %s %s %s", tgt_prec,
+                ">=" if use_binsplit else "<", est)
+        return use_binsplit
     else:
         return False
 
 def regular_step_transition_matrix(dop, step, eps, rows, fail_fast, effort,
                                    ctx=dctx):
-    ldop = dop.shift(step.start)
-    args = (ldop, step.evpt(rows), eps, fail_fast, effort, ctx)
-    if ctx.force_binsplit():
-        return binary_splitting.fundamental_matrix_regular(*args)
-    elif ctx.prefer_binsplit() or _use_binsplit(ldop, step, eps):
-        try:
-            return binary_splitting.fundamental_matrix_regular(*args)
-        except NotImplementedError:
-            logger.info("not implemented: falling back on direct summation")
-            return naive_sum.fundamental_matrix_regular(*args)
-    elif ctx.force_naive() or fail_fast:
-        return naive_sum.fundamental_matrix_regular(*args)
-    else:
-        try:
-            return naive_sum.fundamental_matrix_regular(*args)
-        except accuracy.PrecisionError as exn:
+
+    def args():
+        ldop = dop.shift(step.start)
+        return (ldop, step.evpt(rows), eps, fail_fast, effort, ctx)
+
+    tgt_prec = utilities.prec_from_eps(eps)
+    bit_burst_prec = max(2*step.prec(tgt_prec), ctx.bit_burst_thr)
+    # binsplit_prec only matters when bit_burst_thr is large, could be replaced
+    # by bit_burst_prec otherwise
+    binsplit_prec = min(bit_burst_prec,
+                        max(step.start.bit_burst_bits(tgt_prec),
+                            step.end.bit_burst_bits(tgt_prec)))
+    use_binsplit = _use_binsplit(dop, step, tgt_prec, binsplit_prec, ctx)
+    use_fallback = not ctx.force_algorithm and (use_binsplit or not fail_fast)
+
+    while True:
+
+        if use_binsplit:
+            sub = step.bit_burst_split(tgt_prec, bit_burst_prec)
+            if sub:
+                # Assuming bitsize(step.start) << bitsize(step.end):
+                # * this step should fall into the bb/bs branch again (and in
+                #   the pure bb sub-branch if bitsize(step.start) is small):
+                mat0 = regular_step_transition_matrix(dop, sub[0], eps>>1,
+                        dop.order(), fail_fast, effort, ctx)
+                # * this one will typically come back to the bit-burst
+                #   sub-branch in the first few iterations, and then to one of
+                #   the other ones (typically direct summation, unless
+                #   target prec >> prec of endpoints >> 0):
+                mat1 = regular_step_transition_matrix(dop, sub[1], eps>>1,
+                        rows, fail_fast, effort, ctx)
+                return mat1*mat0
+
+        if step.type == "bit-burst":
+            logger.info("%s", step)
+
+        if use_binsplit:
             try:
+                return binary_splitting.fundamental_matrix_regular(*args())
+            except NotImplementedError:
+                if not use_fallback:
+                    raise
+                logger.info("falling back to direct summation")
+        else:
+            try:
+                return naive_sum.fundamental_matrix_regular(*args())
+            except accuracy.PrecisionError:
+                if not use_fallback:
+                    raise
                 logger.info("not enough precision, trying binary splitting "
                             "as a fallback")
-                return binary_splitting.fundamental_matrix_regular(*args)
-            except NotImplementedError:
-                logger.info("unable to use binary splitting")
-                raise exn
+
+        use_binsplit = not use_binsplit
+        use_fallback = False
 
 def _process_path(dop, path, ctx):
 
     if not isinstance(path, Path):
         path = Path(path, dop)
+        if not any(v.keep_value() for v in path.vert):
+            path.vert[-1].options['keep_value'] = True
 
     if not ctx.assume_analytic:
         path.check_singularity()
@@ -133,28 +180,24 @@ def _process_path(dop, path, ctx):
         raise NotImplementedError("analytic continuation through irregular "
                                   "singular points is not supported")
 
-    # FIXME: prevents the reuse of points...
-    if ctx.keep == "all":
-        for v in path.vert:
-            v.options['keep_value'] = True
-    elif ctx.keep == "last":
-        for v in path.vert:
-            v.options['keep_value'] = False
-        path.vert[-1].options['keep_value'] = True
-
     if ctx.assume_analytic:
         path = path.bypass_singularities()
         path.check_singularity()
 
-    path = path.subdivide()
+    if ctx.deform:
+        path = path.deform_or_subdivide()
+    else:
+        path = path.subdivide()
     path.check_singularity()
     path.check_convergence()
 
-    ctx.path = path # TBI
+    if ctx.recorder is not None:
+        ctx.recorder.path = path
 
     return path
 
-def analytic_continuation(dop, path, eps, ctx=dctx, ini=None, post=None):
+def analytic_continuation(dop, path, eps, ctx=dctx, ini=None, post=None,
+                          return_local_bases=False):
     """
     INPUT:
 
@@ -163,6 +206,14 @@ def analytic_continuation(dop, path, eps, ctx=dctx, ini=None, post=None):
     - ``post`` (matrix of polynomial/rational functions, optional) - linear
       combinations of the first Taylor coefficients to take, as a function of
       the evaluation point
+    - ``return_local_bases`` (boolean) - if True, also compute and return the
+      structure of local bases at all points where we are computing values of
+      the solution
+
+    OUTPUT:
+
+    A list of dictionaries with information on the computed solution(s) at each
+    evaluation point.
 
     TESTS::
 
@@ -194,27 +245,44 @@ def analytic_continuation(dop, path, eps, ctx=dctx, ini=None, post=None):
         except (TypeError, ValueError):
             ini = ini.change_ring(ComplexBallField(prec))
 
+    def point_dict(point, value):
+        if ini is not None:
+            value = value*ini
+        if post is not None and not post.is_one():
+            value = post(point.value)*value
+        rec = {"point": point.value, "value": value}
+        if return_local_bases:
+            rec["structure"] = point.local_basis_structure()
+        return rec
+
     res = []
-    path_mat = identity_matrix(ZZ, dop.order())
-    def store_value_if_wanted(point):
-        if point.options.get('keep_value'):
-            value = path_mat
-            if ini is not None:  value = value*ini
-            if post is not None and not post.is_one():
-                value = post(point.value)*value
-            res.append((point.value, value))
-    store_value_if_wanted(path.vert[0])
+    z0 = path.vert[0]
+    # XXX still imperfect in the case of a high-precision starting point with
+    # relatively large radius... (do we care?)
+    main = Step(z0, z0.simple_approx(ctx=ctx))
+    path_mat = step_transition_matrix(dop, main, eps1, ctx=ctx)
+    if z0.keep_value():
+        res.append(point_dict(z0, identity_matrix(ZZ, dop.order())))
     for step in path:
-        step_mat = step_transition_matrix(dop, step, eps1, ctx=ctx)
-        path_mat = step_mat*path_mat
-        store_value_if_wanted(step.end)
+        main, dev = step.chain_simple(main.end, ctx=ctx)
+        main_mat = step_transition_matrix(dop, main, eps1, ctx=ctx)
+        path_mat = main_mat*path_mat
+        if dev is not None:
+            dev_mat = path_mat
+            for sub in dev:
+                sub_mat = step_transition_matrix(dop, sub, eps1, ctx=ctx)
+                dev_mat = sub_mat*dev_mat
+            res.append(point_dict(step.end, dev_mat))
+
     cm = sage.structure.element.get_coercion_model()
     real = (rings.RIF.has_coerce_map_from(dop.base_ring().base_ring())
             and all(v.is_real() for v in path.vert))
     OutputIntervals = cm.common_parent(
             utilities.ball_field(eps, real),
-            *[mat.base_ring() for pt, mat in res])
-    return [(pt, mat.change_ring(OutputIntervals)) for pt, mat in res]
+            *[rec["value"].base_ring() for rec in res])
+    for rec in res:
+        rec["value"] = rec["value"].change_ring(OutputIntervals)
+    return res
 
 def normalize_post_transform(dop, post_transform):
     if post_transform is None:

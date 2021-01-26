@@ -12,13 +12,16 @@ Miscellaneous utilities
 #
 # http://www.gnu.org/licenses/
 
+import itertools
+from builtins import zip
+
 import sage.rings.complex_arb
 import sage.rings.real_arb
 
 from sage.categories.pushout import pushout
 from sage.misc.cachefunc import cached_function
 from sage.misc.misc import cputime
-from sage.rings.all import ZZ, QQ, QQbar, CIF
+from sage.rings.all import ZZ, QQ, QQbar, CIF, CBF
 from sage.rings.number_field.number_field import (NumberField,
         NumberField_quadratic, is_NumberField)
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
@@ -66,7 +69,8 @@ def is_real_parent(parent):
 
 def is_QQi(parent):
     return (isinstance(parent, NumberField_quadratic)
-                and list(parent.polynomial()) == [1,0,1])
+                and list(parent.polynomial()) == [1,0,1]
+                and CBF(parent.gen()).imag().is_one())
 
 def ball_field(eps, real):
     prec = prec_from_eps(eps)
@@ -79,12 +83,25 @@ def ball_field(eps, real):
 # Number fields and orders
 ################################################################################
 
+def good_number_field(nf):
+    if isinstance(nf, NumberField_quadratic):
+        # avoid denominators in the representation of elements
+        disc = nf.discriminant()
+        if disc % 4 == 1:
+            nf, _, hom = nf.change_generator(nf(nf.discriminant()).sqrt())
+            return nf, hom
+    return nf, nf.hom(nf)
+
 def as_embedded_number_field_elements(algs):
+    # number_field_elements_from_algebraics() now takes an embedded=...
+    # argument, but doesn't yet support all cases we need
     nf, elts, emb = number_field_elements_from_algebraics(algs)
     if nf is not QQ:
         nf = NumberField(nf.polynomial(), nf.variable_name(),
                     embedding=emb(nf.gen()))
         elts = [elt.polynomial()(nf.gen()) for elt in elts]
+        nf, hom = good_number_field(nf)
+        elts = [hom(elt) for elt in elts]
     # assert [QQbar.coerce(elt) == alg for alg, elt in zip(algs, elts)]
     return nf, elts
 
@@ -112,9 +129,14 @@ def number_field_with_integer_gen(K):
         ### Attempt to work around various problems with embeddings
         emb = K.coerce_embedding()
         embgen = emb(intgen) if emb else intgen
+        # Write K.gen() = α = β/q where q = den, and
+        # K.polynomial() = q + p[d-1]·X^(d-1) + ··· + p[0].
+        # By clearing denominators in P(β/q) = 0, one gets
+        # β^d + q·p[d-1]·β^(d-1) + ··· + p[0]·q^(d-1) = 0.
         intNF = NumberField(intgen.minpoly(), "x" + str(den) + str(K.gen()),
                             embedding=embgen)
         assert intNF != K
+    intNF, _ = good_number_field(intNF)
     # Work around weaknesses in coercions involving order elements,
     # including #14982 (fixed). Used to trigger #14989 (fixed).
     #return intNF, intNF.order(intNF.gen())
@@ -174,3 +196,9 @@ def short_str(obj, n=60):
         return s
     else:
         return s[:n/2-2] + "..." + s[-n/2 + 2:]
+
+# Adapted from itertools manual
+def pairwise(iterable):
+    a, b = itertools.tee(iterable)
+    next(b, None)
+    return zip(a, b)

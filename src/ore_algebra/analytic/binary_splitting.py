@@ -15,6 +15,7 @@ TESTS::
 
     sage: ((x^2 + 1)*Dx^2 + 2*x*Dx).numerical_solution([0, 1],
     ....:         [0, i+1, 2*i, i-1, 0], algorithm="binsplit")
+    INFO:...
     DEBUG:ore_algebra.analytic.binary_splitting:coefficients in: ... Complex
     ball field ...
     [3.14159265358979...] + [+/- ...]*I
@@ -22,13 +23,14 @@ TESTS::
     sage: NF.<sqrt2> = QuadraticField(2)
     sage: dop = (x^2 - 3)*Dx^2 + x + 1
     sage: dop.numerical_transition_matrix([0, sqrt2], 1e-10, algorithm="binsplit")
-    DEBUG:...
+    INFO:...
     DEBUG:ore_algebra.analytic.binary_splitting:evaluation point in: ... Number
     Field ...
     [[1.669017372...] [1.809514316...]]
     [[1.556515516...] [2.286697055...]]
 
     sage: (Dx - 1).numerical_solution([1], [0, i + pi], algorithm="binsplit")
+    INFO:...
     DEBUG:ore_algebra.analytic.binary_splitting:coefficients in: ... Complex
     ball field ...
     [12.5029695888765...] + [19.4722214188416...]*I
@@ -43,8 +45,8 @@ Note that the zeros here shouldn't be exact unless we have proved that the
 corresponding series do not continue::
 
     sage: ((x + 1)*Dx^2 + Dx).numerical_transition_matrix([0,1/2], algorithm='binsplit')
-    [ [1.00000000000000...] [0.4054651081081643...]]
-    [             [+/- ...] [0.6666666666666666...]]
+    [ [1.00000000000000...] [0.405465108108164...]]
+    [             [+/- ...] [0.666666666666666...]]
 
     sage: ((x + 1)*Dx^3 + Dx).numerical_transition_matrix([0,1/2], algorithm='binsplit')
     [  [1.000000000000000...]  [0.4815453970799961...]  [0.2456596136789682...]]
@@ -59,10 +61,10 @@ corresponding series do not continue::
 More examples::
 
     sage: from ore_algebra.examples import fcc
-    sage: fcc.dop5.numerical_solution( # long time (3.5 s)
+    sage: fcc.dop5.numerical_solution( # long time (2.6 s)
     ....:          [0, 0, 0, 0, 1, 0], [0, 1/5+i/2, 1],
-    ....:          1e-60, algorithm='binsplit')
-    [1.048852351354914851629563763699992759454025504652066403...] + [+/- ...]*I
+    ....:          1e-60, algorithm='binsplit', bit_burst_thr=1000)
+    [1.04885235135491485162956376369999275945402550465206640...] + [+/- ...]*I
 
     sage: QQi.<i> = QuadraticField(-1)
     sage: (Dx - i).numerical_solution([1], [sqrt(2), sqrt(3)], algorithm="binsplit")
@@ -76,6 +78,7 @@ Elementary examples::
     sage: logger.setLevel(logging.DEBUG)
     sage: (x*Dx^2 + x + 1).numerical_transition_matrix([0, 1], 1e-10,
     ....:                                             algorithm="binsplit")
+    INFO:...
     DEBUG:ore_algebra.analytic.binary_splitting:coefficients in: ... Complex
     ball field ...
     [[-0.006152006884...]    [0.4653635461...]]
@@ -119,13 +122,13 @@ Whittaker functions with irrational exponents::
 Various mixes of algebraic exponents and evaluation points::
 
     sage: ((x*Dx)^3-2-x).numerical_transition_matrix([0,1], 1e-5, algorithm="binsplit")
-    [ [0.75335...] + [-0.09777...]*I  [0.75335...] + [0.09777...]*I  [1.1080...] + [+/- ...]*I]
+    [[0.75335...] + [-0.09777...]*I  [0.75335...] + [0.09777...]*I  [1.1080...] + [+/- ...]*I]
     [[-0.78644...] + [-0.8794...]*I [-0.78644...] + [0.8794...]*I  [1.5074...] + [+/- ...]*I]
     [ [0.10146...] + [1.2165...]*I  [0.10146...] + [-1.2165...]*I  [0.32506...] + [+/- ...]*I]
 
     sage: ((x*Dx)^2-2-x).numerical_transition_matrix([0,i], 1e-5, algorithm="binsplit")
     [[-1.4237...] + [0.0706...]*I [-0.7959...] + [0.6169...]*I]
-    [[1.4514...] + [-0.168...]*I   [0.6742...] + [1.2971...]*I]
+    [[1.4514...] + [-0.1681...]*I  [0.6742...] + [1.2971...]*I]
 
     sage: ((x*Dx)^3-2-x).numerical_transition_matrix([0,i], 1e-8, algorithm="binsplit")
     [  [1.94580...] + [-5.61860...]*I [0.04040867...] + [-0.16436364...]*I    [-0.491906...] + [0.873265...]*I]
@@ -133,9 +136,9 @@ Various mixes of algebraic exponents and evaluation points::
     [ [-6.63615...] + [-4.75084...]*I    [0.1614174...] + [0.0994372...]*I  [0.1969810...] + [-0.0803104...]*I]
 
     sage: ((x*Dx)^3-2-x).numerical_transition_matrix([0,QQbar(3)^(1/3)], 1e-8, algorithm="binsplit")
-    [ [0.44340...] + [-0.31995...]*I   [0.44340...] + [0.31995...]*I  [1.8368349...] + [+/- ...]*I]
-    [[-0.59869...] + [-0.24297...]*I  [-0.59869...] + [0.24297...]*I  [1.7859825...] + [+/- ...]*I]
-    [  [0.23589...] + [0.39342...]*I  [0.23589...] + [-0.39342...]*I  [0.3084151...] + [+/- ...]*I]
+    [[0.4434002...] + [-0.31995...]*I   [0.44340...] + [0.31995...]*I  [1.8368349...] + [+/- ...]*I]
+    [ [-0.59869...] + [-0.24297...]*I  [-0.59869...] + [0.24297...]*I  [1.7859825...] + [+/- ...]*I]
+    [ [0.235894...] + [0.393421...]*I  [0.23589...] + [-0.39342...]*I  [0.3084151...] + [+/- ...]*I]
 
     sage: (((x-i)*Dx)^2+1-x).numerical_transition_matrix([i, 2*i], algorithm="binsplit")
     [ [2.582900...] + [-2.3669708...]*I [0.13647705...] + [0.1829854...]*I]
@@ -165,7 +168,7 @@ irrational, but in the same extension as the singularity itself::
     [ [1.0000...] + [+/- ...]*I  [0.3075...] + [+/- ...]*I  [0.1022...] + [+/- ...]*I  [-0.006...] + [+/- ...]*I  [0.050...] + [+/- ...]*I]
     [ [+/- ...] + [+/- ...]*I  [0.9658...] + [+/- ...]*I  [1.1474...] + [+/- ...]*I  [-2.265...] + [+/- ...]*I  [2.878...] + [+/- ...]*I]
     [ [+/- ...] + [+/- ...]*I [0.04553...] + [-0.0532...]*I  [-0.7074...] + [0.8274...]*I  [3.381...] + [-3.954...]*I  [-3.586...] + [4.194...]*I]
-    [ [+/- ...] + [+/- ...]*I  [0.0971...] + [+/- ...]*I  [-0.5020...] + [+/- ...]*I  [8.028...] + [+/- ...]*I  [-6.548...] + [+/- ...]*I]
+    [ [+/- ...] + [+/- ...]*I [0.09709...] + [+/- ...]*I  [-0.5020...] + [+/- ...]*I  [8.028...] + [+/- ...]*I  [-6.548...] + [+/- ...]*I]
     [ [+/- ...] + [+/- ...]*I  [0.1263...] + [+/- ...]*I  [-1.9369...] + [+/- ...]*I  [9.949...] + [+/- ...]*I  [-6.564...] + [+/- ...]*I]
 
 Recurrences of order zero::
@@ -213,6 +216,7 @@ Miscellaneous examples::
 
     sage: logger.setLevel(logging.DEBUG)
     sage: ((x*Dx - 3/7)).lclm(Dx - 1).numerical_transition_matrix([0,1/3], algorithm="binsplit")
+    INFO:...
     DEBUG:ore_algebra.analytic.binary_splitting:coefficients in: ... Complex
     ball field ...
     [[1.395612425086089...] + [+/- ...]*I  [0.6244813348581596...]]
@@ -478,7 +482,7 @@ class StepMatrix_arb(StepMatrix):
                 for b in a:
                     assert b.is_exact()
 
-class SolutionColumn(StepMatrix):
+class SolutionColumn(object):
     r"""
     Partially “unrolled” local canonical solutions.
 
@@ -635,17 +639,17 @@ class SolutionColumn(StepMatrix):
         op_k = self.v.sums_row[-1] # K[λ][δ][Sk]
         numer = list(reversed(op_k))
         Scalars = Jets.base_ring()
-        # Specialize abstract algebraic exponent
+        # Specialize abstract algebraic exponent and add error term
+        # (overestimation: we are using a single bound for all subseries)
         specialize = _specialization_map(self.v.zero_sum.parent(), Scalars,
                                          abstract_alg, alg)
-        # (overestimation: we are using a single bound for all subseries)
-        numer = vector([Jets([specialize(c).add_error(tail_bound) for c in ser])
-                       for ser in numer])
-        assert self.v.ord_diff == dz.jet_order
-        [numer] = log_series_values(Jets, alg + shift, numer, dz)
         denom = specialize(self.v.rec_den)*Scalars(self.v.pow_den)
-        # slightly redundant: should actually be the same for all columns...
-        return numer/denom
+        val = vector([Jets([(specialize(c)/denom).add_error(tail_bound)
+                            for c in ser])
+                     for ser in numer])
+        assert self.v.ord_diff == dz.jet_order
+        [val] = log_series_values(Jets, alg + shift, val, dz)
+        return val
 
     def error_estimate(self):
         def IC_est(c):
@@ -737,7 +741,7 @@ class MatrixRec(object):
     """
 
     def __init__(self, dop, shift, singular_indices,
-                 dz, derivatives, prec):
+                 dz, derivatives, prec, binsplit_threshold):
 
         # TODO: perhaps dynamically optimize the representation when there are
         # no logs, algebraic exponents, etc.
@@ -775,7 +779,7 @@ class MatrixRec(object):
                 self._init_generic(deq_Scalars, shift, E, dz)
         self.dz = dz
 
-        bwrec = bw_shift_rec(dop, shift=self.shift, clear_denominators=True)
+        bwrec = bw_shift_rec(dop, shift=self.shift)
         # Also store an exact version of the leading coefficient to be able to
         # compute the inverse exactly (and simplify the result) when working
         # with arb balls. (Would it be enough to increase the working precision
@@ -788,7 +792,7 @@ class MatrixRec(object):
             raise NotImplementedError("recurrence of order zero")
         self.ordrec = self.bwrec.order
 
-        self.binsplit_threshold = max(128, self.ordrec)
+        self.binsplit_threshold = max(binsplit_threshold, self.ordrec)
 
         Mat_rec0 = MatrixSpace(self.AlgInts_rec, self.ordrec)
         self.Mat_rec = PolynomialRing(Mat_rec0, 'Sk')
@@ -940,6 +944,8 @@ class MatrixRec(object):
         else:
             mid = (low + high) // 2
             mat = self.step_matrix_binsplit(low, mid, ord_log)
+            if high - low > 400000//self.ordrec**3:
+                logger.info("(n=%s)", mid)
             mat.imulleft(self.step_matrix_binsplit(mid, high, ord_log))
         assert mat.idx_start == low and mat.idx_end == high
         return mat
@@ -949,11 +955,13 @@ class MatrixRec(object):
 
 class MatrixRecsUnroller(LocalBasisMapper):
 
-    def __init__(self, dop, pt, eps, derivatives):
+    def __init__(self, dop, pt, eps, derivatives, ctx=dctx):
         super(self.__class__, self).__init__(dop)
         self.pt = pt
         self.eps = eps
         self.derivatives = derivatives
+        self.ctx = ctx
+        self._est_terms, _ = dop.est_terms(pt, utilities.prec_from_eps(eps))
 
     def process_decomposition(self):
         int_expos = (len(self.sl_decomp) == 1
@@ -1002,11 +1010,17 @@ class MatrixRecsUnroller(LocalBasisMapper):
 
     def process_modZ_class(self):
 
+        logger.info(
+                r"solutions z^(%s+n)·log(z)^k/k!+···, n=%s, est.#terms=%s",
+                self.leftmost, ", ".join(str(s) for s, _ in self.shifts),
+                self._est_terms)
+
         self.modZ_class_tail_bound = None
 
         # Generic recurrence matrix
         self.matrix_rec = MatrixRec(self.dop, self.leftmost, self.shifts,
-                self.pt.pt, self.derivatives, utilities.prec_from_eps(self.eps))
+                self.pt.pt, self.derivatives, utilities.prec_from_eps(self.eps),
+                min(self.ctx.binsplit_thr, self._est_terms))
 
         # Majorants
         maj = {rt: bounds.DiffOpBound(self.dop, rt, self.shifts,
@@ -1064,9 +1078,18 @@ class MatrixRecsUnroller(LocalBasisMapper):
         prev, done = first_singular_index, False
         ord_log = 0
         while True:
-            # Try roughly doubling the number of terms, but always stop at
-            # exceptional indices
-            self.shift, self.mult = prev + max(1 << ZZ(prev).nbits(), 128), 0
+            # Below the expected truncation point, aim roughly for it. Above,
+            # start with a small stride and roughly double the number of terms
+            # every time. Always stop at exceptional indices in any case.
+            stride = self._est_terms - prev
+            if stride > 2*self.ctx.binsplit_thr:
+                resolution = ZZ(self.ctx.binsplit_thr).nbits()
+                stride = ((stride >> resolution)) << resolution
+            elif stride <= 0:
+                stride = max(1 << ZZ(stride).nbits(), self.ctx.binsplit_thr)
+                stride = min(prev, stride)
+            self.shift = prev + stride
+            self.mult = 0
             if si < len(self.shifts) and self.shift >= self.shifts[si][0]:
                 self.shift, self.mult = self.shifts[si]
                 si += 1
@@ -1118,7 +1141,7 @@ class MatrixRecsUnroller(LocalBasisMapper):
 
 def fundamental_matrix_regular(dop, pt, eps, fail_fast, effort, ctx=dctx):
     rows = pt.jet_order
-    cols = MatrixRecsUnroller(dop, pt, eps, rows).run()
+    cols = MatrixRecsUnroller(dop, pt, eps, rows, ctx).run()
     return matrix([sol.value for sol in cols]).transpose()
 
 def _can_use_CBF(*doms):
@@ -1150,5 +1173,8 @@ def _specialization_map(source, dest, abstract_alg, alg):
         hom = Homset([dest(den*alg)], check=False)
     else:
         base_hom = base.hom([dest(base.gen())], check=False)
-        hom = Homset([dest(den*alg)], base_hom=base_hom, check=False)
+        try:
+            hom = Homset([dest(den*alg)], base_map=base_hom, check=False)
+        except TypeError: # temporary kludge for sage < 9.0
+            hom = Homset([dest(den*alg)], base_hom=base_hom, check=False)
     return hom

@@ -1054,7 +1054,7 @@ class DiscreteGeneralizedSeries(RingElement):
 
     def __call__(self, arg):
         """
-        Evaluates this expanion at some approximate real number, or composes it with a polynomial
+        Evaluates this expansion at some approximate real number, or composes it with a polynomial
         of the form `n+i` where `n` is the generator of the parent of ``self`` and `i` is a nonnegative integer.
 
         EXAMPLES::

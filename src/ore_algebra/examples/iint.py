@@ -60,7 +60,7 @@ integrals studied in the paper::
     [0.97080469562493...]
     sage: iint_value(dop, myini, algorithm="binsplit")
     [0.97080469...]
-    sage: iint_value(dop, myini, 1e-500) # long time (3.4 s)
+    sage: iint_value(dop, myini, 1e-500, deform=True) # long time (2.7 s)
     [0.97080469562493...0383420...]
 
 Here are the known exact values for reference::
@@ -93,7 +93,7 @@ Here are the known exact values for reference::
     sage: ref[15] = 3*zeta(2)
     sage: ref[16] = zeta(2)/3
     sage: ref[17] = 2*arccot(sqrt(7))^2
-    sage: ref[18] = 1/4*hypergeometric([1]*5, [3/2, 2, 2, 2], 1/8)
+    sage: ref[18] = 1/4*CBF(1/8).hypergeometric([1]*5, [3/2, 2, 2, 2])
     sage: ref[19] = (1/3*ln(3/2)^3 + ln(3/2)*zeta(2) + ln(3/2)*Li_b
     ....:            - Li_c - 2*Li_d)
     sage: ref[20] = -1/3*ln(2)^2 + 4/9*zeta(2) - 2/3*Li_b
@@ -105,9 +105,9 @@ Here are the known exact values for reference::
 Finally, we compute all the integrals and compare with the exact values when
 applicable::
 
-    sage: for k in sorted(word.keys()): # long time (16 s)
+    sage: for k in sorted(word.keys()): # long time (9.7 s)
     ....:     dop = diffop(word[k])
-    ....:     val = iint_value(dop, ini[k])
+    ....:     val = iint_value(dop, ini[k], deform=True)
     ....:     ok = "ok" if k in ref and val in RBF(ref[k]).add_error(1e-10) else ""
     ....:     print("(A.{})\t{}\t{}".format(k, val, ok))
     (A.1)   [3.66386237670887...]  ok
@@ -183,7 +183,8 @@ import string
 from sage.functions.all import log, sqrt
 from sage.misc.misc_c import prod
 from sage.rings.all import AA, QQ, ZZ
-from sage.symbolic.all import SR, I, pi
+from sage.symbolic.all import SR, pi
+from sage.symbolic.constants import I
 
 from ore_algebra import DifferentialOperators
 from ore_algebra.analytic.path import Point

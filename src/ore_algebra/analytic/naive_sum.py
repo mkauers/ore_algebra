@@ -30,6 +30,7 @@ from sage.modules.free_module_element import vector
 from sage.rings.all import ZZ, QQ, RR, QQbar, infinity
 from sage.rings.complex_arb import ComplexBallField, CBF, ComplexBall
 from sage.rings.integer import Integer
+from sage.rings.number_field.number_field_base import is_NumberField
 from sage.rings.polynomial import polynomial_element
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 from sage.rings.real_arb import RealBallField, RBF, RealBall
@@ -296,11 +297,21 @@ def guard_bits(dop, maj, pt, ordrec, nterms):
         if new_n0 > nterms:
             return nterms, guard_bits_intervals
 
+def _use_inexact_recurrence(bwrec, prec):
+    Scalars = bwrec.Scalars
+    if not is_NumberField(Scalars):
+        return False
+    if ((Scalars is QQ or utilities.is_QQi(Scalars))
+            and bwrec[-1][0][0].numerator().nbits() < 10*prec):
+        return False
+    h = max(a.numerator().nbits() for p in bwrec.coeff[::3]
+                                  for i in range(0, p.degree(), 10)
+                                  for a in p[i])
+    return (h + 20)*Scalars.degree()**2 >= 16*prec
+
 def interval_series_sum_wrapper(dop, inis, pt, tgt_error, bwrec, stop,
                                 fail_fast, effort, stride, ctx=dctx):
 
-    if stride is None:
-        stride = max(50, 2*bwrec.order)
     real = pt.is_real_or_symbolic() and all(ini.is_real(dop) for ini in inis)
     if pt.is_numeric and cyPartialSum() is not PartialSum:
         ivs = ComplexBallField
@@ -308,9 +319,11 @@ def interval_series_sum_wrapper(dop, inis, pt, tgt_error, bwrec, stop,
         ivs = RealBallField
     else:
         ivs = ComplexBallField
-    input_accuracy = min(chain([pt.accuracy()],
-                               (ini.accuracy() for ini in inis)))
+    input_accuracy = max(0, min(chain([pt.accuracy()],
+                                      (ini.accuracy() for ini in inis))))
     logger.log(logging.INFO - 1, "target error = %s", tgt_error)
+    if stride is None:
+        stride = min(max(50, 2*bwrec.order), max(2, input_accuracy))
 
     ordinary = dop.leading_coefficient()[0] != 0
     bit_prec0 = utilities.prec_from_eps(tgt_error.eps)
@@ -346,8 +359,13 @@ def interval_series_sum_wrapper(dop, inis, pt, tgt_error, bwrec, stop,
         stop.reset(tgt_error.eps >> (4*attempt),
                    stop.fast_fail and ini_are_accurate)
 
+        if _use_inexact_recurrence(bwrec, bit_prec):
+            bwrec1 = bwrec.change_base(Intervals)
+        else:
+            bwrec1 = bwrec
+
         try:
-            sols = series_sum_regular(Intervals, dop, bwrec, inis, pt, stop,
+            sols = series_sum_regular(Intervals, dop, bwrec1, inis, pt, stop,
                                       stride, n0_squash, real)
         except accuracy.PrecisionError:
             if attempt > effort:
@@ -360,6 +378,10 @@ def interval_series_sum_wrapper(dop, inis, pt, tgt_error, bwrec, stop,
                             abs(sol.value[0]) if pt.is_numeric else None)
                     for sol in sols):
                 return sols
+
+        # if interval squashing didn't give accurate result, switch back to the
+        # classical method
+        n0_squash = sys.maxsize
 
         bit_prec *= 2
         if attempt <= effort and bit_prec < max_prec:
@@ -608,7 +630,10 @@ class PartialSum(object):
         return v
 
     def interval_width(self):
-        return max(c.rad() for c in self.value)
+        try:
+            return max(c.rad() for c in self.value)
+        except RuntimeError:
+            return RealField(30)('inf')
 
 def series_sum_regular(Intervals, dop, bwrec, inis, pt, stop, stride,
                        n0_squash, real):
@@ -706,7 +731,7 @@ def series_sum_regular(Intervals, dop, bwrec, inis, pt, stop, stride,
 
     log_prec = 1
     precomp_len = max(1, bwrec.order) # hack for recurrences of order zero
-    start = dop.order() if ordinary else 0
+    start = int(dop.order()) if ordinary else 0
     assert start <= n0_squash # the special path doesn't squash its result
     # The next terms of the sum may need a higher log-prec than the current one.
     rec_add_log_prec = sum(len(v) for s, v in inis[0].shift.items()
@@ -746,6 +771,8 @@ def series_sum_regular(Intervals, dop, bwrec, inis, pt, stop, stride,
                 err = sol.next_term(n, mult, bwrec_nplus[0], cst, jetpow, squash)
                 if squash:
                     rnd_loc = rnd_loc.max(n*err/hom_maj_coeff_lb)
+                    if not rnd_loc.is_finite(): # normalize NaNs and infinities
+                        rnd_loc = rnd_loc.parent()('inf')
             if mult > 0:
                 log_prec = max(1, max(sol.log_prec for sol in sols))
 

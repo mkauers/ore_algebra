@@ -424,7 +424,7 @@ class Delta_class(object):
 
     def __init__(self, R, d, s):
 
-        if R != s.ring():
+        if R is not s.ring():
             raise ValueError("delta constructor received incompatible sigma")
 
         Rgens = R.gens(); is_zero = True; zero = R.zero(); my_dict = {}
@@ -433,19 +433,17 @@ class Delta_class(object):
             my_dict[str(x), 0] = zero
             my_dict[str(x), 1] = zero
 
-        if type(d) != dict:
+        if not isinstance(d, dict):
             for x in Rgens:
                 dx = R(d(x))
-                if dx != zero:
-                    is_zero = False
-                my_dict[str(x), 1] = R(d(x))
+                is_zero = is_zero and dx.is_zero()
+                my_dict[str(x), 1] = R(dx)
         else:
-            for x in d:
+            for x, dx in d.items():
                 if not R(x) in Rgens:
                     raise ValueError(str(x) + " is not a generator of " + str(R))
-                if d[x] != zero:
-                    is_zero = False
-                my_dict[str(x), 1] = R(d[x])
+                is_zero = is_zero and dx.is_zero()
+                my_dict[str(x), 1] = R(dx)
 
         self.__is_zero = is_zero
         self.__R = R
@@ -1017,7 +1015,10 @@ class OreAlgebra_generic(UniqueRepresentation, Algebra):
     """
 
     def __init__(self, base_ring, operator_class, gens, product_rules):
-        self._no_generic_basering_coercion = True
+        # Attempt to preserve compatibility with sage < 9.1
+        from sage.rings.polynomial.polynomial_ring import PolynomialRing_general
+        if not hasattr(PolynomialRing_general, "_coerce_map_from_base_ring"):
+            self._no_generic_basering_coercion = True
         super(self.__class__, self).__init__(base_ring)
         self._gens = gens
         self._operator_class = operator_class
@@ -1045,6 +1046,9 @@ class OreAlgebra_generic(UniqueRepresentation, Algebra):
         R = self.base_ring()
         gens = tuple((str(x), self.sigma(x).dict(), self.delta(x).dict()) for x in self.gens())
         return (OreAlgebraFunctor(*gens), self.base_ring())
+
+    def _coerce_map_from_base_ring(self):
+        return None
 
     def _coerce_map_from_(self, P):
         r"""
@@ -1730,7 +1734,7 @@ class OreAlgebra_generic(UniqueRepresentation, Algebra):
         A product rule for a generator `D` is a tuple `(w_0,w_1,w_2)` such that for the operator
         application we have `D(u*v) = w_0*u*v + w_1*(D(u)*v + u*D(v)) + w_2*D(u)*D(v)`.
 
-        The input paramter ``rules`` is a list of length ``self.ngens()`` which at index ``i``
+        The input parameter ``rules`` is a list of length ``self.ngens()`` which at index ``i``
         carries either ``None`` or a coefficient tuple representing the rule.
 
         If ``force=False``, rules which are already registered are kept and only new rules are added

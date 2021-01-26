@@ -183,6 +183,20 @@ constant::
     sage: mat[1][2].overlaps(CBF(cst))
     True
 
+Path rewriting
+==============
+
+The ``deform`` flag causes the integration path to be deformed using a more
+advanced algorithm than the default method. Setting this flag can lead to
+sustantial speedups for problems with many singularities and complicated paths,
+especially at high precision. Currently, however, the default method is
+typically a bit faster in simple cases. ::
+
+    sage: dop = (x^2 + 1)*Dx^2 + 2*x*Dx
+    sage: mat = dop.numerical_transition_matrix([-2*i, 1, -1, 2*i], deform=True)
+    sage: mat[0,1]
+    [9.424777960769379...] + [-3.295836866004329...]*I
+
 The EXPERIMENTAL ``assume_analytic`` flag authorizes paths that go through a
 singular point, and makes the assumption that the solution(s) of interest are
 analytic at that point::
@@ -303,8 +317,8 @@ TESTS::
     sage: dop = (x^2 + 1)*Dx^2 + 2*x*Dx
     sage: dop.numerical_transition_matrix([0,1], algorithm="binsplit")
     INFO:ore_algebra.analytic.binary_splitting:...
-    [ [1.0000000000000...] [0.785398163397448...]]
-    [            [+/- ...] [0.500000000000000...]]
+    [[1.0000000000000...] [0.785398163397448...]]
+    [           [+/- ...] [0.500000000000000...]]
     sage: logger.setLevel(logging.WARNING)
 
 Some corner cases::
@@ -478,7 +492,7 @@ Operators with rational function coefficients::
     [[-0.579827135138349...]   [2.27958530233606...]]
     sage: ((x/1)*Dx^2 - 1).numerical_transition_matrix([0, 1], algorithm='binsplit')
     [[0.0340875989376363...]   [1.59063685463732...]]
-    [[-0.579827135138349...]   [2.27958530233606...]]
+    [ [-0.579827135138349...]  [2.27958530233606...]]
 
 Algorithm choice::
 
@@ -520,10 +534,76 @@ Handling of algebraic points::
     [ [1.21483503...] + [0.72868035...]*I  [1.21483503...] + [-0.72868035...]*I]
     [[0.8557200...] + [-0.30988046...]*I  [0.85572000...] + [0.30988046...]*I]
 
+Inexact points::
+
+    sage: (Dx-1).numerical_solution([1], [0, RBF(1, .01)])
+    [2.7 +/- 0.0...]
+    sage: (Dx-1).numerical_solution([1],[0, RBF(1, .5), 2])
+    [7.38905609893065...]
+    sage: (Dx - 1).numerical_solution([1], [RBF(0, .001), 1])
+    [2.72 +/- ...e-3]
+    sage: (Dx - 1).numerical_solution([1], [RBF(0, .001)])
+    1.0000000000000000
+    sage: (Dx - 1).numerical_solution([1], [RBF(0, .001), 0])
+    [1.00 +/- 1...e-3]
+    sage: (Dx - 1).numerical_solution([1], [RBF(0, .001), RBF(0, .001)])
+    [1.00 +/- 2...e-3]
+    sage: (Dx - 1).numerical_solution([1], [-pi, pi])
+    [535.491655524764...]
+
+Large/inexact points at high precision::
+
+    sage: (Dx - 1).numerical_solution([1], [0, pi], 1e-20000)
+    [23.14069...908890274... +/- ...e-2...]
+    sage: (Dx - 1).numerical_solution([1], [0, pi], 1e-20000, algorithm="binsplit")
+    [23.14069...908890274... +/- ...e-2...]
+    sage: (Dx - 1).numerical_solution([1], [-pi, 0], 1e-20000)
+    [23.14069...908890274... +/- ...e-2...]
+    sage: (Dx - 1).numerical_solution([1], [-pi/2, pi/2], 1e-1000)
+    [23.14069...432104147... +/- ...e-1...]
+
+Algebraic points at high precision::
+
+    sage: NF.<sqrt2> = QuadraticField(2)
+    sage: dop = (x^2 - 3)*Dx^2 + x + 1
+    sage: x + sqrt2 # populate coercion cache
+    x + sqrt2
+    sage: dop.numerical_transition_matrix([1, sqrt2], 1e-10000) # long time (1.6 s)
+    [ [1.11...015121538...] [0.43...3856086567...]]
+    [ [0.65...812947177...] [1.15...5867289418...]]
+    sage: dop.numerical_transition_matrix([1, sqrt2], 1e-10000, algorithm="binsplit") # long time (1.6 s)
+    [ [1.11...015121538...] [0.43...3856086567...]]
+    [ [0.65...812947177...] [1.15...5867289418...]]
+
+Binary splitting when the bit-burst method is disabled::
+
+    sage: (Dx - 1).numerical_solution([1], [0, 1], 1e-100000, bit_burst_thr=10^10)
+    [2.718...91079721004271...]
+
 This used to yield a very coarse enclosure with some earlier versions::
 
     sage: (Dx^2 + x).numerical_solution([1, 0], [0,108])
     [0.2731261535202004...]
+    sage: (Dx^2 + x).numerical_solution([1, 0], [0,108], simple_approx_thr=0)
+    [0.2731261535202004...]
+
+Bypassing multiple singularities lying on the same segment of the input path
+should now handle them in the right order::
+
+    sage: dop = ((x+1)*Dx-2).lclm((x+2)*Dx-2)
+    sage: dop.numerical_transition_matrix([0,-3], assume_analytic=True)
+    [[-3.50000000...] + [+/- ...]*I  [3.75000000...] + [+/- ...]*I]
+    [ [3.00000000...] + [+/- ...]*I [-3.50000000...] + [+/- ...]*I]
+    sage: dop.numerical_transition_matrix([-3,0], assume_analytic=True)
+    [[-3.50000000...] + [+/- ...]*I [-3.75000000...] + [+/- ...]*I]
+    [[-3.00000000...] + [+/- ...]*I [-3.50000000...] + [+/- ...]*I]
+    sage: dop = ((x-1)*Dx-2).lclm((x-2)*Dx-2)
+    sage: dop.numerical_transition_matrix([0,3], assume_analytic=True)
+    [[-3.50000000...] + [+/- ...]*I [-3.75000000...] + [+/- ...]*I]
+    [[-3.00000000...] + [+/- ...]*I [-3.50000000...] + [+/- ...]*I]
+    sage: dop.numerical_transition_matrix([3,0], assume_analytic=True)
+    [[-3.50000000...] + [+/- ...]*I  [3.75000000...] + [+/- ...]*I]
+    [ [3.00000000...] + [+/- ...]*I [-3.50000000...] + [+/- ...]*I]
 
 Miscellaneous tests::
 
@@ -533,6 +613,11 @@ Miscellaneous tests::
 
     sage: ((9*x^2 - 1)*Dx + 18*x).numerical_transition_matrix([0,I,1], squash_intervals=True)
     [[-0.125000000000000...] + [+/- ...]*I]
+
+    sage: dop = x*Dx^3 + 2*Dx^2 + x*Dx
+    sage: mat = (dop.numerical_transition_matrix([1/3, RBF(1/3)]) - 1)
+    sage: sum(abs(c) for c in mat.list()) < RBF(1e-14)
+    True
 
 Test suite
 ==========
