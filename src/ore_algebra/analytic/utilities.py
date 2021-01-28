@@ -75,15 +75,11 @@ def is_QQi(parent):
                 and list(parent.polynomial()) == [1,0,1]
                 and CBF(parent.gen()).imag().is_one())
 
-def ball_field(eps, real):
-    prec = prec_from_eps(eps)
-    if isinstance(eps, RealBall):
-        if real:
-            return RealBallField(prec)
-        else:
-            return ComplexBallField(prec)
+def ball_field(prec, real):
+    if real:
+        return RealBallField(prec)
     else:
-        raise TypeError
+        return ComplexBallField(prec)
 
 def add_error_method(parent):
     r"""

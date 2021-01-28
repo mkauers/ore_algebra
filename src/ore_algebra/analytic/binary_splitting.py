@@ -1007,37 +1007,36 @@ class MatrixRecsUnroller(LocalBasisMapper, accuracy.BoundCallbacks):
     An artificial 3rd order p-adic example::
 
         sage: from ore_algebra import DifferentialOperators
+        sage: from ore_algebra.analytic.accuracy import *
         sage: from ore_algebra.analytic.binary_splitting import *
         sage: from ore_algebra.analytic import DifferentialOperator, EvaluationPoint
         sage: Dops, x, Dx = DifferentialOperators(QQ, 'x')
         sage: dop = DifferentialOperator((Dx-1).lclm(Dx*(x+1)*Dx))
         sage: myZp = Zp(29, 500); pt = myZp(4*29)
         sage: evpt = EvaluationPoint(pt, jet_order=3, rad=RBF(1/29))
-        sage: unroller = MatrixRecsUnroller(dop, evpt, O(29^12))
-        sage: sol = unroller.run()
-        sage: mysol = sol[0].value + 2*sol[1].value
         sage: myref = vector((exp(pt) + log(1+pt),
         ....:                exp(pt) + 1/(1+pt),
         ....:                1/2*(exp(pt) - 1/(1+pt)^2)))
+        sage: stop = StoppingCriterion_index_base(20)
+        sage: sol = MatrixRecsUnroller(dop, evpt, 30, stop, 29).run()
+        sage: mysol = sol[0].value + 2*sol[1].value
+        sage: mysol - myref
+        (O(29^16), O(29^16), O(29^16))
+        sage: stop = StoppingCriterion_valuation_estimate(O(29^12))
+        sage: sol = MatrixRecsUnroller(dop, evpt, 12, stop, 29).run()
+        sage: mysol = sol[0].value + 2*sol[1].value
         sage: mysol - myref
         (O(29^12), O(29^12), O(29^13))
     """
 
-    def __init__(self, dop, pt, eps, ctx=dctx):
+    def __init__(self, dop, pt, prec, stop, prime, ctx=dctx):
         super(self.__class__, self).__init__(dop)
         self.pt = pt
-        self.eps = eps
+        self.prec = prec
+        self.stop = stop
+        self.prime = prime
         self.ctx = ctx
-        self.prime = accuracy.prime(eps)
-        if self.prime is None:
-            self._est_terms, _ = dop.est_terms(pt, utilities.prec_from_eps(eps))
-        else:
-            if pt.rad.is_zero():
-                self._est_terms = 1
-            else:
-                pt_val = ZZ(-pt.rad.log(self.prime).mid().floor())
-                pt_val = max(pt_val, 1) # XXX
-                self._est_terms = eps.valuation()//pt_val
+        self._est_terms = stop.est_terms(dop, pt)
 
     def process_decomposition(self):
         # enough to represent individual series, but real jets may still become
@@ -1049,7 +1048,7 @@ class MatrixRecsUnroller(LocalBasisMapper, accuracy.BoundCallbacks):
             is_real = (int_expos
                     and utilities.is_real_parent(self.dop.base_ring().base_ring())
                     and self.pt.is_real())
-            Intervals = utilities.ball_field(self.eps, is_real)
+            Intervals = utilities.ball_field(self.prec, is_real)
             _est_abs_base = lambda c: abs(bounds.IC(c))
         else:
             myQp = Qp(self.prime)
@@ -1066,8 +1065,7 @@ class MatrixRecsUnroller(LocalBasisMapper, accuracy.BoundCallbacks):
                                     f"for {Points}")
             # XXX extend to contain the coefficients of the operator and the
             # exponents...
-            Intervals = Intervals.change(type="capped-rel",
-                                         prec=self.eps.valuation())
+            Intervals = Intervals.change(type="capped-rel", prec=self.prec)
             _est_abs_base = Intervals.change(prec=1)
         # XXX dubious kludge
         def _est_abs_ext(c):
@@ -1159,9 +1157,8 @@ class MatrixRecsUnroller(LocalBasisMapper, accuracy.BoundCallbacks):
         self.modZ_class_tail_bound = None
 
         # Generic recurrence matrix
-        wprec = utilities.prec_from_eps(self.eps)
         self.matrix_rec = MatrixRec(self.dop, self.leftmost, self.shifts,
-                self.pt.pt, self.prime, self.pt.jet_order, wprec,
+                self.pt.pt, self.prime, self.pt.jet_order, self.prec,
                 min(self.ctx.binsplit_thr, self._est_terms))
 
         if self.prime is None: # XXX TBI
@@ -1169,11 +1166,7 @@ class MatrixRecsUnroller(LocalBasisMapper, accuracy.BoundCallbacks):
             self.maj = {rt: bounds.DiffOpBound(self.dop, rt, self.shifts,
                                             bound_inverse="solve")
                         for rt in self.roots}
-            wrapper = bounds.MultiDiffOpBound(self.maj.values())
-            # TODO: switch to fast_fail=True?
-            stop = accuracy.StoppingCriterion_eps(wrapper, self.eps, fast_fail=False)
-        else:
-            stop = accuracy.StoppingCriterion_valuation_estimate(self.eps)
+            self.stop.maj = bounds.MultiDiffOpBound(self.maj.values()) # XXX TBI
 
         first_singular_index = min(s for s, _ in self.shifts)
         last_singular_index = max(s for s, _ in self.shifts)
@@ -1214,8 +1207,8 @@ class MatrixRecsUnroller(LocalBasisMapper, accuracy.BoundCallbacks):
             if self.shift > last_singular_index:
                 est = sum(sol.value.error_estimate(self._est_abs)
                           for sol in self.irred_factor_cols)
-                done, tail_bound = stop.check(self, False, self.shift, tail_bound,
-                               est, next_stride=self.shift-first_singular_index)
+                done, tail_bound = self.stop.check(self, False, self.shift,
+                        tail_bound, est, next_stride=self.shift-first_singular_index)
             if self.shift > 16 or self.mult > 0:
                 logger.log(logging.INFO if self.shift > 1000 else logging.DEBUG,
                         "n=%s, logs=%s, est=%s, tb=%s",
@@ -1251,7 +1244,14 @@ def fundamental_matrix_regular(dop, pt, eps, fail_fast=None, effort=None, ctx=dc
     if not isinstance(pt, EvaluationPoint):
         rad = accuracy.above_abs(pt, accuracy.prime(eps))
         pt = EvaluationPoint(pt, jet_order=dop.order(), rad=rad)
-    cols = MatrixRecsUnroller(dop, pt, eps, ctx).run()
+    prec = utilities.prec_from_eps(eps)
+    prime = accuracy.prime(eps)
+    if prime is None:
+        # TODO: switch to fast_fail=True?
+        stop = accuracy.StoppingCriterion_eps(None, eps, fast_fail=False)
+    else:
+        stop = accuracy.StoppingCriterion_valuation_estimate(eps)
+    cols = MatrixRecsUnroller(dop, pt, prec, stop, prime, ctx).run()
     return matrix([sol.value for sol in cols]).transpose()
 
 def _can_use_CBF(*doms):

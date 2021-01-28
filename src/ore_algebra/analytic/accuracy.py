@@ -20,6 +20,7 @@ from sage.rings.all import RealBallField, ComplexBallField
 from sage.rings.padics.padic_generic import pAdicGeneric
 from sage.rings.padics.padic_generic_element import pAdicGenericElement
 
+from . import utilities
 from .safe_cmp import *
 
 logger = logging.getLogger(__name__)
@@ -116,7 +117,25 @@ class StoppingCriterion(object):
         """
         raise NotImplementedError
 
-class StoppingCriterion_index(StoppingCriterion):
+class StoppingCriterion_index_base(StoppingCriterion):
+
+    def __init__(self, n):
+        self.n = n
+
+    def check(self, cb, sing, n, ini_tb, est, next_stride):
+        if n < self.n:
+            return False, est.parent().zero()
+        else:
+            return True, est.parent().zero()
+
+    def est_terms(self, dop, pt):
+        return self.n
+
+    def tighten(self, *args):
+        # bugware, for compatibility with StoppingCriterion_eps
+        pass
+
+class StoppingCriterion_index(StoppingCriterion_index_base):
     r"""
     Stop just before a certain index, with a rigorous tail bound.
 
@@ -128,7 +147,7 @@ class StoppingCriterion_index(StoppingCriterion):
         sage: from ore_algebra.analytic.accuracy import StoppingCriterion_index
         sage: Dops, x, Dx = DifferentialOperators()
         sage: maj = DiffOpBound(Dx-1, max_effort=3)
-        sage: stop = StoppingCriterion_index(maj, 7)
+        sage: stop = StoppingCriterion_index(7, maj)
         sage: (val,) = series_sum(Dx-1, [1], 2, 1e-20, stop=stop, stride=1)
         sage: RBF(2).exp() in val
         True
@@ -136,19 +155,15 @@ class StoppingCriterion_index(StoppingCriterion):
         True
     """
 
-    def __init__(self, maj, n):
+    def __init__(self, n, maj):
+        super(self.__class__, self).__init__(n)
         self.maj = maj
-        self.n = n
 
     def check(self, cb, sing, n, ini_tb, est, next_stride):
         if n < self.n:
             return False, IR('inf')
         else:
             return True, cb.get_bound(cb.get_residuals())
-
-    def tighten(self, *args):
-        # bugware, for compatibility with StoppingCriterion_eps
-        pass
 
 class StoppingCriterion_valuation_estimate(StoppingCriterion):
 
@@ -157,6 +172,14 @@ class StoppingCriterion_valuation_estimate(StoppingCriterion):
 
     def check(self, cb, sing, n, ini_tb, est, next_stride):
         return (est.valuation() >= self.eps.valuation()), est
+
+    def est_terms(self, dop, pt):
+        if pt.rad.is_zero():
+            return 1
+        else:
+            pt_val = ZZ(-pt.rad.log(prime(self.eps)).mid().floor())
+            pt_val = max(pt_val, 1) # XXX
+            return self.eps.valuation()//pt_val
 
     def tighten(self, *args):
         self.eps <<= 4
@@ -182,7 +205,7 @@ class StoppingCriterion_eps(StoppingCriterion):
     """
 
     def __init__(self, maj, eps, fast_fail=True):
-        self.maj = maj
+        self.maj = maj # XXX move to BoundCallbacks after adapting naive_sum(?)
         self.eps = eps
         self.prec = ZZ(eps.log(2).lower().floor()) - 2
         self.fast_fail = fast_fail
@@ -273,6 +296,9 @@ class StoppingCriterion_eps(StoppingCriterion):
                     self.maj.refine()
         logger.debug("--> ko")
         return False, tb
+
+    def est_terms(self, dop, pt):
+        return dop.est_terms(pt, utilities.prec_from_eps(self.eps))[0]
 
     def tighten(self, ini_are_accurate):
         self.eps >>= 4
