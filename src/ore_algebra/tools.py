@@ -319,6 +319,7 @@ def _residue(obj,place=None):
 
     EXAMPLES::
 
+        sage: from ore_algebra.tools import _residue
         sage: P.<q> = PolynomialRing(QQ)
         sage: K = P.fraction_field()
         sage: _residue(K(1))
@@ -381,6 +382,7 @@ def _vect_val_fct(v,place=None):
 
     EXAMPLES::
 
+        sage: from ore_algebra.tools import _vect_val_fct
         sage: P.<q> = PolynomialRing(QQ)
         sage: K = P.fraction_field()
         sage: _vect_val_fct([K(1),K(1/q)])
@@ -428,6 +430,7 @@ def _vect_elim_fct(basis,place=None,dim=None,infolevel=0, residue_fct=None):
 
     # TODO: Add examples with plain vectors?
 
+        sage: from ore_algebra.tools import _vect_elim_fct
         sage: k.<q> = LaurentSeriesRing(QQ)
         sage: V.<t> = PolynomialRing(k)
         sage: b = [V(1),V(1+q*t)]
@@ -500,6 +503,7 @@ def roots_at_integer_distance(f1,f2):
 
     EXAMPLES::
 
+        sage: from ore_algebra.tools import roots_at_integer_distance
         sage: P.<x> = PolynomialRing(QQ)
         sage: roots_at_integer_distance(x*(x+1),x-2)
         [3, 2]
