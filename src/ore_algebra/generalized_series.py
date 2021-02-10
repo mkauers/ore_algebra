@@ -343,6 +343,7 @@ class ContinuousGeneralizedSeries(RingElement):
         # TODO: Update coercions in doc
         x = parent.tail_ring().base_ring().gen()
         laurent = parent.tail_ring().base_ring().fraction_field()
+        tail = parent.tail_ring()(tail)
         try:
             tail2 = laurent(tail) # if tail does not have y
             val = tail2.valuation()
@@ -352,7 +353,7 @@ class ContinuousGeneralizedSeries(RingElement):
 
         if val in ZZ :
             tail = tail2*x**(-val)
-            exp += val
+            exp += val/ramification
         
         p = parent.tail_ring()(tail)
 
