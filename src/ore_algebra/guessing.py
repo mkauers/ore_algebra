@@ -198,9 +198,15 @@ def guess(data, algebra, **kwargs):
                 if a != 0:
                     eq = eq(x**(-a)*eq.parent().gen())*x**(a*eq.degree())
                 return A(eq)
-                
+
+    def to_A(obj):
+        if isinstance(obj, tuple):
+            return (A(obj[0]), *obj[1:])
+        else:
+            return A(obj)
+
     if R.is_field():
-        return A(guess(data, A.change_ring(R.ring()), **kwargs))
+        return to_A(guess(data, A.change_ring(R.ring()), **kwargs))
                 
     elif A.is_F() is not False:
         # reduce to shift case; note that this does not alter order or degrees
@@ -248,13 +254,13 @@ def guess(data, algebra, **kwargs):
         return _guess_via_hom(data, A, _word_size_primes(), to_hom, **kwargs)
 
     elif K is QQ:
-        return A(guess(data, A.change_ring(ZZ[x]), **kwargs))
+        return to_A(guess(data, A.change_ring(ZZ[x]), **kwargs))
 
     elif K.is_field():
-        return A(guess(data, A.change_ring(K.ring()[x]), **kwargs))
+        return to_A(guess(data, A.change_ring(K.ring()[x]), **kwargs))
 
     elif is_PolynomialRing(K) and K.base_ring() is QQ:
-        return A(guess(data, A.change_ring(ZZ[K.gens()][x]), **kwargs))
+        return to_A(guess(data, A.change_ring(ZZ[K.gens()][x]), **kwargs))
 
     else:
         raise TypeError("unexpected coefficient domain: " + str(K))
