@@ -963,7 +963,7 @@ class ContinuousGeneralizedSeries(RingElement):
             return min(c.prec() for c in t.coefficients())
 
     def initial_exponent(self):
-        """
+        r"""
         Return the constant coefficient of the exponential part of this series.
 
         This is the exponent `\alpha` such that the series is `c x^\alpha e^{\ldots} (1 + \ldots)`.
@@ -992,7 +992,7 @@ class ContinuousGeneralizedSeries(RingElement):
         return L
 
     def valuation(self, base=QQ, iota=None):
-        """
+        r"""
         Return the valuation of this generalized series.
 
         INPUT: 
