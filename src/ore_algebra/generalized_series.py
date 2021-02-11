@@ -342,20 +342,34 @@ class ContinuousGeneralizedSeries(RingElement):
         # Move negative exponents to the exponential part if needed
         # TODO: Update coercions in doc
         x = parent.tail_ring().base_ring().gen()
+        y = parent.tail_ring().gen()
         laurent = parent.tail_ring().base_ring().fraction_field()
-        tail = parent.tail_ring()(tail)
+
+        # tail can have many forms, we try to handle all coercions here
+        tail_ring_ext = parent.tail_ring().change_ring(laurent)
+        # tail_ring_ext is a polynomial ring in y over Laurent series field in x
+
         try:
-            tail2 = laurent(tail) # if tail does not have y
-            val = tail2.valuation()
-        except TypeError:
-            tail2 = parent.tail_ring().change_ring(laurent)(tail)
-            val = min(c.valuation() for c in tail2.coefficients())
+            tail2 = tail_ring_ext(tail)
+        except:
+            # The above fails if tail is an element of K(x)
+            # FIXME: Make the conversion more robust
+            tail2 = tail_ring_ext(laurent(tail))
+
+        val = min((c.valuation() for c in tail2.coefficients()), default=0)
 
         if val in ZZ :
             tail = tail2*x**(-val)
+            # if ramification == 1:
+            #     exp += val
+            # else:
             exp += val/ramification
-        
-        p = parent.tail_ring()(tail)
+
+        # The list of coefficients contains things like O(x^1) which cannot get
+        # converted into power series rings. But they still test equal to 0 so
+        # we just force it.
+        tailcoefs = [c if c != 0 else 0 for c in tail.coefficients(sparse=False)]
+        p = parent.tail_ring()(tailcoefs)
 
         if ramification not in ZZ or ramification <= 0:
             raise ValueError("ramification must be a positive integer")
