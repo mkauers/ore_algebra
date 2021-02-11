@@ -360,9 +360,6 @@ class ContinuousGeneralizedSeries(RingElement):
 
         if val in ZZ :
             tail = tail2*x**(-val)
-            # if ramification == 1:
-            #     exp += val
-            # else:
             exp += val/ramification
 
         # The list of coefficients contains things like O(x^1) which cannot get
