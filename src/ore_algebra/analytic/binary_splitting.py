@@ -166,6 +166,12 @@ Trivial examples with rational argument and p-adic outputs::
     sage: val - pt.exp()
     [O(29^50)]
 
+High precision::
+
+    sage: val = fundamental_matrix_regular(Dx - 1, pt.lift()/3, O(p^50000)) # long time (3s)
+    sage: val - (Zp(29,50000)(4*p/3)).exp()
+    [O(29^50000)]
+
 It is also possible to pass a p-adic number. The numbers in the upper
 levels of the tree are then automatically truncated to the working
 precision, but there is a significant initial cost for creating
