@@ -757,10 +757,7 @@ class SolutionColumn(object):
                             for c in ser])
                      for ser in numer])
         assert self.v.ord_diff == dz.jet_order
-        try:
-            [val] = log_series_values(Jets, alg + shift, val, dz)
-        except (NotImplementedError, TypeError):
-            val = DummyLogSeriesValues(Jets, alg + shift, val, dz)
+        [val] = log_series_values(Jets, alg + shift, val, dz)
         return val
 
     def error_estimate(self, _est_abs):
