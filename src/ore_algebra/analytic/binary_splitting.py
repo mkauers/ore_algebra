@@ -2,7 +2,7 @@
 """
 Evaluation of convergent D-finite series by binary splitting
 
-TESTS::
+::
 
     sage: from ore_algebra import DifferentialOperators
     sage: from ore_algebra.analytic import DifferentialOperator, EvaluationPoint
@@ -10,58 +10,11 @@ TESTS::
 
     sage: Dops, x, Dx = DifferentialOperators(QQ, 'x')
 
-    sage: import logging
-    sage: logging.basicConfig()
-    sage: logger = logging.getLogger('ore_algebra.analytic.binary_splitting')
-
-    sage: logger.setLevel(logging.DEBUG)
-
-    sage: ((x^2 + 1)*Dx^2 + 2*x*Dx).numerical_solution([0, 1],
-    ....:         [0, i+1, 2*i, i-1, 0], algorithm="binsplit")
-    INFO:...
-    DEBUG:ore_algebra.analytic.binary_splitting:coefficients in: ... Complex
-    ball field ...
-    [3.14159265358979...] + [+/- ...]*I
-
-    sage: NF.<sqrt2> = QuadraticField(2)
-    sage: dop = (x^2 - 3)*Dx^2 + x + 1
-    sage: dop.numerical_transition_matrix([0, sqrt2], 1e-10, algorithm="binsplit")
-    INFO:...
-    DEBUG:ore_algebra.analytic.binary_splitting:evaluation point in: ... Number
-    Field ...
-    [[1.669017372...] [1.809514316...]]
-    [[1.556515516...] [2.286697055...]]
-
-    sage: (Dx - 1).numerical_solution([1], [0, i + pi], algorithm="binsplit")
-    INFO:...
-    DEBUG:ore_algebra.analytic.binary_splitting:coefficients in: ... Complex
-    ball field ...
-    [12.5029695888765...] + [19.4722214188416...]*I
-
-    sage: logger.setLevel(logging.WARNING)
+Some of our standard “real-world” examples::
 
     sage: from ore_algebra.analytic.examples.misc import koutschan1
     sage: koutschan1.dop.numerical_solution(koutschan1.ini, [0, 84], algorithm="binsplit")
     [0.011501537469552017...]
-
-Note that the zeros here shouldn't be exact unless we have proved that the
-corresponding series do not continue::
-
-    sage: ((x + 1)*Dx^2 + Dx).numerical_transition_matrix([0,1/2], algorithm='binsplit')
-    [ [1.00000000000000...] [0.405465108108164...]]
-    [             [+/- ...] [0.666666666666666...]]
-
-    sage: ((x + 1)*Dx^3 + Dx).numerical_transition_matrix([0,1/2], algorithm='binsplit')
-    [  [1.000000000000000...]  [0.4815453970799961...]  [0.2456596136789682...]]
-    [               [+/- ...]  [0.8936357901691244...]  [0.9667328760004665...]]
-    [               [+/- ...] [-0.1959698689702905...]  [0.9070244207738327...]]
-
-    sage: ((x + 1)*Dx^3 + Dx^2).numerical_transition_matrix([0,1/2], algorithm='binsplit')
-    [ [1.000000000000000...] [0.5000000000000000...] [0.2163953243244931...]]
-    [              [+/- ...]  [1.000000000000000...] [0.8109302162163287...]]
-    [              [+/- ...]               [+/- ...] [0.6666666666666666...]]
-
-More examples::
 
     sage: from ore_algebra.examples import fcc
     sage: fcc.dop5.numerical_solution( # long time (3.6 s)
@@ -69,24 +22,15 @@ More examples::
     ....:          1e-60, algorithm='binsplit', bit_burst_thr=1000)
     [1.04885235135491485162956376369999275945402550465206640...] + [+/- ...]*I
 
-    sage: QQi.<i> = QuadraticField(-1)
-    sage: (Dx - i).numerical_solution([1], [sqrt(2), sqrt(3)], algorithm="binsplit")
-    [0.9499135278648561...] + [0.3125128630622157...]*I
-
 Regular singular connection problems
 ====================================
 
 Elementary examples::
 
-    sage: logger.setLevel(logging.DEBUG)
     sage: (x*Dx^2 + x + 1).numerical_transition_matrix([0, 1], 1e-10,
     ....:                                             algorithm="binsplit")
-    INFO:...
-    DEBUG:ore_algebra.analytic.binary_splitting:coefficients in: ... Complex
-    ball field ...
     [[-0.006152006884...]    [0.4653635461...]]
     [   [-2.148107776...]  [-0.05672090833...]]
-    sage: logger.setLevel(logging.WARNING)
 
     sage: dop = (Dx*(x*Dx)^2).lclm(Dx-1)
     sage: dop.numerical_solution([2, 0, 0, 0], [0, 1/4], algorithm="binsplit")
@@ -123,6 +67,8 @@ Whittaker functions with irrational exponents::
     [[-1.135875563239369...] + [+/-...]*I  [1.426170676718...] + [+/-...]*I]
 
 Various mixes of algebraic exponents and evaluation points::
+
+    sage: QQi.<i> = QuadraticField(-1)
 
     sage: ((x*Dx)^3-2-x).numerical_transition_matrix([0,1], 1e-5, algorithm="binsplit")
     [[0.75335...] + [-0.09777...]*I  [0.75335...] + [0.09777...]*I  [1.1080...] + [+/- ...]*I]
@@ -280,8 +226,64 @@ Irrational exponents in ℤp, again under restrictive convergence assumptions
     [ 1 + 11 + 4*11^2 + 8*11^3 + O(11^4) 5 + 5*11 + 8*11^2 + 7*11^3 + O(11^4)]
     [   1 + 11 + 11^2 + 7*11^3 + O(11^4)        4 + 4*11^2 + 3*11^3 + O(11^4)]
 
-Miscellaneous examples and tests
-================================
+Miscellaneous tests
+===================
+
+Computation domains (complex balls vs number fields)::
+
+    sage: import logging
+    sage: logging.basicConfig()
+    sage: logger = logging.getLogger('ore_algebra.analytic.binary_splitting')
+
+    sage: logger.setLevel(logging.DEBUG)
+
+    sage: ((x^2 + 1)*Dx^2 + 2*x*Dx).numerical_solution([0, 1],
+    ....:         [0, i+1, 2*i, i-1, 0], algorithm="binsplit")
+    INFO:...
+    DEBUG:ore_algebra.analytic.binary_splitting:coefficients in: ... Complex
+    ball field ...
+    [3.14159265358979...] + [+/- ...]*I
+
+    sage: NF.<sqrt2> = QuadraticField(2)
+    sage: dop = (x^2 - 3)*Dx^2 + x + 1
+    sage: dop.numerical_transition_matrix([0, sqrt2], 1e-10, algorithm="binsplit")
+    INFO:...
+    DEBUG:ore_algebra.analytic.binary_splitting:evaluation point in: ... Number
+    Field ...
+    [[1.669017372...] [1.809514316...]]
+    [[1.556515516...] [2.286697055...]]
+
+    sage: (Dx - 1).numerical_solution([1], [0, i + pi], algorithm="binsplit")
+    INFO:...
+    DEBUG:ore_algebra.analytic.binary_splitting:coefficients in: ... Complex
+    ball field ...
+    [12.5029695888765...] + [19.4722214188416...]*I
+
+    sage: ((x*Dx - 3/7)).lclm(Dx - 1).numerical_transition_matrix([0,1/3], algorithm="binsplit")
+    INFO:...
+    DEBUG:ore_algebra.analytic.binary_splitting:coefficients in: ... Complex
+    ball field ...
+    [[1.395612425086089...] + [+/- ...]*I  [0.6244813348581596...]]
+    [[1.395612425086089...] + [+/- ...]*I   [0.802904573389062...]]
+
+    sage: logger.setLevel(logging.WARNING)
+
+The zeros here shouldn't be exact unless we have _proved_ that the
+corresponding series terminates::
+
+    sage: ((x + 1)*Dx^2 + Dx).numerical_transition_matrix([0,1/2], algorithm='binsplit')
+    [ [1.00000000000000...] [0.405465108108164...]]
+    [             [+/- ...] [0.666666666666666...]]
+
+    sage: ((x + 1)*Dx^3 + Dx).numerical_transition_matrix([0,1/2], algorithm='binsplit')
+    [  [1.000000000000000...]  [0.4815453970799961...]  [0.2456596136789682...]]
+    [               [+/- ...]  [0.8936357901691244...]  [0.9667328760004665...]]
+    [               [+/- ...] [-0.1959698689702905...]  [0.9070244207738327...]]
+
+    sage: ((x + 1)*Dx^3 + Dx^2).numerical_transition_matrix([0,1/2], algorithm='binsplit')
+    [ [1.000000000000000...] [0.5000000000000000...] [0.2163953243244931...]]
+    [              [+/- ...]  [1.000000000000000...] [0.8109302162163287...]]
+    [              [+/- ...]               [+/- ...] [0.6666666666666666...]]
 
 ::
 
@@ -291,22 +293,17 @@ Miscellaneous examples and tests
     sage: CBF(2*exp(-1) + 3*(-1)^(3/2)*log(-1) + 7*(-1)^(3/2))
     [10.1605368431122...] - 7.000000000000000*I
 
+::
+
     sage: (x*(x-1)*Dx^2 - x).numerical_transition_matrix([0,1], 1e-6, algorithm="binsplit")
     [     [0.22389...] + [+/- ...]*I      [0.57672...] + [+/- ...]*I]
     [[-1.56881...] + [-0.70337...]*I  [0.42531...] + [-1.81183...]*I]
 
+::
+
     sage: QQi.<i> = QuadraticField(-1)
     sage: (Dx - i).numerical_solution([1], [0,1], algorithm="binsplit")
     [0.5403023058681397...] + [0.8414709848078965...]*I
-
-    sage: logger.setLevel(logging.DEBUG)
-    sage: ((x*Dx - 3/7)).lclm(Dx - 1).numerical_transition_matrix([0,1/3], algorithm="binsplit")
-    INFO:...
-    DEBUG:ore_algebra.analytic.binary_splitting:coefficients in: ... Complex
-    ball field ...
-    [[1.395612425086089...] + [+/- ...]*I  [0.6244813348581596...]]
-    [[1.395612425086089...] + [+/- ...]*I   [0.802904573389062...]]
-    sage: logger.setLevel(logging.WARNING)
 """
 
 # Copyright 2015, 2016, 2017, 2018, 2019 Marc Mezzarobba
