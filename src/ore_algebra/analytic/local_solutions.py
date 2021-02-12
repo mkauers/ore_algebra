@@ -654,7 +654,7 @@ def log_series_values(Jets, expo, psum, evpt, downshift=[0]):
     log_prec = psum.length()
     assert all(d < log_prec for d in downshift) or log_prec == 0
     Scalars = Jets.base_ring()
-    pt = Scalars(evpt.pt)
+    pt = Scalars(evpt.embedded())
 
     complex_numeric_case = utilities.is_numeric_parent(Scalars)
     padic_case = isinstance(Scalars, pAdicGeneric)

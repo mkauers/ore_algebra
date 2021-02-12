@@ -534,6 +534,14 @@ class EvaluationPoint(object):
         return Pol([self.pt, 1]).truncate(self.jet_order)
 
     @cached_method
+    def embedded(self):
+        emb = self.pt.parent().coerce_embedding()
+        if emb is None:
+            return self.pt
+        else:
+            return emb(self.pt)
+
+    @cached_method
     def is_complex(self):
         return is_numeric_parent(self.pt.parent())
 

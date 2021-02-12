@@ -196,6 +196,26 @@ Derivatives (artificial example)::
     sage: mysol - ref
     (O(29^50), O(29^50), O(29^51))
 
+In some cases, we can evaluate functions at elements of ℚp algebraic over ℚ by
+binary splitting over a suitable number field. (Warning: Support for this
+currently inherits many limitations of p-adic embeddings of number fields in
+Sage. In particular, the embedding must be specified to a sufficient
+precision.)::
+
+    sage: pol = x^3 - 7
+    sage: rts = pol.roots(Qp(p, 50), multiplicities=False)
+    sage: NF.<a> = NumberField(pol, embedding=rts[0])
+    sage: dop = Dx*(x+1)*Dx
+    sage: mat = fundamental_matrix_regular(dop, p*a/3, O(p^30))
+    sage: mat[0,1] - (1+p*rts[0]/3).log()
+    O(29^31)
+
+    sage: dop2 = dop.annihilator_of_composition(p^2*x)
+    sage: mat = fundamental_matrix_regular(dop2, a/p, O(29^30))
+    sage: ref = (1+p*rts[0]).log()/p^2 # the canonical local basis has changed!
+    sage: mat[0,1] - ref
+    O(29^31)
+
 Logarithms, with branches of the p-adic log::
 
     sage: a, b, c = 1/3, 1/3, 1
@@ -757,6 +777,12 @@ class SolutionColumn(object):
         # (overestimation: we are using a single bound for all subseries)
         specialize = _specialization_map(self.v.zero_sum.parent(), Scalars,
                                          abstract_alg, alg)
+        # Work around limitations of p-adic embeddings in simple cases
+        if isinstance(specialize, pAdicGeneric):
+            emb = self.v.pow_num.parent().base().coerce_embedding()
+            if emb is not None:
+                _specialize = specialize
+                specialize = lambda a: (_specialize(emb(a)))
         add_error = utilities.add_error_method(Scalars)
         denom = specialize(self.v.rec_den)*Scalars(self.v.pow_den)
         val = vector([Jets([add_error(specialize(c)/denom, tail_bound)
