@@ -487,28 +487,7 @@ class LocalBasisMapper(object):
         for self.sl_factor, self.shifts in self.sl_decomp:
             for self.irred_factor, irred_mult in self.sl_factor.factor():
                 assert irred_mult == 1
-                if self.irred_factor.degree() == 1:
-                    rt = -self.irred_factor[0]/self.irred_factor[1]
-                    if rt.is_integer():
-                        rt = ZZ(rt)
-                    elif exponent_ring is not None:
-                        try:
-                            rt = exponent_ring(rt)
-                        except ValueError:
-                            raise ValueError(f"exponents not in {exponent_ring}")
-                    elif rt.is_rational():
-                        rt = QQ(rt)
-                    self.roots = [rt]
-                elif exponent_ring is not None:
-                    self.roots = self.irred_factor.roots(exponent_ring,
-                                                         multiplicities=False)
-                    if len(self.roots) < self.irred_factor.degree():
-                        raise ValueError(f"exponents not in {exponent_ring}")
-                else:
-                    roots = complex_roots(self.irred_factor,
-                                       skip_squarefree=True, retval='algebraic')
-                    self.roots = [utilities.as_embedded_number_field_element(rt)
-                                  for rt, _ in roots]
+                self.roots = _roots(self.irred_factor, exponent_ring)
                 logger.debug("indicial factor = %s, roots = %s",
                              self.irred_factor, self.roots)
                 self.irred_factor_cols = []
@@ -565,6 +544,29 @@ class LocalBasisMapper(object):
 
     def fun(self, ini):
         return None
+
+def _roots(pol, ring):
+    if pol.degree() == 1:
+        rt = -pol[0]/pol[1]
+        if rt.is_integer():
+            rt = ZZ(rt)
+        elif ring is not None:
+            try:
+                rt = ring(rt)
+            except ValueError:
+                raise ValueError(f"exponents not in {ring}")
+        elif rt.is_rational():
+            rt = QQ(rt)
+        roots = [rt]
+    elif ring is not None:
+        roots = pol.roots(ring, multiplicities=False)
+        if len(roots) < pol.degree():
+            raise ValueError(f"exponents not in {ring}")
+    else:
+        roots = complex_roots(pol, skip_squarefree=True, retval='algebraic')
+        roots = [utilities.as_embedded_number_field_element(rt)
+                        for rt, _ in roots]
+    return roots
 
 def exponent_shifts(dop, leftmost):
     bwrec = bw_shift_rec(dop)
