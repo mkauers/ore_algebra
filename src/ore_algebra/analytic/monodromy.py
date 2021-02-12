@@ -22,7 +22,7 @@ from sage.graphs.graph import Graph
 from sage.matrix.matrix_complex_ball_dense import Matrix_complex_ball_dense
 from sage.misc.misc_c import prod
 from sage.rings.all import (CC, CBF, ComplexBallField, QQ, QQbar,
-        QuadraticField, RBF)
+        QuadraticField, RBF, ZZ)
 from sage.functions.all import exp
 from sage.symbolic.all import pi, SR
 
@@ -183,7 +183,9 @@ def _formal_monodromy_from_critical_monomials(critical_monomials, mor):
         expo = jsol.leftmost
         if expo != expo0:
             scalar = False
-        if expo.parent() is QQ:
+        if expo.parent() is ZZ:
+            eigv = ring.one()
+        elif expo.parent() is QQ:
             eigv = ring(QQbar.zeta(expo.denominator())**expo.numerator())
         else:
             # conversion via QQbar seems necessary with some number fields

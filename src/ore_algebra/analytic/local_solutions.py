@@ -33,6 +33,7 @@ from sage.rings.number_field.number_field import (
         NumberField_absolute,
         NumberField_quadratic,
     )
+from sage.rings.padics.padic_generic import pAdicGeneric
 from sage.rings.polynomial import polynomial_element
 from sage.rings.polynomial.complex_roots import complex_roots
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
@@ -463,7 +464,7 @@ class LocalBasisMapper(object):
     def __init__(self, dop):
         self.dop = dop
 
-    def run(self, exponent_field=None):
+    def run(self, *, exponent_ring=None):
         r"""
         Compute self.fun() for each element of the local basis at 0 of self.dop.
 
@@ -488,12 +489,21 @@ class LocalBasisMapper(object):
                 assert irred_mult == 1
                 if self.irred_factor.degree() == 1:
                     rt = -self.irred_factor[0]/self.irred_factor[1]
-                    if rt.is_rational():
+                    if rt.is_integer():
+                        rt = ZZ(rt)
+                    elif exponent_ring is not None:
+                        try:
+                            rt = exponent_ring(rt)
+                        except ValueError:
+                            raise ValueError(f"exponents not in {exponent_ring}")
+                    elif rt.is_rational():
                         rt = QQ(rt)
                     self.roots = [rt]
-                elif exponent_field is not None:
-                    self.roots = self.irred_factor.roots(exponent_field,
+                elif exponent_ring is not None:
+                    self.roots = self.irred_factor.roots(exponent_ring,
                                                          multiplicities=False)
+                    if len(self.roots) < self.irred_factor.degree():
+                        raise ValueError(f"exponents not in {exponent_ring}")
                 else:
                     roots = complex_roots(self.irred_factor,
                                        skip_squarefree=True, retval='algebraic')
@@ -506,7 +516,7 @@ class LocalBasisMapper(object):
                 self.cols.extend(self.irred_factor_cols)
                 if self.irred_factor.degree() >= 2:
                     self.nontrivial_factor_index += 1
-        if exponent_field is None:
+        if exponent_ring is None:
             self.cols.sort(key=sort_key_by_asympt)
         return self.cols
 
@@ -637,40 +647,60 @@ def log_series_values(Jets, expo, psum, evpt, downshift=[0]):
     Note that while this function computes ``pt^expo`` in ℂ, it does NOT
     specialize abstract algebraic numbers that might appear in ``psum``.
     """
+
     derivatives = evpt.jet_order
     log_prec = psum.length()
     assert all(d < log_prec for d in downshift) or log_prec == 0
-    pt = Jets.base_ring()(evpt.pt)
-    int_expo = expo in ZZ
+    Scalars = Jets.base_ring()
+    pt = Scalars(evpt.pt)
+
+    complex_numeric_case = utilities.is_numeric_parent(Scalars)
+    padic_case = isinstance(Scalars, pAdicGeneric)
+    int_expo = expo.parent() is ZZ or expo.parent() is QQ and expo.is_integer()
+    polar = int_expo and log_prec <= 1 # XXX and branch == 0 ??
+
     if int_expo:
         inipow = _pow_trunc(Jets([pt, 1]), abs(int(expo)), derivatives)
         if expo < 0:
             inipow = inipow.inverse_series_trunc(derivatives)
-    log_case = log_prec > 1 or not int_expo or evpt.branch != (0,)
-    if not utilities.is_numeric_parent(Jets.base_ring()):
-        if log_case:
-            raise NotImplementedError("log-series of non-complex point")
-        val = inipow.multiplication_trunc(psum[0], derivatives)
-        return [vector(val[i] for i in range(derivatives))]
-    if log_case:
-        pt = pt.parent().complex_field()(pt)
-        Jets = Jets.change_ring(Jets.base_ring().complex_field())
-        psum = psum.change_ring(Jets)
+
+    if complex_numeric_case:
+        if not polar:
+            pt = pt.parent().complex_field()(pt)
+            Jets = Jets.change_ring(Jets.base_ring().complex_field())
+            psum = psum.change_ring(Jets)
+    elif padic_case:
+        assert int_expo or isinstance(expo.parent(), pAdicGeneric)
+    else:
+        if polar:
+            val = inipow.multiplication_trunc(psum[0], derivatives)
+            return [vector(val[i] for i in range(derivatives))]
+        else:
+            raise NotImplementedError("unsupported log-series")
+
     high = Jets([0] + [(-1)**(k+1)*~pt**k/k
                        for k in range(1, derivatives)])
     aux = high*expo
-    logger.debug("aux=%s", aux)
+    logger.debug("expo=%s aux=%s", expo, aux)
     val = [Jets.base_ring().zero() for d in downshift]
     for b in evpt.branch:
-        twobpii = pt.parent()(2*b*pi*I)
+        if complex_numeric_case:
+            if polar:
+                b = 0
+            twobpii = pt.parent()(2*b*pi*I)
+            logpt0 = pt.log() + twobpii
+            powbranchfactor = (twobpii*expo).exp()
+        elif padic_case:
+            logpt0 = pt.log(pi_branch=b)
+            powbranchfactor = Scalars.one() # XXX branches?
         # hardcoded series expansions of log(a+η) and (a+η)^λ
         # (too cumbersome to compute directly in Sage at the moment)
-        logpt = Jets([pt.log() + twobpii]) + high
+        logpt = Jets([logpt0]) + high
         logger.debug("logpt[%s]=%s", b, logpt)
         if not int_expo:
             # 'if' needed because the formula here does not work when pt
             # contains 0 and expo ∈ ℕ
-            inipow = ((twobpii*expo).exp()*pt**expo
+            inipow = (powbranchfactor*pt**expo
                      *sum(_pow_trunc(aux, k, derivatives)/Integer(k).factorial()
                           for k in range(derivatives)))
         logger.debug("inipow[%s]=%s", b, inipow)

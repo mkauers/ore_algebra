@@ -5,6 +5,9 @@ Evaluation of convergent D-finite series by binary splitting
 TESTS::
 
     sage: from ore_algebra import DifferentialOperators
+    sage: from ore_algebra.analytic import DifferentialOperator, EvaluationPoint
+    sage: from ore_algebra.analytic.binary_splitting import fundamental_matrix_regular
+
     sage: Dops, x, Dx = DifferentialOperators(QQ, 'x')
 
     sage: import logging
@@ -128,7 +131,7 @@ Various mixes of algebraic exponents and evaluation points::
 
     sage: ((x*Dx)^2-2-x).numerical_transition_matrix([0,i], 1e-5, algorithm="binsplit")
     [[-1.4237...] + [0.0706...]*I [-0.7959...] + [0.6169...]*I]
-    [[1.4514...] + [-0.1681...]*I  [0.6742...] + [1.2971...]*I]
+    [ [1.4514...] + [-0.1681...]*I [0.6742...] + [1.2971...]*I]
 
     sage: ((x*Dx)^3-2-x).numerical_transition_matrix([0,i], 1e-8, algorithm="binsplit")
     [  [1.94580...] + [-5.61860...]*I [0.04040867...] + [-0.16436364...]*I    [-0.491906...] + [0.873265...]*I]
@@ -198,7 +201,89 @@ Nonstandard branches::
     ....:            algorithm="binsplit")
     [-3.445141853366...]
 
-Miscellaneous examples::
+p-adic case
+===========
+
+::
+
+    sage: p = 29
+    sage: myZp = Zp(p, 100)
+    sage: pt = myZp(4*p)
+
+Trivial examples with rational argument and p-adic outputs::
+
+    sage: val = fundamental_matrix_regular(Dx - 1, pt.lift()/3, O(p^50))
+    sage: val - (pt/3).exp()
+    [O(29^50)]
+
+    sage: val = fundamental_matrix_regular(Dx - p^2, 4/p, O(p^50))
+    sage: val - pt.exp()
+    [O(29^50)]
+
+It is also possible to pass a p-adic number. The numbers in the upper
+levels of the tree are then automatically truncated to the working
+precision, but there is a significant initial cost for creating
+high-precision p-adic parents. ::
+
+    sage: pt40 = myZp.change(prec=40)(pt)
+    sage: val = fundamental_matrix_regular(Dx - 1, pt40, O(p^50))
+    sage: val - pt.exp()
+    [O(29^40)]
+
+    sage: val = fundamental_matrix_regular(Dx - p^2, pt40/p^2, O(p^50))
+    sage: val - pt.exp()
+    [O(29^40)]
+
+Derivatives (artificial example)::
+
+    sage: dop = (Dx-1).lclm(Dx*(x+1)*Dx)
+    sage: mat = fundamental_matrix_regular(dop, pt.lift(), O(29^50))
+    sage: mysol = mat*vector((1, 2, 0))
+    sage: ref = vector((exp(pt) + log(1 + pt), exp(pt) + 1/(1+pt),
+    ....:               1/2*(exp(pt) - 1/(1+pt)^2)))
+    sage: mysol - ref
+    (O(29^50), O(29^50), O(29^51))
+
+Logarithms, with branches of the p-adic log::
+
+    sage: a, b, c = 1/3, 1/3, 1
+    sage: dop = x*x(-1)*Dx^2 + ((a + b + 1)*x -c)*Dx + a*b # 2F1
+    sage: pt = EvaluationPoint(4*29, jet_order=dop.order(), branch=(42,))
+    sage: fundamental_matrix_regular(dop, pt, O(29^10))
+    [ 13 + 17*29 + 7*29^2 + 10*29^3 + ...   1 + 23*29 + 24*29^2 + ...]
+    [22*29^-1 + 24 + 12*29 + 10*29^2 + ...  13 + 20*29 + 20*29^2 + ...]
+
+Exponents in ℚ ∩ ℤp (under strong convergence assumptions). Adapted of an
+example provided by Nobuki Takayama, itself inspired by Deligne and Mostow,
+*Monodromy of Hypergeometric Functions and Non-Lattice Integral Monodromy*,
+1986, §14.3::
+
+    sage: dop = ((x^3-3/29*x^2+2/841*x)*Dx^3+(11/2*x^2-103/348*x+1/1682)*Dx^2
+    ....:        +(85/16*x-17/261)*Dx+85/216)
+    sage: dop.indicial_polynomial(x).factor()
+    (4) * (alpha - 7/4) * (alpha - 1) * alpha
+    sage: fundamental_matrix_regular(dop, 1+3*p^2, O(p^5))
+    [ 1 + 5*29 + 24*29^2 + 10*29^3 + 12*29^4 + O(29^5)  1 + 18*29^2 + 14*29^3 + 23*29^4 + O(29^5) 1 + 18*29 + 25*29^2 + 3*29^3 + 29^4 + O(29^5)]
+    [9 + 28*29 + 21*29^2 + 18*29^3 + 20*29^4 + O(29^5)                 7*29^2 + 23*29^4 + O(29^5)           1 + 7*29 + 16*29^2 + 29^3 + O(29^5)]
+    [ 7 + 10*29 + 11*29^2 + 15*29^3 + 3*29^4 + O(29^5)      18*29^2 + 14*29^3 + 25*29^4 + O(29^5)  18*29 + 22*29^2 + 12*29^3 + 7*29^4 + O(29^5)]
+
+Irrational exponents in ℤp, again under restrictive convergence assumptions
+(output not checked)::
+
+    sage: dop = x^2*Dx^2 - 121/4*x^2 + 22*x - 11/4
+    sage: ind = dop.indicial_polynomial(x)
+    sage: ind.factor()
+    (4) * (alpha^2 - alpha - 11/4)
+    sage: ind.roots(Zp(11, 4), multiplicities=False)
+    [1 + 3*11 + 10*11^2 + 7*11^3 + O(11^4), 8*11 + 3*11^3 + O(11^4)]
+    sage: fundamental_matrix_regular(dop, 1+2*11, O(11^4))
+    [ 1 + 11 + 4*11^2 + 8*11^3 + O(11^4) 5 + 5*11 + 8*11^2 + 7*11^3 + O(11^4)]
+    [   1 + 11 + 11^2 + 7*11^3 + O(11^4)        4 + 4*11^2 + 3*11^3 + O(11^4)]
+
+Miscellaneous examples and tests
+================================
+
+::
 
     sage: dop = ((x*Dx-3/2)^2).lclm(Dx-1)
     sage: dop.numerical_solution([2, 3, 7], [0, -1], 1e-8, algorithm="binsplit")
@@ -1021,7 +1106,7 @@ class MatrixRecsUnroller(LocalBasisMapper, accuracy.BoundCallbacks):
         sage: sol = MatrixRecsUnroller(dop, evpt, 30, stop, 29).run()
         sage: mysol = sol[0].value + 2*sol[1].value
         sage: mysol - myref
-        (O(29^16), O(29^16), O(29^16))
+        (8*29^20 + ..., 11*29^19 + ..., 8*29^18 + ...)
         sage: stop = StoppingCriterion_valuation_estimate(O(29^12))
         sage: sol = MatrixRecsUnroller(dop, evpt, 12, stop, 29).run()
         sage: mysol = sol[0].value + 2*sol[1].value
@@ -1240,6 +1325,10 @@ class MatrixRecsUnroller(LocalBasisMapper, accuracy.BoundCallbacks):
         return SolutionColumn(self.matrix_rec, self.shift, self.log_power)
 
 def fundamental_matrix_regular(dop, pt, eps, fail_fast=None, effort=None, ctx=dctx):
+    r"""
+    Compute the canonical fundamental matrix for ``dop`` by plain binary
+    splitting.
+    """
     dop = DifferentialOperator(dop)
     if not isinstance(pt, EvaluationPoint):
         rad = accuracy.above_abs(pt, accuracy.prime(eps))
@@ -1249,9 +1338,14 @@ def fundamental_matrix_regular(dop, pt, eps, fail_fast=None, effort=None, ctx=dc
     if prime is None:
         # TODO: switch to fast_fail=True?
         stop = accuracy.StoppingCriterion_eps(None, eps, fast_fail=False)
+        exponent_ring = None
     else:
         stop = accuracy.StoppingCriterion_valuation_estimate(eps)
-    cols = MatrixRecsUnroller(dop, pt, prec, stop, prime, ctx).run()
+        # We only support regular singularities with local exponents in ℤp.
+        from sage.rings.padics.factory import ZpCR
+        exponent_ring = ZpCR(prime, prec=eps.valuation())
+    unr = MatrixRecsUnroller(dop, pt, prec, stop, prime, ctx)
+    cols = unr.run(exponent_ring=exponent_ring)
     return matrix([sol.value for sol in cols]).transpose()
 
 def _can_use_CBF(*doms):
