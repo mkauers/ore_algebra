@@ -704,7 +704,8 @@ def graeffe(pol):
     Parent = pol.parent()
     pol_even = Parent([pol[2*i] for i in range(deg//2+1)])
     pol_odd = Parent([pol[2*i+1] for i in range(deg//2+1)])
-    graeffe_iterate = (-1)**deg * (pol_even**2 - (pol_odd**2).shift(1))
+    pm = -1 if deg % 2 else 1
+    graeffe_iterate = pm * (pol_even**2 - (pol_odd**2).shift(1))
     return graeffe_iterate
 
 def abs_min_nonzero_root(pol, tol=RR(1e-2), min_log=RR('-inf'), prec=None):
