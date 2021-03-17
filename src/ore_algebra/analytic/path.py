@@ -195,6 +195,12 @@ class Point(SageObject):
                         self.value.numerator().imag().numerator().nbits())
             return res
 
+    def algdeg(self):
+        if isinstance(self.value, rings.NumberFieldElement):
+            return self.value.parent().degree()
+        else:
+            return 1
+
     @cached_method
     def is_fast(self):
         return isinstance(self.value, (RealBall, ComplexBall, rings.Integer,
@@ -627,6 +633,14 @@ class Step(SageObject):
 
     def is_exact(self):
         return self.start.is_exact() and self.end.is_exact()
+
+    def algdeg(self):
+        d0 = self.start.algdeg()
+        d1 = self.end.algdeg()
+        if d0 > 1 and d1 > 1:
+            if self.start.value.parent() is not self.end.value.parent():
+                return d0*d1
+        return max(d0, d1)
 
     def delta(self):
         r"""

@@ -53,6 +53,16 @@ efficiently::
     sage: from ore_algebra.analytic.examples.misc import iint_quadratic_alg as pb
     sage: pb.dop.numerical_solution(pb.ini, [0, 1/5000*sqrt(277774997191/11111)], 2^(-100)) # long time (1.2 s)
     [3368168.805821918535950852115...]
+
+The Beukers-Heckman-Rodriguez-Villegas hypergeometric function. Generalized
+hypergeometric series can benefit from binary splitting early on, but the
+automatic choice of algorithms used to overestimate the threshold significantly
+in some cases. (Thanks to Pierre Lairez for exposing this weakness. Example
+borrowed from his lecture series at MPI-MiS, March 2021.) ::
+
+    sage: from ore_algebra.analytic.examples.misc import rodriguez_villegas_dop as dop
+    sage: dop.numerical_transition_matrix([1/4, 3/4], eps=1e-1000)[-1,-1] # long time (2.9-3.2 s)
+    [23.999268334...9600607312558...]
 """
 import collections
 
@@ -398,3 +408,12 @@ iint_quadratic_alg = IVP(
         -25025281000000000000000000000000*a/187499999962462078501878794067386883
         + ZZ(4379635063042987000000000000000)/62499999987487359500626264689128961]
 )
+
+DiffOps_t, t, Dt = DifferentialOperators(QQ, 't')
+rodriguez_villegas_dop = ((t**8 - t**7)*Dt**8 + (ZZ(32)*t**7 - ZZ(49)/2*t**6)*Dt**7 +
+        (ZZ(16051)/45*t**6 - ZZ(8893)/45*t**5)*Dt**6 + (ZZ(8582)/5*t**5 - ZZ(5695)/9*t**4)*Dt**5
+        + (ZZ(485956093)/135000*t**4 - ZZ(4332716)/5625*t**3)*Dt**4 +
+        (ZZ(49681093)/16875*t**3 - ZZ(530324)/1875*t**2)*Dt**3 +
+        (ZZ(25631450719)/36450000*t**2 - ZZ(30232)/1875*t)*Dt**2 +
+        (ZZ(404509399)/18225000*t - ZZ(8)/1875)*Dt + ZZ(215656441)/656100000000)
+

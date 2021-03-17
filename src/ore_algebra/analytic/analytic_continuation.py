@@ -93,22 +93,27 @@ def _use_binsplit(dop, step, tgt_prec, base_point_size, ctx):
         return True
     elif ctx.prefer_naive():
         return False
-    elif step.branch == (0,): # crude heuristic
-        # (cost of a bit burst step via a truncation at prec base_point_size)
-        #   ≈ ordrec³·nterms·(op_height + base_point_size)
-        # (cost of direct summation) ≈ ordrec·nterms·prec,
+    else:
+        # (Cost of a bit burst step via a truncation at prec base_point_size)
+        #   ≈ ordrec³·nterms·(op_height + base_point_size + ordrec + δ)
+        # where δ is related to the algebraic degree of the point
+        #
+        # (Cost of direct summation) ≈ ordrec·nterms·prec,
         # assuming that the costs related to polynomial evaluation, basis size
         # and structure, etc., are the same in both cases, and neglecting
         # interval issues that may increase the cost of direct summation to
         # something like ordrec·nterms·(prec + nterms·log(ordrec))
-        sz = dop._naive_height() + base_point_size
-        est = 256 + (sz + 128) * (dop.order() + dop.degree())**2
+        ordrec = dop._my_to_S().order()
+        # XXX pulling the algdeg term out of my hat
+        sz = dop._naive_height() + base_point_size + 16*ordrec
+        sz += 16*step.algdeg()**2
+        # The exponent of ordrec should become 2 according to the above
+        # heuristic once interval squashing works properly
+        est = 256 + sz*ordrec**2
         use_binsplit = (tgt_prec >= est)
         logger.debug("tgt_prec = %s %s %s", tgt_prec,
                 ">=" if use_binsplit else "<", est)
         return use_binsplit
-    else:
-        return False
 
 def regular_step_transition_matrix(dop, step, eps, rows, fail_fast, effort,
                                    ctx=dctx):
