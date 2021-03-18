@@ -766,7 +766,8 @@ def series_sum_regular(Intervals, dop, bwrec, inis, pt, stop, stride,
                 sol.next_term_ordinary_initial_part(n, jetpow)
 
         else:
-            mult = mult_dict[n]
+            # seems faster than relying on __missing__()
+            mult = mult_dict[n] if n in mult_dict else 0
             cst = - ~bwrec_nplus[0][0][mult]
             squash = (n >= n0_squash)
             if squash:
