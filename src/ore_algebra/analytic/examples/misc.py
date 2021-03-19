@@ -39,11 +39,11 @@ need to consider at algebraic points of relatively large degree, it is a good
 test case for “rounded” recurrences::
 
     sage: from ore_algebra.analytic.examples.misc import quadric_slice_dop, quadric_slice_crit
-    sage: mat = quadric_slice_dop.numerical_transition_matrix(
-    ....:         [quadric_slice_crit, -46997/133120], 1e-30, assume_analytic=True) # long time (1.5-2 s)
-    sage: mat[1,1]
+    sage: mat = quadric_slice_dop.numerical_transition_matrix( # long time (1.5-2 s)
+    ....:         [quadric_slice_crit, -46997/133120], 1e-30, assume_analytic=True)
+    sage: mat[1,1] # long time
     [5.35411995155753663629611...] + [+/- ...]*I
-    sage: mat[3,3]
+    sage: mat[3,3] # long time
     [-0.00019638929459859558122691...] + [+/- ...]*I
 
 An example (coming from computations with iterated integrals) that requires
