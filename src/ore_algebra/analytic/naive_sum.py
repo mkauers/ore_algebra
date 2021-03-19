@@ -403,6 +403,59 @@ def interval_series_sum_wrapper(dop, inis, pt, tgt_error, bwrec, stop,
 # Regular singular points
 ################################################################################
 
+class HighestSolMapper(LocalBasisMapper):
+
+    def __init__(self, dop, pt, eps, fail_fast, effort, ctx=dctx):
+        super(self.__class__, self).__init__(dop)
+        self.pt = pt
+        self.eps = eps
+        self.fail_fast = fail_fast
+        self.effort = effort
+        self.ctx = ctx
+        self.ordinary = (dop.leading_coefficient()[0] != 0)
+
+    def process_modZ_class(self):
+        logger.info(r"solutions z^(%s+n)·log(z)^k/k! + ···, n = %s",
+                    self.leftmost, ", ".join(str(s) for s, _ in self.shifts))
+        maj = bounds.DiffOpBound(self.edop, self.leftmost,
+                        special_shifts=(None if self.ordinary else self.shifts),
+                        bound_inverse="solve",
+                        pol_part_len=(4 if self.ordinary else None))
+        stop = accuracy.StoppingCriterion(maj, self.eps.eps)
+        # Compute the "highest" (in terms powers of log) solution of each
+        # valuation
+        inis = [LogSeriesInitialValues(
+                    expo=self.leftmost,
+                    mults=self.shifts,
+                    values={(s, m-1): ZZ.one()})
+                for s, m in self.shifts]
+        highest_sols = interval_series_sum_wrapper(self.dop, inis, self.pt,
+                self.eps, self.shifted_bwrec, stop, self.fail_fast, self.effort,
+                None, self.ctx)
+        self.highest_sols = {}
+        for (s, m), sol in zip(self.shifts, highest_sols):
+            sol.update_downshifts(self.pt, range(m))
+            self.highest_sols[s] = sol
+        self.sols = {}
+        super(self.__class__, self).process_modZ_class()
+
+    def fun(self, ini):
+        # Non-highest solutions of a given valuation can be deduced from the
+        # highest one up to correcting factors that only involve solutions
+        # further to the right. We are relying on the iteration order, which
+        # ensures that all other solutions involved already have been
+        # computed.
+        highest = self.highest_sols[self.shift]
+        delta = self.mult - 1 - self.log_power
+        value = highest.downshifts[delta]
+        for s, m in self.shifts:
+            if s > self.shift:
+                for k in range(max(m - delta, 0), m):
+                    cc = highest.critical_coeffs[s][k+delta]
+                    value -= cc*self.sols[s,k]
+        self.sols[self.shift, self.log_power] = value
+        return vector(value)
+
 def fundamental_matrix_regular(dop, pt, eps, fail_fast, effort, ctx=dctx):
     r"""
     Fundamental matrix at a possibly regular singular point
@@ -446,49 +499,8 @@ def fundamental_matrix_regular(dop, pt, eps, fail_fast, effort, ctx=dctx):
     """
     eps_col = bounds.IR(eps)/bounds.IR(dop.order()).sqrt()
     eps_col = accuracy.AbsoluteError(eps_col)
-    ordinary = (dop.leading_coefficient()[0] != 0)
-    class Mapper(LocalBasisMapper):
-        def process_modZ_class(self):
-            logger.info(r"solutions z^(%s+n)·log(z)^k/k! + ···, n = %s",
-                        self.leftmost, ", ".join(str(s) for s, _ in self.shifts))
-            maj = bounds.DiffOpBound(self.edop, self.leftmost,
-                            special_shifts=(None if ordinary else self.shifts),
-                            bound_inverse="solve",
-                            pol_part_len=(4 if ordinary else None))
-            stop = accuracy.StoppingCriterion(maj, eps_col.eps)
-            # Compute the "highest" (in terms powers of log) solution of each
-            # valuation
-            inis = [LogSeriesInitialValues(
-                        expo=self.leftmost,
-                        mults=self.shifts,
-                        values={(s, m-1): ZZ.one()})
-                    for s, m in self.shifts]
-            highest_sols = interval_series_sum_wrapper(dop, inis, pt, eps_col,
-                    self.shifted_bwrec, stop, fail_fast, effort, None, ctx)
-            self.highest_sols = {}
-            for (s, m), sol in zip(self.shifts, highest_sols):
-                sol.update_downshifts(pt, range(m))
-                self.highest_sols[s] = sol
-            self.sols = {}
-            super(self.__class__, self).process_modZ_class()
-        def fun(self, ini):
-            # Non-highest solutions of a given valuation can be deduced from the
-            # highest one up to correcting factors that only involve solutions
-            # further to the right. We are relying on the iteration order, which
-            # ensures that all other solutions involved already have been
-            # computed.
-            highest = self.highest_sols[self.shift]
-            delta = self.mult - 1 - self.log_power
-            value = highest.downshifts[delta]
-            for s, m in self.shifts:
-                if s > self.shift:
-                    for k in range(max(m - delta, 0), m):
-                        cc = highest.critical_coeffs[s][k+delta]
-                        value -= cc*self.sols[s,k]
-            self.sols[self.shift, self.log_power] = value
-            return vector(value)
-
-    cols = Mapper(dop).run()
+    unr = HighestSolMapper(dop, pt, eps_col, fail_fast, effort, ctx=dctx)
+    cols = unr.run()
     return matrix([sol.value for sol in cols]).transpose()
 
 class PartialSum(object):
