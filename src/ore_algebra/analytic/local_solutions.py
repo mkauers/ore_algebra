@@ -43,6 +43,7 @@ from sage.symbolic.constants import I
 from .. import ore_algebra
 from . import utilities
 
+from .accuracy import IC
 from .differential_operator import DifferentialOperator
 from .shiftless import dispersion, my_shiftless_decomposition
 
@@ -382,7 +383,7 @@ class FundamentalSolution(_FundamentalSolution0):
     def valuation(self):
         return QQbar(self.leftmost + self.shift) # alg vs NFelt for re, im
 
-def sort_key_by_asympt(sol):
+class sort_key_by_asympt:
     r"""
     Specify the sorting order for local solutions.
 
@@ -391,8 +392,56 @@ def sort_key_by_asympt(sol):
     one as x → 0 comes first. In addition, divergent solutions, including
     things like `x^i`, always come before convergent ones.
     """
-    re, im = sol.valuation.real(), sol.valuation.imag()
-    return re, -sol.log_power, -im.abs(), im.sign()
+
+    def __init__(self, x, y=None):
+        if y is None:
+            self.valuation = x.valuation
+            self.log_power = x.log_power
+        else:
+            self.valuation = x
+            self.log_power = y
+
+    def __repr__(self):
+        return f"x^({self.valuation})*log(x)^{self.log_power}"
+
+    def __eq__(self, other):
+        return (self.log_power == other.log_power
+                and self.valuation == other.valuation)
+
+    def __lt__(self, other):
+        self_valuation_num = IC(self.valuation)
+        other_valuation_num = IC(other.valuation)
+        if self_valuation_num.real() < other_valuation_num.real():
+            return True
+        elif self_valuation_num.real() > other_valuation_num.real():
+            return False
+        elif self.valuation == other.valuation:
+            pass
+        elif self.valuation.conjugate() == other.valuation:
+            pass
+        elif self.valuation.real() < other.valuation.real():
+            return True
+        elif self.valuation.real() > other.valuation.real():
+            return False
+        # Valuations have equal real parts, compare powers of log
+        if self.log_power > other.log_power:
+            return True
+        elif self.log_power < other.log_power:
+            return False
+        # Compare the imaginary parts in such a way that purely real valuations
+        # come last
+        if abs(self_valuation_num.imag()) > abs(other_valuation_num.imag()):
+            return True
+        elif abs(self_valuation_num.imag()) < abs(other_valuation_num.imag()):
+            return False
+        elif self.valuation.conjugate() == other.valuation:
+            pass
+        elif abs(self.valuation.imag()) > abs(other.valuation.imag()):
+            return True
+        elif abs(self.valuation.imag()) < abs(other.valuation.imag()):
+            return False
+        assert self.valuation.imag().sign() == -other.valuation.imag().sign()
+        return self.valuation.imag() < 0
 
 class LocalBasisMapper(object):
     r"""

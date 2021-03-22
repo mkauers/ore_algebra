@@ -2974,7 +2974,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         sol = ancont.analytic_continuation(dop, path, eps, ctx, ini=ini,
                                          post=post_mat, return_local_bases=True)
         val = []
-        asycst = (AA.zero(), ZZ.zero(), AA.zero(), 0)
+        asycst = local_solutions.sort_key_by_asympt(QQbar.zero(), ZZ.zero())
         for sol_at_pt in sol:
             pt = sol_at_pt["point"]
             mat = sol_at_pt["value"]
