@@ -22,15 +22,170 @@ from sage.matrix.matrix_complex_ball_dense import Matrix_complex_ball_dense
 from sage.misc.misc_c import prod
 from sage.rings.all import (CC, CBF, ComplexBallField, QQ, QQbar,
         QuadraticField, RBF)
-from sage.symbolic.all import pi
+from sage.functions.all import exp
+from sage.symbolic.all import pi, SR
 
 from . import analytic_continuation as ancont, local_solutions, path, utilities
 
 from .differential_operator import DifferentialOperator
+from .local_solutions import LocalBasisMapper, log_series
 
 logger = logging.getLogger(__name__)
 
 QQi = QuadraticField(-1, 'i')
+
+##############################################################################
+# Formal monodromy
+##############################################################################
+
+def formal_monodromy(dop, sing, ring=SR):
+    r"""
+    Compute the formal monodromy matrix of a system of fundamental solutions at
+    a given singular point.
+
+    INPUT:
+
+    - ``dop`` - a differential operator,
+    - ``sing`` - one of its singular points (typically given as an element of
+      ``QQbar`` or of a parent with a coercion to ``QQbar``).
+
+    OUTPUT:
+
+    The formal monodromy matrix around ``sing`` in the basis given by
+    ``dop.local_basis_expansions(sing)``.
+
+    EXAMPLES::
+
+        sage: from ore_algebra import *
+        sage: from ore_algebra.analytic.monodromy import formal_monodromy
+        sage: Dops, x, Dx = DifferentialOperators()
+
+        sage: dop = Dx*x*Dx
+        sage: dop.local_basis_expansions(0)
+        [log(x), 1]
+        sage: formal_monodromy(dop, 0)
+        [       1      0]
+        [(2*I*pi)      1]
+
+        sage: mon = formal_monodromy(dop, 0, CBF)
+        sage: tm = dop.numerical_transition_matrix([0,1])
+        sage: tm*mon*~tm
+        [ 1.0000... [6.2831853071795...]*I]
+        [         0      1.000000000000000]
+        sage: dop.numerical_transition_matrix([1, i, -1, -i, 1])
+        [ [1.0000...] + [+/- ...]*I [+/- ...] + [6.2831853071795...]*I]
+        [   [+/- ...] + [+/- ...]*I          [1.0000...] + [+/- ...]*I]
+
+        sage: dop = ((x*Dx)^2 - 1/4)^2*((x*Dx)-3/2)
+        sage: dop.local_basis_expansions(0)
+        [x^(-1/2)*log(x), x^(-1/2), x^(1/2)*log(x), x^(1/2), x^(3/2)]
+        sage: formal_monodromy(dop, 0)
+        [       -1         0         0         0         0]
+        [-(2*I*pi)        -1         0         0         0]
+        [        0         0        -1         0         0]
+        [        0         0 -(2*I*pi)        -1         0]
+        [        0         0         0         0        -1]
+
+        sage: dop = (x*Dx-1/2+x^2)^2*(x*Dx-5/2)
+        sage: dop.local_basis_expansions(0)
+        [x^(1/2)*log(x) + 1/2*x^(5/2)*log(x)^2 - 1/2*x^(5/2)*log(x) - 1/8*x^(9/2)*log(x) + 1/8*x^(9/2),
+        x^(1/2) + x^(5/2)*log(x) - 1/8*x^(9/2),
+        x^(5/2)]
+        sage: formal_monodromy(dop, 0)
+        [               -1                 0                 0]
+        [        -(2*I*pi)                -1                 0]
+        [-(-I*pi - 2*pi^2)         -(2*I*pi)                -1]
+
+    TESTS::
+
+        sage: formal_monodromy(Dx*x*Dx, 1)
+        [1 0]
+        [0 1]
+        sage: formal_monodromy((x*Dx)^2 - 2, 0)
+        [e^(-1.414213562373095?*(2*I*pi))                                0]
+        [                               0  e^(1.414213562373095?*(2*I*pi))]
+
+        sage: from ore_algebra.analytic.monodromy import _test_formal_monodromy
+        sage: _test_formal_monodromy(Dx*x*Dx)
+        sage: _test_formal_monodromy((x*Dx-1/2+x^2)^2*(x*Dx-5/2))
+        sage: _test_formal_monodromy((x*Dx)^2 - 2)
+    """
+    dop = DifferentialOperator(dop)
+    sing = path.Point(sing, dop)
+    ldop = dop.shift(sing)
+    return _formal_monodromy_naive(ldop, ring)
+
+def _formal_monodromy_naive(dop, ring):
+
+    class Mapper(LocalBasisMapper):
+        def fun(self, ini):
+            order = max(s for s, _ in self.shifts) + 1
+            ser = log_series(ini, self.shifted_bwrec, order)
+            return {s: ser[s] for s, _ in self.shifts}
+
+    crit = Mapper(dop).run()
+    return _formal_monodromy_from_critical_monomials(crit, ring)
+
+def _formal_monodromy_from_critical_monomials(critical_monomials, ring):
+    r"""
+    Compute the formal monodromy matrix of a system of fundamental solutions at
+    the origin.
+
+    The ``critical_monomials`` argument should be a list of
+    ``FundamentalSolution`` objects ``sol`` such that, if
+    ``sol = z^(λ+n)·(1 + Õ(z)`` where ``λ`` is the leftmost valuation of a group
+    of solutions and ``s`` is another shift of ``λ`` appearing in the basis,
+    then ``sol.value[s]`` contains the list of coefficients of
+    ``z^(λ+s)·log(z)^k/k!``, ``k = 0, 1, ...`` in ``sol``.
+    """
+
+    mat = matrix.matrix(ring, len(critical_monomials))
+    twopii = 2*pi*QQi.gen()
+
+    for j, jsol in enumerate(critical_monomials):
+
+        for i, isol in enumerate(critical_monomials):
+            if isol.leftmost != jsol.leftmost:
+                continue
+            for k, c in enumerate(jsol.value[isol.shift]):
+                delta = k - isol.log_power
+                if delta >= 0:
+                    mat[i,j] += c*twopii**delta/delta.factorial()
+
+        expo = jsol.leftmost
+        if expo.parent() is QQ:
+            eigv = ring(QQbar.zeta(expo.denominator())**expo.numerator())
+        else:
+            # conversion via QQbar seems necessary with some number fields
+            eigv = twopii.mul(QQbar(expo), hold=True).exp(hold=True)
+        eigv = ring(eigv)
+        if ring is SR:
+            _rescale_col_hold_nontrivial(mat, j, eigv)
+        else:
+            mat.rescale_col(j, eigv)
+
+    return mat
+
+def _rescale_col_hold_nontrivial(mat, j, c):
+    for i in range(mat.nrows()):
+        if mat[i,j].is_zero():
+            pass
+        elif mat[i,j].is_one():
+            mat[i,j] = c
+        else:
+            mat[i,j] = mat[i,j].mul(c, hold=True)
+
+def _test_formal_monodromy(dop):
+    i = QQi.gen()
+    ref = dop.numerical_transition_matrix([1, i, -1, -i, 1])
+    tmat = dop.numerical_transition_matrix([0,1])
+    fmon = formal_monodromy(dop, 0, CBF)
+    mon = tmat*fmon*~tmat
+    assert all(c.contains_zero() and c.rad() < 1e-10 for c in (ref - mon).list())
+
+##############################################################################
+# Local monodromy based close to the singular point
+##############################################################################
 
 def _identity_matrix(point, eps):
     Scalars = ComplexBallField(utilities.prec_from_eps(eps))
@@ -73,6 +228,10 @@ def _local_monodromy(dop, x, eps, algorithm):
 def _closest_unsafe(lst, x):
     x = CC(x.value)
     return min(enumerate(lst), key=lambda y: abs(CC(y[1].value) - x))
+
+##############################################################################
+# Generators of the monodromy group
+##############################################################################
 
 def _sing_tree(dop, base):
     sing = dop._singularities(QQbar, include_apparent=False)
