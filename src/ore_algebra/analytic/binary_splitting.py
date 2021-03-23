@@ -550,9 +550,12 @@ class SolutionColumn(object):
         """
         assert fwd.ord_log >= self.v.ord_log
         self.assert_well_formed()
+        logger.log(logging.DEBUG-1, "*  %s", self)
         self.v.imulleft(fwd)
+        logger.log(logging.DEBUG-1, "-> %s", self)
         # well-formedness may be temporarily broken at this point
         self.fix_product_and_shift_logs(shift)
+        logger.log(logging.DEBUG-1, "-> %s", self)
         self.assert_well_formed()
 
     def fix_product_and_shift_logs(self, m):
@@ -1109,6 +1112,8 @@ class MatrixRecsUnroller(LocalBasisMapper):
             # indices as necessary
             fwd = self.matrix_rec.step_matrix_binsplit(prev, self.shift, ord_log)
             # Extend known solutions
+            logger.log(logging.DEBUG-1, "n=%s, extending known solutions",
+                       self.shift)
             for sol in self.irred_factor_cols:
                 sol.value.iapply(fwd, self.mult)
             # Append “new” solutions starting at the current valuation
