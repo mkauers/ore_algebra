@@ -140,7 +140,7 @@ def _formal_monodromy_from_critical_monomials(critical_monomials, ring):
     """
 
     mat = matrix.matrix(ring, len(critical_monomials))
-    twopii = 2*pi*QQi.gen()
+    twopii = 2*pi*QQbar(QQi.gen())
 
     for j, jsol in enumerate(critical_monomials):
 
@@ -150,7 +150,8 @@ def _formal_monodromy_from_critical_monomials(critical_monomials, ring):
             for k, c in enumerate(jsol.value[isol.shift]):
                 delta = k - isol.log_power
                 if delta >= 0:
-                    mat[i,j] += c*twopii**delta/delta.factorial()
+                    # explicit conversion sometimes necessary (Sage bug #31551)
+                    mat[i,j] += ring(c)*twopii**delta/delta.factorial()
 
         expo = jsol.leftmost
         if expo.parent() is QQ:
@@ -211,16 +212,20 @@ def _local_monodromy_formal(dop, x, eps):
     assert x.is_regular()
     base = path.polygon_around(x, size=1)[0] # TBI?
     rows = x.dop.order()
-    step_in = path.Step(base, x)
-    mat_in = ancont.step_transition_matrix(dop, step_in, eps)
-    step_out = path.Step(x, base, branch=(1,))
+    step_out = path.Step(x, base)
     mat_out = ancont.step_transition_matrix(dop, step_out, eps)
-    return [base, x], [mat_in, mat_out]
+    # TODO: get the critical coefficients as a byproduct of the computation of
+    # mat_out instead
+    ldop = dop.shift(x)
+    formal = _formal_monodromy_naive(ldop, mat_out.base_ring())
+    return [base, x], [~mat_out, mat_out*formal]
 
 def _local_monodromy(dop, x, eps, algorithm):
     if x.is_ordinary():
         return [x], [_identity_matrix(x, eps)]
-    elif x.is_regular() and algorithm == "connect": # and alg deg not too large?
+    elif x.is_regular() and algorithm == "connect":
+        # and alg deg not too large? naive summation with inexact recurrences
+        # works decently even at algebraic points...
         return _local_monodromy_formal(dop, x, eps)
     else:
         return _local_monodromy_loop(dop, x, eps)
@@ -256,7 +261,7 @@ def monodromy_matrices(dop, base, eps=1e-16, algorithm="connect"):
     of ``dop`` (with no other singular point inside the loop). Identity matrices
     may be omitted. The precise choice of elements of the fundamental group
     corresponding to each matrix (position with respect to the other
-    singular points, order) are unspecified.
+    singular points, order) is unspecified.
 
     EXAMPLES::
 
@@ -294,10 +299,6 @@ def monodromy_matrices(dop, base, eps=1e-16, algorithm="connect"):
     id_mat = _identity_matrix(base, eps)
     def matprod(elts):
         return prod(reversed(elts), id_mat)
-
-    # TODO: filter out the factors of the leading coefficient that correspond to
-    # apparent singularities (may require improvements to the analytic
-    # continuation code)
 
     tree = _sing_tree(dop, base)
     polygon_base, local_monodromy_base = _local_monodromy(dop, base, eps, algorithm)
