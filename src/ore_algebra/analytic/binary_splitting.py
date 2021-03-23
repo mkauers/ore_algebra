@@ -577,22 +577,28 @@ class SolutionColumn(object):
             sage: Dops, x, Dx = DifferentialOperators(QQ, 'x')
             sage: dop = ((x*Dx)**2-x).lclm(x*Dx-1)
             sage: dop.numerical_transition_matrix([0,1/2], algorithm="binsplit")
-            [[-1.286219620632667...]  [1.566082929756350...] [0.50000000...]]
-            [ [1.420567646452300...]  [1.271723456312137...]  [1.0000000...]]
-            [[-1.706787267084967...] [0.2943594734442134...]       [+/- ...]]
+            [[-1.28621962063266...]  [1.06608292975635...] [0.5000000000000...]]
+            [ [1.42056764645230...] [0.271723456312137...]  [1.000000000000...]]
+            [[-1.70678726708496...] [0.294359473444213...]                [...]]
 
             sage: from ore_algebra.examples import fcc
             sage: fcc.dop4.numerical_solution([0, 1, 0, 0], [1, 1/2],
             ....:                             algorithm="binsplit")
             [0.6757976924611368...] + [-2.987541622123742...]*I
+            sage: ref = fcc.dop4.numerical_transition_matrix([1, 1/2])
+            sage: mat = fcc.dop4.numerical_transition_matrix([1, 1/2],
+            ....:                                          algorithm="binsplit")
+            sage: all(c.contains_zero() and c.rad() < 1e-10
+            ....:     for c in (mat - ref).list())
+            True
         """
         # If some of the high-degree coefficients wrt log(z) happen to be zero,
         # e.g., at ordinary points, we don't need the full precision. This will
-        # be used to also reduce the precision in the computation of recurrence
+        # also be used to reduce the precision in the computation of recurrence
         # matrices.
         z = 0
         for k in range(m):
-            # Only the last coefficient counts, because it is the one that's
+            # Only the last coefficient counts, because it is the one that is
             # going to be shifted.
             if self.v.rec_mat[k][-1][-1].is_zero():
                 z += 1
@@ -604,8 +610,8 @@ class SolutionColumn(object):
                         for k in range(self.v.ord_log))
         for k in range(self.v.ord_log):
             new_mats[k][-1,-1] = self.v.rec_mat[k + z][-1,-1]
-        for k in range(self.v.ord_log, self.v.ord_log + m - z):
-            new_mats[k][-1,-1] = 0
+        for mat in new_mats[self.v.ord_log-z:]:
+            mat[-1,-1] = 0
         self.v.rec_mat = self.v.rec_mat.parent()(new_mats)
         zeros = [[self.v.zero_sum]*self.v.ord_diff for _ in range(m - z)]
         for p in self.v.sums_row[:-1]:
