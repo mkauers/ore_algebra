@@ -220,10 +220,10 @@ def _local_monodromy_formal(dop, x, eps):
     formal = _formal_monodromy_naive(ldop, mat_out.base_ring())
     return [base, x], [~mat_out, mat_out*formal]
 
-def _local_monodromy(dop, x, eps, algorithm):
+def _local_monodromy(dop, x, eps):
     if x.is_ordinary():
         return [x], [_identity_matrix(x, eps)]
-    elif x.is_regular() and algorithm == "connect":
+    elif x.is_regular():
         # and alg deg not too large? naive summation with inexact recurrences
         # works decently even at algebraic points...
         return _local_monodromy_formal(dop, x, eps)
@@ -249,7 +249,7 @@ def _sing_tree(dop, base):
     tree = graph.min_spanning_tree(length)
     return Graph(tree)
 
-def monodromy_matrices(dop, base, eps=1e-16, algorithm="connect"):
+def monodromy_matrices(dop, base, eps=1e-16):
     r"""
     Compute generators of the monodromy group of ``dop`` with base point
     ``base``.
@@ -275,12 +275,6 @@ def monodromy_matrices(dop, base, eps=1e-16, algorithm="connect"):
         [          0               1.0000...]
         ]
 
-        sage: monodromy_matrices(Dx*x*Dx, 1, algorithm="loop")
-        [
-        [[1.0000...] + [+/- ...]*I  [+/- ...] + [6.283185307179...]*I]
-        [  [+/- ...] + [+/- ...]*I           [1.0000...] + [+/- ...]*I]
-        ]
-
         sage: monodromy_matrices(Dx*x*Dx, 1/2)
         [
         [ [1.0000...] + [+/- ...]*I  [+/- ...] + [3.1415926535897...]*I]
@@ -293,15 +287,13 @@ def monodromy_matrices(dop, base, eps=1e-16, algorithm="connect"):
     if not base.is_regular():
         raise ValueError("base point must be regular")
     eps = RBF(eps)
-    if not (algorithm == "connect" or algorithm == "loop"):
-        raise ValueError("unknown algorithm")
 
     id_mat = _identity_matrix(base, eps)
     def matprod(elts):
         return prod(reversed(elts), id_mat)
 
     tree = _sing_tree(dop, base)
-    polygon_base, local_monodromy_base = _local_monodromy(dop, base, eps, algorithm)
+    polygon_base, local_monodromy_base = _local_monodromy(dop, base, eps)
     result = [] if base.is_ordinary() else local_monodromy_base
 
     def dfs(x, path, path_mat, polygon_x, local_monodromy_x):
@@ -310,7 +302,7 @@ def monodromy_matrices(dop, base, eps=1e-16, algorithm="connect"):
 
             logger.info("Computing local monodromy around %s via %s", y, path)
 
-            polygon_y, local_monodromy_y = _local_monodromy(dop, y, eps, algorithm)
+            polygon_y, local_monodromy_y = _local_monodromy(dop, y, eps)
 
             anchor_index_x, anchor_x = _closest_unsafe(polygon_x, y)
             anchor_index_y, anchor_y = _closest_unsafe(polygon_y, x)
