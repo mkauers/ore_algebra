@@ -523,6 +523,18 @@ class SolutionColumn(object):
         # column is really used
         self.v.zero_sum, self.v.sums_row = rec.Series_sums(self.v.ord_log)
 
+    def __repr__(self):
+        from sage.rings.polynomial.laurent_polynomial_ring import LaurentPolynomialRing
+        Scalars = self.v.rec_mat.base_ring().base_ring()
+        Pol, LOG = LaurentPolynomialRing(Scalars, 'LOG').objgen()
+        s = len(self.v.sums_row)
+        vec = vector(Pol, s,
+                [sum(
+                    (mat[i,-1]/self.v.rec_den)*LOG**(self.v.ord_log-1-k)
+                    for k, mat in enumerate(self.v.rec_mat))
+                for i in range(s)])
+        return repr(vec)
+
     def assert_well_formed(self):
         assert self.v.rec_mat.degree() < self.v.ord_log
         assert len(self.v.sums_row[-1]) == self.v.ord_log
