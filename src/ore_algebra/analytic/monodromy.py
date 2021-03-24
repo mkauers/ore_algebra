@@ -210,15 +210,12 @@ def _local_monodromy_loop(dop, x, eps):
 
 def _local_monodromy_formal(dop, x, eps):
     assert x.is_regular()
-    base = path.polygon_around(x, size=1)[0] # TBI?
-    rows = x.dop.order()
-    step_out = path.Step(x, base)
-    mat_out = ancont.step_transition_matrix(dop, step_out, eps)
     # TODO: get the critical coefficients as a byproduct of the computation of
-    # mat_out instead
+    # the transition matrix instead
     ldop = dop.shift(x)
-    formal = _formal_monodromy_naive(ldop, mat_out.base_ring())
-    return [base, x], [~mat_out, mat_out*formal]
+    Scalars = ComplexBallField(utilities.prec_from_eps(eps))
+    formal = _formal_monodromy_naive(ldop, Scalars)
+    return [x], [formal]
 
 def _local_monodromy(dop, x, eps):
     if x.is_ordinary():
@@ -277,8 +274,8 @@ def monodromy_matrices(dop, base, eps=1e-16):
 
         sage: monodromy_matrices(Dx*x*Dx, 1/2)
         [
-        [ [1.0000...] + [+/- ...]*I  [+/- ...] + [3.1415926535897...]*I]
-        [   [+/- ...] + [+/- ...]*I           [1.0000...] + [+/- ...]*I]
+        [ 1.0000...  [+/- ...] + [3.1415926535897...]*I]
+        [         0                           1.0000...]
         ]
     """
 
@@ -297,8 +294,13 @@ def monodromy_matrices(dop, base, eps=1e-16):
     result = [] if base.is_ordinary() else local_monodromy_base
 
     def dfs(x, path, path_mat, polygon_x, local_monodromy_x):
+
         x.seen = True
-        for y in [z for z in tree.neighbors(x) if not z.seen]:
+
+        for y in tree.neighbors(x):
+
+            if y.seen:
+                continue
 
             logger.info("Computing local monodromy around %s via %s", y, path)
 
@@ -313,7 +315,8 @@ def monodromy_matrices(dop, base, eps=1e-16):
                 bypass_mat_y = id_mat
             anchor_x.options["keep_value"] = False # XXX bugware
             anchor_y.options["keep_value"] = True
-            edge_mat = dop.numerical_transition_matrix([anchor_x, anchor_y], eps, assume_analytic=True)
+            edge_mat = dop.numerical_transition_matrix([anchor_x, anchor_y],
+                                                      eps, assume_analytic=True)
             new_path_mat = bypass_mat_y*edge_mat*bypass_mat_x*path_mat
             assert isinstance(new_path_mat, Matrix_complex_ball_dense)
 
@@ -326,6 +329,7 @@ def monodromy_matrices(dop, base, eps=1e-16):
     for x in tree:
         x.seen = False
     dfs(base, [base], id_mat, polygon_base, local_monodromy_base)
+
     return result
 
 def _tests():
@@ -349,17 +353,20 @@ def _tests():
         sage: norm(m0 - mon[0]) < RBF(1e-10)
         True
 
-        sage: m1 = dop.numerical_transition_matrix([-1, -i, 3-i, 3+1/2, 3+i, 2-i, -1])
+        sage: m1 = dop.numerical_transition_matrix([-1, i/2, 3-i/2, 3+1/2, 3+i/2, i/2, -1])
         sage: norm(m1 - mon[1]) < RBF(1e-10)
         True
 
-        sage: m2 = dop.numerical_transition_matrix([-1, -3-2*i, 4-i, 3-i/2, -1])
-        sage: m3 = dop.numerical_transition_matrix([-1, -i, 5, 4+i, 3-i, -i, -1])
-        sage: m4 = dop.numerical_transition_matrix([-1, -3-i/2, 3+1/2, 3+1/2+i, 3+2*i, 3-1/2+i, 3+1/2, 3-i/2, -1])
+        sage: m2 = dop.numerical_transition_matrix([-1, i/2, 3+i/2, 4-i/2, 4+1/2, 4+i/2, i/2, -1])
+        sage: norm(m2 - mon[2]) < RBF(1e-10)
+        True
 
-        sage: any(norm(m2 - mon[i]) < RBF(1e-10) and norm(m3 - mon[j]) < RBF(1e-10)
-        ....:                                    and norm(m4 - mon[k]) < RBF(1e-10)
-        ....:     for (i, j, k) in Permutations([2, 3, 4]))
+        sage: m3 = dop.numerical_transition_matrix([-1, i/2, 3+i/2, 3+1/2, 3-i-1/2, 3-i-i/2, 3+1/2, 3+i/2, i/2, -1])
+        sage: norm(m3 - mon[3]) < RBF(1e-10)
+        True
+
+        sage: m4 = dop.numerical_transition_matrix([-1, 3+i+1/2, 3+2*i, -1])
+        sage: norm(m4 - mon[4]) < RBF(1e-10)
         True
     """
     pass
