@@ -113,7 +113,8 @@ def formal_monodromy(dop, sing, ring=SR):
     dop = DifferentialOperator(dop)
     sing = path.Point(sing, dop)
     ldop = dop.shift(sing)
-    return _formal_monodromy_naive(ldop, ring)
+    mon, _ = _formal_monodromy_naive(ldop, ring)
+    return mon
 
 def _formal_monodromy_naive(dop, ring):
 
@@ -128,19 +129,31 @@ def _formal_monodromy_naive(dop, ring):
 
 def _formal_monodromy_from_critical_monomials(critical_monomials, ring):
     r"""
-    Compute the formal monodromy matrix of a system of fundamental solutions at
-    the origin.
+    Compute the formal monodromy matrix of the canonical system of fundamental
+    solutions at the origin.
 
-    The ``critical_monomials`` argument should be a list of
-    ``FundamentalSolution`` objects ``sol`` such that, if
-    ``sol = z^(λ+n)·(1 + Õ(z)`` where ``λ`` is the leftmost valuation of a group
-    of solutions and ``s`` is another shift of ``λ`` appearing in the basis,
-    then ``sol.value[s]`` contains the list of coefficients of
-    ``z^(λ+s)·log(z)^k/k!``, ``k = 0, 1, ...`` in ``sol``.
+    INPUT:
+
+    - ``critical_monomials``: list of ``FundamentalSolution`` objects ``sol``
+      such that, if ``sol = z^(λ+n)·(1 + Õ(z)`` where ``λ`` is the leftmost
+      valuation of a group of solutions and ``s`` is another shift of ``λ``
+      appearing in the basis, then ``sol.value[s]`` contains the list of
+      coefficients of ``z^(λ+s)·log(z)^k/k!``, ``k = 0, 1, ...`` in ``sol``
+
+    - ``ring``
+
+    OUTPUT:
+
+    - the formal monodromy matrix, with coefficients in ``ring``
+
+    - a boolean flag indicating whether the local monodromy is scalar (useful
+      when ``ring`` is an inexact ring!)
     """
 
     mat = matrix.matrix(ring, len(critical_monomials))
     twopii = 2*pi*QQbar(QQi.gen())
+    expo0 = critical_monomials[0].leftmost
+    scalar = True
 
     for j, jsol in enumerate(critical_monomials):
 
@@ -149,11 +162,17 @@ def _formal_monodromy_from_critical_monomials(critical_monomials, ring):
                 continue
             for k, c in enumerate(jsol.value[isol.shift]):
                 delta = k - isol.log_power
+                if c.is_zero():
+                    continue
                 if delta >= 0:
                     # explicit conversion sometimes necessary (Sage bug #31551)
                     mat[i,j] += ring(c)*twopii**delta/delta.factorial()
+                if delta >= 1:
+                    scalar = False
 
         expo = jsol.leftmost
+        if expo != expo0:
+            scalar = False
         if expo.parent() is QQ:
             eigv = ring(QQbar.zeta(expo.denominator())**expo.numerator())
         else:
@@ -165,7 +184,7 @@ def _formal_monodromy_from_critical_monomials(critical_monomials, ring):
         else:
             mat.rescale_col(j, eigv)
 
-    return mat
+    return mat, scalar
 
 def _rescale_col_hold_nontrivial(mat, j, c):
     for i in range(mat.nrows()):
@@ -214,7 +233,7 @@ def _local_monodromy_formal(dop, x, eps):
     # the transition matrix instead
     ldop = dop.shift(x)
     Scalars = ComplexBallField(utilities.prec_from_eps(eps))
-    formal = _formal_monodromy_naive(ldop, Scalars)
+    formal, _ = _formal_monodromy_naive(ldop, Scalars)
     return [x], [formal]
 
 def _local_monodromy(dop, x, eps):
