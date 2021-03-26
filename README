@@ -59,6 +59,14 @@ Microsoft Windows users should run the above commands in a "SageMath shell", see
 
     https://wiki.sagemath.org/SageWindows
 
+Apple macOS users may need additional steps before they are able to add external
+packages to their Sage installations. See
+
+    https://github.com/3-manifolds/fix_mac_sage/releases
+
+    https://ask.sagemath.org/question/51130/ssl-error-using-sage-pip-install-to-download-a-package/
+
+for more information.
 
 With Sage installed from operating system packages
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -68,13 +76,16 @@ Gentoo, or Arch Linux packages), try replacing "sage -pip" by "pip" or "pip3"
 above.
 
 You may need development packages that are not automatically installed as
-dependencies of the main SageMath package, e.g., a c/c++ compiler, the cython
-compiler, and header files for linbox, pari, and singular.
+dependencies of the main SageMath package, e.g., a C/C++ compiler, the Cython
+compiler, and header files for Linbox, Pari, and Singular.
 
-For example, Debian and Ubuntu users need to install the liblinbox-dev,
-libpari-dev and libsingular-dev packages (and possibly others) packages in
-addition to the sagemath package. The command "apt build-dep sagemath" can be
-used to install all necessary development packages (and more).
+For example, Debian and Ubuntu users need to install the `liblinbox-dev`,
+`libpari-dev` and `libsingular-dev` packages (and possibly others) in addition
+to the `sagemath package`. The command "apt build-dep sagemath" can be used to
+install all necessary development packages (and more).
+
+Arch Linux users will need at least the `cython` and `python-pkgconfig`
+packages.
 
 Using ore_algebra without installation
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
