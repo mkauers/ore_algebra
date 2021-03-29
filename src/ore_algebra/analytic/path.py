@@ -213,6 +213,10 @@ class Point(SageObject):
             # RLF, CLF, other number fields (debatable!)
             return tgt_prec
 
+    def conjugate(self):
+        value = QQbar.coerce(self.value).conjugate()
+        return Point(value, self.dop, **self.options)
+
     # Numeric representations
 
     @cached_method
