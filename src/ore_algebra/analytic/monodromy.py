@@ -13,6 +13,7 @@ Monodromy matrices
 #
 # http://www.gnu.org/licenses/
 
+import collections
 import logging
 
 import sage.matrix.special as matrix
@@ -283,7 +284,21 @@ def _extend_path_mat(dop, path_mat, x, y, eps, matprod):
     assert isinstance(new_path_mat, Matrix_complex_ball_dense)
     return new_path_mat
 
+LocalMonodromyData = collections.namedtuple("LocalMonodromyData",
+        ["point", "monodromy", "is_scalar"])
+
 def _monodromy_matrices(dop, base, eps=1e-16, sing=None):
+    r"""
+    EXAMPLES::
+
+        sage: from ore_algebra import *
+        sage: from ore_algebra.analytic.monodromy import _monodromy_matrices
+        sage: Dops, x, Dx = DifferentialOperators()
+        sage: rat = 1/(x^2-1)
+        sage: dop = (rat*Dx - rat.derivative()).lclm(Dx*x*Dx)
+        sage: [rec.point for rec in _monodromy_matrices(dop, 0) if not rec.is_scalar]
+        [0]
+    """
     dop = DifferentialOperator(dop)
     base = QQbar.coerce(base)
     eps = RBF(eps)
@@ -316,11 +331,13 @@ def _monodromy_matrices(dop, base, eps=1e-16, sing=None):
                 # XXX When we do need them, though, it would be better to get
                 # the formal monodromy as a byproduct of their computation.
                 if point.want_self:
-                    yield mon
+                    yield LocalMonodromyData(QQbar(point), mon, True)
                 if point.want_conj:
+                    conj = point.conjugate()
                     logger.info("Computing local monodromy around %s by "
-                                "complex conjugation", point.conjugate())
-                    yield ~mon.conjugate()
+                                "complex conjugation", conj)
+                    conj_mat = ~mon.conjugate()
+                    yield LocalMonodromyData(QQbar(conj), conj_mat, True)
                 if point is not base:
                     del todo[key]
                     continue
@@ -330,7 +347,7 @@ def _monodromy_matrices(dop, base, eps=1e-16, sing=None):
     if need_conjugates:
         base_conj_mat = dop.numerical_transition_matrix(
                             [base, base.conjugate()], eps, assume_analytic=True)
-        def conjugate_monodromy(point, mat):
+        def conjugate_monodromy(mat):
             return ~base_conj_mat*~mat.conjugate()*base_conj_mat
 
     tree = _spanning_tree(base, todo.values())
@@ -343,11 +360,13 @@ def _monodromy_matrices(dop, base, eps=1e-16, sing=None):
         based_mat = (~path_mat)*local_mat*path_mat
 
         if x.want_self:
-            yield based_mat
+            yield LocalMonodromyData(QQbar(x), based_mat, False)
         if x.want_conj:
+            conj = x.conjugate()
             logger.info("Computing local monodromy around %s by complex "
-                        "conjugation", point.conjugate())
-            yield conjugate_monodromy(point, based_mat)
+                        "conjugation", conj)
+            conj_mat = conjugate_monodromy(based_mat)
+            yield LocalMonodromyData(QQbar(x), conj_mat, False)
 
         x.done = True
 
@@ -446,7 +465,7 @@ def monodromy_matrices(dop, base, eps=1e-16, sing=None):
         [ [0.20...] + [+/-...]*I [-0.73...] + [+/-...]*I [-0.98...] + [+/-...]*I [-0.64...] + [+/-...]*I [-0.23...] + [+/-...]*I [-0.34...] + [+/-...]*I]
 
     """
-    return list(_monodromy_matrices(dop, base, eps, sing))
+    return list(mat for _, mat, _ in _monodromy_matrices(dop, base, eps, sing))
 
 def _test_monodromy_matrices():
     r"""

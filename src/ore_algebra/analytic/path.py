@@ -265,6 +265,9 @@ class Point(SageObject):
             return Point(value, self.dop, **self.options)
         raise ValueError
 
+    def _algebraic_(self, parent):
+        return parent(self.exact().value)
+
     def approx_abs_real(self, prec):
         r"""
         Compute an approximation with absolute error about 2^(-prec).
