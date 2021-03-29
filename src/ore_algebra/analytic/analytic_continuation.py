@@ -85,7 +85,11 @@ def step_transition_matrix(dop, step, eps, rows=None, split=0, ctx=dctx):
         m1 = step_transition_matrix(dop, s1, eps/4, rows, split+1, ctx)
         mat = m1*m0
     if inverse:
-        mat = ~mat
+        try:
+            mat = ~mat
+        except ZeroDivisionError:
+            raise accuracy.PrecisionError(
+                    f"failed to invert the fundamental matrix at {z1}")
     return mat
 
 def _use_binsplit(dop, step, tgt_prec, base_point_size, ctx):
