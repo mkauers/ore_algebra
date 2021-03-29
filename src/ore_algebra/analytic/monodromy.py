@@ -380,10 +380,10 @@ def monodromy_matrices(dop, base, eps=1e-16, sing=None):
         sage: from ore_algebra.analytic.monodromy import monodromy_matrices
         sage: Dops, x, Dx = DifferentialOperators()
 
-        sage: monodromy_matrices(Dx*x*Dx, 1)
+        sage: monodromy_matrices(Dx*x*Dx, 1, 1e-30)
         [
-        [  1.0000...  [6.2831853071795...]*I]
-        [          0               1.0000...]
+        [  1.0000...  [6.2831853071795864769252867665...]*I]
+        [          0     1.00000000000000000000000000000...]
         ]
 
         sage: monodromy_matrices(Dx*x*Dx, 1/2)
@@ -401,13 +401,50 @@ def monodromy_matrices(dop, base, eps=1e-16, sing=None):
         [ [1.000000000000...] + [+/- ...]*I [-3.14159265358...] + [+/- ...]*I]
         [           [+/- ...] + [+/- ...]*I [1.000000000000...] + [+/- ...]*I]
 
-    The base point can also be a singular point::
+        sage: dop = (x**2*Dx + 3)*((x-3)*Dx + 4*x**5) # B. Salvy
+        sage: dop.leading_coefficient().factor()
+        (x - 3) * x^2
+        sage: mon = monodromy_matrices(dop, 1)
+        sage: mon[0].is_one() # around 3
+        True
+        sage: mon[1] # around 0
+        [[1.000000000...] + [-2.8675932949...]*I          [+/- ...] + [1.4337966474...]*I]
+        [       [+/- ...] + [-5.7351865899...]*I  [1.0000000000...] + [2.8675932949...]*I]
+
+    The base point can be a singular point::
 
         sage: monodromy_matrices(Dx*x*Dx, 0)
         [
         [     1.0000000000000000                    0]
         [[6.28318530717958...]*I   1.0000000000000000]
         ]
+
+    ...but currently not an irregular singular one::
+
+        sage: monodromy_matrices(x^2*Dx - 1, 0)
+        Traceback (most recent call last):
+        ...
+        ValueError: irregular singular base point
+
+    One can limit the computation to a subset of the monodromy matrices::
+
+        sage: from ore_algebra.examples import fcc
+        sage: mon = monodromy_matrices(fcc.dop5, 0, sing=[0, 1])
+        sage: mon[0]
+        [                  1.00...                         0            0           0         0        0]
+        [              [6.28...]*I                   1.00...            0           0         0        0]
+        [               [-19.7...]               [6.28...]*I      1.00...           0         0        0]
+        [             [-41.3...]*I                [-19.7...]  [6.28...]*I      1.00...        0        0]
+        [                [64.9...]              [-41.3...]*I   [-19.7...]  [6.28...]*I  1.00...        0]
+        [[-2.96...] + [-7.14...]*I  [-2.96...] + [0.94...]*I  [0.94...]*I            0        0  1.00...]
+        sage: mon[1]
+        [ [1.27...] + [+/-...]*I [-0.97...] + [+/-...]*I [-1.31...] + [+/-...]*I [-0.86...] + [+/-...]*I [-0.30...] + [+/-...]*I [-1.80...] + [+/-...]*I]
+        [[-1.01...] + [+/-...]*I  [4.60...] + [+/-...]*I  [4.86...] + [+/-...]*I  [3.19...] + [+/-...]*I  [1.13...] + [+/-...]*I  [6.65...] + [+/-...]*I]
+        [ [1.42...] + [+/-...]*I [-5.04...] + [+/-...]*I [-5.80...] + [+/-...]*I [-4.46...] + [+/-...]*I [-1.58...] + [+/-...]*I [-9.31...] + [+/-...]*I]
+        [[-0.63...] + [+/-...]*I  [2.24...] + [+/-...]*I  [3.02...] + [+/-...]*I  [2.98...] + [+/-...]*I  [0.70...] + [+/-...]*I  [4.14...] + [+/-...]*I]
+        [[-0.24...] + [+/-...]*I  [0.87...] + [+/-...]*I  [1.18...] + [+/-...]*I  [0.77...] + [+/-...]*I  [1.27...] + [+/-...]*I  [1.61...] + [+/-...]*I]
+        [ [0.20...] + [+/-...]*I [-0.73...] + [+/-...]*I [-0.98...] + [+/-...]*I [-0.64...] + [+/-...]*I [-0.23...] + [+/-...]*I [-0.34...] + [+/-...]*I]
+
     """
     return list(_monodromy_matrices(dop, base, eps, sing))
 
