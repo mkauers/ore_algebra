@@ -2695,6 +2695,13 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         * ring (optional) - Ring into which to coerce the coefficients of the
           expansion
 
+        OUTPUT:
+
+        A list of ``sage.structure.formal_sum.FormalSum` objects. Each term of
+        each sum is a monomial of the form ``dx^n*log(dx)^k``  for some ``dx``,
+        ``n``, and ``k``, multiplied by a coefficient belonging to ``ring``.
+        See below for examples of how to access these parameters.
+
         .. seealso::
 
             :meth:`local_basis_monomials`,
@@ -2740,6 +2747,33 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             [1 - 56.33308678393081?*(x - 0.02943725152285942?)^2,
              (x - 0.02943725152285942?)^(1/2) - 17.97141728630432?*(x - 0.02943725152285942?)^(3/2) + 424.8128741711741?*(x - 0.02943725152285942?)^(5/2),
              (x - 0.02943725152285942?) - 25.96362432175337?*(x - 0.02943725152285942?)^2]
+
+        Programmatic access to the coefficients::
+
+            sage: dop = ((x*Dx)^2 - 2)*(x*Dx)^3 + x^4
+            sage: sol = dop.local_basis_expansions(0, ring=ComplexBallField(10))
+
+            sage: sol[0]
+            1.00*x^(-1.414213562373095?) + [-0.0123+/-6.03e-5]*x^2.585786437626905?
+            sage: c, mon = sol[0][1]
+            sage: c
+            [-0.0123 +/- 6.03e-5]
+            sage: mon.n, mon.k
+            (2.585786437626905?, 0)
+            sage: (mon.expo, mon.shift)
+            (-1.414213562373095?, 4)
+            sage: mon.expo + mon.shift == mon.n
+            True
+
+        Note that (in constrast with the definition of initial values) there is
+        no ``1/k!`` in the monomial part::
+
+            sage: sol[1]
+            0.500*log(x)^2 + [-0.00056+/-3.06e-6]*x^4*log(x)^2
+            + [0.00147+/-6.29e-6]*x^4*log(x) + [-0.00118+/-2.56e-6]*x^4
+            sage: c, mon = sol[1][1]
+            sage: c, mon.n, mon.k
+            ([-0.00056 +/- 3.06e-6], 4, 2)
 
         TESTS::
 
@@ -2797,7 +2831,8 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         res = [FormalSum(
                     [(c/ZZ(k).factorial(), LogMonomial(dx, sol.leftmost, n, k))
                         for n, vec in enumerate(sol.value)
-                        for k, c in reversed(list(enumerate(vec)))],
+                        for k, c in reversed(list(enumerate(vec)))
+                        if not c.is_zero()],
                     FormalSums(ring),
                     reduce=False)
             for sol in sols]
