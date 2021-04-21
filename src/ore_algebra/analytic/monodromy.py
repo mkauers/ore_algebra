@@ -247,9 +247,7 @@ class PointWithMonodromyData(path.Point):
         self.polygon = None
         self.done: bool = False
 
-def _try_merge_conjugate_singularities(dop, sing, base, todo):
-    if any(c not in QQ for pol in dop for c in pol):
-        return False
+def _merge_conjugate_singularities(dop, sing, base, todo):
     need_conjugates = False
     sgn = 1 if QQbar.coerce(base.value).imag() >= 0 else -1
     for x in sing:
@@ -320,8 +318,14 @@ def _monodromy_matrices(dop, base, eps=1e-16, sing=None):
     if not base.is_regular():
         raise ValueError("irregular singular base point")
     # If the coefficients are rational, reduce to handling singularities in the
-    # same half-plane as the base point.
-    need_conjugates = _try_merge_conjugate_singularities(dop, sing, base, todo)
+    # same half-plane as the base point, and share some computations between
+    # Galois conjugates.
+    need_conjugates = False
+    crit_cache = None
+    if all(c in QQ for pol in dop for c in pol):
+        need_conjugates = _merge_conjugate_singularities(dop, sing, base, todo)
+        # TODO: do something like that even over number fields?
+        crit_cache = {}
 
     Scalars = ComplexBallField(utilities.prec_from_eps(eps))
     id_mat = matrix.identity_matrix(Scalars, dop.order())
@@ -332,7 +336,19 @@ def _monodromy_matrices(dop, base, eps=1e-16, sing=None):
         # We could call _local_monodromy_loop() if point is irregular, but
         # delaying it may allow us to start returning results earlier.
         if point.is_regular():
-            mon, scalar = _formal_monodromy_naive(dop.shift(point), Scalars)
+            if crit_cache is None or point.algdeg() == 1:
+                crit = _critical_monomials(dop.shift(point))
+                emb = point.value.parent().hom(Scalars)
+            else:
+                mpol = point.value.minpoly()
+                try:
+                    NF, crit = crit_cache[mpol]
+                except KeyError:
+                    NF = point.value.parent()
+                    crit = _critical_monomials(dop.shift(point))
+                    crit_cache[mpol] = NF, crit
+                emb = NF.hom([Scalars(point.value.parent().gen())], check=False)
+            mon, scalar = _formal_monodromy_from_critical_monomials(crit, emb)
             if scalar:
                 # No need to compute the connection matrices then!
                 # XXX When we do need them, though, it would be better to get
