@@ -120,6 +120,11 @@ def formal_monodromy(dop, sing, ring=SR):
     return mon
 
 def _formal_monodromy_naive(dop, ring):
+    crit = _critical_monomials(dop)
+    mor = dop.base_ring().base_ring().hom(ring)
+    return _formal_monodromy_from_critical_monomials(crit, mor)
+
+def _critical_monomials(dop):
 
     class Mapper(LocalBasisMapper):
         def fun(self, ini):
@@ -127,10 +132,9 @@ def _formal_monodromy_naive(dop, ring):
             ser = log_series(ini, self.shifted_bwrec, order)
             return {s: ser[s] for s, _ in self.shifts}
 
-    crit = Mapper(dop).run()
-    return _formal_monodromy_from_critical_monomials(crit, ring)
+    return Mapper(dop).run()
 
-def _formal_monodromy_from_critical_monomials(critical_monomials, ring):
+def _formal_monodromy_from_critical_monomials(critical_monomials, mor):
     r"""
     Compute the formal monodromy matrix of the canonical system of fundamental
     solutions at the origin.
@@ -143,16 +147,19 @@ def _formal_monodromy_from_critical_monomials(critical_monomials, ring):
       appearing in the basis, then ``sol.value[s]`` contains the list of
       coefficients of ``z^(λ+s)·log(z)^k/k!``, ``k = 0, 1, ...`` in ``sol``
 
-    - ``ring``
+    - ``mor``: a morphism from the parent of critical monomials to a ring
+      suitable for representing the entries of the formal monodromy matrix
+      (typically ``CBF`` or ``SR``)
 
     OUTPUT:
 
-    - the formal monodromy matrix, with coefficients in ``ring``
+    - the formal monodromy matrix, with coefficients in the codomain of ``mor``
 
     - a boolean flag indicating whether the local monodromy is scalar (useful
-      when ``ring`` is an inexact ring!)
+      when the target is an inexact ring!)
     """
 
+    ring = mor.codomain()
     mat = matrix.matrix(ring, len(critical_monomials))
     twopii = 2*pi*QQbar(QQi.gen())
     expo0 = critical_monomials[0].leftmost
@@ -169,7 +176,7 @@ def _formal_monodromy_from_critical_monomials(critical_monomials, ring):
                     continue
                 if delta >= 0:
                     # explicit conversion sometimes necessary (Sage bug #31551)
-                    mat[i,j] += ring(c)*twopii**delta/delta.factorial()
+                    mat[i,j] += mor(c)*twopii**delta/delta.factorial()
                 if delta >= 1:
                     scalar = False
 
