@@ -140,7 +140,9 @@ class BwShiftRec(object):
         self._ord[components] = ord
 
     def scalars_embedding(self, tgt):
-        if (isinstance(self.Scalars, NumberField_absolute)
+        if tgt is self.Scalars:
+            return lambda elt: elt
+        elif (isinstance(self.Scalars, NumberField_absolute)
                 and self.Scalars.degree() > 2):
             # do complicated coercions via QQbar and CLF only once...
             Pol = PolynomialRing(tgt, 'x')
