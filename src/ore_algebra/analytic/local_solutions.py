@@ -566,7 +566,8 @@ def exponent_shifts(dop, leftmost):
 def log_series(ini, bwrec, order):
     Coeffs = utilities.mypushout(bwrec.base_ring.base_ring(), ini.universe)
     log_prec = sum(len(v) for v in ini.shift.values())
-    precomp_len = max(1, bwrec.order) # hack for recurrences of order zero
+    precomp_len = min(bwrec.order, int(order)) # sometimes order is small
+    precomp_len = max(1, precomp_len) # hack for recurrences of order zero
     bwrec_nplus = collections.deque(
             (bwrec.eval_series(Coeffs, i, log_prec)
                 for i in range(precomp_len)),
@@ -585,7 +586,11 @@ def log_series(ini, bwrec, order):
         for p in range(mult - 1, -1, -1):
             new_term[p] = ini.shift[n][p]
         series.append(new_term)
-        bwrec_nplus.append(bwrec.eval_series(Coeffs, n+precomp_len, log_prec))
+        if n + precomp_len < order:
+            new_coeff = bwrec.eval_series(Coeffs, n+precomp_len, log_prec)
+        else:
+            new_coeff = None
+        bwrec_nplus.append(new_coeff)
     return series
 
 def log_series_values(Jets, expo, psum, evpt, downshift=[0]):
