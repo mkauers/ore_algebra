@@ -303,6 +303,13 @@ def _monodromy_matrices(dop, base, eps=1e-16, sing=None):
         sage: dop = (rat*Dx - rat.derivative()).lclm(Dx*x*Dx)
         sage: [rec.point for rec in _monodromy_matrices(dop, 0) if not rec.is_scalar]
         [0]
+
+    TESTS::
+
+        sage: from ore_algebra.examples import fcc
+        sage: mon = list(_monodromy_matrices(fcc.dop5, -1, 2**(-2**7))) # long time (2.3 s)
+        sage: [rec.monodromy[0][0] for rec in mon if rec.point == -5/3] # long time
+        [[1.01088578589319884254557667137848...]]
     """
     dop = DifferentialOperator(dop)
     base = QQbar.coerce(base)
