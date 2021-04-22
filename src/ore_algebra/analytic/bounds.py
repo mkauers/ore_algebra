@@ -2343,7 +2343,7 @@ class DiffOpBound(object):
             sage: from ore_algebra.analytic.local_solutions import LogSeriesInitialValues
             sage: Dops, x, Dx = DifferentialOperators()
 
-            sage: DiffOpBound(Dx - 1).plot([CBF(1)], CBF(i)/2, RBF(1e-20))
+            sage: DiffOpBound(Dx - 1).plot([1], i/2, RBF(1e-20))
             Graphics object consisting of 4 graphics primitives
 
             sage: DiffOpBound(x*Dx^3 + 2*Dx^2 + x*Dx).plot(eps=1e-8)
