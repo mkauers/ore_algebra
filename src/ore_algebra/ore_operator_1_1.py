@@ -2765,7 +2765,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             sage: mon.expo + mon.shift == mon.n
             True
 
-        Note that (in constrast with the definition of initial values) there is
+        Note that (in contrast with the definition of initial values) there is
         no ``1/k!`` in the monomial part::
 
             sage: sol[1]
