@@ -256,9 +256,10 @@ def _merge_conjugate_singularities(dop, sing, base, todo):
             need_conjugates = True
             del todo[x]
             xconj = x.conjugate()
-            if xconj not in todo:
-                todo[xconj] = LocalMonodromyData()
-            todo[xconj].want_conj = True
+            item = todo.get(xconj) # dict queries on elts of QQbar are slow
+            if item is None:
+                todo[xconj] = item = PointWithMonodromyData(xconj, dop)
+            item.want_conj = True
     return need_conjugates
 
 def _spanning_tree(base, verts):
