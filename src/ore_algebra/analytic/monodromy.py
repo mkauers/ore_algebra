@@ -128,6 +128,7 @@ def _critical_monomials(dop):
 
     class Mapper(LocalBasisMapper):
         def fun(self, ini):
+            # XXX should share algebraic part with Galois conjugates
             order = max(s for s, _ in self.shifts) + 1
             ser = log_series(ini, self.shifted_bwrec, order)
             return {s: ser[s] for s, _ in self.shifts}
@@ -332,6 +333,7 @@ def _monodromy_matrices(dop, base, eps=1e-16, sing=None):
     if all(c in QQ for pol in dop for c in pol):
         need_conjugates = _merge_conjugate_singularities(dop, sing, base, todo)
         # TODO: do something like that even over number fields?
+        # XXX keep the cache from one run to the next when increasing prec?
         crit_cache = {}
 
     Scalars = ComplexBallField(utilities.prec_from_eps(eps))

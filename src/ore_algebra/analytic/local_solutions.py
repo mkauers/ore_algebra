@@ -565,32 +565,32 @@ def exponent_shifts(dop, leftmost):
 
 def log_series(ini, bwrec, order):
     Coeffs = utilities.mypushout(bwrec.base_ring.base_ring(), ini.universe)
-    log_prec = sum(len(v) for v in ini.shift.values())
-    precomp_len = min(bwrec.order, int(order)) # sometimes order is small
-    precomp_len = max(1, precomp_len) # hack for recurrences of order zero
-    bwrec_nplus = collections.deque(
-            (bwrec.eval_series(Coeffs, i, log_prec)
-                for i in range(precomp_len)),
-            maxlen=precomp_len)
+    max_log_prec = sum(len(v) for v in ini.shift.values())
+    log_prec = 0
     series = []
     for n in range(order):
-        new_term = vector(Coeffs, log_prec)
         mult = len(ini.shift.get(n, ()))
-        for p in range(log_prec - mult - 1, -1, -1):
-            combin  = sum(bwrec_nplus[0][i][j]*series[-i][p+j]
+        bwrec_n = bwrec.eval_series(Coeffs, n, log_prec + mult)
+        invlc = None
+        new_term = vector(Coeffs, max_log_prec)
+        for p in range(log_prec - 1, -1, -1):
+            combin  = sum(bwrec_n[i][j]*series[-i][p+j]
                           for j in range(log_prec - p)
-                          for i in range(min(bwrec.order, n), 0, -1))
-            combin += sum(bwrec_nplus[0][0][j]*new_term[p+j]
-                          for j in range(mult + 1, log_prec - p))
-            new_term[mult + p] = - ~bwrec_nplus[0][0][mult] * combin
+                          for i in range(min(bwrec.order, n), 0, -1)
+                          if series[-i][p+j])
+            combin += sum(bwrec_n[0][j]*new_term[p+j]
+                          for j in range(mult + 1, log_prec + mult - p)
+                          if new_term[p+j])
+            if combin:
+                if invlc is None:
+                    invlc = ~bwrec_n[0][mult]
+                new_term[mult + p] = - invlc * combin
         for p in range(mult - 1, -1, -1):
             new_term[p] = ini.shift[n][p]
+        for p in range(log_prec, log_prec + mult):
+            if new_term[p]:
+                log_prec = p + 1
         series.append(new_term)
-        if n + precomp_len < order:
-            new_coeff = bwrec.eval_series(Coeffs, n+precomp_len, log_prec)
-        else:
-            new_coeff = None
-        bwrec_nplus.append(new_coeff)
     return series
 
 def log_series_values(Jets, expo, psum, evpt, downshift=[0]):
