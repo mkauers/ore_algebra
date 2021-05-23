@@ -20,6 +20,7 @@ import sage.matrix.special as matrix
 
 from sage.graphs.graph import Graph
 from sage.matrix.matrix_complex_ball_dense import Matrix_complex_ball_dense
+from sage.misc.cachefunc import cached_method
 from sage.misc.misc_c import prod
 from sage.rings.all import (CC, CBF, ComplexBallField, QQ, QQbar,
         QuadraticField, RBF)
@@ -238,19 +239,34 @@ def _local_monodromy_loop(dop, x, eps):
         mats.append(mat)
     return polygon, mats
 
-class PointWithMonodromyData(path.Point):
+class TodoItem():
 
-    def __init__(self, point, dop, *, want_self=False, want_conj=False):
-        super().__init__(point, dop)
+    def __init__(self, alg, dop, *, want_self=False, want_conj=False):
+        self.alg = alg
+        self._dop = dop
         self.want_self: bool = want_self
         self.want_conj: bool = want_conj
         self.local_monodromy = None
         self.polygon = None
         self.done: bool = False
 
+    @cached_method
+    def point(self):
+        return path.Point(self.alg, self._dop)
+
+    def __eq__(self, other):
+        return self is other
+
+    def __hash__(self):
+        return id(self)
+
+    def __lt__(self, other):
+        # Sage graphs require vertices to be comparable
+        return id(self) < id(other)
+
 def _merge_conjugate_singularities(dop, sing, base, todo):
     need_conjugates = False
-    sgn = 1 if QQbar.coerce(base.value).imag() >= 0 else -1
+    sgn = 1 if base.alg.imag() >= 0 else -1
     for x in sing:
         if sgn*x.imag() < 0:
             need_conjugates = True
@@ -258,7 +274,7 @@ def _merge_conjugate_singularities(dop, sing, base, todo):
             xconj = x.conjugate()
             item = todo.get(xconj) # dict queries on elts of QQbar are slow
             if item is None:
-                todo[xconj] = item = PointWithMonodromyData(xconj, dop)
+                todo[xconj] = item = TodoItem(xconj, dop)
             item.want_conj = True
     return need_conjugates
 
@@ -266,14 +282,14 @@ def _spanning_tree(base, verts):
     graph = Graph([list(verts), lambda x, y: x is not y])
     def length(edge):
         x, y, _ = edge
-        return abs(CC(x.value) - CC(y.value))
+        return abs(CC(x.alg) - CC(y.alg))
     tree = graph.min_spanning_tree(length)
     tree = Graph(tree)
     tree.add_vertex(base)
     return tree
 
 def _closest_unsafe(lst, x):
-    x = CC(x.value)
+    x = CC(x.alg)
     return min(enumerate(lst), key=lambda y: abs(CC(y[1].value) - x))
 
 def _extend_path_mat(dop, path_mat, x, y, eps, matprod):
@@ -321,10 +337,10 @@ def _monodromy_matrices(dop, base, eps=1e-16, sing=None):
     else:
         sing = [QQbar.coerce(s) for s in sing]
 
-    todo = {x: PointWithMonodromyData(x, dop, want_self=True, want_conj=False)
+    todo = {x: TodoItem(x, dop, want_self=True, want_conj=False)
             for x in sing}
-    base = todo.setdefault(base, PointWithMonodromyData(base, dop))
-    if not base.is_regular():
+    base = todo.setdefault(base, TodoItem(base, dop))
+    if not base.point().is_regular():
         raise ValueError("irregular singular base point")
     # If the coefficients are rational, reduce to handling singularities in the
     # same half-plane as the base point, and share some computations between
@@ -334,6 +350,8 @@ def _monodromy_matrices(dop, base, eps=1e-16, sing=None):
     if all(c in QQ for pol in dop for c in pol):
         need_conjugates = _merge_conjugate_singularities(dop, sing, base, todo)
         # TODO: do something like that even over number fields?
+        # XXX this is actually a bit costly: do it only after checking that the
+        # monodromy is not scalar?
         # XXX keep the cache from one run to the next when increasing prec?
         crit_cache = {}
 
@@ -342,7 +360,8 @@ def _monodromy_matrices(dop, base, eps=1e-16, sing=None):
     def matprod(elts):
         return prod(reversed(elts), id_mat)
 
-    for key, point in list(todo.items()):
+    for key, todoitem in list(todo.items()):
+        point = todoitem.point()
         # We could call _local_monodromy_loop() if point is irregular, but
         # delaying it may allow us to start returning results earlier.
         if point.is_regular():
@@ -363,23 +382,24 @@ def _monodromy_matrices(dop, base, eps=1e-16, sing=None):
                 # No need to compute the connection matrices then!
                 # XXX When we do need them, though, it would be better to get
                 # the formal monodromy as a byproduct of their computation.
-                if point.want_self:
-                    yield LocalMonodromyData(QQbar(point), mon, True)
-                if point.want_conj:
-                    conj = point.conjugate()
+                if todoitem.want_self:
+                    yield LocalMonodromyData(key, mon, True)
+                if todoitem.want_conj:
+                    conj = key.conjugate()
                     logger.info("Computing local monodromy around %s by "
                                 "complex conjugation", conj)
                     conj_mat = ~mon.conjugate()
-                    yield LocalMonodromyData(QQbar(conj), conj_mat, True)
-                if point is not base:
+                    yield LocalMonodromyData(conj, conj_mat, True)
+                if todoitem is not base:
                     del todo[key]
                     continue
-            point.local_monodromy = [mon]
-            point.polygon = [point]
+            todoitem.local_monodromy = [mon]
+            todoitem.polygon = [point]
 
     if need_conjugates:
         base_conj_mat = dop.numerical_transition_matrix(
-                            [base, base.conjugate()], eps, assume_analytic=True)
+                            [base.point(), base.point().conjugate()],
+                            eps, assume_analytic=True)
         def conjugate_monodromy(mat):
             return ~base_conj_mat*~mat.conjugate()*base_conj_mat
 
@@ -393,13 +413,13 @@ def _monodromy_matrices(dop, base, eps=1e-16, sing=None):
         based_mat = (~path_mat)*local_mat*path_mat
 
         if x.want_self:
-            yield LocalMonodromyData(QQbar(x), based_mat, False)
+            yield LocalMonodromyData(x.alg, based_mat, False)
         if x.want_conj:
-            conj = x.conjugate()
+            conj = x.alg.conjugate()
             logger.info("Computing local monodromy around %s by complex "
                         "conjugation", conj)
             conj_mat = conjugate_monodromy(based_mat)
-            yield LocalMonodromyData(QQbar(x), conj_mat, False)
+            yield LocalMonodromyData(conj, conj_mat, False)
 
         x.done = True
 
@@ -407,7 +427,8 @@ def _monodromy_matrices(dop, base, eps=1e-16, sing=None):
             if y.done:
                 continue
             if y.local_monodromy is None:
-                y.polygon, y.local_monodromy = _local_monodromy_loop(dop, y, eps)
+                y.polygon, y.local_monodromy = _local_monodromy_loop(dop,
+                                                                 y.point(), eps)
             new_path_mat = _extend_path_mat(dop, path_mat, x, y, eps, matprod)
             yield from dfs(y, path + [y], new_path_mat)
 
