@@ -93,16 +93,17 @@ def good_number_field(nf):
     return nf, nf.hom(nf)
 
 def as_embedded_number_field_elements(algs):
-    # number_field_elements_from_algebraics() now takes an embedded=...
-    # argument, but doesn't yet support all cases we need
-    nf, elts, emb = number_field_elements_from_algebraics(algs)
-    if nf is not QQ:
-        nf = NumberField(nf.polynomial(), nf.variable_name(),
-                    embedding=emb(nf.gen()))
-        elts = [elt.polynomial()(nf.gen()) for elt in elts]
-        nf, hom = good_number_field(nf)
-        elts = [hom(elt) for elt in elts]
-    # assert [QQbar.coerce(elt) == alg for alg, elt in zip(algs, elts)]
+    try:
+        nf, elts, _ = number_field_elements_from_algebraics(algs, embedded=True)
+    except NotImplementedError: # compatibility with Sage <= 9.3
+        nf, elts, emb = number_field_elements_from_algebraics(algs)
+        if nf is not QQ:
+            nf = NumberField(nf.polynomial(), nf.variable_name(),
+                        embedding=emb(nf.gen()))
+            elts = [elt.polynomial()(nf.gen()) for elt in elts]
+            nf, hom = good_number_field(nf)
+            elts = [hom(elt) for elt in elts]
+        assert [QQbar.coerce(elt) == alg for alg, elt in zip(algs, elts)]
     return nf, elts
 
 def as_embedded_number_field_element(alg):
