@@ -460,7 +460,7 @@ def _vect_elim_fct(basis, place=None, dim=None, infolevel=0, residue_fct=None):
         sage: V.<t> = PolynomialRing(k)
         sage: v = _vect_elim_fct([t+q]); print(v)
         (1)
-        sage: v = _vect_elim_fct([t+q],None,2); print(v)
+        sage: v = _vect_elim_fct([t+q],dim=2); print(v)
         None
 
     Over the rationals, we can work over different places::
@@ -482,7 +482,7 @@ def _vect_elim_fct(basis, place=None, dim=None, infolevel=0, residue_fct=None):
 
         sage: k.<q> = LaurentSeriesRing(QQ)
         sage: V.<t> = PolynomialRing(k)
-        sage: v = _vect_elim_fct([t+q],2); print(v)
+        sage: v = _vect_elim_fct([t+q],place=2); print(v)
         Traceback (most recent call last):
         ...
         NotImplementedError: Valuation at specific place not implemented for Laurent series
