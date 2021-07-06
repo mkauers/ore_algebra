@@ -3810,7 +3810,8 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
             # a is constant => f(a) is constant => S-1 kills it
             return A.gen() - A.one()
 
-        R = QQ[A.base_ring().gen()]
+        K = a.parent().base_ring()
+        R = K[A.base_ring().gen()]
 
         try:
             a = R(a)
