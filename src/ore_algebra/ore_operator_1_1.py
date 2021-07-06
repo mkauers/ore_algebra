@@ -3810,8 +3810,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
             # a is constant => f(a) is constant => S-1 kills it
             return A.gen() - A.one()
 
-        K = a.parent().base_ring()
-        R = K[A.base_ring().gen()]
+        R = QQ[A.base_ring().gen()]
 
         try:
             a = R(a)
@@ -3895,11 +3894,12 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
         ops = [A(self)] + list(map(A, list(other)))
         S_power = A.associated_commutative_algebra().gen()**len(ops)
         x = A.base_ring().gen()
+        x_Q = QQ[x].gen()
 
         for i in range(len(ops)):
             ops[i] = A(ops[i].polynomial()(S_power)\
                        .map_coefficients(lambda p: p(x/len(ops))))\
-                       .annihilator_of_composition(x - i)
+                       .annihilator_of_composition(x_Q - i)
 
         return self.parent()(reduce(lambda p, q: p.lclm(q), ops).numerator())
 
