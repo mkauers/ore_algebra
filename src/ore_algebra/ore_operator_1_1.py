@@ -2810,9 +2810,9 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         from .analytic.local_solutions import (log_series, LocalBasisMapper,
                 simplify_exponent, LogMonomial)
         from .analytic.path import Point
-        point = Point(point, self)
+        mypoint = Point(point, self)
         dop = DifferentialOperator(self)
-        ldop = dop.shift(point)
+        ldop = dop.shift(mypoint)
         if order is None:
             ind = ldop.indicial_polynomial(ldop.base_ring().gen())
             order = max(dop.order(), ind.dispersion()) + 3
@@ -2821,12 +2821,12 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
                 return log_series(ini, self.shifted_bwrec, order)
         sols = Mapper(ldop).run()
         x = SR.var(dop.base_ring().variable_name())
-        dx = x if point.value.is_zero() else x.add(-point.value, hold=True)
+        dx = x if point == 0 else x.add(-point, hold=True)
         if ring is None:
             cm = get_coercion_model()
             ring = cm.common_parent(
                     dop.base_ring().base_ring(),
-                    point.value.parent(),
+                    mypoint.value.parent(),
                     *(sol.leftmost for sol in sols))
         res = [FormalSum(
                     [(c/ZZ(k).factorial(), LogMonomial(dx, sol.leftmost, n, k))
