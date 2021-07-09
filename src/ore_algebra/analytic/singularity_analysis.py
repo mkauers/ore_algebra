@@ -12,7 +12,7 @@ EXAMPLES::
     sage: Pols.<z> = PolynomialRing(QQ)
     sage: Diff.<Dz> = OreAlgebra(Pols)
 
-Membrane example ::
+Membrane example::
 
     sage: seqini = [72, 1932, 31248, 790101/2, 17208645/4, 338898609/8, 1551478257/4]
     sage: deq = (8388593*z^2*(3*z^4 - 164*z^3 + 370*z^2 - 164*z + 3)*(z + 1)^2*(z^2 - 6*z + 1)^2*(z - 1)^3*Dz^3
@@ -24,11 +24,6 @@ Membrane example ::
     sage: desing_deq.leading_coefficient().factor()
     (z - 1)^2 * z^2 * (z^2 - 6*z + 1)^2
     sage: b = contribution_all_singularity(seqini, deq, total_order = 2)
-    Radius of large circle: 0.29354351163520964
-    halfside of small squares: 0.012197063638139974
-    Bounding on large circle:
-    Covered circle with 40 squares
-    ...
 
 Algebraic example::
 
@@ -40,7 +35,6 @@ Algebraic example::
     (4) * (z - 1) * (z - 1/2) * (z^2 + 1/2*z + 1/2)
 
     sage: b = contribution_all_singularity(seqini, deq, total_order = 5)
-    ...
 
 Diagonal example::
 
@@ -51,7 +45,6 @@ Diagonal example::
     sage: desing_deq.leading_coefficient().factor()
     (81) * z^2 * (z^2 + 14/81*z + 1/81)
     sage: b = contribution_all_singularity(seqini, deq, total_order = 2)
-    ...
 
 Complex exponents example::
 
@@ -59,8 +52,9 @@ Complex exponents example::
     sage: deq = (z-2)^2 * Dz^2 + z*(z-2) * Dz + 1
     sage: #deq.local_basis_expansions(2)
     sage: b = contribution_all_singularity(seqini, deq, total_order = 4)
-    ...
 """
+
+import logging
 
 from sage.all import *
 
@@ -70,6 +64,8 @@ from .path import Point
 from .bounds import DiffOpBound
 from .ui import multi_eval_diffeq
 from .utilities import as_embedded_number_field_elements
+
+logger = logging.getLogger(__name__)
 
 def Lie_der(f, tup_x_k):
     """
@@ -446,7 +442,7 @@ def numerical_sol_big_circle(coeff_zero, deq, list_dom_sing, rad, halfside):
     - halfside : half of side length of covering squares
     """
     import time
-    print("Bounding on large circle: ")
+    logger.info("Bounding on large circle...")
     begin_time = time.time()
 
     sings = list_dom_sing.copy()
@@ -489,8 +485,8 @@ def numerical_sol_big_circle(coeff_zero, deq, list_dom_sing, rad, halfside):
             assume_analytic=True)
 
     end_time = time.time()
-    print("Covered circle with %d squares\n" % num_sq)
-    print("%03.3f seconds \n" % (end_time - begin_time))
+    logger.info("Covered circle with %d squares", num_sq)
+    logger.info("%03.3f seconds", (end_time - begin_time))
     return pairs
 
 def contribution_single_singularity(coeff_zero, deq, rho, rad_input,
@@ -570,7 +566,7 @@ def contribution_single_singularity(coeff_zero, deq, rho, rad_input,
         order = max(0, ceil(total_order - (val_rho.real() - min_val_rho)))
 
         num_bas = num_bas + 1
-        print("Computing basis %d \n" % num_bas)
+        logger.info("Computing basis %d", num_bas)
         cycle_begin_time = time.time()
 
         # Local expansion of f at z=rho, in terms of variables Z and L
@@ -715,8 +711,8 @@ def contribution_single_singularity(coeff_zero, deq, rho, rad_input,
         list_bound.append(bound_lead_terms + bound_int_SnLn)
 
         cycle_end_time = time.time()
-        print("Computing of basis %d finished, time: %9.2f" %
-                (num_bas, cycle_end_time - cycle_begin_time))
+        logger.info("Computing of basis %d finished, time: %9.2f",
+                num_bas, cycle_end_time - cycle_begin_time)
 
     max_kappa = max(list_kappa)
     return list_val, list_bound, val_big_circle, max_kappa
@@ -776,7 +772,7 @@ def contribution_all_singularity(seqini, deq, singularities=None,
         rad_input = min(
                 abs(list_sing[k])*0.9 + abs(list_sing[0])*0.1,
                 abs(list_sing[0]) + max_smallrad*0.8)
-        print("Radius of large circle:", rad_input)
+        logger.info("Radius of large circle: %s", rad_input)
     else:
         sing_inf = abs(list_sing[-1])*2 + rad * 2
         list_sing.append(sing_inf)
@@ -800,7 +796,7 @@ def contribution_all_singularity(seqini, deq, singularities=None,
     #Automatically choose halfside
     if halfside is None:
         halfside = min(abs(abs(ex) - rad_input) for ex in list_exception)/10
-        print("halfside of small squares:", halfside)
+        logger.info("halfside of small squares: %s", halfside)
 
     pairs = numerical_sol_big_circle(coeff_zero, deq, list_dom_sing, rad_input,
                                                                        halfside)
