@@ -160,6 +160,7 @@ def mypushout(X, Y):
         return Y
     else:
         Z = pushout(X, Y)
+        Z, _ = good_number_field(Z)
         assert (is_NumberField(Z) if is_NumberField(X) and is_NumberField(Y)
                                   else True)
         return Z

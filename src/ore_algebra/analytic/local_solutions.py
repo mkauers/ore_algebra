@@ -155,6 +155,18 @@ class BwShiftRec(object):
 
     @cached_method
     def poly_eval_strategy(self, tgt):
+        r"""
+        TESTS::
+
+            sage: from ore_algebra import OreAlgebra
+            sage: NF.<a> = NumberField(x^2-x+1, embedding = .5+.8*i)
+            sage: Pol.<z> = NF[]
+            sage: Dops.<Dz> = OreAlgebra(Pol)
+            sage: dop = (z^2 - 4*z + 4)*Dz^2 + (z^2 - 2*z)*Dz + 1
+            sage: dop.local_basis_expansions(2, 1)
+            [(z - 2)^(-0.50000000000000000? - 0.866025403784439?*I),
+            (z - 2)^(-0.50000000000000000? + 0.866025403784439?*I)]
+        """
 
         mor = self.scalars_embedding(tgt)
         def generic_eval(pol, x, _tgt):
@@ -170,7 +182,8 @@ class BwShiftRec(object):
         if isinstance(self.Scalars, ComplexBallField):
             if isinstance(tgt, ComplexBallField):
                 return eval_poly_at_int.cbf, False
-        elif isinstance(self.Scalars, NumberField_quadratic):
+        elif (isinstance(self.Scalars, NumberField_quadratic)
+                and self.Scalars.discriminant() % 4 != 1):
             self.Scalars.zero() # cache for direct cython access
             if tgt is self.Scalars:
                 return eval_poly_at_int.qnf, False
