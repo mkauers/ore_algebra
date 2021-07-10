@@ -55,6 +55,7 @@ Complex exponents example::
 """
 
 import logging
+import time
 
 from sage.all import *
 
@@ -442,7 +443,6 @@ def numerical_sol_big_circle(coeff_zero, deq, list_dom_sing, rad, halfside):
     - rad : radius of big circle
     - halfside : half of side length of covering squares
     """
-    import time
     logger.info("Bounding on large circle...")
     begin_time = time.time()
 
@@ -537,9 +537,6 @@ def contribution_single_singularity(coeff_zero, deq, rho, rad_input,
 
     v, logz, u, w, logn = PolynomialRing(CBF,
             ["v", "logz", "u", "w", "logn"], order='lex').gens()
-
-    import numpy
-    import time
 
     for ind_basis in list_ind:
         # We consider only elements of the basis with the same expo
