@@ -344,7 +344,8 @@ def bound_coeff_mono(alpha, l, deg, w, logn, s=5, min_n=50):
         product_all = c * f_z * g_z * h_z
         return truncate_tail(product_all, deg, min_n, w)
     elif l == 0:
-        assert min_n > -int(alpha), "min_n too small!"
+        if min_n <= -int(alpha):
+            raise ValueError("min_n too small!")
         return R(0)
     else:
         # |alpha| decreases, so n >= s*|alpha| still holds
@@ -664,7 +665,8 @@ def contribution_single_singularity(coeff_zero, deq, rho, rad_input,
                 for j in range(kappa + 1)])
 
         s = floor(min_n / (abs(val_rho) + abs(order)))
-        assert s>2, "min_n too small! Cannot guarantee s>2"
+        if s <= 2:
+            raise ValueError("min_n too small! Cannot guarantee s>2")
 
         # Sub polynomial factor for bound on S(n)
         cst_S = (CBF(0).add_error(CBF(abs(rho)).pow(val_rho.real()+order)
@@ -777,8 +779,10 @@ def contribution_all_singularity(seqini, deq, singularities=None,
         sing_inf = abs(list_sing[-1])*2 + rad * 2
         list_sing.append(sing_inf)
         k = next(j for j,v in enumerate(list_sing) if abs(v) > rad)
-        assert not k == 0, "No singularity contained in given radius"
-        assert not abs(list_sing[k-1]) == rad, "A singularity is on the given radius"
+        if k == 0:
+            raise ValueError("No singularity contained in given radius")
+        if abs(list_sing[k-1]) == rad:
+            raise ValueError("A singularity is on the given radius")
         list_dom_sing = list_sing[:k]
         rad_input = rad
 
@@ -789,8 +793,8 @@ def contribution_all_singularity(seqini, deq, singularities=None,
                     for ex in list_dom_sing
                     if not (ex - ds) == 0)
                 for ds in list_dom_sing)
-        assert min_n > ceil(2*abs(list_dom_sing[-1])/min_dist), (
-                "Please increase min_n to at least "
+        if min_n <= ceil(2*abs(list_dom_sing[-1])/min_dist):
+            raise ValueError("Please increase min_n to at least "
                 +str(ceil(2*abs(list_dom_sing[-1])/min_dist)))
 
     #Automatically choose halfside
