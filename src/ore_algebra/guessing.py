@@ -183,10 +183,11 @@ def guess(data, algebra, **kwargs):
                 if m.is_one():
                     break
 
-        if m is not None and m > 1 and m > a:
+        if m is not None and m > 1:
+            a = a % m
             if 'infolevel' in kwargs and kwargs['infolevel'] >= 1:
                 print("Recognized that only 1 out of " + str(m) + " terms is nonzero; removing zeros...")
-            eq = guess([data[m*k + a] for k in range((len(data) - a)/m)], A, **kwargs)
+            eq = guess([data[m*k + a] for k in range(((len(data) - a)/m).floor())], A, **kwargs)
             if 'infolevel' in kwargs and kwargs['infolevel'] >= 1:
                 print("Adjusting equation to restore deleted zeros...")
             x = R.gen()
