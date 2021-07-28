@@ -250,6 +250,9 @@ class TodoItem():
         self.polygon = None
         self.done: bool = False
 
+    def __repr__(self):
+        return repr(self.alg)
+
     @cached_method
     def point(self):
         return path.Point(self.alg, self._dop)
