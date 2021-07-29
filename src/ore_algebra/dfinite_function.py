@@ -913,7 +913,7 @@ class DFiniteFunction(RingElement):
             sage: D2(sin(x)^2*cos(x)^2)
             Univariate D-finite function defined by the annihilating operator Dx^5 + 20*Dx^3 + 64*Dx and the coefficient sequence defined by (n^14 + 10*n^13 + 5*n^12 - 250*n^11 - 753*n^10 + 1230*n^9 + 8015*n^8 + 5450*n^7 - 21572*n^6 - 35240*n^5 + 480*n^4 + 28800*n^3 + 13824*n^2)*Sn^4 + (20*n^12 + 60*n^11 - 560*n^10 - 1800*n^9 + 4260*n^8 + 16380*n^7 - 5480*n^6 - 49200*n^5 - 21280*n^4 + 34560*n^3 + 23040*n^2)*Sn^2 + 64*n^10 - 1920*n^8 + 17472*n^6 - 52480*n^4 + 36864*n^2 and {0: 0, 1: 0, 2: 1, 3: 0, 4: -4/3, 5: 0, 6: 32/45, 7: 0, 8: -64/315}
             sage: _.compress()
-            Univariate D-finite function defined by the annihilating operator Dx^3 + 16*Dx and the coefficient sequence defined by (n^3 + 3*n^2 + 2*n)*Sn^2 + 16*n and {0: 0, 1: 0, 2: 1}
+            Univariate D-finite function defined by the annihilating operator Dx^3 + 16*Dx and the coefficient sequence defined by (1/2*n^3 + 3/2*n^2 + n)*Sn^2 + 8*n and {0: 0, 1: 0, 2: 1}
 
         """
         A = self.parent().ore_algebra()
