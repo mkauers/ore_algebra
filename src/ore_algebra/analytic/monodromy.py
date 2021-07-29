@@ -189,6 +189,9 @@ def _formal_monodromy_from_critical_monomials(critical_monomials, mor):
             eigv = ring(QQbar.zeta(expo.denominator())**expo.numerator())
         else:
             # conversion via QQbar seems necessary with some number fields
+            # XXX We should actually follow expo along mor, but this is not easy
+            # to do with the current code structure, see comment in
+            # _monodromy_matrices().
             eigv = twopii.mul(QQbar(expo), hold=True).exp(hold=True)
         eigv = ring(eigv)
         if ring is SR:
@@ -331,6 +334,19 @@ def _monodromy_matrices(dop, base, eps=1e-16, sing=None):
         sage: mon = list(_monodromy_matrices(fcc.dop5, -1, 2**(-2**7))) # long time (2.3 s)
         sage: [rec.monodromy[0][0] for rec in mon if rec.point == -5/3] # long time
         [[1.01088578589319884254557667137848...]]
+
+    Thanks to Alexandre Goyer for this example::
+
+        sage: L1 = ((x^5 - x^4 + x^3)*Dx^3 + (27/8*x^4 - 25/9*x^3 + 8*x^2)*Dx^2
+        ....:      + (37/24*x^3 - 25/9*x^2 + 14*x)*Dx - 2*x^2 - 3/4*x + 4)
+        sage: L2 = ((x^5 - 9/4*x^4 + x^3)*Dx^3 + (11/6*x^4 - 31/4*x^3 + 7*x^2)*Dx^2
+        ....:      + (7/30*x^3 - 101/20*x^2 + 10*x)*Dx + 4/5*x^2 + 5/6*x + 2)
+        sage: L = L1*L2
+        sage: L = L.parent()(L.annihilator_of_composition(x+1))
+        sage: mon = list(_monodromy_matrices(L, 0, eps=1e-30)) # long time (1.3-1.7 s)
+        sage: mon[-1][0], mon[-1][1][0][0] # long time
+        (0.6403882032022075?,
+        [1.15462187280628880820271...] + [-0.018967673022432256251718...]*I)
     """
     dop = DifferentialOperator(dop)
     base = QQbar.coerce(base)
@@ -378,7 +394,18 @@ def _monodromy_matrices(dop, base, eps=1e-16, sing=None):
                 except KeyError:
                     NF = point.value.parent()
                     crit = _critical_monomials(dop.shift(point))
-                    crit_cache[mpol] = NF, crit
+                    # Only store the critical monomials for reusing when all
+                    # local exponents are rational. We need to restrict to this
+                    # case because we do not have the technology in place to
+                    # follow algebraic exponents along the embedding of NF in ℂ.
+                    # (They are represented as elements of "new" number fields
+                    # given by as_embedded_number_field_element(), even when
+                    # they actually lie in NF itself as opposed to a further
+                    # algebraic extension. XXX: Ideally, LocalBasisMapper should
+                    # give us access to the tower of extensions in which the
+                    # exponents "naturally" live.)
+                    if all(sol.leftmost.parent() is QQ for sol in crit):
+                        crit_cache[mpol] = NF, crit
                 emb = NF.hom([Scalars(point.value.parent().gen())], check=False)
             mon, scalar = _formal_monodromy_from_critical_monomials(crit, emb)
             if scalar:
