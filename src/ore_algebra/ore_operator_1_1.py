@@ -29,7 +29,7 @@ from sage.arith.all import previous_prime as pp
 from sage.arith.all import gcd, lcm, nth_prime, srange
 from sage.functions.all import floor
 from sage.matrix.constructor import matrix
-from sage.misc.all import prod, union
+from sage.misc.all import prod
 from sage.rings.fraction_field import FractionField_generic
 from sage.rings.rational_field import QQ
 from sage.rings.integer_ring import ZZ
@@ -3939,7 +3939,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
         op = self#.normalize(); // don't kill
         A = op.parent(); R = A.base_ring(); 
         sigma = A.change_ring(R.change_ring(R.base_ring().fraction_field())).sigma()
-        s = []; r = op.order()
+        s = set(); r = op.order()
 
         if op.is_zero():
             return []
@@ -3956,9 +3956,8 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
             tc = [ u[1:] for _, u in shift_factor(prod(all_facs)*sigma(op[0].gcd(p), r)) ]
             lc = [ u[1:] for _, u in shift_factor(prod(all_facs)*op[r]) ]
             for u, v in zip(tc, lc):
-                s = union(s, [j[0] - i[0] for i in u for j in v])
-            s.sort()
-            return s
+                s = s.union([j[0] - i[0] for i in u for j in v])
+            return sorted(s)
         except:
             pass
 
@@ -3972,13 +3971,11 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
         for (q, _) in R(gcd(R0(p), R0(op[r])))(x - r).resultant(R(op[0])(x + y)).numerator().factor():
             if q.degree() == 1:
                 try:
-                    s.append(ZZ(-q[0]/q[1]))
+                    s.add(ZZ(-q[0]/q[1]))
                 except:
                     pass
 
-        s = list(set(s)) # remove duplicates
-        s.sort()
-        return s
+        return sorted(s)
 
     def generalized_series_solutions(self, n=5, dominant_only=False, real_only=False, infolevel=0): 
         r"""
