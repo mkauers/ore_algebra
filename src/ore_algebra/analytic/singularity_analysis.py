@@ -25,6 +25,20 @@ Membrane example::
     (z - 1)^2 * z^2 * (z^2 - 6*z + 1)^2
     sage: b = contribution_all_singularity(seqini, deq, total_order = 2)
 
+Testing for Membrane example ::
+
+    sage: rec = (-(n+8)*(n+7)*(12232*n^3+298144*n^2+2412586*n+6469077)*(n+6)^2
+    ....:     +(n+8)*(183480*n^6+7655560*n^5+131977142*n^4+1202876299*n^3+6112196895*n^2+16418149668*n+18219511026)*Sn
+    ....:     -(n+8)*(941864*n^6+38326904*n^5+644300514*n^4+5727711699*n^3+28407144241*n^2+74557779538*n+80949464718)*Sn^2
+    ....:     +(1993816*n^7+97303624*n^6+2021855198*n^5+23184921987*n^4+158457515673*n^3+645518710454*n^2+1451619424860*n+1390493835900)*Sn^3
+    ....:     +(-1993816*n^7-98090344*n^6-2054897438*n^5-23758375953*n^4-163720428321*n^3-672459054524*n^2-1524577250976*n-1472211879228)*Sn^4
+    ....:     +(n+6)*(941864*n^6+40789672*n^5+730497394*n^4+6921881565*n^3+36590122947*n^2+102300885158*n+118218544398)*Sn^5
+    ....:     -(n+6)*(183480*n^6+7756760*n^5+135519142*n^4+1252328453*n^3+6456460129*n^2+17612930492*n+19872693550)*Sn^6
+    ....:     +(n+7)*(n+6)*(12232*n^3+215600*n^2+1256970*n+2435511)*(n+8)^2*Sn^7)
+    sage: list_ele = rec.to_list(seqini, 1000)
+    sage: all(eval_bound(b[1], j).contains_exact(list_ele[j]) for j in range(b[0], 999))
+    True
+
 Algebraic example::
 
     sage: seqini = [1]
@@ -48,10 +62,16 @@ Diagonal example::
 
 Complex exponents example::
 
-    sage: seqini = [11, 12]
+    sage: seqini = [1, 2, -1/8]
     sage: deq = (z-2)^2 * Dz^2 + z*(z-2) * Dz + 1
-    sage: #deq.local_basis_expansions(2)
-    sage: b = contribution_all_singularity(seqini, deq, total_order = 4)
+    sage: b = contribution_all_singularity(seqini, deq, total_order = 3)
+
+Testing for Complex exponents example ::
+
+    sage: rec = deq.to_S(Shift)
+    sage: list_ele = rec.to_list(seqini, 500)
+    sage: all(eval_bound(b[1], j).contains_exact(list_ele[j]) for j in range(b[0], 499))
+    True
 """
 
 import logging
@@ -121,18 +141,19 @@ def truncated_psi(n, m, v, logz):
     - logz : element of polynomial ring, representing log(z)
     """
     R = v.parent()
+    CB = R.base_ring()
     Enz_coeff = (2*abs(bernoulli(2*n+2)) * (m + 2*n + 2)**(m + 2*n + 2)
             / (2*n + 1)**(2*n + 1) / (m + 1)**(m + 1)
             * gamma(m+2) / (2*n + 1) / (2*n + 2))
     if m == 0:
         return R(logz - v / 2
                 - sum(bernoulli(2*k)*v**(2*k)/(2*k) for k in range(1,n+1))
-                + CBF(0).add_error(Enz_coeff)*v**(2*n+2))
+                + CB(0).add_error(Enz_coeff)*v**(2*n+2))
     else:
         return R((-1)**(m+1) * (gamma(m) * v**m + gamma(m+1) * v**(m+1) / 2
             + sum(bernoulli(2*k)*v**(2*k+m)*rising_factorial(2*k+1, m-1)
                   for k in range(1,n+1)))
-            + CBF(0).add_error(Enz_coeff)*v**(2*n+m+2))
+            + CB(0).add_error(Enz_coeff)*v**(2*n+m+2))
 
 def truncated_logder(alpha, l, order, v, logz, min_n=None):
     """
@@ -150,18 +171,18 @@ def truncated_logder(alpha, l, order, v, logz, min_n=None):
       needed
 
     OUTPUT:
-
-    a polynomial in CBF[v] such that [(d/dα)^l (Γ(n+α)/Γ(α))] / (Γ(n+α)/Γ(α)) is
+    a polynomial in CB[v] such that [(d/dα)^l (Γ(n+α)/Γ(α))] / (Γ(n+α)/Γ(α)) is
     in its range when n >= max(s*|alpha|, min_n)
     """
     list_f = []
     R = v.parent()
+    CB = R.base_ring()
     for m in range(l):
         n = max(0, ceil((order - m - 1)/2))
         Enz_coeff = (abs(bernoulli(2*n+2)) * (m + 2*n + 2)**(m + 2*n + 2)
                 / (2*n + 1)**(2*n + 1) / (m + 1)**(m + 1)
                 * gamma(m+2) / (2*n + 1) / (2*n + 2))
-        list_f.append(truncated_psi(n, m, v, logz) - CBF(alpha).psi(m))
+        list_f.append(truncated_psi(n, m, v, logz) - CB(alpha).psi(m))
         if not min_n is None:
             list_f[-1] = truncate_tail(list_f[-1], order+1, min_n + alpha, v)
     p = der_expf(l)
@@ -182,14 +203,14 @@ def truncated_ratio_gamma(alpha, order, u, s):
     - s : positive number where n >= s*|alpha| is guaranteed, s > 2
 
     OUTPUT:
-
-    - ratio_gamma : a polynomial in CBF[u] such that Γ(n+α)/Γ(n+1)/(n+α/2)^(α-1)
+    - ratio_gamma : a polynomial in CB[u] such that Γ(n+α)/Γ(n+1)/(n+α/2)^(α-1)
       is in its range when n >= s*|alpha|
     """
-    rho = CBF(alpha/2)
+    CB = u.parent().base_ring()
+    rho = CB(alpha/2)
     n_gam = ceil((1+order)/2)
     #Compute B_2l^2r(r) where B_n^m(r) is the generalized Bernoulli polynomial
-    t = polygen(CBF, 't')
+    t = polygen(CB, 't')
     foo = (t._exp_series(2*n_gam + 1) >> 1)
     foo = -2*rho*foo._log_series(2*n_gam)
     foo = (foo >> 2) << 2
@@ -203,16 +224,15 @@ def truncated_ratio_gamma(alpha, order, u, s):
     foo = foo._exp_series(2*n_gam+1)
     series_gen_bern_abs = [c*ZZ(n).factorial() for n, c in enumerate(foo)]
 
-    vd = var('vd') #We should change this
     ratio_gamma_asy = sum(
-            CBF(binomial(2*j-2*vd, 2*j).subs({vd : rho})
+            CB((1 - 2*rho).rising_factorial(2*j) / factorial(2*j)
                 * series_gen_bern[2*j]) * u**(2*j)
             for j in range(n_gam))
-    Rnw_bound = (CBF(binomial(2*n_gam-2*vd, 2*n_gam).subs({vd : rho.real()}))
-            * CBF(abs(series_gen_bern_abs[2*n_gam]))
-            * CBF(abs(alpha.imag())/2/s).exp()
-            * CBF((s+1/2)/(s-1/2)).pow(max(0, -2*rho.real()+1+2*n_gam)))
-    ratio_gamma = ratio_gamma_asy + CBF(0).add_error(Rnw_bound) * u**(2*n_gam)
+    Rnw_bound = ((1 - 2*rho.real()).rising_factorial(2*n_gam) / factorial(2*n_gam)
+            * CB(abs(series_gen_bern_abs[2*n_gam]))
+            * CB(abs(alpha.imag())/2/s).exp()
+            * CB((s+1/2)/(s-1/2)).pow(max(0, -2*rho.real()+1+2*n_gam)))
+    ratio_gamma = ratio_gamma_asy + CB(0).add_error(Rnw_bound) * u**(2*n_gam)
     return ratio_gamma
 
 def truncated_power(alpha, order, w, s):
@@ -227,38 +247,41 @@ def truncated_power(alpha, order, w, s):
     - s : positive number where n >= s*|alpha| is guaranteed, s > 2
 
     OUTPUT:
-
-    - trunc_power : a polynomial in CBF[w] such that (1 + α/2n)^(α-1) is in its
+    - trunc_power : a polynomial in CB[w] such that (1 + α/2n)^(α-1) is in its
       range when n >= s*|alpha|
     """
-    alpha_CBF = CBF(alpha)
-    Mr = (CBF(abs(alpha)).pow(order+1) / (1 - 1/s)
-            * CBF(abs(alpha.imag())/2).exp()
-            * (CBF(3/2).pow(alpha.real() - 1) if alpha.real() - 1 > 0
-               else CBF(1/2).pow(alpha.real() - 1)))
-    t = polygen(CBF, 't')
-    foo = (alpha_CBF - 1) * (1 + alpha_CBF/2 * t)._log_series(order + 1)
+    CB = w.parent().base_ring()
+    alpha_CB = CB(alpha)
+    Mr = (CB(abs(alpha)).pow(order+1) / (1 - 1/s)
+            * CB(abs(alpha.imag())/2).exp()
+            * (CB(3/2).pow(alpha.real() - 1) if alpha.real() - 1 > 0
+               else CB(1/2).pow(alpha.real() - 1)))
+    t = polygen(CB, 't')
+    foo = (alpha_CB - 1) * (1 + alpha_CB/2 * t)._log_series(order + 1)
     foo = foo._exp_series(order + 1)
-    trunc_power = foo(w) + CBF(0).add_error(Mr) * w**(order+1)
+    trunc_power = foo(w) + CB(0).add_error(Mr) * w**(order+1)
     return trunc_power
 
 def truncate_tail(f, deg, min_n, w, kappa = None, logn = None):
     """
     Truncate and bound an expression f(1/n) to a given degree
-    1/n^(deg+t) will be truncated to 1/n^deg * CBF(0).add_error(1/min_n^t)
-
+    If kappa is None, 1/n^(deg+t) (t > 0) will be truncated to
+        1/n^deg * CB(0).add_error(1/min_n^t)
+    If kappa is not None, then 1/n^(deg+t) will be truncated to
+        logn^kappa/n^deg * CB(0).add_error(**)
     INPUT:
 
     - f : polynomial in w = 1/n to be truncated
-    - deg : desired degree of polynomial after truncation
+    - deg : desired degree (in w) of polynomial after truncation
     - min_n : positive number where n >= min_n is guaranteed
     - w : element of polynomial ring, representing 1/n
-
+    - kappa : integer, desired degree (in logn) of polynomial after truncation
+    - logn : element of polynomial ring, representing log(n)
     OUTPUT:
-
-    - g : a polynomial in CBF[w] such that f is in its range when n >= min_n
+    - g : a polynomial in CB[w] such that f is in its range when n >= min_n
     """
     R = f.parent()
+    CB = R.base_ring()
     g = R(0)
     if kappa is None:
         for c, mon in f:
@@ -268,8 +291,8 @@ def truncate_tail(f, deg, min_n, w, kappa = None, logn = None):
                                         (w**(deg_w - deg)).exponents()[0]))
                 mon_g = prod(R.gens()[j]**(tuple_mon_g[j])
                              for j in range(len(tuple_mon_g)))
-                c_g = ((c if c.mid() == 0 else CBF(0).add_error(c.above_abs()))
-                        / CBF(min_n**(deg_w - deg)))
+                c_g = ((c if c.mid() == 0 else CB(0).add_error(c.above_abs()))
+                        / CB(min_n**(deg_w - deg)))
                 g = g + c_g * mon_g
             else:
                 g = g + c*mon
@@ -278,18 +301,46 @@ def truncate_tail(f, deg, min_n, w, kappa = None, logn = None):
             deg_w = mon.degree(w)
             deg_logn = mon.degree(logn)
             if deg_w >= deg:
-                tuple_mon_g = tuple(map(
-                    lambda x, y, z: x - y + z, mon.exponents()[0],
-                    (w**(deg_w - deg)).exponents()[0],
-                    (logn**(kappa - deg_logn)).exponents()[0]))
+                tuple_mon_g = tuple(map(lambda x, y, z: x - y + z, mon.exponents()[0],
+                                        (w**(deg_w - deg)).exponents()[0],
+                                        (logn**(kappa - deg_logn)).exponents()[0]))
                 mon_g = prod(R.gens()[j]**(tuple_mon_g[j])
                              for j in range(len(tuple_mon_g)))
-                c_g = ((c if c.mid() == 0 else CBF(0).add_error(c.above_abs()))
-                        / CBF(min_n**(deg_w - deg))
-                        * CBF(min_n).log().pow(deg_logn - kappa))
+                c_g = ((c if c.mid() == 0 else CB(0).add_error(c.above_abs()))
+                        / CB(min_n**(deg_w - deg))) * CB(min_n).log().pow(deg_logn - kappa)
                 g = g + c_g * mon_g
             else:
                 g = g + c*mon
+    return g
+
+def truncate_tail_SR(val, f, deg, min_n, w, kappa, logn, n):
+    """
+    Truncate and bound an expression n^val*f(1/n) to a given degree
+    1/n^(deg+t), t>=0 will be truncated to
+        logn^kappa/n^deg * CB(0).add_error(**)
+    INPUT:
+    - f : polynomial in w = 1/n to be truncated
+    - deg : desired degree (in n) of expression after truncation
+    - min_n : positive number where n >= min_n is guaranteed
+    - w : element of polynomial ring, representing 1/n
+    - kappa : integer, desired degree (in logn) of polynomial after truncation
+    - logn : element of polynomial ring, representing log(n)
+    - n : symbolic ring variable
+    OUTPUT:
+    - g : an Symbolic Ring expression in variable n, such that f is in its range when n >= min_n
+    """
+    R = f.parent()
+    CB = R.base_ring()
+    g = SR(0)
+    for c, mon in f:
+        deg_w = mon.degree(w)
+        deg_logn = mon.degree(logn)
+        if val.real() - deg_w <= deg:
+            c_g = ((c if c.mid() == 0 else CB(0).add_error(c.above_abs()))
+                    / CB(min_n).pow(deg + deg_w - val.real())) * CB(min_n).log().pow(deg_logn - kappa)
+            g = g + c_g * n**deg * log(n)**kappa
+        else:
+            g = g + c * n**(val - deg_w) * log(n)**deg_logn
     return g
 
 def bound_coeff_mono(alpha, l, deg, w, logn, s=5, min_n=50):
@@ -314,29 +365,30 @@ def bound_coeff_mono(alpha, l, deg, w, logn, s=5, min_n=50):
     - P : polynomial in w, logn
     """
     R = w.parent()
+    CB = R.base_ring()
     v, logz, u, _, _ = R.gens()
     order = max(0, deg - 1)
     if not (QQbar(alpha).is_integer() and QQbar(alpha) <= 0):
         # Value of 1/Γ(α)
-        c = CBF(1/gamma(alpha))
+        c = CB(1/gamma(alpha))
         # Bound for (n+α/2)^(1-α) * Γ(n+α)/Γ(n+1)
         f = truncated_ratio_gamma(alpha, order, u, s)
-        bound_error_u = CBF(abs(alpha/2)**order / (1 - 1/(2*s)))
-        truncated_u = (sum(CBF(-alpha/2)**(j-1) * w**j for j in range(1, order+1))
-                + CBF(0).add_error(bound_error_u) * w**(order+1))
+        bound_error_u = CB(abs(alpha/2)**order / (1 - 1/(2*s)))
+        truncated_u = (sum(CB(-alpha/2)**(j-1) * w**j for j in range(1, order+1))
+                + CB(0).add_error(bound_error_u) * w**(order+1))
         f_z = truncate_tail(f.subs({u : truncated_u}), deg, min_n, w)
         # Bound for [(d/dα)^l (Γ(n+α)/Γ(α)Γ(n+1))] / (Γ(n+α)/Γ(α)Γ(n+1))
         g = truncated_logder(alpha, l, order, v, logz, min_n)
-        bound_error_v = CBF(abs(alpha)**order / (1 - 1/s))
-        truncated_v = (sum(CBF(-alpha)**(j-1) * w**j for j in range(1, order+1))
-                + CBF(0).add_error(bound_error_v) * w**(order+1))
-        bound_error_logz = (CBF(log(2)+1/2)
-                * CBF(2*abs(alpha)).pow(order+1)
-                / CBF(1 - 2/s))
+        bound_error_v = CB(abs(alpha)**order / (1 - 1/s))
+        truncated_v = (sum(CB(-alpha)**(j-1) * w**j for j in range(1, order+1))
+                + CB(0).add_error(bound_error_v) * w**(order+1))
+        bound_error_logz = (CB(log(2)+1/2)
+                * CB(2*abs(alpha)).pow(order+1)
+                / CB(1 - 2/s))
         truncated_logz = (logn
-                - sum(CBF(-alpha)**j * w**j / j
+                - sum(CB(-alpha)**j * w**j / j
                       for j in range(1, order+1))
-                + CBF(0).add_error(bound_error_logz) * w**(order+1))
+                + CB(0).add_error(bound_error_logz) * w**(order+1))
         g_z = truncate_tail(
                 g.subs({v : truncated_v, logz : truncated_logz}),
                 deg, min_n, w)
@@ -353,16 +405,16 @@ def bound_coeff_mono(alpha, l, deg, w, logn, s=5, min_n=50):
         poly_rec_1 = bound_coeff_mono(alpha + 1, l, deg, u, logz, s, min_n - 1)
         poly_rec_2 = bound_coeff_mono(alpha + 1, l - 1, deg, u, logz, s, min_n - 1)
         #u = 1/(n-1)
-        bound_error_u = CBF(1 / (1 - 1/(min_n - 1)))
-        truncated_u = (sum(CBF(1) * w**j for j in range(1, order+1))
-                + CBF(0).add_error(bound_error_u) * w**(order+1))
-        bound_error_logz = CBF(abs(log(2) * 2**(order+1)) / (1 - 2/(min_n - 1)))
+        bound_error_u = CB(1 / (1 - 1/(min_n - 1)))
+        truncated_u = (sum(CB(1) * w**j for j in range(1, order+1))
+                + CB(0).add_error(bound_error_u) * w**(order+1))
+        bound_error_logz = CB(abs(log(2) * 2**(order+1)) / (1 - 2/(min_n - 1)))
         truncated_logz = (logn
-                - sum(CBF(1) * w**j / j
+                - sum(CB(1) * w**j / j
                       for j in range(1, order+1))
-                + CBF(0).add_error(bound_error_logz) * w**(order+1))
-        ss = (CBF(alpha) * poly_rec_1.subs({u : truncated_u, logz : truncated_logz})
-            + CBF(l) * poly_rec_2.subs({u : truncated_u, logz : truncated_logz}))
+                + CB(0).add_error(bound_error_logz) * w**(order+1))
+        ss = (CB(alpha) * poly_rec_1.subs({u : truncated_u, logz : truncated_logz})
+            + CB(l) * poly_rec_2.subs({u : truncated_u, logz : truncated_logz}))
         return truncate_tail(ss, deg, min_n, w)
 
 def _coeff_zero(seqini, deq):
@@ -395,17 +447,24 @@ def valuation_FS(fs):
     """
     Valuation of a formal series of logmonomials
     """
-    v = min([mon.shift for c, mon in fs if not c==0]) + list(fs)[0][1].expo
+    v = min([mon.n for c, mon in fs if not c==0])
     return v
 
 def minshift_FS(fs):
     """
-    Valuation of a formal series of logmonomials
+    Minimal shift of a formal series of logmonomials
     """
     v = min([mon.shift for c, mon in fs if not c==0])
     return v
 
-def extract_local(fs, rho, order=1):
+def maxlog_FS(fs):
+    """
+    Maximal power of logarithm of a formal series of logmonomials
+    """
+    v = max([mon.k for c, mon in fs if not c==0])
+    return v
+
+def extract_local(fs, rho, order, prec_bit):
     """
     Extract the local terms of a formal series of logmonomials, return a
     polynomial in L=logz, Z=z
@@ -415,7 +474,7 @@ def extract_local(fs, rho, order=1):
     - fs : formal series
     - rho : algebraic number
     - order : integer
-
+    - prec_bit : integer, bit precision of the coefficients of extracted terms
     OUTPUT:
 
     - L : element of polynomial ring, denoting log(z)
@@ -423,15 +482,16 @@ def extract_local(fs, rho, order=1):
     - loc : element of same polynomial ring, local truncation (after variable
       change) of fs
     """
-    L, Z = PolynomialRing(CBF, ['L', 'Z']).gens()
-    mylog = CBF(-rho).log() - L
+    CB = ComplexBallField(prec_bit)
+    L, Z = PolynomialRing(CB, ['L', 'Z']).gens()
+    mylog = CB(-rho).log() - L
     ms = minshift_FS(fs)
     loc = sum(c * mylog**mon.k * Z**mon.shift
               for c, mon in fs
               if mon.shift < ms + order)
     return L, Z, loc
 
-def numerical_sol_big_circle(coeff_zero, deq, list_dom_sing, rad, halfside):
+def numerical_sol_big_circle(coeff_zero, deq, list_dom_sing, rad, halfside, prec_bit):
     """
     Compute numerical solutions of f on big circle of radius rad
 
@@ -442,15 +502,17 @@ def numerical_sol_big_circle(coeff_zero, deq, list_dom_sing, rad, halfside):
     - list_dom_sing : list of algebraic numbers, list of dominant singularities
     - rad : radius of big circle
     - halfside : half of side length of covering squares
+    - prec_bit : integer, approximated desired bit precision
     """
+    prec = 2**(- prec_bit - 13) #To be optimized
     logger.info("Bounding on large circle...")
     begin_time = time.time()
 
     sings = list_dom_sing.copy()
     sings.sort(key=lambda s: arg(s))
     num_sings = len(sings)
-    C = ComplexBallField(200)
-    R = RealBallField(200)
+    C = ComplexBallField(4 * prec_bit)
+    R = RealBallField(4 * prec_bit)
     pairs = []
     num_sq = 0
     for j in range(num_sings - 1):
@@ -464,9 +526,9 @@ def numerical_sol_big_circle(coeff_zero, deq, list_dom_sing, rad, halfside):
                         for k in range(np+1)]
         path_upper = [0] + [[_z] for _z in circle_upper]
         path_lower = [0] + [[_z] for _z in circle_lower]
-        pairs += deq.numerical_solution(coeff_zero, path_upper, 1e-30,
+        pairs += deq.numerical_solution(coeff_zero, path_upper, prec,
                                         assume_analytic=True)
-        pairs += deq.numerical_solution(coeff_zero, path_lower, 1e-30,
+        pairs += deq.numerical_solution(coeff_zero, path_lower, prec,
                                         assume_analytic=True)
     # last arc is a bit special: we need to add 2*pi to ending
     j = num_sings - 1
@@ -480,9 +542,9 @@ def numerical_sol_big_circle(coeff_zero, deq, list_dom_sing, rad, halfside):
                     for k in range(np+1)]
     path_upper = [0] + [[_z] for _z in circle_upper]
     path_lower = [0] + [[_z] for _z in circle_lower]
-    pairs += deq.numerical_solution(coeff_zero, path_upper, 1e-30,
+    pairs += deq.numerical_solution(coeff_zero, path_upper, prec,
             assume_analytic=True)
-    pairs += deq.numerical_solution(coeff_zero, path_lower, 1e-30,
+    pairs += deq.numerical_solution(coeff_zero, path_lower, prec,
             assume_analytic=True)
 
     end_time = time.time()
@@ -491,7 +553,7 @@ def numerical_sol_big_circle(coeff_zero, deq, list_dom_sing, rad, halfside):
     return pairs
 
 def contribution_single_singularity(coeff_zero, deq, rho, rad_input,
-        coord_big_circle, total_order=1, min_n=50):
+        coord_big_circle, total_order=1, min_n=50, prec_bit=53):
     """
     Compute a lower bound of a dominant singularity's contribution to f_n
 
@@ -504,20 +566,21 @@ def contribution_single_singularity(coeff_zero, deq, rho, rad_input,
     - coord_big_circle : coordinates of the "big circle" of radius rad_input
     - total_order : positive integer
     - min_n : positive integer, n > min_n
+    - prec_bit : integer, numeric working precision (in bit)
     OUTPUT:
     - list_val : list of valuation of solutions at rho
     - list_bound : list of expressions of bound
-    - val_big_circle : values on big circle
-    - max_kappa
+    - val_big_circle : list of CB numbers, values on big circle
+    - max_kappa : integer, upper bound on the exponent of log that can appear
+    - min_val_rho : element of QQbar, minimal valuation of non-analytic solutions
     """
+    CB = ComplexBallField(prec_bit)
+    RB = RealBallField(prec_bit)
 
     z = deq.parent().base_ring().gens()[0]
-
-    rad = RBF(rad_input)
-
+    rad = RB(rad_input)
     loc = deq.local_basis_expansions(rho)
-
-    coord_all = deq.numerical_transition_matrix([0, rho], 1e-20,
+    coord_all = deq.numerical_transition_matrix([0, rho], 2**(-prec_bit-13),
                                               assume_analytic=True) * coeff_zero
 
     # Regroup elements of the loc basis according to valuation modulo ZZ
@@ -528,14 +591,15 @@ def contribution_single_singularity(coeff_zero, deq, rho, rad_input,
 
     # Initialize results and bounds for different basis
     list_val_rho = []
-    list_val = []
+    list_val_real = []
     list_coord = []
     list_locf_long = []
     list_bound = []
     list_kappa = []
-    val_big_circle = [CBF(0)] * len(coord_big_circle)
+    list_maxlog = []
+    val_big_circle = [CB(0)] * len(coord_big_circle)
 
-    v, logz, u, w, logn = PolynomialRing(CBF,
+    v, logz, u, w, logn = PolynomialRing(CB,
             ["v", "logz", "u", "w", "logn"], order='lex').gens()
 
     for ind_basis in list_ind:
@@ -547,31 +611,39 @@ def contribution_single_singularity(coeff_zero, deq, rho, rad_input,
 
         # Local expansion of f at z=rho, in terms of variables Z and L
         locf_long = sum([c*ser for c, ser in zip(coord, loc)])
-        list_val_rho.append(valuation_FS(locf_long))
-        list_coord.append(coord)
-        list_locf_long.append(locf_long)
+        val_rho = valuation_FS(locf_long)
+        maxlog = maxlog_FS(locf_long)
 
-    list_val_real = [v.real() for v in list_val_rho]
+        if not (val_rho.is_integer() and val_rho >= 0 and maxlog == 0):
+            list_val_real.append(val_rho.real())
+        list_locf_long.append(locf_long)
+        list_val_rho.append(val_rho)
+        list_coord.append(coord)
+
     min_val_rho = min(list_val_real)
     num_bas = 0
 
-    for ind_basis in list_ind:
+    for locf_long in list_locf_long:
 
         val_rho = list_val_rho[num_bas]
         coord = list_coord[num_bas]
-        locf_long = list_locf_long[num_bas]
 
+        num_bas = num_bas + 1
         order = max(0, ceil(total_order - (val_rho.real() - min_val_rho)))
 
         num_bas = num_bas + 1
-        logger.info("Computing basis %d", num_bas)
+        logger.info("Computing basis %d to order %d", num_bas, order)
         cycle_begin_time = time.time()
 
         # Local expansion of f at z=rho, in terms of variables Z and L
-        L, Z, locf_ini_terms = extract_local(locf_long, rho, order)
+        L, Z, locf_ini_terms = extract_local(locf_long, rho, order, prec_bit)
 
-        #> before going further, you could kill any local solution known to be
-        # analytic at rho
+        #small radius
+        smallrad = rad - CB(rho).below_abs()
+
+        # Convert the equation to an enriched data structure necessary for
+        # calling some of the bound computation routines, and shift to the
+        # origin.
 
         # Maximum power of log(z - rho) that can appear in a solution
         K, rho1, _ = rho.as_number_field_element()
@@ -584,15 +656,6 @@ def contribution_single_singularity(coeff_zero, deq, rho, rad_input,
         kappa = ZZ(sum(mult for r, mult in expo if r.is_integer()) - 1)
 
         list_kappa.append(kappa)
-
-        list_val.append(val_rho)
-
-        #small radius
-        smallrad = rad - CBF(rho).below_abs()
-
-        # Convert the equation to an enriched data structure necessary for
-        # calling some of the bound computation routines, and shift to the
-        # origin.
 
         # Make a copy of deq with a base field including val_rho
         K1, list_val_rho1 = as_embedded_number_field_elements([val_rho])
@@ -617,7 +680,7 @@ def contribution_single_singularity(coeff_zero, deq, rho, rad_input,
         # The last few coefficients of the local expansion of f will be used
         # to compute a residual associated to that particular solution.
         coeff = { (mon.shift, mon.k): c*ZZ(mon.k).factorial()
-                  for c, mon in locf1 } #(z^shift*log^k)
+                  for c, mon in locf1 }
         last = list(reversed([[coeff.get((shift, k), 0) for k in range(kappa+1)]
                           for shift in range(order1)]))
 
@@ -645,7 +708,7 @@ def contribution_single_singularity(coeff_zero, deq, rho, rad_input,
 
         # Bound on the intermediate terms
         ib = sum(smallrad**(n-order) *
-                 max(coeff.get((n,k), RBF(0)).above_abs()
+                 max(coeff.get((n,k), RB(0)).above_abs()
                      for k in range(kappa + 1))
                  for n in range(order, order1))
         # Bound on the *values* for |z-ρ| <= smallrad of the functions
@@ -655,8 +718,8 @@ def contribution_single_singularity(coeff_zero, deq, rho, rad_input,
         # Change representation from log(z-ρ) to log(1/(1 - z/ρ))
         # The h_i are cofactors of powers of log(z-ρ), not log(1/(1-z/ρ)).
         # Define the B polynomial in a way that accounts for that.
-        ll = abs(CBF(-rho).log())
-        B = vb*RBF['z']([
+        ll = abs(CB(-rho).log())
+        B = vb*RB['z']([
                 sum([ll**(m - j) * binomial(m, j) / factorial(m)
                      for m in range(j, kappa + 1)])
                 for j in range(kappa + 1)])
@@ -666,20 +729,20 @@ def contribution_single_singularity(coeff_zero, deq, rho, rad_input,
             raise ValueError("min_n too small! Cannot guarantee s>2")
 
         # Sub polynomial factor for bound on S(n)
-        cst_S = (CBF(0).add_error(CBF(abs(rho)).pow(val_rho.real()+order)
-            * ((abs(CBF(rho).arg()) + 2*RBF(pi))*abs(val_rho.imag())).exp()
-            * CBF(1 - 1/min_n).pow(CBF(-min_n-1))))
-        bound_S = cst_S*B(CBF(pi)+logn)
+        cst_S = (CB(0).add_error(CB(abs(rho)).pow(val_rho.real()+order)
+            * ((abs(CB(rho).arg()) + 2*RB(pi))*abs(val_rho.imag())).exp()
+            * CB(1 - 1/min_n).pow(CB(-min_n-1))))
+        bound_S = cst_S*B(CB(pi)+logn)
         # Sub polynomial factor for bound on L(n)
         if val_rho + order <= 0:
             C_nur = 1
         else:
-            C_nur = 2 * (CBF(e) / (CBF(val_rho.real()) + order)
-                             * (s - 2)/(2*s)).pow((RBF(val_rho.real()) + order))
-        cst_L = (CBF(0).add_error(C_nur * CBF(1/pi)
-                                 * CBF(abs(rho)).pow(RBF(val_rho.real())+order))
-            * ((abs(CBF(rho).arg()) + 2*RBF(pi))*abs(val_rho.imag())).exp())
-        bound_L = cst_L*B(CBF(pi)+logn)
+            C_nur = 2 * (CB(e) / (CB(val_rho.real()) + order)
+                             * (s - 2)/(2*s)).pow((RB(val_rho.real()) + order))
+        cst_L = (CB(0).add_error(C_nur * CB(1/pi)
+                                 * CB(abs(rho)).pow(RB(val_rho.real())+order))
+            * ((abs(CB(rho).arg()) + 2*RB(pi))*abs(val_rho.imag())).exp())
+        bound_L = cst_L*B(CB(pi)+logn)
 
         # Values of the tail of the local expansion.
         # With the first square (and possibly some others), the argument of the
@@ -687,9 +750,9 @@ def contribution_single_singularity(coeff_zero, deq, rho, rad_input,
         # because the enclosure returned by Arb takes both branches into
         # account.
 
-        _zeta = CBF(rho)
+        _zeta = CB(rho)
         dom_big_circle = [
-                (_z-_zeta).pow(CBF(val_rho))
+                (_z-_zeta).pow(CB(val_rho))
                     * locf_ini_terms((~(1-_z/_zeta)).log(), _z-_zeta)
                 for _z in coord_big_circle]
         val_big_circle = [val_big_circle[j] + dom_big_circle[j]
@@ -700,7 +763,7 @@ def contribution_single_singularity(coeff_zero, deq, rho, rad_input,
 
         bound_lead_terms = sum(
                 tup[0]
-                    * CBF(- rho).pow(CBF(val_rho+tup[2]))
+                    * CB(- rho).pow(CB(val_rho+tup[2]))
                     * w**(tup[2])
                     * bound_coeff_mono(-val_rho-tup[2], tup[1], order - tup[2],
                                        w, logn, s, min_n)
@@ -714,10 +777,10 @@ def contribution_single_singularity(coeff_zero, deq, rho, rad_input,
                 num_bas, cycle_end_time - cycle_begin_time)
 
     max_kappa = max(list_kappa)
-    return list_val, list_bound, val_big_circle, max_kappa
+    return list_val_rho, list_bound, val_big_circle, max_kappa, min_val_rho
 
 def contribution_all_singularity(seqini, deq, singularities=None,
-        known_analytic=[0], rad=None, total_order=1, min_n=50, halfside=None):
+        known_analytic=[0], rad=None, total_order=1, min_n=50, halfside=None, prec_bit = 53):
     """
     Compute a bound for the n-th element of a holonomic sequence
 
@@ -732,13 +795,19 @@ def contribution_all_singularity(seqini, deq, singularities=None,
       be analytic, default is [0]
     - rad : radius of the big circle R_0. If None, compute automatically
     - total_order : integer, order to which the bound is computed
-    - min_n : integer, bound is valid when n > min_n
-
+    - min_n : integer, bound is valid when n > max{N0, min_n}
+    - halfside : real number, parameter to be passed on to numerical_sol_big_circle()
+    - prec_bit : integer, numeric working precision (in bit)
     OUTPUT:
-
-    - bound : symbolic expression in variable 'n', a bound for the n-th element
-      of a holonomic sequence
+    - N0 : integer, bound is valid when n > max{N0, min_n}
+    - bound : list of lists [rho, ser], where
+        - rho are in QQbar
+        - ser are symbolic expressions in variable 'n',
+        - the sum of rho**(-n) * ser is a bound for the n-th element of a holonomic sequence
     """
+    CB = ComplexBallField(prec_bit)
+    RB = RealBallField(prec_bit)
+
     coeff_zero = _coeff_zero(seqini, deq)
 
     if singularities is None:
@@ -790,9 +859,9 @@ def contribution_all_singularity(seqini, deq, singularities=None,
                     for ex in list_dom_sing
                     if not (ex - ds) == 0)
                 for ds in list_dom_sing)
-        if min_n <= ceil(2*abs(list_dom_sing[-1])/min_dist):
-            raise ValueError("Please increase min_n to at least "
-                +str(ceil(2*abs(list_dom_sing[-1])/min_dist)))
+        N1 = ceil(2*abs(list_dom_sing[-1])/min_dist)
+    else:
+        N1 = 0
 
     #Automatically choose halfside
     if halfside is None:
@@ -800,36 +869,39 @@ def contribution_all_singularity(seqini, deq, singularities=None,
         logger.info("halfside of small squares: %s", halfside)
 
     pairs = numerical_sol_big_circle(coeff_zero, deq, list_dom_sing, rad_input,
-                                                                       halfside)
+                                                                       halfside, prec_bit)
     coord_big_circle = [z for z, _ in pairs]
     f_big_circle = [f for _, f in pairs]
-    max_big_circle = RBF(0)
+    max_big_circle = RB(0)
 
-    #A.<n> = AsymptoticRing(growth_group='n^QQbar * log(n)^ZZ * QQbar^n', coefficient_ring=CBF)
-    #bound = A(0)
     n = SR.var('n')
-    bound = 0
+    bound = []
     list_val_bigcirc = []
     list_data = []
     list_max_kappa = []
+    list_min_val_rho = []
 
     for rho in list_dom_sing:
-        list_val, list_bound, val_big_circle, max_kappa = contribution_single_singularity(
+        list_val, list_bound, val_big_circle, max_kappa, min_val_rho = contribution_single_singularity(
                 coeff_zero, deq, rho, rad_input, coord_big_circle, total_order,
-                min_n)
+                min_n, prec_bit = prec_bit)
         list_data.append((rho, list_val, list_bound))
         list_max_kappa.append(max_kappa)
         list_val_bigcirc.append(val_big_circle)
+        list_min_val_rho.append(min_val_rho)
 
     final_kappa = max(list_max_kappa)
+    final_val = min(list_min_val_rho)
+    re_gam = - final_val - 1 #max([-val.real()-1 for val in list_val])
     v, logz, u, w, logn = list_data[0][2][0].parent().gens()
 
     for rho, list_val, list_bound in list_data:
-        bound += sum([
-            SR(QQbar(1/rho)**n) * SR(n**QQbar(-val-1))
-                * truncate_tail(poly_bound, poly_bound.degree(w), min_n, w,
-                                          final_kappa, logn)(0,0,0, 1/n, log(n))
-            for val, poly_bound in zip(list_val, list_bound)])
+        #bound += [
+        #    SR(QQbar(1/rho)**n) * SR(n**QQbar(-val-1))
+        #        * truncate_tail(poly_bound, poly_bound.degree(w), min_n, w, final_kappa, logn)(0,0,0, 1/n, log(n))
+        #    for val, poly_bound in zip(list_val, list_bound)]
+        bound.append([rho, sum([truncate_tail_SR(-val-1, poly_bound, re_gam - total_order, min_n, w, final_kappa, logn, n)
+            for val, poly_bound in zip(list_val, list_bound)])])
 
     sum_g = [sum(v) for v in zip(*list_val_bigcirc)]
     for v in list_val_bigcirc:
@@ -840,17 +912,36 @@ def contribution_all_singularity(seqini, deq, singularities=None,
         (s - vv).above_abs()
         for s, vv in zip(sum_g, f_big_circle)))
     #Simplify bound contributed by big circle
-    M = RBF(abs(list_dom_sing[0]))
-    re_gam = max([-val.real()-1 for val in list_val])
-    rad_err = max_big_circle * (((CBF(e) * (total_order - re_gam)
-                    / (M/CBF(rad_input)).log()).pow(RBF(re_gam - total_order))
-                    / CBF(min_n).log().pow(final_kappa))
-                if re_gam <= total_order + min_n * (M/RBF(rad_input)).log()
-                else ((M/CBF(rad_input)).pow(min_n)
-                    * CBF(min_n).pow(total_order - re_gam)
-                    / CBF(min_n).log().pow(final_kappa)))
-    bound += CBF(0).add_error(rad_err) * (SR(QQbar(1/abs(list_dom_sing[0]))**n)
-                                          * SR(n**QQbar(re_gam))
-                                          * SR(1/n)**total_order
-                                          * SR(log(n))**final_kappa)
-    return bound
+    M = RB(abs(list_dom_sing[0]))
+    rad_err = max_big_circle * (((CB(e) * (total_order - re_gam)
+                  / (M/CB(rad_input)).log()).pow(RB(re_gam - total_order))
+                 / CB(min_n).log().pow(final_kappa)) if re_gam <= total_order + min_n * (M/RB(rad_input)).log()
+                else ((M/CB(rad_input)).pow(min_n) * CB(min_n).pow(total_order - re_gam)
+                 / CB(min_n).log().pow(final_kappa)))
+    #bound += [CB(0).add_error(rad_err) * (SR(QQbar(1/abs(list_dom_sing[0]))**n)
+    #                                      * SR(n**QQbar(re_gam)) * (SR(1/n)**total_order) * (SR(log(n))**final_kappa))]
+
+    #Add big circle error bound
+    list_rho = [rho for rho, _, _ in list_data]
+    if abs(list_dom_sing[0]) in list_rho:
+        ind_rho_real = list_rho.index(abs(list_dom_sing[0]))
+        bound[ind_rho_real][1] += CB(0).add_error(rad_err) * SR(n**QQbar(re_gam - total_order)) * (SR(log(n))**final_kappa)
+    else:
+        bound += [[abs(list_dom_sing[0]),
+                   CB(0).add_error(rad_err) * SR(n**QQbar(re_gam - total_order)) * (SR(log(n))**final_kappa)]]
+    #print(CB(0).add_error(rad_err) * (SR(QQbar(1/abs(list_dom_sing[0]))**n)
+    #                                      * SR(n**QQbar(re_gam)) * (SR(1/n)**total_order) * (SR(log(n))**final_kappa)))
+
+    #Compute N0
+    list_all_val = [val for _, lval, _ in list_data for val in lval]
+    N0 = max(ceil(2.1 * (max([abs(val) for val in list_all_val]) + total_order + 1)), N1)
+
+    return N0, bound
+
+def eval_bound(bound, n_num, prec = 53):
+    """
+    Evaluation of a bound produced in contribution_all_singularity()
+    """
+    CBFp = ComplexBallField(prec)
+    list_eval = [rho**(-n_num) * ser.subs(n = n_num) for rho, ser in bound]
+    return CBFp(sum(list_eval))
