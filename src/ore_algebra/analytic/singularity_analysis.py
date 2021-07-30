@@ -173,6 +173,7 @@ def truncated_logder(alpha, l, order, v, logz, min_n=None):
       needed
 
     OUTPUT:
+
     a polynomial in CB[v] such that [(d/dα)^l (Γ(n+α)/Γ(α))] / (Γ(n+α)/Γ(α)) is
     in its range when n >= max(s*|alpha|, min_n)
     """
@@ -205,6 +206,7 @@ def truncated_ratio_gamma(alpha, order, u, s):
     - s : positive number where n >= s*|alpha| is guaranteed, s > 2
 
     OUTPUT:
+
     - ratio_gamma : a polynomial in CB[u] such that Γ(n+α)/Γ(n+1)/(n+α/2)^(α-1)
       is in its range when n >= s*|alpha|
     """
@@ -249,6 +251,7 @@ def truncated_power(alpha, order, w, s):
     - s : positive number where n >= s*|alpha| is guaranteed, s > 2
 
     OUTPUT:
+
     - trunc_power : a polynomial in CB[w] such that (1 + α/2n)^(α-1) is in its
       range when n >= s*|alpha|
     """
@@ -267,10 +270,12 @@ def truncated_power(alpha, order, w, s):
 def truncate_tail(f, deg, min_n, w, kappa = None, logn = None):
     """
     Truncate and bound an expression f(1/n) to a given degree
+
     If kappa is None, 1/n^(deg+t) (t > 0) will be truncated to
         1/n^deg * CB(0).add_error(1/min_n^t)
     If kappa is not None, then 1/n^(deg+t) will be truncated to
         logn^kappa/n^deg * CB(0).add_error(**)
+
     INPUT:
 
     - f : polynomial in w = 1/n to be truncated
@@ -279,7 +284,9 @@ def truncate_tail(f, deg, min_n, w, kappa = None, logn = None):
     - w : element of polynomial ring, representing 1/n
     - kappa : integer, desired degree (in logn) of polynomial after truncation
     - logn : element of polynomial ring, representing log(n)
+
     OUTPUT:
+
     - g : a polynomial in CB[w] such that f is in its range when n >= min_n
     """
     R = f.parent()
@@ -320,7 +327,9 @@ def truncate_tail_SR(val, f, deg, min_n, w, kappa, logn, n):
     Truncate and bound an expression n^val*f(1/n) to a given degree
     1/n^(deg+t), t>=0 will be truncated to
         logn^kappa/n^deg * CB(0).add_error(**)
+
     INPUT:
+
     - f : polynomial in w = 1/n to be truncated
     - deg : desired degree (in n) of expression after truncation
     - min_n : positive number where n >= min_n is guaranteed
@@ -328,7 +337,9 @@ def truncate_tail_SR(val, f, deg, min_n, w, kappa, logn, n):
     - kappa : integer, desired degree (in logn) of polynomial after truncation
     - logn : element of polynomial ring, representing log(n)
     - n : symbolic ring variable
+
     OUTPUT:
+
     - g : an Symbolic Ring expression in variable n, such that f is in its range when n >= min_n
     """
     R = f.parent()
@@ -477,6 +488,7 @@ def extract_local(fs, rho, order, prec_bit):
     - rho : algebraic number
     - order : integer
     - prec_bit : integer, bit precision of the coefficients of extracted terms
+
     OUTPUT:
 
     - L : element of polynomial ring, denoting log(z)
@@ -569,7 +581,9 @@ def contribution_single_singularity(coeff_zero, deq, rho, rad_input,
     - total_order : positive integer
     - min_n : positive integer, n > min_n
     - prec_bit : integer, numeric working precision (in bit)
+
     OUTPUT:
+
     - list_val : list of valuation of solutions at rho
     - list_bound : list of expressions of bound
     - val_big_circle : list of CB numbers, values on big circle
@@ -800,7 +814,9 @@ def contribution_all_singularity(seqini, deq, singularities=None,
     - min_n : integer, bound is valid when n > max{N0, min_n}
     - halfside : real number, parameter to be passed on to numerical_sol_big_circle()
     - prec_bit : integer, numeric working precision (in bit)
+
     OUTPUT:
+
     - N0 : integer, bound is valid when n > max{N0, min_n}
     - bound : list of lists [rho, ser], where
         - rho are in QQbar
