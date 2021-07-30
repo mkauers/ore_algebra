@@ -7,10 +7,12 @@ Author: Ruiwen Dong <ruiwen.dong@polytechique.edu>
 EXAMPLES::
 
     sage: from ore_algebra import OreAlgebra
-    sage: from ore_algebra.analytic.singularity_analysis import contribution_all_singularity
+    sage: from ore_algebra.analytic.singularity_analysis import contribution_all_singularity, eval_bound
 
-    sage: Pols.<z> = PolynomialRing(QQ)
-    sage: Diff.<Dz> = OreAlgebra(Pols)
+    sage: Pols_z.<z> = PolynomialRing(QQ)
+    sage: Pols_n.<n> = PolynomialRing(QQ)
+    sage: Diff.<Dz> = OreAlgebra(Pols_z)
+    sage: Shift.<Sn> = OreAlgebra(Pols_n)
 
 Membrane example::
 
