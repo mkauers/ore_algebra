@@ -647,7 +647,6 @@ def contribution_single_singularity(coeff_zero, deq, rho, rad_input,
         num_bas = num_bas + 1
         order = max(0, ceil(total_order - (val_rho.real() - min_val_rho)))
 
-        num_bas = num_bas + 1
         logger.info("Computing basis %d to order %d", num_bas, order)
         cycle_begin_time = time.time()
 
