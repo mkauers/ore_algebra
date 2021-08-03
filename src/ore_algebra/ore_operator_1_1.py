@@ -1562,7 +1562,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         Places are assumed to be equal if they are given by the same polynomial,
         the valuation-related functions are ignored. The order of the places is
         also ignored.
-        
+
             sage: places1 = [x+1,x^2+1]
             sage: args1 = L._normalize_global_integral_basis_args(basis=None, places=places1)
             sage: places2 = [L._make_valuation_place(f) for f in places1]
@@ -1572,24 +1572,34 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
             sage: args1 == args2 == args3
             True
 
+        If the valuation-related functions are changed and one expects the result to be different, one should also change an optional argument to invalidate the cache.
+        
+            sage: places4 = [L._make_valuation_place(f, iota=lambda z,j: 0) for f in places1]
+            sage: args4 = L._normalize_global_integral_basis_args(basis=None, places=places4)
+            sage: args1 == args4 
+            True
+            sage: args5 = L._normalize_global_integral_basis_args(basis=None, places=places4, iota=lambda z,j:0)
+            sage: args1 == args5
+            False
+        
         Changing the verbosity level is also ignored.
         
-            sage: args4 = L._normalize_global_integral_basis_args(basis=None, places=places1, infolevel=2)
-            sage: args1 == args4
+            sage: args6 = L._normalize_global_integral_basis_args(basis=None, places=places1, infolevel=2)
+            sage: args1 == args6
             True
 
         All other arguments, including the initial basis, lead to a different object.
         
             sage: basis2 = [1,x*Dx]
-            sage: args5 = L._normalize_global_integral_basis_args(basis=basis2, places=places1)
-            sage: args5 == args1
+            sage: args7 = L._normalize_global_integral_basis_args(basis=basis2, places=places1)
+            sage: args1 == args7
             False
 
         It is possible to bypass the cached value by passing a dummy parameter
         to the method.
         
-            sage: args6 = L._normalize_global_integral_basis_args(basis=None, unused_arg=15)
-            sage: args6 == args1
+            sage: args8 = L._normalize_global_integral_basis_args(basis=None, unused_arg=15)
+            sage: args1 == args8
             False
             sage: L.global_integral_basis(unused_arg=15)
             [1, x*Dx]
