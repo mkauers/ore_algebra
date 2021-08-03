@@ -1410,6 +1410,9 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         OUTPUT: a hashable object formed with the arguments, ensuring that the
         result of `local_integral_basis` only depends on the value of this
         object, and not on the choice of the specific set of arguments.
+
+        EXAMPLES:
+        #TODO
         """
         if basis:
             basis = tuple(basis)
@@ -1540,13 +1543,57 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
             self,basis=None, places=None, 
             infolevel=0,**args):
         """
-        Normalize the arguments in a call to `local_integral_basis`.
+        Normalize the arguments in a call to `global_integral_basis`.
 
-        INPUT: same as `local_integral_basis`
+        INPUT: same as `global_integral_basis`
 
         OUTPUT: a hashable object formed with the arguments, ensuring that the
-        result of `local_integral_basis` only depends on the value of this
-        object, and not on the choice of the specific set of arguments.
+        validity of an output of `global_integral_basis` only depends on the
+        value of this object, and not on the choice of the specific set of
+        arguments.
+
+        EXAMPLES:
+
+            sage: from ore_algebra import *
+            sage: R.<x> = QQ['x']
+            sage: A.<Dx> = OreAlgebra(R, 'Dx')
+            sage: L = x*Dx^2 + 1
+
+        Places are assumed to be equal if they are given by the same polynomial,
+        the valuation-related functions are ignored. The order of the places is
+        also ignored.
+        
+            sage: places1 = [x+1,x^2+1]
+            sage: args1 = L._normalize_global_integral_basis_args(basis=None, places=places1)
+            sage: places2 = [L._make_valuation_place(f) for f in places1]
+            sage: args2 = L._normalize_global_integral_basis_args(basis=None, places=places2)
+            sage: places3 = [L._make_valuation_place(f) for f in places1[::-1]]
+            sage: args3 = L._normalize_global_integral_basis_args(basis=None, places=places3)
+            sage: args1 == args2 == args3
+            True
+
+        Changing the verbosity level is also ignored.
+        
+            sage: args4 = L._normalize_global_integral_basis_args(basis=None, places=places1, infolevel=2)
+            sage: args1 == args4
+            True
+
+        All other arguments, including the initial basis, lead to a different object.
+        
+            sage: basis2 = [1,x*Dx]
+            sage: args5 = L._normalize_global_integral_basis_args(basis=basis2, places=places1)
+            sage: args5 == args1
+            False
+
+        It is possible to bypass the cached value by passing a dummy parameter
+        to the method.
+        
+            sage: args6 = L._normalize_global_integral_basis_args(basis=None, unused_arg=15)
+            sage: args6 == args1
+            False
+            sage: L.global_integral_basis(unused_arg=15)
+            [1, x*Dx]
+
         """
         if basis:
             basis = tuple(basis)
@@ -3270,13 +3317,13 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         def get_functions(xi,sols,x,ore_ext):
             # In both functions the second argument `place` is ignored because
             # captured
-            def val_fct(op,place,base=C, iota=None):
+            def val_fct(op,place,base=C, iota=None, **kwargs):
                 op = ore_ext([c(x=x+xi)
                               for c in op.coefficients(sparse=False)])
                 vect = [op(s).valuation(base=C,iota=iota) for s in sols]
                 return min(vect)
             def raise_val_fct(ops,place,dim=None,base=C,iota=None,
-                              infolevel=0):
+                              infolevel=0, **kwargs):
                 # TODO: Is it okay that we don't use dim?
                 ops = [ore_ext([c(x=x+xi)
                                 for c in op.coefficients(sparse=False)])
@@ -3314,7 +3361,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         val_fct, raise_val_fct = get_functions(xi,sols,x,ore_ext)
         return f,val_fct, raise_val_fct
 
-    def find_candidate_places(self, infolevel=0, iota=None):
+    def find_candidate_places(self, infolevel=0, iota=None, **kwargs):
         lr = self.coefficients()[-1]
         fact = list(lr.factor())
         places = []
@@ -4487,7 +4534,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
         return res
     
     
-    def find_candidate_places(self, Zmax = None, infolevel=0):
+    def find_candidate_places(self, Zmax = None, infolevel=0, **kwargs):
         # TODO doc
 
         # Helpers
