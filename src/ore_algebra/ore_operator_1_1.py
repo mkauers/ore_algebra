@@ -1540,7 +1540,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         raise NotImplementedError # abstract
 
     def _normalize_global_integral_basis_args(
-            self,basis=None, places=None, 
+            self, places=None, basis=None,
             infolevel=0,**args):
         """
         Normalize the arguments in a call to `global_integral_basis`.
@@ -1552,57 +1552,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         value of this object, and not on the choice of the specific set of
         arguments.
 
-        EXAMPLES:
-
-            sage: from ore_algebra import *
-            sage: R.<x> = QQ['x']
-            sage: A.<Dx> = OreAlgebra(R, 'Dx')
-            sage: L = x*Dx^2 + 1
-
-        Places are assumed to be equal if they are given by the same polynomial,
-        the valuation-related functions are ignored. The order of the places is
-        also ignored.
-
-            sage: places1 = [x+1,x^2+1]
-            sage: args1 = L._normalize_global_integral_basis_args(basis=None, places=places1)
-            sage: places2 = [L._make_valuation_place(f) for f in places1]
-            sage: args2 = L._normalize_global_integral_basis_args(basis=None, places=places2)
-            sage: places3 = [L._make_valuation_place(f) for f in places1[::-1]]
-            sage: args3 = L._normalize_global_integral_basis_args(basis=None, places=places3)
-            sage: args1 == args2 == args3
-            True
-
-        If the valuation-related functions are changed and one expects the result to be different, one should also change an optional argument to invalidate the cache.
-        
-            sage: places4 = [L._make_valuation_place(f, iota=lambda z,j: 0) for f in places1]
-            sage: args4 = L._normalize_global_integral_basis_args(basis=None, places=places4)
-            sage: args1 == args4 
-            True
-            sage: args5 = L._normalize_global_integral_basis_args(basis=None, places=places4, iota=lambda z,j:0)
-            sage: args1 == args5
-            False
-        
-        Changing the verbosity level is also ignored.
-        
-            sage: args6 = L._normalize_global_integral_basis_args(basis=None, places=places1, infolevel=2)
-            sage: args1 == args6
-            True
-
-        All other arguments, including the initial basis, lead to a different object.
-        
-            sage: basis2 = [1,x*Dx]
-            sage: args7 = L._normalize_global_integral_basis_args(basis=basis2, places=places1)
-            sage: args1 == args7
-            False
-
-        It is possible to bypass the cached value by passing a dummy parameter
-        to the method.
-        
-            sage: args8 = L._normalize_global_integral_basis_args(basis=None, unused_arg=15)
-            sage: args1 == args8
-            False
-            sage: L.global_integral_basis(unused_arg=15)
-            [1, x*Dx]
+        EXAMPLES: see ``global_integral_basis``
 
         """
         if basis:
@@ -1617,7 +1567,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         return (basis,places,args)
 
     @cached_method(key=_normalize_global_integral_basis_args)
-    def global_integral_basis(self, places=None, infolevel=0, **val_kwargs):
+    def global_integral_basis(self, places=None, basis=None, infolevel=0, **val_kwargs):
         r"""
         Compute a global integral basis of the quotient of the ambient Ore algebra
         with this operator.
@@ -1629,6 +1579,8 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
           3-tuple composed of such a polynomial, as well as suitable functions
           `value_function` and `raise_value`.
 
+        - ``basis`` (default: None) -- a basis of the quotient space. If provided, the output of the function is such that the first `i` elements of the integral basis generate the same vector space as the first `i` elements of ``basis``
+        
         - ``infolevel`` (default: 0) -- verbosity flag
 
         All remaining named arguments are passed to the value functions.
@@ -1822,13 +1774,61 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
             sage: B = L.global_integral_basis(Zmax=2); B
             [1, 1/x*Sx + (x - 2)/x^2, (1/(x + 1))*Sx^2 + ((x - 1)/(x^2 + 2*x + 1))*Sx]
 
+
+        The results of this function are cached.
+
+            sage: R.<x> = QQ['x']
+            sage: A.<Dx> = OreAlgebra(R, 'Dx')
+            sage: L = x*Dx^2 + 1
+            sage: places1 = [x+1,x^2+1]
+            sage: L.global_integral_basis.is_in_cache(basis=None, places=places1)
+            False
+            sage: L.global_integral_basis(basis=None, places=places1)
+            [1, Dx]
+            sage: L.global_integral_basis.is_in_cache(basis=None, places=places1)
+            True
+
+        Places are assumed to be equal if they are given by the same polynomial,
+        the valuation-related functions are ignored. The order of the places is
+        also ignored.
+
+            sage: places2 = [L._make_valuation_place(f) for f in places1]
+            sage: L.global_integral_basis.is_in_cache(basis=None, places=places2)
+            True
+            sage: places3 = [L._make_valuation_place(f) for f in places1[::-1]]
+            sage: L.global_integral_basis.is_in_cache(basis=None, places=places3)
+            True
+
+        If the valuation-related functions are changed and one expects the result to be different, one should also change an optional argument to invalidate the cache.
+        
+            sage: places4 = [L._make_valuation_place(f, iota=lambda z,j: 0) for f in places1]
+            sage: L.global_integral_basis.is_in_cache(basis=None, places=places4)
+            True
+            sage: L.global_integral_basis.is_in_cache(basis=None, places=places4, iota=lambda z,j:0)
+            False
+
+        Changing the verbosity level is also ignored.
+        
+            sage: L.global_integral_basis.is_in_cache(basis=None, places=places1, infolevel=2)
+            True
+
+        All other arguments, including the initial basis, can give a different result.
+        
+            sage: basis2 = [1,x*Dx]
+            sage: L.global_integral_basis.is_in_cache(basis=basis2, places=places1)
+            False
+
+        It is possible to bypass the cached value by passing a dummy parameter
+        to the method.
+        
+            sage: L.global_integral_basis.is_in_cache(basis=None, unused_arg=15)
+            False
+            sage: L.global_integral_basis(basis=None, unused_arg=15)
+            [1, x*Dx]
+            sage: L.global_integral_basis.is_in_cache(basis=None, unused_arg=15)
+            True
+
         """
-        # sage: ((x+2)^2 + x*Sx^2 + (x+2)*Sx^3).global_integral_basis(Zmax=3)
-        # [1, 1/x*Sx + (x - 2)/x^2, (1/(x + 1))*Sx^2 + ((x - 1)/(x^2 + 2*x + 1))*Sx]
-        # sage: ((x^2+2)^2 + x*Sx^2 + (x^2+2)*Sx^3).global_integral_basis(Zmax=3)
-        # [1,
-        #  (1/(x^2 - 4*x + 6))*Sx + (x - 2)/(x^4 - 8*x^3 + 28*x^2 - 48*x + 36),
-        #  (1/(x^2 - 2*x + 3))*Sx^2 + ((x - 1)/(x^4 - 4*x^3 + 10*x^2 - 12*x + 9))*Sx]
 
         if places is None:
             places = self.find_candidate_places(infolevel=infolevel,**val_kwargs)
@@ -1838,7 +1838,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
             
         res = None
         for p in places :
-            if len(p) == 1 :
+            if not isinstance(p,tuple) :
                 x = p
                 val_fct = raise_val_fct = None
             else:
@@ -3381,11 +3381,11 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
                                                      iota=None))
         return places
 
-    def value_function(self, op, place, iota=None):
+    def value_function(self, op, place, iota=None, **kwargs):
         val = self._make_valuation_place(place,iota=iota)[1]
-        return val(op)
+        return val(op, place)
 
-    def raise_value(self, basis, place, dim=None, iota=None):
+    def raise_value(self, basis, place, dim=None, iota=None, **kwargs):
         fct = self._make_valuation_place(place,iota=iota)[2]
         return fct(basis, place, dim)
 
@@ -4603,11 +4603,11 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
 
         return places
 
-    def value_function(self, op, place):
+    def value_function(self, op, place, **kwargs):
         val = self._make_valuation_places(place,0,0)[0][1]
         return val(op,place)
 
-    def raise_value(self, basis, place, dim):
+    def raise_value(self, basis, place, dim, **kwargs):
         fct = self._make_valuation_places(place,0,0)[0][2]
         return fct(basis, place, dim)
     
