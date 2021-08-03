@@ -1961,9 +1961,10 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
 
     def change_of_variables(self,a, solver=None, onlyself=False):
         r"""
-        Returns an operator ``L`` which annihilates all the functions `f(a(x))`
-        where `f` runs through the functions annihilated by ``self``, and a map
-        from the quotient by ``self`` to the quotient by `L` commuting with the composition by `a`.
+        Returns an operator `L` which annihilates all the functions `f(a(x))` where
+        `f` runs through the functions annihilated by ``self``, and a map from
+        the quotient by ``self`` to the quotient by `L` commuting with the
+        composition by `a`.
 
         INPUT:
 
