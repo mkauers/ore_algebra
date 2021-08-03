@@ -1959,50 +1959,85 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         """
         return self*self.parent().gen()
 
-    def annihilator_of_composition(self, a, solver=None):
+        def change_of_variables(self,a, solver=None, onlyself=False):
         r"""
-        Returns an operator `L` which annihilates all the functions `f(a(x))`
-        where `f` runs through the functions annihilated by ``self``.
-        The output operator is not necessarily of smallest possible order.
+        Perform the change of variable x <- a(x) in ``self``.
 
         INPUT:
 
         - ``a`` -- either an element of the base ring of the parent of ``self``,
           or an element of an algebraic extension of this ring.
         - ``solver`` (optional) -- a callable object which applied to a matrix
-          with polynomial entries returns its kernel. 
+          with polynomial entries returns its kernel.
+        - ``onlyself`` (optional) -- if True, do not compute ``conv``
 
-        EXAMPLES::
+        OUTPUT:
 
-           sage: from ore_algebra import *
-           sage: R.<x> = ZZ['x']
-           sage: K.<y> = R.fraction_field()['y']
-           sage: K.<y> = R.fraction_field().extension(y^3 - x^2*(x+1))
-           sage: A.<Dx> = OreAlgebra(R, 'Dx')
-           sage: (x*Dx-1).annihilator_of_composition(y) # ann for x^(2/3)*(x+1)^(1/3)
-           (3*x^2 + 3*x)*Dx - 3*x - 2
-           sage: (x*Dx-1).annihilator_of_composition(y + 2*x) # ann for 2*x + x^(2/3)*(x+1)^(1/3)
-           (3*x^3 + 3*x^2)*Dx^2 - 2*x*Dx + 2
-           sage: (Dx - 1).annihilator_of_composition(y) # ann for exp(x^(2/3)*(x+1)^(1/3))
-           (-243*x^6 - 810*x^5 - 999*x^4 - 540*x^3 - 108*x^2)*Dx^3 + (-162*x^3 - 270*x^2 - 108*x)*Dx^2 + (162*x^2 + 180*x + 12)*Dx + 243*x^6 + 810*x^5 + 1080*x^4 + 720*x^3 + 240*x^2 + 32*x
+        - ``L`` -- an Ore operator such that for all ``f`` annihilated by ``self``, ``L`` annihilates ``f \circ a``.
+        - ``conv`` -- a function which takes as input an Ore operator ``A`` and returns an Ore operator ``B`` such that for all functions ``f`` annihilated by ``f``, ``A(f)(a(x)) = B(f(a(x)))``.
+
+        EXAMPLES:
+
+            sage: from ore_algebra import *
+            sage: R.<x> = ZZ['x']
+            sage: A.<Dx> = OreAlgebra(R, 'Dx')
+            sage: L = x*Dx^2 + 1
+            sage: LL, conv = L.change_of_variables(x+1)
+            sage: print(LL)
+            (x + 1)*Dx^2 + 1
+            sage: print(conv(Dx))
+            Dx
+            sage: print(conv(x*Dx))
+            (x + 1)*Dx
+            sage: print(conv(L))
+            0
+            sage: LL, conv = L.change_of_variables(1/x)
+            sage: print(LL)
+            -x^3*Dx^2 - 2*x^2*Dx - 1
+            sage: print(conv(Dx))
+            -x^2*Dx
+            sage: print(conv(x*Dx))
+            -x*Dx
+            sage: print(conv(conv(x*Dx))) # identity since 1/1/x = 1
+            x*Dx
+            sage: LL, conv = L.change_of_variables(1+x^2)
+            sage: print(LL)
+            (-x^3 - x)*Dx^2 + (x^2 + 1)*Dx - 4*x^3
+            sage: print(conv(Dx))
+            1/(2*x)*Dx
+            sage: print(conv(x*Dx))
+            ((x^2 + 1)/(2*x))*Dx
         
         """
-
+        
         A = self.parent(); K = A.base_ring().fraction_field(); A = A.change_ring(K); R = K['Y']
         if solver == None:
             solver = A._solver(K)
 
         if self == A.one() or a == K.gen():
-            return self
+            return self, lambda x:x
         elif a in K.ring() and K.ring()(a).degree() == 1:
             # special handling for easy case  a == alpha*x + beta
             a = K.ring()(a); alpha, beta = a[1], a[0]
             x = self.base_ring().gen(); D = A.associated_commutative_algebra().gen()
             L = A(self.polynomial()(D/alpha).map_coefficients(lambda p: p(alpha*x + beta)))
-            return L.normalize()
+
+            if not onlyself:
+                def make_conv_fun(self,a,alpha,beta,D,Dif):
+                    def conv_fun(A):
+                        A = A.quo_rem(self)[1]
+                        return Dif(A.polynomial()(D/alpha).map_coefficients(lambda p: p(alpha*x + beta)))
+                    return conv_fun
+                conv_fun = make_conv_fun(self,a,alpha,beta,D,A)
+            else:
+                conv_fun = None
+            return L.normalize(), conv_fun
         elif a in K:
             minpoly = R.gen() - K(a)
         else:
+            if not onlyself:
+                # FIXME
+                raise NotImplementedError("Conversion function not implemented for elements of algebraic extensions")
             try:
                 minpoly = R(a.minpoly()).monic()
             except:
@@ -2040,7 +2075,55 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             mat.append([ q for p in Dkfa for q in p.padded_list(d) ])
             sol = solver(Matrix(K, mat).transpose())
 
-        return self.parent()(list(sol[0]))
+        LL = self.parent()(list(sol[0]))
+
+        if not onlyself:
+            from sage.modules.free_module_element import vector
+            conv_mtx = Matrix(K,mat[:-1]).transpose().inverse()
+            def make_conv_fun(self,conv_mtx,a,Dif):
+                def conv_fun(A):
+                    l = conv_mtx.ncols()
+                    A = A.quo_rem(self)[1]
+                    ring = A.parent().base_ring().fraction_field()
+                    # Dif = Dif.change_ring(ring)
+                    coefs = (A.coefficients(sparse=False)+[0]*l)[:l]
+                    coefs = [ring(c)(a) for c in coefs]
+                    return Dif((conv_mtx*vector(coefs)).list())
+                return conv_fun
+            conv_fun = make_conv_fun(self,conv_mtx,a,A)
+        else:
+            conv_fun = None
+        return LL,conv_fun
+
+    def annihilator_of_composition(self, a, solver=None):
+        r"""
+        Returns an operator `L` which annihilates all the functions `f(a(x))`
+        where `f` runs through the functions annihilated by ``self``.
+        The output operator is not necessarily of smallest possible order.
+
+        INPUT:
+
+        - ``a`` -- either an element of the base ring of the parent of ``self``,
+          or an element of an algebraic extension of this ring.
+        - ``solver`` (optional) -- a callable object which applied to a matrix
+          with polynomial entries returns its kernel. 
+
+        EXAMPLES::
+
+           sage: from ore_algebra import *
+           sage: R.<x> = ZZ['x']
+           sage: K.<y> = R.fraction_field()['y']
+           sage: K.<y> = R.fraction_field().extension(y^3 - x^2*(x+1))
+           sage: A.<Dx> = OreAlgebra(R, 'Dx')
+           sage: (x*Dx-1).annihilator_of_composition(y) # ann for x^(2/3)*(x+1)^(1/3)
+           (3*x^2 + 3*x)*Dx - 3*x - 2
+           sage: (x*Dx-1).annihilator_of_composition(y + 2*x) # ann for 2*x + x^(2/3)*(x+1)^(1/3)
+           (3*x^3 + 3*x^2)*Dx^2 - 2*x*Dx + 2
+           sage: (Dx - 1).annihilator_of_composition(y) # ann for exp(x^(2/3)*(x+1)^(1/3))
+           (-243*x^6 - 810*x^5 - 999*x^4 - 540*x^3 - 108*x^2)*Dx^3 + (-162*x^3 - 270*x^2 - 108*x)*Dx^2 + (162*x^2 + 180*x + 12)*Dx + 243*x^6 + 810*x^5 + 1080*x^4 + 720*x^3 + 240*x^2 + 32*x
+        
+        """
+        return self.change_of_variables(a, onlyself=True)[0]
 
     def power_series_solutions(self, n=5):
         r"""
