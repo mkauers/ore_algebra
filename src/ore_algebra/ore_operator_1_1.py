@@ -30,6 +30,7 @@ from sage.arith.all import gcd, lcm, nth_prime, srange
 from sage.functions.all import floor
 from sage.matrix.constructor import matrix
 from sage.misc.all import prod
+from sage.misc.cachefunc import cached_method
 from sage.rings.fraction_field import FractionField_generic
 from sage.rings.rational_field import QQ
 from sage.rings.integer_ring import ZZ
@@ -1398,6 +1399,26 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         """
         raise NotImplementedError # abstract
 
+    def _normalize_local_integral_basis_args(
+            self,x,basis=None, val_fct=None, raise_val_fct=None,
+            infolevel=0,**args):
+        """
+        Normalize the arguments in a call to `local_integral_basis`.
+
+        INPUT: same as `local_integral_basis`
+
+        OUTPUT: a hashable object formed with the arguments, ensuring that the
+        result of `local_integral_basis` only depends on the value of this
+        object, and not on the choice of the specific set of arguments.
+        """
+        if basis:
+            basis = tuple(basis)
+        args = list(args.items())
+        args.sort()
+        args = tuple(args)
+        return (x,basis,args)
+
+    @cached_method(key=_normalize_local_integral_basis_args)
     def local_integral_basis(self, x, basis=None,
                              val_fct=None, raise_val_fct=None,
                              infolevel=0,
@@ -1515,6 +1536,30 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         """
         raise NotImplementedError # abstract
 
+    def _normalize_global_integral_basis_args(
+            self,basis=None, places=None, 
+            infolevel=0,**args):
+        """
+        Normalize the arguments in a call to `local_integral_basis`.
+
+        INPUT: same as `local_integral_basis`
+
+        OUTPUT: a hashable object formed with the arguments, ensuring that the
+        result of `local_integral_basis` only depends on the value of this
+        object, and not on the choice of the specific set of arguments.
+        """
+        if basis:
+            basis = tuple(basis)
+        if places:
+            places = [p[0] if isinstance(p,tuple) else p for p in places]
+            places.sort()
+            places = tuple(places)
+        args = list(args.items())
+        args.sort()
+        args = tuple(args)
+        return (basis,places,args)
+
+    @cached_method(key=_normalize_global_integral_basis_args)
     def global_integral_basis(self, places=None, infolevel=0, **val_kwargs):
         r"""
         Compute a global integral basis of the quotient of the ambient Ore algebra
