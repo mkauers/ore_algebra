@@ -1976,8 +1976,11 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
 
         OUTPUT:
 
-        - ``L`` -- an Ore operator such that for all ``f`` annihilated by ``self``, ``L`` annihilates ``f \circ a``.
-        - ``conv`` -- a function which takes as input an Ore operator ``A`` and returns an Ore operator ``B`` such that for all functions ``f`` annihilated by ``self``, ``A(f)(a(x)) = B(f(a(x)))``.
+        - ``L`` -- an Ore operator such that for all ``f`` annihilated by
+        ``self``, ``L`` annihilates ``f \circ a``.
+        - ``conv`` -- a function which takes as input an Ore operator ``A`` and
+          returns an Ore operator ``B`` such that for all functions ``f``
+          annihilated by ``self``, ``A(f)(a(x)) = B(f(a(x)))``.
 
         EXAMPLES:
 
