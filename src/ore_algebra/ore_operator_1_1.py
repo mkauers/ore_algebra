@@ -1959,9 +1959,11 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         """
         return self*self.parent().gen()
 
-        def change_of_variables(self,a, solver=None, onlyself=False):
+    def change_of_variables(self,a, solver=None, onlyself=False):
         r"""
-        Perform the change of variable x <- a(x) in ``self``.
+        Returns an operator ``L`` which annihilates all the functions `f(a(x))`
+        where `f` runs through the functions annihilated by ``self``, and a map
+        from the quotient by ``self`` to the quotient by `L` commuting with the composition by `a`.
 
         INPUT:
 
@@ -1969,7 +1971,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
           or an element of an algebraic extension of this ring.
         - ``solver`` (optional) -- a callable object which applied to a matrix
           with polynomial entries returns its kernel.
-        - ``onlyself`` (optional) -- if True, do not compute ``conv``
+        - ``onlyself`` (optional) -- if `True`, only compute the operator ``L``
 
         OUTPUT:
 
@@ -2007,7 +2009,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             1/(2*x)*Dx
             sage: print(conv(x*Dx))
             ((x^2 + 1)/(2*x))*Dx
-        
+
         """
         
         A = self.parent(); K = A.base_ring().fraction_field(); A = A.change_ring(K); R = K['Y']
