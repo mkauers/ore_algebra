@@ -2004,7 +2004,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             -x^2*Dx
             sage: print(conv(x*Dx))
             -x*Dx
-            sage: print(conv(conv(x*Dx))) # identity since 1/1/x = 1
+            sage: print(conv(conv(x*Dx))) # identity since 1/1/x = x
             x*Dx
             sage: LL, conv = L.change_of_variables(1+x^2)
             sage: print(LL)
