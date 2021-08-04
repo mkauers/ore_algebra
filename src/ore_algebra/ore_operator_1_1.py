@@ -1959,12 +1959,14 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         """
         return self*self.parent().gen()
 
-    def change_of_variables(self,a, solver=None, onlyself=False):
+    def annihilator_of_composition(self, a, solver=None, with_transform=False):
         r"""
         Returns an operator `L` which annihilates all the functions `f(a(x))` where
-        `f` runs through the functions annihilated by ``self``, and a map from
-        the quotient by ``self`` to the quotient by `L` commuting with the
-        composition by `a`.
+        `f` runs through the functions annihilated by ``self``, and, optionally,
+        a map from the quotient by ``self`` to the quotient by `L` commuting
+        with the composition by `a`.
+
+        The output operator `L` is not necessarily of smallest possible order.
 
         INPUT:
 
@@ -1972,23 +1974,36 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
           or an element of an algebraic extension of this ring.
         - ``solver`` (optional) -- a callable object which applied to a matrix
           with polynomial entries returns its kernel.
-        - ``onlyself`` (optional) -- if `True`, only compute the operator ``L``
+        - ``with_transform`` (optional) -- if `True`, also return a
+          transformation map between the quotients
 
         OUTPUT:
 
         - ``L`` -- an Ore operator such that for all ``f`` annihilated by
         ``self``, ``L`` annihilates ``f \circ a``.
-        - ``conv`` -- a function which takes as input an Ore operator ``A`` and
-          returns an Ore operator ``B`` such that for all functions ``f``
-          annihilated by ``self``, ``A(f)(a(x)) = B(f \circ a)(x)``.
+        - ``conv`` -- a function which takes as input an Ore operator ``P`` and
+          returns an Ore operator ``Q`` such that for all functions ``f``
+          annihilated by ``self``, ``P(f)(a(x)) = Q(f \circ a)(x)``.
 
         EXAMPLES:
 
             sage: from ore_algebra import *
             sage: R.<x> = ZZ['x']
+            sage: K.<y> = R.fraction_field()['y']
+            sage: K.<y> = R.fraction_field().extension(y^3 - x^2*(x+1))
             sage: A.<Dx> = OreAlgebra(R, 'Dx')
+            sage: (x*Dx-1).annihilator_of_composition(y) # ann for x^(2/3)*(x+1)^(1/3)
+            (3*x^2 + 3*x)*Dx - 3*x - 2
+            sage: (x*Dx-1).annihilator_of_composition(y + 2*x) # ann for 2*x + x^(2/3)*(x+1)^(1/3)
+            (3*x^3 + 3*x^2)*Dx^2 - 2*x*Dx + 2
+            sage: (Dx - 1).annihilator_of_composition(y) # ann for exp(x^(2/3)*(x+1)^(1/3))
+            (-243*x^6 - 810*x^5 - 999*x^4 - 540*x^3 - 108*x^2)*Dx^3 + (-162*x^3 - 270*x^2 - 108*x)*Dx^2 + (162*x^2 + 180*x + 12)*Dx + 243*x^6 + 810*x^5 + 1080*x^4 + 720*x^3 + 240*x^2 + 32*x
+        
+        If composing with a rational function, one can also compute the
+        transformation map between the quotients.
+
             sage: L = x*Dx^2 + 1
-            sage: LL, conv = L.change_of_variables(x+1)
+            sage: LL, conv = L.annihilator_of_composition(x+1, with_transform=True)
             sage: print(LL)
             (x + 1)*Dx^2 + 1
             sage: print(conv(Dx))
@@ -1997,7 +2012,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             (x + 1)*Dx
             sage: print(conv(L))
             0
-            sage: LL, conv = L.change_of_variables(1/x)
+            sage: LL, conv = L.annihilator_of_composition(1/x, with_transform=True)
             sage: print(LL)
             -x^3*Dx^2 - 2*x^2*Dx - 1
             sage: print(conv(Dx))
@@ -2006,7 +2021,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             -x*Dx
             sage: print(conv(conv(x*Dx))) # identity since 1/1/x = x
             x*Dx
-            sage: LL, conv = L.change_of_variables(1+x^2)
+            sage: LL, conv = L.annihilator_of_composition(1+x^2, with_transform=True)
             sage: print(LL)
             (-x^3 - x)*Dx^2 + (x^2 + 1)*Dx - 4*x^3
             sage: print(conv(Dx))
@@ -2021,29 +2036,34 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             solver = A._solver(K)
 
         if self == A.one() or a == K.gen():
-            return self, lambda x:x
+            if with_transform:
+                return self, lambda x:x
+            else:
+                return self
         elif a in K.ring() and K.ring()(a).degree() == 1:
             # special handling for easy case  a == alpha*x + beta
             a = K.ring()(a); alpha, beta = a[1], a[0]
             x = self.base_ring().gen(); D = A.associated_commutative_algebra().gen()
             L = A(self.polynomial()(D/alpha).map_coefficients(lambda p: p(alpha*x + beta)))
-
-            if not onlyself:
+            L = L.normalize()
+            
+            if with_transform:
                 def make_conv_fun(self,a,alpha,beta,D,Dif):
                     def conv_fun(A):
                         A = A.quo_rem(self)[1]
                         return Dif(A.polynomial()(D/alpha).map_coefficients(lambda p: p(alpha*x + beta)))
                     return conv_fun
                 conv_fun = make_conv_fun(self,a,alpha,beta,D,A)
+                return L, conv_fun
             else:
-                conv_fun = None
-            return L.normalize(), conv_fun
+                return L
+
         elif a in K:
             minpoly = R.gen() - K(a)
         else:
-            if not onlyself:
-                # FIXME
-                raise NotImplementedError("Conversion function not implemented for elements of algebraic extensions")
+            if with_transform:
+                # FIXME: Can we do better?
+                raise NotImplementedError("transformation map not implemented for algebraic functions")
             try:
                 minpoly = R(a.minpoly()).monic()
             except:
@@ -2083,7 +2103,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
 
         LL = self.parent()(list(sol[0]))
 
-        if not onlyself:
+        if with_transform:
             from sage.modules.free_module_element import vector
             conv_mtx = Matrix(K,mat[:-1]).transpose().inverse()
             def make_conv_fun(self,conv_mtx,a,Dif):
@@ -2097,39 +2117,10 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
                     return Dif((conv_mtx*vector(coefs)).list())
                 return conv_fun
             conv_fun = make_conv_fun(self,conv_mtx,a,A)
+            return LL, conv_fun
         else:
-            conv_fun = None
-        return LL,conv_fun
+            return LL
 
-    def annihilator_of_composition(self, a, solver=None):
-        r"""
-        Returns an operator `L` which annihilates all the functions `f(a(x))`
-        where `f` runs through the functions annihilated by ``self``.
-        The output operator is not necessarily of smallest possible order.
-
-        INPUT:
-
-        - ``a`` -- either an element of the base ring of the parent of ``self``,
-          or an element of an algebraic extension of this ring.
-        - ``solver`` (optional) -- a callable object which applied to a matrix
-          with polynomial entries returns its kernel. 
-
-        EXAMPLES::
-
-           sage: from ore_algebra import *
-           sage: R.<x> = ZZ['x']
-           sage: K.<y> = R.fraction_field()['y']
-           sage: K.<y> = R.fraction_field().extension(y^3 - x^2*(x+1))
-           sage: A.<Dx> = OreAlgebra(R, 'Dx')
-           sage: (x*Dx-1).annihilator_of_composition(y) # ann for x^(2/3)*(x+1)^(1/3)
-           (3*x^2 + 3*x)*Dx - 3*x - 2
-           sage: (x*Dx-1).annihilator_of_composition(y + 2*x) # ann for 2*x + x^(2/3)*(x+1)^(1/3)
-           (3*x^3 + 3*x^2)*Dx^2 - 2*x*Dx + 2
-           sage: (Dx - 1).annihilator_of_composition(y) # ann for exp(x^(2/3)*(x+1)^(1/3))
-           (-243*x^6 - 810*x^5 - 999*x^4 - 540*x^3 - 108*x^2)*Dx^3 + (-162*x^3 - 270*x^2 - 108*x)*Dx^2 + (162*x^2 + 180*x + 12)*Dx + 243*x^6 + 810*x^5 + 1080*x^4 + 720*x^3 + 240*x^2 + 32*x
-        
-        """
-        return self.change_of_variables(a, onlyself=True)[0]
 
     def power_series_solutions(self, n=5):
         r"""
