@@ -3258,7 +3258,10 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             assert len(sol) == 1
             return sol[0]["value"]
 
-    
+    def _normalize_make_valuation_place_args(self, f, iota=None, prec=None, infolevel=0):
+        return (f,iota,prec)
+        
+    @cached_method(key=_normalize_make_valuation_place_args)
     def _make_valuation_place(self, f, iota=None, prec=None, infolevel=0):
         r"""
         Compute value functions for the place ``f``.
@@ -4432,6 +4435,10 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
         
         return output
 
+    def _normalize_make_valuation_places_args(self,f,Nmin,Nmax,prec=None, infolevel=0):
+        return (f,Nmin,Nmax,prec)
+
+    @cached_method(key=_normalize_make_valuation_places_args)
     def _make_valuation_places(self,f,Nmin,Nmax,prec=None,infolevel=0):
         r"""
         Compute value functions for the place ``f``.
