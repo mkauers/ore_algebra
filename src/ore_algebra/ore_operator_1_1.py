@@ -1558,7 +1558,6 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         if basis:
             basis = tuple(basis)
         if places:
-            places = [p[0] if isinstance(p,tuple) else p for p in places]
             places.sort()
             places = tuple(places)
         args = list(args.items())
@@ -1788,28 +1787,42 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
             sage: L.global_integral_basis.is_in_cache(basis=None, places=places1)
             True
 
-        Places are assumed to be equal if they are given by the same polynomial,
-        the valuation-related functions are ignored. The order of the places is
-        also ignored.
+        If provided, the functions for computing and raising the valuation at
+        each place are also part of the caching key.
 
-            sage: places2 = [L._make_valuation_place(f) for f in places1]
-            sage: L.global_integral_basis.is_in_cache(basis=None, places=places2)
-            True
-            sage: places3 = [L._make_valuation_place(f) for f in places1[::-1]]
-            sage: L.global_integral_basis.is_in_cache(basis=None, places=places3)
-            True
-
-        If the valuation-related functions are changed and one expects the result to be different, one should also change an optional argument to invalidate the cache.
-        
-            sage: places4 = [L._make_valuation_place(f, iota=lambda z,j: 0) for f in places1]
-            sage: L.global_integral_basis.is_in_cache(basis=None, places=places4)
-            True
-            sage: L.global_integral_basis.is_in_cache(basis=None, places=places4, iota=lambda z,j:0)
+            sage: dummy_val = lambda op,place,**kwargs : 0
+            sage: dummy_raise = lambda vects, place, **kwargs : None
+            sage: places2 = [(x+1,dummy_val,dummy_raise)]
+            sage: L.global_integral_basis.is_in_cache(places=places2)
             False
+            sage: L.global_integral_basis(places=places2)
+            [1, Dx]
+            sage: L.global_integral_basis.is_in_cache(places=places2)
+            True
 
-        Changing the verbosity level is also ignored.
+        If the functions use global variables, changing those variables without
+        redefining the function will not invalidate the cache.
+
+            sage: dummy_val2 = lambda op,place,**kwargs : 1/a -1
+            sage: places3 = [(x+1,dummy_val2,dummy_raise)]
+            sage: L.global_integral_basis.is_in_cache(places=places3)
+            False
+            sage: a=1
+            sage: L.global_integral_basis(places=places3)
+            [1, Dx]
+            sage: L.global_integral_basis.is_in_cache(places=places3)
+            True
+            sage: a=0
+            sage: dummy_val2(None,None)
+            Traceback (most recent call last):
+            ...
+            ZeroDivisionError: rational division by zero
+            sage: L.global_integral_basis(places=places2) # invalid cache!
+            [1, Dx]
+
+        Changing the verbosity level is ignored.
         
-            sage: L.global_integral_basis.is_in_cache(basis=None, places=places1, infolevel=2)
+            sage: L.global_integral_basis.is_in_cache(places=places1, infolevel=2)
             True
 
         All other arguments, including the initial basis, can give a different result.
@@ -1818,15 +1831,20 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
             sage: L.global_integral_basis.is_in_cache(basis=basis2, places=places1)
             False
 
-        It is possible to bypass the cached value by passing a dummy parameter
-        to the method.
+        It is possible to bypass the cached value by passing additional
+        parameters to the method.
         
-            sage: L.global_integral_basis.is_in_cache(basis=None, unused_arg=15)
+            sage: L.global_integral_basis.is_in_cache(unused_arg=15)
             False
-            sage: L.global_integral_basis(basis=None, unused_arg=15)
+            sage: L.global_integral_basis(unused_arg=15)
             [1, x*Dx]
-            sage: L.global_integral_basis.is_in_cache(basis=None, unused_arg=15)
+            sage: L.global_integral_basis.is_in_cache(unused_arg=15)
             True
+
+        Note that the subroutine ``local_integral_basis`` also caches its
+        results, so if one needs to clear the cache of
+        ``global_integral_basis``, one should also clear the cache of
+        ``local_integral_basis``.
 
         """
 
