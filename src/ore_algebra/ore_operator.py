@@ -26,6 +26,8 @@ from sage.arith.all import gcd, lcm
 from sage.rings.rational_field import QQ
 from sage.rings.integer_ring import ZZ
 from sage.rings.infinity import infinity
+from sage.rings.power_series_ring_element import PowerSeries
+from sage.rings.laurent_series_ring_element import LaurentSeries
 from sage.functions.generalized import sign
 
 class OreOperator(RingElement):
@@ -633,9 +635,18 @@ class UnivariateOreOperator(OreOperator):
 
         try:
             f, _ = canonical_coercion(f, self.base_ring().zero())
+            R = f.parent()
         except:
-            pass
-        R = f.parent()
+            if isinstance(f,PowerSeries) or isinstance(f,LaurentSeries):
+                from sage.rings.laurent_series_ring import LaurentSeriesRing
+                prec = f.precision_relative()
+                if prec is infinity:
+                    prec = None
+                R = f.parent()
+                R = LaurentSeriesRing(R.base_ring(), R.gen(), default_prec=prec)
+            else:
+                R = f.parent()
+                
         coeffs = self.coefficients(sparse=False)
         Dif = f; result = R(coeffs[0])*f; 
         for i in range(1, self.order() + 1):
