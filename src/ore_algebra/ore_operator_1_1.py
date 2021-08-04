@@ -1846,6 +1846,18 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         ``global_integral_basis``, one should also clear the cache of
         ``local_integral_basis``.
 
+        TESTS::
+
+            sage: Pol.<x> = PolynomialRing(QQ)
+            sage: Rec.<Sx> = OreAlgebra(Pol)
+            sage: L = x*Sx+1
+            sage: L.global_integral_basis.is_in_cache()
+            False
+            sage: L.global_integral_basis()
+            [x - 1]
+            sage: L.global_integral_basis.is_in_cache()
+            True
+        
         """
 
         if places is None:
