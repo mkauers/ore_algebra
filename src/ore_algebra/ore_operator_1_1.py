@@ -3415,15 +3415,25 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
 
         r = self.order()
         ore = self.parent()
-        x = ore.base_ring().gen()
-        C = ore.base_ring().base_ring()
+
+        base = ore.base_ring()
+
+        x = base.gen()
+        C = base.base_ring()
         if f.degree() > 1:
             FF = NumberField(f,"xi")
             xi = FF.gen()
         else:
             FF = C
             xi = -f[0]/f[1]
-        ore_ext = ore.change_ring(ore.base_ring().change_ring(FF).fraction_field())
+
+        # Next lines because there is no change_ring() method for a fraction
+        # field, so we need to proceed in two steps.
+        if base.is_field():
+            base = base.ring()
+        pol_ext = base.change_ring(FF)
+        ore_ext = ore.change_ring(pol_ext.fraction_field())
+        
         reloc = ore_ext([c(x=x+xi) for c in self.coefficients(sparse=False)])
         if prec is None:
             sols = reloc.generalized_series_solutions(exp=False)
