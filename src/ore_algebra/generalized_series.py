@@ -70,7 +70,7 @@ class GeneralizedSeriesMonoid(UniqueRepresentation, Parent):
     """
 
     @staticmethod
-    def __classcall__(cls, base, x, type="continuous"):
+    def __classcall__(cls, base, x, type="continuous", default_prec=None):
         if not (any(base is P for P in [ZZ, QQ, QQbar])
                 or isinstance(base, NumberField)):
             raise TypeError("base ring must be ZZ, QQbar or a number field")
@@ -80,7 +80,7 @@ class GeneralizedSeriesMonoid(UniqueRepresentation, Parent):
         type = str(type)
         if type != "continuous" and type != "discrete":
             raise ValueError("type must be either \"continuous\" or \"discrete\"")
-        return super(GeneralizedSeriesMonoid, cls).__classcall__(cls, base, x, type)
+        return super(GeneralizedSeriesMonoid, cls).__classcall__(cls, base, x, type, default_prec=default_prec)
 
     def __init__(self, base, x, type, default_prec=None):
         r"""
