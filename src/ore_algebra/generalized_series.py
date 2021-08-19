@@ -82,7 +82,7 @@ class GeneralizedSeriesMonoid(UniqueRepresentation, Parent):
             raise ValueError("type must be either \"continuous\" or \"discrete\"")
         return super(GeneralizedSeriesMonoid, cls).__classcall__(cls, base, x, type)
 
-    def __init__(self, base, x, type):
+    def __init__(self, base, x, type, default_prec=None):
         r"""
         Creates a monoid of generalized series objects.
 
@@ -91,9 +91,10 @@ class GeneralizedSeriesMonoid(UniqueRepresentation, Parent):
         - ``base`` -- constant field, may be either ``QQ`` or a number field.
         - ``x`` -- name of the variable, must not contain the substring ``"log"``.
         - ``type`` (optional) -- either ``"continuous"`` or ``"discrete"``.
+        - ``default_prec`` (optional) -- default precision to use for the underlying series ring
 
         If the type is ``"continuous"``, the domain contains series objects of the form
-
+p
         `\exp(\int_0^x \frac{p(t^{-1/r})}t dt)*q(x^{1/r},\log(x))`
 
         where
@@ -174,7 +175,7 @@ class GeneralizedSeriesMonoid(UniqueRepresentation, Parent):
         """
         self.__type = type
         self.__exp_ring = base[x]
-        self.__tail_ring = PowerSeriesRing(base, x)['LOG']
+        self.__tail_ring = PowerSeriesRing(base, x, default_prec=default_prec)['LOG']
         self.__var = x
         self.Element = (ContinuousGeneralizedSeries if self.is_continuous()
                         else DiscreteGeneralizedSeries)
