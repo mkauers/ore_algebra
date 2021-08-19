@@ -31,6 +31,8 @@ from sage.rings.laurent_series_ring import LaurentSeriesRing
 from sage.rings.laurent_series_ring_element import LaurentSeries
 from sage.functions.generalized import sign
 
+from .generalized_series import ContinuousGeneralizedSeries, GeneralizedSeriesMonoid
+
 class OreOperator(RingElement):
     """
     An Ore operator. This is an abstract class whose instances represent elements of ``OreAlgebra``.
@@ -644,10 +646,11 @@ class UnivariateOreOperator(OreOperator):
                     prec = None
                 R = f.parent()
                 R = LaurentSeriesRing(R.base_ring(), R.gen(), default_prec=prec)
-            elif isinstance(f,GeneralizedSeries):
+            elif isinstance(f,ContinuousGeneralizedSeries): 
                 prec = f.prec()
                 R = f.parent()
-                R = GeneralizedSeriesMonoid(R.base_ring(), R.gen(), R.__type, default_prec=prec)
+                R = GeneralizedSeriesMonoid(R.base_ring(), R.gen(),
+                                            "continuous", default_prec=prec)
             else:
                 R = f.parent()
                 
