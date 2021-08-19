@@ -644,6 +644,10 @@ class UnivariateOreOperator(OreOperator):
                     prec = None
                 R = f.parent()
                 R = LaurentSeriesRing(R.base_ring(), R.gen(), default_prec=prec)
+            elif isinstance(f,GeneralizedSeries):
+                prec = f.prec()
+                R = f.parent()
+                R = GeneralizedSeriesMonoid(R.base_ring(), R.gen(), R.__type, default_prec=prec)
             else:
                 R = f.parent()
                 
