@@ -32,7 +32,7 @@ from .monodromy import _monodromy_matrices
 from .differential_operator import PlainDifferentialOperator
 from .accuracy import PrecisionError
 from .complex_optimistic_field import ComplexOptimisticField
-from .utilities2 import (customized_accuracy, power_series_coerce, derivatives,
+from .utilities import (customized_accuracy, power_series_coerce, derivatives,
                         hp_approximants, guess_exact_numbers)
 from .linear_algebra import invariant_subspace
 

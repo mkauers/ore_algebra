@@ -25,7 +25,7 @@ from sage.matrix.special import identity_matrix
 from sage.misc.misc_c import prod
 
 from .accuracy import PrecisionError
-from .utilities2 import roots, XGCD, customized_accuracy
+from .utilities import roots, XGCD, customized_accuracy
 from .complex_optimistic_field import ComplexOptimisticField
 
 
