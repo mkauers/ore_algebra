@@ -3512,12 +3512,110 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         fct = self._make_valuation_place(place,iota=iota)[2]
         return fct(basis, place, dim)
 
-    def righ_factor(self, verbose=False, hybrid=True):
+    def is_irreducible(self):
+        r"""
+        Return whether this operator is irreducible.
+
+        NOTE: The termination of this method is currently not garanteed if the
+        operator is not Fuchsian.
+
+        See also: :meth:`right_factor`
+
+        EXAMPLE::
+
+            sage: from ore_algebra.examples import fcc
+            sage: L = fcc.dop4; L.is_irreducible()
+            True
+        """
+
         from .analytic.factorization import right_factor
-        rfactor = right_factor(self, verbose=verbose, hybrid=hybrid)
-        return rfactor
+        out = right_factor(self)=='irreducible'
+        return out
+
+    def right_factor(self, verbose=False, hybrid=True):
+        r"""
+        Return a right factor of this operator if any, or 'irreducible' if not.
+
+        NOTE: The termination of this method is currently not garanteed if the
+        operator is not Fuchsian.
+
+        INPUT:
+
+        - ``verbose`` (default: False) - if set to True, this method prints
+          some messages about the progress of the computation.
+        - ``hybrid``  (default: True) - if set to True, this method does not use
+          van Hoeij's idea with exponents of multiplicity 1 (only rational
+          solutions and van der Hoeven's symbolic-numeric approach with
+          monodromy matrices) to find factors.
+
+        OUTPUT:
+
+        - ``rfac`` - either a right factor or the string 'irreducible'
+
+        See also: :meth:`factor`
+
+        EXAMPLE::
+
+            sage: from ore_algebra import DifferentialOperators
+            sage: Dops, z, Dz = DifferentialOperators(QQ, 'z')
+            sage: L = (4*z^2 + 6*z + 2)*Dz^2 + (4*z + 3)*Dz - 1
+            sage: rfac = L.right_factor(); rfac
+            (z + 1)*Dz - 1/2
+            sage: L % rfac
+            0
+        """
+
+        from .analytic.factorization import right_factor
+        rfac = right_factor(self, verbose=verbose, hybrid=hybrid)
+        return rfac
 
     def factor(self, verbose=False, hybrid=True):
+        r"""
+        Compute a decomposition of this operator as a composition of irreducible
+        operators (potentially introducing algebraic extensions).
+
+        NOTE: The termination of this method is currently not garanteed if the
+        operator is not Fuchsian.
+
+        INPUT:
+
+        - ``verbose`` (default: False) - if set to True, this method prints
+          some messages about the progress of the computation.
+        - ``hybrid``  (default: True) - if set to True, this method does not use
+          van Hoeij's idea with exponents of multiplicity 1 (only rational
+          solutions and van der Hoeven's symbolic-numeric approach with
+          monodromy matrices) to find factors.
+
+        OUTPUT:
+
+        - ``fac`` - a list of irreducible operators such that the product of its
+          elements is equal to the operator ``self``.
+
+        See also: :meth:`right_factor`
+
+        EXAMPLES::
+
+            sage: from ore_algebra import DifferentialOperators
+            sage: Dops, z, Dz = DifferentialOperators(QQ, 'z')
+            sage: L = (4*z^2 + 6*z + 2)*Dz^2 + (4*z + 3)*Dz - 1
+            sage: fac = L.factor(); fac
+            [(4*z + 2)*Dz + 2, (z + 1)*Dz - 1/2]
+            sage: prod(fac) == L
+            True
+
+        An example with algebraic extension.::
+
+            sage: from ore_algebra import DifferentialOperators
+            sage: Dops, z, Dz = DifferentialOperators(QQ, 'z')
+            sage: L = z^2*Dz^2 + z*Dz + 1
+            sage: fac = L.factor(); fac
+            [z^2*Dz + (a + 1)*z, Dz + (-a)/z]
+            sage: fac[0].parent()
+            Univariate Ore algebra in Dz over Fraction Field of Univariate
+            Polynomial Ring in z over Number Field in a with defining polynomial
+            y^2 + 1 with a = -1*I
+        """
+
         from .analytic.factorization import factor
         fac = factor(self, verbose=verbose, hybrid=hybrid)
         return fac

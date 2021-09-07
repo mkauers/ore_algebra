@@ -479,11 +479,13 @@ def try_series(dop):
 
     z = dop.base_ring().gen()
     f, e = search_exp_part_with_mult1(dop)
-    K = dop.base_ring().base_ring()
-    if not e in K: dop, e = LinearDifferentialOperator(dop).extend_scalars(e)
-    else: e = K(e)
 
     if not f is None:
+        
+        K = dop.base_ring().base_ring()
+        if not e in K: dop, e = LinearDifferentialOperator(dop).extend_scalars(e)
+        else: e = K(e)
+
         if z*f.is_one():
             Le = S(dop.annihilator_of_composition(f), e)
             b, Re = right_factor_via_exp_part(Le)
