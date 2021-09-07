@@ -203,8 +203,6 @@ class LinearDifferentialOperator(PlainDifferentialOperator):
         'irreducible' if "self" is irreducible.
         """
 
-        if self.precision > 20000: raise NotImplementedError
-
         if self.n<2: return 'irreducible'
         if verbose: print("Try to factorize an operator of order " + str(self.n) + ".")
         if self.fuchsian_info==None:
@@ -288,6 +286,14 @@ def right_factor(dop, verbose=False, hybrid=True):
     return output
 
 
+def _factor(dop, verbose=False, hybrid=True):
+
+    rfactor = right_factor(dop, verbose=verbose, hybrid=hybrid)
+    if rfactor=='irreducible': return [dop]
+    lfactor = rfactor.parent()(dop)//rfactor
+    return factor(lfactor, verbose=verbose, hybrid=hybrid) + factor(rfactor, verbose=verbose, hybrid=hybrid)
+
+
 def factor(dop, verbose=False, hybrid=True):
 
     r"""
@@ -295,12 +301,12 @@ def factor(dop, verbose=False, hybrid=True):
     equal to the composition L1.L2...Lr.
     """
 
-    rfactor = right_factor(dop, verbose=verbose, hybrid=hybrid)
-    if rfactor=='irreducible': return [dop]
-    lfactor = dop//rfactor
-    return factor(lfactor, verbose=verbose, hybrid=hybrid) + factor(rfactor, verbose=verbose, hybrid=hybrid)
-
-
+    output = _factor(dop, verbose=verbose, hybrid=hybrid)
+    K0, K1 = output[0].base_ring().base_ring(), output[-1].base_ring().base_ring()
+    if K0 != K1:
+        A = output[0].parent()
+        output = [A(f) for f in output]
+    return output
 
 
 def my_newton_polygon(dop):
@@ -473,7 +479,10 @@ def try_series(dop):
 
     z = dop.base_ring().gen()
     f, e = search_exp_part_with_mult1(dop)
-    if e in QQ: e = QQ(e)
+    K = dop.base_ring().base_ring()
+    if not e in K: dop, e = LinearDifferentialOperator(dop).extend_scalars(e)
+    else: e = K(e)
+
     if not f is None:
         if z*f.is_one():
             Le = S(dop.annihilator_of_composition(f), e)

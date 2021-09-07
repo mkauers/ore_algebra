@@ -45,9 +45,9 @@ bostan_ex = lambda k: z*Dz**2 + (2-z)*Dz + k
 # only right factor has a degree n^2. !Not Fuchsian!
 vanhoeij_ex = lambda n: Dz**2 - (1/n)*Dz + n/z
 
-# This reducible operator does not admits factorization with coefficients in QQ (to be confirmed).
-# Factorization in QQbar: (z^2*Dz + (1 + i)*z)*(Dz - i/z).
-QQbar_ex = z**2*Dz**2 + z*Dz + 1
+# These reducible operators do not admit factorization with coefficients in QQ
+# (to be confirmed) but involve algebraic numbers (of degree n!).
+QQbar_ex = lambda n: sum(z**i*Dz**i for i in range(n+1))
 
 # Annihilator of the hypergeometric function 2F1(a,b;c;z).
 hypergeo = lambda a,b,c: z*(1 - z)*Dz**2 + (c - (a + b + 1)*z)*Dz - a*b
