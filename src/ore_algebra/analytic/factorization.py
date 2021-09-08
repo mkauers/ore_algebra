@@ -426,41 +426,43 @@ def search_exp_part_with_mult1(dop):
 
     return (None, None)
 
+def _guessing_via_series(L, f):
 
-
-def right_factor_via_exp_part(Le, adj=None):
-
-    success, rfactor = try_rational(Le)
-    if success: return True, rfactor
-
-    f = Le.power_series_solutions(100)[0]
-    if adj==None:
-        fa = Le.adjoint().power_series_solutions(100)[0]
-        m = max(c.numerator().abs() for c in f)
-        ma = max(c.numerator().abs() for c in fa)
-        if ma<m:
-            Leadj = Le.adjoint()
-            b, Readj = right_factor_via_exp_part(Leadj, adj=False)
-            if b:
-                Qeadj = Leadj // Readj
-                return True, Qeadj.adjoint()
-        adj = False
-
-    der = [f]; r = Le.order() - 1
-    for i in range(r):
-        der.append(der[-1].derivative())
+    r = L.order() - 1
+    der = derivatives(f, r)
     app = hp_approximants(der, 100 - r)
-    if max(c.degree() for c in app) < 100 - r - 10:
-        if all(c2.numerator().abs()>>300==0 for c1 in app for c2 in c1):
-            Re = Le.gcrd(Le.parent()(app))
-            if Re.order()>0: return True, Re
 
-    if not adj:
-        Leadj = Le.adjoint()
-        b, Readj = right_factor_via_exp_part(Leadj, adj=True)
-        if b:
-            Qeadj = Leadj // Readj
-            return True, Qeadj.adjoint()
+    if max(c.degree() for c in app) < 100 - r - 10 and \
+    all(c2.numerator().abs()>>300==0 for c1 in app for c2 in c1):
+            R = L.gcrd(L.parent()(app))
+            if R.order()>0: return True, R
+
+    return False, None
+
+
+def right_factor_via_exp_part(Le):
+
+    success, R = try_rational(Le)
+    if success: return True, R
+    Lea = Le.adjoint(); success, Rea = try_rational(Lea)
+    if success: return True, (Lea // Rea).adjoint()
+
+    ea = [x for x in exponents(Lea) if x in ZZ][0]; Lea = S(Lea, ZZ(ea))
+    f = Le.power_series_solutions(100)[0]
+    fa = Lea.power_series_solutions(100)[0]
+    m = max(c.numerator().abs() for c in f)
+    ma = max(c.numerator().abs() for c in fa)
+
+    if m<ma:
+        success, Re = _guessing_via_series(Le, f)
+        if success: return True, Re
+        success, Rea = _guessing_via_series(Lea, fa)
+        if success: return True, S((Lea // Rea), -ea).adjoint()
+    else:
+        success, Rea = _guessing_via_series(Lea, fa)
+        if success: return True, S((Lea // Rea), -ea).adjoint()
+        success, Re = _guessing_via_series(Le, f)
+        if success: return True, Re
 
     return False, None
 
@@ -481,7 +483,7 @@ def try_series(dop):
     f, e = search_exp_part_with_mult1(dop)
 
     if not f is None:
-        
+
         K = dop.base_ring().base_ring()
         if not e in K: dop, e = LinearDifferentialOperator(dop).extend_scalars(e)
         else: e = K(e)

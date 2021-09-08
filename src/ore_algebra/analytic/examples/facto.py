@@ -50,10 +50,10 @@ vanhoeij_ex = lambda n: Dz**2 - (1/n)*Dz + n/z
 QQbar_ex = lambda n: sum(z**i*Dz**i for i in range(n+1))
 
 # Annihilator of the hypergeometric function 2F1(a,b;c;z).
-hypergeo = lambda a,b,c: z*(1 - z)*Dz**2 + (c - (a + b + 1)*z)*Dz - a*b
+hypergeo_ex = lambda a,b,c: z*(1 - z)*Dz**2 + (c - (a + b + 1)*z)*Dz - a*b
 
 # This reducible operator admits no factorization in the first Weyl algebra (QQ[z]<Dz>).
-irr_weyl = Dz**2 + (-z**2 + 2*z)*Dz + z - 2
+irr_weyl_ex = Dz**2 + (-z**2 + 2*z)*Dz + z - 2
 
 # Test cases (see commit e75d04a4 of ore_algebra for more details).
 # The second one is not Fuchsian.
@@ -64,3 +64,7 @@ test_ex2 = ((QQ(-1/4)*z**10 + 8*z**9 + 2*z**8 - 2*z**7 - QQ(5/2)*z**6 - QQ(1/8)*
 # definition in [Formal Solutions ..., van Hoeij, 1997] (Example 3.1).
 Tz = z*Dz
 newton_ex = z**6*Tz**9 + 2*z**5*Tz**8 + 3*z**4*Tz**7 + 2*z**3*Tz**6 + (z**2 + 2*z**4)*Tz**5 + (5*z**2 - 3*z)*Tz**3 + 3*z*Tz**2 + (2 + 2*z)*Tz + 7*z
+
+# The following operator have 0 as only integer exponent (with multiplicity 1)
+# but its adjoint has no power series solution (the only integer exponent is -1).
+adjoint_exponent_ex = 2*z^3*Dz^2 + (5*z^2 + 6*z)*Dz + z
