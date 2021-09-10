@@ -2,12 +2,19 @@
 r"""
 Bounds on sequences by singularity analysis
 
-Author: Ruiwen Dong <ruiwen.dong@polytechique.edu>
+Main author: Ruiwen Dong <ruiwen.dong@polytechique.edu>
+
+This module currently requires Sage development branch u/mmezzarobba/tmp/bterms
+(= Sage 9.5.beta0 + #32229 + #32451 + a patch for combining BTerms with the same
+growth); ``check_seq_bound`` and the tests depending on it may need additional
+patches.
 
 EXAMPLES::
 
-    sage: from ore_algebra import OreAlgebra
-    sage: from ore_algebra.analytic.singularity_analysis import contribution_all_singularity, eval_bound
+    sage: from ore_algebra import (OreAlgebra, DFiniteFunctionRing,
+    ....:         UnivariateDFiniteFunction)
+    sage: from ore_algebra.analytic.singularity_analysis import (
+    ....:         bound_coefficients, check_seq_bound)
 
     sage: Pols_z.<z> = PolynomialRing(QQ)
     sage: Pols_n.<n> = PolynomialRing(QQ)
@@ -22,57 +29,64 @@ Membrane example::
     ....: + 16777186*(z - 1)*(210*z^12 - 13761*z^11 + 101088*z^10 - 178437*z^9 - 248334*z^8 + 930590*z^7 - 446064*z^6 - 694834*z^5 + 794998*z^4 - 267421*z^3 + 24144*z^2 - 649*z + 6)*Dz
     ....: + 6341776308*z^12 - 427012938072*z^11 + 2435594423178*z^10 - 2400915979716*z^9 - 10724094731502*z^8 + 26272536406048*z^7 - 8496738740956*z^6 - 30570113263064*z^5 + 39394376229112*z^4 - 19173572139496*z^3 + 3825886272626*z^2 - 170758199108*z + 2701126946)
 
-    sage: desing_deq = deq.desingularize()
-    sage: desing_deq.leading_coefficient().factor()
-    (z - 1)^2 * z^2 * (z^2 - 6*z + 1)^2
-    sage: b = contribution_all_singularity(seqini, deq, total_order = 2)
+    sage: asy = bound_coefficients(deq, seqini, order=2) # long time (5 s)
+    doctest:...: FutureWarning: This class/method/function is marked as
+    experimental. ...
+    sage: asy # long time
+    1.000...*5.828427124746190?^n*(([8.0719562915...] + [+/- ...]*I)*n^3*log(n)
+    + ([1.3714048996...] + [+/- ...]*I)*n^3
+    + ([50.509130873...] + [+/- ...]*I)*n^2*log(n)
+    + ([29.698551451...] + [+/- ...]*I)*n^2
+    + B([3114.499982480...]*n*log(n)^2, n >= 50))
 
-Testing for Membrane example ::
-
-    sage: rec = (-(n+8)*(n+7)*(12232*n^3+298144*n^2+2412586*n+6469077)*(n+6)^2
-    ....:     +(n+8)*(183480*n^6+7655560*n^5+131977142*n^4+1202876299*n^3+6112196895*n^2+16418149668*n+18219511026)*Sn
-    ....:     -(n+8)*(941864*n^6+38326904*n^5+644300514*n^4+5727711699*n^3+28407144241*n^2+74557779538*n+80949464718)*Sn^2
-    ....:     +(1993816*n^7+97303624*n^6+2021855198*n^5+23184921987*n^4+158457515673*n^3+645518710454*n^2+1451619424860*n+1390493835900)*Sn^3
-    ....:     +(-1993816*n^7-98090344*n^6-2054897438*n^5-23758375953*n^4-163720428321*n^3-672459054524*n^2-1524577250976*n-1472211879228)*Sn^4
-    ....:     +(n+6)*(941864*n^6+40789672*n^5+730497394*n^4+6921881565*n^3+36590122947*n^2+102300885158*n+118218544398)*Sn^5
-    ....:     -(n+6)*(183480*n^6+7756760*n^5+135519142*n^4+1252328453*n^3+6456460129*n^2+17612930492*n+19872693550)*Sn^6
-    ....:     +(n+7)*(n+6)*(12232*n^3+215600*n^2+1256970*n+2435511)*(n+8)^2*Sn^7)
-    sage: list_ele = rec.to_list(seqini, 1000)
-    sage: all(eval_bound(b[1], j).contains_exact(list_ele[j]) for j in range(b[0], 999))
-    True
+    sage: DFR = DFiniteFunctionRing(deq.parent())
+    sage: ref = UnivariateDFiniteFunction(DFR, deq, seqini)
+    sage: check_seq_bound(asy.expand(), ref, range(1000)) # long time (130 s)
 
 Algebraic example::
 
-    sage: seqini = [1]
     sage: deq = (4*z^4 - 4*z^3 + z^2 - 2*z + 1)*Dz + (-4*z^3 + 4*z^2 - z - 1)
+    sage: bound_coefficients(deq, [1], order=5) # long time (16 s)
+    1.000...*2^n*([0.564189583547...]*n^(-1/2) + [-0.105785546915...]*n^(-3/2)
+    + [-0.117906807499...]*n^(-5/2) + [-0.375001499318...]*n^(-7/2)
+    + [-1.059766633817...]*n^(-9/2) + B([1268.649037321...]*n^(-11/2), n >= 50))
 
-    sage: desing_deq = deq.desingularize()
-    sage: desing_deq.leading_coefficient().factor()
-    (4) * (z - 1) * (z - 1/2) * (z^2 + 1/2*z + 1/2)
-
-    sage: b = contribution_all_singularity(seqini, deq, total_order = 5)
-
-Diagonal example::
+Diagonal example (Sage is not yet able to correctly combine and order the error
+terms here)::
 
     sage: seqini = [1, -3, 9, -3, -279, 2997]
-    sage: deq = z^2*(81*z^2 + 14*z + 1)*Dz^3 + 3*z*(162*z^2 + 21*z + 1)*Dz^2 + (21*z + 1)*(27*z + 1)*Dz + 3*(27*z + 1)
+    sage: deq = (z^2*(81*z^2 + 14*z + 1)*Dz^3 + 3*z*(162*z^2 + 21*z + 1)*Dz^2
+    ....:        + (21*z + 1)*(27*z + 1)*Dz + 3*(27*z + 1))
 
-    sage: desing_deq = deq.desingularize()
-    sage: desing_deq.leading_coefficient().factor()
-    (81) * z^2 * (z^2 + 14/81*z + 1/81)
-    sage: b = contribution_all_singularity(seqini, deq, total_order = 2)
+    sage: bound_coefficients(deq, seqini, order=2) # long time (3.7 s)
+    1.000000000000000*9.00000000000000?^n*(B([5.27993...]*n^(-7/2)*log(n), n >= 50)
+    + ([0.30660...] + [0.14643...]*I)*(e^(I*arg(-0.77777...? + 0.62853...?*I)))^n*n^(-3/2)
+    + ([-0.26554...] + [-0.03529...]*I)*(e^(I*arg(-0.77777...? + 0.62853...?*I)))^n*n^(-5/2)
+    + B([6.60896...]*(e^(I*arg(-0.77777...? + 0.62853...?*I)))^n*n^(-7/2)*log(n), n >= 50)
+    + ([0.30660...] + [-0.14643...]*I)*(e^(I*arg(-0.77777...? - 0.62853...?*I)))^n*n^(-3/2)
+    + ([-0.26554...] + ...]*I)*(e^(I*arg(-0.77777...? - 0.62853...?*I)))^n*n^(-5/2)
+    + B([6.60896...]*(e^(I*arg(-0.77777...? - 0.62853...?*I)))^n*n^(-7/2)*log(n), n >= 50))
 
 Complex exponents example::
 
+    sage: deq = (z-2)^2*Dz^2 + z*(z-2)*Dz + 1
     sage: seqini = [1, 2, -1/8]
-    sage: deq = (z-2)^2 * Dz^2 + z*(z-2) * Dz + 1
-    sage: b = contribution_all_singularity(seqini, deq, total_order = 3)
+    sage: asy = bound_coefficients(deq, seqini, order=3) # long time (2.2 s)
+    sage: asy # long time
+    1.000000000000000*(1/2)^n*(([1.124337...] + [0.462219...]*I)*n^(-0.500000...? + 0.866025...?*I)
+    + ([1.124337...] + [-0.4622196104635 +/- 1.65e-14]*I)*n^(-0.500000...? - 0.866025...?*I)
+    + ([-0.400293...] + [0.973704...]*I)*n^(-1.500000...? + 0.866025...?*I)
+    + ([-0.400293...] + [-0.973704...]*I)*n^(-1.500000...? - 0.866025...?*I)
+    + ([0.451623...] + [-0.356367...]*I)*n^(-2.500000...? + 0.866025...?*I)
+    + ([0.451623...] + [0.356367...]*I)*n^(-2.500000...? - 0.866025...?*I)
+    + B([2761.73...]*n^(-7/2), n >= 50))
 
-Testing for Complex exponents example ::
-
-    sage: rec = deq.to_S(Shift)
-    sage: list_ele = rec.to_list(seqini, 500)
-    sage: all(eval_bound(b[1], j).contains_exact(list_ele[j]) for j in range(b[0], 499))
+    sage: ref = UnivariateDFiniteFunction(DFR, deq, seqini)
+    sage: check_seq_bound(asy.expand(), ref, range(1000)) # not tested -- bug
+    sage: # Temporary workaround
+    sage: from ore_algebra.analytic.singularity_analysis import contribution_all_singularity, eval_bound
+    sage: b = contribution_all_singularity(seqini, deq, total_order=3) # long time
+    sage: all(eval_bound(b[1], j).contains_exact(ref[j]) for j in range(b[0], 499)) # long time
     True
 """
 
@@ -80,6 +94,26 @@ import logging
 import time
 
 from sage.all import *
+
+from sage.categories.cartesian_product import cartesian_product
+from sage.rings.asymptotic.asymptotic_ring import AsymptoticRing
+from sage.rings.asymptotic.growth_group import (
+        ExponentialGrowthGroup,
+        GrowthGroup,
+        MonomialGrowthGroup,
+)
+try:
+    from sage.rings.asymptotic.term_monoid import BTermMonoid
+except ImportError:
+    raise ImportError("the singularity_analysis module requires SageMath "
+            "version 9.5 or later") # XXX
+from sage.rings.asymptotic.term_monoid import (
+        BTerm,
+        BTermMonoid,
+        ExactTermMonoid,
+)
+from sage.rings.asymptotic.term_monoid import DefaultTermMonoidFactory
+from sage.symbolic.operators import add_vararg
 
 from ..ore_algebra import OreAlgebra
 from .differential_operator import DifferentialOperator
@@ -955,6 +989,87 @@ def contribution_all_singularity(seqini, deq, singularities=None,
 
     return N0, bound
 
+class FormalProduct:
+
+    def __init__(self, exponential_factor, series_factor):
+        self._exponential_factor = exponential_factor
+        self._series_factor = series_factor
+
+    def __repr__(self):
+        return f"{self._exponential_factor}*({self._series_factor})"
+
+    def exponential_factor(self):
+        return self._exponential_factor
+
+    def series_factor(self):
+        return self._series_factor
+
+    def expand(self):
+        return self._exponential_factor*self._series_factor
+
+def to_asymptotic_expansion(Coeff, name, term_data, n0):
+
+    n_as_sym = SR.var(name)
+
+    # XXX detect cases where we can use 1 or ±1 or U as Arg
+    Exp, Arg = ExponentialGrowthGroup.factory(QQbar, name, return_factors=True)
+    # AsymptoticRing does not split MonomialGrowthGroups with non-real
+    # exponent groups in growth*non-growth parts, presumably because this has no
+    # impact on term ordering. Let us do the same.
+    Pow = MonomialGrowthGroup(QQbar, name)
+    Log = MonomialGrowthGroup(ZZ, f"log({name})")
+    Growth = cartesian_product([Arg, Exp, Pow, Log])
+    # (n,) = Growth.gens_monomial()
+    Asy = AsymptoticRing(Growth, coefficient_ring=Coeff)
+    ET = Asy.term_monoid('exact')
+    BT = Asy.term_monoid('B').change_parameter(
+            coefficient_ring=Coeff._real_field())
+
+    def make_arg_factor(dir):
+        if dir.imag().is_zero() and dir.real() >= 0:
+            return ET.one()
+        else:
+            return ET(Arg(raw_element=dir))
+
+    rho0 = term_data[0][0]
+    mag0 = abs(rho0)
+    exp_factor = ET(Exp(raw_element=~mag0))
+    if all(rho == rho0 for rho, _ in term_data[1:]):
+        exp_factor *= make_arg_factor(~rho0)
+    else:
+        rho0 = mag0
+
+    terms = []
+    for rho, expr in term_data:
+        dir = rho0/rho
+        assert abs(dir).is_one() # need an additional growth factor otherwise
+        arg_factor = make_arg_factor(dir)
+        if expr.operator() == add_vararg:
+            symterms = expr.operands()
+        else:
+            symterms = [expr]
+        for symterm in symterms:
+            term = arg_factor*ET(symterm.subs(n=n_as_sym))
+            if term.coefficient.contains_zero():
+                term = BT(term.growth, coefficient=term.coefficient.above_abs(),
+                        valid_from={name: n0})
+            terms.append(term)
+
+    return FormalProduct(Asy(exp_factor), Asy(terms))
+
+
+def bound_coefficients(deq, seqini, name='n', order=3, prec=53, n0=50, *,
+        assume_analytic=[0], big_radius=None):
+
+    n0bis, term_data = contribution_all_singularity(seqini, deq,
+            known_analytic=assume_analytic, rad=big_radius, total_order=order,
+            min_n=n0, prec_bit=prec)
+    n0 = max(n0, n0bis)
+
+    Coeff = ComplexBallField(prec)
+    return to_asymptotic_expansion(Coeff, name, term_data, n0)
+
+
 def eval_bound(bound, n_num, prec = 53):
     """
     Evaluation of a bound produced in contribution_all_singularity()
@@ -962,3 +1077,61 @@ def eval_bound(bound, n_num, prec = 53):
     CBFp = ComplexBallField(prec)
     list_eval = [rho**(-n_num) * ser.subs(n = n_num) for rho, ser in bound]
     return CBFp(sum(list_eval))
+
+
+# XXX test the tester!
+def check_seq_bound(asy, ref, indices=None, *, verbose=False, force=False):
+    r"""
+    """
+    Coeff = asy.parent().coefficient_ring
+    myCBF = Coeff.complex_field()
+    myRBF = myCBF.base()
+    # An asymptotic ring with exponents etc. in CBF instead of QQbar, to make it
+    # possible to evaluate a^n, n^b
+    BGG = cartesian_product([
+        ExponentialGrowthGroup.factory(myCBF, 'n',
+                                       extend_by_non_growth_group=True),
+        MonomialGrowthGroup.factory(myRBF, 'n',
+                                    extend_by_non_growth_group=True),
+        GrowthGroup('log(n)^ZZ')])
+    BAsy = AsymptoticRing(BGG, myCBF)
+    # XXX wrong results in the presence of complex exponents (#32500)
+    basy = BAsy(asy, simplify=False)
+    exact_part = basy.exact_part()
+    error_part = basy.error_part()
+    assert len(error_part.summands) == 1
+    bterm = error_part.summands.pop()
+    assert isinstance(bterm, BTerm)
+    error_ball = myCBF.zero().add_error(bterm.coefficient)
+    (name,) = asy.variable_names()
+    validity = bterm.valid_from[name]
+    if indices is None:
+        try:
+            rb = int(len(ref))
+        except TypeError:
+            rb = validity + 10
+        indices = range(validity, rb)
+    for n in indices:
+        if n < validity and not force:
+            continue
+        bn = myRBF(n)
+        one = myRBF.one()
+        refval = ref[n]
+        asyval = exact_part.substitute({name: bn})
+        err0 = bterm.growth._substitute_({name: bn, '_one_': one})
+        relbound = (asyval - refval)/err0
+        if relbound not in error_ball:
+            absbound = asyval + error_ball*err0
+            if absbound.contains_exact(refval):
+                # this may be a false warning due to overestimation at
+                # evaluation time
+                warnings.warn(f"{name} = {n}, magnitude of interval rescaled "
+                        f"error {relbound} is larger than {bterm.coefficient}")
+            else:
+                # definitely wrong
+                raise AssertionError(f"{name} = {n}, computed enclosure "
+                        f"{absbound} does not contain reference value {refval}"
+                        f" ≈ {myCBF(refval)}")
+        else:
+            if verbose:
+                print(f"{name} = {n}, {relbound} contained in {error_ball}")
