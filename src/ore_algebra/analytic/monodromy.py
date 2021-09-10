@@ -318,6 +318,23 @@ LocalMonodromyData = collections.namedtuple("LocalMonodromyData",
 
 def _monodromy_matrices(dop, base, eps=1e-16, sing=None):
     r"""
+    Return an iterator over local monodromy matrices of ``dop`` with base point
+    ``base``.
+
+    INPUT:
+
+    See :func:`monodromy_matrices`
+
+    OUTPUT:
+
+    A list of `LocalMonodromyData` named tuples, with fields:
+    - ``point`` - a singular point of ``dop``, represented as an element of
+      ``QQbar``,
+    - ``monodromy`` - a local monodromy matrix attached to this point,
+      represented as a matrix with entries in a complex ball field,
+    - ``is_scalar`` - boolean, ``True`` iff the code could certify that the
+      ``monodromy`` is exactly a scalar matrix.
+
     EXAMPLES::
 
         sage: from ore_algebra import *
@@ -476,6 +493,15 @@ def monodromy_matrices(dop, base, eps=1e-16, sing=None):
     r"""
     Compute generators of the monodromy group of ``dop`` with base point
     ``base``.
+
+    INPUT:
+
+    - ``dop`` - differential operator
+    - ``base`` - base point, must be coercible to ``QQbar``
+    - ``eps`` - absolute tolerance (indicative)
+    - ``sing`` (optional) - list of singularities to consider (by default, all,
+      i.e., compute generators of the whole monodromy group); each entry must
+      coerce into ``QQbar``
 
     OUTPUT:
 
