@@ -41,7 +41,7 @@ Membrane example::
 
     sage: DFR = DFiniteFunctionRing(deq.parent())
     sage: ref = UnivariateDFiniteFunction(DFR, deq, seqini)
-    sage: check_seq_bound(asy.expand(), ref, range(1000)) # long time (130 s)
+    sage: check_seq_bound(asy.expand(), ref, list(range(100)) + list(range(200, 230)) + [1000]) # long time
 
 Algebraic example::
 
@@ -82,11 +82,11 @@ Complex exponents example::
     + B([2761.73...]*n^(-7/2), n >= 50))
 
     sage: ref = UnivariateDFiniteFunction(DFR, deq, seqini)
-    sage: check_seq_bound(asy.expand(), ref, range(1000)) # not tested -- bug
+    sage: #check_seq_bound(asy.expand(), ref, range(1000)) # buggy
     sage: # Temporary workaround
     sage: from ore_algebra.analytic.singularity_analysis import contribution_all_singularity, eval_bound
-    sage: b = contribution_all_singularity(seqini, deq, total_order=3) # long time
-    sage: all(eval_bound(b[1], j).contains_exact(ref[j]) for j in range(b[0], 499)) # long time
+    sage: b = contribution_all_singularity(seqini, deq, total_order=3) # long time (1.5 s)
+    sage: all(eval_bound(b[1], j).contains_exact(ref[j]) for j in range(b[0], 150)) # long time
     True
 """
 
