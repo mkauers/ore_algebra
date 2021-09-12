@@ -17,9 +17,7 @@ EXAMPLES::
     ....:         bound_coefficients, check_seq_bound)
 
     sage: Pols_z.<z> = PolynomialRing(QQ)
-    sage: Pols_n.<n> = PolynomialRing(QQ)
     sage: Diff.<Dz> = OreAlgebra(Pols_z)
-    sage: Shift.<Sn> = OreAlgebra(Pols_n)
 
 Membrane example::
 
@@ -1125,13 +1123,17 @@ def check_seq_bound(asy, ref, indices=None, *, verbose=False, force=False):
             if absbound.contains_exact(refval):
                 # this may be a false warning due to overestimation at
                 # evaluation time
-                warnings.warn(f"{name} = {n}, magnitude of interval rescaled "
+                print(f"{name} = {n}, magnitude of interval rescaled "
                         f"error {relbound} is larger than {bterm.coefficient}")
             else:
                 # definitely wrong
-                raise AssertionError(f"{name} = {n}, computed enclosure "
+                msg = (f"{name} = {n}, computed enclosure "
                         f"{absbound} does not contain reference value {refval}"
                         f" ≈ {myCBF(refval)}")
+                if force:
+                    print(msg)
+                else:
+                    raise AssertionError(msg)
         else:
             if verbose:
                 print(f"{name} = {n}, {relbound} contained in {error_ball}")
