@@ -550,7 +550,7 @@ def numerical_sol_big_circle(coeff_zero, deq, dominant_sing, rad, halfside, prec
     - halfside : half of side length of covering squares
     - prec_bit : integer, approximated desired bit precision
     """
-    prec = 2**(- prec_bit - 13) #To be optimized
+    eps = 2**(- prec_bit - 13) #To be optimized
     logger.info("Bounding on large circle...")
     begin_time = time.time()
 
@@ -572,9 +572,9 @@ def numerical_sol_big_circle(coeff_zero, deq, dominant_sing, rad, halfside, prec
                         for k in range(np+1)]
         path_upper = [0] + [[_z] for _z in circle_upper]
         path_lower = [0] + [[_z] for _z in circle_lower]
-        pairs += deq.numerical_solution(coeff_zero, path_upper, prec,
+        pairs += deq.numerical_solution(coeff_zero, path_upper, eps,
                                         assume_analytic=True)
-        pairs += deq.numerical_solution(coeff_zero, path_lower, prec,
+        pairs += deq.numerical_solution(coeff_zero, path_lower, eps,
                                         assume_analytic=True)
     # last arc is a bit special: we need to add 2*pi to ending
     j = num_sings - 1
@@ -588,9 +588,9 @@ def numerical_sol_big_circle(coeff_zero, deq, dominant_sing, rad, halfside, prec
                     for k in range(np+1)]
     path_upper = [0] + [[_z] for _z in circle_upper]
     path_lower = [0] + [[_z] for _z in circle_lower]
-    pairs += deq.numerical_solution(coeff_zero, path_upper, prec,
+    pairs += deq.numerical_solution(coeff_zero, path_upper, eps,
             assume_analytic=True)
-    pairs += deq.numerical_solution(coeff_zero, path_lower, prec,
+    pairs += deq.numerical_solution(coeff_zero, path_lower, eps,
             assume_analytic=True)
 
     end_time = time.time()
