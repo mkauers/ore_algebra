@@ -37,7 +37,7 @@ class Clock(object):
         self._sum = 0.
         self._tic = None
     def __repr__(self):
-        return "{} = {}".format(self.name, self.total())
+        return "{} = {} s".format(self.name, self.total())
     def since_tic(self):
         return 0. if self._tic is None else cputime(self._tic)
     def total(self):

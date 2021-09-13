@@ -118,7 +118,7 @@ from .differential_operator import DifferentialOperator
 from .path import Point
 from .bounds import DiffOpBound
 from .ui import multi_eval_diffeq
-from .utilities import as_embedded_number_field_elements
+from .utilities import as_embedded_number_field_elements, Clock
 
 logger = logging.getLogger(__name__)
 
@@ -537,65 +537,57 @@ def extract_local(fs, rho, order, prec_bit):
               if mon.shift < ms + order)
     return L, Z, loc
 
-def numerical_sol_big_circle(coeff_zero, deq, dominant_sing, rad, halfside, prec_bit):
+def numerical_sol_big_circle(deq, ini, dominant_sing, rad, halfside, prec_bit):
     """
     Compute numerical solutions of f on big circle of radius rad
 
     INPUT:
 
-    - coeff_zero : vector, coefficients corresponding to the basis at zero
+    - ini : vector, coefficients corresponding to the basis at zero
     - deq : a linear ODE that the generating function satisfies
     - dominant_sing : list of algebraic numbers, list of dominant singularities
     - rad : radius of big circle
     - halfside : half of side length of covering squares
     - prec_bit : integer, approximated desired bit precision
     """
-    eps = 2**(- prec_bit - 13) #To be optimized
     logger.info("Bounding on large circle...")
-    begin_time = time.time()
+    clock = Clock()
+    clock.tic()
 
-    sings = dominant_sing.copy()
-    sings.sort(key=lambda s: arg(s))
+    I = CBF.gen(0)
+    eps = RBF.one() >> 100
+    rad = RBF(rad) # XXX temporary
+    halfside = RBF(halfside)
+
+    sings = [CBF(s) for s in dominant_sing]
+    sings.sort(key=lambda s: s.arg())
     num_sings = len(sings)
-    C = ComplexBallField(4 * prec_bit)
-    R = RealBallField(4 * prec_bit)
     pairs = []
     num_sq = 0
-    for j in range(num_sings - 1):
-        hub = C(rad) * ((C(sings[j]).arg() + C(sings[j+1]).arg())/2 * C(I)).exp()
-        halfarc = (C(sings[j+1]).arg() - C(sings[j]).arg()) / 2
-        np = ceil(float((halfarc*C(rad) / R(2*halfside)).above_abs())) + 2
-        num_sq = num_sq + np
-        circle_upper = [(hub*C(halfarc*k/np*I).exp()).add_error(halfside)
-                        for k in range(np+1)]
-        circle_lower = [(hub*C(-halfarc*k/np*I).exp()).add_error(halfside)
-                        for k in range(np+1)]
-        path_upper = [0] + [[_z] for _z in circle_upper]
-        path_lower = [0] + [[_z] for _z in circle_lower]
-        pairs += deq.numerical_solution(coeff_zero, path_upper, eps,
-                                        assume_analytic=True)
-        pairs += deq.numerical_solution(coeff_zero, path_lower, eps,
-                                        assume_analytic=True)
-    # last arc is a bit special: we need to add 2*pi to ending
-    j = num_sings - 1
-    hub = C(rad) * ((C(sings[j]).arg() + C(sings[0]).arg() + C(2*pi))/2 * C(I)).exp()
-    halfarc = (C(sings[0]).arg() + R(2*pi) - C(sings[j]).arg()) / 2
-    np = ceil(float((halfarc*C(rad) / R(2*halfside)).above_abs())) + 2
-    num_sq = num_sq + np
-    circle_upper = [(hub*C(halfarc*k/np*I).exp()).add_error(halfside)
-                    for k in range(np+1)]
-    circle_lower = [(hub*C(-halfarc*k/np*I).exp()).add_error(halfside)
-                    for k in range(np+1)]
-    path_upper = [0] + [[_z] for _z in circle_upper]
-    path_lower = [0] + [[_z] for _z in circle_lower]
-    pairs += deq.numerical_solution(coeff_zero, path_upper, eps,
-            assume_analytic=True)
-    pairs += deq.numerical_solution(coeff_zero, path_lower, eps,
-            assume_analytic=True)
+    for j0 in range(num_sings):
+        j1 = (j0 + 1) % num_sings
+        arg0 = sings[j0].arg()
+        arg1 = sings[j1].arg()
+        if j1 == 0:
+            # last arc is a bit special: we need to add 2*pi to ending
+            arg1 += 2*RBF.pi()
 
-    end_time = time.time()
-    logger.info("Covered circle with %d squares", num_sq)
-    logger.info("%03.3f seconds", (end_time - begin_time))
+        hub = rad * ((arg0 + arg1)/2 * I).exp()
+        halfarc = (arg1 - arg0)/2
+        np = ZZ(((halfarc*rad / (2*halfside)).above_abs()).ceil()) + 2
+        num_sq += np
+        circle_upper = [(hub*(halfarc*k/np*I).exp()).add_error(halfside)
+                        for k in range(np+1)]
+        path_upper = [0] + [[z] for z in circle_upper]
+        pairs += deq.numerical_solution(ini, path_upper, eps,
+                                        assume_analytic=True)
+        # TODO: optimize case of real coefficients
+        path_lower = [0] + [[z.conjugate()] for z in circle_upper]
+        pairs += deq.numerical_solution(ini, path_lower, eps,
+                                        assume_analytic=True)
+
+    clock.toc()
+    logger.info("Covered circle with %d squares, %s", num_sq, clock)
     return pairs
 
 def contribution_single_singularity(coeff_zero, deq, rho, rad_input,
@@ -877,8 +869,6 @@ def contribution_all_singularity(seqini, deq, singularities=None,
 
     deq = DifferentialOperator(deq)
 
-    coeff_zero = _coeff_zero(seqini, deq)
-
     # Interesting points = all sing of the equation, plus the origin
     all_exn_points = deq._singularities(QQbar, multiplicities=False)
     if not any(s.is_zero() for s in all_exn_points):
@@ -916,16 +906,16 @@ def contribution_all_singularity(seqini, deq, singularities=None,
 
     logger.debug(f"{N1=}")
 
-    #Automatically choose halfside
+    ini = _coeff_zero(seqini, deq)
+
     if halfside is None:
         halfside = min(abs(abs(ex) - rad) for ex in all_exn_points)/10
-        logger.info("halfside of small squares: %s", halfside)
-
-    pairs = numerical_sol_big_circle(coeff_zero, deq, dominant_sing, rad,
-                                                                       halfside, prec_bit)
+        logger.info("half-side of small squares: %s", halfside)
+    pairs = numerical_sol_big_circle(deq, ini, dominant_sing, rad,
+                                     halfside, prec_bit)
     coord_big_circle = [z for z, _ in pairs]
     f_big_circle = [f for _, f in pairs]
-    max_big_circle = RB(0)
+    max_big_circle = RB.zero()
 
     n = SR.var('n')
     bound = []
@@ -936,7 +926,7 @@ def contribution_all_singularity(seqini, deq, singularities=None,
 
     for rho in dominant_sing:
         list_val, list_bound, val_big_circle, max_kappa, min_val_rho = contribution_single_singularity(
-                coeff_zero, deq, rho, rad, coord_big_circle, total_order,
+                ini, deq, rho, rad, coord_big_circle, total_order,
                 min_n, prec_bit = prec_bit)
         list_data.append((rho, list_val, list_bound))
         list_max_kappa.append(max_kappa)
