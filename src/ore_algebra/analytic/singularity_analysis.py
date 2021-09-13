@@ -827,7 +827,7 @@ def contribution_single_singularity(coeff_zero, deq, rho, rad_input,
     return list_val_rho, list_bound, val_big_circle, max_kappa, min_val_rho
 
 def contribution_all_singularity(seqini, deq, singularities=None,
-        known_analytic=[0], rad=None, total_order=1, min_n=50, halfside=None, prec_bit = 53):
+        known_analytic=[0], rad=None, total_order=1, min_n=50, halfside=None, prec_bit=53):
     """
     Compute a bound for the n-th element of a holonomic sequence
 
@@ -857,29 +857,25 @@ def contribution_all_singularity(seqini, deq, singularities=None,
     CB = ComplexBallField(prec_bit)
     RB = RealBallField(prec_bit)
 
-    coeff_zero = _coeff_zero(seqini, deq)
-
-    if singularities is None:
-        desing_deq = deq.desingularize()
-        list_sing = desing_deq.leading_coefficient().roots(QQbar,
-                                                           multiplicities=False)
-    else:
-        list_sing = singularities.copy()
+    deq = DifferentialOperator(deq)
 
     list_exception = deq.leading_coefficient().roots(QQbar,
                                                      multiplicities=False) + [0]
 
-    #Exclude points known to be analytic
-    list_sing = [s for s in list_sing if not s in known_analytic]
+    coeff_zero = _coeff_zero(seqini, deq)
 
-    list_sing.sort(key=lambda s: abs(s))
+    if singularities is None:
+        singularities = deq._singularities(QQbar, include_apparent=False,
+                                           multiplicities=False)
+    singularities = [s for s in singularities if not s in known_analytic]
+    singularities.sort(key=lambda s: abs(s))
 
     if rad is None:
         #Find all dominant singularities
-        sing_inf = abs(list_sing[-1])*3
-        list_sing.append(sing_inf)
-        k = next(j for j,v in enumerate(list_sing) if abs(v) > abs(list_sing[0]))
-        list_dom_sing = list_sing[:k]
+        sing_inf = abs(singularities[-1])*3
+        singularities.append(sing_inf)
+        k = next(j for j,v in enumerate(singularities) if abs(v) > abs(singularities[0]))
+        list_dom_sing = singularities[:k]
         max_smallrad = min(
                 min(abs(ex - ds)
                     for ex in list_exception
@@ -887,18 +883,18 @@ def contribution_all_singularity(seqini, deq, singularities=None,
                 for ds in list_dom_sing)
         # This should probably change to avoid smaller fake singularities
         rad_input = min(
-                abs(list_sing[k])*0.9 + abs(list_sing[0])*0.1,
-                abs(list_sing[0]) + max_smallrad*0.8)
+                abs(singularities[k])*0.9 + abs(singularities[0])*0.1,
+                abs(singularities[0]) + max_smallrad*0.8)
         logger.info("Radius of large circle: %s", rad_input)
     else:
-        sing_inf = abs(list_sing[-1])*2 + rad * 2
-        list_sing.append(sing_inf)
-        k = next(j for j,v in enumerate(list_sing) if abs(v) > rad)
+        sing_inf = abs(singularities[-1])*2 + rad * 2
+        singularities.append(sing_inf)
+        k = next(j for j,v in enumerate(singularities) if abs(v) > rad)
         if k == 0:
             raise ValueError("No singularity contained in given radius")
-        if abs(list_sing[k-1]) == rad:
+        if abs(singularities[k-1]) == rad:
             raise ValueError("A singularity is on the given radius")
-        list_dom_sing = list_sing[:k]
+        list_dom_sing = singularities[:k]
         rad_input = rad
 
     #Make sure the disks B(ρ, |ρ|/n) do not touch each other
