@@ -537,7 +537,7 @@ def extract_local(fs, rho, order, prec_bit):
               if mon.shift < ms + order)
     return L, Z, loc
 
-def numerical_sol_big_circle(coeff_zero, deq, list_dom_sing, rad, halfside, prec_bit):
+def numerical_sol_big_circle(coeff_zero, deq, dominant_sing, rad, halfside, prec_bit):
     """
     Compute numerical solutions of f on big circle of radius rad
 
@@ -545,7 +545,7 @@ def numerical_sol_big_circle(coeff_zero, deq, list_dom_sing, rad, halfside, prec
 
     - coeff_zero : vector, coefficients corresponding to the basis at zero
     - deq : a linear ODE that the generating function satisfies
-    - list_dom_sing : list of algebraic numbers, list of dominant singularities
+    - dominant_sing : list of algebraic numbers, list of dominant singularities
     - rad : radius of big circle
     - halfside : half of side length of covering squares
     - prec_bit : integer, approximated desired bit precision
@@ -554,7 +554,7 @@ def numerical_sol_big_circle(coeff_zero, deq, list_dom_sing, rad, halfside, prec
     logger.info("Bounding on large circle...")
     begin_time = time.time()
 
-    sings = list_dom_sing.copy()
+    sings = dominant_sing.copy()
     sings.sort(key=lambda s: arg(s))
     num_sings = len(sings)
     C = ComplexBallField(4 * prec_bit)
@@ -826,6 +826,24 @@ def contribution_single_singularity(coeff_zero, deq, rho, rad_input,
     max_kappa = max(list_kappa)
     return list_val_rho, list_bound, val_big_circle, max_kappa, min_val_rho
 
+def _sing_in_disk(elts, rad, infinity):
+    for j, x in enumerate(elts):
+        mag = abs(x)
+        if mag > rad:
+            return elts[:j], mag
+    return elts, infinity
+
+def _choose_big_radius(all_exn_points, dominant_sing, next_sing_rad):
+    max_smallrad = min(abs(ex - ds) for ds in dominant_sing
+                                    for ex in all_exn_points
+                                    if ex != ds)
+    dom_rad = abs(dominant_sing[-1])
+    # This should probably change to avoid smaller fake singularities
+    rad = min(next_sing_rad*9/10 + dom_rad/10,
+              dom_rad + max_smallrad*8/10)
+    logger.info("Radius of large circle: %s", rad)
+    return rad
+
 def contribution_all_singularity(seqini, deq, singularities=None,
         known_analytic=[0], rad=None, total_order=1, min_n=50, halfside=None, prec_bit=53):
     """
@@ -859,61 +877,51 @@ def contribution_all_singularity(seqini, deq, singularities=None,
 
     deq = DifferentialOperator(deq)
 
-    list_exception = deq.leading_coefficient().roots(QQbar,
-                                                     multiplicities=False) + [0]
-
     coeff_zero = _coeff_zero(seqini, deq)
 
+    # Interesting points = all sing of the equation, plus the origin
+    all_exn_points = deq._singularities(QQbar, multiplicities=False)
+    if not any(s.is_zero() for s in all_exn_points):
+        all_exn_points.append(QQbar.zero())
+    # Potential singularities of the function, sorted by magnitude
     if singularities is None:
         singularities = deq._singularities(QQbar, include_apparent=False,
                                            multiplicities=False)
     singularities = [s for s in singularities if not s in known_analytic]
     singularities.sort(key=lambda s: abs(s))
+    logger.debug(f"potential singularities: {singularities}")
 
+    # TODO: use numerical (ball) approximations instead of algebraic numbers
     if rad is None:
-        #Find all dominant singularities
-        sing_inf = abs(singularities[-1])*3
-        singularities.append(sing_inf)
-        k = next(j for j,v in enumerate(singularities) if abs(v) > abs(singularities[0]))
-        list_dom_sing = singularities[:k]
-        max_smallrad = min(
-                min(abs(ex - ds)
-                    for ex in list_exception
-                    if not (ex - ds) == 0)
-                for ds in list_dom_sing)
-        # This should probably change to avoid smaller fake singularities
-        rad_input = min(
-                abs(singularities[k])*0.9 + abs(singularities[0])*0.1,
-                abs(singularities[0]) + max_smallrad*0.8)
-        logger.info("Radius of large circle: %s", rad_input)
+        dominant_sing, next_sing_rad = _sing_in_disk(singularities,
+                abs(singularities[0]), abs(singularities[-1])*3)
+        rad = _choose_big_radius(all_exn_points, dominant_sing, next_sing_rad)
     else:
-        sing_inf = abs(singularities[-1])*2 + rad * 2
-        singularities.append(sing_inf)
-        k = next(j for j,v in enumerate(singularities) if abs(v) > rad)
-        if k == 0:
-            raise ValueError("No singularity contained in given radius")
-        if abs(singularities[k-1]) == rad:
+        dominant_sing, _ = _sing_in_disk(singularities, rad,
+                abs(singularities[-1])*2 + rad*2)
+        if not dominant_sing:
+            raise ValueError("No singularity in given disk")
+        if abs(dominant_sing[-1]) == rad:
             raise ValueError("A singularity is on the given radius")
-        list_dom_sing = singularities[:k]
-        rad_input = rad
+    logger.debug(f"dominant singularities: {dominant_sing}")
 
-    #Make sure the disks B(ρ, |ρ|/n) do not touch each other
-    if len(list_dom_sing) > 1:
-        min_dist = min(
-                min(abs(ex - ds)
-                    for ex in list_dom_sing
-                    if not (ex - ds) == 0)
-                for ds in list_dom_sing)
-        N1 = ceil(2*abs(list_dom_sing[-1])/min_dist)
+    # Make sure the disks B(ρ, |ρ|/n) do not overlap
+    if len(dominant_sing) > 1:
+        min_dist = min(abs(s0 - s1) for s0 in dominant_sing
+                                    for s1 in dominant_sing
+                                    if s0 != s1)
+        N1 = ceil(2*abs(dominant_sing[-1])/min_dist)
     else:
         N1 = 0
 
+    logger.debug(f"{N1=}")
+
     #Automatically choose halfside
     if halfside is None:
-        halfside = min(abs(abs(ex) - rad_input) for ex in list_exception)/10
+        halfside = min(abs(abs(ex) - rad) for ex in all_exn_points)/10
         logger.info("halfside of small squares: %s", halfside)
 
-    pairs = numerical_sol_big_circle(coeff_zero, deq, list_dom_sing, rad_input,
+    pairs = numerical_sol_big_circle(coeff_zero, deq, dominant_sing, rad,
                                                                        halfside, prec_bit)
     coord_big_circle = [z for z, _ in pairs]
     f_big_circle = [f for _, f in pairs]
@@ -926,9 +934,9 @@ def contribution_all_singularity(seqini, deq, singularities=None,
     list_max_kappa = []
     list_min_val_rho = []
 
-    for rho in list_dom_sing:
+    for rho in dominant_sing:
         list_val, list_bound, val_big_circle, max_kappa, min_val_rho = contribution_single_singularity(
-                coeff_zero, deq, rho, rad_input, coord_big_circle, total_order,
+                coeff_zero, deq, rho, rad, coord_big_circle, total_order,
                 min_n, prec_bit = prec_bit)
         list_data.append((rho, list_val, list_bound))
         list_max_kappa.append(max_kappa)
@@ -957,24 +965,24 @@ def contribution_all_singularity(seqini, deq, singularities=None,
         (s - vv).above_abs()
         for s, vv in zip(sum_g, f_big_circle)))
     #Simplify bound contributed by big circle
-    M = RB(abs(list_dom_sing[0]))
+    M = RB(abs(dominant_sing[0]))
     rad_err = max_big_circle * (((CB(e) * (total_order - re_gam)
-                  / (M/CB(rad_input)).log()).pow(RB(re_gam - total_order))
-                 / CB(min_n).log().pow(final_kappa)) if re_gam <= total_order + min_n * (M/RB(rad_input)).log()
-                else ((M/CB(rad_input)).pow(min_n) * CB(min_n).pow(total_order - re_gam)
+                  / (M/CB(rad)).log()).pow(RB(re_gam - total_order))
+                 / CB(min_n).log().pow(final_kappa)) if re_gam <= total_order + min_n * (M/RB(rad)).log()
+                else ((M/CB(rad)).pow(min_n) * CB(min_n).pow(total_order - re_gam)
                  / CB(min_n).log().pow(final_kappa)))
-    #bound += [CB(0).add_error(rad_err) * (SR(QQbar(1/abs(list_dom_sing[0]))**n)
+    #bound += [CB(0).add_error(rad_err) * (SR(QQbar(1/abs(dominant_sing[0]))**n)
     #                                      * SR(n**QQbar(re_gam)) * (SR(1/n)**total_order) * (SR(log(n))**final_kappa))]
 
     #Add big circle error bound
     list_rho = [rho for rho, _, _ in list_data]
-    if abs(list_dom_sing[0]) in list_rho:
-        ind_rho_real = list_rho.index(abs(list_dom_sing[0]))
+    if abs(dominant_sing[0]) in list_rho:
+        ind_rho_real = list_rho.index(abs(dominant_sing[0]))
         bound[ind_rho_real][1] += CB(0).add_error(rad_err) * SR(n**QQbar(re_gam - total_order)) * (SR(log(n))**final_kappa)
     else:
-        bound += [[abs(list_dom_sing[0]),
+        bound += [[abs(dominant_sing[0]),
                    CB(0).add_error(rad_err) * SR(n**QQbar(re_gam - total_order)) * (SR(log(n))**final_kappa)]]
-    #print(CB(0).add_error(rad_err) * (SR(QQbar(1/abs(list_dom_sing[0]))**n)
+    #print(CB(0).add_error(rad_err) * (SR(QQbar(1/abs(dominant_sing[0]))**n)
     #                                      * SR(n**QQbar(re_gam)) * (SR(1/n)**total_order) * (SR(log(n))**final_kappa)))
 
     #Compute N0
