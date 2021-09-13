@@ -590,38 +590,39 @@ def numerical_sol_big_circle(deq, ini, dominant_sing, rad, halfside, prec_bit):
     logger.info("Covered circle with %d squares, %s", num_sq, clock)
     return pairs
 
-def contribution_single_singularity(coeff_zero, deq, rho, rad_input,
-        coord_big_circle, total_order=1, min_n=50, prec_bit=53):
+def contribution_single_singularity(deq, ini, rho, rad,
+        coord_big_circle, total_order, min_n, prec_bit):
     """
     Compute a lower bound of a dominant singularity's contribution to f_n
 
     INPUT:
 
-    - coeff_zero : vector, coefficients corresponding to the basis at zero
-    - deq : a linear ODE that the generating function satisfies
-    - rho : singularity
-    - rad_input : real number, such that rho is the only singularity in B(0, R)
-    - coord_big_circle : coordinates of the "big circle" of radius rad_input
-    - total_order : positive integer
-    - min_n : positive integer, n > min_n
-    - prec_bit : integer, numeric working precision (in bit)
+    - ini: vector, coefficients corresponding to the basis at zero
+    - deq: a linear ODE that the generating function satisfies
+    - rho: singularity
+    - rad: real number, such that rho is the only singularity in B(0, R)
+    - coord_big_circle: coordinates of the "big circle" of radius rad
+    - total_order: positive integer
+    - min_n: positive integer, n > min_n
+    - prec_bit: integer, numeric working precision (in bit)
 
     OUTPUT:
 
-    - list_val : list of valuation of solutions at rho
-    - list_bound : list of expressions of bound
-    - val_big_circle : list of CB numbers, values on big circle
-    - max_kappa : integer, upper bound on the exponent of log that can appear
-    - min_val_rho : element of QQbar, minimal valuation of non-analytic solutions
+    - list_val: list of valuation of solutions at rho
+    - list_bound: list of expressions of bound
+    - val_big_circle: list of CB numbers, values on big circle
+    - max_kappa: integer, upper bound on the exponent of log that can appear
+    - min_val_rho: element of QQbar, minimal valuation of non-analytic solutions
     """
     CB = ComplexBallField(prec_bit)
     RB = RealBallField(prec_bit)
+    eps = RBF.one() >> prec_bit + 13
 
     z = deq.parent().base_ring().gens()[0]
-    rad = RB(rad_input)
+    rad = RB(rad)
     loc = deq.local_basis_expansions(rho)
-    coord_all = deq.numerical_transition_matrix([0, rho], 2**(-prec_bit-13),
-                                              assume_analytic=True) * coeff_zero
+    tmat = deq.numerical_transition_matrix([0, rho], eps, assume_analytic=True)
+    coord_all = tmat*ini
 
     # Regroup elements of the loc basis according to valuation modulo ZZ
     list_expo = [list(f)[0][1].expo for f in loc]
@@ -926,7 +927,7 @@ def contribution_all_singularity(seqini, deq, singularities=None,
 
     for rho in dominant_sing:
         list_val, list_bound, val_big_circle, max_kappa, min_val_rho = contribution_single_singularity(
-                ini, deq, rho, rad, coord_big_circle, total_order,
+                deq, ini, rho, rad, coord_big_circle, total_order,
                 min_n, prec_bit = prec_bit)
         list_data.append((rho, list_val, list_bound))
         list_max_kappa.append(max_kappa)
