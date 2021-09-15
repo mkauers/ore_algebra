@@ -28,6 +28,8 @@ from sage.arith.misc import valuation, gcd
 from sage.misc.misc import cputime
 from sage.plot.line import line2d
 
+from ore_algebra.guessing import guess
+
 from .monodromy import _monodromy_matrices
 from .differential_operator import PlainDifferentialOperator
 from .accuracy import PrecisionError
@@ -257,9 +259,9 @@ def try_rational(dop):
     for (f,) in dop.rational_solutions():
         d = f.gcd(f.derivative())
         rfactor = (f/d)*dop.parent().gen() - f.derivative()/d
-        return True, rfactor
+        return rfactor
 
-    return False, None
+    return None
 
 
 def right_factor(dop, verbose=False, hybrid=True):
@@ -270,11 +272,11 @@ def right_factor(dop, verbose=False, hybrid=True):
     """
 
     if dop.order()<2: return 'irreducible'
-    success, rfactor = try_rational(dop)
-    if success: return rfactor
+    rfactor = try_rational(dop)
+    if not rfactor is None: return rfactor
     if hybrid:
-        success, rfactor = try_series(dop)
-        if success: return rfactor
+        rfactor = try_vanHoeij(dop)
+        if not rfactor is None: return rfactor
 
     coeffs, z0, z = dop.monic().coefficients(), QQ.zero(), dop.base_ring().gen()
     while min(c.valuation(z - z0) for c in coeffs)<0: z0 = z0 + QQ.one()
@@ -291,7 +293,7 @@ def _factor(dop, verbose=False, hybrid=True):
     rfactor = right_factor(dop, verbose=verbose, hybrid=hybrid)
     if rfactor=='irreducible': return [dop]
     lfactor = rfactor.parent()(dop)//rfactor
-    return factor(lfactor, verbose=verbose, hybrid=hybrid) + factor(rfactor, verbose=verbose, hybrid=hybrid)
+    return _factor(lfactor, verbose=verbose, hybrid=hybrid) + _factor(rfactor, verbose=verbose, hybrid=hybrid)
 
 
 def factor(dop, verbose=False, hybrid=True):
@@ -376,7 +378,7 @@ def display_newton_polygon(dop):
     return L1 + L + L2
 
 
-def exponents(dop, multiplicities=False):
+def exponents(dop, multiplicities=True):
 
     if dop.base_ring().base_ring()==QQ:
         FLS = LaurentSeriesRing(QQ, dop.base_ring().variable_name())
@@ -408,8 +410,6 @@ def S(dop, e):
 
     return output
 
-
-
 def search_exp_part_with_mult1(dop):
 
     dop = LinearDifferentialOperator(dop)
@@ -426,78 +426,38 @@ def search_exp_part_with_mult1(dop):
 
     return (None, None)
 
-def _guessing_via_series(L, f):
-
-    r = L.order() - 1
-    der = derivatives(f, r)
-    app = hp_approximants(der, 100 - r)
-
-    if max(c.degree() for c in app) < 100 - r - 10 and \
-    all(c2.numerator().abs()>>300==0 for c1 in app for c2 in c1):
-            R = L.gcrd(L.parent()(app))
-            if R.order()>0: return True, R
-
-    return False, None
-
-
-def right_factor_via_exp_part(Le):
-
-    success, R = try_rational(Le)
-    if success: return True, R
-    Lea = Le.adjoint(); success, Rea = try_rational(Lea)
-    if success: return True, (Lea // Rea).adjoint()
-
-    ea = [x for x in exponents(Lea) if x in ZZ][0]; Lea = S(Lea, ZZ(ea))
-    f = Le.power_series_solutions(100)[0]
-    fa = Lea.power_series_solutions(100)[0]
-    m = max(c.numerator().abs() for c in f)
-    ma = max(c.numerator().abs() for c in fa)
-
-    if m<ma:
-        success, Re = _guessing_via_series(Le, f)
-        if success: return True, Re
-        success, Rea = _guessing_via_series(Lea, fa)
-        if success: return True, S((Lea // Rea), -ea).adjoint()
-    else:
-        success, Rea = _guessing_via_series(Lea, fa)
-        if success: return True, S((Lea // Rea), -ea).adjoint()
-        success, Re = _guessing_via_series(Le, f)
-        if success: return True, Re
-
-    return False, None
+def guessing_via_series(L, einZZ):
+    """ assumption: 0 is an exponential part of multiplicity 1 (at 0) """
+    if not einZZ: # if e in ZZ, this test has already been done
+        R = try_rational(L)
+        if not R is None: return R
+    r = L.order(); A = L.parent()
+    t = len(L.desingularize().leading_coefficient().roots(QQbar))
+    b = min(1000, max(50, (r - 1)**2*(r - 2)*(t - 1)))
+    try:
+        R = guess(L.power_series_solutions(b)[0].list(), A, order=r - 1)
+        if 0<R.order()<r and L%R==0: return R
+    except ValueError: pass
+    La = L.adjoint()
+    Ra = try_rational(La)
+    if not Ra is None: return (La//Ra).adjoint()
+    ea = ZZ([e for e in exponents(La, False) if e in ZZ][0]); La = S(La, ea)
+    try:
+        Ra = guess(La.power_series_solutions(b)[0].list(), A, order=r - 1)
+        if 0<Ra.order()<r and La%Ra==0: return S(La//Ra, -ea).adjoint()
+    except ValueError: return None
 
 
 
-def try_series(dop):
-
-    """
-    INPUT:
-     - ``dop`` - a linear differential operator
-
-    OUTPUT:
-     - ``b`` - a boolean
-     - ``L`` - None if b=False, a linear differential operator otherwise
-    """
-
-    z = dop.base_ring().gen()
-    f, e = search_exp_part_with_mult1(dop)
-
-    if not f is None:
-
-        K = dop.base_ring().base_ring()
-        if not e in K: dop, e = LinearDifferentialOperator(dop).extend_scalars(e)
-        else: e = K(e)
-
-        if z*f.is_one():
-            Le = S(dop.annihilator_of_composition(f), e)
-            b, Re = right_factor_via_exp_part(Le)
-            if b: return True, S(Re, -e).annihilator_of_composition(f)
-        elif f.degree()==1:
-            s = f.roots(QQ, multiplicities=False)[0]
-            Le = S(dop.annihilator_of_composition(z + s), e)
-            b, Re = right_factor_via_exp_part(Le)
-            if b: return True, S(Re, -e).annihilator_of_composition(z - s)
-        else:
-            return False, None # to be implemented
-
-    return False, None
+def try_vanHoeij(L):
+    """ try to find a factor thank to an exponential part of multiplicity 1 """
+    z, (p, e) = L.base_ring().gen(), search_exp_part_with_mult1(L)
+    if p==None: return None
+    L, e = LinearDifferentialOperator(L).extend_scalars(e)
+    if p*z.is_one(): L = S(L.annihilator_of_composition(p), e)
+    elif p.degree()==1: s = -p[0]/p[1]; L = S(L.annihilator_of_composition(z + s), e)
+    else: return None # to be implemented?
+    R = guessing_via_series(L, e in ZZ)
+    if R==None: return None
+    if p*z.is_one(): return S(R, -e).annihilator_of_composition(p)
+    elif p.degree()==1: return S(R, -e).annihilator_of_composition(z - s)

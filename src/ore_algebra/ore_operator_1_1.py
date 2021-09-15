@@ -3512,63 +3512,6 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         fct = self._make_valuation_place(place,iota=iota)[2]
         return fct(basis, place, dim)
 
-    def is_irreducible(self):
-        r"""
-        Return whether this operator is irreducible.
-
-        NOTE: The termination of this method is currently not garanteed if the
-        operator is not Fuchsian.
-
-        See also: :meth:`right_factor`
-
-        EXAMPLE::
-
-            sage: from ore_algebra.examples import fcc
-            sage: L = fcc.dop4; L.is_irreducible()
-            True
-        """
-
-        from .analytic.factorization import right_factor
-        out = right_factor(self)=='irreducible'
-        return out
-
-    def right_factor(self, verbose=False, hybrid=True):
-        r"""
-        Return a right factor of this operator if any, or 'irreducible' if not.
-
-        NOTE: The termination of this method is currently not garanteed if the
-        operator is not Fuchsian.
-
-        INPUT:
-
-        - ``verbose`` (default: False) - if set to True, this method prints
-          some messages about the progress of the computation.
-        - ``hybrid``  (default: True) - if set to True, this method does not use
-          van Hoeij's idea with exponents of multiplicity 1 (only rational
-          solutions and van der Hoeven's symbolic-numeric approach with
-          monodromy matrices) to find factors.
-
-        OUTPUT:
-
-        - ``rfac`` - either a right factor or the string 'irreducible'
-
-        See also: :meth:`factor`
-
-        EXAMPLE::
-
-            sage: from ore_algebra import DifferentialOperators
-            sage: Dops, z, Dz = DifferentialOperators(QQ, 'z')
-            sage: L = (4*z^2 + 6*z + 2)*Dz^2 + (4*z + 3)*Dz - 1
-            sage: rfac = L.right_factor(); rfac
-            (z + 1)*Dz - 1/2
-            sage: L % rfac
-            0
-        """
-
-        from .analytic.factorization import right_factor
-        rfac = right_factor(self, verbose=verbose, hybrid=hybrid)
-        return rfac
-
     def factor(self, verbose=False, hybrid=True):
         r"""
         Compute a decomposition of this operator as a composition of irreducible
