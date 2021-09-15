@@ -318,6 +318,23 @@ LocalMonodromyData = collections.namedtuple("LocalMonodromyData",
 
 def _monodromy_matrices(dop, base, eps=1e-16, sing=None):
     r"""
+    Return an iterator over local monodromy matrices of ``dop`` with base point
+    ``base``.
+
+    INPUT:
+
+    See :func:`monodromy_matrices`
+
+    OUTPUT:
+
+    A list of `LocalMonodromyData` named tuples, with fields:
+    - ``point`` - a singular point of ``dop``, represented as an element of
+      ``QQbar``,
+    - ``monodromy`` - a local monodromy matrix attached to this point,
+      represented as a matrix with entries in a complex ball field,
+    - ``is_scalar`` - boolean, ``True`` iff the code could certify that the
+      ``monodromy`` is exactly a scalar matrix.
+
     EXAMPLES::
 
         sage: from ore_algebra import *
@@ -335,7 +352,7 @@ def _monodromy_matrices(dop, base, eps=1e-16, sing=None):
         sage: [rec.monodromy[0][0] for rec in mon if rec.point == -5/3] # long time
         [[1.01088578589319884254557667137848...]]
 
-    Thanks to Alexandre Goyer for this example::
+    Thanks to Alexandre Goyer for these examples::
 
         sage: L1 = ((x^5 - x^4 + x^3)*Dx^3 + (27/8*x^4 - 25/9*x^3 + 8*x^2)*Dx^2
         ....:      + (37/24*x^3 - 25/9*x^2 + 14*x)*Dx - 2*x^2 - 3/4*x + 4)
@@ -347,6 +364,12 @@ def _monodromy_matrices(dop, base, eps=1e-16, sing=None):
         sage: mon[-1][0], mon[-1][1][0][0] # long time
         (0.6403882032022075?,
         [1.15462187280628880820271...] + [-0.018967673022432256251718...]*I)
+
+        sage: list(_monodromy_matrices(Dx*x, 0))
+        [LocalMonodromyData(point=0, monodromy=[1.0000000000000000], is_scalar=True)]
+        sage: list(_monodromy_matrices(Dx*(x-i)*(x+i), i))
+        [LocalMonodromyData(point=1*I, monodromy=[1.0000000000000000], is_scalar=True),
+        LocalMonodromyData(point=-1*I, monodromy=[1.0000000000000000], is_scalar=True)]
     """
     dop = DifferentialOperator(dop)
     base = QQbar.coerce(base)
@@ -423,6 +446,8 @@ def _monodromy_matrices(dop, base, eps=1e-16, sing=None):
                 if todoitem is not base:
                     del todo[key]
                     continue
+                else:
+                    todoitem.want_self = todoitem.want_conj = False
             todoitem.local_monodromy = [mon]
             todoitem.polygon = [point]
 
@@ -468,6 +493,15 @@ def monodromy_matrices(dop, base, eps=1e-16, sing=None):
     r"""
     Compute generators of the monodromy group of ``dop`` with base point
     ``base``.
+
+    INPUT:
+
+    - ``dop`` - differential operator
+    - ``base`` - base point, must be coercible to ``QQbar``
+    - ``eps`` - absolute tolerance (indicative)
+    - ``sing`` (optional) - list of singularities to consider (by default, all,
+      i.e., compute generators of the whole monodromy group); each entry must
+      coerce into ``QQbar``
 
     OUTPUT:
 

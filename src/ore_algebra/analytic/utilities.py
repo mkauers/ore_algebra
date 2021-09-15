@@ -106,7 +106,8 @@ def good_number_field(nf):
 
 def as_embedded_number_field_elements(algs):
     try:
-        nf, elts, _ = number_field_elements_from_algebraics(algs, embedded=True)
+        nf, elts, _ = number_field_elements_from_algebraics(algs, embedded=True,
+                                                            minimal=True)
     except NotImplementedError: # compatibility with Sage <= 9.3
         nf, elts, emb = number_field_elements_from_algebraics(algs)
         if nf is not QQ:
