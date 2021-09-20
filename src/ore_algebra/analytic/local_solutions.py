@@ -606,6 +606,33 @@ def log_series(ini, bwrec, order):
         series.append(new_term)
     return series
 
+def critical_monomials(dop):
+    r"""
+    For all fundamental solutions f, g, compute the terms of f of index equal to
+    the valuation of g.
+
+    OUTPUT:
+
+    A list of ``FundamentalSolution`` objects ``sol`` such that,
+    if ``sol = z^(λ+n)·(1 + Õ(z)`` where ``λ`` is the leftmost valuation of a
+    group of solutions and ``s`` is another shift of ``λ`` appearing in the
+    basis, then ``sol.value[s]`` contains the list of coefficients of
+    ``z^(λ+s)·log(z)^k/k!``, ``k = 0, 1, ...`` in ``sol``.
+    """
+
+    class Mapper(LocalBasisMapper):
+        def fun(self, ini):
+            # XXX should share algebraic part with Galois conjugates
+            order = max(s for s, _ in self.shifts) + 1
+            ser = log_series(ini, self.shifted_bwrec, order)
+            return {s: ser[s] for s, _ in self.shifts}
+
+    return Mapper(dop).run()
+
+##############################################################################
+# Evaluation of logarithmic series
+##############################################################################
+
 def log_series_values(Jets, expo, psum, evpt, downshift=[0]):
     r"""
     Evaluate a logarithmic series, and optionally its downshifts.

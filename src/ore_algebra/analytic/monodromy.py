@@ -30,7 +30,7 @@ from sage.symbolic.all import pi, SR
 from . import analytic_continuation as ancont, local_solutions, path, utilities
 
 from .differential_operator import DifferentialOperator
-from .local_solutions import LocalBasisMapper, log_series
+from .local_solutions import LocalBasisMapper, log_series, critical_monomials
 
 logger = logging.getLogger(__name__)
 
@@ -121,32 +121,9 @@ def formal_monodromy(dop, sing, ring=SR):
     return mon
 
 def _formal_monodromy_naive(dop, ring):
-    crit = _critical_monomials(dop)
+    crit = critical_monomials(dop)
     mor = dop.base_ring().base_ring().hom(ring)
     return _formal_monodromy_from_critical_monomials(crit, mor)
-
-def _critical_monomials(dop):
-    r"""
-    For all fundamental solutions f, g, compute the terms of f of index equal to
-    the valuation of g.
-
-    OUTPUT:
-
-    A list of ``FundamentalSolution`` objects ``sol`` such that,
-    if ``sol = z^(λ+n)·(1 + Õ(z)`` where ``λ`` is the leftmost valuation of a
-    group of solutions and ``s`` is another shift of ``λ`` appearing in the
-    basis, then ``sol.value[s]`` contains the list of coefficients of
-    ``z^(λ+s)·log(z)^k/k!``, ``k = 0, 1, ...`` in ``sol``.
-    """
-
-    class Mapper(LocalBasisMapper):
-        def fun(self, ini):
-            # XXX should share algebraic part with Galois conjugates
-            order = max(s for s, _ in self.shifts) + 1
-            ser = log_series(ini, self.shifted_bwrec, order)
-            return {s: ser[s] for s, _ in self.shifts}
-
-    return Mapper(dop).run()
 
 def _formal_monodromy_from_critical_monomials(critical_monomials, mor):
     r"""
@@ -156,7 +133,7 @@ def _formal_monodromy_from_critical_monomials(critical_monomials, mor):
     INPUT:
 
     - ``critical_monomials``: critical monomials in the format output by
-      :func:`_critical_monomials`
+      :func:`ore_algebra.analytic.local_solutions.critical_monomials`
 
     - ``mor``: a morphism from the parent of critical monomials to a ring
       suitable for representing the entries of the formal monodromy matrix
@@ -394,7 +371,7 @@ def _monodromy_matrices(dop, base, eps=1e-16, sing=None):
         # delaying it may allow us to start returning results earlier.
         if point.is_regular():
             if crit_cache is None or point.algdeg() == 1:
-                crit = _critical_monomials(dop.shift(point))
+                crit = critical_monomials(dop.shift(point))
                 emb = point.value.parent().hom(Scalars)
             else:
                 mpol = point.value.minpoly()
@@ -402,7 +379,7 @@ def _monodromy_matrices(dop, base, eps=1e-16, sing=None):
                     NF, crit = crit_cache[mpol]
                 except KeyError:
                     NF = point.value.parent()
-                    crit = _critical_monomials(dop.shift(point))
+                    crit = critical_monomials(dop.shift(point))
                     # Only store the critical monomials for reusing when all
                     # local exponents are rational. We need to restrict to this
                     # case because we do not have the technology in place to
