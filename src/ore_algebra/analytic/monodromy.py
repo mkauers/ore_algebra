@@ -126,6 +126,18 @@ def _formal_monodromy_naive(dop, ring):
     return _formal_monodromy_from_critical_monomials(crit, mor)
 
 def _critical_monomials(dop):
+    r"""
+    For all fundamental solutions f, g, compute the terms of f of index equal to
+    the valuation of g.
+
+    OUTPUT:
+
+    A list of ``FundamentalSolution`` objects ``sol`` such that,
+    if ``sol = z^(λ+n)·(1 + Õ(z)`` where ``λ`` is the leftmost valuation of a
+    group of solutions and ``s`` is another shift of ``λ`` appearing in the
+    basis, then ``sol.value[s]`` contains the list of coefficients of
+    ``z^(λ+s)·log(z)^k/k!``, ``k = 0, 1, ...`` in ``sol``.
+    """
 
     class Mapper(LocalBasisMapper):
         def fun(self, ini):
@@ -143,11 +155,8 @@ def _formal_monodromy_from_critical_monomials(critical_monomials, mor):
 
     INPUT:
 
-    - ``critical_monomials``: list of ``FundamentalSolution`` objects ``sol``
-      such that, if ``sol = z^(λ+n)·(1 + Õ(z)`` where ``λ`` is the leftmost
-      valuation of a group of solutions and ``s`` is another shift of ``λ``
-      appearing in the basis, then ``sol.value[s]`` contains the list of
-      coefficients of ``z^(λ+s)·log(z)^k/k!``, ``k = 0, 1, ...`` in ``sol``
+    - ``critical_monomials``: critical monomials in the format output by
+      :func:`_critical_monomials`
 
     - ``mor``: a morphism from the parent of critical monomials to a ring
       suitable for representing the entries of the formal monodromy matrix
