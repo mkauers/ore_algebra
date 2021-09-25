@@ -577,6 +577,20 @@ def exponent_shifts(dop, leftmost):
     return shifts
 
 def log_series(ini, bwrec, order):
+    r"""
+    Compute the coefficients of a logarithmic series given by a recurrence.
+
+    INPUT:
+
+    - ``ini``: ``LogSeriesInitialValues``
+    - ``bwrec``: compatible ``BwShiftRec``
+    - ``order``: expansion order (counted from the common valuation `\lambda`)
+
+    OUTPUT:
+
+    List of ``order`` vectors; the coefficient of `z^{\lambda + \nu} \log(z)^k`
+    is ``sol[nu][k]/k!``.
+    """
     Coeffs = utilities.mypushout(bwrec.base_ring.base_ring(), ini.universe)
     max_log_prec = sum(len(v) for v in ini.shift.values())
     log_prec = 0

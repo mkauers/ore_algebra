@@ -44,10 +44,10 @@ Membrane example::
 Algebraic example::
 
     sage: deq = (4*z^4 - 4*z^3 + z^2 - 2*z + 1)*Dz + (-4*z^3 + 4*z^2 - z - 1)
-    sage: bound_coefficients(deq, [1], order=5) # long time (16 s)
+    sage: bound_coefficients(deq, [1], order=5) # long time (13 s)
     1.000...*2^n*([0.564189583547...]*n^(-1/2) + [-0.105785546915...]*n^(-3/2)
     + [-0.117906807499...]*n^(-5/2) + [-0.375001499318...]*n^(-7/2)
-    + [-1.059766633817...]*n^(-9/2) + B([1268.649037321...]*n^(-11/2), n >= 50))
+    + [-1.255580304110...]*n^(-9/2) + B([1304.15...]*n^(-11/2), n >= 50))
 
 Diagonal example (Sage is not yet able to correctly combine and order the error
 terms here)::
@@ -56,7 +56,7 @@ terms here)::
     sage: deq = (z^2*(81*z^2 + 14*z + 1)*Dz^3 + 3*z*(162*z^2 + 21*z + 1)*Dz^2
     ....:        + (21*z + 1)*(27*z + 1)*Dz + 3*(27*z + 1))
 
-    sage: bound_coefficients(deq, seqini, order=2) # long time (3.7 s)
+    sage: bound_coefficients(deq, seqini, order=2) # long time (3.5 s)
     1.000000000000000*9.00000000000000?^n*(B([5.27993...]*n^(-7/2)*log(n), n >= 50)
     + ([0.30660...] + [0.14643...]*I)*(e^(I*arg(-0.77777...? + 0.62853...?*I)))^n*n^(-3/2)
     + ([-0.26554...] + [-0.03529...]*I)*(e^(I*arg(-0.77777...? + 0.62853...?*I)))^n*n^(-5/2)
@@ -69,10 +69,10 @@ Complex exponents example::
 
     sage: deq = (z-2)^2*Dz^2 + z*(z-2)*Dz + 1
     sage: seqini = [1, 2, -1/8]
-    sage: asy = bound_coefficients(deq, seqini, order=3) # long time (2.2 s)
+    sage: asy = bound_coefficients(deq, seqini, order=3) # long time (2 s)
     sage: asy # long time
     1.000000000000000*(1/2)^n*(([1.124337...] + [0.462219...]*I)*n^(-0.500000...? + 0.866025...?*I)
-    + ([1.124337...] + [-0.4622196104635 +/- 1.65e-14]*I)*n^(-0.500000...? - 0.866025...?*I)
+    + ([1.124337...] + [-0.462219...]*I)*n^(-0.500000...? - 0.866025...?*I)
     + ([-0.400293...] + [0.973704...]*I)*n^(-1.500000...? + 0.866025...?*I)
     + ([-0.400293...] + [-0.973704...]*I)*n^(-1.500000...? - 0.866025...?*I)
     + ([0.451623...] + [-0.356367...]*I)*n^(-2.500000...? + 0.866025...?*I)
@@ -83,7 +83,7 @@ Complex exponents example::
     sage: #check_seq_bound(asy.expand(), ref, range(1000)) # buggy
     sage: # Temporary workaround
     sage: from ore_algebra.analytic.singularity_analysis import contribution_all_singularity, eval_bound
-    sage: b = contribution_all_singularity(seqini, deq, total_order=3) # long time (1.5 s)
+    sage: b = contribution_all_singularity(seqini, deq, total_order=3) # long time (1.9 s)
     sage: all(eval_bound(b[1], j).contains_exact(ref[j]) for j in range(b[0], 150)) # long time
     True
 """
@@ -114,11 +114,18 @@ from sage.rings.asymptotic.term_monoid import DefaultTermMonoidFactory
 from sage.symbolic.operators import add_vararg
 
 from ..ore_algebra import OreAlgebra
-from .differential_operator import DifferentialOperator
-from .path import Point
+from . import utilities
 from .bounds import DiffOpBound
+from .differential_operator import DifferentialOperator
+from .local_solutions import (
+        critical_monomials,
+        FundamentalSolution,
+        LocalBasisMapper,
+        log_series,
+        LogSeriesInitialValues,
+)
+from .path import Point
 from .ui import multi_eval_diffeq
-from .utilities import as_embedded_number_field_elements, Clock
 
 logger = logging.getLogger(__name__)
 
@@ -488,55 +495,6 @@ def _coeff_zero(seqini, deq):
             list_coeff.append(0)
     return vector(list_coeff)
 
-def valuation_FS(fs):
-    """
-    Valuation of a formal series of logmonomials
-    """
-    v = min([mon.n for c, mon in fs if not c==0])
-    return v
-
-def minshift_FS(fs):
-    """
-    Minimal shift of a formal series of logmonomials
-    """
-    v = min([mon.shift for c, mon in fs if not c==0])
-    return v
-
-def maxlog_FS(fs):
-    """
-    Maximal power of logarithm of a formal series of logmonomials
-    """
-    v = max([mon.k for c, mon in fs if not c==0])
-    return v
-
-def extract_local(fs, rho, order, prec_bit):
-    """
-    Extract the local terms of a formal series of logmonomials, return a
-    polynomial in L=logz, Z=z
-
-    INPUT:
-
-    - fs : formal series
-    - rho : algebraic number
-    - order : integer
-    - prec_bit : integer, bit precision of the coefficients of extracted terms
-
-    OUTPUT:
-
-    - L : element of polynomial ring, denoting log(z)
-    - Z : element of same polynomial ring, denoting z
-    - loc : element of same polynomial ring, local truncation (after variable
-      change) of fs
-    """
-    CB = ComplexBallField(prec_bit)
-    L, Z = PolynomialRing(CB, ['L', 'Z']).gens()
-    mylog = CB(-rho).log() - L
-    ms = minshift_FS(fs)
-    loc = sum(c * mylog**mon.k * Z**mon.shift
-              for c, mon in fs
-              if mon.shift < ms + order)
-    return L, Z, loc
-
 def numerical_sol_big_circle(deq, ini, dominant_sing, rad, halfside, prec_bit):
     """
     Compute numerical solutions of f on big circle of radius rad
@@ -551,7 +509,7 @@ def numerical_sol_big_circle(deq, ini, dominant_sing, rad, halfside, prec_bit):
     - prec_bit : integer, approximated desired bit precision
     """
     logger.info("Bounding on large circle...")
-    clock = Clock()
+    clock = utilities.Clock()
     clock.tic()
 
     I = CBF.gen(0)
@@ -590,234 +548,260 @@ def numerical_sol_big_circle(deq, ini, dominant_sing, rad, halfside, prec_bit):
     logger.info("Covered circle with %d squares, %s", num_sq, clock)
     return pairs
 
+#################################################################################
+# Contribution of a single regular singularity
+#################################################################################
+
+def _modZ_class_ini(dop, inivec, leftmost, mults, struct):
+    r"""
+    Compute a LogSeriesInitialValues object corresponding to the part with a
+    given local exponent mod 1 of a local solution specified by a vector of
+    initial conditions.
+    """
+    values = { (sol.shift, sol.log_power): c
+                for sol, c in zip(struct, inivec)
+                if sol.leftmost == leftmost }
+    ini = LogSeriesInitialValues(dop=dop, expo=leftmost, values=values,
+            mults=mults, check=False)
+    return ini
+
+def _my_log_series(dop, bwrec, inivec, leftmost, mults, struct, order):
+    r"""
+    Similar to _modZ_class_ini() followed by log_series(), but attempts to
+    minimize interval swell by unrolling the recurrence in exact arithmetic
+    (once per relevant initial value) and taking a linear combination.
+
+    The output is a list of lists, not vectors.
+    """
+    log_len = sum(m for _, m in mults)
+    res = [[inivec.base_ring().zero()]*log_len for _ in range(order)]
+    for sol, c in zip(struct, inivec):
+        if c.is_zero() or sol.leftmost != leftmost:
+            continue
+        values = { (sol1.shift, sol1.log_power): QQ.zero()
+                   for sol1 in struct if sol1.leftmost == leftmost }
+        values[sol.shift, sol.log_power] = QQ.one()
+        ini = LogSeriesInitialValues(dop=dop, expo=leftmost, values=values,
+                mults=mults, check=False)
+        ser = log_series(ini, bwrec, order)
+        for i in range(order):
+            for j, a in enumerate(ser[i]):
+                res[i][j] += c*a
+    return res
+
+class SingularityAnalyzer(LocalBasisMapper):
+
+    def __init__(self, dop, inivec, *, rho, rad, Expr, abs_order, min_n,
+                 coord_big_circle, struct):
+
+        super().__init__(dop)
+
+        self.inivec = inivec
+        self.rho = rho
+        self.rad = rad
+        self.Expr = Expr
+        self.abs_order = abs_order
+        self.min_n = min_n
+        self.coord_big_circle = coord_big_circle
+        self._local_basis_structure = struct
+
+    def process_modZ_class(self):
+
+        order = (self.abs_order - self.leftmost.real()).ceil()
+        # XXX don't hardocode this; ensure order1 ≥ bwrec.order
+        order1 = order + 49
+        # XXX Works, and should be faster, but leads to worse bounds due to
+        # using the recursion in interval arithmetic
+        # ini = _modZ_class_ini(self.edop, self.inivec, self.leftmost, self.shifts,
+        #                       self._local_basis_structure) # TBI?
+        # ser = log_series(ini, self.shifted_bwrec, order1)
+        ser = _my_log_series(self.edop, self.shifted_bwrec, self.inivec,
+                self.leftmost, self.shifts, self._local_basis_structure, order1)
+
+        CB = CBF # XXX
+        smallrad = self.rad - CB(self.rho).below_abs()
+        # XXX do we really a bound on the tail *of order `order`*? why not
+        # compute a bound on the tail of order `order1` and put everything else
+        # in the "explicit terms" below?
+        vb = _bound_tail(self.edop, self.leftmost, smallrad, order, ser)
+
+        # XXX why an integer?
+        s = floor(self.min_n / (abs(self.leftmost) + abs(order)))
+        if s <= 2: # XXX take s=3 instead (cf. def. of N0), maybe update n0
+            raise ValueError("min_n too small! Cannot guarantee s>2")
+
+        kappa = sum(mult for shift, mult in self.shifts) - 1
+
+        bound_lead_terms, dom_big_circle = _bound_local_integral_explicit_terms(
+                self.rho, self.leftmost, order, self.Expr, s, self.min_n, ser[:order],
+                self.coord_big_circle)
+        bound_int_SnLn = _bound_local_integral_of_tail(self.rho,
+                self.leftmost, order, self.Expr, s, self.min_n, vb, kappa)
+
+        data = [kappa, bound_lead_terms + bound_int_SnLn, dom_big_circle]
+
+        # XXX abusing FundamentalSolution somewhat; not sure if log_power=kappa
+        # is really appropriate; consider creating another type of record
+        # compatible with FundamentalSolution if this stays
+        sol = FundamentalSolution(leftmost=self.leftmost, shift=ZZ.zero(),
+                                  log_power=kappa, value=data)
+        self.irred_factor_cols.append(sol)
+
+def _bound_tail(dop, leftmost, smallrad, order, series):
+    r"""
+    Upper-bound the tail of order ``order`` of a logarithmic series solution of
+    ``dop`` with exponents in ``leftmost`` + ℤ, on a disk of radius
+    ``smallrad``, using ``order1`` ≥ ``order`` explicitly computed terms given
+    as input in ``series`` and a bound based on the method of majorants for the
+    terms of index ≥ ``order1``.
+    """
+    assert order <= len(series)
+    maj = DiffOpBound(dop, leftmost=leftmost, pol_part_len=30, # XXX
+                                                    bound_inverse="solve")
+    ordrec = maj.dop.degree()
+    last = list(reversed(series[-ordrec:]))
+    order1 = len(series)
+    # Coefficients of the normalized residual in the sense of [Mez19, Sec.
+    # 6.3], with the indexing conventions of [Mez19, Prop. 6.10]
+    CB = CBF # TBI
+    res = maj.normalized_residual(order1, last, Ring=CB)
+    # Majorant series of [the components of] the tail of the local expansion
+    # of f at ρ. See [Mez19, Sec. 4.3] and [Mez19, Algo. 6.11].
+    tmaj = maj.tail_majorant(order1, [res])
+    # Make a second copy of the bound before we modify it in place.
+    tmaj1 = maj.tail_majorant(order1, [res])
+    # Shift it (= factor out z^order) ==> majorant series of the tails
+    # of the coefficients of log(z)^k/k!
+    tmaj1 >>= -order
+    # Bound on the *values* for |z| <= smallrad of the analytic functions
+    # appearing as coefficients of log(z)^k/k! in the tail of order 'order1' of
+    # the local expansion
+    tb = tmaj1.bound(smallrad)
+    # Bound on the intermediate terms
+    ib = sum(smallrad**n1 * max(c.above_abs() for c in vec)
+            for n1, vec in enumerate(series[order:]))
+    # Same as tb, but for the tail of order 'order'
+    return tb + ib
+
+def _bound_local_integral_of_tail(rho, val_rho, order, Expr, s, min_n, vb, kappa):
+
+    _, _, _, w, logn = Expr.gens()
+
+    CB = CBF # These are error terms, no need for high prec. Still, TBI.
+    RB = RBF
+
+    # Change representation from log(z-ρ) to log(1/(1 - z/ρ))
+    # The h_i are cofactors of powers of log(z-ρ), not log(1/(1-z/ρ)).
+    # Define the B polynomial in a way that accounts for that.
+    ll = abs(CB(-rho).log())
+    B = vb*RB['z']([
+            sum([ll**(m - j) * binomial(m, j) / factorial(m)
+                    for m in range(j, kappa + 1)])
+            for j in range(kappa + 1)])
+
+    # Sub polynomial factor for bound on S(n)
+    cst_S = CB(0).add_error(CB(abs(rho)).pow(val_rho.real()+order)
+            * ((abs(CB(rho).arg()) + 2*RB(pi))*abs(val_rho.imag())).exp()
+            * CB(1 - 1/min_n).pow(CB(-min_n-1)))
+    bound_S = cst_S*B(CB(pi)+logn)
+    # Sub polynomial factor for bound on L(n)
+    if val_rho + order <= 0:
+        C_nur = 1
+    else:
+        C_nur = 2 * (CB(e) / (CB(val_rho.real()) + order)
+                            * (s - 2)/(2*s)).pow((RB(val_rho.real()) + order))
+    cst_L = (CB(0).add_error(C_nur * CB(1/pi)
+                                * CB(abs(rho)).pow(RB(val_rho.real())+order))
+        * ((abs(CB(rho).arg()) + 2*RB(pi))*abs(val_rho.imag())).exp())
+    bound_L = cst_L*B(CB(pi)+logn)
+
+    return (bound_S + bound_L) * w**order
+
+def _bound_local_integral_explicit_terms(rho, val_rho, order, Expr, s, min_n, ser,
+        coord_big_circle):
+
+    _, _, _, w, logn = Expr.gens()
+    CB = CBF # XXX or Expr.base_ring() ?
+
+    L, Z = PolynomialRing(CB, ['L', 'Z']).gens()
+    mylog = CB.coerce(-rho).log() - L # XXX check
+    locf_ini_terms = sum(c * mylog**k * Z**shift
+                            for shift, vec in enumerate(ser)
+                            for k, c in enumerate(vec))
+
+    # Values of the tail of the local expansion.
+    # With the first square (and possibly some others), the argument of the
+    # log that we substitute for L crosses the branch cut. This is okay
+    # because the enclosure returned by Arb takes both branches into
+    # account.
+
+    # XXX why do we do this here? to access locf_ini_terms, presumably--but
+    # this means we have to pass coord_big_circle, so the gain is not clear
+    _zeta = CB(rho)
+    dom_big_circle = [
+            (_z-_zeta).pow(CB(val_rho))
+                * locf_ini_terms((~(1-_z/_zeta)).log(), _z-_zeta)
+            for _z in coord_big_circle]
+
+    # Warning: These are the coefficients *after* substituting in mylog
+    list_coef_deg = [(c, mon.degree(L), mon.degree(Z))
+                        for c, mon in list(locf_ini_terms)]
+
+    bound_lead_terms = sum(
+            tup[0]
+                * CB(- rho).pow(CB(val_rho+tup[2]))
+                * w**(tup[2])
+                * bound_coeff_mono(-val_rho-tup[2], tup[1], order - tup[2],
+                                    w, logn, s, min_n)
+            for tup in list_coef_deg)
+
+    return bound_lead_terms, dom_big_circle
+
 def contribution_single_singularity(deq, ini, rho, rad,
-        coord_big_circle, total_order, min_n, prec_bit):
-    """
-    Compute a lower bound of a dominant singularity's contribution to f_n
-
-    INPUT:
-
-    - ini: vector, coefficients corresponding to the basis at zero
-    - deq: a linear ODE that the generating function satisfies
-    - rho: singularity
-    - rad: real number, such that rho is the only singularity in B(0, R)
-    - coord_big_circle: coordinates of the "big circle" of radius rad
-    - total_order: positive integer
-    - min_n: positive integer, n > min_n
-    - prec_bit: integer, numeric working precision (in bit)
-
-    OUTPUT:
-
-    - list_val: list of valuation of solutions at rho
-    - list_bound: list of expressions of bound
-    - val_big_circle: list of CB numbers, values on big circle
-    - max_kappa: integer, upper bound on the exponent of log that can appear
-    - min_val_rho: element of QQbar, minimal valuation of non-analytic solutions
-    """
-    CB = ComplexBallField(prec_bit)
-    RB = RealBallField(prec_bit)
-    eps = RBF.one() >> prec_bit + 13
+        coord_big_circle, rel_order, min_n, prec_bit):
 
     z = deq.parent().base_ring().gens()[0]
-    rad = RB(rad)
-    loc = deq.local_basis_expansions(rho)
+    rad = RBF(rad)
+
+    eps = RBF.one() >> prec_bit + 13
     tmat = deq.numerical_transition_matrix([0, rho], eps, assume_analytic=True)
     coord_all = tmat*ini
 
-    # Regroup elements of the loc basis according to valuation modulo ZZ
-    list_expo = [list(f)[0][1].expo for f in loc]
-    list_expo_unique = list(set(list_expo))
-    list_ind = [[ind for ind, x in enumerate(list_expo) if x == expo]
-                for expo in list_expo_unique]
+    ldop = DifferentialOperator(deq).shift(Point(rho, deq))
 
-    # Initialize results and bounds for different basis
-    list_val_rho = []
-    list_val_real = []
-    list_coord = []
-    list_locf_long = []
-    list_bound = []
-    list_kappa = []
-    list_maxlog = []
-    val_big_circle = [CB(0)] * len(coord_big_circle)
+    # Redundant work; TBI
+    # (Cases where we really need this to detect non-analyticity are rare...)
+    crit = critical_monomials(ldop)
 
-    v, logz, u, w, logn = PolynomialRing(CB,
-            ["v", "logz", "u", "w", "logn"], order='lex').gens()
+    # XXX could move to SingularityAnalyzer if we no longer return min_val_rho
+    nonanalytic = [sol for sol in crit if not (
+        sol.leftmost.is_integer()
+        and sol.leftmost + sol.shift >= 0
+        and all(c.is_zero() for term in sol.value.values() for c in term[1:]))]
+    if not nonanalytic:
+        return
+    min_val_rho = (nonanalytic[0].leftmost + nonanalytic[0].shift).real()
+    abs_order = rel_order + min_val_rho
 
-    for ind_basis in list_ind:
-        # We consider only elements of the basis with the same expo
-        coord = [0]*len(coord_all)
-        for j in ind_basis:
-            coord[j] = coord_all[j]
-        coord = vector(coord)
+    # XXX split in v, logz, u and w, logn?
+    Expr = PolynomialRing(ComplexBallField(prec_bit), ['v', 'logz', 'u', 'w', 'logn'], order='lex')
 
-        # Local expansion of f at z=rho, in terms of variables Z and L
-        locf_long = sum([c*ser for c, ser in zip(coord, loc)])
-        val_rho = valuation_FS(locf_long)
-        maxlog = maxlog_FS(locf_long)
+    analyzer = SingularityAnalyzer(dop=ldop, inivec=coord_all, rho=rho,
+            rad=rad, Expr=Expr, abs_order=abs_order, min_n=min_n,
+            coord_big_circle=coord_big_circle, struct=crit)
+    data = analyzer.run()
 
-        if not (val_rho.is_integer() and val_rho >= 0 and maxlog == 0):
-            list_val_real.append(val_rho.real())
-        list_locf_long.append(locf_long)
-        list_val_rho.append(val_rho)
-        list_coord.append(coord)
+    list_val_rho = [sol.leftmost for sol in data]
+    list_bound = [sol.value[1] for sol in data]
+    val_big_circle = [sum(sol.value[2][j] for sol in data)
+                      for j in range(len(coord_big_circle))]
+    max_kappa = max(sol.value[0] for sol in data)
 
-    min_val_rho = min(list_val_real)
-    num_bas = 0
-
-    for locf_long in list_locf_long:
-
-        val_rho = list_val_rho[num_bas]
-        coord = list_coord[num_bas]
-
-        num_bas = num_bas + 1
-        order = max(0, ceil(total_order - (val_rho.real() - min_val_rho)))
-
-        logger.info("Computing basis %d to order %d", num_bas, order)
-        cycle_begin_time = time.time()
-
-        # Local expansion of f at z=rho, in terms of variables Z and L
-        L, Z, locf_ini_terms = extract_local(locf_long, rho, order, prec_bit)
-
-        #small radius
-        smallrad = rad - CB(rho).below_abs()
-
-        # Convert the equation to an enriched data structure necessary for
-        # calling some of the bound computation routines, and shift to the
-        # origin.
-
-        # Maximum power of log(z - rho) that can appear in a solution
-        K, rho1, _ = rho.as_number_field_element()
-        K_ext = K.extension(QQbar(val_rho).minpoly(), 'val_rho1')
-        val_rho1 = K_ext.gen()
-        rho1 = K_ext(rho1)
-        ind_poly = deq.change_ring(K_ext[z]).indicial_polynomial(z - rho1)
-        alpha = ind_poly.variables()[0]
-        expo = ind_poly.subs(alpha = alpha + val_rho1).roots()
-        kappa = ZZ(sum(mult for r, mult in expo if r.is_integer()) - 1)
-
-        list_kappa.append(kappa)
-
-        # Make a copy of deq with a base field including val_rho
-        K1, list_val_rho1 = as_embedded_number_field_elements([val_rho])
-        val_rho1 = list_val_rho1[0]
-        deq1 = deq.change_ring(K1[z])
-        ldop = DifferentialOperator(deq1).shift(Point(rho, deq1))
-        maj = DiffOpBound(ldop, leftmost=val_rho1, pol_part_len=30,
-                                                          bound_inverse="solve")
-
-        # We want to bound the series h0, h1, ..., h_kappa on small disk
-        # |z - ρ| < smallrad.
-        # The bounds that ore_algebra computes are too coarse, so we bound the
-        # tails corresponding to a truncation at index order1 > order, and
-        # handle the intermediate terms separately.
-        # Due to limitations of the implementation of remainder bounds, order_0
-        # must be >= maj.dop.degree() for what follows to work.
-
-        order1 = 49 + order #TODO: Maybe optimize this
-        loc1 = deq1.local_basis_expansions(rho, order1)
-        locf1 = sum(c*ser for c, ser in zip(coord, loc1))
-
-        # The last few coefficients of the local expansion of f will be used
-        # to compute a residual associated to that particular solution.
-        coeff = { (mon.shift, mon.k): c*ZZ(mon.k).factorial()
-                  for c, mon in locf1 }
-        last = list(reversed([[coeff.get((shift, k), 0) for k in range(kappa+1)]
-                          for shift in range(order1)]))
-
-        # Coefficients of the normalized residual in the sense of [Mez19, Sec. 6.3],
-        # with the indexing conventions of [Mez19, Prop. 6.10]
-
-        res = maj.normalized_residual(order1, last, Ring=coord[0].parent())
-
-        # Majorant series of [the components of] the tail of the local expansion
-        # of f at ρ. See [Mez19, Sec. 4.3] and [Mez19, Algo. 6.11].
-        #
-        # Roughly speaking, the tail satisfies the inhomogeneous equation
-        # ldop(tail) = -rhs with rhs = ldop(locf1), and is therefore bounded by
-        # solution of MAJ(Y) = Q for a suitably chosen Q. We solve the latter
-        # equation by variation of constants to obtain an explicity bound Y.
-        tmaj = maj.tail_majorant(order1, [res])
-        # Make a second copy of the bound before we modify it in place.
-        tmaj1 = maj.tail_majorant(order1, [res])
-        # Shift it (= factor out (z-ρ)^order) ==> majorant series of the tails
-        # of the coefficients of log(z)^k/k!, i.e., of h0, h1, and 2*h2
-        tmaj1 >>= -order
-
-        # Bound on the tails, valid for all |z| ≤ smallrad
-        tb = tmaj1.bound(smallrad)
-
-        # Bound on the intermediate terms
-        ib = sum(smallrad**(n-order) *
-                 max(coeff.get((n,k), RB(0)).above_abs()
-                     for k in range(kappa + 1))
-                 for n in range(order, order1))
-        # Bound on the *values* for |z-ρ| <= smallrad of the functions
-        # h0, h1, 2*h2.
-        vb = tb + ib
-
-        # Change representation from log(z-ρ) to log(1/(1 - z/ρ))
-        # The h_i are cofactors of powers of log(z-ρ), not log(1/(1-z/ρ)).
-        # Define the B polynomial in a way that accounts for that.
-        ll = abs(CB(-rho).log())
-        B = vb*RB['z']([
-                sum([ll**(m - j) * binomial(m, j) / factorial(m)
-                     for m in range(j, kappa + 1)])
-                for j in range(kappa + 1)])
-
-        s = floor(min_n / (abs(val_rho) + abs(order)))
-        if s <= 2:
-            raise ValueError("min_n too small! Cannot guarantee s>2")
-
-        # Sub polynomial factor for bound on S(n)
-        cst_S = (CB(0).add_error(CB(abs(rho)).pow(val_rho.real()+order)
-            * ((abs(CB(rho).arg()) + 2*RB(pi))*abs(val_rho.imag())).exp()
-            * CB(1 - 1/min_n).pow(CB(-min_n-1))))
-        bound_S = cst_S*B(CB(pi)+logn)
-        # Sub polynomial factor for bound on L(n)
-        if val_rho + order <= 0:
-            C_nur = 1
-        else:
-            C_nur = 2 * (CB(e) / (CB(val_rho.real()) + order)
-                             * (s - 2)/(2*s)).pow((RB(val_rho.real()) + order))
-        cst_L = (CB(0).add_error(C_nur * CB(1/pi)
-                                 * CB(abs(rho)).pow(RB(val_rho.real())+order))
-            * ((abs(CB(rho).arg()) + 2*RB(pi))*abs(val_rho.imag())).exp())
-        bound_L = cst_L*B(CB(pi)+logn)
-
-        # Values of the tail of the local expansion.
-        # With the first square (and possibly some others), the argument of the
-        # log that we substitute for L crosses the branch cut. This is okay
-        # because the enclosure returned by Arb takes both branches into
-        # account.
-
-        _zeta = CB(rho)
-        dom_big_circle = [
-                (_z-_zeta).pow(CB(val_rho))
-                    * locf_ini_terms((~(1-_z/_zeta)).log(), _z-_zeta)
-                for _z in coord_big_circle]
-        val_big_circle = [val_big_circle[j] + dom_big_circle[j]
-                          for j in range(len(dom_big_circle))]
-
-        list_coef_deg = [(c, mon.degree(L), mon.degree(Z))
-                         for c, mon in list(locf_ini_terms)]
-
-        bound_lead_terms = sum(
-                tup[0]
-                    * CB(- rho).pow(CB(val_rho+tup[2]))
-                    * w**(tup[2])
-                    * bound_coeff_mono(-val_rho-tup[2], tup[1], order - tup[2],
-                                       w, logn, s, min_n)
-                for tup in list_coef_deg)
-        bound_int_SnLn = (bound_S + bound_L) * w**order
-
-        list_bound.append(bound_lead_terms + bound_int_SnLn)
-
-        cycle_end_time = time.time()
-        logger.info("Computing of basis %d finished, time: %9.2f",
-                num_bas, cycle_end_time - cycle_begin_time)
-
-    max_kappa = max(list_kappa)
     return list_val_rho, list_bound, val_big_circle, max_kappa, min_val_rho
+
+#################################################################################
+# Complete bound
+#################################################################################
 
 def _sing_in_disk(elts, rad, infinity):
     for j, x in enumerate(elts):
