@@ -30,14 +30,17 @@ from sage.rings.number_field.number_field import (NumberField,
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 from sage.matrix.matrix_dense import Matrix_dense
 from sage.matrix.constructor import matrix
-from sage.modules.free_module_element import FreeModuleElement_generic_dense
+from sage.modules.free_module_element import vector, FreeModuleElement_generic_dense
 from sage.rings.polynomial.polynomial_element import Polynomial
 from sage.rings.qqbar import number_field_elements_from_algebraics
 from sage.functions.all import log, floor
 from sage.arith.misc import algdep
+from sage.functions.other import binomial
 
 from .accuracy import PrecisionError
 from .complex_optimistic_field import ComplexOptimisticField
+
+from ore_algebra.ideal import uncouple, solve_triangular_system
 
 ######################################################################
 # Timing
@@ -646,3 +649,61 @@ def guess_exact_numbers(x, d=1):
 
     if d==1: return guess_rational_numbers(x)
     return guess_algebraic_numbers(x, d=d)
+
+
+
+######################################################################
+# Mixed equation
+######################################################################
+
+
+def associated_matrix(R, Q):
+
+    """
+    Compute an operator matrix M (list of list) such that M*(a_0,...,a_{n-1}) =
+    coefficients of the remainder in the right division of RA by Q where
+    A = a_0 + ... + a_{n-1}*\partial^{n-1}.
+    """
+
+    Dx, m, n = Q.parent().gen(), R.order(), Q.order()
+    Ra = [sum(binomial(i, k)*R[i]*Dx**(i - k) for i in range(k, m + 1)) for k in range(m + 1)]
+    M = [reminder([0*Dx]*j + Ra, Q) for j in range(n)]
+    M = [[M[i][j] for i in range(n)] for j in range(n)]
+
+    return M
+
+def reminder(A, B):
+
+    """
+    Compute the reminder in the right division of A by B, where the coefficients
+    of A are operators.
+    """
+
+    Dx, m, n = B.parent().gen(), len(A) - 1, B.order()
+    if m<n: return A
+    qn, Lm = B.leading_coefficient(), A[-1]
+    A = [A[i] - (1/qn)*c*Lm for i, c in enumerate(Dx**(m - n)*B) if i<m]
+
+    while len(A)>1 and A[-1]==0: A.pop()
+
+    return reminder(A, B)
+
+def solve_mixed_equation(R, Q, C):
+
+    """
+    Compute the set of A of order < order(Q) such that the reminder of the right
+    division of RA by Q is equal to C.
+    """
+
+    n = Q.order()
+    M = associated_matrix(R, Q)
+    T, U = uncouple(M, extended=True, clear_content=True)
+    C = list(C)+[0]*(n - 1 - C.order())
+    C = [sum(U[i][j]*C[j] for j in range(n)) for i in range(n)]
+    basis = solve_triangular_system(T, [C])
+    output = []
+    for u, c in basis:
+        u = [(1/c[0])*f for f in u]
+        output.append(Dx.parent()(u))
+
+    return output

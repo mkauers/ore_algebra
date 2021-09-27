@@ -453,11 +453,17 @@ def try_vanHoeij(L):
     """ try to find a factor thank to an exponential part of multiplicity 1 """
     z, (p, e) = L.base_ring().gen(), search_exp_part_with_mult1(L)
     if p==None: return None
-    L, e = LinearDifferentialOperator(L).extend_scalars(e)
-    if p*z.is_one(): L = S(L.annihilator_of_composition(p), e)
-    elif p.degree()==1: s = -p[0]/p[1]; L = S(L.annihilator_of_composition(z + s), e)
+    if (p*z).is_one():
+        L = L.annihilator_of_composition(p)
+        e = search_exp_part_with_mult1(L)[1]
+        L, e = LinearDifferentialOperator(L).extend_scalars(e)
+        L = S(L, e)
+    elif p.degree()==1:
+        s = -p[0]/p[1]
+        L, e = LinearDifferentialOperator(L).extend_scalars(e)
+        L = S(L.annihilator_of_composition(z + s), e)
     else: return None # to be implemented?
     R = guessing_via_series(L, e in ZZ)
     if R==None: return None
-    if p*z.is_one(): return S(R, -e).annihilator_of_composition(p)
+    if (p*z).is_one(): return S(R, -e).annihilator_of_composition(p)
     elif p.degree()==1: return S(R, -e).annihilator_of_composition(z - s)
