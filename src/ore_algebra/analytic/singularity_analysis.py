@@ -57,13 +57,13 @@ terms here)::
     ....:        + (21*z + 1)*(27*z + 1)*Dz + 3*(27*z + 1))
 
     sage: bound_coefficients(deq, seqini, order=2) # long time (3.5 s)
-    1.000000000000000*9.00000000000000?^n*(B([5.27993...]*n^(-7/2)*log(n), n >= 50)
-    + ([0.30660...] + [0.14643...]*I)*(e^(I*arg(-0.77777...? + 0.62853...?*I)))^n*n^(-3/2)
+    1.000000000000000*9.00000000000000?^n*(([0.30660...] + [0.14643...]*I)*(e^(I*arg(-0.77777...? + 0.62853...?*I)))^n*n^(-3/2)
     + ([-0.26554...] + [-0.03529...]*I)*(e^(I*arg(-0.77777...? + 0.62853...?*I)))^n*n^(-5/2)
-    + B([6.60896...]*(e^(I*arg(-0.77777...? + 0.62853...?*I)))^n*n^(-7/2)*log(n), n >= 50)
+    + B([16.04...]*(e^(I*arg(-0.77777...? + 0.62853...?*I)))^n*n^(-7/2), n >= 50)
     + ([0.30660...] + [-0.14643...]*I)*(e^(I*arg(-0.77777...? - 0.62853...?*I)))^n*n^(-3/2)
-    + ([-0.26554...] + ...]*I)*(e^(I*arg(-0.77777...? - 0.62853...?*I)))^n*n^(-5/2)
-    + B([6.60896...]*(e^(I*arg(-0.77777...? - 0.62853...?*I)))^n*n^(-7/2)*log(n), n >= 50))
+    + ([-0.26554...] + [0.03529...]*I)*(e^(I*arg(-0.77777...? - 0.62853...?*I)))^n*n^(-5/2)
+    + B([16.04...]*(e^(I*arg(-0.77777...? - 0.62853...?*I)))^n*n^(-7/2), n >= 50)
+    + B([2.06...]*n^(-7/2), n >= 50))
 
 Complex exponents example::
 
@@ -630,7 +630,14 @@ class SingularityAnalyzer(LocalBasisMapper):
         if s <= 2: # XXX take s=3 instead (cf. def. of N0), maybe update n0
             raise ValueError("min_n too small! Cannot guarantee s>2")
 
-        kappa = sum(mult for shift, mult in self.shifts) - 1
+        # (Bound on) Maximum power of log that may occur the sol defined by ini.
+        # (We could use the complete family of critical monomials for a tighter
+        # bound when order1 < max shift, since for now we currently are
+        # computing it anyway...)
+        assert self.shifts[0][0] == 0 and order1 > 0
+        kappa = max(k for shift, mult in self.shifts if shift < order1
+                      for k, c in enumerate(ser[shift]) if not c.is_zero())
+        kappa += sum(mult for shift, mult in self.shifts if shift >= order1)
 
         bound_lead_terms, dom_big_circle = _bound_local_integral_explicit_terms(
                 self.rho, self.leftmost, order, self.Expr, s, self.min_n, ser[:order],
