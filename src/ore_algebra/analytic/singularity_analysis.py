@@ -27,7 +27,7 @@ Membrane example::
     ....: + 16777186*(z - 1)*(210*z^12 - 13761*z^11 + 101088*z^10 - 178437*z^9 - 248334*z^8 + 930590*z^7 - 446064*z^6 - 694834*z^5 + 794998*z^4 - 267421*z^3 + 24144*z^2 - 649*z + 6)*Dz
     ....: + 6341776308*z^12 - 427012938072*z^11 + 2435594423178*z^10 - 2400915979716*z^9 - 10724094731502*z^8 + 26272536406048*z^7 - 8496738740956*z^6 - 30570113263064*z^5 + 39394376229112*z^4 - 19173572139496*z^3 + 3825886272626*z^2 - 170758199108*z + 2701126946)
 
-    sage: asy = bound_coefficients(deq, seqini, order=2) # long time (5 s)
+    sage: asy = bound_coefficients(deq, seqini, order=5) # long time (5 s)
     doctest:...: FutureWarning: This class/method/function is marked as
     experimental. ...
     sage: asy # long time
@@ -35,7 +35,10 @@ Membrane example::
     + ([1.3714048996...] + [+/- ...]*I)*n^3
     + ([50.509130873...] + [+/- ...]*I)*n^2*log(n)
     + ([29.698551451...] + [+/- ...]*I)*n^2
-    + B([3114.499982480...]*n*log(n)^2, n >= 50))
+    + ...
+    + ([-0.283779713...] + [+/- ...]*I)*n^(-1)*log(n)
+    + ([35.493938347...] + [+/- ...]*I)*n^(-1)
+    + B([115882.8...]*n^(-2)*log(n)^2, n >= 50))
 
     sage: DFR = DFiniteFunctionRing(deq.parent())
     sage: ref = UnivariateDFiniteFunction(DFR, deq, seqini)
@@ -732,9 +735,9 @@ def _bound_local_integral_explicit_terms(rho, val_rho, order, Expr, s, min_n, se
 
     L, Z = PolynomialRing(CB, ['L', 'Z']).gens()
     mylog = CB.coerce(-rho).log() - L # XXX check
-    locf_ini_terms = sum(c * mylog**k * Z**shift
-                            for shift, vec in enumerate(ser)
-                            for k, c in enumerate(vec))
+    locf_ini_terms = sum(c/ZZ(k).factorial() * mylog**k * Z**shift
+                         for shift, vec in enumerate(ser)
+                         for k, c in enumerate(vec))
 
     # Values of the tail of the local expansion.
     # With the first square (and possibly some others), the argument of the
