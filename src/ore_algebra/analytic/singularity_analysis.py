@@ -427,12 +427,13 @@ def bound_coeff_mono(Expr, alpha, l, deg, s, min_n):
     - P : polynomial in invn, logn
     """
     CB = Expr.base_ring()
-    v, logz, u, invn, logn = Expr.gens()
+    v, logz, invn, logn = Expr.gens()
     order = max(0, deg - 1)
     if not (QQbar(alpha).is_integer() and QQbar(alpha) <= 0):
         # Value of 1/Γ(α)
         c = CB(1/gamma(alpha))
         # Bound for (n+α/2)^(1-α) * Γ(n+α)/Γ(n+1) [Dong2021, Prop 4.5]
+        u = polygen(CB, 'u')
         f = truncated_ratio_gamma(alpha, order, u, s)
         bound_error_u = CB(abs(alpha/2)**order / (1 - 1/(2*s)))
         truncated_u = (sum(CB(-alpha/2)**(j-1) * invn**j for j in range(1, order+1))
@@ -629,7 +630,7 @@ def _bound_tail(dop, leftmost, smallrad, order, series):
 
 def _bound_local_integral_of_tail(rho, val_rho, order, Expr, s, min_n, vb, kappa):
 
-    _, _, _, invn, logn = Expr.gens()
+    _, _, invn, logn = Expr.gens()
 
     CB = CBF # These are error terms, no need for high prec. Still, TBI.
     RB = RBF
@@ -664,7 +665,7 @@ def _bound_local_integral_of_tail(rho, val_rho, order, Expr, s, min_n, vb, kappa
 def _bound_local_integral_explicit_terms(rho, val_rho, order, Expr, s, min_n, ser,
         coord_big_circle):
 
-    _, _, _, invn, logn = Expr.gens()
+    _, _, invn, logn = Expr.gens()
     CB = Expr.base_ring()
 
     # Rewrite the local expansion in terms of new variables Z = z - ρ,
@@ -725,8 +726,8 @@ def contribution_single_singularity(deq, ini, rho, rad,
     min_val_rho = (nonanalytic[0].leftmost + nonanalytic[0].shift).real()
     abs_order = rel_order + min_val_rho
 
-    # XXX split in v, logz and u, invn, logn?
-    Expr = PolynomialRing(ComplexBallField(prec_bit), ['v', 'logz', 'u', 'invn', 'logn'], order='lex')
+    # XXX split in v, logz and invn, logn?
+    Expr = PolynomialRing(ComplexBallField(prec_bit), ['v', 'logz', 'invn', 'logn'], order='lex')
 
     analyzer = SingularityAnalyzer(dop=ldop, inivec=coord_all, rho=rho,
             rad=rad, Expr=Expr, abs_order=abs_order, min_n=min_n,
@@ -946,7 +947,7 @@ def contribution_all_singularity(seqini, deq, singularities=None,
     final_kappa = max(list_max_kappa)
     final_val = min(list_min_val_rho)
     re_gam = - final_val - 1 #max([-val.real()-1 for val in list_val])
-    v, logz, u, invn, logn = list_data[0][2][0].parent().gens()
+    v, logz, invn, logn = list_data[0][2][0].parent().gens()
 
     for rho, list_val, list_bound in list_data:
         #bound += [
