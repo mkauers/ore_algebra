@@ -38,7 +38,7 @@ Membrane example::
     + ...
     + ([-0.283779713...91869...] + [+/- ...]*I)*n^(-1)*log(n)
     + ([35.493938347...65227...] + [+/- ...]*I)*n^(-1)
-    + B([115882.8...]*n^(-2)*log(n)^2, n >= 50))
+    + B([115882.7...]*n^(-2)*log(n)^2, n >= 50))
 
     sage: DFR = DFiniteFunctionRing(deq.parent())
     sage: ref = UnivariateDFiniteFunction(DFR, deq, seqini)
@@ -405,7 +405,7 @@ def truncated_power(alpha, order, w, s):
     trunc_power = foo(w) + CB(0).add_error(Mr) * w**(order+1)
     return trunc_power
 
-def bound_coeff_mono(alpha, l, deg, w, logn, s=5, min_n=50):
+def bound_coeff_mono(Expr, alpha, l, deg, s, min_n):
     """
     Compute a bound for [z^n] (1-z)^(-α) * log(1/(1-z))^l,
     of the form n^(α-1) * P(1/n, log(n))
@@ -426,9 +426,8 @@ def bound_coeff_mono(alpha, l, deg, w, logn, s=5, min_n=50):
 
     - P : polynomial in w, logn
     """
-    R = w.parent()
-    CB = R.base_ring()
-    v, logz, u, _, _ = R.gens()
+    CB = Expr.base_ring()
+    v, logz, u, w, logn = Expr.gens()
     order = max(0, deg - 1)
     if not (QQbar(alpha).is_integer() and QQbar(alpha) <= 0):
         # Value of 1/Γ(α)
@@ -464,11 +463,11 @@ def bound_coeff_mono(alpha, l, deg, w, logn, s=5, min_n=50):
         if min_n <= -int(alpha):
             # XXX increase min_n or compute the terms of deg min_n..n instead
             raise ValueError("min_n too small!")
-        return R(0)
+        return Expr(0)
     else:
         # |alpha| decreases, so n >= s*|alpha| still holds
-        poly_rec_1 = bound_coeff_mono(alpha + 1, l, deg, u, logz, s, min_n - 1)
-        poly_rec_2 = bound_coeff_mono(alpha + 1, l - 1, deg, u, logz, s, min_n - 1)
+        poly_rec_1 = bound_coeff_mono(Expr, alpha + 1, l, deg, s, min_n - 1)
+        poly_rec_2 = bound_coeff_mono(Expr, alpha + 1, l - 1, deg, s, min_n - 1)
         #u = 1/(n-1)
         bound_error_u = CB(1 / (1 - 1/(min_n - 1)))
         truncated_u = (sum(CB(1) * w**j for j in range(1, order+1))
@@ -478,8 +477,8 @@ def bound_coeff_mono(alpha, l, deg, w, logn, s=5, min_n=50):
                 - sum(CB(1) * w**j / j
                       for j in range(1, order+1))
                 + CB(0).add_error(bound_error_logz) * w**(order+1))
-        ss = (CB(alpha) * poly_rec_1.subs({u : truncated_u, logz : truncated_logz})
-            + CB(l) * poly_rec_2.subs({u : truncated_u, logz : truncated_logz}))
+        ss = (CB(alpha) * poly_rec_1.subs({w : truncated_u, logz : truncated_logz})
+            + CB(l) * poly_rec_2.subs({w : truncated_u, logz : truncated_logz}))
         return truncate_tail(ss, deg, min_n, w)
 
 #################################################################################
@@ -680,8 +679,8 @@ def _bound_local_integral_explicit_terms(rho, val_rho, order, Expr, s, min_n, se
     bound_lead_terms = sum(
             c * CB(- rho).pow(CB(val_rho+degZ))
               * w**(degZ)
-              * bound_coeff_mono(-val_rho-degZ, degL, order - degZ,
-                                  w, logn, s, min_n)
+              * bound_coeff_mono(Expr, -val_rho-degZ, degL, order - degZ,
+                                  s, min_n)
             for ((degZ, degL), c) in locf_ini_terms.iterator_exp_coeff())
 
     # Values of the tail of the local expansion.
