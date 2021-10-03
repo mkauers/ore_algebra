@@ -134,6 +134,100 @@ from .ui import multi_eval_diffeq
 
 logger = logging.getLogger(__name__)
 
+def truncate_tail(f, deg, min_n, w, kappa = None, logn = None):
+    """
+    Truncate and bound an expression f(1/n) to a given degree
+
+    If kappa is None, 1/n^(deg+t) (t > 0) will be truncated to
+        1/n^deg * CB(0).add_error(1/min_n^t)
+    If kappa is not None, then 1/n^(deg+t) will be truncated to
+        logn^kappa/n^deg * CB(0).add_error(**)
+
+    INPUT:
+
+    - f : polynomial in w = 1/n to be truncated
+    - deg : desired degree (in w) of polynomial after truncation
+    - min_n : positive number where n >= min_n is guaranteed
+    - w : element of polynomial ring, representing 1/n
+    - kappa : integer, desired degree (in logn) of polynomial after truncation
+    - logn : element of polynomial ring, representing log(n)
+
+    OUTPUT:
+
+    - g : a polynomial in CB[w] such that f is in its range when n >= min_n
+    """
+    R = f.parent()
+    CB = R.base_ring()
+    g = R(0)
+    if kappa is None:
+        for c, mon in f:
+            deg_w = mon.degree(w)
+            if deg_w > deg:
+                tuple_mon_g = tuple(map(lambda x, y: x - y, mon.exponents()[0],
+                                        (w**(deg_w - deg)).exponents()[0]))
+                mon_g = prod(R.gens()[j]**(tuple_mon_g[j])
+                             for j in range(len(tuple_mon_g)))
+                c_g = ((c if c.mid() == 0 else CB(0).add_error(c.above_abs()))
+                        / CB(min_n**(deg_w - deg)))
+                g = g + c_g * mon_g
+            else:
+                g = g + c*mon
+    else:
+        for c, mon in f:
+            deg_w = mon.degree(w)
+            deg_logn = mon.degree(logn)
+            if deg_w >= deg:
+                tuple_mon_g = tuple(map(lambda x, y, z: x - y + z, mon.exponents()[0],
+                                        (w**(deg_w - deg)).exponents()[0],
+                                        (logn**(kappa - deg_logn)).exponents()[0]))
+                mon_g = prod(R.gens()[j]**(tuple_mon_g[j])
+                             for j in range(len(tuple_mon_g)))
+                c_g = ((c if c.mid() == 0 else CB(0).add_error(c.above_abs()))
+                        / CB(min_n**(deg_w - deg))) * CB(min_n).log().pow(deg_logn - kappa)
+                g = g + c_g * mon_g
+            else:
+                g = g + c*mon
+    return g
+
+def truncate_tail_SR(val, f, deg, min_n, w, kappa, logn, n):
+    """
+    Truncate and bound an expression n^val*f(1/n) to a given degree
+    1/n^(deg+t), t>=0 will be truncated to
+        logn^kappa/n^deg * CB(0).add_error(**)
+
+    INPUT:
+
+    - f : polynomial in w = 1/n to be truncated
+    - deg : desired degree (in n) of expression after truncation
+    - min_n : positive number where n >= min_n is guaranteed
+    - w : element of polynomial ring, representing 1/n
+    - kappa : integer, desired degree (in logn) of polynomial after truncation
+    - logn : element of polynomial ring, representing log(n)
+    - n : symbolic ring variable
+
+    OUTPUT:
+
+    - g : an Symbolic Ring expression in variable n, such that f is in its range when n >= min_n
+    """
+    R = f.parent()
+    CB = R.base_ring()
+    g = SR(0)
+    for c, mon in f:
+        deg_w = mon.degree(w)
+        deg_logn = mon.degree(logn)
+        if val.real() - deg_w <= deg:
+            c_g = ((c if c.mid() == 0 else CB(0).add_error(c.above_abs()))
+                    / CB(min_n).pow(deg + deg_w - val.real())) * CB(min_n).log().pow(deg_logn - kappa)
+            g = g + c_g * n**deg * log(n)**kappa
+        else:
+            g = g + c * n**(val - deg_w) * log(n)**deg_logn
+    return g
+
+################################################################################
+# Contribution of a logarithmic monomial
+# (variant with error bounds of Sage's SingularityAnalysis)
+#################################################################################
+
 def Lie_der(f, tup_x_k):
     """
     find f'
@@ -311,95 +405,6 @@ def truncated_power(alpha, order, w, s):
     trunc_power = foo(w) + CB(0).add_error(Mr) * w**(order+1)
     return trunc_power
 
-def truncate_tail(f, deg, min_n, w, kappa = None, logn = None):
-    """
-    Truncate and bound an expression f(1/n) to a given degree
-
-    If kappa is None, 1/n^(deg+t) (t > 0) will be truncated to
-        1/n^deg * CB(0).add_error(1/min_n^t)
-    If kappa is not None, then 1/n^(deg+t) will be truncated to
-        logn^kappa/n^deg * CB(0).add_error(**)
-
-    INPUT:
-
-    - f : polynomial in w = 1/n to be truncated
-    - deg : desired degree (in w) of polynomial after truncation
-    - min_n : positive number where n >= min_n is guaranteed
-    - w : element of polynomial ring, representing 1/n
-    - kappa : integer, desired degree (in logn) of polynomial after truncation
-    - logn : element of polynomial ring, representing log(n)
-
-    OUTPUT:
-
-    - g : a polynomial in CB[w] such that f is in its range when n >= min_n
-    """
-    R = f.parent()
-    CB = R.base_ring()
-    g = R(0)
-    if kappa is None:
-        for c, mon in f:
-            deg_w = mon.degree(w)
-            if deg_w > deg:
-                tuple_mon_g = tuple(map(lambda x, y: x - y, mon.exponents()[0],
-                                        (w**(deg_w - deg)).exponents()[0]))
-                mon_g = prod(R.gens()[j]**(tuple_mon_g[j])
-                             for j in range(len(tuple_mon_g)))
-                c_g = ((c if c.mid() == 0 else CB(0).add_error(c.above_abs()))
-                        / CB(min_n**(deg_w - deg)))
-                g = g + c_g * mon_g
-            else:
-                g = g + c*mon
-    else:
-        for c, mon in f:
-            deg_w = mon.degree(w)
-            deg_logn = mon.degree(logn)
-            if deg_w >= deg:
-                tuple_mon_g = tuple(map(lambda x, y, z: x - y + z, mon.exponents()[0],
-                                        (w**(deg_w - deg)).exponents()[0],
-                                        (logn**(kappa - deg_logn)).exponents()[0]))
-                mon_g = prod(R.gens()[j]**(tuple_mon_g[j])
-                             for j in range(len(tuple_mon_g)))
-                c_g = ((c if c.mid() == 0 else CB(0).add_error(c.above_abs()))
-                        / CB(min_n**(deg_w - deg))) * CB(min_n).log().pow(deg_logn - kappa)
-                g = g + c_g * mon_g
-            else:
-                g = g + c*mon
-    return g
-
-def truncate_tail_SR(val, f, deg, min_n, w, kappa, logn, n):
-    """
-    Truncate and bound an expression n^val*f(1/n) to a given degree
-    1/n^(deg+t), t>=0 will be truncated to
-        logn^kappa/n^deg * CB(0).add_error(**)
-
-    INPUT:
-
-    - f : polynomial in w = 1/n to be truncated
-    - deg : desired degree (in n) of expression after truncation
-    - min_n : positive number where n >= min_n is guaranteed
-    - w : element of polynomial ring, representing 1/n
-    - kappa : integer, desired degree (in logn) of polynomial after truncation
-    - logn : element of polynomial ring, representing log(n)
-    - n : symbolic ring variable
-
-    OUTPUT:
-
-    - g : an Symbolic Ring expression in variable n, such that f is in its range when n >= min_n
-    """
-    R = f.parent()
-    CB = R.base_ring()
-    g = SR(0)
-    for c, mon in f:
-        deg_w = mon.degree(w)
-        deg_logn = mon.degree(logn)
-        if val.real() - deg_w <= deg:
-            c_g = ((c if c.mid() == 0 else CB(0).add_error(c.above_abs()))
-                    / CB(min_n).pow(deg + deg_w - val.real())) * CB(min_n).log().pow(deg_logn - kappa)
-            g = g + c_g * n**deg * log(n)**kappa
-        else:
-            g = g + c * n**(val - deg_w) * log(n)**deg_logn
-    return g
-
 def bound_coeff_mono(alpha, l, deg, w, logn, s=5, min_n=50):
     """
     Compute a bound for [z^n] (1-z)^(-α) * log(1/(1-z))^l,
@@ -476,85 +481,6 @@ def bound_coeff_mono(alpha, l, deg, w, logn, s=5, min_n=50):
         ss = (CB(alpha) * poly_rec_1.subs({u : truncated_u, logz : truncated_logz})
             + CB(l) * poly_rec_2.subs({u : truncated_u, logz : truncated_logz}))
         return truncate_tail(ss, deg, min_n, w)
-
-def _coeff_zero(seqini, deq):
-    """
-    Find coefficients of generating function in the basis with these expansions
-    at the origin
-
-    INPUT:
-
-    - seqini : list, initial terms of the sequence
-    - deq : a linear ODE that the generating function satisfies
-
-    OUTPUT:
-
-    - coeff : vector, coefficients of generating function in the basis with
-      these expansions at the origin
-    """
-
-    list_basis = deq.local_basis_expansions(0)
-    list_coeff = []
-    for basis in list_basis:
-        mon = next(m for c, m in basis if not c == 0)
-        if mon.k == 0 and mon.n >= 0:
-            list_coeff.append(seqini[mon.n])
-        else:
-            list_coeff.append(0)
-    return vector(list_coeff)
-
-def numerical_sol_big_circle(deq, ini, dominant_sing, rad, halfside, prec_bit):
-    """
-    Compute numerical solutions of f on big circle of radius rad
-
-    INPUT:
-
-    - ini : vector, coefficients corresponding to the basis at zero
-    - deq : a linear ODE that the generating function satisfies
-    - dominant_sing : list of algebraic numbers, list of dominant singularities
-    - rad : radius of big circle
-    - halfside : half of side length of covering squares
-    - prec_bit : integer, approximated desired bit precision
-    """
-    logger.info("Bounding on large circle...")
-    clock = utilities.Clock()
-    clock.tic()
-
-    I = CBF.gen(0)
-    eps = RBF.one() >> 100
-    rad = RBF(rad) # XXX temporary
-    halfside = RBF(halfside)
-
-    sings = [CBF(s) for s in dominant_sing]
-    sings.sort(key=lambda s: s.arg())
-    num_sings = len(sings)
-    pairs = []
-    num_sq = 0
-    for j0 in range(num_sings):
-        j1 = (j0 + 1) % num_sings
-        arg0 = sings[j0].arg()
-        arg1 = sings[j1].arg()
-        if j1 == 0:
-            # last arc is a bit special: we need to add 2*pi to ending
-            arg1 += 2*RBF.pi()
-
-        hub = rad * ((arg0 + arg1)/2 * I).exp()
-        halfarc = (arg1 - arg0)/2
-        np = ZZ(((halfarc*rad / (2*halfside)).above_abs()).ceil()) + 2
-        num_sq += np
-        circle_upper = [(hub*(halfarc*k/np*I).exp()).add_error(halfside)
-                        for k in range(np+1)]
-        path_upper = [0] + [[z] for z in circle_upper]
-        pairs += deq.numerical_solution(ini, path_upper, eps,
-                                        assume_analytic=True)
-        # TODO: optimize case of real coefficients
-        path_lower = [0] + [[z.conjugate()] for z in circle_upper]
-        pairs += deq.numerical_solution(ini, path_lower, eps,
-                                        assume_analytic=True)
-
-    clock.toc()
-    logger.info("Covered circle with %d squares, %s", num_sq, clock)
-    return pairs
 
 #################################################################################
 # Contribution of a single regular singularity
@@ -816,9 +742,92 @@ def contribution_single_singularity(deq, ini, rho, rad,
 
     return list_val_rho, list_bound, val_big_circle, max_kappa, min_val_rho
 
-#################################################################################
+################################################################################
+# Exponentially small error term
+################################################################################
+
+def numerical_sol_big_circle(deq, ini, dominant_sing, rad, halfside, prec_bit):
+    """
+    Compute numerical solutions of f on big circle of radius rad
+
+    INPUT:
+
+    - ini : vector, coefficients corresponding to the basis at zero
+    - deq : a linear ODE that the generating function satisfies
+    - dominant_sing : list of algebraic numbers, list of dominant singularities
+    - rad : radius of big circle
+    - halfside : half of side length of covering squares
+    - prec_bit : integer, approximated desired bit precision
+    """
+    logger.info("Bounding on large circle...")
+    clock = utilities.Clock()
+    clock.tic()
+
+    I = CBF.gen(0)
+    eps = RBF.one() >> 100
+    rad = RBF(rad) # XXX temporary
+    halfside = RBF(halfside)
+
+    sings = [CBF(s) for s in dominant_sing]
+    sings.sort(key=lambda s: s.arg())
+    num_sings = len(sings)
+    pairs = []
+    num_sq = 0
+    for j0 in range(num_sings):
+        j1 = (j0 + 1) % num_sings
+        arg0 = sings[j0].arg()
+        arg1 = sings[j1].arg()
+        if j1 == 0:
+            # last arc is a bit special: we need to add 2*pi to ending
+            arg1 += 2*RBF.pi()
+
+        hub = rad * ((arg0 + arg1)/2 * I).exp()
+        halfarc = (arg1 - arg0)/2
+        np = ZZ(((halfarc*rad / (2*halfside)).above_abs()).ceil()) + 2
+        num_sq += np
+        circle_upper = [(hub*(halfarc*k/np*I).exp()).add_error(halfside)
+                        for k in range(np+1)]
+        path_upper = [0] + [[z] for z in circle_upper]
+        pairs += deq.numerical_solution(ini, path_upper, eps,
+                                        assume_analytic=True)
+        # TODO: optimize case of real coefficients
+        path_lower = [0] + [[z.conjugate()] for z in circle_upper]
+        pairs += deq.numerical_solution(ini, path_lower, eps,
+                                        assume_analytic=True)
+
+    clock.toc()
+    logger.info("Covered circle with %d squares, %s", num_sq, clock)
+    return pairs
+
+################################################################################
 # Complete bound
-#################################################################################
+################################################################################
+
+def _coeff_zero(seqini, deq):
+    """
+    Find coefficients of generating function in the basis with these expansions
+    at the origin
+
+    INPUT:
+
+    - seqini : list, initial terms of the sequence
+    - deq : a linear ODE that the generating function satisfies
+
+    OUTPUT:
+
+    - coeff : vector, coefficients of generating function in the basis with
+      these expansions at the origin
+    """
+
+    list_basis = deq.local_basis_expansions(0)
+    list_coeff = []
+    for basis in list_basis:
+        mon = next(m for c, m in basis if not c == 0)
+        if mon.k == 0 and mon.n >= 0:
+            list_coeff.append(seqini[mon.n])
+        else:
+            list_coeff.append(0)
+    return vector(list_coeff)
 
 def _sing_in_disk(elts, rad, infinity):
     for j, x in enumerate(elts):
