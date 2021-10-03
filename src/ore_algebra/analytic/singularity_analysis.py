@@ -134,7 +134,7 @@ from .ui import multi_eval_diffeq
 
 logger = logging.getLogger(__name__)
 
-def truncate_tail(f, deg, min_n, w, kappa = None, logn = None):
+def truncate_tail(f, deg, min_n, invn, kappa = None, logn = None):
     """
     Truncate and bound an expression f(1/n) to a given degree
 
@@ -145,26 +145,26 @@ def truncate_tail(f, deg, min_n, w, kappa = None, logn = None):
 
     INPUT:
 
-    - f : polynomial in w = 1/n to be truncated
-    - deg : desired degree (in w) of polynomial after truncation
+    - f : polynomial in invn = 1/n to be truncated
+    - deg : desired degree (in invn) of polynomial after truncation
     - min_n : positive number where n >= min_n is guaranteed
-    - w : element of polynomial ring, representing 1/n
+    - invn : element of polynomial ring, representing 1/n
     - kappa : integer, desired degree (in logn) of polynomial after truncation
     - logn : element of polynomial ring, representing log(n)
 
     OUTPUT:
 
-    - g : a polynomial in CB[w] such that f is in its range when n >= min_n
+    - g : a polynomial in CB[invn] such that f is in its range when n >= min_n
     """
     R = f.parent()
     CB = R.base_ring()
     g = R(0)
     if kappa is None:
         for c, mon in f:
-            deg_w = mon.degree(w)
+            deg_w = mon.degree(invn)
             if deg_w > deg:
                 tuple_mon_g = tuple(map(lambda x, y: x - y, mon.exponents()[0],
-                                        (w**(deg_w - deg)).exponents()[0]))
+                                        (invn**(deg_w - deg)).exponents()[0]))
                 mon_g = prod(R.gens()[j]**(tuple_mon_g[j])
                              for j in range(len(tuple_mon_g)))
                 c_g = ((c if c.mid() == 0 else CB(0).add_error(c.above_abs()))
@@ -174,11 +174,11 @@ def truncate_tail(f, deg, min_n, w, kappa = None, logn = None):
                 g = g + c*mon
     else:
         for c, mon in f:
-            deg_w = mon.degree(w)
+            deg_w = mon.degree(invn)
             deg_logn = mon.degree(logn)
             if deg_w >= deg:
                 tuple_mon_g = tuple(map(lambda x, y, z: x - y + z, mon.exponents()[0],
-                                        (w**(deg_w - deg)).exponents()[0],
+                                        (invn**(deg_w - deg)).exponents()[0],
                                         (logn**(kappa - deg_logn)).exponents()[0]))
                 mon_g = prod(R.gens()[j]**(tuple_mon_g[j])
                              for j in range(len(tuple_mon_g)))
@@ -189,7 +189,7 @@ def truncate_tail(f, deg, min_n, w, kappa = None, logn = None):
                 g = g + c*mon
     return g
 
-def truncate_tail_SR(val, f, deg, min_n, w, kappa, logn, n):
+def truncate_tail_SR(val, f, deg, min_n, invn, kappa, logn, n):
     """
     Truncate and bound an expression n^val*f(1/n) to a given degree
     1/n^(deg+t), t>=0 will be truncated to
@@ -197,10 +197,10 @@ def truncate_tail_SR(val, f, deg, min_n, w, kappa, logn, n):
 
     INPUT:
 
-    - f : polynomial in w = 1/n to be truncated
+    - f : polynomial in invn = 1/n to be truncated
     - deg : desired degree (in n) of expression after truncation
     - min_n : positive number where n >= min_n is guaranteed
-    - w : element of polynomial ring, representing 1/n
+    - invn : element of polynomial ring, representing 1/n
     - kappa : integer, desired degree (in logn) of polynomial after truncation
     - logn : element of polynomial ring, representing log(n)
     - n : symbolic ring variable
@@ -213,7 +213,7 @@ def truncate_tail_SR(val, f, deg, min_n, w, kappa, logn, n):
     CB = R.base_ring()
     g = SR(0)
     for c, mon in f:
-        deg_w = mon.degree(w)
+        deg_w = mon.degree(invn)
         deg_logn = mon.degree(logn)
         if val.real() - deg_w <= deg:
             c_g = ((c if c.mid() == 0 else CB(0).add_error(c.above_abs()))
@@ -377,7 +377,7 @@ def truncated_ratio_gamma(alpha, order, u, s):
     ratio_gamma = ratio_gamma_asy + CB(0).add_error(Rnw_bound) * u**(2*n_gam)
     return ratio_gamma
 
-def truncated_power(alpha, order, w, s):
+def truncated_power(alpha, order, invn, s):
     """
     Compute a bound for a truncated (1 + α/2n)^(α-1)
 
@@ -385,15 +385,15 @@ def truncated_power(alpha, order, w, s):
 
     - alpha : complex number α, !!cannot be negative integer or zero!!
     - order : order of truncation
-    - w : element of polynomial ring, representing 1/n
+    - invn : element of polynomial ring, representing 1/n
     - s : positive number where n >= s*|alpha| is guaranteed, s > 2
 
     OUTPUT:
 
-    - trunc_power : a polynomial in CB[w] such that (1 + α/2n)^(α-1) is in its
+    - trunc_power : a polynomial in CB[invn] such that (1 + α/2n)^(α-1) is in its
       range when n >= s*|alpha|
     """
-    CB = w.parent().base_ring()
+    CB = invn.parent().base_ring()
     alpha_CB = CB(alpha)
     Mr = (CB(abs(alpha)).pow(order+1) / (1 - 1/s)
             * CB(abs(alpha.imag())/2).exp()
@@ -402,7 +402,7 @@ def truncated_power(alpha, order, w, s):
     t = polygen(CB, 't')
     foo = (alpha_CB - 1) * (1 + alpha_CB/2 * t)._log_series(order + 1)
     foo = foo._exp_series(order + 1)
-    trunc_power = foo(w) + CB(0).add_error(Mr) * w**(order+1)
+    trunc_power = foo(invn) + CB(0).add_error(Mr) * invn**(order+1)
     return trunc_power
 
 def bound_coeff_mono(Expr, alpha, l, deg, s, min_n):
@@ -415,8 +415,8 @@ def bound_coeff_mono(Expr, alpha, l, deg, s, min_n):
     - alpha : complex number, representing α
     - l : non-negative integer
     - deg : degree of P wrt. the variable 1/n
-    - w : variable representing 1/n
-    - logn : element of the same polynomial ring as w, variable representing
+    - invn : variable representing 1/n
+    - logn : element of the same polynomial ring as invn, variable representing
       log(n)
     - s : positive number where n >= s*|alpha| is guaranteed, s > 2
     - min_n : positive number where n >= min_n is guaranteed, min_n > -alpha
@@ -424,10 +424,10 @@ def bound_coeff_mono(Expr, alpha, l, deg, s, min_n):
 
     OUTPUT:
 
-    - P : polynomial in w, logn
+    - P : polynomial in invn, logn
     """
     CB = Expr.base_ring()
-    v, logz, u, w, logn = Expr.gens()
+    v, logz, u, invn, logn = Expr.gens()
     order = max(0, deg - 1)
     if not (QQbar(alpha).is_integer() and QQbar(alpha) <= 0):
         # Value of 1/Γ(α)
@@ -435,29 +435,29 @@ def bound_coeff_mono(Expr, alpha, l, deg, s, min_n):
         # Bound for (n+α/2)^(1-α) * Γ(n+α)/Γ(n+1) [Dong2021, Prop 4.5]
         f = truncated_ratio_gamma(alpha, order, u, s)
         bound_error_u = CB(abs(alpha/2)**order / (1 - 1/(2*s)))
-        truncated_u = (sum(CB(-alpha/2)**(j-1) * w**j for j in range(1, order+1))
-                + CB(0).add_error(bound_error_u) * w**(order+1))
-        f_z = truncate_tail(f.subs({u : truncated_u}), deg, min_n, w)
+        truncated_u = (sum(CB(-alpha/2)**(j-1) * invn**j for j in range(1, order+1))
+                + CB(0).add_error(bound_error_u) * invn**(order+1))
+        f_z = truncate_tail(f.subs({u : truncated_u}), deg, min_n, invn)
         # Bound for F = [(d/dα)^l (Γ(n+α)/Γ(α)Γ(n+1))] / (Γ(n+α)/Γ(α)Γ(n+1))
         # [Dong2021, p. 17]
         g = truncated_logder(alpha, l, order, v, logz, min_n)
         bound_error_v = CB(abs(alpha)**order / (1 - 1/s))
-        truncated_v = (sum(CB(-alpha)**(j-1) * w**j for j in range(1, order+1))
-                + CB(0).add_error(bound_error_v) * w**(order+1))
+        truncated_v = (sum(CB(-alpha)**(j-1) * invn**j for j in range(1, order+1))
+                + CB(0).add_error(bound_error_v) * invn**(order+1))
         bound_error_logz = (CB(log(2)+1/2)
                 * CB(2*abs(alpha)).pow(order+1)
                 / CB(1 - 2/s))
         truncated_logz = (logn
-                - sum(CB(-alpha)**j * w**j / j
+                - sum(CB(-alpha)**j * invn**j / j
                       for j in range(1, order+1))
-                + CB(0).add_error(bound_error_logz) * w**(order+1))
+                + CB(0).add_error(bound_error_logz) * invn**(order+1))
         g_z = truncate_tail(
                 g.subs({v : truncated_v, logz : truncated_logz}),
-                deg, min_n, w)
+                deg, min_n, invn)
         # Bound for (1 + α/2n)^(α-1) = (n+α/2)^(α-1) * n^(1-α) [Dong2021, p. 16]
-        h_z = truncated_power(alpha, order, w, s)
+        h_z = truncated_power(alpha, order, invn, s)
         product_all = c * f_z * g_z * h_z
-        return truncate_tail(product_all, deg, min_n, w)
+        return truncate_tail(product_all, deg, min_n, invn)
     elif l == 0:
         # Terminating expansion of the form (1-z)^N, N = -α ∈ ℕ
         if min_n <= -int(alpha):
@@ -470,16 +470,16 @@ def bound_coeff_mono(Expr, alpha, l, deg, s, min_n):
         poly_rec_2 = bound_coeff_mono(Expr, alpha + 1, l - 1, deg, s, min_n - 1)
         #u = 1/(n-1)
         bound_error_u = CB(1 / (1 - 1/(min_n - 1)))
-        truncated_u = (sum(CB(1) * w**j for j in range(1, order+1))
-                + CB(0).add_error(bound_error_u) * w**(order+1))
+        truncated_u = (sum(CB(1) * invn**j for j in range(1, order+1))
+                + CB(0).add_error(bound_error_u) * invn**(order+1))
         bound_error_logz = CB(abs(log(2) * 2**(order+1)) / (1 - 2/(min_n - 1)))
         truncated_logz = (logn
-                - sum(CB(1) * w**j / j
+                - sum(CB(1) * invn**j / j
                       for j in range(1, order+1))
-                + CB(0).add_error(bound_error_logz) * w**(order+1))
-        ss = (CB(alpha) * poly_rec_1.subs({w : truncated_u, logz : truncated_logz})
-            + CB(l) * poly_rec_2.subs({w : truncated_u, logz : truncated_logz}))
-        return truncate_tail(ss, deg, min_n, w)
+                + CB(0).add_error(bound_error_logz) * invn**(order+1))
+        ss = (CB(alpha) * poly_rec_1.subs({invn : truncated_u, logz : truncated_logz})
+            + CB(l) * poly_rec_2.subs({invn : truncated_u, logz : truncated_logz}))
+        return truncate_tail(ss, deg, min_n, invn)
 
 #################################################################################
 # Contribution of a single regular singularity
@@ -629,7 +629,7 @@ def _bound_tail(dop, leftmost, smallrad, order, series):
 
 def _bound_local_integral_of_tail(rho, val_rho, order, Expr, s, min_n, vb, kappa):
 
-    _, _, _, w, logn = Expr.gens()
+    _, _, _, invn, logn = Expr.gens()
 
     CB = CBF # These are error terms, no need for high prec. Still, TBI.
     RB = RBF
@@ -659,12 +659,12 @@ def _bound_local_integral_of_tail(rho, val_rho, order, Expr, s, min_n, vb, kappa
         * ((abs(CB(rho).arg()) + 2*RB(pi))*abs(val_rho.imag())).exp())
     bound_L = cst_L*B(CB(pi)+logn)
 
-    return (bound_S + bound_L) * w**order
+    return (bound_S + bound_L) * invn**order
 
 def _bound_local_integral_explicit_terms(rho, val_rho, order, Expr, s, min_n, ser,
         coord_big_circle):
 
-    _, _, _, w, logn = Expr.gens()
+    _, _, _, invn, logn = Expr.gens()
     CB = Expr.base_ring()
 
     # Rewrite the local expansion in terms of new variables Z = z - ρ,
@@ -678,7 +678,7 @@ def _bound_local_integral_explicit_terms(rho, val_rho, order, Expr, s, min_n, se
 
     bound_lead_terms = sum(
             c * CB(- rho).pow(CB(val_rho+degZ))
-              * w**(degZ)
+              * invn**(degZ)
               * bound_coeff_mono(Expr, -val_rho-degZ, degL, order - degZ,
                                   s, min_n)
             for ((degZ, degL), c) in locf_ini_terms.iterator_exp_coeff())
@@ -725,8 +725,8 @@ def contribution_single_singularity(deq, ini, rho, rad,
     min_val_rho = (nonanalytic[0].leftmost + nonanalytic[0].shift).real()
     abs_order = rel_order + min_val_rho
 
-    # XXX split in v, logz and u, w, logn?
-    Expr = PolynomialRing(ComplexBallField(prec_bit), ['v', 'logz', 'u', 'w', 'logn'], order='lex')
+    # XXX split in v, logz and u, invn, logn?
+    Expr = PolynomialRing(ComplexBallField(prec_bit), ['v', 'logz', 'u', 'invn', 'logn'], order='lex')
 
     analyzer = SingularityAnalyzer(dop=ldop, inivec=coord_all, rho=rho,
             rad=rad, Expr=Expr, abs_order=abs_order, min_n=min_n,
@@ -946,14 +946,14 @@ def contribution_all_singularity(seqini, deq, singularities=None,
     final_kappa = max(list_max_kappa)
     final_val = min(list_min_val_rho)
     re_gam = - final_val - 1 #max([-val.real()-1 for val in list_val])
-    v, logz, u, w, logn = list_data[0][2][0].parent().gens()
+    v, logz, u, invn, logn = list_data[0][2][0].parent().gens()
 
     for rho, list_val, list_bound in list_data:
         #bound += [
         #    SR(QQbar(1/rho)**n) * SR(n**QQbar(-val-1))
-        #        * truncate_tail(poly_bound, poly_bound.degree(w), min_n, w, final_kappa, logn)(0,0,0, 1/n, log(n))
+        #        * truncate_tail(poly_bound, poly_bound.degree(invn), min_n, invn, final_kappa, logn)(0,0,0, 1/n, log(n))
         #    for val, poly_bound in zip(list_val, list_bound)]
-        bound.append([rho, sum([truncate_tail_SR(-val-1, poly_bound, re_gam - total_order, min_n, w, final_kappa, logn, n)
+        bound.append([rho, sum([truncate_tail_SR(-val-1, poly_bound, re_gam - total_order, min_n, invn, final_kappa, logn, n)
             for val, poly_bound in zip(list_val, list_bound)])])
 
     sum_g = [sum(v) for v in zip(*list_val_bigcirc)]
