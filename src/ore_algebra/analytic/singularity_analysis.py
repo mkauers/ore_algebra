@@ -1,4 +1,4 @@
-# coding: utf-8
+# coding: utf-8 - vim: tw=80
 r"""
 Bounds on sequences by singularity analysis
 
