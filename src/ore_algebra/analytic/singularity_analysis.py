@@ -428,13 +428,14 @@ def bound_coeff_mono(alpha, l, deg, w, logn, s=5, min_n=50):
     if not (QQbar(alpha).is_integer() and QQbar(alpha) <= 0):
         # Value of 1/Γ(α)
         c = CB(1/gamma(alpha))
-        # Bound for (n+α/2)^(1-α) * Γ(n+α)/Γ(n+1)
+        # Bound for (n+α/2)^(1-α) * Γ(n+α)/Γ(n+1) [Dong2021, Prop 4.5]
         f = truncated_ratio_gamma(alpha, order, u, s)
         bound_error_u = CB(abs(alpha/2)**order / (1 - 1/(2*s)))
         truncated_u = (sum(CB(-alpha/2)**(j-1) * w**j for j in range(1, order+1))
                 + CB(0).add_error(bound_error_u) * w**(order+1))
         f_z = truncate_tail(f.subs({u : truncated_u}), deg, min_n, w)
-        # Bound for [(d/dα)^l (Γ(n+α)/Γ(α)Γ(n+1))] / (Γ(n+α)/Γ(α)Γ(n+1))
+        # Bound for F = [(d/dα)^l (Γ(n+α)/Γ(α)Γ(n+1))] / (Γ(n+α)/Γ(α)Γ(n+1))
+        # [Dong2021, p. 17]
         g = truncated_logder(alpha, l, order, v, logz, min_n)
         bound_error_v = CB(abs(alpha)**order / (1 - 1/s))
         truncated_v = (sum(CB(-alpha)**(j-1) * w**j for j in range(1, order+1))
@@ -449,12 +450,14 @@ def bound_coeff_mono(alpha, l, deg, w, logn, s=5, min_n=50):
         g_z = truncate_tail(
                 g.subs({v : truncated_v, logz : truncated_logz}),
                 deg, min_n, w)
-        # Bound for (1 + α/2n)^(α-1) = (n+α/2)^(α-1) * n^(1-α)
+        # Bound for (1 + α/2n)^(α-1) = (n+α/2)^(α-1) * n^(1-α) [Dong2021, p. 16]
         h_z = truncated_power(alpha, order, w, s)
         product_all = c * f_z * g_z * h_z
         return truncate_tail(product_all, deg, min_n, w)
     elif l == 0:
+        # Terminating expansion of the form (1-z)^N, N = -α ∈ ℕ
         if min_n <= -int(alpha):
+            # XXX increase min_n or compute the terms of deg min_n..n instead
             raise ValueError("min_n too small!")
         return R(0)
     else:
@@ -650,6 +653,10 @@ class SingularityAnalyzer(LocalBasisMapper):
         bound_int_SnLn = _bound_local_integral_of_tail(self.rho,
                 self.leftmost, order, self.Expr, s, self.min_n, vb, kappa)
 
+        logger.debug("sing=%s, valuation=%s", self.rho, self.leftmost)
+        logger.debug("  leading terms = %s", bound_lead_terms)
+        logger.debug("  tail bound = %s", bound_int_SnLn)
+
         data = [kappa, bound_lead_terms + bound_int_SnLn, dom_big_circle]
 
         # XXX abusing FundamentalSolution somewhat; not sure if log_power=kappa
@@ -735,8 +742,11 @@ def _bound_local_integral_explicit_terms(rho, val_rho, order, Expr, s, min_n, se
     _, _, _, w, logn = Expr.gens()
     CB = Expr.base_ring()
 
+    # Rewrite the local expansion in terms of new variables Z = z - ρ,
+    # L = log(1/(1-z/rho))
+
     Z, L = PolynomialRing(CB, ['Z', 'L']).gens()
-    mylog = CB.coerce(-rho).log() - L # XXX check
+    mylog = CB.coerce(-rho).log() - L # = log(z - ρ) for Im(z) ≥ 0
     locf_ini_terms = sum(c/ZZ(k).factorial() * mylog**k * Z**shift
                          for shift, vec in enumerate(ser)
                          for k, c in enumerate(vec))
@@ -790,7 +800,7 @@ def contribution_single_singularity(deq, ini, rho, rad,
     min_val_rho = (nonanalytic[0].leftmost + nonanalytic[0].shift).real()
     abs_order = rel_order + min_val_rho
 
-    # XXX split in v, logz, u and w, logn?
+    # XXX split in v, logz and u, w, logn?
     Expr = PolynomialRing(ComplexBallField(prec_bit), ['v', 'logz', 'u', 'w', 'logn'], order='lex')
 
     analyzer = SingularityAnalyzer(dop=ldop, inivec=coord_all, rho=rho,
