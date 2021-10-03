@@ -733,11 +733,18 @@ def _bound_local_integral_explicit_terms(rho, val_rho, order, Expr, s, min_n, se
     _, _, _, w, logn = Expr.gens()
     CB = CBF # XXX or Expr.base_ring() ?
 
-    L, Z = PolynomialRing(CB, ['L', 'Z']).gens()
+    Z, L = PolynomialRing(CB, ['Z', 'L']).gens()
     mylog = CB.coerce(-rho).log() - L # XXX check
     locf_ini_terms = sum(c/ZZ(k).factorial() * mylog**k * Z**shift
                          for shift, vec in enumerate(ser)
                          for k, c in enumerate(vec))
+
+    bound_lead_terms = sum(
+            c * CB(- rho).pow(CB(val_rho+degZ))
+              * w**(degZ)
+              * bound_coeff_mono(-val_rho-degZ, degL, order - degZ,
+                                  w, logn, s, min_n)
+            for ((degZ, degL), c) in locf_ini_terms.iterator_exp_coeff())
 
     # Values of the tail of the local expansion.
     # With the first square (and possibly some others), the argument of the
@@ -750,20 +757,8 @@ def _bound_local_integral_explicit_terms(rho, val_rho, order, Expr, s, min_n, se
     _zeta = CB(rho)
     dom_big_circle = [
             (_z-_zeta).pow(CB(val_rho))
-                * locf_ini_terms((~(1-_z/_zeta)).log(), _z-_zeta)
+                * locf_ini_terms(_z-_zeta, (~(1-_z/_zeta)).log())
             for _z in coord_big_circle]
-
-    # Warning: These are the coefficients *after* substituting in mylog
-    list_coef_deg = [(c, mon.degree(L), mon.degree(Z))
-                        for c, mon in list(locf_ini_terms)]
-
-    bound_lead_terms = sum(
-            tup[0]
-                * CB(- rho).pow(CB(val_rho+tup[2]))
-                * w**(tup[2])
-                * bound_coeff_mono(-val_rho-tup[2], tup[1], order - tup[2],
-                                    w, logn, s, min_n)
-            for tup in list_coef_deg)
 
     return bound_lead_terms, dom_big_circle
 
