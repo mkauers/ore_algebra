@@ -39,6 +39,7 @@ from sage.rings.integer_ring import ZZ
 from sage.rings.rational_field import QQ
 from sage.rings.finite_rings.all import GF
 from sage.rings.finite_rings.finite_field_base import is_FiniteField
+from sage.rings.number_field.number_field import NumberField_generic
 from sage.matrix.constructor import Matrix, matrix
 from sage.matrix.matrix_space import MatrixSpace
 from sage.misc.lazy_string import lazy_string
@@ -58,7 +59,7 @@ def guess_rec(data, n, S, **kwargs):
     Shortcut for ``guess`` applied with an Ore algebra of shift operators in `S` over `K[n]`
     where `K` is the parent of ``data[0]``.
 
-    See the docstring of ``guess`` for further information.    
+    See the docstring of ``guess`` for further information.
     """
     R = data[0].parent()[n]; x = R.gen()
     return guess(data, OreAlgebra(R, (S, {n:n+R.one()}, {})), **kwargs)
@@ -68,7 +69,7 @@ def guess_deq(data, x, D, **kwargs):
     Shortcut for ``guess`` applied with an Ore algebra of differential operators in `D` over `K[x]`
     where `K` is the parent of ``data[0]``.
 
-    See the docstring of ``guess`` for further information.    
+    See the docstring of ``guess`` for further information.
     """
     R = data[0].parent()[x]; x = R.gen()
     return guess(data, OreAlgebra(R, (D, {}, {x:R.one()})), **kwargs)
@@ -78,7 +79,7 @@ def guess_qrec(data, qn, Q, q, **kwargs):
     Shortcut for ``guess`` applied with an Ore algebra of `q`-recurrence operators in `Q` over `K[qn]`
     where `K` is the parent of `q`.
 
-    See the docstring of ``guess`` for further information.    
+    See the docstring of ``guess`` for further information.
     """
     R = q.parent()[qn]; x = R.gen()
     return guess(data, OreAlgebra(R, (Q, {qn:q*qn}, {qn:R.one()})), **kwargs)
@@ -92,10 +93,10 @@ def guess(data, algebra, **kwargs):
     - ``data`` -- a list of elements of the algebra's base ring's base ring `K` (or at least
       of objects which can be casted into this ring). If ``data`` is a string, it is assumed
       to be the name of a text file which contains the terms, one per line, encoded in a way
-      that can be interpreted by the element constructor of `K`. 
+      that can be interpreted by the element constructor of `K`.
     - ``algebra`` -- a univariate Ore algebra over a univariate polynomial ring whose
       generator is the standard derivation, the standard shift, the forward difference,
-      a q-shift, or a commutative variable. 
+      a q-shift, or a commutative variable.
 
     Optional arguments:
 
@@ -119,25 +120,25 @@ def guess(data, algebra, **kwargs):
     - ``path`` -- a list of pairs `(r, d)` specifying which orders and degrees
       the method should attempt. If this value is equal to ``None`` (default), a
       path is chosen which examines all the `(r, d)` which can be tested with the
-      given amount of data. 
+      given amount of data.
     - ``solver`` -- function to be used for computing the right kernel of a matrix
-      with elements in `K`. 
+      with elements in `K`.
     - ``infolevel`` -- an integer specifying the level of details of progress
-      reports during the calculation. 
-    - ``method`` -- either "linalg" (for linear algebra) or "hp" (for Hermite-Pade) or "automatic" 
+      reports during the calculation.
+    - ``method`` -- either "linalg" (for linear algebra) or "hp" (for Hermite-Pade) or "automatic"
       (for the default choice), or a callable with the specification of a raw guesser.
 
     OUTPUT:
 
     - An element of ``algebra`` which annihilates the given ``data``.
 
-    An error is raised if no such element is found. 
+    An error is raised if no such element is found.
 
     .. NOTE::
 
         - This method is designed to find equations for D-finite objects. It
           may exhibit strange behaviour for objects which are holonomic but not
-          D-finite. 
+          D-finite.
         - When the generator of the algebra is a commutative variable, the
           method searches for algebraic equations.
 
@@ -162,13 +163,13 @@ def guess(data, algebra, **kwargs):
 
     if A.ngens() > 1 or R.ngens() > 1:
         return guess_mult(data, algebra, **kwargs)
-    
+
     if type(data) == str:
         with open(data, 'r') as f:
             data = [ K(line) for line in f ]
 
     if (data[0] == 0 or data[1] == 0) and (A.is_C() or A.is_S()):
-        
+
         if all( d == 0 for d in data ):
             return A.one()
         for i in range(len(data)):
@@ -208,7 +209,7 @@ def guess(data, algebra, **kwargs):
 
     if R.is_field():
         return to_A(guess(data, A.change_ring(R.ring()), **kwargs))
-                
+
     elif A.is_F() is not False:
         # reduce to shift case; note that this does not alter order or degrees
         if 'infolevel' in kwargs and kwargs['infolevel'] >= 1:
@@ -257,6 +258,9 @@ def guess(data, algebra, **kwargs):
     elif K is QQ:
         return to_A(guess(data, A.change_ring(ZZ[x]), **kwargs))
 
+    elif isinstance(K, NumberField_generic):
+        to_A(guess(data, A.change_ring(K.ring_of_integers()[x]), **kwargs))
+
     elif K.is_field():
         return to_A(guess(data, A.change_ring(K.ring()[x]), **kwargs))
 
@@ -276,7 +280,7 @@ def guess_raw(data, A, order=-1, degree=-1, lift=None, solver=None, cut=25, ensu
 
     - ``data`` -- list of terms
     - ``A`` -- an Ore algebra of recurrence operators, differential operators,
-      or q-differential operators. 
+      or q-differential operators.
     - ``order`` -- maximum order of the sought operators
     - ``degree`` -- maximum degree of the sought operators
     - ``lift`` (optional) -- a function to be applied to the terms in ``data``
@@ -298,7 +302,7 @@ def guess_raw(data, A, order=-1, degree=-1, lift=None, solver=None, cut=25, ensu
     A basis of the ``K``-vector space of all the operators `L` in ``A`` of order
     at most ``order`` and degree at most ``degree`` such that `L` applied to
     ``data`` gives an array of zeros. (resp. `L` applied to the truncated power
-    series with ``data`` as terms gives the zero power series) 
+    series with ``data`` as terms gives the zero power series)
 
     An error is raised in the following situations:
 
@@ -306,7 +310,7 @@ def guess_raw(data, A, order=-1, degree=-1, lift=None, solver=None, cut=25, ensu
       is neither a standard shift nor a q-shift nor a standard derivation.
     * ``data`` contains some item which does not belong to ``K``, even after
       application of ``lift``
-    * if the condition on ``ensure`` is violated. 
+    * if the condition on ``ensure`` is violated.
     * if the linear system constructed by the method turns out to be
       underdetermined for some other reason, e.g., because too many linear
       constraints happen to be trivial.
@@ -327,11 +331,11 @@ def guess_raw(data, A, order=-1, degree=-1, lift=None, solver=None, cut=25, ensu
       sage: data = [(5*n+3)/(3*n+4)*fibonacci(n)^3 for n in range(200)]
       sage: guess_raw(data, A, order=5, degree=3, lift=K)
       [(n^3 + 546*n^2 + 588*n + 786)*Sn^5 + (356*n^3 + 717*n^2 + 381*n + 449)*Sn^4 + (8*n^3 + 569*n^2 + 360*n + 214)*Sn^3 + (31*n^3 + 600*n^2 + 784*n + 287)*Sn^2 + (1078*n^3 + 1065*n^2 + 383*n + 466)*Sn + 359*n^3 + 173*n^2 + 503, (n^3 + 1013*n^2 + 593*n + 754)*Sn^5 + (797*n^3 + 56*n^2 + 7*n + 999)*Sn^4 + (867*n^3 + 1002*n^2 + 655*n + 506)*Sn^3 + (658*n^3 + 834*n^2 + 1036*n + 899)*Sn^2 + (219*n^3 + 479*n^2 + 476*n + 800)*Sn + 800*n^3 + 913*n^2 + 280*n]
-    
+
     """
 
     if min(order, degree) < 0:
-        return [] 
+        return []
 
     R = A.base_ring(); K = R.base_ring(); q = A.is_Q()
 
@@ -364,7 +368,7 @@ def guess_raw(data, A, order=-1, degree=-1, lift=None, solver=None, cut=25, ensu
 
     if solver is None:
         solver = A._solver(K)
-        
+
     if solver is None:
         solver = nullspace.sage_native
 
@@ -373,7 +377,7 @@ def guess_raw(data, A, order=-1, degree=-1, lift=None, solver=None, cut=25, ensu
     z = [K.zero()]
 
     if alg_case:
-        # sys[i, j] contains x^i * series(data)^j 
+        # sys[i, j] contains x^i * series(data)^j
         series = R(data)
         sys[0, 0] = R.one()
         for j in range(order):
@@ -387,7 +391,7 @@ def guess_raw(data, A, order=-1, degree=-1, lift=None, solver=None, cut=25, ensu
         nn = nn[1:]
         for j in range(order):
             sys[0, j + 1] = list(map(lambda a,b: a*b, sys[0, j][1:], nn))
-            nn.pop(); 
+            nn.pop();
         for i in range(degree):
             for j in range(order + 1):
                 sys[i + 1, j] = z + sys[i, j]
@@ -411,7 +415,7 @@ def guess_raw(data, A, order=-1, degree=-1, lift=None, solver=None, cut=25, ensu
     dims = sys.dimensions()
     info(2, lazy_string(lambda: datetime.today().ctime() + ": matrix construction completed. size=" + str(dims)))
     sol = solver(sys, infolevel=infolevel - 2)
-    del sys 
+    del sys
     info(2, lazy_string(lambda: datetime.today().ctime() + ": nullspace computation completed. size=" + str(len(sol))))
 
     sigma = A.sigma()
@@ -433,7 +437,7 @@ def guess_hp(data, A, order=-1, degree=-1, lift=None, cut=25, ensure=0, infoleve
     INPUT:
 
     - ``data`` -- list of terms
-    - ``A`` -- an Ore algebra of differential operators or ordinary polynomials. 
+    - ``A`` -- an Ore algebra of differential operators or ordinary polynomials.
     - ``order`` -- maximum order of the sought operators
     - ``degree`` -- maximum degree of the sought operators
     - ``lift`` (optional) -- a function to be applied to the terms in ``data``
@@ -457,10 +461,10 @@ def guess_hp(data, A, order=-1, degree=-1, lift=None, cut=25, ensure=0, infoleve
     An error is raised in the following situations:
 
     * the algebra ``A`` has more than one generator, or its unique generator
-      is neither a standard derivation nor a commutative variable. 
+      is neither a standard derivation nor a commutative variable.
     * ``data`` contains some item which does not belong to ``K``, even after
       application of ``lift``
-    * if the condition on ``ensure`` is violated. 
+    * if the condition on ``ensure`` is violated.
 
     ALGORITHM:
 
@@ -484,7 +488,7 @@ def guess_hp(data, A, order=-1, degree=-1, lift=None, cut=25, ensure=0, infoleve
     """
 
     if min(order, degree) < 0:
-        return [] 
+        return []
 
     R = A.base_ring(); K = R.base_ring()
 
@@ -517,7 +521,7 @@ def guess_hp(data, A, order=-1, degree=-1, lift=None, cut=25, ensure=0, infoleve
         series = [R(data)]
         for i in range(order):
             series.append(series[-1].derivative())
-        truncate = len(data) - order 
+        truncate = len(data) - order
         series = [s.truncate(truncate) for s in series]
     else:
         truncate = len(data)
@@ -532,7 +536,7 @@ def guess_hp(data, A, order=-1, degree=-1, lift=None, cut=25, ensure=0, infoleve
     sol = [A(list(map(R, s))) for s in sol]
     sol = [(~L.leading_coefficient().leading_coefficient())*L for L in sol]
 
-    return sol    
+    return sol
 
 ###########################################################################################
 
@@ -551,7 +555,7 @@ def _guess_via_hom(data, A, modulus, to_hom, **kwargs):
 
     - ``L`` in ``A``, the guessed operator.
     - if the option ``return_short_path`` is given and ``True``, return the pair ``(L, path)``.
-    
+
     Covers three cases:
 
     1. K == ZZ ---> GF(p) and back via CRA.
@@ -560,7 +564,7 @@ def _guess_via_hom(data, A, modulus, to_hom, **kwargs):
        In this case, ``modulus`` is expected to iterate over linear polynomial in `K`
     3. K == ZZ[t] --> GF(p)[t] and back via CRA.
        In this case, ``modulus`` is expected to iterate over primes `p`. The method
-       produces problem instances of type 2, which are handled recursively.     
+       produces problem instances of type 2, which are handled recursively.
 
     """
 
@@ -569,12 +573,12 @@ def _guess_via_hom(data, A, modulus, to_hom, **kwargs):
         kwargs['infolevel'] = infolevel - 2
     else:
         infolevel = 0
-        
+
     def info(bound, msg):
         if bound <= infolevel:
             print(msg)
 
-    R = A.base_ring(); x = R.gen(); K = R.base_ring(); 
+    R = A.base_ring(); x = R.gen(); K = R.base_ring();
     atomic = not ( is_PolynomialRing(K) and K.base_ring() is ZZ )
 
     info(1, lazy_string(lambda: datetime.today().ctime() + ": guessing via homomorphic images started."))
@@ -612,11 +616,11 @@ def _guess_via_hom(data, A, modulus, to_hom, **kwargs):
             kwargs['return_short_path'] = True
 
         elif nn == 2 and atomic and path[0][0] >= Lp.order() + 2:
-            # 2nd iteration: try to optimize the path obtained in the 1st iteration 
+            # 2nd iteration: try to optimize the path obtained in the 1st iteration
             r0 = Lp.order(); d0 = Lp.degree(); r1, d1 = path[0]
-            # determine the hyperbola through (r0,d0) and (r1,d1) and 
+            # determine the hyperbola through (r0,d0) and (r1,d1) and
             # choose (r2,d2) as the point on this hyperbola for which (r2+1)*(d2+1) is minimized
-            try: 
+            try:
                 r2 = r0 - 1 + math.sqrt(abs((d0-d1)*r0*(r0-1.-r1)/(d0+r0+d1*(r0-1.-r1)-r1)))
                 d2 = (d1*(r0-1-r1)*(r0-r2) + d0*(r1-r2))/((r0-r1)*(r0-1-r2))
                 r2 = int(math.ceil(r2)); d2 = int(math.ceil(d2))
@@ -632,18 +636,18 @@ def _guess_via_hom(data, A, modulus, to_hom, **kwargs):
                 kwargs['path'] = [(Lp.order(), Lp.degree())] # there is no curve for algebraic equations
 
         elif 'return_short_path' in kwargs:
-            # subsequent iterations: stick to the path we have.                 
+            # subsequent iterations: stick to the path we have.
             del kwargs['return_short_path']
 
         if not 'path' in kwargs:
             kwargs['return_short_path'] = True
 
         if ncpus == 1:
-            # sequential version 
+            # sequential version
 
             imgs = [];
             for i in range(max(1, nn - 3)): # do several imgs before proceeding with a reconstruction attempt
-                
+
                 data_mod = None
                 while data_mod is None:
                     p = next(modulus); hom = to_hom(p)
@@ -660,7 +664,7 @@ def _guess_via_hom(data, A, modulus, to_hom, **kwargs):
                     qq = hom(qq[1])
                     Lp = guess(data_mod, OreAlgebra(hom(K.one()).parent()[x], (A.var(), {x:qq*x}, {}), q=qq), **kwargs)
 
-                if type(Lp) is tuple and len(Lp) == 2:  ## this implies nn < 3  
+                if type(Lp) is tuple and len(Lp) == 2:  ## this implies nn < 3
                     Lp, path = Lp
                     kwargs['path'] = path
 
@@ -703,14 +707,14 @@ def _guess_via_hom(data, A, modulus, to_hom, **kwargs):
             ncpus = kwargs['ncpus']
             del kwargs['ncpus']
             kwargs['infolevel'] = 0
-            
+
             @parallel(ncpus=ncpus)
             def forked_guess(p, hom, alg):
                 try:
                     return guess(list(map(hom, data)), alg, **kwargs).polynomial()
                 except ArithmeticError:
                     return None
-                
+
         elif nn == 3 and 'infolevel' in kwargs:
             kwargs['infolevel'] = kwargs['infolevel'] - 2
 
@@ -738,7 +742,7 @@ def _guess_via_hom(data, A, modulus, to_hom, **kwargs):
 
 def _guess_via_gcrd(data, A, **kwargs):
     """
-    Implementation of guessing by taking gcrd of small equations. 
+    Implementation of guessing by taking gcrd of small equations.
 
     INPUT:
 
@@ -757,12 +761,12 @@ def _guess_via_gcrd(data, A, **kwargs):
         kwargs['infolevel'] = infolevel - 2
     else:
         infolevel = 0
-        
+
     def info(bound, msg):
         if bound <= infolevel:
             print(msg)
 
-    R = A.base_ring(); x = R.gen(); K = R.base_ring(); 
+    R = A.base_ring(); x = R.gen(); K = R.base_ring();
 
     info(1, lazy_string(lambda: datetime.today().ctime() + ": guessing via gcrd started."))
     info(1, "len(data)=" + str(len(data)) + ", algebra=" + str(A._latex_()))
@@ -775,18 +779,18 @@ def _guess_via_gcrd(data, A, **kwargs):
         del kwargs['return_short_path']
     else:
         return_short_path = False
-        
+
     ensure = kwargs['ensure'] if 'ensure' in kwargs else 0
 
     N = len(data) - ensure
-    
+
     if 'path' in kwargs:
         path = kwargs['path']; del kwargs['path']
         sort_key = lambda p: (p[0] + 1)*(p[1] + 1)
         prelude = []
     else:
         r2d = lambda r: (N - 2*r - 2)//(r + 1) # python integer division intended.
-        path = [(r, r2d(r)) for r in range(1, N)] 
+        path = [(r, r2d(r)) for r in range(1, N)]
         path = [p for p in path if min(p[0] - 1, p[1]) >= 0]
         (r, d) = (1, 1); prelude = []
         while d <= r2d(r):
@@ -824,7 +828,7 @@ def _guess_via_gcrd(data, A, **kwargs):
         else:
             subguesser = kwargs['method'] # callable
         del kwargs['method']
-        
+
     path = [p for p in path if min_ord <= p[0] and p[0] <= max_ord and min_deg <= p[1] and p[1] <= max_deg]
 
     path.sort(key=sort_key)
@@ -833,14 +837,14 @@ def _guess_via_gcrd(data, A, **kwargs):
         (r, d) = path[i]
         for j in range(len(path)):
             if i != j and path[j] is not None and path[j][0] >= r and path[j][1] >= d:
-                path[i] = None                    
+                path[i] = None
     path = [p for p in path if p is not None]
 
     if 'max_path_length' in kwargs:
         b = kwargs['max_path_length']
         if b > len(path):
             path = path[:b]
-    
+
     info(2, "Going through a path with " + str(len(path)) + " points")
 
     # search equation
@@ -848,7 +852,7 @@ def _guess_via_gcrd(data, A, **kwargs):
     neg_probes = []
     def probe(r, d):
         if (r, d) in neg_probes:
-            return []        
+            return []
         kwargs['order'], kwargs['degree'] = r, d
         sols = subguesser(data, A, **kwargs)
         info(2, str(len(sols)) + " sols for (r, d)=" + str((r, d)))
@@ -856,8 +860,8 @@ def _guess_via_gcrd(data, A, **kwargs):
             neg_probes.append((r, d))
         return sols
 
-    L = []; short_path = []; 
-    
+    L = []; short_path = [];
+
     for i in range(len(path)):
 
         r, d = path[i]
@@ -869,12 +873,12 @@ def _guess_via_gcrd(data, A, **kwargs):
             continue
 
         sols = probe(r, d)
-        
+
         while return_short_path and d > 0 and len(sols) > 1:
             new = probe(r, d - 1)
             if len(new) == 0:
                 break
-            m = len(sols) - len(new) 
+            m = len(sols) - len(new)
             if m == 0:
                 # assuming subsolver returned minimal degrees (as does, e.g., a h/p solver)
                 d = max(p.degree() for p in sols)
@@ -915,7 +919,7 @@ from sage.arith.all import previous_prime as pp
 def _word_size_primes(init=2**23, bound=1000):
     """
     returns an iterator which enumerates the primes smaller than ``init`` and bigger than ``bound``,
-    in decreasing order. 
+    in decreasing order.
     """
     p = pp(init)
     while p > bound:
@@ -947,8 +951,8 @@ def _merge_homomorphic_images(v, mod, vp, p, reconstruct=True):
     - ``vp`` -- an vector over r
     - ``p`` -- an element of R such that the hypothetical vector
       gives `vp` when its coeffs are reduced mod ``p``.
-    - ``reconstruct`` (default: ``True``) -- if set to ``False``, only 
-      do Chinese remaindering, but no rational reconstruction.       
+    - ``reconstruct`` (default: ``True``) -- if set to ``False``, only
+      do Chinese remaindering, but no rational reconstruction.
 
     OUTPUT:
 
@@ -961,14 +965,14 @@ def _merge_homomorphic_images(v, mod, vp, p, reconstruct=True):
       succeeded.
 
     If `v` is the zero vector, the method returns ``(Lp, p)``. Otherwise, if
-    the dimensions of `v` and `vp` don't match, an exception is raised. An 
-    exception is also raised if `vp` is zero. 
+    the dimensions of `v` and `vp` don't match, an exception is raised. An
+    exception is also raised if `vp` is zero.
 
     Possible ground rings:
 
-    - R=ZZ, r=GF(p). The method will apply chinese remaindering 
-    - R=ZZ[q], r=GF(p)[q]. The method will apply chinese remaindering on the coefficients 
-    - R=GF(p)[q], r=GF(p)[q]. The method will apply interpolation 
+    - R=ZZ, r=GF(p). The method will apply chinese remaindering
+    - R=ZZ[q], r=GF(p)[q]. The method will apply chinese remaindering on the coefficients
+    - R=GF(p)[q], r=GF(p)[q]. The method will apply interpolation
 
     """
 
@@ -979,7 +983,7 @@ def _merge_homomorphic_images(v, mod, vp, p, reconstruct=True):
         vp = vp.change_ring(B)
 
     atomic = (B is ZZ) or (B.characteristic() > 0)
-    poly = not atomic     
+    poly = not atomic
 
     if mod == 0:
         return v, R.zero()
@@ -992,7 +996,7 @@ def _merge_homomorphic_images(v, mod, vp, p, reconstruct=True):
 
     else:
 
-        p = R(p); mod = R(mod)    
+        p = R(p); mod = R(mod)
         if poly:
             p = R.base_ring()(p)
             mod = R.base_ring()(mod)
@@ -1017,10 +1021,10 @@ def _merge_homomorphic_images(v, mod, vp, p, reconstruct=True):
 
     if R.characteristic() == 0:
         mod2 = mod // ZZ(2)
-        adjust = lambda c : ((c + mod2) % mod) - mod2 
+        adjust = lambda c : ((c + mod2) % mod) - mod2
     else:
         if mod.degree() <= 5: # require at least 5 evaluation points
-            return vmod, mod        
+            return vmod, mod
         adjust = lambda c : c % mod
 
     coords = list(vmod)
@@ -1030,7 +1034,7 @@ def _merge_homomorphic_images(v, mod, vp, p, reconstruct=True):
         for i in range(len(coords) - 1, -1, -1):
             c = coords[i]
             if poly:
-                for l in range(c.degree(), -1, -1): 
+                for l in range(c.degree(), -1, -1):
                     d *= _rat_recon(d*c[l], mod)[1]
             else:
                 d *= _rat_recon(d*c, mod)[1]
@@ -1058,17 +1062,17 @@ def _rat_recon(a, m, u=None):
       raises ArithmeticError if no p/q is found.
       if m < 1000000, we use sage's builtin
 
-    if m.parent() is GF(p)[t]: 
-    
+    if m.parent() is GF(p)[t]:
+
       find (p, q) such that a == p/q mod m and deg(p) + deg(q) < deg(m) - 3
       if u is not None, require deg(q) <= deg(u).
       raises ArithmeticError if no p/q is found.
       if deg(m) < 6, we use sage's builtin
 
     """
-    
+
     K = m.parent() # GF(p)[t] or ZZ
-    
+
     if K is ZZ:
         score_fun = lambda p, q: abs(p*q)
         bound = m // ZZ(10000)
@@ -1081,9 +1085,9 @@ def _rat_recon(a, m, u=None):
         early_termination_bound = m.degree() - 6
         if u is None:
             u = m.degree()
-    
-    zero = K.zero(); one = K.one(); mone = -one    
-    
+
+    zero = K.zero(); one = K.one(); mone = -one
+
     if a in (zero, one, mone):
         return a, one
     elif early_termination_bound <= 0:
@@ -1091,8 +1095,8 @@ def _rat_recon(a, m, u=None):
         return (a.numerator(), a.denominator())
 
     # p = q*a + r*m for some r
-    p = K(a) % m; q = one;   
-    pp = m;       qq = zero; 
+    p = K(a) % m; q = one;
+    pp = m;       qq = zero;
     out = (p, one); score = score_fun(p, one)
     if K is ZZ:
         mp = m - p; mps = score_fun(mp, one)
@@ -1134,7 +1138,7 @@ def _ff_factory(domain):
     except:
         characteristic = int(characteristic)
         c = dict()
-        if characteristic == 0: 
+        if characteristic == 0:
             one = ZZ.one()
             def ff(u, v): ## computation in ZZ; first argument must be integer too!
                 try:
@@ -1146,7 +1150,7 @@ def _ff_factory(domain):
                         cc = ZZ(u*ff(u - 1, v - 1))
                         c[u, v] = cc
                         return cc
-        else:                
+        else:
             def ff(u, v): ## computations with Python integers
                 try:
                     return c[u, v]
@@ -1167,7 +1171,7 @@ def _power_factory(domain):
     except:
         c = dict()
         domain = domain.fraction_field()
-        if domain.characteristic() > 0: 
+        if domain.characteristic() > 0:
             characteristic = domain.characteristic()
             def power(u, v): # using Python integers
                 try:
@@ -1196,7 +1200,7 @@ def _power_factory(domain):
                         c[u, v] = cc
                         return cc
         _power_cache[domain] = power
-        return power    
+        return power
 
 ###########################################################################################
 
@@ -1207,12 +1211,12 @@ def guess_mult(data, algebra, **kwargs):
     INPUT:
 
     - ``data`` -- a nested list of elements of the algebra's base ring's base ring `K` (or at least
-      of objects which can be casted into this ring). 
+      of objects which can be casted into this ring).
       The depth of the nesting must match the number of generators of the algebra.
     - ``algebra`` -- an Ore algebra over a polynomial ring all of whose generators are
-      the standard derivation, the standard shift, or a q-shift. 
+      the standard derivation, the standard shift, or a q-shift.
 
-    Optional arguments: 
+    Optional arguments:
 
     - ``cut`` -- if `N` is the minimum number of terms needed for some particular
       choice of order and degree, and if ``len(data)`` is more than ``N+cut``,
@@ -1221,31 +1225,31 @@ def guess_mult(data, algebra, **kwargs):
     - ``ensure`` -- if `N` is the minimum number of terms needed for some particular
       choice of order and degree, and if ``len(data)`` is less than ``N+ensure``,
       raise an error. This must be a nonnegative integer. Default: 0.
-    - ``order`` -- maximum degree of the algebra generators in the sought operators. 
-      Alternatively: a list or tuple specifying individual degree bounds for each 
+    - ``order`` -- maximum degree of the algebra generators in the sought operators.
+      Alternatively: a list or tuple specifying individual degree bounds for each
       generator of the algebra. Default: 2
-    - ``degree`` -- maximum total degree of the polynomial coefficients in the sought 
+    - ``degree`` -- maximum total degree of the polynomial coefficients in the sought
       operators. Default: 3
-    - ``point_filter`` -- a callable such that index tuples of data array for which 
+    - ``point_filter`` -- a callable such that index tuples of data array for which
       the callable returns 'False' will not be used. Default: None (everything allowed).
-    - ``term_filter`` -- a callable such that operators containing power products of 
+    - ``term_filter`` -- a callable such that operators containing power products of
       the algebra generators for which the callable returns 'False' are excluded.
       Default: None (everything allowed).
     - ``solver`` -- function to be used for computing the right kernel of a matrix
-      with elements in `K`. 
+      with elements in `K`.
     - ``infolevel`` -- an integer specifying the level of details of progress
-      reports during the calculation. 
+      reports during the calculation.
 
     OUTPUT:
 
     - The left ideal of ``algebra`` generated by all the operators of the specified order and degree
-      that annihilate the given ``data``. It may be the zero ideal. 
+      that annihilate the given ``data``. It may be the zero ideal.
 
     .. NOTE::
 
         This method is designed to find equations for D-finite objects. It may
         exhibit strange behaviour for objects which are holonomic but not
-        D-finite. 
+        D-finite.
 
     EXAMPLES::
 
@@ -1278,7 +1282,7 @@ def guess_mult(data, algebra, **kwargs):
 
     deg = kwargs.setdefault('degree', 3)
     ord = kwargs.setdefault('order', 2)
-    if ord in ZZ: 
+    if ord in ZZ:
         ord = [ord for i in range_dim]
     assert(dim == len(ord))
 
@@ -1291,7 +1295,7 @@ def guess_mult(data, algebra, **kwargs):
     from itertools import combinations_with_replacement, product
     pol_terms = [tuple(0 for i in range_dim)] # exponent vector (0,...,0)
     for d in range(1, deg + 1): # create exponent vectors for terms of total degree d
-        for p in combinations_with_replacement(vars, d): 
+        for p in combinations_with_replacement(vars, d):
             pol_terms.append( tuple(p.count(x) for x in vars) )
 
     op_terms = []
@@ -1335,14 +1339,14 @@ def guess_mult(data, algebra, **kwargs):
     if len(terms) + kwargs.setdefault("ensure", 0) >= len(points):
         raise ValueError("not enough data"    )
 
-    C = algebra.base_ring().base_ring().fraction_field() ### constant field 
+    C = algebra.base_ring().base_ring().fraction_field() ### constant field
 
     if C.characteristic() in Primes() and C is GF(C.characteristic()): ### constant field is GF(p) --> raw guessing
 
         power = []
         for i in range_dim:
             if algebra.is_D(i):
-                power.append(_ff_factory(C)); 
+                power.append(_ff_factory(C));
             elif algebra.is_S(i):
                 power.append(_power_factory(C))
             elif algebra.is_Q(i):
@@ -1350,7 +1354,7 @@ def guess_mult(data, algebra, **kwargs):
 
         sol = guess_mult_raw(C, data, terms, points, power, A, B, **kwargs)
 
-    elif C is QQ or is_PolynomialRing(C.base()) and len(C.base().gens()) == 1 and C.base_ring() is GF(C.characteristic()): 
+    elif C is QQ or is_PolynomialRing(C.base()) and len(C.base().gens()) == 1 and C.base_ring() is GF(C.characteristic()):
         ### C == QQ or C == GF(p)(t) --> plain chinese remaindering (resp interpolation) plus rational reconstruction
 
         modulus_generator = _word_size_primes() if C is QQ else _linear_polys(C.base().gen(), 7, C.characteristic())
@@ -1360,7 +1364,7 @@ def guess_mult(data, algebra, **kwargs):
         sol = None
         power = [None]*dim
         imgs = []
-        kwargs['infolevel'] = infolevel - 2 
+        kwargs['infolevel'] = infolevel - 2
 
         while not all(m.is_zero() for m in mod):
 
@@ -1368,7 +1372,7 @@ def guess_mult(data, algebra, **kwargs):
             info(1, "modulus = " + str(p))
             C_mod = GF(p) if C is QQ else C.base_ring()
             phi = to_hom(p)
-            
+
             for i in range_dim:
                 if algebra.is_D(i):
                     power[i] = _ff_factory(C_mod)
@@ -1378,7 +1382,7 @@ def guess_mult(data, algebra, **kwargs):
                     _, q = algebra.is_Q(i); A[i] = lambda n, u, v: (phi(q), n*u)
                     power[i] = _power_factory(C_mod)
 
-            ## compute modular image 
+            ## compute modular image
             kwargs['phi'] = phi
             solp = guess_mult_raw(C_mod, data, terms, points, power, A, B, **kwargs)
             del kwargs['phi']
@@ -1389,7 +1393,7 @@ def guess_mult(data, algebra, **kwargs):
                 if len(solp) == 0:
                     info(1, lazy_string(lambda: datetime.today().ctime() + " : multivariate guessing completed by early termination."))
                     return algebra.ideal([])
-                
+
                 ## extract support of solutions
                 for i in range(len(terms)):
                     if all(v[i].is_zero() for v in solp):
@@ -1435,18 +1439,18 @@ def guess_mult(data, algebra, **kwargs):
     elif C.base_ring().fraction_field() is QQ and is_PolynomialRing(C.base()) and len(C.base().gens()) == 1:
         ### C = QQ(t)
 
-        raise NotImplementedError 
-        
-    else: 
+        raise NotImplementedError
+
+    else:
         raise NotImplementedError("unexpected constant domain")
-        
+
     info(1, lazy_string(lambda: datetime.today().ctime() + " : " + str(len(sol)) + " solutions."))
 
     if kwargs.setdefault('_return_raw_vectors', False):
         return sol
 
     # 5. convert to operators
-    basis = []; 
+    basis = [];
     R = algebra.base_ring(); C = R.base_ring().fraction_field().base(); R1 = PolynomialRing(C.fraction_field(), R.gens())
     for v in sol:
         coeffs = dict( (o, dict()) for o in op_terms )
@@ -1468,7 +1472,7 @@ def guess_mult_raw(C, data, terms, points, power, A, B, **kwargs):
     """
     Low-level multivariate guessing function. Do not call this method unless you know what you are doing.
     In most situations, you will want to call the function `guess` instead.
-    
+
     INPUT:
 
     - `data` -- a nested list of elements of C
@@ -1479,12 +1483,12 @@ def guess_mult_raw(C, data, terms, points, power, A, B, **kwargs):
     - `B` -- a list of functions mapping triples (n, u, v) to integers
 
     OUTPUT:
-    
-    A list of vectors generating the space of all vectors in C^len(terms) for which 
-    all(sum(prod(f[i][A[i][n[i],u[i],v[i]]]*a[B[i][n[i],u[i],v[i]]] for i in range(len(A))) 
+
+    A list of vectors generating the space of all vectors in C^len(terms) for which
+    all(sum(prod(f[i][A[i][n[i],u[i],v[i]]]*a[B[i][n[i],u[i],v[i]]] for i in range(len(A)))
     for (u,v) in terms) == 0 for n in points)
 
-    SIDE EFFECT: 
+    SIDE EFFECT:
 
     Elements of the list `points` which lead to a zero equation will be discarded.
     """
@@ -1514,7 +1518,7 @@ def guess_mult_raw(C, data, terms, points, power, A, B, **kwargs):
                 d = data
                 try:
                     factor = monomial_cache[exp]
-                    for i in idx: 
+                    for i in idx:
                         d = d[i]
                 except KeyError:
                     factor = phi(C.one())

@@ -23,7 +23,7 @@ import sage.rings.real_arb
 from sage.categories.pushout import pushout
 from sage.misc.cachefunc import cached_function
 from sage.misc.misc import cputime
-from sage.rings.all import ZZ, QQ, QQbar, CIF, CBF
+from sage.rings.all import ZZ, QQ, QQbar, CIF, CBF, RationalField
 from sage.rings.real_mpfr import RealField
 from sage.rings.number_field.number_field import (NumberField,
         NumberField_quadratic, is_NumberField)
@@ -34,13 +34,15 @@ from sage.modules.free_module_element import vector, FreeModuleElement_generic_d
 from sage.rings.polynomial.polynomial_element import Polynomial
 from sage.rings.qqbar import number_field_elements_from_algebraics
 from sage.functions.all import log, floor
-from sage.arith.misc import algdep
+from sage.arith.misc import algdep, gcd
+from sage.arith.functions import lcm
 from sage.functions.other import binomial
 
 from .accuracy import PrecisionError
 from .complex_optimistic_field import ComplexOptimisticField
 
 from ore_algebra.ideal import uncouple, solve_triangular_system
+from ore_algebra.tools import clear_denominators
 
 ######################################################################
 # Timing
@@ -258,20 +260,21 @@ def customized_accuracy(x):
     Return either the absolute accuracy of x if x contains 0 or the relative
     accuracy of x if x does not contains 0.
 
-    Note that works also if x is a list or a vector or a matrix (minimal
-    accuracy of the coefficients).
+    Note that works also if x is a list or a vector or a matrix (minimum of the
+    accuracies of the coefficients).
 
     INPUT:
      - 'x' - a complex ball
 
     OUTPUT:
-     - 'acc' - a nonnegative integer
+     - 'acc' - a nonnegative integer or +infinity
     """
 
     if isinstance(x, FreeModuleElement_generic_dense) or \
     isinstance(x, Matrix_dense) or isinstance(x, Polynomial):
-        x = x.list()
-        acc = min(customized_accuracy(c) for c in x)
+        xl = x.list()
+        if len(xl)==0: xl = [x[0]] # for zero polynomial
+        acc = min(customized_accuracy(c) for c in xl)
         return acc
 
     if isinstance(x, list):
@@ -653,57 +656,88 @@ def guess_exact_numbers(x, d=1):
 
 
 ######################################################################
-# Mixed equation
+# Eigenring
 ######################################################################
 
+def RRem(A, B):
 
-def associated_matrix(R, Q):
-
-    """
-    Compute an operator matrix M (list of list) such that M*(a_0,...,a_{n-1}) =
-    coefficients of the remainder in the right division of RA by Q where
-    A = a_0 + ... + a_{n-1}*\partial^{n-1}.
+    r""" Adapted version of right reminder computation, where A is a list of
+    operators [A0, A1, ..., Am] representing the operator A0(a) + A1(a)*D + ...
+    + Am(a)*D^m for a generic function a.
     """
 
-    Dx, m, n = Q.parent().gen(), R.order(), Q.order()
-    Ra = [sum(binomial(i, k)*R[i]*Dx**(i - k) for i in range(k, m + 1)) for k in range(m + 1)]
-    M = [reminder([0*Dx]*j + Ra, Q) for j in range(n)]
-    M = [[M[i][j] for i in range(n)] for j in range(n)]
-
-    return M
-
-def reminder(A, B):
-
-    """
-    Compute the reminder in the right division of A by B, where the coefficients
-    of A are operators.
-    """
-
-    Dx, m, n = B.parent().gen(), len(A) - 1, B.order()
+    D, m, n = B.parent().gen(), len(A) - 1, B.order()
     if m<n: return A
-    qn, Lm = B.leading_coefficient(), A[-1]
-    A = [A[i] - (1/qn)*c*Lm for i, c in enumerate(Dx**(m - n)*B) if i<m]
-
+    qn, Am = B.leading_coefficient(), A[-1]
+    A = [ A[i] - (1/qn)*c*Am for i, c in enumerate(D**(m - n)*B) if i<m ]
     while len(A)>1 and A[-1]==0: A.pop()
 
-    return reminder(A, B)
+    return RRem(A, B)
 
-def solve_mixed_equation(R, Q, C):
+def cleaned_parent(L1, L2):
 
+    r""" Try to find a commun parent, and in the case where the coefficients
+    live in QQ, embed it in ZZ.
     """
-    Compute the set of A of order < order(Q) such that the reminder of the right
-    division of RA by Q is equal to C.
+
+    OA1, OA2 = L1.parent(), L2.parent()
+    if OA1!=OA2:
+        commun_parent = False
+        try:
+            OA1.coerce(L2)
+            commun_parent = True
+            OA = OA1
+        except TypeError: pass
+        try:
+            OA2.coerce(L1)
+            commun_parent = True
+            OA = OA2
+        except TypeError: pass
+        if not commun_parent:
+            raise TypeError("L1 and L2 must have the same parent.")
+    else: OA = OA1
+
+    R = OA.base_ring().base_ring()
+    if isinstance(R, RationalField):
+        I = R.ring_of_integers()
+        L1, L2 = clear_denominators(L1)[0], clear_denominators(L2)[0]
+        L1 = lcm([R(cc).denominator() for c in L1 for cc in c])*L1
+        L2 = lcm([R(cc).denominator() for c in L2 for cc in c])*L2
+        OA = OA.change_ring(PolynomialRing(I, L1.base_ring().gen().variable_name()))
+        L1, L2 = OA(L1), OA(L2)
+
+    return L1, L2, OA
+
+
+def eigenring(L1, L2=None, infolevel=0):
+
+    r"""
+    Compute a basis of the space of the A + DL2 such that L2 divides L1A from
+    the right.
     """
 
-    n = Q.order()
-    M = associated_matrix(R, Q)
-    T, U = uncouple(M, extended=True, clear_content=True)
-    C = list(C)+[0]*(n - 1 - C.order())
-    C = [sum(U[i][j]*C[j] for j in range(n)) for i in range(n)]
-    basis = solve_triangular_system(T, [C])
+    if L2==None: L2 = L1
+    m, n = L1.order(), L2.order()
+    L1, L2, OA = cleaned_parent(L1, L2)
+    D, zero = OA.gen(), OA.zero()
+
+    # computation of the associated matrix N
+    L1a = [ sum( binomial(k, i)*L1[k]*D**(k - i) for k in range(i, m + 1) )\
+           for i in range(m + 1) ]
+    N = [ RRem([zero]*j + L1a, L2) for j in range(n) ]
+    N = [ Nj + [zero]*(n - len(Nj)) for Nj in N ]
+    if not all(len(Nj) == n for Nj in N): breakpoint()
+    N = [ [ N[i][j] for i in range(n) ] for j in range(n) ]
+
+    # solving Na=0
+    basis = solve_triangular_system(uncouple(N, infolevel=infolevel), [[0]*n])
+
+    # re-building the associated elements in the eigenring
     output = []
-    for u, c in basis:
-        u = [(1/c[0])*f for f in u]
-        output.append(Dx.parent()(u))
+    for u, l in basis:
+        op = D.parent()(clear_denominators(u)[0]) # maybe there is a best way to remove denominators (in basis computation?)
+        if not op.is_zero():
+            d = gcd([c for pol in op for c in pol.numerator()])
+            output.append((1/d)*op)
 
     return output
