@@ -3418,7 +3418,6 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
 
         base = ore.base_ring()
 
-        x = base.gen()
         C = base.base_ring()
         if f.degree() > 1:
             FF = NumberField(f,"xi")
@@ -3431,6 +3430,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         # field, so we need to proceed in two steps.
         if base.is_field():
             base = base.ring()
+        x = base.gen()
         pol_ext = base.change_ring(FF)
         ore_ext = ore.change_ring(pol_ext.fraction_field())
 
