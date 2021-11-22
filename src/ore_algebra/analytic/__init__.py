@@ -124,12 +124,12 @@ or the cosine integral::
 
     sage: dop.numerical_solution(ini, path=[0, sqrt(2)])
     [0.46365280236686...]
-    sage: CBF(sqrt(2)).ci()
+    sage: CBF(sqrt(2)).Ci()
     [0.46365280236686...]
 
     sage: dop.numerical_solution(ini, path=[0, 456/123*i+1])
     [6.1267878728616...] + [-3.39197789100074...]*I
-    sage: CBF(456/123*I + 1).ci()
+    sage: CBF(456/123*I + 1).Ci()
     [6.126787872861...] + [-3.391977891000...]*I
 
 The slightly less classical Whittaker functions are an interesting test case as
