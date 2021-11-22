@@ -1061,9 +1061,17 @@ class Path(SageObject):
         rad = a.dist_to_sing()
         vec = b.iv() - a.iv()
         dir = vec/abs(vec)
-        m = a.iv() + factor*rad*dir
-        is_real = m.imag().is_zero()
-        m = m.add_error(rad/8)
+        is_real = a.iv().imag().is_zero() and b.iv().imag().is_zero()
+        # Limit angular perturbation using distance to singularities close to
+        # the step. Not sure at all if this is guaranteed to work.
+        dist = rad
+        length = abs(vec)
+        for s in self.dop._singularities(IC):
+            h = (s - a.iv())/dir
+            if IR.zero() < h.real() < 4*length:
+                dist = min(dist, h.imag().below_abs())
+        m = a.iv() + IC(factor.add_error(.125)*rad*dir.real(),
+                        (factor*rad*dir.imag()).add_error(dist/16))
         Step(a, Point(m, self.dop)).check_singularity() # TBI
         m = _rationalize(m, is_real)
         return Point(m, self.dop)
@@ -1097,7 +1105,7 @@ class Path(SageObject):
                 i += 1
             else:
                 new.append(self._intermediate_point(cur, next))
-                logger.debug("subdividing %s -> %s", cur, next)
+                logger.debug("subdividing %s -> %s via %s", cur, next, new[-1])
         new = Path(new, self.dop)
         return new
 
