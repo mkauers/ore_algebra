@@ -1058,6 +1058,17 @@ class Path(SageObject):
         return new
 
     def _intermediate_point(self, a, b, factor=IR(0.5)):
+        r"""
+        TESTS::
+
+            sage: from ore_algebra import OreAlgebra
+            sage: Pol.<x> = QQ[]
+            sage: Dop.<Dx> = OreAlgebra(Pol)
+            sage: ((x - 1)*Dx - 1).numerical_transition_matrix([0, 100+i/10])
+            [[-99.0000000000...] + [-0.100000000000...]*I]
+            sage: ((x^2 + 1)*Dx - 1).numerical_transition_matrix([0, 200*i-1/7])
+            [[0.207877720258...] + [0.0010394053945...]*I]
+        """
         rad = a.dist_to_sing()
         vec = b.iv() - a.iv()
         dir = vec/abs(vec)
