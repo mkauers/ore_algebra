@@ -1057,9 +1057,27 @@ class Path(SageObject):
         new = Path(new, self.dop)
         return new
 
-    def _intermediate_point(self, a, b, factor=IR(0.5)):
+    def _intermediate_point(self, a, b, factor=IR(0.5), rel_tol=IR(0.125)):
         r"""
-        TESTS::
+        TESTS:
+
+        Thanks to Eric Pichon for this example where subdivision used to fail::
+
+            sage: from ore_algebra.analytic.examples.misc import pichon1_dop as dop
+            sage: step = [-1, 0.14521345101433106 - 0.1393025865960824*I]
+            sage: dop.numerical_transition_matrix(step, eps=2^(-100))[0,0]
+            [4.1258139030954317085986778073...] + [-1.3139743385825164244545395830...]*I
+
+        ...and for this one, showing that step subdivision could silently change
+        the homotopy class of the path, leading to incorrect results::
+
+            sage: l = [0, -0.05*I, -0.6-0.05*I, -0.8-0.05*I, -0.7-0.1*I,
+            ....:      -0.6-0.05*I, -0.05*I, 0]
+            sage: dop.numerical_transition_matrix(l + list(reversed(l)))
+            [[1.000000000...] + [+/- ...]*I        [+/- ...] + [+/- ...]*I]
+            [       [+/- ...] + [+/- ...]*I   [1.0000000...] + [+/- ...]*I]
+
+        Simple examples demonstrating essentially the same issue::
 
             sage: from ore_algebra import OreAlgebra
             sage: Pol.<x> = QQ[]
@@ -1074,18 +1092,36 @@ class Path(SageObject):
         dir = vec/abs(vec)
         is_real = a.iv().imag().is_zero() and b.iv().imag().is_zero()
         # Limit angular perturbation using distance to singularities close to
-        # the step. Not sure at all if this is guaranteed to work.
+        # the step. In general, absolute perturbations up to dist/√2 (up to
+        # numerical errors) are safe (preserve the homotopy class).
+        # However, we allow for larger perturbations in the direction of the
+        # step. This is interesting mainly for step along one of the axes.
         dist = rad
         length = abs(vec)
         for s in self.dop._singularities(IC):
             h = (s - a.iv())/dir
-            if IR.zero() < h.real() < 4*length:
+            if not (IR.zero() > h.real()) and not (h.real() > length):
                 dist = min(dist, h.imag().below_abs())
-        m = a.iv() + IC(factor.add_error(.125)*rad*dir.real(),
-                        (factor*rad*dir.imag()).add_error(dist/16))
-        Step(a, Point(m, self.dop)).check_singularity() # TBI
-        m = _rationalize(m, is_real)
-        return Point(m, self.dop)
+        for i in reversed(range(10)):
+            m0 = a.iv() + dir*factor*rad
+            m = a.iv() + dir*IC(factor.add_error(rel_tol)*rad,
+                                IR.zero().add_error(rel_tol*dist))
+            r = _rationalize(m, is_real)
+            if is_real and a.iv().real() < r and r < b.iv().real():
+                break
+            # Check that we did not change the homotopy class of the path
+            c = Point(m0.union(r), self.dop)
+            try:
+                Step(a, c).check_singularity()
+                Step(c, b).check_singularity()
+                break
+            except ValueError:
+                logger.debug("homotopy check failed m0=%s m=%s rel_tol=%s r=%s",
+                            m0, m, rel_tol, r)
+                rel_tol = rel_tol**2 if i else IR(0.)
+        else:
+            raise ValueError("failed to subdivide (sub)step %s-->%s", a, b)
+        return Point(r, self.dop)
 
     def subdivide(self, threshold=IR(0.6), slow_thr=IR(0.6)):
         # TODO:

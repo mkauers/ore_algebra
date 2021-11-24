@@ -63,14 +63,6 @@ borrowed from his lecture series at MPI-MiS, March 2021.) ::
     sage: from ore_algebra.analytic.examples.misc import rodriguez_villegas_dop as dop
     sage: dop.numerical_transition_matrix([1/4, 3/4], eps=1e-1000)[-1,-1] # long time (2.9-3.2 s)
     [23.999268334...9600607312558...]
-
-Thanks to Éric Pichon for this example which used to trigger a bug in step
-splitting::
-
-    sage: from ore_algebra.analytic.examples.misc import pichon1_dop as dop
-    sage: step = [-1, 0.14521345101433106 - 0.1393025865960824*I]
-    sage: dop.numerical_transition_matrix(step, eps=2^(-100))[0,0]
-    [4.1258139030954317085986778073...] + [-1.3139743385825164244545395830...]*I
 """
 import collections
 
