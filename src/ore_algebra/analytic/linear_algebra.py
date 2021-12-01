@@ -21,7 +21,7 @@ from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 from sage.modules.free_module import VectorSpace
 from sage.modules.free_module_element import vector
 from sage.matrix.constructor import matrix
-from sage.matrix.special import identity_matrix
+from sage.matrix.special import identity_matrix, block_diagonal_matrix
 from sage.misc.misc_c import prod
 
 from .accuracy import PrecisionError
@@ -678,7 +678,6 @@ def intersect_eigenvectors(K, mat):
     if len(eigvals)>1:
         raise PrecisionError('This matrix seems have several eigenvalues.')
     K = K.intersection((mat-eigvals[0]*(mat.parent().one())).right_kernel())
-
     return K
 
 
@@ -746,3 +745,75 @@ def invariant_subspace(Mats, *, verbose=False):
     else:
         if verbose: print("Restart with the basis of the algebra.")
         return invariant_subspace(Mats)
+
+
+def _commutation_problem_as_linear_system(mat):
+
+    r"""
+    Compute S such that (x_{i,j})*mat = mat*(x_{i,j}) iff the vector
+    (x_{1,1}, x_{1,2}, ..., x_{n,n}) belongs to the right kernel of S.
+    """
+
+    n, matT = mat.nrows(), mat.transpose()
+    S = block_diagonal_matrix([matT]*n)
+    for i in range(n):
+        li, l = list(mat[i]), []
+        for k in range(n): l.extend([li[k]] + [0]*(n-1))
+        for j in range(n):
+            S[n*i + j] = [m - l[k] for k, m in enumerate(S[n*i + j])]
+            l = [0] + l[:-1]
+
+    return S
+
+
+def intersection(K1, K2):
+
+    r"""
+    Compute the intersection of two subspaces.
+    This function is designed for ComplexBall elements (optimistic arithmetic).
+
+    INPUT:
+
+     -- "K1" -- list of vectors
+     -- "K2" -- list of vectors
+
+    OUTPUT:
+     -- "K" -- list of vectors
+
+    """
+
+    K = ker(matrix(K1 + K2).transpose())
+    K = [sum(v[i]*K1[i] for i in range(len(K1))) for v in K]
+    REF, p = row_echelon_form(matrix(K), pivots=True)
+    K = list(REF[:len(p)])
+
+    return K
+
+
+def centralizer(alg):
+
+    r"""
+    Compute the centralizer of an algebra.
+    This function is designed for ComplexBall elements (optimistic arithmetic).
+
+    INPUT:
+
+     -- "alg" -- list of matrices
+
+    OUTPUT:
+     -- "C" -- list of matrices
+
+    """
+
+    mat = alg[0]; n = mat.nrows()
+
+    S = _commutation_problem_as_linear_system(mat)
+    K = list(row_echelon_form(matrix(ker(S))))
+
+    for mat in alg[1:]:
+        S = _commutation_problem_as_linear_system(mat)
+        K = intersection(K, ker(S))
+
+    C = [matrix(n, n, v) for v in K]
+
+    return C
