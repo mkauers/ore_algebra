@@ -119,7 +119,10 @@ class BwShiftRec(object):
         rng = range(p.degree() + 1 - j)
         bin = [ZZ(k+j).binomial(k) for k in rng]
         if components:
-            pjplus = [a._coefficients() for a in list(p)[j:]]
+            if self.Scalars is QQ:
+                pjplus = [[a] for a in list(p)[j:]]
+            else:
+                pjplus = [a._coefficients() for a in list(p)[j:]]
             return [self.ZZpol([bin[k]*pjplus[k][l]
                                 if len(pjplus[k]) > l else 0
                                 for k in rng])
@@ -166,11 +169,14 @@ class BwShiftRec(object):
         if isinstance(self.Scalars, ComplexBallField):
             if isinstance(tgt, ComplexBallField):
                 return eval_poly_at_int.cbf, False
+        elif self.Scalars is QQ:
+            if isinstance(tgt, ComplexBallField):
+                return eval_poly_at_int.qq_or_qqi_to_cbf, True
         elif isinstance(self.Scalars, NumberField_quadratic):
             self.Scalars.zero() # cache for direct cython access
             if isinstance(tgt, ComplexBallField):
                 if utilities.is_QQi(self.Scalars):
-                    return eval_poly_at_int.qqi_to_cbf, True
+                    return eval_poly_at_int.qq_or_qqi_to_cbf, True
                 else:
                     return eval_poly_at_int.qnf_to_cbf, False
             else:

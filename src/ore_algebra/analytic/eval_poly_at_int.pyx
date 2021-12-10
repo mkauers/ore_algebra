@@ -152,7 +152,7 @@ def qnf_to_cbf(pol, n, tgt):
     return res
 
 @cython.boundscheck(False)
-def qqi_to_cbf(zzpols, n, tgt):
+def qq_or_qqi_to_cbf(zzpols not None, n, tgt):
 
     cdef list _pols = <list> zzpols
     cdef fmpz_t _n
@@ -171,9 +171,12 @@ def qqi_to_cbf(zzpols, n, tgt):
     fmpz_poly_evaluate_fmpz(tmp, pol.__poly, _n)
     arb_set_fmpz(acb_realref(res.value), tmp)
 
-    pol = <Polynomial_integer_dense_flint> (zzpols[1])
-    fmpz_poly_evaluate_fmpz(tmp, pol.__poly, _n)
-    arb_set_fmpz(acb_imagref(res.value), tmp)
+    if len(zzpols) == 2:
+        pol = <Polynomial_integer_dense_flint> (zzpols[1])
+        fmpz_poly_evaluate_fmpz(tmp, pol.__poly, _n)
+        arb_set_fmpz(acb_imagref(res.value), tmp)
+    else:
+        arb_zero(acb_imagref(res.value))
 
     fmpz_clear(tmp)
     fmpz_clear(_n)
