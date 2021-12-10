@@ -158,9 +158,8 @@ class ComplexOptimisticField(UniqueRepresentation, Field):
 
     def _element_constructor_(self, z=None):
         if isinstance(z, ComplexOptimisticBall):
-            return self.element_class(self, z.value)
-        else:
-            return self.element_class(self, self._ball_field(z))
+            z = z.value
+        return self.element_class(self, self._ball_field(z))
 
     def _an_element_(self):
         return self(self._ball_field._an_element_())
@@ -169,4 +168,4 @@ class ComplexOptimisticField(UniqueRepresentation, Field):
         return self._ball_field().precision()
 
     def is_exact(self):
-        return False # discutable, à voir à l'usage
+        return True

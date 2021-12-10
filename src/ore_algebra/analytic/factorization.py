@@ -134,21 +134,25 @@ class LinearDifferentialOperator(PlainDifferentialOperator):
             self.monodromy_data =  MonoData(output_precision, matrices, points, loss)
 
 
-    def _symbolic_guessing(self):
+    def _symbolic_guessing(self, v=None):
 
-        """
-        Return a non-trivial right factor under the assumtion that the elements
-        of the differential Galois group of "self" are homotheties.
+        r"""
+        Return a non-trivial right factor thanks to a *rational* oracle that
+        indicates a good linear combination of the solutions of "self" at 0,
+        that is, a solution annihilated by an operator of smaller order.
         """
 
+        if v==None: v = vector([1] + [0]*(self.n - 1))
         T = self.order_of_truncation
         R = self.base_ring().base_ring()
 
         while True:
 
-            S = PowerSeriesRing(R, default_prec=T + 1)
-            basis = self.local_basis_expansions(QQ.zero(), T + 1) # computing only the first one?
-            f = power_series_coerce(basis[0], S)
+            #S = PowerSeriesRing(R, default_prec=T + 1)
+            #basis = self.local_basis_expansions(QQ.zero(), T + 1)
+            #f = power_series_coerce(v*vector(basis), S)
+            basis = self.power_series_solutions(T + 4); basis.reverse()
+            f = v*vector(basis)
             pols = hp_approximants([f, f.derivative()], T)
             dop = self.parent()(pols)
             if self%dop==0: return dop
@@ -157,10 +161,10 @@ class LinearDifferentialOperator(PlainDifferentialOperator):
 
     def _guessing(self, v, m):
 
-        """
+        r"""
         Return a non-trivial right factor thanks to an oracle that indicates a
         good linear combination of the solutions of "self" at 0, that is, a
-        solution annihilating an operator of smaller order than "self".
+        solution annihilated by an operator of smaller order (=m).
         """
 
         T0, T, d0 = 25, self.order_of_truncation, 0
