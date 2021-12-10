@@ -12,8 +12,10 @@ from cpython.int cimport PyInt_AsLong
 from sage.libs.arb.acb cimport *
 from sage.libs.arb.acb_poly cimport *
 from sage.libs.arb.arb cimport *
+from sage.libs.flint.fmpq_poly cimport *
 from sage.libs.flint.fmpz cimport *
 from sage.libs.flint.fmpz_poly cimport *
+from sage.libs.gmp.mpq cimport *
 from sage.libs.gmp.mpz cimport *
 from sage.libs.ntl.types cimport *
 from sage.libs.ntl.ZZ cimport *
@@ -26,8 +28,13 @@ from sage.rings.number_field.number_field_element_quadratic cimport NumberFieldE
 from sage.rings.polynomial.polynomial_complex_arb cimport Polynomial_complex_arb
 from sage.rings.polynomial.polynomial_element cimport Polynomial, Polynomial_generic_dense
 from sage.rings.polynomial.polynomial_integer_dense_flint cimport Polynomial_integer_dense_flint
+from sage.rings.polynomial.polynomial_rational_flint cimport Polynomial_rational_flint
+from sage.rings.rational cimport Rational
 from sage.rings.ring cimport Ring
 from sage.structure.parent cimport Parent
+
+cdef extern from "flint_wrap.h":
+    void _fmpz_poly_evaluate_fmpz(fmpz_t res, const fmpz * f, slong len, const fmpz_t a)
 
 import cython
 
@@ -182,3 +189,29 @@ def qq_or_qqi_to_cbf(zzpols not None, n, tgt):
     fmpz_clear(_n)
 
     return res
+
+def qq(pol, n, tgt):
+    cdef Polynomial_rational_flint _pol = <Polynomial_rational_flint> pol
+
+    cdef fmpz_t _n
+    fmpz_init(_n)
+    fmpz_set_ui(_n, PyInt_AsLong(n))
+
+    cdef fmpz_t tmp
+    fmpz_init(tmp)
+
+    _fmpz_poly_evaluate_fmpz(tmp, fmpq_poly_numref(_pol.__poly),
+            fmpq_poly_length(_pol.__poly), _n)
+
+    cdef Rational res = <Rational> Rational.__new__(Rational)
+    fmpz_get_mpz(mpq_numref(res.value), tmp)
+    assert fmpz_is_one(fmpq_poly_denref(_pol.__poly))
+    mpz_set_si(mpq_denref(res.value), 1)
+
+    fmpz_clear(tmp)
+    fmpz_clear(_n)
+
+    if tgt is _pol._parent._base:
+        return res
+    else:
+        return tgt(res)

@@ -172,6 +172,8 @@ class BwShiftRec(object):
         elif self.Scalars is QQ:
             if isinstance(tgt, ComplexBallField):
                 return eval_poly_at_int.qq_or_qqi_to_cbf, True
+            else:
+                return eval_poly_at_int.qq, False
         elif isinstance(self.Scalars, NumberField_quadratic):
             self.Scalars.zero() # cache for direct cython access
             if isinstance(tgt, ComplexBallField):
