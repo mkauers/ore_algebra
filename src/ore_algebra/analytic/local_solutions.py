@@ -168,15 +168,18 @@ class BwShiftRec(object):
                 return eval_poly_at_int.cbf, False
         elif isinstance(self.Scalars, NumberField_quadratic):
             self.Scalars.zero() # cache for direct cython access
-            if tgt is self.Scalars:
-                return eval_poly_at_int.qnf, False
-            elif isinstance(tgt, ComplexBallField):
+            if isinstance(tgt, ComplexBallField):
                 if utilities.is_QQi(self.Scalars):
                     return eval_poly_at_int.qqi_to_cbf, True
                 else:
                     return eval_poly_at_int.qnf_to_cbf, False
-        else:
-            return generic_eval, False
+            else:
+                return eval_poly_at_int.qnf, False
+        elif isinstance(self.Scalars, NumberField_absolute):
+            self.Scalars.zero() # cache for direct cython access
+            return eval_poly_at_int.nf, False
+
+        return generic_eval, False
 
     def eval_series(self, tgt, point, ord):
         # typically ord << deg => probably not worth trying to use a fast Taylor
