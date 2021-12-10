@@ -68,17 +68,13 @@ def bw_shift_rec(dop, shift=ZZ.zero()):
     # Clear_denominators
     den = lcm([p.denominator() for p in rop])
     rop = den*rop
-    # Remove constant common factors to make the recurrence smaller
+    # Remove constant common integer factors to make the recurrence smaller
+    # (NB: I also tried removing factors from ℤ[i], see the git log, but this is
+    # too slow)
     if Scalars is QQ:
         g = gcd(c for p in rop for c in p)
-    # elif utilities.is_QQi(Scalars): # XXX: too slow (and not general enough)
-    #     ZZi = Scalars.maximal_order()
-    #     g = ZZi.zero()
-    #     for c in (c1 for p in rop for c1 in p):
-    #         g = ZZi(g).gcd(ZZi(c)) # gcd returns a nfe
-    #         if g.is_one():
-    #             g = None
-    #             break
+    elif isinstance(Scalars, NumberField_absolute):
+        g = gcd(a for p in rop for c in p for a in c)
     else:
         g = None
     if g is not None:
