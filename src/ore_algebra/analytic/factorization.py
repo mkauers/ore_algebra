@@ -296,7 +296,8 @@ def _factor(dop, verbose=False, hybrid=True):
 
     rfactor = right_factor(dop, verbose=verbose, hybrid=hybrid)
     if rfactor=='irreducible': return [dop]
-    lfactor = rfactor.parent()(dop)//rfactor
+    OA = rfactor.parent(); OA = OA.change_ring(OA.base_ring().fraction_field())
+    lfactor = OA(dop)//rfactor
     return _factor(lfactor, verbose=verbose, hybrid=hybrid) + _factor(rfactor, verbose=verbose, hybrid=hybrid)
 
 
