@@ -47,14 +47,14 @@ from .utilities import short_str
 
 logger = logging.getLogger(__name__)
 
-def cyPartialSum():
+def cy_classes():
     try:
         from . import naive_sum_c
-        return naive_sum_c.PartialSum
+        return naive_sum_c.CoefficientSequence, naive_sum_c.PartialSum
     except ImportError:
         warnings.warn("Cython implementation unavailable, "
                       "falling back to slower Python implementation")
-        return PartialSum
+        return CoefficientSequence, PartialSum
 
 ##########################
 # Argument processing etc.
@@ -214,11 +214,10 @@ def series_sum(dop, ini, pt, tgt_error, maj=None, bwrec=None, stop=None,
 
     ctx = Context(**kwds)
 
-    sols = interval_series_sum_wrapper(dop, [ini], pt, tgt_error, bwrec, stop,
-                                       fail_fast, effort, stride, ctx)
-    assert len(sols) == 1
-    sols[0].update_downshifts(pt, [0])
-    return sols[0].downshifts[0]
+    [(_, [psum])] = interval_series_sum_wrapper(dop, [ini], pt, tgt_error,
+                                    bwrec, stop, fail_fast, effort, stride, ctx)
+    psum.update_downshifts(pt, [0])
+    return psum.downshifts[0]
 
 def guard_bits(dop, maj, pt, ordrec, nterms):
     r"""
@@ -318,7 +317,7 @@ def interval_series_sum_wrapper(dop, inis, pt, tgt_error, bwrec, stop,
                                 fail_fast, effort, stride, ctx=dctx):
 
     real = pt.is_real_or_symbolic() and all(ini.is_real(dop) for ini in inis)
-    if pt.is_numeric and cyPartialSum() is not PartialSum:
+    if pt.is_numeric and cy_classes()[0] is not CoefficientSequence:
         ivs = ComplexBallField
     elif real:
         ivs = RealBallField
@@ -377,11 +376,13 @@ def interval_series_sum_wrapper(dop, inis, pt, tgt_error, bwrec, stop,
                 raise
         else:
             logger.debug("bit_prec = %s, err = %s (tgt = %s)", bit_prec,
-                        max(sol.total_error for sol in sols), tgt_error)
+                         max(psum.total_error for _, psums in sols
+                                              for psum in psums),
+                         tgt_error)
             if all(tgt_error.reached(
-                            sol.total_error,
-                            abs(sol.value[0]) if pt.is_numeric else None)
-                    for sol in sols):
+                            psum.total_error,
+                            abs(psum.value[0]) if pt.is_numeric else None)
+                    for _, psums in sols for psum in psums):
                 return sols
 
         # if interval squashing didn't give accurate result, switch back to the
@@ -434,7 +435,9 @@ class HighestSolMapper(LocalBasisMapper):
                 None, self.ctx)
         self.highest_sols = {}
         for (s, m), sol in zip(self.shifts, highest_sols):
-            sol.update_downshifts(self.pt, range(m))
+            _, psums = sol
+            for psum in psums:
+                psum.update_downshifts(self.pt, range(m))
             self.highest_sols[s] = sol
         self.sols = {}
         super(self.__class__, self).process_modZ_class()
@@ -447,14 +450,15 @@ class HighestSolMapper(LocalBasisMapper):
         # computed.
         highest = self.highest_sols[self.shift]
         delta = self.mult - 1 - self.log_power
-        value = highest.downshifts[delta]
+        value = [psum.downshifts[delta] for psum in highest.psums]
         for s, m in self.shifts:
             if s > self.shift:
                 for k in range(max(m - delta, 0), m):
-                    cc = highest.critical_coeffs[s][k+delta]
-                    value -= cc*self.sols[s,k]
+                    cc = highest.cseq.critical_coeffs[s][k+delta]
+                    for i in range(len(value)):
+                        value[i] -= cc*self.sols[s,k][i]
         self.sols[self.shift, self.log_power] = value
-        return vector(value)
+        return [vector(v) for v in value]
 
 def fundamental_matrix_regular(dop, pt, eps, fail_fast, effort, ctx=dctx):
     r"""
@@ -501,70 +505,63 @@ def fundamental_matrix_regular(dop, pt, eps, fail_fast, effort, ctx=dctx):
     eps_col = accuracy.AbsoluteError(eps_col)
     unr = HighestSolMapper(dop, pt, eps_col, fail_fast, effort, ctx=dctx)
     cols = unr.run()
-    return matrix([sol.value for sol in cols]).transpose()
+    return matrix([sol.value[0] for sol in cols]).transpose()
 
-class PartialSum(object):
+class CoefficientSequence(object):
 
-    def __init__(self, Intervals, Jets, ini, ordrec, real):
+    def __init__(self, Intervals, ini, ordrec, real):
+        r"""
+        Coefficient sequence of a D-finie logarithmic series
+        (that is, for a specific equation and specific initial values)
+        """
 
         self.Intervals = Intervals
-        self.Jets = Jets
         self._use_sum_of_products = hasattr(Intervals, '_sum_of_products')
         self.ini = ini
         self.ordrec = ordrec
 
+        # XXX get rid of this?
         self.force_real = real and isinstance(Intervals, ComplexBallField)
 
         self.log_prec = 0
-        self.trunc = 0 # first term _not_ in the sum
+        self.nterms = 0 # self.last[i] == u[n-1-i]
+
+        self.critical_coeffs = {}
+
         # Start with vectors of length 1 instead of 0 (but still with log_prec
         # == 0) to avoid having to resize them, especially in the ordinary case
         last = [[Intervals.zero()] for _ in range(ordrec + 1)]
         self.last = collections.deque(last) # u[trunc-1], u[trunc-2], ...
-        self.critical_coeffs = {}
-        # ...but starting with partial sums of length 0 is better in some
-        # corner cases
-        self.psum = []
-        self.tail_bound = bounds.IR(infinity)
-        self.total_error = bounds.IR(infinity)
-
-        self.value = None
-        self.downshifts = []
 
     def coeff_estimate(self):
         return sum(abs(a) for log_jet in self.last for a in log_jet)
 
-    def next_term_ordinary_initial_part(self, n, jetpow):
+    def next_term_ordinary_initial_part(self, n):
         r"""
         Similar to next_term(), but limited to n < orddeq at ordinary points,
         does not support squasing, and does not require evaluating the
         recurrence.
         """
         self.last.rotate(1)
-        self.trunc += 1
         self.last[0][0] = self.Intervals(self.ini.shift[n][0])
         if not self.ini.shift[n][0].is_zero():
             self.log_prec = 1
-            if not self.psum:
-                self.psum.append(self.Jets.zero())
-            self.psum[0] += jetpow._lmul_(self.last[0][0])
+        self.nterms += 1
 
     def handle_singular_index(self, n, mult):
 
-        self.critical_coeffs[n] = list(c.real() if self.force_real else c
-                                       for c in self.last[0])
+        self.critical_coeffs[n] = list(
+                c.real() if self.force_real else c
+                for c in self.last[0])
 
         nz = mult - _ctz(self.last[0], mult)
         self.log_prec += nz
         for l in self.last:
             _resize_list(l, self.log_prec, self.Intervals.zero())
-        _resize_list(self.psum, self.log_prec, self.Jets.zero())
 
-    def next_term(self, n, mult, bwrec_n, cst, jetpow, squash):
+    def next_term(self, n, mult, bwrec_n, cst, squash):
 
-        assert n == self.trunc
         self.last.rotate(1)
-        self.trunc += 1
 
         zero = self.Intervals.zero()
 
@@ -595,23 +592,50 @@ class PartialSum(object):
         if mult > 0:
             self.handle_singular_index(n, mult)
 
-        if self.log_prec == mult == 0:
-            return accuracy.IR.zero()
-
-        for k in range(self.log_prec):
-            self.psum[k] += jetpow._lmul_(self.last[0][k])
+        self.nterms += 1
 
         return err
 
+class PartialSum(object):
+
+    def __init__(self, Jets, cseq):
+
+        self.Jets = Jets
+        self.cseq = cseq
+
+        self.trunc = 0 # first term _not_ in the sum
+        # Though CoefficientSequences start with vector of length 1, here,
+        # starting with partial sums of length 0 is better in some corner cases
+        self.psum = []
+        self.tail_bound = bounds.IR(infinity)
+        self.total_error = bounds.IR(infinity)
+
+        self.value = None
+        self.downshifts = []
+
+    def next_term_ordinary_initial_part(self, jetpow):
+        self.trunc += 1
+        if not self.cseq.ini.shift[self.trunc-1][0].is_zero():
+            if not self.psum:
+                self.psum.append(self.Jets.zero())
+            self.psum[0] += jetpow._lmul_(self.cseq.last[0][0])
+
+    def next_term(self, jetpow, mult):
+        self.trunc += 1
+        if mult > 0:
+            _resize_list(self.psum, self.cseq.log_prec, self.Jets.zero())
+        for k in range(self.cseq.log_prec):
+            self.psum[k] += jetpow._lmul_(self.cseq.last[0][k])
+
     def update_enclosure(self, Jets, pt, tb):
-        self.series = vector(Jets, self.log_prec)
+        self.series = vector(Jets, self.cseq.log_prec)
         for i, t in enumerate(self.psum):
             self.series[i] = Jets([_add_error(t[k], tb)
                                    for k in range(pt.jet_order)])
         # log_series_values() may decide to introduce complex numbers if there
         # are logs, and hence the parent of the partial sum may switch from real
         # to complex during the computation...
-        [self.value] = log_series_values(Jets, self.ini.expo, self.series, pt)
+        [self.value] = log_series_values(Jets, self.cseq.ini.expo, self.series, pt)
         self.total_error = max(chain(iter([bounds.IR.zero()]),
                                      (_get_error(c) for c in self.value)))
 
@@ -627,15 +651,15 @@ class PartialSum(object):
         the computed partial sums if self.force_real is set.
         """
         Jets = self.series.base_ring()
-        if self.force_real:
+        if self.cseq.force_real:
             Jets = Jets.change_ring(Jets.base().base())
             assert all(c.imag().contains_zero()
                        for jet in self.series for c in jet)
             jets = [Jets([c.real() for c in jet]) for jet in self.series]
-            series = vector(Jets, self.log_prec, jets)
+            series = vector(Jets, self.cseq.log_prec, jets)
         else:
             series = self.series
-        self.downshifts = log_series_values(Jets, self.ini.expo, series,
+        self.downshifts = log_series_values(Jets, self.cseq.ini.expo, series,
                 pt, downshift=downshift)
 
     def bare_value(self, Jets, pt):
@@ -643,7 +667,7 @@ class PartialSum(object):
         Value taking into account logs etc. but ignoring the truncation error.
         """
         psum = vector(Jets, self.psum)
-        [v] = log_series_values(Jets, self.ini.expo, psum, pt)
+        [v] = log_series_values(Jets, self.cseq.ini.expo, psum, pt)
         return v
 
     def interval_width(self):
@@ -651,6 +675,8 @@ class PartialSum(object):
             return max(c.rad() for c in self.value)
         except RuntimeError:
             return RealField(30)('inf')
+
+MPartialSums = collections.namedtuple("MPartialSums", ["cseq", "psums"])
 
 def series_sum_regular(Intervals, dop, bwrec, inis, pt, stop, stride,
                        n0_squash, real):
@@ -722,28 +748,38 @@ def series_sum_regular(Intervals, dop, bwrec, inis, pt, stop, stride,
     last_index_with_ini = max(chain(iter([dop.order()]),
                                     (ini.last_index() for ini in inis)))
 
-    PS = cyPartialSum() if pt.is_numeric else PartialSum
-    sols = [PS(Intervals, Jets, ini, bwrec.order, real) for ini in inis]
+    if pt.is_numeric:
+        CS, PS = cy_classes()
+    else:
+        CS, PS = CoefficientSequence, PartialSum
+    sols = []
+    for ini in inis:
+        cseq = CS(Intervals, ini, bwrec.order, real)
+        psums = [PS(Jets, cseq)] # TODO: support multiple points
+        sols.append(MPartialSums(cseq, psums))
 
     class BoundCallbacks(accuracy.BoundCallbacks):
         def get_residuals(self):
             # Since this is called _before_ computing the new term, the relevant
             # coefficients are given by last[:-1], not last[1:]
-            assert all(sol.trunc == n for sol in sols)
-            return [stop.maj.normalized_residual(n, list(sol.last)[:-1],
+            assert all(cseq.nterms == n for cseq, _ in sols)
+            return [stop.maj.normalized_residual(n, list(cseq.last)[:-1],
                                                  bwrec_nplus)
-                    for sol in sols]
+                    for cseq, _ in sols]
         def get_bound(self, residuals):
             # XXX consider maintaining separate tail bounds, and stopping the
             # summation of some series before the others
             maj = self.get_maj(stop, n, residuals)
             tb = maj.bound(pt.rad, rows=ord)
-            for sol in sols:
-                sol.update_enclosure(Jets, pt, tb)
-            return max(sol.total_error for sol in sols)
+            worst = bounds.IR.zero()
+            for _, psums in sols:
+                for psum in psums:
+                    psum.update_enclosure(Jets, pt, tb)
+                    worst = worst.max(psum.total_error)
+            return worst
         def get_value(self):
             assert len(sols) == 1
-            return sols[0].bare_value(Jets, pt)
+            return sols[0][1][0].bare_value(Jets, pt)
     cb = BoundCallbacks()
 
     log_prec = 1
@@ -766,7 +802,7 @@ def series_sum_regular(Intervals, dop, bwrec, inis, pt, stop, stride,
             assert log_prec == 1 or not ordinary
             radpowest = (abs(jetpow[0]) if pt.is_numeric
                          else Intervals(pt.rad**n))
-            est = sum(sol.coeff_estimate() for sol in sols)*radpowest
+            est = sum(cseq.coeff_estimate() for cseq, _ in sols)*radpowest
             sing = (n <= last_index_with_ini) or (mult > 0) # ?
             done, tail_bound = stop.check(cb, sing, n, tail_bound, est, stride)
             if done:
@@ -774,8 +810,10 @@ def series_sum_regular(Intervals, dop, bwrec, inis, pt, stop, stride,
 
         if n < start:
             assert ordinary
-            for sol in sols:
-                sol.next_term_ordinary_initial_part(n, jetpow)
+            for (cseq, psums) in sols:
+                cseq.next_term_ordinary_initial_part(n)
+                for psum in psums:
+                    psum.next_term_ordinary_initial_part(jetpow)
 
         else:
             # seems faster than relying on __missing__()
@@ -785,14 +823,16 @@ def series_sum_regular(Intervals, dop, bwrec, inis, pt, stop, stride,
             if squash:
                 rnd_shift, hom_maj_coeff_lb = next(rnd_den)
                 assert n0_squash + rnd_shift == n
-            for sol in sols:
-                err = sol.next_term(n, mult, bwrec_nplus[0], cst, jetpow, squash)
+            for (cseq, psums) in sols:
+                err = cseq.next_term(n, mult, bwrec_nplus[0], cst, squash)
                 if squash:
                     rnd_loc = rnd_loc.max(n*err/hom_maj_coeff_lb)
                     if not rnd_loc.is_finite(): # normalize NaNs and infinities
                         rnd_loc = rnd_loc.parent()('inf')
+                for psum in psums:
+                    psum.next_term(jetpow, mult)
             if mult > 0:
-                log_prec = max(1, max(sol.log_prec for sol in sols))
+                log_prec = max(1, max(cseq.log_prec for cseq, _ in sols))
 
             rec_add_log_prec += mult_dict[n + precomp_len] - mult
             bwrec_nplus.append(bwrec.eval_series(Intervals, n + precomp_len,
@@ -809,16 +849,18 @@ def series_sum_regular(Intervals, dop, bwrec, inis, pt, stop, stride,
         cst = abs(bounds.IC(stop.maj.dop.leading_coefficient()[0]))
         rnd_fac = cst*rnd_maj.bound(pt.rad, rows=ord)/n0_squash
         rnd_err = rnd_loc*rnd_fac
-        for sol in sols:
-            sol.update_enclosure(Jets, pt, tail_bound + rnd_err)
+        for _, [psum] in sols:
+            psum.update_enclosure(Jets, pt, tail_bound + rnd_err)
     else:
         rnd_err = bounds.IR.zero()
 
+    width = None
+    if pt.is_numeric:
+        width = max(psum.interval_width() for _, psums in sols
+                                          for psum in psums)
     logger.info("summed %d terms, tails = %s (est = %s), rnd_err <= %s, "
                 "interval width <= %s",
-            n, tail_bound, bounds.IR(est), rnd_err,
-            max(sol.interval_width() for sol in sols) if pt.is_numeric
-                                                      else None)
+                n, tail_bound, bounds.IR(est), rnd_err, width)
 
     return sols
 
