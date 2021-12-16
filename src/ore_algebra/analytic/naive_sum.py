@@ -34,16 +34,15 @@ from sage.rings.number_field.number_field_base import is_NumberField
 from sage.rings.polynomial import polynomial_element
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 from sage.rings.real_arb import RealBallField, RBF, RealBall
+from sage.rings.real_mpfr import RealField
 
-from .. import ore_algebra
 from . import accuracy, bounds, utilities
 from .context import Context, dctx
 from .differential_operator import DifferentialOperator
-from .local_solutions import (bw_shift_rec, FundamentalSolution,
-        LogSeriesInitialValues, LocalBasisMapper, log_series_values)
+from .local_solutions import (bw_shift_rec, LogSeriesInitialValues,
+                              LocalBasisMapper, log_series_values)
 from .path import EvaluationPoint
 from .safe_cmp import *
-from .utilities import short_str
 
 logger = logging.getLogger(__name__)
 
@@ -352,7 +351,6 @@ def interval_series_sum_wrapper(dop, inis, pt, tgt_error, bwrec, stop,
         logger.info("initial working precision = %s bits", bit_prec)
     max_prec = bit_prec + 2*input_accuracy
 
-    err=None
     for attempt in count(1):
         Intervals = ivs(bit_prec)
         ini_are_accurate = 2*input_accuracy > bit_prec
@@ -414,6 +412,8 @@ class HighestSolMapper(LocalBasisMapper):
         self.effort = effort
         self.ctx = ctx
         self.ordinary = (dop.leading_coefficient()[0] != 0)
+        self._sols = None
+        self.highest_sols = None
 
     def process_modZ_class(self):
         logger.info(r"solutions z^(%s+n)·log(z)^k/k! + ···, n = %s",
@@ -439,7 +439,7 @@ class HighestSolMapper(LocalBasisMapper):
             for psum in psums:
                 psum.update_downshifts(self.pt, range(m))
             self.highest_sols[s] = sol
-        self.sols = {}
+        self._sols = {}
         super(self.__class__, self).process_modZ_class()
 
     def fun(self, ini):
@@ -456,8 +456,8 @@ class HighestSolMapper(LocalBasisMapper):
                 for k in range(max(m - delta, 0), m):
                     cc = highest.cseq.critical_coeffs[s][k+delta]
                     for i in range(len(value)):
-                        value[i] -= cc*self.sols[s,k][i]
-        self.sols[self.shift, self.log_power] = value
+                        value[i] -= cc*self._sols[s,k][i]
+        self._sols[self.shift, self.log_power] = value
         return [vector(v) for v in value]
 
 def fundamental_matrix_regular(dop, pt, eps, fail_fast, effort, ctx=dctx):
@@ -610,6 +610,7 @@ class PartialSum(object):
         self.tail_bound = bounds.IR(infinity)
         self.total_error = bounds.IR(infinity)
 
+        self.series = None
         self.value = None
         self.downshifts = []
 
