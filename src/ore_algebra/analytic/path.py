@@ -543,9 +543,10 @@ class EvaluationPoint(object):
     def jets(self, Intervals):
         base_ring = (Intervals if self.is_numeric
                      else mypushout(self._parent, Intervals))
-        Pol = PolynomialRing(base_ring, 'delta')
-        return tuple(Pol([pt, 1]).truncate(self.jet_order)
+        Jets = PolynomialRing(base_ring, 'delta')
+        jets = tuple(Jets([pt, 1]).truncate(self.jet_order)
                      for pt in self.pts)
+        return Jets, jets
 
     def _accuracy(self):
         if self._parent.is_exact():

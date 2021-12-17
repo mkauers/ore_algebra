@@ -35,6 +35,7 @@ from sage.rings.polynomial import polynomial_element
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 from sage.rings.real_arb import RealBallField, RBF, RealBall
 from sage.rings.real_mpfr import RealField
+from sage.structure.sequence import Sequence
 
 from . import accuracy, bounds, utilities
 from .context import Context, dctx
@@ -50,7 +51,7 @@ logger = logging.getLogger(__name__)
 # Argument processing etc.
 ##########################
 
-def series_sum(dop, ini, pt, tgt_error, maj=None, bwrec=None, stop=None,
+def series_sum(dop, ini, evpts, tgt_error, maj=None, bwrec=None, stop=None,
                fail_fast=False, effort=2, stride=None, **kwds):
     r"""
     Sum a (generalized) series solution of dop.
@@ -58,6 +59,10 @@ def series_sum(dop, ini, pt, tgt_error, maj=None, bwrec=None, stop=None,
     This is a somewhat more user-friendly wrapper to the series summation
     routines, mainly for testing purposes. The analytic continuation code
     typically calls lower level pieces directly.
+
+    Note that this functions returns a tuple of values when given multiple
+    evaluation points, but a bare value (instead of a tuple of length one) for a
+    single point, regardless how the points were specified.
 
     EXAMPLES::
 
@@ -92,10 +97,10 @@ def series_sum(dop, ini, pt, tgt_error, maj=None, bwrec=None, stop=None,
         ...
         ([-3.5751407034...] + [-2.2884877202...]*I)
 
-    In normal usage ``pt`` should be an object coercible to a complex ball or an
-    :class:`EvaluationPoint` that wraps such an object. In addition, there is
-    some support for ``EvaluationPoints`` wrapping identity polynomials. Other
-    cases might work by accident. ::
+    In normal usage ``evpts`` should be an object coercible to a complex ball, a
+    tuple of such objects, or an :class:`EvaluationPoint` that wraps such a
+    tuple. In addition, there is some support for ``EvaluationPoints`` wrapping
+    identity polynomials. Other cases might work by accident. ::
 
         sage: from ore_algebra.analytic.accuracy import AbsoluteError
         sage: series_sum(Dx - 1, [RBF(1)],
@@ -136,6 +141,10 @@ def series_sum(dop, ini, pt, tgt_error, maj=None, bwrec=None, stop=None,
 
         sage: series_sum(Dx-1, [0], 2, 1e-50, stride=1)
         (0)
+
+        sage: series_sum(Dx-1, [1], [1, CBF(i*pi)], 1e-15)
+        (([2.7182818284590...] + [+/- ...]*I),
+         ([-1.000000000000...] + [+/- ...]*I))
 
     Test that automatic precision increases do something reasonable::
 
@@ -183,15 +192,15 @@ def series_sum(dop, ini, pt, tgt_error, maj=None, bwrec=None, stop=None,
     dop = DifferentialOperator(dop)
     if not isinstance(ini, LogSeriesInitialValues):
         ini = LogSeriesInitialValues(ZZ.zero(), ini, dop)
-    if not isinstance(pt, EvaluationPoint):
-        pt = EvaluationPoint((pt,))
-    elif len(pt.pts) != 1:
-        raise ValueError("there should be a single evaluation point")
-    if isinstance(tgt_error, accuracy.RelativeError) and pt.jet_order > 1:
+    if not isinstance(evpts, EvaluationPoint):
+        if isinstance(evpts, (list, tuple)):
+            evpts = tuple(Sequence(evpts))
+        evpts = EvaluationPoint(evpts)
+    if isinstance(tgt_error, accuracy.RelativeError) and evpts.jet_order > 1:
         raise TypeError("relative error not supported when computing derivatives")
     if not isinstance(tgt_error, accuracy.AccuracyTest):
         tgt_error = accuracy.AbsoluteError(tgt_error)
-        input_accuracy = min(pt.accuracy, ini.accuracy())
+        input_accuracy = min(evpts.accuracy, ini.accuracy())
         if input_accuracy < -tgt_error.eps.upper().log2().floor():
             logger.warning("input intervals may be too wide "
                            "compared to requested accuracy")
@@ -206,10 +215,15 @@ def series_sum(dop, ini, pt, tgt_error, maj=None, bwrec=None, stop=None,
 
     ctx = Context(**kwds)
 
-    [(_, [psum])] = interval_series_sum_wrapper(dop, [ini], pt, tgt_error,
+    [(_, psums)] = interval_series_sum_wrapper(dop, [ini], evpts, tgt_error,
                                     bwrec, stop, fail_fast, effort, stride, ctx)
-    psum.update_downshifts([0])
-    return psum.downshifts[0]
+    for psum in psums:
+        psum.update_downshifts((0,))
+    values = tuple(psum.downshifts[0] for psum in psums)
+    if len(evpts.pts) == 1:
+        return values[0]
+    else:
+        return values
 
 def guard_bits(dop, maj, evpts, ordrec, nterms):
     r"""
@@ -749,15 +763,14 @@ def series_sum_regular(Intervals, dop, bwrec, inis, evpts, stop, stride,
     assert inis[0].compatible(inis)
     mult_dict = inis[0].mult_dict()
 
-    (jet,) = evpts.jets(Intervals)
-    ord = evpts.jet_order
-    Jets = jet.parent() # != Intervals[x] in general (symbolic points...)
-    jetpow = Jets.one()
-    radpow = bounds.IR.one() # bound on abs(pt)^n in the series part (=> starts
-                             # at 1 regardless of ini.expo)
-    tail_bound = bounds.IR(infinity)
-
     ordinary = (dop.leading_coefficient()[0] != 0)
+
+    ord = evpts.jet_order
+    Jets, jets = evpts.jets(Intervals)
+    jetpows = [Jets.one()]*len(jets)
+
+    radpow = bounds.IR.one()
+    tail_bound = bounds.IR(infinity)
 
     if n0_squash < sys.maxsize:
         assert ordinary
@@ -773,11 +786,12 @@ def series_sum_regular(Intervals, dop, bwrec, inis, evpts, stop, stride,
         CS, PS = cy_classes()
     else:
         CS, PS = CoefficientSequence, PartialSum
-    pt_opts = (evpts.branch, evpts.is_numeric)
+
     sols = []
     for ini in inis:
         cseq = CS(Intervals, ini, bwrec.order, real)
-        psums = [PS(cseq, Jets, ord, evpts.pt, pt_opts)] # TODO: support multiple points
+        psums = [PS(cseq, Jets, ord, pt, (evpts.branch, evpts.is_numeric))
+                 for pt in evpts.pts]
         sols.append(MPartialSums(cseq, psums))
 
     class BoundCallbacks(accuracy.BoundCallbacks):
@@ -822,9 +836,8 @@ def series_sum_regular(Intervals, dop, bwrec, inis, evpts, stop, stride,
 
         if n%stride == 0 and n > 0:
             assert log_prec == 1 or not ordinary
-            radpowest = (abs(jetpow[0]) if evpts.is_numeric
-                         else Intervals(evpts.rad**n))
-            est = sum(cseq.coeff_estimate() for cseq, _ in sols)*radpowest
+            est = sum(cseq.coeff_estimate() for cseq, _ in sols)
+            est *= Intervals(radpow).squash()
             sing = (n <= last_index_with_ini) or (mult > 0) # ?
             done, tail_bound = stop.check(cb, sing, n, tail_bound, est, stride)
             if done:
@@ -834,7 +847,7 @@ def series_sum_regular(Intervals, dop, bwrec, inis, evpts, stop, stride,
             assert ordinary
             for (cseq, psums) in sols:
                 cseq.next_term_ordinary_initial_part(n)
-                for psum in psums:
+                for (jetpow, psum) in zip(jetpows, psums):
                     psum.next_term_ordinary_initial_part(jetpow)
 
         else:
@@ -851,7 +864,7 @@ def series_sum_regular(Intervals, dop, bwrec, inis, evpts, stop, stride,
                     rnd_loc = rnd_loc.max(n*err/hom_maj_coeff_lb)
                     if not rnd_loc.is_finite(): # normalize NaNs and infinities
                         rnd_loc = rnd_loc.parent()('inf')
-                for psum in psums:
+                for (jetpow, psum) in zip(jetpows, psums):
                     psum.next_term(jetpow, mult)
             if mult > 0:
                 log_prec = max(1, max(cseq.log_prec for cseq, _ in sols))
@@ -860,7 +873,8 @@ def series_sum_regular(Intervals, dop, bwrec, inis, evpts, stop, stride,
             bwrec_nplus.append(bwrec.eval_series(Intervals, n + precomp_len,
                                                  log_prec + rec_add_log_prec))
 
-        jetpow = jetpow._mul_trunc_(jet, ord)
+        for i in range(len(jetpows)):
+            jetpows[i] = jetpows[i]._mul_trunc_(jets[i], ord)
         radpow *= evpts.rad
 
     # Accumulated round-off errors
