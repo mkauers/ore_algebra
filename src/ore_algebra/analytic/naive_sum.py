@@ -193,12 +193,14 @@ def series_sum(dop, ini, pt, tgt_error, maj=None, bwrec=None, stop=None,
     if not isinstance(ini, LogSeriesInitialValues):
         ini = LogSeriesInitialValues(ZZ.zero(), ini, dop)
     if not isinstance(pt, EvaluationPoint):
-        pt = EvaluationPoint(pt)
+        pt = EvaluationPoint((pt,))
+    elif len(pt.pts) != 1:
+        raise ValueError("there should be a single evaluation point")
     if isinstance(tgt_error, accuracy.RelativeError) and pt.jet_order > 1:
         raise TypeError("relative error not supported when computing derivatives")
     if not isinstance(tgt_error, accuracy.AccuracyTest):
         tgt_error = accuracy.AbsoluteError(tgt_error)
-        input_accuracy = min(pt.accuracy(), ini.accuracy())
+        input_accuracy = min(pt.accuracy, ini.accuracy())
         if input_accuracy < -tgt_error.eps.upper().log2().floor():
             logger.warning("input intervals may be too wide "
                            "compared to requested accuracy")
@@ -315,14 +317,14 @@ def _use_inexact_recurrence(bwrec, prec):
 def interval_series_sum_wrapper(dop, inis, pt, tgt_error, bwrec, stop,
                                 fail_fast, effort, stride, ctx=dctx):
 
-    real = pt.is_real_or_symbolic() and all(ini.is_real(dop) for ini in inis)
+    real = pt.is_real_or_symbolic and all(ini.is_real(dop) for ini in inis)
     if pt.is_numeric and cy_classes()[0] is not CoefficientSequence:
         ivs = ComplexBallField
     elif real:
         ivs = RealBallField
     else:
         ivs = ComplexBallField
-    input_accuracy = max(0, min(chain([pt.accuracy()],
+    input_accuracy = max(0, min(chain((pt.accuracy,),
                                       (ini.accuracy() for ini in inis))))
     logger.log(logging.INFO - 1, "target error = %s", tgt_error)
     if stride is None:
@@ -729,7 +731,7 @@ def series_sum_regular(Intervals, dop, bwrec, inis, pt, stop, stride,
     assert inis[0].compatible(inis)
     mult_dict = inis[0].mult_dict()
 
-    jet = pt.jet(Intervals)
+    (jet,) = pt.jets(Intervals)
     ord = pt.jet_order
     Jets = jet.parent() # != Intervals[x] in general (symbolic points...)
     jetpow = Jets.one()

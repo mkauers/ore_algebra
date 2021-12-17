@@ -503,13 +503,13 @@ class Point(SageObject):
 
 class EvaluationPoint(object):
     r"""
-    Series evaluation point/jet.
+    Series evaluation point(s)/jet(s).
 
-    A ring element (a complex number, a polynomial indeterminate, perhaps
-    someday a matrix) where to evaluate the partial sum of a series, along with
-    a “jet order” used to compute derivatives and a bound on the norm of the
-    mathematical quantity it represents that can be used to bound the truncation
-    error.
+    A tuple of elements of the same ring (complex numbers, polynomial
+    indeterminates, perhaps someday a matrices) where to evaluate the partial
+    sum of a series, along with a “jet order” used to compute derivatives and a
+    bound on the norm of the mathematical quantity it represents that can be
+    used to bound the truncation error.
 
     * ``branch`` - branch of the logarithm to use; ``(0,)`` means the standard
       branch, ``(k,)`` means log(z) + 2kπi, a tuple of length > 1 averages over
@@ -517,36 +517,41 @@ class EvaluationPoint(object):
     """
 
     # XXX: choose a single place to set the default value for jet_order
-    def __init__(self, pt, jet_order=1, branch=(0,), rad=None ):
-        self.pt = pt
-        self.rad = (IR.coerce(rad) if rad is not None
-                    else IC(pt).above_abs())
+    def __init__(self, pts, jet_order=1, branch=(0,), rad=None ):
+        pts = pts if isinstance(pts, tuple) else (pts,) # bwd compat
+        self.pts = pts
+        self._parent = self.pts[0].parent()
+        assert all(pt.parent() is self._parent for pt in pts)
+        self.rad = max(IC(pt).above_abs() for pt in pts) if rad is None else rad
         self.jet_order = jet_order
         self.branch=branch
 
-        self.is_numeric = is_numeric_parent(pt.parent())
+        self.is_numeric = is_numeric_parent(self._parent)
+        self.is_real_or_symbolic = (is_real_parent(self._parent)
+                                    or not self.is_numeric)
+        self.accuracy = self._accuracy()
+
+    @lazy_attribute
+    def pt(self): # bwd compat
+        assert len(self.pts) == 1
+        return self.pts[0]
 
     def __repr__(self):
         fmt = "{} + η + O(η^{}) (with |.| ≤ {})"
-        return fmt.format(self.pt, self.jet_order + 1, self.rad)
+        return fmt.format(self.pts, self.jet_order + 1, self.rad)
 
-    def jet(self, Intervals):
+    def jets(self, Intervals):
         base_ring = (Intervals if self.is_numeric
-                     else mypushout(self.pt.parent(), Intervals))
+                     else mypushout(self._parent, Intervals))
         Pol = PolynomialRing(base_ring, 'delta')
-        return Pol([self.pt, 1]).truncate(self.jet_order)
+        return tuple(Pol([pt, 1]).truncate(self.jet_order)
+                     for pt in self.pts)
 
-    def is_real(self):
-        return is_real_parent(self.pt.parent())
-
-    def is_real_or_symbolic(self):
-        return self.is_real() or not self.is_numeric
-
-    def accuracy(self):
-        if self.pt.parent().is_exact():
+    def _accuracy(self):
+        if self._parent.is_exact():
             return IR.maximal_accuracy()
-        elif isinstance(self.pt.parent(), (RealBallField, ComplexBallField)):
-            return self.pt.accuracy()
+        elif isinstance(self._parent, (RealBallField, ComplexBallField)):
+            return min(pt.accuracy() for pt in self.pts) # debatable
         else:
             raise ValueError
 
