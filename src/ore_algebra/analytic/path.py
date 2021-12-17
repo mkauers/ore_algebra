@@ -23,7 +23,8 @@ import sage.structure.coerce
 import sage.symbolic.ring
 
 from sage.misc.cachefunc import cached_method
-from sage.rings.all import ZZ, QQ, CC, RIF, CIF, QQbar, RLF, CLF, Integer
+from sage.misc.lazy_attribute import lazy_attribute
+from sage.rings.all import ZZ, QQ, CC, CIF, QQbar, RLF, CLF
 from sage.rings.complex_arb import CBF, ComplexBallField, ComplexBall
 from sage.rings.real_arb import RBF, RealBallField, RealBall
 from sage.structure.sage_object import SageObject
@@ -32,8 +33,7 @@ from .accuracy import IR, IC
 from .context import dctx
 from .deform import PathDeformer, PathDeformationFailed
 from .differential_operator import DifferentialOperator
-from .local_solutions import (FundamentalSolution, sort_key_by_asympt,
-        LocalBasisMapper)
+from .local_solutions import FundamentalSolution, LocalBasisMapper
 from .safe_cmp import *
 from .utilities import *
 
@@ -128,11 +128,13 @@ class Point(SageObject):
             self.value = ComplexBallField(point.prec())(point)
         elif parent is sage.symbolic.ring.SR:
             try:
-                return self.__init__(point.pyobject(), dop)
+                self.__init__(point.pyobject(), dop)
+                return
             except TypeError:
                 pass
             try:
-                return self.__init__(QQbar(point), dop)
+                self.__init__(QQbar(point), dop)
+                return
             except (TypeError, ValueError, NotImplementedError):
                 pass
             try:
@@ -1107,7 +1109,7 @@ class Path(SageObject):
             m = a.iv() + dir*IC(factor.add_error(rel_tol)*rad,
                                 IR.zero().add_error(rel_tol*dist))
             r = _rationalize(m, is_real)
-            if is_real and a.iv().real() < r and r < b.iv().real():
+            if is_real and a.iv().real() < r < b.iv().real():
                 break
             # Check that we did not change the homotopy class of the path
             c = Point(m0.union(r), self.dop)
@@ -1120,7 +1122,7 @@ class Path(SageObject):
                             m0, m, rel_tol, r)
                 rel_tol = rel_tol**2 if i else IR(0.)
         else:
-            raise ValueError("failed to subdivide (sub)step %s-->%s", a, b)
+            raise ValueError(f"failed to subdivide (sub)step {a}-->{b}")
         return Point(r, self.dop)
 
     def subdivide(self, threshold=IR(0.6), slow_thr=IR(0.6)):
@@ -1250,7 +1252,6 @@ class Path(SageObject):
             logger.info("path homotopy succeeded, old=%s, new=%s, sub=%s", self, new, self.subdivide())
             return new
         except PathDeformationFailed:
-            raise
             logger.warning("path homotopy failed, falling back to subdivision")
             return self.subdivide()
 
