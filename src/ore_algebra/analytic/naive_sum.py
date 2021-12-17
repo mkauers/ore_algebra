@@ -46,15 +46,6 @@ from .safe_cmp import *
 
 logger = logging.getLogger(__name__)
 
-def cy_classes():
-    try:
-        from . import naive_sum_c
-        return naive_sum_c.CoefficientSequence, naive_sum_c.PartialSum
-    except ImportError:
-        warnings.warn("Cython implementation unavailable, "
-                      "falling back to slower Python implementation")
-        return CoefficientSequence, PartialSum
-
 ##########################
 # Argument processing etc.
 ##########################
@@ -401,7 +392,7 @@ def interval_series_sum_wrapper(dop, inis, evpts, tgt_error, bwrec, stop,
             return sols
 
 ################################################################################
-# Regular singular points
+# Transition matrices
 ################################################################################
 
 class HighestSolMapper(LocalBasisMapper):
@@ -508,6 +499,19 @@ def fundamental_matrix_regular(dop, pt, eps, fail_fast, effort, ctx=dctx):
     unr = HighestSolMapper(dop, pt, eps_col, fail_fast, effort, ctx=dctx)
     cols = unr.run()
     return matrix([sol.value[0] for sol in cols]).transpose()
+
+################################################################################
+# Series summation
+################################################################################
+
+def cy_classes():
+    try:
+        from . import naive_sum_c
+        return naive_sum_c.CoefficientSequence, naive_sum_c.PartialSum
+    except ImportError:
+        warnings.warn("Cython implementation unavailable, "
+                      "falling back to slower Python implementation")
+        return CoefficientSequence, PartialSum
 
 class CoefficientSequence(object):
 
@@ -883,7 +887,7 @@ def series_sum_regular(Intervals, dop, bwrec, inis, evpts, stop, stride,
     return sols
 
 ################################################################################
-# Miscellaneous utilities
+# Utilities
 ################################################################################
 
 # Temporary: later on, polynomials with ball coefficients could implement
