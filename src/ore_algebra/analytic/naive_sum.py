@@ -217,7 +217,7 @@ def series_sum(dop, ini, pt, tgt_error, maj=None, bwrec=None, stop=None,
 
     [(_, [psum])] = interval_series_sum_wrapper(dop, [ini], pt, tgt_error,
                                     bwrec, stop, fail_fast, effort, stride, ctx)
-    psum.update_downshifts(pt, [0])
+    psum.update_downshifts([0])
     return psum.downshifts[0]
 
 def guard_bits(dop, maj, pt, ordrec, nterms):
@@ -439,7 +439,7 @@ class HighestSolMapper(LocalBasisMapper):
         for (s, m), sol in zip(self.shifts, highest_sols):
             _, psums = sol
             for psum in psums:
-                psum.update_downshifts(self.pt, range(m))
+                psum.update_downshifts(range(m))
             self.highest_sols[s] = sol
         self._sols = {}
         super(self.__class__, self).process_modZ_class()
@@ -600,10 +600,20 @@ class CoefficientSequence(object):
 
 class PartialSum(object):
 
-    def __init__(self, Jets, cseq):
+    def __init__(self, cseq, Jets, ord, pt, pt_opts):
 
-        self.Jets = Jets
+        # Final data
+
+        # Sequence coefficients
         self.cseq = cseq
+        # Jets and orders (for computing derivatives)
+        self.Jets = Jets
+        self.ord = ord
+        # Evaluation point and options used to evaluate singular terms
+        self.pt = pt
+        self.pt_opts = pt_opts
+
+        # Dynamic data
 
         self.trunc = 0 # first term _not_ in the sum
         # Though CoefficientSequences start with vector of length 1, here,
@@ -630,21 +640,21 @@ class PartialSum(object):
         for k in range(self.cseq.log_prec):
             self.psum[k] += jetpow._lmul_(self.cseq.last[0][k])
 
-    def update_enclosure(self, Jets, pt, tb):
-        self.series = vector(Jets, self.cseq.log_prec)
+    def update_enclosure(self, tb):
+        self.series = vector(self.Jets, self.cseq.log_prec)
         for i, t in enumerate(self.psum):
-            self.series[i] = Jets([_add_error(t[k], tb)
-                                   for k in range(pt.jet_order)])
+            self.series[i] = self.Jets([_add_error(t[k], tb)
+                                   for k in range(self.ord)])
         # log_series_values() may decide to introduce complex numbers if there
         # are logs, and hence the parent of the partial sum may switch from real
         # to complex during the computation...
-        [self.value] = log_series_values(Jets, self.cseq.ini.expo, self.series,
-                                         pt.pt, pt.jet_order, pt.branch,
-                                         pt.is_numeric)
+        [self.value] = log_series_values(self.Jets, self.cseq.ini.expo,
+                                         self.series, self.pt, self.ord,
+                                         *self.pt_opts)
         self.total_error = max(chain(iter([bounds.IR.zero()]),
                                      (_get_error(c) for c in self.value)))
 
-    def update_downshifts(self, pt, downshift):
+    def update_downshifts(self, downshift):
         r"""
         Compute the values of the partial sums of this solution and its "down
         shifts".
@@ -655,26 +665,26 @@ class PartialSum(object):
         Unlike the other variants, this function forgets the imaginary part of
         the computed partial sums if self.force_real is set.
         """
-        Jets = self.series.base_ring()
         if self.cseq.force_real:
-            Jets = Jets.change_ring(Jets.base().base())
+            Jets = self.Jets.change_ring(self.Jets.base().base())
             assert all(c.imag().contains_zero()
                        for jet in self.series for c in jet)
             jets = [Jets([c.real() for c in jet]) for jet in self.series]
             series = vector(Jets, self.cseq.log_prec, jets)
         else:
+            Jets = self.Jets
             series = self.series
         self.downshifts = log_series_values(Jets, self.cseq.ini.expo, series,
-                                            pt.pt, pt.jet_order, pt.branch,
-                                            pt.is_numeric, downshift=downshift)
+                                            self.pt, self.ord, *self.pt_opts,
+                                            downshift=downshift)
 
-    def bare_value(self, Jets, pt):
+    def bare_value(self):
         r"""
         Value taking into account logs etc. but ignoring the truncation error.
         """
-        psum = vector(Jets, self.psum)
-        [v] = log_series_values(Jets, self.cseq.ini.expo, psum,
-                                pt.pt, pt.jet_order, pt.branch, pt.is_numeric)
+        psum = vector(self.Jets, self.psum)
+        [v] = log_series_values(self.Jets, self.cseq.ini.expo, psum,
+                                self.pt, self.ord, *self.pt_opts)
         return v
 
     def interval_width(self):
@@ -759,10 +769,11 @@ def series_sum_regular(Intervals, dop, bwrec, inis, pt, stop, stride,
         CS, PS = cy_classes()
     else:
         CS, PS = CoefficientSequence, PartialSum
+    pt_opts = (pt.branch, pt.is_numeric)
     sols = []
     for ini in inis:
         cseq = CS(Intervals, ini, bwrec.order, real)
-        psums = [PS(Jets, cseq)] # TODO: support multiple points
+        psums = [PS(cseq, Jets, ord, pt.pt, pt_opts)] # TODO: support multiple points
         sols.append(MPartialSums(cseq, psums))
 
     class BoundCallbacks(accuracy.BoundCallbacks):
@@ -781,12 +792,12 @@ def series_sum_regular(Intervals, dop, bwrec, inis, pt, stop, stride,
             worst = bounds.IR.zero()
             for _, psums in sols:
                 for psum in psums:
-                    psum.update_enclosure(Jets, pt, tb)
+                    psum.update_enclosure(tb)
                     worst = worst.max(psum.total_error)
             return worst
         def get_value(self):
             assert len(sols) == 1
-            return sols[0][1][0].bare_value(Jets, pt)
+            return sols[0][1][0].bare_value()
     cb = BoundCallbacks()
 
     log_prec = 1
@@ -857,7 +868,7 @@ def series_sum_regular(Intervals, dop, bwrec, inis, pt, stop, stride,
         rnd_fac = cst*rnd_maj.bound(pt.rad, rows=ord)/n0_squash
         rnd_err = rnd_loc*rnd_fac
         for _, [psum] in sols:
-            psum.update_enclosure(Jets, pt, tail_bound + rnd_err)
+            psum.update_enclosure(tail_bound + rnd_err)
     else:
         rnd_err = bounds.IR.zero()
 
