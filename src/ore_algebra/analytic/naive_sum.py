@@ -638,7 +638,9 @@ class PartialSum(object):
         # log_series_values() may decide to introduce complex numbers if there
         # are logs, and hence the parent of the partial sum may switch from real
         # to complex during the computation...
-        [self.value] = log_series_values(Jets, self.cseq.ini.expo, self.series, pt)
+        [self.value] = log_series_values(Jets, self.cseq.ini.expo, self.series,
+                                         pt.pt, pt.jet_order, pt.branch,
+                                         pt.is_numeric)
         self.total_error = max(chain(iter([bounds.IR.zero()]),
                                      (_get_error(c) for c in self.value)))
 
@@ -663,14 +665,16 @@ class PartialSum(object):
         else:
             series = self.series
         self.downshifts = log_series_values(Jets, self.cseq.ini.expo, series,
-                pt, downshift=downshift)
+                                            pt.pt, pt.jet_order, pt.branch,
+                                            pt.is_numeric, downshift=downshift)
 
     def bare_value(self, Jets, pt):
         r"""
         Value taking into account logs etc. but ignoring the truncation error.
         """
         psum = vector(Jets, self.psum)
-        [v] = log_series_values(Jets, self.cseq.ini.expo, psum, pt)
+        [v] = log_series_values(Jets, self.cseq.ini.expo, psum,
+                                pt.pt, pt.jet_order, pt.branch, pt.is_numeric)
         return v
 
     def interval_width(self):

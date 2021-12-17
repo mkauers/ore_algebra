@@ -600,7 +600,8 @@ def log_series(ini, bwrec, order):
         series.append(new_term)
     return series
 
-def log_series_values(Jets, expo, psum, evpt, downshift=[0]):
+def log_series_values(Jets, expo, psum, pt, derivatives, branch, is_numeric,
+                      downshift=(0,)):
     r"""
     Evaluate a logarithmic series, and optionally its downshifts.
 
@@ -609,7 +610,7 @@ def log_series_values(Jets, expo, psum, evpt, downshift=[0]):
         Σ[k=0..r] v[k] η^k
             = (pt + η)^expo * Σ_k (psum[d+k]*log(x + η)^k/k!) + O(η^r)
 
-        (x = evpt.pt, r = evpt.jet_order)
+        (x = pt, r = jet_order)
 
     for d ∈ downshift, as an element of ``Jets``, optionally using a
     non-standard branch of the logarithm.
@@ -617,15 +618,14 @@ def log_series_values(Jets, expo, psum, evpt, downshift=[0]):
     Note that while this function computes ``pt^expo`` in ℂ, it does NOT
     specialize abstract algebraic numbers that might appear in ``psum``.
     """
-    derivatives = evpt.jet_order
     log_prec = psum.length()
     assert all(d < log_prec for d in downshift) or log_prec == 0
-    if not evpt.is_numeric:
+    if not is_numeric:
         if expo != 0 or log_prec > 1:
             raise NotImplementedError("log-series of symbolic point")
         return [vector(psum[0][i] for i in range(derivatives))]
-    pt = Jets.base_ring()(evpt.pt)
-    if log_prec > 1 or expo not in ZZ or evpt.branch != (0,):
+    pt = Jets.base_ring()(pt)
+    if log_prec > 1 or expo not in ZZ or branch != (0,):
         pt = pt.parent().complex_field()(pt)
         Jets = Jets.change_ring(Jets.base_ring().complex_field())
         psum = psum.change_ring(Jets)
@@ -634,7 +634,7 @@ def log_series_values(Jets, expo, psum, evpt, downshift=[0]):
     aux = high*expo
     logger.debug("aux=%s", aux)
     val = [Jets.base_ring().zero() for d in downshift]
-    for b in evpt.branch:
+    for b in branch:
         twobpii = pt.parent()(2*b*pi*I)
         # hardcoded series expansions of log(a+η) and (a+η)^λ
         # (too cumbersome to compute directly in Sage at the moment)
@@ -658,7 +658,7 @@ def log_series_values(Jets, expo, psum, evpt, downshift=[0]):
                         for p in range(log_prec - d)),
                     derivatives)
     Vectors = Jets.base_ring()**derivatives
-    l = len(evpt.branch)
+    l = len(branch)
     val = [FreeModuleElement_generic_dense(Vectors,
                [v[i] for i in range(derivatives)], coerce=False, copy=False)/l
            for v in val]
