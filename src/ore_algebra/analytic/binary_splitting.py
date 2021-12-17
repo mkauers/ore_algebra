@@ -292,11 +292,11 @@ class StepMatrix(object):
         self.pow_den = rec.pow_den.parent().one()
 
         if n0 == n1:
-            self._init_identity(rec, n1, ord_log)
+            self._init_identity(rec, ord_log)
         elif n0 is not None:
             self._init_range(rec, n0, n1, ord_log)
 
-    def _init_identity(self, rec, n, ord_log):
+    def _init_identity(self, rec, ord_log):
         self.rec_mat = rec.Mat_rec.one()
         self.zero_sum, self.sums_row = rec.Series_sums(ord_log)
 
