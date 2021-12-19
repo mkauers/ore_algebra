@@ -520,14 +520,14 @@ class EvaluationPoint(object):
     def __init__(self, pts, jet_order=1, branch=(0,), rad=None ):
         pts = pts if isinstance(pts, tuple) else (pts,) # bwd compat
         self.pts = pts
-        self._parent = self.pts[0].parent()
-        assert all(pt.parent() is self._parent for pt in pts)
+        self.parent = self.pts[0].parent()
+        assert all(pt.parent() is self.parent for pt in pts)
         self.rad = max(IC(pt).above_abs() for pt in pts) if rad is None else rad
         self.jet_order = jet_order
         self.branch=branch
 
-        self.is_numeric = is_numeric_parent(self._parent)
-        self.is_real_or_symbolic = (is_real_parent(self._parent)
+        self.is_numeric = is_numeric_parent(self.parent)
+        self.is_real_or_symbolic = (is_real_parent(self.parent)
                                     or not self.is_numeric)
         self.accuracy = self._accuracy()
 
@@ -542,16 +542,16 @@ class EvaluationPoint(object):
 
     def jets(self, Intervals):
         base_ring = (Intervals if self.is_numeric
-                     else mypushout(self._parent, Intervals))
+                     else mypushout(self.parent, Intervals))
         Jets = PolynomialRing(base_ring, 'delta')
         jets = tuple(Jets([pt, 1]).truncate(self.jet_order)
                      for pt in self.pts)
         return Jets, jets
 
     def _accuracy(self):
-        if self._parent.is_exact():
+        if self.parent.is_exact():
             return IR.maximal_accuracy()
-        elif isinstance(self._parent, (RealBallField, ComplexBallField)):
+        elif isinstance(self.parent, (RealBallField, ComplexBallField)):
             return min(pt.accuracy() for pt in self.pts) # debatable
         else:
             raise ValueError
