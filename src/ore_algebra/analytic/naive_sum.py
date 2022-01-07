@@ -800,7 +800,7 @@ def series_sum_regular(Intervals, dop, bwrec, inis, evpts, stop, stride,
         cseq = CS(Intervals, ini, bwrec.order, real)
         # FIXME the branch should be computed separately for each component of
         # the evaluation point, taking into account the orientation of the step
-        psums = [PS(cseq, Jets, ord, pt, (evpts.branch, evpts.is_numeric))
+        psums = [PS(cseq, Jets, ord, pt, (evpts.is_numeric,))
                  for pt in evpts.pts]
         sols.append(MPartialSums(cseq, psums))
 

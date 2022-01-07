@@ -528,7 +528,7 @@ class EvaluationPoint(object):
     """
 
     # XXX: choose a single place to set the default value for jet_order
-    def __init__(self, pts, jet_order=1, branch=(0,), rad=None ):
+    def __init__(self, pts, jet_order=1, rad=None ):
         pts = pts if isinstance(pts, tuple) else (pts,) # bwd compat
         # This is mainly to catch cases where the parents are number fields that
         # differ only in variable names, maybe also ball fields with different
@@ -548,7 +548,6 @@ class EvaluationPoint(object):
 
         self.rad = max(IC(pt).above_abs() for pt in pts) if rad is None else rad
         self.jet_order = jet_order
-        self.branch=branch
 
         self.is_numeric = is_numeric_parent(self.parent)
         self.is_real_or_symbolic = (is_real_parent(self.parent)
@@ -644,8 +643,7 @@ class Step(SageObject):
         [-3.17249673357...] + [-4.486587907205...]*I
     """
 
-    def __init__(self, start, end, reversed=False, type=None, branch=None,
-                 max_split=None):
+    def __init__(self, start, end, reversed=False, type=None, max_split=None):
         if not (isinstance(start, Point) and isinstance(end, Point)):
             raise TypeError
         if start.dop != end.dop:
@@ -654,7 +652,6 @@ class Step(SageObject):
         self.end = end
         self.reversed = reversed
         self.type = type
-        self.branch = (0,) if branch is None else branch
         self.max_split = 3 if max_split is None else max_split
 
     def _repr_(self):
@@ -725,7 +722,7 @@ class Step(SageObject):
                 return as_embedded_number_field_element(d)
 
     def evpt(self, order):
-        return EvaluationPoint(self.delta(), order, branch=self.branch)
+        return EvaluationPoint(self.delta(), order)
 
     def direction(self):
         delta = self.end.iv() - self.start.iv()
@@ -761,10 +758,8 @@ class Step(SageObject):
             mid = (self.start.iv() + self.end.iv())/2
         mid = Point(mid, self.start.dop)
         mid = mid.rationalize()
-        s0 = Step(self.start, mid, type="split", branch=self.branch,
-                  max_split=self.max_split-1)
-        s1 = Step(mid, self.end, type="split", branch=None,
-                  max_split=self.max_split-1)
+        s0 = Step(self.start, mid, type="split", max_split=self.max_split-1)
+        s1 = Step(mid, self.end, type="split", max_split=self.max_split-1)
         return (s0, s1)
 
     def bit_burst_split(self, tgt_prec, bit_burst_prec):
@@ -780,13 +775,11 @@ class Step(SageObject):
             return ()
         elif p0 <= p1:
             z1_tr = z1.truncate(bit_burst_prec, tgt_prec)
-            s0 = Step(z0, z1_tr, type="bit-burst",
-                      branch=self.branch, max_split=0)
+            s0 = Step(z0, z1_tr, type="bit-burst", max_split=0)
             s1 = Step(z1_tr, z1, type="bit-burst", max_split=0)
         else:
             z0_tr = z0.truncate(bit_burst_prec, tgt_prec)
-            s0 = Step(z0, z0_tr, type="bit-burst",
-                      branch=self.branch, max_split=0)
+            s0 = Step(z0, z0_tr, type="bit-burst", max_split=0)
             s1 = Step(z0_tr, z1, type="bit-burst", max_split=0)
         return (s0, s1)
 
@@ -941,7 +934,7 @@ class Path(SageObject):
 
     def steps_direct(self):
         for a, b in pairwise(self.vert):
-            yield Step(a, b, branch=a.options.get("outgoing_branch"))
+            yield Step(a, b)
 
     def steps(self):
         r"""
@@ -955,7 +948,6 @@ class Path(SageObject):
         # enough information to determine the orientation of all steps.
         reverse = self.two_point_mode
         for a, b in pairwise(self.vert):
-            branch = a.options.get("outgoing_branch")
             if a.is_singular():
                 # XXX Consider forbidding steps from a singular point to another
                 # if b.is_singular():
@@ -967,7 +959,7 @@ class Path(SageObject):
                 a, b = b, a
             assert a.options.get("action") in (None, "expand")
             assert b.options.get("action") in (None, "connect")
-            yield Step(a, b, reversed=reverse, branch=branch)
+            yield Step(a, b, reversed=reverse)
             reverse = self.two_point_mode and not reverse
 
     def __len__(self):

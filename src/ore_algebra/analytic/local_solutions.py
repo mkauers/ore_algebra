@@ -600,8 +600,8 @@ def log_series(ini, bwrec, order):
         series.append(new_term)
     return series
 
-def log_series_values(Jets, expo, psum, pt, derivatives, branch, is_numeric,
-                      downshift=(0,)):
+def log_series_values(Jets, expo, psum, pt, derivatives, is_numeric,
+                      branch=(0,), downshift=(0,)):
     r"""
     Evaluate a logarithmic series, and optionally its downshifts.
 
@@ -618,6 +618,7 @@ def log_series_values(Jets, expo, psum, pt, derivatives, branch, is_numeric,
     Note that while this function computes ``pt^expo`` in ℂ, it does NOT
     specialize abstract algebraic numbers that might appear in ``psum``.
     """
+    # The 'branch' parameter is currently unused.
     log_prec = psum.length()
     assert all(d < log_prec for d in downshift) or log_prec == 0
     if not is_numeric:

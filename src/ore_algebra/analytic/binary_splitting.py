@@ -703,8 +703,7 @@ class SolutionColumn(object):
                      for ser in numer])
         assert self.v.ord_diff == evpts.jet_order
         [val] = log_series_values(Jets, alg + shift, val, evpts.pts[i],
-                                  evpts.jet_order, evpts.branch,
-                                  evpts.is_numeric)
+                                  evpts.jet_order, evpts.is_numeric)
         return val
 
     def error_estimate(self):

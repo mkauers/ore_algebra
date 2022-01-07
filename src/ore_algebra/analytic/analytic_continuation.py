@@ -31,6 +31,7 @@ from sage.rings.real_arb import RealBallField
 from sage.structure.element import Matrix, canonical_coercion
 
 from .context import Context, dctx # re-export Context
+from .monodromy import formal_monodromy
 from .path import EvaluationPoint, Path, Step
 
 logger = logging.getLogger(__name__)
@@ -124,10 +125,8 @@ def regular_step_transition_matrix(dop, steps, eps, rows, fail_fast, effort,
     # assert all(step.start is steps[0].start for step in steps)
     z0 = steps[0].start
     ldop = dop.shift(steps[0].start)
-    if any(step.branch != steps[0].branch for step in steps): # FIXME
-        raise NotImplementedError
     points = EvaluationPoint(tuple(step.delta() for step in steps),
-                             jet_order=rows, branch=steps[0].branch)
+                             jet_order=rows)
     tuple(step.evpt(rows) for step in steps)
 
     tgt_prec = utilities.prec_from_eps(eps)
@@ -254,6 +253,13 @@ def _process_detour(dop, point, val_mat, eps, ctx=dctx):
         val_mat = sub_mat*val_mat
     return val_mat
 
+def _branch_change_matrix(dop, point, branch, eps):
+    assert isinstance(branch, tuple)
+    prec = utilities.prec_from_eps(eps)
+    ring = ComplexBallField(prec)
+    mon = formal_monodromy(dop, point, ring)
+    return sum(mon**b for b in branch)/len(branch)
+
 def analytic_continuation(dop, path, eps, ctx=dctx, ini=None, post=None,
                           return_local_bases=False):
     """
@@ -328,6 +334,10 @@ def analytic_continuation(dop, path, eps, ctx=dctx, ini=None, post=None,
         for step, main_mat in zip(steps[i:i+np], main_mats):
             path_mat = main_mat*path_mat
             point = step.start if step.reversed else step.end
+            branch = point.options.get("outgoing_branch")
+            if branch is not None:
+                branch_mat = _branch_change_matrix(dop, point, branch, eps1)
+                path_mat = branch_mat*path_mat
             val_mat = _process_detour(dop, point, path_mat, eps1, ctx=ctx)
             maybe_push_point_dict(res, point, val_mat)
 
