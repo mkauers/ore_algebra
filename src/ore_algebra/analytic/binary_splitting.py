@@ -38,7 +38,8 @@ TESTS::
     sage: logger.setLevel(logging.WARNING)
 
     sage: from ore_algebra.analytic.examples.misc import koutschan1
-    sage: koutschan1.dop.numerical_solution(koutschan1.ini, [0, 84], algorithm="binsplit")
+    sage: koutschan1.dop.numerical_solution(koutschan1.ini, [0, 84],
+    ....:         algorithm="binsplit", two_point_mode=False)
     [0.011501537469552017...]
 
 Note that the zeros here shouldn't be exact unless we have proved that the
@@ -93,7 +94,7 @@ Connection to an algebraic endpoint::
 
     sage: NF.<sqrt2> = QuadraticField(2)
     sage: dop = (x^2 - 2)*Dx^2 + x + 1
-    sage: dop.numerical_transition_matrix([0, sqrt2], 1e-10, algorithm="binsplit")
+    sage: dop.numerical_transition_matrix([0, sqrt2], 1e-11, algorithm="binsplit")
     [ [2.4938814...] +      [+/- ...]*I  [2.4089417...] +       [+/- ...]*I]
     [[-0.2035417...] + [6.6873857...]*I  [0.2043720...] + [6.45961849...]*I]
 
@@ -127,8 +128,8 @@ Various mixes of algebraic exponents and evaluation points::
     [ [0.10146...] + [1.2165...]*I  [0.10146...] + [-1.2165...]*I  [0.32506...] + [+/- ...]*I]
 
     sage: ((x*Dx)^2-2-x).numerical_transition_matrix([0,i], 1e-5, algorithm="binsplit")
-    [[-1.4237...] + [0.0706...]*I [-0.7959...] + [0.6169...]*I]
-    [[1.4514...] + [-0.1681...]*I  [0.6742...] + [1.2971...]*I]
+    [ [-1.4237...] + [0.0706...]*I [-0.7959...] + [0.6169...]*I]
+    [ [1.4514...] + [-0.1681...]*I  [0.6742...] + [1.2971...]*I]
 
     sage: ((x*Dx)^3-2-x).numerical_transition_matrix([0,i], 1e-8, algorithm="binsplit")
     [  [1.94580...] + [-5.61860...]*I [0.04040867...] + [-0.16436364...]*I    [-0.491906...] + [0.873265...]*I]
@@ -136,8 +137,8 @@ Various mixes of algebraic exponents and evaluation points::
     [ [-6.63615...] + [-4.75084...]*I    [0.1614174...] + [0.0994372...]*I  [0.1969810...] + [-0.0803104...]*I]
 
     sage: ((x*Dx)^3-2-x).numerical_transition_matrix([0,QQbar(3)^(1/3)], 1e-8, algorithm="binsplit")
-    [[0.4434002...] + [-0.31995...]*I   [0.44340...] + [0.31995...]*I  [1.8368349...] + [+/- ...]*I]
-    [ [-0.59869...] + [-0.24297...]*I  [-0.59869...] + [0.24297...]*I  [1.7859825...] + [+/- ...]*I]
+    [ [0.443400...] + [-0.31995...]*I   [0.44340...] + [0.31995...]*I  [1.8368349...] + [+/- ...]*I]
+    [[-0.598696...] + [-0.24297...]*I  [-0.59869...] + [0.24297...]*I  [1.7859825...] + [+/- ...]*I]
     [ [0.235894...] + [0.393421...]*I  [0.23589...] + [-0.39342...]*I  [0.3084151...] + [+/- ...]*I]
 
     sage: (((x-i)*Dx)^2+1-x).numerical_transition_matrix([i, 2*i], algorithm="binsplit")
@@ -206,7 +207,7 @@ Miscellaneous examples::
     sage: CBF(2*exp(-1) + 3*(-1)^(3/2)*log(-1) + 7*(-1)^(3/2))
     [10.1605368431122...] - 7.000000000000000*I
 
-    sage: (x*(x-1)*Dx^2 - x).numerical_transition_matrix([0,1], 1e-6, algorithm="binsplit")
+    sage: (x*(x-1)*Dx^2 - x).numerical_transition_matrix([0,1], 1e-8, algorithm="binsplit")
     [     [0.22389...] + [+/- ...]*I      [0.57672...] + [+/- ...]*I]
     [[-1.56881...] + [-0.70337...]*I  [0.42531...] + [-1.81183...]*I]
 
@@ -1213,11 +1214,9 @@ class MatrixRecsUnroller(LocalBasisMapper):
 def fundamental_matrix_regular(dop, evpts, eps, fail_fast, effort, ctx=dctx):
     rows = evpts.jet_order
     cols = MatrixRecsUnroller(dop, evpts, eps, rows, ctx).run()
-    mats = tuple(
-        matrix([sol.value[i] for sol in cols]).transpose()
-        for i in range(len(evpts.pts)))
-    assert len(mats) == 1
-    return mats[0]
+    mats = [matrix([sol.value[i] for sol in cols]).transpose()
+            for i in range(len(evpts.pts))]
+    return mats
 
 def _can_use_CBF(*doms):
     return all((isinstance(dom, (RealBallField, ComplexBallField))

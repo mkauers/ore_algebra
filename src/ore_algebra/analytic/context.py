@@ -16,12 +16,13 @@ import pprint
 
 class Context(object):
 
-    def __init__(self, dop=None, path=None, eps=None,
+    def __init__(self, dop=None, path=None, eps=None, *,
             algorithm=None,
             assume_analytic=False,
             force_algorithm=False,
             squash_intervals=False,
             deform=False,
+            two_point_mode=None,
             binsplit_thr=128,
             bit_burst_thr=32,
             simple_approx_thr=64,
@@ -68,6 +69,14 @@ class Context(object):
         if not isinstance(deform, bool):
             raise TypeError("deform", type(deform))
         self.deform = deform
+
+        if two_point_mode is None:
+            two_point_mode = not deform
+        if not isinstance(two_point_mode, bool):
+            raise TypeError("two_point_mode", type(two_point_mode))
+        if deform and two_point_mode:
+            raise NotImplementedError("deform == two_point_mode == True")
+        self.two_point_mode = two_point_mode
 
         self.binsplit_thr = int(binsplit_thr)
 

@@ -78,7 +78,7 @@ solutions of differential initial value problems.
     sage: eh.dop(exp(x^2)*(1+erf(x))).simplify_full()
     0
     sage: eh.dop.numerical_solution(eh.ini, [eh.pt, 2])
-    [108.940904389977...]
+    [108.94090438997...]
 
     sage: ea = stdfun.mittag_leffler_e(7/3, 1/2)
     sage: ea.dop.numerical_solution(ea.ini, [ea.pt, 1])

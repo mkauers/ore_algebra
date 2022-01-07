@@ -74,7 +74,7 @@ Display some information on what is going on::
     sage: dop = (x^2 + 1)*Dx^2 + 2*x*Dx
     sage: dop.numerical_transition_matrix([0, 1], 1e-20)
     INFO:ore_algebra.analytic.analytic_continuation:path: 0 --> 1/2 --> 1
-    INFO:ore_algebra.analytic.analytic_continuation:0 --> 1/2: ordinary case
+    INFO:ore_algebra.analytic.analytic_continuation:[0 <-- 1/2, 1/2 --> 1]: ordinary case
     ...
     INFO:ore_algebra.analytic.naive_sum:summed ... terms, ...
     ...
@@ -317,8 +317,8 @@ TESTS::
     sage: dop = (x^2 + 1)*Dx^2 + 2*x*Dx
     sage: dop.numerical_transition_matrix([0,1], algorithm="binsplit")
     INFO:ore_algebra.analytic.binary_splitting:...
-    [[1.0000000000000...] [0.785398163397448...]]
-    [           [+/- ...] [0.500000000000000...]]
+    [ [1.0000000000000...] [0.785398163397448...]]
+    [            [+/- ...] [0.500000000000000...]]
     sage: logger.setLevel(logging.WARNING)
 
 Some corner cases::
@@ -431,7 +431,8 @@ A few larger or harder examples::
     ....:       + (-4*z^2 + 1/17*z)*Dz^8 + (-2/7*z^2 - 2*z)*Dz^7
     ....:       + (z + 2)*Dz^6 + (z^2 - 5/2*z)*Dz^5 + (-2*z + 2)*Dz^4
     ....:       + (1/2*z^2 + 1/2)*Dz^2 + (-3*z^2 - z + 17)*Dz - 1/9*z^2 + 1)
-    sage: mat = dop.numerical_transition_matrix([0,1/2], 1e-10)
+    sage: mat = dop.numerical_transition_matrix([0,1/2], 1e-10,
+    ....:                                       two_point_mode=False)
     sage: [mat[k,k] for k in range(mat.nrows())] # TODO double-check
     [[1.000000007...],
      [1.000003515...],
@@ -492,7 +493,7 @@ Operators with rational function coefficients::
     [[-0.579827135138349...]   [2.27958530233606...]]
     sage: ((x/1)*Dx^2 - 1).numerical_transition_matrix([0, 1], algorithm='binsplit')
     [[0.0340875989376363...]   [1.59063685463732...]]
-    [ [-0.579827135138349...]  [2.27958530233606...]]
+    [[-0.579827135138349...]   [2.27958530233606...]]
 
 Algorithm choice::
 
@@ -509,10 +510,12 @@ to significantly decrease ``eps`` to get precise results::
     ....:       - (x^2+10*x+25)*Dx - (-2*x^2-4*x+29+1/2))
     sage: ini = [5,4,3/2,1/3]
     sage: dop.numerical_solution(ini, [0,1])
-    [10.87312731 +/- ...e-9]
-    sage: dop.numerical_solution(ini, [0,3/2], 1e-30)
+    [10.9 +/- ...]
+    sage: dop.numerical_solution(ini, [0,1], two_point_mode=False)
+    [10.873127314 +/- ...e-10]
+    sage: dop.numerical_solution(ini, [0,3/2], 1e-30, two_point_mode=False)
     [15.685911746183227 +/- ...e-16]
-    sage: dop.numerical_solution(ini, [0,5], 1e-150)
+    sage: dop.numerical_solution(ini, [0,5], 1e-150, two_point_mode=False)
     [+/- ...e-35]
 
 Handling of algebraic points::
@@ -569,11 +572,11 @@ Algebraic points at high precision::
     sage: x + sqrt2 # populate coercion cache
     x + sqrt2
     sage: dop.numerical_transition_matrix([1, sqrt2], 1e-10000) # long time (1.6 s)
-    [ [1.11...015121538...] [0.43...3856086567...]]
-    [ [0.65...812947177...] [1.15...5867289418...]]
+    [[1.11...015121538...] [0.43...3856086567...]]
+    [[0.65...812947177...] [1.15...5867289418...]]
     sage: dop.numerical_transition_matrix([1, sqrt2], 1e-10000, algorithm="binsplit") # long time (1.6 s)
-    [ [1.11...015121538...] [0.43...3856086567...]]
-    [ [0.65...812947177...] [1.15...5867289418...]]
+    [[1.11...015121538...] [0.43...3856086567...]]
+    [[0.65...812947177...] [1.15...5867289418...]]
 
 Binary splitting when the bit-burst method is disabled::
 

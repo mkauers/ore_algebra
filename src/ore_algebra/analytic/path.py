@@ -27,6 +27,7 @@ from sage.misc.lazy_attribute import lazy_attribute
 from sage.rings.all import ZZ, QQ, CC, CIF, QQbar, RLF, CLF
 from sage.rings.complex_arb import CBF, ComplexBallField, ComplexBall
 from sage.rings.real_arb import RBF, RealBallField, RealBall
+from sage.structure.element import coercion_model
 from sage.structure.sage_object import SageObject
 
 from .accuracy import IR, IC
@@ -60,7 +61,7 @@ class Point(SageObject):
     lie on the complex plane, not on the Riemann surface of the operator.
     """
 
-    def __init__(self, point, dop=None, singular=None, **kwds):
+    def __init__(self, point, dop=None, singular=None, detour_to=None, **kwds):
         """
         INPUT:
 
@@ -101,7 +102,7 @@ class Point(SageObject):
             parent = point.parent()
         except AttributeError:
             raise TypeError("unexpected value for point: " + repr(point))
-        if isinstance(point, Point):
+        if isinstance(point, Point): # XXX useful?
             self.value = point.value
         elif isinstance(parent, (RealBallField, ComplexBallField)):
             self.value = point
@@ -152,12 +153,13 @@ class Point(SageObject):
                                     RealBallField, ComplexBallField))
                 or parent is RLF or parent is CLF)
 
-        if dop is None: # TBI
+        if dop is None: # TBI XXX useful?
             if isinstance(point, Point):
                 self.dop = point.dop
         else:
             self.dop = DifferentialOperator(dop.numerator())
         self._force_singular = bool(singular)
+        self.detour_to = detour_to
         self.options = kwds
 
     def _repr_(self, size=False):
@@ -170,6 +172,7 @@ class Point(SageObject):
             sage: Point(10**20, Dx)
             ~1.0000e20
         """
+        res = None
         if self.is_exact():
             try:
                 len = (self.value.parent().precision()
@@ -178,12 +181,16 @@ class Point(SageObject):
                 if len > 50:
                     res = repr(self.value.n(digits=5))
                     if size:
-                        return "~[{}b]{}".format(self.nbits(), res)
+                        res = f"~[{self.nbits()}b]{res}"
                     else:
-                        return "~" + res
+                        res = "~" + res
             except AttributeError:
-                pass
-        return repr(self.value)
+                res = repr(self.value)
+        if res is None:
+            res = repr(self.value)
+        if self.detour_to is not None:
+            res += f" (.. {self.detour_to})"
+        return res
 
     def keep_value(self):
         return bool(self.options.get("keep_value"))
@@ -467,8 +474,7 @@ class Point(SageObject):
             raise NotImplementedError("irregular singular point")
         return LocalBasisMapper(self.dop.shift(self)).run()
 
-    @cached_method
-    def simple_approx(self, ctx=dctx):
+    def simple_approx(self, neighb, ctx=dctx):
         r"""
         Return an approximation of this point suitable as a starting point for
         the next analytic continuation step.
@@ -486,13 +492,18 @@ class Point(SageObject):
         if (self.is_singular()
                 or self.is_fast() and self.is_exact() and self.nbits() <= thr):
             return self
-        else:
-            rad = RBF.one().min(self.dist_to_sing()/16)
-            ball = self.iv().add_error(rad)
-            if any(s.overlaps(ball) for s in self.dop._singularities(IC)):
-                return self
-            rat = _rationalize(ball, real=self.is_real())
-            return Point(rat, self.dop)
+        _self = self.iv().squash()
+        rad = RBF.one().min(self.dist_to_sing())
+        rad = rad.min(*(abs(_self - z.iv().squash()) for z in neighb))
+        rad /= 32
+        ball = self.iv().add_error(rad)
+        try:
+            for c in neighb:
+                Step(Point(ball, self.dop), c).check_singularity()
+        except ValueError:
+            return self
+        rat = _rationalize(ball, real=self.is_real())
+        return Point(rat, self.dop, detour_to=self)
 
     @cached_method
     def exact_approx(self):
@@ -519,9 +530,22 @@ class EvaluationPoint(object):
     # XXX: choose a single place to set the default value for jet_order
     def __init__(self, pts, jet_order=1, branch=(0,), rad=None ):
         pts = pts if isinstance(pts, tuple) else (pts,) # bwd compat
-        self.pts = pts
-        self.parent = self.pts[0].parent()
-        assert all(pt.parent() is self.parent for pt in pts)
+        # This is mainly to catch cases where the parents are number fields that
+        # differ only in variable names, maybe also ball fields with different
+        # precisions. A downside of coercing to a common parent is that we may
+        # end up working in a larger extension than necessary if the evaluation
+        # points are algebraic numbers belonging to different extensions;
+        # however, algebraic numbers are mainly useful for evaluations at
+        # singularities and therefore should typically appear only in
+        # "expansion" position.
+        try:
+            self.parent = coercion_model.common_parent(*pts)
+            self.pts = tuple(self.parent.coerce(pt) for pt in pts)
+        except TypeError: # sigh...
+            self.parent, self.pts = as_embedded_number_field_elements(
+                list(QQbar.coerce(pt) for pt in pts))
+            self.pts = tuple(self.pts)
+
         self.rad = max(IC(pt).above_abs() for pt in pts) if rad is None else rad
         self.jet_order = jet_order
         self.branch=branch
@@ -620,15 +644,17 @@ class Step(SageObject):
         [-3.17249673357...] + [-4.486587907205...]*I
     """
 
-    def __init__(self, start, end, type=None, branch=None, max_split=None):
+    def __init__(self, start, end, reversed=False, type=None, branch=None,
+                 max_split=None):
         if not (isinstance(start, Point) and isinstance(end, Point)):
             raise TypeError
         if start.dop != end.dop:
             raise ValueError
         self.start = start
         self.end = end
-        self.branch = (0,) if branch is None else branch
+        self.reversed = reversed
         self.type = type
+        self.branch = (0,) if branch is None else branch
         self.max_split = 3 if max_split is None else max_split
 
     def _repr_(self):
@@ -636,7 +662,11 @@ class Step(SageObject):
         bb = (self.type == "bit-burst")
         start = self.start._repr_(size=bb)
         end = self.end._repr_(size=bb)
-        return type + start + " --> " + end
+        arrow = " --> "
+        if self.reversed:
+            start, end = end, start
+            arrow = " <-- "
+        return type + start + arrow + end
 
     def __getitem__(self, i):
         if i == 0:
@@ -705,6 +735,10 @@ class Step(SageObject):
         return IC(self.delta()).abs()
 
     def prec(self, tgt_prec):
+        r"""
+        Precision "at which this step contributes" to a result to be computed at
+        precision tgt_prec, ~ lg(1/length) when < tgt_prec, ~ ∞ otherwise.
+        """
         myIC = ComplexBallField(tgt_prec + 10) # not ideal...
         len = IC(myIC(self.end.value) - myIC(self.start.value)).abs()
         if len.contains_zero():
@@ -720,10 +754,9 @@ class Step(SageObject):
         # splitting a singular step
         if self.max_split <= 0:
             raise ValueError
+        assert not self.end.is_singular()
         if self.start.is_singular():
             mid = (self.start.iv() + 2*self.end.iv())/3
-        elif self.end.is_singular():
-            mid = (2*self.start.iv() + self.end.iv())/3
         else:
             mid = (self.start.iv() + self.end.iv())/2
         mid = Point(mid, self.start.dop)
@@ -735,6 +768,10 @@ class Step(SageObject):
         return (s0, s1)
 
     def bit_burst_split(self, tgt_prec, bit_burst_prec):
+        r"""
+        Try to split a step using a ~bit_burst_prec-bit approx of one of the
+        ends as an intermediate point
+        """
         z0, z1 = self
         if z0.is_singular() or z1.is_singular():
             return ()
@@ -752,26 +789,6 @@ class Step(SageObject):
                       branch=self.branch, max_split=0)
             s1 = Step(z0_tr, z1, type="bit-burst", max_split=0)
         return (s0, s1)
-
-    def chain_simple(self, prev=None, ctx=dctx):
-        start = self.start.simple_approx(ctx=ctx)
-        if prev is not None:
-            assert prev is start
-        main = Step(start, self.end.simple_approx(ctx=ctx), branch=self.branch)
-        if not self.end.keep_value():
-            dev = None
-        elif main.end is self.end:
-            dev = []
-        else:
-            ex = self.end.exact_approx()
-            if ex is self.end:
-                dev = [Step(main.end, self.end, type="deviation", max_split=0)]
-            else:
-                dev = [
-                    Step(main.end, ex, type="deviation", max_split=0),
-                    Step(ex, self.end, type="deviation", max_split=0)
-                ]
-        return main, dev
 
     def singularities(self):
         dop = self.start.dop
@@ -841,17 +858,17 @@ class Step(SageObject):
             ValueError: Step 0 --> 1 escapes from the disk of (guaranteed)
             convergence of the solutions at regular singular point 0
 
-            sage: Path([1, 0], x*(x^2+1)*Dx).check_convergence()
+            sage: path = Path([1, 0], x*(x^2+1)*Dx, two_point_mode=False)
+            sage: path.check_convergence()
             Traceback (most recent call last):
             ...
-            ValueError: Step 1 --> 0 escapes from the disk of (guaranteed)
+            ValueError: Step 1 <-- 0 escapes from the disk of (guaranteed)
             convergence of the solutions at regular singular point 0
         """
-        ref = self.end if self.end.is_regular_singular() else self.start
-        if self.length() >= ref.dist_to_sing(): # not < ?
+        if not self.length() < self.start.dist_to_sing():
             raise ValueError("Step {} escapes from the disk of (guaranteed) "
                     "convergence of the solutions at {}"
-                    .format(self, ref.descr()))
+                    .format(self, self.start.descr()))
 
     def plot(self):
         return plot.arrow2d(self.start.iv().mid(), self.end.iv().mid())
@@ -871,15 +888,16 @@ class Path(SageObject):
         sage: Dops, x, Dx = DifferentialOperators()
         sage: dop = (x^2 + 1)*Dx^2 + 2*x*Dx
 
-        sage: path = Path([0, 1+I, CBF(2*I)], DifferentialOperator(dop))
+        sage: path = Path([0, 1+I, CBF(2*I)], DifferentialOperator(dop),
+        ....:             two_point_mode=True)
         sage: path
         0 --> I + 1 --> ~2.0000*I
-        sage: path[0]
-        0 --> I + 1
         sage: path.vert[0]
         0
         sage: len(path)
         2
+        sage: list(path.steps())
+        [0 <-- I + 1, I + 1 --> ~2.0000*I]
         sage: path.dop
         (x^2 + 1)*Dx^2 + 2*x*Dx
 
@@ -888,11 +906,11 @@ class Path(SageObject):
         sage: path.check_convergence()
         Traceback (most recent call last):
         ...
-        ValueError: Step 0 --> I + 1 escapes from the disk of (guaranteed)
-        convergence of the solutions at 0
+        ValueError: Step 0 <-- I + 1 escapes from the disk of (guaranteed)
+        convergence of the solutions at I + 1
     """
 
-    def __init__(self, vert, dop):
+    def __init__(self, vert, dop, two_point_mode=False):
         r"""
         TESTS::
 
@@ -919,16 +937,38 @@ class Path(SageObject):
             else:
                 v = Point(v, dop)
             self.vert.append(v)
+        self.two_point_mode = two_point_mode
 
-    def __getitem__(self, i):
+    def steps_direct(self):
+        for a, b in pairwise(self.vert):
+            yield Step(a, b, branch=a.options.get("outgoing_branch"))
+
+    def steps(self):
         r"""
-        Return the i-th step of self
+        Iterate over the steps of this path.
+
+        With ``orient=True``, steps with at least one non-singular end are
+        oriented from the expansion point to the evaluation point.
         """
-        if len(self.vert) < 2:
-            raise IndexError
-        else:
-            return Step(self.vert[i], self.vert[i+1],
-                    branch=self.vert[i].options.get("outgoing_branch"))
+        # XXX At the moment, what we are doing here needs to be consistent with
+        # the behavior of subdivide(). Consider having subdivide() provide
+        # enough information to determine the orientation of all steps.
+        reverse = self.two_point_mode
+        for a, b in pairwise(self.vert):
+            branch = a.options.get("outgoing_branch")
+            if a.is_singular():
+                # XXX Consider forbidding steps from a singular point to another
+                # if b.is_singular():
+                #     raise ValueError
+                reverse = False
+            elif b.is_singular():
+                reverse = True
+            if reverse:
+                a, b = b, a
+            assert a.options.get("action") in (None, "expand")
+            assert b.options.get("action") in (None, "connect")
+            yield Step(a, b, reversed=reverse, branch=branch)
+            reverse = self.two_point_mode and not reverse
 
     def __len__(self):
         return len(self.vert) - 1
@@ -946,7 +986,7 @@ class Path(SageObject):
         gr += plot.line([z.iv().mid() for z in self.vert])
         gr.set_aspect_ratio(1)
         if disks:
-            for step in self:
+            for step in self.steps():
                 z = step.start.iv().mid()
                 gr += plot.circle((z.real(), z.imag()),
                                   step.start.dist_to_sing().lower(),
@@ -1001,7 +1041,7 @@ class Path(SageObject):
             ValueError: Step 0 --> 3 passes through or too close to singular
             points 1, 2...
         """
-        for step in self:
+        for step in self.steps_direct():
             step.check_singularity()
         return True # @cached_method doesn't cache None
 
@@ -1012,15 +1052,15 @@ class Path(SageObject):
             sage: from ore_algebra import *
             sage: from ore_algebra.analytic.path import Path
             sage: Dops, x, Dx = DifferentialOperators()
-            sage: dop = (x^2 + 1)*Dx^2 + 2*x*Dx
+            sage: dop = x*(x^2 + 1)*Dx^2 + 2*x*Dx
             sage: Path([0, 1], dop).check_convergence()
             Traceback (most recent call last):
             ...
             ValueError: Step 0 --> 1 escapes from the disk of (guaranteed)
-            convergence of the solutions at 0
-            sage: Path([1, 0], dop).check_convergence()
+            convergence of the solutions at regular singular point 0
+            sage: Path([0, 1/2], dop).check_convergence()
         """
-        for step in self:
+        for step in self.steps():
             step.check_convergence()
 
     # Path rewriting
@@ -1044,15 +1084,16 @@ class Path(SageObject):
             [-3.5000000000000...] + [+/- ...]*I
         """
         new = []
-        for step in self:
-            new.append(step.start)
+        for a, b in pairwise(self.vert):
+            new.append(a)
+            step = Step(a, b)
             dir = step.direction()
             sings = step.singularities()
-            sings.sort(key=lambda s: (s-step.start.iv()).abs())
+            sings.sort(key=lambda s: (s-a.iv()).abs())
             for s in sings:
                 ds = Point(s, self.dop, singular=True).dist_to_sing()
-                d0 = abs(s - step.start.iv())
-                d1 = abs(s - step.end.iv())
+                d0 = abs(s - a.iv())
+                d1 = abs(s - b.iv())
                 zs = []
                 if not safe_lt(d0, ds):
                     zs.append(-1)
@@ -1065,8 +1106,22 @@ class Path(SageObject):
         new = Path(new, self.dop)
         return new
 
-    def _intermediate_point(self, a, b, factor=IR(0.5), rel_tol=IR(0.125)):
+    def _intermediate_points(self, a, b, npoints, factor=IR(0.5),
+                             rel_tol=IR(0.125)):
         r"""
+        Find one or two intermediate points along [a,b] suitable for summing
+        local solutions.
+
+        * In one-point mode, we look for a point m such that the series at a is
+          converges reasonably fast at m, and m is a good base for a new series
+          expansion.
+
+        * In two-point mode, we look for points m and c such that the series
+          at m converges reasonably fast at both a and c.
+
+        In both cases, the function may return fewer than npoints points if
+        a and b are close.
+
         TESTS:
 
         Thanks to Eric Pichon for this example where subdivision used to fail::
@@ -1095,74 +1150,154 @@ class Path(SageObject):
             sage: ((x^2 + 1)*Dx - 1).numerical_transition_matrix([0, 200*i-1/7])
             [[0.207877720258...] + [0.0010394053945...]*I]
         """
-        rad = a.dist_to_sing()
+        assert npoints in (1, 2)
+
         vec = b.iv() - a.iv()
+        length = abs(vec)
         dir = vec/abs(vec)
         is_real = a.iv().imag().is_zero() and b.iv().imag().is_zero()
-        # Limit angular perturbation using distance to singularities close to
-        # the step. In general, absolute perturbations up to dist/√2 (up to
-        # numerical errors) are safe (preserve the homotopy class).
-        # However, we allow for larger perturbations in the direction of the
-        # step. This is interesting mainly for step along one of the axes.
-        dist = rad
-        length = abs(vec)
+
+        t = ~factor
+        if npoints == 1:
+            newlength = factor*a.dist_to_sing()
+        elif npoints == 2:
+            den = t**2 - 1
+            newlength = length
+
+        channel_half_width = a.dist_to_sing()
         for s in self.dop._singularities(IC):
             h = (s - a.iv())/dir
-            if not (IR.zero() > h.real()) and not (h.real() > length):
-                dist = min(dist, h.imag().below_abs())
-        for i in reversed(range(10)):
-            m0 = a.iv() + dir*factor*rad
-            m = a.iv() + dir*IC(factor.add_error(rel_tol)*rad,
-                                IR.zero().add_error(rel_tol*dist))
-            r = _rationalize(m, is_real)
-            if is_real and a.iv().real() < r < b.iv().real():
-                break
-            # Check that we did not change the homotopy class of the path
-            c = Point(m0.union(r), self.dop)
-            try:
-                Step(a, c).check_singularity()
-                Step(c, b).check_singularity()
-                break
-            except ValueError:
-                logger.debug("homotopy check failed m0=%s m=%s rel_tol=%s r=%s",
-                            m0, m, rel_tol, r)
-                rel_tol = rel_tol**2 if i else IR(0.)
-        else:
-            raise ValueError(f"failed to subdivide (sub)step {a}-->{b}")
-        return Point(r, self.dop)
+            xs, ys = h.real(), h.imag()
+            # Find the closest singularity (if any) that projects orthogonally
+            # on the step that we are splitting...
+            if not (IR.zero() > xs) and not (xs > length):
+                channel_half_width = min(channel_half_width, ys.below_abs())
+            # ...and the largest disk centered on [a, b], with a on the
+            # boundary, that is free of singularities (newlength = factor*radius
+            # of this disk)
+            if npoints == 2:
+                newlength1 = (((t*abs(h))**2 - ys**2).sqrt() - xs)/den
+                if newlength1 < newlength:
+                    newlength = newlength1
 
-    def subdivide(self, threshold=IR(0.6), slow_thr=IR(0.6)):
+        # if npoints == 2:
+        #     _m0 = a.iv() + newlength*dir
+        #     _dist = min(abs(_m0-s) for s in self.dop._singularities(IC))
+        #     assert (factor*_dist).overlaps(newlength)
+
+        if npoints == 2 and newlength < length < 2*newlength:
+            newlength = length/2
+
+        res = []
+        for p in range(1, npoints + 1):
+
+            if not p*newlength*(1 + rel_tol) < length:
+                # Better go straight to point b
+                break
+
+            m0 = a.iv() + p*newlength*dir
+
+            # Attempt to make m0 real and/or a simple Gaussian rational by
+            # perturbing it a little. To preserve the homotopy class of the
+            # path, the angular perturbation needs to be small (absolute
+            # perturbations <= channel_half_width/√2, up to numerical errors,
+            # are safe). However, we allow for larger perturbations in the
+            # direction of the step. This is interesting mainly for steps along
+            # one of the axes.
+            for i in reversed(range(3)):
+                delta = dir*IC(p*newlength.add_error(rel_tol*newlength),
+                                IR.zero().add_error(rel_tol*channel_half_width))
+                rel_tol = rel_tol**2 if i else IR(0.)
+                # The condition p*newlength*(1 + rel_tol) < length holds and
+                # implies |δ| < length in exact arithmetic, but, due to the
+                # wrapping effect in the multiplication by dir, the interval
+                # version may not hold.
+                if not abs(delta) < length:
+                    continue
+                m = a.iv() + delta
+                r = _rationalize(m, is_real)
+                if is_real and a.iv().real() < r < b.iv().real():
+                    break
+                # Check that the homotopy class of the path did not change
+                c = Point(m0.union(r), self.dop)
+                try:
+                    Step(a, c).check_singularity()
+                    Step(c, b).check_singularity()
+                    break
+                except ValueError:
+                    logger.debug(
+                        "homotopy check failed (m0=%s, m=%s, r=%s), "
+                        "trying again with rel_tol=%s",
+                        m0, m, r, rel_tol)
+            else:
+                raise ValueError(f"failed to subdivide (sub)step {a}-->{b}")
+
+            # At the moment the action parameter is for debugging purposes; it
+            # is not used to choose the actual action taken
+            if npoints == 2:
+                action = "connect" if p == 2 else "expand"
+            else:
+                action = None
+            res.append(Point(r, self.dop, action=action))
+
+        return res
+
+    def subdivide(self, mode, thr=IR(0.6)):
         # TODO:
         # - support paths passing very close to singular points
+        # - choose orientations in a more clever way (single-step paths, last
+        #   step, point complexity...)
+        # XXX Needs to stay in sync with steps().
+        assert mode in (1, 2)
         new = [self.vert[0]]
+        npoints = mode
+        skip = self.vert[0].is_singular() # force npoints = 1 for 1st iteration
+        logger.debug("subdividing, new path = %s (skip=%s) ...", new, skip)
         i = 1
         while i < len(self.vert):
             cur, next = new[-1], self.vert[i]
-            rad = cur.dist_to_sing()
-            vec = next.iv() - cur.iv()
-            dist_to_next = vec.abs()
-            split = True
-            local_thr = threshold
-            if next.is_ordinary():
-                if cur.is_singular() and not cur.is_fast():
-                    local_thr = slow_thr
-                if dist_to_next <= local_thr*rad:
-                    split = False
-            elif cur.is_ordinary():
-                if not next.is_fast(): # next is singular
-                    local_thr = slow_thr
-                if dist_to_next <= local_thr*next.dist_to_sing():
-                    split = False
-            elif cur.value == next.value:
-                split = False
-            if not split:
+            logger.debug("(%s --> %s)", cur, next)
+            dist_to_next = abs(next.iv() - cur.iv())
+            # In two-point mode, the path alternates between "expansion" and
+            # "connection" points. The last inserted point new[-1] at the
+            # beginning of an iteration is usually a connection point, except,
+            # in some cases, when skip is True (initially when the starting
+            # point is singular, and at the beginning of a new edge when the
+            # vertex is in "expansion" position).
+            npoints = mode + 1 - npoints if skip else mode
+            skip = False
+            if (npoints == 1 and next.is_ordinary()
+                    and dist_to_next <= thr*cur.dist_to_sing()
+                 or cur.is_ordinary() and (next.is_singular() or npoints == 2)
+                    and dist_to_next <= thr*next.dist_to_sing()):
+                # We are very close to the target, do not insert any new point.
+                # In two-point mode, this means that next will be inserted into
+                # the new path in "expansion" position. Note that this is the
+                # only way in which we can reach a singular vertex of the input
+                # path.
+                skip = True
+            else:
+                newpts = self._intermediate_points(cur, next, npoints)
+                logger.debug("... + %s", newpts)
+                new.extend(newpts)
+            if skip or len(newpts) < npoints:
+                logger.debug("... + %s (skip=%s)", next, skip)
                 new.append(next)
                 i += 1
-            else:
-                new.append(self._intermediate_point(cur, next))
-                logger.debug("subdividing %s -> %s via %s", cur, next, new[-1])
-        new = Path(new, self.dop)
+        new = Path(new, self.dop, two_point_mode=(mode == 2))
         return new
+
+    def simplify_points_add_detours(self, ctx=dctx):
+        n = len(self.vert)
+        new = [None]*n
+        for i in range(n):
+            neighb = []
+            if i > 0:
+                neighb.append(self.vert[i-1])
+            if i < n - 1:
+                neighb.append(self.vert[i+1])
+            new[i] = self.vert[i].simple_approx(neighb, ctx=ctx)
+        return Path(new, self.dop, two_point_mode=self.two_point_mode)
 
     def _sing_connect(self, sing, other, thr=IR(0.6)):
         if sing.is_ordinary():
@@ -1172,7 +1307,8 @@ class Path(SageObject):
         if safe_le(dist, thr*rad):
             return other
         else:
-            return self._intermediate_point(sing, other)
+            [via] = self._intermediate_points(sing, other, 1)
+            return via
 
     def deform(self):
 
@@ -1250,16 +1386,18 @@ class Path(SageObject):
 
         return Path(new, self.dop)
 
-    def deform_or_subdivide(self):
+    def deform_or_subdivide(self, mode):
+        if mode == 2:
+            raise NotImplementedError
         if not self.dop._singularities(IC) or len(self.vert) <= 2:
-            return self.subdivide()
+            return self.subdivide(mode)
         try:
             new = self.deform()
-            logger.info("path homotopy succeeded, old=%s, new=%s, sub=%s", self, new, self.subdivide())
+            logger.info("path homotopy succeeded, old=%s, new=%s, sub=%s", self, new, self.subdivide(mode))
             return new
         except PathDeformationFailed:
             logger.warning("path homotopy failed, falling back to subdivision")
-            return self.subdivide()
+            return self.subdivide(mode)
 
 def orient2d_det(a, b, c):
     return ((b.real() - a.real())*(c.imag() - a.imag())

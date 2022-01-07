@@ -467,7 +467,7 @@ class HighestSolMapper(LocalBasisMapper):
         self._sols[self.shift, self.log_power] = value
         return [vector(v) for v in value]
 
-def fundamental_matrix_regular(dop, pt, eps, fail_fast, effort, ctx=dctx):
+def fundamental_matrix_regular(dop, evpts, eps, fail_fast, effort, ctx=dctx):
     r"""
     Fundamental matrix at a possibly regular singular point
 
@@ -482,15 +482,19 @@ def fundamental_matrix_regular(dop, pt, eps, fail_fast, effort, ctx=dctx):
         sage: fundamental_matrix_regular(
         ....:         DifferentialOperator(x*Dx^2 + (1-x)*Dx),
         ....:         EP(1, 2), RBF(1e-10), False, 2)
+        [
         [[1.317902...] [1.000000...]]
         [[2.718281...]     [+/- ...]]
+        ]
 
         sage: dop = DifferentialOperator(
         ....:         (x+1)*(x^2+1)*Dx^3-(x-1)*(x^2-3)*Dx^2-2*(x^2+2*x-1)*Dx)
         sage: fundamental_matrix_regular(dop, EP(1/3, 3), RBF(1e-10), False, 2)
+        [
         [ [1.000000...]  [0.321750554...]  [0.147723741...]]
         [     [+/- ...]  [0.900000000...]  [0.991224850...]]
         [     [+/- ...]  [-0.27000000...]  [1.935612425...]]
+        ]
 
         sage: dop = DifferentialOperator(
         ....:     (2*x^6 - x^5 - 3*x^4 - x^3 + x^2)*Dx^4
@@ -498,10 +502,12 @@ def fundamental_matrix_regular(dop, pt, eps, fail_fast, effort, ctx=dctx):
         ....:     + (2*x^6 - 3*x^5 - 6*x^4 + 7*x^3 + 8*x^2 - 6*x + 6)*Dx^2
         ....:     + (-2*x^6 + 3*x^5 + 5*x^4 - 2*x^3 - 9*x^2 + 9*x)*Dx)
         sage: fundamental_matrix_regular(dop, EP(RBF(1/3), 4), RBF(1e-10), False, 2)
+        [
         [ [3.1788470...] [-1.064032...]  [1.000...] [0.3287250...]]
         [ [-8.981931...] [3.2281834...]    [+/-...] [0.9586537...]]
         [  [26.18828...] [-4.063756...]    [+/-...] [-0.123080...]]
         [ [-80.24671...]  [9.190740...]    [+/-...] [-0.119259...]]
+        ]
 
         sage: dop = x*Dx^3 + 2*Dx^2 + x*Dx
         sage: ini = [1, CBF(euler_gamma), 0]
@@ -510,9 +516,11 @@ def fundamental_matrix_regular(dop, pt, eps, fail_fast, effort, ctx=dctx):
     """
     eps_col = bounds.IR(eps)/bounds.IR(dop.order()).sqrt()
     eps_col = accuracy.AbsoluteError(eps_col)
-    unr = HighestSolMapper(dop, pt, eps_col, fail_fast, effort, ctx=dctx)
+    unr = HighestSolMapper(dop, evpts, eps_col, fail_fast, effort, ctx=dctx)
     cols = unr.run()
-    return matrix([sol.value[0] for sol in cols]).transpose()
+    mats = [matrix([sol.value[i] for sol in cols]).transpose()
+            for i in range(len(evpts.pts))]
+    return mats
 
 ################################################################################
 # Series summation
@@ -790,6 +798,8 @@ def series_sum_regular(Intervals, dop, bwrec, inis, evpts, stop, stride,
     sols = []
     for ini in inis:
         cseq = CS(Intervals, ini, bwrec.order, real)
+        # FIXME the branch should be computed separately for each component of
+        # the evaluation point, taking into account the orientation of the step
         psums = [PS(cseq, Jets, ord, pt, (evpts.branch, evpts.is_numeric))
                  for pt in evpts.pts]
         sols.append(MPartialSums(cseq, psums))

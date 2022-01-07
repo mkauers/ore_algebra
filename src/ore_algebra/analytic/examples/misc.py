@@ -6,8 +6,12 @@ Miscellaneous examples
 An example kindly provided by Christoph Koutschan::
 
     sage: from ore_algebra.analytic.examples.misc import koutschan1
-    sage: koutschan1.dop.numerical_solution(koutschan1.ini, [0, 84])
+    sage: koutschan1.dop.numerical_solution(koutschan1.ini, [0, 84],
+    ....:                                   two_point_mode=False)
     [0.011501537469552017...]
+    sage: koutschan1.dop.numerical_solution(koutschan1.ini, [0, 84],
+    ....:                                   two_point_mode=True)
+    [0.011501537...]
 
 One by Bruno Salvy, where we follow a branch of the solutions of an algebraic
 equation::
@@ -27,7 +31,7 @@ numerical analytic continuation code::
     sage: from ore_algebra.analytic.examples.misc import melczer1
     sage: rts = melczer1.leading_coefficient().roots(QQbar, multiplicities=False)
     sage: melczer1.numerical_transition_matrix([0, rts[1]])[0, 0]
-    [4.6419124068...] + [-0.01596122801...]*I
+    [4.6419124068...] + [-0.0159612280...]*I
     sage: melczer1.local_basis_expansions(rts[1])
     [1 + (1269/32*a+3105/28)*(z + 0.086...? + 0.069...*I)^4 + ...,
      (z + 0.086...? + 0.069...*I)^(1/2) + (365/96*a+13/3)*(z + 0.086...? + 0.069...*I)^(3/2) - ...,
@@ -52,7 +56,7 @@ efficiently::
 
     sage: from ore_algebra.analytic.examples.misc import iint_quadratic_alg as pb
     sage: pb.dop.numerical_solution(pb.ini, [0, 1/5000*sqrt(277774997191/11111)], 2^(-100)) # long time (1.2 s)
-    [3368168.805821918535950852115...]
+    [3368168.8058219185359508521...]
 
 The Beukers-Heckman-Rodriguez-Villegas hypergeometric function. Generalized
 hypergeometric series can benefit from binary splitting early on, but the
@@ -62,7 +66,7 @@ borrowed from his lecture series at MPI-MiS, March 2021.) ::
 
     sage: from ore_algebra.analytic.examples.misc import rodriguez_villegas_dop as dop
     sage: dop.numerical_transition_matrix([1/4, 3/4], eps=1e-1000)[-1,-1] # long time (2.9-3.2 s)
-    [23.999268334...9600607312558...]
+    [23.999268334...96006073125...]
 """
 import collections
 
