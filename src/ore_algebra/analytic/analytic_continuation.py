@@ -79,9 +79,11 @@ def step_transition_matrix(dop, steps, eps, rows=None, split=0, ctx=dctx):
     for i, step in enumerate(steps):
         if step.reversed:
             try:
-                inv =  ~mat[i]
-                logger.debug("rad=%s, inv.rad=%s",  mat[i].trace().rad(),
-                             inv.trace().rad())
+                inv = ~mat[i]
+                rad, invrad = mat[i].trace().rad(), inv.trace().rad()
+                if invrad**2 > rad:
+                    logger.info("precision loss in inverse: rad=%s, inv.rad=%s",
+                                rad, invrad)
                 mat[i] = inv
             except ZeroDivisionError:
                 raise accuracy.PrecisionError(
