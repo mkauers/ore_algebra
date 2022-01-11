@@ -170,7 +170,7 @@ def _formal_monodromy_from_critical_monomials(critical_monomials, mor):
     for j, jsol in enumerate(critical_monomials):
 
         for i, isol in enumerate(critical_monomials):
-            if isol.leftmost != jsol.leftmost:
+            if isol.leftmost is not jsol.leftmost:
                 continue
             for k, c in enumerate(jsol.value[isol.shift]):
                 delta = k - isol.log_power
@@ -183,9 +183,11 @@ def _formal_monodromy_from_critical_monomials(critical_monomials, mor):
                     scalar = False
 
         expo = jsol.leftmost
-        if expo != expo0:
+        if expo is not expo0:
             scalar = False
-        if expo.parent() is QQ:
+        if isinstance(ring, ComplexBallField): # optimization
+            eigv = (ring(expo)*2).exppii()
+        elif expo.parent() is QQ:
             eigv = ring(QQbar.zeta(expo.denominator())**expo.numerator())
         else:
             # conversion via QQbar seems necessary with some number fields
