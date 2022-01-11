@@ -409,6 +409,7 @@ class sort_key_by_asympt:
         else:
             self.valuation = x
             self.log_power = y
+        self.valuation_num = utilities.qqbar_to_cbf(IC, self.valuation)
 
     def __repr__(self):
         return f"x^({self.valuation})*log(x)^{self.log_power}"
@@ -418,11 +419,9 @@ class sort_key_by_asympt:
                 and self.valuation == other.valuation)
 
     def __lt__(self, other):
-        self_valuation_num = IC(self.valuation)
-        other_valuation_num = IC(other.valuation)
-        if self_valuation_num.real() < other_valuation_num.real():
+        if self.valuation_num.real() < other.valuation_num.real():
             return True
-        elif self_valuation_num.real() > other_valuation_num.real():
+        elif self.valuation_num.real() > other.valuation_num.real():
             return False
         elif self.valuation == other.valuation:
             pass
@@ -439,9 +438,9 @@ class sort_key_by_asympt:
             return False
         # Compare the imaginary parts in such a way that purely real valuations
         # come last
-        if abs(self_valuation_num.imag()) > abs(other_valuation_num.imag()):
+        if abs(self.valuation_num.imag()) > abs(other.valuation_num.imag()):
             return True
-        elif abs(self_valuation_num.imag()) < abs(other_valuation_num.imag()):
+        elif abs(self.valuation_num.imag()) < abs(other.valuation_num.imag()):
             return False
         elif self.valuation.conjugate() == other.valuation:
             pass
