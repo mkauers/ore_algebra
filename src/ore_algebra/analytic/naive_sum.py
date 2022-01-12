@@ -428,7 +428,8 @@ class HighestSolMapper(LocalBasisMapper):
         maj = bounds.DiffOpBound(self.edop, self.leftmost,
                         special_shifts=(None if self.ordinary else self.shifts),
                         bound_inverse="solve",
-                        pol_part_len=(4 if self.ordinary else None))
+                        pol_part_len=(4 if self.ordinary else None),
+                        ind_roots = self.roots)
         stop = accuracy.StoppingCriterion(maj, self.eps.eps)
         # Compute the "highest" (in terms powers of log) solution of each
         # valuation

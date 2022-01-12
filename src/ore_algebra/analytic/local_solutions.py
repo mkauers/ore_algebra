@@ -496,12 +496,13 @@ class LocalBasisMapper(object):
                     rt = -self.irred_factor[0]/self.irred_factor[1]
                     if rt.is_rational():
                         rt = QQ(rt)
-                    self.roots = [rt]
+                    self.roots = [(rt, 1)]
                 else:
                     roots = complex_roots(self.irred_factor,
                             skip_squarefree=True, retval='algebraic')
-                    self.roots = [utilities.as_embedded_number_field_element(rt)
-                                  for rt, _ in roots]
+                    self.roots = [
+                        (utilities.as_embedded_number_field_element(rt), m)
+                        for rt, m in roots]
                 logger.debug("indicial factor = %s, roots = %s",
                              self.irred_factor, self.roots)
                 self.irred_factor_cols = []
@@ -522,7 +523,7 @@ class LocalBasisMapper(object):
     # correct fields set.
 
     def process_irred_factor(self):
-        for self.leftmost in self.roots:
+        for self.leftmost, _ in self.roots:
             self.edop, self.leftmost = self.dop.extend_scalars(self.leftmost)
             if self.edop is self.dop:
                 self.shifted_bwrec = self.bwrec.shift(self.leftmost)
