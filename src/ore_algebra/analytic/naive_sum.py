@@ -425,7 +425,7 @@ class HighestSolMapper(LocalBasisMapper):
     def process_modZ_class(self):
         logger.info(r"solutions z^(%s+n)·log(z)^k/k! + ···, n = %s",
                     self.leftmost, ", ".join(str(s) for s, _ in self.shifts))
-        maj = bounds.DiffOpBound(self.edop, self.leftmost,
+        maj = bounds.DiffOpBound(self.dop, self.leftmost,
                         special_shifts=(None if self.ordinary else self.shifts),
                         bound_inverse="solve",
                         pol_part_len=(4 if self.ordinary else None),

@@ -1449,7 +1449,7 @@ class RatSeqBound(object):
             if n >= 0:
                 pol = self.den
                 for i in range(mult):
-                    assert pol(n).is_zero()
+                    assert pol(n).contains_zero()
                     pol = pol.derivative()
         # Test _lbound_den()
         for n in range(nmax):
@@ -1763,7 +1763,7 @@ class DiffOpBound(object):
 
         self._update_den_bound()
         first_nz, rem_num_nz = self._split_dop(pol_part_len)
-        self.alg_idx = self.leftmost + polygen(Pols_z.base_ring(), 'n')
+        self.alg_idx = CPol_n([self._ivleftmost, 1])
         # indicial polynomial, shifted so that integer roots correspond to
         # series in z^λ·ℂ[[z]][log(z)]
         self.ind = first_nz[0](self.alg_idx)
