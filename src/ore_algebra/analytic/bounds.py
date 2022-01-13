@@ -1426,9 +1426,9 @@ class RatSeqBound(object):
         m = max(rng)
         p += list_plot(
                 pltfilter((e, v.upper())
-                          for (e, v) in self._stairs(1)[0]
-                          if e <= m),
-                size=20, marker='x', color='blue', scale='semilogy',
+                        for (e, v) in self._stairs(1)[0]
+                        if e <= m),
+                size=20, marker='X', color='blue', scale='semilogy',
                 legend_label=r"$\{S(n)\}$")
         p.set_legend_options(handlelength=2, numpoints=3, shadow=False)
         return p
