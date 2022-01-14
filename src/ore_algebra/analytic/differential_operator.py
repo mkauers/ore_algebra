@@ -20,8 +20,6 @@ from sage.rings.complex_interval_field import ComplexIntervalField
 from sage.rings.infinity import infinity
 from sage.rings.number_field.number_field import is_NumberField
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
-from sage.structure.coerce_exceptions import CoercionException
-from sage.structure.element import coercion_model
 
 from ..ore_algebra import OreAlgebra
 from ..ore_operator_1_1 import UnivariateDifferentialOperatorOverUnivariateRing
@@ -181,27 +179,13 @@ class PlainDifferentialOperator(UnivariateDifferentialOperatorOverUnivariateRing
         Scalars = Pols.base_ring()
         if all(Scalars.has_coerce_map_from(pt.parent()) for pt in pts):
             return (self,) + pts
-        gen = Scalars.gen()
-        try:
-            # Largely redundant with the other branch, but may do a better job
-            # in some cases, e.g. pushout(QQ, QQ(α)), where as_enf_elts() would
-            # invent new generator names.
-            NF0 = coercion_model.common_parent(Scalars, *pts)
-            if not is_NumberField(NF0):
-                raise CoercionException
-            NF, hom = utilities.good_number_field(NF0)
-            gen1 = hom(NF0.coerce(gen))
-            pts1 = tuple(hom(NF0.coerce(pt)) for pt in pts)
-        except (CoercionException, TypeError):
-            NF, val1 = as_embedded_number_field_elements((gen,)+pts)
-            gen1, pts1 = val1[0], tuple(val1[1:])
-        hom = Scalars.hom([gen1], codomain=NF)
-        Dops1 = OreAlgebra(Pols.change_ring(NF),
+        hom, *pts1 = utilities.extend_scalars(Scalars, *pts)
+        Dops1 = OreAlgebra(Pols.change_ring(hom.codomain()),
                 (Dops.variable_name(), {}, {Pols.gen(): Pols.one()}))
         dop1 = Dops1([pol.map_coefficients(hom) for pol in self])
         dop1 = PlainDifferentialOperator(dop1)
-        assert dop1.base_ring().base_ring() is NF
-        return (dop1,) + pts1
+        assert dop1.base_ring().base_ring() is hom.codomain()
+        return (dop1,) + tuple(pts1)
 
     def shift(self, delta):
         r"""

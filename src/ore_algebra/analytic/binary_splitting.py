@@ -673,7 +673,8 @@ class SolutionColumn(object):
 
         # Specialize abstract algebraic exponent
         alg_to_IC = _specialization_map(self.v.rec_mat.base_ring().base_ring(),
-                                        IC, abstract_alg, alg)
+                                        IC, abstract_alg,
+                                        alg.as_number_field_element())
 
         # last = [[u(n-1) for log⁰, log¹, ...], ..., [u(n-s) for all logs]]
         rec_den = IC(self.v.rec_den)
@@ -696,14 +697,16 @@ class SolutionColumn(object):
         # Specialize abstract algebraic exponent and add error term
         # (overestimation: we are using a single bound for all subseries)
         specialize = _specialization_map(self.v.zero_sum.parent(), Scalars,
-                                         abstract_alg, alg)
+                                         abstract_alg,
+                                         alg.as_number_field_element())
         denom = specialize(self.v.rec_den)*Scalars(self.v.pow_den[i])
         val = vector([Jets([(specialize(c)/denom).add_error(tail_bound)
                             for c in ser])
                      for ser in numer])
         assert self.v.ord_diff == evpts.jet_order
-        [val] = log_series_values(Jets, alg + shift, val, evpts.pts[i],
-                                  evpts.jet_order, evpts.is_numeric)
+        [val] = log_series_values(Jets, alg.as_number_field_element() + shift,
+                                  val, evpts.pts[i], evpts.jet_order,
+                                  evpts.is_numeric)
         return val
 
     def error_estimate(self):
@@ -1047,7 +1050,6 @@ class MatrixRecsUnroller(LocalBasisMapper):
         # with an abstract algebraic number. It then computes all possible
         # embeddings of the resulting abstract solutions.
 
-        self.edop = self.dop
         if self.irred_factor.degree() == 1:
             # exponent is in the ground field, but not necessarily in QQ, since
             # the differential equation can have coefficients in an embedded

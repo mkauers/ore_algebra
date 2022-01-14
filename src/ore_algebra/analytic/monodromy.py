@@ -131,7 +131,9 @@ def _critical_monomials(dop):
         def fun(self, ini):
             # XXX should share algebraic part with Galois conjugates
             order = max(s for s, _ in self.shifts) + 1
-            ser = log_series(ini, self.shifted_bwrec, order)
+            shifted_bwrec = self.bwrec.shift(
+                self.leftmost.as_number_field_element())
+            ser = log_series(ini, shifted_bwrec, order)
             return {s: ser[s] for s, _ in self.shifts}
 
     return Mapper(dop).run()
@@ -187,8 +189,9 @@ def _formal_monodromy_from_critical_monomials(critical_monomials, mor):
             scalar = False
         if isinstance(ring, ComplexBallField): # optimization
             eigv = (ring(expo)*2).exppii()
-        elif expo.parent() is QQ:
-            eigv = ring(QQbar.zeta(expo.denominator())**expo.numerator())
+        elif expo.is_rational():
+            rat = expo.as_number_field_element()
+            eigv = ring(QQbar.zeta(rat.denominator())**rat.numerator())
         else:
             # conversion via QQbar seems necessary with some number fields
             # XXX We should actually follow expo along mor, but this is not easy
@@ -429,7 +432,7 @@ def _monodromy_matrices(dop, base, eps=1e-16, sing=None):
                     # algebraic extension. XXX: Ideally, LocalBasisMapper should
                     # give us access to the tower of extensions in which the
                     # exponents "naturally" live.)
-                    if all(sol.leftmost.parent() is QQ for sol in crit):
+                    if all(sol.leftmost.is_rational() for sol in crit):
                         crit_cache[mpol] = NF, crit
                 emb = NF.hom([Scalars(point.value.parent().gen())], check=False)
             mon, scalar = _formal_monodromy_from_critical_monomials(crit, emb)

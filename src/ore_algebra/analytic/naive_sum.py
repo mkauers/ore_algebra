@@ -209,7 +209,7 @@ def series_sum(dop, ini, evpts, tgt_error, maj=None, bwrec=None, stop=None,
         special_shifts = [(s, len(v)) for s, v in ini.shift.items()]
         maj = bounds.DiffOpBound(dop, ini.expo, special_shifts)
     if bwrec is None:
-        bwrec = bw_shift_rec(dop, shift=ini.expo)
+        bwrec = bw_shift_rec(dop)
     if stop is None:
         stop = accuracy.StoppingCriterion(maj, tgt_error.eps)
 
@@ -302,11 +302,12 @@ def guard_bits(dop, maj, evpts, ordrec, nterms):
         if new_n0 > nterms:
             return nterms, guard_bits_intervals
 
-def _use_inexact_recurrence(bwrec, prec):
+def _use_inexact_recurrence(bwrec, leftmost, prec):
     Scalars = bwrec.Scalars
     if not is_NumberField(Scalars):
         return False
     if ((Scalars is QQ or utilities.is_QQi(Scalars))
+            and leftmost.is_rational()
             and bwrec[-1][0][0].numerator().nbits() < 10*prec):
         return False
     if prec <= 4000:
@@ -314,7 +315,8 @@ def _use_inexact_recurrence(bwrec, prec):
     h = max(a.numerator().nbits() for p in bwrec.coeff[::3]
                                   for i in range(0, p.degree(), 10)
                                   for a in p[i])
-    prefer_inexact = ( 4*(h + 16)*Scalars.degree()**2 + 4000 >= prec )
+    deg = Scalars.degree()*leftmost.pol.degree()
+    prefer_inexact = ( 4*(h + 16)*deg**2 + 4000 >= prec )
     logger.debug("using %sexact version of recurrence with algebraic coeffs "
             "of degree %s", "in" if prefer_inexact else "", Scalars.degree())
     return prefer_inexact
@@ -368,14 +370,16 @@ def interval_series_sum_wrapper(dop, inis, evpts, tgt_error, bwrec, stop,
         stop.reset(tgt_error.eps >> (4*attempt),
                    stop.fast_fail and ini_are_accurate)
 
-        if _use_inexact_recurrence(bwrec, bit_prec):
+        leftmost = inis[0].expo # XXX fragile
+        if _use_inexact_recurrence(bwrec, leftmost, bit_prec):
             bwrec1 = bwrec.change_base(Intervals)
+            shifted_bwrec = bwrec1.shift(leftmost.as_ball(Intervals))
         else:
-            bwrec1 = bwrec
+            shifted_bwrec = bwrec.shift(leftmost.as_number_field_element())
 
         try:
-            sols = series_sum_regular(Intervals, dop, bwrec1, inis, evpts, stop,
-                                      stride, n0_squash, real)
+            sols = series_sum_regular(Intervals, dop, shifted_bwrec, inis,
+                                      evpts, stop, stride, n0_squash, real)
         except accuracy.PrecisionError:
             if attempt > effort:
                 raise
@@ -439,7 +443,7 @@ class HighestSolMapper(LocalBasisMapper):
                     values={(s, m-1): ZZ.one()})
                 for s, m in self.shifts]
         highest_sols = interval_series_sum_wrapper(self.dop, inis, self.evpts,
-                self.eps, self.shifted_bwrec, stop, self.fail_fast, self.effort,
+                self.eps, self.bwrec, stop, self.fail_fast, self.effort,
                 None, self.ctx)
         self.highest_sols = {}
         for (s, m), sol in zip(self.shifts, highest_sols):

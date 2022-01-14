@@ -30,6 +30,8 @@ from sage.rings.real_arb import RBF, RealBallField, RealBall
 from sage.structure.element import coercion_model
 from sage.structure.sage_object import SageObject
 
+from . import utilities
+
 from .accuracy import IR, IC
 from .context import dctx
 from .deform import PathDeformer, PathDeformationFailed
@@ -468,7 +470,8 @@ class Point(SageObject):
         # perhaps modify generalized_series_solutions() to agree with our
         # definition of the basis?
         if self.is_ordinary(): # support inexact points in this case
-            return [FundamentalSolution(QQbar.zero(), ZZ(expo), ZZ.zero(), None)
+            return [FundamentalSolution(utilities.PolynomialRoot.make(0),
+                                        ZZ(expo), ZZ.zero(), None)
                     for expo in range(self.dop.order())]
         elif not self.is_regular():
             raise NotImplementedError("irregular singular point")

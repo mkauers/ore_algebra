@@ -3030,7 +3030,8 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             order = max(dop.order(), ind.dispersion()) + 3
         class Mapper(LocalBasisMapper):
             def fun(self, ini):
-                return log_series(ini, self.shifted_bwrec, order)
+                shifted_bwrec = self.bwrec.shift(self.leftmost)
+                return log_series(ini, shifted_bwrec, order)
         sols = Mapper(ldop).run()
         x = SR.var(dop.base_ring().variable_name())
         dx = x if point.is_zero() else x.add(-point, hold=True)
@@ -3039,9 +3040,10 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             ring = cm.common_parent(
                     dop.base_ring().base_ring(),
                     mypoint.value.parent(),
-                    *(sol.leftmost for sol in sols))
+                    *(sol.leftmost.as_number_field_element() for sol in sols))
         res = [FormalSum(
-                    [(c/ZZ(k).factorial(), LogMonomial(dx, sol.leftmost, n, k))
+                    [(c/ZZ(k).factorial(),
+                      LogMonomial(dx, sol.leftmost.as_number_field_element(), n, k))
                         for n, vec in enumerate(sol.value)
                         for k, c in reversed(list(enumerate(vec)))
                         if not c.is_zero()],

@@ -19,14 +19,19 @@ import sage.rings.complex_arb
 import sage.rings.real_arb
 
 from sage.categories.pushout import pushout
-from sage.misc.cachefunc import cached_function
+from sage.misc.cachefunc import cached_function, cached_method
 from sage.misc.misc import cputime
 from sage.rings.all import ZZ, QQ, QQbar, CIF, CBF
 from sage.rings.complex_interval_field import ComplexIntervalField
 from sage.rings.number_field.number_field import (NumberField,
         NumberField_quadratic, is_NumberField)
+from sage.rings.number_field.number_field_element import NumberFieldElement
+from sage.rings.polynomial.complex_roots import complex_roots
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 from sage.rings.qqbar import number_field_elements_from_algebraics
+from sage.rings.rational import Rational
+from sage.structure.coerce_exceptions import CoercionException
+from sage.structure.element import coercion_model
 
 ######################################################################
 # Timing
@@ -168,6 +173,124 @@ def mypushout(X, Y):
         assert (is_NumberField(Z) if is_NumberField(X) and is_NumberField(Y)
                                   else True)
         return Z
+
+def extend_scalars(Scalars, *pts):
+    gen = Scalars.gen()
+    try:
+        # Largely redundant with the other branch, but may do a better job
+        # in some cases, e.g. pushout(QQ, QQ(α)), where as_enf_elts() would
+        # invent new generator names.
+        NF0 = coercion_model.common_parent(Scalars, *pts)
+        if not is_NumberField(NF0):
+            raise CoercionException
+        NF, hom = good_number_field(NF0)
+        gen1 = hom(NF0.coerce(gen))
+        pts1 = tuple(hom(NF0.coerce(pt)) for pt in pts)
+    except (CoercionException, TypeError):
+        NF, val1 = as_embedded_number_field_elements((gen,)+pts)
+        gen1, pts1 = val1[0], tuple(val1[1:])
+    hom = Scalars.hom([gen1], codomain=NF)
+    return (hom,) + pts1
+
+######################################################################
+# Algebraic numbers
+######################################################################
+
+class PolynomialRoot:
+
+    def __init__(self, pol, all_roots, index):
+        assert pol.is_monic()
+        self.pol = pol # may have coefficients in a number field
+        self.all_roots = all_roots
+        self.index = index
+
+    def __repr__(self):
+        return repr(self.as_algebraic())
+
+    def __eq__(self, other):
+        if self.pol is other.pol:
+            return self.index == other.index
+        elif self.pol.parent() is other.pol.parent():
+            return False
+        else:
+            # We could compare self.as_algebraic() with other.as_algebraic(),
+            # but that would break hashing.
+            raise NotImplementedError
+
+    def __hash__(self):
+        return hash((self.pol, self.index))
+
+    def as_ball(self, field):
+        return field(self.as_exact())
+
+    _acb_ = as_ball
+
+    @cached_method
+    def as_algebraic(self):
+        return QQbar.polynomial_root(self.pol, self.all_roots[self.index])
+
+    def _algebraic_(self, field):
+        return field(self.as_algebraic())
+
+    @cached_method
+    def as_number_field_element(self):
+        if self.pol.degree() == 1:
+            val = -self.pol[0]
+            if val.is_rational():
+                val = QQ(val)
+            else:
+                _, hom = good_number_field(val.parent())
+                val = hom(val)
+            return val
+        return as_embedded_number_field_element(self.as_algebraic())
+
+    def as_exact(self):
+        if self.pol.degree() == 1:
+            return self.as_number_field_element()
+        else:
+            return self.as_algebraic()
+
+    def conjugate(self):
+        if self.pol.base_ring() is not QQ:
+            raise NotImplementedError
+        conj = self.all_roots[self.index].conjugate()
+        index = next(i for i, rt in enumerate(self.all_roots)
+                       if rt.overlaps(self.all_roots[self.index]))
+        return PolynomialRoot(self.pol, self.all_roots, index)
+
+    def is_rational(self):
+        return self.pol.degree() == 1 and (self.pol.base_ring() is QQ
+                                           or self.pol[0] in QQ)
+
+    def is_zero(self):
+        return self.pol == self.pol.parent().gen()
+
+    @classmethod
+    def make(cls, value):
+        r"""
+        Convenience method to create simple PolynomialRoot objects.
+
+        Warning: Comparison of the resulting objects with each other or to
+        PolynomialRoot objects created using root_of_irred is not supported.
+        """
+        if isinstance(value, PolynomialRoot):
+            return value
+        elif isinstance(value, (Rational, NumberFieldElement)):
+            Pol = PolynomialRing(value.parent(), 'a')
+            pol = Pol([-value, value.parent().one()])
+            return cls(pol, [CIF(value)], 0)
+        value = QQbar(value)
+        pol = value.minpoly()
+        roots, _ = zip(*complex_roots(pol, skip_squarefree=True))
+        indices = [i for i, iv in enumerate(roots) if value in iv]
+        assert len(indices) == 1
+        return cls(pol, roots, indices[0])
+
+def roots_of_irred(pol):
+    roots, mults = zip(*complex_roots(pol, skip_squarefree=True))
+    assert not any(a.overlaps(b) for a in roots for b in roots
+                                 if a is not b)
+    return [(PolynomialRoot(pol, roots, i), m) for i, m in enumerate(mults)]
 
 ######################################################################
 # Sage features

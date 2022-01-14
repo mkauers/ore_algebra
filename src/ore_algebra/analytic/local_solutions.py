@@ -34,7 +34,6 @@ from sage.rings.number_field.number_field import (
         NumberField_quadratic,
     )
 from sage.rings.polynomial import polynomial_element
-from sage.rings.polynomial.complex_roots import complex_roots
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 from sage.structure.sequence import Sequence
 from sage.symbolic.all import SR, pi
@@ -53,8 +52,10 @@ logger = logging.getLogger(__name__)
 # Recurrence relations
 ##############################################################################
 
-def bw_shift_rec(dop, shift=ZZ.zero()):
-    Scalars = utilities.mypushout(dop.base_ring().base_ring(), shift.parent())
+def bw_shift_rec(dop, shift=None):
+    Scalars = dop.base_ring().base_ring()
+    if shift is not None:
+        Scalars = utilities.mypushout(Scalars, shift.parent())
     if dop.parent().is_D():
         dop = DifferentialOperator(dop) # compatibility bugware
         rop = dop._my_to_S()
@@ -64,6 +65,8 @@ def bw_shift_rec(dop, shift=ZZ.zero()):
     Pols_n, n = rop.base_ring().change_ring(Scalars).objgen()
     Rops = ore_algebra.OreAlgebra(Pols_n, 'Sn')
     ordrec = rop.order()
+    if shift is None:
+        shift = Scalars.zero()
     rop = Rops([p(n-ordrec+shift) for p in rop])
     # Clear_denominators
     den = lcm([p.denominator() for p in rop])
@@ -215,8 +218,14 @@ class BwShiftRec(object):
         return self.coeff[i]
 
     def shift(self, sh):
-        n = self.coeff[0].parent().gen()
-        coeff = [pol(sh + n) for pol in self.coeff]
+        try:
+            sh = self.Scalars.coerce(sh)
+            coeff = self.coeff
+        except TypeError:
+            hom, sh = utilities.extend_scalars(self.Scalars, sh)
+            coeff = [pol.map_coefficients(hom) for pol in self.coeff]
+        n = coeff[0].parent().gen()
+        coeff = [pol(sh + n) for pol in coeff]
         den = lcm([p.denominator() for p in coeff])
         return BwShiftRec([den*c for c in coeff])
 
@@ -258,15 +267,11 @@ class LogSeriesInitialValues(object):
             ...
             ValueError: invalid initial data for x*Dx^3 + 2*Dx^2 + x*Dx at 0
         """
-
         try:
-            self.expo = QQ.coerce(expo)
-        except TypeError:
-            try:
-                self.expo = QQbar.coerce(expo)
-            except TypeError:
-                # symbolic; won't be sortable
-                self.expo = expo
+            self.expo = utilities.PolynomialRoot.make(expo)
+        # accept abstract number field elements; some methods will not work
+        except (TypeError, ValueError):
+            self.expo = expo
 
         if isinstance(values, dict):
             all_values = tuple(chain.from_iterable(
@@ -311,7 +316,7 @@ class LogSeriesInitialValues(object):
         ind = dop._indicial_polynomial_at_zero()
         for sl_factor, shifts in my_shiftless_decomposition(ind):
             for k, (val_shift, _) in enumerate(shifts):
-                if sl_factor(self.expo - val_shift).is_zero():
+                if sl_factor(self.expo.as_algebraic() - val_shift).is_zero():
                     if len(self.shift) != len(shifts) - k:
                         return False
                     for shift, mult in shifts[k:]:
@@ -339,7 +344,7 @@ class LogSeriesInitialValues(object):
         # pt^expo*log(z)^k is real.
         return (utilities.is_real_parent(dop.base_ring().base_ring())
                 and utilities.is_real_parent(self.universe)
-                and self.expo.imag().is_zero())
+                and self.expo.as_algebraic().imag().is_zero())
 
     def accuracy(self):
         infinity = RBF.maximal_accuracy()
@@ -390,7 +395,7 @@ _FundamentalSolution0 = collections.namedtuple(
 class FundamentalSolution(_FundamentalSolution0):
     @lazy_attribute
     def valuation(self):
-        return QQbar(self.leftmost + self.shift) # alg vs NFelt for re, im
+        return self.leftmost.as_algebraic() + self.shift # alg for re, im
 
 class sort_key_by_asympt:
     r"""
@@ -492,17 +497,7 @@ class LocalBasisMapper(object):
         for self.sl_factor, self.shifts in self.sl_decomp:
             for self.irred_factor, irred_mult in self.sl_factor.factor():
                 assert irred_mult == 1
-                if self.irred_factor.degree() == 1:
-                    rt = -self.irred_factor[0]/self.irred_factor[1]
-                    if rt.is_rational():
-                        rt = QQ(rt)
-                    self.roots = [(rt, 1)]
-                else:
-                    roots = complex_roots(self.irred_factor,
-                            skip_squarefree=True, retval='algebraic')
-                    self.roots = [
-                        (utilities.as_embedded_number_field_element(rt), m)
-                        for rt, m in roots]
+                self.roots = utilities.roots_of_irred(self.irred_factor)
                 logger.debug("indicial factor = %s, roots = %s",
                              self.irred_factor, self.roots)
                 self.irred_factor_cols = []
@@ -524,12 +519,6 @@ class LocalBasisMapper(object):
 
     def process_irred_factor(self):
         for self.leftmost, _ in self.roots:
-            self.edop, self.leftmost = self.dop.extend_scalars(self.leftmost)
-            if self.edop is self.dop:
-                self.shifted_bwrec = self.bwrec.shift(self.leftmost)
-            else:
-                mybwrec = bw_shift_rec(self.edop)
-                self.shifted_bwrec = mybwrec.shift(self.leftmost)
             self.process_modZ_class()
 
     def process_modZ_class(self):
@@ -542,11 +531,9 @@ class LocalBasisMapper(object):
 
     def process_solution(self):
         ini = LogSeriesInitialValues(
-            dop = self.edop,
             expo = self.leftmost,
             values = { (self.shift, self.log_power): ZZ.one() },
-            mults = self.shifts,
-            check = False)
+            mults = self.shifts)
         # XXX: inefficient if self.shift >> 0
         value = self.fun(ini)
         sol = FundamentalSolution(
@@ -619,10 +606,12 @@ def log_series_values(Jets, expo, psum, pt, derivatives, is_numeric,
     specialize abstract algebraic numbers that might appear in ``psum``.
     """
     # The 'branch' parameter is currently unused.
+    if isinstance(expo, utilities.PolynomialRoot):
+        expo = expo.as_exact()
     log_prec = psum.length()
     assert all(d < log_prec for d in downshift) or log_prec == 0
     if not is_numeric:
-        if expo != 0 or log_prec > 1:
+        if not expo.is_zero() or log_prec > 1:
             raise NotImplementedError("log-series of symbolic point")
         return [vector(psum[0][i] for i in range(derivatives))]
     pt = Jets.base_ring()(pt)

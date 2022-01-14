@@ -1670,9 +1670,9 @@ class DiffOpBound(object):
         sage: _test_diffop_bound() # long time
     """
 
-    def __init__(self, dop, leftmost=ZZ.zero(), special_shifts=None,
-            max_effort=2, pol_part_len=None, bound_inverse="simple",
-            ind_roots=None):
+    def __init__(self, dop, leftmost=0,
+                 special_shifts=None, max_effort=2, pol_part_len=None,
+                 bound_inverse="simple", ind_roots=None):
         r"""
         Construct a DiffOpBound for a subset of the solutions of dop.
 
@@ -1725,16 +1725,16 @@ class DiffOpBound(object):
 
         self._rcoeffs = _dop_rcoeffs_of_T(dop_T, IC)
 
-        self.leftmost = leftmost
-        self._ivleftmost = IC(self.leftmost)
+        self.leftmost = utilities.PolynomialRoot.make(leftmost)
+        self._ivleftmost = self.leftmost.as_ball(IC)
         if self._dop_D.leading_coefficient()[0] != 0:
             # Ordinary point: even though the indicial equation usually has
             # several integer roots, the solutions are plain power series.
             self.special_shifts = {0: 1}
         else:
             if special_shifts is None:
-                special_shifts = local_solutions.exponent_shifts(
-                                                         self._dop_D, leftmost)
+                special_shifts = local_solutions.exponent_shifts(self._dop_D,
+                                       self.leftmost.as_number_field_element())
             self.special_shifts = dict(special_shifts)
 
         # XXX Consider switching to an interface where the user simply chooses
@@ -1944,7 +1944,7 @@ class DiffOpBound(object):
 
     @cached_method
     def bwrec(self):
-        return local_solutions.bw_shift_rec(self.dop, shift=self.leftmost)
+        return local_solutions.bw_shift_rec(self.dop).shift(self.leftmost)
 
     def normalized_residual(self, n, last, bwrec_nplus=None, Ring=None):
         r"""
@@ -2170,15 +2170,16 @@ class DiffOpBound(object):
         coeff = self.normalized_residual(n, list(last), Ring=Ring)
         from sage.all import log, SR
         z = SR.var(self.Poly.variable_name())
-        nres = z**(self.leftmost + n)*sum(pol*log(z)**k/ZZ(k).factorial()
-                                          for k, pol in enumerate(coeff))
+        leftmost = self.leftmost.as_number_field_element()
+        nres = z**(leftmost + n)*sum(pol*log(z)**k/ZZ(k).factorial()
+                                     for k, pol in enumerate(coeff))
         trunc_full = z**expo*sum(pol*log(z)**k/ZZ(k).factorial()
                                  for k, pol in enumerate(trunc))
         lc = self.dop.leading_coefficient()
         dop0 = self.dop.map_coefficients(lambda pol: pol[0]/lc[0])
         Poly = self.Poly.change_ring(Ring)
-        out = (dop0(nres)/z**self.leftmost).expand()
-        ref = (self.dop(trunc_full)/z**self.leftmost).expand()
+        out = (dop0(nres)/z**leftmost).expand()
+        ref = (self.dop(trunc_full)/z**leftmost).expand()
         return (out-ref).expand()
 
     def rhs(self, n1, normalized_residuals, maj=None):
