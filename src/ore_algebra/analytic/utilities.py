@@ -246,9 +246,10 @@ class PolynomialRoot:
 
     def as_exact(self):
         if self.pol.degree() == 1:
-            return self.as_number_field_element()
-        else:
-            return self.as_algebraic()
+            a = self.as_number_field_element()
+            if isinstance(a.parent(), NumberField_quadratic):
+                return a
+        return self.as_algebraic()
 
     def conjugate(self):
         if self.pol.base_ring() is not QQ:
@@ -261,6 +262,14 @@ class PolynomialRoot:
     def is_rational(self):
         return self.pol.degree() == 1 and (self.pol.base_ring() is QQ
                                            or self.pol[0] in QQ)
+
+    def try_integer(self):
+        if self.pol.degree() > 1:
+            return None
+        try:
+            return -ZZ(self.pol[0])
+        except (TypeError, ValueError):
+            return None
 
     def is_zero(self):
         return self.pol == self.pol.parent().gen()
@@ -287,6 +296,9 @@ class PolynomialRoot:
         return cls(pol, roots, indices[0])
 
 def roots_of_irred(pol):
+    if pol.degree() == 1:
+        pol = pol.monic()
+        return [(PolynomialRoot(pol, [-CIF(pol[0])], 0), 1)]
     roots, mults = zip(*complex_roots(pol, skip_squarefree=True))
     assert not any(a.overlaps(b) for a in roots for b in roots
                                  if a is not b)

@@ -344,7 +344,7 @@ class LogSeriesInitialValues(object):
         # pt^expo*log(z)^k is real.
         return (utilities.is_real_parent(dop.base_ring().base_ring())
                 and utilities.is_real_parent(self.universe)
-                and self.expo.as_algebraic().imag().is_zero())
+                and self.expo.as_exact().imag().is_zero())
 
     def accuracy(self):
         infinity = RBF.maximal_accuracy()
@@ -606,37 +606,38 @@ def log_series_values(Jets, expo, psum, pt, derivatives, is_numeric,
     specialize abstract algebraic numbers that might appear in ``psum``.
     """
     # The 'branch' parameter is currently unused.
-    if isinstance(expo, utilities.PolynomialRoot):
-        expo = expo.as_exact()
+    expo = utilities.PolynomialRoot.make(expo)
+    expo_ZZ = expo.try_integer()
     log_prec = psum.length()
     assert all(d < log_prec for d in downshift) or log_prec == 0
     if not is_numeric:
         if not expo.is_zero() or log_prec > 1:
             raise NotImplementedError("log-series of symbolic point")
         return [vector(psum[0][i] for i in range(derivatives))]
-    pt = Jets.base_ring()(pt)
-    if log_prec > 1 or expo not in ZZ or branch != (0,):
+    Scalars = Jets.base_ring()
+    pt = Scalars(pt)
+    if log_prec > 1 or expo_ZZ is None or branch != (0,):
         pt = pt.parent().complex_field()(pt)
-        Jets = Jets.change_ring(Jets.base_ring().complex_field())
+        Jets = Jets.change_ring(Scalars.complex_field())
         psum = psum.change_ring(Jets)
     high = Jets([0] + [(-1)**(k+1)*~pt**k/k
                        for k in range(1, derivatives)])
-    aux = high*expo
+    expo_iv = expo.as_ball(Jets.base_ring())
+    aux = high*expo_iv
     logger.debug("aux=%s", aux)
-    val = [Jets.base_ring().zero() for d in downshift]
+    val = [Scalars.zero() for d in downshift]
     for b in branch:
         twobpii = pt.parent()(2*b*pi*I)
         # hardcoded series expansions of log(a+η) and (a+η)^λ
         # (too cumbersome to compute directly in Sage at the moment)
         logpt = Jets([pt.log() + twobpii]) + high
         logger.debug("logpt[%s]=%s", b, logpt)
-        if expo in ZZ and expo >= 0:
+        if expo_ZZ is not None and expo_ZZ >= 0:
             # the general formula in the other branch does not work when pt
             # contains zero
-            expo = int(expo)
-            inipow = _pow_trunc(Jets([pt, 1]), expo, derivatives)
+            inipow = _pow_trunc(Jets([pt, 1]), expo_ZZ, derivatives)
         else:
-            inipow = ((twobpii*expo).exp()*pt**expo
+            inipow = ((twobpii*expo_iv).exp()*pt**expo_iv
                      *sum(_pow_trunc(aux, k, derivatives)/Integer(k).factorial()
                           for k in range(derivatives)))
         logger.debug("inipow[%s]=%s", b, inipow)
