@@ -407,35 +407,40 @@ class sort_key_by_asympt:
     things like `x^i`, always come before convergent ones.
     """
 
-    def __init__(self, x, y=None):
-        if y is None:
-            self.valuation = x.valuation
-            self.log_power = x.log_power
-        else:
-            self.valuation = x
-            self.log_power = y
-        self.valuation_num = utilities.qqbar_to_cbf(IC, self.valuation)
+    def __init__(self, data):
+        self.leftmost, self.shift, self.log_power, *_ = data
+        self.valuation_num = self.leftmost.as_ball(IC) + self.shift
 
     def __repr__(self):
-        return f"x^({self.valuation})*log(x)^{self.log_power}"
+        return f"x^({self.leftmost}+{self.shift})*log(x)^{self.log_power}"
 
     def __eq__(self, other):
-        return (self.log_power == other.log_power
-                and self.valuation == other.valuation)
+        if self.log_power != other.log_power:
+            return False
+        if self.leftmost is other.leftmost:
+            return self.shift == other.shift
+        elif self.valuation_num != other.valuation_num:
+            return False
+        else:
+            return (self.leftmost.as_algebraic() - other.leftmost.as_algebraic()
+                    == other.shift - self.shift)
 
     def __lt__(self, other):
         if self.valuation_num.real() < other.valuation_num.real():
             return True
         elif self.valuation_num.real() > other.valuation_num.real():
             return False
-        elif self.valuation == other.valuation:
+        elif self.shift == other.shift and (self.leftmost == other.leftmost
+                             or self.leftmost.try_eq_conjugate(other.leftmost)):
             pass
-        elif self.valuation.conjugate() == other.valuation:
-            pass
-        elif self.valuation.real() < other.valuation.real():
-            return True
-        elif self.valuation.real() > other.valuation.real():
-            return False
+        else:
+            delta = (self.leftmost.as_algebraic().real()
+                     - other.leftmost.as_algebraic().real()
+                     + (self.shift - other.shift))
+            if delta < 0:
+                return True
+            if delta > 0:
+                return False
         # Valuations have equal real parts, compare powers of log
         if self.log_power > other.log_power:
             return True
@@ -447,14 +452,23 @@ class sort_key_by_asympt:
             return True
         elif abs(self.valuation_num.imag()) < abs(other.valuation_num.imag()):
             return False
-        elif self.valuation.conjugate() == other.valuation:
+        elif self.leftmost == other.leftmost:
+            return False # same imaginary part, no strict inequality
+        elif self.leftmost.try_eq_conjugate(other.leftmost):
             pass
-        elif abs(self.valuation.imag()) > abs(other.valuation.imag()):
-            return True
-        elif abs(self.valuation.imag()) < abs(other.valuation.imag()):
-            return False
-        assert self.valuation.imag().sign() == -other.valuation.imag().sign()
-        return self.valuation.imag() < 0
+        else:
+            im0 = self.leftmost.as_algebraic().imag()
+            im1 = other.leftmost.as_algebraic().imag()
+            if im0 == im1:
+                return False
+            elif abs(im0) > abs(im1):
+                return True
+            elif abs(im0) < abs(im1):
+                return False
+        # The imaginary parts have the same absolute value and opposite signs
+        assert (self.leftmost.as_algebraic().imag().sign() ==
+                -other.leftmost.as_algebraic().imag().sign())
+        return self.leftmost.as_algebraic().imag() < 0
 
 class LocalBasisMapper(object):
     r"""

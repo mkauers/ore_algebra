@@ -3213,7 +3213,8 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             sage: (Dx - 1).numerical_solution([1], [[0], 1])
             [(0, 1.0000000000000000)]
         """
-        from .analytic import analytic_continuation as ancont, local_solutions
+        from .analytic import analytic_continuation as ancont
+        from .analytic import local_solutions, utilities
         from .analytic.differential_operator import DifferentialOperator
         dop = DifferentialOperator(self)
         post_transform = ancont.normalize_post_transform(dop, post_transform)
@@ -3223,7 +3224,8 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         sol = ancont.analytic_continuation(dop, path, eps, ctx, ini=ini,
                                          post=post_mat, return_local_bases=True)
         val = []
-        asycst = local_solutions.sort_key_by_asympt(QQbar.zero(), ZZ.zero())
+        asycst = local_solutions.sort_key_by_asympt(
+            (utilities.PolynomialRoot.make(QQ.zero()), 0, ZZ.zero()))
         for sol_at_pt in sol:
             pt = sol_at_pt["point"]
             mat = sol_at_pt["value"]

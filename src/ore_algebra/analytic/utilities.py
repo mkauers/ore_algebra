@@ -212,6 +212,8 @@ class PolynomialRoot:
             return self.index == other.index
         elif self.pol.parent() is other.pol.parent():
             return False
+        elif other.is_zero():
+            return self.is_zero()
         else:
             # We could compare self.as_algebraic() with other.as_algebraic(),
             # but that would break hashing.
@@ -256,8 +258,14 @@ class PolynomialRoot:
             raise NotImplementedError
         conj = self.all_roots[self.index].conjugate()
         index = next(i for i, rt in enumerate(self.all_roots)
-                       if rt.overlaps(self.all_roots[self.index]))
+                       if rt.overlaps(conj))
         return PolynomialRoot(self.pol, self.all_roots, index)
+
+    def try_eq_conjugate(self, other):
+        return (self.pol.base_ring() is QQ
+                and self.all_roots is other.all_roots
+                and self.all_roots[self.index].conjugate().overlaps(
+                                                   self.all_roots[other.index]))
 
     def is_rational(self):
         return self.pol.degree() == 1 and (self.pol.base_ring() is QQ
