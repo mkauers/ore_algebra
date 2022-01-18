@@ -225,7 +225,7 @@ class PolynomialRoot:
     def as_ball(self, field):
         return field(self.as_exact())
 
-    _acb_ = as_ball
+    _acb_ = _complex_mpfr_field_ = _complex_mpfi_ = as_ball
 
     @cached_method
     def as_algebraic(self):
@@ -282,6 +282,16 @@ class PolynomialRoot:
     def is_zero(self):
         return self.pol == self.pol.parent().gen()
 
+    def sign_imag(self):
+        im = self.all_roots[self.index].imag()
+        if im.is_zero():
+            return 0
+        elif im.lower() > 0:
+            return +1
+        elif im.upper() < 0:
+            return -1
+        raise AssertionError
+
     @classmethod
     def make(cls, value):
         r"""
@@ -296,7 +306,7 @@ class PolynomialRoot:
             Pol = PolynomialRing(value.parent(), 'a')
             pol = Pol([-value, value.parent().one()])
             return cls(pol, [CIF(value)], 0)
-        value = QQbar(value)
+        value = QQbar.coerce(value)
         pol = value.minpoly()
         roots, _ = zip(*complex_roots(pol, skip_squarefree=True))
         indices = [i for i, iv in enumerate(roots) if value in iv]

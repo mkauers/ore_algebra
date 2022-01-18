@@ -577,6 +577,7 @@ class PathDeformer(object):
             dop = path.dop
             path = path.vert
         self.sing = [complex(z) for z in dop._singularities(CC)]
+        self.sing.sort(key=lambda z: z.real)
         if not self.sing:
             raise NotImplementedError("need at least one singularity")
         self.leftmost = int(argmin([z.real for z in self.sing]))

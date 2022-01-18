@@ -97,20 +97,25 @@ class PlainDifferentialOperator(UnivariateDifferentialOperatorOverUnivariateRing
         raise NotImplementedError("use _singularities()")
 
     @cached_method
-    def _singularities(self, dom, include_apparent=True, multiplicities=False):
-        if not multiplicities:
-            rts = self._singularities(dom, include_apparent, multiplicities=True)
-            return [s for s, _ in rts]
-        if isinstance(dom, ComplexBallField): # TBI
-            dom1 = ComplexIntervalField(dom.precision())
-            rts = self._singularities(dom1, include_apparent, multiplicities)
-            return [(dom(s), m) for s, m in rts]
-        dop = self if include_apparent else self.desingularize() # TBI
-        lc = dop.leading_coefficient()
-        try:
-            return lc.roots(dom)
-        except NotImplementedError:
-            return lc.change_ring(QQbar).roots(dom)
+    def _singularities(self, dom=None, multiplicities=False):
+        r"""
+        Complex singularities of self, as elements of dom.
+
+        Pass dom=None to get the singularities as PolynomialRoot objects.
+        """
+        if dom is None and multiplicities:
+            sing = []
+            for fac, mult in self.leading_coefficient().factor():
+                roots = utilities.roots_of_irred(fac)
+                sing.extend((rt, mult) for rt in roots)
+        else:
+            # Memoize the version with all information
+            sing = self._singularities(None, multiplicities=True)
+            if dom is not None:
+                sing = [(dom(rt), mult) for rt, mult in sing]
+            if not multiplicities:
+                sing = [s for s, _ in sing]
+        return sing
 
     def _sing_as_alg(dop, iv):
         pol = dop.leading_coefficient().radical()
@@ -245,8 +250,8 @@ class ShiftedDifferentialOperator(PlainDifferentialOperator):
         self._orig = orig
         self._delta = delta
 
-    def _singularities(self, dom, include_apparent=True, multiplicities=False):
-        sing = self._orig._singularities(dom, include_apparent, multiplicities)
+    def _singularities(self, dom, multiplicities=False):
+        sing = self._orig._singularities(dom, multiplicities)
         delta = dom(self._delta.value)
         if multiplicities:
             return [(s - delta, m) for s, m in sing]

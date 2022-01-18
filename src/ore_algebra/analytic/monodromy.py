@@ -263,7 +263,7 @@ class TodoItem():
 
     @cached_method
     def point(self):
-        return path.Point(self.alg, self._dop)
+        return path.Point(self.alg.as_exact(), self._dop)
 
     def __eq__(self, other):
         return self is other
@@ -277,13 +277,13 @@ class TodoItem():
 
 def _merge_conjugate_singularities(dop, sing, base, todo):
     need_conjugates = False
-    sgn = 1 if base.alg.imag() >= 0 else -1
+    sgn = 1 if base.alg.sign_imag() >= 0 else -1
     for x in sing:
-        if sgn*x.imag() < 0:
+        if sgn*x.sign_imag() < 0:
             need_conjugates = True
             del todo[x]
             xconj = x.conjugate()
-            item = todo.get(xconj) # dict queries on elts of QQbar are slow
+            item = todo.get(xconj)
             if item is None:
                 todo[xconj] = item = TodoItem(xconj, dop)
             item.want_conj = True
@@ -376,13 +376,27 @@ def _monodromy_matrices(dop, base, eps=1e-16, sing=None):
         [LocalMonodromyData(point=1*I, monodromy=[1.0000000000000000], is_scalar=True),
         LocalMonodromyData(point=-1*I, monodromy=[1.0000000000000000], is_scalar=True)]
     """
+    dop = dop.numerator()
+    if all(c in QQ for pol in dop for c in pol):
+        dop = dop.change_ring(dop.base_ring().change_ring(QQ))
     dop = DifferentialOperator(dop)
-    base = QQbar.coerce(base)
     eps = RBF(eps)
     if sing is None:
-        sing = dop._singularities(QQbar)
+        sing = dop._singularities()
     else:
-        sing = [QQbar.coerce(s) for s in sing]
+        sing = [x for x in dop._singularities() if x.as_algebraic() in sing]
+
+    # Normalize base point. If it is one of the singularities, make sure we
+    # represent them by the same object (and thus by a PolynomialRoot compatible
+    # with the remaining singularities).
+    base = QQbar.coerce(base)
+    base_iv = CBF(base)
+    for s in dop._singularities():
+        if base_iv in s.as_ball(CBF) and base == s.as_algebraic():
+            base = s
+            break
+    else:
+        base = utilities.PolynomialRoot.make(base)
 
     todo = {x: TodoItem(x, dop, want_self=True, want_conj=False)
             for x in sing}
@@ -394,7 +408,7 @@ def _monodromy_matrices(dop, base, eps=1e-16, sing=None):
     # Galois conjugates.
     need_conjugates = False
     crit_cache = None
-    if all(c in QQ for pol in dop for c in pol):
+    if dop.base_ring().base_ring() is QQ:
         need_conjugates = _merge_conjugate_singularities(dop, sing, base, todo)
         # TODO: do something like that even over number fields?
         # XXX this is actually a bit costly: do it only after checking that the
@@ -441,13 +455,13 @@ def _monodromy_matrices(dop, base, eps=1e-16, sing=None):
                 # XXX When we do need them, though, it would be better to get
                 # the formal monodromy as a byproduct of their computation.
                 if todoitem.want_self:
-                    yield LocalMonodromyData(key, mon, True)
+                    yield LocalMonodromyData(key.as_algebraic(), mon, True)
                 if todoitem.want_conj:
                     conj = key.conjugate()
                     logger.info("Computing local monodromy around %s by "
                                 "complex conjugation", conj)
                     conj_mat = ~mon.conjugate()
-                    yield LocalMonodromyData(conj, conj_mat, True)
+                    yield LocalMonodromyData(conj.as_algebraic(), conj_mat, True)
                 if todoitem is not base:
                     del todo[key]
                     continue
@@ -458,8 +472,8 @@ def _monodromy_matrices(dop, base, eps=1e-16, sing=None):
 
     if need_conjugates:
         base_conj_mat = dop.numerical_transition_matrix(
-                            [base.point(), base.point().conjugate()],
-                            eps, assume_analytic=True)
+            [base.alg.as_exact(), base.alg.conjugate().as_exact()],
+            eps, assume_analytic=True)
         def conjugate_monodromy(mat):
             return ~base_conj_mat*~mat.conjugate()*base_conj_mat
 
@@ -473,13 +487,13 @@ def _monodromy_matrices(dop, base, eps=1e-16, sing=None):
         based_mat = (~path_mat)*local_mat*path_mat
 
         if x.want_self:
-            yield LocalMonodromyData(x.alg, based_mat, False)
+            yield LocalMonodromyData(x.alg.as_algebraic(), based_mat, False)
         if x.want_conj:
             conj = x.alg.conjugate()
             logger.info("Computing local monodromy around %s by complex "
                         "conjugation", conj)
             conj_mat = conjugate_monodromy(based_mat)
-            yield LocalMonodromyData(conj, conj_mat, False)
+            yield LocalMonodromyData(conj.as_algebraic(), conj_mat, False)
 
         x.done = True
 
