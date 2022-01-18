@@ -433,7 +433,7 @@ class HighestSolMapper(LocalBasisMapper):
                         special_shifts=(None if self.ordinary else self.shifts),
                         bound_inverse="solve",
                         pol_part_len=(4 if self.ordinary else None),
-                        ind_roots = self.roots)
+                        ind_roots = self.all_roots)
         stop = accuracy.StoppingCriterion(maj, self.eps.eps)
         # Compute the "highest" (in terms powers of log) solution of each
         # valuation

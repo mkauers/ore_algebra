@@ -306,11 +306,11 @@ class PolynomialRoot:
 def roots_of_irred(pol):
     if pol.degree() == 1:
         pol = pol.monic()
-        return [(PolynomialRoot(pol, [-CIF(pol[0])], 0), 1)]
-    roots, mults = zip(*complex_roots(pol, skip_squarefree=True))
+        return [PolynomialRoot(pol, [-CIF(pol[0])], 0)]
+    roots, _ = zip(*complex_roots(pol, skip_squarefree=True))
     assert not any(a.overlaps(b) for a in roots for b in roots
                                  if a is not b)
-    return [(PolynomialRoot(pol, roots, i), m) for i, m in enumerate(mults)]
+    return [PolynomialRoot(pol, roots, i) for i in range(len(roots))]
 
 ######################################################################
 # Sage features

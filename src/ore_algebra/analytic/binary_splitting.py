@@ -1093,8 +1093,8 @@ class MatrixRecsUnroller(LocalBasisMapper):
         # Majorants
         maj = {rt: bounds.DiffOpBound(self.dop, rt, self.shifts,
                                       bound_inverse="solve",
-                                      ind_roots=self.roots)
-               for rt, _ in self.roots}
+                                      ind_roots=self.all_roots)
+               for rt in self.roots}
 
         wrapper = bounds.MultiDiffOpBound(maj.values())
         # TODO: switch to fast_fail=True?
@@ -1110,7 +1110,7 @@ class MatrixRecsUnroller(LocalBasisMapper):
                 return {(rt, sol.shift, sol.log_power):
                         sol.value.normalized_residual(maj[rt], self.leftmost,
                                                       rt, self.shift)
-                        for rt, _ in self.roots
+                        for rt in self.roots
                         for sol in self.irred_factor_cols}
             def get_bound(_, residuals):
                 r"""
@@ -1128,7 +1128,7 @@ class MatrixRecsUnroller(LocalBasisMapper):
                 cases.
                 """
                 sqbound = bounds.IR.zero()
-                for rt, _ in self.roots:
+                for rt in self.roots:
                     myres = [residuals[rt,s,k] for (s,m) in self.shifts
                                                for k in range(m)]
                     # Tail majorant valid for the power series in front of the
@@ -1205,7 +1205,7 @@ class MatrixRecsUnroller(LocalBasisMapper):
                                           rt, sol.shift,
                                           self.modZ_class_tail_bound)
                     for i in range(len(self.evpts.pts))])
-            for rt, _ in self.roots
+            for rt in self.roots
             for sol in self.irred_factor_cols]
 
     def fun(self, ini):

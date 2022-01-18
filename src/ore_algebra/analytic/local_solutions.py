@@ -506,12 +506,29 @@ class LocalBasisMapper(object):
 
         self.process_decomposition()
 
+        # Compute the complete factorization and all the roots before launching
+        # the main iteration. This is used to avoid recomputing the roots when
+        # working on error bounds.
+        sl_data = []
+        self.all_roots = []
+        for sl_factor, shifts in self.sl_decomp:
+            irred_data = []
+            for irred_factor, irred_mult in sl_factor.factor():
+                assert irred_mult == 1
+                roots = utilities.roots_of_irred(irred_factor)
+                irred_data.append((irred_factor, roots))
+                self.all_roots.extend((IC(rt) + shift, mult)
+                                      for rt in roots
+                                      for (shift, mult) in shifts)
+            sl_data.append((sl_factor, shifts, irred_data))
+
+        assert sum(mult for _, mult in self.all_roots) == ind.degree()
+        assert all(ind(rt).contains_zero() for rt, _ in self.all_roots)
+
         self.cols = []
         self.nontrivial_factor_index = 0
-        for self.sl_factor, self.shifts in self.sl_decomp:
-            for self.irred_factor, irred_mult in self.sl_factor.factor():
-                assert irred_mult == 1
-                self.roots = utilities.roots_of_irred(self.irred_factor)
+        for self.sl_factor, self.shifts, irred_data in sl_data:
+            for self.irred_factor, self.roots in irred_data:
                 logger.debug("indicial factor = %s, roots = %s",
                              self.irred_factor, self.roots)
                 self.irred_factor_cols = []
@@ -532,7 +549,7 @@ class LocalBasisMapper(object):
     # correct fields set.
 
     def process_irred_factor(self):
-        for self.leftmost, _ in self.roots:
+        for self.leftmost in self.roots:
             self.process_modZ_class()
 
     def process_modZ_class(self):
