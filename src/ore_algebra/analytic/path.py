@@ -373,11 +373,21 @@ class Point(SageObject):
             raise NotImplementedError("can't tell if inexact point is regular")
         assert self.is_exact()
         # Fuchs criterion
-        dop, pt = self.dop.extend_scalars(self.value)
-        Pols = dop.base_ring()
-        lin = Pols([pt, -1])
-        ref = dop.leading_coefficient().valuation(lin) - dop.order()
-        return all(coef.valuation(lin) - k >= ref for k, coef in enumerate(dop))
+        if (self.dop.base_ring().base_ring() is QQ
+                and self.value.parent() is not QQ # => number field element
+                and (pol := self.value.polynomial()).is_term()):
+            # optimize frequent case
+            nfpol = self.value.parent().polynomial()
+            rootpol = nfpol(~pol[1]*pol.parent().gen())
+            rootpol = self.dop.base_ring()(rootpol)
+            dop = self.dop
+        else:
+            dop, pt = self.dop.extend_scalars(self.value)
+            Pols = dop.base_ring()
+            rootpol = Pols([pt, -1])
+        ref = dop.leading_coefficient().valuation(rootpol) - dop.order()
+        return all(coef.valuation(rootpol) - k >= ref
+                   for k, coef in enumerate(dop))
 
     def is_regular_singular(self):
         return not self.is_ordinary() and self.is_regular()
