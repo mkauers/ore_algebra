@@ -361,3 +361,12 @@ def pairwise(iterable):
     a, b = itertools.tee(iterable)
     next(b, None)
     return zip(a, b)
+
+def mygcd(zero, seq):
+    g = zero
+    for v in seq:
+        assert v in ZZ
+        g = g.gcd(v)
+        if g.is_one():
+            break
+    return g

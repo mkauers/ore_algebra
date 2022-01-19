@@ -68,22 +68,31 @@ def bw_shift_rec(dop, shift=None):
     if shift is None:
         shift = Scalars.zero()
     rop = Rops([p(n-ordrec+shift) for p in rop])
-    # Clear_denominators
+    # Clear denominators
     den = lcm([p.denominator() for p in rop])
     rop = den*rop
     # Remove constant common integer factors to make the recurrence smaller
     # (NB: I also tried removing factors from ℤ[i], see the git log, but this is
     # too slow)
     if Scalars is QQ:
-        g = gcd(c for p in rop for c in p)
+        g = _mygcd_ZZ(c for p in rop for c in p)
     elif isinstance(Scalars, NumberField_absolute):
-        g = gcd(a for p in rop for c in p for a in c)
+        g = _mygcd_ZZ(a for p in rop for c in p for a in c)
     else:
         g = None
     if g is not None:
         rop = (1/g)*rop
     coeff = [rop[ordrec-k] for k in range(ordrec+1)]
     return BwShiftRec(coeff)
+
+def _mygcd_ZZ(seq):
+    g = ZZ.zero()
+    b = ZZ(256)
+    for v in seq:
+        g = g._gcd(v.numerator())
+        if g < b:
+            return None
+    return g
 
 class BwShiftRec(object):
     r"""
