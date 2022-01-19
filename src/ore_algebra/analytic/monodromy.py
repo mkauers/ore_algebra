@@ -303,7 +303,7 @@ def _closest_unsafe(lst, x):
     x = CC(x.alg)
     return min(enumerate(lst), key=lambda y: abs(CC(y[1].value) - x))
 
-def _extend_path_mat(dop, path_mat, x, y, eps, matprod):
+def _extend_path_mat(dop, path_mat, inv_path_mat, x, y, eps, matprod):
     anchor_index_x, anchor_x = _closest_unsafe(x.polygon, y)
     anchor_index_y, anchor_y = _closest_unsafe(y.polygon, x)
     bypass_mat_x = matprod(x.local_monodromy[:anchor_index_x])
@@ -314,9 +314,11 @@ def _extend_path_mat(dop, path_mat, x, y, eps, matprod):
     anchor_y.options["keep_value"] = True
     edge_mat = dop.numerical_transition_matrix([anchor_x, anchor_y],
                                                 eps, assume_analytic=True)
-    new_path_mat = bypass_mat_y*edge_mat*bypass_mat_x*path_mat
+    ext_mat = bypass_mat_y*edge_mat*bypass_mat_x
+    new_path_mat = ext_mat*path_mat
+    new_inv_path_mat = inv_path_mat*~ext_mat
     assert isinstance(new_path_mat, Matrix_complex_ball_dense)
-    return new_path_mat
+    return new_path_mat, new_inv_path_mat
 
 LocalMonodromyData = collections.namedtuple("LocalMonodromyData",
         ["point", "monodromy", "is_scalar"])
@@ -479,12 +481,12 @@ def _monodromy_matrices(dop, base, eps=1e-16, sing=None):
 
     tree = _spanning_tree(base, todo.values())
 
-    def dfs(x, path, path_mat):
+    def dfs(x, path, path_mat, inv_path_mat):
 
         logger.info("Computing local monodromy around %s via %s", x, path)
 
         local_mat = matprod(x.local_monodromy)
-        based_mat = (~path_mat)*local_mat*path_mat
+        based_mat = inv_path_mat*local_mat*path_mat
 
         if x.want_self:
             yield LocalMonodromyData(x.alg.as_algebraic(), based_mat, False)
@@ -503,10 +505,11 @@ def _monodromy_matrices(dop, base, eps=1e-16, sing=None):
             if y.local_monodromy is None:
                 y.polygon, y.local_monodromy = _local_monodromy_loop(dop,
                                                                  y.point(), eps)
-            new_path_mat = _extend_path_mat(dop, path_mat, x, y, eps, matprod)
-            yield from dfs(y, path + [y], new_path_mat)
+            new_path_mat, new_inv_path_mat = _extend_path_mat(dop, path_mat,
+                                               inv_path_mat, x, y, eps, matprod)
+            yield from dfs(y, path + [y], new_path_mat, new_inv_path_mat)
 
-    yield from dfs(base, [base], id_mat)
+    yield from dfs(base, [base], id_mat, id_mat)
 
 def monodromy_matrices(dop, base, eps=1e-16, sing=None):
     r"""
