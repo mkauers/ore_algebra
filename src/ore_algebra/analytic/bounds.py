@@ -2512,6 +2512,7 @@ def _dop_rcoeffs_of_T(dop, base_ring):
     assert dop.parent().is_T()
     Pols = dop.base_ring().change_ring(base_ring)
     ordlen, deglen = dop.order() + 1, dop.degree() + 1
+    _dop = dop._poly.list(copy=False) # micro-opt
     binomial = [[0]*(ordlen) for _ in range(ordlen)]
     for n in range(ordlen):
         binomial[n][0] = 1
@@ -2523,7 +2524,7 @@ def _dop_rcoeffs_of_T(dop, base_ring):
         for j in range(deglen):
             pow = 1
             for i in range(ordlen - k):
-                pol[j] += pow*binomial[k+i][i]*base_ring(dop[k+i][j])
+                pol[j] += pow*binomial[k+i][i]*base_ring(_dop[k+i][j])
                 pow *= (-j)
         res[k] = Pols(pol)
     return res
