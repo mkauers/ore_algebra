@@ -201,7 +201,7 @@ def doit(dop, ini, path, rad, eps, derivatives, economization, x_is_real):
     rad = bounds.IR(rad).above_abs()
     path = Path(path, dop)
     center = path.vert[-1]
-    center.options["keep_value"] = True
+    center.options["store_value"] = True
     if not safe_le(rad, center.dist_to_sing()):
         raise ValueError("approximation domain too large")
 

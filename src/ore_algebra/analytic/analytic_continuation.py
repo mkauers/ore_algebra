@@ -207,8 +207,8 @@ def _process_path(dop, path, ctx):
 
     if not isinstance(path, Path):
         path = Path(path, dop)
-        if not any(v.keep_value() for v in path.vert):
-            path.vert[-1].options['keep_value'] = True
+        if not any(v.store_value() for v in path.vert):
+            path.vert[-1].options['store_value'] = True
 
     if not ctx.assume_analytic:
         path.check_singularity()
@@ -314,9 +314,9 @@ def analytic_continuation(dop, path, eps, ctx=dctx, ini=None, post=None,
 
     def maybe_push_point_dict(lst, point, value):
         if point.detour_to is not None:
-            assert not point.keep_value()
+            assert not point.store_value()
             point = point.detour_to
-        if not point.keep_value():
+        if not point.store_value():
             return
         if ini is not None:
             value = value*ini

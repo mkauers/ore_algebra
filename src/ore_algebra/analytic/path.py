@@ -194,8 +194,8 @@ class Point(SageObject):
             res += f" (.. {self.detour_to})"
         return res
 
-    def keep_value(self):
-        return bool(self.options.get("keep_value"))
+    def store_value(self):
+        return bool(self.options.get("store_value"))
 
     def nbits(self):
         if isinstance(self.value, (RealBall, ComplexBall)):
@@ -939,7 +939,7 @@ class Path(SageObject):
             if isinstance(v, Point):
                 pass
             elif isinstance(v, list) and len(v) == 1:
-                v = Point(v[0], dop, keep_value=True)
+                v = Point(v[0], dop, store_value=True)
             else:
                 v = Point(v, dop)
             self.vert.append(v)
@@ -1334,7 +1334,7 @@ class Path(SageObject):
             # Split the path at singular vertices and at vertices that we have
             # to pass through to record the value of the solution
             while (j < l - 1 and self.vert[j].is_ordinary()
-                   and not self.vert[j].keep_value()):
+                   and not self.vert[j].store_value()):
                 j += 1
             subpath = self.vert[i:j+1]
             # Replace singular endpoints by intermediate points on the step
