@@ -55,7 +55,7 @@ def cbf(pol, n, tgt):
 
     return res
 
-cdef ZZX_c _nf(Polynomial_generic_dense pol, n):
+cdef ZZX_c _nf(Polynomial_generic_dense pol, n) except *:
     cdef unsigned long _n = PyInt_AsLong(n)
     cdef long i
 
@@ -82,7 +82,7 @@ def nf(pol, n, tgt):
     else:
         return tgt(res)
 
-cdef void _qnf(mpz_t a, mpz_t b, Polynomial_generic_dense pol, n):
+cdef short _qnf(mpz_t a, mpz_t b, Polynomial_generic_dense pol, n) except *:
 
     cdef unsigned long _n = PyInt_AsLong(n)
     cdef long i
