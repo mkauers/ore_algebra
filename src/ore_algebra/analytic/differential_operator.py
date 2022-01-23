@@ -117,8 +117,8 @@ class PlainDifferentialOperator(UnivariateDifferentialOperatorOverUnivariateRing
                 sing = [s for s, _ in sing]
         return sing
 
-    def _sing_as_alg(dop, iv):
-        pol = dop.leading_coefficient().radical()
+    def _sing_as_alg(self, iv):
+        pol = self.leading_coefficient().radical()
         return QQbar.polynomial_root(pol, CIF(iv))
 
     @cached_method
