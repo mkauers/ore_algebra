@@ -238,8 +238,8 @@ def _local_monodromy_loop(dop, x, eps):
     for i in range(n):
         step = [polygon[i], polygon[(i+1)%n]]
         logger.debug("center = %s, step = %s", x, step)
-        step[0].options['keep_value'] = False # XXX bugware
-        step[1].options['keep_value'] = True
+        step[0].options['store_value'] = False # XXX bugware
+        step[1].options['store_value'] = True
         mat = x.dop.numerical_transition_matrix(step, eps, assume_analytic=True)
         prec = utilities.prec_from_eps(eps)
         assert all(c.accuracy() >= prec//2 or c.above_abs()**2 <= eps
@@ -310,8 +310,8 @@ def _extend_path_mat(dop, path_mat, inv_path_mat, x, y, eps, matprod):
     bypass_mat_y = matprod(y.local_monodromy[anchor_index_y:]
                            if anchor_index_y > 0
                            else [])
-    anchor_x.options["keep_value"] = False # XXX bugware
-    anchor_y.options["keep_value"] = True
+    anchor_x.options["store_value"] = False # XXX bugware
+    anchor_y.options["store_value"] = True
     edge_mat = dop.numerical_transition_matrix([anchor_x, anchor_y],
                                                 eps, assume_analytic=True)
     ext_mat = bypass_mat_y*edge_mat*bypass_mat_x

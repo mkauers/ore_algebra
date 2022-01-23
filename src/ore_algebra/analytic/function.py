@@ -228,7 +228,7 @@ class DFiniteFunction(object):
         # - return a path passing through "interesting" points (and cache the
         #   associated initial vectors)
         start, ini = list(self.ini.items())[0]
-        return ini, [start, Point(dest, self.dop, keep_value=True)]
+        return ini, [start, Point(dest, self.dop, store_value=True)]
 
     # Having the update (rather than the full test-and-update) logic in a
     # separate method is convenient to override it in subclasses.
