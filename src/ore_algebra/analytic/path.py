@@ -715,7 +715,7 @@ class Step(SageObject):
             real = isinstance(z0, RealBall) and isinstance(z1, RealBall)
             Tgt = (RealBallField if real else ComplexBallField)(max(p0, p1))
             return Tgt(z1) - Tgt(z0)
-        else: # XXX not great when one is in a number field != QQ[i]
+        else:
             if self.start.is_exact():
                 z0 = self.start.exact().value
             if self.end.is_exact():
@@ -723,9 +723,8 @@ class Step(SageObject):
             try:
                 d = z1 - z0
             except TypeError:
-                # Should be coercions, but embedded number fields currently
-                # don't coerce into QQbar...
-                d = QQbar(z1) - QQbar(z0)
+                _, (z0, z1) = as_embedded_number_field_elements((z0, z1))
+                d = z1 - z0
             # When z0, z1 are number field elements, we want another number
             # field element, not an element of QQbar or AA (even though z1-z0
             # may succeed and return such an element).
