@@ -38,6 +38,12 @@ logger = logging.getLogger(__name__)
 
 def step_transition_matrix(dop, steps, eps, rows=None, split=0, ctx=dctx):
     r"""
+    Transition matrices for one or more steps with the same starting point.
+
+    Compute the transition matrices from one point to one or more points within
+    the local disk of convergence, introducing substeps if convergence is too
+    slow.
+
     TESTS::
 
         sage: from ore_algebra.examples import fcc
@@ -66,7 +72,7 @@ def step_transition_matrix(dop, steps, eps, rows=None, split=0, ctx=dctx):
 
     try:
         fail_fast = all(step.max_split > 0 for step in steps)
-        mat = regular_step_transition_matrix(dop, steps, eps, rows,
+        mat = step_transition_matrix_bit_burst(dop, steps, eps, rows,
                 fail_fast=fail_fast, effort=split, ctx=ctx)
     except (accuracy.PrecisionError, bounds.BoundPrecisionError):
         logger.info("splitting step...")
@@ -119,8 +125,13 @@ def _use_binsplit(dop, steps, tgt_prec, base_point_size, ctx):
                 ">=" if use_binsplit else "<", est)
         return use_binsplit
 
-def regular_step_transition_matrix(dop, steps, eps, rows, fail_fast, effort,
-                                   ctx=dctx):
+def step_transition_matrix_bit_burst(dop, steps, eps, rows, fail_fast, effort,
+                                     ctx=dctx):
+    r"""
+    Transition matrices for one or more steps with the same starting point.
+
+    Automatic algorithm choice, using the bit-burst method at high precision.
+    """
 
     # assert all(step.start is steps[0].start for step in steps)
     z0 = steps[0].start
@@ -158,13 +169,13 @@ def regular_step_transition_matrix(dop, steps, eps, rows, fail_fast, effort,
                 # Assuming bitsize(step.start) << bitsize(step.end):
                 # * this step should fall into the bb/bs branch again (and in
                 #   the pure bb sub-branch if bitsize(step.start) is small):
-                (mat0,) = regular_step_transition_matrix(dop, sub[0:1], eps>>1,
+                (mat0,) = step_transition_matrix_bit_burst(dop, sub[0:1], eps>>1,
                         dop.order(), fail_fast, effort, ctx)
                 # * this one will typically come back to the bit-burst
                 #   sub-branch in the first few iterations, and then to one of
                 #   the other ones (typically direct summation, unless
                 #   target prec >> prec of endpoints >> 0):
-                (mat1,) = regular_step_transition_matrix(dop, sub[1:], eps>>1,
+                (mat1,) = step_transition_matrix_bit_burst(dop, sub[1:], eps>>1,
                         rows, fail_fast, effort, ctx)
                 return (mat1*mat0,)
 
@@ -263,6 +274,8 @@ def _branch_change_matrix(dop, point, branch, eps):
 def analytic_continuation(dop, path, eps, ctx=dctx, ini=None, post=None,
                           return_local_bases=False):
     """
+    Analytic continuation along a path.
+
     INPUT:
 
     - ``ini`` (constant matrix, optional) - initial values, one column per
