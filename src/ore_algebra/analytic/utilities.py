@@ -222,8 +222,13 @@ class PolynomialRoot:
     def __hash__(self):
         return hash((self.pol, self.index))
 
-    def as_ball(self, field):
-        return field(self.as_exact())
+    def as_ball(self, tgt):
+        alg = self.as_algebraic()
+        prec = tgt.precision()
+        if alg._value.prec() < prec:
+            # avoid the loop in AlgebraicNumber_base._more_precision()...
+            alg._value = alg._descr._interval_fast(prec)
+        return tgt(alg._value)
 
     _acb_ = _complex_mpfr_field_ = _complex_mpfi_ = as_ball
 
