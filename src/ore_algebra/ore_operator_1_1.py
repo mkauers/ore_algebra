@@ -3563,6 +3563,13 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         fac = factor(self, verbose=verbose, hybrid=hybrid)
         return fac
 
+    def _is_irreducible(self, verbose=False):
+
+        """ temporary function (works only if the operator is irreducible) """
+
+        from .analytic.factorization import _is_irreducible
+        return _is_irreducible(self, verbose=verbose)
+
 
 
 

@@ -236,6 +236,30 @@ class LinearDifferentialOperator(PlainDifferentialOperator):
 
         return dop
 
+    def _is_irreducible(self, verbose=False):
+
+        r = self.order()
+        if r<2: return True
+
+        if self.fuchsian_info==None:
+            self.fuchsian_info = self.is_fuchsian()
+            if not self.fuchsian_info: print("WARNING: The operator is not fuchsian: termination is not guaranteed.")
+
+        eps = Radii.one()>>200
+        try:
+            mono = []
+            it = _monodromy_matrices(self, 0, eps)
+            for pt, mat, scal in it:
+                if not scal:
+                    mono.append(mat)
+                    V = invariant_subspace(mono)
+                    if len(V)==r: return True
+            a = 1/0
+
+        except (PrecisionError, ZeroDivisionError):
+            eps = eps>>1
+
+
 
     def euler_rep(self):
 
@@ -315,6 +339,13 @@ def factor(dop, verbose=False, hybrid=True):
         output = [A(f) for f in output]
     return output
 
+def _is_irreducible(dop, verbose=False):
+
+    coeffs, z0, z = dop.monic().coefficients(), QQ.zero(), dop.base_ring().gen()
+    while min(c.valuation(z - z0) for c in coeffs)<0: z0 = z0 + QQ.one()
+    dop = LinearDifferentialOperator(dop.annihilator_of_composition(z + z0))
+    
+    return dop._is_irreducible(verbose=verbose)
 
 def my_newton_polygon(dop):
 
@@ -440,9 +471,9 @@ def guessing_via_series(L, einZZ):
     t = len(L.desingularize().leading_coefficient().roots(QQbar))
     b = min(1000, max(50, (r - 1)**2*(r - 2)*(t - 1)))
     try:
-        R = guess(L.power_series_solutions(b)[0].list(), A, order=r - 1)
+        R = guess(L.power_series_solutions(b)[0].list(), A, order=r - 1) # ne marche pas avec une extension algébrique (-> TypeError)
         if 0<R.order()<r and L%R==0: return R
-    except ValueError: pass
+    except (ValueError, TypeError): pass
     La = L.adjoint()
     Ra = try_rational(La)
     if not Ra is None: return (La//Ra).adjoint()
@@ -450,7 +481,7 @@ def guessing_via_series(L, einZZ):
     try:
         Ra = guess(La.power_series_solutions(b)[0].list(), A, order=r - 1)
         if 0<Ra.order()<r and La%Ra==0: return S(La//Ra, -ea).adjoint()
-    except ValueError: return None
+    except (ValueError, TypeError): return None
 
 
 

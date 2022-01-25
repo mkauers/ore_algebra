@@ -704,8 +704,8 @@ def cleaned_parent(L1, L2):
         L1 = lcm([R(cc).denominator() for c in L1 for cc in c])*L1
         L2 = lcm([R(cc).denominator() for c in L2 for cc in c])*L2
         OA = OA.change_ring(PolynomialRing(I, L1.base_ring().gen().variable_name()))
-        L1, L2 = OA(L1), OA(L2)
 
+    L1, L2 = OA(L1), OA(L2)
     return L1, L2, OA
 
 
@@ -726,7 +726,6 @@ def eigenring(L1, L2=None, infolevel=0):
            for i in range(m + 1) ]
     N = [ RRem([zero]*j + L1a, L2) for j in range(n) ]
     N = [ Nj + [zero]*(n - len(Nj)) for Nj in N ]
-    if not all(len(Nj) == n for Nj in N): breakpoint()
     N = [ [ N[i][j] for i in range(n) ] for j in range(n) ]
 
     # solving Na=0
@@ -735,7 +734,7 @@ def eigenring(L1, L2=None, infolevel=0):
     # re-building the associated elements in the eigenring
     output = []
     for u, l in basis:
-        op = D.parent()(clear_denominators(u)[0]) # maybe there is a best way to remove denominators (in basis computation?)
+        op = D.parent().change_ring(D.parent().base_ring().fraction_field())(u)
         if not op.is_zero():
             d = gcd([c for pol in op for c in pol.numerator()])
             output.append((1/d)*op)
