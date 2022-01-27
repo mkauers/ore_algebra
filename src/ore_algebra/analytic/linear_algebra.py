@@ -514,13 +514,20 @@ def gen_eigenspaces(mat, *, projections=False):
     Pol, x = PolynomialRing(C, 'x').objgen()
 
     s = eigenvalues(mat, multiplicities=True)
-
+#
+#    if projections:
+#        k, l = len(s), 1 #len(s)//2
+#        P = [(x-ev)**m for ev, m in s]
+#        Q = [Pol(prod(P[j] for j in range(k) if j != i)) for i in range(k)]
+#        d, u1, u2 = XGCD(Pol(sum(Q[:l])), Pol(sum(Q[l:])))
+#        proj = [u*q for u, q in zip([u1]*l + [u2]*(k-l), Q)]
+#
     if projections:
-        k, l = len(s), len(s)//2
-        P = [(x-ev)**m for ev, m in s]
+        k = len(s)
+        P = [(x - ev)**m for ev, m in s]
         Q = [Pol(prod(P[j] for j in range(k) if j != i)) for i in range(k)]
-        d, u1, u2 = XGCD(Pol(sum(Q[:l])), Pol(sum(Q[l:])))
-        proj = [u*q for u, q in zip([u1]*l + [u2]*(k-l), Q)]
+        d, u1, u2 = XGCD(Pol(Q[0]), Pol(sum(Q[1:])))
+        proj = [u*q for u, q in zip([u1] + [u2]*(k - 1), Q)]
 
     GenEigSpaces = []
     for i, (ev, m) in enumerate(s):

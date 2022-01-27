@@ -238,26 +238,37 @@ class LinearDifferentialOperator(PlainDifferentialOperator):
 
     def _is_irreducible(self, verbose=False):
 
-        r = self.order()
-        if r<2: return True
-
         if self.fuchsian_info==None:
             self.fuchsian_info = self.is_fuchsian()
             if not self.fuchsian_info: print("WARNING: The operator is not fuchsian: termination is not guaranteed.")
 
-        eps = Radii.one()>>200
-        try:
-            mono = []
-            it = _monodromy_matrices(self, 0, eps)
-            for pt, mat, scal in it:
-                if not scal:
-                    mono.append(mat)
-                    V = invariant_subspace(mono)
-                    if len(V)==r: return True
-            a = 1/0
+        prec= 200; eps = Radii.one()>>prec
+        if verbose:
+            print("precision = number of bits")
+            print("Try with precision", prec)
+        while True:
+            try:
+                mono = []
+                it = _monodromy_matrices(self, 0, eps)
+                finished = False
+                for pt, mat, scal in it:
+                    if not scal:
+                        if verbose: print("New matrix computed")
+                        mono.append(mat)
+                        V = invariant_subspace(mono)
+                        if V==None: return True
+                finished = True
+                p1, p2 = customized_accuracy(mono), customized_accuracy(V)
+                if verbose: print("All monodromy matrices computed with \
+                precision", p1, "and found an invariant subspace of dim", \
+                len(V), "with precision", p2)
+                a = 1/0
 
-        except (PrecisionError, ZeroDivisionError):
-            eps = eps>>1
+            except (PrecisionError, ZeroDivisionError):
+                if verbose and not finished:
+                    print("Monodromy computation failed")
+                prec = prec<<1; eps = Radii.one()>>prec
+                if verbose: print("Try with new precision", prec)
 
 
 
@@ -344,7 +355,7 @@ def _is_irreducible(dop, verbose=False):
     coeffs, z0, z = dop.monic().coefficients(), QQ.zero(), dop.base_ring().gen()
     while min(c.valuation(z - z0) for c in coeffs)<0: z0 = z0 + QQ.one()
     dop = LinearDifferentialOperator(dop.annihilator_of_composition(z + z0))
-    
+
     return dop._is_irreducible(verbose=verbose)
 
 def my_newton_polygon(dop):
@@ -488,6 +499,7 @@ def guessing_via_series(L, einZZ):
 def try_vanHoeij(L):
     """ try to find a factor thank to an exponential part of multiplicity 1 """
     z, (p, e) = L.base_ring().gen(), search_exp_part_with_mult1(L)
+    if not e in QQ: return None # not efficient enough for now (implem to be improved)
     if p==None: return None
     if (p*z).is_one():
         L = L.annihilator_of_composition(p)
