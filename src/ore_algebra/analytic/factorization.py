@@ -35,7 +35,8 @@ from .differential_operator import PlainDifferentialOperator
 from .accuracy import PrecisionError
 from .complex_optimistic_field import ComplexOptimisticField
 from .utilities import (customized_accuracy, power_series_coerce, derivatives,
-                        hp_approximants, guess_exact_numbers)
+                        hp_approximants, guess_exact_numbers,
+                        euler_representation)
 from .linear_algebra import invariant_subspace
 
 
@@ -272,27 +273,6 @@ class LinearDifferentialOperator(PlainDifferentialOperator):
 
 
 
-    def euler_rep(self):
-
-        z, n = self.z, self.n; coeffs = self.list()
-        output = [ coeffs[0] ] + [0]*n
-        l = [0] # coefficients of T(T-1)...(T-k+1) (initial: k=0)
-
-        for k in range(1, n+1):
-
-            newl = [0]
-            for i in range(1, len(l)):
-                newl.append((-k+1)*l[i]+l[i-1])
-            l = newl + [1]
-
-            ck = coeffs[k]
-            for j in range(1, k+1):
-                output[j] += ck*z**(-k)*l[j]
-
-        return output
-
-
-
 def try_rational(dop):
 
     for (f,) in dop.rational_solutions():
@@ -431,7 +411,7 @@ def exponents(dop, multiplicities=True):
         FLS = LaurentSeriesRing(QQ, dop.base_ring().variable_name())
     else:
         FLS = LaurentSeriesRing(QQbar, dop.base_ring().variable_name())
-    l = LinearDifferentialOperator(dop).euler_rep()
+    l = euler_representation(LinearDifferentialOperator(dop))
     if FLS.base_ring()==QQ:
         l = [FLS(c) for c in l]
     else:
@@ -448,7 +428,7 @@ def exponents(dop, multiplicities=True):
 def S(dop, e):
     """ map: Tz --> Tz + e """
 
-    l = LinearDifferentialOperator(dop).euler_rep()
+    l = euler_representation(LinearDifferentialOperator(dop))
     for i, c in enumerate(l):
         for k in range(i):
             l[k] += binomial(i, k)*e**(i - k)*c

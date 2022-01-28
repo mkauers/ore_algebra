@@ -740,3 +740,106 @@ def eigenring(L1, L2=None, infolevel=0):
             output.append((1/d)*op)
 
     return output
+
+
+def euler_representation(dop):
+
+    r"""
+    Return the list of the coefficients of dop with respect to the powers of
+    z*Dz.
+    """
+
+    z, n = dop.base_ring().gen(), dop.order()
+    output = [ dop[0] ] + [0]*n
+    l = [0] # coefficients of T(T-1)...(T-k+1) (initial: k=0)
+
+    for k in range(1, n+1):
+
+        newl = [0]
+        for i in range(1, len(l)):
+            newl.append((-k+1)*l[i]+l[i-1])
+        l = newl + [1]
+
+        ck = dop[k]
+        for j in range(1, k+1):
+            output[j] += ck*z**(-k)*l[j]
+
+    return output
+
+
+
+def dop_valuation(dop):
+
+    r"""
+    Return the smallest i such that a_{i,j} != 0 for some j where
+    dop = sum a_{i,j} z^i (z*Dz)^j.
+    """
+
+    v = min(a.valuation() for a in euler_representation(dop))
+
+    return v
+
+
+def local_bound_problem(R, L, c):
+
+    r"""
+    Compute a lower bound for the valuation of any operator r such that
+    RightRemainder(Rr, L) = c, see [van Hoeij, Rational solutions of the mixed
+    differential equation..., Lemma 1, 1996].
+
+    INPUT:
+
+     -- "R, L" -- linear differential operators
+     -- "c"    -- 0 or 1
+
+    OUTPUT:
+
+     -- "v0r" -- integer or None if it is certified that no such r exists
+
+    """
+
+    z = R.base_ring().gen()
+
+    list_of_possible_v0r = []
+    exponentsofL = L.indicial_polynomial(z).roots(QQbar, multiplicities=False)
+    exponentsofR = R.indicial_polynomial(z).roots(QQbar, multiplicities=False)
+    for eL in exponentsofL:
+        for eR in exponentsofR:
+            if eL - eR in ZZ:
+                list_of_possible_v0r.append(eR - eL)
+
+    if c!=0: list_of_possible_v0r.append(-dop_valuation(R))
+    if list_of_possible_v0r==[]: return None
+    return min(list_of_possible_v0r)
+
+
+def common_denominator_for_mixed_equation(R, L, c):
+
+    r"""
+    Compute a polynomial D such that for any operator r = \sum r_i * Dz^i
+    satisfying RightRemainder(Rr, L) = c, D*r_i is polynomial for all i.
+
+    !!! ne peut pas utiliser PlainDifferentialOperator
+    ou LinearDifferentialOperator !!! (circular import)
+    """
+
+    z = R.base_ring().gen()
+
+    singL = PlainDifferentialOperator(L)._singularities(QQbar, multiplicities=False)
+    singR = PlainDifferentialOperator(R)._singularities(QQbar, multiplicities=False)
+    sing = list(set(singL) | set(singR))
+    D = 1
+    for s in sing:
+        if not s in QQ:
+            Rs, _ = PlainDifferentialOperator(R).extend_scalars(s)
+            Ls, s = PlainDifferentialOperator(L).extend_scalars(s)
+            Rs = R.annihilator_of_composition(z + s)
+            Ls = L.annihilator_of_composition(z + s)
+        else:
+            Rs = R.annihilator_of_composition(z + s)
+            Ls = L.annihilator_of_composition(z + s)
+        v0r = local_bound_problem(Rs, Ls, c)
+        if v0r==None: return None
+        D = D*(z-s)^(-v0r)
+
+    return D
