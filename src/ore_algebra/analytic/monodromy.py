@@ -131,8 +131,7 @@ def _critical_monomials(dop):
         def fun(self, ini):
             # XXX should share algebraic part with Galois conjugates
             order = max(s for s, _ in self.shifts) + 1
-            shifted_bwrec = self.bwrec.shift(
-                self.leftmost.as_number_field_element())
+            shifted_bwrec = self.bwrec.shift_by_PolynomialRoot(self.leftmost)
             ser = log_series(ini, shifted_bwrec, order)
             return {s: ser[s] for s, _ in self.shifts}
 
