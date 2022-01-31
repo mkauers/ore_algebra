@@ -372,10 +372,9 @@ def interval_series_sum_wrapper(dop, inis, evpts, tgt_error, bwrec, stop,
 
         leftmost = inis[0].expo # XXX fragile
         if _use_inexact_recurrence(bwrec, leftmost, bit_prec):
-            bwrec1 = bwrec.change_base(Intervals)
-            shifted_bwrec = bwrec1.shift(leftmost.as_ball(Intervals))
+            shifted_bwrec = bwrec.shift(leftmost.as_ball(Intervals))
         else:
-            shifted_bwrec = bwrec.shift(leftmost.as_number_field_element())
+            shifted_bwrec = bwrec.shift_by_PolynomialRoot(leftmost)
 
         try:
             sols = series_sum_regular(Intervals, dop, shifted_bwrec, inis,

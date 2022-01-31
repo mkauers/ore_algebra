@@ -35,6 +35,7 @@ from sage.rings.number_field.number_field import (
     )
 from sage.rings.polynomial import polynomial_element
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
+from sage.structure.coerce_exceptions import CoercionException
 from sage.structure.sequence import Sequence
 from sage.symbolic.all import SR, pi
 from sage.symbolic.constants import I
@@ -228,15 +229,20 @@ class BwShiftRec(object):
 
     def shift(self, sh):
         try:
-            sh = self.Scalars.coerce(sh)
-            coeff = self.coeff
-        except TypeError:
+            Scalars = utilities.mypushout(self.Scalars, sh.parent())
+            hom = Scalars.coerce_map_from(self.Scalars)
+        except CoercionException:
             hom, sh = utilities.extend_scalars(self.Scalars, sh)
-            coeff = [pol.map_coefficients(hom) for pol in self.coeff]
-        n = coeff[0].parent().gen()
-        coeff = [pol(sh + n) for pol in coeff]
+            Scalars = hom.codomain()
+        sh_plus_n = self.base_ring.change_ring(Scalars)([sh, 1])
+        coeff = [pol.map_coefficients(hom)(sh_plus_n) for pol in self.coeff]
         den = lcm([p.denominator() for p in coeff])
         return BwShiftRec([den*c for c in coeff])
+
+    @cached_method
+    def shift_by_PolynomialRoot(self, sh):
+        assert isinstance(sh, utilities.PolynomialRoot)
+        return self.shift(sh.as_number_field_element())
 
     def change_base(self, base):
         if base is self.base_ring:

@@ -3030,7 +3030,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             order = max(dop.order(), ind.dispersion()) + 3
         class Mapper(LocalBasisMapper):
             def fun(self, ini):
-                shifted_bwrec = self.bwrec.shift(self.leftmost)
+                shifted_bwrec = self.bwrec.shift_by_PolynomialRoot(self.leftmost)
                 return log_series(ini, shifted_bwrec, order)
         sols = Mapper(ldop).run()
         x = SR.var(dop.base_ring().variable_name())
