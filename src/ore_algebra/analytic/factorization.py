@@ -18,6 +18,7 @@ from sage.rings.integer_ring import ZZ
 from sage.rings.real_mpfr import RealField
 from sage.rings.qqbar import QQbar
 from sage.rings.power_series_ring import PowerSeriesRing
+from sage.rings.polynomial.polynomial_element import Polynomial
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 from sage.rings.laurent_series_ring import LaurentSeriesRing
 from sage.modules.free_module_element import vector
@@ -36,6 +37,7 @@ from .accuracy import PrecisionError
 from .complex_optimistic_field import ComplexOptimisticField
 from .utilities import (customized_accuracy, power_series_coerce, derivatives,
                         hp_approximants, guess_exact_numbers,
+                        guess_rational_numbers, guess_algebraic_numbers,
                         euler_representation)
 from .linear_algebra import invariant_subspace
 
@@ -272,17 +274,6 @@ class LinearDifferentialOperator(PlainDifferentialOperator):
                 if verbose: print("Try with new precision", prec)
 
 
-
-def try_rational(dop):
-
-    for (f,) in dop.rational_solutions():
-        d = f.gcd(f.derivative())
-        rfactor = (f/d)*dop.parent().gen() - f.derivative()/d
-        return rfactor
-
-    return None
-
-
 def right_factor(dop, verbose=False, hybrid=True):
 
     r"""
@@ -495,3 +486,261 @@ def try_vanHoeij(L):
     if R==None: return None
     if (p*z).is_one(): return S(R, -e).annihilator_of_composition(p)
     elif p.degree()==1: return S(R, -e).annihilator_of_composition(z - s)
+
+########################
+### Hybrid algorithm ###
+########################
+
+def minimal_multiplicity(dop, pol):
+
+    """
+    Return (e, m) where e is an exponent of dop at a root of pol with a minimal
+    multiplicity modulo ZZ (m).
+
+    -> Representative of smallest real part (pas OK)
+    -> minimal algebraic degree (OK)
+    """
+
+    N = dop.indicial_polynomial(pol)
+    exponents = N.roots(QQbar)
+    exponents.sort(key = lambda x: x[0].degree())
+
+    good_exponent, min_mult = exponents[0][0], dop.order()
+    done_indices = []
+    for i, (e, m) in enumerate(exponents):
+        if not i in done_indices:
+            multiplicitymodZZ = m
+            for j, (f, n) in enumerate(exponents[(i+1):]):
+                if e - f in ZZ:
+                    multiplicitymodZZ += n
+                    done_indices.append(i + 1 + j)
+            if multiplicitymodZZ<min_mult:
+                min_mult = multiplicitymodZZ
+                good_exponent = e
+            #done_indices.append(i) --> useless
+    return good_exponent, min_mult
+
+def mydegree(pol): # for handling the case 1/z (point at infinity)
+    if isinstance(pol, Polynomial):
+        return pol.degree()
+    return 1
+
+def good_singular_point(dop):
+
+    r"""
+    Return
+
+    INPUT:
+
+      - ``dop`` -- differential operator
+
+    OUTPUT:
+
+      - ``s`` -- element of QQbar
+
+    """
+
+    z = dop.base_ring().gen()
+    dop = LinearDifferentialOperator(dop)
+    lc = dop.leading_coefficient()//gcd(dop.list())
+
+    all_min_mult = []
+    for pol, _ in list(lc.factor()) + [ (1/z, None) ]:
+        e, m = minimal_multiplicity(dop, pol)
+        all_min_mult.append((pol, e, m))
+
+    min_mult = min(all_min_mult, key = lambda x: x[2])[2]
+    good_sings = [ x for x in all_min_mult if x[2]==min_mult ]
+
+    min_deg = mydegree(min(good_sings, key = lambda x: mydegree(x[0]))[0])
+    good_sings = [ x for x in all_min_mult if mydegree(x[0])==min_deg ]
+
+    pol, e, m = good_sings[0]
+    if isinstance(pol, Polynomial):
+        s = pol.roots(QQbar, multiplicities=False)[0]
+    else:
+        s = 'infinity'
+
+    return s, e, m
+
+def good_base_point(dop):
+
+    s, e, m = good_singular_point(dop)
+    if s=='infinity': return 0
+
+    z0 = s.real().ceil()
+    sings = LinearDifferentialOperator(dop)._singularities(ZZ)
+    while z0 in sings: z0 = z0 + QQ.one()
+
+    return z0
+
+def largest_modulus_of_exponents(dop):
+
+    z = dop.base_ring().gen()
+    dop = LinearDifferentialOperator(dop)
+    lc = dop.leading_coefficient()//gcd(dop.list())
+
+    out = 0
+    for pol, _ in list(lc.factor()) + [ (1/z, None) ]:
+        local_exponents = dop.indicial_polynomial(pol).roots(QQbar, multiplicities=False)
+        local_largest_modulus = max(local_exponents, key = lambda x: x.abs()).abs()
+        out = max(local_largest_modulus, out)
+
+    return out
+
+def degree_bound_for_right_factor(dop):
+
+    r = dop.order() - 1
+    S = len(dop.desingularize().leading_coefficient().roots(QQbar))
+    E = largest_modulus_of_exponents(dop)
+    bound = r**2*(S + 1)*E + r*S + r**2*(r - 1)*(S - 1)/2
+
+    return bound.ceil()
+
+def try_rational(dop):
+
+    D = dop.parent().gen()
+    for (f,) in dop.rational_solutions():
+        d = f.gcd(f.derivative())
+        rfactor = (1/d)*(f*D - f.derivative())
+        return rfactor
+
+    return None
+
+def try_simple_eigenvalue(dop, mono):
+
+    return False, None
+
+def try_one_dim_eigenspaces(dop, mono):
+
+    return False, None
+
+def try_splitting(dop, mono):
+
+    inv_space = invariant_subspace(mono)
+    if inv_space==None: return True, None
+
+    init_conditions = row_echelon_form(matrix(inv_space))[0]
+    b, R = minimal_annihilator(dop, init_conditions, order, order==bound)
+    if b:
+        if R!=dop: return True, R
+        return True, None
+
+    return False, None
+
+def minimal_annihilator(dop, init_conditions, order, reached_bound=False, basis=None, mono=None):
+
+    r"""
+    Return the operator of minimal order which annihilates the input function
+    given by initial conditions at 0 and some annihilator operator ``dop``.
+
+    Assumption: 0 is an ordinary point.
+
+    Note: this function works also with ball initial conditions.
+
+    Correction in the approximate case: if the output is ``dop``, then the
+    minimal annihilator of any solution with initial conditions in
+    ``init_conditions`` is ``dop``.
+
+    INPUT:
+
+      - ``dop``             -- differential operator of order n
+      - ``init_conditions`` -- vector of length n
+      - ``order``           -- positive integer
+      - ``reached_bound``   -- boolean
+      - ``mono``            -- list of matrices (optional)
+
+    OUTPUT:
+
+      - ``min_ann`` -- differential operator
+
+    """
+
+    r = dop.order()
+
+    if mono!=None:
+        orb = orbit(mono, vec)
+        if len(orb)==r: return True, dop
+
+    if basis==None:
+        basis = dop.power_series_solutions(order)
+        basis.reverse()
+
+    if all(x in QQ for x in init_conditions):
+        init_conditions = [QQ(x) for x in init_conditions]
+        f = vector(init_conditions)*vector(basis)
+        try:
+            print("Hermite-Padé computation at order", order)
+            R = guess(f.list(), dop.parent(), order=r - 1)
+            if dop%R!=0: breakpoint()
+            return True, R
+        except ValueError:
+            return False, None
+
+    prec = customized_accuracy(init_conditions)
+    if prec<40: raise PrecisionError
+    try:
+        exact_init_conditions = guess_rational_numbers(init_conditions, p=prec-20)
+        b, R = minimal_annihilator(dop, exact_init_conditions, order, basis=basis)
+        if b: return True, R
+    except PrecisionError: pass
+
+    f = vector(init_conditions)*vector(basis)
+    print("Numerical Hermite-Padé computation at order", order)
+    R = hp_approximants(derivatives(f, r-1), order)
+    if R==[] and reached_bound: return True, dop
+    prec = customized_accuracy(R)
+    if prec<40: raise PrecisionError
+    R = guess_algebraic_numbers(R, p=prec-20)
+    coeffs = [c for pol in R for c in pol]
+    dop = LinearDifferentialOperator(dop).extend_scalars(*coeffs)[0]
+    R = dop.parent()(R)
+    if dop%R==0:return True, R
+
+    return False, None
+
+def rfactor(dop, order=None, precision=None, loss=None):
+
+    z = dop.base_ring().gen()
+    R = try_rational(dop)
+    if R!=None: return R
+
+    # try eigenring
+
+    z0 = good_base_point(dop)
+    dop = dop.annihilator_of_composition(z + z0)
+    bound = degree_bound_for_right_factor(dop)
+
+    if order==None:
+        order = max(bound, min(dop.order()*dop.degree(), 100))
+    if precision==None: precision = 200
+    if loss==None: loss=0
+
+    try:
+        it = _monodromy_matrices(dop, 0, eps=Radii.one()>>precision)
+        mono = []
+        print("Start monodromy computation with precision", precision)
+        for pt, mat, scal in it:
+            if not scal:
+                local_loss = precision - customized_accuracy(mat)
+                if local_loss>loss:
+                    loss = local_loss
+                    print("loss =", loss)
+                print("New monodromy matrix computed")
+                mono.append(mat)
+                b, R = try_simple_eigenvalue(dop, mono)
+                if b:
+                    if R==None: return None
+                    else: return R.annihilator_of_composition(z - z0)
+                b, R = try_one_dim_eigenspaces(dop, mono)
+                if b:
+                    if R==None: return None
+                    else: return R.annihilator_of_composition(z - z0)
+        b, R = try_splitting(dop, mono)
+        if b:
+            if R==None: return None
+            else: return R.annihilator_of_composition(z - z0)
+    except (ZeroDivisionError, PrecisionError):
+        precision = max(precision + loss, (precision<<1) - loss)
+
+    return rfactor(dop, max(bound, order<<1), precision, loss)
