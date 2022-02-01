@@ -570,7 +570,7 @@ def good_base_point(dop):
     if s=='infinity': return 0
 
     z0 = s.real().ceil()
-    sings = LinearDifferentialOperator(dop)._singularities(ZZ)
+    sings = dop.singularities()
     while z0 in sings: z0 = z0 + QQ.one()
 
     return z0
