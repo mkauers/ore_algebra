@@ -736,10 +736,10 @@ def rfactor(dop, order=None, precision=None, loss=None):
                 if b:
                     if R==None: return None
                     else: return R.annihilator_of_composition(z - z0)
-        b, R = try_splitting(dop, mono)
-        if b:
-            if R==None: return None
-            else: return R.annihilator_of_composition(z - z0)
+                b, R = try_splitting(dop, mono)
+                if b:
+                    if R==None: return None
+                    else: return R.annihilator_of_composition(z - z0)
     except (ZeroDivisionError, PrecisionError):
         precision = max(precision + loss, (precision<<1) - loss)
 
