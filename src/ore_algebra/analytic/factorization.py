@@ -492,6 +492,14 @@ def try_vanHoeij(L):
 ### Hybrid algorithm ###
 ########################
 
+def reduced_row_echelon_form(mat):
+    R, p = row_echelon_form(mat, pivots=True)
+    rows = list(R)
+    for j in p.keys():
+        for i in range(p[j]):
+            rows[i] = rows[i] - rows[i][j]*rows[p[j]]
+    return matrix(rows)
+
 def minimal_multiplicity(dop, pol):
 
     """
@@ -621,7 +629,7 @@ def try_splitting(dop, mono, order, bound, alg_degree):
     inv_space = invariant_subspace(mono)
     if inv_space==None: return True, None
 
-    init_conditions = row_echelon_form(matrix(inv_space))[-1] # since the first rows are not reduced
+    init_conditions = reduced_row_echelon_form(matrix(inv_space))[0]
     b, R = minimal_annihilator(dop, init_conditions, order, bound, alg_degree)
     if b:
         if R!=dop: return True, R
