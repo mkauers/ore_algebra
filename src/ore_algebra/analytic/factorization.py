@@ -668,8 +668,8 @@ def minimal_annihilator(dop, init_conditions, order, bound, alg_degree, basis=No
         basis.reverse()
 
     if all(x in QQ for x in init_conditions):
-        rat_init_conditions = [QQ(x) for x in init_conditions]
-        f = vector(rat_init_conditions)*vector(basis)
+        init_conditions = [QQ(x) for x in init_conditions]
+        f = vector(init_conditions)*vector(basis)
         try:
             print("Rational Hermite-Padé computation at order", order)
             R = guess(f.list(), dop.parent(), order=r - 1)
@@ -753,4 +753,4 @@ def rfactor(dop, order=None, bound=None, alg_degree=1, precision=None, loss=None
         except (ZeroDivisionError, PrecisionError):
             precision = max(precision + loss, (precision<<1) - loss)
 
-    return rfactor(dop, min(bound, order<<1), bound, alg_degree + 1, precision, loss)
+    return rfactor(dop, min(bound, order<<1), bound, alg_degree + 1, precision, loss) # à modifier car inutile de recalculer la monodromie

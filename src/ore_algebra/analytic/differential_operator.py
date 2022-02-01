@@ -20,8 +20,6 @@ from sage.rings.complex_interval_field import ComplexIntervalField
 from sage.rings.infinity import infinity
 from sage.rings.number_field.number_field import is_NumberField
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
-from sage.structure.coerce_exceptions import CoercionException
-from sage.structure.element import coercion_model
 
 from ..ore_algebra import OreAlgebra
 from ..ore_operator_1_1 import UnivariateDifferentialOperatorOverUnivariateRing
@@ -99,23 +97,28 @@ class PlainDifferentialOperator(UnivariateDifferentialOperatorOverUnivariateRing
         raise NotImplementedError("use _singularities()")
 
     @cached_method
-    def _singularities(self, dom, include_apparent=True, multiplicities=False):
-        if not multiplicities:
-            rts = self._singularities(dom, include_apparent, multiplicities=True)
-            return [s for s, _ in rts]
-        if isinstance(dom, ComplexBallField): # TBI
-            dom1 = ComplexIntervalField(dom.precision())
-            rts = self._singularities(dom1, include_apparent, multiplicities)
-            return [(dom(s), m) for s, m in rts]
-        dop = self if include_apparent else self.desingularize() # TBI
-        lc = dop.leading_coefficient()
-        try:
-            return lc.roots(dom)
-        except NotImplementedError:
-            return lc.change_ring(QQbar).roots(dom)
+    def _singularities(self, dom=None, multiplicities=False):
+        r"""
+        Complex singularities of self, as elements of dom.
 
-    def _sing_as_alg(dop, iv):
-        pol = dop.leading_coefficient().radical()
+        Pass dom=None to get the singularities as PolynomialRoot objects.
+        """
+        if dom is None and multiplicities:
+            sing = []
+            for fac, mult in self.leading_coefficient().factor():
+                roots = utilities.roots_of_irred(fac)
+                sing.extend((rt, mult) for rt in roots)
+        else:
+            # Memoize the version with all information
+            sing = self._singularities(None, multiplicities=True)
+            if dom is not None:
+                sing = [(dom(rt), mult) for rt, mult in sing]
+            if not multiplicities:
+                sing = [s for s, _ in sing]
+        return sing
+
+    def _sing_as_alg(self, iv):
+        pol = self.leading_coefficient().radical()
         return QQbar.polynomial_root(pol, CIF(iv))
 
     @cached_method
@@ -181,27 +184,13 @@ class PlainDifferentialOperator(UnivariateDifferentialOperatorOverUnivariateRing
         Scalars = Pols.base_ring()
         if all(Scalars.has_coerce_map_from(pt.parent()) for pt in pts):
             return (self,) + pts
-        gen = Scalars.gen()
-        try:
-            # Largely redundant with the other branch, but may do a better job
-            # in some cases, e.g. pushout(QQ, QQ(α)), where as_enf_elts() would
-            # invent new generator names.
-            NF0 = coercion_model.common_parent(Scalars, *pts)
-            if not is_NumberField(NF0):
-                raise CoercionException
-            NF, hom = utilities.good_number_field(NF0)
-            gen1 = hom(NF0.coerce(gen))
-            pts1 = tuple(hom(NF0.coerce(pt)) for pt in pts)
-        except (CoercionException, TypeError):
-            NF, val1 = as_embedded_number_field_elements((gen,)+pts)
-            gen1, pts1 = val1[0], tuple(val1[1:])
-        hom = Scalars.hom([gen1], codomain=NF)
-        Dops1 = OreAlgebra(Pols.change_ring(NF),
+        hom, *pts1 = utilities.extend_scalars(Scalars, *pts)
+        Dops1 = OreAlgebra(Pols.change_ring(hom.codomain()),
                 (Dops.variable_name(), {}, {Pols.gen(): Pols.one()}))
         dop1 = Dops1([pol.map_coefficients(hom) for pol in self])
         dop1 = PlainDifferentialOperator(dop1)
-        assert dop1.base_ring().base_ring() is NF
-        return (dop1,) + pts1
+        assert dop1.base_ring().base_ring() is hom.codomain()
+        return (dop1,) + tuple(pts1)
 
     def shift(self, delta):
         r"""
@@ -261,8 +250,8 @@ class ShiftedDifferentialOperator(PlainDifferentialOperator):
         self._orig = orig
         self._delta = delta
 
-    def _singularities(self, dom, include_apparent=True, multiplicities=False):
-        sing = self._orig._singularities(dom, include_apparent, multiplicities)
+    def _singularities(self, dom, multiplicities=False):
+        sing = self._orig._singularities(dom, multiplicities)
         delta = dom(self._delta.value)
         if multiplicities:
             return [(s - delta, m) for s, m in sing]

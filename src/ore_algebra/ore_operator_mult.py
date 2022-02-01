@@ -326,7 +326,7 @@ class MultivariateOreOperator(OreOperator):
            sage: A.<Dx,Dy> = OreAlgebra(P)
            sage: p = Dx^2*Dy^1-1; basis = [(x-y)*Dx+y,(x+y)*Dy-2]
            sage: p.reduce(basis)
-           (x^4 - 2*x^3*y + 2*x*y^3 - y^4 - 2*x^2*y - 4*x*y^2 + 2*y^3 - x^2 - 4*x*y + y^2)/(-x^4 + 2*x^3*y - 2*x*y^3 + y^4)
+           (-x^4 + 2*x^3*y - 2*x*y^3 + y^4 + 2*x^2*y + 4*x*y^2 - 2*y^3 + x^2 + 4*x*y - y^2)/(x^4 - 2*x^3*y + 2*x*y^3 - y^4)
            sage: p.reduce(basis, normalize=True)
            1
            sage: u = p.reduce(basis, cofactors=True)

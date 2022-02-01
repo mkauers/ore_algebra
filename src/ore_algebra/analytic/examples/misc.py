@@ -6,8 +6,12 @@ Miscellaneous examples
 An example kindly provided by Christoph Koutschan::
 
     sage: from ore_algebra.analytic.examples.misc import koutschan1
-    sage: koutschan1.dop.numerical_solution(koutschan1.ini, [0, 84])
+    sage: koutschan1.dop.numerical_solution(koutschan1.ini, [0, 84],
+    ....:                                   two_point_mode=False)
     [0.011501537469552017...]
+    sage: koutschan1.dop.numerical_solution(koutschan1.ini, [0, 84],
+    ....:                                   two_point_mode=True)
+    [0.011501537...]
 
 One by Bruno Salvy, where we follow a branch of the solutions of an algebraic
 equation::
@@ -27,7 +31,7 @@ numerical analytic continuation code::
     sage: from ore_algebra.analytic.examples.misc import melczer1
     sage: rts = melczer1.leading_coefficient().roots(QQbar, multiplicities=False)
     sage: melczer1.numerical_transition_matrix([0, rts[1]])[0, 0]
-    [4.64191240683...] + [-0.01596122801...]*I
+    [4.6419124068...] + [-0.0159612280...]*I
     sage: melczer1.local_basis_expansions(rts[1])
     [1 + (1269/32*a+3105/28)*(z + 0.086...? + 0.069...*I)^4 + ...,
      (z + 0.086...? + 0.069...*I)^(1/2) + (365/96*a+13/3)*(z + 0.086...? + 0.069...*I)^(3/2) - ...,
@@ -52,7 +56,7 @@ efficiently::
 
     sage: from ore_algebra.analytic.examples.misc import iint_quadratic_alg as pb
     sage: pb.dop.numerical_solution(pb.ini, [0, 1/5000*sqrt(277774997191/11111)], 2^(-100)) # long time (1.2 s)
-    [3368168.805821918535950852115...]
+    [3368168.8058219185359508521...]
 
 The Beukers-Heckman-Rodriguez-Villegas hypergeometric function. Generalized
 hypergeometric series can benefit from binary splitting early on, but the
@@ -62,7 +66,7 @@ borrowed from his lecture series at MPI-MiS, March 2021.) ::
 
     sage: from ore_algebra.analytic.examples.misc import rodriguez_villegas_dop as dop
     sage: dop.numerical_transition_matrix([1/4, 3/4], eps=1e-1000)[-1,-1] # long time (2.9-3.2 s)
-    [23.999268334...9600607312558...]
+    [23.999268334...96006073125...]
 """
 import collections
 
@@ -417,3 +421,23 @@ rodriguez_villegas_dop = ((t**8 - t**7)*Dt**8 + (ZZ(32)*t**7 - ZZ(49)/2*t**6)*Dt
         (ZZ(25631450719)/36450000*t**2 - ZZ(30232)/1875*t)*Dt**2 +
         (ZZ(404509399)/18225000*t - ZZ(8)/1875)*Dt + ZZ(215656441)/656100000000)
 
+pichon1_dop = ((t**15 + ZZ(3267)/1400*t**14 + ZZ(48672657)/24010000*t**13 +
+    ZZ(6278215311)/8403500000*t**12 + ZZ(79377403869)/1470612500000*t**11 -
+    ZZ(17235373023)/588245000000*t**10 + ZZ(29962394991)/7353062500000*t**9 +
+    ZZ(5338482309)/840350000000*t**8 + ZZ(10097379)/9191328125*t**7 -
+    ZZ(2864486673)/29412250000000*t**6 - ZZ(889809381)/11764900000000*t**5 +
+    ZZ(90876411)/4705960000000*t**4 + ZZ(845522631)/117649000000000*t**3 -
+    ZZ(62178597)/47059600000000*t**2 + ZZ(14348907)/470596000000000)*Dt**2 +
+    (3*t**14 + ZZ(31401)/4900*t**13 + ZZ(126844299)/24010000*t**12 +
+    ZZ(657355581)/300125000*t**11 + ZZ(703082466369)/1470612500000*t**10 -
+    ZZ(1845720837)/294122500000*t**9 - ZZ(283373025777)/7353062500000*t**8 +
+    ZZ(3389156721)/735306250000*t**7 + ZZ(2044099233)/294122500000*t**6 -
+    ZZ(1193911731)/14706125000000*t**5 - ZZ(4345238763)/11764900000000*t**4
+    + ZZ(4782969)/235298000000*t**3 + ZZ(2029573179)/117649000000000*t**2 -
+    ZZ(52612659)/23529800000000*t)*Dt + t**13 + ZZ(4707)/2450*t**12 +
+    ZZ(35142903)/24010000*t**11 + ZZ(2766902841)/4201750000*t**10 +
+    ZZ(593733702753)/2941225000000*t**9 + ZZ(14712825987)/1176490000000*t**8 -
+    ZZ(345893523777)/29412250000000*t**7 + ZZ(25743087333)/11764900000000*t**6 +
+    ZZ(30646431)/14706125000*t**5 - ZZ(6916783347)/117649000000000*t**4 -
+    ZZ(398757897)/5882450000000*t**3 + ZZ(4782969)/588245000000*t**2 +
+    ZZ(314081631)/117649000000000*t - ZZ(4782969)/23529800000000)

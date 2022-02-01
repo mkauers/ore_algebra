@@ -13,8 +13,6 @@ Lower-level reimplementation of key subroutines of naive_sum
 #
 # http://www.gnu.org/licenses/
 
-from __future__ import print_function
-
 from libc.stdlib cimport malloc, free
 from sage.libs.arb.types cimport *
 from sage.libs.arb.mag cimport *
@@ -34,11 +32,11 @@ import cython
 
 from . import accuracy, naive_sum
 
-class PartialSum(naive_sum.PartialSum):
+class CoefficientSequence(naive_sum.CoefficientSequence):
 
     @cython.boundscheck(False)
     @cython.wraparound(False)
-    def next_term(self, py_n, py_mult, py_bwrec_n not None, py_cst, jetpow, squash):
+    def next_term(self, py_n, py_mult, py_bwrec_n not None, py_cst, squash):
 
         cdef ssize_t a, b, i, j, k, p, dot_length
         cdef list bwrec_n_i, last_i, last_0
@@ -51,7 +49,6 @@ class PartialSum(naive_sum.PartialSum):
         cdef list bwrec_n = <list> py_bwrec_n
         cdef ssize_t log_prec = self.log_prec
         cdef ssize_t ordrec = self.ordrec
-        cdef list psum = self.psum
         cdef ssize_t prec = self.Intervals.precision()
         cdef Parent Intervals = self.Intervals
         cdef Parent IR = accuracy.IR
@@ -59,13 +56,10 @@ class PartialSum(naive_sum.PartialSum):
 
         cdef object last = self.last
 
-        assert n == self.trunc
         last.rotate(1)
-        self.trunc += 1
-
-        zero = Intervals.zero()
 
         if mult > 0:
+            zero = Intervals.zero()
             self.last[0] = [zero for _ in range(self.log_prec + mult)]
 
         last_0 = <list> (self.last[0])
@@ -111,8 +105,28 @@ class PartialSum(naive_sum.PartialSum):
             self.handle_singular_index(n, mult)
             log_prec = self.log_prec
 
+        self.nterms += 1
+
         if log_prec == mult == 0:
             return accuracy.IR.zero()
+
+        return err
+
+
+class PartialSum(naive_sum.PartialSum):
+
+    @cython.boundscheck(False)
+    def next_term(self, jetpow, py_mult):
+
+        cdef ssize_t mult = py_mult
+        cdef list psum = self.psum
+        cdef list last_0 = <list> (self.cseq.last[0])
+        cdef ssize_t log_prec = self.cseq.log_prec
+        cdef ssize_t prec = self.Jets.base().precision()
+
+        if mult > 0:
+            naive_sum._resize_list(self.psum, log_prec,
+                                   self.Jets.zero())
 
         for k in range(log_prec):
             # XXX reuse existing object?
@@ -129,5 +143,3 @@ class PartialSum(naive_sum.PartialSum):
                     poly.__poly,
                     prec)
             psum[k] = poly
-
-        return err

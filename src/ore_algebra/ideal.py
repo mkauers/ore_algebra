@@ -664,7 +664,7 @@ class OreLeftIdeal(Ideal_nc):
            sage: id.annihilator_of_composition(u=x,v=y)
            Left Ideal (x^2*Dx + (x*y - 2)*Dy - x, (2*x*y - 2)*Dy^2 + x*Dy) of Multivariate Ore algebra in Dx, Dy over Fraction Field of Multivariate Polynomial Ring in x, y over Integer Ring
            sage: id.annihilator_of_composition(u=u^2,v=1/(u-v))
-           Left Ideal ((-u^3)*Du + (-3*u^3 + 2*u^2*v + 4*u^2 - 8*u*v + 4*v^2)*Dv + 2*u^2, (-2*u^3 + 2*u^2*v + 2*u^2 - 4*u*v + 2*v^2)*Dv^2 + (3*u^2 - 4*u + 4*v)*Dv) of Multivariate Ore algebra in Du, Dv over Fraction Field of Multivariate Polynomial Ring in u, v over Integer Ring
+           Left Ideal (u^3*Du + (3*u^3 - 2*u^2*v - 4*u^2 + 8*u*v - 4*v^2)*Dv - 2*u^2, (2*u^3 - 2*u^2*v - 2*u^2 + 4*u*v - 2*v^2)*Dv^2 + (-3*u^2 + 4*u - 4*v)*Dv) of Multivariate Ore algebra in Du, Dv over Fraction Field of Multivariate Polynomial Ring in u, v over Integer Ring 
            sage: id.annihilator_of_composition(v=0)
            Left Ideal (Dv, Du^2) of Multivariate Ore algebra in Du, Dv over Fraction Field of Multivariate Polynomial Ring in u, v over Integer Ring
            sage: id.annihilator_of_composition(u=t,v=1-t)
