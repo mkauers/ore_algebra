@@ -303,11 +303,11 @@ def right_factor(dop, verbose=False, hybrid=True):
 
 def _factor(dop, verbose=False, hybrid=True):
 
-    rfactor = right_factor(dop, verbose=verbose, hybrid=hybrid)
-    if rfactor=='irreducible': return [dop]
-    OA = rfactor.parent(); OA = OA.change_ring(OA.base_ring().fraction_field())
-    lfactor = OA(dop)//rfactor
-    return _factor(lfactor, verbose=verbose, hybrid=hybrid) + _factor(rfactor, verbose=verbose, hybrid=hybrid)
+    R = rfactor(dop, verbose=verbose)
+    if R==None: return [dop]
+    OA = R.parent(); OA = OA.change_ring(OA.base_ring().fraction_field())
+    Q = OA(dop)//R
+    return _factor(Q, verbose=verbose, hybrid=hybrid) + _factor(R, verbose=verbose, hybrid=hybrid)
 
 
 def factor(dop, verbose=False, hybrid=True):
