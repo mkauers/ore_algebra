@@ -537,7 +537,8 @@ def mydegree(pol): # for handling the case 1/z (point at infinity)
 def good_singular_point(dop):
 
     r"""
-    Return
+    Return (s, e, m) where ``s`` is a singular point (possibly ``infinity``) of
+    ``dop`` admitting an exponent ``e`` of minnimal mutliplicity ``m`` mod ZZ.
 
     INPUT:
 
@@ -546,6 +547,8 @@ def good_singular_point(dop):
     OUTPUT:
 
       - ``s`` -- element of QQbar
+      - ``e`` -- element of QQbar
+      - ``m`` -- positive integer
 
     """
 
@@ -592,7 +595,7 @@ def largest_modulus_of_exponents(dop):
     out = 0
     for pol, _ in list(lc.factor()) + [ (1/z, None) ]:
         local_exponents = dop.indicial_polynomial(pol).roots(QQbar, multiplicities=False)
-        local_largest_modulus = max(local_exponents, key = lambda x: x.abs()).abs()
+        local_largest_modulus = max([x.abs().ceil() for x in local_exponents])
         out = max(local_largest_modulus, out)
 
     return out
@@ -604,7 +607,7 @@ def degree_bound_for_right_factor(dop):
     E = largest_modulus_of_exponents(dop)
     bound = r**2*(S + 1)*E + r*S + r**2*(r - 1)*(S - 1)/2
 
-    return bound.ceil()
+    return bound
 
 def try_rational(dop):
 
@@ -637,32 +640,50 @@ def try_splitting(dop, mono, order, bound, alg_degree):
 
     return False, None
 
-def minimal_annihilator(dop, init_conditions, order, bound, alg_degree, basis=None, mono=None):
+
+def minimal_annihilator_exact(dop, ic, order, bound, basis=None):
+
+    """
+    Return either (True, R) where R is a factor of dop annhilating (dop, ic)
+    (strict if any, dop ortherwise) or (False, dop) if cannot conclude
+    (can appear only if order!=bound).
+    """
+
+    r = dop.order()
+
+    if basis==None:
+        basis = dop.power_series_solutions(order + r + 10)
+        basis.reverse()
+
+    # optimization for rational coefficients
+    if all(x in QQ for x in ic):
+        f = vector([QQ(x) for x in ic])*vector(basis)
+        try:
+            print("Rational Hermite-Padé computation at order", order)
+            R = guess(f.list(), dop.parent(), order=r - 1)
+            if R==1: breakpoint()
+            if dop%R==0: return True, R
+            else: return False, dop
+        except ValueError:
+            return order==bound, dop
+
+    f = vector(ic)*vector(basis)
+    print("Algebraic Hermite-Padé computation at order", order)
+    R = hp_approximants(derivatives(f, r - 1), order)
+    dop = LinearDifferentialOperator(dop).extend_scalars(*ic)[0]
+    R = dop.parent()(R)
+    if dop%R==0: return True, R
+
+    return False, dop # on aimerait pouvoir mettre (order==bound, dop) ici
+
+def minimal_annihilator(dop, ic, order, bound, alg_degree, basis=None, mono=None):
 
     r"""
-    Return the operator of minimal order which annihilates the input function
-    given by initial conditions at 0 and some annihilator operator ``dop``.
+    Return either (True, R) where R is a factor of dop annhilating (dop, ic)
+    (strict if any, dop ortherwise) or (False, dop) if cannot conclude
+    (can appear only if order!=bound).
 
-    Assumption: 0 is an ordinary point.
-
-    Note: this function works also with ball initial conditions.
-
-    Correction in the approximate case: if the output is ``dop``, then the
-    minimal annihilator of any solution with initial conditions in
-    ``init_conditions`` is ``dop``.
-
-    INPUT:
-
-      - ``dop``             -- differential operator of order n
-      - ``init_conditions`` -- vector of length n
-      - ``order``           -- positive integer
-      - ``bound``           -- positive onteger
-      - ``mono``            -- list of matrices (optional)
-
-    OUTPUT:
-
-      - ``min_ann`` -- differential operator
-
+    Note for me: for now, (True, dop) can be returned only thanks to mono.
     """
 
     r = dop.order()
@@ -672,47 +693,35 @@ def minimal_annihilator(dop, init_conditions, order, bound, alg_degree, basis=No
         if len(orb)==r: return True, dop
 
     if basis==None:
-        basis = dop.power_series_solutions(order)
+        basis = dop.power_series_solutions(order + r + 10)
         basis.reverse()
 
-    if all(x in QQ for x in init_conditions):
-        rat_init_conditions = [QQ(x) for x in init_conditions]
-        f = vector(rat_init_conditions)*vector(basis)
-        try:
-            print("Rational Hermite-Padé computation at order", order)
-            R = guess(f.list(), dop.parent(), order=r - 1)
-            if dop%R!=0: breakpoint()
-            if R!=1: return True, R # à revoir car R=1 ne devrait pas arriver
-        except ValueError: pass
-        return False, None
+    prec = customized_accuracy(ic)
+    if prec>50:
+        ic1, ic2, d = 0, 1, 1
+        while d<=alg_degree and ic1!=ic2:
+            if d==1:
+                try:
+                    ic1 = guess_rational_numbers(ic, p=prec-20)
+                    ic2 = guess_rational_numbers(ic, p=prec-30)
+                except PrecisionError: pass
+            else:
+                ic1 = guess_algebraic_numbers(ic, d=d, p=prec - 20)
+                ic2 = guess_algebraic_numbers(ic, d=d, p=prec - 30)
+            d = d + 1
 
-    prec = customized_accuracy(init_conditions)
-    if prec>40:
-        try:
-            exact_init_conditions = guess_rational_numbers(init_conditions, p=prec-20)
-            b, R = minimal_annihilator(dop, exact_init_conditions, order, bound, alg_degree, basis=basis)
-            if b: return True, R
-        except PrecisionError: pass
-
-        f = vector(init_conditions)*vector(basis)
-        print("Numerical Hermite-Padé computation at order", order)
-        R = hp_approximants(derivatives(f, r - 1), order)
-        if R==[] and order==bound: return True, dop
-        prec = customized_accuracy(R)
-        if prec>50:
-            R1 = guess_algebraic_numbers(R, d=alg_degree, p=prec - 20)
-            R2 = guess_algebraic_numbers(R, d=alg_degree, p=prec - 30)
-            if R1==R2:
-                coeffs = [c for pol in R1 for c in pol]
-                dop = LinearDifferentialOperator(dop).extend_scalars(*coeffs)[0]
-                R1 = dop.parent()(R1)
-                if dop%R1==0:return True, R1
+        if ic1==ic2:
+            b, R = minimal_annihilator_exact(dop, ic1, order, bound, basis)
+            if b and R!=dop: return True, R
+            #if b and R==dop: to be continued
 
     return False, None
 
 def rfactor(dop, order=None, bound=None, alg_degree=1, precision=None, loss=None):
 
     z = dop.base_ring().gen()
+    if dop.order()<2: return None
+
     R = try_rational(dop)
     if R!=None: return R
 
@@ -729,6 +738,7 @@ def rfactor(dop, order=None, bound=None, alg_degree=1, precision=None, loss=None
     if precision==None: precision = 200
     if loss==None: loss=0
     print("Current order of truncation", order)
+    print("Current algebraic degree", alg_degree)
 
     precision_error_occured=True
     while precision_error_occured:
@@ -759,6 +769,8 @@ def rfactor(dop, order=None, bound=None, alg_degree=1, precision=None, loss=None
                         else: return R.annihilator_of_composition(z - z0)
             precision_error_occured = False
         except (ZeroDivisionError, PrecisionError):
-            precision = max(precision + loss, (precision<<1) - loss)
+            pass
+
+        precision = max(precision + loss, (precision<<1) - loss)
 
     return rfactor(dop, min(bound, order<<1), bound, alg_degree + 1, precision, loss)
