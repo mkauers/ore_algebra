@@ -645,13 +645,14 @@ def transitionYtoV(A):
     P = matrix([B[k][-1] for k in range(r)])
     return P(0)
 
-def try_simple_eigenvalue(dop, mono, order, bound, alg_degree, verbose=False):
+def try_simple_eigenvalue(dop, mono, tmp, order, bound, alg_degree, verbose=False):
 
     r = dop.order()
     mat = combination(mono)
     GenEigSpaces = gen_eigenspaces(mat)
     for space in GenEigSpaces:
         if space['multiplicity']==1:
+            tmp[0] = True
             if verbose: print("Find a simple eigenvalue")
             ic = space['basis'][0]
             b, R = minimal_annihilator(dop, ic, order, bound, alg_degree, mono=mono, verbose=verbose)
@@ -667,17 +668,18 @@ def try_simple_eigenvalue(dop, mono, order, bound, alg_degree, verbose=False):
                 print('Yes!')
                 return True, adjoint(adj_dop//adj_Q)
             if b and adj_b and R.order()==adj_Q.order()==r:
-                return True, dop
+                return True, None
             break
 
     return False, dop
 
-def try_one_dim_eigenspaces(dop, mono, order, bound, alg_degree, verbose=False):
+def try_one_dim_eigenspaces(dop, mono, tmp, order, bound, alg_degree, verbose=False):
 
     r = dop.order()
     mat = combination(mono)
     GenEigSpaces = gen_eigenspaces(mat)
     if all(space['multiplicity']==1 for space in GenEigSpaces):
+        tmp[0] = True
         if verbose: print("Find a matrix with one-dimensional eigenspaces")
         success = True
         for space in GenEigSpaces:
@@ -686,7 +688,7 @@ def try_one_dim_eigenspaces(dop, mono, order, bound, alg_degree, verbose=False):
             if b:
                 if R!=dop: return True, R
             else: success = False
-        if success: return True, dop
+        if success: return True, None
 
     return False, None
 
@@ -822,22 +824,24 @@ def rfactor(dop, order=None, bound=None, alg_degree=1, precision=None, loss=None
                         if verbose: print("loss =", loss)
                     if verbose: print("New monodromy matrix computed")
                     mono.append(mat)
-                    #b, R = try_simple_eigenvalue(dop, mono, order, bound, alg_degree, verbose=verbose)
-                    #if b:
-                    #    if verbose: print("Conclude with Simple Eigenvalue Method")
-                    #    if R==None: return None
-                    #    else: return R.annihilator_of_composition(z - z0)
-                    #b, R = try_one_dim_eigenspaces(dop, mono, order, bound, alg_degree, verbose=verbose)
-                    #if b:
-                    #    if verbose: print("Conclude with One-D Eignespaces Method")
-                    #    if R==None: return None
-                    #    else: return R.annihilator_of_composition(z - z0)
-                    if len(mono)>1:
-                        b, R = try_splitting(dop, mono, order, bound, alg_degree, verbose=verbose)
+                    tmp = [False]
+                    b, R = try_simple_eigenvalue(dop, mono, tmp, order, bound, alg_degree, verbose=verbose)
+                    if b:
+                        if verbose: print("Conclude with Simple Eigenvalue Method")
+                        if R==None: return None
+                        else: return R.annihilator_of_composition(z - z0)
+                    if not tmp[0]:
+                        b, R = try_one_dim_eigenspaces(dop, mono, tmp, order, bound, alg_degree, verbose=verbose)
                         if b:
-                            if verbose: print("Conclude with Splitting Method")
+                            if verbose: print("Conclude with One-D Eignespaces Method")
                             if R==None: return None
                             else: return R.annihilator_of_composition(z - z0)
+                        if not tmp[0] and len(mono)>1:
+                            b, R = try_splitting(dop, mono, order, bound, alg_degree, verbose=verbose)
+                            if b:
+                                if verbose: print("Conclude with Splitting Method")
+                                if R==None: return None
+                                else: return R.annihilator_of_composition(z - z0)
             precision_error_occured = False
         except (ZeroDivisionError, PrecisionError):
             pass
