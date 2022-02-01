@@ -97,24 +97,65 @@ class PlainDifferentialOperator(UnivariateDifferentialOperatorOverUnivariateRing
         raise NotImplementedError("use _singularities()")
 
     @cached_method
-    def _singularities(self, dom=None, multiplicities=False):
+    def split_leading_coefficient(self):
+        lc = self.leading_coefficient()
+        if lc.base_ring() is not QQ: # not worth the effort
+            return lc, lc.parent().one()
+        dlc = self.desingularize(m=1).leading_coefficient()
+        alc, rem = lc.quo_rem(dlc)
+        assert rem.is_zero()
+        # "Partly apparent" factors go in the non-apparent one
+        while True:
+            g = dlc.gcd(alc)
+            if g.is_one():
+                return dlc, alc
+            alc //= g
+            dlc *= g
+
+    @cached_method
+    def _singularities(self, dom=None, multiplicities=False, apparent=None):
         r"""
         Complex singularities of self, as elements of dom.
 
-        Pass dom=None to get the singularities as PolynomialRoot objects.
+        INPUT:
+
+        - ``dom`` - parent; pass ``dom=None`` to get the singularities as
+          ``PolynomialRoot`` objects.
+        - ``multiplicities`` - boolean.
+        - ``apparent`` - ``None`` to compute all singularities; the results with
+          ``apparent=True`` and ``apparent=False`` form a disjoint union of the
+          singularities, with all non-apparent singularities (and, possibly,
+          some apparent ones) contained in the subset corresponding to
+          ``apparent=False``.
         """
-        if dom is None and multiplicities:
-            sing = []
-            for fac, mult in self.leading_coefficient().factor():
-                roots = utilities.roots_of_irred(fac)
-                sing.extend((rt, mult) for rt in roots)
-        else:
+        if dom is not None or not multiplicities:
             # Memoize the version with all information
-            sing = self._singularities(None, multiplicities=True)
+            sing = self._singularities(None, multiplicities=True,
+                                       apparent=apparent)
             if dom is not None:
                 sing = [(dom(rt), mult) for rt, mult in sing]
             if not multiplicities:
                 sing = [s for s, _ in sing]
+            return sing
+        if apparent is None:
+            # We might already have computed part of the singularities. If that
+            # is the case, compute only the remaining ones. Otherwise, though,
+            # we do not want to pay the price of trying to desingularize.
+            for b in [False, True]:
+                try:
+                    sing = self._singularities.cached(dom, multiplicities, b)
+                except KeyError:
+                    continue
+                sing += self._singularities(dom, multiplicities, not b)
+                return sing
+            pol = self.leading_coefficient()
+        else:
+            dlc, alc = self.split_leading_coefficient()
+            pol = alc if apparent else dlc
+        sing = []
+        for fac, mult in pol.factor():
+            roots = utilities.roots_of_irred(fac)
+            sing.extend((rt, mult) for rt in roots)
         return sing
 
     def _sing_as_alg(self, iv):
@@ -250,8 +291,8 @@ class ShiftedDifferentialOperator(PlainDifferentialOperator):
         self._orig = orig
         self._delta = delta
 
-    def _singularities(self, dom, multiplicities=False):
-        sing = self._orig._singularities(dom, multiplicities)
+    def _singularities(self, dom, multiplicities=False, apparent=None):
+        sing = self._orig._singularities(dom, multiplicities, apparent)
         delta = dom(self._delta.value)
         if multiplicities:
             return [(s - delta, m) for s, m in sing]
