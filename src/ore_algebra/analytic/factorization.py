@@ -854,9 +854,12 @@ def rfactor(dop, order=None, bound=None, alg_degree=1, precision=None, loss=None
 
     return rfactor(dop, min(bound, order<<1), bound, alg_degree + 1, precision, loss, verbose=verbose)
 
-def profil_factor(dop):
-    L = dop
-    cProfile.run('fac = L.factor()', 'tmp_stats')
+def profil_factor(dop, verbose=False):
+    fac = [None]
+    def fun():
+        fac[0] = dop.factor(verbose=verbose)
+        return
+    cProfile.runctx('fun()', None, {'fun': fun}, 'tmp_stats')
     s = pstats.Stats('tmp_stats')
     key_tot = ('~', 0, '<built-in method builtins.exec>')
     time_tot = numerical_approx(s.stats[key_tot][3], digits=3)
@@ -876,4 +879,4 @@ def profil_factor(dop):
     profil = {'total' : time_tot, 'monodromy': time_mono, \
     'hermitepade': time_hprat + time_hpalg, \
     'guesscoefficients': time_grat + time_galg}
-    return profil
+    return fac[0], profil
