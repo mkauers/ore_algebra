@@ -31,6 +31,10 @@ from sage.arith.misc import valuation, gcd
 from sage.misc.misc import cputime
 from sage.plot.line import line2d
 
+import cProfile
+import pstats
+from sage.misc.functional import numerical_approx
+
 from ore_algebra.guessing import guess
 
 from .monodromy import _monodromy_matrices
@@ -849,3 +853,27 @@ def rfactor(dop, order=None, bound=None, alg_degree=1, precision=None, loss=None
         precision = max(precision + loss, (precision<<1) - loss)
 
     return rfactor(dop, min(bound, order<<1), bound, alg_degree + 1, precision, loss, verbose=verbose)
+
+def profil_factor(dop):
+    L = dop
+    cProfile.run('fac = L.factor()', 'tmp_stats')
+    s = pstats.Stats('tmp_stats')
+    key_tot = ('~', 0, '<built-in method builtins.exec>')
+    time_tot = numerical_approx(s.stats[key_tot][3], digits=3)
+    mono, hprat, hpalg, grat, galg = [False]*5
+    time_mono, time_hprat, time_hpalg, time_grat, time_galg = [0]*5
+    for key in s.stats.keys():
+        if key[2] == '_monodromy_matrices':
+            time_mono = numerical_approx(s.stats[key][3], digits=3)
+        if key[2] == 'guess':
+            time_hprat = numerical_approx(s.stats[key][3], digits=3)
+        if key[2] == 'hp_approximants':
+            time_hpalg = numerical_approx(s.stats[key][3], digits=3)
+        if key[2]=='guess_rational_numbers':
+            time_grat = numerical_approx(s.stats[key][3], digits=3)
+        if key[2]=='guess_algebraic_numbers':
+            time_galg = numerical_approx(s.stats[key][3], digits=3)
+    profil = {'total' : time_tot, 'monodromy': time_mono, \
+    'hermitepade': time_hprat + time_hpalg, \
+    'guesscoefficients': time_grat + time_galg}
+    return profil
