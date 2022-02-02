@@ -383,7 +383,7 @@ def _monodromy_matrices(dop, base, eps=1e-16, sing=None):
     dop = DifferentialOperator(dop)
     eps = RBF(eps)
     if sing is None:
-        sing = dop._singularities()
+        sing = dop._singularities(apparent=False)
     else:
         sing = [x for x in dop._singularities() if x.as_algebraic() in sing]
 
@@ -520,9 +520,9 @@ def monodromy_matrices(dop, base, eps=1e-16, sing=None):
     - ``dop`` - differential operator
     - ``base`` - base point, must be coercible to ``QQbar``
     - ``eps`` - absolute tolerance (indicative)
-    - ``sing`` (optional) - list of singularities to consider (by default, all,
-      i.e., compute generators of the whole monodromy group); each entry must
-      coerce into ``QQbar``
+    - ``sing`` (optional) - list of singularities to consider ; each entry must
+      coerce into ``QQbar``. By default, all except maybe some apparent ones,
+      i.e., compute generators of the monodromy group.
 
     OUTPUT:
 
