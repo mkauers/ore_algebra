@@ -295,7 +295,8 @@ class PolynomialRoot:
             return +1
         elif im.upper() < 0:
             return -1
-        raise AssertionError
+        # Should no longer be necessary with #33150
+        return int(self.as_algebraic().imag().sign())
 
     @classmethod
     def make(cls, value):
