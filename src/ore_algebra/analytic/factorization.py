@@ -270,23 +270,23 @@ def right_factor(dop, verbose=False, hybrid=False):
     return output
 
 
-def _factor(dop, verbose=False):
+def _factor(dop, verbose=False, splitting_only=False):
 
-    R = rfactor(dop, verbose=verbose)
+    R = rfactor(dop, verbose=verbose, splitting_only=splitting_only)
     if R==None: return [dop]
     OA = R.parent(); OA = OA.change_ring(OA.base_ring().fraction_field())
     Q = OA(dop)//R
-    return _factor(Q, verbose=verbose) + _factor(R, verbose=verbose)
+    return _factor(Q, verbose=verbose, splitting_only=splitting_only) + _factor(R, verbose=verbose, splitting_only=splitting_only)
 
 
-def factor(dop, verbose=False):
+def factor(dop, verbose=False, splitting_only=False):
 
     r"""
     Return a list of irreductible operators [L1, L2, ..., Lr] such that L is
     equal to the composition L1.L2...Lr.
     """
 
-    output = _factor(dop, verbose=verbose)
+    output = _factor(dop, verbose=verbose, splitting_only=splitting_only)
     K0, K1 = output[0].base_ring().base_ring(), output[-1].base_ring().base_ring()
     if K0 != K1:
         A = output[0].parent()
@@ -756,10 +756,12 @@ def minimal_annihilator(dop, ic, order, bound, alg_degree, basis=None, mono=None
 
     return False, None
 
-def rfactor(dop, order=None, bound=None, alg_degree=1, precision=None, loss=None, verbose=False):
+def rfactor(dop, order=None, bound=None, alg_degree=1, precision=None, loss=None, splitting_only=False, verbose=False):
 
     z = dop.base_ring().gen()
     if dop.order()<2: return None
+
+    if verbose: print('Factorization of an operator of order', dop.order())
 
     R = try_rational(dop)
     if R!=None: return R
@@ -794,23 +796,30 @@ def rfactor(dop, order=None, bound=None, alg_degree=1, precision=None, loss=None
                     if verbose: print("New monodromy matrix computed")
                     mono.append(mat)
                     tmp = [False]
-                    b, R = try_simple_eigenvalue(dop, mono, tmp, order, bound, alg_degree, verbose=verbose)
-                    if b:
-                        if verbose: print("Conclude with Simple Eigenvalue Method")
-                        if R==None: return None
-                        else: return R.annihilator_of_composition(z - z0)
-                    if not tmp[0]:
-                        b, R = try_one_dim_eigenspaces(dop, mono, tmp, order, bound, alg_degree, verbose=verbose)
+                    if splitting_only:
+                        b, R = try_splitting(dop, mono, order, bound, alg_degree, verbose=verbose)
                         if b:
-                            if verbose: print("Conclude with One-D Eignespaces Method")
+                            if verbose: print("Conclude with Splitting Method")
                             if R==None: return None
                             else: return R.annihilator_of_composition(z - z0)
-                        if not tmp[0] and len(mono)>1:
-                            b, R = try_splitting(dop, mono, order, bound, alg_degree, verbose=verbose)
+                    else:
+                        b, R = try_simple_eigenvalue(dop, mono, tmp, order, bound, alg_degree, verbose=verbose)
+                        if b:
+                            if verbose: print("Conclude with Simple Eigenvalue Method")
+                            if R==None: return None
+                            else: return R.annihilator_of_composition(z - z0)
+                        if not tmp[0]:
+                            b, R = try_one_dim_eigenspaces(dop, mono, tmp, order, bound, alg_degree, verbose=verbose)
                             if b:
-                                if verbose: print("Conclude with Splitting Method")
+                                if verbose: print("Conclude with One-D Eignespaces Method")
                                 if R==None: return None
                                 else: return R.annihilator_of_composition(z - z0)
+                            if not tmp[0] and len(mono)>1:
+                                b, R = try_splitting(dop, mono, order, bound, alg_degree, verbose=verbose)
+                                if b:
+                                    if verbose: print("Conclude with Splitting Method")
+                                    if R==None: return None
+                                    else: return R.annihilator_of_composition(z - z0)
             precision_error_occured = False
         except (ZeroDivisionError, PrecisionError):
             pass
@@ -819,10 +828,10 @@ def rfactor(dop, order=None, bound=None, alg_degree=1, precision=None, loss=None
 
     return rfactor(dop, min(bound, order<<1), bound, alg_degree + 1, precision, loss, verbose=verbose)
 
-def profil_factor(dop, verbose=False):
+def profil_factor(dop, verbose=False, splitting_only=False):
     fac = [None]
     def fun():
-        fac[0] = dop.factor(verbose=verbose)
+        fac[0] = dop.factor(verbose=verbose, splitting_only=splitting_only)
         return
     cProfile.runctx('fun()', None, {'fun': fun}, 'tmp_stats')
     s = pstats.Stats('tmp_stats')
