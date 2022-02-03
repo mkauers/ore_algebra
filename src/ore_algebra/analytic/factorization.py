@@ -121,7 +121,7 @@ class LinearDifferentialOperator(PlainDifferentialOperator):
         if self.monodromy_data.precision<precision:
             success, increment, loss = False, 50, self.monodromy_data.loss
             if self.monodromy_data.points==None:
-                useful_singularities = self.desingularize()._singularities(QQbar)
+                useful_singularities = LinearDifferentialOperator(self.desingularize())._singularities(QQbar)
             else:
                 useful_singularities = self.monodromy_data.points
             while not success:
