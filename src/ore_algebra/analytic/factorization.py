@@ -246,42 +246,7 @@ class LinearDifferentialOperator(PlainDifferentialOperator):
 
         return dop
 
-    def _is_irreducible(self, verbose=False):
-
-        if self.fuchsian_info==None:
-            self.fuchsian_info = self.is_fuchsian()
-            if not self.fuchsian_info: print("WARNING: The operator is not fuchsian: termination is not guaranteed.")
-
-        prec= 200; eps = Radii.one()>>prec
-        if verbose:
-            print("precision = number of bits")
-            print("Try with precision", prec)
-        while True:
-            try:
-                mono = []
-                it = _monodromy_matrices(self, 0, eps)
-                finished = False
-                for pt, mat, scal in it:
-                    if not scal:
-                        if verbose: print("New matrix computed")
-                        mono.append(mat)
-                        V = invariant_subspace(mono)
-                        if V==None: return True
-                finished = True
-                p1, p2 = customized_accuracy(mono), customized_accuracy(V)
-                if verbose: print("All monodromy matrices computed with \
-                precision", p1, "and found an invariant subspace of dim", \
-                len(V), "with precision", p2)
-                a = 1/0
-
-            except (PrecisionError, ZeroDivisionError):
-                if verbose and not finished:
-                    print("Monodromy computation failed")
-                prec = prec<<1; eps = Radii.one()>>prec
-                if verbose: print("Try with new precision", prec)
-
-
-def right_factor(dop, verbose=False, hybrid=True):
+def right_factor(dop, verbose=False, hybrid=False):
 
     r"""
     Return either a non-trivial right factor of "dop" or the string
@@ -305,23 +270,23 @@ def right_factor(dop, verbose=False, hybrid=True):
     return output
 
 
-def _factor(dop, verbose=False, hybrid=True):
+def _factor(dop, verbose=False):
 
     R = rfactor(dop, verbose=verbose)
     if R==None: return [dop]
     OA = R.parent(); OA = OA.change_ring(OA.base_ring().fraction_field())
     Q = OA(dop)//R
-    return _factor(Q, verbose=verbose, hybrid=hybrid) + _factor(R, verbose=verbose, hybrid=hybrid)
+    return _factor(Q, verbose=verbose) + _factor(R, verbose=verbose)
 
 
-def factor(dop, verbose=False, hybrid=True):
+def factor(dop, verbose=False):
 
     r"""
     Return a list of irreductible operators [L1, L2, ..., Lr] such that L is
     equal to the composition L1.L2...Lr.
     """
 
-    output = _factor(dop, verbose=verbose, hybrid=hybrid)
+    output = _factor(dop, verbose=verbose)
     K0, K1 = output[0].base_ring().base_ring(), output[-1].base_ring().base_ring()
     if K0 != K1:
         A = output[0].parent()
@@ -863,7 +828,6 @@ def profil_factor(dop, verbose=False):
     s = pstats.Stats('tmp_stats')
     key_tot = ('~', 0, '<built-in method builtins.exec>')
     time_tot = numerical_approx(s.stats[key_tot][3], digits=3)
-    mono, hprat, hpalg, grat, galg = [False]*5
     time_mono, time_hprat, time_hpalg, time_grat, time_galg = [0]*5
     for key in s.stats.keys():
         if key[2] == '_monodromy_matrices':

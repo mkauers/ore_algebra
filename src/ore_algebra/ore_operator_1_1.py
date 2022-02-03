@@ -3512,7 +3512,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         fct = self._make_valuation_place(place,iota=iota)[2]
         return fct(basis, place, dim)
 
-    def factor(self, verbose=False, hybrid=True):
+    def factor(self, verbose=False):
         r"""
         Compute a decomposition of this operator as a composition of irreducible
         operators (potentially introducing algebraic extensions).
@@ -3524,10 +3524,6 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
 
         - ``verbose`` (default: False) - if set to True, this method prints
           some messages about the progress of the computation.
-        - ``hybrid``  (default: True) - if set to True, this method does not use
-          van Hoeij's idea with exponents of multiplicity 1 (only rational
-          solutions and van der Hoeven's symbolic-numeric approach with
-          monodromy matrices) to find factors.
 
         OUTPUT:
 
@@ -3560,16 +3556,8 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         """
 
         from .analytic.factorization import factor
-        fac = factor(self, verbose=verbose, hybrid=hybrid)
+        fac = factor(self, verbose=verbose)
         return fac
-
-    def _is_irreducible(self, verbose=False):
-
-        """ temporary function (works only if the operator is irreducible) """
-
-        from .analytic.factorization import _is_irreducible
-        return _is_irreducible(self, verbose=verbose)
-
 
 
 
