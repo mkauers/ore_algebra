@@ -3512,7 +3512,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         fct = self._make_valuation_place(place,iota=iota)[2]
         return fct(basis, place, dim)
 
-    def factor(self, verbose=False):
+    def factor(self, verbose=False, splitting_only=False):
         r"""
         Compute a decomposition of this operator as a composition of irreducible
         operators (potentially introducing algebraic extensions).
@@ -3556,7 +3556,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         """
 
         from .analytic.factorization import factor
-        fac = factor(self, verbose=verbose)
+        fac = factor(self, verbose=verbose, splitting_only=splitting_only)
         return fac
 
 
