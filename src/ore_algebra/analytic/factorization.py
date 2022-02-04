@@ -27,7 +27,7 @@ from sage.matrix.special import block_matrix, identity_matrix, diagonal_matrix
 from sage.misc.misc_c import prod
 from sage.arith.functions import lcm
 from sage.functions.other import binomial, factorial
-from sage.arith.misc import valuation, gcd
+from sage.arith.misc import valuation, algdep, gcd
 from sage.misc.misc import cputime
 from sage.plot.line import line2d
 
@@ -37,6 +37,7 @@ from sage.misc.functional import numerical_approx
 
 from ore_algebra.guessing import guess
 
+from .utilities import as_embedded_number_field_elements
 from .monodromy import _monodromy_matrices
 from .differential_operator import PlainDifferentialOperator
 from .accuracy import PrecisionError
@@ -590,34 +591,141 @@ def try_rational(dop):
 
     return None
 
-def combination(mono):
+def random_combination(mono):
     prec, C = customized_accuracy(mono), mono[0].base_ring()
     ran = lambda : C(QQ.random_element(prec), QQ.random_element(prec))
     return sum(ran()*mat for mat in mono)
 
-adjoint = lambda dop: sum((-dop.parent().gen())**i*pi for i, pi in enumerate(dop.list()))
-der_list = lambda l: [f.derivative() for f in l]
-der_mat = lambda mat: matrix([der_list(row) for row in mat])
+myadjoint = lambda dop: sum((-dop.parent().gen())**i*pi for i, pi in enumerate(dop.list()))
 
-def diffop_companion_matrix(dop, r):
-    A =  block_matrix([[matrix(r-1,1, [0]*(r-1)), identity_matrix(r-1)], \
-                       [matrix([[-dop[0]]]), \
-                        -matrix(1,r-1, dop.list()[1:-1])]], subdivide=False)
+def diffop_companion_matrix(dop):
+    r = dop.order()
+    A = block_matrix([[matrix(r - 1 , 1, [0]*(r - 1)), identity_matrix(r - 1)],\
+                      [ -matrix([[-dop.list()[0]]]) ,\
+                        -matrix(1, r - 1, dop.list()[1:-1] )]], subdivide=False)
     return A
 
-def transitionYtoV(A):
-    r = A.nrows()
-    B = [identity_matrix(A.base_ring(), r)]
+def transition_matrix_for_adjoint(dop):
+
+    """
+    Return an invertible constant matrix Q such that: if M is the monodromy of
+    dop along a loop gamma, then the monodromy of the adjoint of dop along
+    gamma^{-1} is equal to Q*M.transpose()*(~Q), where the monodromies are
+    computed in the basis given by .local_basis_expansions method.
+
+    Assumptions: dop is monic, 0 is the base point, and 0 is not singular.
+    """
+
+    AT = diffop_companion_matrix(dop).transpose()
+    r = dop.order()
+    B = [identity_matrix(dop.base_ring(), r)]
     for k in range(1, r):
-        Bk = der_mat(B[k-1]) - B[k-1]*(A.transpose())
+        Bk = B[k - 1].derivative() - B[k - 1] * AT
         B.append(Bk)
-    P = matrix([B[k][-1] for k in range(r)])
-    return P(0)
+    P = matrix([ B[k][-1] for k in range(r) ])
+    Delta = diagonal_matrix(QQ, [1/factorial(i) for i in range(r)])
+    Q = Delta * P(0) * Delta
+    return Q
+
+def guess_symbolic_coefficients(vec, alg_degree, verbose=False):
+
+    """
+    Return a reasonable symbolic vector contained in the ball vector ``vec`` if
+    any; "NothingFound" otherwise.
+
+    Input:
+     -- ``vec`` -- ball vector
+     -- ``alg_degree``   -- positive integer
+
+    Output:
+     -- "symb_vec" -- vector with coefficients in QQ or a number field
+
+    Examples::
+        sage: C = ComplexBallField()
+        sage: err = C(0).add_error(RR.one()>>40)
+        sage: vec = vector(C, [C(sqrt(2)) + err, 3 + err])
+        sage: guess_symbolic_coefficients(vec, 1)
+        'Fail'
+        sage: guess_symbolic_coefficients(vec, 2)
+        [a, 3]
+        sage: _[1].parent()
+        Number Field in a with defining polynomial y^2 - 2 with a = 1.414213562373095?
+    """
+
+    if verbose: print("Try guessing symbolic coefficients")
+    r = len(vec)
+
+    v1, v2 = [], []
+    for x in vec:
+        if not x.imag().contains_zero(): break
+        x, err = x.real().mid(), x.rad()
+        err1, err2 = err, (2/3)*err
+        v1.append(x.nearby_rational(max_error=x.parent()(err1)))
+        v2.append(x.nearby_rational(max_error=x.parent()(err2)))
+    if len(v1)==r and v1==v2:
+        if verbose: print("Find rational coefficients")
+        return v1
+
+    p = customized_accuracy(vec)
+    if p<30: return "NothingFound"
+    for d in range(2, alg_degree + 1):
+        v1, v2 = [], []
+        for x in vec:
+            v1.append(algdep(x.mid(), degree=d, known_bits=p-10))
+            v2.append(algdep(x.mid(), degree=d, known_bits=p-20))
+        if len(v1)==r and v1==v2:
+            symb_vec = []
+            for i, x in enumerate(vec):
+                roots = v1[i].roots(QQbar, multiplicities=False)
+                k = len(roots)
+                i = min(range(k), key = lambda i: abs(roots[i] - x.mid()))
+                symb_vec.append(roots[i])
+            K, symb_vec = as_embedded_number_field_elements(symb_vec)
+            if not all(symb_vec[i] in vec[i] for i in range(r)): breakpoint()
+            if verbose: print("Find algebraic coefficients in a number field of degree", K.degree())
+            return symb_vec
+
+    return "NothingFound"
+
+def annihilator(dop, ic, order, bound, alg_degree, mono=None, verbose=False):
+
+    r, OA = dop.order(), dop.parent()
+    sol_basis = dop.local_basis_expansions(0, order + r)
+
+    if mono!=None:
+        orb = orbit(mono, ic)
+        if len(orb)==r: return dop
+        ic = reduced_row_echelon_form(matrix(orb))[0]
+
+    symb_ic = guess_symbolic_coefficients(ic, alg_degree, verbose=verbose)
+    if symb_ic!="NothingFound":
+        f = vector(symb_ic)*vector(sol_basis)
+        if all(x in QQ for x in symb_ic):
+            try:
+                R = guess(f.list(), dop.parent())
+                if R==1: raise Exception("Problem with guess")
+                if R.order()<r and dop%R==0: return R
+            except ValueError: pass
+        else:
+            der = [f.truncate()]
+            for k in range(r - 1): der.append(der[-1].derivative())
+            mat = matrix(r, 1, der)
+            min_basis = mat.minimal_approximant_basis(r*(bound + 1))
+            rdeg = min_basis.row_degrees()
+            i0 = min(range(len(rdeg)), key = lambda i: rdeg[i])
+            R = OA(list(min_basis[i0]))
+            if dop%R==0: return R
+
+    if order>r*(bound + 1):
+        print("Peut-être qu'on aurait pu terminer plus vite en montrant qu'il n'existe pas d'approximants boules")
+
+    return "Inconclusive"
+
 
 def try_simple_eigenvalue(dop, mono, tmp, order, bound, alg_degree, verbose=False):
 
     r = dop.order()
-    mat = combination(mono)
+    mat = random_combination(mono)
     GenEigSpaces = gen_eigenspaces(mat)
     for space in GenEigSpaces:
         if space['multiplicity']==1:
@@ -626,16 +734,16 @@ def try_simple_eigenvalue(dop, mono, tmp, order, bound, alg_degree, verbose=Fals
             ic = space['basis'][0]
             b, R = minimal_annihilator(dop, ic, order, bound, alg_degree, mono=mono, verbose=verbose)
             if b and R!=dop: return True, R
-            r, adj_dop = dop.order(), adjoint(dop)
+            r, adj_dop = dop.order(), myadjoint(dop)
             adj_mono = [mat.transpose() for mat in mono]
-            A = diffop_companion_matrix(dop, r)
+            A = diffop_companion_matrix(dop)
             P = transitionYtoV(A)
             T = diagonal_matrix([factorial(i) for i in range(r)])
             adj_ic = T*(~P).transpose()*T*ic
             adj_b, adj_Q = minimal_annihilator(adj_dop, adj_ic, order, bound, alg_degree, mono=adj_mono, verbose=verbose)
             if adj_b and adj_Q!=adj_dop:
                 print('Yes!')
-                return True, adjoint(adj_dop//adj_Q)
+                return True, myadjoint(adj_dop//adj_Q)
             if b and adj_b and R.order()==adj_Q.order()==r:
                 return True, None
             break
@@ -645,7 +753,7 @@ def try_simple_eigenvalue(dop, mono, tmp, order, bound, alg_degree, verbose=Fals
 def try_one_dim_eigenspaces(dop, mono, tmp, order, bound, alg_degree, verbose=False):
 
     r = dop.order()
-    mat = combination(mono)
+    mat = random_combination(mono)
     GenEigSpaces = gen_eigenspaces(mat)
     if all(space['multiplicity']==1 for space in GenEigSpaces):
         tmp[0] = True
