@@ -627,11 +627,11 @@ def transition_matrix_for_adjoint(dop):
     Q = Delta * P(0) * Delta
     return Q
 
-def guess_symbolic_coefficients(vec, alg_degree):
+def guess_symbolic_coefficients(vec, alg_degree, verbose=False):
 
     """
     Return a reasonable symbolic vector contained in the ball vector ``vec`` if
-    any; "Fail" otherwise.
+    any; "NothingFound" otherwise.
 
     Input:
      -- ``vec`` -- ball vector
@@ -652,6 +652,9 @@ def guess_symbolic_coefficients(vec, alg_degree):
         Number Field in a with defining polynomial y^2 - 2 with a = 1.414213562373095?
     """
 
+    if verbose: print("Try guessing symbolic coefficients")
+    r = len(vec)
+
     v1, v2 = [], []
     for x in vec:
         if not x.imag().contains_zero(): break
@@ -659,38 +662,62 @@ def guess_symbolic_coefficients(vec, alg_degree):
         err1, err2 = err, (2/3)*err
         v1.append(x.nearby_rational(max_error=x.parent()(err1)))
         v2.append(x.nearby_rational(max_error=x.parent()(err2)))
-    if len(v1)==len(vec) and v1==v2: return v1
+    if len(v1)==r and v1==v2:
+        if verbose: print("Find rational coefficients")
+        return v1
 
     p = customized_accuracy(vec)
-    if p<30: return "Fail"
+    if p<30: return "NothingFound"
     for d in range(2, alg_degree + 1):
         v1, v2 = [], []
         for x in vec:
             v1.append(algdep(x.mid(), degree=d, known_bits=p-10))
             v2.append(algdep(x.mid(), degree=d, known_bits=p-20))
-        if len(v1)==len(vec) and v1==v2:
+        if len(v1)==r and v1==v2:
             symb_vec = []
             for i, x in enumerate(vec):
-                r = v1[i].roots(QQbar, multiplicities=False)
-                i = min(range(len(r)), key = lambda i: abs(r[i] - x.mid()))
-                symb_vec.append(r[i])
-            symb_vec = as_embedded_number_field_elements(symb_vec)[1]
+                roots = v1[i].roots(QQbar, multiplicities=False)
+                k = len(roots)
+                i = min(range(k), key = lambda i: abs(roots[i] - x.mid()))
+                symb_vec.append(roots[i])
+            K, symb_vec = as_embedded_number_field_elements(symb_vec)
+            if not all(symb_vec[i] in vec[i] for i in range(r)): breakpoint()
+            if verbose: print("Find algebraic coefficients in a number field of degree", K.degree())
             return symb_vec
 
-    return "Fail"
+    return "NothingFound"
 
+def annihilator(dop, ic, order, bound, alg_degree, mono=None, verbose=False):
 
-
-def annihilator(dop, ic, alg_degree, mono=None):
-
-    r = dop.order()
+    r, OA = dop.order(), dop.parent()
+    sol_basis = dop.local_basis_expansions(0, order + r)
 
     if mono!=None:
         orb = orbit(mono, ic)
         if len(orb)==r: return dop
         ic = reduced_row_echelon_form(matrix(orb))[0]
 
-    symb_ic = guess_symbolic_coefficients(ic, alg_degree)
+    symb_ic = guess_symbolic_coefficients(ic, alg_degree, verbose=verbose)
+    if symb_ic!="NothingFound":
+        f = vector(symb_ic)*vector(sol_basis)
+        if all(x in QQ for x in symb_ic):
+            try:
+                R = guess(f.list(), dop.parent())
+                if R==1: raise Exception("Problem with guess")
+                if R.order()<r and dop%R==0: return R
+            except ValueError: pass
+        else:
+            der = [f.truncate()]
+            for k in range(r - 1): der.append(der[-1].derivative())
+            mat = matrix(r, 1, der)
+            min_basis = mat.minimal_approximant_basis(r*(bound + 1))
+            rdeg = min_basis.row_degrees()
+            i0 = min(range(len(rdeg)), key = lambda i: rdeg[i])
+            R = OA(list(min_basis[i0]))
+            if dop%R==0: return R
+
+    if order>r*(bound + 1):
+        print("Peut-être qu'on aurait pu terminer plus vite en montrant qu'il n'existe pas d'approximants boules")
 
     return "Inconclusive"
 
@@ -709,7 +736,7 @@ def try_simple_eigenvalue(dop, mono, tmp, order, bound, alg_degree, verbose=Fals
             if b and R!=dop: return True, R
             r, adj_dop = dop.order(), myadjoint(dop)
             adj_mono = [mat.transpose() for mat in mono]
-            A = diffop_companion_matrix(dop, r)
+            A = diffop_companion_matrix(dop)
             P = transitionYtoV(A)
             T = diagonal_matrix([factorial(i) for i in range(r)])
             adj_ic = T*(~P).transpose()*T*ic
