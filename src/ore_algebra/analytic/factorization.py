@@ -638,17 +638,17 @@ def guess_symbolic_coefficients(vec, alg_degree, verbose=False):
      -- ``alg_degree``   -- positive integer
 
     Output:
-     -- "symb_vec" -- vector with coefficients in QQ or a number field
+     -- ``symb_vec`` -- vector with coefficients
+     -- ``K``        -- QQ or a number field
 
     Examples::
         sage: C = ComplexBallField()
         sage: err = C(0).add_error(RR.one()>>40)
         sage: vec = vector(C, [C(sqrt(2)) + err, 3 + err])
         sage: guess_symbolic_coefficients(vec, 1)
-        'Fail'
+        'NothingFound'
         sage: guess_symbolic_coefficients(vec, 2)
         [a, 3]
-        sage: _[1].parent()
         Number Field in a with defining polynomial y^2 - 2 with a = 1.414213562373095?
     """
 
@@ -664,10 +664,10 @@ def guess_symbolic_coefficients(vec, alg_degree, verbose=False):
         v2.append(x.nearby_rational(max_error=x.parent()(err2)))
     if len(v1)==r and v1==v2:
         if verbose: print("Find rational coefficients")
-        return v1
+        return v1, QQ
 
     p = customized_accuracy(vec)
-    if p<30: return "NothingFound"
+    if p<30: return "NothingFound", None
     for d in range(2, alg_degree + 1):
         v1, v2 = [], []
         for x in vec:
@@ -683,38 +683,44 @@ def guess_symbolic_coefficients(vec, alg_degree, verbose=False):
             K, symb_vec = as_embedded_number_field_elements(symb_vec)
             if not all(symb_vec[i] in vec[i] for i in range(r)): breakpoint()
             if verbose: print("Find algebraic coefficients in a number field of degree", K.degree())
-            return symb_vec
+            return symb_vec, K
 
-    return "NothingFound"
+    return "NothingFound", None
 
 def annihilator(dop, ic, order, bound, alg_degree, mono=None, verbose=False):
 
     r, OA = dop.order(), dop.parent()
-    sol_basis = dop.local_basis_expansions(0, order + r)
 
     if mono!=None:
         orb = orbit(mono, ic)
         if len(orb)==r: return dop
         ic = reduced_row_echelon_form(matrix(orb))[0]
 
-    symb_ic = guess_symbolic_coefficients(ic, alg_degree, verbose=verbose)
+    symb_ic, K = guess_symbolic_coefficients(ic, alg_degree, verbose=verbose)
     if symb_ic!="NothingFound":
-        f = vector(symb_ic)*vector(sol_basis)
-        if all(x in QQ for x in symb_ic):
+        #sol_basis = dop.local_basis_expansions(QQ.zero(), order + r)
+        sol_basis = dop.power_series_solutions(order + r)
+        sol_basis.reverse()
+        if K==QQ:
+            f = vector(symb_ic)*vector(sol_basis)
             try:
                 R = guess(f.list(), dop.parent())
                 if R==1: raise Exception("Problem with guess")
                 if R.order()<r and dop%R==0: return R
             except ValueError: pass
         else:
+            sol_basis = [f.change_ring(K) for f in sol_basis]
+            f = vector(symb_ic)*vector(sol_basis)
             der = [f.truncate()]
-            for k in range(r - 1): der.append(der[-1].derivative())
+            for k in range(r - 1): der.append( der[-1].derivative() )
             mat = matrix(r, 1, der)
-            min_basis = mat.minimal_approximant_basis(r*(bound + 1))
+            min_basis = mat.minimal_approximant_basis(order)
             rdeg = min_basis.row_degrees()
             i0 = min(range(len(rdeg)), key = lambda i: rdeg[i])
-            R = OA(list(min_basis[i0]))
+            R, g = LinearDifferentialOperator(dop).extend_scalars(K.gen())
+            R = R.parent()(list(min_basis[i0]))
             if dop%R==0: return R
+            breakpoint()
 
     if order>r*(bound + 1):
         print("Peut-être qu'on aurait pu terminer plus vite en montrant qu'il n'existe pas d'approximants boules")
