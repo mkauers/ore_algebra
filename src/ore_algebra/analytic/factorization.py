@@ -582,7 +582,8 @@ def largest_modulus_of_exponents(dop):
 def degree_bound_for_right_factor(dop):
 
     r = dop.order() - 1
-    S = len(dop.desingularize().leading_coefficient().roots(QQbar))
+    #S = len(dop.desingularize().leading_coefficient().roots(QQbar)) # trop lent (exemple QPP)
+    S = len(LinearDifferentialOperator(dop).leading_coefficient().roots(QQbar))
     E = largest_modulus_of_exponents(dop)
     bound = r**2*(S + 1)*E + r*S + r**2*(r - 1)*(S - 1)/2
 
@@ -705,6 +706,7 @@ def guess_symbolic_coefficients(vec, alg_degree, verbose=False):
 def annihilator(dop, ic, order, bound, alg_degree, mono=None, verbose=False):
 
     r, OA = dop.order(), dop.parent()
+    base_field = OA.base_ring().base_ring()
 
     if mono!=None:
         orb = orbit(mono, ic)
@@ -713,26 +715,29 @@ def annihilator(dop, ic, order, bound, alg_degree, mono=None, verbose=False):
 
     symb_ic, K = guess_symbolic_coefficients(ic, alg_degree, verbose=verbose)
     if symb_ic!="NothingFound":
-        #sol_basis = dop.local_basis_expansions(QQ.zero(), order + r)
-        sol_basis = dop.power_series_solutions(order + r)
-        sol_basis.reverse()
+        S = PowerSeriesRing(base_field, default_prec=order + r + 1)
+        sol_basis = dop.local_basis_expansions(QQ.zero(), order + r + 1)
+        sol_basis = [power_series_coerce(sol, S) for sol in sol_basis]
+        #sol_basis = dop.power_series_solutions(order + r)
+        #sol_basis.reverse()
         if K==QQ:
             f = vector(symb_ic)*vector(sol_basis)
             try:
+                if verbose: print("Try guessing annihilator with HP approximants (rational coeficients)")
                 R = guess(f.list(), dop.parent())
                 if R==1: raise Exception("Problem with guess")
                 if R.order()<r and dop%R==0: return R
             except ValueError: pass
         else:
-            Kb = dop.base_ring().base_ring()
-            if Kb!=QQ:
-                K = K.composite_fields(Kb)[0]
+            if base_field!=QQ:
+                K = K.composite_fields(base_field)[0]
                 symb_ic = [K(x) for x in symb_ic]
             sol_basis = [f.change_ring(K) for f in sol_basis]
             f = vector(symb_ic)*vector(sol_basis)
             der = [f.truncate()]
             for k in range(r - 1): der.append( der[-1].derivative() )
             mat = matrix(r, 1, der)
+            if verbose: print("Try guessing annihilator with HP approximants (algebraic coefficients)")
             min_basis = mat.minimal_approximant_basis(order)
             rdeg = min_basis.row_degrees()
             i0 = min(range(len(rdeg)), key = lambda i: rdeg[i])
@@ -822,9 +827,10 @@ def multiple_eigenvalue(dop, mono, order, bound, alg_degree, verbose=False):
 
 
 def rfactor(dop, verbose=False):
+
     r = dop.order()
-    if verbose: print("### Try to factorize an operator of order", r)
     if r<2: return None
+    if verbose: print("### Try factoring an operator of order", r)
     z = dop.base_ring().gen()
     R = try_rational(dop)
     if R!=None: return R
@@ -853,11 +859,11 @@ def _rfactor(dop, order=None, bound=None, alg_degree=None, precision=None, loss=
     if alg_degree==None:
         alg_degree = dop.base_ring().base_ring().degree()
     if precision==None:
-        precision = 100*((r+1)//2)
+        precision = 100*((r + 1)//2)
 
     if verbose:
         print("Current order of truncation", order)
-        print("Current working precision", precision)
+        print("Current working precision", precision - loss)
         print("Current algebraic degree", alg_degree)
         print("Start computing monodromy matrices")
 
@@ -872,8 +878,7 @@ def _rfactor(dop, order=None, bound=None, alg_degree=None, precision=None, loss=
                 mono.append(mat)
                 if verbose: print(len(mono), "matrices computed")
                 conclusive_method = "One_Dimensional"
-                #R = one_dimensional_eigenspaces(dop, mono, order, bound, alg_degree, verbose)
-                R="NotGoodConditions"
+                R = one_dimensional_eigenspaces(dop, mono, order, bound, alg_degree, verbose)
                 if R=="NotGoodConditions":
                     conclusive_method = "Simple_Eigenvalue"
                     R = simple_eigenvalue(dop, mono, order, bound, alg_degree, verbose)
@@ -902,19 +907,17 @@ def profil_factor(dop, verbose=False):
     s = pstats.Stats('tmp_stats')
     key_tot = ('~', 0, '<built-in method builtins.exec>')
     time_tot = numerical_approx(s.stats[key_tot][3], digits=3)
-    time_mono, time_hprat, time_hpalg, time_grat, time_galg = [0]*5
+    time_mono, time_hprat, time_hpalg, time_guess_coeff = [0]*4
     for key in s.stats.keys():
         if key[2] == '_monodromy_matrices':
             time_mono = numerical_approx(s.stats[key][3], digits=3)
         if key[2] == 'guess':
             time_hprat = numerical_approx(s.stats[key][3], digits=3)
-        if key[2] == 'hp_approximants':
+        if key[2] == "<method 'minimal_approximant_basis' of 'sage.matrix.matrix_polynomial_dense.Matrix_polynomial_dense' objects>":
             time_hpalg = numerical_approx(s.stats[key][3], digits=3)
-        if key[2]=='guess_rational_numbers':
-            time_grat = numerical_approx(s.stats[key][3], digits=3)
-        if key[2]=='guess_algebraic_numbers':
-            time_galg = numerical_approx(s.stats[key][3], digits=3)
+        if key[2]=='guess_symbolic_coefficients':
+            time_guess_coeff = numerical_approx(s.stats[key][3], digits=3)
     profil = {'total' : time_tot, 'monodromy': time_mono, \
     'hermitepade': time_hprat + time_hpalg, \
-    'guesscoefficients': time_grat + time_galg}
+    'guesscoefficients': time_guess_coeff}
     return fac[0], profil
