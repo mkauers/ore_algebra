@@ -255,11 +255,11 @@ def right_factor(dop, verbose=False, hybrid=False):
     """
 
     if dop.order()<2: return 'irreducible'
-    rfactor = try_rational(dop)
-    if not rfactor is None: return rfactor
+    R = try_rational(dop)
+    if not R is None: return R
     if hybrid:
-        rfactor = try_vanHoeij(dop)
-        if not rfactor is None: return rfactor
+        R = try_vanHoeij(dop)
+        if not R is None: return R
 
     coeffs, z0, z = dop.monic().coefficients(), QQ.zero(), dop.base_ring().gen()
     while min(c.valuation(z - z0) for c in coeffs)<0: z0 = z0 + QQ.one()
@@ -271,13 +271,13 @@ def right_factor(dop, verbose=False, hybrid=False):
     return output
 
 
-def _factor(dop, verbose=False, splitting_only=False):
+def _factor(dop, verbose=False):
 
-    R = rfactor(dop, verbose=verbose, splitting_only=splitting_only)
+    R = rfactor(dop, verbose=verbose)
     if R==None: return [dop]
     OA = R.parent(); OA = OA.change_ring(OA.base_ring().fraction_field())
     Q = OA(dop)//R
-    return _factor(Q, verbose=verbose, splitting_only=splitting_only) + _factor(R, verbose=verbose, splitting_only=splitting_only)
+    return _factor(Q, verbose) + _factor(R, verbose)
 
 
 def factor(dop, verbose=False, splitting_only=False):
@@ -287,7 +287,7 @@ def factor(dop, verbose=False, splitting_only=False):
     equal to the composition L1.L2...Lr.
     """
 
-    output = _factor(dop, verbose=verbose, splitting_only=splitting_only)
+    output = _factor(dop, verbose)
     K0, K1 = output[0].base_ring().base_ring(), output[-1].base_ring().base_ring()
     if K0 != K1:
         A = output[0].parent()
@@ -594,14 +594,15 @@ def try_rational(dop):
     D = dop.parent().gen()
     for (f,) in dop.rational_solutions():
         d = f.gcd(f.derivative())
-        rfactor = (1/d)*(f*D - f.derivative())
-        return rfactor
+        R = (1/d)*(f*D - f.derivative())
+        return R
 
     return None
 
 
 def random_combination(mono):
     prec, C = customized_accuracy(mono), mono[0].base_ring()
+    if prec<10: raise PrecisionError
     ran = lambda : C(QQ.random_element(prec), QQ.random_element(prec))
     return sum(ran()*mat for mat in mono)
 
@@ -820,8 +821,10 @@ def multiple_eigenvalue(dop, mono, order, bound, alg_degree, verbose=False):
     return "Inconclusive"
 
 
-def rfactor2(dop, verbose=False):
-    if dop.order()<2: return None
+def rfactor(dop, verbose=False):
+    r = dop.order()
+    if verbose: print("### Try to factorize an operator of order", r)
+    if r<2: return None
     z = dop.base_ring().gen()
     R = try_rational(dop)
     if R!=None: return R
@@ -830,12 +833,12 @@ def rfactor2(dop, verbose=False):
 
     s0 = good_base_point(dop)
     dop = dop.annihilator_of_composition(z + s0).monic()
-    R = _rfactor2(dop, verbose=verbose)
+    R = _rfactor(dop, verbose=verbose)
     if R==None: return None
     return R.annihilator_of_composition(z - s0)
 
 
-def _rfactor2(dop, order=None, bound=None, alg_degree=None, precision=None, loss=0, verbose=False):
+def _rfactor(dop, order=None, bound=None, alg_degree=None, precision=None, loss=0, verbose=False):
     """
     Assumption: dop is monic and 0 is not singular.
     """
@@ -869,7 +872,8 @@ def _rfactor2(dop, order=None, bound=None, alg_degree=None, precision=None, loss
                 mono.append(mat)
                 if verbose: print(len(mono), "matrices computed")
                 conclusive_method = "One_Dimensional"
-                R = one_dimensional_eigenspaces(dop, mono, order, bound, alg_degree, verbose)
+                #R = one_dimensional_eigenspaces(dop, mono, order, bound, alg_degree, verbose)
+                R="NotGoodConditions"
                 if R=="NotGoodConditions":
                     conclusive_method = "Simple_Eigenvalue"
                     R = simple_eigenvalue(dop, mono, order, bound, alg_degree, verbose)
@@ -882,230 +886,17 @@ def _rfactor2(dop, order=None, bound=None, alg_degree=None, precision=None, loss
 
     except (ZeroDivisionError, PrecisionError):
         precision = max( precision + loss, (precision<<1) - loss )
-        return _rfactor2(dop, order, bound, alg_degree, precision, loss, verbose)
+        return _rfactor(dop, order, bound, alg_degree, precision, loss, verbose)
 
     precision = max( precision + loss, (precision<<1) - loss ) # trop violent?
     order = min( bound*(r + 1) + 1, order<<1 )
-    return _rfactor2(dop, order, bound, alg_degree + 1, precision, loss, verbose)
-
-def try_simple_eigenvalue(dop, mono, tmp, order, bound, alg_degree, verbose=False):
-
-    r = dop.order()
-    mat = random_combination(mono)
-    GenEigSpaces = gen_eigenspaces(mat)
-    for space in GenEigSpaces:
-        if space['multiplicity']==1:
-            tmp[0] = True
-            if verbose: print("Find a simple eigenvalue")
-            ic = space['basis'][0]
-            b, R = minimal_annihilator(dop, ic, order, bound, alg_degree, mono=mono, verbose=verbose)
-            if b and R!=dop: return True, R
-            r, adj_dop = dop.order(), myadjoint(dop)
-            adj_mono = [mat.transpose() for mat in mono]
-            A = diffop_companion_matrix(dop)
-            P = transitionYtoV(A)
-            T = diagonal_matrix([factorial(i) for i in range(r)])
-            adj_ic = T*(~P).transpose()*T*ic
-            adj_b, adj_Q = minimal_annihilator(adj_dop, adj_ic, order, bound, alg_degree, mono=adj_mono, verbose=verbose)
-            if adj_b and adj_Q!=adj_dop:
-                print('Yes!')
-                return True, myadjoint(adj_dop//adj_Q)
-            if b and adj_b and R.order()==adj_Q.order()==r:
-                return True, None
-            break
-
-    return False, dop
-
-def try_one_dim_eigenspaces(dop, mono, tmp, order, bound, alg_degree, verbose=False):
-
-    r = dop.order()
-    mat = random_combination(mono)
-    GenEigSpaces = gen_eigenspaces(mat)
-    if all(space['multiplicity']==1 for space in GenEigSpaces): # n'importe quoi !!!
-        tmp[0] = True
-        if verbose: print("Find a matrix with one-dimensional eigenspaces")
-        success = True
-        for space in GenEigSpaces:
-            ic = space['basis'][0]
-            b, R = minimal_annihilator(dop, ic, order, bound, alg_degree, mono=mono, verbose=verbose)
-            if b:
-                if R!=dop: return True, R
-            else: success = False
-        if success: return True, None
-
-    return False, None
-
-def try_splitting(dop, mono, order, bound, alg_degree, verbose=False):
-
-    if verbose: print("Start Splitting Method")
-
-    invspace = invariant_subspace(mono)
-    if invspace==None: return True, None
-
-    if verbose: print("Find an invariant subspace of dimension", len(invspace))
-
-    ic = reduced_row_echelon_form(matrix(invspace))[0]
-    b, R = minimal_annihilator(dop, ic, order, bound, alg_degree, verbose=verbose)
-    if b:
-        if R!=dop: return True, R
-        return True, None
-
-    return False, None
+    return _rfactor(dop, order, bound, alg_degree + 1, precision, loss, verbose)
 
 
-def minimal_annihilator_exact(dop, ic, order, bound, basis=None, verbose=False):
-
-    """
-    Return either (True, R) where R is a factor of dop annhilating (dop, ic)
-    (strict if any, dop ortherwise) or (False, dop) if cannot conclude
-    (can appear only if order!=bound).
-    """
-
-    r = dop.order()
-
-    if basis==None:
-        basis = dop.power_series_solutions(order + r + 10)
-        basis.reverse()
-
-    if all(x in QQ for x in ic):
-        f = vector([QQ(x) for x in ic])*vector(basis)
-        try:
-            if verbose: print("Rational Hermite-Padé computation at order", order)
-            R = guess(f.list(), dop.parent(), order=r - 1)
-            if R==1: breakpoint()
-            if dop%R==0: return True, R
-            else: return False, dop
-        except ValueError:
-            return order==bound, dop
-
-    f = vector(ic)*vector(basis)
-    if verbose: print("Algebraic Hermite-Padé computation at order", order)
-    R = hp_approximants(derivatives(f, r - 1), order)
-    dop = LinearDifferentialOperator(dop).extend_scalars(*ic)[0]
-    R = dop.parent()(R)
-    if dop%R==0: return True, R
-
-    return False, dop # on aimerait pouvoir mettre (order==bound, dop) ici
-
-def minimal_annihilator(dop, ic, order, bound, alg_degree, basis=None, mono=None, verbose=False):
-
-    r"""
-    Return either (True, R) where R is a factor of dop annhilating (dop, ic)
-    (strict if any, dop ortherwise) or (False, dop) if cannot conclude
-    (can appear only if order!=bound).
-
-    Note for me: for now, (True, dop) can be returned only thanks to mono.
-    """
-
-    r = dop.order()
-
-    if mono!=None:
-        orb = orbit(mono, ic)
-        if len(orb)==r: return True, dop
-
-    if basis==None:
-        basis = dop.power_series_solutions(order + r + 10)
-        basis.reverse()
-
-    prec = customized_accuracy(ic)
-    if prec>50:
-        ic1, ic2, d = 0, 1, 1
-        while d<=alg_degree and ic1!=ic2:
-            if d==1:
-                try:
-                    ic1 = guess_rational_numbers(ic, p=prec-20)
-                    ic2 = guess_rational_numbers(ic, p=prec-30)
-                except PrecisionError: pass
-            else:
-                ic1 = guess_algebraic_numbers(ic, d=d, p=prec - 20)
-                ic2 = guess_algebraic_numbers(ic, d=d, p=prec - 30)
-            d = d + 1
-
-        if ic1==ic2:
-            if verbose: print("Exact coefficients OK")
-            b, R = minimal_annihilator_exact(dop, ic1, order, bound, basis)
-            if b and R!=dop: return True, R
-
-    # improvement: no ball HP approximants --> True, dop
-
-    return False, None
-
-def rfactor(dop, order=None, bound=None, alg_degree=1, precision=None, loss=None, splitting_only=False, verbose=False):
-
-    z = dop.base_ring().gen()
-    if dop.order()<2: return None
-
-    if verbose: print('Factorization of an operator of order', dop.order())
-
-    R = try_rational(dop)
-    if R!=None: return R
-
-    # try eigenring
-
-    z0 = good_base_point(dop)
-    dop = dop.annihilator_of_composition(z + z0)
-
-    if bound==None:
-        bound = degree_bound_for_right_factor(dop)
-        if verbose: print("Degree bound for right factor", bound)
-    if order==None:
-        order = min(bound, max(20, min(dop.order()*dop.degree(), 100))) # bound --> bound*(r+1)
-    if precision==None: precision = 200
-    if loss==None: loss=0
-    if verbose: print("Current order of truncation", order)
-    if verbose: print("Current algebraic degree", alg_degree)
-
-    precision_error_occured=True
-    while precision_error_occured:
-        try:
-            it = _monodromy_matrices(dop, 0, eps=Radii.one()>>precision)
-            mono = []
-            if verbose: print("Start monodromy computation with precision", precision)
-            for pt, mat, scal in it:
-                if not scal:
-                    local_loss = max(0, precision - customized_accuracy(mat))
-                    if local_loss>loss:
-                        loss = local_loss
-                        if verbose: print("loss =", loss)
-                    if verbose: print("New monodromy matrix computed")
-                    mono.append(mat)
-                    tmp = [False]
-                    if splitting_only:
-                        b, R = try_splitting(dop, mono, order, bound, alg_degree, verbose=verbose)
-                        if b:
-                            if verbose: print("Conclude with Splitting Method")
-                            if R==None: return None
-                            else: return R.annihilator_of_composition(z - z0)
-                    else:
-                        b, R = try_simple_eigenvalue(dop, mono, tmp, order, bound, alg_degree, verbose=verbose)
-                        if b:
-                            if verbose: print("Conclude with Simple Eigenvalue Method")
-                            if R==None: return None
-                            else: return R.annihilator_of_composition(z - z0)
-                        if not tmp[0]:
-                            b, R = try_one_dim_eigenspaces(dop, mono, tmp, order, bound, alg_degree, verbose=verbose)
-                            if b:
-                                if verbose: print("Conclude with One-D Eignespaces Method")
-                                if R==None: return None
-                                else: return R.annihilator_of_composition(z - z0)
-                            if not tmp[0] and len(mono)>1:
-                                b, R = try_splitting(dop, mono, order, bound, alg_degree, verbose=verbose)
-                                if b:
-                                    if verbose: print("Conclude with Splitting Method")
-                                    if R==None: return None
-                                    else: return R.annihilator_of_composition(z - z0)
-            precision_error_occured = False
-        except (ZeroDivisionError, PrecisionError):
-            pass
-
-        precision = max(precision + loss, (precision<<1) - loss)
-
-    return rfactor(dop, min(bound, order<<1), bound, alg_degree + 1, precision, loss, verbose=verbose)
-
-def profil_factor(dop, verbose=False, splitting_only=False):
+def profil_factor(dop, verbose=False):
     fac = [None]
     def fun():
-        fac[0] = dop.factor(verbose=verbose, splitting_only=splitting_only)
+        fac[0] = dop.factor(verbose)
         return
     cProfile.runctx('fun()', None, {'fun': fun}, 'tmp_stats')
     s = pstats.Stats('tmp_stats')
