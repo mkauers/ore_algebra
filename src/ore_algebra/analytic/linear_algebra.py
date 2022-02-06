@@ -726,6 +726,14 @@ def invariant_subspace(Mats, *, verbose=False):
     if Mats==[]: raise TypeError("This function requires at least one matrix.")
 
     n, C = Mats[0].nrows(), Mats[0].base_ring()
+    if len(Mats)==1:
+        mat = Mats[0]
+        Spaces = gen_eigenspaces(mat)
+        v = ker(mat - Spaces[0]['eigenvalue']*(mat.parent().one()))[0]
+        orb = orbit(Mats, v)
+        if len(orb)==n: raise Exception("problem with invariant_subspace computation: case 'one matrix'")
+        return orb
+
     split = Splitting(Mats)
     mat = sum(C(ComplexField().random_element())*M for M in split.matrices)
     split.refine(mat)

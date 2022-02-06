@@ -46,7 +46,7 @@ from .utilities import (customized_accuracy, power_series_coerce, derivatives,
                         hp_approximants, guess_exact_numbers,
                         guess_rational_numbers, guess_algebraic_numbers,
                         euler_representation)
-from .linear_algebra import (invariant_subspace, row_echelon_form,
+from .linear_algebra import (invariant_subspace, row_echelon_form, ker,
                              gen_eigenspaces, orbit)
 
 
@@ -255,11 +255,11 @@ def right_factor(dop, verbose=False, hybrid=False):
     """
 
     if dop.order()<2: return 'irreducible'
-    rfactor = try_rational(dop)
-    if not rfactor is None: return rfactor
+    R = try_rational(dop)
+    if not R is None: return R
     if hybrid:
-        rfactor = try_vanHoeij(dop)
-        if not rfactor is None: return rfactor
+        R = try_vanHoeij(dop)
+        if not R is None: return R
 
     coeffs, z0, z = dop.monic().coefficients(), QQ.zero(), dop.base_ring().gen()
     while min(c.valuation(z - z0) for c in coeffs)<0: z0 = z0 + QQ.one()
@@ -271,13 +271,13 @@ def right_factor(dop, verbose=False, hybrid=False):
     return output
 
 
-def _factor(dop, verbose=False, splitting_only=False):
+def _factor(dop, verbose=False):
 
-    R = rfactor(dop, verbose=verbose, splitting_only=splitting_only)
+    R = rfactor(dop, verbose=verbose)
     if R==None: return [dop]
     OA = R.parent(); OA = OA.change_ring(OA.base_ring().fraction_field())
     Q = OA(dop)//R
-    return _factor(Q, verbose=verbose, splitting_only=splitting_only) + _factor(R, verbose=verbose, splitting_only=splitting_only)
+    return _factor(Q, verbose) + _factor(R, verbose)
 
 
 def factor(dop, verbose=False, splitting_only=False):
@@ -287,7 +287,7 @@ def factor(dop, verbose=False, splitting_only=False):
     equal to the composition L1.L2...Lr.
     """
 
-    output = _factor(dop, verbose=verbose, splitting_only=splitting_only)
+    output = _factor(dop, verbose)
     K0, K1 = output[0].base_ring().base_ring(), output[-1].base_ring().base_ring()
     if K0 != K1:
         A = output[0].parent()
@@ -464,6 +464,7 @@ def try_vanHoeij(L):
 ### Hybrid algorithm ###
 ########################
 
+
 def reduced_row_echelon_form(mat):
     R, p = row_echelon_form(mat, pivots=True)
     rows = list(R)
@@ -471,6 +472,7 @@ def reduced_row_echelon_form(mat):
         for i in range(p[j]):
             rows[i] = rows[i] - rows[i][j]*rows[p[j]]
     return matrix(rows)
+
 
 def minimal_multiplicity(dop, pol):
 
@@ -501,10 +503,12 @@ def minimal_multiplicity(dop, pol):
             #done_indices.append(i) --> useless
     return good_exponent, min_mult
 
+
 def mydegree(pol): # for handling the case 1/z (point at infinity)
     if isinstance(pol, Polynomial):
         return pol.degree()
     return 1
+
 
 def good_singular_point(dop):
 
@@ -547,6 +551,7 @@ def good_singular_point(dop):
 
     return s, e, m
 
+
 def good_base_point(dop):
 
     s, e, m = good_singular_point(dop)
@@ -557,6 +562,7 @@ def good_base_point(dop):
     while z0 in sings: z0 = z0 + QQ.one()
 
     return z0
+
 
 def largest_modulus_of_exponents(dop):
 
@@ -572,31 +578,38 @@ def largest_modulus_of_exponents(dop):
 
     return out
 
+
 def degree_bound_for_right_factor(dop):
 
     r = dop.order() - 1
-    S = len(dop.desingularize().leading_coefficient().roots(QQbar))
+    #S = len(dop.desingularize().leading_coefficient().roots(QQbar)) # trop lent (exemple QPP)
+    S = len(LinearDifferentialOperator(dop).leading_coefficient().roots(QQbar))
     E = largest_modulus_of_exponents(dop)
     bound = r**2*(S + 1)*E + r*S + r**2*(r - 1)*(S - 1)/2
 
     return bound
+
 
 def try_rational(dop):
 
     D = dop.parent().gen()
     for (f,) in dop.rational_solutions():
         d = f.gcd(f.derivative())
-        rfactor = (1/d)*(f*D - f.derivative())
-        return rfactor
+        R = (1/d)*(f*D - f.derivative())
+        return R
 
     return None
 
+
 def random_combination(mono):
     prec, C = customized_accuracy(mono), mono[0].base_ring()
+    if prec<10: raise PrecisionError
     ran = lambda : C(QQ.random_element(prec), QQ.random_element(prec))
     return sum(ran()*mat for mat in mono)
 
+
 myadjoint = lambda dop: sum((-dop.parent().gen())**i*pi for i, pi in enumerate(dop.list()))
+
 
 def diffop_companion_matrix(dop):
     r = dop.order()
@@ -604,6 +617,7 @@ def diffop_companion_matrix(dop):
                       [ -matrix([[-dop.list()[0]]]) ,\
                         -matrix(1, r - 1, dop.list()[1:-1] )]], subdivide=False)
     return A
+
 
 def transition_matrix_for_adjoint(dop):
 
@@ -627,6 +641,7 @@ def transition_matrix_for_adjoint(dop):
     Q = Delta * P(0) * Delta
     return Q
 
+
 def guess_symbolic_coefficients(vec, alg_degree, verbose=False):
 
     """
@@ -638,18 +653,18 @@ def guess_symbolic_coefficients(vec, alg_degree, verbose=False):
      -- ``alg_degree``   -- positive integer
 
     Output:
-     -- ``symb_vec`` -- vector with coefficients
-     -- ``K``        -- QQ or a number field
+     -- ``symb_vec`` -- vector with coefficients, or "NothingFound"
+     -- ``K``        -- QQ, or a number field, or None (if ``symb_vec``="NothingFound")
 
     Examples::
         sage: C = ComplexBallField()
         sage: err = C(0).add_error(RR.one()>>40)
         sage: vec = vector(C, [C(sqrt(2)) + err, 3 + err])
         sage: guess_symbolic_coefficients(vec, 1)
-        'NothingFound'
+        ('NothingFound', None)
         sage: guess_symbolic_coefficients(vec, 2)
-        [a, 3]
-        Number Field in a with defining polynomial y^2 - 2 with a = 1.414213562373095?
+        ([a, 3],
+         Number Field in a with defining polynomial y^2 - 2 with a = 1.414213562373095?)
     """
 
     if verbose: print("Try guessing symbolic coefficients")
@@ -687,9 +702,11 @@ def guess_symbolic_coefficients(vec, alg_degree, verbose=False):
 
     return "NothingFound", None
 
+
 def annihilator(dop, ic, order, bound, alg_degree, mono=None, verbose=False):
 
     r, OA = dop.order(), dop.parent()
+    base_field = OA.base_ring().base_ring()
 
     if mono!=None:
         orb = orbit(mono, ic)
@@ -698,22 +715,29 @@ def annihilator(dop, ic, order, bound, alg_degree, mono=None, verbose=False):
 
     symb_ic, K = guess_symbolic_coefficients(ic, alg_degree, verbose=verbose)
     if symb_ic!="NothingFound":
-        #sol_basis = dop.local_basis_expansions(QQ.zero(), order + r)
-        sol_basis = dop.power_series_solutions(order + r)
-        sol_basis.reverse()
+        S = PowerSeriesRing(base_field, default_prec=order + r + 1)
+        sol_basis = dop.local_basis_expansions(QQ.zero(), order + r + 1)
+        sol_basis = [power_series_coerce(sol, S) for sol in sol_basis]
+        #sol_basis = dop.power_series_solutions(order + r)
+        #sol_basis.reverse()
         if K==QQ:
             f = vector(symb_ic)*vector(sol_basis)
             try:
+                if verbose: print("Try guessing annihilator with HP approximants (rational coeficients)")
                 R = guess(f.list(), dop.parent())
                 if R==1: raise Exception("Problem with guess")
                 if R.order()<r and dop%R==0: return R
             except ValueError: pass
         else:
+            if base_field!=QQ:
+                K = K.composite_fields(base_field)[0]
+                symb_ic = [K(x) for x in symb_ic]
             sol_basis = [f.change_ring(K) for f in sol_basis]
             f = vector(symb_ic)*vector(sol_basis)
             der = [f.truncate()]
             for k in range(r - 1): der.append( der[-1].derivative() )
             mat = matrix(r, 1, der)
+            if verbose: print("Try guessing annihilator with HP approximants (algebraic coefficients)")
             min_basis = mat.minimal_approximant_basis(order)
             rdeg = min_basis.row_degrees()
             i0 = min(range(len(rdeg)), key = lambda i: rdeg[i])
@@ -723,247 +747,177 @@ def annihilator(dop, ic, order, bound, alg_degree, mono=None, verbose=False):
             breakpoint()
 
     if order>r*(bound + 1):
-        print("Peut-être qu'on aurait pu terminer plus vite en montrant qu'il n'existe pas d'approximants boules")
+        print("Ball Hermite-Padé approximants not implemented yet")
 
     return "Inconclusive"
 
 
-def try_simple_eigenvalue(dop, mono, tmp, order, bound, alg_degree, verbose=False):
+def one_dimensional_eigenspaces(dop, mono, order, bound, alg_degree, verbose=False):
 
-    r = dop.order()
+    """
+    output: a nontrivial right factor R of dop, or None, or "NotGoodConditions",
+    or "Inconclusive"
+    """
+
     mat = random_combination(mono)
-    GenEigSpaces = gen_eigenspaces(mat)
-    for space in GenEigSpaces:
-        if space['multiplicity']==1:
-            tmp[0] = True
-            if verbose: print("Find a simple eigenvalue")
-            ic = space['basis'][0]
-            b, R = minimal_annihilator(dop, ic, order, bound, alg_degree, mono=mono, verbose=verbose)
-            if b and R!=dop: return True, R
-            r, adj_dop = dop.order(), myadjoint(dop)
-            adj_mono = [mat.transpose() for mat in mono]
-            A = diffop_companion_matrix(dop)
-            P = transitionYtoV(A)
-            T = diagonal_matrix([factorial(i) for i in range(r)])
-            adj_ic = T*(~P).transpose()*T*ic
-            adj_b, adj_Q = minimal_annihilator(adj_dop, adj_ic, order, bound, alg_degree, mono=adj_mono, verbose=verbose)
-            if adj_b and adj_Q!=adj_dop:
-                print('Yes!')
-                return True, myadjoint(adj_dop//adj_Q)
-            if b and adj_b and R.order()==adj_Q.order()==r:
-                return True, None
+    id = mat.parent().one()
+    Spaces = gen_eigenspaces(mat)
+    conclusive = True
+    goodconditions = True
+    for space in Spaces:
+        eigvalue = space["eigenvalue"]
+        eigspace = ker(mat - eigvalue*id)
+        if len(eigspace)>1:
+            goodconditions = False
             break
+        R = annihilator(dop, eigspace[0], order, bound, alg_degree, mono, verbose)
+        if R=="Inconclusive": conclusive = False
+        if R!=dop: return R
+    if not goodconditions: return "NotGoodConditions"
+    if conclusive: return None
+    return "Inconclusive"
 
-    return False, dop
 
-def try_one_dim_eigenspaces(dop, mono, tmp, order, bound, alg_degree, verbose=False):
+def simple_eigenvalue(dop, mono, order, bound, alg_degree, verbose=False):
 
-    r = dop.order()
+    """
+    output: a nontrivial right factor R of dop, or None, or "NotGoodConditions",
+    or "Inconclusive"
+
+    Assumption: dop is monic.
+    """
+
     mat = random_combination(mono)
-    GenEigSpaces = gen_eigenspaces(mat)
-    if all(space['multiplicity']==1 for space in GenEigSpaces):
-        tmp[0] = True
-        if verbose: print("Find a matrix with one-dimensional eigenspaces")
-        success = True
-        for space in GenEigSpaces:
+    id = mat.parent().one()
+    Spaces = gen_eigenspaces(mat)
+    goodconditions = False
+    for space in Spaces:
+        if space['multiplicity']==1:
+            goodconditions = True
             ic = space['basis'][0]
-            b, R = minimal_annihilator(dop, ic, order, bound, alg_degree, mono=mono, verbose=verbose)
-            if b:
-                if R!=dop: return True, R
-            else: success = False
-        if success: return True, None
+            R = annihilator(dop, ic, order, bound, alg_degree, mono, verbose)
+            if R!="Inconclusive" and R!=dop: return R
+            adj_dop = myadjoint(dop)
+            Q = transition_matrix_for_adjoint(dop)
+            adj_mat = Q * mat.transpose() * (~Q)
+            adj_mono = [ Q * m.transpose() * (~Q) for m in mono ]
+            eigspace = ker(adj_mat - space['eigenvalue']*id)
+            if eigspace==[]: breakpoint()
+            if len(eigspace)>1: break # raise PrecisionError ?
+            adj_ic = eigspace[0]
+            adj_Q = annihilator(adj_dop, adj_ic, order, bound, alg_degree, adj_mono, verbose) # bound différent?
+            if adj_Q!="Inconclusive" and adj_Q!=adj_dop: return myadjoint(adj_dop//adj_Q)
+            if R==dop and adj_Q==adj_dop: return None
+            break
+    if not goodconditions: return "NotGoodConditions"
+    return "Inconclusive"
 
-    return False, None
 
-def try_splitting(dop, mono, order, bound, alg_degree, verbose=False):
+def multiple_eigenvalue(dop, mono, order, bound, alg_degree, verbose=False):
+    """
+    output: a nontrivial right factor R of dop, or None, or "Inconclusive"
+    """
 
-    if verbose: print("Start Splitting Method")
-
+    r = dop.order()
     invspace = invariant_subspace(mono)
-    if invspace==None: return True, None
-
-    if verbose: print("Find an invariant subspace of dimension", len(invspace))
-
-    ic = reduced_row_echelon_form(matrix(invspace))[0]
-    b, R = minimal_annihilator(dop, ic, order, bound, alg_degree, verbose=verbose)
-    if b:
-        if R!=dop: return True, R
-        return True, None
-
-    return False, None
+    if invspace==None: return None # devrait jamais arriver quand utilisé à l'intégrieur de rfactor
+    R = annihilator(dop, invspace[0], order, bound, alg_degree, mono, verbose)
+    if R!="Inconclusive" and R.order()<r: return R
+    return "Inconclusive"
 
 
-def minimal_annihilator_exact(dop, ic, order, bound, basis=None, verbose=False):
-
-    """
-    Return either (True, R) where R is a factor of dop annhilating (dop, ic)
-    (strict if any, dop ortherwise) or (False, dop) if cannot conclude
-    (can appear only if order!=bound).
-    """
+def rfactor(dop, verbose=False):
 
     r = dop.order()
-
-    if basis==None:
-        basis = dop.power_series_solutions(order + r + 10)
-        basis.reverse()
-
-    if all(x in QQ for x in ic):
-        f = vector([QQ(x) for x in ic])*vector(basis)
-        try:
-            if verbose: print("Rational Hermite-Padé computation at order", order)
-            R = guess(f.list(), dop.parent(), order=r - 1)
-            if R==1: breakpoint()
-            if dop%R==0: return True, R
-            else: return False, dop
-        except ValueError:
-            return order==bound, dop
-
-    f = vector(ic)*vector(basis)
-    if verbose: print("Algebraic Hermite-Padé computation at order", order)
-    R = hp_approximants(derivatives(f, r - 1), order)
-    dop = LinearDifferentialOperator(dop).extend_scalars(*ic)[0]
-    R = dop.parent()(R)
-    if dop%R==0: return True, R
-
-    return False, dop # on aimerait pouvoir mettre (order==bound, dop) ici
-
-def minimal_annihilator(dop, ic, order, bound, alg_degree, basis=None, mono=None, verbose=False):
-
-    r"""
-    Return either (True, R) where R is a factor of dop annhilating (dop, ic)
-    (strict if any, dop ortherwise) or (False, dop) if cannot conclude
-    (can appear only if order!=bound).
-
-    Note for me: for now, (True, dop) can be returned only thanks to mono.
-    """
-
-    r = dop.order()
-
-    if mono!=None:
-        orb = orbit(mono, ic)
-        if len(orb)==r: return True, dop
-
-    if basis==None:
-        basis = dop.power_series_solutions(order + r + 10)
-        basis.reverse()
-
-    prec = customized_accuracy(ic)
-    if prec>50:
-        ic1, ic2, d = 0, 1, 1
-        while d<=alg_degree and ic1!=ic2:
-            if d==1:
-                try:
-                    ic1 = guess_rational_numbers(ic, p=prec-20)
-                    ic2 = guess_rational_numbers(ic, p=prec-30)
-                except PrecisionError: pass
-            else:
-                ic1 = guess_algebraic_numbers(ic, d=d, p=prec - 20)
-                ic2 = guess_algebraic_numbers(ic, d=d, p=prec - 30)
-            d = d + 1
-
-        if ic1==ic2:
-            if verbose: print("Exact coefficients OK")
-            b, R = minimal_annihilator_exact(dop, ic1, order, bound, basis)
-            if b and R!=dop: return True, R
-
-    # improvement: no ball HP approximants --> True, dop
-
-    return False, None
-
-def rfactor(dop, order=None, bound=None, alg_degree=1, precision=None, loss=None, splitting_only=False, verbose=False):
-
+    if r<2: return None
+    if verbose: print("### Try factoring an operator of order", r)
     z = dop.base_ring().gen()
-    if dop.order()<2: return None
-
-    if verbose: print('Factorization of an operator of order', dop.order())
-
     R = try_rational(dop)
     if R!=None: return R
 
     # try eigenring
 
-    z0 = good_base_point(dop)
-    dop = dop.annihilator_of_composition(z + z0)
+    s0 = good_base_point(dop)
+    dop = dop.annihilator_of_composition(z + s0).monic()
+    R = _rfactor(dop, verbose=verbose)
+    if R==None: return None
+    return R.annihilator_of_composition(z - s0)
 
+
+def _rfactor(dop, order=None, bound=None, alg_degree=None, precision=None, loss=0, verbose=False):
+    """
+    Assumption: dop is monic and 0 is not singular.
+    """
+
+    r = dop.order()
     if bound==None:
         bound = degree_bound_for_right_factor(dop)
         if verbose: print("Degree bound for right factor", bound)
     if order==None:
-        order = min(bound, max(20, min(dop.order()*dop.degree(), 100)))
-    if precision==None: precision = 200
-    if loss==None: loss=0
-    if verbose: print("Current order of truncation", order)
-    if verbose: print("Current algebraic degree", alg_degree)
+        deg_of_dop = LinearDifferentialOperator(dop).degree()
+        order = min( r*deg_of_dop, 100, bound*(r + 1) + 1 )
+    if alg_degree==None:
+        alg_degree = dop.base_ring().base_ring().degree()
+    if precision==None:
+        precision = 100*((r + 1)//2)
 
-    precision_error_occured=True
-    while precision_error_occured:
-        try:
-            it = _monodromy_matrices(dop, 0, eps=Radii.one()>>precision)
-            mono = []
-            if verbose: print("Start monodromy computation with precision", precision)
-            for pt, mat, scal in it:
-                if not scal:
-                    local_loss = max(0, precision - customized_accuracy(mat))
-                    if local_loss>loss:
-                        loss = local_loss
-                        if verbose: print("loss =", loss)
-                    if verbose: print("New monodromy matrix computed")
-                    mono.append(mat)
-                    tmp = [False]
-                    if splitting_only:
-                        b, R = try_splitting(dop, mono, order, bound, alg_degree, verbose=verbose)
-                        if b:
-                            if verbose: print("Conclude with Splitting Method")
-                            if R==None: return None
-                            else: return R.annihilator_of_composition(z - z0)
-                    else:
-                        b, R = try_simple_eigenvalue(dop, mono, tmp, order, bound, alg_degree, verbose=verbose)
-                        if b:
-                            if verbose: print("Conclude with Simple Eigenvalue Method")
-                            if R==None: return None
-                            else: return R.annihilator_of_composition(z - z0)
-                        if not tmp[0]:
-                            b, R = try_one_dim_eigenspaces(dop, mono, tmp, order, bound, alg_degree, verbose=verbose)
-                            if b:
-                                if verbose: print("Conclude with One-D Eignespaces Method")
-                                if R==None: return None
-                                else: return R.annihilator_of_composition(z - z0)
-                            if not tmp[0] and len(mono)>1:
-                                b, R = try_splitting(dop, mono, order, bound, alg_degree, verbose=verbose)
-                                if b:
-                                    if verbose: print("Conclude with Splitting Method")
-                                    if R==None: return None
-                                    else: return R.annihilator_of_composition(z - z0)
-            precision_error_occured = False
-        except (ZeroDivisionError, PrecisionError):
-            pass
+    if verbose:
+        print("Current order of truncation", order)
+        print("Current working precision", precision - loss)
+        print("Current algebraic degree", alg_degree)
+        print("Start computing monodromy matrices")
 
-        precision = max(precision + loss, (precision<<1) - loss)
+    try:
+        mono, it = [], _monodromy_matrices(dop, 0, eps=Radii.one()>>precision)
+        for pt, mat, scal in it:
+            if not scal:
+                local_loss = max(0, precision - customized_accuracy(mat))
+                if local_loss>loss:
+                    loss = local_loss
+                    if verbose: print("loss =", loss)
+                mono.append(mat)
+                if verbose: print(len(mono), "matrices computed")
+                conclusive_method = "One_Dimensional"
+                R = one_dimensional_eigenspaces(dop, mono, order, bound, alg_degree, verbose)
+                if R=="NotGoodConditions":
+                    conclusive_method = "Simple_Eigenvalue"
+                    R = simple_eigenvalue(dop, mono, order, bound, alg_degree, verbose)
+                    if R=="NotGoodConditions":
+                        conclusive_method = "Multiple_Eigenvalue"
+                        R = multiple_eigenvalue(dop, mono, order, bound, alg_degree, verbose)
+                if R!="Inconclusive":
+                    if verbose: print("Conclude with " + conclusive_method + " method")
+                    return R
 
-    return rfactor(dop, min(bound, order<<1), bound, alg_degree + 1, precision, loss, verbose=verbose)
+    except (ZeroDivisionError, PrecisionError):
+        precision = max( precision + loss, (precision<<1) - loss )
+        return _rfactor(dop, order, bound, alg_degree, precision, loss, verbose)
 
-def profil_factor(dop, verbose=False, splitting_only=False):
+    precision = max( precision + loss, (precision<<1) - loss ) # trop violent?
+    order = min( bound*(r + 1) + 1, order<<1 )
+    return _rfactor(dop, order, bound, alg_degree + 1, precision, loss, verbose)
+
+
+def profil_factor(dop, verbose=False):
     fac = [None]
     def fun():
-        fac[0] = dop.factor(verbose=verbose, splitting_only=splitting_only)
+        fac[0] = dop.factor(verbose)
         return
     cProfile.runctx('fun()', None, {'fun': fun}, 'tmp_stats')
     s = pstats.Stats('tmp_stats')
     key_tot = ('~', 0, '<built-in method builtins.exec>')
     time_tot = numerical_approx(s.stats[key_tot][3], digits=3)
-    time_mono, time_hprat, time_hpalg, time_grat, time_galg = [0]*5
+    time_mono, time_hprat, time_hpalg, time_guess_coeff = [0]*4
     for key in s.stats.keys():
         if key[2] == '_monodromy_matrices':
             time_mono = numerical_approx(s.stats[key][3], digits=3)
         if key[2] == 'guess':
             time_hprat = numerical_approx(s.stats[key][3], digits=3)
-        if key[2] == 'hp_approximants':
+        if key[2] == "<method 'minimal_approximant_basis' of 'sage.matrix.matrix_polynomial_dense.Matrix_polynomial_dense' objects>":
             time_hpalg = numerical_approx(s.stats[key][3], digits=3)
-        if key[2]=='guess_rational_numbers':
-            time_grat = numerical_approx(s.stats[key][3], digits=3)
-        if key[2]=='guess_algebraic_numbers':
-            time_galg = numerical_approx(s.stats[key][3], digits=3)
+        if key[2]=='guess_symbolic_coefficients':
+            time_guess_coeff = numerical_approx(s.stats[key][3], digits=3)
     profil = {'total' : time_tot, 'monodromy': time_mono, \
     'hermitepade': time_hprat + time_hpalg, \
-    'guesscoefficients': time_grat + time_galg}
+    'guesscoefficients': time_guess_coeff}
     return fac[0], profil
