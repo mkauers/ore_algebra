@@ -389,7 +389,7 @@ def exponents(dop, multiplicities=True):
     return r
 
 
-def S(dop, e):
+def Se(dop, e):
     """ map: Tz --> Tz + e """
 
     l = euler_representation(LinearDifferentialOperator(dop))
@@ -432,10 +432,10 @@ def guessing_via_series(L, einZZ):
     La = L.adjoint()
     Ra = try_rational(La)
     if not Ra is None: return (La//Ra).adjoint()
-    ea = ZZ([e for e in exponents(La, False) if e in ZZ][0]); La = S(La, ea)
+    ea = ZZ([e for e in exponents(La, False) if e in ZZ][0]); La = Se(La, ea)
     try:
         Ra = guess(La.power_series_solutions(b)[0].list(), A, order=r - 1)
-        if 0<Ra.order()<r and La%Ra==0: return S(La//Ra, -ea).adjoint()
+        if 0<Ra.order()<r and La%Ra==0: return Se(La//Ra, -ea).adjoint()
     except (ValueError, TypeError): return None
 
 
@@ -449,16 +449,16 @@ def try_vanHoeij(L):
         L = L.annihilator_of_composition(p)
         e = search_exp_part_with_mult1(L)[1]
         L, e = LinearDifferentialOperator(L).extend_scalars(e)
-        L = S(L, e)
+        L = Se(L, e)
     elif p.degree()==1:
         s = -p[0]/p[1]
         L, e = LinearDifferentialOperator(L).extend_scalars(e)
-        L = S(L.annihilator_of_composition(z + s), e)
+        L = Se(L.annihilator_of_composition(z + s), e)
     else: return None # to be implemented?
     R = guessing_via_series(L, e in ZZ)
     if R==None: return None
-    if (p*z).is_one(): return S(R, -e).annihilator_of_composition(p)
-    elif p.degree()==1: return S(R, -e).annihilator_of_composition(z - s)
+    if (p*z).is_one(): return Se(R, -e).annihilator_of_composition(p)
+    elif p.degree()==1: return Se(R, -e).annihilator_of_composition(z - s)
 
 ########################
 ### Hybrid algorithm ###
@@ -706,45 +706,41 @@ def guess_symbolic_coefficients(vec, alg_degree, verbose=False):
 def annihilator(dop, ic, order, bound, alg_degree, mono=None, verbose=False):
 
     r, OA = dop.order(), dop.parent()
+    d = r - 1
     base_field = OA.base_ring().base_ring()
 
     if mono!=None:
         orb = orbit(mono, ic)
-        if len(orb)==r: return dop
+        d = len(orb)
+        if d==r: return dop
         ic = reduced_row_echelon_form(matrix(orb))[0]
 
     symb_ic, K = guess_symbolic_coefficients(ic, alg_degree, verbose=verbose)
     if symb_ic!="NothingFound":
-        S = PowerSeriesRing(base_field, default_prec=order + r + 1)
-        sol_basis = dop.local_basis_expansions(QQ.zero(), order + r + 1)
+        if base_field!=QQ:
+            K = K.composite_fields(base_field)[0]
+            symb_ic = [K(x) for x in symb_ic]
+        S = PowerSeriesRing(K, default_prec=order + d)
+        sol_basis = dop.local_basis_expansions(QQ.zero(), order + d)
         sol_basis = [power_series_coerce(sol, S) for sol in sol_basis]
-        #sol_basis = dop.power_series_solutions(order + r)
-        #sol_basis.reverse()
+        f = vector(symb_ic) * vector(sol_basis)
         if K==QQ:
-            f = vector(symb_ic)*vector(sol_basis)
+            v = f.valuation()
             try:
-                if verbose: print("Try guessing annihilator with HP approximants (rational coefficients)")
-                R = guess(f.list(), dop.parent())
-                if R==1: raise Exception("Problem with guess")
-                if R.order()<r and dop%R==0: return R
+                R = Se(guess(f.list()[v:], OA), -v)
+                if dop%R==0: return R
             except ValueError: pass
         else:
-            if base_field!=QQ:
-                K = K.composite_fields(base_field)[0]
-                symb_ic = [K(x) for x in symb_ic]
-            sol_basis = [f.change_ring(K) for f in sol_basis]
-            f = vector(symb_ic)*vector(sol_basis)
-            der = [f.truncate()]
-            for k in range(r - 1): der.append( der[-1].derivative() )
-            mat = matrix(r, 1, der)
-            if verbose: print("Try guessing annihilator with HP approximants (algebraic coefficients)")
+            der = [ f.truncate() ]
+            for k in range(d): der.append( der[-1].derivative() )
+            mat = matrix(d + 1, 1, der)
+            if verbose: print("Try guessing annihilator with HP approximants")
             min_basis = mat.minimal_approximant_basis(order)
             rdeg = min_basis.row_degrees()
             i0 = min(range(len(rdeg)), key = lambda i: rdeg[i])
             R, g = LinearDifferentialOperator(dop).extend_scalars(K.gen())
             R = R.parent()(list(min_basis[i0]))
             if dop%R==0: return R
-            breakpoint()
 
     if order>r*(bound + 1):
         print("Ball Hermite-Padé approximants not implemented yet")
