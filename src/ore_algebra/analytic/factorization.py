@@ -723,7 +723,7 @@ def annihilator(dop, ic, order, bound, alg_degree, mono=None, verbose=False):
         if K==QQ:
             f = vector(symb_ic)*vector(sol_basis)
             try:
-                if verbose: print("Try guessing annihilator with HP approximants (rational coeficients)")
+                if verbose: print("Try guessing annihilator with HP approximants (rational coefficients)")
                 R = guess(f.list(), dop.parent())
                 if R==1: raise Exception("Problem with guess")
                 if R.order()<r and dop%R==0: return R
