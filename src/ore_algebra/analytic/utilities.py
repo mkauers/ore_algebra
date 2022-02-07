@@ -187,8 +187,10 @@ def mypushout(X, Y):
         return Y
     else:
         Z = pushout(X, Y)
-        assert (is_NumberField(Z) if is_NumberField(X) and is_NumberField(Y)
-                                  else True)
+        if is_NumberField(X) and is_NumberField(Y) and not is_NumberField(Z):
+            # we likely obtained a parent where both number fields have a
+            # canonical embedding, typically QQbar...
+            raise CoercionException
         return Z
 
 def extend_scalars(Scalars, *pts):
