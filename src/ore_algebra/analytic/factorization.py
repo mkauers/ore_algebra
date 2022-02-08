@@ -484,11 +484,19 @@ def minimal_multiplicity(dop, pol):
     -> minimal algebraic degree (OK)
     """
 
-    N = dop.indicial_polynomial(pol)
+    z, r = dop.base_ring().gen(), dop.order()
+
+    if (pol*z).is_one() or pol.degree()==1:
+        N = N = dop.indicial_polynomial(pol)
+    else:
+        s = pol.roots(QQbar, multiplicities=False)[0]
+        newdop, s = LinearDifferentialOperator(dop).extend_scalars(s)
+        z, r = newdop.base_ring().gen(), dop.order()
+        N = newdop.indicial_polynomial(z - s)
     exponents = N.roots(QQbar)
     exponents.sort(key = lambda x: x[0].degree())
 
-    good_exponent, min_mult = exponents[0][0], dop.order()
+    good_exponent, min_mult = exponents[0][0], r
     done_indices = []
     for i, (e, m) in enumerate(exponents):
         if not i in done_indices:
