@@ -802,7 +802,8 @@ def simple_eigenvalue(dop, mono, order, bound, alg_degree, verbose=False):
             if len(eigspace)>1: break # raise PrecisionError ?
             adj_ic = eigspace[0]
             adj_Q = annihilator(adj_dop, adj_ic, order, bound, alg_degree, adj_mono, verbose) # bound différent?
-            if adj_Q!="Inconclusive" and adj_Q!=adj_dop: return myadjoint(adj_dop//adj_Q)
+            if adj_Q!="Inconclusive" and adj_Q!=adj_dop:
+                return myadjoint(adj_dop//adj_Q)
             if R==dop and adj_Q==adj_dop: return None
             break
     if not goodconditions: return "NotGoodConditions"
