@@ -736,7 +736,7 @@ def annihilator(dop, ic, order, bound, alg_degree, mono=None, verbose=False):
             v = f.valuation()
             try:
                 R = Se(guess(f.list()[v:], OA), -v)
-                if dop%R==0: return R
+                if R.order()<r and dop%R==0: return R
             except ValueError: pass
         else:
             der = [ f.truncate() ]
@@ -884,12 +884,21 @@ def _rfactor(dop, order=None, bound=None, alg_degree=None, precision=None, loss=
                 if verbose: print(len(mono), "matrices computed")
                 conclusive_method = "One_Dimensional"
                 R = one_dimensional_eigenspaces(dop, mono, order, bound, alg_degree, verbose)
+                #try:
+                #    if R.order()==r: breakpoint()
+                #except: pass
                 if R=="NotGoodConditions":
                     conclusive_method = "Simple_Eigenvalue"
                     R = simple_eigenvalue(dop, mono, order, bound, alg_degree, verbose)
+                    #try:
+                    #    if R.order()==r: breakpoint()
+                    #except: pass
                     if R=="NotGoodConditions":
                         conclusive_method = "Multiple_Eigenvalue"
                         R = multiple_eigenvalue(dop, mono, order, bound, alg_degree, verbose)
+                        #try:
+                        #    if R.order()==r: breakpoint()
+                        #except: pass
                 if R!="Inconclusive":
                     if verbose: print("Conclude with " + conclusive_method + " method")
                     return R
