@@ -730,7 +730,7 @@ def annihilator(dop, ic, order, bound, alg_degree, mono=None, verbose=False):
             symb_ic = [K(x) for x in symb_ic]
         S = PowerSeriesRing(K, default_prec=order + d)
         sol_basis = dop.local_basis_expansions(QQ.zero(), order + d)
-        sol_basis = [power_series_coerce(sol, S) for sol in sol_basis]
+        sol_basis = [ power_series_coerce(sol, S) for sol in sol_basis ]
         f = vector(symb_ic) * vector(sol_basis)
         if K==QQ:
             v = f.valuation()
@@ -825,7 +825,7 @@ def multiple_eigenvalue(dop, mono, order, bound, alg_degree, verbose=False):
 
     r = dop.order()
     invspace = invariant_subspace(mono)
-    if invspace==None: return None # devrait jamais arriver quand utilisé à l'intégrieur de rfactor
+    if invspace==None: return None # devrait jamais arriver quand utilisé à l'intérieur de rfactor
     R = annihilator(dop, invspace[0], order, bound, alg_degree, mono, verbose)
     if R!="Inconclusive" and R.order()<r: return R
     return "Inconclusive"
@@ -847,6 +847,32 @@ def rfactor(dop, verbose=False):
     R = _rfactor(dop, verbose=verbose)
     if R==None: return None
     return R.annihilator_of_composition(z - s0)
+
+def rfactor_when_galois_algebra_is_trivial(dop, order, verbose=False):
+
+    if verbose: print("Galois algebra is trivial: symbolic HP approximants method at order", order)
+    K, r = dop.base_ring().base_ring(), dop.order()
+    S = PowerSeriesRing(K, default_prec=order + r)
+    f = dop.local_basis_expansions(QQ.zero(), order + r)[0]
+    f = power_series_coerce(f, S)
+    if K==QQ:
+        v = f.valuation()
+        try:
+            R = Se(guess(f.list()[v:], dop.parent()), -v)
+            if R.order()<r and dop%R==0: return R
+        except ValueError: pass
+    else:
+        der = [ f.truncate() ]
+        for k in range(r - 1): der.append( der[-1].derivative() )
+        mat = matrix(r, 1, der)
+        min_basis = mat.minimal_approximant_basis(order//r)
+        rdeg = min_basis.row_degrees()
+        i0 = min(range(len(rdeg)), key = lambda i: rdeg[i])
+        #R, g = LinearDifferentialOperator(dop).extend_scalars(K.gen())
+        R = dop.parent()(list(min_basis[i0]))
+        if dop%R==0: return R
+
+    return rfactor_when_galois_algebra_is_trivial(dop, order<<1, verbose)
 
 
 def _rfactor(dop, order=None, bound=None, alg_degree=None, precision=None, loss=0, verbose=False):
@@ -884,24 +910,18 @@ def _rfactor(dop, order=None, bound=None, alg_degree=None, precision=None, loss=
                 if verbose: print(len(mono), "matrices computed")
                 conclusive_method = "One_Dimensional"
                 R = one_dimensional_eigenspaces(dop, mono, order, bound, alg_degree, verbose)
-                #try:
-                #    if R.order()==r: breakpoint()
-                #except: pass
                 if R=="NotGoodConditions":
                     conclusive_method = "Simple_Eigenvalue"
                     R = simple_eigenvalue(dop, mono, order, bound, alg_degree, verbose)
-                    #try:
-                    #    if R.order()==r: breakpoint()
-                    #except: pass
                     if R=="NotGoodConditions":
                         conclusive_method = "Multiple_Eigenvalue"
                         R = multiple_eigenvalue(dop, mono, order, bound, alg_degree, verbose)
-                        #try:
-                        #    if R.order()==r: breakpoint()
-                        #except: pass
                 if R!="Inconclusive":
                     if verbose: print("Conclude with " + conclusive_method + " method")
                     return R
+        if mono==[]:
+            return rfactor_when_galois_algebra_is_trivial(dop, order, verbose)
+
 
     except (ZeroDivisionError, PrecisionError):
         precision = max( precision + loss, (precision<<1) - loss )
