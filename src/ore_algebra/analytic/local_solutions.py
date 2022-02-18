@@ -527,6 +527,7 @@ class LocalBasisMapper(object):
         sl_data = []
         self.all_roots = []
         for sl_factor, shifts in self.sl_decomp:
+            shifts.sort()
             irred_data = []
             for irred_factor, irred_mult in sl_factor.factor():
                 assert irred_mult == 1
