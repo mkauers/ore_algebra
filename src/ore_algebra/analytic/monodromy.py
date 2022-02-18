@@ -293,7 +293,7 @@ def _spanning_tree(base, verts):
     def length(edge):
         x, y, _ = edge
         return abs(CC(x.alg) - CC(y.alg))
-    tree = graph.min_spanning_tree(length)
+    tree = graph.min_spanning_tree(weight_function=length)
     tree = Graph(tree)
     tree.add_vertex(base)
     return tree

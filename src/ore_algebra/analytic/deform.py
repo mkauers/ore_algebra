@@ -814,7 +814,7 @@ class PathDeformer(object):
         """
         def length(edge):
             return abs(self.sing[edge[0]] - self.sing[edge[1]])
-        edges = self.delaunay_graph.min_spanning_tree(length)
+        edges = self.delaunay_graph.min_spanning_tree(weight_function=length)
         edges.append((-1, self.leftmost, -1))
         return edges
 
