@@ -309,13 +309,23 @@ def _extend_path_mat(dop, path_mat, inv_path_mat, x, y, eps, matprod):
     bypass_mat_y = matprod(y.local_monodromy[anchor_index_y:]
                            if anchor_index_y > 0
                            else [])
-    anchor_x.options["store_value"] = False # XXX bugware
-    anchor_y.options["store_value"] = True
-    edge_mat = dop.numerical_transition_matrix([anchor_x, anchor_y],
-                                                eps, assume_analytic=True)
+    if anchor_y.is_singular():
+        # Avoid computing inverses of inverses
+        path = [anchor_y, anchor_x]
+        invert = True
+    else:
+        path = [anchor_x, anchor_y]
+        invert = False
+    path[0].options["store_value"] = False # XXX bugware
+    path[1].options["store_value"] = True
+    edge_mat = dop.numerical_transition_matrix(path, eps, assume_analytic=True)
+    inv_edge_mat = ~edge_mat
+    if invert:
+        edge_mat, inv_edge_mat = inv_edge_mat, edge_mat
     ext_mat = bypass_mat_y*edge_mat*bypass_mat_x
+    inv_ext_mat = ~bypass_mat_x*inv_edge_mat*~bypass_mat_y
     new_path_mat = ext_mat*path_mat
-    new_inv_path_mat = inv_path_mat*~ext_mat
+    new_inv_path_mat = inv_path_mat*inv_ext_mat
     assert isinstance(new_path_mat, Matrix_complex_ball_dense)
     return new_path_mat, new_inv_path_mat
 
@@ -595,14 +605,10 @@ def monodromy_matrices(dop, base, eps=1e-16, sing=None):
         [             [-41.3...]*I                [-19.7...]  [6.28...]*I      1.00...        0        0]
         [                [64.9...]              [-41.3...]*I   [-19.7...]  [6.28...]*I  1.00...        0]
         [[-2.96...] + [-7.14...]*I  [-2.96...] + [0.94...]*I  [0.94...]*I            0        0  1.00...]
-        sage: mon[1]
-        [ [1.27...] + [+/-...]*I [-0.97...] + [+/-...]*I [-1.31...] + [+/-...]*I [-0.86...] + [+/-...]*I [-0.30...] + [+/-...]*I [-1.80...] + [+/-...]*I]
-        [ [-1.0...] + [+/-...]*I  [4.60...] + [+/-...]*I  [4.86...] + [+/-...]*I  [3.19...] + [+/-...]*I  [1.13...] + [+/-...]*I  [6.65...] + [+/-...]*I]
-        [ [1.42...] + [+/-...]*I [-5.04...] + [+/-...]*I [-5.80...] + [+/-...]*I [-4.46...] + [+/-...]*I [-1.58...] + [+/-...]*I [-9.31...] + [+/-...]*I]
-        [[-0.63...] + [+/-...]*I  [2.24...] + [+/-...]*I  [3.02...] + [+/-...]*I  [2.98...] + [+/-...]*I  [0.70...] + [+/-...]*I  [4.14...] + [+/-...]*I]
-        [[-0.24...] + [+/-...]*I  [0.87...] + [+/-...]*I  [1.18...] + [+/-...]*I  [0.77...] + [+/-...]*I  [1.27...] + [+/-...]*I  [1.61...] + [+/-...]*I]
-        [ [0.20...] + [+/-...]*I [-0.73...] + [+/-...]*I [-0.98...] + [+/-...]*I [-0.64...] + [+/-...]*I [-0.23...] + [+/-...]*I [-0.34...] + [+/-...]*I]
-
+        sage: mon[1][2,5]
+        [-9.310353...] + [+/- ...]*I
+        sage: mon[1].trace()
+        [4.000000...] + [+/- ...]*I
     """
     return list(mat for _, mat, _ in _monodromy_matrices(dop, base, eps, sing))
 
