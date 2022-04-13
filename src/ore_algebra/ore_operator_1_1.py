@@ -1446,7 +1446,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
     @cached_method(key=_normalize_local_integral_basis_args)
     def local_integral_basis(
             self, z, basis=None, val_fct=None, raise_val_fct=None,
-            infolevel=0, **args):
+            infolevel=0, **val_kwargs):
         r"""
         Return a basis of the quotient algebra by self which is an integral basis at ``z``.
 
@@ -1771,9 +1771,9 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
             sage: B = L.global_integral_basis(iota = lambda i,j : j if i==0 else 0); B
             [1, x*Dx]
             sage: B = L.global_integral_basis(iota = lambda i,j : j if i==0 else 1); B
-            [x, x^2*Dx]
+            [x, x*Dx]
             sage: B = L.global_integral_basis(iota = lambda i,j : j if i==0 else -1); B
-            [1/x, Dx]
+            [1/x, x*Dx]
 
         Optionally, we can supply a list of points at which we want to compute
         an integral basis. Each point is given by its minimal polynomial in the
@@ -1823,7 +1823,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
             sage: L.global_integral_basis.is_in_cache(basis=None, places=places1)
             False
             sage: L.global_integral_basis(basis=None, places=places1)
-            [1, Dx]
+            [1, x*Dx]
             sage: L.global_integral_basis.is_in_cache(basis=None, places=places1)
             True
 
@@ -1836,7 +1836,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
             sage: L.global_integral_basis.is_in_cache(places=places2)
             False
             sage: L.global_integral_basis(places=places2)
-            [1, Dx]
+            [1, x*Dx]
             sage: L.global_integral_basis.is_in_cache(places=places2)
             True
 
@@ -1849,7 +1849,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
             False
             sage: a=1
             sage: L.global_integral_basis(places=places3)
-            [1, Dx]
+            [1, x*Dx]
             sage: L.global_integral_basis.is_in_cache(places=places3)
             True
             sage: a=0
@@ -1858,7 +1858,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
             ...
             ZeroDivisionError: rational division by zero
             sage: L.global_integral_basis(places=places2) # invalid cache!
-            [1, Dx]
+            [1, x*Dx]
 
         Changing the verbosity level is ignored.
         
@@ -1867,7 +1867,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
 
         All other arguments, including the initial basis, can give a different result.
         
-            sage: basis2 = [1,x*Dx]
+            sage: basis2 = [1,x^2*Dx]
             sage: L.global_integral_basis.is_in_cache(basis=basis2, places=places1)
             False
 
@@ -3546,10 +3546,10 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         ore = self.parent()
         DD = ore.gen()
         if place is None:
-            place = self.leading_coefficient().radical()
+            place = self.leading_coefficient().radical().monic()
         return [place**i * DD**i for i in range(r)]
     
-    def find_candidate_places(self, infolevel=0, iota=None, prec=5):
+    def find_candidate_places(self, infolevel=0, iota=None, prec=5, **kwargs):
         lr = self.coefficients()[-1]
         fact = list(lr.factor())
         places = []
