@@ -1434,25 +1434,25 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
 
     
     def _normalize_local_integral_basis_args(
-            self,x,basis=None, val_fct=None, raise_val_fct=None,
+            self,a,basis=None, val_fct=None, raise_val_fct=None,
             infolevel=0,**args):
         if basis:
             basis = tuple(basis)
         args = list(args.items())
         args.sort()
         args = tuple(args)
-        return (x,basis,args)
+        return (a,basis,args)
     
     @cached_method(key=_normalize_local_integral_basis_args)
     def local_integral_basis(
-            self, z, basis=None, val_fct=None, raise_val_fct=None,
+            self, a, basis=None, val_fct=None, raise_val_fct=None,
             infolevel=0, **val_kwargs):
         r"""
-        Return a basis of the quotient algebra by self which is an integral basis at ``z``.
+        Return a basis of the quotient algebra by self which is an integral basis at ``a``.
 
         Let ``A=K(x)<y>`` be the parent Ore algebra, and ``L`` be the operator
-        `self`.  An element of ``A/L`` is integral at the place `z` if
-        it has non-negative valuation at `z`.  The set of integral elements forms a
+        `self`.  An element of ``A/L`` is integral at the place `a` if
+        it has non-negative valuation at `a`.  The set of integral elements forms a
         ``K[x]``-module, and an integral basis is a basis of that module.
 
         The definition of the valuation depends on the type of Ore operators,
@@ -1463,7 +1463,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
 
         INPUT:
 
-        - ``z`` -- the place at which to compute an integral basis. ``z`` should
+        - ``a`` -- the place at which to compute an integral basis. ``a`` should
           be an irreducible polynomial in the base ring of the Ore algebra.
 
         - ``basis`` (default: None) -- starting basis. If provided, the output of the algorithm
@@ -1471,7 +1471,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
           a local integral basis.
 
         - ``val_fct`` (default: None) -- a function computing the value of an
-          operator at the place z. It should have the same interface as the
+          operator at the place a. It should have the same interface as the
           generic method ``value_function``. If not provided, the algorithm
           calls ``self.value_function``.
 
@@ -1486,13 +1486,13 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
 
         If values are given for `val_fct` or `raise_val_fct`, it is the
         responsibility of the user to ensure that those functions are suitable
-        for computing an integral basis at place `z`.
+        for computing an integral basis at place `a`.
 
 
         OUTPUT:
 
         An basis of the quotient of the parent Ore algebra by this operator,
-        which is integral at the place ``z``.  If a starting basis was provided,
+        which is integral at the place ``a``.  If a starting basis was provided,
         the resulting basis is also integral at all places where the starting
         basis was integral.
 
@@ -1506,7 +1506,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         print2 = print if infolevel >= 2 else lambda *a, **k: None
         print3 = print if infolevel >= 3 else lambda *a, **k: None
 
-        print1(" [local] Computing local basis at {}".format(z))
+        print1(" [local] Computing local basis at {}".format(a))
         
         if val_fct is None: val_fct = self.value_function
         if raise_val_fct is None: raise_val_fct = self.raise_value
@@ -1514,26 +1514,26 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         r = self.order()
         ore = self.parent()
         DD = ore.gen()
-        if basis is None: basis = self._initial_integral_basis(place=z)
+        if basis is None: basis = self._initial_integral_basis(place=a)
 
         k = ore.base_ring()
 
-        F = z.parent().base_ring()
-        deg = z.degree() # Requires z to be the minimal polynomial in extension cases
-        Fvar = z.parent().gen(0)
+        F = a.parent().base_ring()
+        deg = a.degree() # Requires a to be the minimal polynomial in extension cases
+        Fvar = a.parent().gen(0)
 
         res = []
         r = len(basis)
         for d in range(r):
             print1(" [local] d={}".format(d))
             print1(" [local] Processing {}".format(basis[d]))
-            v = val_fct(basis[d],place=z,**val_kwargs)
+            v = val_fct(basis[d],place=a,**val_kwargs)
             print1(" [local] Valuation: {}".format(v))
-            res.append(z**(-v) * basis[d])
+            res.append(a**(-v) * basis[d])
             print1(" [local] Basis element after normalizing: {}".format(res[d]))
             done = False
             while not done:
-                alpha = raise_val_fct(res,place=z,dim=r,infolevel=infolevel,**val_kwargs)
+                alpha = raise_val_fct(res,place=a,dim=r,infolevel=infolevel,**val_kwargs)
                 if alpha is None:
                     done = True
                 else:
@@ -1550,7 +1550,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
                     # __import__("pdb").set_trace()
                     
                     res[d] = sum(alpha_rep[i]*res[i] for i in range(d+1))
-                    res[d] = z**(- val_fct(res[d],place=z,**val_kwargs))*res[d]
+                    res[d] = a**(- val_fct(res[d],place=a,**val_kwargs))*res[d]
                     print1(" [local] Basis element after combination: {}".format(res[d]))
         return res
 
@@ -1565,7 +1565,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         OUTPUT:
 
         Let ``\partial`` be the generator of the Ore algebra and by ``r`` the order of ``self``.
-        The function returns a list ``L`` of places such that for any operator ``\partial^k``, ``0 \leq k < r``, in the quotient algebra, and for any place ``z`` not in ``L``, ``\partial^k`` is integral at ``z``.
+        The function returns a list ``L`` of places such that for any operator ``\partial^k``, ``0 \leq k < r``, in the quotient algebra, and for any place ``a`` not in ``L``, ``\partial^k`` is integral at ``a``.
 
         Such a list is not unique, since adding finitely many elements to it does not break the specification.
         The caller in global_integral_basis does not require that the list is minimal in any sense.
