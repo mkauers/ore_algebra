@@ -39,8 +39,8 @@ from sage.rings.number_field.number_field import NumberField
 from sage.rings.number_field.number_field_base import is_NumberField
 from sage.rings.qqbar import QQbar
 from sage.rings.qqbar import QQbar, AA
-from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 from sage.rings.polynomial.polynomial_ring import is_PolynomialRing
+from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 from sage.rings.polynomial.multi_polynomial_ring import is_MPolynomialRing
 from sage.rings.power_series_ring import PowerSeriesRing
 from sage.rings.laurent_series_ring import LaurentSeriesRing
@@ -1421,18 +1421,49 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         args = tuple(args)
         return (x,basis,args)
 
-    @cached_method(key=_normalize_local_integral_basis_args)
-    def local_integral_basis(self, x, basis=None,
-                             val_fct=None, raise_val_fct=None,
-                             infolevel=0,
-                             **val_kwargs):
+    def _initial_integral_basis(self, place=None, **kwargs):
         r"""
-        Compute a local integral basis at x of the vector obtained by taking the
-        quotient of the parent Ore algebra by this operator.
+        Return the default basis to use for computing an integral basis
+
+        This method is provided so that instances can overload it.
+        """
+        r = self.order()
+        ore = self.parent()
+        DD = ore.gen()
+        return [DD**i for i in range(r)]
+
+    
+    def _normalize_local_integral_basis_args(
+            self,a,basis=None, val_fct=None, raise_val_fct=None,
+            infolevel=0,**args):
+        if basis:
+            basis = tuple(basis)
+        args = list(args.items())
+        args.sort()
+        args = tuple(args)
+        return (a,basis,args)
+    
+    @cached_method(key=_normalize_local_integral_basis_args)
+    def local_integral_basis(
+            self, a, basis=None, val_fct=None, raise_val_fct=None,
+            infolevel=0, **val_kwargs):
+        r"""
+        Return a basis of the quotient algebra by self which is an integral basis at ``a``.
+
+        Let ``A=K(x)<y>`` be the parent Ore algebra, and ``L`` be the operator
+        `self`.  An element of ``A/L`` is integral at the place `a` if
+        it has non-negative valuation at `a`.  The set of integral elements forms a
+        ``K[x]``-module, and an integral basis is a basis of that module.
+
+        The definition of the valuation depends on the type of Ore operators,
+        and on some parameters left to the user. 
+
+        The results of this method are cached, additional keywords can be
+        supplied to force a new result to be regenerated.
 
         INPUT:
 
-        - ``x`` -- the place at which to compute an integral basis. ``x`` should
+        - ``a`` -- the place at which to compute an integral basis. ``a`` should
           be an irreducible polynomial in the base ring of the Ore algebra.
 
         - ``basis`` (default: None) -- starting basis. If provided, the output of the algorithm
@@ -1440,25 +1471,34 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
           a local integral basis.
 
         - ``val_fct`` (default: None) -- a function computing the value of an
-          operator at the place x. It should have the same interface as the
+          operator at the place a. It should have the same interface as the
           generic method ``value_function``. If not provided, the algorithm
           calls ``self.value_function``.
 
-        - ``raise_val_fct`` (default: None) -- a function computing a linear combination of operators with higher value. It should have the same interface as the
-          generic method ``raise_value``. If not provided, the algorithm
-          calls ``raise_value``.
+        - ``raise_val_fct`` (default: None) -- a function computing a linear
+          combination of operators with higher value. It should have the same
+          interface as the generic method ``raise_value``. If not provided, the
+          algorithm calls ``self.raise_value``.
 
         - ``infolevel`` (default:0) -- verbosity flag
 
         - All remaining named arguments are passed to the functions ``val_fct`` and ``raise_val_fct``.
 
+        If values are given for `val_fct` or `raise_val_fct`, it is the
+        responsibility of the user to ensure that those functions are suitable
+        for computing an integral basis at place `a`.
+
+
         OUTPUT:
 
-        An basis of the quotient of the parent Ore algebra by this operator, which is integral at the place ``x``.
-        If a starting basis was provided, the resulting basis is also integral at all places where the starting basis was integral.
+        An basis of the quotient of the parent Ore algebra by this operator,
+        which is integral at the place ``a``.  If a starting basis was provided,
+        the resulting basis is also integral at all places where the starting
+        basis was integral.
 
         EXAMPLES::
         # TODO
+
         """
 
         # Helpers
@@ -1466,7 +1506,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         print2 = print if infolevel >= 2 else lambda *a, **k: None
         print3 = print if infolevel >= 3 else lambda *a, **k: None
 
-        print1(" [local] Computing local basis at {}".format(x))
+        print1(" [local] Computing local basis at {}".format(a))
         
         if val_fct is None: val_fct = self.value_function
         if raise_val_fct is None: raise_val_fct = self.raise_value
@@ -1474,26 +1514,26 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         r = self.order()
         ore = self.parent()
         DD = ore.gen()
-        if basis is None: basis = [DD**i for i in range(r)]
+        if basis is None: basis = self._initial_integral_basis(place=a)
 
         k = ore.base_ring()
 
-        F = x.parent().base_ring()
-        deg = x.degree() # Requires x to be the minimal polynomial in extension cases
-        Fvar = x.parent().gen(0)
+        F = a.parent().base_ring()
+        deg = a.degree() # Requires a to be the minimal polynomial in extension cases
+        Fvar = a.parent().gen(0)
 
         res = []
         r = len(basis)
         for d in range(r):
             print1(" [local] d={}".format(d))
             print1(" [local] Processing {}".format(basis[d]))
-            v = val_fct(basis[d],place=x,**val_kwargs)
+            v = val_fct(basis[d],place=a,**val_kwargs)
             print1(" [local] Valuation: {}".format(v))
-            res.append(x**(-v) * basis[d])
+            res.append(a**(-v) * basis[d])
             print1(" [local] Basis element after normalizing: {}".format(res[d]))
             done = False
             while not done:
-                alpha = raise_val_fct(res,place=x,dim=r,infolevel=infolevel,**val_kwargs)
+                alpha = raise_val_fct(res,place=a,dim=r,infolevel=infolevel,**val_kwargs)
                 if alpha is None:
                     done = True
                 else:
@@ -1510,7 +1550,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
                     # __import__("pdb").set_trace()
                     
                     res[d] = sum(alpha_rep[i]*res[i] for i in range(d+1))
-                    res[d] = x**(- val_fct(res[d],place=x,**val_kwargs))*res[d]
+                    res[d] = a**(- val_fct(res[d],place=a,**val_kwargs))*res[d]
                     print1(" [local] Basis element after combination: {}".format(res[d]))
         return res
 
@@ -1525,7 +1565,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         OUTPUT:
 
         Let ``\partial`` be the generator of the Ore algebra and by ``r`` the order of ``self``.
-        The function returns a list ``L`` of places such that for any operator ``\partial^k``, ``0 \leq k < r``, in the quotient algebra, and for any place ``z`` not in ``L``, ``\partial^k`` is integral at ``z``.
+        The function returns a list ``L`` of places such that for any operator ``\partial^k``, ``0 \leq k < r``, in the quotient algebra, and for any place ``a`` not in ``L``, ``\partial^k`` is integral at ``a``.
 
         Such a list is not unique, since adding finitely many elements to it does not break the specification.
         The caller in global_integral_basis does not require that the list is minimal in any sense.
@@ -1731,9 +1771,9 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
             sage: B = L.global_integral_basis(iota = lambda i,j : j if i==0 else 0); B
             [1, x*Dx]
             sage: B = L.global_integral_basis(iota = lambda i,j : j if i==0 else 1); B
-            [x, x^2*Dx]
+            [x, x*Dx]
             sage: B = L.global_integral_basis(iota = lambda i,j : j if i==0 else -1); B
-            [1/x, Dx]
+            [1/x, x*Dx]
 
         Optionally, we can supply a list of points at which we want to compute
         an integral basis. Each point is given by its minimal polynomial in the
@@ -1783,7 +1823,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
             sage: L.global_integral_basis.is_in_cache(basis=None, places=places1)
             False
             sage: L.global_integral_basis(basis=None, places=places1)
-            [1, Dx]
+            [1, x*Dx]
             sage: L.global_integral_basis.is_in_cache(basis=None, places=places1)
             True
 
@@ -1796,7 +1836,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
             sage: L.global_integral_basis.is_in_cache(places=places2)
             False
             sage: L.global_integral_basis(places=places2)
-            [1, Dx]
+            [1, x*Dx]
             sage: L.global_integral_basis.is_in_cache(places=places2)
             True
 
@@ -1809,7 +1849,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
             False
             sage: a=1
             sage: L.global_integral_basis(places=places3)
-            [1, Dx]
+            [1, x*Dx]
             sage: L.global_integral_basis.is_in_cache(places=places3)
             True
             sage: a=0
@@ -1818,7 +1858,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
             ...
             ZeroDivisionError: rational division by zero
             sage: L.global_integral_basis(places=places2) # invalid cache!
-            [1, Dx]
+            [1, x*Dx]
 
         Changing the verbosity level is ignored.
         
@@ -1827,7 +1867,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
 
         All other arguments, including the initial basis, can give a different result.
         
-            sage: basis2 = [1,x*Dx]
+            sage: basis2 = [1,x^2*Dx]
             sage: L.global_integral_basis.is_in_cache(basis=basis2, places=places1)
             False
 
@@ -1863,10 +1903,17 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         if places is None:
             places = self.find_candidate_places(infolevel=infolevel,**val_kwargs)
 
+        r = self.order()
+        ore = self.parent()
+        DD = ore.gen()
+        if basis is None:
+            res = self._initial_integral_basis(place=None)
+        else:
+            res = basis
+
         if len(places) == 0 :
             return [self.parent()(1)]
             
-        res = None
         for p in places :
             if not isinstance(p,tuple) :
                 x = p
@@ -3494,7 +3541,15 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         val_fct, raise_val_fct = get_functions(xi,sols,x,ore_ext)
         return f,val_fct, raise_val_fct
 
-    def find_candidate_places(self, infolevel=0, iota=None, **kwargs):
+    def _initial_integral_basis(self, place=None):
+        r = self.order()
+        ore = self.parent()
+        DD = ore.gen()
+        if place is None:
+            place = self.leading_coefficient().radical().monic()
+        return [place**i * DD**i for i in range(r)]
+    
+    def find_candidate_places(self, infolevel=0, iota=None, prec=5, **kwargs):
         lr = self.coefficients()[-1]
         fact = list(lr.factor())
         places = []
