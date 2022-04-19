@@ -581,7 +581,7 @@ def largest_modulus_of_exponents(dop):
     out = 0
     for pol, _ in list(lc.factor()) + [ (1/z, None) ]:
         local_exponents = dop.indicial_polynomial(pol).roots(QQbar, multiplicities=False)
-        local_largest_modulus = max([x.abs().ceil() for x in local_exponents])
+        local_largest_modulus = max([x.abs().ceil() for x in local_exponents], default=QQbar.zero())
         out = max(local_largest_modulus, out)
 
     return out
