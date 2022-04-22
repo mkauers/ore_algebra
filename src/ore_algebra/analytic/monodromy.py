@@ -262,7 +262,7 @@ class TodoItem():
 
     @cached_method
     def point(self):
-        return path.Point(self.alg.as_exact(), self._dop)
+        return path.Point(self.alg.as_number_field_element(), self._dop)
 
     def __eq__(self, other):
         return self is other

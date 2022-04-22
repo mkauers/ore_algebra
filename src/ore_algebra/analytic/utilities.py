@@ -28,7 +28,8 @@ from sage.rings.number_field.number_field import (NumberField,
 from sage.rings.number_field.number_field_element import NumberFieldElement
 from sage.rings.polynomial.complex_roots import complex_roots
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
-from sage.rings.qqbar import number_field_elements_from_algebraics
+from sage.rings.qqbar import (qq_generator, AlgebraicGenerator, AlgebraicNumber,
+                              ANExtensionElement, ANRoot)
 from sage.rings.rational import Rational
 from sage.structure.coerce_exceptions import CoercionException
 from sage.structure.element import coercion_model
@@ -102,19 +103,23 @@ def good_number_field(nf):
     return nf, nf.hom(nf)
 
 def as_embedded_number_field_elements(algs):
-    try:
-        nf, elts, _ = number_field_elements_from_algebraics(algs, embedded=True,
-                                                            minimal=True)
-    except NotImplementedError: # compatibility with Sage <= 9.3
-        nf, elts, emb = number_field_elements_from_algebraics(algs)
-        if nf is not QQ:
-            nf = NumberField(nf.polynomial(), nf.variable_name(),
-                        embedding=emb(nf.gen()))
-            elts = [elt.polynomial()(nf.gen()) for elt in elts]
+    # Adapted (in part) from sage's number_field_elements_from algebraics(),
+    # because the latter loses too much time trying to detect if the numbers are
+    # real.
+    gen = qq_generator
+    algs = [QQbar.coerce(a) for a in algs]
+    for a in algs:
+        a.simplify()
+        gen = gen.union(a._exact_field())
+    nf = gen._field
+    if nf is not QQ:
+        gen_emb = AlgebraicNumber(ANExtensionElement(gen, nf.gen()))
+        nf = NumberField(nf.polynomial(), nf.variable_name(),
+                         embedding=gen_emb)
+        algs = [gen(a._exact_value()).polynomial()(nf.gen()) for a in algs]
         nf, hom = good_number_field(nf)
-        elts = [hom(elt) for elt in elts]
-        assert [QQbar.coerce(elt) == alg for alg, elt in zip(algs, elts)]
-    return nf, elts
+        algs = [hom(a) for a in algs]
+    return nf, algs
 
 def as_embedded_number_field_element(alg):
     return as_embedded_number_field_elements([alg])[1][0]
@@ -199,6 +204,16 @@ def extend_scalars(Scalars, *pts):
 ######################################################################
 
 class PolynomialRoot:
+    r"""
+    Root of an irreducible polynomial over a number field
+
+    This class provides an ad hoc representation of algebraic numbers that
+    allows us to perform some simple operations more efficiently than by using
+    Sage's algebraic numbers or number field elements.
+
+    It is mainly intended for cases where one manipulates all the roots of a
+    given irreducible polynomial--typically singularities and local exponents.
+    """
 
     def __init__(self, pol, all_roots, index):
         assert pol.is_monic()
@@ -236,7 +251,14 @@ class PolynomialRoot:
 
     @cached_method
     def as_algebraic(self):
-        return QQbar.polynomial_root(self.pol, self.all_roots[self.index])
+        if self.pol.base_ring() is QQ:
+            # bypass ANRoot.exactify()
+            nf = NumberField(self.pol, 'a', check=False)
+            rt = ANRoot(self.pol, self.all_roots[self.index])
+            gen = AlgebraicGenerator(nf, rt)
+            return AlgebraicNumber(ANExtensionElement(gen, nf.gen()))
+        else:
+            return QQbar.polynomial_root(self.pol, self.all_roots[self.index])
 
     def _algebraic_(self, field):
         return field(self.as_algebraic())
