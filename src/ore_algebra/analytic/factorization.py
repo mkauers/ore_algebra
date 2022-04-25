@@ -566,7 +566,7 @@ def good_base_point(dop):
     if s=='infinity': return 0
 
     z0 = s.real().ceil()
-    sings = dop.singularities()
+    sings = LinearDifferentialOperator(dop)._singularities(QQbar)
     while z0 in sings: z0 = z0 + QQ.one()
 
     return z0
