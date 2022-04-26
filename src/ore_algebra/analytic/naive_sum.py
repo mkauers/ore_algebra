@@ -42,7 +42,7 @@ from .context import Context, dctx
 from .differential_operator import DifferentialOperator
 from .local_solutions import (bw_shift_rec, LogSeriesInitialValues,
                               LocalBasisMapper, log_series_values)
-from .path import EvaluationPoint
+from .path import EvaluationPoint_base, EvaluationPoint
 from .safe_cmp import *
 
 logger = logging.getLogger(__name__)
@@ -71,7 +71,8 @@ def series_sum(dop, ini, evpts, tgt_error, maj=None, bwrec=None, stop=None,
         sage: QQi.<i> = QuadraticField(-1)
 
         sage: from ore_algebra import *
-        sage: from ore_algebra.analytic.naive_sum import series_sum, EvaluationPoint
+        sage: from ore_algebra.analytic.naive_sum import series_sum
+        sage: from ore_algebra.analytic.path import EvaluationPoint
         sage: Dops, x, Dx = DifferentialOperators()
 
         sage: dop = ((4*x^2 + 3/58*x - 8)*Dx^10 + (2*x^2 - 2*x)*Dx^9 +
@@ -192,7 +193,7 @@ def series_sum(dop, ini, evpts, tgt_error, maj=None, bwrec=None, stop=None,
     dop = DifferentialOperator(dop)
     if not isinstance(ini, LogSeriesInitialValues):
         ini = LogSeriesInitialValues(ZZ.zero(), ini, dop)
-    if not isinstance(evpts, EvaluationPoint):
+    if not isinstance(evpts, EvaluationPoint_base):
         if isinstance(evpts, (list, tuple)):
             evpts = tuple(Sequence(evpts))
         evpts = EvaluationPoint(evpts)
@@ -220,7 +221,7 @@ def series_sum(dop, ini, evpts, tgt_error, maj=None, bwrec=None, stop=None,
     for psum in psums:
         psum.update_downshifts((0,))
     values = tuple(psum.downshifts[0] for psum in psums)
-    if len(evpts.pts) == 1:
+    if len(evpts) == 1:
         return values[0]
     else:
         return values
@@ -523,7 +524,7 @@ def fundamental_matrix_regular(dop, evpts, eps, fail_fast, effort, ctx=dctx):
     unr = HighestSolMapper(dop, evpts, eps_col, fail_fast, effort, ctx=dctx)
     cols = unr.run()
     mats = [matrix([sol.value[i] for sol in cols]).transpose()
-            for i in range(len(evpts.pts))]
+            for i in range(len(evpts))]
     return mats
 
 ################################################################################
@@ -804,8 +805,9 @@ def series_sum_regular(Intervals, dop, bwrec, inis, evpts, stop, stride,
         cseq = CS(Intervals, ini, bwrec.order, real)
         # FIXME the branch should be computed separately for each component of
         # the evaluation point, taking into account the orientation of the step
-        psums = [PS(cseq, Jets, ord, pt, (evpts.is_numeric,))
-                 for pt in evpts.pts]
+        psums = [PS(cseq, Jets, ord, evpts.approx(Intervals, i),
+                    (evpts.is_numeric,))
+                 for i in range(len(evpts))]
         sols.append(MPartialSums(cseq, psums))
 
     class BoundCallbacks(accuracy.BoundCallbacks):

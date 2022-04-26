@@ -33,7 +33,7 @@ from sage.rings.rational_field import QQ
 from . import accuracy, analytic_continuation as ancont, bounds, utilities
 
 from .naive_sum import series_sum
-from .path import EvaluationPoint, Path
+from .path import EvaluationPoint_symbolic, Path
 from .safe_cmp import *
 
 def combine_radii(pol):
@@ -212,7 +212,7 @@ def doit(dop, ini, path, rad, eps, derivatives, economization, x_is_real):
     x = base.change_ring(QQ).gen()
 
     local_dop = dop.shift(center)
-    evpt = EvaluationPoint(x, jet_order=derivatives, rad=rad)
+    evpt = EvaluationPoint_symbolic((x,), jet_order=derivatives, rad=rad)
     polys = series_sum(local_dop, local_ini.column(0), evpt,
                                 accuracy.AbsoluteError(eps1),
                                 stride=5)

@@ -33,6 +33,7 @@ from sage.rings.qqbar import (qq_generator, AlgebraicGenerator, AlgebraicNumber,
 from sage.rings.rational import Rational
 from sage.structure.coerce_exceptions import CoercionException
 from sage.structure.element import coercion_model
+from sage.structure.sequence import Sequence
 
 ######################################################################
 # Timing
@@ -198,6 +199,14 @@ def extend_scalars(Scalars, *pts):
         gen1, pts1 = val1[0], tuple(val1[1:])
     hom = Scalars.hom([gen1], codomain=NF)
     return (hom,) + pts1
+
+def my_sequence(points):
+    try:
+        universe = coercion_model.common_parent(*points)
+    except TypeError:
+        universe, points = as_embedded_number_field_elements(
+                                            [QQbar.coerce(pt) for pt in points])
+    return Sequence(points, universe=universe)
 
 ######################################################################
 # Algebraic numbers

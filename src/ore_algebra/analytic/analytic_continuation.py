@@ -32,7 +32,7 @@ from sage.structure.element import Matrix, canonical_coercion
 
 from .context import Context, dctx # re-export Context
 from .monodromy import formal_monodromy
-from .path import EvaluationPoint, Path, Step
+from .path import EvaluationPoint_step, Path, Step
 
 logger = logging.getLogger(__name__)
 
@@ -60,7 +60,7 @@ def step_transition_matrix(dop, steps, eps, rows=None, split=0, ctx=dctx):
     if order == 0:
         logger.debug("%s: trivial case", steps)
         return [matrix(ZZ)]*len(steps) # 0 by 0
-    elif len(steps) == 1 and z0.value == steps[0].end.value:
+    elif len(steps) == 1 and steps[0].is_trivial():
         logger.debug("%s: trivial case", steps)
         return [identity_matrix(ZZ, order)[:rows]]
     elif z0.is_ordinary():
@@ -136,9 +136,7 @@ def step_transition_matrix_bit_burst(dop, steps, eps, rows, fail_fast, effort,
     # assert all(step.start is steps[0].start for step in steps)
     z0 = steps[0].start
     ldop = dop.shift(steps[0].start)
-    points = EvaluationPoint(tuple(step.delta() for step in steps),
-                             jet_order=rows)
-    tuple(step.evpt(rows) for step in steps)
+    points = EvaluationPoint_step(steps, jet_order=rows)
 
     tgt_prec = utilities.prec_from_eps(eps)
     # Precision of the intermediate approximation that the bit-burst method
