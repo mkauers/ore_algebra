@@ -896,7 +896,7 @@ class MatrixRec(object):
             dom = ComplexBallField(prec)
         for i, pt in enumerate(evpts):
             if is_NumberField(pt.parent()):
-                den = pt.denominator()
+                den = utilities.internal_denominator(pt)
                 self.pow_num[i] = dom(den*pt) # mul must be exact
                 self.pow_den[i] = dom(den)
             else:
@@ -917,7 +917,7 @@ class MatrixRec(object):
             # finite-dimensional Q-algebra. (But how?)
             NF_pow, AlgInts_pow = utilities.number_field_with_integer_gen(E)
             for i, pt in enumerate(pts):
-                self.pow_den[i] = NF_pow(pt).denominator()
+                self.pow_den[i] = utilities.internal_denominator(NF_pow(pt))
                 self.pow_num[i] = self.pow_den[i]*pt
         else:
             # This includes the case E = ZZ, but pts could live in pretty
@@ -985,7 +985,7 @@ class MatrixRec(object):
 
         # Returns a polynomial in the wrong variable (but that's ok)
         invlc = self.exact_lc.eval_inv_lc_series(n, ord_log + mult, mult)
-        den = invlc.denominator()
+        den = utilities.internal_denominator(invlc)
         invlc = den*invlc
         invlc = self.Pols_rec.element_class(self.Pols_rec,
                 [self.AlgInts_rec(a) for a in invlc], check=False)

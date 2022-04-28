@@ -46,7 +46,7 @@ class PlainDifferentialOperator(UnivariateDifferentialOperatorOverUnivariateRing
         if not dop.parent().is_D():
             raise ValueError("expected an operator in K(x)[D]")
         _, _, _, dop = dop.numerator()._normalize_base_ring()
-        den = lcm(c.denominator() for c in dop)
+        den = lcm(utilities.internal_denominator(c) for pol in dop for c in pol)
         dop *= den
         super(PlainDifferentialOperator, self).__init__(
                 dop.parent(), dop)
@@ -72,7 +72,7 @@ class PlainDifferentialOperator(UnivariateDifferentialOperatorOverUnivariateRing
     @cached_method
     def _naive_height(self):
         def h(c):
-            den = c.denominator()
+            den = utilities.internal_denominator(c)
             num = den*c
             l = list(num)
             l.append(den)
@@ -256,7 +256,7 @@ class PlainDifferentialOperator(UnivariateDifferentialOperatorOverUnivariateRing
         Pols = dop_P.base_ring()
         # Gcd-avoiding shift by an algebraic delta
         deg = dop_P.degree()
-        den = ex.denominator()
+        den = utilities.internal_denominator(ex)
         num = den*ex
         lin = Pols([num, den])
         x = Pols.gen()

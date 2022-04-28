@@ -20,6 +20,7 @@ import collections, logging, warnings
 from itertools import chain
 
 import sage.functions.log as symbolic_log
+import sage.rings.number_field.number_field_base as number_field_base
 
 from sage.arith.all import gcd, lcm
 from sage.misc.cachefunc import cached_method
@@ -70,13 +71,16 @@ def bw_shift_rec(dop, shift=None):
         shift = Scalars.zero()
     rop = Rops([p(n-ordrec+shift) for p in rop])
     # Clear denominators
-    den = lcm([p.denominator() for p in rop])
+    den = lcm(utilities.internal_denominator(c) for p in rop for c in p)
     rop = den*rop
     # Remove constant common integer factors to make the recurrence smaller
     # (NB: I also tried removing factors from ℤ[i], see the git log, but this is
     # too slow)
     if Scalars is QQ:
         g = _mygcd_ZZ(c for p in rop for c in p)
+    elif isinstance(Scalars, NumberField_quadratic):
+        # internal representation using √disc
+        g = _mygcd_ZZ(a for p in rop for c in p for a in c.parts())
     elif isinstance(Scalars, NumberField_absolute):
         g = _mygcd_ZZ(a for p in rop for c in p for a in c)
     else:
@@ -236,8 +240,11 @@ class BwShiftRec(object):
             Scalars = hom.codomain()
         sh_plus_n = self.base_ring.change_ring(Scalars)([sh, 1])
         coeff = [pol.map_coefficients(hom)(sh_plus_n) for pol in self.coeff]
-        den = lcm([p.denominator() for p in coeff])
-        return BwShiftRec([den*c for c in coeff])
+        if isinstance(Scalars, number_field_base.NumberField):
+            den = lcm(utilities.internal_denominator(c)
+                      for p in coeff for c in p)
+            coeff = [den*c for c in coeff]
+        return BwShiftRec(coeff)
 
     @cached_method
     def shift_by_PolynomialRoot(self, sh):

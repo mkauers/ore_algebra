@@ -145,8 +145,7 @@ class Point(SageObject):
         elif isinstance(parent, (RealBallField, ComplexBallField)):
             self.value = point
         elif isinstance(parent, number_field_base.NumberField):
-            _, hom = good_number_field(point.parent())
-            self.value = hom(point)
+            self.value = point
         elif QQ.has_coerce_map_from(parent):
             self.value = QQ.coerce(point)
         elif QQbar.has_coerce_map_from(parent):
@@ -237,7 +236,7 @@ class Point(SageObject):
         if isinstance(self.value, (RealBall, ComplexBall)):
             return self.value.nbits()
         else:
-            res = self.value.denominator().nbits()
+            res = utilities.internal_denominator(self.value).nbits()
             res += max(self.value.numerator().real().numerator().nbits(),
                         self.value.numerator().imag().numerator().nbits())
             return res
