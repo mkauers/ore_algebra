@@ -71,6 +71,42 @@ class Point(SageObject):
           a singular point, even if this cannot be checked (e.g. because we only
           have an enclosure)
 
+        EXAMPLES::
+
+        The handling of `RealLiteral`s can be confusing::
+
+            sage: from ore_algebra.analytic.examples.misc import pichon1_dop as dop
+            sage: lit = 0.14521345101433106 - 0.1393025865960824*I
+            sage: dop.numerical_transition_matrix([-1, lit], eps=2^(-100))[0,0]
+            [4.1258139030954317085986778073...] + [-1.3139743385825164244545395830...]*I
+
+        The previous example is interpreted as::
+
+            sage: lit.parent()
+            Complex Field with 54 bits of precision
+            sage: ex = lit.real().exact_rational() + lit.imag().exact_rational()*i
+            sage: dop.numerical_transition_matrix([-1, ex], eps=2^(-100))[0,0]
+            [4.125813903095431708598677807377 +/- 1.20e-31] + [-1.313974338582516424454539583070 +/- 5.33e-31]*I
+
+        not::
+
+            sage: dop.numerical_transition_matrix([-1, CC(lit)], eps=2^(-100))[0,0]
+            [4.1258139030954311076462933295...] + [-1.3139743385825171707694431803...]*I
+
+        or::
+
+            sage: dec = 14521345101433106/10^17 - 1393025865960824/10^16*I
+            sage: RealField(100)(dec.real()), RealField(100)(dec.imag())
+            (0.14521345101433106000000000000, -0.13930258659608240000000000000)
+            sage: dop.numerical_transition_matrix([-1, dec], eps=2^(-100))[0,0]
+            [4.125813903095431747118520383156 +/- 4.95e-31] + [-1.313974338582516650825691744162 +/- 1.67e-31]*I
+
+        or::
+
+            sage: ex1 = RR(lit.real()).exact_rational() + RR(lit.imag()).exact_rational()*i
+            sage: dop.numerical_transition_matrix([-1, ex1], eps=2^(-100))[0,0]
+            [4.1258139030954311076462933295...] + [-1.3139743385825171707694431803...]*I
+
         TESTS::
 
             sage: from ore_algebra import *
@@ -319,6 +355,12 @@ class Point(SageObject):
             return self.value.accuracy()
         else:
             return IR.maximal_accuracy()
+
+    def rad(self):
+        if isinstance(self.value, (RealBall, ComplexBall)):
+            return self.value.rad()
+        else:
+            return IR.zero().rad()
 
     def rationalize(self):
         a = self.iv()
@@ -664,8 +706,13 @@ class Step(SageObject):
         r"""
         Return the value of the increment, as an exact number if possible.
         """
-        z0 = self.start.value
-        z1 = self.end.value
+        try:
+            z0 = self.start.exact().value
+            z1 = self.end.exact().value
+        except ValueError:
+            # no point in exactifying only one of the endpoints
+            z0 = self.start.value
+            z1 = self.end.value
         try:
             d = z1 - z0
         except TypeError:
@@ -678,6 +725,7 @@ class Step(SageObject):
             return d
         else:
             return as_embedded_number_field_element(d)
+        assert False
 
     def approx_delta(self, Tgt):
         r"""
@@ -690,17 +738,21 @@ class Step(SageObject):
         """
         z0, z1 = self.start.value, self.end.value
         if self._fast_coerce():
-            return Tgt(z1 - z0)
-        else:
-            return Tgt(z1) - Tgt(z0)
+            return Tgt(self.delta())
+        P = Tgt
+        while True:
+            delta = P(z1) - P(z0)
+            if (delta.accuracy() >= 7*Tgt.precision()//8
+                    or delta.rad() <= 2*(self.start.rad() + self.end.rad())):
+                return Tgt(delta)
+            P = type(P)(2*P.precision())
 
     def direction(self):
-        delta = self.end.iv() - self.start.iv()
+        delta = self.approx_delta(IC)
         return delta/abs(delta)
 
     def length(self):
-        delta = self.end.iv() - self.start.iv()
-        return abs(delta)
+        return abs(self.approx_delta(IC))
 
     def accuracy(self):
         return min(self.start.accuracy(), self.end.accuracy())
@@ -1479,21 +1531,18 @@ class EvaluationPoint_step(EvaluationPoint_base):
     """
 
     def __init__(self, steps, jet_order):
-        self._steps = steps
+        self._points = steps
         self.jet_order = jet_order
         self.rad = max(step.length().above_abs() for step in steps)
         self.is_numeric = True
         self.is_real_or_symbolic = all(step.is_real() for step in steps)
         self.accuracy = min(step.accuracy() for step in steps)
 
-    def __len__(self):
-        return len(self._steps)
-
     def __getitem__(self, i):
-        return self._steps[i].delta()
+        return self._points[i].delta()
 
     def approx(self, Intervals, i):
-        return self._steps[i].approx_delta(Intervals)
+        return self._points[i].approx_delta(Intervals)
 
 class EvaluationPoint_symbolic(EvaluationPoint_base):
     r"""
