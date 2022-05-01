@@ -837,59 +837,6 @@ def abs_min_nonzero_root(pol, tol=RR(1e-2), min_log=RR('-inf'), prec=None):
         logger.debug("required tolerance may not be met")
     return res
 
-def growth_parameters(dop):
-    r"""
-    Find κ, α such that the solutions of dop grow at most like
-    sum(α^n*x^n/n!^κ) ≈ exp(κ*(α·x)^(1/κ)).
-
-    EXAMPLES::
-
-        sage: from ore_algebra import *
-        sage: DiffOps, x, Dx = DifferentialOperators()
-        sage: from ore_algebra.analytic.bounds import growth_parameters
-        sage: growth_parameters(Dx^2 + 2*x*Dx) # erf(x)
-        (1/2, [1.4...])
-        sage: growth_parameters(Dx^2 + 8*x*Dx) # erf(2*x)
-        (1/2, [2.8...])
-        sage: growth_parameters(Dx^2 - x) # Airy
-        (2/3, [1.0...])
-        sage: growth_parameters(x*Dx^2 + (1-x)*Dx) # Ei(1, -x)
-        (1, [1.0...])
-        sage: growth_parameters((Dx-1).lclm(Dx-2))
-        (1, [2.0...])
-        sage: growth_parameters((Dx - x).lclm(Dx^2 - 1))
-        (1/2, [1.0...])
-        sage: growth_parameters(x^2*Dx^2 + x*Dx + 1)
-        (+Infinity, 0)
-    """
-    assert dop.leading_coefficient().is_term()
-    # Newton polygon. In terms of the coefficient sequence,
-    # (S^(-j)·((n+1)S)^i)(α^n/n!^κ) ≈ α^(i-j)·n^(i+κ(j-i)).
-    # In terms of asymptotics at infinity,
-    # (x^j·D^i)(exp(κ·(α·x)^(1/κ))) ≈ α^(i/κ)·x^((i+κ(j-i))/κ)·exp(...).
-    # Thus, we want the largest (negative) κ s.t. i+κ(j-i) is max and reached
-    # twice, and then the largest |α| with sum[edge](a[i,j]·α^(i/κ))=0.
-    # (Note that the equation on α resulting from the first formulation
-    # simplifies thanks to i+κ(j-i)=cst on the edge.)
-    # For a differential operator of order r, there may be more than r + 1
-    # different values of i (<-> solutions of the associated recurrence), but
-    # at most r + 1 values of h = j-i and hence at most r *negative* slopes.
-    # Or maybe a better way to look at this is to say that we are considering
-    # the classical Newton polygon at infinity (as in Loday-Richaud 2016,
-    # Def. 3.3.10) but we are interested in the inverses of the slopes.
-    points = [(ZZ(j-i), ZZ(i), c) for (i, pol) in enumerate(dop)
-                                  for (j, c) in enumerate(pol)
-                                  if not c.is_zero()]
-    h0, i0, _ = max(points, key=lambda p: (p[1], p[0]))
-    hull = [(h, i, c) for (h, i, c) in points if h > h0 and i < i0]
-    if not hull: # generalized polynomial
-        return infinity, ZZ.zero()
-    slope = max((i-i0)/(h-h0) for h, i, c in hull)
-    Pol = dop.base_ring()
-    eqn = Pol({i0 - i: c for (h, i, c) in points if i == i0 + slope*(h-h0)})
-    expo_growth = abs_min_nonzero_root(eqn)**slope
-    return -slope, expo_growth
-
 ######################################################################
 # Bounds on rational functions of n
 ######################################################################

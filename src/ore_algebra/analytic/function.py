@@ -155,7 +155,7 @@ class DFiniteFunction(object):
         # let the user impose a maximum width, even in other cases.
         self.max_rad = RBF(max_rad)
         if dop.leading_coefficient().is_constant():
-            kappa, alpha = bounds.growth_parameters(dop)
+            kappa, alpha = dop.growth_parameters()
             self.max_rad = self.max_rad.min(1/(alpha*RBF(kappa)**kappa))
         self.max_prec = max_prec
 
