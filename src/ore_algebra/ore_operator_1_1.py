@@ -3067,6 +3067,8 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
           target accuracy
         - ``post_transform`` (default: identity) - differential operator to be
           applied to the solutions, see examples below
+        - see :class:`ore_algebra.analytic.context.Context` for advanced
+          options
 
         OUTPUT:
 
@@ -3256,6 +3258,8 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         - ``path`` - a path on the complex plane, specified as a list of
           vertices `z_0, \dots, z_n`
         - ``eps`` (floating-point number or ball) - target accuracy
+        - see :class:`ore_algebra.analytic.context.Context` for advanced
+          options
 
         OUTPUT:
 
