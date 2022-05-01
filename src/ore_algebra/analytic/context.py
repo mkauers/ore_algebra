@@ -19,14 +19,14 @@ class Context(object):
     def __init__(self, dop=None, path=None, eps=None, *,
             algorithm=None,
             assume_analytic=False,
-            force_algorithm=False,
-            squash_intervals=False,
-            deform=False,
-            two_point_mode=None,
             binsplit_thr=128,
             bit_burst_thr=32,
-            simple_approx_thr=64,
+            deform=False,
+            force_algorithm=False,
             recorder=None,
+            simple_approx_thr=64,
+            squash_intervals=False,
+            two_point_mode=None,
         ):
         r"""
         Analytic continuation context
@@ -58,17 +58,25 @@ class Context(object):
             raise TypeError("assume_analytic", type(assume_analytic))
         self.assume_analytic = assume_analytic
 
-        if not isinstance(force_algorithm, bool):
-            raise TypeError("force_algorithm", type(force_algorithm))
-        self.force_algorithm = force_algorithm
+        self.binsplit_thr = int(binsplit_thr)
 
-        if not isinstance(squash_intervals, bool):
-            raise TypeError("squash_intervals", type(squash_intervals))
-        self.squash_intervals = squash_intervals
+        self.bit_burst_thr = int(bit_burst_thr)
 
         if not isinstance(deform, bool):
             raise TypeError("deform", type(deform))
         self.deform = deform
+
+        if not isinstance(force_algorithm, bool):
+            raise TypeError("force_algorithm", type(force_algorithm))
+        self.force_algorithm = force_algorithm
+
+        self.recorder = recorder
+
+        self.simple_approx_thr = int(simple_approx_thr)
+
+        if not isinstance(squash_intervals, bool):
+            raise TypeError("squash_intervals", type(squash_intervals))
+        self.squash_intervals = squash_intervals
 
         if two_point_mode is None:
             two_point_mode = not deform
@@ -77,14 +85,6 @@ class Context(object):
         if deform and two_point_mode:
             raise NotImplementedError("deform == two_point_mode == True")
         self.two_point_mode = two_point_mode
-
-        self.binsplit_thr = int(binsplit_thr)
-
-        self.bit_burst_thr = int(bit_burst_thr)
-
-        self.simple_approx_thr = int(simple_approx_thr)
-
-        self.recorder = recorder
 
     def __repr__(self):
         return pprint.pformat(self.__dict__)
