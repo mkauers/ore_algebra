@@ -32,7 +32,6 @@ from sage.structure.sage_object import SageObject
 
 from . import utilities
 
-from .accuracy import IR, IC
 from .context import dctx
 from .deform import PathDeformer, PathDeformationFailed
 from .differential_operator import DifferentialOperator
@@ -43,6 +42,7 @@ from .utilities import *
 logger = logging.getLogger(__name__)
 
 QQi = number_field.QuadraticField(-1, 'i')
+IR, IC = RBF, CBF
 
 class PathPrecisionError(Exception):
     pass

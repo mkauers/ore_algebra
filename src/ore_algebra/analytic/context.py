@@ -14,6 +14,8 @@ Analytic continuation contexts
 
 import pprint
 
+from sage.rings.real_arb import RealBallField
+
 class Context(object):
     r"""
     Analytic continuation context
@@ -37,6 +39,9 @@ class Context(object):
 
     - ``bit_burst_thr`` (int) -- Minimal bit size to consider using bit-burst
       steps instead of direct binary splitting.
+
+    - ``bounds_prec`` (int) -- Working precision for the computation of error
+      bounds and other internal low-precision calculations.
 
     - ``deform`` (boolean) -- (EXPERIMENTAL) Whether to attempt to automatically
       deform the analytic continuation path into a faster one. Enabling this
@@ -74,6 +79,7 @@ class Context(object):
             assume_analytic=False,
             binsplit_thr=128,
             bit_burst_thr=32,
+            bounds_prec = 53,
             deform=False,
             force_algorithm=False,
             recorder=None,
@@ -95,6 +101,8 @@ class Context(object):
         self.binsplit_thr = int(binsplit_thr)
 
         self.bit_burst_thr = int(bit_burst_thr)
+
+        self._set_interval_fields(bounds_prec)
 
         if not isinstance(deform, bool):
             raise TypeError("deform", type(deform))
@@ -130,6 +138,14 @@ class Context(object):
         new.__dict__ = self.__dict__.copy()
         new.__dict__.update(kwds)
         return new
+
+    def _set_interval_fields(self, bounds_prec):
+        bounds_prec = int(bounds_prec)
+        self.IR = RealBallField(bounds_prec)
+        self.IC = self.IR.complex_field()
+
+    def increase_bounds_prec(self):
+        self._set_interval_fields(2*self.IR.precision())
 
     def prefer_binsplit(self):
         return self.algorithm == "binsplit"

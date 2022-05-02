@@ -650,7 +650,7 @@ class SolutionColumn(object):
             sums_row[-1][:0] = zeros
         self.v.ord_log += m - z
 
-    def normalized_residual(self, maj, abstract_alg, alg, n):
+    def normalized_residual(self, maj, abstract_alg, alg, n, IC):
         r"""
         Compute the normalized residual associated with the fundamental
         solution.
@@ -669,8 +669,6 @@ class SolutionColumn(object):
         # equal to x^k·rec.diffop for some k).
 
         assert alg == maj.leftmost
-
-        IC = bounds.IC
 
         # Specialize abstract algebraic exponent
         alg_to_IC = _specialization_map(self.v.rec_mat.base_ring().base_ring(),
@@ -710,17 +708,17 @@ class SolutionColumn(object):
                                   evpts.jet_order, evpts.is_numeric)
         return val
 
-    def error_estimate(self):
-        def IC_est(c):
+    def error_estimate(self, IR):
+        def IC_est(c, IC=IR.complex_field()):
             try:
-                return bounds.IC(c) # arb, QQ
+                return IC(c) # arb, QQ
             except TypeError:
-                return bounds.IC(c[0]) # NF, would work for QQ
-        zero = bounds.IR.zero()
+                return IC(c[0]) # NF, would work for QQ
+        zero = IR.zero()
         num1 = max([zero] + [abs(IC_est(m[-1, -1])) for m in self.v.rec_mat])
         # We use the first evaluation point only. Debatable.
         num2 = sum(abs(IC_est(a)) for a in self.v.pow_num[0])
-        den = abs(IC_est(self.v.rec_den))*bounds.IR(self.v.pow_den[0])
+        den = abs(IC_est(self.v.rec_den))*IR(self.v.pow_den[0])
         return num1*num2/den
 
 class MatrixRec(object):
@@ -1096,7 +1094,8 @@ class MatrixRecsUnroller(LocalBasisMapper):
         # Majorants
         maj = {rt: bounds.DiffOpBound(self.dop, rt, self.shifts,
                                       bound_inverse="solve",
-                                      ind_roots=self.all_roots)
+                                      ind_roots=self.all_roots,
+                                      ctx=self.ctx)
                for rt in self.roots}
 
         wrapper = bounds.MultiDiffOpBound(maj.values())
@@ -1112,7 +1111,8 @@ class MatrixRecsUnroller(LocalBasisMapper):
                                                                     self.shifts)
                 return {(rt, sol.shift, sol.log_power):
                         sol.value.normalized_residual(maj[rt], self.leftmost,
-                                                      rt, self.shift)
+                                                      rt, self.shift,
+                                                      self.ctx.IC)
                         for rt in self.roots
                         for sol in self.irred_factor_cols}
             def get_bound(_, residuals):
@@ -1130,7 +1130,7 @@ class MatrixRecsUnroller(LocalBasisMapper):
                 pessimistic enclosures or unnecessary computations in some
                 cases.
                 """
-                sqbound = bounds.IR.zero()
+                sqbound = self.ctx.IR.zero()
                 for rt in self.roots:
                     myres = [residuals[rt,s,k] for (s,m) in self.shifts
                                                for k in range(m)]
@@ -1146,7 +1146,7 @@ class MatrixRecsUnroller(LocalBasisMapper):
         last_singular_index = max(s for s, _ in self.shifts)
         si = 0
         assert first_singular_index >= 0
-        est, tail_bound = None, bounds.IR('inf')
+        est, tail_bound = None, self.ctx.IR('inf')
         prev, done = first_singular_index, False
         ord_log = 0
         while True:
@@ -1179,7 +1179,7 @@ class MatrixRecsUnroller(LocalBasisMapper):
                 ord_log = max(sol.value.v.ord_log for sol in self.irred_factor_cols)
             # Check if we have converged
             if self.shift > last_singular_index:
-                est = max(sol.value.error_estimate()
+                est = max(sol.value.error_estimate(self.ctx.IR)
                           for sol in self.irred_factor_cols)
                 done, tail_bound = stop.check(cb, False, self.shift, tail_bound,
                                est, next_stride=self.shift-first_singular_index)
@@ -1191,6 +1191,7 @@ class MatrixRecsUnroller(LocalBasisMapper):
                 break
             prev = self.shift
         logger.info("summed %d terms, tails <= %s", self.shift, tail_bound)
+        assert tail_bound.parent() is self.ctx.IR
         # logger.debug("abstract partial sums:\n* %s",
         #         '\n* '.join(str(sol) for sol in self.irred_factor_cols))
         self.modZ_class_tail_bound = tail_bound

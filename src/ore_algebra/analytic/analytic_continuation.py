@@ -305,7 +305,7 @@ def analytic_continuation(dop, path, eps, ctx=dctx, ini=None, post=None,
     path = _process_path(dop, path, ctx)
     logger.info("path: %s", path)
 
-    eps = bounds.IR(eps)
+    eps = ctx.IR(eps)
     eps1 = (eps/(1 + len(path))) >> 4
 
     ini = _normalize_ini(ini, dop, eps1)

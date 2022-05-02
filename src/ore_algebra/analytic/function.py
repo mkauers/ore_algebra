@@ -247,7 +247,7 @@ class DFiniteFunction(object):
                     ini, path, rad, eps, derivatives)
         polys = polapprox.doit(self.dop, ini=ini, path=path, rad=rad,
                 eps=eps, derivatives=derivatives, x_is_real=True,
-                economization=polapprox.chebyshev_economization)
+                economization=polapprox.chebyshev_economization, ctx=ctx)
         logger.info("...done")
         approx = self._polys.get(center, [])
         new_approx = []

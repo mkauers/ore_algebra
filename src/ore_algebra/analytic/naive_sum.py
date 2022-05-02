@@ -51,8 +51,8 @@ logger = logging.getLogger(__name__)
 # Argument processing etc.
 ##########################
 
-def series_sum(dop, ini, evpts, tgt_error, maj=None, bwrec=None, stop=None,
-               fail_fast=False, effort=2, stride=None, **kwds):
+def series_sum(dop, ini, evpts, tgt_error, *, maj=None, bwrec=None, stop=None,
+               fail_fast=False, effort=2, stride=None, ctx=dctx, **kwds):
     r"""
     Sum a (generalized) series solution of dop.
 
@@ -206,15 +206,15 @@ def series_sum(dop, ini, evpts, tgt_error, maj=None, bwrec=None, stop=None,
             logger.warning("input intervals may be too wide "
                            "compared to requested accuracy")
 
+    ctx = Context(**kwds)
+
     if maj is None:
         special_shifts = [(s, len(v)) for s, v in ini.shift.items()]
-        maj = bounds.DiffOpBound(dop, ini.expo, special_shifts)
+        maj = bounds.DiffOpBound(dop, ini.expo, special_shifts, ctx=ctx)
     if bwrec is None:
         bwrec = bw_shift_rec(dop)
     if stop is None:
         stop = accuracy.StoppingCriterion(maj, tgt_error.eps)
-
-    ctx = Context(**kwds)
 
     [(_, psums)] = interval_series_sum_wrapper(dop, [ini], evpts, tgt_error,
                                     bwrec, stop, fail_fast, effort, stride, ctx)
@@ -250,7 +250,7 @@ def guard_bits(dop, maj, evpts, ordrec, nterms):
     new_n0 = cur_n0 = orddeq = dop.order()
     refine = False
 
-    cst = abs(bounds.IC(maj.dop.leading_coefficient()[0])) # ???
+    cst = abs(maj.IC(maj.dop.leading_coefficient()[0])) # ???
 
     while True:
 
@@ -269,8 +269,8 @@ def guard_bits(dop, maj, evpts, ordrec, nterms):
         rnd_maj = maj(new_n0)
         rnd_maj >>= new_n0
         est_lg_rnd_fac = (cst*rnd_maj.bound(evpts.rad, rows=orddeq)).log(2)
-        est_lg_rnd_err = 2*bounds.IR(ordrec + 1).log(2)
-        if not est_lg_rnd_fac < bounds.IR.zero():
+        est_lg_rnd_err = 2*maj.IR(ordrec + 1).log(2)
+        if not est_lg_rnd_fac < maj.IR.zero():
             est_lg_rnd_err += est_lg_rnd_fac
         if est_lg_rnd_fac.is_finite():
             guard_bits_squashed = int(est_lg_rnd_err.ceil().upper()) + 2
@@ -379,7 +379,7 @@ def interval_series_sum_wrapper(dop, inis, evpts, tgt_error, bwrec, stop,
 
         try:
             sols = series_sum_regular(Intervals, dop, shifted_bwrec, inis,
-                                      evpts, stop, stride, n0_squash, real)
+                                      evpts, stop, stride, n0_squash, real, ctx)
         except accuracy.PrecisionError:
             if attempt > effort:
                 raise
@@ -416,12 +416,11 @@ def interval_series_sum_wrapper(dop, inis, evpts, tgt_error, bwrec, stop,
 class HighestSolMapper(LocalBasisMapper):
 
     def __init__(self, dop, evpts, eps, fail_fast, effort, ctx):
-        super(self.__class__, self).__init__(dop)
+        super(self.__class__, self).__init__(dop, ctx)
         self.evpts = evpts
         self.eps = eps
         self.fail_fast = fail_fast
         self.effort = effort
-        self.ctx = ctx
         self.ordinary = (dop.leading_coefficient()[0] != 0)
         self._sols = None
         self.highest_sols = None
@@ -433,7 +432,8 @@ class HighestSolMapper(LocalBasisMapper):
                         special_shifts=(None if self.ordinary else self.shifts),
                         bound_inverse="solve",
                         pol_part_len=(4 if self.ordinary else None),
-                        ind_roots = self.all_roots)
+                        ind_roots=self.all_roots,
+                        ctx=self.ctx)
         stop = accuracy.StoppingCriterion(maj, self.eps.eps)
         # Compute the "highest" (in terms powers of log) solution of each
         # valuation
@@ -519,7 +519,7 @@ def fundamental_matrix_regular(dop, evpts, eps, fail_fast, effort, ctx=dctx):
         sage: dop.numerical_solution(ini, [0, RBF(1/3)], 1e-14)
         [-0.549046117782...]
     """
-    eps_col = bounds.IR(eps)/bounds.IR(dop.order()).sqrt()
+    eps_col = ctx.IR(eps)/ctx.IR(dop.order()).sqrt()
     eps_col = accuracy.AbsoluteError(eps_col)
     unr = HighestSolMapper(dop, evpts, eps_col, fail_fast, effort, ctx)
     cols = unr.run()
@@ -616,7 +616,7 @@ class CoefficientSequence(object):
 
         err = None
         if mult == 0 and squash:
-            err = accuracy.IR(self.last[0][0].rad())
+            err = RBF(self.last[0][0].rad())
             self.last[0][0] = self.last[0][0].squash()
 
         for p in range(mult - 1, -1, -1):
@@ -631,7 +631,7 @@ class CoefficientSequence(object):
 
 class PartialSum(object):
 
-    def __init__(self, cseq, Jets, ord, pt, pt_opts):
+    def __init__(self, cseq, Jets, ord, pt, pt_opts, IR):
 
         # Final data
 
@@ -643,6 +643,8 @@ class PartialSum(object):
         # Evaluation point and options used to evaluate singular terms
         self.pt = pt
         self.pt_opts = pt_opts
+        # Parent used for error bounds
+        self._IR = IR
 
         # Dynamic data
 
@@ -650,8 +652,8 @@ class PartialSum(object):
         # Though CoefficientSequences start with vector of length 1, here,
         # starting with partial sums of length 0 is better in some corner cases
         self.psum = []
-        self.tail_bound = bounds.IR(infinity)
-        self.total_error = bounds.IR(infinity)
+        self.tail_bound = self._IR(infinity)
+        self.total_error = self._IR(infinity)
 
         self.series = None
         self.value = None
@@ -682,7 +684,7 @@ class PartialSum(object):
         [self.value] = log_series_values(self.Jets, self.cseq.ini.expo,
                                          self.series, self.pt, self.ord,
                                          *self.pt_opts)
-        self.total_error = max(chain(iter([bounds.IR.zero()]),
+        self.total_error = max(chain(iter([self._IR.zero()]),
                                      (_get_error(c) for c in self.value)))
 
     def update_downshifts(self, downshift):
@@ -727,7 +729,7 @@ class PartialSum(object):
 MPartialSums = collections.namedtuple("MPartialSums", ["cseq", "psums"])
 
 def series_sum_regular(Intervals, dop, bwrec, inis, evpts, stop, stride,
-                       n0_squash, real):
+                       n0_squash, real, ctx):
     r"""
     Compute partial sums of one or several logarithmic series solution of an
     operator that may have a regular singular point at the origin.
@@ -782,15 +784,15 @@ def series_sum_regular(Intervals, dop, bwrec, inis, evpts, stop, stride,
     Jets, jets = evpts.jets(Intervals)
     jetpows = [Jets.one()]*len(jets)
 
-    radpow = bounds.IR.one()
-    tail_bound = bounds.IR(infinity)
+    radpow = ctx.IR.one()
+    tail_bound = ctx.IR(infinity)
 
     if n0_squash < sys.maxsize:
         assert ordinary
         rnd_maj = stop.maj(n0_squash)
         rnd_maj >>= n0_squash # XXX (a) useful? (b) check correctness
         rnd_den = rnd_maj.exp_part_coeffs_lbounds()
-        rnd_loc = bounds.IR.zero()
+        rnd_loc = ctx.IR.zero()
 
     last_index_with_ini = max(chain(iter([dop.order()]),
                                     (ini.last_index() for ini in inis)))
@@ -806,7 +808,7 @@ def series_sum_regular(Intervals, dop, bwrec, inis, evpts, stop, stride,
         # FIXME the branch should be computed separately for each component of
         # the evaluation point, taking into account the orientation of the step
         psums = [PS(cseq, Jets, ord, evpts.approx(Intervals, i),
-                    (evpts.is_numeric,))
+                    (evpts.is_numeric,), ctx.IR)
                  for i in range(len(evpts))]
         sols.append(MPartialSums(cseq, psums))
 
@@ -823,7 +825,7 @@ def series_sum_regular(Intervals, dop, bwrec, inis, evpts, stop, stride,
             # summation of some series before the others
             maj = self.get_maj(stop, n, residuals)
             tb = maj.bound(evpts.rad, rows=ord)
-            worst = bounds.IR.zero()
+            worst = ctx.IR.zero()
             for _, psums in sols:
                 for psum in psums:
                     psum.update_enclosure(tb)
@@ -876,6 +878,7 @@ def series_sum_regular(Intervals, dop, bwrec, inis, evpts, stop, stride,
                 assert n0_squash + rnd_shift == n
             for (cseq, psums) in sols:
                 err = cseq.next_term(n, mult, bwrec_nplus[0], cst, squash)
+                err = ctx.IR(err)
                 if squash:
                     rnd_loc = rnd_loc.max(n*err/hom_maj_coeff_lb)
                     if not rnd_loc.is_finite(): # normalize NaNs and infinities
@@ -898,14 +901,14 @@ def series_sum_regular(Intervals, dop, bwrec, inis, evpts, stop, stride,
     # check
     if n0_squash < sys.maxsize:
         # |ind(n)| = cst·|monic_ind(n)|
-        cst = abs(bounds.IC(stop.maj.dop.leading_coefficient()[0]))
+        cst = abs(ctx.IC(stop.maj.dop.leading_coefficient()[0]))
         rnd_fac = cst*rnd_maj.bound(evpts.rad, rows=ord)/n0_squash
         rnd_err = rnd_loc*rnd_fac
         for _, psums in sols:
             for psum in psums:
                 psum.update_enclosure(tail_bound + rnd_err)
     else:
-        rnd_err = bounds.IR.zero()
+        rnd_err = ctx.IR.zero()
 
     width = None
     if evpts.is_numeric:
@@ -913,7 +916,7 @@ def series_sum_regular(Intervals, dop, bwrec, inis, evpts, stop, stride,
                                           for psum in psums)
     logger.info("summed %d terms, tails = %s (est = %s), rnd_err <= %s, "
                 "interval width <= %s",
-                n, tail_bound, bounds.IR(est), rnd_err, width)
+                n, tail_bound, ctx.IR(est), rnd_err, width)
 
     return sols
 

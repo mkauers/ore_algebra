@@ -24,13 +24,15 @@ from sage.rings.polynomial.polynomial_complex_arb cimport Polynomial_complex_arb
 from sage.rings.real_arb cimport RealBall
 from sage.structure.parent cimport Parent
 
+from sage.rings.real_arb import RBF
+
 cdef extern from "acb.h":
     void acb_dot(acb_t res, const acb_t s, bint subtract, acb_srcptr x, long
             xstep, acb_srcptr y, long ystep, long len, long prec)
 
 import cython
 
-from . import accuracy, naive_sum
+from . import naive_sum
 
 class CoefficientSequence(naive_sum.CoefficientSequence):
 
@@ -51,7 +53,6 @@ class CoefficientSequence(naive_sum.CoefficientSequence):
         cdef ssize_t ordrec = self.ordrec
         cdef ssize_t prec = self.Intervals.precision()
         cdef Parent Intervals = self.Intervals
-        cdef Parent IR = accuracy.IR
         cdef ComplexBall cst = <ComplexBall> py_cst
 
         cdef object last = self.last
@@ -89,7 +90,7 @@ class CoefficientSequence(naive_sum.CoefficientSequence):
             acb_mul(ball.value, cst.value, ball.value, prec)
             if mult == p == 0 and squash:
                 err = <RealBall> RealBall.__new__(RealBall)
-                err._parent = IR
+                err._parent = RBF
                 acb_get_rad_ubound_arf(arb_midref(err.value), ball.value, MAG_BITS)
                 mag_zero(arb_radref(acb_realref(ball.value)))
                 mag_zero(arb_radref(acb_imagref(ball.value)))
@@ -108,7 +109,7 @@ class CoefficientSequence(naive_sum.CoefficientSequence):
         self.nterms += 1
 
         if log_prec == mult == 0:
-            return accuracy.IR.zero()
+            return RBF.zero()
 
         return err
 

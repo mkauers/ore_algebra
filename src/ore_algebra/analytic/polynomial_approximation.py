@@ -191,16 +191,15 @@ def chebyshev_economization(pol, eps):
 def mixed_economization(): # ?
     pass
 
-def doit(dop, ini, path, rad, eps, derivatives, economization, x_is_real,
-         ctx=dctx):
+def doit(dop, ini, path, rad, eps, derivatives, economization, x_is_real, ctx):
 
     # Merge with analytic_continuation.analytic_continuation()???
 
     from .differential_operator import DifferentialOperator
     dop = DifferentialOperator(dop)
 
-    eps1 = bounds.IR(eps)/2
-    rad = bounds.IR(rad).above_abs()
+    eps1 = ctx.IR(eps)/2
+    rad = ctx.IR(rad).above_abs()
     path = Path(path, dop)
     center = path.vert[-1]
     center.options["store_value"] = True
@@ -227,7 +226,7 @@ def doit(dop, ini, path, rad, eps, derivatives, economization, x_is_real,
 
     return new_polys
 
-def on_disk(dop, ini, path, rad, eps, **kwds):
+def on_disk(dop, ini, path, rad, eps, *, ctx=dctx, **kwds):
     r"""
     Compute a polynomial approximation of a solution of ``dop`` on a complex
     disk.
@@ -272,7 +271,7 @@ def on_disk(dop, ini, path, rad, eps, **kwds):
     polys = doit(dop, ini, path, rad, eps, 1, taylor_economization, False, ctx)
     return polys[0]
 
-def on_interval(dop, ini, path, eps, rad=None, **kwds):
+def on_interval(dop, ini, path, eps, rad=None, *, ctx=dctx, **kwds):
     r"""
     Compute a polynomial approximation of a solution of ``dop`` on a segment.
 

@@ -24,6 +24,7 @@ from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 from ..ore_algebra import OreAlgebra
 from ..ore_operator_1_1 import UnivariateDifferentialOperatorOverUnivariateRing
 
+from .context import dctx
 from .utilities import as_embedded_number_field_elements
 
 from . import utilities
@@ -89,7 +90,7 @@ class PlainDifferentialOperator(UnivariateDifferentialOperatorOverUnivariateRing
         return self.to_S(self._shift_alg())
 
     @cached_method
-    def growth_parameters(self):
+    def growth_parameters(self, *, bit_prec=53):
         r"""
         Find κ, α such that the solutions of dop grow at most like
         sum(α^n*x^n/n!^κ) ≈ exp(κ*(α·x)^(1/κ)).
@@ -98,24 +99,24 @@ class PlainDifferentialOperator(UnivariateDifferentialOperatorOverUnivariateRing
 
             sage: from ore_algebra import *
             sage: DiffOps, x, Dx = DifferentialOperators()
-            sage: from ore_algebra.analytic.differential_operator import Differential_operator
-            sage: (Dx^2 + 2*x*Dx).growth_parameters() # erf(x)
+            sage: from ore_algebra.analytic.differential_operator import DifferentialOperator
+            sage: DifferentialOperator(Dx^2 + 2*x*Dx).growth_parameters() # erf(x)
             (1/2, [1.4...])
-            sage: growth_parameters(Dx^2 + 8*x*Dx) # erf(2*x)
+            sage: DifferentialOperator(Dx^2 + 8*x*Dx).growth_parameters() # erf(2*x)
             (1/2, [2.8...])
-            sage: (Dx^2 - x).growth_parameters() # Airy
+            sage: DifferentialOperator(Dx^2 - x).growth_parameters() # Airy
             (2/3, [1.0...])
-            sage: (x*Dx^2 + (1-x)*Dx).growth_parameters() # Ei(1, -x)
+            sage: DifferentialOperator(x*Dx^2 + (1-x)*Dx).growth_parameters() # Ei(1, -x)
             (1, [1.0...])
-            sage: ((Dx-1).lclm(Dx-2)).growth_parameters()
+            sage: DifferentialOperator((Dx-1).lclm(Dx-2)).growth_parameters()
             (1, [2.0...])
-            sage: ((Dx - x).lclm(Dx^2 - 1)).growth_parameters()
+            sage: DifferentialOperator((Dx - x).lclm(Dx^2 - 1)).growth_parameters()
             (1/2, [1.0...])
-            sage: (x^2*Dx^2 + x*Dx + 1).growth_parameters()
+            sage: DifferentialOperator(x^2*Dx^2 + x*Dx + 1).growth_parameters()
             (+Infinity, 0)
         """
         from .bounds import abs_min_nonzero_root
-        assert dop.leading_coefficient().is_term()
+        assert self.leading_coefficient().is_term()
         # Newton polygon. In terms of the coefficient sequence,
         # (S^(-j)·((n+1)S)^i)(α^n/n!^κ) ≈ α^(i-j)·n^(i+κ(j-i)).
         # In terms of asymptotics at infinity,
@@ -130,7 +131,7 @@ class PlainDifferentialOperator(UnivariateDifferentialOperatorOverUnivariateRing
         # Or maybe a better way to look at this is to say that we are considering
         # the classical Newton polygon at infinity (as in Loday-Richaud 2016,
         # Def. 3.3.10) but we are interested in the inverses of the slopes.
-        points = [(ZZ(j-i), ZZ(i), c) for (i, pol) in enumerate(dop)
+        points = [(ZZ(j-i), ZZ(i), c) for (i, pol) in enumerate(self)
                                     for (j, c) in enumerate(pol)
                                     if not c.is_zero()]
         h0, i0, _ = max(points, key=lambda p: (p[1], p[0]))
@@ -138,9 +139,9 @@ class PlainDifferentialOperator(UnivariateDifferentialOperatorOverUnivariateRing
         if not hull: # generalized polynomial
             return infinity, ZZ.zero()
         slope = max((i-i0)/(h-h0) for h, i, c in hull)
-        Pol = dop.base_ring()
+        Pol = self.base_ring()
         eqn = Pol({i0 - i: c for (h, i, c) in points if i == i0 + slope*(h-h0)})
-        expo_growth = abs_min_nonzero_root(eqn)**slope
+        expo_growth = abs_min_nonzero_root(eqn, prec=bit_prec)**slope
         return -slope, expo_growth
 
     def singularities(self, *args):
@@ -213,9 +214,9 @@ class PlainDifferentialOperator(UnivariateDifferentialOperatorOverUnivariateRing
         return QQbar.polynomial_root(pol, CIF(iv))
 
     @cached_method
-    def est_cvrad(self):
+    def est_cvrad(self, IR):
         # not rigorous! (because of the contains_zero())
-        from .bounds import IR, IC
+        IC = IR.complex_field()
         sing = [a for a in self._singularities(IC) if not a.contains_zero()]
         if not sing:
             return IR('inf')
@@ -223,10 +224,11 @@ class PlainDifferentialOperator(UnivariateDifferentialOperatorOverUnivariateRing
             return min(a.below_abs() for a in sing)
 
     @cached_method
-    def _est_growth(self):
+    def _est_growth(self, IR):
         # Originally intended for the case of ordinary points only; may need
         # improvements for singular points.
-        kappa, alpha0 = self.growth_parameters()
+        IC = IR.complex_field()
+        kappa, alpha0 = self.growth_parameters(bit_prec=IR.precision())
         if kappa is infinity:
             return kappa, IR.zero()
         # The asymptotic exponential growth may not be such a great estimate
@@ -241,28 +243,27 @@ class PlainDifferentialOperator(UnivariateDifferentialOperatorOverUnivariateRing
         alpha = IR(alpha0).max(alpha1)
         return kappa, alpha
 
-    def est_terms(self, pt, prec):
+    def est_terms(self, pt, prec, ctx=dctx):
         r"""
         Estimate the number of terms of series expansion at 0 of solutions of
         this operator necessary to reach prec bits of accuracy at pt, and the
         maximum log-magnitude of these terms.
         """
-        from .bounds import IR
         # pt should be an EvaluationPoint
-        prec = IR(prec)
-        cvrad = self.est_cvrad()
+        prec = ctx.IR(prec)
+        cvrad = self.est_cvrad(ctx.IR)
         if cvrad.is_infinity():
-            kappa, alpha = self._est_growth()
+            kappa, alpha = self._est_growth(ctx.IR)
             if kappa is infinity:
                 return 0, 0
-            ratio = IR(alpha*pt.rad)
-            hump = IR.one().exp() * ratio**(~kappa)
+            ratio = ctx.IR(alpha*pt.rad)
+            hump = ctx.IR.one().exp() * ratio**(~kappa)
             klgp = kappa*prec.log(2)
             est = hump + prec/(klgp.max(-ratio.log(2)))
-            mag = hump.log(2).max(IR.zero())
+            mag = hump.log(2).max(ctx.IR.zero())
         else:
             est = prec/(cvrad/pt.rad).log(2)
-            mag = IR.zero()
+            mag = ctx.IR.zero()
         return int(est.ceil().upper()), int(mag.ceil().upper())
 
     def extend_scalars(self, *pts):

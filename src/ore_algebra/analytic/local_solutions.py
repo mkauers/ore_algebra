@@ -26,7 +26,7 @@ from sage.arith.all import gcd, lcm
 from sage.misc.cachefunc import cached_method
 from sage.misc.lazy_attribute import lazy_attribute
 from sage.modules.free_module_element import vector, FreeModuleElement_generic_dense
-from sage.rings.all import ZZ, QQ, AA, QQbar, RBF
+from sage.rings.all import ZZ, QQ, AA, QQbar, RBF, CBF
 from sage.rings.all import RealBallField, ComplexBallField
 from sage.rings.complex_arb import ComplexBall
 from sage.rings.integer import Integer
@@ -44,7 +44,7 @@ from sage.symbolic.constants import I
 from .. import ore_algebra
 from . import utilities
 
-from .accuracy import IC
+from .context import dctx
 from .differential_operator import DifferentialOperator
 from .shiftless import dispersion, my_shiftless_decomposition
 
@@ -431,7 +431,7 @@ class sort_key_by_asympt:
 
     def __init__(self, data):
         self.leftmost, self.shift, self.log_power, *_ = data
-        self.valuation_num = self.leftmost.as_ball(IC) + self.shift
+        self.valuation_num = self.leftmost.as_ball(CBF) + self.shift
 
     def __repr__(self):
         return f"x^({self.leftmost}+{self.shift})*log(x)^{self.log_power}"
@@ -507,8 +507,9 @@ class LocalBasisMapper(object):
     exported data and hooks is a bit ad hoc.
     """
 
-    def __init__(self, dop):
+    def __init__(self, dop, ctx=dctx):
         self.dop = dop
+        self.ctx = ctx
 
     def run(self):
         r"""
@@ -540,7 +541,7 @@ class LocalBasisMapper(object):
                 assert irred_mult == 1
                 roots = utilities.roots_of_irred(irred_factor)
                 irred_data.append((irred_factor, roots))
-                self.all_roots.extend((IC(rt) + shift, mult)
+                self.all_roots.extend((self.ctx.IC(rt) + shift, mult)
                                       for rt in roots
                                       for (shift, mult) in shifts)
             sl_data.append((sl_factor, shifts, irred_data))
