@@ -74,21 +74,31 @@ class Context(object):
       complicates the picture.)
     """
 
-    def __init__(self, dop=None, path=None, eps=None, *,
-            algorithm=None,
-            assume_analytic=False,
-            binsplit_thr=128,
-            bit_burst_thr=32,
-            bounds_prec = 53,
-            deform=False,
-            force_algorithm=False,
-            recorder=None,
-            simple_approx_thr=64,
-            squash_intervals=False,
-            two_point_mode=None,
-        ):
+    def __init__(self, dop=None, path=None, eps=None, *, ctx=None, **kwds):
 
         # TODO: dop, path, eps...
+
+        if ctx is None:
+            self._set_options(**kwds)
+        else:
+            assert isinstance(ctx, Context)
+            if kwds:
+                raise ValueError("received both a Context object and keywords")
+            self.__dict__.update(ctx.__dict__)
+
+    def _set_options(self, *,
+                     algorithm=None,
+                     assume_analytic=False,
+                     binsplit_thr=128,
+                     bit_burst_thr=32,
+                     bounds_prec=53,
+                     deform=False,
+                     force_algorithm=False,
+                     recorder=None,
+                     simple_approx_thr=64,
+                     squash_intervals=False,
+                     two_point_mode=None,
+                     ):
 
         if not algorithm in [None, "naive", "binsplit"]:
             raise ValueError("algorithm", algorithm)
@@ -128,21 +138,13 @@ class Context(object):
             raise NotImplementedError("deform == two_point_mode == True")
         self.two_point_mode = two_point_mode
 
-    def __repr__(self):
-        return pprint.pformat(self.__dict__)
-
-    def __call__(self, **kwds):
-        # XXX Should check the new values, and maybe return a wrapper that
-        # shadows some attributes rather than a copy.
-        new = self.__new__(Context)
-        new.__dict__ = self.__dict__.copy()
-        new.__dict__.update(kwds)
-        return new
-
     def _set_interval_fields(self, bounds_prec):
         bounds_prec = int(bounds_prec)
         self.IR = RealBallField(bounds_prec)
         self.IC = self.IR.complex_field()
+
+    def __repr__(self):
+        return pprint.pformat(self.__dict__)
 
     def increase_bounds_prec(self):
         self._set_interval_fields(2*self.IR.precision())

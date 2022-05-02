@@ -29,6 +29,7 @@ from sage.symbolic.all import pi, SR
 
 from . import analytic_continuation as ancont, local_solutions, path, utilities
 
+from .context import Context
 from .differential_operator import DifferentialOperator
 from .local_solutions import LocalBasisMapper, log_series
 
@@ -230,7 +231,7 @@ def _test_formal_monodromy(dop):
 # transition matrix may not actually be analytic but we do not care which path
 # is taken
 
-def _local_monodromy_loop(dop, x, eps):
+def _local_monodromy_loop(dop, x, eps, ctx):
     polygon = path.polygon_around(x)
     n = len(polygon)
     mats = []
@@ -239,7 +240,7 @@ def _local_monodromy_loop(dop, x, eps):
         logger.debug("center = %s, step = %s", x, step)
         step[0].options['store_value'] = False # XXX bugware
         step[1].options['store_value'] = True
-        mat = x.dop.numerical_transition_matrix(step, eps, assume_analytic=True)
+        mat = x.dop.numerical_transition_matrix(step, eps, ctx=ctx)
         prec = utilities.prec_from_eps(eps)
         assert all(c.accuracy() >= prec//2 or c.above_abs()**2 <= eps
                    for c in mat.list())
@@ -302,7 +303,7 @@ def _closest_unsafe(lst, x):
     x = CC(x.alg)
     return min(enumerate(lst), key=lambda y: abs(CC(y[1].value) - x))
 
-def _extend_path_mat(dop, path_mat, inv_path_mat, x, y, eps, matprod):
+def _extend_path_mat(dop, path_mat, inv_path_mat, x, y, eps, matprod, ctx):
     anchor_index_x, anchor_x = _closest_unsafe(x.polygon, y)
     anchor_index_y, anchor_y = _closest_unsafe(y.polygon, x)
     bypass_mat_x = matprod(x.local_monodromy[:anchor_index_x])
@@ -318,7 +319,7 @@ def _extend_path_mat(dop, path_mat, inv_path_mat, x, y, eps, matprod):
         invert = False
     path[0].options["store_value"] = False # XXX bugware
     path[1].options["store_value"] = True
-    edge_mat = dop.numerical_transition_matrix(path, eps, assume_analytic=True)
+    edge_mat = dop.numerical_transition_matrix(path, eps, ctx=ctx)
     inv_edge_mat = ~edge_mat
     if invert:
         edge_mat, inv_edge_mat = inv_edge_mat, edge_mat
@@ -332,7 +333,7 @@ def _extend_path_mat(dop, path_mat, inv_path_mat, x, y, eps, matprod):
 LocalMonodromyData = collections.namedtuple("LocalMonodromyData",
         ["point", "monodromy", "is_scalar"])
 
-def _monodromy_matrices(dop, base, eps=1e-16, sing=None):
+def _monodromy_matrices(dop, base, eps=1e-16, sing=None, **kwds):
     r"""
     Return an iterator over local monodromy matrices of ``dop`` with base point
     ``base``.
@@ -387,6 +388,8 @@ def _monodromy_matrices(dop, base, eps=1e-16, sing=None):
         [LocalMonodromyData(point=1*I, monodromy=[1.0000000000000000], is_scalar=True),
         LocalMonodromyData(point=-1*I, monodromy=[1.0000000000000000], is_scalar=True)]
     """
+    ctx = Context(**kwds)
+    ctx.assume_analytic = True
     dop = dop.numerator()
     if all(c in QQ for pol in dop for c in pol):
         dop = dop.change_ring(dop.base_ring().change_ring(QQ))
@@ -484,7 +487,7 @@ def _monodromy_matrices(dop, base, eps=1e-16, sing=None):
     if need_conjugates:
         base_conj_mat = dop.numerical_transition_matrix(
             [base.alg.as_exact(), base.alg.conjugate().as_exact()],
-            eps, assume_analytic=True)
+            eps, ctx=ctx)
         def conjugate_monodromy(mat):
             return ~base_conj_mat*~mat.conjugate()*base_conj_mat
 
@@ -513,14 +516,14 @@ def _monodromy_matrices(dop, base, eps=1e-16, sing=None):
                 continue
             if y.local_monodromy is None:
                 y.polygon, y.local_monodromy = _local_monodromy_loop(dop,
-                                                                 y.point(), eps)
+                                                            y.point(), eps, ctx)
             new_path_mat, new_inv_path_mat = _extend_path_mat(dop, path_mat,
-                                               inv_path_mat, x, y, eps, matprod)
+                                          inv_path_mat, x, y, eps, matprod, ctx)
             yield from dfs(y, path + [y], new_path_mat, new_inv_path_mat)
 
     yield from dfs(base, [base], id_mat, id_mat)
 
-def monodromy_matrices(dop, base, eps=1e-16, sing=None):
+def monodromy_matrices(dop, base, eps=1e-16, sing=None, **kwds):
     r"""
     Compute generators of the monodromy group of ``dop`` with base point
     ``base``.
@@ -610,7 +613,8 @@ def monodromy_matrices(dop, base, eps=1e-16, sing=None):
         sage: mon[1].trace()
         [4.000000...] + [+/- ...]*I
     """
-    return list(mat for _, mat, _ in _monodromy_matrices(dop, base, eps, sing))
+    it = _monodromy_matrices(dop, base, eps, sing, **kwds)
+    return list(mat for _, mat, _ in it)
 
 def _test_monodromy_matrices():
     r"""
