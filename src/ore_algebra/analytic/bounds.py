@@ -1790,10 +1790,10 @@ class DiffOpBound(object):
         if isinstance(lc.base_ring(), NumberField_quadratic):
             some_coeffs = [c.numerator() for c in some_coeffs]
         prec = max(a.numerator().nbits() for c in some_coeffs for a in c)
-        prec += 50
+        prec += self.IC.precision()
         CBFp = ComplexBallField(prec)
         Pol = PolynomialRing(CBFp, self.Poly.variable_name())
-        return Pol([self.IC(c) for c in lc], check=False)
+        return Pol([CBFp(c) for c in lc], check=False)
 
     def _split_dop(self, pol_part_len):
         r"""
