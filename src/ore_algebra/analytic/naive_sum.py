@@ -415,7 +415,7 @@ def interval_series_sum_wrapper(dop, inis, evpts, tgt_error, bwrec, stop,
 
 class HighestSolMapper(LocalBasisMapper):
 
-    def __init__(self, dop, evpts, eps, fail_fast, effort, ctx=dctx):
+    def __init__(self, dop, evpts, eps, fail_fast, effort, ctx):
         super(self.__class__, self).__init__(dop)
         self.evpts = evpts
         self.eps = eps
@@ -521,7 +521,7 @@ def fundamental_matrix_regular(dop, evpts, eps, fail_fast, effort, ctx=dctx):
     """
     eps_col = bounds.IR(eps)/bounds.IR(dop.order()).sqrt()
     eps_col = accuracy.AbsoluteError(eps_col)
-    unr = HighestSolMapper(dop, evpts, eps_col, fail_fast, effort, ctx=dctx)
+    unr = HighestSolMapper(dop, evpts, eps_col, fail_fast, effort, ctx)
     cols = unr.run()
     mats = [matrix([sol.value[i] for sol in cols]).transpose()
             for i in range(len(evpts))]
@@ -901,8 +901,9 @@ def series_sum_regular(Intervals, dop, bwrec, inis, evpts, stop, stride,
         cst = abs(bounds.IC(stop.maj.dop.leading_coefficient()[0]))
         rnd_fac = cst*rnd_maj.bound(evpts.rad, rows=ord)/n0_squash
         rnd_err = rnd_loc*rnd_fac
-        for _, [psum] in sols:
-            psum.update_enclosure(tail_bound + rnd_err)
+        for _, psums in sols:
+            for psum in psums:
+                psum.update_enclosure(tail_bound + rnd_err)
     else:
         rnd_err = bounds.IR.zero()
 
