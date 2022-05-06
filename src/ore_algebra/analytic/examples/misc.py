@@ -20,7 +20,7 @@ equation::
     sage: Pols.<z> = QQ[]
     sage: a = AA.polynomial_root(54*z**3+324*z**2-4265*z+432, RIF(0.1, 0.11))
     sage: roots = salvy1_pol(z=a).univariate_polynomial().roots(QQbar)
-    sage: val = salvy1_dop.numerical_solution([0, 0, 0, 0, 0, 1/2], [0, a]) # long time (1.6-2.2 s)
+    sage: val = salvy1_dop.numerical_solution([0, 0, 0, 0, 0, 1/2], [0, a]) # long time (1.1 s)
     sage: CBF100 = ComplexBallField(100)
     sage: [r for (r, _) in roots if CBF100(r) in val]                       # long time
     [0.0108963334211605...]
@@ -43,7 +43,7 @@ need to consider at algebraic points of relatively large degree, it is a good
 test case for “rounded” recurrences::
 
     sage: from ore_algebra.analytic.examples.misc import quadric_slice_dop, quadric_slice_crit
-    sage: mat = quadric_slice_dop.numerical_transition_matrix( # long time (1.5-2 s)
+    sage: mat = quadric_slice_dop.numerical_transition_matrix( # long time (1.3 s)
     ....:         [quadric_slice_crit, -46997/133120], 1e-30, assume_analytic=True)
     sage: mat[1,1] # long time
     [5.35411995155753663629611...] + [+/- ...]*I
@@ -55,7 +55,7 @@ handling elements of quadratic number fields other than ℚ[i] somewhat
 efficiently::
 
     sage: from ore_algebra.analytic.examples.misc import iint_quadratic_alg as pb
-    sage: pb.dop.numerical_solution(pb.ini, [0, 1/5000*sqrt(277774997191/11111)], 2^(-100)) # long time (1.2 s)
+    sage: pb.dop.numerical_solution(pb.ini, [0, 1/5000*sqrt(277774997191/11111)], 2^(-100))
     [3368168.8058219185359508521...]
 
 The Beukers-Heckman-Rodriguez-Villegas hypergeometric function. Generalized
@@ -65,7 +65,7 @@ in some cases. (Thanks to Pierre Lairez for exposing this weakness. Example
 borrowed from his lecture series at MPI-MiS, March 2021.) ::
 
     sage: from ore_algebra.analytic.examples.misc import rodriguez_villegas_dop as dop
-    sage: dop.numerical_transition_matrix([1/4, 3/4], eps=1e-1000)[-1,-1] # long time (2.9-3.2 s)
+    sage: dop.numerical_transition_matrix([1/4, 3/4], eps=1e-1000)[-1,-1] # long time (1.4 s)
     [23.999268334...96006073125...]
 
 Examples provided by Eric Pichon that involve algebraic singularities of high

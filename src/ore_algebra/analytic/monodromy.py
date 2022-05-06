@@ -365,7 +365,7 @@ def _monodromy_matrices(dop, base, eps=1e-16, sing=None, **kwds):
     TESTS::
 
         sage: from ore_algebra.examples import fcc
-        sage: mon = list(_monodromy_matrices(fcc.dop5, -1, 2**(-2**7))) # long time (2.3 s)
+        sage: mon = list(_monodromy_matrices(fcc.dop5, -1, 2**(-2**7))) # long time (1.9 s)
         sage: [rec.monodromy[0][0] for rec in mon if rec.point == -5/3] # long time
         [[1.01088578589319884254557667137848...]]
 
@@ -377,7 +377,7 @@ def _monodromy_matrices(dop, base, eps=1e-16, sing=None, **kwds):
         ....:      + (7/30*x^3 - 101/20*x^2 + 10*x)*Dx + 4/5*x^2 + 5/6*x + 2)
         sage: L = L1*L2
         sage: L = L.parent()(L.annihilator_of_composition(x+1))
-        sage: mon = list(_monodromy_matrices(L, 0, eps=1e-30)) # long time (1.3-1.7 s)
+        sage: mon = list(_monodromy_matrices(L, 0, eps=1e-30)) # long time (1.4 s)
         sage: mon[-1][0], mon[-1][1][0][0] # long time
         (0.6403882032022075?,
         [1.15462187280628880820271...] + [-0.018967673022432256251718...]*I)
