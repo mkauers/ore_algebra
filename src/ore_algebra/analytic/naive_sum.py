@@ -880,9 +880,9 @@ def series_sum_regular(Intervals, dop, bwrec, inis, evpts, stop, stride,
                 assert n0_squash + rnd_shift == n
             for (cseq, psums) in sols:
                 err = cseq.next_term(n, mult, bwrec_nplus[0], cst, squash)
-                err = IR(err)
                 if squash:
-                    rnd_loc = rnd_loc.max(n*err/hom_maj_coeff_lb)
+                    # XXX lookup of IR and/or conversion is slow
+                    rnd_loc = rnd_loc.max(IR(n*err)/hom_maj_coeff_lb)
                     if not rnd_loc.is_finite(): # normalize NaNs and infinities
                         rnd_loc = rnd_loc.parent()('inf')
                 for (jetpow, psum) in zip(jetpows, psums):
