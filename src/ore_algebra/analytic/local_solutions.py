@@ -232,19 +232,28 @@ class BwShiftRec(object):
         return self.coeff[i]
 
     def shift(self, sh):
-        try:
-            Scalars = utilities.mypushout(self.Scalars, sh.parent())
-            hom = Scalars.coerce_map_from(self.Scalars)
-        except CoercionException:
-            hom, sh = utilities.extend_scalars(self.Scalars, sh)
-            Scalars = hom.codomain()
-        sh_plus_n = self.base_ring.change_ring(Scalars)([sh, 1])
-        coeff = [pol.map_coefficients(hom)(sh_plus_n) for pol in self.coeff]
+        if sh.parent() is self.Scalars:
+            if sh.is_zero():
+                return self
+            Scalars = self.Scalars
+            coeff = self.coeff
+            sh_plus_n = self.base_ring([sh, 1])
+        else:
+            try:
+                Scalars = utilities.mypushout(self.Scalars, sh.parent())
+                hom = Scalars.coerce_map_from(self.Scalars)
+            except CoercionException:
+                hom, sh = utilities.extend_scalars(self.Scalars, sh)
+                Scalars = hom.codomain()
+            coeff = [pol.map_coefficients(hom) for pol in self.coeff]
+            sh_plus_n = self.base_ring.change_ring(Scalars)([sh, 1])
+        sh_coeff = [pol(sh_plus_n) for pol in coeff]
         if isinstance(Scalars, number_field_base.NumberField):
             den = lcm(utilities.internal_denominator(c)
-                      for p in coeff for c in p)
-            coeff = [den*c for c in coeff]
-        return BwShiftRec(coeff)
+                      for p in sh_coeff for c in p)
+            if not den.is_one():
+                sh_coeff = [den*c for c in sh_coeff]
+        return BwShiftRec(sh_coeff)
 
     @cached_method
     def shift_by_PolynomialRoot(self, sh):

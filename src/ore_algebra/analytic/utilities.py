@@ -283,15 +283,17 @@ class PolynomialRoot:
     def as_number_field_element(self):
         if self.pol.degree() == 1:
             val = -self.pol[0]
-            if val.is_rational():
+            if val.parent() is QQ or val in QQ:
                 val = QQ(val)
             return val
         return as_embedded_number_field_element(self.as_algebraic())
 
+    @cached_method
     def as_exact(self):
         if self.pol.degree() == 1:
             a = self.as_number_field_element()
-            if isinstance(a.parent(), NumberField_quadratic):
+            parent = a.parent()
+            if parent is QQ or isinstance(parent, NumberField_quadratic):
                 return a
         return self.as_algebraic()
 
