@@ -153,9 +153,10 @@ class StepMatrix_arb(binary_splitting.StepMatrix_arb):
         # _seq_next is going to modify them
 
         cdef ComplexBall zero = <ComplexBall> rec.AlgInts_sums.zero()
-        row = [[[zero._new() for _ in range(rec.derivatives)]
-                for _ in range(ord_log)]
-               for _ in range(rec.ordrec)]
+        row = [[[[zero._new() for _ in range(rec.derivatives)]
+                 for _ in range(ord_log)]
+                for _ in range(rec.ordrec)]
+               for _ in range(rec.npoints)]
 
         cdef Polynomial_complex_arb zpol = rec.Pols_rec.zero()
         seqs = [[zpol._new() for _ in range(rec.ordrec)]
@@ -167,29 +168,25 @@ class StepMatrix_arb(binary_splitting.StepMatrix_arb):
 
     @cython.boundscheck(False)
     @cython.wraparound(False)
-    def _seq_next(self, py_num, psum, py_bwrec_n, py_rec_den_n, py_den, ord_log):
+    def _seq_next_psum(self, psum, py_num, py_pow_num, py_den, py_ord_log):
 
         # Cython version to avoid the (currently very large) overhead of
         # accessing the coefficients of arb polynomials from Python
 
-        cdef ssize_t ord_diff
-        cdef ssize_t k
-        cdef long prec
-        cdef ComplexBall c, den, rec_den_n
         cdef acb_ptr a, b
-        cdef Polynomial_complex_arb pow_num, mynum, coef
-        cdef acb_poly_t tmppol, u_n
-        cdef list bwrec_n = <list> py_bwrec_n
+        cdef ComplexBall c
+        cdef ssize_t p, q
+
         cdef list num = <list> py_num
+        cdef Polynomial_complex_arb pow_num = <Polynomial_complex_arb> py_pow_num
+        cdef ComplexBall den = <ComplexBall> py_den
+        cdef unsigned int ord_log = <unsigned int> py_ord_log
+
         cdef ssize_t len_num = len(num)
+        cdef Polynomial_complex_arb mynum = <Polynomial_complex_arb> (num[len_num-1])
 
-        den = <ComplexBall> py_den
-        rec_den_n = <ComplexBall> py_rec_den_n
-        pow_num = <Polynomial_complex_arb> self.pow_num
-        mynum = <Polynomial_complex_arb> (num[len_num-1])
-
-        prec = den._parent._prec
-        ord_diff = <size_t> self.ord_diff
+        cdef unsigned int ord_diff = <unsigned int> self.ord_diff
+        cdef long prec = den._parent._prec
 
         for q in range(ord_log):
             for p in range(ord_diff):
@@ -199,6 +196,28 @@ class StepMatrix_arb(binary_splitting.StepMatrix_arb):
                 if a != NULL and b != NULL:
                     acb_addmul(c.value, a, b, prec)
                 acb_mul(c.value, c.value, den.value, prec)
+
+    @cython.boundscheck(False)
+    @cython.wraparound(False)
+    def _seq_next_num(self, py_num, py_bwrec_n, py_rec_den_n, py_ord_log):
+
+        # Cython version to avoid the (currently very large) overhead of
+        # accessing the coefficients of arb polynomials from Python
+
+        cdef ssize_t k
+        cdef Polynomial_complex_arb coef
+        cdef acb_poly_t tmppol, u_n
+
+        cdef list num = <list> py_num
+        cdef list bwrec_n = <list> py_bwrec_n
+        cdef ComplexBall rec_den_n = <ComplexBall> py_rec_den_n
+        cdef unsigned int ord_log = <unsigned int> py_ord_log
+
+        cdef ssize_t len_num = len(num)
+        cdef Polynomial_complex_arb mynum = <Polynomial_complex_arb> (num[len_num-1])
+
+        cdef unsigned int ord_diff = <unsigned int> self.ord_diff
+        cdef long prec = mynum._parent._base._prec
 
         acb_poly_init(u_n)
 
@@ -221,7 +240,7 @@ class StepMatrix_arb(binary_splitting.StepMatrix_arb):
 
     @cython.boundscheck(False)
     @cython.wraparound(False)
-    def compute_sums_row(low, high):
+    def compute_sums_row(low, high, py_i):
 
         cdef ssize_t j, q, p, k, u, v
         cdef acb_ptr a, b, c
@@ -229,30 +248,33 @@ class StepMatrix_arb(binary_splitting.StepMatrix_arb):
         cdef acb_mat_struct *mat
         cdef list l
 
+        cdef ssize_t i = <ssize_t> (py_i)
+
         Scalars = high.zero_sum.parent()
 
         cdef unsigned int ordrec = high.rec_mat.base_ring().nrows()
         cdef unsigned long prec = Scalars.precision()
 
         cdef acb_poly_struct *low_pow_num # why isn't this working with _ptr?
-        low_pow_num = (<Polynomial_complex_arb> (low.pow_num)).__poly
+        low_pow_num = (<Polynomial_complex_arb> ((<list> low.pow_num)[i])).__poly
         cdef Polynomial low_rec_mat = <Polynomial> (low.rec_mat)
 
         cdef acb_t high_den
         acb_init(high_den)
         acb_mul(high_den, (<ComplexBall> high.rec_den).value,
-                        (<ComplexBall> high.pow_den).value, prec)
+                          (<ComplexBall> ((<list> high.pow_den)[i])).value,
+                prec)
 
-        # sums_row = high.sums_row*low.rec_mat*low.pow_num
-        #             δ, Sk, row     Sk, mat      δ
+        # sums_row[i] = high.sums_row[i]*low.rec_mat*low.pow_num[i]
+        #                   δ, Sk, row     Sk, mat      δ
         #
-        #            + high.rec_den*high.pow_den*low.sums_row
+        #            + high.rec_den*high.pow_den[i]*low.sums_row[i]
         #                 cst (nf)        cst        δ, Sk, row
 
         cdef acb_t t
         acb_init(t)
 
-        res1 = [None]*len(high.sums_row)
+        res1 = [None]*len((<list> high.sums_row)[i])
         for j in xrange(ordrec):
             res2 = [None]*high.ord_log
             for q in xrange(high.ord_log):
@@ -273,6 +295,7 @@ class StepMatrix_arb(binary_splitting.StepMatrix_arb):
                         for u in xrange(p + 1):
                             for v in xrange(q + 1):
                                 l = <list> (high.sums_row)
+                                l = <list> (l[i])
                                 l = <list> (l[k])
                                 l = <list> (l[v])
                                 a = <acb_ptr> (<ComplexBall> l[u]).value
@@ -290,7 +313,11 @@ class StepMatrix_arb(binary_splitting.StepMatrix_arb):
                     # high.rec_den*pow_den.rec_den*low.sums_row
                     if q < low.ord_log: # usually true, but low might be
                                         # an optimized SolutionColumn
-                        a = <acb_ptr> ((<ComplexBall> low.sums_row[j][q][p]).value)
+                        l = <list> low.sums_row
+                        l = <list> (l[i])
+                        l = <list> (l[j])
+                        l = <list> (l[q])
+                        a = <acb_ptr> ((<ComplexBall> l[p]).value)
                         acb_addmul(entry.value, high_den, a, prec)
 
                     res3[p] = entry

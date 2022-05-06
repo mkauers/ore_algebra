@@ -21,7 +21,7 @@ EXAMPLE::
      1]
     sage: ini = [0]*(polya.dop[dim].order() - 1) + [1]
     sage: polya.dop[dim].numerical_solution(ini, [0, 1/(2*dim)], 1e-50)
-    [1.0595437478882610713169759571798527548370189154412...] + [+/- ...]*I
+    [1.059543747888261071316975957179852754837018915441...] + [+/- ...]*I
 """
 
 from sage.rings.all import PolynomialRing, ZZ

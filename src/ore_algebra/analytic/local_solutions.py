@@ -20,12 +20,13 @@ import collections, logging, warnings
 from itertools import chain
 
 import sage.functions.log as symbolic_log
+import sage.rings.number_field.number_field_base as number_field_base
 
 from sage.arith.all import gcd, lcm
 from sage.misc.cachefunc import cached_method
 from sage.misc.lazy_attribute import lazy_attribute
 from sage.modules.free_module_element import vector, FreeModuleElement_generic_dense
-from sage.rings.all import ZZ, QQ, AA, QQbar, RBF
+from sage.rings.all import ZZ, QQ, AA, QQbar, RBF, CBF
 from sage.rings.all import RealBallField, ComplexBallField
 from sage.rings.complex_arb import ComplexBall
 from sage.rings.integer import Integer
@@ -34,8 +35,8 @@ from sage.rings.number_field.number_field import (
         NumberField_quadratic,
     )
 from sage.rings.polynomial import polynomial_element
-from sage.rings.polynomial.complex_roots import complex_roots
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
+from sage.structure.coerce_exceptions import CoercionException
 from sage.structure.sequence import Sequence
 from sage.symbolic.all import SR, pi
 from sage.symbolic.constants import I
@@ -43,7 +44,7 @@ from sage.symbolic.constants import I
 from .. import ore_algebra
 from . import utilities
 
-from .accuracy import IC
+from .context import dctx
 from .differential_operator import DifferentialOperator
 from .shiftless import dispersion, my_shiftless_decomposition
 
@@ -53,8 +54,10 @@ logger = logging.getLogger(__name__)
 # Recurrence relations
 ##############################################################################
 
-def bw_shift_rec(dop, shift=ZZ.zero()):
-    Scalars = utilities.mypushout(dop.base_ring().base_ring(), shift.parent())
+def bw_shift_rec(dop, shift=None):
+    Scalars = dop.base_ring().base_ring()
+    if shift is not None:
+        Scalars = utilities.mypushout(Scalars, shift.parent())
     if dop.parent().is_D():
         dop = DifferentialOperator(dop) # compatibility bugware
         rop = dop._my_to_S()
@@ -64,27 +67,37 @@ def bw_shift_rec(dop, shift=ZZ.zero()):
     Pols_n, n = rop.base_ring().change_ring(Scalars).objgen()
     Rops = ore_algebra.OreAlgebra(Pols_n, 'Sn')
     ordrec = rop.order()
+    if shift is None:
+        shift = Scalars.zero()
     rop = Rops([p(n-ordrec+shift) for p in rop])
-    # Clear_denominators
-    den = lcm([p.denominator() for p in rop])
+    # Clear denominators
+    den = lcm(utilities.internal_denominator(c) for p in rop for c in p)
     rop = den*rop
-    # Remove constant common factors to make the recurrence smaller
+    # Remove constant common integer factors to make the recurrence smaller
+    # (NB: I also tried removing factors from ℤ[i], see the git log, but this is
+    # too slow)
     if Scalars is QQ:
-        g = gcd(c for p in rop for c in p)
-    # elif utilities.is_QQi(Scalars): # XXX: too slow (and not general enough)
-    #     ZZi = Scalars.maximal_order()
-    #     g = ZZi.zero()
-    #     for c in (c1 for p in rop for c1 in p):
-    #         g = ZZi(g).gcd(ZZi(c)) # gcd returns a nfe
-    #         if g.is_one():
-    #             g = None
-    #             break
+        g = _mygcd_ZZ(c for p in rop for c in p)
+    elif isinstance(Scalars, NumberField_quadratic):
+        # internal representation using √disc
+        g = _mygcd_ZZ(a for p in rop for c in p for a in c.parts())
+    elif isinstance(Scalars, NumberField_absolute):
+        g = _mygcd_ZZ(a for p in rop for c in p for a in c)
     else:
         g = None
     if g is not None:
         rop = (1/g)*rop
     coeff = [rop[ordrec-k] for k in range(ordrec+1)]
     return BwShiftRec(coeff)
+
+def _mygcd_ZZ(seq):
+    g = ZZ.zero()
+    b = ZZ(256)
+    for v in seq:
+        g = g._gcd(v.numerator())
+        if g < b:
+            return None
+    return g
 
 class BwShiftRec(object):
     r"""
@@ -123,7 +136,10 @@ class BwShiftRec(object):
         rng = range(p.degree() + 1 - j)
         bin = [ZZ(k+j).binomial(k) for k in rng]
         if components:
-            pjplus = [a._coefficients() for a in list(p)[j:]]
+            if self.Scalars is QQ:
+                pjplus = [[a] for a in list(p)[j:]]
+            else:
+                pjplus = [a._coefficients() for a in list(p)[j:]]
             return [self.ZZpol([bin[k]*pjplus[k][l]
                                 if len(pjplus[k]) > l else 0
                                 for k in rng])
@@ -170,17 +186,25 @@ class BwShiftRec(object):
         if isinstance(self.Scalars, ComplexBallField):
             if isinstance(tgt, ComplexBallField):
                 return eval_poly_at_int.cbf, False
+        elif self.Scalars is QQ:
+            if isinstance(tgt, ComplexBallField):
+                return eval_poly_at_int.qq_or_qqi_to_cbf, True
+            else:
+                return eval_poly_at_int.qq, False
         elif isinstance(self.Scalars, NumberField_quadratic):
             self.Scalars.zero() # cache for direct cython access
-            if tgt is self.Scalars:
-                return eval_poly_at_int.qnf, False
-            elif isinstance(tgt, ComplexBallField):
+            if isinstance(tgt, ComplexBallField):
                 if utilities.is_QQi(self.Scalars):
-                    return eval_poly_at_int.qqi_to_cbf, True
+                    return eval_poly_at_int.qq_or_qqi_to_cbf, True
                 else:
                     return eval_poly_at_int.qnf_to_cbf, False
-        else:
-            return generic_eval, False
+            else:
+                return eval_poly_at_int.qnf, False
+        elif isinstance(self.Scalars, NumberField_absolute):
+            self.Scalars.zero() # cache for direct cython access
+            return eval_poly_at_int.nf, False
+
+        return generic_eval, False
 
     def eval_series(self, tgt, point, ord):
         # typically ord << deg => probably not worth trying to use a fast Taylor
@@ -208,10 +232,33 @@ class BwShiftRec(object):
         return self.coeff[i]
 
     def shift(self, sh):
-        n = self.coeff[0].parent().gen()
-        coeff = [pol(sh + n) for pol in self.coeff]
-        den = lcm([p.denominator() for p in coeff])
-        return BwShiftRec([den*c for c in coeff])
+        if sh.parent() is self.Scalars:
+            if sh.is_zero():
+                return self
+            Scalars = self.Scalars
+            coeff = self.coeff
+            sh_plus_n = self.base_ring([sh, 1])
+        else:
+            try:
+                Scalars = utilities.mypushout(self.Scalars, sh.parent())
+                hom = Scalars.coerce_map_from(self.Scalars)
+            except CoercionException:
+                hom, sh = utilities.extend_scalars(self.Scalars, sh)
+                Scalars = hom.codomain()
+            coeff = [pol.map_coefficients(hom) for pol in self.coeff]
+            sh_plus_n = self.base_ring.change_ring(Scalars)([sh, 1])
+        sh_coeff = [pol(sh_plus_n) for pol in coeff]
+        if isinstance(Scalars, number_field_base.NumberField):
+            den = lcm(utilities.internal_denominator(c)
+                      for p in sh_coeff for c in p)
+            if not den.is_one():
+                sh_coeff = [den*c for c in sh_coeff]
+        return BwShiftRec(sh_coeff)
+
+    @cached_method
+    def shift_by_PolynomialRoot(self, sh):
+        assert isinstance(sh, utilities.PolynomialRoot)
+        return self.shift(sh.as_number_field_element())
 
     def change_base(self, base):
         if base is self.base_ring:
@@ -251,15 +298,11 @@ class LogSeriesInitialValues(object):
             ...
             ValueError: invalid initial data for x*Dx^3 + 2*Dx^2 + x*Dx at 0
         """
-
         try:
-            self.expo = QQ.coerce(expo)
-        except TypeError:
-            try:
-                self.expo = QQbar.coerce(expo)
-            except TypeError:
-                # symbolic; won't be sortable
-                self.expo = expo
+            self.expo = utilities.PolynomialRoot.make(expo)
+        # accept abstract number field elements; some methods will not work
+        except (TypeError, ValueError):
+            self.expo = expo
 
         if isinstance(values, dict):
             all_values = tuple(chain.from_iterable(
@@ -304,7 +347,7 @@ class LogSeriesInitialValues(object):
         ind = dop._indicial_polynomial_at_zero()
         for sl_factor, shifts in my_shiftless_decomposition(ind):
             for k, (val_shift, _) in enumerate(shifts):
-                if sl_factor(self.expo - val_shift).is_zero():
+                if sl_factor(self.expo.as_algebraic() - val_shift).is_zero():
                     if len(self.shift) != len(shifts) - k:
                         return False
                     for shift, mult in shifts[k:]:
@@ -332,7 +375,7 @@ class LogSeriesInitialValues(object):
         # pt^expo*log(z)^k is real.
         return (utilities.is_real_parent(dop.base_ring().base_ring())
                 and utilities.is_real_parent(self.universe)
-                and self.expo.imag().is_zero())
+                and self.expo.as_exact().imag().is_zero())
 
     def accuracy(self):
         infinity = RBF.maximal_accuracy()
@@ -383,7 +426,7 @@ _FundamentalSolution0 = collections.namedtuple(
 class FundamentalSolution(_FundamentalSolution0):
     @lazy_attribute
     def valuation(self):
-        return QQbar(self.leftmost + self.shift) # alg vs NFelt for re, im
+        return self.leftmost.as_algebraic() + self.shift # alg for re, im
 
 class sort_key_by_asympt:
     r"""
@@ -395,36 +438,40 @@ class sort_key_by_asympt:
     things like `x^i`, always come before convergent ones.
     """
 
-    def __init__(self, x, y=None):
-        if y is None:
-            self.valuation = x.valuation
-            self.log_power = x.log_power
-        else:
-            self.valuation = x
-            self.log_power = y
+    def __init__(self, data):
+        self.leftmost, self.shift, self.log_power, *_ = data
+        self.valuation_num = self.leftmost.as_ball(CBF) + self.shift
 
     def __repr__(self):
-        return f"x^({self.valuation})*log(x)^{self.log_power}"
+        return f"x^({self.leftmost}+{self.shift})*log(x)^{self.log_power}"
 
     def __eq__(self, other):
-        return (self.log_power == other.log_power
-                and self.valuation == other.valuation)
+        if self.log_power != other.log_power:
+            return False
+        if self.leftmost is other.leftmost:
+            return self.shift == other.shift
+        elif self.valuation_num != other.valuation_num:
+            return False
+        else:
+            return (self.leftmost.as_algebraic() - other.leftmost.as_algebraic()
+                    == other.shift - self.shift)
 
     def __lt__(self, other):
-        self_valuation_num = IC(self.valuation)
-        other_valuation_num = IC(other.valuation)
-        if self_valuation_num.real() < other_valuation_num.real():
+        if self.valuation_num.real() < other.valuation_num.real():
             return True
-        elif self_valuation_num.real() > other_valuation_num.real():
+        elif self.valuation_num.real() > other.valuation_num.real():
             return False
-        elif self.valuation == other.valuation:
+        elif self.shift == other.shift and (self.leftmost == other.leftmost
+                             or self.leftmost.try_eq_conjugate(other.leftmost)):
             pass
-        elif self.valuation.conjugate() == other.valuation:
-            pass
-        elif self.valuation.real() < other.valuation.real():
-            return True
-        elif self.valuation.real() > other.valuation.real():
-            return False
+        else:
+            delta = (self.leftmost.as_algebraic().real()
+                     - other.leftmost.as_algebraic().real()
+                     + (self.shift - other.shift))
+            if delta < 0:
+                return True
+            if delta > 0:
+                return False
         # Valuations have equal real parts, compare powers of log
         if self.log_power > other.log_power:
             return True
@@ -432,18 +479,27 @@ class sort_key_by_asympt:
             return False
         # Compare the imaginary parts in such a way that purely real valuations
         # come last
-        if abs(self_valuation_num.imag()) > abs(other_valuation_num.imag()):
+        if abs(self.valuation_num.imag()) > abs(other.valuation_num.imag()):
             return True
-        elif abs(self_valuation_num.imag()) < abs(other_valuation_num.imag()):
+        elif abs(self.valuation_num.imag()) < abs(other.valuation_num.imag()):
             return False
-        elif self.valuation.conjugate() == other.valuation:
+        elif self.leftmost == other.leftmost:
+            return False # same imaginary part, no strict inequality
+        elif self.leftmost.try_eq_conjugate(other.leftmost):
             pass
-        elif abs(self.valuation.imag()) > abs(other.valuation.imag()):
-            return True
-        elif abs(self.valuation.imag()) < abs(other.valuation.imag()):
-            return False
-        assert self.valuation.imag().sign() == -other.valuation.imag().sign()
-        return self.valuation.imag() < 0
+        else:
+            im0 = self.leftmost.as_algebraic().imag()
+            im1 = other.leftmost.as_algebraic().imag()
+            if im0 == im1:
+                return False
+            elif abs(im0) > abs(im1):
+                return True
+            elif abs(im0) < abs(im1):
+                return False
+        # The imaginary parts have the same absolute value and opposite signs
+        assert (self.leftmost.as_algebraic().imag().sign() ==
+                -other.leftmost.as_algebraic().imag().sign())
+        return self.leftmost.as_algebraic().imag() < 0
 
 class LocalBasisMapper(object):
     r"""
@@ -460,8 +516,9 @@ class LocalBasisMapper(object):
     exported data and hooks is a bit ad hoc.
     """
 
-    def __init__(self, dop):
+    def __init__(self, dop, ctx=dctx):
         self.dop = dop
+        self.ctx = ctx
 
     def run(self):
         r"""
@@ -481,21 +538,30 @@ class LocalBasisMapper(object):
 
         self.process_decomposition()
 
+        # Compute the complete factorization and all the roots before launching
+        # the main iteration. This is used to avoid recomputing the roots when
+        # working on error bounds.
+        sl_data = []
+        self.all_roots = []
+        for sl_factor, shifts in self.sl_decomp:
+            shifts.sort()
+            irred_data = []
+            for irred_factor, irred_mult in sl_factor.factor():
+                assert irred_mult == 1
+                roots = utilities.roots_of_irred(irred_factor)
+                irred_data.append((irred_factor, roots))
+                self.all_roots.extend((self.ctx.IC(rt) + shift, mult)
+                                      for rt in roots
+                                      for (shift, mult) in shifts)
+            sl_data.append((sl_factor, shifts, irred_data))
+
+        assert sum(mult for _, mult in self.all_roots) == ind.degree()
+        assert all(ind(rt).contains_zero() for rt, _ in self.all_roots)
+
         self.cols = []
         self.nontrivial_factor_index = 0
-        for self.sl_factor, self.shifts in self.sl_decomp:
-            for self.irred_factor, irred_mult in self.sl_factor.factor():
-                assert irred_mult == 1
-                if self.irred_factor.degree() == 1:
-                    rt = -self.irred_factor[0]/self.irred_factor[1]
-                    if rt.is_rational():
-                        rt = QQ(rt)
-                    self.roots = [rt]
-                else:
-                    roots = complex_roots(self.irred_factor,
-                            skip_squarefree=True, retval='algebraic')
-                    self.roots = [utilities.as_embedded_number_field_element(rt)
-                                  for rt, _ in roots]
+        for self.sl_factor, self.shifts, irred_data in sl_data:
+            for self.irred_factor, self.roots in irred_data:
                 logger.debug("indicial factor = %s, roots = %s",
                              self.irred_factor, self.roots)
                 self.irred_factor_cols = []
@@ -517,12 +583,6 @@ class LocalBasisMapper(object):
 
     def process_irred_factor(self):
         for self.leftmost in self.roots:
-            self.edop, self.leftmost = self.dop.extend_scalars(self.leftmost)
-            if self.edop is self.dop:
-                self.shifted_bwrec = self.bwrec.shift(self.leftmost)
-            else:
-                mybwrec = bw_shift_rec(self.edop)
-                self.shifted_bwrec = mybwrec.shift(self.leftmost)
             self.process_modZ_class()
 
     def process_modZ_class(self):
@@ -535,11 +595,9 @@ class LocalBasisMapper(object):
 
     def process_solution(self):
         ini = LogSeriesInitialValues(
-            dop = self.edop,
             expo = self.leftmost,
             values = { (self.shift, self.log_power): ZZ.one() },
-            mults = self.shifts,
-            check = False)
+            mults = self.shifts)
         # XXX: inefficient if self.shift >> 0
         value = self.fun(ini)
         sol = FundamentalSolution(
@@ -593,7 +651,8 @@ def log_series(ini, bwrec, order):
         series.append(new_term)
     return series
 
-def log_series_values(Jets, expo, psum, evpt, downshift=[0]):
+def log_series_values(Jets, expo, psum, pt, derivatives, is_numeric,
+                      branch=(0,), downshift=(0,)):
     r"""
     Evaluate a logarithmic series, and optionally its downshifts.
 
@@ -602,7 +661,7 @@ def log_series_values(Jets, expo, psum, evpt, downshift=[0]):
         Σ[k=0..r] v[k] η^k
             = (pt + η)^expo * Σ_k (psum[d+k]*log(x + η)^k/k!) + O(η^r)
 
-        (x = evpt.pt, r = evpt.jet_order)
+        (x = pt, r = jet_order)
 
     for d ∈ downshift, as an element of ``Jets``, optionally using a
     non-standard branch of the logarithm.
@@ -610,36 +669,39 @@ def log_series_values(Jets, expo, psum, evpt, downshift=[0]):
     Note that while this function computes ``pt^expo`` in ℂ, it does NOT
     specialize abstract algebraic numbers that might appear in ``psum``.
     """
-    derivatives = evpt.jet_order
+    # The 'branch' parameter is currently unused.
+    expo = utilities.PolynomialRoot.make(expo)
+    expo_ZZ = expo.try_integer()
     log_prec = psum.length()
     assert all(d < log_prec for d in downshift) or log_prec == 0
-    if not evpt.is_numeric:
-        if expo != 0 or log_prec > 1:
+    if not is_numeric:
+        if not expo.is_zero() or log_prec > 1:
             raise NotImplementedError("log-series of symbolic point")
         return [vector(psum[0][i] for i in range(derivatives))]
-    pt = Jets.base_ring()(evpt.pt)
-    if log_prec > 1 or expo not in ZZ or evpt.branch != (0,):
+    Scalars = Jets.base_ring()
+    pt = Scalars(pt)
+    if log_prec > 1 or expo_ZZ is None or branch != (0,):
         pt = pt.parent().complex_field()(pt)
-        Jets = Jets.change_ring(Jets.base_ring().complex_field())
+        Jets = Jets.change_ring(Scalars.complex_field())
         psum = psum.change_ring(Jets)
     high = Jets([0] + [(-1)**(k+1)*~pt**k/k
                        for k in range(1, derivatives)])
-    aux = high*expo
+    expo_iv = expo.as_ball(Jets.base_ring())
+    aux = high*expo_iv
     logger.debug("aux=%s", aux)
-    val = [Jets.base_ring().zero() for d in downshift]
-    for b in evpt.branch:
+    val = [Scalars.zero() for d in downshift]
+    for b in branch:
         twobpii = pt.parent()(2*b*pi*I)
         # hardcoded series expansions of log(a+η) and (a+η)^λ
         # (too cumbersome to compute directly in Sage at the moment)
         logpt = Jets([pt.log() + twobpii]) + high
         logger.debug("logpt[%s]=%s", b, logpt)
-        if expo in ZZ and expo >= 0:
+        if expo_ZZ is not None and expo_ZZ >= 0:
             # the general formula in the other branch does not work when pt
             # contains zero
-            expo = int(expo)
-            inipow = _pow_trunc(Jets([pt, 1]), expo, derivatives)
+            inipow = _pow_trunc(Jets([pt, 1]), expo_ZZ, derivatives)
         else:
-            inipow = ((twobpii*expo).exp()*pt**expo
+            inipow = ((twobpii*expo_iv).exp()*pt**expo_iv
                      *sum(_pow_trunc(aux, k, derivatives)/Integer(k).factorial()
                           for k in range(derivatives)))
         logger.debug("inipow[%s]=%s", b, inipow)
@@ -651,7 +713,7 @@ def log_series_values(Jets, expo, psum, evpt, downshift=[0]):
                         for p in range(log_prec - d)),
                     derivatives)
     Vectors = Jets.base_ring()**derivatives
-    l = len(evpt.branch)
+    l = len(branch)
     val = [FreeModuleElement_generic_dense(Vectors,
                [v[i] for i in range(derivatives)], coerce=False, copy=False)/l
            for v in val]

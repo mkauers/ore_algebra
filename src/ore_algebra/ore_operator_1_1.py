@@ -3037,8 +3037,8 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         TESTS::
 
             sage: (4*x^2*Dx^2 + (-x^2+8*x-11)).local_basis_expansions(0, 2)
-            [x^(-1.232050807568878?) + (-4/11*a+2/11)*x^(-0.2320508075688773?),
-            x^2.232050807568878? - (-4/11*a-2/11)*x^3.232050807568878?]
+            [x^(-1.232050807568878?) + (-4/11*a+4/11)*x^(-0.2320508075688773?),
+            x^2.232050807568878? - (-4/11*a)*x^3.232050807568878?]
 
             sage: ((27*x^2+4*x)*Dx^2 + (54*x+6)*Dx + 6).local_basis_expansions(0, 2)
             [x^(-1/2) + 3/8*x^(1/2), 1 - x]
@@ -3077,7 +3077,8 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             order = max(dop.order(), ind.dispersion()) + 3
         class Mapper(LocalBasisMapper):
             def fun(self, ini):
-                return log_series(ini, self.shifted_bwrec, order)
+                shifted_bwrec = self.bwrec.shift_by_PolynomialRoot(self.leftmost)
+                return log_series(ini, shifted_bwrec, order)
         sols = Mapper(ldop).run()
         x = SR.var(dop.base_ring().variable_name())
         dx = x if point.is_zero() else x.add(-point, hold=True)
@@ -3086,9 +3087,10 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             ring = cm.common_parent(
                     dop.base_ring().base_ring(),
                     mypoint.value.parent(),
-                    *(sol.leftmost for sol in sols))
+                    *(sol.leftmost.as_number_field_element() for sol in sols))
         res = [FormalSum(
-                    [(c/ZZ(k).factorial(), LogMonomial(dx, sol.leftmost, n, k))
+                    [(c/ZZ(k).factorial(),
+                      LogMonomial(dx, sol.leftmost.as_number_field_element(), n, k))
                         for n, vec in enumerate(sol.value)
                         for k, c in reversed(list(enumerate(vec)))
                         if not c.is_zero()],
@@ -3112,6 +3114,8 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
           target accuracy
         - ``post_transform`` (default: identity) - differential operator to be
           applied to the solutions, see examples below
+        - see :class:`ore_algebra.analytic.context.Context` for advanced
+          options
 
         OUTPUT:
 
@@ -3258,7 +3262,8 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             sage: (Dx - 1).numerical_solution([1], [[0], 1])
             [(0, 1.0000000000000000)]
         """
-        from .analytic import analytic_continuation as ancont, local_solutions
+        from .analytic import analytic_continuation as ancont
+        from .analytic import local_solutions, utilities
         from .analytic.differential_operator import DifferentialOperator
         dop = DifferentialOperator(self)
         post_transform = ancont.normalize_post_transform(dop, post_transform)
@@ -3268,7 +3273,8 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         sol = ancont.analytic_continuation(dop, path, eps, ctx, ini=ini,
                                          post=post_mat, return_local_bases=True)
         val = []
-        asycst = local_solutions.sort_key_by_asympt(QQbar.zero(), ZZ.zero())
+        asycst = local_solutions.sort_key_by_asympt(
+            (utilities.PolynomialRoot.make(QQ.zero()), 0, ZZ.zero()))
         for sol_at_pt in sol:
             pt = sol_at_pt["point"]
             mat = sol_at_pt["value"]
@@ -3299,6 +3305,8 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         - ``path`` - a path on the complex plane, specified as a list of
           vertices `z_0, \dots, z_n`
         - ``eps`` (floating-point number or ball) - target accuracy
+        - see :class:`ore_algebra.analytic.context.Context` for advanced
+          options
 
         OUTPUT:
 

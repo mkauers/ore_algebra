@@ -38,11 +38,11 @@ that encode information on the asymptotics of the corresponding lattice walks::
 
 TESTS::
 
-    sage: for i in [2, 5, 12, 18]: # long time (1 min 21 s)
+    sage: for i in [2, 5, 12, 18]: # long time (1 min)
     ....:     for xx, yy in [(0, 1), (1, 0)]:
     ....:         ssw.test_ct(i, xx, yy)
 
-    sage: for i in [1..19]: # not tested (9 min 31 s)
+    sage: for i in [1..19]: # not tested (6 min)
     ....:     for xx in [0, 1]:
     ....:         for yy in [0, 1]:
     ....:             ssw.test_ct(i, xx, yy)

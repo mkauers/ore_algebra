@@ -38,7 +38,8 @@ TESTS::
     sage: logger.setLevel(logging.WARNING)
 
     sage: from ore_algebra.analytic.examples.misc import koutschan1
-    sage: koutschan1.dop.numerical_solution(koutschan1.ini, [0, 84], algorithm="binsplit")
+    sage: koutschan1.dop.numerical_solution(koutschan1.ini, [0, 84],
+    ....:         algorithm="binsplit", two_point_mode=False)
     [0.011501537469552017...]
 
 Note that the zeros here shouldn't be exact unless we have proved that the
@@ -93,7 +94,7 @@ Connection to an algebraic endpoint::
 
     sage: NF.<sqrt2> = QuadraticField(2)
     sage: dop = (x^2 - 2)*Dx^2 + x + 1
-    sage: dop.numerical_transition_matrix([0, sqrt2], 1e-10, algorithm="binsplit")
+    sage: dop.numerical_transition_matrix([0, sqrt2], 1e-11, algorithm="binsplit")
     [ [2.4938814...] +      [+/- ...]*I  [2.4089417...] +       [+/- ...]*I]
     [[-0.2035417...] + [6.6873857...]*I  [0.2043720...] + [6.45961849...]*I]
 
@@ -127,8 +128,8 @@ Various mixes of algebraic exponents and evaluation points::
     [ [0.10146...] + [1.2165...]*I  [0.10146...] + [-1.2165...]*I  [0.32506...] + [+/- ...]*I]
 
     sage: ((x*Dx)^2-2-x).numerical_transition_matrix([0,i], 1e-5, algorithm="binsplit")
-    [[-1.4237...] + [0.0706...]*I [-0.7959...] + [0.6169...]*I]
-    [[1.4514...] + [-0.1681...]*I  [0.6742...] + [1.2971...]*I]
+    [ [-1.4237...] + [0.0706...]*I [-0.7959...] + [0.6169...]*I]
+    [ [1.4514...] + [-0.1681...]*I  [0.6742...] + [1.2971...]*I]
 
     sage: ((x*Dx)^3-2-x).numerical_transition_matrix([0,i], 1e-8, algorithm="binsplit")
     [  [1.94580...] + [-5.61860...]*I [0.04040867...] + [-0.16436364...]*I    [-0.491906...] + [0.873265...]*I]
@@ -136,8 +137,8 @@ Various mixes of algebraic exponents and evaluation points::
     [ [-6.63615...] + [-4.75084...]*I    [0.1614174...] + [0.0994372...]*I  [0.1969810...] + [-0.0803104...]*I]
 
     sage: ((x*Dx)^3-2-x).numerical_transition_matrix([0,QQbar(3)^(1/3)], 1e-8, algorithm="binsplit")
-    [[0.4434002...] + [-0.31995...]*I   [0.44340...] + [0.31995...]*I  [1.8368349...] + [+/- ...]*I]
-    [ [-0.59869...] + [-0.24297...]*I  [-0.59869...] + [0.24297...]*I  [1.7859825...] + [+/- ...]*I]
+    [ [0.443400...] + [-0.31995...]*I   [0.44340...] + [0.31995...]*I  [1.8368349...] + [+/- ...]*I]
+    [[-0.598696...] + [-0.24297...]*I  [-0.59869...] + [0.24297...]*I  [1.7859825...] + [+/- ...]*I]
     [ [0.235894...] + [0.393421...]*I  [0.23589...] + [-0.39342...]*I  [0.3084151...] + [+/- ...]*I]
 
     sage: (((x-i)*Dx)^2+1-x).numerical_transition_matrix([i, 2*i], algorithm="binsplit")
@@ -206,7 +207,7 @@ Miscellaneous examples::
     sage: CBF(2*exp(-1) + 3*(-1)^(3/2)*log(-1) + 7*(-1)^(3/2))
     [10.1605368431122...] - 7.000000000000000*I
 
-    sage: (x*(x-1)*Dx^2 - x).numerical_transition_matrix([0,1], 1e-6, algorithm="binsplit")
+    sage: (x*(x-1)*Dx^2 - x).numerical_transition_matrix([0,1], 1e-8, algorithm="binsplit")
     [     [0.22389...] + [+/- ...]*I      [0.57672...] + [+/- ...]*I]
     [[-1.56881...] + [-0.70337...]*I  [0.42531...] + [-1.81183...]*I]
 
@@ -252,6 +253,9 @@ from sage.modules.free_module_element import vector
 from sage.rings.all import ZZ, QQ, RLF, CLF, RealBallField, ComplexBallField
 from sage.rings.number_field.number_field import is_NumberField, NumberField
 from sage.structure.coerce_exceptions import CoercionException
+from sage.structure.sequence import Sequence
+
+from sage.rings.complex_arb import ComplexBall
 
 from . import accuracy, bounds, utilities
 
@@ -288,15 +292,15 @@ class StepMatrix(object):
 
         # updated by _init_range
         self.rec_den = rec.AlgInts_rec.one()
-        self.pow_num = rec.pow_num.parent().one()
-        self.pow_den = rec.pow_den.parent().one()
+        self.pow_num = [pow_num.parent().one() for pow_num in rec.pow_num]
+        self.pow_den = [pow_den.parent().one() for pow_den in rec.pow_den]
 
         if n0 == n1:
-            self._init_identity(rec, n1, ord_log)
+            self._init_identity(rec, ord_log)
         elif n0 is not None:
             self._init_range(rec, n0, n1, ord_log)
 
-    def _init_identity(self, rec, n, ord_log):
+    def _init_identity(self, rec, ord_log):
         self.rec_mat = rec.Mat_rec.one()
         self.zero_sum, self.sums_row = rec.Series_sums(ord_log)
 
@@ -309,15 +313,26 @@ class StepMatrix(object):
 
         for n in range(n0+1, n1+1):
 
+            # Order matters!
+
             bwrec_n, rec_den_n = self._coeff_series_num_den(rec, n, ord_log)
-            den = rec.pow_den*rec_den_n
 
-            for (num, psum) in zip(seqs, self.sums_row):
-                # separate to allow for a cython version
-                self._seq_next(num, psum, bwrec_n, rec_den_n, den, ord_log)
+            # for each evaluation point
+            for (sums_row, pow_num, rec_pow_den) in zip(self.sums_row,
+                                                     self.pow_num, rec.pow_den):
+                den = rec_pow_den*rec_den_n
+                # for each element of a basis of solutions of the recurrence
+                for (num, psum) in zip(seqs, sums_row):
+                    self._seq_next_psum(psum, num, pow_num, den, ord_log)
 
-            self.pow_num = self.pow_num._mul_trunc_(rec.pow_num, self.ord_diff)
-            self.pow_den *= rec.pow_den
+            for num in seqs: # for each solution
+                self._seq_next_num(num, bwrec_n, rec_den_n, ord_log)
+
+            for i in range(len(self.sums_row)): # for each evaluation point
+                self.pow_num[i] = self.pow_num[i]._mul_trunc_(rec.pow_num[i],
+                                                              self.ord_diff)
+                self.pow_den[i] *= rec.pow_den[i]
+
             self.rec_den *= rec_den_n
 
         # Polynomial of matrices.
@@ -351,13 +366,19 @@ class StepMatrix(object):
     def _coeff_series_num_den(self, rec, n, ord_log):
         return rec.coeff_series_num_den(n, ord_log)
 
-    def _seq_next(self, num, psum, bwrec_n, rec_den_n, den, ord_log):
-
+    def _seq_next_psum(self, psum, num, pow_num, den, ord_log):
+        r"""
+        Writes to psum.
+        """
         for q in range(ord_log):
             for p in range(self.ord_diff):
-                psum[q][p] += self.pow_num[p]*num[-1][q]
+                psum[q][p] += pow_num[p]*num[-1][q]
                 psum[q][p] *= den
 
+    def _seq_next_num(self, num, bwrec_n, rec_den_n, ord_log):
+        r"""
+        Writes to num.
+        """
         u_n = -sum(bwrec_n[k]._mul_trunc_(num[-k], ord_log)
                     for k in range(1, len(bwrec_n)))
         num[:] = [rec_den_n*term for term in num[1:]]
@@ -367,55 +388,55 @@ class StepMatrix(object):
     # won't change anything for algebraic evaluation points, but it might
     # make a difference when the evaluation point is more complicated
 
-    def compute_sums_row(low, high):
+    def compute_sums_row(low, high, i):
 
-        # sums_row = high.sums_row*low.rec_mat*low.pow_num
-        #             δ, Sk, row     Sk, mat      δ
+        # sums_row[i] = high.sums_row[i]*low.rec_mat*low.pow_num[i]
+        #                   δ, Sk, row     Sk, mat      δ
         #
-        #            + high.rec_den*high.pow_den*low.sums_row
+        #            + high.rec_den*high.pow_den[i]*low.sums_row[i]
         #                 cst (nf)        cst        δ, Sk, row
 
         ordrec = high.rec_mat.base_ring().nrows()
         Scalars = high.zero_sum.parent()
 
-        high_den = Scalars(high.rec_den*high.pow_den)
+        high_den = Scalars(high.rec_den*high.pow_den[i])
         use_sum_of_products = (hasattr(Scalars, "_sum_of_products")
-                and low.pow_num.base_ring() is Scalars
+                and low.pow_num[i].base_ring() is Scalars
                 and low.rec_mat.base_ring().base_ring() is Scalars)
 
         # TODO: maybe try introducing matrix-matrix multiplications
 
-        res1 = [None]*len(high.sums_row)
+        res1 = [None]*len(high.sums_row[i])
         for j in range(ordrec):
             res2 = [None]*high.ord_log
             for q in range(high.ord_log):
                 res3 = [None]*low.ord_diff
                 for p in range(low.ord_diff):
                     # one coefficient of one entry the first term
-                    # high.sums_row*low.rec_mat*low.pow_num
+                    # high.sums_row[i]*low.rec_mat*low.pow_num[i]
                     if use_sum_of_products:
                         # Even with this, perhaps ~2/3 of the time goes in
                         # (unnecessary) object creations/deletions/copies...
                         t = Scalars._sum_of_products(
-                               ( high.sums_row[k][v][u],
-                                 low.pow_num[p-u],
+                               ( high.sums_row[i][k][v][u],
+                                 low.pow_num[i][p-u],
                                  low.rec_mat[q-v][k,j] )
                                for k in range(ordrec)
                                for u in range(p + 1)
                                for v in range(q + 1))
                     else:
                         t = sum(
-                               high.sums_row[k][v][u]
-                                   * Scalars(low.pow_num[p-u]
+                               high.sums_row[i][k][v][u]
+                                   * Scalars(low.pow_num[i][p-u]
                                                * low.rec_mat[q-v][k,j])
                                for k in range(ordrec)
                                for u in range(p + 1)
                                for v in range(q + 1))
                     # same for the second term
-                    # high.rec_den*pow_den.rec_den*low.sums_row
+                    # high.rec_den*pow_den[i].rec_den*low.sums_row[i]
                     if q < low.ord_log: # usually true, but low might be
                                         # an optimized SolutionColumn
-                        t += high_den*low.sums_row[j][q][p]
+                        t += high_den*low.sums_row[i][j][q][p]
                     res3[p] = t
                 res2[q] = res3
             res1[j] = res2
@@ -426,10 +447,13 @@ class StepMatrix(object):
         # logger.debug("(%s->%s)*(%s->%s)", high.idx_start, high.idx_end,
         #                                   low.idx_start, low.idx_end)
 
-        low.sums_row = low.compute_sums_row(high) # must come early
+        for i in range(len(low.sums_row)): # must come early
+            low.sums_row[i] = low.compute_sums_row(high, i)
         low.rec_mat = high.rec_mat._mul_trunc_(low.rec_mat, high.ord_log)
-        low.pow_num = low.pow_num._mul_trunc_(high.pow_num, low.ord_diff)
-        low.pow_den *= high.pow_den
+        for i in range(len(low.pow_num)):
+            low.pow_num[i] = low.pow_num[i]._mul_trunc_(high.pow_num[i],
+                                                        low.ord_diff)
+            low.pow_den[i] *= high.pow_den[i]
         low.rec_den *= high.rec_den
 
         low.idx_end = high.idx_end
@@ -475,12 +499,15 @@ class StepMatrix_arb(StepMatrix):
                 assert a.is_exact()
         assert self.rec_den.is_exact()
         for a in self.pow_num:
+            for b in a:
+                assert a.is_exact()
+        for a in self.pow_den:
             assert a.is_exact()
-        assert self.pow_den.is_exact()
-        for p in self.sums_row:
-            for a in p:
-                for b in a:
-                    assert b.is_exact()
+        for a in self.sums_row:
+            for p in a:
+                for b in p:
+                    for c in b:
+                        assert b.is_exact()
 
 class SolutionColumn(object):
     r"""
@@ -527,7 +554,7 @@ class SolutionColumn(object):
         from sage.rings.polynomial.laurent_polynomial_ring import LaurentPolynomialRing
         Scalars = self.v.rec_mat.base_ring().base_ring()
         Pol, LOG = LaurentPolynomialRing(Scalars, 'LOG').objgen()
-        s = len(self.v.sums_row)
+        s = len(self.v.sums_row[0])
         vec = vector(Pol, s,
                 [sum(
                     (mat[i,-1]/self.v.rec_den)*LOG**(self.v.ord_log-1-k)
@@ -537,7 +564,8 @@ class SolutionColumn(object):
 
     def assert_well_formed(self):
         assert self.v.rec_mat.degree() < self.v.ord_log
-        assert len(self.v.sums_row[-1]) == self.v.ord_log
+        for sums_row in self.v.sums_row:
+            assert len(sums_row[-1]) == self.v.ord_log
 
     def iapply(self, fwd, shift):
         r"""
@@ -614,14 +642,15 @@ class SolutionColumn(object):
             mat[-1,-1] = 0
         self.v.rec_mat = self.v.rec_mat.parent()(new_mats)
         zeros = [[self.v.zero_sum]*self.v.ord_diff for _ in range(m - z)]
-        for p in self.v.sums_row[:-1]:
-            p[self.v.ord_log:] = [] # useful?
-            p.extend(zeros)
-        self.v.sums_row[-1][self.v.ord_log:] = []
-        self.v.sums_row[-1][:0] = zeros
+        for sums_row in self.v.sums_row:
+            for p in sums_row[:-1]:
+                p[self.v.ord_log:] = [] # useful?
+                p.extend(zeros)
+            sums_row[-1][self.v.ord_log:] = []
+            sums_row[-1][:0] = zeros
         self.v.ord_log += m - z
 
-    def normalized_residual(self, maj, abstract_alg, alg, n):
+    def normalized_residual(self, maj, abstract_alg, alg, n, IC):
         r"""
         Compute the normalized residual associated with the fundamental
         solution.
@@ -641,11 +670,10 @@ class SolutionColumn(object):
 
         assert alg == maj.leftmost
 
-        IC = bounds.IC
-
         # Specialize abstract algebraic exponent
         alg_to_IC = _specialization_map(self.v.rec_mat.base_ring().base_ring(),
-                                        IC, abstract_alg, alg)
+                                        IC, abstract_alg,
+                                        alg.as_number_field_element())
 
         # last = [[u(n-1) for log⁰, log¹, ...], ..., [u(n-s) for all logs]]
         rec_den = IC(self.v.rec_den)
@@ -655,40 +683,49 @@ class SolutionColumn(object):
         res = maj.normalized_residual(n, last)
         return res
 
-    def partial_sum(self, Jets, dz, abstract_alg, alg, shift, tail_bound):
+    def partial_sum(self, Jets, evpts, i, abstract_alg, alg, shift, tail_bound):
+        r"""
+        Compute the numerical value of the partial sum at the evaluation point
+        of index i
+        """
+        assert 0 <= i < len(evpts) == len(self.v.sums_row)
         # Extract the (abstract numerator of) series part
-        op_k = self.v.sums_row[-1] # K[λ][δ][Sk]
+        op_k = self.v.sums_row[i][-1] # K[λ][δ][Sk]
         numer = list(reversed(op_k))
         Scalars = Jets.base_ring()
         # Specialize abstract algebraic exponent and add error term
         # (overestimation: we are using a single bound for all subseries)
         specialize = _specialization_map(self.v.zero_sum.parent(), Scalars,
-                                         abstract_alg, alg)
-        denom = specialize(self.v.rec_den)*Scalars(self.v.pow_den)
+                                         abstract_alg,
+                                         alg.as_number_field_element())
+        denom = specialize(self.v.rec_den)*Scalars(self.v.pow_den[i])
         val = vector([Jets([(specialize(c)/denom).add_error(tail_bound)
                             for c in ser])
                      for ser in numer])
-        assert self.v.ord_diff == dz.jet_order
-        [val] = log_series_values(Jets, alg + shift, val, dz)
+        assert self.v.ord_diff == evpts.jet_order
+        [val] = log_series_values(Jets, alg.as_number_field_element() + shift,
+                                  val, evpts.approx(Scalars, i),
+                                  evpts.jet_order, evpts.is_numeric)
         return val
 
-    def error_estimate(self):
-        def IC_est(c):
+    def error_estimate(self, IR):
+        def IC_est(c, IC=IR.complex_field()):
             try:
-                return bounds.IC(c) # arb, QQ
+                return IC(c) # arb, QQ
             except TypeError:
-                return bounds.IC(c[0]) # NF, would work for QQ
-        zero = bounds.IR.zero()
+                return IC(c[0]) # NF, would work for QQ
+        zero = IR.zero()
         num1 = max([zero] + [abs(IC_est(m[-1, -1])) for m in self.v.rec_mat])
-        num2 = sum(abs(IC_est(a)) for a in self.v.pow_num)
-        den = abs(IC_est(self.v.rec_den))*bounds.IR(self.v.pow_den)
+        # We use the first evaluation point only. Debatable.
+        num2 = sum(abs(IC_est(a)) for a in self.v.pow_num[0])
+        den = abs(IC_est(self.v.rec_den))*IR(self.v.pow_den[0])
         return num1*num2/den
 
 class MatrixRec(object):
     r"""
     A matrix recurrence simultaneously generating the coefficients and partial
-    sums of solutions of an ODE (with exponents in a certain ℤ-coset), and
-    possibly derivatives of these solutions.
+    sums at one or more points of solutions of an ODE (with exponents in a
+    certain ℤ-coset), and possibly derivatives of these solutions.
 
     CONVENTIONS:
 
@@ -706,7 +743,7 @@ class MatrixRec(object):
 
     - Sk is an operator that shifts coefficient sequences wrt log(z)^k/k!
 
-    The recurrence reads::
+    For a given evaluation point, the recurrence reads::
 
         [ u(n-s+1)·z^n ]   [ 0 z     |   ]  [ u(n-s)·z^(n-1) ]
         [      ⋮       ]   [     ⋱   |   ]  [       ⋮        ]
@@ -736,6 +773,9 @@ class MatrixRec(object):
         sums_row ∈ ((K[λ][δ]/(δ^r'))[Sk]/(Sk^τ))^(1×s)
                                             ≈ (Series_sums/(δ^r',Sk^τ))^(1×s)
 
+    (where pow_num, pow_den stand for the elements pow_num[i], pow_den[i] for
+    some i of the lists used in the code).
+
     In the code::
 
         AlgInts_rec = K₀[λ]
@@ -762,7 +802,7 @@ class MatrixRec(object):
     """
 
     def __init__(self, dop, shift, singular_indices,
-                 dz, derivatives, prec, binsplit_threshold):
+                 evpts, derivatives, prec, binsplit_threshold):
 
         # TODO: perhaps dynamically optimize the representation when there are
         # no logs, algebraic exponents, etc.
@@ -770,12 +810,14 @@ class MatrixRec(object):
         self.singular_indices = singular_indices
 
         # Choose computation domains
-        E = dz.parent()
         deq_Scalars = dop.base_ring().base_ring()
-        assert deq_Scalars is E or deq_Scalars != E
         # Sets self.AlgInts_{rec,pow,sums}, self.pow_{num,den} (pow_num will be
         # modified later), and self.shift.
-        if _can_use_CBF(E, deq_Scalars, shift.parent()):
+        self.npoints = len(evpts)
+        self.pow_num = [None]*self.npoints
+        self.pow_den = [None]*self.npoints
+        point_parents = tuple(pt.parent() for pt in evpts)
+        if _can_use_CBF(deq_Scalars, shift.parent(), *point_parents):
             # Work with arb balls and matrices, when possible with entries in ZZ
             # or ZZ[i]. Round the entries that are larger than the target
             # precision (+ some guard digits) in the upper levels of the tree.
@@ -787,18 +829,18 @@ class MatrixRec(object):
             h = dop._naive_height()
             rs = dop.degree()*dop.order()
             wp = max(prec, h*ZZ(rs).nbits()) + (rs + 2)*(ZZ(prec).nbits() + 8)
-            self._init_CBF(deq_Scalars, shift, E, dz, wp)
+            self._init_CBF(deq_Scalars, shift, evpts, point_parents, wp)
         else:
+            pts = utilities.my_sequence(evpts)
             try:
-                self._init_generic(deq_Scalars, shift, E, dz)
+                self._init_generic(deq_Scalars, shift, pts)
             except CoercionException:
                 # Not great, but allows us to handle a few combination of
                 # algebraic points that we couldn't otherwise...
-                dop, dz, shift = dop.extend_scalars(dz, shift)
+                dop, shift, *pts = dop.extend_scalars(shift, *pts)
                 deq_Scalars = dop.base_ring().base_ring()
-                E = dz.parent()
-                self._init_generic(deq_Scalars, shift, E, dz)
-        self.dz = dz
+                pts = Sequence(pts, universe=deq_Scalars)
+                self._init_generic(deq_Scalars, shift, pts)
 
         bwrec = bw_shift_rec(dop, shift=self.shift)
         # Also store an exact version of the leading coefficient to be able to
@@ -823,19 +865,22 @@ class MatrixRec(object):
         assert self.bwrec[0].base_ring() is self.AlgInts_rec # uniqueness
         assert self.bwrec[0](0).parent() is self.AlgInts_rec #   issues...
 
-        # Power of dz. Note that this part does not depend on n.
+        # Power of evaluation points. Note that this part does not depend on n.
         Series_pow = PolynomialRing(self.AlgInts_pow, 'delta')
-        self.pow_num = Series_pow([self.pow_num, self.pow_den])
+        for i in range(self.npoints):
+            self.pow_num[i] = Series_pow([self.pow_num[i], self.pow_den[i]])
         self.derivatives = derivatives
         logger.debug("evaluation point in: %s", Series_pow)
 
+        assert len(self.pow_num) == len(self.pow_den) == self.npoints
+
     def Series_sums(self, ord_log):
         zero = self.AlgInts_sums.zero()
-        row = [[[zero]*self.derivatives for _ in range(ord_log)]
-               for _ in range(self.ordrec)]
+        row = [[[[zero]*self.derivatives for _ in range(ord_log)]
+               for _ in range(self.ordrec)] for _ in range(self.npoints)]
         return zero, row
 
-    def _init_CBF(self, deq_Scalars, shift, E, dz, prec):
+    def _init_CBF(self, deq_Scalars, shift, evpts, point_parents, prec):
         try:
             from . import binary_splitting_arb
             self.StepMatrix_class = binary_splitting_arb.StepMatrix_arb
@@ -843,40 +888,46 @@ class MatrixRec(object):
             logger.warning("Cython implementation unavailable, "
                            "falling back to slower Python implementation")
             self.StepMatrix_class = StepMatrix_arb
-        if _can_use_RBF(E, deq_Scalars, shift):
+        if _can_use_RBF(deq_Scalars, shift, *point_parents):
             dom = RealBallField(prec)
         else:
             dom = ComplexBallField(prec)
-        if is_NumberField(E):
-            pow_den = dz.denominator()
-            self.pow_num = dom(pow_den*dz) # mul must be exact
-            self.pow_den = dom(pow_den)
-        else:
-            self.pow_num = dom(dz)
-            self.pow_den = dom.one()
+        for i, pt in enumerate(evpts):
+            if is_NumberField(pt.parent()):
+                den = utilities.internal_denominator(pt)
+                self.pow_num[i] = dom(den*pt) # mul must be exact
+                self.pow_den[i] = dom(den)
+            else:
+                self.pow_num[i] = dom(pt)
+                self.pow_den[i] = dom.one()
         # we are going to use self.shift to build an Ore op, it needs to be
         # exact
         self.shift = shift
         self.AlgInts_rec = self.AlgInts_pow = self.AlgInts_sums = dom
 
-    def _init_generic(self, deq_Scalars, shift, E, dz):
+    def _init_generic(self, deq_Scalars, shift, pts):
         self.StepMatrix_class = StepMatrix_generic
 
+        E = pts.universe()
+        assert deq_Scalars is E or deq_Scalars != E
         if is_NumberField(E): # includes QQ
-            # In fact we should probably do something similar for dz in any
+            # In fact we should probably do something similar for pts in any
             # finite-dimensional Q-algebra. (But how?)
             NF_pow, AlgInts_pow = utilities.number_field_with_integer_gen(E)
-            self.pow_den = NF_pow(dz).denominator()
+            for i, pt in enumerate(pts):
+                self.pow_den[i] = utilities.internal_denominator(NF_pow(pt))
+                self.pow_num[i] = self.pow_den[i]*pt
         else:
-            # This includes the case E = ZZ, but dz could live in pretty
+            # This includes the case E = ZZ, but pts could live in pretty
             # much any algebra over deq_Scalars (including matrices,
             # intervals...). Then the computation of sums_row may take time,
             # but we still hope to gain something on the computation of the
             # coefficients and/or limit interval blow-up thanks to the use
             # of binary splitting.
             AlgInts_pow = E
-            self.pow_den = ZZ.one()
-        self.pow_num = self.pow_den*dz
+            for i, pt in enumerate(pts):
+                self.pow_den[i] = ZZ.one()
+                self.pow_num[i] = pt
 
         # Reduce to the case of a number field generated by an algebraic
         # integer. This is mainly intended to avoid computing gcds (due to
@@ -884,7 +935,7 @@ class MatrixRec(object):
         # the product tree.
         NF_deq, _ = utilities.number_field_with_integer_gen(deq_Scalars)
         if deq_Scalars.has_coerce_map_from(shift.parent()):
-            AlgInts_rec = NF_rec = NF_deq
+            AlgInts_rec =  NF_deq # = NF_rec
             # We need a parent containing both the coefficients of the operator
             # and the evaluation point.
             AlgInts_sums = utilities.mypushout(AlgInts_rec, AlgInts_pow)
@@ -932,7 +983,7 @@ class MatrixRec(object):
 
         # Returns a polynomial in the wrong variable (but that's ok)
         invlc = self.exact_lc.eval_inv_lc_series(n, ord_log + mult, mult)
-        den = invlc.denominator()
+        den = utilities.internal_denominator(invlc)
         invlc = den*invlc
         invlc = self.Pols_rec.element_class(self.Pols_rec,
                 [self.AlgInts_rec(a) for a in invlc], check=False)
@@ -968,7 +1019,6 @@ class MatrixRec(object):
             if high - low > 400000//self.ordrec**3:
                 logger.info("(n=%s)", mid)
             mat.imulleft(self.step_matrix_binsplit(mid, high, ord_log))
-        assert mat.idx_start == low and mat.idx_end == high
         return mat
 
     def __repr__(self):
@@ -976,21 +1026,20 @@ class MatrixRec(object):
 
 class MatrixRecsUnroller(LocalBasisMapper):
 
-    def __init__(self, dop, pt, eps, derivatives, ctx=dctx):
+    def __init__(self, dop, evpts, eps, derivatives, ctx=dctx):
         super(self.__class__, self).__init__(dop)
-        self.pt = pt
+        self.evpts = evpts
         self.eps = eps
         self.derivatives = derivatives
         self.ctx = ctx
-        self._est_terms, _ = dop.est_terms(pt, utilities.prec_from_eps(eps))
+        self._est_terms, _ = dop.est_terms(evpts, utilities.prec_from_eps(eps))
 
     def process_decomposition(self):
         int_expos = (len(self.sl_decomp) == 1
                 and self.sl_decomp[0][0].degree() == 1
                 and self.sl_decomp[0][0][0].is_zero())
-        is_real = (int_expos
-                and utilities.is_real_parent(self.dop.base_ring().base_ring())
-                and utilities.is_real_parent(self.pt.pt.parent()))
+        is_real = (int_expos and self.evpts.is_real_or_symbolic
+                and utilities.is_real_parent(self.dop.base_ring().base_ring()))
         # enough to represent individual series, but real jets may still become
         # complex later if there are logs
         Intervals = utilities.ball_field(self.eps, is_real)
@@ -1002,7 +1051,6 @@ class MatrixRecsUnroller(LocalBasisMapper):
         # with an abstract algebraic number. It then computes all possible
         # embeddings of the resulting abstract solutions.
 
-        self.edop = self.dop
         if self.irred_factor.degree() == 1:
             # exponent is in the ground field, but not necessarily in QQ, since
             # the differential equation can have coefficients in an embedded
@@ -1040,12 +1088,14 @@ class MatrixRecsUnroller(LocalBasisMapper):
 
         # Generic recurrence matrix
         self.matrix_rec = MatrixRec(self.dop, self.leftmost, self.shifts,
-                self.pt.pt, self.derivatives, utilities.prec_from_eps(self.eps),
+                self.evpts, self.derivatives, utilities.prec_from_eps(self.eps),
                 min(self.ctx.binsplit_thr, self._est_terms))
 
         # Majorants
         maj = {rt: bounds.DiffOpBound(self.dop, rt, self.shifts,
-                                      bound_inverse="solve")
+                                      bound_inverse="solve",
+                                      ind_roots=self.all_roots,
+                                      ctx=self.ctx)
                for rt in self.roots}
 
         wrapper = bounds.MultiDiffOpBound(maj.values())
@@ -1061,7 +1111,8 @@ class MatrixRecsUnroller(LocalBasisMapper):
                                                                     self.shifts)
                 return {(rt, sol.shift, sol.log_power):
                         sol.value.normalized_residual(maj[rt], self.leftmost,
-                                                      rt, self.shift)
+                                                      rt, self.shift,
+                                                      self.ctx.IC)
                         for rt in self.roots
                         for sol in self.irred_factor_cols}
             def get_bound(_, residuals):
@@ -1079,14 +1130,14 @@ class MatrixRecsUnroller(LocalBasisMapper):
                 pessimistic enclosures or unnecessary computations in some
                 cases.
                 """
-                sqbound = bounds.IR.zero()
+                sqbound = self.ctx.IR.zero()
                 for rt in self.roots:
                     myres = [residuals[rt,s,k] for (s,m) in self.shifts
                                                for k in range(m)]
                     # Tail majorant valid for the power series in front of the
                     # logs for all solutions associated to rt
                     tmaj = maj[rt].tail_majorant(self.shift, myres)
-                    sqbound += tmaj.bound(self.pt.rad, rows=self.derivatives,
+                    sqbound += tmaj.bound(self.evpts.rad, rows=self.derivatives,
                                           cols=len(myres))**2
                 return sqbound.sqrtpos()
         cb = BoundCallbacks()
@@ -1095,7 +1146,7 @@ class MatrixRecsUnroller(LocalBasisMapper):
         last_singular_index = max(s for s, _ in self.shifts)
         si = 0
         assert first_singular_index >= 0
-        est, tail_bound = None, bounds.IR('inf')
+        est, tail_bound = None, self.ctx.IR('inf')
         prev, done = first_singular_index, False
         ord_log = 0
         while True:
@@ -1128,7 +1179,7 @@ class MatrixRecsUnroller(LocalBasisMapper):
                 ord_log = max(sol.value.v.ord_log for sol in self.irred_factor_cols)
             # Check if we have converged
             if self.shift > last_singular_index:
-                est = max(sol.value.error_estimate()
+                est = max(sol.value.error_estimate(self.ctx.IR)
                           for sol in self.irred_factor_cols)
                 done, tail_bound = stop.check(cb, False, self.shift, tail_bound,
                                est, next_stride=self.shift-first_singular_index)
@@ -1140,6 +1191,7 @@ class MatrixRecsUnroller(LocalBasisMapper):
                 break
             prev = self.shift
         logger.info("summed %d terms, tails <= %s", self.shift, tail_bound)
+        assert tail_bound.parent() is self.ctx.IR
         # logger.debug("abstract partial sums:\n* %s",
         #         '\n* '.join(str(sol) for sol in self.irred_factor_cols))
         self.modZ_class_tail_bound = tail_bound
@@ -1152,8 +1204,11 @@ class MatrixRecsUnroller(LocalBasisMapper):
                 leftmost = rt,
                 shift = sol.shift,
                 log_power = sol.log_power,
-                value = sol.value.partial_sum(Jets, self.pt, self.leftmost, rt,
-                                         sol.shift, self.modZ_class_tail_bound))
+                value = [
+                    sol.value.partial_sum(Jets, self.evpts, i, self.leftmost,
+                                          rt, sol.shift,
+                                          self.modZ_class_tail_bound)
+                    for i in range(len(self.evpts))])
             for rt in self.roots
             for sol in self.irred_factor_cols]
 
@@ -1162,10 +1217,12 @@ class MatrixRecsUnroller(LocalBasisMapper):
         # solutions later on.
         return SolutionColumn(self.matrix_rec, self.shift, self.log_power)
 
-def fundamental_matrix_regular(dop, pt, eps, fail_fast, effort, ctx=dctx):
-    rows = pt.jet_order
-    cols = MatrixRecsUnroller(dop, pt, eps, rows, ctx).run()
-    return matrix([sol.value for sol in cols]).transpose()
+def fundamental_matrix_regular(dop, evpts, eps, fail_fast, effort, ctx=dctx):
+    rows = evpts.jet_order
+    cols = MatrixRecsUnroller(dop, evpts, eps, rows, ctx).run()
+    mats = [matrix([sol.value[i] for sol in cols]).transpose()
+            for i in range(len(evpts))]
+    return mats
 
 def _can_use_CBF(*doms):
     return all((isinstance(dom, (RealBallField, ComplexBallField))
