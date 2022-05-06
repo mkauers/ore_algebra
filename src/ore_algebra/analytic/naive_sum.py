@@ -773,6 +773,8 @@ def series_sum_regular(Intervals, dop, bwrec, inis, evpts, stop, stride,
         ([0.2238907...])
     """
 
+    IR = ctx.IR
+
     if not inis:
         return []
     assert inis[0].compatible(inis)
@@ -784,15 +786,15 @@ def series_sum_regular(Intervals, dop, bwrec, inis, evpts, stop, stride,
     Jets, jets = evpts.jets(Intervals)
     jetpows = [Jets.one()]*len(jets)
 
-    radpow = ctx.IR.one()
-    tail_bound = ctx.IR(infinity)
+    radpow = IR.one()
+    tail_bound = IR(infinity)
 
     if n0_squash < sys.maxsize:
         assert ordinary
         rnd_maj = stop.maj(n0_squash)
         rnd_maj >>= n0_squash # XXX (a) useful? (b) check correctness
         rnd_den = rnd_maj.exp_part_coeffs_lbounds()
-        rnd_loc = ctx.IR.zero()
+        rnd_loc = IR.zero()
 
     last_index_with_ini = max(chain(iter([dop.order()]),
                                     (ini.last_index() for ini in inis)))
@@ -808,7 +810,7 @@ def series_sum_regular(Intervals, dop, bwrec, inis, evpts, stop, stride,
         # FIXME the branch should be computed separately for each component of
         # the evaluation point, taking into account the orientation of the step
         psums = [PS(cseq, Jets, ord, evpts.approx(Intervals, i),
-                    (evpts.is_numeric,), ctx.IR)
+                    (evpts.is_numeric,), IR)
                  for i in range(len(evpts))]
         sols.append(MPartialSums(cseq, psums))
 
@@ -825,7 +827,7 @@ def series_sum_regular(Intervals, dop, bwrec, inis, evpts, stop, stride,
             # summation of some series before the others
             maj = self.get_maj(stop, n, residuals)
             tb = maj.bound(evpts.rad, rows=ord)
-            worst = ctx.IR.zero()
+            worst = IR.zero()
             for _, psums in sols:
                 for psum in psums:
                     psum.update_enclosure(tb)
@@ -878,7 +880,7 @@ def series_sum_regular(Intervals, dop, bwrec, inis, evpts, stop, stride,
                 assert n0_squash + rnd_shift == n
             for (cseq, psums) in sols:
                 err = cseq.next_term(n, mult, bwrec_nplus[0], cst, squash)
-                err = ctx.IR(err)
+                err = IR(err)
                 if squash:
                     rnd_loc = rnd_loc.max(n*err/hom_maj_coeff_lb)
                     if not rnd_loc.is_finite(): # normalize NaNs and infinities
@@ -908,7 +910,7 @@ def series_sum_regular(Intervals, dop, bwrec, inis, evpts, stop, stride,
             for psum in psums:
                 psum.update_enclosure(tail_bound + rnd_err)
     else:
-        rnd_err = ctx.IR.zero()
+        rnd_err = IR.zero()
 
     width = None
     if evpts.is_numeric:
@@ -916,7 +918,7 @@ def series_sum_regular(Intervals, dop, bwrec, inis, evpts, stop, stride,
                                           for psum in psums)
     logger.info("summed %d terms, tails = %s (est = %s), rnd_err <= %s, "
                 "interval width <= %s",
-                n, tail_bound, ctx.IR(est), rnd_err, width)
+                n, tail_bound, IR(est), rnd_err, width)
 
     return sols
 
