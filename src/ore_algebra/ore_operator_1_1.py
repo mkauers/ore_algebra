@@ -3037,8 +3037,8 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         TESTS::
 
             sage: (4*x^2*Dx^2 + (-x^2+8*x-11)).local_basis_expansions(0, 2)
-            [x^(-1.232050807568878?) + (-4/11*a+2/11)*x^(-0.2320508075688773?),
-            x^2.232050807568878? - (-4/11*a-2/11)*x^3.232050807568878?]
+            [x^(-1.232050807568878?) + (-4/11*a+4/11)*x^(-0.2320508075688773?),
+            x^2.232050807568878? - (-4/11*a)*x^3.232050807568878?]
 
             sage: ((27*x^2+4*x)*Dx^2 + (54*x+6)*Dx + 6).local_basis_expansions(0, 2)
             [x^(-1/2) + 3/8*x^(1/2), 1 - x]
@@ -3114,6 +3114,8 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
           target accuracy
         - ``post_transform`` (default: identity) - differential operator to be
           applied to the solutions, see examples below
+        - see :class:`ore_algebra.analytic.context.Context` for advanced
+          options
 
         OUTPUT:
 
@@ -3303,6 +3305,8 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         - ``path`` - a path on the complex plane, specified as a list of
           vertices `z_0, \dots, z_n`
         - ``eps`` (floating-point number or ball) - target accuracy
+        - see :class:`ore_algebra.analytic.context.Context` for advanced
+          options
 
         OUTPUT:
 

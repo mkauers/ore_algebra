@@ -29,8 +29,16 @@ from sage.rings.complex_interval_field import ComplexIntervalField
 from sage.rings.number_field.number_field import (NumberField,
         NumberField_quadratic, is_NumberField)
 from sage.rings.number_field.number_field_element import NumberFieldElement
+from sage.rings.number_field.number_field_element_quadratic import NumberFieldElement_quadratic
 from sage.rings.polynomial.complex_roots import complex_roots
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
+from sage.rings.qqbar import (qq_generator, AlgebraicGenerator, AlgebraicNumber,
+                              ANExtensionElement, ANRoot)
+from sage.rings.rational import Rational
+from sage.structure.coerce_exceptions import CoercionException
+from sage.structure.element import coercion_model
+from sage.structure.sequence import Sequence
+
 from sage.matrix.matrix_dense import Matrix_dense
 from sage.matrix.constructor import matrix
 from sage.modules.free_module_element import vector, FreeModuleElement_generic_dense
@@ -46,9 +54,6 @@ from .complex_optimistic_field import ComplexOptimisticField
 
 from ore_algebra.ideal import uncouple, solve_triangular_system
 from ore_algebra.tools import clear_denominators
-from sage.rings.rational import Rational
-from sage.structure.coerce_exceptions import CoercionException
-from sage.structure.element import coercion_model
 
 ######################################################################
 # Timing
@@ -109,29 +114,41 @@ def qqbar_to_cbf(tgt, elt):
 # Number fields and orders
 ################################################################################
 
-def good_number_field(nf):
-    if isinstance(nf, NumberField_quadratic):
-        # avoid denominators in the representation of elements
-        disc = nf.discriminant()
-        if disc % 4 == 1:
-            nf, _, hom = nf.change_generator(nf(nf.discriminant()).sqrt())
-            return nf, hom
-    return nf, nf.hom(nf)
+def internal_denominator(a):
+    r"""
+    TESTS::
+
+        sage: from ore_algebra import OreAlgebra
+        sage: Dx = OreAlgebra(PolynomialRing(QQ, 'x'), 'Dx').gen()
+        sage: from ore_algebra.analytic.utilities import internal_denominator
+        sage: K.<a> = QuadraticField(1/27)
+        sage: internal_denominator(a)
+        9
+        sage: (Dx - a).local_basis_expansions(0)
+        [1 + a*x + 1/54*x^2 + 1/162*a*x^3]
+    """
+    if isinstance(a, NumberFieldElement_quadratic):
+        # return the denominator in the internal representation based on √disc
+        return a.__reduce__()[-1][-1]
+    else:
+        return a.denominator()
 
 def as_embedded_number_field_elements(algs):
-    try:
-        nf, elts, _ = number_field_elements_from_algebraics(algs, embedded=True,
-                                                            minimal=True)
-    except NotImplementedError: # compatibility with Sage <= 9.3
-        nf, elts, emb = number_field_elements_from_algebraics(algs)
-        if nf is not QQ:
-            nf = NumberField(nf.polynomial(), nf.variable_name(),
-                        embedding=emb(nf.gen()))
-            elts = [elt.polynomial()(nf.gen()) for elt in elts]
-        nf, hom = good_number_field(nf)
-        elts = [hom(elt) for elt in elts]
-        assert [QQbar.coerce(elt) == alg for alg, elt in zip(algs, elts)]
-    return nf, elts
+    # Adapted (in part) from sage's number_field_elements_from algebraics(),
+    # because the latter loses too much time trying to detect if the numbers are
+    # real.
+    gen = qq_generator
+    algs = [QQbar.coerce(a) for a in algs]
+    for a in algs:
+        a.simplify()
+        gen = gen.union(a._exact_field())
+    nf = gen._field
+    if nf is not QQ:
+        gen_emb = AlgebraicNumber(ANExtensionElement(gen, nf.gen()))
+        nf = NumberField(nf.polynomial(), nf.variable_name(),
+                         embedding=gen_emb)
+        algs = [gen(a._exact_value()).polynomial()(nf.gen()) for a in algs]
+    return nf, algs
 
 def as_embedded_number_field_element(alg):
     return as_embedded_number_field_elements([alg])[1][0]
@@ -164,7 +181,6 @@ def number_field_with_integer_gen(K):
         intNF = NumberField(intgen.minpoly(), "x" + str(den) + str(K.gen()),
                             embedding=embgen)
         assert intNF != K
-    intNF, _ = good_number_field(intNF)
     # Work around weaknesses in coercions involving order elements,
     # including #14982 (fixed). Used to trigger #14989 (fixed).
     #return intNF, intNF.order(intNF.gen())
@@ -199,23 +215,40 @@ def extend_scalars(Scalars, *pts):
         # Largely redundant with the other branch, but may do a better job
         # in some cases, e.g. pushout(QQ, QQ(α)), where as_enf_elts() would
         # invent new generator names.
-        NF0 = coercion_model.common_parent(Scalars, *pts)
-        if not is_NumberField(NF0):
+        NF = coercion_model.common_parent(Scalars, *pts)
+        if not is_NumberField(NF):
             raise CoercionException
-        NF, hom = good_number_field(NF0)
-        gen1 = hom(NF0.coerce(gen))
-        pts1 = tuple(hom(NF0.coerce(pt)) for pt in pts)
+        gen1 = NF.coerce(gen)
+        pts1 = tuple(NF.coerce(pt) for pt in pts)
     except (CoercionException, TypeError):
         NF, val1 = as_embedded_number_field_elements((gen,)+pts)
         gen1, pts1 = val1[0], tuple(val1[1:])
     hom = Scalars.hom([gen1], codomain=NF)
     return (hom,) + pts1
 
+def my_sequence(points):
+    try:
+        universe = coercion_model.common_parent(*points)
+    except TypeError:
+        universe, points = as_embedded_number_field_elements(
+                                            [QQbar.coerce(pt) for pt in points])
+    return Sequence(points, universe=universe)
+
 ######################################################################
 # Algebraic numbers
 ######################################################################
 
 class PolynomialRoot:
+    r"""
+    Root of an irreducible polynomial over a number field
+
+    This class provides an ad hoc representation of algebraic numbers that
+    allows us to perform some simple operations more efficiently than by using
+    Sage's algebraic numbers or number field elements.
+
+    It is mainly intended for cases where one manipulates all the roots of a
+    given irreducible polynomial--typically singularities and local exponents.
+    """
 
     def __init__(self, pol, all_roots, index):
         assert pol.is_monic()
@@ -253,7 +286,14 @@ class PolynomialRoot:
 
     @cached_method
     def as_algebraic(self):
-        return QQbar.polynomial_root(self.pol, self.all_roots[self.index])
+        if self.pol.base_ring() is QQ:
+            # bypass ANRoot.exactify()
+            nf = NumberField(self.pol, 'a', check=False)
+            rt = ANRoot(self.pol, self.all_roots[self.index])
+            gen = AlgebraicGenerator(nf, rt)
+            return AlgebraicNumber(ANExtensionElement(gen, nf.gen()))
+        else:
+            return QQbar.polynomial_root(self.pol, self.all_roots[self.index])
 
     def _algebraic_(self, field):
         return field(self.as_algebraic())
@@ -262,18 +302,17 @@ class PolynomialRoot:
     def as_number_field_element(self):
         if self.pol.degree() == 1:
             val = -self.pol[0]
-            if val.is_rational():
+            if val.parent() is QQ or val in QQ:
                 val = QQ(val)
-            else:
-                _, hom = good_number_field(val.parent())
-                val = hom(val)
             return val
         return as_embedded_number_field_element(self.as_algebraic())
 
+    @cached_method
     def as_exact(self):
         if self.pol.degree() == 1:
             a = self.as_number_field_element()
-            if isinstance(a.parent(), NumberField_quadratic):
+            parent = a.parent()
+            if parent is QQ or isinstance(parent, NumberField_quadratic):
                 return a
         return self.as_algebraic()
 

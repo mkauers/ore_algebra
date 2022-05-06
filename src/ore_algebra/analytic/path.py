@@ -32,7 +32,6 @@ from sage.structure.sage_object import SageObject
 
 from . import utilities
 
-from .accuracy import IR, IC
 from .context import dctx
 from .deform import PathDeformer, PathDeformationFailed
 from .differential_operator import DifferentialOperator
@@ -43,6 +42,7 @@ from .utilities import *
 logger = logging.getLogger(__name__)
 
 QQi = number_field.QuadraticField(-1, 'i')
+IR, IC = RBF, CBF
 
 class PathPrecisionError(Exception):
     pass
@@ -70,6 +70,42 @@ class Point(SageObject):
         - ``singular``: can be set to True to force this point to be considered
           a singular point, even if this cannot be checked (e.g. because we only
           have an enclosure)
+
+        EXAMPLES::
+
+        The handling of `RealLiteral`s can be confusing::
+
+            sage: from ore_algebra.analytic.examples.misc import pichon1_dop as dop
+            sage: lit = 0.14521345101433106 - 0.1393025865960824*I
+            sage: dop.numerical_transition_matrix([-1, lit], eps=2^(-100))[0,0]
+            [4.1258139030954317085986778073...] + [-1.3139743385825164244545395830...]*I
+
+        The previous example is interpreted as::
+
+            sage: lit.parent()
+            Complex Field with 54 bits of precision
+            sage: ex = lit.real().exact_rational() + lit.imag().exact_rational()*i
+            sage: dop.numerical_transition_matrix([-1, ex], eps=2^(-100))[0,0]
+            [4.125813903095431708598677807377 +/- 1.20e-31] + [-1.313974338582516424454539583070 +/- 5.33e-31]*I
+
+        not::
+
+            sage: dop.numerical_transition_matrix([-1, CC(lit)], eps=2^(-100))[0,0]
+            [4.1258139030954311076462933295...] + [-1.3139743385825171707694431803...]*I
+
+        or::
+
+            sage: dec = 14521345101433106/10^17 - 1393025865960824/10^16*I
+            sage: RealField(100)(dec.real()), RealField(100)(dec.imag())
+            (0.14521345101433106000000000000, -0.13930258659608240000000000000)
+            sage: dop.numerical_transition_matrix([-1, dec], eps=2^(-100))[0,0]
+            [4.125813903095431747118520383156 +/- 4.95e-31] + [-1.313974338582516650825691744162 +/- 1.67e-31]*I
+
+        or::
+
+            sage: ex1 = RR(lit.real()).exact_rational() + RR(lit.imag()).exact_rational()*i
+            sage: dop.numerical_transition_matrix([-1, ex1], eps=2^(-100))[0,0]
+            [4.1258139030954311076462933295...] + [-1.3139743385825171707694431803...]*I
 
         TESTS::
 
@@ -109,8 +145,7 @@ class Point(SageObject):
         elif isinstance(parent, (RealBallField, ComplexBallField)):
             self.value = point
         elif isinstance(parent, number_field_base.NumberField):
-            _, hom = good_number_field(point.parent())
-            self.value = hom(point)
+            self.value = point
         elif QQ.has_coerce_map_from(parent):
             self.value = QQ.coerce(point)
         elif QQbar.has_coerce_map_from(parent):
@@ -201,7 +236,7 @@ class Point(SageObject):
         if isinstance(self.value, (RealBall, ComplexBall)):
             return self.value.nbits()
         else:
-            res = self.value.denominator().nbits()
+            res = utilities.internal_denominator(self.value).nbits()
             res += max(self.value.numerator().real().numerator().nbits(),
                         self.value.numerator().imag().numerator().nbits())
             return res
@@ -307,6 +342,24 @@ class Point(SageObject):
                                         rings.NumberFieldElement))
                 or isinstance(self.value, (RealBall, ComplexBall))
                     and self.value.is_exact())
+
+    def accuracy(self):
+        r"""
+        How accurately one can evaluate this point.
+
+        Note that lazy constants are inexact in the sense of the is_exact()
+        method, but infinitely accurate.
+        """
+        if isinstance(self.value, (RealBall, ComplexBall)):
+            return self.value.accuracy()
+        else:
+            return IR.maximal_accuracy()
+
+    def rad(self):
+        if isinstance(self.value, (RealBall, ComplexBall)):
+            return self.value.rad()
+        else:
+            return IR.zero().rad()
 
     def rationalize(self):
         a = self.iv()
@@ -525,73 +578,6 @@ class Point(SageObject):
                 return Point(self.value.trim().squash(), self.dop)
         return self
 
-class EvaluationPoint(object):
-    r"""
-    Series evaluation point(s)/jet(s).
-
-    A tuple of elements of the same ring (complex numbers, polynomial
-    indeterminates, perhaps someday a matrices) where to evaluate the partial
-    sum of a series, along with a “jet order” used to compute derivatives and a
-    bound on the norm of the mathematical quantity it represents that can be
-    used to bound the truncation error.
-
-    * ``branch`` - branch of the logarithm to use; ``(0,)`` means the standard
-      branch, ``(k,)`` means log(z) + 2kπi, a tuple of length > 1 averages over
-      the corresponding branches
-    """
-
-    # XXX: choose a single place to set the default value for jet_order
-    def __init__(self, pts, jet_order=1, rad=None ):
-        pts = pts if isinstance(pts, tuple) else (pts,) # bwd compat
-        # This is mainly to catch cases where the parents are number fields that
-        # differ only in variable names, maybe also ball fields with different
-        # precisions. A downside of coercing to a common parent is that we may
-        # end up working in a larger extension than necessary if the evaluation
-        # points are algebraic numbers belonging to different extensions;
-        # however, algebraic numbers are mainly useful for evaluations at
-        # singularities and therefore should typically appear only in
-        # "expansion" position.
-        try:
-            self.parent = coercion_model.common_parent(*pts)
-            self.pts = tuple(self.parent.coerce(pt) for pt in pts)
-        except TypeError: # sigh...
-            self.parent, self.pts = as_embedded_number_field_elements(
-                list(QQbar.coerce(pt) for pt in pts))
-            self.pts = tuple(self.pts)
-
-        self.rad = max(IC(pt).above_abs() for pt in pts) if rad is None else rad
-        self.jet_order = jet_order
-
-        self.is_numeric = is_numeric_parent(self.parent)
-        self.is_real_or_symbolic = (is_real_parent(self.parent)
-                                    or not self.is_numeric)
-        self.accuracy = self._accuracy()
-
-    @lazy_attribute
-    def pt(self): # bwd compat
-        assert len(self.pts) == 1
-        return self.pts[0]
-
-    def __repr__(self):
-        fmt = "{} + η + O(η^{}) (with |.| ≤ {})"
-        return fmt.format(self.pts, self.jet_order + 1, self.rad)
-
-    def jets(self, Intervals):
-        base_ring = (Intervals if self.is_numeric
-                     else mypushout(self.parent, Intervals))
-        Jets = PolynomialRing(base_ring, 'delta')
-        jets = tuple(Jets([pt, 1]).truncate(self.jet_order)
-                     for pt in self.pts)
-        return Jets, jets
-
-    def _accuracy(self):
-        if self.parent.is_exact():
-            return IR.maximal_accuracy()
-        elif isinstance(self.parent, (RealBallField, ComplexBallField)):
-            return min(pt.accuracy() for pt in self.pts) # debatable
-        else:
-            raise ValueError
-
 ######################################################################
 # Paths
 ######################################################################
@@ -686,6 +672,9 @@ class Step(SageObject):
         else:
             raise IndexError
 
+    def is_real(self):
+        return self.start.is_real() and self.end.is_real()
+
     def is_exact(self):
         return self.start.is_exact() and self.end.is_exact()
 
@@ -697,7 +686,47 @@ class Step(SageObject):
                 return d0*d1
         return max(d0, d1)
 
+    def _fast_coerce(self):
+        P0 = self.start.value.parent()
+        P1 = self.end.value.parent()
+        if P0 is P1 or P0 is QQ or P1 is QQ:
+            return True
+        elif isinstance(P0, number_field_base.NumberField):
+            return False
+        elif isinstance(P1, number_field_base.NumberField):
+            return False
+        return P0.has_coerce_map_from(P1) or P1.has_coerce_map_from(P0)
+
+    def is_trivial(self):
+        return self._fast_coerce() and self.start.value == self.end.value
+
+    @cached_method
     def delta(self):
+        r"""
+        Return the value of the increment, as an exact number if possible.
+        """
+        try:
+            z0 = self.start.exact().value
+            z1 = self.end.exact().value
+        except ValueError:
+            # no point in exactifying only one of the endpoints
+            z0 = self.start.value
+            z1 = self.end.value
+        try:
+            d = z1 - z0
+        except TypeError:
+            _, (z0, z1) = as_embedded_number_field_elements((z0, z1))
+            d = z1 - z0
+        # When z0, z1 are number field elements, we want another number
+        # field element, not an element of QQbar or AA (even though z1-z0
+        # may succeed and return such an element).
+        if d.parent() is z0.parent() or d.parent() is z1.parent():
+            return d
+        else:
+            return as_embedded_number_field_element(d)
+        assert False
+
+    def approx_delta(self, Tgt):
         r"""
         TESTS::
 
@@ -707,41 +736,25 @@ class Step(SageObject):
             [2.71828182845904...]
         """
         z0, z1 = self.start.value, self.end.value
-        if z0.parent() is z1.parent():
-            return z1 - z0
-        elif (isinstance(z0, (RealBall, ComplexBall))
-                and isinstance(z1, (RealBall, ComplexBall))):
-            p0, p1 = z0.parent().precision(), z1.parent().precision()
-            real = isinstance(z0, RealBall) and isinstance(z1, RealBall)
-            Tgt = (RealBallField if real else ComplexBallField)(max(p0, p1))
-            return Tgt(z1) - Tgt(z0)
-        else:
-            if self.start.is_exact():
-                z0 = self.start.exact().value
-            if self.end.is_exact():
-                z1 = self.end.exact().value
-            try:
-                d = z1 - z0
-            except TypeError:
-                _, (z0, z1) = as_embedded_number_field_elements((z0, z1))
-                d = z1 - z0
-            # When z0, z1 are number field elements, we want another number
-            # field element, not an element of QQbar or AA (even though z1-z0
-            # may succeed and return such an element).
-            if d.parent() is z0.parent() or d.parent() is z1.parent():
-                return d
-            else:
-                return as_embedded_number_field_element(d)
-
-    def evpt(self, order):
-        return EvaluationPoint(self.delta(), order)
+        if self._fast_coerce():
+            return Tgt(self.delta())
+        P = Tgt
+        while True:
+            delta = P(z1) - P(z0)
+            if (delta.accuracy() >= 7*Tgt.precision()//8
+                    or delta.rad() <= 2*(self.start.rad() + self.end.rad())):
+                return Tgt(delta)
+            P = type(P)(2*P.precision())
 
     def direction(self):
-        delta = self.end.iv() - self.start.iv()
+        delta = self.approx_delta(IC)
         return delta/abs(delta)
 
     def length(self):
-        return IC(self.delta()).abs()
+        return abs(self.approx_delta(IC))
+
+    def accuracy(self):
+        return min(self.start.accuracy(), self.end.accuracy())
 
     def prec(self, tgt_prec):
         r"""
@@ -754,9 +767,6 @@ class Step(SageObject):
             return ZZ(sys.maxsize)
         else:
             return -ZZ(len.log(2).upper().ceil())
-
-    def cvg_ratio(self):
-        return self.length()/self.start.dist_to_sing()
 
     def split(self):
         # Ensure that the substeps correspond to convergent series when
@@ -1131,15 +1141,15 @@ class Path(SageObject):
         Thanks to Eric Pichon for this example where subdivision used to fail::
 
             sage: from ore_algebra.analytic.examples.misc import pichon1_dop as dop
-            sage: step = [-1, 0.14521345101433106 - 0.1393025865960824*I]
+            sage: step = [-1, 14521345101433106/10^17 - 1393025865960824/10^16*I]
             sage: dop.numerical_transition_matrix(step, eps=2^(-100))[0,0]
-            [4.1258139030954317085986778073...] + [-1.3139743385825164244545395830...]*I
+            [4.1258139030954317471185203831...] + [-1.3139743385825166508256917441...]*I
 
         ...and for this one, showing that step subdivision could silently change
         the homotopy class of the path, leading to incorrect results::
 
-            sage: l = [0, -0.05*I, -0.6-0.05*I, -0.8-0.05*I, -0.7-0.1*I,
-            ....:      -0.6-0.05*I, -0.05*I, 0]
+            sage: l = [0, -5/100*I, -6/10-5/100*I, -8/10-5/100*I, -7/10-1/10*I,
+            ....:      -6/10-5/100*I, -5/100*I, 0]
             sage: dop.numerical_transition_matrix(l + list(reversed(l)))
             [[1.000000000...] + [+/- ...]*I        [+/- ...] + [+/- ...]*I]
             [       [+/- ...] + [+/- ...]*I   [1.0000000...] + [+/- ...]*I]
@@ -1480,3 +1490,110 @@ def _rationalize(civ, real=False):
     else:
         return QQi([my_RIF(civ.real()).simplest_rational(),
                     my_RIF(civ.imag()).simplest_rational()])
+
+######################################################################
+# Evaluation Points
+######################################################################
+
+class EvaluationPoint_base:
+    r"""
+    Series evaluation point(s)/jet(s).
+
+    A tuple of elements (complex numbers, polynomial indeterminates, perhaps
+    someday matrices) on which to evaluate the partial sum of a series, along
+    with a “jet order” used to compute derivatives and a bound on the norm of
+    the mathematical quantity it represents that can be used to bound the
+    truncation error.
+    """
+
+    def __repr__(self):
+        fmt = "{} + η + O(η^{}) (with |.| ≤ {})"
+        return fmt.format(self._points, self.jet_order + 1, self.rad)
+
+    def __len__(self):
+        return len(self._points)
+
+    def __getitem__(self, i):
+        return self._points[i]
+
+    def jets(self, Intervals):
+        points = [self.approx(Intervals, i) for i in range(len(self))]
+        Jets = PolynomialRing(points[0].parent(), 'delta')
+        jets = tuple(Jets([pt, 1]).truncate(self.jet_order)
+                     for pt in points)
+        return Jets, jets
+
+class EvaluationPoint_step(EvaluationPoint_base):
+    r"""
+    Main variant, intended for evaluation points derived from analytic
+    continuation paths. Supports lazy exact/interval evaluation of the point.
+    """
+
+    def __init__(self, steps, jet_order):
+        self._points = steps
+        self.jet_order = jet_order
+        self.rad = max(step.length().above_abs() for step in steps)
+        self.is_numeric = True
+        self.is_real_or_symbolic = all(step.is_real() for step in steps)
+        self.accuracy = min(step.accuracy() for step in steps)
+
+    def __getitem__(self, i):
+        return self._points[i].delta()
+
+    def approx(self, Intervals, i):
+        return self._points[i].approx_delta(Intervals)
+
+class EvaluationPoint_symbolic(EvaluationPoint_base):
+    r"""
+    Intended for polynomial indeterminates and similar objects.
+    """
+
+    def __init__(self, points, jet_order, rad):
+        self._points = points
+        self.jet_order = jet_order
+        self.rad = rad
+        self.is_numeric = False
+        self.is_real_or_symbolic = True
+        assert all(point.parent().is_exact() for point in points)
+        self.accuracy = IR.maximal_accuracy()
+
+    def approx(self, Intervals, i):
+        return self._points[i] + Intervals.zero()
+
+class EvaluationPoint_numeric(EvaluationPoint_base):
+    r"""
+    Intended for use by naive_sum.series_sum and manual calls to functions
+    taking EvaluationPoints as input.
+    """
+    # XXX test
+
+    def __init__(self, points, jet_order=1, rad=None):
+        self._points = points
+        self.jet_order = jet_order
+        if rad is not None:
+            self.rad = rad
+        else:
+            self.rad = max(IC(pt).above_abs() for pt in self._points)
+        self.is_numeric = True
+        self.is_real_or_symbolic = all(is_real_parent(pt.parent())
+                                       for pt in self._points)
+        self.accuracy = IR.maximal_accuracy()
+        for pt in self._points:
+            try:
+                self.accuracy = min(self.accuracy, pt.accuracy())
+            except AttributeError:
+                pass
+
+    def approx(self, Intervals, i):
+        return Intervals(self._points[i])
+
+def EvaluationPoint(points, jet_order=1, rad=None):
+    if isinstance(points, (list, tuple)):
+        points = tuple(points)
+    else:
+        points = (points,)
+
+    if all(is_numeric_parent(pt.parent()) for pt in points):
+        return EvaluationPoint_numeric(points, jet_order=jet_order, rad=rad)
+    else:
+        return EvaluationPoint_symbolic(points, jet_order=jet_order, rad=rad)

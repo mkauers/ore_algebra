@@ -253,6 +253,7 @@ from sage.modules.free_module_element import vector
 from sage.rings.all import ZZ, QQ, RLF, CLF, RealBallField, ComplexBallField
 from sage.rings.number_field.number_field import is_NumberField, NumberField
 from sage.structure.coerce_exceptions import CoercionException
+from sage.structure.sequence import Sequence
 
 from sage.rings.complex_arb import ComplexBall
 
@@ -649,7 +650,7 @@ class SolutionColumn(object):
             sums_row[-1][:0] = zeros
         self.v.ord_log += m - z
 
-    def normalized_residual(self, maj, abstract_alg, alg, n):
+    def normalized_residual(self, maj, abstract_alg, alg, n, IC):
         r"""
         Compute the normalized residual associated with the fundamental
         solution.
@@ -669,8 +670,6 @@ class SolutionColumn(object):
 
         assert alg == maj.leftmost
 
-        IC = bounds.IC
-
         # Specialize abstract algebraic exponent
         alg_to_IC = _specialization_map(self.v.rec_mat.base_ring().base_ring(),
                                         IC, abstract_alg,
@@ -689,7 +688,7 @@ class SolutionColumn(object):
         Compute the numerical value of the partial sum at the evaluation point
         of index i
         """
-        assert 0 <= i < len(evpts.pts) == len(self.v.sums_row)
+        assert 0 <= i < len(evpts) == len(self.v.sums_row)
         # Extract the (abstract numerator of) series part
         op_k = self.v.sums_row[i][-1] # K[λ][δ][Sk]
         numer = list(reversed(op_k))
@@ -705,21 +704,21 @@ class SolutionColumn(object):
                      for ser in numer])
         assert self.v.ord_diff == evpts.jet_order
         [val] = log_series_values(Jets, alg.as_number_field_element() + shift,
-                                  val, evpts.pts[i], evpts.jet_order,
-                                  evpts.is_numeric)
+                                  val, evpts.approx(Scalars, i),
+                                  evpts.jet_order, evpts.is_numeric)
         return val
 
-    def error_estimate(self):
-        def IC_est(c):
+    def error_estimate(self, IR):
+        def IC_est(c, IC=IR.complex_field()):
             try:
-                return bounds.IC(c) # arb, QQ
+                return IC(c) # arb, QQ
             except TypeError:
-                return bounds.IC(c[0]) # NF, would work for QQ
-        zero = bounds.IR.zero()
+                return IC(c[0]) # NF, would work for QQ
+        zero = IR.zero()
         num1 = max([zero] + [abs(IC_est(m[-1, -1])) for m in self.v.rec_mat])
         # We use the first evaluation point only. Debatable.
         num2 = sum(abs(IC_est(a)) for a in self.v.pow_num[0])
-        den = abs(IC_est(self.v.rec_den))*bounds.IR(self.v.pow_den[0])
+        den = abs(IC_est(self.v.rec_den))*IR(self.v.pow_den[0])
         return num1*num2/den
 
 class MatrixRec(object):
@@ -811,15 +810,14 @@ class MatrixRec(object):
         self.singular_indices = singular_indices
 
         # Choose computation domains
-        E = evpts.parent
         deq_Scalars = dop.base_ring().base_ring()
-        assert deq_Scalars is E or deq_Scalars != E
         # Sets self.AlgInts_{rec,pow,sums}, self.pow_{num,den} (pow_num will be
         # modified later), and self.shift.
-        self.npoints = len(evpts.pts)
+        self.npoints = len(evpts)
         self.pow_num = [None]*self.npoints
         self.pow_den = [None]*self.npoints
-        if _can_use_CBF(E, deq_Scalars, shift.parent()):
+        point_parents = tuple(pt.parent() for pt in evpts)
+        if _can_use_CBF(deq_Scalars, shift.parent(), *point_parents):
             # Work with arb balls and matrices, when possible with entries in ZZ
             # or ZZ[i]. Round the entries that are larger than the target
             # precision (+ some guard digits) in the upper levels of the tree.
@@ -831,17 +829,18 @@ class MatrixRec(object):
             h = dop._naive_height()
             rs = dop.degree()*dop.order()
             wp = max(prec, h*ZZ(rs).nbits()) + (rs + 2)*(ZZ(prec).nbits() + 8)
-            self._init_CBF(deq_Scalars, shift, E, evpts.pts, wp)
+            self._init_CBF(deq_Scalars, shift, evpts, point_parents, wp)
         else:
+            pts = utilities.my_sequence(evpts)
             try:
-                self._init_generic(deq_Scalars, shift, E, evpts.pts)
+                self._init_generic(deq_Scalars, shift, pts)
             except CoercionException:
                 # Not great, but allows us to handle a few combination of
                 # algebraic points that we couldn't otherwise...
-                dop, shift, *pts = dop.extend_scalars(shift, *evpts.pts)
+                dop, shift, *pts = dop.extend_scalars(shift, *pts)
                 deq_Scalars = dop.base_ring().base_ring()
-                E = pts[0].parent()
-                self._init_generic(deq_Scalars, shift, E, pts)
+                pts = Sequence(pts, universe=deq_Scalars)
+                self._init_generic(deq_Scalars, shift, pts)
 
         bwrec = bw_shift_rec(dop, shift=self.shift)
         # Also store an exact version of the leading coefficient to be able to
@@ -881,7 +880,7 @@ class MatrixRec(object):
                for _ in range(self.ordrec)] for _ in range(self.npoints)]
         return zero, row
 
-    def _init_CBF(self, deq_Scalars, shift, E, pts, prec):
+    def _init_CBF(self, deq_Scalars, shift, evpts, point_parents, prec):
         try:
             from . import binary_splitting_arb
             self.StepMatrix_class = binary_splitting_arb.StepMatrix_arb
@@ -889,13 +888,13 @@ class MatrixRec(object):
             logger.warning("Cython implementation unavailable, "
                            "falling back to slower Python implementation")
             self.StepMatrix_class = StepMatrix_arb
-        if _can_use_RBF(E, deq_Scalars, shift):
+        if _can_use_RBF(deq_Scalars, shift, *point_parents):
             dom = RealBallField(prec)
         else:
             dom = ComplexBallField(prec)
-        for i, pt in enumerate(pts):
-            if is_NumberField(E):
-                den = pt.denominator()
+        for i, pt in enumerate(evpts):
+            if is_NumberField(pt.parent()):
+                den = utilities.internal_denominator(pt)
                 self.pow_num[i] = dom(den*pt) # mul must be exact
                 self.pow_den[i] = dom(den)
             else:
@@ -906,15 +905,17 @@ class MatrixRec(object):
         self.shift = shift
         self.AlgInts_rec = self.AlgInts_pow = self.AlgInts_sums = dom
 
-    def _init_generic(self, deq_Scalars, shift, E, pts):
+    def _init_generic(self, deq_Scalars, shift, pts):
         self.StepMatrix_class = StepMatrix_generic
 
+        E = pts.universe()
+        assert deq_Scalars is E or deq_Scalars != E
         if is_NumberField(E): # includes QQ
             # In fact we should probably do something similar for pts in any
             # finite-dimensional Q-algebra. (But how?)
             NF_pow, AlgInts_pow = utilities.number_field_with_integer_gen(E)
             for i, pt in enumerate(pts):
-                self.pow_den[i] = NF_pow(pt).denominator()
+                self.pow_den[i] = utilities.internal_denominator(NF_pow(pt))
                 self.pow_num[i] = self.pow_den[i]*pt
         else:
             # This includes the case E = ZZ, but pts could live in pretty
@@ -982,7 +983,7 @@ class MatrixRec(object):
 
         # Returns a polynomial in the wrong variable (but that's ok)
         invlc = self.exact_lc.eval_inv_lc_series(n, ord_log + mult, mult)
-        den = invlc.denominator()
+        den = utilities.internal_denominator(invlc)
         invlc = den*invlc
         invlc = self.Pols_rec.element_class(self.Pols_rec,
                 [self.AlgInts_rec(a) for a in invlc], check=False)
@@ -1093,7 +1094,8 @@ class MatrixRecsUnroller(LocalBasisMapper):
         # Majorants
         maj = {rt: bounds.DiffOpBound(self.dop, rt, self.shifts,
                                       bound_inverse="solve",
-                                      ind_roots=self.all_roots)
+                                      ind_roots=self.all_roots,
+                                      ctx=self.ctx)
                for rt in self.roots}
 
         wrapper = bounds.MultiDiffOpBound(maj.values())
@@ -1109,7 +1111,8 @@ class MatrixRecsUnroller(LocalBasisMapper):
                                                                     self.shifts)
                 return {(rt, sol.shift, sol.log_power):
                         sol.value.normalized_residual(maj[rt], self.leftmost,
-                                                      rt, self.shift)
+                                                      rt, self.shift,
+                                                      self.ctx.IC)
                         for rt in self.roots
                         for sol in self.irred_factor_cols}
             def get_bound(_, residuals):
@@ -1127,7 +1130,7 @@ class MatrixRecsUnroller(LocalBasisMapper):
                 pessimistic enclosures or unnecessary computations in some
                 cases.
                 """
-                sqbound = bounds.IR.zero()
+                sqbound = self.ctx.IR.zero()
                 for rt in self.roots:
                     myres = [residuals[rt,s,k] for (s,m) in self.shifts
                                                for k in range(m)]
@@ -1143,7 +1146,7 @@ class MatrixRecsUnroller(LocalBasisMapper):
         last_singular_index = max(s for s, _ in self.shifts)
         si = 0
         assert first_singular_index >= 0
-        est, tail_bound = None, bounds.IR('inf')
+        est, tail_bound = None, self.ctx.IR('inf')
         prev, done = first_singular_index, False
         ord_log = 0
         while True:
@@ -1176,7 +1179,7 @@ class MatrixRecsUnroller(LocalBasisMapper):
                 ord_log = max(sol.value.v.ord_log for sol in self.irred_factor_cols)
             # Check if we have converged
             if self.shift > last_singular_index:
-                est = max(sol.value.error_estimate()
+                est = max(sol.value.error_estimate(self.ctx.IR)
                           for sol in self.irred_factor_cols)
                 done, tail_bound = stop.check(cb, False, self.shift, tail_bound,
                                est, next_stride=self.shift-first_singular_index)
@@ -1188,6 +1191,7 @@ class MatrixRecsUnroller(LocalBasisMapper):
                 break
             prev = self.shift
         logger.info("summed %d terms, tails <= %s", self.shift, tail_bound)
+        assert tail_bound.parent() is self.ctx.IR
         # logger.debug("abstract partial sums:\n* %s",
         #         '\n* '.join(str(sol) for sol in self.irred_factor_cols))
         self.modZ_class_tail_bound = tail_bound
@@ -1204,7 +1208,7 @@ class MatrixRecsUnroller(LocalBasisMapper):
                     sol.value.partial_sum(Jets, self.evpts, i, self.leftmost,
                                           rt, sol.shift,
                                           self.modZ_class_tail_bound)
-                    for i in range(len(self.evpts.pts))])
+                    for i in range(len(self.evpts))])
             for rt in self.roots
             for sol in self.irred_factor_cols]
 
@@ -1217,7 +1221,7 @@ def fundamental_matrix_regular(dop, evpts, eps, fail_fast, effort, ctx=dctx):
     rows = evpts.jet_order
     cols = MatrixRecsUnroller(dop, evpts, eps, rows, ctx).run()
     mats = [matrix([sol.value[i] for sol in cols]).transpose()
-            for i in range(len(evpts.pts))]
+            for i in range(len(evpts))]
     return mats
 
 def _can_use_CBF(*doms):
