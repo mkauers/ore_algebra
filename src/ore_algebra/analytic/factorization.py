@@ -871,26 +871,28 @@ def rfactor_when_galois_algebra_is_trivial(dop, data, order, verbose=False):
     S = PowerSeriesRing(K, default_prec=order + r)
     f = dop.local_basis_expansions(QQ.zero(), order + r)[0]
     f = power_series_coerce(f, S)
-    if K==QQ:
-        v = f.valuation()
-        try:
-            R = Se(guess(f.list()[v:], dop.parent()), -v)
-            if R.order()<r and dop%R==0: return R, data
-        except ValueError: pass
-    else:
-        der = [ f.truncate() ]
-        for k in range(r - 1): der.append( der[-1].derivative() )
-        mat = matrix(r, 1, der)
-        min_basis = mat.minimal_approximant_basis(order//r)
-        rdeg = min_basis.row_degrees()
-        i0 = min(range(len(rdeg)), key = lambda i: rdeg[i])
-        #R, g = LinearDifferentialOperator(dop).extend_scalars(K.gen())
-        R = dop.parent()(list(min_basis[i0]))
-        if dop%R==0: return R, data
+    # trop de problème avec guess
+    # if K==QQ:
+    #     v = f.valuation()
+    #     try:
+    #         R = Se(guess(f.list()[v:], dop.parent()), -v)
+    #         if R.order()<r and dop%R==0: return R, data
+    #     except ValueError: pass
+    # else:
+
+    der = [ f.truncate() ]
+    for k in range(r - 1): der.append( der[-1].derivative() )
+    mat = matrix(r, 1, der)
+    min_basis = mat.minimal_approximant_basis(order//r)
+    rdeg = min_basis.row_degrees()
+    i0 = min(range(len(rdeg)), key = lambda i: rdeg[i])
+    #R, g = LinearDifferentialOperator(dop).extend_scalars(K.gen())
+    R = dop.parent()(list(min_basis[i0]))
+    if dop%R==0: return R, data
 
     order =  order<<1
     data = maj(data, [None, order, None, None])
-    return rfactor_when_galois_algebra_is_trivial(dop, order, verbose)
+    return rfactor_when_galois_algebra_is_trivial(dop, data, order, verbose)
 
 
 def _rfactor(dop, data, order=None, bound=None, alg_degree=None, precision=None, loss=0, verbose=False):
