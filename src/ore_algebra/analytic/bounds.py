@@ -405,7 +405,7 @@ class RationalMajorant(MajorantSeries):
         res = Pol.zero()
         for num, den_facto in self.fracs:
             den = prod((lin**mult for lin, mult in den_facto), Pol.one()) #slow
-            res += num._mul_trunc_(den.inverse_series_trunc(ord), ord)
+            res += Pol(num)._mul_trunc_(den.inverse_series_trunc(ord), ord)
         return res
 
     def __mul__(self, pol):
