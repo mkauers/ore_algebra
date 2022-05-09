@@ -14,41 +14,91 @@ Analytic continuation contexts
 
 import pprint
 
+from sage.rings.real_arb import RealBallField
+
 class Context(object):
+    r"""
+    Analytic continuation context
 
-    def __init__(self, dop=None, path=None, eps=None, *,
-            algorithm=None,
-            assume_analytic=False,
-            force_algorithm=False,
-            squash_intervals=False,
-            deform=False,
-            two_point_mode=None,
-            binsplit_thr=128,
-            bit_burst_thr=32,
-            simple_approx_thr=64,
-            recorder=None,
-        ):
-        r"""
-        Analytic continuation context
+    Options:
 
-        Options:
+    - ``algorithm`` (string) -- Which algorithm to try first for computing sums
+      of local expansions. Unless ``force_algorithm`` is set to ``True``, the
+      computation may still use other methods. Supported values: ``"naive"``
+      (direct summation), ``"binsplit"`` (binary splitting).
 
-        * ``deform`` -- Whether to attempt to automatically deform the analytic
-          continuation path into a faster one. Enabling this should result in
-          significantly faster integration for problems with many
-          singularities, especially at high precision. It may be slower in
-          simple cases, though.
+    - ``assume_analytic`` (boolean) -- When ``True``, assume that the
+      solution(s) of interest of the equation being solved are analytic at any
+      singular point of the operator lying on the path (excluding the
+      endpoints). The solver is then allowed to make any transformation (such as
+      deforming the path) that preserves the values of solutions satisfying this
+      assumption.
 
-        * ``recorder`` -- An object that will be used to record various
-          intermediate results for debugging and analysis purposes. At the
-          moment recording just consists in writing data to some fields of the
-          object. Look at the source code to see what fields are available;
-          define those fields as properties to process the data.
+    - ``binsplit_thr`` (int) -- Threshold used in the binary splitting algorithm
+      to determine when to use a basecase algorithm for a subproduct.
 
-        * (other options still to be documented...)
-        """
+    - ``bit_burst_thr`` (int) -- Minimal bit size to consider using bit-burst
+      steps instead of direct binary splitting.
+
+    - ``bounds_prec`` (int) -- Working precision for the computation of error
+      bounds and other internal low-precision calculations.
+
+    - ``deform`` (boolean) -- (EXPERIMENTAL) Whether to attempt to automatically
+      deform the analytic continuation path into a faster one. Enabling this
+      should result in significantly faster integration for problems with many
+      singularities, especially at high precision. It may be slower in simple
+      cases, though.
+
+    - ``force_algorithm`` (boolean) -- If ``True``, only use the algorithm
+      specified by the ``algorithm`` option.
+
+    - ``recorder`` -- An object that will be used to record various intermediate
+      results for debugging and analysis purposes. At the moment recording just
+      consists in writing data to some fields of the object. Look at the source
+      code to see what fields are available; define those fields as properties
+      to process the data.
+
+    - ``simple_approx_thr`` (int) -- Bit size above which vertices of the
+      analytic continuation path should be replaced by simpler approximations if
+      possible.
+
+    - ``squash_intervals`` (boolean) -- (EXPERIMENTAL) If ``True``, try to
+      reduce the working precision in the direct summation algorithm, at the
+      price of computing additional error bounds.
+
+    - ``two_point_mode`` (boolean) -- If ``True``, when possible, compute series
+      expansions at every second point of the integration path and evaluate each
+      expansion at two points. If ``False``, prefer evaluating each expansion at
+      the next expansion point only. (Note that the path will not be subdivided
+      in the same way in both cases, and that the presence of singular vertices
+      complicates the picture.)
+    """
+
+    def __init__(self, dop=None, path=None, eps=None, *, ctx=None, **kwds):
 
         # TODO: dop, path, eps...
+
+        if ctx is None:
+            self._set_options(**kwds)
+        else:
+            assert isinstance(ctx, Context)
+            if kwds:
+                raise ValueError("received both a Context object and keywords")
+            self.__dict__.update(ctx.__dict__)
+
+    def _set_options(self, *,
+                     algorithm=None,
+                     assume_analytic=False,
+                     binsplit_thr=128,
+                     bit_burst_thr=32,
+                     bounds_prec=53,
+                     deform=False,
+                     force_algorithm=False,
+                     recorder=None,
+                     simple_approx_thr=64,
+                     squash_intervals=False,
+                     two_point_mode=None,
+                     ):
 
         if not algorithm in [None, "naive", "binsplit"]:
             raise ValueError("algorithm", algorithm)
@@ -58,17 +108,27 @@ class Context(object):
             raise TypeError("assume_analytic", type(assume_analytic))
         self.assume_analytic = assume_analytic
 
-        if not isinstance(force_algorithm, bool):
-            raise TypeError("force_algorithm", type(force_algorithm))
-        self.force_algorithm = force_algorithm
+        self.binsplit_thr = int(binsplit_thr)
 
-        if not isinstance(squash_intervals, bool):
-            raise TypeError("squash_intervals", type(squash_intervals))
-        self.squash_intervals = squash_intervals
+        self.bit_burst_thr = int(bit_burst_thr)
+
+        self._set_interval_fields(bounds_prec)
 
         if not isinstance(deform, bool):
             raise TypeError("deform", type(deform))
         self.deform = deform
+
+        if not isinstance(force_algorithm, bool):
+            raise TypeError("force_algorithm", type(force_algorithm))
+        self.force_algorithm = force_algorithm
+
+        self.recorder = recorder
+
+        self.simple_approx_thr = int(simple_approx_thr)
+
+        if not isinstance(squash_intervals, bool):
+            raise TypeError("squash_intervals", type(squash_intervals))
+        self.squash_intervals = squash_intervals
 
         if two_point_mode is None:
             two_point_mode = not deform
@@ -78,24 +138,16 @@ class Context(object):
             raise NotImplementedError("deform == two_point_mode == True")
         self.two_point_mode = two_point_mode
 
-        self.binsplit_thr = int(binsplit_thr)
-
-        self.bit_burst_thr = int(bit_burst_thr)
-
-        self.simple_approx_thr = int(simple_approx_thr)
-
-        self.recorder = recorder
+    def _set_interval_fields(self, bounds_prec):
+        bounds_prec = int(bounds_prec)
+        self.IR = RealBallField(bounds_prec)
+        self.IC = self.IR.complex_field()
 
     def __repr__(self):
         return pprint.pformat(self.__dict__)
 
-    def __call__(self, **kwds):
-        # XXX Should check the new values, and maybe return a wrapper that
-        # shadows some attributes rather than a copy.
-        new = self.__new__(Context)
-        new.__dict__ = self.__dict__.copy()
-        new.__dict__.update(kwds)
-        return new
+    def increase_bounds_prec(self):
+        self._set_interval_fields(2*self.IR.precision())
 
     def prefer_binsplit(self):
         return self.algorithm == "binsplit"

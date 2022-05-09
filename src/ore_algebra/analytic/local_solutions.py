@@ -20,12 +20,13 @@ import collections, logging, warnings
 from itertools import chain
 
 import sage.functions.log as symbolic_log
+import sage.rings.number_field.number_field_base as number_field_base
 
 from sage.arith.all import gcd, lcm
 from sage.misc.cachefunc import cached_method
 from sage.misc.lazy_attribute import lazy_attribute
 from sage.modules.free_module_element import vector, FreeModuleElement_generic_dense
-from sage.rings.all import ZZ, QQ, AA, QQbar, RBF
+from sage.rings.all import ZZ, QQ, AA, QQbar, RBF, CBF
 from sage.rings.all import RealBallField, ComplexBallField
 from sage.rings.complex_arb import ComplexBall
 from sage.rings.integer import Integer
@@ -43,7 +44,7 @@ from sage.symbolic.constants import I
 from .. import ore_algebra
 from . import utilities
 
-from .accuracy import IC
+from .context import dctx
 from .differential_operator import DifferentialOperator
 from .shiftless import dispersion, my_shiftless_decomposition
 
@@ -70,13 +71,16 @@ def bw_shift_rec(dop, shift=None):
         shift = Scalars.zero()
     rop = Rops([p(n-ordrec+shift) for p in rop])
     # Clear denominators
-    den = lcm([p.denominator() for p in rop])
+    den = lcm(utilities.internal_denominator(c) for p in rop for c in p)
     rop = den*rop
     # Remove constant common integer factors to make the recurrence smaller
     # (NB: I also tried removing factors from ℤ[i], see the git log, but this is
     # too slow)
     if Scalars is QQ:
         g = _mygcd_ZZ(c for p in rop for c in p)
+    elif isinstance(Scalars, NumberField_quadratic):
+        # internal representation using √disc
+        g = _mygcd_ZZ(a for p in rop for c in p for a in c.parts())
     elif isinstance(Scalars, NumberField_absolute):
         g = _mygcd_ZZ(a for p in rop for c in p for a in c)
     else:
@@ -228,16 +232,28 @@ class BwShiftRec(object):
         return self.coeff[i]
 
     def shift(self, sh):
-        try:
-            Scalars = utilities.mypushout(self.Scalars, sh.parent())
-            hom = Scalars.coerce_map_from(self.Scalars)
-        except CoercionException:
-            hom, sh = utilities.extend_scalars(self.Scalars, sh)
-            Scalars = hom.codomain()
-        sh_plus_n = self.base_ring.change_ring(Scalars)([sh, 1])
-        coeff = [pol.map_coefficients(hom)(sh_plus_n) for pol in self.coeff]
-        den = lcm([p.denominator() for p in coeff])
-        return BwShiftRec([den*c for c in coeff])
+        if sh.parent() is self.Scalars:
+            if sh.is_zero():
+                return self
+            Scalars = self.Scalars
+            coeff = self.coeff
+            sh_plus_n = self.base_ring([sh, 1])
+        else:
+            try:
+                Scalars = utilities.mypushout(self.Scalars, sh.parent())
+                hom = Scalars.coerce_map_from(self.Scalars)
+            except CoercionException:
+                hom, sh = utilities.extend_scalars(self.Scalars, sh)
+                Scalars = hom.codomain()
+            coeff = [pol.map_coefficients(hom) for pol in self.coeff]
+            sh_plus_n = self.base_ring.change_ring(Scalars)([sh, 1])
+        sh_coeff = [pol(sh_plus_n) for pol in coeff]
+        if isinstance(Scalars, number_field_base.NumberField):
+            den = lcm(utilities.internal_denominator(c)
+                      for p in sh_coeff for c in p)
+            if not den.is_one():
+                sh_coeff = [den*c for c in sh_coeff]
+        return BwShiftRec(sh_coeff)
 
     @cached_method
     def shift_by_PolynomialRoot(self, sh):
@@ -424,7 +440,7 @@ class sort_key_by_asympt:
 
     def __init__(self, data):
         self.leftmost, self.shift, self.log_power, *_ = data
-        self.valuation_num = self.leftmost.as_ball(IC) + self.shift
+        self.valuation_num = self.leftmost.as_ball(CBF) + self.shift
 
     def __repr__(self):
         return f"x^({self.leftmost}+{self.shift})*log(x)^{self.log_power}"
@@ -500,8 +516,9 @@ class LocalBasisMapper(object):
     exported data and hooks is a bit ad hoc.
     """
 
-    def __init__(self, dop):
+    def __init__(self, dop, ctx=dctx):
         self.dop = dop
+        self.ctx = ctx
 
     def run(self):
         r"""
@@ -533,7 +550,7 @@ class LocalBasisMapper(object):
                 assert irred_mult == 1
                 roots = utilities.roots_of_irred(irred_factor)
                 irred_data.append((irred_factor, roots))
-                self.all_roots.extend((IC(rt) + shift, mult)
+                self.all_roots.extend((self.ctx.IC(rt) + shift, mult)
                                       for rt in roots
                                       for (shift, mult) in shifts)
             sl_data.append((sl_factor, shifts, irred_data))

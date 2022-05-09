@@ -155,7 +155,7 @@ class DFiniteFunction(object):
         # let the user impose a maximum width, even in other cases.
         self.max_rad = RBF(max_rad)
         if dop.leading_coefficient().is_constant():
-            kappa, alpha = bounds.growth_parameters(dop)
+            kappa, alpha = dop.growth_parameters()
             self.max_rad = self.max_rad.min(1/(alpha*RBF(kappa)**kappa))
         self.max_prec = max_prec
 
@@ -247,7 +247,7 @@ class DFiniteFunction(object):
                     ini, path, rad, eps, derivatives)
         polys = polapprox.doit(self.dop, ini=ini, path=path, rad=rad,
                 eps=eps, derivatives=derivatives, x_is_real=True,
-                economization=polapprox.chebyshev_economization)
+                economization=polapprox.chebyshev_economization, ctx=ctx)
         logger.info("...done")
         approx = self._polys.get(center, [])
         new_approx = []
@@ -512,7 +512,7 @@ def _tests():
 
         sage: f = DFiniteFunction((x^2 + 1)*Dx^2 + 2*x*Dx, [0, 1])
 
-        sage: [f(10^i) for i in range(-3, 4)] # long time (1.3 s)
+        sage: [f(10^i) for i in range(-3, 4)]
         [[0.0009999996666...], [0.0099996666866...], [0.0996686524911...],
         [0.7853981633974...], [1.4711276743037...], [1.5607966601082...],
         [1.5697963271282...]]

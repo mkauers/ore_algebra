@@ -501,6 +501,15 @@ Algorithm choice::
     sage: dop.numerical_transition_matrix([0,1+I,1], 1e-300, algorithm='naive')
     [[0.707...399...] + [0.707...399...]*I]
 
+Custom bound precision:
+
+    sage: (x*(x-2)*Dx - 1).numerical_solution([1], [0,i], eps=1e-100,
+    ....:         bounds_prec=256, algorithm="naive")
+    [0.5558...2340... +/- ...e-103] + [-0.8994...5953... +/- ...e-103]*I
+    sage: (x*(x-2)*Dx - 1).numerical_solution([1], [0,i], eps=1e-100,
+    ....:         bounds_prec=256, algorithm='binsplit')
+    [0.5558...2340... +/- ...e-102] + [-0.8994...5953... +/- ...e-103]*I
+
 An interesting example borrower from M. Neher (“An Enclosure Method for the
 Solution of Linear ODEs with Polynomial Coefficients”, *Numerical Functional
 Analysis and Optimization* 20, 1999, 779–803), where it is currently necessary

@@ -32,8 +32,9 @@ from sage.rings.rational_field import QQ
 
 from . import accuracy, analytic_continuation as ancont, bounds, utilities
 
+from .context import Context, dctx
 from .naive_sum import series_sum
-from .path import EvaluationPoint, Path
+from .path import EvaluationPoint_symbolic, Path
 from .safe_cmp import *
 
 def combine_radii(pol):
@@ -190,32 +191,32 @@ def chebyshev_economization(pol, eps):
 def mixed_economization(): # ?
     pass
 
-def doit(dop, ini, path, rad, eps, derivatives, economization, x_is_real):
+def doit(dop, ini, path, rad, eps, derivatives, economization, x_is_real, ctx):
 
     # Merge with analytic_continuation.analytic_continuation()???
 
     from .differential_operator import DifferentialOperator
     dop = DifferentialOperator(dop)
 
-    eps1 = bounds.IR(eps)/2
-    rad = bounds.IR(rad).above_abs()
+    eps1 = ctx.IR(eps)/2
+    rad = ctx.IR(rad).above_abs()
     path = Path(path, dop)
     center = path.vert[-1]
     center.options["store_value"] = True
     if not safe_le(rad, center.dist_to_sing()):
         raise ValueError("approximation domain too large")
 
-    sol = ancont.analytic_continuation(dop, path, eps/2, ini=ini)
+    sol = ancont.analytic_continuation(dop, path, eps/2, ini=ini, ctx=ctx)
     local_ini = sol[0]["value"]
 
     _, base, _, dop = dop._normalize_base_ring()
     x = base.change_ring(QQ).gen()
 
     local_dop = dop.shift(center)
-    evpt = EvaluationPoint(x, jet_order=derivatives, rad=rad)
+    evpt = EvaluationPoint_symbolic((x,), jet_order=derivatives, rad=rad)
     polys = series_sum(local_dop, local_ini.column(0), evpt,
-                                accuracy.AbsoluteError(eps1),
-                                stride=5)
+                       accuracy.AbsoluteError(eps1),
+                       stride=5, ctx=dctx)
 
 
     rad = polys[0].base_ring()(rad)
@@ -225,7 +226,7 @@ def doit(dop, ini, path, rad, eps, derivatives, economization, x_is_real):
 
     return new_polys
 
-def on_disk(dop, ini, path, rad, eps):
+def on_disk(dop, ini, path, rad, eps, *, ctx=dctx, **kwds):
     r"""
     Compute a polynomial approximation of a solution of ``dop`` on a complex
     disk.
@@ -266,9 +267,11 @@ def on_disk(dop, ini, path, rad, eps):
     # Always use a *complex* ball field (otherwise the error term will be
     # real even though it represents a bound on a series tail involving a
     # complex x). (TBI!)
-    return doit(dop, ini, path, rad, eps, 1, taylor_economization, False)[0]
+    ctx = Context(**kwds)
+    polys = doit(dop, ini, path, rad, eps, 1, taylor_economization, False, ctx)
+    return polys[0]
 
-def on_interval(dop, ini, path, eps, rad=None):
+def on_interval(dop, ini, path, eps, rad=None, *, ctx=dctx, **kwds):
     r"""
     Compute a polynomial approximation of a solution of ``dop`` on a segment.
 
@@ -304,6 +307,7 @@ def on_interval(dop, ini, path, eps, rad=None):
         ....:         path=[0,[-1,1]], eps=1e-8)
         sage: _test_fun_approx(pol, lambda x: RBF(CBF(x).airy_ai()), interval_rad=1)
     """
+    ctx = Context(**kwds)
     if rad is None:
         try:
             left, right = path[-1]
@@ -314,7 +318,8 @@ def on_interval(dop, ini, path, eps, rad=None):
         mypath = path[:-1] + [mid]
     else:
         mypath = path
-    return doit(dop, ini, mypath, rad, eps, 1, chebyshev_economization, True)[0]
+    return doit(dop, ini, mypath, rad, eps, 1, chebyshev_economization,
+                True, ctx)[0]
 
 def _test_fun_approx(pol, ref, disk_rad=None, interval_rad=None,
         prec=53, test_count=100):
