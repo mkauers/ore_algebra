@@ -12,6 +12,7 @@ operators.
 # http://www.gnu.org/licenses/
 
 import collections
+import tempfile
 
 from sage.rings.rational_field import QQ
 from sage.rings.integer_ring import ZZ
@@ -958,8 +959,9 @@ def profile_factor(dop, verbose=False):
     def fun():
         fac[0], data[0] = rfactor(dop, data=ProfileData(0,0,1,0), verbose=verbose)
         return
-    cProfile.runctx('fun()', None, {'fun': fun}, 'tmp_stats')
-    s = pstats.Stats('tmp_stats')
+    with tempfile.NamedTemporaryFile() as tmp_stats:
+        cProfile.runctx('fun()', None, {'fun': fun}, tmp_stats.name)
+        s = pstats.Stats(tmp_stats.name)
     if fac[0]==None:
         fac[0] = [dop]
     else:

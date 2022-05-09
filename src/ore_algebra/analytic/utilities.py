@@ -32,6 +32,13 @@ from sage.rings.number_field.number_field_element import NumberFieldElement
 from sage.rings.number_field.number_field_element_quadratic import NumberFieldElement_quadratic
 from sage.rings.polynomial.complex_roots import complex_roots
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
+from sage.rings.qqbar import (qq_generator, AlgebraicGenerator, AlgebraicNumber,
+                              ANExtensionElement, ANRoot)
+from sage.rings.rational import Rational
+from sage.structure.coerce_exceptions import CoercionException
+from sage.structure.element import coercion_model
+from sage.structure.sequence import Sequence
+
 from sage.matrix.matrix_dense import Matrix_dense
 from sage.matrix.constructor import matrix
 from sage.modules.free_module_element import vector, FreeModuleElement_generic_dense
@@ -47,12 +54,6 @@ from .complex_optimistic_field import ComplexOptimisticField
 
 from ore_algebra.ideal import uncouple, solve_triangular_system
 from ore_algebra.tools import clear_denominators
-from sage.rings.qqbar import (qq_generator, AlgebraicGenerator, AlgebraicNumber,
-                              ANExtensionElement, ANRoot)
-from sage.rings.rational import Rational
-from sage.structure.coerce_exceptions import CoercionException
-from sage.structure.element import coercion_model
-from sage.structure.sequence import Sequence
 
 ######################################################################
 # Timing
