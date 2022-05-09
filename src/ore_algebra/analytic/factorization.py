@@ -504,7 +504,7 @@ def minimal_multiplicity(dop, pol):
     z, r = dop.base_ring().gen(), dop.order()
 
     if (pol*z).is_one() or pol.degree()==1:
-        N = N = dop.indicial_polynomial(pol)
+        N = dop.indicial_polynomial(pol)
     else:
         s = pol.roots(QQbar, multiplicities=False)[0]
         newdop, s = LinearDifferentialOperator(dop).extend_scalars(s)
