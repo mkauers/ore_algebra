@@ -908,7 +908,7 @@ def _rfactor(dop, data, order=None, bound=None, alg_degree=None, precision=None,
     if precision==None:
         precision = 100*((r + 1)//2)
 
-    data = maj(data, [precision, order, alg_degree, None])
+    data = maj(data, [precision-loss, order, alg_degree, None])
     if verbose:
         print("Current order of truncation", order)
         print("Current working precision", precision - loss)
