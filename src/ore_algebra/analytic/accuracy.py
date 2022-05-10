@@ -138,6 +138,7 @@ class StoppingCriterion(object):
         if intervals_blowing_up:
             if self.fast_fail:
                 logger.debug("n=%d, est=%s, width=%s", n, est, width)
+                logger.debug("--> PrecisionError")
                 raise PrecisionError
             if safe_le(self.eps, width):
                 # Aim for tail_bound < width instead of tail_bound < self.eps

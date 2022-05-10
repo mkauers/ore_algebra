@@ -769,19 +769,23 @@ class Step(SageObject):
             return -ZZ(len.log(2).upper().ceil())
 
     def split(self):
-        # Ensure that the substeps correspond to convergent series when
-        # splitting a singular step
         if self.max_split <= 0:
             raise ValueError
         assert not self.end.is_singular()
+        # Ensure that the substeps correspond to convergent series when
+        # splitting a singular step
         if self.start.is_singular():
             mid = (self.start.iv() + 2*self.end.iv())/3
         else:
             mid = (self.start.iv() + self.end.iv())/2
         mid = Point(mid, self.start.dop)
         mid = mid.rationalize()
-        s0 = Step(self.start, mid, type="split", max_split=self.max_split-1)
-        s1 = Step(mid, self.end, type="split", max_split=self.max_split-1)
+        s0 = Step(self.start, mid, reversed=self.reversed,
+                    type="split", max_split=self.max_split-1)
+        if self.reversed:
+            s1 = Step(self.end, mid, type="split", max_split=self.max_split-1)
+        else:
+            s1 = Step(mid, self.end, type="split", max_split=self.max_split-1)
         return (s0, s1)
 
     def bit_burst_split(self, tgt_prec, bit_burst_prec):

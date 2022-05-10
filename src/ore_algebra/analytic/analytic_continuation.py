@@ -74,27 +74,33 @@ def step_transition_matrix(dop, steps, eps, rows=None, split=0, ctx=dctx):
         fail_fast = all(step.max_split > 0 for step in steps)
         mat = step_transition_matrix_bit_burst(dop, steps, eps, rows,
                 fail_fast=fail_fast, effort=split, ctx=ctx)
+
+        for i, step in enumerate(steps):
+            if step.reversed:
+                try:
+                    inv = ~mat[i]
+                    rad, invrad = mat[i].trace().rad(), inv.trace().rad()
+                    if invrad**2 > rad:
+                        logger.info("precision loss in inverse: rad=%s, inv.rad=%s",
+                                    rad, invrad)
+                    mat[i] = inv
+                except ZeroDivisionError:
+                    # split step *and* increase precision
+                    eps = eps*eps
+                    raise accuracy.PrecisionError(
+                            f"failed to invert transition matrix {step}")
+
     except (accuracy.PrecisionError, bounds.BoundPrecisionError):
+        if any(step.max_split <= 0 for step in steps):
+            raise
         logger.info("splitting step...")
         split0, split1 = zip(*(step.split() for step in steps))
         mat0 = step_transition_matrix(dop, tuple(split0),
                                       eps/4, None, split+1, ctx)
         mat1 = [step_transition_matrix(dop, (s,), eps/4, rows, split+1, ctx)[0]
                 for s in split1]
-        mat = [m1*m0 for m0, m1 in zip(mat0, mat1)]
-
-    for i, step in enumerate(steps):
-        if step.reversed:
-            try:
-                inv = ~mat[i]
-                rad, invrad = mat[i].trace().rad(), inv.trace().rad()
-                if invrad**2 > rad:
-                    logger.info("precision loss in inverse: rad=%s, inv.rad=%s",
-                                rad, invrad)
-                mat[i] = inv
-            except ZeroDivisionError:
-                raise accuracy.PrecisionError(
-                        f"failed to invert transition matrix {step}")
+        mat = [m0*m1 if step.reversed else m1*m0
+               for step, m0, m1 in zip(steps, mat0, mat1)]
 
     return mat
 
