@@ -859,7 +859,9 @@ def rfactor(dop, data, verbose=False):
 
     # try eigenring
 
-    s0 = good_base_point(dop)
+    #s0 = good_base_point(dop) # can be very long
+    s0, sings = QQ.zero(), LinearDifferentialOperator(dop)._singularities(QQbar)
+    while s0 in sings: s0 = s0 + QQ.one()
     dop = dop.annihilator_of_composition(z + s0).monic()
     R, data = _rfactor(dop, data=data, verbose=verbose)
     if R==None: return None, data
