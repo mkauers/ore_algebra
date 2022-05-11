@@ -379,8 +379,13 @@ def display_newton_polygon(dop):
     return L1 + L + L2
 
 
-def exponents(dop, multiplicities=True):
+def exponents(dop, pt=0, multiplicities=True):
 
+    if pt!=0:
+        if not pt in QQ:
+            dop, pt = LinearDifferentialOperator(dop).extend_scalars(pt)
+        dop.annihilator_of_composition(dop.base_ring().gen() - pt)
+        return exponents(dop, multiplicities=multiplicities)
     if dop.base_ring().base_ring()==QQ:
         FLS = LaurentSeriesRing(QQ, dop.base_ring().variable_name())
     else:
