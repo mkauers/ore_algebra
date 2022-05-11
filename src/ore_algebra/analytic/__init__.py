@@ -527,6 +527,20 @@ to significantly decrease ``eps`` to get precise results::
     sage: dop.numerical_solution(ini, [0,5], 1e-150, two_point_mode=False)
     [+/- ...e-35]
 
+A random operator with prescribed singularities and exponents (from Chyzak,
+Goyer, Mezzarobba, 2022) that defines transition matrices with large entries::
+
+    sage: dop = ((21829048560*x^6-550862460720*x^5+5789380916880*x^4-
+    ....:        32434807101840*x^3+102165545592000*x^2-171548863200000*x+
+    ....:        119964240000000)*Dx^3 + (-506769209364*x^5+10798395588024*x^4-
+    ....:        91979496877620*x^3+391481933812992*x^2-832564302926400*x+
+    ....:        707776470720000)*Dx^2 + (251156588660*x^4-10005924091768*x^3+
+    ....:        99364591554260*x^2-379332696633792*x+503580376843200)*Dx +
+    ....:        (38987126730300*x^3-113173203800613*x^2-1127681839519020*x+
+    ....:        3827710032458400))
+    sage: dop.numerical_transition_matrix([75/17,4]).trace()
+    [-2.048077478517672...] + [-2.818936813156118...]*I
+
 Handling of algebraic points::
 
     sage: (Dx - i).numerical_solution([1], [sqrt(2), 0])
