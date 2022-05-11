@@ -424,7 +424,7 @@ def eigenvalues(mat, multiplicities=False):
     See function 'roots' of polynomials module for more details.
     """
 
-    eigvals = roots(mat.charpoly(), multiplicities=multiplicities)
+    eigvals = roots(mat.charpoly(algorithm="df"), multiplicities=multiplicities)
 
     return eigvals
 
