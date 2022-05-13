@@ -441,11 +441,11 @@ def _alter_infolevel(infolevel, dlevel, dprefix):
 def _launch_info(infolevel, name, dim=None, deg=None, domain=None):
     def make_message():
         message = datetime.today().ctime() + ": " + name + " called";
-        if not dim == None:
+        if dim is not None:
             message = message + ", dim=" + str(dim)
-        if not deg == None:
+        if deg is not None:
             message = message + ", deg=" + str(deg)
-        if not domain == None:
+        if domain is not None:
             try:
                 message = message + ", domain=" + domain._latex_()
             except:
@@ -1372,7 +1372,7 @@ def _cra(subsolver, max_modulus, proof, ncpus, mat, degrees, infolevel):
         if len(degrees) != len(x):
             degrees = [-1 for i in x]
         
-        if V == None or len(V) > len(Vp) or any(degrees[i] > true_degrees[i] for i in range(len(x))):
+        if V is None or len(V) > len(Vp) or any(degrees[i] > true_degrees[i] for i in range(len(x))):
             # initialization, or all previous primes were unlucky
             if len(Vp) == 0:
                 return []

@@ -1183,7 +1183,7 @@ class UnivariateOreOperator(OreOperator):
             rowsB.append(D*rowsB[-1])
 
         from sage.matrix.constructor import Matrix
-        if solver == None:
+        if solver is None:
             solver = A.parent()._solver()
 
         sys = Matrix(list(map(lambda p: p.coefficients(sparse=False,padd=t), rowsA + rowsB))).transpose()
@@ -1335,7 +1335,7 @@ class UnivariateOreOperator(OreOperator):
 
         # for better performance, we don't use the sylvester matrix 
         for i in range(m):
-            A = self if A == None else D*A
+            A = self if A is None else D*A
             mat.append((A % other).coefficients(sparse=False,padd=m-1))
 
         from sage.matrix.constructor import matrix      
@@ -1583,7 +1583,7 @@ class UnivariateOreOperator(OreOperator):
         B = other.change_ring(R) % A
         D = A.parent().gen()
 
-        if solver == None:
+        if solver is None:
             solver = A.parent()._solver()
 
         mat = [B.coefficients(sparse=False,padd=a-1)]
@@ -1841,7 +1841,7 @@ class UnivariateOreOperator(OreOperator):
         coefficients of self.
         """
         poly = self.polynomial().map_coefficients(f, new_base_ring = new_base_ring)
-        if new_base_ring == None:
+        if new_base_ring is None:
             return self.parent()(poly)
         else:
             return self.parent().base_extend(new_base_ring)(poly)
