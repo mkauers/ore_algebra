@@ -64,31 +64,3 @@ def symmetric_power(sys, n):
     g([], out)
 
     return matrix(s, s, out)
-
-
-def symmetric_power_fail(sys, n):
-    """
-    Compute the ``n``-th symmetric power of the system ``sys``.
-    """
-
-    r = sys.nrows()
-    s = 1 + cpt([r - 1]*n, r)
-
-    def g(I, out):
-        if len(I)<n:
-            for i in range(max(I, default=0), r): g(I+[i], out)
-        else:
-            for j in range(r):
-                for k in range(n):
-                    J, l = I[:k] + I[(k+1):], 0
-                    while l<n-1 and j>J[l]: l += 1
-                    J = J[:l] + [j] + J[l:]
-                    u, v, a = cpt(I,r), cpt(J,r), sys[I[k], j]
-                    if u==1 and v==2: breakpoint() # problem: out[0][2] is changed by next line
-                    out[u][v] += a
-        return
-
-    out = [ [0]*s ]*s
-    g([], out)
-
-    return matrix(out)
