@@ -432,6 +432,30 @@ def search_exp_part_with_mult1(dop):
 
     return (None, None)
 
+def min_diff_exp(dop):
+
+    """
+    renvoie (m, m_int) où m est la différence maximale, resp. m_int est la
+    différence entière maximale, entre exposants d'une même singularité.
+
+    Considère tout le temps l'infini comme une singularité.
+    """
+
+    dop, z = LinearDifferentialOperator(dop), dop.base_ring().gen()
+    lc = dop.leading_coefficient()//gcd(dop.list())
+    sings = lc.roots(multiplicities=False)
+
+    roots = dop.indicial_polynomial(1/z).roots(QQbar, multiplicities=False)
+    l = [ (r-s).abs() for r in roots for s in roots ]
+    m, m_int = max(l), max([x for x in l if x in ZZ])
+
+    for f, _ in lc.factor():
+        roots = dop.indicial_polynomial(f).roots(QQbar, multiplicities=False)
+        l = [ (r-s).abs() for r in roots for s in roots ]
+        m, m_int = max([m] + l), max([m_int] + [x for x in l if x in ZZ])
+
+    return m, m_int
+
 def guessing_via_series(L, einZZ):
     """ assumption: 0 is an exponential part of multiplicity 1 (at 0) """
     if not einZZ: # if e in ZZ, this test has already been done
