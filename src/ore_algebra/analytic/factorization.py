@@ -447,7 +447,7 @@ def min_diff_exp(dop):
 
     roots = dop.indicial_polynomial(1/z).roots(QQbar, multiplicities=False)
     l = [ (r-s).abs() for r in roots for s in roots ]
-    m, m_int = max(l), max([x for x in l if x in ZZ])
+    m, m_int = max(l, default=0), max([x for x in l if x in ZZ], default=0)
 
     for f, _ in lc.factor():
         roots = dop.indicial_polynomial(f).roots(QQbar, multiplicities=False)
