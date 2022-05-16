@@ -655,7 +655,7 @@ def _guess_via_hom(data, A, modulus, to_hom, **kwargs):
             # subsequent iterations: stick to the path we have.
             del kwargs['return_short_path']
 
-        if not 'path' in kwargs:
+        if 'path' not in kwargs:
             kwargs['return_short_path'] = True
 
         if ncpus == 1:
@@ -948,10 +948,12 @@ def _guess_via_gcrd(data, A, **kwargs):
 
     return (L, short_path) if return_short_path else L
 
-###########################################################################################
+
+###############################################################################
 
 from sage.arith.multi_modular import MAX_MODULUS
 from sage.arith.all import previous_prime as pp
+
 
 def _word_size_primes(init=2**23, bound=1000):
     """
@@ -1177,9 +1179,12 @@ def _rat_recon(a, m, u=None):
     else:
         raise ArithmeticError
 
-###########################################################################################
+
+#############################################################################
 
 _ff_cache = dict()
+
+
 def _ff_factory(domain):
     characteristic = domain.characteristic() # that's the only information that matters here
     try:
@@ -1213,7 +1218,10 @@ def _ff_factory(domain):
         _ff_cache[characteristic] = ff
         return ff
 
+
 _power_cache = dict()
+
+
 def _power_factory(domain):
     try:
         return _power_cache[domain]

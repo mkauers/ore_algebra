@@ -139,7 +139,8 @@ class MultivariateOreOperator(OreOperator):
 
     def _mul_(self, other):
 
-        A = self.parent(); n = A.ngens()
+        A = self.parent()
+        n = A.ngens()
         sigma = [ A.sigma(i) for i in range(n) ] 
         delta = [ A.delta(i) for i in range(n) ]
         D = [ A.gen(i).polynomial() for i in range(n) ]
@@ -152,12 +153,15 @@ class MultivariateOreOperator(OreOperator):
                 i = n - 1
                 while exp[i] == 0:
                     i -= 1
-                sub = list(exp); sub[i] -= 1; prev = multiple(sub)
+                sub = list(exp)
+                sub[i] -= 1
+                prev = multiple(sub)
                 new = prev.map_coefficients(sigma[i])*D[i] + prev.map_coefficients(delta[i])
                 monomial_times_other[exp] = new
             return monomial_times_other[exp]
 
-        out = A.zero(); poly = self.__poly
+        out = A.zero()
+        poly = self.__poly
         for exp in poly.dict():
             out += poly[exp]*multiple(exp)
 
@@ -387,7 +391,10 @@ class MultivariateOreOperator(OreOperator):
             basis = list(map(self.parent(), basis))
 
         exp = [vector(ZZ, b.exp()) for b in basis]
-        gens = self.parent().gens(); p = self; r0 = self.parent().zero(); c = self.base_ring().one()
+        gens = self.parent().gens()
+        p = self
+        r0 = self.parent().zero()
+        c = self.base_ring().one()
         cofs = [self.parent().zero()]*len(basis)
         range_basis = [k for k in range(len(basis)) if not basis[k].is_zero()]
 
@@ -413,13 +420,16 @@ class MultivariateOreOperator(OreOperator):
                 p -= p.lt()
             else:
                 k = candidates[0] ## care for a more clever choice?
-                b = basis[k]; tau = prod(x**i for x, i in zip(gens, e - exp[k]))
+                b = basis[k]
+                tau = prod(x**i for x, i in zip(gens, e - exp[k]))
                 info(2, str(len(candidates)) + " basis elements apply, taking no " + str(k) + " with leading monomial " + str(b.lm()))
-                b0 = tau*b; b0lc = b0.lc();
+                b0 = tau*b
+                b0lc = b0.lc()
                 if sugar is not None:
                     sugar = max(sugar, tau.tdeg() + basis_sugar[k])
                 if normalize:
-                    c *= b0lc; r0 = b0lc*r0
+                    c *= b0lc
+                    r0 = b0lc*r0
                     if cofactors:
                         for i in range(len(cofs)):
                             cofs[i] = b0lc*cofs[i]

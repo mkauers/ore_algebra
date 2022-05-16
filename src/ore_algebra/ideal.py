@@ -326,7 +326,8 @@ class OreLeftIdeal(Ideal_nc):
             info(2, datetime.today().ctime() + ": " + str(len(C) + 1) + " pairs left; taking pair with lcm(lm,lm)=" + str(t))
             uterm = v.lc()*maketerm(t.exp().esub(u.exp()))
             vterm = u.lc()*maketerm(t.exp().esub(v.exp()))
-            spol = uterm*u - vterm*v; spol.sugar = s
+            spol = uterm*u - vterm*v
+            spol.sugar = s
             G, C = update(G, C, spol.reduce(G, normalize=True, infolevel=infolevel-2, coerce=False))
 
         # autoreduction
@@ -691,7 +692,8 @@ class OreLeftIdeal(Ideal_nc):
             raise NotImplementedError
 
         # domains for inner functions
-        for x in K.gens(): kwargs.setdefault(str(x), x)          # add missing arguments
+        for x in K.gens():
+            kwargs.setdefault(str(x), x)          # add missing arguments
         R = reduce(canonical_coercion, kwargs.values())[0].parent()  # eg QQ(u,v)(t)
         R = R.fraction_field()
         R0 = R if is_FractionField(R) else R.base_ring()         # eg QQ(u,v)
@@ -755,7 +757,9 @@ class OreLeftIdeal(Ideal_nc):
 
         info(1, "Inflation of multiplication matrices completed.")
         # create one-vector
-        one = [0]*(n*dim); one[0] = 1; one = vector(R0, one)
+        one = [0]*(n*dim)
+        one[0] = 1
+        one = vector(R0, one)
 
         info(1, "Entering FGLM...")
         return B.ideal(fglm(B, one, mats, infolevel=infolevel-1, solver=B._solver(R0), early_termination=early_termination), is_known_to_be_a_groebner_basis=True)
@@ -857,11 +861,13 @@ class OreLeftIdeal(Ideal_nc):
         def wrap_delta(d, s):
             if s is None:
                 def fun(p):
-                    a = p.numerator(); b = p.denominator()
+                    a = p.numerator()
+                    b = p.denominator()
                     return a.map_coefficients(d)/b - a*b.map_coefficients(d)/(b**2)
             else:
                 def fun(p):
-                    a = p.numerator(); b = p.denominator()
+                    a = p.numerator()
+                    b = p.denominator()
                     return a.map_coefficients(d)/b - a.map_coefficients(s)*b.map_coefficients(d)/(b*b.map_coefficients(s))
             return fun
 
@@ -906,7 +912,8 @@ class OreLeftIdeal(Ideal_nc):
         solver = [nullspace.quick_check(coresolver, cutoffdim=0)]
 
         def findrelation():
-            zero = 0; sol = []
+            zero = 0
+            sol = []
             for (g, c) in solve_triangular_system(T, rhs, solver=solver[0]):
                 if all(q.is_zero() for q in c):
                     zero += 1
@@ -943,7 +950,8 @@ class OreLeftIdeal(Ideal_nc):
                     if delta[d] is not None:
                         v += terms[tau].apply_map(delta[d])
                     terms[tau*d] = v
-                    B.append(tau*d); rhs.append(Ufy(terms[tau*d]))
+                    B.append(tau*d)
+                    rhs.append(Ufy(terms[tau*d]))
 
                     # solve
                     info(2, lazy_string(lambda: datetime.today().ctime() + ": calling solver..."))
@@ -952,7 +960,10 @@ class OreLeftIdeal(Ideal_nc):
                     if sol is not None:
                         info(2, "telescoper detected.")
                         telescopers.append(sol)
-                        B.pop(); rhs.pop(); del terms[tau*d]; iterator.declare_step()
+                        B.pop()
+                        rhs.pop()
+                        del terms[tau*d]
+                        iterator.declare_step()
                         if early_termination is True:
                             info(3, "early termination")
                             break
@@ -1086,7 +1097,8 @@ def fglm(algebra, one_vector, gen_matrices, infolevel=0, solver=None, early_term
         if infolevel >= i:
             print(msg)
 
-    basis = []; terms = {}
+    basis = []
+    terms = {}
     sigma = dict( (d, algebra.sigma(d)) for d in algebra.gens() )
     delta = dict( (d, algebra.delta(d)) for d in algebra.gens() )
 
@@ -1111,12 +1123,16 @@ def fglm(algebra, one_vector, gen_matrices, infolevel=0, solver=None, early_term
                 v += terms[tau].apply_map(delta[d])
             terms[tau*d] = v
 
-            B.append(tau*d); Mold = M; M = M.augment(terms[tau*d])
+            B.append(tau*d)
+            Mold = M
+            M = M.augment(terms[tau*d])
             ker = solver(M, infolevel=infolevel-3)
             if len(ker) > 0:
                 info(2, "relation found.")
                 basis.append(add([ker[0][i]*B[i] for i in range(len(B))])) ## new basis element
-                B.pop(); M = Mold; iterator.declare_step() ## current term is not under the stairs
+                B.pop()
+                M = Mold
+                iterator.declare_step() ## current term is not under the stairs
                 del terms[tau*d] # no longer needed -- hint to garbage collector
                 if early_termination:
                     break
@@ -1159,7 +1175,8 @@ def uncouple(mat, algebra=None, extended=False, column_swaps=False, infolevel=0)
     else:
         A = algebra
     A_ff = None
-    n = len(mat); m = len(mat[0])
+    n = len(mat)
+    m = len(mat[0])
     U = [None]*n
     V = [None]*n
 
