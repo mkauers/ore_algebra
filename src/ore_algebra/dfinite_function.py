@@ -197,7 +197,7 @@ class DFiniteFunctionRing(Algebra):
 
         #conversion for rational functions
         elif x in self.base_ring().fraction_field():
-               return self._construct_rational(x,n)
+            return self._construct_rational(x,n)
                
         #conversion for symbolic constants
         elif x.is_constant():
@@ -208,7 +208,7 @@ class DFiniteFunctionRing(Algebra):
                 Dy = self.ore_algebra().gen()
                 return UnivariateDFiniteFunction(self,Dy,{0:x})
         else:
-        #conversion for symbolic expressions
+            #conversion for symbolic expressions
             return self._construct_symbolic(x,n)
 
                 
@@ -465,17 +465,17 @@ class DFiniteFunctionRing(Algebra):
                 operands.append( operator(self(operands.pop()), self(operands.pop())) )
             return operands[0]
         
-       #pow
+        # pow
         elif operator == pow:
             exponent = operands[1]
-            #pow
+            # pow
             if exponent in ZZ and exponent >= 0:
                 return operator(self(operands[0]),ZZ(operands[1]))
             
             #sqrt - only works for sqrt(u*x+v) (linear inner function) - not implemented for sequences
             elif (not n) and (exponent - QQ(0.5) in ZZ) and (exponent >= 0):
                 if R(operands[0]).degree() > 1:
-                   raise ValueError("Sqrt implemented only for linear inner function")
+                    raise ValueError("Sqrt implemented only for linear inner function")
                 ann = symbolic_database(self.ore_algebra(),operator,operands[0])
                 ord = ann.order()
                 int_val = range(ord)
@@ -1677,7 +1677,7 @@ class DFiniteFunction(RingElement):
                 result = [self._initial_values[key] for key in range(self.__ann.order())]
             return result
         else:
-             return self._initial_values.expand(self.__ann.order()-1)
+            return self._initial_values.expand(self.__ann.order() - 1)
 
     def initial_conditions(self):
         r"""
@@ -1835,10 +1835,10 @@ class UnivariateDFiniteSequence(DFiniteFunction):
                     critical_points_negative.update([k])
             
             for n in critical_points_negative:
-                    int_val.update({n:self[floor(x(n))]})
-                    ann = A(N - (n - min_degree) )*ann                                     
-                    if n >= min_degree:
-                        int_val.update({(n-min_degree)+ord : self[floor(x(n-min_degree+ord))]})
+                int_val.update({n:self[floor(x(n))]})
+                ann = A(N - (n - min_degree) )*ann                                     
+                if n >= min_degree:
+                    int_val.update({(n-min_degree)+ord : self[floor(x(n-min_degree+ord))]})
 
             return UnivariateDFiniteSequence(self.parent(), ann, int_val)
             
@@ -2413,9 +2413,9 @@ class UnivariateDFiniteSequence(DFiniteFunction):
             critical_points_positive.update(range(n+1,n+ord+1))
                 
         for n in self.critical_points(ord):
-                critical_points_positive.update([2*n])
+            critical_points_positive.update([2 * n])
         for n in right.critical_points(ord):
-                critical_points_positive.update([2*n+1])
+            critical_points_positive.update([2 * n + 1])
 
         for n in critical_points_positive:
             if n % 2 == 0:
@@ -2769,7 +2769,7 @@ class UnivariateDFiniteFunction(DFiniteFunction):
             R = A.base_ring()
             x = R.gen()
             if r[0] != 0:
-                    raise ValueError("constant term has to be zero")
+                raise ValueError("constant term has to be zero")
         
             #getting the operator
             ann = self.ann().annihilator_of_composition(r.to_rational())
@@ -2977,12 +2977,11 @@ class UnivariateDFiniteFunction(DFiniteFunction):
     
         return UnivariateDFiniteFunction(self.parent(), sum_ann, seq)
 
-
-#evaluation
+    # evaluation
 
     def dict(self):
         raise NotImplementedError
-    
+
     def list(self):
         raise NotImplementedError
     
@@ -3071,12 +3070,11 @@ class UnivariateDFiniteFunction(DFiniteFunction):
             sage: -a
             Univariate D-finite function defined by the annihilating operator (x - 1)*Dx + 1 and the coefficient sequence defined by (-n - 1)*Sn + n + 1 and {0: 1}
             sage: (-a).expand(10)
-            [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
-        
+            [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]        
         """
-        return UnivariateDFiniteFunction(self.parent(), self.ann(),  -self._initial_values)
-    
-    
+        return UnivariateDFiniteFunction(self.parent(), self.ann(),
+                                         -self._initial_values)
+
     def _mul_(self, right):
         r"""
         Return the product of ``self`` and ``right``
