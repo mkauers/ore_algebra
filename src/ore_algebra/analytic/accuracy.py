@@ -13,9 +13,10 @@ Accuracy management
 #
 # http://www.gnu.org/licenses/
 
-import collections, logging
+import collections
+import logging
 
-from sage.rings.all import  ZZ, QQ, RR
+from sage.rings.all import ZZ, QQ, RR
 from sage.rings.real_arb import RBF, RealBall
 
 from .safe_cmp import *
@@ -26,8 +27,10 @@ logger = logging.getLogger(__name__)
 # Convergence check
 ######################################################################
 
+
 class PrecisionError(Exception):
     pass
+
 
 class BoundCallbacks(object):
     r"""
@@ -69,6 +72,7 @@ class BoundCallbacks(object):
         Optional: only required from clients that support bound recording.
         """
         raise NotImplementedError
+
 
 class StoppingCriterion(object):
     r"""
@@ -218,7 +222,9 @@ class StoppingCriterion(object):
 # Bound recording
 ######################################################################
 
+
 BoundRecord = collections.namedtuple("BoundRecord", ["n", "psum", "maj", "b"])
+
 
 class BoundRecorder(StoppingCriterion):
 
@@ -246,6 +252,7 @@ class BoundRecorder(StoppingCriterion):
 # Absolute and relative errors
 ######################################################################
 
+
 class AccuracyTest(object):
     r"""
     Accuracy test.
@@ -257,6 +264,7 @@ class AccuracyTest(object):
     """
     pass
 
+
 class AbsoluteError(AccuracyTest):
 
     def __init__(self, eps):
@@ -267,6 +275,7 @@ class AbsoluteError(AccuracyTest):
 
     def __repr__(self):
         return str(self.eps.lower()) + " (absolute)"
+
 
 class RelativeError(AccuracyTest):
 

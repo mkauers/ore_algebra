@@ -30,11 +30,12 @@ from sage.rings.number_field.number_field_element import NumberFieldElement
 from sage.rings.real_arb import RealBallField
 from sage.structure.element import Matrix, canonical_coercion
 
-from .context import Context, dctx # re-export Context
+from .context import Context, dctx  # re-export Context
 from .monodromy import formal_monodromy
 from .path import EvaluationPoint_step, Path, Step
 
 logger = logging.getLogger(__name__)
+
 
 def step_transition_matrix(dop, steps, eps, rows=None, split=0, ctx=dctx):
     r"""
@@ -59,7 +60,7 @@ def step_transition_matrix(dop, steps, eps, rows=None, split=0, ctx=dctx):
 
     if order == 0:
         logger.debug("%s: trivial case", steps)
-        return [matrix(ZZ)]*len(steps) # 0 by 0
+        return [matrix(ZZ)]*len(steps)  # 0 by 0
     elif len(steps) == 1 and steps[0].is_trivial():
         logger.debug("%s: trivial case", steps)
         return [identity_matrix(ZZ, order)[:rows]]
@@ -104,6 +105,7 @@ def step_transition_matrix(dop, steps, eps, rows=None, split=0, ctx=dctx):
 
     return mat
 
+
 def _use_binsplit(dop, steps, tgt_prec, base_point_size, ctx):
     if ctx.prefer_binsplit():
         return True
@@ -130,6 +132,7 @@ def _use_binsplit(dop, steps, tgt_prec, base_point_size, ctx):
         logger.debug("tgt_prec = %s %s %s", tgt_prec,
                 ">=" if use_binsplit else "<", est)
         return use_binsplit
+
 
 def step_transition_matrix_bit_burst(dop, steps, eps, rows, fail_fast, effort,
                                      ctx=dctx):
@@ -207,6 +210,7 @@ def step_transition_matrix_bit_burst(dop, steps, eps, rows, fail_fast, effort,
         use_binsplit = not use_binsplit
         use_fallback = False
 
+
 def _process_path(dop, path, ctx):
 
     if not isinstance(path, Path):
@@ -238,10 +242,11 @@ def _process_path(dop, path, ctx):
 
     return path
 
+
 def _normalize_ini(ini, dop, eps):
     if ini is None:
         return None
-    if not isinstance(ini, Matrix): # should this be here?
+    if not isinstance(ini, Matrix):  # should this be here?
         try:
             ini = matrix(dop.order(), 1, list(ini))
         except (TypeError, ValueError):
@@ -252,6 +257,7 @@ def _normalize_ini(ini, dop, eps):
     except (TypeError, ValueError):
         ini = ini.change_ring(ComplexBallField(prec))
     return ini
+
 
 def _process_detour(dop, point, val_mat, eps, ctx=dctx):
     if point.detour_to is None:
@@ -268,12 +274,14 @@ def _process_detour(dop, point, val_mat, eps, ctx=dctx):
         val_mat = sub_mat*val_mat
     return val_mat
 
+
 def _branch_change_matrix(dop, point, branch, eps):
     assert isinstance(branch, tuple)
     prec = utilities.prec_from_eps(eps)
     ring = ComplexBallField(prec)
     mon = formal_monodromy(dop, point, ring)
     return sum(mon**b for b in branch)/len(branch)
+
 
 def analytic_continuation(dop, path, eps, ctx=dctx, ini=None, post=None,
                           return_local_bases=False):
@@ -335,7 +343,7 @@ def analytic_continuation(dop, path, eps, ctx=dctx, ini=None, post=None,
 
     z0 = path.vert[0]
     path_mat = identity_matrix(ZZ, dop.order())
-    maybe_push_point_dict(res, z0, path_mat) # value at z0 = identity
+    maybe_push_point_dict(res, z0, path_mat)  # value at z0 = identity
     path_mat = ~_process_detour(dop, z0, path_mat, eps1, ctx=ctx)
 
     steps = list(path.steps())
@@ -370,6 +378,7 @@ def analytic_continuation(dop, path, eps, ctx=dctx, ini=None, post=None,
         rec["value"] = rec["value"].change_ring(OutputIntervals)
 
     return res
+
 
 def normalize_post_transform(dop, post_transform):
     if post_transform is None:

@@ -192,12 +192,14 @@ from ore_algebra.analytic.path import Point
 Dops, x, Dx = DifferentialOperators()
 Rat = Dops.base_ring().fraction_field()
 
+
 def diffop(word):
     dlog = [Rat(log(a).diff().canonicalize_radical()) for a in word]
-    factors = [(Dx - sum(dlog[:i])) for i in range(len(dlog)) ]
-    dop = prod(reversed( [(Dx - sum(dlog[:i])) for i in range(len(dlog) + 1) ] ))
+    factors = [(Dx - sum(dlog[:i])) for i in range(len(dlog))]
+    dop = prod(reversed([(Dx - sum(dlog[:i])) for i in range(len(dlog) + 1)]))
     dop = dop.numerator()
     return dop
+
 
 # - Second part not robust, but seems to be enough for all our examples
 # - The last call to series() MUST use :-series (as opposed to
@@ -223,9 +225,11 @@ _ini_Hstar_code = r"""
     end proc
     """
 
+
 def get_ini_Hstar():
     from sage.interfaces.maple import maple
     return maple(string.replace(_ini_Hstar_code, '\n', ' '))
+
 
 def iint_value(dop, ini, eps=1e-16, **kwds):
     roots = dop.leading_coefficient().roots(AA, multiplicities=False)
@@ -234,7 +238,9 @@ def iint_value(dop, ini, eps=1e-16, **kwds):
     val = dop.numerical_solution(ini, path, eps, **kwds)
     return val.real()
 
+
 _one = ZZ.one()
+
 
 class _F(object):
     def __getitem__(self, a):
@@ -242,12 +248,14 @@ class _F(object):
             return 1/(1-x)
         else:
             return QQ(1-a).sign()/(x-a)
+
+
 f = _F()
 
 h = dict()
 h[0] = x/(x-1)
-h[1] = sqrt(x)/((x-1)*sqrt(8+x)) # rename?
-h[2] = sqrt(x)/((x+1)*sqrt(8-x)) # rename?
+h[1] = sqrt(x)/((x-1)*sqrt(8+x))  # rename?
+h[2] = sqrt(x)/((x+1)*sqrt(8-x))  # rename?
 h[3] = x/(x+1)
 h[4] = x/((x+1)*sqrt(x+_one/4))
 h[5] = x/((x-1)*sqrt(x-_one/4))
@@ -285,15 +293,15 @@ w[28] = 1/(x*sqrt(x+_one/8))
 w[29] = 1/((1-x)*sqrt(x-_one/4))
 
 word = dict()
-word[ 1] = [w[2], w[1]]
-word[ 2] = [w[2], w[2], w[1]]
-word[ 3] = [w[1], f[1]]
-word[ 4] = [w[1], f[1], f[1]]
-word[ 5] = [f[1], w[1]]
-word[ 6] = [f[1], w[1], f[0]]
-word[ 7] = [f[_one/4], w[1]]
-word[ 8] = [f[_one/4], w[1], f[1]]
-word[ 9] = [f[_one/4], w[1], f[1], f[1]]
+word[1] = [w[2], w[1]]
+word[2] = [w[2], w[2], w[1]]
+word[3] = [w[1], f[1]]
+word[4] = [w[1], f[1], f[1]]
+word[5] = [f[1], w[1]]
+word[6] = [f[1], w[1], f[0]]
+word[7] = [f[_one/4], w[1]]
+word[8] = [f[_one/4], w[1], f[1]]
+word[9] = [f[_one/4], w[1], f[1], f[1]]
 word[10] = [f[_one/4], w[1], w[1], w[1]]
 word[11] = [f[-_one/4], w[1]]
 word[12] = [f[-_one/4], f[0], f[0], w[1]]
@@ -426,4 +434,3 @@ ini[70] = [ZZ(0), ZZ(0), ZZ(0), ZZ(0), ZZ(0), -ZZ(1)/ZZ(144)]
 # bug)
 ini[9] = [0, 0, ZZ(16)/9*I, ZZ(16)/9*pi-ZZ(128)/27*I,
           ZZ(-128)/27*pi-ZZ(8)/9*I*pi**2 + ZZ(832)/81*I]
-

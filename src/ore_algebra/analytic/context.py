@@ -16,6 +16,7 @@ import pprint
 
 from sage.rings.real_arb import RealBallField
 
+
 class Context(object):
     r"""
     Analytic continuation context
@@ -161,4 +162,5 @@ class Context(object):
     def force_naive(self):
         return self.prefer_naive() and self.force_algorithm
 
-dctx = Context() # default context
+
+dctx = Context()  # default context

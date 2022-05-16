@@ -15,7 +15,9 @@ Local solutions
 
 from six.moves import range
 
-import collections, logging, warnings
+import collections
+import logging
+import warnings
 
 from itertools import chain
 
@@ -54,14 +56,15 @@ logger = logging.getLogger(__name__)
 # Recurrence relations
 ##############################################################################
 
+
 def bw_shift_rec(dop, shift=None):
     Scalars = dop.base_ring().base_ring()
     if shift is not None:
         Scalars = utilities.mypushout(Scalars, shift.parent())
     if dop.parent().is_D():
-        dop = DifferentialOperator(dop) # compatibility bugware
+        dop = DifferentialOperator(dop)  # compatibility bugware
         rop = dop._my_to_S()
-    else: # more compatibility bugware
+    else:  # more compatibility bugware
         Pols_n = PolynomialRing(dop.base_ring().base_ring(), 'n')
         rop = dop.to_S(ore_algebra.OreAlgebra(Pols_n, 'Sn'))
     Pols_n, n = rop.base_ring().change_ring(Scalars).objgen()
@@ -90,6 +93,7 @@ def bw_shift_rec(dop, shift=None):
     coeff = [rop[ordrec-k] for k in range(ordrec+1)]
     return BwShiftRec(coeff)
 
+
 def _mygcd_ZZ(seq):
     g = ZZ.zero()
     b = ZZ(256)
@@ -98,6 +102,7 @@ def _mygcd_ZZ(seq):
         if g < b:
             return None
     return g
+
 
 class BwShiftRec(object):
     r"""
@@ -163,6 +168,7 @@ class BwShiftRec(object):
             # do complicated coercions via QQbar and CLF only once...
             Pol = PolynomialRing(tgt, 'x')
             x = tgt(self.Scalars.gen())
+
             def emb(elt):
                 return Pol([tgt(c) for c in elt._coefficients()])(x)
             return emb
@@ -173,6 +179,7 @@ class BwShiftRec(object):
     def poly_eval_strategy(self, tgt):
 
         mor = self.scalars_embedding(tgt)
+
         def generic_eval(pol, x, _tgt):
             assert _tgt is tgt
             return mor(pol(x))
@@ -192,7 +199,7 @@ class BwShiftRec(object):
             else:
                 return eval_poly_at_int.qq, False
         elif isinstance(self.Scalars, NumberField_quadratic):
-            self.Scalars.zero() # cache for direct cython access
+            self.Scalars.zero()  # cache for direct cython access
             if isinstance(tgt, ComplexBallField):
                 if utilities.is_QQi(self.Scalars):
                     return eval_poly_at_int.qq_or_qqi_to_cbf, True
@@ -201,7 +208,7 @@ class BwShiftRec(object):
             else:
                 return eval_poly_at_int.qnf, False
         elif isinstance(self.Scalars, NumberField_absolute):
-            self.Scalars.zero() # cache for direct cython access
+            self.Scalars.zero()  # cache for direct cython access
             return eval_poly_at_int.nf, False
 
         return generic_eval, False
@@ -214,7 +221,7 @@ class BwShiftRec(object):
             self._compute_coeff_series(ord, components)
         coeff = self._coeff_series_cache[components]
         rng = range(ord)
-        return [ [eval_poly(c[j], point, tgt) for j in rng] for c in coeff]
+        return [[eval_poly(c[j], point, tgt) for j in rng] for c in coeff]
 
     def eval_inv_lc_series(self, point, ord, shift):
         eval_poly, components = self.poly_eval_strategy(self.Scalars)
@@ -222,7 +229,7 @@ class BwShiftRec(object):
             self._compute_coeff_series(ord, components)
         c = self._coeff_series_cache[components][0]
         ser = self.base_ring.element_class(
-                self.base_ring, # polynomials, viewed as jets
+                self.base_ring,  # polynomials, viewed as jets
                 [eval_poly(c[j], point, self.Scalars)
                     for j in range(shift, ord)],
                 check=False)
@@ -268,10 +275,12 @@ class BwShiftRec(object):
     def lc_as_rec(self):
         return BwShiftRec([self.coeff[0]])
 
+
 class MultDict(dict):
 
     def __missing__(self, k):
         return 0
+
 
 class LogSeriesInitialValues(object):
     r"""
@@ -320,19 +329,19 @@ class LogSeriesInitialValues(object):
             for s, m in mults:
                 self.shift[s] = [self.universe.zero()]*m
         for k, ini in values.items():
-            if isinstance(k, tuple): # requires mult != None
+            if isinstance(k, tuple):  # requires mult != None
                 s, m = k
                 s = int(s)
                 self.shift[s][m] = self.universe(ini)
             else:
                 s = int(k)
                 self.shift[s] = tuple(self.universe(a) for a in ini)
-        self.shift = { s: tuple(ini) for s, ini in self.shift.items() }
+        self.shift = {s: tuple(ini) for s, ini in self.shift.items()}
 
         try:
             if check and dop is not None and not self.is_valid_for(dop):
                 raise ValueError("invalid initial data for {} at 0".format(dop))
-        except TypeError: # coercion problems btw QQbar and number fields
+        except TypeError:  # coercion problems btw QQbar and number fields
             pass
 
     def __repr__(self):
@@ -399,6 +408,7 @@ class LogSeriesInitialValues(object):
     def compatible(self, others):
         return all(self.mult_dict() == other.mult_dict() for other in others)
 
+
 def random_ini(dop):
     import random
     from sage.all import VectorSpace
@@ -419,14 +429,17 @@ def random_ini(dop):
 # Structure of the local basis at a regular singular point
 ##############################################################################
 
+
 _FundamentalSolution0 = collections.namedtuple(
     'FundamentalSolution',
     ['leftmost', 'shift', 'log_power', 'value'])
 
+
 class FundamentalSolution(_FundamentalSolution0):
     @lazy_attribute
     def valuation(self):
-        return self.leftmost.as_algebraic() + self.shift # alg for re, im
+        return self.leftmost.as_algebraic() + self.shift  # alg for re, im
+
 
 class sort_key_by_asympt:
     r"""
@@ -484,7 +497,7 @@ class sort_key_by_asympt:
         elif abs(self.valuation_num.imag()) < abs(other.valuation_num.imag()):
             return False
         elif self.leftmost == other.leftmost:
-            return False # same imaginary part, no strict inequality
+            return False  # same imaginary part, no strict inequality
         elif self.leftmost.try_eq_conjugate(other.leftmost):
             pass
         else:
@@ -500,6 +513,7 @@ class sort_key_by_asympt:
         assert (self.leftmost.as_algebraic().imag().sign() ==
                 -other.leftmost.as_algebraic().imag().sign())
         return self.leftmost.as_algebraic().imag() < 0
+
 
 class LocalBasisMapper(object):
     r"""
@@ -528,7 +542,7 @@ class LocalBasisMapper(object):
         canonical order.
         """
 
-        self.bwrec = bw_shift_rec(self.dop) # XXX wasteful in binsplit case
+        self.bwrec = bw_shift_rec(self.dop)  # XXX wasteful in binsplit case
         ind = self.bwrec[0]
         if self.dop.leading_coefficient()[0] != 0:
             n = ind.parent().gen()
@@ -595,20 +609,21 @@ class LocalBasisMapper(object):
 
     def process_solution(self):
         ini = LogSeriesInitialValues(
-            expo = self.leftmost,
-            values = { (self.shift, self.log_power): ZZ.one() },
-            mults = self.shifts)
+            expo=self.leftmost,
+            values={(self.shift, self.log_power): ZZ.one()},
+            mults=self.shifts)
         # XXX: inefficient if self.shift >> 0
         value = self.fun(ini)
         sol = FundamentalSolution(
-            leftmost = self.leftmost,
-            shift = ZZ(self.shift),
-            log_power = ZZ(self.log_power),
-            value = value)
+            leftmost=self.leftmost,
+            shift=ZZ(self.shift),
+            log_power=ZZ(self.log_power),
+            value=value)
         self.irred_factor_cols.append(sol)
 
     def fun(self, ini):
         return None
+
 
 def exponent_shifts(dop, leftmost):
     bwrec = bw_shift_rec(dop)
@@ -620,6 +635,7 @@ def exponent_shifts(dop, leftmost):
     assert all(s >=0 for s, m in shifts)
     assert shifts[0][0] == 0
     return shifts
+
 
 def log_series(ini, bwrec, order):
     Coeffs = utilities.mypushout(bwrec.base_ring.base_ring(), ini.universe)
@@ -650,6 +666,7 @@ def log_series(ini, bwrec, order):
                 log_prec = p + 1
         series.append(new_term)
     return series
+
 
 def log_series_values(Jets, expo, psum, pt, derivatives, is_numeric,
                       branch=(0,), downshift=(0,)):
@@ -719,6 +736,7 @@ def log_series_values(Jets, expo, psum, pt, derivatives, is_numeric,
            for v in val]
     return val
 
+
 def _pow_trunc(a, n, ord):
     pow = a.parent().one()
     pow2k = a
@@ -733,6 +751,7 @@ def _pow_trunc(a, n, ord):
 # Human-readable representations that avoid various issues with symbolic
 # expressions
 ##############################################################################
+
 
 def simplify_exponent(e):
     r"""
@@ -763,6 +782,7 @@ def simplify_exponent(e):
         except (TypeError, ValueError):
             pass
     return e
+
 
 class LogMonomial(object):
 

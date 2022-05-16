@@ -17,6 +17,7 @@ from ..ore_algebra import DifferentialOperators
 from . import analytic_continuation as ancont
 from . import polynomial_approximation as polapprox
 
+
 def transition_matrices(dop, path, eps=1e-16):
     r"""
     Compute several transition matrices at once.
@@ -49,11 +50,13 @@ def transition_matrices(dop, path, eps=1e-16):
     sol = ancont.analytic_continuation(dop, path, eps, ctx)
     return [(s["point"], s["value"]) for s in sol]
 
+
 def _value_from_mat(mat):
     if mat.nrows():
         return mat[0][0]
     else:
         return mat.base_ring().zero()
+
 
 def multi_eval_diffeq(dop, ini, path, eps=1e-16):
     """
@@ -96,6 +99,7 @@ def multi_eval_diffeq(dop, ini, path, eps=1e-16):
     path = [[pt] for pt in path]
     sol = ancont.analytic_continuation(dop, path, eps, ctx, ini=ini)
     return [(s["point"], _value_from_mat(s["value"])) for s in sol]
+
 
 polynomial_approximation_on_disk = polapprox.on_disk
 polynomial_approximation_on_interval = polapprox.on_interval

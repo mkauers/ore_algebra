@@ -308,7 +308,10 @@ Errors::
 
 from __future__ import absolute_import, division, print_function
 
-import collections, logging, cmath, math
+import collections
+import logging
+import cmath
+import math
 import sage.plot.all as plot
 import numpy
 import scipy.optimize
@@ -329,8 +332,10 @@ logger = logging.getLogger(__name__)
 eps = 1e-12
 neg_inf = complex('-inf')
 
+
 class PathDeformationFailed(Exception):
     pass
+
 
 def reim(z):
     return z.real, z.imag
@@ -343,6 +348,7 @@ def reim(z):
 # predicates, and we should use robust implementations (à la Shewchuk) of these
 # basic bricks.
 
+
 def sgn(x):
     if x < 0:
         return -1
@@ -353,8 +359,10 @@ def sgn(x):
     else:
         assert False
 
+
 def dot(u, v):
     return u.real*v.real + u.imag*v.imag
+
 
 def orient2d(a, b, c):
     r"""
@@ -368,6 +376,7 @@ def orient2d(a, b, c):
     else:
         return sgn(((b.real - a.real)*(c.imag - a.imag)
                    - (c.real - a.real)*(b.imag - a.imag)))
+
 
 def orient4(s, t, a, b, sticky):
     r"""
@@ -387,6 +396,7 @@ def orient4(s, t, a, b, sticky):
         return -sticky
     sab = orient2d(b, s, a)
     return +1 if int(sta > 0) + int(sbt > 0) + int(sab > 0) >= 2 else -1
+
 
 def sgn_inter(u, v):
     r"""
@@ -415,16 +425,18 @@ def sgn_inter(u, v):
     if (abd >= 0.) == (abc >= 0.):
         return 0
     cdb = orient2d(c, d, b)
-    cda = orient2d(c, d, a) # = abd - abc + cdb
+    cda = orient2d(c, d, a)  # = abd - abc + cdb
     if (cda >= 0.) == (cdb >= 0.):
         return 0
     return -1 if abd >= 0 else +1
+
 
 def in_triangle(a, b, c, z):
     oa = orient2d(b, c, z)
     ob = orient2d(c, a, z)
     oc = orient2d(a, b, z)
     return oa >= 0 and ob >= 0 and oc >= 0 or oa <= 0 and ob <= 0 and oc <= 0
+
 
 def circle_interval_intersections(zc, rad, za, zb, bounded):
     r"""
@@ -447,6 +459,7 @@ def circle_interval_intersections(zc, rad, za, zb, bounded):
         rts = [t for t in rts if -eps <= t]
     return [t*za + (1-t)*zb for t in rts]
 
+
 def loops_from_crossings(crossings, close):
     # XXX Vastly improvable, but good enough for now...
     if crossings == 0:
@@ -461,6 +474,7 @@ def loops_from_crossings(crossings, close):
 ######################################################################
 
 # XXX somehow account for the constant cost of adding a step?
+
 
 def first_step(zs, z0, z1, orient, loops):
     r"""
@@ -492,6 +506,7 @@ def first_step(zs, z0, z1, orient, loops):
     dilat = abs(scaled_tgt)
     # we want the zero t ∈ [0;1] of this function
     # with t*angle ≈ π/4
+
     def f(t):
         rho = dilat**t
         phi = angle*t
@@ -514,6 +529,7 @@ def first_step(zs, z0, z1, orient, loops):
 # Global path deformation
 ######################################################################
 
+
 class DegenerateVoronoi(object):
     r"""
     Voronoi diagram of zero or more aligned points, in a format compatible (for
@@ -530,6 +546,7 @@ class DegenerateVoronoi(object):
         if len(points) > 2:
             p0 = points[0]
             dir = points[1] - p0
+
             def proj(i):
                 p = points[i]
                 return (p[0]-p0[0])*dir[0] + (p[1]-p0[1])*dir[1]
@@ -540,6 +557,7 @@ class DegenerateVoronoi(object):
         self.point_region = range(len(points))
 
         self.hull = point_indices + list(reversed(point_indices[1:-1]))
+
 
 class VoronoiStep(object):
     r"""
@@ -553,11 +571,11 @@ class VoronoiStep(object):
     """
 
     def __init__(self, ridge, v0, v1, orient=None):
-        self.ridge = ridge # None when connecting to interior point
-        self.v0 = v0 # None for first step
-        self.v1 = v1 # None for last step
-        self.orient = orient # None except when crossing a cut
-        self.beacon = None # set by prepare_path_at_infinity (XXX not great)
+        self.ridge = ridge  # None when connecting to interior point
+        self.v0 = v0  # None for first step
+        self.v1 = v1  # None for last step
+        self.orient = orient  # None except when crossing a cut
+        self.beacon = None  # set by prepare_path_at_infinity (XXX not great)
 
     def __getitem__(self, i):
         if i == 0:
@@ -570,10 +588,11 @@ class VoronoiStep(object):
     def __repr__(self):
         return "{}→{}({})".format(self.v0, self.v1, self.ridge)
 
+
 class PathDeformer(object):
 
     def __init__(self, path, dop=None, max_subdivide=100):
-        if dop is None: # then interpret path as a Path object
+        if dop is None:  # then interpret path as a Path object
             dop = path.dop
             path = path.vert
         self.sing = [complex(z) for z in dop._singularities(CC)]
@@ -657,9 +676,11 @@ class PathDeformer(object):
         hull = [s for s in range(len(self.voronoi.points))
                 if -1 in self.voronoi.regions[self.voronoi.point_region[s]]]
         z0 = self.sing[hull[0]]
+
         class Key(object):
             def __init__(key, i):
                 key.i = i
+
             def __lt__(key0, key1, eps=eps):
                 s = orient2d(z0, self.sing[key0.i], self.sing[key1.i])
                 if s > eps:
@@ -721,7 +742,7 @@ class PathDeformer(object):
         ns = len(self.voronoi.points)
         # Edges corresponding to Voronoi ridges
         for r, (v0, v1) in enumerate(self.voronoi.ridge_vertices):
-            if v0 != -1 and v1 != -1: # finite ridge
+            if v0 != -1 and v1 != -1:  # finite ridge
                 edges.append((v0, v1, r))
                 continue
             s0, s1 = self.oriented_hull_edge(*self.voronoi.ridge_points[r])
@@ -733,10 +754,10 @@ class PathDeformer(object):
             # Virtual vertices. The index of a virtual vertex is voff + the
             # position of the corresponding edge (or edge side in the
             # degenerate case) on the oriented convex hull.
-            if v0 != -1: # half-line
+            if v0 != -1:  # half-line
                 edges.append((v0, voff + i0, r))
                 pos[voff + i0] = reim(self.vert[v0] - 1.j*vec)
-            else: # full line (degenerate case with all sing aligned)
+            else:  # full line (degenerate case with all sing aligned)
                 i1bis = 2*(ns - 1) - 1 - i0
                 edges.append((voff + i0, voff + i1bis, r))
                 mid = 0.5*(self.sing[s0] + self.sing[s1])
@@ -744,7 +765,7 @@ class PathDeformer(object):
                 pos[voff + i1bis] = reim(mid + 1.j*vec)
         # Additional edges between virtual vertices
         l = len(self.hull)
-        edges.append((voff + l - 1, voff, -1)) # edge crossing the unbounded cut
+        edges.append((voff + l - 1, voff, -1))  # edge crossing the unbounded cut
         for i in range(l - 1):
             edges.append((voff + i, voff + (i + 1), -2-i))
 
@@ -885,7 +906,7 @@ class PathDeformer(object):
         # z lies in a region with no reachable finite vertex and must be
         # connected to a virtual vertex
         virt = self.virtual_vertices(s)
-        if s == self.leftmost: # handle the unbounded cut
+        if s == self.leftmost:  # handle the unbounded cut
             assert virt[1] == self.virtual_offset
             if len(self.hull) == 1 or z.real <= self.sing[s].real:
                 if z.imag >= self.sing[s].imag:
@@ -1024,10 +1045,10 @@ class PathDeformer(object):
                 # v0 to v1 is outgoing, so we have nothing to do.
                 if self.is_virtual(v0) and v1 >= v0:
                     sign = -sign
-            else: # segment
+            else:  # segment
                 ridge = (self.vert[v0], self.vert[v1])
                 sign = sgn_inter((self.sing[s0], self.sing[s1]), ridge)
-                assert sign != 0 # because [s0,s1] is an edge of the EMST
+                assert sign != 0  # because [s0,s1] is an edge of the EMST
             if orient*sign < 0:
                 v0, v1 = v1, v0
         path = self.roadmap_path(v_start, v0)
@@ -1166,6 +1187,7 @@ class PathDeformer(object):
         neighb = self.delaunay_graph.neighbors(s)
         if not neighb:
             return z1, s
+
         def dist_to_z1(s1):
             return abs(z1 - self.sing[s1])
         s_closest = min(neighb, key=dist_to_z1)
@@ -1221,7 +1243,7 @@ class PathDeformer(object):
         best_adjusted = None
         for step in vor_subpath:
             if step.ridge is None or step.ridge < 0:
-                continue # ignore virtual ridges and endpoint connections
+                continue  # ignore virtual ridges and endpoint connections
             adjusted = try_adjust(step.ridge, *step)
             if adjusted is not None:
                 best_adjusted = adjusted
@@ -1269,7 +1291,7 @@ class PathDeformer(object):
             step_j = self.cpath[j]
             if self.is_virtual(step_j.v1) and step_j.beacon is None:
                 self.prepare_path_at_infinity(s, z, j)
-            beacon = self.beacon(j) # where we are heading at the moment
+            beacon = self.beacon(j)  # where we are heading at the moment
 
             # Distinguished cut used to count loops around s.
             rc, sc = self.a_cut(s)
@@ -1310,7 +1332,7 @@ class PathDeformer(object):
                     elif step_j.v1 is None:
                         assert beacon == self.input_path[-1]
                         return self._analytic_path
-                    elif self.cpath[j+1].v1 is None: # XXX useful?
+                    elif self.cpath[j+1].v1 is None:  # XXX useful?
                         s = self.s_end
                         logger.debug("reached final region %s", s)
                     else:
@@ -1403,7 +1425,7 @@ class PathDeformer(object):
             x = path[-1]
             y, z = self.analytic_path[i+1:i+3]
             c0 = cost(x, y) + cost(y, z)
-            if cost(x, z) <= c0: # in particular, finite,  => ok
+            if cost(x, z) <= c0:  # in particular, finite,  => ok
                 # drop y
                 continue
             m = (x + z)/2.
@@ -1455,9 +1477,9 @@ class PathDeformer(object):
         pl = self.plot_voronoi(edge_labels=False, **kwds)
         pl += self.plot_cuts(edge_style="dotted")
         pl += plot.line([(z.real, z.imag) for z in self.input_path[:-1]],
-                        linestyle= "dashed", thickness=2, color="green")
+                        linestyle="dashed", thickness=2, color="green")
         pl += plot.arrow(*[(z.real, z.imag) for z in self.input_path[-2:]],
-                        linestyle= "dashed", thickness=2, color="green")
+                        linestyle="dashed", thickness=2, color="green")
         return pl
 
     def plot_cpath(self, thickness=3, **kwds):

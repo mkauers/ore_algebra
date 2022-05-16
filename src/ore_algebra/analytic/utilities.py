@@ -40,23 +40,30 @@ from sage.structure.sequence import Sequence
 # Timing
 ######################################################################
 
+
 class Clock(object):
     def __init__(self, name="time"):
         self.name = name
         self._sum = 0.
         self._tic = None
+
     def __repr__(self):
         return "{} = {}".format(self.name, self.total())
+
     def since_tic(self):
         return 0. if self._tic is None else cputime(self._tic)
+
     def total(self):
         return self._sum + self.since_tic()
+
     def tic(self, t=None):
         assert self._tic is None
         self._tic = cputime() if t is None else t
+
     def toc(self):
         self._sum += cputime(self._tic)
         self._tic = None
+
 
 class Stats(object):
     def __repr__(self):
@@ -67,19 +74,24 @@ class Stats(object):
 # Numeric fields
 ######################################################################
 
+
 _RBFmin = sage.rings.real_arb.RealBallField(2)
 _CBFmin = sage.rings.complex_arb.ComplexBallField(2)
+
 
 def is_numeric_parent(parent):
     return _CBFmin.has_coerce_map_from(parent)
 
+
 def is_real_parent(parent):
     return _RBFmin.has_coerce_map_from(parent)
+
 
 def is_QQi(parent):
     return (isinstance(parent, NumberField_quadratic)
                 and list(parent.polynomial()) == [1,0,1]
                 and CBF(parent.gen()).imag().is_one())
+
 
 def ball_field(eps, real):
     prec = prec_from_eps(eps)
@@ -88,12 +100,14 @@ def ball_field(eps, real):
     else:
         return sage.rings.complex_arb.ComplexBallField(prec)
 
+
 def qqbar_to_cbf(tgt, elt):
     return tgt(elt.interval_fast(ComplexIntervalField(tgt.precision())))
 
 ################################################################################
 # Number fields and orders
 ################################################################################
+
 
 def internal_denominator(a):
     r"""
@@ -114,6 +128,7 @@ def internal_denominator(a):
     else:
         return a.denominator()
 
+
 def as_embedded_number_field_elements(algs):
     # Adapted (in part) from sage's number_field_elements_from algebraics(),
     # because the latter loses too much time trying to detect if the numbers are
@@ -131,8 +146,10 @@ def as_embedded_number_field_elements(algs):
         algs = [gen(a._exact_value()).polynomial()(nf.gen()) for a in algs]
     return nf, algs
 
+
 def as_embedded_number_field_element(alg):
     return as_embedded_number_field_elements([alg])[1][0]
+
 
 def number_field_with_integer_gen(K):
     r"""
@@ -152,7 +169,7 @@ def number_field_with_integer_gen(K):
         intNF = K
     else:
         intgen = K.gen() * den
-        ### Attempt to work around various problems with embeddings
+        # Attempt to work around various problems with embeddings
         emb = K.coerce_embedding()
         embgen = emb(intgen) if emb else intgen
         # Write K.gen() = α = β/q where q = den, and
@@ -164,8 +181,9 @@ def number_field_with_integer_gen(K):
         assert intNF != K
     # Work around weaknesses in coercions involving order elements,
     # including #14982 (fixed). Used to trigger #14989 (fixed).
-    #return intNF, intNF.order(intNF.gen())
+    # return intNF, intNF.order(intNF.gen())
     return intNF, intNF
+
 
 def invert_order_element(alg):
     if alg in ZZ:
@@ -176,6 +194,7 @@ def invert_order_element(alg):
         modulus = Order.gen(1).minpoly()
         den, num, _ = pol.xgcd(modulus)  # hopefully fraction-free!
         return Order(num), ZZ(den)
+
 
 def mypushout(X, Y):
     if X.has_coerce_map_from(Y):
@@ -189,6 +208,7 @@ def mypushout(X, Y):
             # canonical embedding, typically QQbar...
             raise CoercionException
         return Z
+
 
 def extend_scalars(Scalars, *pts):
     gen = Scalars.gen()
@@ -207,6 +227,7 @@ def extend_scalars(Scalars, *pts):
     hom = Scalars.hom([gen1], codomain=NF)
     return (hom,) + pts1
 
+
 def my_sequence(points):
     try:
         universe = coercion_model.common_parent(*points)
@@ -218,6 +239,7 @@ def my_sequence(points):
 ######################################################################
 # Algebraic numbers
 ######################################################################
+
 
 class PolynomialRoot:
     r"""
@@ -233,7 +255,7 @@ class PolynomialRoot:
 
     def __init__(self, pol, all_roots, index):
         assert pol.is_monic()
-        self.pol = pol # may have coefficients in a number field
+        self.pol = pol  # may have coefficients in a number field
         self.all_roots = all_roots
         self.index = index
 
@@ -358,6 +380,7 @@ class PolynomialRoot:
         assert len(indices) == 1
         return cls(pol, roots, indices[0])
 
+
 def roots_of_irred(pol):
     if pol.degree() == 1:
         pol = pol.monic()
@@ -370,6 +393,7 @@ def roots_of_irred(pol):
 ######################################################################
 # Sage features
 ######################################################################
+
 
 @cached_function
 def has_new_ComplexBall_constructor():
@@ -385,14 +409,17 @@ def has_new_ComplexBall_constructor():
 # Miscellaneous stuff
 ######################################################################
 
+
 def prec_from_eps(eps):
     return -eps.lower().log2().floor() + 4
+
 
 def split(cond, objs):
     matching, not_matching = [], []
     for x in objs:
         (matching if cond(x) else not_matching).append(x)
     return matching, not_matching
+
 
 def short_str(obj, n=60):
     s = str(obj)
@@ -402,6 +429,8 @@ def short_str(obj, n=60):
         return s[:n/2-2] + "..." + s[-n/2 + 2:]
 
 # Adapted from itertools manual
+
+
 def pairwise(iterable):
     a, b = itertools.tee(iterable)
     next(b, None)

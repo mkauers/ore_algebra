@@ -294,7 +294,7 @@ class OreLeftIdeal(Ideal_nc):
                 info(1, "invoking update_hook...")
                 update_hook(G, B, h)
             C = [g for g in G]
-            C.sort(key=smallest_lt_first, reverse=True) # smallest leading term last
+            C.sort(key=smallest_lt_first, reverse=True)  # smallest leading term last
             # 1. discard the pairs (C[i],h) for which there is another pair (C[j], h) with lt(C[j],h)|lt(C[i],h)
             for i in range(len(C)):
                 for j in range(len(C)):
@@ -306,15 +306,15 @@ class OreLeftIdeal(Ideal_nc):
             for b in B:
                 if min(b[0].exp().esub(h.exp())) < 0 or b[0].exp() in [lcm(h, b[1]), lcm(h, b[2])]:
                     C.append(b)
-            C.sort(key=lambda c: -c[-1]) # smallest pair last
+            C.sort(key=lambda c: -c[-1])  # smallest pair last
             # 3. update basis
             G = [g for g in G if min(g.exp().esub(h.exp())) < 0] + [h]
             return G, C
 
         # initialization
         info(1, "initialization...")
-        G = [] # current basis, sorted such that smallest leading term comes first
-        C = [] # current list of critical pairs, sorted such that smallest lcm comes last
+        G = []  # current basis, sorted such that smallest leading term comes first
+        C = []  # current list of critical pairs, sorted such that smallest lcm comes last
         for g in gens:
             g.sugar = g.tdeg()
             G, C = update(G, C, g.reduce(G, normalize=True, coerce=False))
@@ -326,7 +326,8 @@ class OreLeftIdeal(Ideal_nc):
             info(2, datetime.today().ctime() + ": " + str(len(C) + 1) + " pairs left; taking pair with lcm(lm,lm)=" + str(t))
             uterm = v.lc()*maketerm(t.exp().esub(u.exp()))
             vterm = u.lc()*maketerm(t.exp().esub(v.exp()))
-            spol = uterm*u - vterm*v; spol.sugar = s
+            spol = uterm*u - vterm*v
+            spol.sugar = s
             G, C = update(G, C, spol.reduce(G, normalize=True, infolevel=infolevel-2, coerce=False))
 
         # autoreduction
@@ -468,7 +469,7 @@ class OreLeftIdeal(Ideal_nc):
             gen_matrices[X] = other_zero.augment(other.multiplication_matrix(X).transpose()).transpose()
             gen_matrices[X] = self.multiplication_matrix(X).transpose().augment(self_zero).transpose().augment(gen_matrices[X])
 
-        return A.ideal(fglm(A, vector(A.base_ring(), [1] + [0]*(n-1) + [1] + [0]*(m-1)), \
+        return A.ideal(fglm(A, vector(A.base_ring(), [1] + [0]*(n-1) + [1] + [0]*(m-1)),
                             gen_matrices, infolevel=infolevel, solver=solver), is_known_to_be_a_groebner_basis=True)
 
     def symmetric_product(self, other, infolevel=0, solver=None):
@@ -530,7 +531,7 @@ class OreLeftIdeal(Ideal_nc):
         I_n = MatrixSpace(A.base_ring(), n, n).one()
         I_m = MatrixSpace(A.base_ring(), m, m).one()
         for X in A.gens():
-            (w0, w1, w2) = A._product_rule(X) # raises an exception if no product rule is available
+            (w0, w1, w2) = A._product_rule(X)  # raises an exception if no product rule is available
             # w0*I_(nm) + w1*(self.mm(X) tensor I_m + I_n tensor other.mm(X)) + w2*(self.mm(X) tensor other.mm(X))
             self_MM = self.multiplication_matrix(X)
             other_MM = other.multiplication_matrix(X)
@@ -541,7 +542,7 @@ class OreLeftIdeal(Ideal_nc):
                 M += w2*(self_MM.tensor_product(other_MM))
             gen_matrices[X] = M
 
-        return A.ideal(fglm(A, vector(A.base_ring(), [1] + [0]*(n*m-1)), \
+        return A.ideal(fglm(A, vector(A.base_ring(), [1] + [0]*(n*m-1)),
                             gen_matrices, infolevel=infolevel, solver=solver), is_known_to_be_a_groebner_basis=True)
 
     def eliminate(self, vars, infolevel=0, solver=None, early_termination=False):
@@ -592,7 +593,6 @@ class OreLeftIdeal(Ideal_nc):
         mats = dict((g, self.multiplication_matrix(g)) for g in vars)
         return target_algebra.ideal(fglm(target_algebra, self.operator_to_vector(1), mats, infolevel=infolevel, solver=solver, early_termination=early_termination), is_known_to_be_a_groebner_basis=True)
 
-
     def annihilator_of_associate(self, L, infolevel=0, solver=None, early_termination=False):
         """
         Given an operator L of the ambient algebra of 'self', this computes an ideal of annihilating operators for L(f), where f
@@ -631,7 +631,6 @@ class OreLeftIdeal(Ideal_nc):
         A = self.ring()
         mats = dict((g, self.multiplication_matrix(g)) for g in A.gens())
         return A.ideal(fglm(A, self.operator_to_vector(L), mats, infolevel=infolevel, solver=solver, early_termination=early_termination), is_known_to_be_a_groebner_basis=True)
-
 
     def annihilator_of_composition(self, **kwargs):
         """
@@ -672,7 +671,7 @@ class OreLeftIdeal(Ideal_nc):
 
         """
 
-        if len(kwargs) == 0: # no substitutions specified
+        if len(kwargs) == 0:  # no substitutions specified
             return self
 
         infolevel = kwargs.setdefault('infolevel', 0)
@@ -691,7 +690,8 @@ class OreLeftIdeal(Ideal_nc):
             raise NotImplementedError
 
         # domains for inner functions
-        for x in K.gens(): kwargs.setdefault(str(x), x)          # add missing arguments
+        for x in K.gens():
+            kwargs.setdefault(str(x), x)          # add missing arguments
         R = reduce(canonical_coercion, kwargs.values())[0].parent()  # eg QQ(u,v)(t)
         R = R.fraction_field()
         R0 = R if is_FractionField(R) else R.base_ring()         # eg QQ(u,v)
@@ -713,7 +713,7 @@ class OreLeftIdeal(Ideal_nc):
                 der[D] = mulmat(0)
                 for x in K.gens():
                     der[x, D] = mulmat(B.delta(D)(kwargs[str(x)]))
-        else: # algebraic extension field
+        else:  # algebraic extension field
             mulmat = lambda m: R(m).matrix().transpose()
             minpoly = R.modulus().monic()
             dim = minpoly.degree()
@@ -755,11 +755,12 @@ class OreLeftIdeal(Ideal_nc):
 
         info(1, "Inflation of multiplication matrices completed.")
         # create one-vector
-        one = [0]*(n*dim); one[0] = 1; one = vector(R0, one)
+        one = [0]*(n*dim)
+        one[0] = 1
+        one = vector(R0, one)
 
         info(1, "Entering FGLM...")
         return B.ideal(fglm(B, one, mats, infolevel=infolevel-1, solver=B._solver(R0), early_termination=early_termination), is_known_to_be_a_groebner_basis=True)
-
 
     def ct(self, D, algebra=None, certificates=True, early_termination=False, infolevel=0, iteration_limit=0):
         """
@@ -823,8 +824,8 @@ class OreLeftIdeal(Ideal_nc):
         # D must involve exactly one generator Dgen of the ambient algebra, and this generator must move exactly one
         # generator var of the ground ring.
         A = self.ring()
-        Dgen = [Dgen for Dgen in A.gens() if D.degree(Dgen) != 0] # the unique generator of A appearing in D
-        var = [k for k in A.base_ring().gens() if D*k != k*D] # D must commute with all but exactly one
+        Dgen = [Dgen for Dgen in A.gens() if D.degree(Dgen) != 0]  # the unique generator of A appearing in D
+        var = [k for k in A.base_ring().gens() if D*k != k*D]  # D must commute with all but exactly one
         if len(Dgen) != 1 or len(var) != 1:
             raise ValueError("bad choice of delta")
         Dgen, var = Dgen[0], var[0]
@@ -837,9 +838,9 @@ class OreLeftIdeal(Ideal_nc):
             G = G[Ggens].fraction_field()
             algebra = OreAlgebra(G, *tuple((str(g), A.sigma(g), A.delta(g)) for g in A.gens() if g != Dgen))
 
-        gen_matrices = dict( (d, self.multiplication_matrix(A(d))) for d in algebra.gens() )
-        sigma = dict( (d, algebra.sigma(d)) for d in algebra.gens() )
-        delta = dict( (d, algebra.delta(d)) for d in algebra.gens() )
+        gen_matrices = dict((d, self.multiplication_matrix(A(d))) for d in algebra.gens())
+        sigma = dict((d, algebra.sigma(d)) for d in algebra.gens())
+        delta = dict((d, algebra.delta(d)) for d in algebra.gens())
 
         info(1, "Output ideal will belong to " + repr(algebra))
         info(2, "Summation/Integration variable recognized as " + str(var))
@@ -857,11 +858,13 @@ class OreLeftIdeal(Ideal_nc):
         def wrap_delta(d, s):
             if s is None:
                 def fun(p):
-                    a = p.numerator(); b = p.denominator()
+                    a = p.numerator()
+                    b = p.denominator()
                     return a.map_coefficients(d)/b - a*b.map_coefficients(d)/(b**2)
             else:
                 def fun(p):
-                    a = p.numerator(); b = p.denominator()
+                    a = p.numerator()
+                    b = p.denominator()
                     return a.map_coefficients(d)/b - a.map_coefficients(s)*b.map_coefficients(d)/(b*b.map_coefficients(s))
             return fun
 
@@ -902,11 +905,12 @@ class OreLeftIdeal(Ideal_nc):
         iterator = MonomialIterator(algebra)
         terms = {next(iterator)[0]: vector(GG, [1] + [0]*(len(T)-1))}
         coresolver = nullspace.kronecker(nullspace.gauss())
-        zerocount = [0] # so many zero telescopers have been found so far
+        zerocount = [0]  # so many zero telescopers have been found so far
         solver = [nullspace.quick_check(coresolver, cutoffdim=0)]
 
         def findrelation():
-            zero = 0; sol = []
+            zero = 0
+            sol = []
             for (g, c) in solve_triangular_system(T, rhs, solver=solver[0]):
                 if all(q.is_zero() for q in c):
                     zero += 1
@@ -943,7 +947,8 @@ class OreLeftIdeal(Ideal_nc):
                     if delta[d] is not None:
                         v += terms[tau].apply_map(delta[d])
                     terms[tau*d] = v
-                    B.append(tau*d); rhs.append(Ufy(terms[tau*d]))
+                    B.append(tau*d)
+                    rhs.append(Ufy(terms[tau*d]))
 
                     # solve
                     info(2, lazy_string(lambda: datetime.today().ctime() + ": calling solver..."))
@@ -952,7 +957,10 @@ class OreLeftIdeal(Ideal_nc):
                     if sol is not None:
                         info(2, "telescoper detected.")
                         telescopers.append(sol)
-                        B.pop(); rhs.pop(); del terms[tau*d]; iterator.declare_step()
+                        B.pop()
+                        rhs.pop()
+                        del terms[tau*d]
+                        iterator.declare_step()
                         if early_termination is True:
                             info(3, "early termination")
                             break
@@ -982,8 +990,8 @@ class OreLeftIdeal(Ideal_nc):
         else:
             return [T for T, _ in telescopers]
 
-
     creative_telescoping = ct
+
 
 class MonomialIterator(object):
     """
@@ -1027,15 +1035,16 @@ class MonomialIterator(object):
         self.__pool = [u for u in self.__pool
                        if not (u[0]*u[1]).reduce(self.__stairs).is_zero()]
         # discard stuff above the stairs
-        self.__pool.sort(key=lambda u: smallest_lt_first(u[0]*u[1]), reverse=True) # smallest last
+        self.__pool.sort(key=lambda u: smallest_lt_first(u[0]*u[1]), reverse=True)  # smallest last
         prev = None
-        for i in range(len(self.__pool)): # discard double entries
+        for i in range(len(self.__pool)):  # discard double entries
             tau = self.__pool[i]
             tau = tau[0]*tau[1]
             if tau == prev:
                 self.__pool[i - 1] = None
             prev = tau
         self.__pool = [tau for tau in self.__pool if tau is not None]
+
 
 def fglm(algebra, one_vector, gen_matrices, infolevel=0, solver=None, early_termination=False):
     """
@@ -1086,9 +1095,10 @@ def fglm(algebra, one_vector, gen_matrices, infolevel=0, solver=None, early_term
         if infolevel >= i:
             print(msg)
 
-    basis = []; terms = {}
-    sigma = dict( (d, algebra.sigma(d)) for d in algebra.gens() )
-    delta = dict( (d, algebra.delta(d)) for d in algebra.gens() )
+    basis = []
+    terms = {}
+    sigma = dict((d, algebra.sigma(d)) for d in algebra.gens())
+    delta = dict((d, algebra.delta(d)) for d in algebra.gens())
 
     iterator = MonomialIterator(algebra)
     terms[next(iterator)[0]] = one_vector  # map terms->vectors
@@ -1111,13 +1121,17 @@ def fglm(algebra, one_vector, gen_matrices, infolevel=0, solver=None, early_term
                 v += terms[tau].apply_map(delta[d])
             terms[tau*d] = v
 
-            B.append(tau*d); Mold = M; M = M.augment(terms[tau*d])
+            B.append(tau*d)
+            Mold = M
+            M = M.augment(terms[tau*d])
             ker = solver(M, infolevel=infolevel-3)
             if len(ker) > 0:
                 info(2, "relation found.")
-                basis.append(add([ker[0][i]*B[i] for i in range(len(B))])) ## new basis element
-                B.pop(); M = Mold; iterator.declare_step() ## current term is not under the stairs
-                del terms[tau*d] # no longer needed -- hint to garbage collector
+                basis.append(add([ker[0][i]*B[i] for i in range(len(B))]))  # new basis element
+                B.pop()
+                M = Mold
+                iterator.declare_step()  # current term is not under the stairs
+                del terms[tau*d]  # no longer needed -- hint to garbage collector
                 if early_termination:
                     break
     except StopIteration:
@@ -1159,7 +1173,8 @@ def uncouple(mat, algebra=None, extended=False, column_swaps=False, infolevel=0)
     else:
         A = algebra
     A_ff = None
-    n = len(mat); m = len(mat[0])
+    n = len(mat)
+    m = len(mat[0])
     U = [None]*n
     V = [None]*n
 
@@ -1174,7 +1189,7 @@ def uncouple(mat, algebra=None, extended=False, column_swaps=False, infolevel=0)
             U[i] = [d if i == j else zero for j in range(n)]
             V[i] = [(one if i == j else zero) for j in range(m)]
 
-    r = 0 # all rows before this one have been handled.
+    r = 0  # all rows before this one have been handled.
     for c in range(m):
 
         nonzero = [i for i in range(r, n) if not mat[i][c].is_zero()]
@@ -1261,7 +1276,7 @@ def solve_triangular_system(mat, rhs, solver=None):
         for j in range(i):
             assert mat[i][j].is_zero()
 
-    sol = tuple(([0]*len(mat), [1 if i==j else 0 for j in range(len(rhs))]) for i in range(len(rhs))) # init
+    sol = tuple(([0]*len(mat), [1 if i==j else 0 for j in range(len(rhs))]) for i in range(len(rhs)))  # init
     for i in range(m - 1, -1, -1):
         xrhs = tuple(sum(s[1][j]*rhs[j][i] for j in range(len(rhs)))-sum(mat[i][j](s[0][j]) for j in range(i+1, m)) for s in sol)
         xsol = list(map(list, mat[i][i].rational_solutions(rhs=xrhs, solver=solver)))

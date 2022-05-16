@@ -52,7 +52,8 @@ from sage.rings.all import QQ
 
 from operator import pow
 
-def symbolic_database(A, f, inner = None, k = 0):
+
+def symbolic_database(A, f, inner=None, k=0):
     r"""
     Tries to return an annihilating operator of a symbolic operator `f`, i.e. an element from a (suitable) OreAlgebra `A`
     that represents a differential/recurrence equation for the symoblic epxression ``f(x)``
@@ -107,22 +108,22 @@ def symbolic_database(A, f, inner = None, k = 0):
     n = A.is_S()
     k = A(k)
 
-    #sequences
+    # sequences
     if n:
         Sn = A.gen()
 
-        #factorial
+        # factorial
         if isinstance(f,sage.functions.other.Function_factorial):
             return A(Sn - (n+1))
-        #harmonic_number
+        # harmonic_number
         elif isinstance(f,sage.functions.log.Function_harmonic_number_generalized):
-            return A( (n+2)*Sn**2 - (2*n+3)*Sn + (n+1) )
-        #binomial
+            return A((n+2)*Sn**2 - (2*n+3)*Sn + (n+1))
+        # binomial
         elif isinstance(f,sage.functions.other.Function_binomial):
-            #(k choose n) - k fixed, n variable
+            # (k choose n) - k fixed, n variable
             if k in QQ:
                 return A((n+1)*Sn - (k-n))
-            #(a*n+b choose c*n+d) - a,b,c,d fixed, n variable
+            # (a*n+b choose c*n+d) - a,b,c,d fixed, n variable
             else:
                 k = k.constant_coefficient()
                 f1 = prod(inner+i for i in range(1,inner[1]+1))
@@ -131,8 +132,8 @@ def symbolic_database(A, f, inner = None, k = 0):
             return A(f2*f3*Sn - f1)
         else:
             raise NotImplementedError
-        
-    #functions
+
+    # functions
     else:
         Dx = A.gen()
 
@@ -141,124 +142,121 @@ def symbolic_database(A, f, inner = None, k = 0):
             d = A(inner.derivative())
         else:
             x = A.base_ring().gen()
-            d = 1 #x.derivative()
-        
-        #sin
+            d = 1  # x.derivative()
+
+        # sin
         if isinstance(f,sage.functions.trig.Function_sin):
             return A(Dx**2 + d**2)
-        #cos
+        # cos
         elif isinstance(f,sage.functions.trig.Function_cos):
             return A(Dx**2 + d**2)
-        #tan
+        # tan
         elif isinstance(f,sage.functions.trig.Function_tan):
             raise TypeError("Tan is not D-finite")
-        #arcsin
+        # arcsin
         elif isinstance(f,sage.functions.trig.Function_arcsin):
             return A((1-x**2)*Dx**2 - d*x*Dx)
-        #arccos
+        # arccos
         elif isinstance(f,sage.functions.trig.Function_arccos):
             return A((1-x**2)*Dx**2 - d*x*Dx)
-        #arctan
+        # arctan
         elif isinstance(f,sage.functions.trig.Function_arctan):
             return A((x**2+1)*Dx**2 + d*2*x*Dx)
-        #sinh
+        # sinh
         elif isinstance(f,sage.functions.hyperbolic.Function_sinh):
             return A(Dx**2 - d**2)
-        #cosh
+        # cosh
         elif isinstance(f,sage.functions.hyperbolic.Function_cosh):
             return A(Dx**2 - d**2)
-        #arcsinh
+        # arcsinh
         elif isinstance(f,sage.functions.hyperbolic.Function_arcsinh):
             return A((1+x**2)*Dx**2 + d*x*Dx)
-        #arccosh
+        # arccosh
         elif isinstance(f,sage.functions.hyperbolic.Function_arccosh):
             raise TypeError("ArcCosh is not D-finite")
-        #arctanh
+        # arctanh
         elif isinstance(f,sage.functions.hyperbolic.Function_arctanh):
             return A((1-x**2)*Dx**2 - 2*d*x*Dx)
-        #exp
+        # exp
         elif isinstance(f,sage.functions.log.Function_exp):
             return A(Dx - d)
-        #log
+        # log
         elif isinstance(f,sage.functions.log.Function_log1):
             return A(x*Dx**2 + d*Dx)
-        #sqrt
+        # sqrt
         elif f == pow:
             return A(-2*x*Dx + d)
-        #airy_ai
+        # airy_ai
         elif isinstance(f,sage.functions.airy.FunctionAiryAiSimple):
             return A(Dx**2 - d**2*x)
-        #airy_ai_prime
+        # airy_ai_prime
         elif isinstance(f,sage.functions.airy.FunctionAiryAiPrime):
             return A(x*Dx**2 - d*Dx - d**2*x**2)
-        #airy_bi
+        # airy_bi
         elif isinstance(f,sage.functions.airy.FunctionAiryBiSimple):
             return A(Dx**2 - d**2*x)
-        #airy_bi_prime
+        # airy_bi_prime
         elif isinstance(f,sage.functions.airy.FunctionAiryBiPrime):
             return A(x*Dx**2 - d*Dx - (d*x)**2)
-        #arccsc
+        # arccsc
         elif isinstance(f,sage.functions.trig.Function_arccsc):
             return A(x*(1-x**2)*Dx**2 - (2*x**2-1)*d*Dx)
-        #arccsch
+        # arccsch
         elif isinstance(f,sage.functions.hyperbolic.Function_arccsch):
             return A(x*(x**2+1)*Dx**2 + (2*x**2+1)*d*Dx)
-        #arcsec
+        # arcsec
         elif isinstance(f,sage.functions.trig.Function_arcsec):
             return A(x*(1-x**2)*Dx**2 - (2*x**2-1)*d*Dx)
-        #bessel_I
+        # bessel_I
         elif isinstance(f,sage.functions.bessel.Function_Bessel_I):
-            return A( x**2*Dx**2 + d*x*Dx - d**2*(x**2 + k**2) )
-        #bessel_J
+            return A(x**2*Dx**2 + d*x*Dx - d**2*(x**2 + k**2))
+        # bessel_J
         elif isinstance(f,sage.functions.bessel.Function_Bessel_J):
-            return A( x**2*Dx**2 + d*x*Dx + d**2*(x**2 - k**2) )
-        #bessel_Y
+            return A(x**2*Dx**2 + d*x*Dx + d**2*(x**2 - k**2))
+        # bessel_Y
         elif isinstance(f,sage.functions.bessel.Function_Bessel_Y):
-            return A( x**2*Dx**2 + d*x*Dx + d**2*(x**2 - k**2) )
-        #bessel_K
+            return A(x**2*Dx**2 + d*x*Dx + d**2*(x**2 - k**2))
+        # bessel_K
         elif isinstance(f,sage.functions.bessel.Function_Bessel_K):
-            return A( x**2*Dx**2 + d*x*Dx - d**2*(x**2 + k**2) )
-        #sherical_bessel_Jzz
+            return A(x**2*Dx**2 + d*x*Dx - d**2*(x**2 + k**2))
+        # sherical_bessel_Jzz
         elif isinstance(f,sage.functions.bessel.SphericalBesselJ):
-            return A( x**2*Dx**2 + 2*d*x*Dx + d**2*(x**2 - k*(k+1)) )
-        #erf (error function)
+            return A(x**2*Dx**2 + 2*d*x*Dx + d**2*(x**2 - k*(k+1)))
+        # erf (error function)
         elif isinstance(f,sage.functions.error.Function_erf):
-            return A( Dx**2 + 2*d*x*Dx )
-        #erfc (complementary error function)
+            return A(Dx**2 + 2*d*x*Dx)
+        # erfc (complementary error function)
         elif isinstance(f,sage.functions.error.Function_erfc):
-            return A( Dx**2 + 2*d*x*Dx )
-        #erfi (imaginary error function)
+            return A(Dx**2 + 2*d*x*Dx)
+        # erfi (imaginary error function)
         elif isinstance(f,sage.functions.error.Function_erfi):
-            return A( Dx**2 - 2*d*x*Dx )
-        #dilog
+            return A(Dx**2 - 2*d*x*Dx)
+        # dilog
         elif isinstance(f,sage.functions.log.Function_dilog):
-            return A( x*(1-x)*Dx**3 + d*(2-3*x)*Dx**2 - d**2*Dx )
-        #exp_integral_e
+            return A(x*(1-x)*Dx**3 + d*(2-3*x)*Dx**2 - d**2*Dx)
+        # exp_integral_e
         elif isinstance(f,sage.functions.exp_integral.Function_exp_integral_e):
-            return A( x*Dx**2 + d*(x-k+2)*Dx + d**2*(1-k) )
+            return A(x*Dx**2 + d*(x-k+2)*Dx + d**2*(1-k))
         #exp_integral_ei (Ei)
         elif isinstance(f, sage.functions.exp_integral.Function_exp_integral):
-            return A( x*Dx**3 + 2*d*Dx**2 - d**2*x*Dx )
-        #sin_integral
+            return A(x*Dx**3 + 2*d*Dx**2 - d**2*x*Dx)
+        # sin_integral
         elif isinstance(f,sage.functions.exp_integral.Function_sin_integral):
-            return A( x*Dx**3 + 2*d*Dx**2 + d**2*x*Dx )
-        #cos_integral
+            return A(x*Dx**3 + 2*d*Dx**2 + d**2*x*Dx)
+        # cos_integral
         elif isinstance(f,sage.functions.exp_integral.Function_cos_integral):
-            return A( x*Dx**3 + 2*d*Dx**2 + d**2*x*Dx )
-        #sinh_integral
+            return A(x*Dx**3 + 2*d*Dx**2 + d**2*x*Dx)
+        # sinh_integral
         elif isinstance(f,sage.functions.exp_integral.Function_sinh_integral):
-            return A ( x*Dx**3 + 2*d*Dx**2 - d**2*x*Dx )
-        #cosh_integral
+            return A(x*Dx**3 + 2*d*Dx**2 - d**2*x*Dx)
+        # cosh_integral
         elif isinstance(f,sage.functions.exp_integral.Function_sinh_integral):
-            return A( x*Dx**3 + 2*d*Dx**2 - d**2*x*Dx )
-        #elliptic_ec (complete elliptic integral of second kind) - problems with computing the derivative
+            return A(x*Dx**3 + 2*d*Dx**2 - d**2*x*Dx)
+        # elliptic_ec (complete elliptic integral of second kind) - problems with computing the derivative
         elif isinstance(f,sage.functions.special.EllipticEC):
-            return A( (1-x)*x*Dx**2 + d*(1-x)*Dx + d**2*QQ(1./4) )
-        #elliptic_kc (complete elliptic integral of first kind) - problems with computing the derivative
+            return A((1-x)*x*Dx**2 + d*(1-x)*Dx + d**2*QQ(1./4))
+        # elliptic_kc (complete elliptic integral of first kind) - problems with computing the derivative
         elif isinstance(f,sage.functions.special.EllipticKC):
-            return A( (1-x)*x*Dx**2 + d*(1-2*x)*Dx - d**2*QQ(1./4) )
+            return A((1-x)*x*Dx**2 + d*(1-2*x)*Dx - d**2*QQ(1./4))
         else:
             raise NotImplementedError
-
-
-

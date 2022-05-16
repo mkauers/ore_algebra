@@ -29,11 +29,13 @@ from .utilities import as_embedded_number_field_elements
 
 from . import utilities
 
+
 def DifferentialOperator(dop):
     if isinstance(dop, PlainDifferentialOperator):
         return dop
     else:
         return PlainDifferentialOperator(dop)
+
 
 class PlainDifferentialOperator(UnivariateDifferentialOperatorOverUnivariateRing):
     r"""
@@ -136,7 +138,7 @@ class PlainDifferentialOperator(UnivariateDifferentialOperatorOverUnivariateRing
                                     if not c.is_zero()]
         h0, i0, _ = max(points, key=lambda p: (p[1], p[0]))
         hull = [(h, i, c) for (h, i, c) in points if h > h0 and i < i0]
-        if not hull: # generalized polynomial
+        if not hull:  # generalized polynomial
             return infinity, ZZ.zero()
         slope = max((i-i0)/(h-h0) for h, i, c in hull)
         Pol = self.base_ring()
@@ -150,7 +152,7 @@ class PlainDifferentialOperator(UnivariateDifferentialOperatorOverUnivariateRing
     @cached_method
     def split_leading_coefficient(self):
         lc = self.leading_coefficient()
-        if lc.base_ring() is not QQ: # not worth the effort
+        if lc.base_ring() is not QQ:  # not worth the effort
             return lc, lc.parent().one()
         dlc = self.desingularize(m=1).leading_coefficient()
         alc, rem = lc.quo_rem(dlc)
@@ -310,6 +312,7 @@ class PlainDifferentialOperator(UnivariateDifferentialOperatorOverUnivariateRing
         num = den*ex
         lin = Pols([num, den])
         x = Pols.gen()
+
         def shift_poly(pol):
             pol = (pol.reverse(deg)(den*x)).reverse(deg)
             return pol(lin)
@@ -333,6 +336,7 @@ class PlainDifferentialOperator(UnivariateDifferentialOperatorOverUnivariateRing
 
     def _shift_alg(self):
         return self._shift_alg_with_base(self.base_ring().base_ring())
+
 
 class ShiftedDifferentialOperator(PlainDifferentialOperator):
 

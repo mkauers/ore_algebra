@@ -21,7 +21,10 @@ Evaluation of convergent D-finite series by direct summation
 from __future__ import division, print_function
 from six.moves import range
 
-import collections, logging, sys, warnings
+import collections
+import logging
+import sys
+import warnings
 
 from itertools import count, chain, repeat
 
@@ -50,6 +53,7 @@ logger = logging.getLogger(__name__)
 ##########################
 # Argument processing etc.
 ##########################
+
 
 def series_sum(dop, ini, evpts, tgt_error, *, maj=None, bwrec=None, stop=None,
                fail_fast=False, effort=2, stride=None, ctx=dctx, **kwds):
@@ -226,6 +230,7 @@ def series_sum(dop, ini, evpts, tgt_error, *, maj=None, bwrec=None, stop=None,
     else:
         return values
 
+
 def guard_bits(dop, maj, evpts, ordrec, nterms):
     r"""
     Helper for choosing a working precision.
@@ -250,7 +255,7 @@ def guard_bits(dop, maj, evpts, ordrec, nterms):
     new_n0 = cur_n0 = orddeq = dop.order()
     refine = False
 
-    cst = abs(maj.IC(maj.dop.leading_coefficient()[0])) # ???
+    cst = abs(maj.IC(maj.dop.leading_coefficient()[0]))  # ???
 
     while True:
 
@@ -303,6 +308,7 @@ def guard_bits(dop, maj, evpts, ordrec, nterms):
         if new_n0 > nterms:
             return nterms, guard_bits_intervals
 
+
 def _use_inexact_recurrence(bwrec, leftmost, prec):
     Scalars = bwrec.Scalars
     if not is_NumberField(Scalars):
@@ -317,10 +323,11 @@ def _use_inexact_recurrence(bwrec, leftmost, prec):
                                   for i in range(0, p.degree(), 10)
                                   for a in p[i])
     deg = Scalars.degree()*leftmost.pol.degree()
-    prefer_inexact = ( 4*(h + 16)*deg**2 + 4000 >= prec )
+    prefer_inexact = (4*(h + 16)*deg**2 + 4000 >= prec)
     logger.debug("using %sexact version of recurrence with algebraic coeffs "
             "of degree %s", "in" if prefer_inexact else "", Scalars.degree())
     return prefer_inexact
+
 
 def interval_series_sum_wrapper(dop, inis, evpts, tgt_error, bwrec, stop,
                                 fail_fast, effort, stride, ctx=dctx):
@@ -343,7 +350,7 @@ def interval_series_sum_wrapper(dop, inis, evpts, tgt_error, bwrec, stop,
     old_bit_prec = 8 + bit_prec0*(1 + ZZ(bwrec.order - 2).nbits())
     if ctx.squash_intervals and ordinary:
         nterms, lg_mag = dop.est_terms(evpts, bit_prec0)
-        nterms = (bwrec.order*dop.order() + nterms)*1.2 # let's be pragmatic
+        nterms = (bwrec.order*dop.order() + nterms)*1.2  # let's be pragmatic
         nterms = ZZ((nterms//stride + 1)*stride)
         bit_prec0 += ZZ(dop._naive_height()).nbits() + lg_mag + nterms.nbits()
         n0_squash, g = guard_bits(dop, stop.maj, evpts, bwrec.order, nterms)
@@ -371,7 +378,7 @@ def interval_series_sum_wrapper(dop, inis, evpts, tgt_error, bwrec, stop,
         stop.reset(tgt_error.eps >> (4*attempt),
                    stop.fast_fail and ini_are_accurate)
 
-        leftmost = inis[0].expo # XXX fragile
+        leftmost = inis[0].expo  # XXX fragile
         if _use_inexact_recurrence(bwrec, leftmost, bit_prec):
             shifted_bwrec = bwrec.shift(leftmost.as_ball(Intervals))
         else:
@@ -412,6 +419,7 @@ def interval_series_sum_wrapper(dop, inis, evpts, tgt_error, bwrec, stop,
 ################################################################################
 # Transition matrices
 ################################################################################
+
 
 class HighestSolMapper(LocalBasisMapper):
 
@@ -472,6 +480,7 @@ class HighestSolMapper(LocalBasisMapper):
         self._sols[self.shift, self.log_power] = value
         return [vector(v) for v in value]
 
+
 def fundamental_matrix_regular(dop, evpts, eps, fail_fast, effort, ctx=dctx):
     r"""
     Fundamental matrix at a possibly regular singular point
@@ -531,6 +540,7 @@ def fundamental_matrix_regular(dop, evpts, eps, fail_fast, effort, ctx=dctx):
 # Series summation
 ################################################################################
 
+
 def cy_classes():
     try:
         from . import naive_sum_c
@@ -539,6 +549,7 @@ def cy_classes():
         warnings.warn("Cython implementation unavailable, "
                       "falling back to slower Python implementation")
         return CoefficientSequence, PartialSum
+
 
 class CoefficientSequence(object):
 
@@ -557,14 +568,14 @@ class CoefficientSequence(object):
         self.force_real = real and isinstance(Intervals, ComplexBallField)
 
         self.log_prec = 0
-        self.nterms = 0 # self.last[i] == u[n-1-i]
+        self.nterms = 0  # self.last[i] == u[n-1-i]
 
         self.critical_coeffs = {}
 
         # Start with vectors of length 1 instead of 0 (but still with log_prec
         # == 0) to avoid having to resize them, especially in the ordinary case
         last = [[Intervals.zero()] for _ in range(ordrec + 1)]
-        self.last = collections.deque(last) # u[trunc-1], u[trunc-2], ...
+        self.last = collections.deque(last)  # u[trunc-1], u[trunc-2], ...
 
     def coeff_estimate(self):
         return sum(abs(a) for log_jet in self.last for a in log_jet)
@@ -629,6 +640,7 @@ class CoefficientSequence(object):
 
         return err
 
+
 class PartialSum(object):
 
     def __init__(self, cseq, Jets, ord, pt, pt_opts, IR):
@@ -648,7 +660,7 @@ class PartialSum(object):
 
         # Dynamic data
 
-        self.trunc = 0 # first term _not_ in the sum
+        self.trunc = 0  # first term _not_ in the sum
         # Though CoefficientSequences start with vector of length 1, here,
         # starting with partial sums of length 0 is better in some corner cases
         self.psum = []
@@ -726,7 +738,9 @@ class PartialSum(object):
         except RuntimeError:
             return RealField(30)('inf')
 
+
 MPartialSums = collections.namedtuple("MPartialSums", ["cseq", "psums"])
+
 
 def series_sum_regular(Intervals, dop, bwrec, inis, evpts, stop, stride,
                        n0_squash, real, ctx):
@@ -792,7 +806,7 @@ def series_sum_regular(Intervals, dop, bwrec, inis, evpts, stop, stride,
     if n0_squash < sys.maxsize:
         assert ordinary
         rnd_maj = stop.maj(n0_squash)
-        rnd_maj >>= n0_squash # XXX (a) useful? (b) check correctness
+        rnd_maj >>= n0_squash  # XXX (a) useful? (b) check correctness
         rnd_den = rnd_maj.exp_part_coeffs_lbounds()
         rnd_loc = IR.zero()
 
@@ -822,6 +836,7 @@ def series_sum_regular(Intervals, dop, bwrec, inis, evpts, stop, stride,
             return [stop.maj.normalized_residual(n, list(cseq.last)[:-1],
                                                  bwrec_nplus)
                     for cseq, _ in sols]
+
         def get_bound(self, residuals):
             # XXX consider maintaining separate tail bounds, and stopping the
             # summation of some series before the others
@@ -833,15 +848,16 @@ def series_sum_regular(Intervals, dop, bwrec, inis, evpts, stop, stride,
                     psum.update_enclosure(tb)
                     worst = worst.max(psum.total_error)
             return worst
+
         def get_value(self):
             assert len(sols) == 1
             return sols[0][1][0].bare_value()
     cb = BoundCallbacks()
 
     log_prec = 1
-    precomp_len = max(1, bwrec.order) # hack for recurrences of order zero
+    precomp_len = max(1, bwrec.order)  # hack for recurrences of order zero
     start = int(dop.order()) if ordinary else 0
-    assert start <= n0_squash # the special path doesn't squash its result
+    assert start <= n0_squash  # the special path doesn't squash its result
     # The next terms of the sum may need a higher log-prec than the current one.
     rec_add_log_prec = sum(len(v) for s, v in inis[0].shift.items()
                                    if start <= s < start + precomp_len)
@@ -858,7 +874,7 @@ def series_sum_regular(Intervals, dop, bwrec, inis, evpts, stop, stride,
             assert log_prec == 1 or not ordinary
             est = sum(cseq.coeff_estimate() for cseq, _ in sols)
             est *= Intervals(radpow).squash()
-            sing = (n <= last_index_with_ini) or (mult > 0) # ?
+            sing = (n <= last_index_with_ini) or (mult > 0)  # ?
             done, tail_bound = stop.check(cb, sing, n, tail_bound, est, stride)
             if done:
                 break
@@ -883,7 +899,7 @@ def series_sum_regular(Intervals, dop, bwrec, inis, evpts, stop, stride,
                 if squash:
                     # XXX lookup of IR and/or conversion is slow
                     rnd_loc = rnd_loc.max(IR(n*err)/hom_maj_coeff_lb)
-                    if not rnd_loc.is_finite(): # normalize NaNs and infinities
+                    if not rnd_loc.is_finite():  # normalize NaNs and infinities
                         rnd_loc = rnd_loc.parent()('inf')
                 for (jetpow, psum) in zip(jetpows, psums):
                     psum.next_term(jetpow, mult)
@@ -928,17 +944,21 @@ def series_sum_regular(Intervals, dop, bwrec, inis, evpts, stop, stride,
 
 # Temporary: later on, polynomials with ball coefficients could implement
 # add_error themselves.
+
+
 def _add_error(approx, error):
     if isinstance(approx, polynomial_element.Polynomial):
         return approx[0].add_error(error) + ((approx >> 1) << 1)
     else:
         return approx.add_error(error)
 
+
 def _get_error(approx):
     if isinstance(approx, polynomial_element.Polynomial):
         return approx[0].abs().rad_as_ball()
     else:
         return approx.abs().rad_as_ball()
+
 
 def _ctz(vec, maxlen):
     z = 0
@@ -948,6 +968,7 @@ def _ctz(vec, maxlen):
         else:
             break
     return z
+
 
 def _resize_list(l, n, z):
     n0 = len(l)

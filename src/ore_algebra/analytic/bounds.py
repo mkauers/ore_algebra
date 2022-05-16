@@ -122,7 +122,11 @@ REFERENCE:
 from __future__ import division, print_function
 from six.moves import range
 
-import collections, itertools, logging, sys, warnings
+import collections
+import itertools
+import logging
+import sys
+import warnings
 
 from sage.arith.srange import srange
 from sage.misc.cachefunc import cached_function, cached_method
@@ -156,12 +160,14 @@ from .safe_cmp import *
 
 logger = logging.getLogger(__name__)
 
+
 class BoundPrecisionError(Exception):
     pass
 
 ######################################################################
 # Majorant series
 ######################################################################
+
 
 class MajorantSeries(object):
     r"""
@@ -216,7 +222,7 @@ class MajorantSeries(object):
         fundamental matrix Y(ζ) for all for all ζ with `|ζ|` ≤ rad.
         """
         rad = self.IR(rad)
-        if not safe_le(rad, self.cvrad): # intervals!
+        if not safe_le(rad, self.cvrad):  # intervals!
             return self.IR(infinity)
         elif tail is None:
             ser = self.bound_series(rad, rows)
@@ -266,6 +272,7 @@ class MajorantSeries(object):
         if return_difference:
             return delta
 
+
 def _zero_free_rad(pols, IR):
     r"""
     Return the radius of a disk around the origin without zeros of any of the
@@ -282,6 +289,7 @@ def _zero_free_rad(pols, IR):
         assert rad >= IR.zero()
         return rad
     raise NotImplementedError
+
 
 class RationalMajorant(MajorantSeries):
     r"""
@@ -347,6 +355,7 @@ class RationalMajorant(MajorantSeries):
     def __repr__(self):
         res = ""
         Series = self.Poly.completion(self.Poly.gen())
+
         def term(num, den):
             if den.value() == 1:
                 return repr(Series(num))
@@ -358,7 +367,7 @@ class RationalMajorant(MajorantSeries):
         return res if res != "" else "0"
 
     def series(self, rad, ord):
-        Pol = self._Poly_IC # XXX: switch to self.Poly once arb_polys are interfaced
+        Pol = self._Poly_IC  # XXX: switch to self.Poly once arb_polys are interfaced
         pert_rad = Pol([rad, 1])
         res = Pol.zero()
         for num, den in self.fracs:
@@ -385,7 +394,7 @@ class RationalMajorant(MajorantSeries):
         # (Alternative algorithm: only bound the constant term this way,
         # use self.series().integral() for the remaining terms. Probably
         # slightly tighter and costlier.)
-        Pol = self._Poly_IC # XXX: switch to self.Poly
+        Pol = self._Poly_IC  # XXX: switch to self.Poly
         pert_rad = Pol([rad, 1])
         res = Pol.zero()
         for num, den in self.fracs:
@@ -401,10 +410,10 @@ class RationalMajorant(MajorantSeries):
         return res
 
     def series0(self, ord):
-        Pol = self._Poly_IC # could be RBF[] if properly supported in sage
+        Pol = self._Poly_IC  # could be RBF[] if properly supported in sage
         res = Pol.zero()
         for num, den_facto in self.fracs:
-            den = prod((lin**mult for lin, mult in den_facto), Pol.one()) #slow
+            den = prod((lin**mult for lin, mult in den_facto), Pol.one())  # slow
             res += Pol(num)._mul_trunc_(den.inverse_series_trunc(ord), ord)
         return res
 
@@ -417,6 +426,7 @@ class RationalMajorant(MajorantSeries):
         assert isinstance(pol, Polynomial)
         return RationalMajorant([(pol*num, den) for num, den in self.fracs],
                                 ctx=self.ctx)
+
 
 class HyperexpMajorant(MajorantSeries):
     r"""
@@ -601,10 +611,10 @@ class HyperexpMajorant(MajorantSeries):
         """
         # Compute the derivatives “by automatic differentiation”. This is
         # crucial for performance with operators of large order.
-        Pol = PolynomialRing(self.IC, self.variable_name) # XXX: should be self.IR
+        Pol = PolynomialRing(self.IC, self.variable_name)  # XXX: should be self.IR
         pert_rad = Pol([rad, 1])
         shx_ser = pert_rad.power_trunc(self.shift, ord)
-        num_ser = Pol(self.num).compose_trunc(pert_rad, ord) # XXX: remove Pol()
+        num_ser = Pol(self.num).compose_trunc(pert_rad, ord)  # XXX: remove Pol()
         den_ser = Pol(self._den_expanded()).compose_trunc(pert_rad, ord)
         if den_ser[0].contains_zero():
             # we will never obtain a finite bound using this result
@@ -647,6 +657,7 @@ class HyperexpMajorant(MajorantSeries):
         b0 = self.bound_series(rad, ord)
         if n < self.shift:
             return b0
+
         def bound(r):
             r = self.IR(numpy.real(r))
             return self._saddle_point_bound(rad, 1, n, r)[0].log().mid()
@@ -682,6 +693,7 @@ class HyperexpMajorant(MajorantSeries):
 # Majorants for reciprocals of polynomials (“denominators”)
 ######################################################################
 
+
 def graeffe(pol):
     r"""
     Compute the Graeffe iterate of a polynomial.
@@ -713,6 +725,7 @@ def graeffe(pol):
     pm = -1 if deg % 2 else 1
     graeffe_iterate = pm * (pol_even**2 - (pol_odd**2).shift(1))
     return graeffe_iterate
+
 
 def abs_min_nonzero_root(pol, tol=RR(1e-2), min_log=RR('-inf'),
                          prec=dctx.IR.precision()):
@@ -799,7 +812,7 @@ def abs_min_nonzero_root(pol, tol=RR(1e-2), min_log=RR('-inf'),
     """
     tol = RealField(prec)(tol)
     myIR = RealBallField(prec)
-    myRIF = type(RIF)(prec) # XXX: could use balls with recent arb (> intersect)
+    myRIF = type(RIF)(prec)  # XXX: could use balls with recent arb (> intersect)
     if pol.is_zero():
         raise ValueError("expected a nonzero polynomial")
     pol >>= pol.valuation()
@@ -850,7 +863,7 @@ def abs_min_nonzero_root(pol, tol=RR(1e-2), min_log=RR('-inf'),
 # XXX: tie life to a suitable object
 @cached_function(key=lambda p, IC: (IC.precision(), id(p.parent()), p))
 def _complex_roots(pol, IC):
-    if not pol.parent() is QQ: # QQ typical (ordinary points)
+    if not pol.parent() is QQ:  # QQ typical (ordinary points)
         pol = pol.change_ring(QQbar)
     myCIF = ComplexIntervalField(IC.precision())
     return [(IC(rt), mult) for rt, mult in pol.roots(myCIF)]
@@ -858,6 +871,7 @@ def _complex_roots(pol, IC):
 # Possible improvements:
 # - better take into account the range of derivatives needed at each step,
 # - allow ord to vary?
+
 
 class RatSeqBound(object):
     r"""
@@ -1110,7 +1124,7 @@ class RatSeqBound(object):
             crit_n = root.abs()**2/re
             if crit_n.diameter() > 16:
                 # This includes the case where re contains zero.
-                n_min = sys.maxsize # infinity
+                n_min = sys.maxsize  # infinity
                 # Lower bound valid for all real n > 0, i.e., not taking
                 # account the discrete effects.
                 global_lbound = (root.imag()/root.abs()).below_abs()
@@ -1125,13 +1139,13 @@ class RatSeqBound(object):
                 # bound over ℕ ∖ exn. There can be several consecutive
                 # exceptional indices (this is even quite typical).
                 while ns[-1] in self.exn:
-                    ns.append(ns[-1] + 1) # append to avoid overwriting ns[0]
+                    ns.append(ns[-1] + 1)  # append to avoid overwriting ns[0]
                 while ns[0] in self.exn:
                     ns[0] -= 1
                 global_lbound = self.IR.one().min(*(
                         (self.IC.one() - root/n).abs()
                         for n in ns if n >= 1 and not n in self.exn))
-            global_lbound = global_lbound.below_abs()**mult # point ball
+            global_lbound = global_lbound.below_abs()**mult  # point ball
             den_data.append((root, mult, n_min, global_lbound))
         return den_data
 
@@ -1144,7 +1158,7 @@ class RatSeqBound(object):
         """
         assert n not in self.exn
         if n == 0:
-            return self.IR.zero() # _den_data() assumes n ≥ 1
+            return self.IR.zero()  # _den_data() assumes n ≥ 1
         res = self.IR.one()
         for root, mult, n_min, global_lbound in self._den_data():
             if n < n_min:
@@ -1208,7 +1222,7 @@ class RatSeqBound(object):
             # num, n, "+".join([str(invabscst*c.above_abs()) for c in ser]),
             # bound)))
             if not bound.is_finite():
-                bound = self.IR(infinity) # replace NaN by +∞ (as max(NaN, 42) = 42)
+                bound = self.IR(infinity)  # replace NaN by +∞ (as max(NaN, 42) = 42)
             bounds.append(bound)
         return bounds
 
@@ -1347,6 +1361,7 @@ class RatSeqBound(object):
         from sage.plot.plot import list_plot
         inf = RR('inf')
         # avoid empty plots and matplotlib warnings
+
         def pltfilter(it):
             return [(x, RR(y)) for (x, y) in it if 0 < RR(y) < inf]
         ref = []
@@ -1433,6 +1448,7 @@ class RatSeqBound(object):
             n = ref.max(self.ref(n, self.ord(n))[0])
             assert not (self(n)[0] < ref)
 
+
 @random_testing
 def _test_RatSeqBound(number=10, base=QQ, deg=20, verbose=False):
     r"""
@@ -1452,7 +1468,7 @@ def _test_RatSeqBound(number=10, base=QQ, deg=20, verbose=False):
     PolsZ = PolynomialRing(ZZ, 'n')
     assert deg >= 1
     for _ in range(number):
-        dlin = ZZ.random_element(deg) # < deg
+        dlin = ZZ.random_element(deg)  # < deg
         drnd = ZZ.random_element(1, deg - dlin + 1)
         dnum = ZZ.random_element(dlin + drnd)
         num = Pols.random_element(degree=dnum)
@@ -1477,6 +1493,7 @@ def _test_RatSeqBound(number=10, base=QQ, deg=20, verbose=False):
 ################################################################################
 # Bounds for differential equations
 ################################################################################
+
 
 def bound_polynomials(pols, Poly):
     r"""
@@ -1505,6 +1522,7 @@ def bound_polynomials(pols, Poly):
     deg = max(pol.degree() for pol in pols)
     val = min(deg, min(pol.valuation() for pol in pols))
     order = len(pols)
+
     def coeff_bound(n, minus_inf=IR('-inf')):
         return minus_inf.max(*(
             IC(pols[k][n]).above_abs()
@@ -1512,6 +1530,7 @@ def bound_polynomials(pols, Poly):
     maj = Poly([coeff_bound(n) for n in range(val, deg + 1)])
     maj <<= val
     return maj
+
 
 class DiffOpBound(object):
     r"""
@@ -1708,7 +1727,7 @@ class DiffOpBound(object):
         else:
             self._effort += (ZZ(pol_part_len)//default_pol_part_len).nbits()
 
-        self.Poly = Pols_z.change_ring(self.IR) # TBI
+        self.Poly = Pols_z.change_ring(self.IR)  # TBI
         one = self.Poly.one()
         self.__facto_one = Factorization([(one, 1)], unit=one, sort=False,
                                                      simplify=False)
@@ -1739,6 +1758,7 @@ class DiffOpBound(object):
         fmt = ("{cst}/({den})*exp(int(POL+{cst}*NUM/{den})) where\n"
                "POL={pol},\n"
                "NUM={num}\n")
+
         def pol_repr(ratseqbounds, shift):
             if len(ratseqbounds) == 0:
                 return 0
@@ -2208,7 +2228,7 @@ class DiffOpBound(object):
             # aux(z)/h(z) s.t. aux(z) = f(z)*h(z) + O(z^(1+deg(aux))). Then,
             # any f^ s.t. f^[n] ≥ max(0,f[n]) is a valid q^.
             ord = aux.degree() + 1
-            inv = maj.inv_exp_part_series0(ord) # XXX slow
+            inv = maj.inv_exp_part_series0(ord)  # XXX slow
             # assert all(c.imag().contains_zero() for c in inv)
             inv = Pols([c.real() for c in inv], check=False)
             f = aux._mul_trunc_(inv, ord)
@@ -2244,7 +2264,7 @@ class DiffOpBound(object):
         # logger.debug("n=%s, maj(n)=%s, rhs=%s", n, maj, rhs)
         # Shift by n to account for the implicit z^n, then by -1 because of the
         # formula ∫(w⁻¹·(q^)(w)·dw.
-        pol = (rhs << (n - 1)).integral() # XXX potential perf issue with <<
+        pol = (rhs << (n - 1)).integral()  # XXX potential perf issue with <<
         maj *= pol
         return maj
 
@@ -2373,22 +2393,22 @@ class DiffOpBound(object):
             return [(x, float(y)) for (x, y) in it if eps < float(y) < large]
         myplot = plot.plot([])
         if intervals:
-            myplot += plot.line( # reference value - upper
+            myplot += plot.line(  # reference value - upper
                     pltfilter((n, v.upper()) for (n, v) in err),
                     color="black", scale="semilogy")
-        myplot += plot.line( # reference value - main
+        myplot += plot.line(  # reference value - main
                 pltfilter((n, v.lower()) for (n, v) in err),
                 color="black", scale="semilogy")
         if intervals:
-            myplot += plot.line( # bound - lower
+            myplot += plot.line(  # bound - lower
                     pltfilter((rec.n, rec.b.lower()) for rec in recd),
                     color=color, scale="semilogy", **opts)
-        myplot += plot.line( # bound - main
+        myplot += plot.line(  # bound - main
                 pltfilter((rec.n, rec.b.upper()) for rec in recd),
                 color=color, scale="semilogy", **opts)
         if tails is not None:
             nmax = recd[-1].n + 1
-            for rec in recd: # bounds for n1 > n based on the residual at n
+            for rec in recd:  # bounds for n1 > n based on the residual at n
                 if (rec.n - recd[0].n) % tails == 0:
                     r = CBF(pt).abs()
                     data = [(n1, rec.maj.bound(r, tail=n1).upper())
@@ -2424,6 +2444,7 @@ class DiffOpBound(object):
         p.set_legend_options(handlelength=4, shadow=False)
         return p
 
+
 class MultiDiffOpBound(object):
     r"""
     Ad hoc wrapper for passing several DiffOpBounds to StoppingCriterion.
@@ -2450,6 +2471,8 @@ class MultiDiffOpBound(object):
 # division to compute the truncation in DiffOpBound._update_num_bound.
 # Extracting the Qj(θ) would then be easy, and I may no longer need the
 # coefficients of θ "on the right".
+
+
 def _dop_rcoeffs_of_T(dop, base_ring):
     r"""
     Compute the coefficients of dop as an operator in θ but with θ on the left.
@@ -2477,7 +2500,7 @@ def _dop_rcoeffs_of_T(dop, base_ring):
     assert dop.parent().is_T()
     Pols = dop.base_ring().change_ring(base_ring)
     ordlen, deglen = dop.order() + 1, dop.degree() + 1
-    _dop = dop._poly.list(copy=False) # micro-opt
+    _dop = dop._poly.list(copy=False)  # micro-opt
     binomial = [[0]*(ordlen) for _ in range(ordlen)]
     for n in range(ordlen):
         binomial[n][0] = 1
@@ -2493,6 +2516,7 @@ def _dop_rcoeffs_of_T(dop, base_ring):
                 pow *= (-j)
         res[k] = Pols(pol)
     return res
+
 
 @random_testing
 def _test_diffop_bound(
@@ -2534,6 +2558,7 @@ def _test_diffop_bound(
                 maj = DiffOpBound(dop, pol_part_len=pplen)
                 maj._test(prec=prec)
 
+
 def _switch_vars(pol, Ayx):
     Ay = Ayx.base_ring()
     if pol.is_zero():
@@ -2541,6 +2566,7 @@ def _switch_vars(pol, Ayx):
     dy = pol.degree()
     dx = max(c.degree() for c in pol)
     return Ayx([Ay([pol[j][i] for j in range(dy+1)]) for i in range(dx+1)])
+
 
 def _use_sum_of_products(last, bwrec_nplus, IR, IC):
     if not (last and last[0] and bwrec_nplus and bwrec_nplus[0] and
@@ -2556,6 +2582,7 @@ def _use_sum_of_products(last, bwrec_nplus, IR, IC):
         return True, IC
     else:
         return False, IC
+
 
 def _log2abs(x):
     upper = x.above_abs().log(2)

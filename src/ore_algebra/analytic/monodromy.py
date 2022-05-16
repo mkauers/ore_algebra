@@ -41,6 +41,7 @@ QQi = QuadraticField(-1, 'i')
 # Formal monodromy
 ##############################################################################
 
+
 def formal_monodromy(dop, sing, ring=SR):
     r"""
     Compute the formal monodromy matrix of a system of fundamental solutions at
@@ -121,10 +122,12 @@ def formal_monodromy(dop, sing, ring=SR):
     mon, _ = _formal_monodromy_naive(ldop, ring)
     return mon
 
+
 def _formal_monodromy_naive(dop, ring):
     crit = _critical_monomials(dop)
     mor = dop.base_ring().base_ring().hom(ring)
     return _formal_monodromy_from_critical_monomials(crit, mor)
+
 
 def _critical_monomials(dop):
 
@@ -137,6 +140,7 @@ def _critical_monomials(dop):
             return {s: ser[s] for s, _ in self.shifts}
 
     return Mapper(dop).run()
+
 
 def _formal_monodromy_from_critical_monomials(critical_monomials, mor):
     r"""
@@ -187,7 +191,7 @@ def _formal_monodromy_from_critical_monomials(critical_monomials, mor):
         expo = jsol.leftmost
         if expo is not expo0:
             scalar = False
-        if isinstance(ring, ComplexBallField): # optimization
+        if isinstance(ring, ComplexBallField):  # optimization
             eigv = (ring(expo)*2).exppii()
         elif expo.is_rational():
             rat = expo.as_number_field_element()
@@ -206,6 +210,7 @@ def _formal_monodromy_from_critical_monomials(critical_monomials, mor):
 
     return mat, scalar
 
+
 def _rescale_col_hold_nontrivial(mat, j, c):
     for i in range(mat.nrows()):
         if mat[i,j].is_zero():
@@ -214,6 +219,7 @@ def _rescale_col_hold_nontrivial(mat, j, c):
             mat[i,j] = c
         else:
             mat[i,j] = mat[i,j].mul(c, hold=True)
+
 
 def _test_formal_monodromy(dop):
     i = QQi.gen()
@@ -231,6 +237,7 @@ def _test_formal_monodromy(dop):
 # transition matrix may not actually be analytic but we do not care which path
 # is taken
 
+
 def _local_monodromy_loop(dop, x, eps, ctx):
     polygon = path.polygon_around(x)
     n = len(polygon)
@@ -238,7 +245,7 @@ def _local_monodromy_loop(dop, x, eps, ctx):
     for i in range(n):
         step = [polygon[i], polygon[(i+1)%n]]
         logger.debug("center = %s, step = %s", x, step)
-        step[0].options['store_value'] = False # XXX bugware
+        step[0].options['store_value'] = False  # XXX bugware
         step[1].options['store_value'] = True
         mat = x.dop.numerical_transition_matrix(step, eps, ctx=ctx)
         prec = utilities.prec_from_eps(eps)
@@ -246,6 +253,7 @@ def _local_monodromy_loop(dop, x, eps, ctx):
                    for c in mat.list())
         mats.append(mat)
     return polygon, mats
+
 
 class TodoItem():
 
@@ -275,6 +283,7 @@ class TodoItem():
         # Sage graphs require vertices to be comparable
         return id(self) < id(other)
 
+
 def _merge_conjugate_singularities(dop, sing, base, todo):
     need_conjugates = False
     sgn = 1 if base.alg.sign_imag() >= 0 else -1
@@ -289,8 +298,10 @@ def _merge_conjugate_singularities(dop, sing, base, todo):
             item.want_conj = True
     return need_conjugates
 
+
 def _spanning_tree(base, verts):
     graph = Graph([list(verts), lambda x, y: x is not y])
+
     def length(edge):
         x, y, _ = edge
         return abs(CC(x.alg) - CC(y.alg))
@@ -299,9 +310,11 @@ def _spanning_tree(base, verts):
     tree.add_vertex(base)
     return tree
 
+
 def _closest_unsafe(lst, x):
     x = CC(x.alg)
     return min(enumerate(lst), key=lambda y: abs(CC(y[1].value) - x))
+
 
 def _extend_path_mat(dop, path_mat, inv_path_mat, x, y, eps, matprod, ctx):
     anchor_index_x, anchor_x = _closest_unsafe(x.polygon, y)
@@ -317,7 +330,7 @@ def _extend_path_mat(dop, path_mat, inv_path_mat, x, y, eps, matprod, ctx):
     else:
         path = [anchor_x, anchor_y]
         invert = False
-    path[0].options["store_value"] = False # XXX bugware
+    path[0].options["store_value"] = False  # XXX bugware
     path[1].options["store_value"] = True
     edge_mat = dop.numerical_transition_matrix(path, eps, ctx=ctx)
     inv_edge_mat = ~edge_mat
@@ -330,8 +343,10 @@ def _extend_path_mat(dop, path_mat, inv_path_mat, x, y, eps, matprod, ctx):
     assert isinstance(new_path_mat, Matrix_complex_ball_dense)
     return new_path_mat, new_inv_path_mat
 
+
 LocalMonodromyData = collections.namedtuple("LocalMonodromyData",
         ["point", "monodromy", "is_scalar"])
+
 
 def _monodromy_matrices(dop, base, eps=1e-16, sing=None, **kwds):
     r"""
@@ -432,6 +447,7 @@ def _monodromy_matrices(dop, base, eps=1e-16, sing=None, **kwds):
 
     Scalars = ComplexBallField(utilities.prec_from_eps(eps))
     id_mat = matrix.identity_matrix(Scalars, dop.order())
+
     def matprod(elts):
         return prod(reversed(elts), id_mat)
 
@@ -488,6 +504,7 @@ def _monodromy_matrices(dop, base, eps=1e-16, sing=None, **kwds):
         base_conj_mat = dop.numerical_transition_matrix(
             [base.alg.as_exact(), base.alg.conjugate().as_exact()],
             eps, ctx=ctx)
+
         def conjugate_monodromy(mat):
             return ~base_conj_mat*~mat.conjugate()*base_conj_mat
 
@@ -522,6 +539,7 @@ def _monodromy_matrices(dop, base, eps=1e-16, sing=None, **kwds):
             yield from dfs(y, path + [y], new_path_mat, new_inv_path_mat)
 
     yield from dfs(base, [base], id_mat, id_mat)
+
 
 def monodromy_matrices(dop, base, eps=1e-16, sing=None, **kwds):
     r"""
@@ -616,6 +634,7 @@ def monodromy_matrices(dop, base, eps=1e-16, sing=None, **kwds):
     it = _monodromy_matrices(dop, base, eps, sing, **kwds)
     return list(mat for _, mat, _ in it)
 
+
 def _test_monodromy_matrices():
     r"""
     TESTS::
@@ -641,13 +660,13 @@ def _test_monodromy_matrices():
     assert all(m == -1 for m in mon)
 
     dop = (x**2 + 1)*Dx**2 + 2*x*Dx
-    mon = monodromy_matrices(dop, QQbar(i+1)) # mon[0] <--> i
+    mon = monodromy_matrices(dop, QQbar(i+1))  # mon[0] <--> i
     assert norm(mon[0] - matrix(CBF, [[1,pi*(1+2*i)], [0,1]])) < RBF(1e-10)
     assert norm(mon[1] - matrix(CBF, [[1,-pi*(1+2*i)], [0,1]])) < RBF(1e-10)
-    mon = monodromy_matrices(dop, QQbar(-i+1)) # mon[0] <--> -i
+    mon = monodromy_matrices(dop, QQbar(-i+1))  # mon[0] <--> -i
     assert norm(mon[0] - matrix(CBF, [[1,pi*(-1+2*i)], [0,1]])) < RBF(1e-10)
     assert norm(mon[1] - matrix(CBF, [[1,pi*(1-2*i)], [0,1]])) < RBF(1e-10)
-    mon = monodromy_matrices(dop, QQbar(i)) # mon[0] <--> i
+    mon = monodromy_matrices(dop, QQbar(i))  # mon[0] <--> i
     assert norm(mon[0] - matrix(CBF, [[1,0], [2*pi*i,1]])) < RBF(1e-10)
     assert norm(mon[1] - matrix(CBF, [[1,0], [-2*pi*i,1]])) < RBF(1e-10)
     mon = monodromy_matrices(dop, QQbar(i), sing=[QQbar(i)])

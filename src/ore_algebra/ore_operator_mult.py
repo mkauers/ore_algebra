@@ -34,6 +34,7 @@ from sage.rings.infinity import infinity
 
 from .ore_operator import OreOperator
 
+
 class MultivariateOreOperator(OreOperator):
     """
     An Ore operator. Instances of this class represent elements of Ore algebras with more than
@@ -42,7 +43,7 @@ class MultivariateOreOperator(OreOperator):
 
     # constructor
 
-    def __init__(self, parent, data): 
+    def __init__(self, parent, data):
         OreOperator.__init__(self, parent)
         if isinstance(data, OreOperator):
             data = data.polynomial()
@@ -51,7 +52,7 @@ class MultivariateOreOperator(OreOperator):
     # action
 
     def __call__(self, f, **kwds):
-        
+
         A = self.parent()
         gens = A.gens()
         make_der = lambda x, e=1: (lambda u: 0 if u in QQ else u.derivative(x, e))
@@ -75,7 +76,7 @@ class MultivariateOreOperator(OreOperator):
                         for j in range(e[i]):
                             u = d(u)
             out += terms[e]*u
-            
+
         return out
 
     # tests
@@ -88,14 +89,14 @@ class MultivariateOreOperator(OreOperator):
 
     def _is_atomic(self):
         return self.__poly._is_atomic()
-       
+
     def is_gen(self):
         return self.__poly.is_gen()
 
     # conversion
 
     def polynomial(self):
-        return self.__poly            
+        return self.__poly
 
     def change_ring(self, R):
         """
@@ -139,11 +140,12 @@ class MultivariateOreOperator(OreOperator):
 
     def _mul_(self, other):
 
-        A = self.parent(); n = A.ngens()
-        sigma = [ A.sigma(i) for i in range(n) ] 
-        delta = [ A.delta(i) for i in range(n) ]
-        D = [ A.gen(i).polynomial() for i in range(n) ]
-        
+        A = self.parent()
+        n = A.ngens()
+        sigma = [A.sigma(i) for i in range(n)]
+        delta = [A.delta(i) for i in range(n)]
+        D = [A.gen(i).polynomial() for i in range(n)]
+
         monomial_times_other = {tuple(0 for i in range(n)): other.polynomial()}
 
         def multiple(exp):
@@ -152,16 +154,19 @@ class MultivariateOreOperator(OreOperator):
                 i = n - 1
                 while exp[i] == 0:
                     i -= 1
-                sub = list(exp); sub[i] -= 1; prev = multiple(sub)
+                sub = list(exp)
+                sub[i] -= 1
+                prev = multiple(sub)
                 new = prev.map_coefficients(sigma[i])*D[i] + prev.map_coefficients(delta[i])
                 monomial_times_other[exp] = new
             return monomial_times_other[exp]
 
-        out = A.zero(); poly = self.__poly
+        out = A.zero()
+        poly = self.__poly
         for exp in poly.dict():
             out += poly[exp]*multiple(exp)
 
-        monomial_times_other.clear() # support garbage collector
+        monomial_times_other.clear()  # support garbage collector
         return A(out)
 
     def _add_(self, other):
@@ -261,15 +266,15 @@ class MultivariateOreOperator(OreOperator):
             return self.__poly.exponents()[0]
         except:
             # zero operator
-            return tuple( [-1]*self.parent().ngens() )
-    
+            return tuple([-1]*self.parent().ngens())
+
     def constant_coefficient(self):
         return self.__poly.constant_coefficient()
 
     def monomial_coefficient(self, term):
         return self.__poly.monomial_coefficient(self.parent()(term).__poly)
-    
-    def map_coefficients(self, f, new_base_ring = None):
+
+    def map_coefficients(self, f, new_base_ring=None):
         if new_base_ring is None:
             return self.parent()(self.__poly.map_coefficients(f))
         else:
@@ -351,27 +356,27 @@ class MultivariateOreOperator(OreOperator):
         """
 
         # ~~~ naive code ~~~
-        
+
         def info(i, msg):
             if infolevel >= i:
                 print(msg)
 
         try:
-            # handle case where input is an ideal 
+            # handle case where input is an ideal
             return self.reduce(basis.groebner_basis(), normalize=normalize, coerce=coerce, cofactors=cofactors, infolevel=infolevel)
         except AttributeError:
             pass
 
         # assuming basis is a list of operators
-                
+
         if normalize and coerce:
 
             if self.base_ring().is_field():
                 info(1, "switch to polynomial base ring")
-                A = self.parent() ## K(x,y)[Dx,Dy]
-                R = A.base_ring() ## K(x,y)
-                B = R.ring() ## K[x,y]
-                A = A.change_ring(B) ## K[x,y][Dx, Dy]
+                A = self.parent()  # K(x,y)[Dx,Dy]
+                R = A.base_ring()  # K(x,y)
+                B = R.ring()  # K[x,y]
+                A = A.change_ring(B)  # K[x,y][Dx, Dy]
                 c = self.denominator()
                 out = list(A(c*self).reduce(basis, normalize=True, cofactors=cofactors, infolevel=infolevel))
                 out[2] *= c
@@ -383,11 +388,14 @@ class MultivariateOreOperator(OreOperator):
                 out = list(self.reduce([self.parent()(d*b) for b in basis], normalize=True, cofactors=cofactors, infolevel=infolevel))
                 out[1] = [o*d for o in out[1]]
                 return tuple(out)
-            
+
             basis = list(map(self.parent(), basis))
 
         exp = [vector(ZZ, b.exp()) for b in basis]
-        gens = self.parent().gens(); p = self; r0 = self.parent().zero(); c = self.base_ring().one()
+        gens = self.parent().gens()
+        p = self
+        r0 = self.parent().zero()
+        c = self.base_ring().one()
         cofs = [self.parent().zero()]*len(basis)
         range_basis = [k for k in range(len(basis)) if not basis[k].is_zero()]
 
@@ -403,7 +411,7 @@ class MultivariateOreOperator(OreOperator):
         while not p.is_zero():
 
             info(1, lazy_string(lambda: datetime.today().ctime() + ": " + str(len(p.coefficients())) + " terms left; continuing with " + str(p.lm())))
-            
+
             e = vector(ZZ, p.exp())
             candidates = list(filter(lambda i: min(e - exp[i]) >= 0, range_basis))
 
@@ -412,20 +420,23 @@ class MultivariateOreOperator(OreOperator):
                 r0 += p.lt()
                 p -= p.lt()
             else:
-                k = candidates[0] ## care for a more clever choice?
-                b = basis[k]; tau = prod(x**i for x, i in zip(gens, e - exp[k]))
+                k = candidates[0]  # care for a more clever choice?
+                b = basis[k]
+                tau = prod(x**i for x, i in zip(gens, e - exp[k]))
                 info(2, str(len(candidates)) + " basis elements apply, taking no " + str(k) + " with leading monomial " + str(b.lm()))
-                b0 = tau*b; b0lc = b0.lc();
+                b0 = tau*b
+                b0lc = b0.lc()
                 if sugar is not None:
                     sugar = max(sugar, tau.tdeg() + basis_sugar[k])
                 if normalize:
-                    c *= b0lc; r0 = b0lc*r0
+                    c *= b0lc
+                    r0 = b0lc*r0
                     if cofactors:
                         for i in range(len(cofs)):
                             cofs[i] = b0lc*cofs[i]
                         cofs[k] += p.lc()*tau
                     p = b0lc*p - p.lc()*b0
-                    ## clear content
+                    # clear content
                     gcd = p.base_ring().zero()
                     for u in [p, r0] + cofs:
                         for uu in u.coefficients():
@@ -442,7 +453,7 @@ class MultivariateOreOperator(OreOperator):
                     p -= (p.lc()/b0lc)*b0
 
         if normalize and not r0.is_zero() and r0.lc().parent().base_ring() is ZZ:
-            ## make leading term of leading coefficient of r0 positive
+            # make leading term of leading coefficient of r0 positive
             try:
                 sgn = r0.lc().lc().sign()
             except:
@@ -458,6 +469,6 @@ class MultivariateOreOperator(OreOperator):
 
         if sugar is not None:
             r0.sugar = sugar
-            
+
         info(1, "reduction completed, remainder has " + str(len(r0.coefficients())) + " terms.")
         return (r0, cofs, c) if cofactors else r0

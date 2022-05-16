@@ -13,7 +13,9 @@ Analytic continuation paths
 #
 # http://www.gnu.org/licenses/
 
-import itertools, logging, sys
+import itertools
+import logging
+import sys
 
 import sage.plot.all as plot
 import sage.rings.all as rings
@@ -44,12 +46,14 @@ logger = logging.getLogger(__name__)
 QQi = number_field.QuadraticField(-1, 'i')
 IR, IC = RBF, CBF
 
+
 class PathPrecisionError(Exception):
     pass
 
 ######################################################################
 # Points
 ######################################################################
+
 
 class Point(SageObject):
     r"""
@@ -140,7 +144,7 @@ class Point(SageObject):
             parent = point.parent()
         except AttributeError:
             raise TypeError("unexpected value for point: " + repr(point))
-        if isinstance(point, Point): # XXX useful?
+        if isinstance(point, Point):  # XXX useful?
             self.value = point.value
         elif isinstance(parent, (RealBallField, ComplexBallField)):
             self.value = point
@@ -152,7 +156,7 @@ class Point(SageObject):
             alg = QQbar.coerce(point)
             NF, val, hom = alg.as_number_field_element()
             if NF is QQ:
-                self.value = QQ.coerce(val) # parent may be ZZ
+                self.value = QQ.coerce(val)  # parent may be ZZ
             else:
                 embNF = number_field.NumberField(NF.polynomial(),
                                                 NF.variable_name(),
@@ -190,7 +194,7 @@ class Point(SageObject):
                                     RealBallField, ComplexBallField))
                 or parent is RLF or parent is CLF)
 
-        if dop is None: # TBI XXX useful?
+        if dop is None:  # TBI XXX useful?
             if isinstance(point, Point):
                 self.dop = point.dop
         else:
@@ -373,7 +377,7 @@ class Point(SageObject):
         approx = Ivs(prec)(self.value).round()
         lc = self.dop.leading_coefficient()
         if lc(approx).contains_zero():
-            raise PathPrecisionError # appropriate?
+            raise PathPrecisionError  # appropriate?
         approx = approx.squash()
         return Point(Ivs(tgt_prec)(approx), self.dop)
 
@@ -394,7 +398,7 @@ class Point(SageObject):
         """
         return id(self) < id(other)
 
-    ### Methods that depend on dop
+    # Methods that depend on dop
 
     @cached_method
     def is_ordinary(self):
@@ -407,7 +411,7 @@ class Point(SageObject):
             lc = self.dop.leading_coefficient()
             try:
                 val = lc(self.value)
-            except TypeError: # work around coercion weaknesses
+            except TypeError:  # work around coercion weaknesses
                 val = lc.change_ring(QQbar)(QQbar.coerce(self.value))
             return not val.is_zero()
         else:
@@ -427,8 +431,8 @@ class Point(SageObject):
         assert self.is_exact()
         # Fuchs criterion
         if (self.dop.base_ring().base_ring() is QQ
-                and self.value.parent() is not QQ # => number field element
-                and (pol := self.value.polynomial()).is_term()):
+                and self.value.parent() is not QQ  # => number field element
+                and (pol:= self.value.polynomial()).is_term()):
             # optimize frequent case
             nfpol = self.value.parent().polynomial()
             rootpol = nfpol(~pol[1]*pol.parent().gen())
@@ -506,11 +510,11 @@ class Point(SageObject):
         sing = self.dop._singularities(IC)
         close, distant = split(lambda s: s.overlaps(self.iv()), sing)
         if (len(close) >= 2 or len(close) == 1 and not self.is_singular()):
-            raise NotImplementedError # refine?
+            raise NotImplementedError  # refine?
         dist = [(self.iv() - s).abs() for s in distant]
         min_dist = IR(rings.infinity).min(*dist)
         if min_dist.contains_zero():
-            raise NotImplementedError # refine???
+            raise NotImplementedError  # refine???
         return IR(min_dist.lower())
 
     def local_basis_structure(self):
@@ -532,7 +536,7 @@ class Point(SageObject):
         # need a good way to share code with fundamental_matrix_regular. Or
         # perhaps modify generalized_series_solutions() to agree with our
         # definition of the basis?
-        if self.is_ordinary(): # support inexact points in this case
+        if self.is_ordinary():  # support inexact points in this case
             return [FundamentalSolution(utilities.PolynomialRoot.make(0),
                                         ZZ(expo), ZZ.zero(), None)
                     for expo in range(self.dop.order())]
@@ -581,6 +585,7 @@ class Point(SageObject):
 ######################################################################
 # Paths
 ######################################################################
+
 
 class Step(SageObject):
     r"""
@@ -761,7 +766,7 @@ class Step(SageObject):
         Precision "at which this step contributes" to a result to be computed at
         precision tgt_prec, ~ lg(1/length) when < tgt_prec, ~ ∞ otherwise.
         """
-        myIC = ComplexBallField(tgt_prec + 10) # not ideal...
+        myIC = ComplexBallField(tgt_prec + 10)  # not ideal...
         len = IC(myIC(self.end.value) - myIC(self.start.value)).abs()
         if len.contains_zero():
             return ZZ(sys.maxsize)
@@ -891,6 +896,7 @@ class Step(SageObject):
 
     def plot(self):
         return plot.arrow2d(self.start.iv().mid(), self.end.iv().mid())
+
 
 class Path(SageObject):
     """
@@ -1061,7 +1067,7 @@ class Path(SageObject):
         """
         for step in self.steps_direct():
             step.check_singularity()
-        return True # @cached_method doesn't cache None
+        return True  # @cached_method doesn't cache None
 
     def check_convergence(self):
         """
@@ -1269,7 +1275,7 @@ class Path(SageObject):
         assert mode in (1, 2)
         new = [self.vert[0]]
         npoints = mode
-        skip = self.vert[0].is_singular() # force npoints = 1 for 1st iteration
+        skip = self.vert[0].is_singular()  # force npoints = 1 for 1st iteration
         logger.debug("subdividing, new path = %s (skip=%s) ...", new, skip)
         i = 1
         while i < len(self.vert):
@@ -1417,9 +1423,11 @@ class Path(SageObject):
             logger.warning("path homotopy failed, falling back to subdivision")
             return self.subdivide(mode)
 
+
 def orient2d_det(a, b, c):
     return ((b.real() - a.real())*(c.imag() - a.imag())
             - (c.real() - a.real())*(b.imag() - a.imag()))
+
 
 def orient2d(a, b, c):
     det = orient2d_det(a, b, c)
@@ -1433,6 +1441,7 @@ def orient2d(a, b, c):
     else:
         raise ValueError
 
+
 def may_be_on_segment(a, b, z):
     if a.overlaps(b):
         return z.overlaps(a.union(b))
@@ -1442,10 +1451,12 @@ def may_be_on_segment(a, b, z):
     dot = az.real()*bz.real() + az.imag()*bz.imag()
     return not safe_gt(dot, dot.parent().zero())
 
+
 def crossing_sequence(sentinels, path):
     # Compute the reduced crossing sequence with horizontal cuts to the left of
     # sentinel points at the center of each singular ball.
     seq = []
+
     def append(i):
         if seq and seq[-1] == -i:
             seq.pop()
@@ -1468,8 +1479,10 @@ def crossing_sequence(sentinels, path):
                     append(-i)
     return seq
 
+
 def local_monodromy_path(sing):
     raise NotImplementedError
+
 
 def polygon_around(point, size=17):
     # not ideal in the case of a single singularity...
@@ -1485,6 +1498,7 @@ def polygon_around(point, size=17):
         polygon.append(Point(x, point.dop))
     return polygon
 
+
 def _rationalize(civ, real=False):
     from sage.rings.real_mpfi import RealIntervalField
     my_RIF = RealIntervalField(civ.real().parent().precision())
@@ -1498,6 +1512,7 @@ def _rationalize(civ, real=False):
 ######################################################################
 # Evaluation Points
 ######################################################################
+
 
 class EvaluationPoint_base:
     r"""
@@ -1527,6 +1542,7 @@ class EvaluationPoint_base:
                      for pt in points)
         return Jets, jets
 
+
 class EvaluationPoint_step(EvaluationPoint_base):
     r"""
     Main variant, intended for evaluation points derived from analytic
@@ -1547,6 +1563,7 @@ class EvaluationPoint_step(EvaluationPoint_base):
     def approx(self, Intervals, i):
         return self._points[i].approx_delta(Intervals)
 
+
 class EvaluationPoint_symbolic(EvaluationPoint_base):
     r"""
     Intended for polynomial indeterminates and similar objects.
@@ -1563,6 +1580,7 @@ class EvaluationPoint_symbolic(EvaluationPoint_base):
 
     def approx(self, Intervals, i):
         return self._points[i] + Intervals.zero()
+
 
 class EvaluationPoint_numeric(EvaluationPoint_base):
     r"""
@@ -1590,6 +1608,7 @@ class EvaluationPoint_numeric(EvaluationPoint_base):
 
     def approx(self, Intervals, i):
         return Intervals(self._points[i])
+
 
 def EvaluationPoint(points, jet_order=1, rad=None):
     if isinstance(points, (list, tuple)):

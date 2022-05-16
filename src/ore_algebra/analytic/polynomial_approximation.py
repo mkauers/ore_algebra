@@ -37,12 +37,14 @@ from .naive_sum import series_sum
 from .path import EvaluationPoint_symbolic, Path
 from .safe_cmp import *
 
+
 def combine_radii(pol):
     coeff = list(pol)
     for i in range(1, len(coeff)):
         coeff[0] = coeff[0].add_error(coeff[i].rad())
         coeff[i] = coeff[i].squash()
     return pol.parent()(coeff)
+
 
 def taylor_economization(pol, eps):
     r"""
@@ -89,6 +91,7 @@ def taylor_economization(pol, eps):
     CPol = pol.parent().change_ring(Coefs.complex_field())
     return CPol(coef)
 
+
 def chebyshev_polynomials(ring, n):
     r"""
     Return the list of the Chebyshev polynomials T[0], ..., T[``n``-1] as
@@ -114,6 +117,7 @@ def chebyshev_polynomials(ring, n):
     for k in range(1, n - 1):
         cheb_T[k+1] = 2*x*cheb_T[k] - cheb_T[k-1]
     return cheb_T
+
 
 def general_economization(economization_polynomials, pol, eps):
     r"""
@@ -167,6 +171,7 @@ def general_economization(economization_polynomials, pol, eps):
     newpol = newpol[0].add_error(delta_bound) + ((newpol >> 1) << 1)
     return newpol
 
+
 def chebyshev_economization(pol, eps):
     r"""
     Decrease the degree of ``pol`` in such a way that its value on the real
@@ -188,8 +193,10 @@ def chebyshev_economization(pol, eps):
     pol1 = combine_radii(pol)
     return general_economization(chebyshev_polynomials, pol1, eps)
 
-def mixed_economization(): # ?
+
+def mixed_economization():  # ?
     pass
+
 
 def doit(dop, ini, path, rad, eps, derivatives, economization, x_is_real, ctx):
 
@@ -218,13 +225,14 @@ def doit(dop, ini, path, rad, eps, derivatives, economization, x_is_real, ctx):
                        accuracy.AbsoluteError(eps1),
                        stride=5, ctx=dctx)
 
-
     rad = polys[0].base_ring()(rad)
+
     def postprocess(pol):
         return economization(pol(rad*x), eps1)(x/rad)
     new_polys = polys.apply_map(postprocess)
 
     return new_polys
+
 
 def on_disk(dop, ini, path, rad, eps, *, ctx=dctx, **kwds):
     r"""
@@ -270,6 +278,7 @@ def on_disk(dop, ini, path, rad, eps, *, ctx=dctx, **kwds):
     ctx = Context(**kwds)
     polys = doit(dop, ini, path, rad, eps, 1, taylor_economization, False, ctx)
     return polys[0]
+
 
 def on_interval(dop, ini, path, eps, rad=None, *, ctx=dctx, **kwds):
     r"""
@@ -320,6 +329,7 @@ def on_interval(dop, ini, path, eps, rad=None, *, ctx=dctx, **kwds):
         mypath = path
     return doit(dop, ini, mypath, rad, eps, 1, chebyshev_economization,
                 True, ctx)[0]
+
 
 def _test_fun_approx(pol, ref, disk_rad=None, interval_rad=None,
         prec=53, test_count=100):

@@ -28,6 +28,7 @@ logger = logging.getLogger(__name__)
 
 # -> EuclideanDomains.ParentMethods
 
+
 def gcd_free_basis(ring, elts):
     r"""
     Compute a set of coprime elements that can be used to express the
@@ -96,6 +97,7 @@ def gcd_free_basis(ring, elts):
 # -> Polynomial
 # note: parent() can become _parent in .pyx
 
+
 def dispersion_set(self, other=None):
     r"""
     Compute the dispersion set of two polynomials.
@@ -141,7 +143,7 @@ def dispersion_set(self, other=None):
             if m != n or p[n] != q[n]:
                 continue
             alpha = (q[n-1] - p[n-1])/(n*p[n])
-            if alpha.is_integer(): # ZZ() might work for non-integers...
+            if alpha.is_integer():  # ZZ() might work for non-integers...
                 alpha = ZZ(alpha)
             else:
                 continue
@@ -151,6 +153,7 @@ def dispersion_set(self, other=None):
                 continue
             shifts.add(alpha)
     return list(shifts)
+
 
 def dispersion(self, other=None):
     r"""
@@ -184,6 +187,8 @@ def dispersion(self, other=None):
     return max(shifts) if len(shifts) > 0 else minus_infinity
 
 # TODO: debug, document
+
+
 def shiftless_decomposition(self):
     r"""
     Compute a shiftless decomposition of this polynomial.
@@ -235,12 +240,13 @@ def shiftless_decomposition(self):
                      for f in by_mult[1:]
                      for eps in [1, -1])
         parts = gcd_free_basis(Pol, parts)
+
     def mult(part):
         for m in range(len(by_mult) - 1, -1, -1):
-            if part.divides(by_mult[m]): # the paper says part^m?!
+            if part.divides(by_mult[m]):  # the paper says part^m?!
                 return m
         assert False
-    shifts_of = dict() # factor -> nonnegative integer shifts
+    shifts_of = dict()  # factor -> nonnegative integer shifts
     remaining_parts = parts.copy()
     while remaining_parts:
         cur = remaining_parts.pop()
@@ -263,6 +269,8 @@ def shiftless_decomposition(self):
 # key=... to avoid comparing number fields
 # XXX: tie life to a suitable object
 # @cached_function(key=lambda p: (id(p.parent()), p))
+
+
 def my_shiftless_decomposition(pol):
     try:
         pol = pol.monic().change_ring(QQ)

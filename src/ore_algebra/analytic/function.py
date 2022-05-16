@@ -17,7 +17,9 @@ D-Finite analytic functions
 from six import iteritems
 from six.moves import range
 
-import collections, logging, sys
+import collections
+import logging
+import sys
 
 import sage.plot.all as plot
 
@@ -53,6 +55,7 @@ logger = logging.getLogger(__name__)
     # - Introduce separate "Cache" objects?
 
 RealPolApprox = collections.namedtuple('RealPolApprox', ['pol', 'prec'])
+
 
 class DFiniteFunction(object):
     r"""
@@ -181,7 +184,7 @@ class DFiniteFunction(object):
         # approximation disk containing pt must have rad ≤ dist(pt, sing)
         max_rad = pt.dist_to_sing().min(self.max_rad)
         # What we want is the largest such disk containing pt
-        expo = ZZ(max_rad.log(2).upper().ceil()) - 1 # rad = 2^expo
+        expo = ZZ(max_rad.log(2).upper().ceil()) - 1  # rad = 2^expo
         logger.log(logging.DEBUG-2, "max_rad = %s, expo = %s", max_rad, expo)
         while True:
             approx_pt = pt.approx_abs_real(-expo)
@@ -272,7 +275,7 @@ class DFiniteFunction(object):
             pol = ZZ(ord).factorial()*pol0
             sollya_pol = sum([c.center()*sollya.x**k
                               for k, c in enumerate(pol)])
-            dom = RIF(center - rad, center + rad) # XXX: dangerous when inexact
+            dom = RIF(center - rad, center + rad)  # XXX: dangerous when inexact
             err_pol = pol.map_coefficients(lambda c: c - c.squash())
             err = RIF(err_pol(RBF.zero().add_error(rad)))
             with sollya.settings(display=sollya.dyadic):
@@ -462,6 +465,7 @@ class DFiniteFunction(object):
         import sagesollya as sollya
         logger = logging.getLogger(__name__ + ".sollya.eval")
         Dx = self.dop.parent().gen()
+
         def wrapper(pt, ord, prec):
             if RBF(pt.diameter()) >= self.max_rad/4:
                 return self._known_bound(RBF(pt), post_transform=Dx**ord)
@@ -496,11 +500,13 @@ class DFiniteFunction(object):
         self._update_approx_hook = self._sollya_annotate
         return self._sollya_object
 
+
 def _guess_prec(pt):
     if isinstance(pt, (RealNumber, ComplexNumber, RealBall, ComplexBall)):
         return pt.parent().precision()
     else:
         return 53
+
 
 def _tests():
     r"""

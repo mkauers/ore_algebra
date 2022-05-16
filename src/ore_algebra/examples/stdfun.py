@@ -104,7 +104,7 @@ IVP = collections.namedtuple("IVP", ["pt", "dop", "ini"])
 airy_ai = IVP(
         0,
         Dx**2 - x,
-        [ QQ(1)/3*3**(QQ(1)/3)/funs.gamma(QQ(2)/3),
+        [QQ(1)/3*3**(QQ(1)/3)/funs.gamma(QQ(2)/3),
          -QQ(1)/2*3**(QQ(1)/6)/pi*funs.gamma(QQ(2)/3)])
 
 airy_bi = IVP(
@@ -148,6 +148,7 @@ log = IVP(
         Dx*x*Dx,
         [0, 1])
 
+
 def mittag_leffler_e(alpha, beta=1):
     alpha = QQ.coerce(alpha)
     if alpha <= QQ.zero():
@@ -156,16 +157,15 @@ def mittag_leffler_e(alpha, beta=1):
     dop0 = prod(alpha*x*Dx + beta - num + t for t in range(num)) - x**den
     expo = dop0.indicial_polynomial(x).roots(QQ, multiplicities=False)
     pre = prod((x*Dx - k) for k in range(den) if QQ(k) not in expo)
-    dop = pre*dop0 # homogenize
+    dop = pre*dop0  # homogenize
     dop = dop.numerator().primitive_part()
     expo = sorted(dop.indicial_polynomial(x).roots(QQ, multiplicities=False))
     assert len(expo) == dop.order()
     ini = [(1/funs.gamma(alpha*k + beta) if k in ZZ else 0) for k in expo]
     return IVP(0, dop, ini)
 
+
 sin = IVP(
         0,
         cos.dop,
         [0, 1])
-
-

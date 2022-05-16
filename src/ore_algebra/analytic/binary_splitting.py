@@ -266,12 +266,14 @@ from .safe_cmp import *
 
 logger = logging.getLogger(__name__)
 
+
 def PolynomialRing(base, var):
     if is_NumberField(base) and base is not QQ:
         return polyring.PolynomialRing_field(base, var,
                 element_class=polyelt.Polynomial_generic_dense)
     else:
         return polyringconstr.PolynomialRing(base, var)
+
 
 class StepMatrix(object):
     r"""
@@ -325,10 +327,10 @@ class StepMatrix(object):
                 for (num, psum) in zip(seqs, sums_row):
                     self._seq_next_psum(psum, num, pow_num, den, ord_log)
 
-            for num in seqs: # for each solution
+            for num in seqs:  # for each solution
                 self._seq_next_num(num, bwrec_n, rec_den_n, ord_log)
 
-            for i in range(len(self.sums_row)): # for each evaluation point
+            for i in range(len(self.sums_row)):  # for each evaluation point
                 self.pow_num[i] = self.pow_num[i]._mul_trunc_(rec.pow_num[i],
                                                               self.ord_diff)
                 self.pow_den[i] *= rec.pow_den[i]
@@ -418,9 +420,9 @@ class StepMatrix(object):
                         # Even with this, perhaps ~2/3 of the time goes in
                         # (unnecessary) object creations/deletions/copies...
                         t = Scalars._sum_of_products(
-                               ( high.sums_row[i][k][v][u],
+                               (high.sums_row[i][k][v][u],
                                  low.pow_num[i][p-u],
-                                 low.rec_mat[q-v][k,j] )
+                                 low.rec_mat[q-v][k,j])
                                for k in range(ordrec)
                                for u in range(p + 1)
                                for v in range(q + 1))
@@ -434,7 +436,7 @@ class StepMatrix(object):
                                for v in range(q + 1))
                     # same for the second term
                     # high.rec_den*pow_den[i].rec_den*low.sums_row[i]
-                    if q < low.ord_log: # usually true, but low might be
+                    if q < low.ord_log:  # usually true, but low might be
                                         # an optimized SolutionColumn
                         t += high_den*low.sums_row[i][j][q][p]
                     res3[p] = t
@@ -442,12 +444,12 @@ class StepMatrix(object):
             res1[j] = res2
         return res1
 
-    def imulleft(low, high): # pylint: disable=no-self-argument
+    def imulleft(low, high):  # pylint: disable=no-self-argument
         assert high.idx_start == low.idx_end
         # logger.debug("(%s->%s)*(%s->%s)", high.idx_start, high.idx_end,
         #                                   low.idx_start, low.idx_end)
 
-        for i in range(len(low.sums_row)): # must come early
+        for i in range(len(low.sums_row)):  # must come early
             low.sums_row[i] = low.compute_sums_row(high, i)
         low.rec_mat = high.rec_mat._mul_trunc_(low.rec_mat, high.ord_log)
         for i in range(len(low.pow_num)):
@@ -465,7 +467,7 @@ class StepMatrix(object):
         new.sums_row = copy.copy(self.sums_row)
         return new
 
-    def __mul__(high, low): # pylint: disable=no-self-argument
+    def __mul__(high, low):  # pylint: disable=no-self-argument
         return low.copy().imulleft(high)
 
     def __repr__(self):
@@ -481,10 +483,12 @@ class StepMatrix(object):
 
 # TODO: get rid of these classes (unless they prove useful again!)
 
+
 class StepMatrix_generic(StepMatrix):
 
     def assert_exact(self):
         return
+
 
 class StepMatrix_arb(StepMatrix):
 
@@ -508,6 +512,7 @@ class StepMatrix_arb(StepMatrix):
                 for b in p:
                     for c in b:
                         assert b.is_exact()
+
 
 class SolutionColumn(object):
     r"""
@@ -644,7 +649,7 @@ class SolutionColumn(object):
         zeros = [[self.v.zero_sum]*self.v.ord_diff for _ in range(m - z)]
         for sums_row in self.v.sums_row:
             for p in sums_row[:-1]:
-                p[self.v.ord_log:] = [] # useful?
+                p[self.v.ord_log:] = []  # useful?
                 p.extend(zeros)
             sums_row[-1][self.v.ord_log:] = []
             sums_row[-1][:0] = zeros
@@ -677,7 +682,7 @@ class SolutionColumn(object):
 
         # last = [[u(n-1) for log⁰, log¹, ...], ..., [u(n-s) for all logs]]
         rec_den = IC(self.v.rec_den)
-        last = [[alg_to_IC(self.v.rec_mat[self.v.ord_log-1-k][-j,-1])/rec_den # (?)
+        last = [[alg_to_IC(self.v.rec_mat[self.v.ord_log-1-k][-j,-1])/rec_den  # (?)
                  for k in range(self.v.ord_log)
                 ] for j in range(self.v.rec_mat.base_ring().nrows())]
         res = maj.normalized_residual(n, last)
@@ -690,7 +695,7 @@ class SolutionColumn(object):
         """
         assert 0 <= i < len(evpts) == len(self.v.sums_row)
         # Extract the (abstract numerator of) series part
-        op_k = self.v.sums_row[i][-1] # K[λ][δ][Sk]
+        op_k = self.v.sums_row[i][-1]  # K[λ][δ][Sk]
         numer = list(reversed(op_k))
         Scalars = Jets.base_ring()
         # Specialize abstract algebraic exponent and add error term
@@ -711,15 +716,16 @@ class SolutionColumn(object):
     def error_estimate(self, IR):
         def IC_est(c, IC=IR.complex_field()):
             try:
-                return IC(c) # arb, QQ
+                return IC(c)  # arb, QQ
             except TypeError:
-                return IC(c[0]) # NF, would work for QQ
+                return IC(c[0])  # NF, would work for QQ
         zero = IR.zero()
         num1 = max([zero] + [abs(IC_est(m[-1, -1])) for m in self.v.rec_mat])
         # We use the first evaluation point only. Debatable.
         num2 = sum(abs(IC_est(a)) for a in self.v.pow_num[0])
         den = abs(IC_est(self.v.rec_den))*IR(self.v.pow_den[0])
         return num1*num2/den
+
 
 class MatrixRec(object):
     r"""
@@ -862,8 +868,8 @@ class MatrixRec(object):
         self.Pols_rec = PolynomialRing(self.AlgInts_rec, 'Sk')
         logger.debug("coefficients in: %s", self.Pols_rec)
 
-        assert self.bwrec[0].base_ring() is self.AlgInts_rec # uniqueness
-        assert self.bwrec[0](0).parent() is self.AlgInts_rec #   issues...
+        assert self.bwrec[0].base_ring() is self.AlgInts_rec  # uniqueness
+        assert self.bwrec[0](0).parent() is self.AlgInts_rec  # issues...
 
         # Power of evaluation points. Note that this part does not depend on n.
         Series_pow = PolynomialRing(self.AlgInts_pow, 'delta')
@@ -895,7 +901,7 @@ class MatrixRec(object):
         for i, pt in enumerate(evpts):
             if is_NumberField(pt.parent()):
                 den = utilities.internal_denominator(pt)
-                self.pow_num[i] = dom(den*pt) # mul must be exact
+                self.pow_num[i] = dom(den*pt)  # mul must be exact
                 self.pow_den[i] = dom(den)
             else:
                 self.pow_num[i] = dom(pt)
@@ -910,7 +916,7 @@ class MatrixRec(object):
 
         E = pts.universe()
         assert deq_Scalars is E or deq_Scalars != E
-        if is_NumberField(E): # includes QQ
+        if is_NumberField(E):  # includes QQ
             # In fact we should probably do something similar for pts in any
             # finite-dimensional Q-algebra. (But how?)
             NF_pow, AlgInts_pow = utilities.number_field_with_integer_gen(E)
@@ -935,7 +941,7 @@ class MatrixRec(object):
         # the product tree.
         NF_deq, _ = utilities.number_field_with_integer_gen(deq_Scalars)
         if deq_Scalars.has_coerce_map_from(shift.parent()):
-            AlgInts_rec =  NF_deq # = NF_rec
+            AlgInts_rec =  NF_deq  # = NF_rec
             # We need a parent containing both the coefficients of the operator
             # and the evaluation point.
             AlgInts_sums = utilities.mypushout(AlgInts_rec, AlgInts_pow)
@@ -947,7 +953,7 @@ class MatrixRec(object):
             assert den*shift == shift.parent().gen()
             name = str(shift.parent().gen())
             AlgInts_sums = utilities.mypushout(NF_deq, AlgInts_pow).extension(pol, name)
-            AlgInts_rec = AlgInts_sums # for now at least
+            AlgInts_rec = AlgInts_sums  # for now at least
             self.shift = AlgInts_rec.gen()/den
 
         # Guard against various problems related to number field embeddings and
@@ -992,7 +998,7 @@ class MatrixRec(object):
         for i in range(self.ordrec):
             bwrec_n[1+i] = bwrec_n[1+i]._mul_trunc_(invlc, ord_log)
 
-        if self.AlgInts_rec is QQ: # TODO: generalize (den might be a ball!)
+        if self.AlgInts_rec is QQ:  # TODO: generalize (den might be a ball!)
             g = gcd([den] + [c for p in bwrec_n[1:] for c in p])
             den //= g
             if not g.is_one():
@@ -1023,6 +1029,7 @@ class MatrixRec(object):
 
     def __repr__(self):
         return pprint.pformat(self.__dict__)
+
 
 class MatrixRecsUnroller(LocalBasisMapper):
 
@@ -1103,7 +1110,7 @@ class MatrixRecsUnroller(LocalBasisMapper):
         stop = accuracy.StoppingCriterion(wrapper, self.eps, fast_fail=False)
 
         class BoundCallbacks(accuracy.BoundCallbacks):
-            def get_residuals(_): # “self” refers to the MatrixRecsUnroller
+            def get_residuals(_):  # “self” refers to the MatrixRecsUnroller
                 # Will need updating if we want to support very large singular
                 # indices efficiently. For the time being, we wait to pass the
                 # last singular index before checking for convergence.
@@ -1115,6 +1122,7 @@ class MatrixRecsUnroller(LocalBasisMapper):
                                                       self.ctx.IC)
                         for rt in self.roots
                         for sol in self.irred_factor_cols}
+
             def get_bound(_, residuals):
                 r"""
                 Bound the Frobenius norm of the matrix of tail majorants.
@@ -1174,7 +1182,7 @@ class MatrixRecsUnroller(LocalBasisMapper):
             for sol in self.irred_factor_cols:
                 sol.value.iapply(fwd, self.mult)
             # Append “new” solutions starting at the current valuation
-            if self.mult > 0: # 'if' only for clarity
+            if self.mult > 0:  # 'if' only for clarity
                 self.process_valuation()
                 ord_log = max(sol.value.v.ord_log for sol in self.irred_factor_cols)
             # Check if we have converged
@@ -1201,10 +1209,10 @@ class MatrixRecsUnroller(LocalBasisMapper):
         # involved series, we are passing it a bound on the Frobenius norm of a
         # a matrix of such series
         return [FundamentalSolution(
-                leftmost = rt,
-                shift = sol.shift,
-                log_power = sol.log_power,
-                value = [
+                leftmost=rt,
+                shift=sol.shift,
+                log_power=sol.log_power,
+                value=[
                     sol.value.partial_sum(Jets, self.evpts, i, self.leftmost,
                                           rt, sol.shift,
                                           self.modZ_class_tail_bound)
@@ -1217,6 +1225,7 @@ class MatrixRecsUnroller(LocalBasisMapper):
         # solutions later on.
         return SolutionColumn(self.matrix_rec, self.shift, self.log_power)
 
+
 def fundamental_matrix_regular(dop, evpts, eps, fail_fast, effort, ctx=dctx):
     rows = evpts.jet_order
     cols = MatrixRecsUnroller(dop, evpts, eps, rows, ctx).run()
@@ -1224,15 +1233,18 @@ def fundamental_matrix_regular(dop, evpts, eps, fail_fast, effort, ctx=dctx):
             for i in range(len(evpts))]
     return mats
 
+
 def _can_use_CBF(*doms):
     return all((isinstance(dom, (RealBallField, ComplexBallField))
                     or dom is QQ or utilities.is_QQi(dom)
                     or dom is RLF or dom is CLF)
                 for dom in doms)
 
+
 def _can_use_RBF(*doms):
     return all(isinstance(dom, RealBallField) or dom is QQ or dom is RLF
                for dom in doms)
+
 
 def _specialization_map(source, dest, abstract_alg, alg):
     r"""
@@ -1255,6 +1267,6 @@ def _specialization_map(source, dest, abstract_alg, alg):
         base_hom = base.hom([dest(base.gen())], check=False)
         try:
             hom = Homset([dest(den*alg)], base_map=base_hom, check=False)
-        except TypeError: # temporary kludge for sage < 9.0
+        except TypeError:  # temporary kludge for sage < 9.0
             hom = Homset([dest(den*alg)], base_hom=base_hom, check=False)
     return hom
