@@ -242,8 +242,6 @@ def _local_monodromy_loop(dop, x, eps, ctx):
         step[1].options['store_value'] = True
         mat = x.dop.numerical_transition_matrix(step, eps, ctx=ctx)
         prec = utilities.prec_from_eps(eps)
-        assert all(c.accuracy() >= prec//2 or c.above_abs()**2 <= eps
-                   for c in mat.list())
         mats.append(mat)
     return polygon, mats
 
