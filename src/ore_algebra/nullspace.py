@@ -268,7 +268,7 @@ def _pivot(mat, r, n, c, m, zero):
     matrix is the zero matrix. The last argument provides the zero element of the ring. 
     """
 
-    EXPONENT, ALPHA, BETA, _ = 2, 2, 10, 1   # last one was called GAMMA
+    EXPONENT, ALPHA, BETA = 2, 2, 10   # removed: GAMMA = 1
 
     ## throughout this function, matrix indices (i, j) are understood relative to (r, c).
     ## if (i, j) is a pivot candidate, the final pivot will be (i + r, j + c).
