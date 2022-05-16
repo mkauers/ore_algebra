@@ -18,6 +18,7 @@ from sage.rings.rational_field import QQ
 from sage.rings.integer_ring import ZZ
 from sage.rings.real_mpfr import RealField
 from sage.rings.qqbar import QQbar
+from sympy.core.numbers import oo
 from sage.rings.power_series_ring import PowerSeriesRing
 from sage.rings.polynomial.polynomial_element import Polynomial
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
@@ -55,7 +56,8 @@ Radii = RealField(30)
 
 MonoData = collections.namedtuple("MonoData", ["precision", "matrices", "points", "loss"])
 NewtonEdge = collections.namedtuple("NewtonEdge", ["slope", "startpoint", "length", "polynomial"])
-ProfileData = collections.namedtuple("ProfileData", ["bit_precision", "truncation_order", "algebraicity_degree", "number_of_monodromy_matrices"])
+ProfileData = collections.namedtuple("ProfileData", ["bit_precision", "truncation_order", \
+                                     "algebraicity_degree", "number_of_monodromy_matrices", "log_condition_number"])
 
 def maj(data, l):
     for i, x in enumerate(l):
@@ -64,7 +66,7 @@ def maj(data, l):
             l[i] = y
         else:
             l[i] = max(x, y)
-    return ProfileData(l[0], l[1], l[2], l[3])
+    return ProfileData(l[0], l[1], l[2], l[3], l[4])
 
 
 
@@ -302,7 +304,7 @@ def factor(dop, return_data=False, verbose=False):
     equal to the composition L1.L2...Lr.
     """
 
-    data = ProfileData(0,0,1,0)
+    data = ProfileData(0,0,1,0,0)
     output, data = _factor(dop, data, verbose)
     K0, K1 = output[0].base_ring().base_ring(), output[-1].base_ring().base_ring()
     if K0 != K1:
@@ -916,9 +918,11 @@ def rfactor_when_galois_algebra_is_trivial(dop, data, order, verbose=False):
     if dop%R==0: return R, data
 
     order =  order<<1
-    data = maj(data, [None, order, None, None])
+    data = maj(data, [None, order, None, None, None])
     return rfactor_when_galois_algebra_is_trivial(dop, data, order, verbose)
 
+
+frob_norm = lambda m: sum([x.abs().mid()**2 for x in m.list()]).sqrt()
 
 def _rfactor(dop, data, order=None, bound=None, alg_degree=None, precision=None, loss=0, verbose=False):
     """
@@ -937,7 +941,7 @@ def _rfactor(dop, data, order=None, bound=None, alg_degree=None, precision=None,
     if precision==None:
         precision = 100*((r + 1)//2)
 
-    data = maj(data, [precision-loss, order, alg_degree, None])
+    data = maj(data, [precision-loss, order, alg_degree, None, None])
     if verbose:
         print("Current order of truncation", order)
         print("Current working precision", precision - loss)
@@ -964,7 +968,12 @@ def _rfactor(dop, data, order=None, bound=None, alg_degree=None, precision=None,
                         R = multiple_eigenvalue(dop, mono, order, bound, alg_degree, verbose)
                 if R!="Inconclusive":
                     if verbose: print("Conclude with " + conclusive_method + " method")
-                    return R, maj(data, [None, None, None, len(mono)])
+                    try:
+                        cond_nb = max([frob_norm(m)*frob_norm(~m) for m in mono])
+                        cond_nb = cond_nb.log(10).ceil()
+                    except (ZeroDivisionError, PrecisionError):
+                        cond_nb = oo
+                    return R, maj(data, [None, None, None, len(mono), cond_nb])
         if mono==[]:
             return rfactor_when_galois_algebra_is_trivial(dop, data, order, verbose)
 
@@ -981,7 +990,7 @@ def _rfactor(dop, data, order=None, bound=None, alg_degree=None, precision=None,
 def profile_factor(dop, verbose=False):
     fac, data = [None], [None]
     def fun():
-        fac[0], data[0] = rfactor(dop, data=ProfileData(0,0,1,0), verbose=verbose)
+        fac[0], data[0] = rfactor(dop, data=ProfileData(0,0,1,0,0), verbose=verbose)
         return
     with tempfile.NamedTemporaryFile() as tmp_stats:
         cProfile.runctx('fun()', None, {'fun': fun}, tmp_stats.name)
@@ -1002,12 +1011,13 @@ def profile_factor(dop, verbose=False):
             time_hpalg = numerical_approx(s.stats[key][3], digits=3)
         if key[2]=='guess_symbolic_coefficients':
             time_guess_coeff = numerical_approx(s.stats[key][3], digits=3)
-    profil = {'time_total' : time_tot, 'time_monodromy': time_mono, \
+    profile = {'time_total' : time_tot, 'time_monodromy': time_mono, \
     'time_hermitepade': time_hprat + time_hpalg, \
     'time_guesscoefficients': time_guess_coeff, \
     'bit_precision': data[0].bit_precision,\
     'truncation_order': data[0].truncation_order,\
     'algebraicity_degree': data[0].algebraicity_degree,\
-    'number_of_monodromy_matrices': data[0].number_of_monodromy_matrices
+    'number_of_monodromy_matrices': data[0].number_of_monodromy_matrices,\
+    'log_condition_number': data[0].log_condition_number
     }
-    return fac[0], profil
+    return fac[0], profile
