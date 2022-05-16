@@ -46,6 +46,8 @@ AUTHOR:
 
 from __future__ import absolute_import, division
 
+import sys
+
 """
 ######### development mode ###########
 
@@ -96,16 +98,13 @@ def taylor_shift_univ_modp_ratfun(q, i):
 
 
 from sage.misc.cachefunc import cached_method
-from sage.structure.element import RingElement
 from sage.structure.unique_representation import UniqueRepresentation
 from sage.rings.ring import Algebra
-from sage.rings.ring import Ring 
 from sage.rings.polynomial.polynomial_ring import is_PolynomialRing
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 from sage.rings.polynomial.multi_polynomial_ring import is_MPolynomialRing
 from sage.rings.number_field.number_field import is_NumberField
 from sage.rings.fraction_field import is_FractionField
-from sage.rings.infinity import infinity
 from sage.rings.integer_ring import ZZ
 from sage.rings.rational_field import QQ
 from sage.rings.finite_rings.all import GF
@@ -1054,7 +1053,7 @@ class OreAlgebra_generic(UniqueRepresentation, Algebra):
 
     # information extraction
 
-    def is_integral_domain(self, proof = True):
+    def is_integral_domain(self, proof=True):
         r"""
         Returns True because Ore algebras are always integral domains.
         """
@@ -1062,7 +1061,7 @@ class OreAlgebra_generic(UniqueRepresentation, Algebra):
 
     def is_noetherian(self):
         r"""
-        Returns True because Ore algebras are always noetherian. 
+        Returns True because Ore algebras are always noetherian.
         """
         return True
 
@@ -1070,7 +1069,6 @@ class OreAlgebra_generic(UniqueRepresentation, Algebra):
         r"""
         Returns a functorial description of this Ore algebra
         """
-        R = self.base_ring()
         gens = tuple((str(x), self.sigma(x).dict(), self.delta(x).dict()) for x in self.gens())
         return (OreAlgebraFunctor(*gens), self.base_ring())
 
@@ -1325,9 +1323,7 @@ class OreAlgebra_generic(UniqueRepresentation, Algebra):
         sigma = self.sigma(n)
         delta = self.delta(n)
         R = self.base_ring()
-        one = R.one()
         zero = R.zero()
-
         self.__is_C[n] = all( (sigma(x)==x and delta(x)==zero) for x in R.gens() )
         
         return self.__is_C[n]
@@ -1386,16 +1382,15 @@ class OreAlgebra_generic(UniqueRepresentation, Algebra):
         delta = self.delta(n)
         R = self.base_ring()
         one = R.one()
-        zero = R.zero()
         candidates = []
-        
+
         for x in R.gens():
             if sigma(x) == x + one and delta(x) == one:
                 candidates.append(x)
 
         self.__is_F[n] = candidates[0] if len(candidates) == 1 else False
-        
-        return self.__is_F[n]        
+
+        return self.__is_F[n]
 
     def is_E(self, n=0):
         r"""
@@ -1440,17 +1435,15 @@ class OreAlgebra_generic(UniqueRepresentation, Algebra):
         sigma = self.sigma(n)
         delta = self.delta(n)
         R = self.base_ring()
-        one = R.one()
-        zero = R.zero()
         candidates = []
-        
+
         for x in R.gens():
             if sigma(x) == x and delta(x) == x:
                 candidates.append(x)
 
         self.__is_T[n] = candidates[0] if len(candidates) == 1 else False
-        
-        return self.__is_T[n]        
+
+        return self.__is_T[n]
 
     def is_Q(self, n=0):
         r"""
@@ -1479,10 +1472,9 @@ class OreAlgebra_generic(UniqueRepresentation, Algebra):
         sigma = self.sigma(n)
         delta = self.delta(n)
         R = self.base_ring()
-        one = R.one()
         zero = R.zero()
         candidates = []
-        
+
         for x in R.gens():
             try:
                 sx = sigma(x)
@@ -1492,8 +1484,8 @@ class OreAlgebra_generic(UniqueRepresentation, Algebra):
                 pass
 
         self.__is_Q[n] = candidates[0] if len(candidates) == 1 else False
-        
-        return self.__is_Q[n]        
+
+        return self.__is_Q[n]
 
     def is_J(self, n=0):
         r"""
@@ -1526,9 +1518,8 @@ class OreAlgebra_generic(UniqueRepresentation, Algebra):
         delta = self.delta(n)
         R = self.base_ring()
         one = R.one()
-        zero = R.zero()
         candidates = []
-        
+
         for x in R.gens():
             try:
                 sx = sigma(x)
@@ -1538,8 +1529,8 @@ class OreAlgebra_generic(UniqueRepresentation, Algebra):
                 pass
 
         self.__is_J[n] = candidates[0] if len(candidates) == 1 else False
-        
-        return self.__is_J[n]        
+
+        return self.__is_J[n]
 
     def variable_names(self):
         r"""

@@ -23,8 +23,6 @@ from functools import reduce
 from sage.structure.element import RingElement, canonical_coercion
 from sage.structure.richcmp import richcmp
 from sage.arith.all import gcd, lcm
-from sage.rings.rational_field import QQ
-from sage.rings.integer_ring import ZZ
 from sage.rings.infinity import infinity
 from sage.rings.power_series_ring_element import PowerSeries
 from sage.rings.laurent_series_ring import LaurentSeriesRing
@@ -703,8 +701,8 @@ class UnivariateOreOperator(OreOperator):
     def __int__(self):
         return self._poly.__int__()
 
-    def _integer_(self, ZZ):
-        return self._poly._integer_(ZZ)
+    def _integer_(self, Zring):
+        return self._poly._integer_(Zring)
 
     def _rational_(self):
         return self._poly._rational_()
@@ -952,8 +950,6 @@ class UnivariateOreOperator(OreOperator):
         r = (self,other)
         if (r[0].order()<r[1].order()):
             r=(other,self)
-
-        R = self.parent()
 
         prslist = {"essential" : __essentialPRS__,
                    "primitive" : __primitivePRS__,
@@ -1847,7 +1843,6 @@ class UnivariateOreOperator(OreOperator):
         sinv = A.sigma().inverse()
         delta = A.delta()
         out = A.zero()
-        r = self.order()
         D = A.gen()
 
         for c in reversed(self.coefficients(sparse=False)):
