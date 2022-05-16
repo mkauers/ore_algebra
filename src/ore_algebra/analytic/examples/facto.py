@@ -57,8 +57,8 @@ irr_weyl_ex = Dz**2 + (-z**2 + 2*z)*Dz + z - 2
 
 # Test cases (see commit e75d04a4 of ore_algebra for more details).
 # The second one is not Fuchsian.
-test_ex1 = ((z**5 - z**4 + z**3)*Dz**3 + (QQ(27/8)*z**4 - QQ(25/9)*z**3 + 8*z**2)*Dz**2 + (QQ(37/24)*z**3 - QQ(25/9)*z**2 + 14*z)*Dz - 2*z**2 - QQ(3/4)*z + 4)*((z**5 - QQ(9/4)*z**4 + z**3)*Dz**3 + (QQ(11/6)*z**4 - QQ(31/4)*z**3 + 7*z**2)*Dz**2 + (QQ(7/30)*z**3 - QQ(101/20)*z**2 + 10*z)*Dz + QQ(4/5)*z**2 + QQ(5/6)*z + 2)
-test_ex2 = ((QQ(-1/4)*z**10 + 8*z**9 + 2*z**8 - 2*z**7 - QQ(5/2)*z**6 - QQ(1/8)*z**5 - QQ(45/2)*z**3 - QQ(1/2)*z**2 - QQ(1/2)*z)*Dz**4 + (6*z**9 - QQ(3/17)*z**5 - QQ(3/2)*z**4 - 2*z**3 + QQ(21/2)*z**2 - z - 10)*Dz**3 + (QQ(5/2)*z**8 + z**6 + 10*z**5 - 3*z**4 + QQ(1/2)*z**3 + z**2 - QQ(1/4)*z)*Dz**2 + (23*z**7 - 3*z**6 + QQ(1/13)*z**5 + z**2 - z + 1)*Dz + QQ(2/13)*z**6 - QQ(1/2)*z**5 - QQ(1/3)*z**4 + 2*z**2 - z - 9)*((2*z**5 + 7*z**2)*Dz**3 + (QQ(1/5)*z**4 + 2*z**3 - 2*z + 1)*Dz**2 + (-QQ(3/2)*z**3 - QQ(1/2)*z**2 + 2*z)*Dz - QQ(1/521)*z**2 - 8*z + QQ(1/2))
+Galois_conjugates_ex1 = ((z**5 - z**4 + z**3)*Dz**3 + (QQ(27/8)*z**4 - QQ(25/9)*z**3 + 8*z**2)*Dz**2 + (QQ(37/24)*z**3 - QQ(25/9)*z**2 + 14*z)*Dz - 2*z**2 - QQ(3/4)*z + 4)*((z**5 - QQ(9/4)*z**4 + z**3)*Dz**3 + (QQ(11/6)*z**4 - QQ(31/4)*z**3 + 7*z**2)*Dz**2 + (QQ(7/30)*z**3 - QQ(101/20)*z**2 + 10*z)*Dz + QQ(4/5)*z**2 + QQ(5/6)*z + 2)
+Galois_conjugates_ex2 = ((QQ(-1/4)*z**10 + 8*z**9 + 2*z**8 - 2*z**7 - QQ(5/2)*z**6 - QQ(1/8)*z**5 - QQ(45/2)*z**3 - QQ(1/2)*z**2 - QQ(1/2)*z)*Dz**4 + (6*z**9 - QQ(3/17)*z**5 - QQ(3/2)*z**4 - 2*z**3 + QQ(21/2)*z**2 - z - 10)*Dz**3 + (QQ(5/2)*z**8 + z**6 + 10*z**5 - 3*z**4 + QQ(1/2)*z**3 + z**2 - QQ(1/4)*z)*Dz**2 + (23*z**7 - 3*z**6 + QQ(1/13)*z**5 + z**2 - z + 1)*Dz + QQ(2/13)*z**6 - QQ(1/2)*z**5 - QQ(1/3)*z**4 + 2*z**2 - z - 9)*((2*z**5 + 7*z**2)*Dz**3 + (QQ(1/5)*z**4 + 2*z**3 - 2*z + 1)*Dz**2 + (-QQ(3/2)*z**3 - QQ(1/2)*z**2 + 2*z)*Dz - QQ(1/521)*z**2 - 8*z + QQ(1/2))
 
 # This operator is given as example to illustrate the newton polygon's
 # definition in [Formal Solutions ..., van Hoeij, 1997] (Example 3.1).
