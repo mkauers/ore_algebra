@@ -14,6 +14,8 @@ papers/*/*_doctest.sage
 *.c
 *.cpp
 *.so
+__pycache__/*
 */*/__pycache__/*
 */*/*/__pycache__/*
 */*/*/*/__pycache__/*
+my_tests.py
