@@ -2211,7 +2211,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         """
         
         A = self.parent(); K = A.base_ring().fraction_field(); A = A.change_ring(K); R = K['Y']
-        if solver == None:
+        if solver is None:
             solver = A._solver(K)
 
         if self == A.one() or a == K.gen():
@@ -4139,7 +4139,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
         u = u.numerator()
         from sage.matrix.constructor import Matrix
         A = A.change_ring(A.base_ring().fraction_field())
-        if solver == None:
+        if solver is None:
             solver = A._solver()
         L = A(self)
 
@@ -5028,7 +5028,7 @@ class UnivariateQRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverU
 
         # now a = u*x where u > 1 
         from sage.matrix.constructor import Matrix
-        if solver == None:
+        if solver is None:
             solver = A._solver()
 
         p = A.one(); Qu = A.gen()**u # possible improvement: multiplication matrix. 

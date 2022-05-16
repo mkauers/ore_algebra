@@ -930,7 +930,7 @@ class DFiniteFunction(RingElement):
             
             #if the initial values contain symbolic expressions we can't use guessing - but we can
             #try to get rid of multiple common factors in the coefficients and redundant initial conditions
-            elif not all(x in QQ for x in ini.values() if x != None):
+            elif not all(x in QQ for x in ini.values() if x is not None):
                 return self.reduce_factors()
             
             #if all initial conditions are in QQ we can try to guess a smaller operator
@@ -2125,7 +2125,7 @@ class UnivariateDFiniteSequence(DFiniteFunction):
             singularities_negative = set([i for i in sum_ann.singularities(True) if i < 0])
     
         initial_val = set(range(ord)).union(singularities_positive, singularities_negative)
-        int_val_sum = {n:self[n] + right[n] if (self[n] != None and right[n] != None) else None for n in initial_val}
+        int_val_sum = {n:self[n] + right[n] if (self[n] is not None and right[n] is not None) else None for n in initial_val}
 
         #critical points for forward calculation
         critical_points_positive = self.critical_points(ord).union( right.critical_points(ord) )
@@ -2133,10 +2133,10 @@ class UnivariateDFiniteSequence(DFiniteFunction):
             critical_points_positive.update(range(n+1,n+ord+1))
         
         for n in critical_points_positive:
-            int_val_sum.update({n:self[n] + right[n] if (self[n] != None and right[n] != None) else None})
+            int_val_sum.update({n:self[n] + right[n] if (self[n] is not None and right[n] is not None) else None})
             sum_ann = A(N - (n - ord) )*sum_ann
             if self.parent()._backward_calculation is True and n < ord - min_degree:
-                int_val_sum.update({(n-ord)+min_degree: self[(n-ord)+min_degree] + right[(n-ord)+min_degree] if (self[(n-ord)+min_degree] != None and right[(n-ord)+min_degree] != None) else None})
+                int_val_sum.update({(n-ord)+min_degree: self[(n-ord)+min_degree] + right[(n-ord)+min_degree] if (self[(n-ord)+min_degree] is not None and right[(n-ord)+min_degree] is not None) else None})
         
         #critical points for backward calculation
         critical_points_negative = self.critical_points(ord,True).union( right.critical_points(ord,True) )
@@ -2144,10 +2144,10 @@ class UnivariateDFiniteSequence(DFiniteFunction):
             critical_points_negative.update(range(n-ord,n))
             
         for n in critical_points_negative:
-            int_val_sum.update({n:self[n] + right[n] if (self[n] != None and right[n] != None) else None})
+            int_val_sum.update({n:self[n] + right[n] if (self[n] is not None and right[n] is not None) else None})
             sum_ann = A(N - (n - min_degree) )*sum_ann
             if n >= min_degree:
-                int_val_sum.update({(n-min_degree)+ord:self[(n-min_degree)+ord] + right[(n-min_degree)+ord] if (self[(n-min_degree)+ord] != None and right[(n-min_degree)+ord] != None) else None})
+                int_val_sum.update({(n-min_degree)+ord:self[(n-min_degree)+ord] + right[(n-min_degree)+ord] if (self[(n-min_degree)+ord] is not None and right[(n-min_degree)+ord] is not None) else None})
         
         sum = UnivariateDFiniteSequence(self.parent(), sum_ann, int_val_sum)
 
@@ -2170,7 +2170,7 @@ class UnivariateDFiniteSequence(DFiniteFunction):
             [0, -1, -2, -3, -4, -5, -6, -7, -8, -9, -10]
 
         """
-        neg_int_val = {key:(-self._initial_values[key]) if (self._initial_values[key] != None) else None for key in self._initial_values}
+        neg_int_val = {key:(-self._initial_values[key]) if (self._initial_values[key] is not None) else None for key in self._initial_values}
         return UnivariateDFiniteSequence(self.parent(), self.ann(), neg_int_val)
 
     def _mul_(self, right):
@@ -2214,7 +2214,7 @@ class UnivariateDFiniteSequence(DFiniteFunction):
             singularities_negative = set([i for i in prod_ann.singularities(True) if i < 0])
     
         initial_val = set(range(ord)).union(singularities_positive, singularities_negative)
-        int_val_prod = {n:self[n] * right[n] if (self[n] != None and right[n] != None) else None for n in initial_val }
+        int_val_prod = {n:self[n] * right[n] if (self[n] is not None and right[n] is not None) else None for n in initial_val }
         
         #critical points for forward calculation
         critical_points_positive = self.critical_points(ord).union( right.critical_points(ord) )
@@ -2222,10 +2222,10 @@ class UnivariateDFiniteSequence(DFiniteFunction):
             critical_points_positive.update(range(n+1,n+ord+1))
         
         for n in critical_points_positive:
-            int_val_prod.update({n:self[n] * right[n] if (self[n] != None and right[n] != None) else None})
+            int_val_prod.update({n:self[n] * right[n] if (self[n] is not None and right[n] is not None) else None})
             prod_ann = A(N - (n - ord) )*prod_ann
             if self.parent()._backward_calculation is True and n < ord - min_degree:
-                int_val_prod.update({(n-ord)+min_degree: self[(n-ord)+min_degree] * right[(n-ord)+min_degree] if (self[(n-ord)+min_degree] != None and right[(n-ord)+min_degree] != None) else None})
+                int_val_prod.update({(n-ord)+min_degree: self[(n-ord)+min_degree] * right[(n-ord)+min_degree] if (self[(n-ord)+min_degree] is not None and right[(n-ord)+min_degree] is not None) else None})
         
         #critical points for backward calculation
         critical_points_negative = self.critical_points(ord,True).union( right.critical_points(ord,True) )
@@ -2233,10 +2233,10 @@ class UnivariateDFiniteSequence(DFiniteFunction):
             critical_points_negative.update(range(n-ord,n))
         
         for n in critical_points_negative:
-            int_val_prod.update({n:self[n] * right[n] if (self[n] != None and right[n] != None) else None})
+            int_val_prod.update({n:self[n] * right[n] if (self[n] is not None and right[n] is not None) else None})
             prod_ann = A(N-(n-min_degree))*prod_ann
             if n >= min_degree:
-                int_val_prod.update({(n-min_degree)+ord:self[(n-min_degree)+ord] * right[(n-min_degree)+ord] if (self[(n-min_degree)+ord] != None and right[(n-min_degree)+ord] != None) else None})
+                int_val_prod.update({(n-min_degree)+ord:self[(n-min_degree)+ord] * right[(n-min_degree)+ord] if (self[(n-min_degree)+ord] is not None and right[(n-min_degree)+ord] is not None) else None})
         
         prod = UnivariateDFiniteSequence(self.parent(), prod_ann, int_val_prod)
         return prod
@@ -2297,7 +2297,7 @@ class UnivariateDFiniteSequence(DFiniteFunction):
             a = self.expand(n)
             b = right.expand(n)
             b.reverse()
-            if all(x != None for x in a) and all(y != None for y in b):
+            if all(x is not None for x in a) and all(y is not None for y in b):
                 cauchy = sum([x*y for x,y in zip(a,b)])
             else:
                 cauchy = None
@@ -2312,7 +2312,7 @@ class UnivariateDFiniteSequence(DFiniteFunction):
             a = self.expand(n)
             b = right.expand(n)
             b.reverse()
-            if all(x != None for x in a) and all(y != None for y in b):
+            if all(x is not None for x in a) and all(y is not None for y in b):
                 cauchy = sum([x*y for x,y in zip(a,b)])
             else:
                 cauchy = None
@@ -2322,7 +2322,7 @@ class UnivariateDFiniteSequence(DFiniteFunction):
                 a = self.expand((n-ord)+min_degree)
                 b = right.expand((n-ord)+min_degree)
                 b.reverse()
-                if all(x != None for x in a) and all(y != None for y in b):
+                if all(x is not None for x in a) and all(y is not None for y in b):
                     cauchy = sum([x*y for x,y in zip(a,b)])
                 else:
                     cauchy = None
@@ -2338,7 +2338,7 @@ class UnivariateDFiniteSequence(DFiniteFunction):
             a = self.expand(n)
             b = right.expand(n)
             b.reverse()
-            if all(x != None for x in a) and all(y != None for y in b):
+            if all(x is not None for x in a) and all(y is not None for y in b):
                 cauchy = sum([x*y for x,y in zip(a,b)])
             else:
                 cauchy = None
@@ -2348,7 +2348,7 @@ class UnivariateDFiniteSequence(DFiniteFunction):
                 a = self.expand((n-min_degree)+ord)
                 b = right.expand((n-min_degree)+ord)
                 b.reverse()
-                if all(x != None for x in a) and all(y != None for y in b):
+                if all(x is not None for x in a) and all(y is not None for y in b):
                     cauchy = sum([x*y for x,y in zip(a,b)])
                 else:
                     cauchy = None
@@ -2491,7 +2491,7 @@ class UnivariateDFiniteSequence(DFiniteFunction):
             singularities_negative = set([i for i in sum_ann.singularities(True) if i < 0])
     
         initial_val = set(range(ord)).union(singularities_positive, singularities_negative)
-        int_val_sum = {n : sum(self.expand(n)) if all(self[k] != None for k in range(n+1)) else None for n in initial_val}
+        int_val_sum = {n : sum(self.expand(n)) if all(self[k] is not None for k in range(n+1)) else None for n in initial_val}
 
         #critical points for forward calculation
         critical_points_positive = self.critical_points(ord)
@@ -2499,10 +2499,10 @@ class UnivariateDFiniteSequence(DFiniteFunction):
             critical_points_positive.update(range(n+1,n+ord+1))
     
         for n in critical_points_positive:
-            int_val_sum.update({n : sum(self.expand(n)) if all(self[k] != None for k in range(n+1)) else None})
+            int_val_sum.update({n : sum(self.expand(n)) if all(self[k] is not None for k in range(n+1)) else None})
             sum_ann = A(N - (n - ord) )*sum_ann
             if self.parent()._backward_calculation is True and n < ord - min_degree:
-                int_val_sum.update({(n-ord)+min_degree : sum(self.expand((n-ord)+min_degree)) if all(self[k] != None for k in range((n-ord)+min_degree+1)) else None})
+                int_val_sum.update({(n-ord)+min_degree : sum(self.expand((n-ord)+min_degree)) if all(self[k] is not None for k in range((n-ord)+min_degree+1)) else None})
         
         #critical points for backward calculation
         critical_points_negative = self.critical_points(ord,True)
@@ -2510,10 +2510,10 @@ class UnivariateDFiniteSequence(DFiniteFunction):
             critical_points_negative.update(range(n-ord,n))
             
         for n in critical_points_negative:
-            int_val_sum.update({n : sum(self.expand(n)) if all(self[k] != None for k in range(n+1)) else None})
+            int_val_sum.update({n : sum(self.expand(n)) if all(self[k] is not None for k in range(n+1)) else None})
             sum_ann = A(N - (n - min_degree) )*sum_ann
             if n >= min_degree:
-                int_val_sum.update({(n-min_degree)+ord : sum(self.expand((n-min_degree)+ord)) if all(self[k] != None for k in range((n-min_degree)+ord+1)) else None})
+                int_val_sum.update({(n-min_degree)+ord : sum(self.expand((n-min_degree)+ord)) if all(self[k] is not None for k in range((n-min_degree)+ord+1)) else None})
 
         return UnivariateDFiniteSequence(self.parent(), sum_ann, int_val_sum)
     
@@ -2891,7 +2891,7 @@ class UnivariateDFiniteFunction(DFiniteFunction):
             coeffs_result[i] = result[i].rhs()
         poly = sum(list(a*b for a,b in zip(coeffs_result,base)))
         
-        if all(poly.derivative(k)(x=0)/factorial(k) == self[k] for k in self.initial_conditions().initial_conditions() if (self[k] != None and k>=0)):
+        if all(poly.derivative(k)(x=0)/factorial(k) == self[k] for k in self.initial_conditions().initial_conditions() if (self[k] is not None and k>=0)):
             return R(poly)
         else:
             raise TypeError("the D-finite function is not a polynomial")
@@ -2957,7 +2957,7 @@ class UnivariateDFiniteFunction(DFiniteFunction):
         coeffs_result = list( result[i].rhs() for i in range(len(result)) )
         result = sum(list(a*b for a,b in zip(coeffs_result,base)))
 
-        if all(result.derivative(k)(x=0)/factorial(k) == self[k] for k in self.initial_conditions().initial_conditions() if (self[k] != None and k >= 0)):
+        if all(result.derivative(k)(x=0)/factorial(k) == self[k] for k in self.initial_conditions().initial_conditions() if (self[k] is not None and k >= 0)):
             return R.fraction_field()(result)
         else:
             raise TypeError("the D-finite function is not a rational function")
