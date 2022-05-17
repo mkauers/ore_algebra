@@ -717,16 +717,15 @@ def guess_symbolic_coefficients(vec, alg_degree, verbose=False):
     """
 
     if verbose: print("Try guessing symbolic coefficients")
-    r = len(vec)
 
     v1, v2 = [], []
     for x in vec:
         if not x.imag().contains_zero(): break
         x, err = x.real().mid(), x.rad()
-        err1, err2 = err, (2/3)*err
+        err1, err2 = err, 2*err/3
         v1.append(x.nearby_rational(max_error=x.parent()(err1)))
         v2.append(x.nearby_rational(max_error=x.parent()(err2)))
-    if len(v1)==r and v1==v2:
+    if len(v1)==len(vec) and v1==v2:
         if verbose: print("Find rational coefficients")
         return v1, QQ
 
@@ -737,7 +736,7 @@ def guess_symbolic_coefficients(vec, alg_degree, verbose=False):
         for x in vec:
             v1.append(algdep(x.mid(), degree=d, known_bits=p-10))
             v2.append(algdep(x.mid(), degree=d, known_bits=p-20))
-        if len(v1)==r and v1==v2:
+        if v1==v2:
             symb_vec = []
             for i, x in enumerate(vec):
                 roots = v1[i].roots(QQbar, multiplicities=False)
@@ -745,7 +744,7 @@ def guess_symbolic_coefficients(vec, alg_degree, verbose=False):
                 i = min(range(k), key = lambda i: abs(roots[i] - x.mid()))
                 symb_vec.append(roots[i])
             K, symb_vec = as_embedded_number_field_elements(symb_vec)
-            if not all(symb_vec[i] in vec[i] for i in range(r)): breakpoint()
+            if not all(symb_vec[i] in x for i, x in enumerate(vec)): breakpoint()
             if verbose: print("Find algebraic coefficients in a number field of degree", K.degree())
             return symb_vec, K
 
@@ -766,18 +765,18 @@ def annihilator(dop, ic, order, bound, alg_degree, mono=None, verbose=False):
 
     symb_ic, K = guess_symbolic_coefficients(ic, alg_degree, verbose=verbose)
     if symb_ic!="NothingFound":
-        if base_field!=QQ:
+        if base_field!=QQ and K!=QQ:
             K = K.composite_fields(base_field)[0]
             symb_ic = [K(x) for x in symb_ic]
         S = PowerSeriesRing(K, default_prec=order + d)
         sol_basis = dop.local_basis_expansions(QQ.zero(), order + d)
         sol_basis = [ power_series_coerce(sol, S) for sol in sol_basis ]
         f = vector(symb_ic) * vector(sol_basis)
-        if K==QQ:
+        if K==QQ and base_field==QQ:
             v = f.valuation()
             try:
-                R = Se(guess(f.list()[v:], OA), -v)
-                if R.order()<r and dop%R==0: return R
+                R = Se(guess(f.list()[v:], OA, order=d), -v)
+                if 0<R.order()<r and dop%R==0: return R
             except ValueError: pass
         else:
             der = [ f.truncate() ]
@@ -786,12 +785,13 @@ def annihilator(dop, ic, order, bound, alg_degree, mono=None, verbose=False):
             if verbose: print("Try guessing annihilator with HP approximants")
             min_basis = mat.minimal_approximant_basis(order)
             rdeg = min_basis.row_degrees()
-            i0 = min(range(len(rdeg)), key = lambda i: rdeg[i])
-            R, g = LinearDifferentialOperator(dop).extend_scalars(K.gen())
-            R = R.parent()(list(min_basis[i0]))
-            if dop%R==0: return R
+            if max(rdeg)!=min(rdeg): # to avoid useless (possibly large) computation
+                i0 = min(range(len(rdeg)), key = lambda i: rdeg[i])
+                R, g = LinearDifferentialOperator(dop).extend_scalars(K.gen())
+                R = R.parent()(list(min_basis[i0]))
+                if dop%R==0: return R
 
-    if order>r*(bound + 1):
+    if order>r*(bound + 1) and verbose:
         print("Ball Hermite-Padé approximants not implemented yet")
 
     return "Inconclusive"
@@ -898,7 +898,7 @@ def rfactor_when_galois_algebra_is_trivial(dop, data, order, verbose=False):
     S = PowerSeriesRing(K, default_prec=order + r)
     f = dop.local_basis_expansions(QQ.zero(), order + r)[0]
     f = power_series_coerce(f, S)
-    # trop de problème avec guess
+    # trop de problèmes avec guess
     # if K==QQ:
     #     v = f.valuation()
     #     try:
@@ -939,12 +939,12 @@ def _rfactor(dop, data, order=None, bound=None, alg_degree=None, precision=None,
     if alg_degree==None:
         alg_degree = dop.base_ring().base_ring().degree()
     if precision==None:
-        precision = 100*((r + 1)//2)
+        precision = 50*(r + 1)
 
     data = maj(data, [precision-loss, order, alg_degree, None, None])
     if verbose:
         print("Current order of truncation", order)
-        print("Current working precision", precision - loss)
+        print("Current working precision", precision, "(before monodromy computation)")
         print("Current algebraic degree", alg_degree)
         print("Start computing monodromy matrices")
 
@@ -979,10 +979,12 @@ def _rfactor(dop, data, order=None, bound=None, alg_degree=None, precision=None,
 
 
     except (ZeroDivisionError, PrecisionError):
-        precision = max( precision + loss, (precision<<1) - loss )
+        precision += max(150, precision - loss)
+        #precision = max( precision + loss, (precision<<1) - loss )
         return _rfactor(dop, data, order, bound, alg_degree, precision, loss, verbose)
 
-    precision = max( precision + loss, (precision<<1) - loss ) # trop violent?
+    precision += max(150, precision - loss)
+    #precision = max( precision + loss, (precision<<1) - loss ) # trop violent?
     order = min( bound*(r + 1) + 1, order<<1 )
     return _rfactor(dop, data, order, bound, alg_degree + 1, precision, loss, verbose)
 

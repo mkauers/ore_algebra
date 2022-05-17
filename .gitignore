@@ -18,4 +18,5 @@ __pycache__/*
 */*/__pycache__/*
 */*/*/__pycache__/*
 */*/*/*/__pycache__/*
-my_tests.py
+more_tests.py
+solved_issues.py

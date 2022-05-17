@@ -3575,7 +3575,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         fct = self._make_valuation_place(place,iota=iota)[2]
         return fct(basis, place, dim)
 
-    def factor(self, return_data=False, verbose=False):
+    def factor(self, verbose=False):
         r"""
         Compute a decomposition of this operator as a composition of irreducible
         operators (potentially introducing algebraic extensions).
@@ -3585,41 +3585,32 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
 
         INPUT:
 
-        - ``verbose`` (default: False) - if set to True, this method prints
-          some messages about the progress of the computation.
+        - ``verbose`` - (optional, default: False) - if set to True, this method
+        method prints some messages about the progress of the computation.
 
         OUTPUT:
 
         - ``fac`` - a list of irreducible operators such that the product of its
-          elements is equal to the operator ``self``.
+        elements is equal to the operator ``self``.
 
-        See also: :meth:`right_factor`
 
         EXAMPLES::
 
             sage: from ore_algebra import DifferentialOperators
             sage: Dops, z, Dz = DifferentialOperators(QQ, 'z')
-            sage: L = (4*z^2 + 6*z + 2)*Dz^2 + (4*z + 3)*Dz - 1
-            sage: fac = L.factor(); fac
-            [(4*z + 2)*Dz + 2, (z + 1)*Dz - 1/2]
-            sage: prod(fac) == L
+            sage: dop = ((-7*z^3+7*z^2-z)*Dz-9*z^2+5*z-1) * ((7*z^2-z)*Dz+5*z-1)
+            sage: fac = dop.factor(); fac
+            [(-49*z^3 + 49*z^2 - 7*z)*Dz - 63*z^2 + 35*z - 7,
+             (z^2 - 1/7*z)*Dz + 5/7*z - 1/7]
+
+            sage: from ore_algebra.analytic.examples.facto import fcc3
+            sage: len(fcc3.factor()) == 1 # to test the irreducibility
             True
 
-        An example with algebraic extension.::
-
-            sage: from ore_algebra import DifferentialOperators
-            sage: Dops, z, Dz = DifferentialOperators(QQ, 'z')
-            sage: L = z^2*Dz^2 + z*Dz + 1
-            sage: fac = L.factor(); fac
-            [z^2*Dz + (a + 1)*z, Dz + (-a)/z]
-            sage: fac[0].parent()
-            Univariate Ore algebra in Dz over Fraction Field of Univariate
-            Polynomial Ring in z over Number Field in a with defining polynomial
-            y^2 + 1 with a = -1*I
         """
 
         from .analytic.factorization import factor
-        fac = factor(self, return_data=return_data, verbose=verbose)
+        fac = factor(self, verbose=verbose)
         return fac
 
 
