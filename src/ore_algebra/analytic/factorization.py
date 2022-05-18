@@ -636,7 +636,7 @@ def degree_bound_for_right_factor(dop):
     E = largest_modulus_of_exponents(dop)
     bound = r**2*(S + 1)*E + r*S + r**2*(r - 1)*(S - 1)/2
 
-    return bound
+    return ZZ(bound)
 
 
 def try_rational(dop):
@@ -910,14 +910,14 @@ def rfactor_when_galois_algebra_is_trivial(dop, data, order, verbose=False):
     der = [ f.truncate() ]
     for k in range(r - 1): der.append( der[-1].derivative() )
     mat = matrix(r, 1, der)
-    min_basis = mat.minimal_approximant_basis(order//r)
+    min_basis = mat.minimal_approximant_basis(max(order//r, 1))
     rdeg = min_basis.row_degrees()
     i0 = min(range(len(rdeg)), key = lambda i: rdeg[i])
     #R, g = LinearDifferentialOperator(dop).extend_scalars(K.gen())
     R = dop.parent()(list(min_basis[i0]))
     if dop%R==0: return R, data
 
-    order =  order<<1
+    order = order<<1
     data = maj(data, [None, order, None, None, None])
     return rfactor_when_galois_algebra_is_trivial(dop, data, order, verbose)
 
