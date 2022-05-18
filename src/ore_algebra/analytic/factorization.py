@@ -935,7 +935,7 @@ def _rfactor(dop, data, order=None, bound=None, alg_degree=None, precision=None,
         if verbose: print("Degree bound for right factor", bound)
     if order==None:
         deg_of_dop = LinearDifferentialOperator(dop).degree()
-        order = min( r*deg_of_dop, 100, bound*(r + 1) + 1 )
+        order = max(min( r*deg_of_dop, 100, bound*(r + 1) + 1 ), 1)
     if alg_degree==None:
         alg_degree = dop.base_ring().base_ring().degree()
     if precision==None:
