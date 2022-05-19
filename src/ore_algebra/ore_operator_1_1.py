@@ -3598,13 +3598,13 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
 
             sage: from ore_algebra import DifferentialOperators
             sage: Dops, z, Dz = DifferentialOperators(QQ, 'z')
-            sage: dop = ((-7*z^3+7*z^2-z)*Dz-9*z^2+5*z-1) * ((7*z^2-z)*Dz+5*z-1)
-            sage: fac = dop.factor(); fac
-            [(-49*z^3 + 49*z^2 - 7*z)*Dz - 63*z^2 + 35*z - 7,
-             (z^2 - 1/7*z)*Dz + 5/7*z - 1/7]
 
-            sage: from ore_algebra.analytic.examples.facto import fcc3
-            sage: len(fcc3.factor()) == 1 # to test the irreducibility
+            sage: dop = Dz*z*Dz
+            sage: dop.factor()
+            [z*Dz + 1, Dz]
+
+            sage: dop = (z - z^3)*Dz^2 + (1 - z^2)*Dz + z
+            sage: len(dop.factor()) == 1 # certifying the irreducibility
             True
 
         """
