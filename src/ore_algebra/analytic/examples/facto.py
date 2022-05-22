@@ -26,44 +26,44 @@ fcc3 = 2*(-1+z)*z**2*(3+z)**2*Dz**3+3*z*(3+z)*(-6+5*z+5*z**2)*Dz**2+6*(-3+3*z+12
 # - the first one is the annihilator of sqrt(1+z) and sqrt(1+2z).
 # - thanks to Emre Sertoz for the second one (arosing from actual computations).
 # - the differential Galois group (= monodromy group) of the third one is composed by homotheties.
-sqrt_ex = (4*z**2 + 6*z + 2)*Dz**2 + (4*z + 3)*Dz - 1
-sertoz_ex = (-128*z**2 + 8)*(z*Dz)**3 + (-256*z**2-24)*(z*Dz)**2 + (32*z**2 + 10)*(z*Dz)+ 64*z**2
-exact_guessing_ex = (2*z*Dz - 1).lclm(2*z*Dz - 3)
+sqrt_dop = (4*z**2 + 6*z + 2)*Dz**2 + (4*z + 3)*Dz - 1
+sertoz_dop = (-128*z**2 + 8)*(z*Dz)**3 + (-256*z**2-24)*(z*Dz)**2 + (32*z**2 + 10)*(z*Dz)+ 64*z**2
+exact_guessing_dop = (2*z*Dz - 1).lclm(2*z*Dz - 3)
 
 # DEtools[DFactor] (of Maple, diffop package) fails with the following operator.
 # Thanks to Bruno Salvy for reporting it. We suspect that the large exponent
 # (=-972) at point 3 is the cause. !Not Fuchsian! (Update: 2020, Dec)
-salvy_ex = (z**2*Dz + 3)*((z - 3)*Dz + 4*z**5)
+salvy_dop = (z**2*Dz + 3)*((z - 3)*Dz + 4*z**5)
 
 # The only right factor of the following operator has a degree k (a parameter)
 # while the degree of the full operator is 2. For more details, see the article
 # "Explicit degree bounds for right factors of linear differential operators" by
 # Alin Bostan, Tanguy Rivoal and Bruno Salvy (2020). !Not Fuchsian!
-bostan_ex = lambda k: z*Dz**2 + (2-z)*Dz + k
+bostan_dop = lambda k: z*Dz**2 + (2-z)*Dz + k
 
 # This example is from van Hoeij's phd thesis (section 3.1). It seems that its
 # only right factor has a degree n^2. !Not Fuchsian!
-vanhoeij_ex = lambda n: Dz**2 - (1/n)*Dz + n/z
+vanhoeij_dop = lambda n: Dz**2 - (1/n)*Dz + n/z
 
 # These reducible operators do not admit factorization with coefficients in QQ
 # (to be confirmed) but involve algebraic numbers (of degree n!).
-QQbar_ex = lambda n: sum(z**i*Dz**i for i in range(n+1))
+QQbar_dop = lambda n: sum(z**i*Dz**i for i in range(n+1))
 
 # Annihilator of the hypergeometric function 2F1(a,b;c;z).
-hypergeo_ex = lambda a,b,c: z*(1 - z)*Dz**2 + (c - (a + b + 1)*z)*Dz - a*b
+hypergeo_dop = lambda a,b,c: z*(1 - z)*Dz**2 + (c - (a + b + 1)*z)*Dz - a*b
 
 # This reducible operator admits no factorization in the first Weyl algebra (QQ[z]<Dz>).
 # (not so interesting because it admits z as solutions)
-irr_weyl_ex = Dz**2 + (-z**2 + 2*z)*Dz + z - 2
+irr_weyl_dop = Dz**2 + (-z**2 + 2*z)*Dz + z - 2
 
 # This operator is given as example to illustrate the newton polygon's
 # definition in [Formal Solutions ..., van Hoeij, 1997] (Example 3.1).
 Tz = z*Dz
-newton_ex = z**6*Tz**9 + 2*z**5*Tz**8 + 3*z**4*Tz**7 + 2*z**3*Tz**6 + (z**2 + 2*z**4)*Tz**5 + (5*z**2 - 3*z)*Tz**3 + 3*z*Tz**2 + (2 + 2*z)*Tz + 7*z
+newton_dop = z**6*Tz**9 + 2*z**5*Tz**8 + 3*z**4*Tz**7 + 2*z**3*Tz**6 + (z**2 + 2*z**4)*Tz**5 + (5*z**2 - 3*z)*Tz**3 + 3*z*Tz**2 + (2 + 2*z)*Tz + 7*z
 
 # The following operator have 0 as only integer exponent (with multiplicity 1)
 # but its adjoint has no power series solution (the only integer exponent is -1).
-adjoint_exponent_ex = 2*z**3*Dz**2 + (5*z**2 + 6*z)*Dz + z
+adjoint_exponent_dop = 2*z**3*Dz**2 + (5*z**2 + 6*z)*Dz + z
 
 
 # The following operator is a product Q*P*P with ord(P)=ord(Q)=2, which is found irreducible with DFactor.
