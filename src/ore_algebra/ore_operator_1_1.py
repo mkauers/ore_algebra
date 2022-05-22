@@ -3577,7 +3577,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
 
     def factor(self, verbose=False):
         r"""
-        Compute a decomposition of this operator as a composition of irreducible
+        Compute a decomposition of this operator as a product of irreducible
         operators (potentially introducing algebraic extensions).
 
         NOTE: The termination of this method is currently not garanteed if the
@@ -3585,13 +3585,13 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
 
         INPUT:
 
-        - ``verbose`` - (optional, default: False) - if set to True, this method
+        - ``verbose`` - (optional, default: False) - if set to True, this
         method prints some messages about the progress of the computation.
 
         OUTPUT:
 
-        - ``fac`` - a list of irreducible operators such that the product of its
-        elements is equal to the operator ``self``.
+        - ``fac`` - a list of irreducible operators such that the product of
+        its elements is equal to the operator ``self``.
 
 
         EXAMPLES::
