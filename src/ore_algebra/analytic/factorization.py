@@ -744,7 +744,7 @@ def guess_symbolic_coefficients(vec, alg_degree, verbose=False):
                 i = min(range(k), key = lambda i: abs(roots[i] - x.mid()))
                 symb_vec.append(roots[i])
             K, symb_vec = as_embedded_number_field_elements(symb_vec)
-            if not all(symb_vec[i] in x for i, x in enumerate(vec)): breakpoint()
+            if not all(symb_vec[i] in x for i, x in enumerate(vec)): return "NothingFound", None
             if verbose: print("Find algebraic coefficients in a number field of degree", K.degree())
             return symb_vec, K
 
@@ -847,7 +847,7 @@ def simple_eigenvalue(dop, mono, order, bound, alg_degree, verbose=False):
             adj_mat = Q * mat.transpose() * (~Q)
             adj_mono = [ Q * m.transpose() * (~Q) for m in mono ]
             eigspace = ker(adj_mat - space['eigenvalue']*id)
-            if eigspace==[]: breakpoint()
+            if eigspace==[]: return "Inconclusive"
             if len(eigspace)>1: break # raise PrecisionError ?
             adj_ic = eigspace[0]
             adj_Q = annihilator(adj_dop, adj_ic, order, bound, alg_degree, adj_mono, verbose) # bound différent?
