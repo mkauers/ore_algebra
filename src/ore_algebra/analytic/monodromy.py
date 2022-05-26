@@ -231,7 +231,17 @@ def _test_formal_monodromy(dop):
 # transition matrix may not actually be analytic but we do not care which path
 # is taken
 
-def _local_monodromy_loop(dop, x, eps, ctx):
+def _local_monodromy_loop(dop, x, eps, ctx, effort=3):
+    r"""
+    TESTS::
+
+        sage: from ore_algebra.analytic.examples.misc import large_irregular_dop
+        sage: from ore_algebra.analytic.monodromy import monodromy_matrices
+        sage: monodromy_matrices(large_irregular_dop, 53/10, 1e-1000, # not tested
+        ....:                    sing=[21/4], bounds_prec=128)[0][-1,-1]
+        [3.7975339214908450838528472219121833930467139062244128500652173291400519760900043930710428392780611358292087744635087753829152392259557126284093959961212186601...e+1158 +/- ...] +
+        [-1.0907799857818368151501817928994979524542825249884040984277371301954332475924993671608411858764307809823591665306474900630885106316087831863249971763581367813...e+1158 +/- ...]*I
+    """
     polygon = path.polygon_around(x)
     n = len(polygon)
     mats = []
@@ -240,8 +250,16 @@ def _local_monodromy_loop(dop, x, eps, ctx):
         logger.debug("center = %s, step = %s", x, step)
         step[0].options['store_value'] = False # XXX bugware
         step[1].options['store_value'] = True
-        mat = x.dop.numerical_transition_matrix(step, eps, ctx=ctx)
-        prec = utilities.prec_from_eps(eps)
+        for attempt in range(effort):
+            mat = x.dop.numerical_transition_matrix(step, eps, ctx=ctx)
+            prec = utilities.prec_from_eps(eps)
+            accuracy = min((c.accuracy() for c in mat.list()
+                                         if c.above_abs()**2 > eps),
+                           default=prec)
+            if accuracy >= prec//2:
+                break
+            eps /= (1 << (prec - accuracy))
+            logger.debug("decreasing eps to %s...", eps)
         mats.append(mat)
     return polygon, mats
 
