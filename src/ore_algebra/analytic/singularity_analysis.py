@@ -746,26 +746,33 @@ def contribution_single_singularity(deq, ini, rho, rad,
 # Exponentially small error term
 ################################################################################
 
-def numerical_sol_big_circle(deq, ini, dominant_sing, rad, halfside, prec_bit):
+def numerical_sol_big_circle(deq, ini, dominant_sing, rad, halfside):
     """
-    Compute numerical solutions of f on big circle of radius rad
+    Bound the values of a solution `f` on the large circle
 
     INPUT:
 
-    - ini : vector, coefficients corresponding to the basis at zero
-    - deq : a linear ODE that the generating function satisfies
-    - dominant_sing : list of algebraic numbers, list of dominant singularities
-    - rad : radius of big circle
-    - halfside : half of side length of covering squares
-    - prec_bit : integer, approximated desired bit precision
+    - ``deq``: a linear ODE that the generating function satisfies
+    - ``ini``: coefficients of `f` in the basis at zero
+    - ``dominant_sing``: list of dominant singularities
+    - ``rad``: radius of big circle
+    - ``halfside``: half of side length of covering squares
+
+    OUTPUT:
+
+    A list of (square, value) pairs where the squares cover the large circle
+    and, for each square, the corresponding value is a complex interval
+    containing the image of the square by the analytic continuation of `f` to a
+    multi-slit disk.
     """
     logger.info("Bounding on large circle...")
     clock = utilities.Clock()
     clock.tic()
 
     I = CBF.gen(0)
+    # TODO: eps could be chosen as a function of halfside or something...
     eps = RBF.one() >> 100
-    rad = RBF(rad) # XXX temporary
+    rad = RBF(rad) # XXX temporary: we should receive an element of RBF
     halfside = RBF(halfside)
 
     sings = [CBF(s) for s in dominant_sing]
@@ -793,6 +800,7 @@ def numerical_sol_big_circle(deq, ini, dominant_sing, rad, halfside, prec_bit):
         np = ZZ(((halfarc*rad / (2*halfside)).above_abs()).ceil()) + 2
         num_sq += np
         # TODO: optimize case of real coefficients
+        # TODO: check path correctness (plot?) in complex cases
         for side in [1, -1]:
             squares = [[(hub*(side*halfarc*k/np*I).exp()).add_error(halfside)]
                        for k in range(np+1)]
@@ -925,12 +933,11 @@ def contribution_all_singularity(seqini, deq, singularities=None,
 
     if halfside is None:
         halfside = min(abs(abs(ex) - rad) for ex in all_exn_points)/10
+
         logger.info("half-side of small squares: %s", halfside)
-    pairs = numerical_sol_big_circle(deq, ini, dominant_sing, rad,
-                                     halfside, prec_bit)
+    pairs = numerical_sol_big_circle(deq, ini, dominant_sing, rad, halfside)
     coord_big_circle = [z for z, _ in pairs]
     f_big_circle = [f for _, f in pairs]
-    max_big_circle = RB.zero()
 
     n = SR.var('n')
     bound = []
@@ -962,6 +969,7 @@ def contribution_all_singularity(seqini, deq, singularities=None,
             for val, poly_bound in zip(list_val, list_bound)])])
 
     sum_g = [sum(v) for v in zip(*list_val_bigcirc)]
+    max_big_circle = RB.zero()
     for v in list_val_bigcirc:
         max_big_circle = max_big_circle.max(*(
             (s - vv).above_abs()
