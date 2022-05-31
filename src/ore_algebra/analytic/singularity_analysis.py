@@ -1027,13 +1027,12 @@ def contribution_all_singularity(seqini, deq, singularities=None,
     else:
             bound.append[abs(dominant_sing[0]),
                         CB(0).add_error(rad_err) * SR(n**QQbar(re_gam - total_order)) * (SR(log(n))**final_kappa)]
-    #print(CB(0).add_error(rad_err) * (SR(QQbar(1/abs(dominant_sing[0]))**n)
-    #                                      * SR(n**QQbar(re_gam)) * (SR(1/n)**total_order) * (SR(log(n))**final_kappa)))
 
-    #Compute N0
-    all_val = [edata.val for sdata in sing_data
-                         for edata in sdata.expo_group_data]
-    N0 = max(ceil(2.1 * (max([abs(val) for val in all_val]) + total_order + 1)), N1)
+    # Compute N0
+    max_abs_val = max(abs(edata.val) for sdata in sing_data
+                                     for edata in sdata.expo_group_data)
+    N2 = max_abs_val + total_order + 1
+    N0 = max(ceil(2.1 * N2), N1)
 
     return N0, bound
 
