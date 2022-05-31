@@ -781,19 +781,23 @@ def numerical_sol_big_circle(deq, ini, dominant_sing, rad, halfside, prec_bit):
             # last arc is a bit special: we need to add 2*pi to ending
             arg1 += 2*RBF.pi()
 
+        # Compute initial values at a point on the large circle, halfway between
+        # two adjacent dominant singularities
         hub = rad * ((arg0 + arg1)/2 * I).exp()
+        tmat_hub = deq.numerical_transition_matrix([0, hub], eps,
+                                                   assume_analytic=True)
+        ini_hub = tmat_hub*vector(ini)
+
+        # From there, walk along the large circle in both directions
         halfarc = (arg1 - arg0)/2
         np = ZZ(((halfarc*rad / (2*halfside)).above_abs()).ceil()) + 2
         num_sq += np
-        circle_upper = [(hub*(halfarc*k/np*I).exp()).add_error(halfside)
-                        for k in range(np+1)]
-        path_upper = [0] + [[z] for z in circle_upper]
-        pairs += deq.numerical_solution(ini, path_upper, eps,
-                                        assume_analytic=True)
         # TODO: optimize case of real coefficients
-        path_lower = [0] + [[z.conjugate()] for z in circle_upper]
-        pairs += deq.numerical_solution(ini, path_lower, eps,
-                                        assume_analytic=True)
+        for side in [1, -1]:
+            squares = [[(hub*(side*halfarc*k/np*I).exp()).add_error(halfside)]
+                       for k in range(np+1)]
+            path = [hub] + squares
+            pairs += deq.numerical_solution(ini_hub, path, eps)
 
     clock.toc()
     logger.info("Covered circle with %d squares, %s", num_sq, clock)
