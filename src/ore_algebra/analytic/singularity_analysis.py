@@ -704,7 +704,6 @@ def contribution_single_singularity(deq, ini, rho, rad,
         coord_big_circle, rel_order, min_n, prec_bit):
 
     z = deq.parent().base_ring().gens()[0]
-    rad = RBF(rad)
 
     eps = RBF.one() >> prec_bit + 13
     tmat = deq.numerical_transition_matrix([0, rho], eps, assume_analytic=True)
@@ -772,7 +771,6 @@ def numerical_sol_big_circle(deq, ini, dominant_sing, rad, halfside):
     I = CBF.gen(0)
     # TODO: eps could be chosen as a function of halfside or something...
     eps = RBF.one() >> 100
-    rad = RBF(rad) # XXX temporary: we should receive an element of RBF
     halfside = RBF(halfside)
 
     sings = [CBF(s) for s in dominant_sing]
@@ -849,15 +847,27 @@ def _sing_in_disk(elts, rad, infinity):
     return elts, infinity
 
 def _choose_big_radius(all_exn_points, dominant_sing, next_sing_rad):
+    # [DMM, (11)]
     max_smallrad = min(abs(ex - ds) for ds in dominant_sing
                                     for ex in all_exn_points
                                     if ex != ds)
     dom_rad = abs(dominant_sing[-1])
-    # This should probably change to avoid smaller fake singularities
-    rad = min(next_sing_rad*9/10 + dom_rad/10,
-              dom_rad + max_smallrad*8/10)
-    logger.info("Radius of large circle: %s", rad)
+    rad = min(next_sing_rad*RBF(0.9) + dom_rad/10,
+              dom_rad + max_smallrad*RBF(0.8))
+    logger.info("Radius of large circle: R₀ = %s", rad)
     return rad
+
+def _check_big_radius(rad, dominant_sing):
+    if not dominant_sing:
+        raise ValueError("No singularity in the given disk")
+    if not abs(dominant_sing[-1]) < rad:
+        raise ValueError(f"Singularity {dominant_sing[-1]} is too close to "
+                         "the border of the disk")
+    rad0 = abs(CBF(dominant_sing[0]))
+    bad_sing = [s for s in dominant_sing[1:] if abs(CBF(s)) > rad0]
+    if bad_sing:
+        warnings.warn("The given disk contains singular points of non-minimal "
+                      f"modulus: {bad_sing}")
 
 def contribution_all_singularity(seqini, deq, singularities=None,
         known_analytic=[0], rad=None, total_order=1, min_n=50, halfside=None, prec_bit=53):
@@ -904,21 +914,18 @@ def contribution_all_singularity(seqini, deq, singularities=None,
     singularities.sort(key=lambda s: abs(s))
     logger.debug(f"potential singularities: {singularities}")
 
-    # TODO: use numerical (ball) approximations instead of algebraic numbers
     if rad is None:
         dominant_sing, next_sing_rad = _sing_in_disk(singularities,
                 abs(singularities[0]), abs(singularities[-1])*3)
         rad = _choose_big_radius(all_exn_points, dominant_sing, next_sing_rad)
     else:
+        rad = RBF(rad)
         dominant_sing, _ = _sing_in_disk(singularities, rad,
                 abs(singularities[-1])*2 + rad*2)
-        if not dominant_sing:
-            raise ValueError("No singularity in given disk")
-        if abs(dominant_sing[-1]) == rad:
-            raise ValueError("A singularity is on the given radius")
-    logger.debug(f"dominant singularities: {dominant_sing}")
+        _check_big_radius(rad, dominant_sing)
+    logger.debug("dominant singularities: %s", dominant_sing)
 
-    # Make sure the disks B(ρ, |ρ|/n) do not overlap
+    # Make sure the disks B(ρ, |ρ|/n) do not overlap [DMM, (10)]
     if len(dominant_sing) > 1:
         min_dist = min(abs(s0 - s1) for s0 in dominant_sing
                                     for s1 in dominant_sing
