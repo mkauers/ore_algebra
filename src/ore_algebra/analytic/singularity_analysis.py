@@ -739,7 +739,7 @@ def contribution_single_singularity(deq, ini, rho, rad, Expr,
         and sol.leftmost + sol.shift >= 0
         and all(c.is_zero() for term in sol.value.values() for c in term[1:]))]
     if not nonanalytic:
-        return # FIXME
+        return None
     min_val_rho = (nonanalytic[0].leftmost + nonanalytic[0].shift).real()
     abs_order = rel_order + min_val_rho
 
@@ -986,6 +986,7 @@ def contribution_all_singularity(seqini, deq, singularities=None,
     sing_data = [contribution_single_singularity(deq, ini, rho, rad, Expr,
                                                  covering, total_order, min_n)
                  for rho in dominant_sing]
+    sing_data = [sdata for sdata in sing_data if sdata is not None]
 
     final_kappa = max(edata.kappa for sdata in sing_data
                                   for edata in sdata.expo_group_data)
