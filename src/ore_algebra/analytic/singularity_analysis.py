@@ -525,10 +525,19 @@ def _my_log_series(dop, bwrec, inivec, leftmost, mults, struct, order):
     return res
 
 ExponentGroupData = collections.namedtuple('ExponentGroupData', [
+    'val',  # exponent group (lefmost element mod ℤ)
     'kappa',  # max power of log
     'bound',  # coefficient bound (explicit part + local error term)
-    'dom_big_circle'  # values of initial terms on the covering of the circle
+    'val_big_circle'  # values of initial terms on the covering of the circle
 ])
+
+SingularityData = collections.namedtuple('SingularityData', [
+    'rho',  # the singularity
+    'expo_group_data',  # as above, for each exponent group
+    'val_big_circle',  # values of initial terms on the covering of the circle
+    'min_val_rho',  # Re(valuation) of singular part (ignoring analytic terms)
+])
+
 
 class SingularityAnalyzer(LocalBasisMapper):
 
@@ -580,7 +589,7 @@ class SingularityAnalyzer(LocalBasisMapper):
                       for k, c in enumerate(ser[shift]) if not c.is_zero())
         kappa += sum(mult for shift, mult in self.shifts if shift >= order1)
 
-        bound_lead_terms, dom_big_circle = _bound_local_integral_explicit_terms(
+        bound_lead_terms, val_big_circle = _bound_local_integral_explicit_terms(
                 self.rho, self.leftmost, order, self.Expr, s, self.min_n, ser[:order],
                 self.covering)
         bound_int_SnLn = _bound_local_integral_of_tail(self.rho,
@@ -590,7 +599,11 @@ class SingularityAnalyzer(LocalBasisMapper):
         logger.debug("  leading terms = %s", bound_lead_terms)
         logger.debug("  tail bound = %s", bound_int_SnLn)
 
-        data = ExponentGroupData(kappa, bound_lead_terms + bound_int_SnLn, dom_big_circle)
+        data = ExponentGroupData(
+            val = self.leftmost,
+            kappa = kappa,
+            bound = bound_lead_terms + bound_int_SnLn,
+            val_big_circle = val_big_circle)
 
         # XXX abusing FundamentalSolution somewhat; not sure if log_power=kappa
         # is really appropriate; consider creating another type of record
@@ -700,12 +713,12 @@ def _bound_local_integral_explicit_terms(rho, val_rho, order, Expr, s, min_n, se
     # XXX why do we do this here? to access locf_ini_terms, presumably--but
     # this means we have to pass covering, so the gain is not clear
     _zeta = CB(rho)
-    dom_big_circle = [
+    val_big_circle = [
             (_z-_zeta).pow(CB(val_rho))
                 * locf_ini_terms(_z-_zeta, (~(1-_z/_zeta)).log())
             for _z in covering]
 
-    return bound_lead_terms, dom_big_circle
+    return bound_lead_terms, val_big_circle
 
 def contribution_single_singularity(deq, ini, rho, rad, Expr,
         covering, rel_order, min_n):
@@ -739,13 +752,15 @@ def contribution_single_singularity(deq, ini, rho, rad, Expr,
             covering=covering, struct=crit)
     data = analyzer.run()
 
-    list_val_rho = [sol.leftmost for sol in data]
-    list_bound = [sol.value.bound for sol in data]
-    val_big_circle = [sum(sol.value.dom_big_circle[j] for sol in data)
-                      for j in range(len(covering))]
-    max_kappa = max(sol.value.kappa for sol in data)
+    data1 = SingularityData(
+        rho = rho,
+        expo_group_data = [sol.value for sol in data],
+        val_big_circle = [sum(sol.value.val_big_circle[j] for sol in data)
+                          for j in range(len(covering))],
+        min_val_rho = min_val_rho
+    )
 
-    return list_val_rho, list_bound, val_big_circle, max_kappa, min_val_rho
+    return data1
 
 ################################################################################
 # Exponentially small error term
@@ -948,7 +963,7 @@ def contribution_all_singularity(seqini, deq, singularities=None,
 
     ini = _coeff_zero(seqini, deq)
 
-    # Exponentially small error term
+    # Values of f on the large circle
 
     # We start with this to be able to pass the covering of the circle to
     # contribution_single_singularity(), which evaluates the initial terms of
@@ -964,48 +979,36 @@ def contribution_all_singularity(seqini, deq, singularities=None,
 
     # Contribution of each singular point
 
-    n = SR.var('n')
-    bound = []
-    list_val_bigcirc = []
-    list_data = []
-    list_max_kappa = []
-    list_min_val_rho = []
-
     # XXX split in v, logz and invn, logn?
     Expr = PolynomialRing(ComplexBallField(prec_bit),
                           ['v', 'logz', 'invn', 'logn'], order='lex')
 
-    for rho in dominant_sing:
-        list_val, list_bound, val_big_circle, max_kappa, min_val_rho = contribution_single_singularity(
-                deq, ini, rho, rad, Expr, covering, total_order,
-                min_n)
-        list_data.append((rho, list_val, list_bound))
-        list_max_kappa.append(max_kappa)
-        list_val_bigcirc.append(val_big_circle)
-        list_min_val_rho.append(min_val_rho)
+    sing_data = [contribution_single_singularity(deq, ini, rho, rad, Expr,
+                                                 covering, total_order, min_n)
+                 for rho in dominant_sing]
 
-    final_kappa = max(list_max_kappa)
-    final_val = min(list_min_val_rho)
+    final_kappa = max(edata.kappa for sdata in sing_data
+                                  for edata in sdata.expo_group_data)
+    final_val = min(sdata.min_val_rho for sdata in sing_data)
     re_gam = - final_val - 1 #max([-val.real()-1 for val in list_val])
 
     _, _, invn, logn = Expr.gens()
-    for rho, list_val, list_bound in list_data:
-        #bound += [
-        #    SR(QQbar(1/rho)**n) * SR(n**QQbar(-val-1))
-        #        * truncate_tail(poly_bound, poly_bound.degree(invn), min_n, invn, final_kappa, logn)(0,0,0, 1/n, log(n))
-        #    for val, poly_bound in zip(list_val, list_bound)]
-        bound.append([rho, sum([truncate_tail_SR(-val-1, poly_bound, re_gam - total_order, min_n, invn, final_kappa, logn, n)
-            for val, poly_bound in zip(list_val, list_bound)])])
+    n = SR.var('n')
+    bound = [
+        [sdata.rho,
+         sum(truncate_tail_SR(-edata.val-1, edata.bound,
+                              re_gam - total_order, min_n, invn,
+                              final_kappa, logn, n)
+             for edata in sdata.expo_group_data)]
+        for sdata in sing_data
+    ]
 
-    sum_g = [sum(v) for v in zip(*list_val_bigcirc)]
-    max_big_circle = RB.zero()
-    for v in list_val_bigcirc:
-        max_big_circle = max_big_circle.max(*(
-            (s - vv).above_abs()
-            for s, vv in zip(sum_g, v)))
-    max_big_circle = max_big_circle.max(*(
-        (s - vv).above_abs()
-        for s, vv in zip(sum_g, f_big_circle)))
+    # Exponentially small error term
+
+    sum_g = [sum(sdata.val_big_circle[j] for sdata in sing_data)
+             for j in range(len(covering))]
+    max_big_circle = RB.zero().max(*((s - vv).above_abs()
+                                     for s, vv in zip(sum_g, f_big_circle)))
     #Simplify bound contributed by big circle
     M = RB(abs(dominant_sing[0]))
     rad_err = max_big_circle * (((CB(e) * (total_order - re_gam)
@@ -1017,19 +1020,20 @@ def contribution_all_singularity(seqini, deq, singularities=None,
     #                                      * SR(n**QQbar(re_gam)) * (SR(1/n)**total_order) * (SR(log(n))**final_kappa))]
 
     #Add big circle error bound
-    list_rho = [rho for rho, _, _ in list_data]
+    list_rho = [sdata.rho for sdata in sing_data]
     if abs(dominant_sing[0]) in list_rho:
         ind_rho_real = list_rho.index(abs(dominant_sing[0]))
         bound[ind_rho_real][1] += CB(0).add_error(rad_err) * SR(n**QQbar(re_gam - total_order)) * (SR(log(n))**final_kappa)
     else:
-        bound += [[abs(dominant_sing[0]),
-                   CB(0).add_error(rad_err) * SR(n**QQbar(re_gam - total_order)) * (SR(log(n))**final_kappa)]]
+            bound.append[abs(dominant_sing[0]),
+                        CB(0).add_error(rad_err) * SR(n**QQbar(re_gam - total_order)) * (SR(log(n))**final_kappa)]
     #print(CB(0).add_error(rad_err) * (SR(QQbar(1/abs(dominant_sing[0]))**n)
     #                                      * SR(n**QQbar(re_gam)) * (SR(1/n)**total_order) * (SR(log(n))**final_kappa)))
 
     #Compute N0
-    list_all_val = [val for _, lval, _ in list_data for val in lval]
-    N0 = max(ceil(2.1 * (max([abs(val) for val in list_all_val]) + total_order + 1)), N1)
+    all_val = [edata.val for sdata in sing_data
+                         for edata in sdata.expo_group_data]
+    N0 = max(ceil(2.1 * (max([abs(val) for val in all_val]) + total_order + 1)), N1)
 
     return N0, bound
 
