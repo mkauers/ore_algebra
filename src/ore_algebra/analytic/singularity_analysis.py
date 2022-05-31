@@ -93,6 +93,7 @@ Complex exponents example::
 
 """
 
+import collections
 import logging
 import time
 
@@ -523,10 +524,16 @@ def _my_log_series(dop, bwrec, inivec, leftmost, mults, struct, order):
                 res[i][j] += c*a
     return res
 
+ExponentGroupData = collections.namedtuple('ExponentGroupData', [
+    'kappa',  # max power of log
+    'bound',  # coefficient bound (explicit part + local error term)
+    'dom_big_circle'  # values of initial terms on the covering of the circle
+])
+
 class SingularityAnalyzer(LocalBasisMapper):
 
     def __init__(self, dop, inivec, *, rho, rad, Expr, abs_order, min_n,
-                 coord_big_circle, struct):
+                 covering, struct):
 
         super().__init__(dop)
 
@@ -536,7 +543,7 @@ class SingularityAnalyzer(LocalBasisMapper):
         self.Expr = Expr
         self.abs_order = abs_order
         self.min_n = min_n
-        self.coord_big_circle = coord_big_circle
+        self.covering = covering
         self._local_basis_structure = struct
 
     def process_modZ_class(self):
@@ -545,7 +552,7 @@ class SingularityAnalyzer(LocalBasisMapper):
         # XXX don't hardocode this; ensure order1 ≥ bwrec.order
         order1 = order + 49
         # XXX Works, and should be faster, but leads to worse bounds due to
-        # using the recursion in interval arithmetic
+        # using the recurrence in interval arithmetic
         # ini = _modZ_class_ini(self.edop, self.inivec, self.leftmost, self.shifts,
         #                       self._local_basis_structure) # TBI?
         # ser = log_series(ini, self.shifted_bwrec, order1)
@@ -575,7 +582,7 @@ class SingularityAnalyzer(LocalBasisMapper):
 
         bound_lead_terms, dom_big_circle = _bound_local_integral_explicit_terms(
                 self.rho, self.leftmost, order, self.Expr, s, self.min_n, ser[:order],
-                self.coord_big_circle)
+                self.covering)
         bound_int_SnLn = _bound_local_integral_of_tail(self.rho,
                 self.leftmost, order, self.Expr, s, self.min_n, vb, kappa)
 
@@ -583,7 +590,7 @@ class SingularityAnalyzer(LocalBasisMapper):
         logger.debug("  leading terms = %s", bound_lead_terms)
         logger.debug("  tail bound = %s", bound_int_SnLn)
 
-        data = [kappa, bound_lead_terms + bound_int_SnLn, dom_big_circle]
+        data = ExponentGroupData(kappa, bound_lead_terms + bound_int_SnLn, dom_big_circle)
 
         # XXX abusing FundamentalSolution somewhat; not sure if log_power=kappa
         # is really appropriate; consider creating another type of record
@@ -663,7 +670,7 @@ def _bound_local_integral_of_tail(rho, val_rho, order, Expr, s, min_n, vb, kappa
     return (bound_S + bound_L) * invn**order
 
 def _bound_local_integral_explicit_terms(rho, val_rho, order, Expr, s, min_n, ser,
-        coord_big_circle):
+        covering):
 
     _, _, invn, logn = Expr.gens()
     CB = Expr.base_ring()
@@ -691,25 +698,23 @@ def _bound_local_integral_explicit_terms(rho, val_rho, order, Expr, s, min_n, se
     # account.
 
     # XXX why do we do this here? to access locf_ini_terms, presumably--but
-    # this means we have to pass coord_big_circle, so the gain is not clear
+    # this means we have to pass covering, so the gain is not clear
     _zeta = CB(rho)
     dom_big_circle = [
             (_z-_zeta).pow(CB(val_rho))
                 * locf_ini_terms(_z-_zeta, (~(1-_z/_zeta)).log())
-            for _z in coord_big_circle]
+            for _z in covering]
 
     return bound_lead_terms, dom_big_circle
 
-def contribution_single_singularity(deq, ini, rho, rad,
-        coord_big_circle, rel_order, min_n, prec_bit):
+def contribution_single_singularity(deq, ini, rho, rad, Expr,
+        covering, rel_order, min_n):
 
-    z = deq.parent().base_ring().gens()[0]
-
-    eps = RBF.one() >> prec_bit + 13
+    eps = RBF.one() >>  Expr.base_ring().precision() + 13
     tmat = deq.numerical_transition_matrix([0, rho], eps, assume_analytic=True)
     coord_all = tmat*ini
 
-    ldop = DifferentialOperator(deq).shift(Point(rho, deq))
+    ldop = deq.shift(Point(rho, deq))
 
     # Redundant work; TBI
     # (Cases where we really need this to detect non-analyticity are rare...)
@@ -721,23 +726,24 @@ def contribution_single_singularity(deq, ini, rho, rad,
         and sol.leftmost + sol.shift >= 0
         and all(c.is_zero() for term in sol.value.values() for c in term[1:]))]
     if not nonanalytic:
-        return
+        return # FIXME
     min_val_rho = (nonanalytic[0].leftmost + nonanalytic[0].shift).real()
     abs_order = rel_order + min_val_rho
 
-    # XXX split in v, logz and invn, logn?
-    Expr = PolynomialRing(ComplexBallField(prec_bit), ['v', 'logz', 'invn', 'logn'], order='lex')
-
+    # Split the local expansion of f according to the local exponents mod ℤ. For
+    # each group (ℤ-coset) of exponents, compute coefficient asymptotics (and
+    # some auxiliary data). Again: each element of the output corresponds to a
+    # whole ℤ-coset of exponents, already incorporating initial values.
     analyzer = SingularityAnalyzer(dop=ldop, inivec=coord_all, rho=rho,
             rad=rad, Expr=Expr, abs_order=abs_order, min_n=min_n,
-            coord_big_circle=coord_big_circle, struct=crit)
+            covering=covering, struct=crit)
     data = analyzer.run()
 
     list_val_rho = [sol.leftmost for sol in data]
-    list_bound = [sol.value[1] for sol in data]
-    val_big_circle = [sum(sol.value[2][j] for sol in data)
-                      for j in range(len(coord_big_circle))]
-    max_kappa = max(sol.value[0] for sol in data)
+    list_bound = [sol.value.bound for sol in data]
+    val_big_circle = [sum(sol.value.dom_big_circle[j] for sol in data)
+                      for j in range(len(covering))]
+    max_kappa = max(sol.value.kappa for sol in data)
 
     return list_val_rho, list_bound, val_big_circle, max_kappa, min_val_rho
 
@@ -914,10 +920,10 @@ def contribution_all_singularity(seqini, deq, singularities=None,
     singularities.sort(key=lambda s: abs(s))
     logger.debug(f"potential singularities: {singularities}")
 
-    # dominant_sing is the list of (potential) dominant singularities of the
-    # function, not of "dominant singular points" in the terminology of the
-    # paper. It does not include singular points contained in the large disk
-    # where the function is known to be analytic.
+    # Dominant singularities. (dominant_sing is the list of potential dominant
+    # singularities of the function, not of "dominant singular points". It does
+    # not include singular points of the equation lying in the disk where the
+    # function is known to be analytic.)
     if rad is None:
         dominant_sing, next_sing_rad = _sing_in_disk(singularities,
                 abs(singularities[0]), abs(singularities[-1])*3)
@@ -942,13 +948,21 @@ def contribution_all_singularity(seqini, deq, singularities=None,
 
     ini = _coeff_zero(seqini, deq)
 
+    # Exponentially small error term
+
+    # We start with this to be able to pass the covering of the circle to
+    # contribution_single_singularity(), which evaluates the initial terms of
+    # each local expansion on the circle.
+
     if halfside is None:
         halfside = min(abs(abs(ex) - rad) for ex in all_exn_points)/10
     logger.info("half-side of small squares: %s", halfside)
 
     pairs = numerical_sol_big_circle(deq, ini, dominant_sing, rad, halfside)
-    coord_big_circle = [z for z, _ in pairs]
+    covering = [z for z, _ in pairs]
     f_big_circle = [f for _, f in pairs]
+
+    # Contribution of each singular point
 
     n = SR.var('n')
     bound = []
@@ -957,10 +971,14 @@ def contribution_all_singularity(seqini, deq, singularities=None,
     list_max_kappa = []
     list_min_val_rho = []
 
+    # XXX split in v, logz and invn, logn?
+    Expr = PolynomialRing(ComplexBallField(prec_bit),
+                          ['v', 'logz', 'invn', 'logn'], order='lex')
+
     for rho in dominant_sing:
         list_val, list_bound, val_big_circle, max_kappa, min_val_rho = contribution_single_singularity(
-                deq, ini, rho, rad, coord_big_circle, total_order,
-                min_n, prec_bit = prec_bit)
+                deq, ini, rho, rad, Expr, covering, total_order,
+                min_n)
         list_data.append((rho, list_val, list_bound))
         list_max_kappa.append(max_kappa)
         list_val_bigcirc.append(val_big_circle)
@@ -969,8 +987,8 @@ def contribution_all_singularity(seqini, deq, singularities=None,
     final_kappa = max(list_max_kappa)
     final_val = min(list_min_val_rho)
     re_gam = - final_val - 1 #max([-val.real()-1 for val in list_val])
-    v, logz, invn, logn = list_data[0][2][0].parent().gens()
 
+    _, _, invn, logn = Expr.gens()
     for rho, list_val, list_bound in list_data:
         #bound += [
         #    SR(QQbar(1/rho)**n) * SR(n**QQbar(-val-1))
