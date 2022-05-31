@@ -944,8 +944,8 @@ def contribution_all_singularity(seqini, deq, singularities=None,
 
     if halfside is None:
         halfside = min(abs(abs(ex) - rad) for ex in all_exn_points)/10
+    logger.info("half-side of small squares: %s", halfside)
 
-        logger.info("half-side of small squares: %s", halfside)
     pairs = numerical_sol_big_circle(deq, ini, dominant_sing, rad, halfside)
     coord_big_circle = [z for z, _ in pairs]
     f_big_circle = [f for _, f in pairs]
