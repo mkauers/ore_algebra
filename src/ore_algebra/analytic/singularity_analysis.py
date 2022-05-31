@@ -839,12 +839,12 @@ def _coeff_zero(seqini, deq):
             list_coeff.append(0)
     return vector(list_coeff)
 
-def _sing_in_disk(elts, rad, infinity):
+def _sing_in_disk(elts, rad, large_value):
     for j, x in enumerate(elts):
         mag = abs(x)
         if mag > rad:
             return elts[:j], mag
-    return elts, infinity
+    return elts, large_value
 
 def _choose_big_radius(all_exn_points, dominant_sing, next_sing_rad):
     # [DMM, (11)]
@@ -914,6 +914,10 @@ def contribution_all_singularity(seqini, deq, singularities=None,
     singularities.sort(key=lambda s: abs(s))
     logger.debug(f"potential singularities: {singularities}")
 
+    # dominant_sing is the list of (potential) dominant singularities of the
+    # function, not of "dominant singular points" in the terminology of the
+    # paper. It does not include singular points contained in the large disk
+    # where the function is known to be analytic.
     if rad is None:
         dominant_sing, next_sing_rad = _sing_in_disk(singularities,
                 abs(singularities[0]), abs(singularities[-1])*3)
@@ -925,15 +929,15 @@ def contribution_all_singularity(seqini, deq, singularities=None,
         _check_big_radius(rad, dominant_sing)
     logger.debug("dominant singularities: %s", dominant_sing)
 
-    # Make sure the disks B(ρ, |ρ|/n) do not overlap [DMM, (10)]
+    # Make sure the disks B(ρ, |ρ|/n) contain no other singular point
+    # FIXME: currently DOES NOT match [DMM, (10)]
     if len(dominant_sing) > 1:
         min_dist = min(abs(s0 - s1) for s0 in dominant_sing
-                                    for s1 in dominant_sing
+                                    for s1 in all_exn_points
                                     if s0 != s1)
         N1 = ceil(2*abs(dominant_sing[-1])/min_dist)
     else:
         N1 = 0
-
     logger.debug(f"{N1=}")
 
     ini = _coeff_zero(seqini, deq)
