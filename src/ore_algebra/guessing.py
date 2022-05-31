@@ -35,14 +35,15 @@ except:
 import math
 from datetime import datetime
 
+from sage.arith.all import previous_prime
+from sage.arith.functions import lcm
+from sage.misc.misc_c import prod
 from sage.rings.integer_ring import ZZ
 from sage.rings.rational_field import QQ
 from sage.rings.finite_rings.all import GF
-from sage.rings.finite_rings.finite_field_base import is_FiniteField
-from sage.matrix.constructor import Matrix, matrix
+from sage.matrix.constructor import matrix
 from sage.matrix.matrix_space import MatrixSpace
 from sage.misc.lazy_string import lazy_string
-from sage.arith.misc import xgcd
 from sage.parallel.decorate import parallel
 from sage.rings.polynomial.polynomial_ring import is_PolynomialRing
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
@@ -61,7 +62,6 @@ def guess_rec(data, n, S, **kwargs):
     See the docstring of ``guess`` for further information.
     """
     R = data[0].parent()[n]
-    x = R.gen()
     return guess(data, OreAlgebra(R, (S, {n:n+R.one()}, {})), **kwargs)
 
 def guess_deq(data, x, D, **kwargs):
@@ -83,7 +83,6 @@ def guess_qrec(data, qn, Q, q, **kwargs):
     See the docstring of ``guess`` for further information.
     """
     R = q.parent()[qn]
-    x = R.gen()
     return guess(data, OreAlgebra(R, (Q, {qn:q*qn}, {qn:R.one()})), **kwargs)
 
 def guess(data, algebra, **kwargs):
@@ -778,7 +777,6 @@ def _guess_via_gcrd(data, A, **kwargs):
 
     raises an error if no equation is found.
     """
-
     if 'infolevel' in kwargs:
         infolevel = kwargs['infolevel']
         kwargs['infolevel'] = infolevel - 2
@@ -788,10 +786,6 @@ def _guess_via_gcrd(data, A, **kwargs):
     def info(bound, msg):
         if bound <= infolevel:
             print(msg)
-
-    R = A.base_ring()
-    x = R.gen()
-    K = R.base_ring()
 
     info(1, lazy_string(lambda: datetime.today().ctime() + ": guessing via gcrd started."))
     info(1, "len(data)=" + str(len(data)) + ", algebra=" + str(A._latex_()))
@@ -951,8 +945,7 @@ def _guess_via_gcrd(data, A, **kwargs):
 
 ###############################################################################
 
-from sage.arith.multi_modular import MAX_MODULUS
-from sage.arith.all import previous_prime as pp
+
 
 
 def _word_size_primes(init=2**23, bound=1000):
@@ -960,10 +953,10 @@ def _word_size_primes(init=2**23, bound=1000):
     returns an iterator which enumerates the primes smaller than ``init`` and bigger than ``bound``,
     in decreasing order.
     """
-    p = pp(init)
+    p = previous_prime(init)
     while p > bound:
         yield p
-        p = pp(p)
+        p = previous_prime(p)
 
 def _linear_polys(x, init=7, bound=None):
     """

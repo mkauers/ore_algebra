@@ -182,16 +182,16 @@ from sage.misc.cachefunc import cached_function
 from sage.misc.lazy_string import lazy_string
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 from sage.rings.polynomial.multi_polynomial_libsingular import MPolynomialRing_libsingular
-from sage.rings.fraction_field import FractionField
 from sage.rings.integer_ring import ZZ
 from sage.rings.rational_field import QQ
 from sage.rings.finite_rings.all import GF
 from sage.matrix.berlekamp_massey import berlekamp_massey
 from sage.arith.multi_modular import MAX_MODULUS
 from sage.parallel.decorate import parallel
-from sage.matrix.constructor import Matrix, matrix
+from sage.matrix.constructor import Matrix
 from sage.matrix.matrix_space import MatrixSpace
 from sage.modules.free_module_element import vector
+from sage.modules.free_module import VectorSpace
 from datetime import datetime
 
 #####################
@@ -268,7 +268,7 @@ def _pivot(mat, r, n, c, m, zero):
     matrix is the zero matrix. The last argument provides the zero element of the ring. 
     """
 
-    EXPONENT, ALPHA, BETA, GAMMA = 2, 2, 10, 1
+    EXPONENT, ALPHA, BETA = 2, 2, 10   # removed: GAMMA = 1
 
     ## throughout this function, matrix indices (i, j) are understood relative to (r, c).
     ## if (i, j) is a pivot candidate, the final pivot will be (i + r, j + c).
@@ -547,10 +547,8 @@ def _gauss(pivot, ncpus, fun, mat, degrees, infolevel):
     r"""
     Internal version of nullspace.gauss_
     """
-
     n, m = mat.dimensions()
     R = mat.parent().base_ring()
-    x = R.gen()
     zero = R.zero()
     one = R.one()
     _launch_info(infolevel, "gauss", dim=(n, m), domain=R)
@@ -2036,8 +2034,7 @@ def _wiedemann(A, degrees, infolevel):
     R = A.parent().base_ring()
     x = R.gens()
     p = R.characteristic()
-    (n, m) = A.dimensions()
-    zero = R.zero()
+    n, m = A.dimensions()
     _launch_info(infolevel, "wiedemann", dim=(n, m), domain=R)
 
     if p == 0:
@@ -2091,4 +2088,3 @@ def _wiedemann(A, degrees, infolevel):
 #        f.write(str(len(mati[j].coefficients())) + ",")
 #    f.write(str(len(mati[-1].coefficients())) + "}}\n")
 #    f.close()
-    
