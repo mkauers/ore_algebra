@@ -99,25 +99,6 @@ import time
 
 from sage.all import *
 
-from sage.categories.cartesian_product import cartesian_product
-from sage.rings.asymptotic.asymptotic_ring import AsymptoticRing
-from sage.rings.asymptotic.growth_group import (
-        ExponentialGrowthGroup,
-        GrowthGroup,
-        MonomialGrowthGroup,
-)
-try:
-    from sage.rings.asymptotic.term_monoid import BTermMonoid
-except ImportError:
-    raise ImportError("the singularity_analysis module requires SageMath "
-            "version 9.5 or later") # XXX
-from sage.rings.asymptotic.term_monoid import (
-        BTerm,
-        BTermMonoid,
-        ExactTermMonoid,
-)
-from sage.rings.asymptotic.term_monoid import DefaultTermMonoidFactory
-from sage.symbolic.operators import add_vararg
 
 from ..ore_algebra import OreAlgebra
 from . import utilities
@@ -947,6 +928,21 @@ class FormalProduct:
 
 def to_asymptotic_expansion(Coeff, name, term_data, n0):
 
+    from sage.categories.cartesian_product import cartesian_product
+    from sage.rings.asymptotic.asymptotic_ring import AsymptoticRing
+    from sage.rings.asymptotic.growth_group import (
+            ExponentialGrowthGroup,
+            GrowthGroup,
+            MonomialGrowthGroup,
+    )
+    from sage.rings.asymptotic.term_monoid import (
+            BTerm,
+            BTermMonoid,
+            ExactTermMonoid,
+    )
+    from sage.rings.asymptotic.term_monoid import DefaultTermMonoidFactory
+    from sage.symbolic.operators import add_vararg
+
     n_as_sym = SR.var(name)
 
     # XXX detect cases where we can use 1 or ±1 or U as Arg
@@ -1123,8 +1119,13 @@ def bound_coefficients(deq, seqini, name='n', order=3, prec=53, n0=0, *,
     if output == 'list':
         return n0, bound
     else:
-        return to_asymptotic_expansion(CB, name, bound, n0)
-
+        try:
+            asy = to_asymptotic_expansion(CB, name, bound, n0)
+        except (ImportError, ValueError):
+            raise RuntimeError(f"conversion of bound {bound} to an asymptotic "
+                               "expansion failed, try with output='list' or a "
+                               "newer Sage version")
+        return asy
 
 def eval_bound(bound, n_num, prec = 53):
     """
