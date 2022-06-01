@@ -961,13 +961,14 @@ def contribution_all_singularity(seqini, deq,
       be analytic, default is [0]
     - rad : radius of the big circle R_0. If None, compute automatically
     - order : integer, order to which the bound is computed
-    - min_n : integer, bound is valid when n > max{N0, min_n}
+    - min_n : integer, restrict to n >= min_n (the final validity range may be
+      smaller)
     - halfside : real number, parameter to be passed on to numerical_sol_big_circle()
     - prec_bit : integer, numeric working precision (in bit)
 
     OUTPUT:
 
-    - N0 : integer, bound is valid when n > max{N0, min_n}
+    - N0 : integer, bound is valid when n >= N0
     - bound : list of lists [rho, ser], where
         - rho are in QQbar
         - ser are symbolic expressions in variable 'n',
