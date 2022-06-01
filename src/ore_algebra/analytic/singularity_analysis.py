@@ -371,10 +371,11 @@ def truncated_ratio_gamma(alpha, order, u, s):
             CB((1 - 2*rho).rising_factorial(2*j) / factorial(2*j)
                 * series_gen_bern[2*j]) * u**(2*j)
             for j in range(n_gam))
+    half = RBF.one()/2
     Rnw_bound = ((1 - 2*rho.real()).rising_factorial(2*n_gam) / factorial(2*n_gam)
-            * CB(abs(series_gen_bern_abs[2*n_gam]))
-            * CB(abs(alpha.imag())/2/s).exp()
-            * CB((s+1/2)/(s-1/2)).pow(max(0, -2*rho.real()+1+2*n_gam)))
+            * RBF(abs(series_gen_bern_abs[2*n_gam]))
+            * RBF(abs(alpha.imag())*half/s).exp()
+            * CBF((s+half)/(s-half)).pow(max(0, -2*rho.real()+1+2*n_gam)))
     ratio_gamma = ratio_gamma_asy + CB(0).add_error(Rnw_bound) * u**(2*n_gam)
     return ratio_gamma
 
@@ -575,10 +576,8 @@ class SingularityAnalyzer(LocalBasisMapper):
         # in the "explicit terms" below?
         vb = _bound_tail(self.edop, self.leftmost, smallrad, order, ser)
 
-        # XXX why an integer?
-        s = floor(self.min_n / (abs(self.leftmost) + abs(order)))
-        if s <= 2: # XXX take s=3 instead (cf. def. of N0), maybe update n0
-            raise ValueError("min_n too small! Cannot guarantee s>2")
+        s = RBF(self.min_n) / (abs(self.leftmost) + abs(order))
+        assert s > 2
 
         # (Bound on) Maximum power of log that may occur the sol defined by ini.
         # (We could use the complete family of critical monomials for a tighter
