@@ -988,19 +988,7 @@ def contribution_all_singularity(seqini, deq,
 
     final_kappa = max(edata.kappa for sdata in sing_data
                                   for edata in sdata.expo_group_data)
-    final_val = min(sdata.min_val_rho for sdata in sing_data)
-    re_gam = - final_val - 1 #max([-val.real()-1 for val in list_val])
-
-    _, _, invn, logn = Expr.gens()
-    n = SR.var('n')
-    bound = [
-        [sdata.rho,
-         sum(truncate_tail_SR(-edata.val-1, edata.bound,
-                              re_gam - order, min_n, invn,
-                              final_kappa, logn, n)
-             for edata in sdata.expo_group_data)]
-        for sdata in sing_data
-    ]
+    beta = - min(sdata.min_val_rho for sdata in sing_data) - 1 - order
 
     # Exponentially small error term
 
@@ -1009,8 +997,7 @@ def contribution_all_singularity(seqini, deq,
     logger.info("half-side of small squares: %s", halfside)
 
     pairs = numerical_sol_big_circle(deq, ini, dominant_sing, rad, halfside)
-    covering = [z for z, _ in pairs]
-    f_big_circle = [f for _, f in pairs]
+    covering, f_big_circle = zip(*pairs)
 
     sum_g = [
         sum((_z-_rho).pow(CB(edata.val))
@@ -1018,26 +1005,41 @@ def contribution_all_singularity(seqini, deq,
             for sdata in sing_data for _rho in (CB(sdata.rho),)
             for edata in sdata.expo_group_data)
         for j, _z in enumerate(covering)]
-    max_big_circle = RB.zero().max(*((s - vv).above_abs()
+    max_big_circle = RBF.zero().max(*((s - vv).above_abs()
                                      for s, vv in zip(sum_g, f_big_circle)))
-    #Simplify bound contributed by big circle
-    M = RB(abs(dominant_sing[0]))
-    rad_err = max_big_circle * (((CB(e) * (order - re_gam)
-                  / (M/CB(rad)).log()).pow(RB(re_gam - order))
-                 / CB(min_n).log().pow(final_kappa)) if re_gam <= order + min_n * (M/RB(rad)).log()
-                else ((M/CB(rad)).pow(min_n) * CB(min_n).pow(order - re_gam)
-                 / CB(min_n).log().pow(final_kappa)))
-    #bound += [CB(0).add_error(rad_err) * (SR(QQbar(1/abs(dominant_sing[0]))**n)
-    #                                      * SR(n**QQbar(re_gam)) * (SR(1/n)**order) * (SR(log(n))**final_kappa))]
 
-    #Add big circle error bound
-    list_rho = [sdata.rho for sdata in sing_data]
-    if abs(dominant_sing[0]) in list_rho:
-        ind_rho_real = list_rho.index(abs(dominant_sing[0]))
-        bound[ind_rho_real][1] += CB(0).add_error(rad_err) * SR(n**QQbar(re_gam - order)) * (SR(log(n))**final_kappa)
+    # Assemble the bounds
+
+    _, _, invn, logn = Expr.gens()
+    n = SR.var('n')
+    bound = [
+        [sdata.rho,
+         sum(truncate_tail_SR(-edata.val-1, edata.bound, beta, min_n,
+                              invn, final_kappa, logn, n)
+             for edata in sdata.expo_group_data)]
+        for sdata in sing_data
+    ]
+
+    # Absorb exponentially small term in previous error term
+
+    M = RBF(abs(dominant_sing[0]))
+    if beta <= min_n * (M/rad).log():
+        _beta = RBF(beta)
+        cst = _beta.exp()*(_beta/(M/rad).log()).pow(_beta)
     else:
-            bound.append[abs(dominant_sing[0]),
-                        CB(0).add_error(rad_err) * SR(n**QQbar(re_gam - order)) * (SR(log(n))**final_kappa)]
+        cst = (M/CB(rad))**min_n * CB(min_n)**(-beta)
+    rad_err = cst*max_big_circle / CB(min_n).log()**final_kappa
+    error_term_big_circle = (CB(0).add_error(rad_err) *
+                             SR(n**QQbar(beta)) *
+                             SR(log(n))**final_kappa)
+    mag_dom = abs(dominant_sing[0])
+
+    for i, (rho, local_bound) in enumerate(bound):
+        if rho == mag_dom:
+            bound[i][1] += error_term_big_circle
+            break
+    else:
+        bound.append[mag_dom, error_term_big_circle]
 
     return min_n, bound
 
