@@ -699,12 +699,6 @@ def _bound_local_integral_explicit_terms(rho, val_rho, order, Expr, s, min_n, se
                                   s, min_n)
             for ((degZ, degL), c) in locf_ini_terms.iterator_exp_coeff())
 
-    # Values of the tail of the local expansion.
-    # With the first square (and possibly some others), the argument of the
-    # log that we substitute for L crosses the branch cut. This is okay
-    # because the enclosure returned by Arb takes both branches into
-    # account.
-
     return bound_lead_terms, locf_ini_terms
 
 def contribution_single_singularity(deq, ini, rho, rad, Expr,
@@ -1084,6 +1078,8 @@ def bound_coefficients(deq, seqini, name='n', order=3, prec=53, n0=0, *,
 
     sum_g = [
         sum((_z-_rho).pow(CB(edata.val))
+                # some of the _z may lead to arguments of log that cross the
+                # branch cut, but that's okay
                 * edata.initial_terms(_z-_rho, (~(1-_z/_rho)).log())
             for sdata in sing_data for _rho in (CB(sdata.rho),)
             for edata in sdata.expo_group_data)
