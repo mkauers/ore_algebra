@@ -206,6 +206,75 @@ def truncate_tail_SR(val, f, deg, min_n, invn, kappa, logn, n):
     return g
 
 ################################################################################
+# Path choice
+#################################################################################
+
+def _sing_in_disk(elts, rad, large_value):
+    for j, x in enumerate(elts):
+        mag = abs(x)
+        if mag > rad:
+            return elts[:j], mag
+    return elts, large_value
+
+def _choose_big_radius(all_exn_pts, dominant_sing, next_sing_rad):
+    # [DMM, (11)]
+    max_smallrad = min(abs(ex - ds) for ds in dominant_sing
+                                    for ex in all_exn_pts
+                                    if ex != ds)
+    dom_rad = abs(dominant_sing[-1])
+    rad = min(next_sing_rad*RBF(0.9) + dom_rad/10,
+              dom_rad + max_smallrad*RBF(0.8))
+    logger.info("Radius of large circle: R₀ = %s", rad)
+    return rad
+
+def _check_big_radius(rad, dominant_sing):
+    if not dominant_sing:
+        raise ValueError("No singularity in the given disk")
+    if not abs(dominant_sing[-1]) < rad:
+        raise ValueError(f"Singularity {dominant_sing[-1]} is too close to "
+                         "the border of the disk")
+    rad0 = abs(CBF(dominant_sing[0]))
+    bad_sing = [s for s in dominant_sing[1:] if abs(CBF(s)) > rad0]
+    if bad_sing:
+        warnings.warn("The given disk contains singular points of non-minimal "
+                      f"modulus: {bad_sing}")
+
+def _classify_sing(deq, known_analytic, rad):
+
+    # Interesting points = all sing of the equation, plus the origin
+
+    all_exn_pts = deq._singularities(QQbar, multiplicities=False)
+    if not any(s.is_zero() for s in all_exn_pts):
+        all_exn_pts.append(QQbar.zero())
+
+    # Potential singularities of the function, sorted by magnitude
+
+    singularities = deq._singularities(QQbar, include_apparent=False,
+                                       multiplicities=False)
+    singularities = [s for s in singularities if not s in known_analytic]
+    singularities.sort(key=lambda s: abs(s))
+    logger.debug(f"potential singularities: {singularities}")
+
+    # Dominant singularities
+
+    # dominant_sing is the list of potential dominant
+    # singularities of the function, not of "dominant singular points". It does
+    # not include singular points of the equation lying in the disk where the
+    # function is known to be analytic.
+    if rad is None:
+        dominant_sing, next_sing_rad = _sing_in_disk(singularities,
+                abs(singularities[0]), abs(singularities[-1])*3)
+        rad = _choose_big_radius(all_exn_pts, dominant_sing, next_sing_rad)
+    else:
+        rad = RBF(rad)
+        dominant_sing, _ = _sing_in_disk(singularities, rad,
+                abs(singularities[-1])*2 + rad*2)
+        _check_big_radius(rad, dominant_sing)
+    logger.debug("dominant singularities: %s", dominant_sing)
+
+    return all_exn_pts, dominant_sing, rad
+
+################################################################################
 # Contribution of a logarithmic monomial
 # (variant with error bounds of Sage's SingularityAnalysis)
 #################################################################################
@@ -791,122 +860,8 @@ def numerical_sol_big_circle(deq, ini, dominant_sing, rad, halfside):
     return pairs
 
 ################################################################################
-# Complete bound
+# Conversion to an asymptotic expansion
 ################################################################################
-
-def _coeff_zero(seqini, deq):
-    """
-    Find coefficients of generating function in the basis with these expansions
-    at the origin
-
-    INPUT:
-
-    - seqini : list, initial terms of the sequence
-    - deq : a linear ODE that the generating function satisfies
-
-    OUTPUT:
-
-    - coeff : vector, coefficients of generating function in the basis with
-      these expansions at the origin
-    """
-
-    list_basis = deq.local_basis_expansions(0)
-    list_coeff = []
-    for basis in list_basis:
-        mon = next(m for c, m in basis if not c == 0)
-        if mon.k == 0 and mon.n >= 0:
-            list_coeff.append(seqini[mon.n])
-        else:
-            list_coeff.append(0)
-    return vector(list_coeff)
-
-def _sing_in_disk(elts, rad, large_value):
-    for j, x in enumerate(elts):
-        mag = abs(x)
-        if mag > rad:
-            return elts[:j], mag
-    return elts, large_value
-
-def _choose_big_radius(all_exn_pts, dominant_sing, next_sing_rad):
-    # [DMM, (11)]
-    max_smallrad = min(abs(ex - ds) for ds in dominant_sing
-                                    for ex in all_exn_pts
-                                    if ex != ds)
-    dom_rad = abs(dominant_sing[-1])
-    rad = min(next_sing_rad*RBF(0.9) + dom_rad/10,
-              dom_rad + max_smallrad*RBF(0.8))
-    logger.info("Radius of large circle: R₀ = %s", rad)
-    return rad
-
-def _check_big_radius(rad, dominant_sing):
-    if not dominant_sing:
-        raise ValueError("No singularity in the given disk")
-    if not abs(dominant_sing[-1]) < rad:
-        raise ValueError(f"Singularity {dominant_sing[-1]} is too close to "
-                         "the border of the disk")
-    rad0 = abs(CBF(dominant_sing[0]))
-    bad_sing = [s for s in dominant_sing[1:] if abs(CBF(s)) > rad0]
-    if bad_sing:
-        warnings.warn("The given disk contains singular points of non-minimal "
-                      f"modulus: {bad_sing}")
-
-def _classify_sing(deq, known_analytic, rad):
-
-    # Interesting points = all sing of the equation, plus the origin
-
-    all_exn_pts = deq._singularities(QQbar, multiplicities=False)
-    if not any(s.is_zero() for s in all_exn_pts):
-        all_exn_pts.append(QQbar.zero())
-
-    # Potential singularities of the function, sorted by magnitude
-
-    singularities = deq._singularities(QQbar, include_apparent=False,
-                                       multiplicities=False)
-    singularities = [s for s in singularities if not s in known_analytic]
-    singularities.sort(key=lambda s: abs(s))
-    logger.debug(f"potential singularities: {singularities}")
-
-    # Dominant singularities
-
-    # dominant_sing is the list of potential dominant
-    # singularities of the function, not of "dominant singular points". It does
-    # not include singular points of the equation lying in the disk where the
-    # function is known to be analytic.
-    if rad is None:
-        dominant_sing, next_sing_rad = _sing_in_disk(singularities,
-                abs(singularities[0]), abs(singularities[-1])*3)
-        rad = _choose_big_radius(all_exn_pts, dominant_sing, next_sing_rad)
-    else:
-        rad = RBF(rad)
-        dominant_sing, _ = _sing_in_disk(singularities, rad,
-                abs(singularities[-1])*2 + rad*2)
-        _check_big_radius(rad, dominant_sing)
-    logger.debug("dominant singularities: %s", dominant_sing)
-
-    return all_exn_pts, dominant_sing, rad
-
-def _bound_validity_range(min_n, dominant_sing, order):
-
-    # Make sure the disks B(ρ, |ρ|/n) contain no other singular point
-
-    # FIXME: currently DOES NOT match [DMM, (10)]
-    if len(dominant_sing) > 1:
-        min_dist = min(s0.dist_to_sing() for s0 in dominant_sing)
-        n1 = ceil(2*abs(dominant_sing[-1])/min_dist)
-    else:
-        n1 = 0
-
-    # Make sure that min_n > 2*|α| for all exponents α we encounter
-
-    max_abs_val = max(abs(sol.leftmost) # TODO: avoid redundant computation...
-                      for s0 in dominant_sing
-                      for sol in s0.local_basis_structure())
-    n2 = max_abs_val + order + 1
-    # FIXME: slightly different from [DMM, (46)]
-    min_n = max(min_n, ceil(2.1*n2), n1)
-
-    logger.debug(f"{n1=}, {n2=}, {min_n=}")
-    return min_n
 
 class FormalProduct:
 
@@ -990,6 +945,60 @@ def to_asymptotic_expansion(Coeff, name, term_data, n0):
             terms.append(term)
 
     return FormalProduct(Asy(exp_factor), Asy(terms))
+
+################################################################################
+# Final bound
+################################################################################
+
+def _coeff_zero(seqini, deq):
+    """
+    Find coefficients of generating function in the basis with these expansions
+    at the origin
+
+    INPUT:
+
+    - seqini : list, initial terms of the sequence
+    - deq : a linear ODE that the generating function satisfies
+
+    OUTPUT:
+
+    - coeff : vector, coefficients of generating function in the basis with
+      these expansions at the origin
+    """
+
+    list_basis = deq.local_basis_expansions(0)
+    list_coeff = []
+    for basis in list_basis:
+        mon = next(m for c, m in basis if not c == 0)
+        if mon.k == 0 and mon.n >= 0:
+            list_coeff.append(seqini[mon.n])
+        else:
+            list_coeff.append(0)
+    return vector(list_coeff)
+
+
+def _bound_validity_range(min_n, dominant_sing, order):
+
+    # Make sure the disks B(ρ, |ρ|/n) contain no other singular point
+
+    # FIXME: currently DOES NOT match [DMM, (10)]
+    if len(dominant_sing) > 1:
+        min_dist = min(s0.dist_to_sing() for s0 in dominant_sing)
+        n1 = ceil(2*abs(dominant_sing[-1])/min_dist)
+    else:
+        n1 = 0
+
+    # Make sure that min_n > 2*|α| for all exponents α we encounter
+
+    max_abs_val = max(abs(sol.leftmost) # TODO: avoid redundant computation...
+                      for s0 in dominant_sing
+                      for sol in s0.local_basis_structure())
+    n2 = max_abs_val + order + 1
+    # FIXME: slightly different from [DMM, (46)]
+    min_n = max(min_n, ceil(2.1*n2), n1)
+
+    logger.debug(f"{n1=}, {n2=}, {min_n=}")
+    return min_n
 
 
 def bound_coefficients(deq, seqini, name='n', order=3, prec=53, n0=0, *,
