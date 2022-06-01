@@ -529,13 +529,12 @@ ExponentGroupData = collections.namedtuple('ExponentGroupData', [
     'val',  # exponent group (lefmost element mod ℤ)
     'kappa',  # max power of log
     'bound',  # coefficient bound (explicit part + local error term)
-    'val_big_circle'  # values of initial terms on the covering of the circle
+    'initial_terms'  # explicit part of the local solution
 ])
 
 SingularityData = collections.namedtuple('SingularityData', [
     'rho',  # the singularity
     'expo_group_data',  # as above, for each exponent group
-    'val_big_circle',  # values of initial terms on the covering of the circle
     'min_val_rho',  # Re(valuation) of singular part (ignoring analytic terms)
 ])
 
@@ -543,7 +542,7 @@ SingularityData = collections.namedtuple('SingularityData', [
 class SingularityAnalyzer(LocalBasisMapper):
 
     def __init__(self, dop, inivec, *, rho, rad, Expr, abs_order, min_n,
-                 covering, struct):
+                 struct):
 
         super().__init__(dop)
 
@@ -553,7 +552,6 @@ class SingularityAnalyzer(LocalBasisMapper):
         self.Expr = Expr
         self.abs_order = abs_order
         self.min_n = min_n
-        self.covering = covering
         self._local_basis_structure = struct
 
     def process_modZ_class(self):
@@ -588,9 +586,8 @@ class SingularityAnalyzer(LocalBasisMapper):
                       for k, c in enumerate(ser[shift]) if not c.is_zero())
         kappa += sum(mult for shift, mult in self.shifts if shift >= order1)
 
-        bound_lead_terms, val_big_circle = _bound_local_integral_explicit_terms(
-                self.rho, self.leftmost, order, self.Expr, s, self.min_n, ser[:order],
-                self.covering)
+        bound_lead_terms, initial_terms = _bound_local_integral_explicit_terms(
+                self.rho, self.leftmost, order, self.Expr, s, self.min_n, ser[:order])
         bound_int_SnLn = _bound_local_integral_of_tail(self.rho,
                 self.leftmost, order, self.Expr, s, self.min_n, vb, kappa)
 
@@ -602,7 +599,7 @@ class SingularityAnalyzer(LocalBasisMapper):
             val = self.leftmost,
             kappa = kappa,
             bound = bound_lead_terms + bound_int_SnLn,
-            val_big_circle = val_big_circle)
+            initial_terms = initial_terms)
 
         # XXX abusing FundamentalSolution somewhat; not sure if log_power=kappa
         # is really appropriate; consider creating another type of record
@@ -681,8 +678,7 @@ def _bound_local_integral_of_tail(rho, val_rho, order, Expr, s, min_n, vb, kappa
 
     return (bound_S + bound_L) * invn**order
 
-def _bound_local_integral_explicit_terms(rho, val_rho, order, Expr, s, min_n, ser,
-        covering):
+def _bound_local_integral_explicit_terms(rho, val_rho, order, Expr, s, min_n, ser):
 
     _, _, invn, logn = Expr.gens()
     CB = Expr.base_ring()
@@ -709,18 +705,10 @@ def _bound_local_integral_explicit_terms(rho, val_rho, order, Expr, s, min_n, se
     # because the enclosure returned by Arb takes both branches into
     # account.
 
-    # XXX why do we do this here? to access locf_ini_terms, presumably--but
-    # this means we have to pass covering, so the gain is not clear
-    _zeta = CB(rho)
-    val_big_circle = [
-            (_z-_zeta).pow(CB(val_rho))
-                * locf_ini_terms(_z-_zeta, (~(1-_z/_zeta)).log())
-            for _z in covering]
-
-    return bound_lead_terms, val_big_circle
+    return bound_lead_terms, locf_ini_terms
 
 def contribution_single_singularity(deq, ini, rho, rad, Expr,
-        covering, rel_order, min_n):
+        rel_order, min_n):
 
     eps = RBF.one() >>  Expr.base_ring().precision() + 13
     tmat = deq.numerical_transition_matrix([0, rho], eps, assume_analytic=True)
@@ -748,14 +736,12 @@ def contribution_single_singularity(deq, ini, rho, rad, Expr,
     # whole ℤ-coset of exponents, already incorporating initial values.
     analyzer = SingularityAnalyzer(dop=ldop, inivec=coord_all, rho=rho,
             rad=rad, Expr=Expr, abs_order=abs_order, min_n=min_n,
-            covering=covering, struct=crit)
+            struct=crit)
     data = analyzer.run()
 
     data1 = SingularityData(
         rho = rho,
         expo_group_data = [sol.value for sol in data],
-        val_big_circle = [sum(sol.value.val_big_circle[j] for sol in data)
-                          for j in range(len(covering))],
         min_val_rho = min_val_rho
     )
 
@@ -989,20 +975,6 @@ def contribution_all_singularity(seqini, deq,
     # Convert initial sequence terms to solution coordinates in the basis at 0
     ini = _coeff_zero(seqini, deq)
 
-    # Values of f on the large circle
-
-    # We start with this to be able to pass the covering of the circle to
-    # contribution_single_singularity(), which evaluates the initial terms of
-    # each local expansion on the circle.
-
-    if halfside is None:
-        halfside = min(abs(abs(ex) - rad) for ex in all_exn_pts)/10
-    logger.info("half-side of small squares: %s", halfside)
-
-    pairs = numerical_sol_big_circle(deq, ini, dominant_sing, rad, halfside)
-    covering = [z for z, _ in pairs]
-    f_big_circle = [f for _, f in pairs]
-
     # Contribution of each singular point
 
     # XXX split in v, logz and invn, logn?
@@ -1010,7 +982,7 @@ def contribution_all_singularity(seqini, deq,
                           ['v', 'logz', 'invn', 'logn'], order='lex')
 
     sing_data = [contribution_single_singularity(deq, ini, rho, rad, Expr,
-                                                 covering, order, min_n)
+                                                 order, min_n)
                  for rho in dominant_sing]
     sing_data = [sdata for sdata in sing_data if sdata is not None]
 
@@ -1032,8 +1004,20 @@ def contribution_all_singularity(seqini, deq,
 
     # Exponentially small error term
 
-    sum_g = [sum(sdata.val_big_circle[j] for sdata in sing_data)
-             for j in range(len(covering))]
+    if halfside is None:
+        halfside = min(abs(abs(ex) - rad) for ex in all_exn_pts)/10
+    logger.info("half-side of small squares: %s", halfside)
+
+    pairs = numerical_sol_big_circle(deq, ini, dominant_sing, rad, halfside)
+    covering = [z for z, _ in pairs]
+    f_big_circle = [f for _, f in pairs]
+
+    sum_g = [
+        sum((_z-_rho).pow(CB(edata.val))
+                * edata.initial_terms(_z-_rho, (~(1-_z/_rho)).log())
+            for sdata in sing_data for _rho in (CB(sdata.rho),)
+            for edata in sdata.expo_group_data)
+        for j, _z in enumerate(covering)]
     max_big_circle = RB.zero().max(*((s - vv).above_abs()
                                      for s, vv in zip(sum_g, f_big_circle)))
     #Simplify bound contributed by big circle
