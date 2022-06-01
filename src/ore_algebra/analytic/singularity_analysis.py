@@ -950,16 +950,27 @@ def contribution_all_singularity(seqini, deq, singularities=None,
         _check_big_radius(rad, dominant_sing)
     logger.debug("dominant singularities: %s", dominant_sing)
 
+    # Bound validity range
+
     # Make sure the disks B(ρ, |ρ|/n) contain no other singular point
     # FIXME: currently DOES NOT match [DMM, (10)]
     if len(dominant_sing) > 1:
         min_dist = min(abs(s0 - s1) for s0 in dominant_sing
                                     for s1 in all_exn_points
                                     if s0 != s1)
-        N1 = ceil(2*abs(dominant_sing[-1])/min_dist)
+        n1 = ceil(2*abs(dominant_sing[-1])/min_dist)
     else:
-        N1 = 0
-    logger.debug(f"{N1=}")
+        n1 = 0
+    # Make sure that min_n > 2*|α| for all exponents α we encounter
+    max_abs_val = max(abs(sol.leftmost) # TODO: avoid redundant computation...
+                      for s0 in dominant_sing
+                      for sol in Point(s0, deq).local_basis_structure())
+    n2 = max_abs_val + total_order + 1
+    # FIXME: slightly different from [DMM, (46)]
+    min_n = max(min_n, ceil(2.1*n2), n1)
+    logger.debug(f"{n1=}, {n2=}, {min_n=}")
+
+    # Convert initial sequence terms to solution coordinates in the basis at 0
 
     ini = _coeff_zero(seqini, deq)
 
@@ -1029,13 +1040,7 @@ def contribution_all_singularity(seqini, deq, singularities=None,
             bound.append[abs(dominant_sing[0]),
                         CB(0).add_error(rad_err) * SR(n**QQbar(re_gam - total_order)) * (SR(log(n))**final_kappa)]
 
-    # Compute N0
-    max_abs_val = max(abs(edata.val) for sdata in sing_data
-                                     for edata in sdata.expo_group_data)
-    N2 = max_abs_val + total_order + 1
-    N0 = max(ceil(2.1 * N2), N1)
-
-    return N0, bound
+    return min_n, bound
 
 class FormalProduct:
 
