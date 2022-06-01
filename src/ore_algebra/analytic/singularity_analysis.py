@@ -86,7 +86,7 @@ Complex exponents example::
     sage: #check_seq_bound(asy.expand(), ref, range(1000)) # buggy
     sage: # Temporary workaround
     sage: from ore_algebra.analytic.singularity_analysis import contribution_all_singularity, eval_bound
-    sage: b = contribution_all_singularity(seqini, deq, total_order=3) # long time (1.9 s)
+    sage: b = contribution_all_singularity(seqini, deq, order=3) # long time (1.9 s)
     sage: all(eval_bound(b[1], j).contains_exact(ref[j]) for j in range(b[0], 150)) # long time
     True
 
@@ -866,10 +866,10 @@ def _sing_in_disk(elts, rad, large_value):
             return elts[:j], mag
     return elts, large_value
 
-def _choose_big_radius(all_exn_points, dominant_sing, next_sing_rad):
+def _choose_big_radius(all_exn_pts, dominant_sing, next_sing_rad):
     # [DMM, (11)]
     max_smallrad = min(abs(ex - ds) for ds in dominant_sing
-                                    for ex in all_exn_points
+                                    for ex in all_exn_pts
                                     if ex != ds)
     dom_rad = abs(dominant_sing[-1])
     rad = min(next_sing_rad*RBF(0.9) + dom_rad/10,
@@ -889,8 +889,66 @@ def _check_big_radius(rad, dominant_sing):
         warnings.warn("The given disk contains singular points of non-minimal "
                       f"modulus: {bad_sing}")
 
-def contribution_all_singularity(seqini, deq, singularities=None,
-        known_analytic=[0], rad=None, total_order=1, min_n=50, halfside=None, prec_bit=53):
+def _classify_sing(deq, known_analytic, rad):
+
+    # Interesting points = all sing of the equation, plus the origin
+
+    all_exn_pts = deq._singularities(QQbar, multiplicities=False)
+    if not any(s.is_zero() for s in all_exn_pts):
+        all_exn_pts.append(QQbar.zero())
+
+    # Potential singularities of the function, sorted by magnitude
+
+    singularities = deq._singularities(QQbar, include_apparent=False,
+                                       multiplicities=False)
+    singularities = [s for s in singularities if not s in known_analytic]
+    singularities.sort(key=lambda s: abs(s))
+    logger.debug(f"potential singularities: {singularities}")
+
+    # Dominant singularities
+
+    # dominant_sing is the list of potential dominant
+    # singularities of the function, not of "dominant singular points". It does
+    # not include singular points of the equation lying in the disk where the
+    # function is known to be analytic.
+    if rad is None:
+        dominant_sing, next_sing_rad = _sing_in_disk(singularities,
+                abs(singularities[0]), abs(singularities[-1])*3)
+        rad = _choose_big_radius(all_exn_pts, dominant_sing, next_sing_rad)
+    else:
+        rad = RBF(rad)
+        dominant_sing, _ = _sing_in_disk(singularities, rad,
+                abs(singularities[-1])*2 + rad*2)
+        _check_big_radius(rad, dominant_sing)
+    logger.debug("dominant singularities: %s", dominant_sing)
+
+    return all_exn_pts, dominant_sing, rad
+
+def _bound_validity_range(min_n, dominant_sing, order):
+
+    # Make sure the disks B(ρ, |ρ|/n) contain no other singular point
+
+    # FIXME: currently DOES NOT match [DMM, (10)]
+    if len(dominant_sing) > 1:
+        min_dist = min(s0.dist_to_sing() for s0 in dominant_sing)
+        n1 = ceil(2*abs(dominant_sing[-1])/min_dist)
+    else:
+        n1 = 0
+
+    # Make sure that min_n > 2*|α| for all exponents α we encounter
+
+    max_abs_val = max(abs(sol.leftmost) # TODO: avoid redundant computation...
+                      for s0 in dominant_sing
+                      for sol in s0.local_basis_structure())
+    n2 = max_abs_val + order + 1
+    # FIXME: slightly different from [DMM, (46)]
+    min_n = max(min_n, ceil(2.1*n2), n1)
+
+    logger.debug(f"{n1=}, {n2=}, {min_n=}")
+    return min_n
+
+def contribution_all_singularity(seqini, deq,
+        known_analytic=[0], rad=None, order=1, min_n=50, halfside=None, prec_bit=53):
     """
     Compute a bound for the n-th element of a holonomic sequence
 
@@ -899,12 +957,10 @@ def contribution_all_singularity(seqini, deq, singularities=None,
     - seqini : list, initial elements of sequence, long enough to determine the
       sequence
     - deq : a linear ODE that the generating function satisfies
-    - singularities : list of algebraic numbers, dominant singularities. If
-      None, compute automatically
     - known_analytic : list of points where the generating function is known to
       be analytic, default is [0]
     - rad : radius of the big circle R_0. If None, compute automatically
-    - total_order : integer, order to which the bound is computed
+    - order : integer, order to which the bound is computed
     - min_n : integer, bound is valid when n > max{N0, min_n}
     - halfside : real number, parameter to be passed on to numerical_sol_big_circle()
     - prec_bit : integer, numeric working precision (in bit)
@@ -922,55 +978,14 @@ def contribution_all_singularity(seqini, deq, singularities=None,
 
     deq = DifferentialOperator(deq)
 
-    # Interesting points = all sing of the equation, plus the origin
-    all_exn_points = deq._singularities(QQbar, multiplicities=False)
-    if not any(s.is_zero() for s in all_exn_points):
-        all_exn_points.append(QQbar.zero())
-    # Potential singularities of the function, sorted by magnitude
-    if singularities is None:
-        singularities = deq._singularities(QQbar, include_apparent=False,
-                                           multiplicities=False)
-    singularities = [s for s in singularities if not s in known_analytic]
-    singularities.sort(key=lambda s: abs(s))
-    logger.debug(f"potential singularities: {singularities}")
+    # Identify dominant singularities, choose big radius
+    all_exn_pts, dominant_sing, rad = _classify_sing(deq, known_analytic, rad)
 
-    # Dominant singularities. (dominant_sing is the list of potential dominant
-    # singularities of the function, not of "dominant singular points". It does
-    # not include singular points of the equation lying in the disk where the
-    # function is known to be analytic.)
-    if rad is None:
-        dominant_sing, next_sing_rad = _sing_in_disk(singularities,
-                abs(singularities[0]), abs(singularities[-1])*3)
-        rad = _choose_big_radius(all_exn_points, dominant_sing, next_sing_rad)
-    else:
-        rad = RBF(rad)
-        dominant_sing, _ = _sing_in_disk(singularities, rad,
-                abs(singularities[-1])*2 + rad*2)
-        _check_big_radius(rad, dominant_sing)
-    logger.debug("dominant singularities: %s", dominant_sing)
-
-    # Bound validity range
-
-    # Make sure the disks B(ρ, |ρ|/n) contain no other singular point
-    # FIXME: currently DOES NOT match [DMM, (10)]
-    if len(dominant_sing) > 1:
-        min_dist = min(abs(s0 - s1) for s0 in dominant_sing
-                                    for s1 in all_exn_points
-                                    if s0 != s1)
-        n1 = ceil(2*abs(dominant_sing[-1])/min_dist)
-    else:
-        n1 = 0
-    # Make sure that min_n > 2*|α| for all exponents α we encounter
-    max_abs_val = max(abs(sol.leftmost) # TODO: avoid redundant computation...
-                      for s0 in dominant_sing
-                      for sol in Point(s0, deq).local_basis_structure())
-    n2 = max_abs_val + total_order + 1
-    # FIXME: slightly different from [DMM, (46)]
-    min_n = max(min_n, ceil(2.1*n2), n1)
-    logger.debug(f"{n1=}, {n2=}, {min_n=}")
+    # Compute validity range
+    _dominant_sing = [Point(s, deq) for s in dominant_sing] # tmp, should use Points everywhere
+    min_n = _bound_validity_range(min_n, _dominant_sing, order)
 
     # Convert initial sequence terms to solution coordinates in the basis at 0
-
     ini = _coeff_zero(seqini, deq)
 
     # Values of f on the large circle
@@ -980,7 +995,7 @@ def contribution_all_singularity(seqini, deq, singularities=None,
     # each local expansion on the circle.
 
     if halfside is None:
-        halfside = min(abs(abs(ex) - rad) for ex in all_exn_points)/10
+        halfside = min(abs(abs(ex) - rad) for ex in all_exn_pts)/10
     logger.info("half-side of small squares: %s", halfside)
 
     pairs = numerical_sol_big_circle(deq, ini, dominant_sing, rad, halfside)
@@ -994,7 +1009,7 @@ def contribution_all_singularity(seqini, deq, singularities=None,
                           ['v', 'logz', 'invn', 'logn'], order='lex')
 
     sing_data = [contribution_single_singularity(deq, ini, rho, rad, Expr,
-                                                 covering, total_order, min_n)
+                                                 covering, order, min_n)
                  for rho in dominant_sing]
     sing_data = [sdata for sdata in sing_data if sdata is not None]
 
@@ -1008,7 +1023,7 @@ def contribution_all_singularity(seqini, deq, singularities=None,
     bound = [
         [sdata.rho,
          sum(truncate_tail_SR(-edata.val-1, edata.bound,
-                              re_gam - total_order, min_n, invn,
+                              re_gam - order, min_n, invn,
                               final_kappa, logn, n)
              for edata in sdata.expo_group_data)]
         for sdata in sing_data
@@ -1022,22 +1037,22 @@ def contribution_all_singularity(seqini, deq, singularities=None,
                                      for s, vv in zip(sum_g, f_big_circle)))
     #Simplify bound contributed by big circle
     M = RB(abs(dominant_sing[0]))
-    rad_err = max_big_circle * (((CB(e) * (total_order - re_gam)
-                  / (M/CB(rad)).log()).pow(RB(re_gam - total_order))
-                 / CB(min_n).log().pow(final_kappa)) if re_gam <= total_order + min_n * (M/RB(rad)).log()
-                else ((M/CB(rad)).pow(min_n) * CB(min_n).pow(total_order - re_gam)
+    rad_err = max_big_circle * (((CB(e) * (order - re_gam)
+                  / (M/CB(rad)).log()).pow(RB(re_gam - order))
+                 / CB(min_n).log().pow(final_kappa)) if re_gam <= order + min_n * (M/RB(rad)).log()
+                else ((M/CB(rad)).pow(min_n) * CB(min_n).pow(order - re_gam)
                  / CB(min_n).log().pow(final_kappa)))
     #bound += [CB(0).add_error(rad_err) * (SR(QQbar(1/abs(dominant_sing[0]))**n)
-    #                                      * SR(n**QQbar(re_gam)) * (SR(1/n)**total_order) * (SR(log(n))**final_kappa))]
+    #                                      * SR(n**QQbar(re_gam)) * (SR(1/n)**order) * (SR(log(n))**final_kappa))]
 
     #Add big circle error bound
     list_rho = [sdata.rho for sdata in sing_data]
     if abs(dominant_sing[0]) in list_rho:
         ind_rho_real = list_rho.index(abs(dominant_sing[0]))
-        bound[ind_rho_real][1] += CB(0).add_error(rad_err) * SR(n**QQbar(re_gam - total_order)) * (SR(log(n))**final_kappa)
+        bound[ind_rho_real][1] += CB(0).add_error(rad_err) * SR(n**QQbar(re_gam - order)) * (SR(log(n))**final_kappa)
     else:
             bound.append[abs(dominant_sing[0]),
-                        CB(0).add_error(rad_err) * SR(n**QQbar(re_gam - total_order)) * (SR(log(n))**final_kappa)]
+                        CB(0).add_error(rad_err) * SR(n**QQbar(re_gam - order)) * (SR(log(n))**final_kappa)]
 
     return min_n, bound
 
@@ -1114,7 +1129,7 @@ def bound_coefficients(deq, seqini, name='n', order=3, prec=53, n0=50, *,
         assume_analytic=[0], big_radius=None):
 
     n0bis, term_data = contribution_all_singularity(seqini, deq,
-            known_analytic=assume_analytic, rad=big_radius, total_order=order,
+            known_analytic=assume_analytic, rad=big_radius, order=order,
             min_n=n0, prec_bit=prec)
     n0 = max(n0, n0bis)
 
