@@ -933,116 +933,6 @@ def _bound_validity_range(min_n, dominant_sing, order):
     logger.debug(f"{n1=}, {n2=}, {min_n=}")
     return min_n
 
-def contribution_all_singularity(seqini, deq,
-        known_analytic=[0], rad=None, order=1, min_n=50, halfside=None, prec_bit=53):
-    """
-    Compute a bound for the n-th element of a holonomic sequence
-
-    INPUT:
-
-    - seqini : list, initial elements of sequence, long enough to determine the
-      sequence
-    - deq : a linear ODE that the generating function satisfies
-    - known_analytic : list of points where the generating function is known to
-      be analytic, default is [0]
-    - rad : radius of the big circle R_0. If None, compute automatically
-    - order : integer, order to which the bound is computed
-    - min_n : integer, restrict to n >= min_n (the final validity range may be
-      smaller)
-    - halfside : real number, parameter to be passed on to numerical_sol_big_circle()
-    - prec_bit : integer, numeric working precision (in bit)
-
-    OUTPUT:
-
-    - N0 : integer, bound is valid when n >= N0
-    - bound : list of lists [rho, ser], where
-        - rho are in QQbar
-        - ser are symbolic expressions in variable 'n',
-        - the sum of rho**(-n) * ser is a bound for the n-th element of a holonomic sequence
-    """
-    CB = ComplexBallField(prec_bit)
-    RB = RealBallField(prec_bit)
-
-    deq = DifferentialOperator(deq)
-
-    # Identify dominant singularities, choose big radius
-    all_exn_pts, dominant_sing, rad = _classify_sing(deq, known_analytic, rad)
-
-    # Compute validity range
-    _dominant_sing = [Point(s, deq) for s in dominant_sing] # tmp, should use Points everywhere
-    min_n = _bound_validity_range(min_n, _dominant_sing, order)
-
-    # Convert initial sequence terms to solution coordinates in the basis at 0
-    ini = _coeff_zero(seqini, deq)
-
-    # Contribution of each singular point
-
-    # XXX split in v, logz and invn, logn?
-    Expr = PolynomialRing(ComplexBallField(prec_bit),
-                          ['v', 'logz', 'invn', 'logn'], order='lex')
-
-    sing_data = [contribution_single_singularity(deq, ini, rho, rad, Expr,
-                                                 order, min_n)
-                 for rho in dominant_sing]
-    sing_data = [sdata for sdata in sing_data if sdata is not None]
-
-    final_kappa = max(edata.kappa for sdata in sing_data
-                                  for edata in sdata.expo_group_data)
-    beta = - min(sdata.min_val_rho for sdata in sing_data) - 1 - order
-
-    # Exponentially small error term
-
-    if halfside is None:
-        halfside = min(abs(abs(ex) - rad) for ex in all_exn_pts)/10
-    logger.info("half-side of small squares: %s", halfside)
-
-    pairs = numerical_sol_big_circle(deq, ini, dominant_sing, rad, halfside)
-    covering, f_big_circle = zip(*pairs)
-
-    sum_g = [
-        sum((_z-_rho).pow(CB(edata.val))
-                * edata.initial_terms(_z-_rho, (~(1-_z/_rho)).log())
-            for sdata in sing_data for _rho in (CB(sdata.rho),)
-            for edata in sdata.expo_group_data)
-        for j, _z in enumerate(covering)]
-    max_big_circle = RBF.zero().max(*((s - vv).above_abs()
-                                     for s, vv in zip(sum_g, f_big_circle)))
-
-    # Assemble the bounds
-
-    _, _, invn, logn = Expr.gens()
-    n = SR.var('n')
-    bound = [
-        [sdata.rho,
-         sum(truncate_tail_SR(-edata.val-1, edata.bound, beta, min_n,
-                              invn, final_kappa, logn, n)
-             for edata in sdata.expo_group_data)]
-        for sdata in sing_data
-    ]
-
-    # Absorb exponentially small term in previous error term
-
-    M = RBF(abs(dominant_sing[0]))
-    if beta <= min_n * (M/rad).log():
-        _beta = RBF(beta)
-        cst = _beta.exp()*(_beta/(M/rad).log()).pow(_beta)
-    else:
-        cst = (M/CB(rad))**min_n * CB(min_n)**(-beta)
-    rad_err = cst*max_big_circle / CB(min_n).log()**final_kappa
-    error_term_big_circle = (CB(0).add_error(rad_err) *
-                             SR(n**QQbar(beta)) *
-                             SR(log(n))**final_kappa)
-    mag_dom = abs(dominant_sing[0])
-
-    for i, (rho, local_bound) in enumerate(bound):
-        if rho == mag_dom:
-            bound[i][1] += error_term_big_circle
-            break
-    else:
-        bound.append[mag_dom, error_term_big_circle]
-
-    return min_n, bound
-
 class FormalProduct:
 
     def __init__(self, exponential_factor, series_factor):
@@ -1112,16 +1002,132 @@ def to_asymptotic_expansion(Coeff, name, term_data, n0):
     return FormalProduct(Asy(exp_factor), Asy(terms))
 
 
-def bound_coefficients(deq, seqini, name='n', order=3, prec=53, n0=50, *,
-        assume_analytic=[0], big_radius=None):
+def bound_coefficients(deq, seqini, name='n', order=3, prec=53, n0=0, *,
+                       known_analytic=[0], rad=None, halfside=None,
+                       output='asymptotic_expansion'):
+    """
+    Compute a bound for the n-th element of a holonomic sequence
 
-    n0bis, term_data = contribution_all_singularity(seqini, deq,
-            known_analytic=assume_analytic, rad=big_radius, order=order,
-            min_n=n0, prec_bit=prec)
-    n0 = max(n0, n0bis)
+    INPUT:
 
-    Coeff = ComplexBallField(prec)
-    return to_asymptotic_expansion(Coeff, name, term_data, n0)
+    - ``deq``: a linear ODE that the generating function satisfies
+    - ``seqini``: list, initial elements of sequence, long enough to determine
+      the sequence
+    - `name` (optional): variable name to be used in the formula
+    - ``order`` (optional): expansion order, counting only powers of the
+      variable (as opposed to log factors)
+    - ``prec`` (optional): numeric working precision (in bits)
+    - ``n0`` (optional): restrict to n >= n0 (note that the final validity range
+      may be smaller)
+    - ``known_analytic`` (optional, default `[0]`): list of points where the
+      generating function is known to be analytic, default is [0]
+    - ``rad`` (optional, default: automatic choice): radius of the outer part of
+      the integration contour (corresponding to an exponentially small error
+      term)
+    - ``halfside`` (optional, default: automatic choice): resolution parameter
+      used in the computation of the exponentially small error term
+    - ``output`` (optional, default: ``asymptotic_expansion``): set to ``list``
+      to get the results as a list of terms instead of an
+      ``AsymptoticRingElement``
+
+    OUTPUT:
+
+    - when ``output='asymptotic_expansion'``: an ``AsymptoticRingElement`` with
+      a B-term encoding the error bound
+
+    - when ``output='list'``: a pair ``(N0, bound)`` where
+        - ``N0`` is an integer such that the bound is valid when ``n >= N0``
+        - ``bound`` is list of lists of the form ``[rho, ser]`` where ``rho`` is
+          in ``QQbar`` and ``ser`` is a symbolic expression
+      such that the sum of ``rho**(-n) * ser`` is a bound for the `n`-th element
+      of the input sequence
+    """
+    if output not in ['asymptotic_expansion', 'list']:
+        raise ValueError(f"unknown output format: {output}")
+
+    CB = ComplexBallField(prec)
+
+    deq = DifferentialOperator(deq)
+
+    # Identify dominant singularities, choose big radius
+    all_exn_pts, dominant_sing, rad = _classify_sing(deq, known_analytic, rad)
+
+    # Compute validity range
+    _dominant_sing = [Point(s, deq) for s in dominant_sing] # tmp, should use Points everywhere
+    n0 = _bound_validity_range(n0, _dominant_sing, order)
+
+    # Convert initial sequence terms to solution coordinates in the basis at 0
+    ini = _coeff_zero(seqini, deq)
+
+    # Contribution of each singular point
+
+    # XXX split in v, logz and invn, logn?
+    Expr = PolynomialRing(CB, ['v', 'logz', 'invn', 'logn'], order='lex')
+
+    sing_data = [contribution_single_singularity(deq, ini, rho, rad, Expr,
+                                                 order, n0)
+                 for rho in dominant_sing]
+    sing_data = [sdata for sdata in sing_data if sdata is not None]
+
+    final_kappa = max(edata.kappa for sdata in sing_data
+                                  for edata in sdata.expo_group_data)
+    beta = - min(sdata.min_val_rho for sdata in sing_data) - 1 - order
+
+    # Exponentially small error term
+
+    if halfside is None:
+        halfside = min(abs(abs(ex) - rad) for ex in all_exn_pts)/10
+    logger.info("half-side of small squares: %s", halfside)
+
+    pairs = numerical_sol_big_circle(deq, ini, dominant_sing, rad, halfside)
+    covering, f_big_circle = zip(*pairs)
+
+    sum_g = [
+        sum((_z-_rho).pow(CB(edata.val))
+                * edata.initial_terms(_z-_rho, (~(1-_z/_rho)).log())
+            for sdata in sing_data for _rho in (CB(sdata.rho),)
+            for edata in sdata.expo_group_data)
+        for j, _z in enumerate(covering)]
+    max_big_circle = RBF.zero().max(*((s - vv).above_abs()
+                                     for s, vv in zip(sum_g, f_big_circle)))
+
+    # Assemble the bounds
+
+    _, _, invn, logn = Expr.gens()
+    n = SR.var(name)
+    bound = [
+        [sdata.rho,
+         sum(truncate_tail_SR(-edata.val-1, edata.bound, beta, n0,
+                              invn, final_kappa, logn, n)
+             for edata in sdata.expo_group_data)]
+        for sdata in sing_data
+    ]
+
+    # Absorb exponentially small term in previous error term
+
+    M = RBF(abs(dominant_sing[0]))
+    if beta <= n0 * (M/rad).log():
+        _beta = RBF(beta)
+        cst = _beta.exp()*(_beta/(M/rad).log()).pow(_beta)
+    else:
+        cst = (M/CB(rad))**n0 * CB(n0)**(-beta)
+    rad_err = cst*max_big_circle / CB(n0).log()**final_kappa
+    error_term_big_circle = (CB(0).add_error(rad_err) *
+                             SR(n**QQbar(beta)) *
+                             SR(log(n))**final_kappa)
+    mag_dom = abs(dominant_sing[0])
+
+    for i, (rho, local_bound) in enumerate(bound):
+        if rho == mag_dom:
+            bound[i][1] += error_term_big_circle
+            break
+    else:
+        bound.append[mag_dom, error_term_big_circle]
+
+    if output == 'list':
+        return n0, bound
+    else:
+        return to_asymptotic_expansion(CB, name, bound, n0)
 
 
 def eval_bound(bound, n_num, prec = 53):
