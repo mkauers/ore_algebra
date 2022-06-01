@@ -15,8 +15,6 @@ Generalized series found in expansions at singularities
 #  https://www.gnu.org/licenses/                                             #
 #############################################################################
 
-from __future__ import absolute_import, division
-
 import re
 
 from sage.arith.all import lcm

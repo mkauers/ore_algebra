@@ -36,8 +36,6 @@ AUTHOR:
 #  http://www.gnu.org/licenses/                                             #
 #############################################################################
 
-from __future__ import absolute_import, division
-
 import sage.functions.airy
 import sage.functions.bessel
 import sage.functions.error

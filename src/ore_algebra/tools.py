@@ -13,8 +13,6 @@ Auxiliary functions
 #  https://www.gnu.org/licenses/                                             #
 #############################################################################
 
-from __future__ import absolute_import
-
 from sage.structure.element import Element, canonical_coercion
 from sage.arith.all import gcd
 from sage.functions.other import real_part

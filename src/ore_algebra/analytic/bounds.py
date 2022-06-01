@@ -119,9 +119,6 @@ REFERENCE:
 #
 # http://www.gnu.org/licenses/
 
-from __future__ import division, print_function
-from six.moves import range
-
 import collections, itertools, logging, sys, warnings
 
 from sage.arith.srange import srange
