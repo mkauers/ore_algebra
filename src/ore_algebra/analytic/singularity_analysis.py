@@ -408,7 +408,6 @@ def truncated_gamma_ratio(alpha, order, u, s):
     - ratio_gamma : a polynomial in CB[u] such that Γ(n+α)/Γ(n+1)/(n+α/2)^(α-1)
       is in its range when n >= s*|alpha|
     """
-    assert alpha > 0 or not alpha.is_integer()
 
     Pol = u.parent()
     CB = Pol.base_ring()
@@ -429,110 +428,116 @@ def truncated_gamma_ratio(alpha, order, u, s):
     ratio_gamma = ratio_gamma_asy + CB(0).add_error(Rnw_bound) * u**(2*n_gam)
     return ratio_gamma
 
+def truncated_inverse(alpha, order, invn, s):
+    r"""
+    (n + α)^(-1) as a polynomial in invn = 1/n plus an error term O(invn^order)
+    """
+    CB = invn.parent().base_ring()
+    err = abs(alpha)**order / (1 - 1/s)
+    ser = sum((-alpha)**(j-1) * invn**j for j in range(1, order))
+    return ser + CB(0).add_error(err) * invn**(order)
+
+def truncated_log(alpha, order, invn, s):
+    r"""
+    log(1 + α/n) as a polynomial in invn = 1/n plus an error term O(invn^order)
+    """
+    CB = invn.parent().base_ring()
+    err = (1 + 1/s).log()*abs(CBF(alpha))**order
+    ser = - sum((-alpha)**j * invn**j / j for j in range(1, order))
+    return ser + CB(0).add_error(err) * invn**(order)
+
 def truncated_power(alpha, order, invn, s):
     """
     Compute a bound for a truncated (1 + α/2n)^(α-1)
 
     INPUT:
 
-    - alpha : complex number α, !!cannot be negative integer or zero!!
-    - order : order of truncation
-    - invn : element of polynomial ring, representing 1/n
-    - s : positive number where n >= s*|alpha| is guaranteed, s > 2
+    - alpha: complex number α, !!cannot be negative integer or zero!!
+    - order: order of truncation
+    - invn: element of polynomial ring, representing 1/n
+    - s: positive number where n >= s*|alpha| is guaranteed, s > 2
 
     OUTPUT:
 
-    - trunc_power : a polynomial in CB[invn] such that (1 + α/2n)^(α-1) is in its
+    - trunc_power: a polynomial in CB[invn] such that (1 + α/2n)^(α-1) is in its
       range when n >= s*|alpha|
     """
     CB = invn.parent().base_ring()
-    alpha_CB = CB(alpha)
-    Mr = (CB(abs(alpha)).pow(order+1) / (1 - 1/s)
-            * CB(abs(alpha.imag())/2).exp()
-            * (CB(3/2).pow(alpha.real() - 1) if alpha.real() - 1 > 0
-               else CB(1/2).pow(alpha.real() - 1)))
+    _alpha = CBF(alpha)
+    a = alpha.real() - 1
+    h = RBF(1)/2
+    err = (abs(_alpha)**(order) / (1 - 1/s)
+           * (abs(alpha.imag())/2).exp()
+           * max((3*h)**a, h**a))
     t = polygen(CB, 't')
-    foo = (alpha_CB - 1) * (1 + alpha_CB/2 * t)._log_series(order + 1)
-    foo = foo._exp_series(order + 1)
-    trunc_power = foo(invn) + CB(0).add_error(Mr) * invn**(order+1)
-    return trunc_power
+    ser = (alpha - 1) * (1 + alpha/2 * t)._log_series(order)
+    ser = ser._exp_series(order)
+    return ser(invn) + CB(0).add_error(err) * invn**(order)
 
-def bound_coeff_mono(Expr, alpha, l, deg, s, min_n):
+def bound_coeff_mono(Expr, alpha, log_order, order, s, n0):
     """
-    Compute a bound for [z^n] (1-z)^(-α) * log(1/(1-z))^l,
+    Compute a bound for [z^n] (1-z)^(-α) * log(1/(1-z))^log_order,
     of the form n^(α-1) * P(1/n, log(n))
 
     INPUT:
 
-    - alpha : complex number, representing α
-    - l : non-negative integer
-    - deg : degree of P wrt. the variable 1/n
-    - invn : variable representing 1/n
-    - logn : element of the same polynomial ring as invn, variable representing
-      log(n)
-    - s : positive number where n >= s*|alpha| is guaranteed, s > 2
-    - min_n : positive number where n >= min_n is guaranteed, min_n > -alpha
-      needed
+    - alpha: complex number, representing α
+    - log_order: non-negative integer
+    - order: degree of P wrt. the variable 1/n
+    - s: positive number where n >= s*|alpha| is guaranteed, s > 2
+    - n0: positive number where n >= n0 is guaranteed, n0 > -alpha needed
 
     OUTPUT:
 
-    - P : polynomial in invn, logn
+    - P: polynomial in invn, logn
     """
     CB = Expr.base_ring()
+    exact_alpha = QQbar(alpha)
+    alpha = CB(alpha)
     v, logz, invn, logn = Expr.gens()
-    order = max(0, deg - 1)
-    if not (QQbar(alpha).is_integer() and QQbar(alpha) <= 0):
+    order = max(0, order)
+    if not (exact_alpha.is_integer() and exact_alpha <= 0):
         # Value of 1/Γ(α)
-        c = CB(1/gamma(alpha))
-        # Bound for (n+α/2)^(1-α) * Γ(n+α)/Γ(n+1) [Dong2021, Prop 4.5]
-        u = polygen(CB, 'u')
-        f = truncated_ratio_gamma(alpha, order, u, s)
-        bound_error_u = CB(abs(alpha/2)**order / (1 - 1/(2*s)))
-        truncated_u = (sum(CB(-alpha/2)**(j-1) * invn**j for j in range(1, order+1))
-                + CB(0).add_error(bound_error_u) * invn**(order+1))
-        f_z = truncate_tail(f.subs({u : truncated_u}), deg, min_n, invn)
-        # Bound for F = [(d/dα)^l (Γ(n+α)/Γ(α)Γ(n+1))] / (Γ(n+α)/Γ(α)Γ(n+1))
-        # [Dong2021, p. 17]
-        g = truncated_logder(alpha, l, order, v, logz, min_n)
-        bound_error_v = CB(abs(alpha)**order / (1 - 1/s))
-        truncated_v = (sum(CB(-alpha)**(j-1) * invn**j for j in range(1, order+1))
-                + CB(0).add_error(bound_error_v) * invn**(order+1))
-        bound_error_logz = (CB(log(2)+1/2)
-                * CB(2*abs(alpha)).pow(order+1)
-                / CB(1 - 2/s))
-        truncated_logz = (logn
-                - sum(CB(-alpha)**j * invn**j / j
-                      for j in range(1, order+1))
-                + CB(0).add_error(bound_error_logz) * invn**(order+1))
+        c = 1/gamma(alpha)
+        # Bound for (n+α/2)^(1-α) * Γ(n+α)/Γ(n+1)
+        u = polygen(CB, 'u') # u stands for 1/(n+α/2)
+        f = truncated_gamma_ratio(alpha, order, u, s)
+        truncated_u = truncated_inverse(alpha/2, order, invn, s)
+        f_z = truncate_tail(f.subs({u: truncated_u}), order, n0, invn)
+        # Bound for [(d/dα)^log_order (Γ(n+α)/Γ(α)Γ(n+1))] / (Γ(n+α)/Γ(α)Γ(n+1))
+        # v stands for 1/(n+α)
+        g = truncated_logder(alpha, log_order, order, v, logz, n0)
+        truncated_v = truncated_inverse(alpha, order, invn, s)
+        truncated_logz = logn + truncated_log(alpha, order, invn, s)
         g_z = truncate_tail(
-                g.subs({v : truncated_v, logz : truncated_logz}),
-                deg, min_n, invn)
-        # Bound for (1 + α/2n)^(α-1) = (n+α/2)^(α-1) * n^(1-α) [Dong2021, p. 16]
+            g.subs({v: truncated_v, logz: truncated_logz}),
+            order, n0, invn)
+        # Bound for (1 + α/2n)^(α-1) = (n+α/2)^(α-1) * n^(1-α)
         h_z = truncated_power(alpha, order, invn, s)
         product_all = c * f_z * g_z * h_z
-        return truncate_tail(product_all, deg, min_n, invn)
-    elif l == 0:
+        return truncate_tail(product_all, order, n0, invn)
+    elif log_order == 0:
         # Terminating expansion of the form (1-z)^N, N = -α ∈ ℕ
-        if min_n <= -int(alpha):
-            # XXX increase min_n or compute the terms of deg min_n..n instead
-            raise ValueError("min_n too small!")
+        # The only nontrivial case n0 <= α should not happen with our n0,
+        # but might be worth supporting in the future.
+        assert not n0 <= -alpha
         return Expr(0)
     else:
         # |alpha| decreases, so n >= s*|alpha| still holds
-        poly_rec_1 = bound_coeff_mono(Expr, alpha + 1, l, deg, s, min_n - 1)
-        poly_rec_2 = bound_coeff_mono(Expr, alpha + 1, l - 1, deg, s, min_n - 1)
+        poly_rec_1 = bound_coeff_mono(Expr, alpha + 1, log_order, order, s, n0 - 1)
+        poly_rec_2 = bound_coeff_mono(Expr, alpha + 1, log_order - 1, order, s, n0 - 1)
         #u = 1/(n-1)
-        bound_error_u = CB(1 / (1 - 1/(min_n - 1)))
+        bound_error_u = CB(1 / (1 - 1/(n0 - 1)))
         truncated_u = (sum(CB(1) * invn**j for j in range(1, order+1))
                 + CB(0).add_error(bound_error_u) * invn**(order+1))
-        bound_error_logz = CB(abs(log(2) * 2**(order+1)) / (1 - 2/(min_n - 1)))
+        bound_error_logz = CB(abs(log(2) * 2**(order+1)) / (1 - 2/(n0 - 1)))
         truncated_logz = (logn
                 - sum(CB(1) * invn**j / j
                       for j in range(1, order+1))
                 + CB(0).add_error(bound_error_logz) * invn**(order+1))
         ss = (CB(alpha) * poly_rec_1.subs({invn : truncated_u, logz : truncated_logz})
-            + CB(l) * poly_rec_2.subs({invn : truncated_u, logz : truncated_logz}))
-        return truncate_tail(ss, deg, min_n, invn)
+            + CB(log_order) * poly_rec_2.subs({invn : truncated_u, logz : truncated_logz}))
+        return truncate_tail(ss, order, n0, invn)
 
 #################################################################################
 # Contribution of a single regular singularity
