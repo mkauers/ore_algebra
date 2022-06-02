@@ -13,8 +13,6 @@ Lower-level reimplementation of key subroutines of binary_splitting
 #
 # http://www.gnu.org/licenses/
 
-from __future__ import print_function
-
 from sage.libs.arb.types cimport *
 from sage.libs.arb.acb cimport *
 from sage.libs.arb.acb_poly cimport *

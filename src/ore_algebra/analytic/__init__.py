@@ -663,8 +663,6 @@ To run the test suite of the ``ore_algebra.analytic`` subpackage, run::
 #
 # http://www.gnu.org/licenses/
 
-from __future__ import absolute_import
-
 from . import analytic_continuation as ancont
 from . import polynomial_approximation as polapprox
 

@@ -1140,7 +1140,11 @@ class Path(SageObject):
         In both cases, the function may return fewer than npoints points if
         a and b are close.
 
-        TESTS:
+        TESTS::
+
+            sage: from ore_algebra import OreAlgebra
+            sage: Pol.<x> = QQ[]
+            sage: Dop.<Dx> = OreAlgebra(Pol)
 
         Thanks to Eric Pichon for this example where subdivision used to fail::
 
@@ -1148,6 +1152,20 @@ class Path(SageObject):
             sage: step = [-1, 14521345101433106/10^17 - 1393025865960824/10^16*I]
             sage: dop.numerical_transition_matrix(step, eps=2^(-100))[0,0]
             [4.1258139030954317471185203831...] + [-1.3139743385825166508256917441...]*I
+
+            sage: dop2 = ((4065620328000*x^9 + 17619429495600*x^8 -
+            ....: 31381285474260*x^7 + 9196905421857*x^6 + 768859358196*x^5 -
+            ....: 97692678456*x^4 - 3409817952*x^3 + 517208800*x^2 + 11716864*x +
+            ....: 1748672)*Dx^3 + (24393721968000*x^8 + 69435616723200*x^7 -
+            ....: 146739205631880*x^6 + 37105615874628*x^5 +
+            ....: 1813796126280*x^4 + 29043241764*x^3 + 3396418776*x^2 -
+            ....: 2478525840*x - 18822624)*Dx^2 + (24393721968000*x^7 +
+            ....: 33154656472800*x^6 - 105168296827800*x^5 +
+            ....: 18161461388034*x^4 + 143883037728*x^3 +
+            ....: 198323267016*x^2 + 3242277984*x - 171991488)*Dx)
+            sage: step = [-134879941225471131681/7*I + 12/11, -119/8*I + 12/11]
+            sage: dop2.numerical_transition_matrix(step, assume_analytic=True).trace() # long time (4 s)
+            [5.974916363812...e+72 +/- ...] + [-4.643666445284...e+72 +/- ...]*I
 
         ...and for this one, showing that step subdivision could silently change
         the homotopy class of the path, leading to incorrect results::
@@ -1160,9 +1178,6 @@ class Path(SageObject):
 
         Simple examples demonstrating essentially the same issue::
 
-            sage: from ore_algebra import OreAlgebra
-            sage: Pol.<x> = QQ[]
-            sage: Dop.<Dx> = OreAlgebra(Pol)
             sage: ((x - 1)*Dx - 1).numerical_transition_matrix([0, 100+i/10])
             [[-99.0000000000...] + [-0.100000000000...]*I]
             sage: ((x^2 + 1)*Dx - 1).numerical_transition_matrix([0, 200*i-1/7])
@@ -1222,7 +1237,7 @@ class Path(SageObject):
             # are safe). However, we allow for larger perturbations in the
             # direction of the step. This is interesting mainly for steps along
             # one of the axes.
-            for i in reversed(range(3)):
+            for i in range(3, -2, -1):
                 delta = dir*IC(p*newlength.add_error(rel_tol*newlength),
                                 IR.zero().add_error(rel_tol*channel_half_width))
                 rel_tol = rel_tol**2 if i else IR(0.)

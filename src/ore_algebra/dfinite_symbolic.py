@@ -36,8 +36,6 @@ AUTHOR:
 #  http://www.gnu.org/licenses/                                             #
 #############################################################################
 
-from __future__ import absolute_import, division
-
 import sage.functions.airy
 import sage.functions.bessel
 import sage.functions.error
@@ -247,7 +245,7 @@ def symbolic_database(A, f, inner = None, k = 0):
             return A( x*Dx**3 + 2*d*Dx**2 + d**2*x*Dx )
         #sinh_integral
         elif isinstance(f,sage.functions.exp_integral.Function_sinh_integral):
-            return A ( x*Dx**3 + 2*d*Dx**2 - d**2*x*Dx )
+            return A( x*Dx**3 + 2*d*Dx**2 - d**2*x*Dx )
         #cosh_integral
         elif isinstance(f,sage.functions.exp_integral.Function_sinh_integral):
             return A( x*Dx**3 + 2*d*Dx**2 - d**2*x*Dx )
@@ -259,6 +257,3 @@ def symbolic_database(A, f, inner = None, k = 0):
             return A( (1-x)*x*Dx**2 + d*(1-2*x)*Dx - d**2*QQ(1./4) )
         else:
             raise NotImplementedError
-
-
-

@@ -306,8 +306,6 @@ Errors::
 #
 # http://www.gnu.org/licenses/
 
-from __future__ import absolute_import, division, print_function
-
 import collections, logging, cmath, math
 import sage.plot.all as plot
 import numpy

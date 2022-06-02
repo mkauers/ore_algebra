@@ -285,9 +285,11 @@ class PolynomialRoot:
     _acb_ = _complex_mpfr_field_ = _complex_mpfi_ = as_ball
 
     @cached_method
-    def as_algebraic(self):
-        if self.pol.base_ring() is QQ:
+    def as_algebraic(self, sloppy=True):
+        if sloppy and self.pol.base_ring() is QQ:
             # bypass ANRoot.exactify()
+            # This seems to lead to elements of QQbar on which sign(imag())
+            # fails for a reason I don't understand.
             nf = NumberField(self.pol, 'a', check=False)
             rt = ANRoot(self.pol, self.all_roots[self.index])
             gen = AlgebraicGenerator(nf, rt)
@@ -346,6 +348,17 @@ class PolynomialRoot:
         return self.pol == self.pol.parent().gen()
 
     def sign_imag(self):
+        r"""
+        TESTS::
+
+            sage: from ore_algebra.analytic.utilities import roots_of_irred
+            sage: Pol.<z> = QQ[]
+            sage: pol = (z^4 + 6552580/3600863*z^3 + 6913064/32407767*z^2 -
+            ....:        1009036400/875009709*z - 470919776/875009709)
+            sage: rts = roots_of_irred(pol)
+            sage: rts[-1].sign_imag()
+            0
+        """
         im = self.all_roots[self.index].imag()
         if im.is_zero():
             return 0
@@ -353,8 +366,12 @@ class PolynomialRoot:
             return +1
         elif im.upper() < 0:
             return -1
-        # Should no longer be necessary with #33150
-        return int(self.as_algebraic().imag().sign())
+        try:
+            return int(self.as_algebraic().imag().sign())
+        except ValueError:
+            # Work around an issue I don't really understand with some of the
+            # algebraic numbers created by self.as_algebraic()
+            return int(self.as_algebraic(sloppy=False).imag().sign())
 
     @classmethod
     def make(cls, value):

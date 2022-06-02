@@ -22,12 +22,12 @@ License
 Distributed under the terms of the GNU General Public License (GPL, see the
 COPYING file), either version 2 or (at your option) any later version
 
-- http://www.gnu.org/licenses/
+- https://www.gnu.org/licenses/
 
 Requirements
 ------------
 
-Sage 8.7 or later is recommended. Some features should work with older versions.
+Sage 9.0 or later is required.
 
 Installation
 ------------

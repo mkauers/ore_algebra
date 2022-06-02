@@ -18,9 +18,6 @@ Evaluation of convergent D-finite series by direct summation
 # is reached?
 # - cythonize critical parts?
 
-from __future__ import division, print_function
-from six.moves import range
-
 import collections, logging, sys, warnings
 
 from itertools import count, chain, repeat
