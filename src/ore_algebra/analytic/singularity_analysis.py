@@ -383,49 +383,49 @@ def truncated_logder(alpha, l, order, v, logz, min_n=None):
     else:
         return p(list_f)
 
-def truncated_ratio_gamma(alpha, order, u, s):
+def _generalized_bernoulli(Ring, sigma, count):
+    t = polygen(Ring, 't')
+    ser = t._exp_series(count + 1) >> 1       # (e^t - 1)/t
+    ser = -2*sigma*ser._log_series(count)     # -2σ·log((e^t - 1)/t)
+    ser = (ser >> 2) << 2                     # -2σ·log((e^t - 1)/t) + σt
+    ser = ser._exp_series(count)              # ((e^t - 1)/t)^(-2σ) * e^(σt)
+    bern = [c*ZZ(n).factorial() for n, c in enumerate(ser)]
+    return bern
+
+def truncated_gamma_ratio(alpha, order, u, s):
     """
     Find a truncated expression with error bound for Γ(n+α)/Γ(n+1)/(n+α/2)^(α-1)
 
     INPUT:
 
-    - alpha : complex number α, !!cannot be negative integer or zero!!
-    - order : order of truncation
-    - u : element of polynomial ring, representing 1/(n+α/2)
-    - s : positive number where n >= s*|alpha| is guaranteed, s > 2
+    - alpha: complex number α, !!cannot be negative integer or zero!!
+    - order: order of truncation
+    - u: element of polynomial ring, representing 1/(n+α/2)
+    - s: positive number where n >= s*|alpha| is guaranteed, s > 2
 
     OUTPUT:
 
     - ratio_gamma : a polynomial in CB[u] such that Γ(n+α)/Γ(n+1)/(n+α/2)^(α-1)
       is in its range when n >= s*|alpha|
     """
-    CB = u.parent().base_ring()
-    rho = CB(alpha/2)
+    assert alpha > 0 or not alpha.is_integer()
+
+    Pol = u.parent()
+    CB = Pol.base_ring()
     n_gam = ceil((1+order)/2)
-    #Compute B_2l^2r(r) where B_n^m(r) is the generalized Bernoulli polynomial
-    t = polygen(CB, 't')
-    foo = (t._exp_series(2*n_gam + 1) >> 1)
-    foo = -2*rho*foo._log_series(2*n_gam)
-    foo = (foo >> 2) << 2
-    foo = foo._exp_series(2*n_gam)
-    series_gen_bern = [c*ZZ(n).factorial() for n, c in enumerate(foo)]
+    gen_bern = _generalized_bernoulli(CB, alpha/2, 2*n_gam)
+    gen_bern_abs = _generalized_bernoulli(CB, abs(alpha/2), 2*n_gam + 1)
 
-    #Compute B_2l^2r(|r|) where B_n^m(|r|) is the generalized Bernoulli polynomial
-    foo = (t._exp_series(2*n_gam + 2) >> 1)
-    foo = -2*abs(rho)*foo._log_series(2*n_gam+1)
-    foo = (foo >> 2) << 2
-    foo = foo._exp_series(2*n_gam+1)
-    series_gen_bern_abs = [c*ZZ(n).factorial() for n, c in enumerate(foo)]
-
-    ratio_gamma_asy = sum(
-            CB((1 - 2*rho).rising_factorial(2*j) / factorial(2*j)
-                * series_gen_bern[2*j]) * u**(2*j)
-            for j in range(n_gam))
+    ratio_gamma_asy = Pol([CB(1 - alpha).rising_factorial(j) / factorial(j) * b
+                           if j % 2 == 0 else 0
+                           for j, b in enumerate(gen_bern)])
     half = RBF.one()/2
-    Rnw_bound = ((1 - 2*rho.real()).rising_factorial(2*n_gam) / factorial(2*n_gam)
-            * RBF(abs(series_gen_bern_abs[2*n_gam]))
-            * RBF(abs(alpha.imag())*half/s).exp()
-            * CBF((s+half)/(s-half)).pow(max(0, -2*rho.real()+1+2*n_gam)))
+    _alpha = CBF(alpha)
+    Rnw_bound = ((1 - _alpha.real()).rising_factorial(2*n_gam)
+                 / factorial(2*n_gam)
+                 * abs(gen_bern_abs[2*n_gam])
+                 * (abs(_alpha.imag())*(half/s).arcsin()).exp()
+                 * ((s+half)/(s-half))**(max(0, -alpha.real()+1+2*n_gam)))
     ratio_gamma = ratio_gamma_asy + CB(0).add_error(Rnw_bound) * u**(2*n_gam)
     return ratio_gamma
 
