@@ -20,8 +20,6 @@ Rigorous approximation of D-finite functions by polynomials
 # - support returning polynomials with point interval or non-interval
 #   coefficients
 
-from six.moves import range
-
 import logging
 logger = logging.getLogger(__name__)
 

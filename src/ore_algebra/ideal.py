@@ -11,7 +11,6 @@ Ideals
 #                                                                           #
 #  http://www.gnu.org/licenses/                                             #
 #############################################################################
-from __future__ import absolute_import, division, print_function
 
 from datetime import datetime
 from functools import cmp_to_key, reduce

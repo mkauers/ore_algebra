@@ -16,8 +16,6 @@ Operators
 #  http://www.gnu.org/licenses/                                             #
 #############################################################################
 
-from __future__ import absolute_import
-
 from functools import reduce
 
 from sage.structure.element import RingElement, canonical_coercion

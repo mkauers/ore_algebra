@@ -19,8 +19,6 @@ one generator.
 #  http://www.gnu.org/licenses/                                             #
 #############################################################################
 
-from __future__ import absolute_import, division, print_function
-
 from functools import reduce
 
 import sage.functions.log as symbolic_log

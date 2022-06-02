@@ -13,8 +13,6 @@ Local solutions
 #
 # http://www.gnu.org/licenses/
 
-from six.moves import range
-
 import collections, logging, warnings
 
 from itertools import chain
