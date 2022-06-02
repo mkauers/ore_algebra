@@ -95,7 +95,6 @@ Complex exponents example::
 
 import collections
 import logging
-import time
 
 from sage.all import *
 
@@ -112,7 +111,6 @@ from .local_solutions import (
         LogSeriesInitialValues,
 )
 from .path import Point
-from .ui import multi_eval_diffeq
 
 logger = logging.getLogger(__name__)
 
@@ -403,7 +401,7 @@ def truncated_gamma_ratio(alpha, order, u, s):
 
     OUTPUT:
 
-    - ratio_gamma : a polynomial in CB[u] such that Γ(n+α)/Γ(n+1)/(n+α/2)^(α-1)
+    - a polynomial in CB[u] such that Γ(n+α)/Γ(n+1)/(n+α/2)^(α-1)
       is in its range when n >= s*|alpha|
     """
 
