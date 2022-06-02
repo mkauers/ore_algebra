@@ -319,32 +319,30 @@ def der_expf(k):
     der_k = _der_expf_R(k, R)
     return der_k
 
-def truncated_psi(n, m, v, logz):
+def truncated_psi(n, m, invz, logz):
     """
     Compute psi^(m)(z) truncated at z^(-m-2n-1) with error bound of order
-    z^(-m-2n-2)
+    z^(-m-2n)
 
     INPUT:
 
     - n : integer, non-negative
     - m : integer, non-negative
-    - v : element of polynomial ring, representing 1/z
+    - invz : element of polynomial ring, representing 1/z
     - logz : element of polynomial ring, representing log(z)
     """
-    R = v.parent()
-    CB = R.base_ring()
-    Enz_coeff = (2*abs(bernoulli(2*n+2)) * (m + 2*n + 2)**(m + 2*n + 2)
-            / (2*n + 1)**(2*n + 1) / (m + 1)**(m + 1)
-            * gamma(m+2) / (2*n + 1) / (2*n + 2))
+    CB = invz.parent().base_ring()
+    err = rising_factorial(2*n + 1, m - 1)*bernoulli(2*n)
     if m == 0:
-        return R(logz - v / 2
-                - sum(bernoulli(2*k)*v**(2*k)/(2*k) for k in range(1,n+1))
-                + CB(0).add_error(Enz_coeff)*v**(2*n+2))
+        ser = (logz - invz / 2
+               - sum(bernoulli(2*k)*invz**(2*k)/(2*k) for k in range(1, n)))
     else:
-        return R((-1)**(m+1) * (gamma(m) * v**m + gamma(m+1) * v**(m+1) / 2
-            + sum(bernoulli(2*k)*v**(2*k+m)*rising_factorial(2*k+1, m-1)
-                  for k in range(1,n+1)))
-            + CB(0).add_error(Enz_coeff)*v**(2*n+m+2))
+        ser = (-1)**(m+1) * (
+            gamma(m) * invz**m
+            + gamma(m+1) * invz**(m+1) / 2
+            + sum(bernoulli(2*k)*invz**(2*k+m)*rising_factorial(2*k+1, m-1)
+                  for k in range(1, n)))
+    return ser + CB(0).add_error(err)*invz**(2*n+m)
 
 def truncated_logder(alpha, l, order, v, logz, min_n=None):
     """
@@ -374,7 +372,7 @@ def truncated_logder(alpha, l, order, v, logz, min_n=None):
         Enz_coeff = (abs(bernoulli(2*n+2)) * (m + 2*n + 2)**(m + 2*n + 2)
                 / (2*n + 1)**(2*n + 1) / (m + 1)**(m + 1)
                 * gamma(m+2) / (2*n + 1) / (2*n + 2))
-        list_f.append(truncated_psi(n, m, v, logz) - CB(alpha).psi(m))
+        list_f.append(truncated_psi(n + 1, m, v, logz) - CB(alpha).psi(m))
         if not min_n is None:
             list_f[-1] = truncate_tail(list_f[-1], order+1, min_n + alpha, v)
     p = der_expf(l)
