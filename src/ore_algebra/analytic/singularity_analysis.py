@@ -114,60 +114,45 @@ from .path import Point
 
 logger = logging.getLogger(__name__)
 
-def truncate_tail(f, deg, min_n, invn, kappa = None, logn = None):
+def trim_univariate(pol, order, varbound):
+    r"""
+    Replace each x^{order+j} with B(0, varbound)^j*x^order.
+    """
+    err = pol.base_ring().zero()
+    for j, c in enumerate(pol[:order]):
+        err = err.add_error(c*varbound**j)
+    coeff = pol.padded_list(order)
+    coeff.append(err)
+    return pol.parent()(coeff)
+
+def trim_expr(f, order, n0):
     """
     Truncate and bound an expression f(1/n) to a given degree
 
-    If kappa is None, 1/n^(deg+t) (t > 0) will be truncated to
-        1/n^deg * CB(0).add_error(1/min_n^t)
-    If kappa is not None, then 1/n^(deg+t) will be truncated to
-        logn^kappa/n^deg * CB(0).add_error(**)
-
-    INPUT:
-
-    - f : polynomial in invn = 1/n to be truncated
-    - deg : desired degree (in invn) of polynomial after truncation
-    - min_n : positive number where n >= min_n is guaranteed
-    - invn : element of polynomial ring, representing 1/n
-    - kappa : integer, desired degree (in logn) of polynomial after truncation
-    - logn : element of polynomial ring, representing log(n)
-
-    OUTPUT:
-
-    - g : a polynomial in CB[invn] such that f is in its range when n >= min_n
+    1/n^(order+t) (t > 0) is replaced by 1/n^order * CB(0).add_error(1/n0^t)
     """
-    R = f.parent()
-    CB = R.base_ring()
-    g = R(0)
-    if kappa is None:
-        for c, mon in f:
-            deg_w = mon.degree(invn)
-            if deg_w > deg:
-                tuple_mon_g = tuple(map(lambda x, y: x - y, mon.exponents()[0],
-                                        (invn**(deg_w - deg)).exponents()[0]))
-                mon_g = prod(R.gens()[j]**(tuple_mon_g[j])
-                             for j in range(len(tuple_mon_g)))
-                c_g = ((c if c.mid() == 0 else CB(0).add_error(c.above_abs()))
-                        / CB(min_n**(deg_w - deg)))
-                g = g + c_g * mon_g
-            else:
-                g = g + c*mon
-    else:
-        for c, mon in f:
-            deg_w = mon.degree(invn)
-            deg_logn = mon.degree(logn)
-            if deg_w >= deg:
-                tuple_mon_g = tuple(map(lambda x, y, z: x - y + z, mon.exponents()[0],
-                                        (invn**(deg_w - deg)).exponents()[0],
-                                        (logn**(kappa - deg_logn)).exponents()[0]))
-                mon_g = prod(R.gens()[j]**(tuple_mon_g[j])
-                             for j in range(len(tuple_mon_g)))
-                c_g = ((c if c.mid() == 0 else CB(0).add_error(c.above_abs()))
-                        / CB(min_n**(deg_w - deg))) * CB(min_n).log().pow(deg_logn - kappa)
-                g = g + c_g * mon_g
-            else:
-                g = g + c*mon
+    Expr = f.parent()
+    invn = Expr.gen(0)
+    CB = Expr.base_ring()
+    g = Expr.zero()
+    # TODO: simplify...
+    for c, mon in f:
+        deg = mon.degree(invn)
+        if deg > order:
+            tuple_mon_g = tuple(map(lambda x, y: x - y, mon.exponents()[0],
+                                    (invn**(deg - order)).exponents()[0]))
+            mon_g = prod(Expr.gens()[j]**(tuple_mon_g[j])
+                         for j in range(len(tuple_mon_g)))
+            c_g = ((c if c.mid() == 0 else CB(0).add_error(c.above_abs()))
+                   / CB(n0**(deg - order)))
+            g = g + c_g * mon_g
+        else:
+            g = g + c*mon
     return g
+
+def trim_expr_series(f, order, n0):
+    trimmed = f.parent()([trim_expr(c, order, n0) for c in f])
+    return trimmed.add_bigoh(f.parent().default_prec())
 
 def truncate_tail_SR(val, f, deg, min_n, invn, kappa, logn, n):
     """
@@ -277,107 +262,46 @@ def _classify_sing(deq, known_analytic, rad):
 # (variant with error bounds of Sage's SingularityAnalysis)
 #################################################################################
 
-def Lie_der(f, tup_x_k):
+def truncated_psi(n, m, invz):
     """
-    find f'
+    Compute psi^(m)(z) (or, for m = 0, psi(z) - log(z)) truncated at z^(-m-2n-1)
+    with error bound of order z^(-m-2n)
 
     INPUT:
 
-    - f : polynomial in variables x_0, x_1, ..., x_(n-1)
-    - tup_x_k : tuple of variables x_0, x_1, ..., x_n
+    - n: integer, non-negative
+    - m: integer, non-negative
+    - invz: element of polynomial ring, representing 1/z
 
-    OUTPUT:
+    TESTS::
 
-    - f_prime : f', where (x_i)' = x_(i+1)
+        sage: from ore_algebra.analytic.singularity_analysis import truncated_psi
+        sage: Pol.<invz> = CBF[]
+        sage: truncated_psi(3, 0, invz)
+        ([+/- ...] + [+/- ...]*I)*invz^6
+        + ([0.008333...])*invz^4 + ([-0.08333...])*invz^2 - 0.5000...*invz
+        sage: truncated_psi(3, 1, invz)
+        ([+/- ...] + [+/- ...]*I)*invz^7
+        + ([-0.0333...])*invz^5 + ([0.1666...])*invz^3 + 0.5000...*invz^2 + invz
+        sage: truncated_psi(3, 2, invz)
+        ([+/- ...] + [+/- ...]*I)*invz^8
+        + ([0.1666...])*invz^6 + ([-0.5000...])*invz^4 - invz^3 - invz^2
+        sage: truncated_psi(2, 2, invz)
+        ([+/- 0.16...] + [+/- ...]*I)*invz^6
+        + ([-0.5000...])*invz^4 - invz^3 - invz^2
     """
-    n = len(tup_x_k) - 1
-    f_prime = sum([derivative(f, tup_x_k[k]) * tup_x_k[k+1] for k in range(n)])
-    return f_prime
-
-def _der_expf_R(k, R):
-    """
-    Auxiliary function used in recursion for der_expf
-
-    Find an expression for [(d/dx)^k exp(f(x))]/exp(f(x)) given in a polynomial
-    ring R
-    """
-    tup_f_k = R.gens()
-    if k == 0:
-        return R(1)
-    else:
-        der_k_minus_one = _der_expf_R(k-1, R)
-        der_k = tup_f_k[0] * der_k_minus_one + Lie_der(der_k_minus_one, tup_f_k)
-        return der_k
-
-def der_expf(k):
-    """
-    Find an expression for [(d/dx)^k exp(f(x))]/exp(f(x))
-    """
-    R = PolynomialRing(ZZ, 'f', k)
-    der_k = _der_expf_R(k, R)
-    return der_k
-
-def truncated_psi(n, m, invz, logz):
-    """
-    Compute psi^(m)(z) truncated at z^(-m-2n-1) with error bound of order
-    z^(-m-2n)
-
-    INPUT:
-
-    - n : integer, non-negative
-    - m : integer, non-negative
-    - invz : element of polynomial ring, representing 1/z
-    - logz : element of polynomial ring, representing log(z)
-    """
+    assert n >= 1
     CB = invz.parent().base_ring()
-    err = rising_factorial(2*n + 1, m - 1)*bernoulli(2*n)
-    if m == 0:
-        ser = (logz - invz / 2
-               - sum(bernoulli(2*k)*invz**(2*k)/(2*k) for k in range(1, n)))
-    else:
-        ser = (-1)**(m+1) * (
-            gamma(m) * invz**m
-            + gamma(m+1) * invz**(m+1) / 2
-            + sum(bernoulli(2*k)*invz**(2*k+m)*rising_factorial(2*k+1, m-1)
-                  for k in range(1, n)))
-    return ser + CB(0).add_error(err)*invz**(2*n+m)
-
-def truncated_logder(alpha, l, order, v, logz, min_n=None):
-    """
-    Find a truncated expression with error bound for
-    [(d/dα)^l (Γ(n+α)/Γ(α))] / (Γ(n+α)/Γ(α))
-
-    INPUT:
-
-    - alpha : complex number α, !!cannot be negative integer or zero!!
-    - l : integer, non-negative
-    - order : order of truncation
-    - v : element of polynomial ring, representing 1/(n+α)
-    - logz : element of polynomial ring, representing log(n+α)
-    - min_n : positive number where n >= min_n is guaranteed, min_n > -alpha
-      needed
-
-    OUTPUT:
-
-    a polynomial in CB[v] such that [(d/dα)^l (Γ(n+α)/Γ(α))] / (Γ(n+α)/Γ(α)) is
-    in its range when n >= max(s*|alpha|, min_n)
-    """
-    list_f = []
-    R = v.parent()
-    CB = R.base_ring()
-    for m in range(l):
-        n = max(0, ceil((order - m - 1)/2))
-        Enz_coeff = (abs(bernoulli(2*n+2)) * (m + 2*n + 2)**(m + 2*n + 2)
-                / (2*n + 1)**(2*n + 1) / (m + 1)**(m + 1)
-                * gamma(m+2) / (2*n + 1) / (2*n + 2))
-        list_f.append(truncated_psi(n + 1, m, v, logz) - CB(alpha).psi(m))
-        if not min_n is None:
-            list_f[-1] = truncate_tail(list_f[-1], order+1, min_n + alpha, v)
-    p = der_expf(l)
-    if not min_n is None:
-        return R(1) if l == 0 else truncate_tail(p(list_f), order+1, min_n + alpha, v)
-    else:
-        return p(list_f)
+    err = abs(rising_factorial(2*n + 1, m - 1)*bernoulli(2*n))
+    sign = (-1)**(m+1)
+    ser = sign * (
+        + gamma(m+1) * invz**(m+1) / 2
+        + sum(bernoulli(2*k)*invz**(2*k+m)*rising_factorial(2*k+1, m-1)
+              for k in range(1, n)))
+    if m != 0:
+        ser += sign * gamma(m) * invz**m
+    res = ser + CB(0).add_error(err)*invz**(2*n+m)
+    return res
 
 def _generalized_bernoulli(Ring, sigma, count):
     t = polygen(Ring, 't')
@@ -385,7 +309,7 @@ def _generalized_bernoulli(Ring, sigma, count):
     ser = -2*sigma*ser._log_series(count)     # -2σ·log((e^t - 1)/t)
     ser = (ser >> 2) << 2                     # -2σ·log((e^t - 1)/t) + σt
     ser = ser._exp_series(count)              # ((e^t - 1)/t)^(-2σ) * e^(σt)
-    bern = [c*ZZ(n).factorial() for n, c in enumerate(ser)]
+    bern = [ser[n]*ZZ(n).factorial() for n in range(count)]
     return bern
 
 def truncated_gamma_ratio(alpha, order, u, s):
@@ -470,70 +394,95 @@ def truncated_power(alpha, order, invn, s):
     ser = ser._exp_series(order)
     return ser(invn) + CB(0).add_error(err) * invn**(order)
 
-def bound_coeff_mono(Expr, alpha, log_order, order, s, n0):
+def bound_coeff_mono(Expr, alpha, log_order, order, n0, s):
     """
-    Compute a bound for [z^n] (1-z)^(-α) * log(1/(1-z))^log_order,
-    of the form n^(α-1) * P(1/n, log(n))
+    Bound [z^n] (1-z)^(-α) * log(1/(1-z))^k by an expression
+    of the form n^(α-1) * P(1/n, log(n)) for all k < log_order
 
     INPUT:
 
+    - Expr: output ring, of the form C[invn, logn]
     - alpha: complex number, representing α
     - log_order: non-negative integer
-    - order: degree of P wrt. the variable 1/n
-    - s: positive number where n >= s*|alpha| is guaranteed, s > 2
-    - n0: positive number where n >= n0 is guaranteed, n0 > -alpha needed
+    - order: expansion order wrt n
+    - n0: integer > -alpha, lower bound of validity range
+    - s: real number > 2 s.t. n >= s*|alpha| for all n >= n0
 
     OUTPUT:
 
-    - P: polynomial in invn, logn
+    - a list of length log_order of polynomials in invn, logn,
+      corresponding to k = 0, ..., log_order - 1
     """
-    CB = Expr.base_ring()
-    exact_alpha = QQbar(alpha)
-    alpha = CB(alpha)
-    v, logz, invn, logn = Expr.gens()
-    order = max(0, order)
-    if not (exact_alpha.is_integer() and exact_alpha <= 0):
-        # Value of 1/Γ(α)
-        c = 1/gamma(alpha)
-        # Bound for (n+α/2)^(1-α) * Γ(n+α)/Γ(n+1)
-        u = polygen(CB, 'u') # u stands for 1/(n+α/2)
-        f = truncated_gamma_ratio(alpha, order, u, s)
-        truncated_u = truncated_inverse(alpha/2, order, invn, s)
-        f_z = truncate_tail(f.subs({u: truncated_u}), order, n0, invn)
-        # Bound for [(d/dα)^log_order (Γ(n+α)/Γ(α)Γ(n+1))] / (Γ(n+α)/Γ(α)Γ(n+1))
-        # v stands for 1/(n+α)
-        g = truncated_logder(alpha, log_order, order, v, logz, n0)
-        truncated_v = truncated_inverse(alpha, order, invn, s)
-        truncated_logz = logn + truncated_log(alpha, order, invn, s)
-        g_z = truncate_tail(
-            g.subs({v: truncated_v, logz: truncated_logz}),
-            order, n0, invn)
-        # Bound for (1 + α/2n)^(α-1) = (n+α/2)^(α-1) * n^(1-α)
-        h_z = truncated_power(alpha, order, invn, s)
-        product_all = c * f_z * g_z * h_z
-        return truncate_tail(product_all, order, n0, invn)
+    # All entries can probably be deduced from the last one using Frobenius'
+    # method, but I don't think it helps much computationally(?)
+
+    if not (alpha.is_integer() and alpha <= 0):
+        reflect = False
     elif log_order == 0:
         # Terminating expansion of the form (1-z)^N, N = -α ∈ ℕ
-        # The only nontrivial case n0 <= α should not happen with our n0,
+        # The nontrivial case n0 <= α does not happen with our choice of n0,
         # but might be worth supporting in the future.
         assert not n0 <= -alpha
-        return Expr(0)
+        return Expr.zero()
     else:
-        # |alpha| decreases, so n >= s*|alpha| still holds
-        poly_rec_1 = bound_coeff_mono(Expr, alpha + 1, log_order, order, s, n0 - 1)
-        poly_rec_2 = bound_coeff_mono(Expr, alpha + 1, log_order - 1, order, s, n0 - 1)
-        #u = 1/(n-1)
-        bound_error_u = CB(1 / (1 - 1/(n0 - 1)))
-        truncated_u = (sum(CB(1) * invn**j for j in range(1, order+1))
-                + CB(0).add_error(bound_error_u) * invn**(order+1))
-        bound_error_logz = CB(abs(log(2) * 2**(order+1)) / (1 - 2/(n0 - 1)))
-        truncated_logz = (logn
-                - sum(CB(1) * invn**j / j
-                      for j in range(1, order+1))
-                + CB(0).add_error(bound_error_logz) * invn**(order+1))
-        ss = (CB(alpha) * poly_rec_1.subs({invn : truncated_u, logz : truncated_logz})
-            + CB(log_order) * poly_rec_2.subs({invn : truncated_u, logz : truncated_logz}))
-        return truncate_tail(ss, order, n0, invn)
+        reflect = True
+
+    CB = Expr.base_ring()
+    alpha = CB(alpha)
+    invn, logn = Expr.gens()
+    order = max(0, order)
+
+    # Bound for (n+α/2)^(1-α) * Γ(n+α)/Γ(n+1)
+    u = polygen(CB, 'u') # u stands for 1/(n+α/2)
+    f = truncated_gamma_ratio(alpha, order, u, s)
+    truncated_u = truncated_inverse(alpha/2, order, invn, s)
+    f = trim_expr(f(truncated_u), order, n0)
+
+    # Bound for (1 + α/2n)^(α-1) = (n+α/2)^(α-1) * n^(1-α)
+    g = truncated_power(alpha, order, invn, s)
+
+    # Bound for 1/Γ(n+α) (d/dα)^k [Γ(n+α)/Γ(α)]
+    # Use PowerSeriesRing because polynomials do not implement all the
+    # "truncated" operations we need
+    Pol_invz, invz = PolynomialRing(CB, 'invz').objgen() # z = n + α
+    Series_z, eps = PowerSeriesRing(Pol_invz, 'eps', log_order).objgen()
+    order_psi = max(1, ceil(order/2))
+    if not reflect:
+        pols = [(truncated_psi(order_psi, m, invz) - alpha.psi(m))
+                / (m + 1).factorial() for m in srange(log_order)]
+        p = Series_z([0] + pols)
+        hh1 = (1/alpha.gamma())*p.exp()
+    else:
+        pols = [(truncated_psi(order_psi, m, invz)
+                 + (-1)**(m+1)*(1-alpha).psi(m)) / (m + 1).factorial()
+                for m in srange(log_order - 1)]
+        p = Series_z([0] + pols)
+        _pi = CB(pi)
+        sine = ((_pi*alpha).sin()*(_pi*eps).cos()
+                + (_pi*alpha).cos()*(_pi*eps).sin())
+        hh1 = ((1-alpha).gamma()/_pi)*(p.exp()*sine)
+    invz_bound = ~(n0 - abs(alpha))
+    hh1 = hh1.parent()([trim_univariate(c, order, invz_bound)
+                        for k, c in enumerate(hh1)])
+
+    Series, eps = PowerSeriesRing(Expr, 'eps', log_order).objgen()
+    truncated_invz = truncated_inverse(alpha, order, invn, s)
+    h1 = hh1.map_coefficients(Hom(Pol_invz, Expr)(truncated_invz)) # ∈ Expr[[z]]
+    assert h1.parent() is Series
+    h1 = trim_expr_series(h1, order, n0)
+
+    truncated_logz = logn + truncated_log(alpha, order, invn, s)
+    h2 = (truncated_logz*eps).exp()
+    h2 = trim_expr_series(h2, order, n0)
+
+    h = h1*h2
+    h = trim_expr_series(h, order, n0)
+
+    full_prod = f * g * h
+    full_prod = trim_expr_series(full_prod, order, n0)
+    res = [ZZ(k).factorial()*c
+           for k, c in enumerate(full_prod.padded_list(log_order))]
+    return res
 
 #################################################################################
 # Contribution of a single regular singularity
@@ -697,7 +646,7 @@ def _bound_tail(dop, leftmost, smallrad, order, series):
 
 def _bound_local_integral_of_tail(rho, val_rho, order, Expr, s, min_n, vb, kappa):
 
-    _, _, invn, logn = Expr.gens()
+    invn, logn = Expr.gens()
 
     CB = CBF # These are error terms, no need for high prec. Still, TBI.
     RB = RBF
@@ -729,26 +678,29 @@ def _bound_local_integral_of_tail(rho, val_rho, order, Expr, s, min_n, vb, kappa
 
     return (bound_S + bound_L) * invn**order
 
-def _bound_local_integral_explicit_terms(rho, val_rho, order, Expr, s, min_n, ser):
+def _bound_local_integral_explicit_terms(rho, val_rho, order, Expr, s, n0, ser):
 
-    _, _, invn, logn = Expr.gens()
+    invn, logn = Expr.gens()
     CB = Expr.base_ring()
 
     # Rewrite the local expansion in terms of new variables Z = z - ρ,
     # L = log(1/(1-z/rho))
 
-    Z, L = PolynomialRing(CB, ['Z', 'L']).gens()
+    PolL, L = PolynomialRing(CB, 'L').objgen()
+    PolL, Z = PolynomialRing(PolL, 'Z').objgen()
     mylog = CB.coerce(-rho).log() - L # = log(z - ρ) for Im(z) ≥ 0
     locf_ini_terms = sum(c/ZZ(k).factorial() * mylog**k * Z**shift
                          for shift, vec in enumerate(ser)
                          for k, c in enumerate(vec))
 
-    bound_lead_terms = sum(
-            c * CB(- rho).pow(CB(val_rho+degZ))
-              * invn**(degZ)
-              * bound_coeff_mono(Expr, -val_rho-degZ, degL, order - degZ,
-                                  s, min_n)
-            for ((degZ, degL), c) in locf_ini_terms.iterator_exp_coeff())
+    bound_lead_terms = Expr.zero()
+    for degZ, slice in enumerate(locf_ini_terms):
+        coeff_bounds = bound_coeff_mono(Expr, -val_rho-degZ, slice.degree() + 1,
+                                        order - degZ, n0, s)
+        bound_lead_terms += (CB(-rho).pow(CB(val_rho+degZ))
+                             * invn**(degZ)
+                             * sum(c * coeff_bounds[degL]
+                                   for degL, c in enumerate(slice)))
 
     return bound_lead_terms, locf_ini_terms
 
@@ -1061,8 +1013,7 @@ def bound_coefficients(deq, seqini, name='n', order=3, prec=53, n0=0, *,
 
     # Contribution of each singular point
 
-    # XXX split in v, logz and invn, logn?
-    Expr = PolynomialRing(CB, ['v', 'logz', 'invn', 'logn'], order='lex')
+    Expr = PolynomialRing(CB, ['invn', 'logn'], order='lex')
 
     sing_data = [contribution_single_singularity(deq, ini, rho, rad, Expr,
                                                  order, n0)
@@ -1086,7 +1037,7 @@ def bound_coefficients(deq, seqini, name='n', order=3, prec=53, n0=0, *,
         sum((_z-_rho).pow(CB(edata.val))
                 # some of the _z may lead to arguments of log that cross the
                 # branch cut, but that's okay
-                * edata.initial_terms(_z-_rho, (~(1-_z/_rho)).log())
+                * edata.initial_terms(Z=_z-_rho, L=(~(1-_z/_rho)).log())
             for sdata in sing_data for _rho in (CB(sdata.rho),)
             for edata in sdata.expo_group_data)
         for j, _z in enumerate(covering)]
@@ -1095,7 +1046,7 @@ def bound_coefficients(deq, seqini, name='n', order=3, prec=53, n0=0, *,
 
     # Assemble the bounds
 
-    _, _, invn, logn = Expr.gens()
+    invn, logn = Expr.gens()
     n = SR.var(name)
     bound = [
         [sdata.rho,
