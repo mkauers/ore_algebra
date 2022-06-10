@@ -1076,7 +1076,7 @@ def bound_coefficients(deq, seqini, name='n', order=3, prec=53, n0=0, *,
             bound[i][1] = bound[i][1].collect(n)
             break
     else:
-        bound.append[mag_dom, error_term_big_circle]
+        bound.append([mag_dom, error_term_big_circle])
 
     if output == 'list':
         return n0, bound
