@@ -676,7 +676,7 @@ def _bound_local_integral_of_tail(rho, val_rho, order, Expr, s, min_n, vb, kappa
         * ((abs(CB(rho).arg()) + 2*RB(pi))*abs(val_rho.imag())).exp())
     bound_L = cst_L*B(CB(pi)+logn)
 
-    return (bound_S + bound_L) * invn**order
+    return Expr(bound_S + bound_L) * invn**order
 
 def _bound_local_integral_explicit_terms(rho, val_rho, order, Expr, s, n0, ser):
 
