@@ -99,6 +99,12 @@ Incorrect output::
     Traceback (most recent call last):
     ...
     ValueError: not enough initial values
+
+    sage: from ore_algebra.analytic.singularity_analysis import *
+    sage: bound_coefficients(Dz-1, [1])
+    Traceback (most recent call last):
+    ...
+    NotImplementedError: no nonzero finite singularities
 """
 
 import collections
@@ -211,6 +217,9 @@ def _classify_sing(deq, known_analytic, rad):
     singularities = [s for s in singularities if not s in known_analytic]
     singularities.sort(key=lambda s: abs(s))
     logger.debug(f"potential singularities: {singularities}")
+
+    if not singularities:
+        raise NotImplementedError("no nonzero finite singularities")
 
     # Dominant singularities
 
