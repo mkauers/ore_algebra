@@ -378,7 +378,7 @@ def _pivot(mat, r, n, c, m, zero):
 def _leading_coefficient(p):
     try:
         return p.leading_coefficient() ## good for univariate polynomials
-    except:
+    except AttributeError:
         return p.lc() ## good for multivariate polynomials
 
 def _normalize(sol):
