@@ -120,7 +120,7 @@ def trim_univariate(pol, order, varbound):
     """
     err = pol.base_ring().zero()
     for j, c in enumerate(pol[:order]):
-        err = err.add_error(c*varbound**j)
+        err = err.add_error(abs(c)*varbound**j)
     coeff = pol.padded_list(order)
     coeff.append(err)
     return pol.parent()(coeff)
@@ -143,7 +143,7 @@ def trim_expr(f, order, n0):
                                     (invn**(deg - order)).exponents()[0]))
             mon_g = prod(Expr.gens()[j]**(tuple_mon_g[j])
                          for j in range(len(tuple_mon_g)))
-            c_g = ((c if c.mid() == 0 else CB(0).add_error(c.above_abs()))
+            c_g = ((c if c.mid() == 0 else CB(0).add_error(abs(c)))
                    / CB(n0**(deg - order)))
             g = g + c_g * mon_g
         else:
@@ -181,7 +181,7 @@ def truncate_tail_SR(val, f, deg, min_n, invn, kappa, logn, n):
         deg_w = mon.degree(invn)
         deg_logn = mon.degree(logn)
         if val.real() - deg_w <= deg:
-            c_g = ((c if c.mid() == 0 else CB(0).add_error(c.above_abs()))
+            c_g = ((c if c.mid() == 0 else CB(0).add_error(abs(c)))
                     / CB(min_n).pow(deg + deg_w - val.real())) * CB(min_n).log().pow(deg_logn - kappa)
             g = g + c_g * n**deg * log(n)**kappa
         else:
@@ -340,11 +340,12 @@ def truncated_gamma_ratio(alpha, order, u, s):
                            for j, b in enumerate(gen_bern)])
     half = RBF.one()/2
     _alpha = CBF(alpha)
-    Rnw_bound = ((1 - _alpha.real()).rising_factorial(2*n_gam)
+    Rnw_bound = (abs((1 - _alpha.real()).rising_factorial(2*n_gam))
                  / factorial(2*n_gam)
                  * abs(gen_bern_abs[2*n_gam])
                  * (abs(_alpha.imag())*(half/s).arcsin()).exp()
                  * ((s+half)/(s-half))**(max(0, -alpha.real()+1+2*n_gam)))
+    assert not Rnw_bound < 0
     ratio_gamma = ratio_gamma_asy + CB(0).add_error(Rnw_bound) * u**(2*n_gam)
     return ratio_gamma
 
@@ -389,6 +390,7 @@ def truncated_power(alpha, order, invn, s):
     err = (abs(_alpha)**(order) / (1 - 1/s)
            * (abs(alpha.imag())/2).exp()
            * max((3*h)**a, h**a))
+    assert not err < 0
     t = polygen(CB, 't')
     ser = (alpha - 1) * (1 + alpha/2 * t)._log_series(order)
     ser = ser._exp_series(order)
