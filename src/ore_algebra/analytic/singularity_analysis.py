@@ -855,7 +855,8 @@ class FormalProduct:
     def expand(self):
         return self._exponential_factor*self._series_factor
 
-def to_asymptotic_expansion(Coeff, name, term_data, n0, big_oh_rad=None):
+def to_asymptotic_expansion(Coeff, name, term_data, n0, beta, kappa,
+                            big_oh_rad=None):
 
     from sage.categories.cartesian_product import cartesian_product
     from sage.rings.asymptotic.asymptotic_ring import AsymptoticRing
@@ -872,7 +873,7 @@ def to_asymptotic_expansion(Coeff, name, term_data, n0, big_oh_rad=None):
     from sage.rings.asymptotic.term_monoid import DefaultTermMonoidFactory
     from sage.symbolic.operators import add_vararg
 
-    n_as_sym = SR.var(name)
+    n = SR.var(name)
 
     # XXX detect cases where we can use 1 or ±1 or U as Arg
     Exp, Arg = ExponentialGrowthGroup.factory(QQbar, name, return_factors=True)
@@ -882,7 +883,6 @@ def to_asymptotic_expansion(Coeff, name, term_data, n0, big_oh_rad=None):
     Pow = MonomialGrowthGroup(QQbar, name)
     Log = MonomialGrowthGroup(ZZ, f"log({name})")
     Growth = cartesian_product([Arg, Exp, Pow, Log])
-    # (n,) = Growth.gens_monomial()
     Asy = AsymptoticRing(Growth, coefficient_ring=Coeff)
     ET = Asy.term_monoid('exact')
     BT = Asy.term_monoid('B').change_parameter(
@@ -903,20 +903,23 @@ def to_asymptotic_expansion(Coeff, name, term_data, n0, big_oh_rad=None):
     else:
         rho0 = mag0
 
+    error_term_growth = ET(n**beta*log(n)**kappa)
+
     terms = []
     for rho, symterms in term_data:
         dir = rho0/rho
         assert abs(dir).is_one() # need an additional growth factor otherwise
         arg_factor = make_arg_factor(dir)
         for symterm in symterms:
-            term = arg_factor*ET(symterm.subs(n=n_as_sym))
-            if term.coefficient.contains_zero():
+            term = arg_factor*ET(symterm.subs(n=n))
+            if term.growth == error_term_growth:
+                assert term.coefficient.contains_zero()
                 term = BT(term.growth, coefficient=term.coefficient.above_abs(),
                         valid_from={name: n0})
             terms.append(term)
 
     if big_oh_rad is not None:
-        terms.append(OT((rho0/big_oh_rad)**n_as_sym))
+        terms.append(OT((rho0/big_oh_rad)**n))
 
     return FormalProduct(Asy(exp_factor), Asy(terms))
 
@@ -1109,7 +1112,8 @@ def bound_coefficients(deq, seqini, name='n', order=3, prec=53, n0=0, *,
         return n0, bound
     else:
         try:
-            asy = to_asymptotic_expansion(CB, name, bound, n0, big_oh_rad)
+            asy = to_asymptotic_expansion(CB, name, bound, n0,
+                                          beta, final_kappa, big_oh_rad)
         except (ImportError, ValueError):
             raise RuntimeError(f"conversion of bound {bound} to an asymptotic "
                                "expansion failed, try with output='list' or a "
