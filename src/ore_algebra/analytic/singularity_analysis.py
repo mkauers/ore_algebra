@@ -379,7 +379,7 @@ def truncated_power(alpha, order, invn, s):
     ser = ser._exp_series(order)
     return ser(invn) + CB(0).add_error(err) * invn**(order)
 
-def bound_coeff_mono(Expr, alpha, log_order, order, n0, s):
+def bound_coeff_mono(Expr, exact_alpha, log_order, order, n0, s):
     """
     Bound [z^n] (1-z)^(-α) * log(1/(1-z))^k by an expression
     of the form n^(α-1) * P(1/n, log(n)) for all k < log_order
@@ -401,19 +401,18 @@ def bound_coeff_mono(Expr, alpha, log_order, order, n0, s):
     # All entries can probably be deduced from the last one using Frobenius'
     # method, but I don't think it helps much computationally(?)
 
-    if not (alpha.is_integer() and alpha <= 0):
-        reflect = False
-    elif log_order == 0:
-        # Terminating expansion of the form (1-z)^N, N = -α ∈ ℕ
-        # The nontrivial case n0 <= α does not happen with our choice of n0,
-        # but might be worth supporting in the future.
-        assert not n0 <= -alpha
-        return Expr.zero()
-    else:
+    if exact_alpha.is_integer() and exact_alpha <= 0:
         reflect = True
+        exact_alpha = ZZ(exact_alpha)
+        # Our choice of n0 implies that the coefficients corresponding to k = 0
+        # will be zero. In particular, we handle (1-z)^-α purely by returning a
+        # validity range that starts after the last nonzero term.
+        assert n0 >= -exact_alpha
+    else:
+        reflect = False
 
     CB = Expr.base_ring()
-    alpha = CB(alpha)
+    alpha = CB(exact_alpha)
     invn, logn = Expr.gens()
     order = max(0, order)
 
@@ -443,8 +442,7 @@ def bound_coeff_mono(Expr, alpha, log_order, order, n0, s):
                 for m in srange(log_order - 1)]
         p = Series_z([0] + pols)
         _pi = CB(pi)
-        sine = ((_pi*alpha).sin()*(_pi*eps).cos()
-                + (_pi*alpha).cos()*(_pi*eps).sin())
+        sine = (-1 if exact_alpha%2 else 1)*(_pi*eps).sin()
         hh1 = ((1-alpha).gamma()/_pi)*(p.exp()*sine)
     invz_bound = ~(n0 - abs(alpha))
     hh1 = hh1.parent()([trim_univariate(c, order, invz_bound)
