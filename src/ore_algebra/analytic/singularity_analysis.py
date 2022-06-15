@@ -154,43 +154,6 @@ def trim_expr_series(f, order, n0):
     trimmed = f.parent()([trim_expr(c, order, n0) for c in f])
     return trimmed.add_bigoh(f.parent().default_prec())
 
-def truncate_tail_SR(val, f, deg, min_n, invn, kappa, logn, n):
-    """
-    Truncate and bound an expression n^val*f(1/n) to a given degree
-    1/n^(deg+t), t>=0 will be truncated to
-        logn^kappa/n^deg * CB(0).add_error(**)
-
-    INPUT:
-
-    - f : polynomial in invn = 1/n to be truncated
-    - deg : desired degree (in n) of expression after truncation
-    - min_n : positive number where n >= min_n is guaranteed
-    - invn : element of polynomial ring, representing 1/n
-    - kappa : integer, desired degree (in logn) of polynomial after truncation
-    - logn : element of polynomial ring, representing log(n)
-    - n : symbolic ring variable
-
-    OUTPUT:
-
-    - g : an Symbolic Ring expression in variable n, such that f is in its range when n >= min_n
-    """
-    R = f.parent()
-    CB = R.base_ring()
-    g = []
-    error_term = SR.zero()
-    for deg_invn in range(f.degree(invn) + 1):
-        for c, mon in list(f.coefficient({invn: deg_invn})):
-            deg_logn = mon.degree(logn)
-            if val.real() - deg_invn > deg:
-                g.append(c * n**(val - deg_invn) * log(n)**deg_logn)
-            else:
-                c_g = (((c if c.mid() == 0 else CB(0).add_error(abs(c)))
-                        / CB(min_n).pow(deg + deg_invn - val.real()))
-                       * CB(min_n).log().pow(deg_logn - kappa))
-                error_term += c_g * n**deg * log(n)**kappa
-    g.append(error_term)
-    return g
-
 ################################################################################
 # Path choice
 #################################################################################
@@ -972,7 +935,6 @@ def _coeff_zero(seqini, deq):
             list_coeff.append(0)
     return vector(list_coeff)
 
-
 def _bound_validity_range(min_n, dominant_sing, order):
 
     # Make sure the disks B(ρ, |ρ|/n) contain no other singular point
@@ -996,6 +958,42 @@ def _bound_validity_range(min_n, dominant_sing, order):
     logger.debug(f"{n1=}, {n2=}, {min_n=}")
     return min_n
 
+def truncate_tail_SR(val, f, deg, min_n, invn, kappa, logn, n):
+    """
+    Truncate and bound an expression n^val*f(1/n) to a given degree
+    1/n^(deg+t), t>=0 will be truncated to
+        logn^kappa/n^deg * CB(0).add_error(**)
+
+    INPUT:
+
+    - f : polynomial in invn = 1/n to be truncated
+    - deg : desired degree (in n) of expression after truncation
+    - min_n : positive number where n >= min_n is guaranteed
+    - invn : element of polynomial ring, representing 1/n
+    - kappa : integer, desired degree (in logn) of polynomial after truncation
+    - logn : element of polynomial ring, representing log(n)
+    - n : symbolic ring variable
+
+    OUTPUT:
+
+    - g : an Symbolic Ring expression in variable n, such that f is in its range when n >= min_n
+    """
+    R = f.parent()
+    CB = R.base_ring()
+    g = []
+    error_term = SR.zero()
+    for deg_invn in range(f.degree(invn) + 1):
+        for c, mon in list(f.coefficient({invn: deg_invn})):
+            deg_logn = mon.degree(logn)
+            if val.real() - deg_invn > deg:
+                g.append(c * n**(val - deg_invn) * log(n)**deg_logn)
+            else:
+                c_g = (((c if c.mid() == 0 else CB(0).add_error(abs(c)))
+                        / CB(min_n).pow(deg + deg_invn - val.real()))
+                       * CB(min_n).log().pow(deg_logn - kappa))
+                error_term += c_g * n**deg * log(n)**kappa
+    g.append(error_term)
+    return g
 
 def bound_coefficients(deq, seqini, name='n', order=3, prec=53, n0=0, *,
                        known_analytic=[0], rad=None, halfside=None,
