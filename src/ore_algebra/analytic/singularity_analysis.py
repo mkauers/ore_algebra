@@ -176,16 +176,19 @@ def truncate_tail_SR(val, f, deg, min_n, invn, kappa, logn, n):
     """
     R = f.parent()
     CB = R.base_ring()
-    g = SR(0)
-    for c, mon in f:
-        deg_w = mon.degree(invn)
-        deg_logn = mon.degree(logn)
-        if val.real() - deg_w <= deg:
-            c_g = ((c if c.mid() == 0 else CB(0).add_error(abs(c)))
-                    / CB(min_n).pow(deg + deg_w - val.real())) * CB(min_n).log().pow(deg_logn - kappa)
-            g = g + c_g * n**deg * log(n)**kappa
-        else:
-            g = g + c * n**(val - deg_w) * log(n)**deg_logn
+    g = []
+    error_term = SR.zero()
+    for deg_invn in range(f.degree(invn) + 1):
+        for c, mon in list(f.coefficient({invn: deg_invn})):
+            deg_logn = mon.degree(logn)
+            if val.real() - deg_invn > deg:
+                g.append(c * n**(val - deg_invn) * log(n)**deg_logn)
+            else:
+                c_g = (((c if c.mid() == 0 else CB(0).add_error(abs(c)))
+                        / CB(min_n).pow(deg + deg_invn - val.real()))
+                       * CB(min_n).log().pow(deg_logn - kappa))
+                error_term += c_g * n**deg * log(n)**kappa
+    g.append(error_term)
     return g
 
 ################################################################################
@@ -814,6 +817,44 @@ def numerical_sol_big_circle(deq, ini, dominant_sing, rad, halfside):
     logger.info("Covered circle with %d squares, %s", num_sq, clock)
     return pairs
 
+def max_big_circle(deq, ini, dominant_sing, sing_data, rad, halfside):
+
+    logger.info("half-side of small squares: %s", halfside)
+
+    pairs = numerical_sol_big_circle(deq, ini, dominant_sing, rad, halfside)
+    covering, f_big_circle = zip(*pairs)
+
+    sum_g = [
+        sum((_z-_rho).pow(CBF(edata.val))
+                # some of the _z may lead to arguments of log that cross the
+                # branch cut, but that's okay
+                * edata.initial_terms(Z=_z-_rho, L=(~(1-_z/_rho)).log())
+            for sdata in sing_data for _rho in (CBF(sdata.rho),)
+            for edata in sdata.expo_group_data)
+        for j, _z in enumerate(covering)]
+    res = RBF.zero().max(*((s - vv).above_abs()
+                           for s, vv in zip(sum_g, f_big_circle)))
+    return res
+
+def absorb_exponentially_small_term(CB, cst, ratio, beta, final_kappa, n0, n):
+    if beta <= n0 * ratio.log():
+        _beta = RBF(beta)
+        cst1 = _beta.exp()*(_beta/ratio.log()).pow(_beta)
+    else:
+        cst1 = ratio**n0 * CBF(n0)**(-beta)
+    rad_err = cst*cst1 / CBF(n0).log()**final_kappa
+    return (CB(0).add_error(rad_err) * n**QQbar(beta) * log(n)**final_kappa)
+
+def add_error_term(bound, rho, term, n):
+    for i, (rho1, local_bound) in enumerate(bound):
+        if rho1 == rho:
+            # We know that the last term is an error term with the same
+            # power of n and log(n) as error_term_big_circle
+            local_bound[-1] = (local_bound[-1] + term).collect(n)
+        return
+    else:
+        bound.append([rho, term])
+
 ################################################################################
 # Conversion to an asymptotic expansion
 ################################################################################
@@ -836,7 +877,7 @@ class FormalProduct:
     def expand(self):
         return self._exponential_factor*self._series_factor
 
-def to_asymptotic_expansion(Coeff, name, term_data, n0):
+def to_asymptotic_expansion(Coeff, name, term_data, n0, big_oh_rad=None):
 
     from sage.categories.cartesian_product import cartesian_product
     from sage.rings.asymptotic.asymptotic_ring import AsymptoticRing
@@ -868,6 +909,7 @@ def to_asymptotic_expansion(Coeff, name, term_data, n0):
     ET = Asy.term_monoid('exact')
     BT = Asy.term_monoid('B').change_parameter(
             coefficient_ring=Coeff._real_field())
+    OT = Asy.term_monoid('O')
 
     def make_arg_factor(dir):
         if dir.imag().is_zero() and dir.real() >= 0:
@@ -884,20 +926,19 @@ def to_asymptotic_expansion(Coeff, name, term_data, n0):
         rho0 = mag0
 
     terms = []
-    for rho, expr in term_data:
+    for rho, symterms in term_data:
         dir = rho0/rho
         assert abs(dir).is_one() # need an additional growth factor otherwise
         arg_factor = make_arg_factor(dir)
-        if expr.operator() == add_vararg:
-            symterms = expr.operands()
-        else:
-            symterms = [expr]
         for symterm in symterms:
             term = arg_factor*ET(symterm.subs(n=n_as_sym))
             if term.coefficient.contains_zero():
                 term = BT(term.growth, coefficient=term.coefficient.above_abs(),
                         valid_from={name: n0})
             terms.append(term)
+
+    if big_oh_rad is not None:
+        terms.append(OT((rho0/big_oh_rad)**n_as_sym))
 
     return FormalProduct(Asy(exp_factor), Asy(terms))
 
@@ -958,7 +999,8 @@ def _bound_validity_range(min_n, dominant_sing, order):
 
 def bound_coefficients(deq, seqini, name='n', order=3, prec=53, n0=0, *,
                        known_analytic=[0], rad=None, halfside=None,
-                       output='asymptotic_expansion'):
+                       output='asymptotic_expansion',
+                       ignore_exponentially_small_term=False):
     """
     Compute a bound for the n-th element of a holonomic sequence
 
@@ -1022,69 +1064,38 @@ def bound_coefficients(deq, seqini, name='n', order=3, prec=53, n0=0, *,
                  for rho in dominant_sing]
     sing_data = [sdata for sdata in sing_data if sdata is not None]
 
+    # All error terms will be reduced to the form cst*n^β*log(n)^final_kappa
     final_kappa = max(edata.kappa for sdata in sing_data
                                   for edata in sdata.expo_group_data)
     beta = - min(sdata.min_val_rho for sdata in sing_data) - 1 - order
 
-    # Exponentially small error term
-
-    if halfside is None:
-        halfside = min(abs(abs(ex) - rad) for ex in all_exn_pts)/10
-    logger.info("half-side of small squares: %s", halfside)
-
-    pairs = numerical_sol_big_circle(deq, ini, dominant_sing, rad, halfside)
-    covering, f_big_circle = zip(*pairs)
-
-    sum_g = [
-        sum((_z-_rho).pow(CB(edata.val))
-                # some of the _z may lead to arguments of log that cross the
-                # branch cut, but that's okay
-                * edata.initial_terms(Z=_z-_rho, L=(~(1-_z/_rho)).log())
-            for sdata in sing_data for _rho in (CB(sdata.rho),)
-            for edata in sdata.expo_group_data)
-        for j, _z in enumerate(covering)]
-    max_big_circle = RBF.zero().max(*((s - vv).above_abs()
-                                     for s, vv in zip(sum_g, f_big_circle)))
-
-    # Assemble the bounds
-
     invn, logn = Expr.gens()
     n = SR.var(name)
-    bound = [
-        [sdata.rho,
-         sum(truncate_tail_SR(-edata.val-1, edata.bound, beta, n0,
-                              invn, final_kappa, logn, n)
-             for edata in sdata.expo_group_data)]
-        for sdata in sing_data
-    ]
+    bound = [(sdata.rho,
+              [term for edata in sdata.expo_group_data
+               for term in truncate_tail_SR(-edata.val-1, edata.bound, beta,
+                                            n0, invn, final_kappa, logn, n)])
+             for sdata in sing_data]
 
-    # Absorb exponentially small term in previous error term
+    # Exponentially small error term
 
-    M = RBF(abs(dominant_sing[0]))
-    if beta <= n0 * (M/rad).log():
-        _beta = RBF(beta)
-        cst = _beta.exp()*(_beta/(M/rad).log()).pow(_beta)
+    if ignore_exponentially_small_term:
+        big_oh_rad = QQ(rad.below_abs())
     else:
-        cst = (M/CB(rad))**n0 * CB(n0)**(-beta)
-    rad_err = cst*max_big_circle / CB(n0).log()**final_kappa
-    error_term_big_circle = (CB(0).add_error(rad_err) *
-                             SR(n**QQbar(beta)) *
-                             SR(log(n))**final_kappa)
-    mag_dom = abs(dominant_sing[0])
-
-    for i, (rho, local_bound) in enumerate(bound):
-        if rho == mag_dom:
-            bound[i][1] += error_term_big_circle
-            bound[i][1] = bound[i][1].collect(n)
-            break
-    else:
-        bound.append([mag_dom, error_term_big_circle])
+        big_oh_rad = None
+        if halfside is None:
+            halfside = min(abs(abs(ex) - rad) for ex in all_exn_pts)/10
+        cst = max_big_circle(deq, ini, dominant_sing, sing_data, rad, halfside)
+        mag_dom = abs(dominant_sing[0])
+        error_term_big_circle = absorb_exponentially_small_term(CB, cst,
+            mag_dom/rad, beta, final_kappa, n0, n)
+        add_error_term(bound, mag_dom, error_term_big_circle, n)
 
     if output == 'list':
         return n0, bound
     else:
         try:
-            asy = to_asymptotic_expansion(CB, name, bound, n0)
+            asy = to_asymptotic_expansion(CB, name, bound, n0, big_oh_rad)
         except (ImportError, ValueError):
             raise RuntimeError(f"conversion of bound {bound} to an asymptotic "
                                "expansion failed, try with output='list' or a "
