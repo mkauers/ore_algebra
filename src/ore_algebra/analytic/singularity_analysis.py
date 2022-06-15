@@ -958,40 +958,39 @@ def _bound_validity_range(min_n, dominant_sing, order):
     logger.debug(f"{n1=}, {n2=}, {min_n=}")
     return min_n
 
-def truncate_tail_SR(val, f, deg, min_n, invn, kappa, logn, n):
+def truncate_tail_SR(val, f, beta, kappa, n0, n):
     """
-    Truncate and bound an expression n^val*f(1/n) to a given degree
-    1/n^(deg+t), t>=0 will be truncated to
-        logn^kappa/n^deg * CB(0).add_error(**)
+    Truncate an expression n^val*f(1/n) to a given order
+
+    1/n^(beta+t), t>=0 is replaced by cst*logn^kappa/n^beta
 
     INPUT:
 
-    - f : polynomial in invn = 1/n to be truncated
-    - deg : desired degree (in n) of expression after truncation
-    - min_n : positive number where n >= min_n is guaranteed
-    - invn : element of polynomial ring, representing 1/n
-    - kappa : integer, desired degree (in logn) of polynomial after truncation
-    - logn : element of polynomial ring, representing log(n)
-    - n : symbolic ring variable
+    - val: algebraic number
+    - f: polynomial in invn (representing 1/n) and logn (representing log(n))
+    - beta, kappa: parameters of the new error term
+    - n0: integer, result valid for n >= n0
+    - n : symbolic variable
 
     OUTPUT:
 
-    - g : an Symbolic Ring expression in variable n, such that f is in its range when n >= min_n
+    a list of symbolic expressions whose sum forms the new bound
     """
-    R = f.parent()
-    CB = R.base_ring()
+    Expr = f.parent()
+    CB = Expr.base_ring()
+    invn, logn = Expr.gens()
     g = []
     error_term = SR.zero()
     for deg_invn in range(f.degree(invn) + 1):
         for c, mon in list(f.coefficient({invn: deg_invn})):
             deg_logn = mon.degree(logn)
-            if val.real() - deg_invn > deg:
+            if val.real() - deg_invn > beta:
                 g.append(c * n**(val - deg_invn) * log(n)**deg_logn)
             else:
                 c_g = (((c if c.mid() == 0 else CB(0).add_error(abs(c)))
-                        / CB(min_n).pow(deg + deg_invn - val.real()))
-                       * CB(min_n).log().pow(deg_logn - kappa))
-                error_term += c_g * n**deg * log(n)**kappa
+                        / CB(n0).pow(beta + deg_invn - val.real()))
+                       * CB(n0).log().pow(deg_logn - kappa))
+                error_term += c_g * n**beta * log(n)**kappa
     g.append(error_term)
     return g
 
@@ -1072,7 +1071,7 @@ def bound_coefficients(deq, seqini, name='n', order=3, prec=53, n0=0, *,
     bound = [(sdata.rho,
               [term for edata in sdata.expo_group_data
                for term in truncate_tail_SR(-edata.val-1, edata.bound, beta,
-                                            n0, invn, final_kappa, logn, n)])
+                                            final_kappa, n0, n)])
              for sdata in sing_data]
 
     # Exponentially small error term
