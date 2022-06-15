@@ -91,6 +91,14 @@ Complex exponents example::
     True
 
 
+TESTS:
+
+Incorrect output::
+
+    sage: bound_coefficients(((z-1)*Dz+1)^2, [0])
+    Traceback (most recent call last):
+    ...
+    ValueError: not enough initial values
 """
 
 import collections
@@ -930,6 +938,8 @@ def _coeff_zero(seqini, deq):
     for basis in list_basis:
         mon = next(m for c, m in basis if not c == 0)
         if mon.k == 0 and mon.n >= 0:
+            if mon.n >= len(seqini):
+                raise ValueError(f"not enough initial values")
             list_coeff.append(seqini[mon.n])
         else:
             list_coeff.append(0)
