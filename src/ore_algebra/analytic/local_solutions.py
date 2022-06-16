@@ -554,7 +554,8 @@ class LocalBasisMapper(object):
             sl_data.append((sl_factor, shifts, irred_data))
 
         assert sum(mult for _, mult in self.all_roots) == ind.degree()
-        assert all(ind(rt).contains_zero() for rt, _ in self.all_roots)
+        assert all(ind.change_ring(self.ctx.IC)(rt).contains_zero()
+                   for rt, _ in self.all_roots)
 
         self.cols = []
         self.nontrivial_factor_index = 0

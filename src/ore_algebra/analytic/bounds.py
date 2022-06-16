@@ -2068,7 +2068,7 @@ class DiffOpBound(object):
         nres = [[None]*deg for _ in range(logs)]
         # Since our indicial polynomial is monic,
         # b₀(n) = bwrec_nplus[0][0][0] = lc(dop)(0)·ind(n) = cst·ind(n)
-        cst = self.dop.leading_coefficient()[0]
+        cst = Ring.coerce(self.dop.leading_coefficient()[0])
         #assert deg == 0 or self.IC(cst*self.ind(n) - bwrec_nplus[0][0][0]).contains_zero()
 
         # For each d, compute the coefficients of z^(λ+n+d)·log(z)^k/k! in the
