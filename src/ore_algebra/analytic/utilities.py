@@ -29,6 +29,7 @@ from sage.rings.number_field.number_field_element import NumberFieldElement
 from sage.rings.number_field.number_field_element_quadratic import NumberFieldElement_quadratic
 from sage.rings.polynomial.complex_roots import complex_roots
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
+from sage.rings.polynomial.real_roots import real_roots
 from sage.rings.qqbar import (qq_generator, AlgebraicGenerator, AlgebraicNumber,
                               ANExtensionElement, ANRoot)
 from sage.rings.rational import Rational
@@ -234,6 +235,8 @@ class PolynomialRoot:
     def __init__(self, pol, all_roots, index):
         assert pol.is_monic()
         self.pol = pol # may have coefficients in a number field
+        # all_roots is shared between the roots and may get modified
+        assert isinstance(all_roots, list)
         self.all_roots = all_roots
         self.index = index
 
@@ -328,6 +331,28 @@ class PolynomialRoot:
     def is_zero(self):
         return self.pol == self.pol.parent().gen()
 
+    def detect_real_roots(self):
+        r"""
+        Try to make the imaginary parts of real roots exactly zero
+        """
+        if not is_real_parent(self.pol.base_ring()):
+            return
+        for rt in self.all_roots:
+            im = rt.imag()
+            if im.contains_zero() and not im.is_zero():
+                break
+        else:
+            return
+        myCIF = self.all_roots[0].parent()
+        rrts = real_roots(self.pol, retval='interval', skip_squarefree=True,
+                          max_diameter=2.**-myCIF.prec())
+        for rrt, _ in rrts:
+            rrt = myCIF(rrt)
+            compat = [i for i, rt in enumerate(self.all_roots)
+                        if rt.overlaps(rrt)]
+            if len(compat) == 1:
+                self.all_roots[compat[0]] = rrt
+
     def sign_imag(self):
         r"""
         TESTS::
@@ -347,6 +372,9 @@ class PolynomialRoot:
             return +1
         elif im.upper() < 0:
             return -1
+        self.detect_real_roots()
+        if self.all_roots[self.index].imag().is_zero():
+            return 0
         try:
             return int(self.as_algebraic().imag().sign())
         except ValueError:
@@ -373,7 +401,7 @@ class PolynomialRoot:
         roots, _ = zip(*complex_roots(pol, skip_squarefree=True))
         indices = [i for i, iv in enumerate(roots) if value in iv]
         assert len(indices) == 1
-        return cls(pol, roots, indices[0])
+        return cls(pol, list(roots), indices[0])
 
 def roots_of_irred(pol):
     if pol.degree() == 1:
@@ -382,6 +410,7 @@ def roots_of_irred(pol):
     roots, _ = zip(*complex_roots(pol, skip_squarefree=True))
     assert not any(a.overlaps(b) for a in roots for b in roots
                                  if a is not b)
+    roots = list(roots)
     return [PolynomialRoot(pol, roots, i) for i in range(len(roots))]
 
 ######################################################################
