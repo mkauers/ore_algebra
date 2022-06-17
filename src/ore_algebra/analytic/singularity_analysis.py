@@ -682,6 +682,8 @@ def _bound_local_integral_explicit_terms(rho, val_rho, order, Expr, s, n0, ser):
 
     bound_lead_terms = Expr.zero()
     for degZ, slice in enumerate(locf_ini_terms):
+        # XXX could be shared between singularities with common exponents...
+        # (=> tie to an object and add @cached_method decorator?)
         coeff_bounds = bound_coeff_mono(Expr, -val_rho-degZ, slice.degree() + 1,
                                         order - degZ, n0, s)
         new_term = (CB(-rho).pow(CB(val_rho+degZ)) * invn**(degZ)
