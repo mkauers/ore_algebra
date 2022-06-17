@@ -524,7 +524,7 @@ SingularityData = collections.namedtuple('SingularityData', [
 
 class SingularityAnalyzer(LocalBasisMapper):
 
-    def __init__(self, dop, inivec, *, rho, rad, Expr, abs_order, min_n,
+    def __init__(self, dop, inivec, *, rho, rad, Expr, abs_order, n0,
                  struct):
 
         super().__init__(dop)
@@ -534,7 +534,7 @@ class SingularityAnalyzer(LocalBasisMapper):
         self.rad = rad
         self.Expr = Expr
         self.abs_order = abs_order
-        self.min_n = min_n
+        self.n0 = n0
         self._local_basis_structure = struct
 
     def process_modZ_class(self):
@@ -557,7 +557,7 @@ class SingularityAnalyzer(LocalBasisMapper):
         # in the "explicit terms" below?
         vb = _bound_tail(self.edop, self.leftmost, smallrad, order, ser)
 
-        s = RBF(self.min_n) / (abs(self.leftmost) + abs(order))
+        s = RBF(self.n0) / (abs(self.leftmost) + abs(order))
         assert s > 2
 
         # (Bound on) Maximum power of log that may occur the sol defined by ini.
@@ -570,9 +570,9 @@ class SingularityAnalyzer(LocalBasisMapper):
         kappa += sum(mult for shift, mult in self.shifts if shift >= order1)
 
         bound_lead_terms, initial_terms = _bound_local_integral_explicit_terms(
-                self.rho, self.leftmost, order, self.Expr, s, self.min_n, ser[:order])
+                self.rho, self.leftmost, order, self.Expr, s, self.n0, ser[:order])
         bound_int_SnLn = _bound_local_integral_of_tail(self.rho,
-                self.leftmost, order, self.Expr, s, self.min_n, vb, kappa)
+                self.leftmost, order, self.Expr, s, self.n0, vb, kappa)
 
         logger.debug("sing=%s, valuation=%s", self.rho, self.leftmost)
         logger.debug("  leading terms = %s", bound_lead_terms)
@@ -627,7 +627,7 @@ def _bound_tail(dop, leftmost, smallrad, order, series):
     # Same as tb, but for the tail of order 'order'
     return tb + ib
 
-def _bound_local_integral_of_tail(rho, val_rho, order, Expr, s, min_n, vb, kappa):
+def _bound_local_integral_of_tail(rho, val_rho, order, Expr, s, n0, vb, kappa):
 
     invn, logn = Expr.gens()
 
@@ -646,7 +646,7 @@ def _bound_local_integral_of_tail(rho, val_rho, order, Expr, s, min_n, vb, kappa
     # Sub polynomial factor for bound on S(n)
     cst_S = CB(0).add_error(CB(abs(rho)).pow(val_rho.real()+order)
             * ((abs(CB(rho).arg()) + 2*RB(pi))*abs(val_rho.imag())).exp()
-            * CB(1 - 1/min_n).pow(CB(-min_n-1)))
+            * CB(1 - 1/n0).pow(CB(-n0-1)))
     bound_S = cst_S*B(CB(pi)+logn)
     # Sub polynomial factor for bound on L(n)
     if val_rho + order <= 0:
@@ -688,7 +688,7 @@ def _bound_local_integral_explicit_terms(rho, val_rho, order, Expr, s, n0, ser):
     return bound_lead_terms, locf_ini_terms
 
 def contribution_single_singularity(deq, ini, rho, rad, Expr,
-        rel_order, min_n):
+        rel_order, n0):
 
     eps = RBF.one() >>  Expr.base_ring().precision() + 13
     tmat = deq.numerical_transition_matrix([0, rho], eps, assume_analytic=True)
@@ -715,7 +715,7 @@ def contribution_single_singularity(deq, ini, rho, rad, Expr,
     # some auxiliary data). Again: each element of the output corresponds to a
     # whole ℤ-coset of exponents, already incorporating initial values.
     analyzer = SingularityAnalyzer(dop=ldop, inivec=coord_all, rho=rho,
-            rad=rad, Expr=Expr, abs_order=abs_order, min_n=min_n,
+            rad=rad, Expr=Expr, abs_order=abs_order, n0=n0,
             struct=crit)
     data = analyzer.run()
 
@@ -955,7 +955,7 @@ def _coeff_zero(seqini, deq):
             list_coeff.append(0)
     return vector(list_coeff)
 
-def _bound_validity_range(min_n, dominant_sing, order):
+def _bound_validity_range(n0, dominant_sing, order):
 
     # Make sure the disks B(ρ, |ρ|/n) contain no other singular point
 
@@ -966,17 +966,17 @@ def _bound_validity_range(min_n, dominant_sing, order):
     else:
         n1 = 0
 
-    # Make sure that min_n > 2*|α| for all exponents α we encounter
+    # Make sure that n0 > 2*|α| for all exponents α we encounter
 
     max_abs_val = max(abs(sol.leftmost) # TODO: avoid redundant computation...
                       for s0 in dominant_sing
                       for sol in s0.local_basis_structure())
     n2 = max_abs_val + order + 1
     # FIXME: slightly different from [DMM, (46)]
-    min_n = max(min_n, ceil(2.1*n2), n1)
+    n0 = max(n0, ceil(2.1*n2), n1)
 
-    logger.debug(f"{n1=}, {n2=}, {min_n=}")
-    return min_n
+    logger.debug(f"{n1=}, {n2=}, {n0=}")
+    return n0
 
 def truncate_tail_SR(val, f, beta, kappa, n0, n):
     """
