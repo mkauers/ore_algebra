@@ -133,7 +133,7 @@ def trim_univariate(pol, order, varbound):
     Replace each x^{order+j} with B(0, varbound)^j*x^order.
     """
     err = pol.base_ring().zero()
-    for j, c in enumerate(pol[:order]):
+    for j, c in enumerate(list(pol)[order:]):
         err = err.add_error(abs(c)*varbound**j)
     coeff = pol.padded_list(order)
     coeff.append(err)
