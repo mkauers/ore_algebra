@@ -141,9 +141,10 @@ def trim_univariate(pol, order, varbound):
 
 def trim_expr(f, order, n0):
     """
-    Truncate and bound an expression f(1/n) to a given degree
+    Truncate and bound an expression f(1/n, log(n)) to a given degree
 
-    1/n^(order+t) (t > 0) is replaced by 1/n^order * CB(0).add_error(1/n0^t)
+    Each 1/n^(order+t) (t > 0) is replaced by 1/n^order*CB(0).add_error(1/n0^t);
+    factors log(n)^k are left untouched.
     """
     Expr = f.parent()
     invn = Expr.gen(0)
@@ -401,29 +402,37 @@ def bound_coeff_mono(Expr, exact_alpha, log_order, order, n0, s):
     # All entries can probably be deduced from the last one using Frobenius'
     # method, but I don't think it helps much computationally(?)
 
-    if exact_alpha.is_integer() and exact_alpha <= 0:
-        reflect = True
+    reflect = False
+    if exact_alpha.is_integer():
         exact_alpha = ZZ(exact_alpha)
-        # Our choice of n0 implies that the coefficients corresponding to k = 0
-        # will be zero. In particular, we handle (1-z)^-α purely by returning a
-        # validity range that starts after the last nonzero term.
-        assert n0 >= -exact_alpha
-    else:
-        reflect = False
+        if exact_alpha <= 0:
+            reflect = True
+            # Our choice of n0 implies that the coefficients corresponding to k
+            # = 0 will be zero. In particular, we handle (1-z)^-α purely by
+            # returning a validity range that starts after the last nonzero
+            # term.
+            assert n0 >= -exact_alpha
 
     CB = Expr.base_ring()
     alpha = CB(exact_alpha)
     invn, logn = Expr.gens()
     order = max(0, order)
 
-    # Bound for (n+α/2)^(1-α) * Γ(n+α)/Γ(n+1)
-    u = polygen(CB, 'u') # u stands for 1/(n+α/2)
-    f = truncated_gamma_ratio(alpha, order, u, s)
-    truncated_u = truncated_inverse(alpha/2, order, invn, s)
-    f = trim_expr(f(truncated_u), order, n0)
-
-    # Bound for (1 + α/2n)^(α-1) = (n+α/2)^(α-1) * n^(1-α)
-    g = truncated_power(alpha, order, invn, s)
+    # fg = n^(1-α) Γ(n+α)/Γ(n+1)
+    if exact_alpha.parent() is ZZ and order >= exact_alpha >= 1:
+        fg = product(1 + k*invn for k in range(1, exact_alpha))
+        logger.debug("    fg = %s", fg)
+    else:
+        # (n+α/2)^(1-α) * Γ(n+α)/Γ(n+1)
+        u = polygen(CB, 'u') # u stands for 1/(n+α/2)
+        f = truncated_gamma_ratio(alpha, order, u, s)
+        truncated_u = truncated_inverse(alpha/2, order, invn, s)
+        f = trim_expr(f(truncated_u), order, n0)
+        logger.debug("    f = %s", f)
+        # (1 + α/2n)^(α-1) = (n+α/2)^(α-1) * n^(1-α)
+        g = truncated_power(alpha, order, invn, s)
+        logger.debug("    g = %s", g)
+        fg = trim_expr(f*g, order, n0)
 
     # Bound for 1/Γ(n+α) (d/dα)^k [Γ(n+α)/Γ(α)]
     # Use PowerSeriesRing because polynomials do not implement all the
@@ -462,13 +471,11 @@ def bound_coeff_mono(Expr, exact_alpha, log_order, order, n0, s):
     h = h1*h2*h3
     h = trim_expr_series(h, order, n0)
 
-    logger.debug("    f = %s", f)
-    logger.debug("    g = %s", g)
     logger.debug("    h1 = %s", h1)
     logger.debug("    h2 = %s", h2)
     logger.debug("    h3 = %s", h3)
 
-    full_prod = f * g * h
+    full_prod = fg * h
     full_prod = trim_expr_series(full_prod, order, n0)
     res = [ZZ(k).factorial()*c
            for k, c in enumerate(full_prod.padded_list(log_order))]
@@ -924,6 +931,8 @@ def to_asymptotic_expansion(Coeff, name, term_data, n0, beta, kappa,
         assert abs(dir).is_one() # need an additional growth factor otherwise
         arg_factor = make_arg_factor(dir)
         for symterm in symterms:
+            if symterm.is_trivial_zero():
+                continue
             term = arg_factor*ET(symterm.subs(n=n))
             if term.growth == error_term_growth:
                 assert term.coefficient.contains_zero()
