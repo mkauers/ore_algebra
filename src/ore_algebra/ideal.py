@@ -1017,7 +1017,7 @@ class MonomialIterator(object):
         """
         try:
             u, v = self.__pool.pop()
-        except:
+        except IndexError:
             raise StopIteration
         self.__prev = next = u*v
         for g in self.__gens:

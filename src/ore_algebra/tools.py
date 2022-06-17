@@ -189,7 +189,7 @@ def shift_factor(p, ram=ZZ.one(), q=1):
             d = u.degree()
             try:
                 return -q_log(qq, (u[d]/v[d])**ram)/d
-            except:
+            except ValueError:
                 return None
 
     for (q, b) in make_factor_iterator(p.parent())(p):

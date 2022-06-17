@@ -1183,7 +1183,7 @@ def _ff_factory(domain):
     characteristic = domain.characteristic() # that's the only information that matters here
     try:
         return _ff_cache[characteristic]
-    except:
+    except KeyError:
         characteristic = int(characteristic)
         c = dict()
         if characteristic == 0:
@@ -1191,7 +1191,7 @@ def _ff_factory(domain):
             def ff(u, v): ## computation in ZZ; first argument must be integer too!
                 try:
                     return c[u, v]
-                except:
+                except KeyError:
                     if v == 0:
                         return one
                     else:
@@ -1202,7 +1202,7 @@ def _ff_factory(domain):
             def ff(u, v): ## computations with Python integers
                 try:
                     return c[u, v]
-                except:
+                except KeyError:
                     if v == 0:
                         return 1
                     else:
@@ -1219,7 +1219,7 @@ _power_cache = dict()
 def _power_factory(domain):
     try:
         return _power_cache[domain]
-    except:
+    except KeyError:
         c = dict()
         domain = domain.fraction_field()
         if domain.characteristic() > 0:
@@ -1227,7 +1227,7 @@ def _power_factory(domain):
             def power(u, v): # using Python integers
                 try:
                     return c[u, v]
-                except:
+                except KeyError:
                     if v == 0:
                         return 1
                     elif v < 0:
@@ -1319,6 +1319,7 @@ def guess_mult(data, algebra, **kwargs):
     """
 
     infolevel = kwargs.setdefault('infolevel', 0)
+
     def info(bound, msg):
         if bound <= infolevel:
             print(msg)
@@ -1557,6 +1558,7 @@ def guess_mult_raw(C, data, terms, points, power, A, B, **kwargs):
     """
 
     infolevel = kwargs.setdefault('infolevel', 0)
+
     def info(bound, msg):
         if bound <= infolevel:
             print(msg)
