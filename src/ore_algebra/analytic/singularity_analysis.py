@@ -455,17 +455,18 @@ def bound_coeff_mono(Expr, exact_alpha, log_order, order, n0, s):
     h1 = trim_expr_series(h1, order, n0)
 
     # (n + α)^ε as a series in ε with coeffs in ℂ[logn][[invn]] (trunc+bounded)
-    truncated_logz = logn + truncated_log(alpha, order, invn, s)
-    h2 = (truncated_logz*eps).exp()
+    h2 = (truncated_log(alpha, order, invn, s)*eps).exp()
     h2 = trim_expr_series(h2, order, n0)
+    h3 = (logn*eps).exp()
 
-    h = h1*h2
+    h = h1*h2*h3
     h = trim_expr_series(h, order, n0)
 
     logger.debug("    f = %s", f)
     logger.debug("    g = %s", g)
     logger.debug("    h1 = %s", h1)
     logger.debug("    h2 = %s", h2)
+    logger.debug("    h3 = %s", h3)
 
     full_prod = f * g * h
     full_prod = trim_expr_series(full_prod, order, n0)
