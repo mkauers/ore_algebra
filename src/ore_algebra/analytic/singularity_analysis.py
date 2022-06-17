@@ -513,7 +513,6 @@ def _my_log_series(dop, bwrec, inivec, leftmost, mults, struct, order):
 
 ExponentGroupData = collections.namedtuple('ExponentGroupData', [
     'val',  # exponent group (lefmost element mod ℤ)
-    'kappa',  # max power of log
     'bound',  # coefficient bound (explicit part + local error term)
     'initial_terms'  # explicit part of the local solution
 ])
@@ -584,13 +583,13 @@ class SingularityAnalyzer(LocalBasisMapper):
 
         data = ExponentGroupData(
             val = self.leftmost,
-            kappa = kappa,
             bound = bound_lead_terms + bound_int_SnLn,
             initial_terms = initial_terms)
 
-        # XXX abusing FundamentalSolution somewhat; not sure if log_power=kappa
-        # is really appropriate; consider creating another type of record
-        # compatible with FundamentalSolution if this stays
+        # XXX Abusing FundamentalSolution somewhat; consider creating another
+        # type of record compatible with FundamentalSolution if this stays.
+        # The log_power field is not meaningful, but we need _some_ integer
+        # value to please code that will try to sort the solutions.
         sol = FundamentalSolution(leftmost=self.leftmost, shift=ZZ.zero(),
                                   log_power=kappa, value=data)
         self.irred_factor_cols.append(sol)
@@ -1080,6 +1079,7 @@ def bound_coefficients(deq, seqini, name='n', order=3, prec=53, n0=0, *,
     # Contribution of each singular point
 
     Expr = PolynomialRing(CB, ['invn', 'logn'], order='lex')
+    invn, logn = Expr.gens()
 
     sing_data = [contribution_single_singularity(deq, ini, rho, rad, Expr,
                                                  order, n0)
@@ -1087,11 +1087,11 @@ def bound_coefficients(deq, seqini, name='n', order=3, prec=53, n0=0, *,
     sing_data = [sdata for sdata in sing_data if sdata is not None]
 
     # All error terms will be reduced to the form cst*n^β*log(n)^final_kappa
-    final_kappa = max(edata.kappa for sdata in sing_data
-                                  for edata in sdata.expo_group_data)
+    final_kappa = max(edata.bound.degree(logn)
+                      for sdata in sing_data
+                      for edata in sdata.expo_group_data)
     beta = - min(sdata.min_val_rho for sdata in sing_data) - 1 - order
 
-    invn, logn = Expr.gens()
     n = SR.var(name)
     bound = [(sdata.rho,
               [term for edata in sdata.expo_group_data
