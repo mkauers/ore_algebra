@@ -187,7 +187,7 @@ def _choose_big_radius(all_exn_pts, dominant_sing, next_sing_rad):
     dom_rad = abs(dominant_sing[-1])
     rad = min(next_sing_rad*RBF(0.9) + dom_rad/10,
               dom_rad + max_smallrad*RBF(0.8))
-    logger.info("Radius of large circle: R₀ = %s", rad)
+    logger.info("radius of outer circle = %s", rad)
     return rad
 
 def _check_big_radius(rad, dominant_sing):
@@ -236,7 +236,7 @@ def _classify_sing(deq, known_analytic, rad):
         dominant_sing, _ = _sing_in_disk(singularities, rad,
                 abs(singularities[-1])*2 + rad*2)
         _check_big_radius(rad, dominant_sing)
-    logger.debug("dominant singularities: %s", dominant_sing)
+    logger.info("dominant singularities: %s", dominant_sing)
 
     return all_exn_pts, dominant_sing, rad
 
@@ -465,6 +465,9 @@ def bound_coeff_mono(Expr, exact_alpha, log_order, order, n0, s):
     full_prod = trim_expr_series(full_prod, order, n0)
     res = [ZZ(k).factorial()*c
            for k, c in enumerate(full_prod.padded_list(log_order))]
+    for k, pol in enumerate(res):
+        logger.debug("  (1-z)^%s*log(1/(1-z))^%s --> %s",
+                     -exact_alpha, k, pol)
     return res
 
 #################################################################################
@@ -539,6 +542,8 @@ class SingularityAnalyzer(LocalBasisMapper):
 
     def process_modZ_class(self):
 
+        logger.info("sing=%s, valuation=%s", self.rho, self.leftmost)
+
         order = (self.abs_order - self.leftmost.real()).ceil()
         # XXX don't hardocode this; ensure order1 ≥ bwrec.order
         order1 = order + 49
@@ -574,9 +579,8 @@ class SingularityAnalyzer(LocalBasisMapper):
         bound_int_SnLn = _bound_local_integral_of_tail(self.rho,
                 self.leftmost, order, self.Expr, s, self.n0, vb, kappa)
 
-        logger.debug("sing=%s, valuation=%s", self.rho, self.leftmost)
-        logger.debug("  leading terms = %s", bound_lead_terms)
-        logger.debug("  tail bound = %s", bound_int_SnLn)
+        logger.info("  explicit part = %s", bound_lead_terms)
+        logger.info("  local error term = %s", bound_int_SnLn)
 
         data = ExponentGroupData(
             val = self.leftmost,
@@ -680,10 +684,10 @@ def _bound_local_integral_explicit_terms(rho, val_rho, order, Expr, s, n0, ser):
     for degZ, slice in enumerate(locf_ini_terms):
         coeff_bounds = bound_coeff_mono(Expr, -val_rho-degZ, slice.degree() + 1,
                                         order - degZ, n0, s)
-        bound_lead_terms += (CB(-rho).pow(CB(val_rho+degZ))
-                             * invn**(degZ)
-                             * sum(c * coeff_bounds[degL]
-                                   for degL, c in enumerate(slice)))
+        new_term = (CB(-rho).pow(CB(val_rho+degZ)) * invn**(degZ)
+                    * sum(c*coeff_bounds[degL] for degL, c in enumerate(slice)))
+        bound_lead_terms += new_term
+        logger.debug("  Z^%s*(%s) --> %s", degZ, slice, new_term)
 
     return bound_lead_terms, locf_ini_terms
 
@@ -750,7 +754,7 @@ def numerical_sol_big_circle(deq, ini, dominant_sing, rad, halfside):
     containing the image of the square by the analytic continuation of `f` to a
     multi-slit disk.
     """
-    logger.info("Bounding on large circle...")
+    logger.info("starting to compute values on outer circle...")
     clock = utilities.Clock()
     clock.tic()
 
@@ -792,12 +796,11 @@ def numerical_sol_big_circle(deq, ini, dominant_sing, rad, halfside):
             pairs += deq.numerical_solution(ini_hub, path, eps)
 
     clock.toc()
-    logger.info("Covered circle with %d squares, %s", num_sq, clock)
+    logger.info("...done, %d squares of half-side %s, %s",
+                num_sq, halfside, clock)
     return pairs
 
 def max_big_circle(deq, ini, dominant_sing, sing_data, rad, halfside):
-
-    logger.info("half-side of small squares: %s", halfside)
 
     pairs = numerical_sol_big_circle(deq, ini, dominant_sing, rad, halfside)
     covering, f_big_circle = zip(*pairs)
@@ -1106,6 +1109,8 @@ def bound_coefficients(deq, seqini, name='n', order=3, prec=53, n0=0, *,
         mag_dom = abs(dominant_sing[0])
         error_term_big_circle = absorb_exponentially_small_term(CB, cst,
             mag_dom/rad, beta, final_kappa, n0, n)
+        logger.info("global error term = %s*%s^(-%s) ∈ %s*%s^(-%s)", cst, rad,
+                    name, error_term_big_circle, mag_dom, name)
         add_error_term(bound, mag_dom, error_term_big_circle, n)
 
     if output == 'list':
