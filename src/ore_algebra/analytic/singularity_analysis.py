@@ -454,6 +454,7 @@ def bound_coeff_mono(Expr, exact_alpha, log_order, order, n0, s):
     assert h1.parent() is Series
     h1 = trim_expr_series(h1, order, n0)
 
+    # (n + α)^ε as a series in ε with coeffs in ℂ[logn][[invn]] (trunc+bounded)
     truncated_logz = logn + truncated_log(alpha, order, invn, s)
     h2 = (truncated_logz*eps).exp()
     h2 = trim_expr_series(h2, order, n0)
@@ -461,13 +462,18 @@ def bound_coeff_mono(Expr, exact_alpha, log_order, order, n0, s):
     h = h1*h2
     h = trim_expr_series(h, order, n0)
 
+    logger.debug("    f = %s", f)
+    logger.debug("    g = %s", g)
+    logger.debug("    h1 = %s", h1)
+    logger.debug("    h2 = %s", h2)
+
     full_prod = f * g * h
     full_prod = trim_expr_series(full_prod, order, n0)
     res = [ZZ(k).factorial()*c
            for k, c in enumerate(full_prod.padded_list(log_order))]
     for k, pol in enumerate(res):
-        logger.debug("  (1-z)^%s*log(1/(1-z))^%s --> %s",
-                     -exact_alpha, k, pol)
+        logger.debug("    1/(1-z)^%s*log(1/(1-z))^%s --> %s",
+                     exact_alpha, k, pol)
     return res
 
 #################################################################################
@@ -572,6 +578,7 @@ class SingularityAnalyzer(LocalBasisMapper):
         kappa = max(k for shift, mult in self.shifts if shift < order1
                       for k, c in enumerate(ser[shift]) if not c.is_zero())
         kappa += sum(mult for shift, mult in self.shifts if shift >= order1)
+        # XXX ici aussi il faut traiter le cas particulier des entiers
 
         bound_lead_terms, initial_terms = _bound_local_integral_explicit_terms(
                 self.rho, self.leftmost, order, self.Expr, s, self.n0, ser[:order])
@@ -681,6 +688,7 @@ def _bound_local_integral_explicit_terms(rho, val_rho, order, Expr, s, n0, ser):
 
     bound_lead_terms = Expr.zero()
     for degZ, slice in enumerate(locf_ini_terms):
+        logger.debug("  Z^(%s - %s)*(...)...", -val_rho, degZ)
         # XXX could be shared between singularities with common exponents...
         # (=> tie to an object and add @cached_method decorator?)
         coeff_bounds = bound_coeff_mono(Expr, -val_rho-degZ, slice.degree() + 1,
@@ -688,7 +696,7 @@ def _bound_local_integral_explicit_terms(rho, val_rho, order, Expr, s, n0, ser):
         new_term = (CB(-rho).pow(CB(val_rho+degZ)) * invn**(degZ)
                     * sum(c*coeff_bounds[degL] for degL, c in enumerate(slice)))
         bound_lead_terms += new_term
-        logger.debug("  Z^%s*(%s) --> %s", degZ, slice, new_term)
+        logger.debug("  Z^%s*(%s) --> %s", -val_rho-degZ, slice, new_term)
 
     return bound_lead_terms, locf_ini_terms
 
