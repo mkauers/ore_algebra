@@ -1105,10 +1105,19 @@ def bound_coefficients(deq, seqini, name='n', order=3, prec=53, n0=0, *,
     sing_data = [sdata for sdata in sing_data if sdata is not None]
 
     # All error terms will be reduced to the form cst*n^β*log(n)^final_kappa
-    final_kappa = max(edata.bound.degree(logn)
-                      for sdata in sing_data
-                      for edata in sdata.expo_group_data)
-    beta = - min(sdata.min_val_rho for sdata in sing_data) - 1 - order
+    ref_val = min(edata.val.real() for sdata in sing_data
+                                   for edata in sdata.expo_group_data)
+    beta = - ref_val - 1 - order
+    final_kappa = 0
+    for sdata in sing_data:
+        for edata in sdata.expo_group_data:
+            shift = edata.val.real() - ref_val
+            if shift not in ZZ:
+                continue
+            assert edata.bound.degree(invn) <= order - shift
+            final_kappa = max(
+                final_kappa,
+                edata.bound.coefficient({invn: order - shift}).degree(logn))
 
     n = SR.var(name)
     bound = [(sdata.rho,
