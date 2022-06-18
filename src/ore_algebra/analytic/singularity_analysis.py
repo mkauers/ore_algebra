@@ -534,7 +534,6 @@ ExponentGroupData = collections.namedtuple('ExponentGroupData', [
 SingularityData = collections.namedtuple('SingularityData', [
     'rho',  # the singularity
     'expo_group_data',  # as above, for each exponent group
-    'min_val_rho',  # Re(valuation) of singular part (ignoring analytic terms)
 ])
 
 
@@ -717,11 +716,11 @@ def contribution_single_singularity(deq, ini, rho, rad, Expr,
 
     ldop = deq.shift(Point(rho, deq))
 
+    ### XXX move to SingularityAnalyzer?
+
     # Redundant work; TBI
     # (Cases where we really need this to detect non-analyticity are rare...)
     crit = critical_monomials(ldop)
-
-    # XXX could move to SingularityAnalyzer if we no longer return min_val_rho
     nonanalytic = [sol for sol in crit if not (
         sol.leftmost.is_integer()
         and sol.leftmost + sol.shift >= 0
@@ -730,6 +729,8 @@ def contribution_single_singularity(deq, ini, rho, rad, Expr,
         return None
     min_val_rho = (nonanalytic[0].leftmost + nonanalytic[0].shift).real()
     abs_order = rel_order + min_val_rho
+
+    ###
 
     # Split the local expansion of f according to the local exponents mod ℤ. For
     # each group (ℤ-coset) of exponents, compute coefficient asymptotics (and
@@ -743,7 +744,6 @@ def contribution_single_singularity(deq, ini, rho, rad, Expr,
     data1 = SingularityData(
         rho = rho,
         expo_group_data = [sol.value for sol in data],
-        min_val_rho = min_val_rho
     )
 
     return data1
