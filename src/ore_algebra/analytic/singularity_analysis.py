@@ -577,15 +577,14 @@ class SingularityAnalyzer(LocalBasisMapper):
         s = RBF(self.n0) / (abs(self.leftmost) + abs(order))
         assert s > 2
 
-        # (Bound on) Maximum power of log that may occur the sol defined by ini.
-        # (We could use the complete family of critical monomials for a tighter
-        # bound when order1 < max shift, since for now we currently are
-        # computing it anyway...)
+        # Bound degree in log(z) of the local expansion of the solution defined
+        # by ini
         assert self.shifts[0][0] == 0 and order1 > 0
         kappa = max(k for shift, mult in self.shifts if shift < order1
                       for k, c in enumerate(ser[shift]) if not c.is_zero())
+        # We could use the complete family of critical monomials for a tighter
+        # bound... but in the future we may want to avoid computing it
         kappa += sum(mult for shift, mult in self.shifts if shift >= order1)
-        # XXX ici aussi il faut traiter le cas particulier des entiers
 
         bound_lead_terms, initial_terms = _bound_local_integral_explicit_terms(
                 self.rho, self.leftmost, order, self.Expr, s, self.n0, ser[:order])
@@ -646,6 +645,9 @@ def _bound_tail(dop, leftmost, smallrad, order, series):
 
 def _bound_local_integral_of_tail(rho, val_rho, order, Expr, s, n0, vb, kappa):
 
+    # XXX not great for integer val_rho (results in an error term of degree in
+    # logn too large by one unit when val_rho + order >= 0)
+
     invn, logn = Expr.gens()
 
     CB = CBF # These are error terms, no need for high prec. Still, TBI.
@@ -680,7 +682,7 @@ def _bound_local_integral_of_tail(rho, val_rho, order, Expr, s, n0, vb, kappa):
 
 def _bound_local_integral_explicit_terms(rho, val_rho, order, Expr, s, n0, ser):
 
-    invn, logn = Expr.gens()
+    invn, _ = Expr.gens()
     CB = Expr.base_ring()
 
     # Rewrite the local expansion in terms of new variables Z = z - ρ,
