@@ -839,7 +839,7 @@ def max_big_circle(deq, ini, dominant_sing, sing_data, rad, halfside):
 def absorb_exponentially_small_term(CB, cst, ratio, beta, final_kappa, n0, n):
     if beta <= n0 * ratio.log():
         _beta = RBF(beta)
-        cst1 = _beta.exp()*(_beta/ratio.log()).pow(_beta)
+        cst1 = _beta.exp()*(_beta/ratio.log())**_beta
     else:
         cst1 = ratio**n0 * CBF(n0)**(-beta)
     rad_err = cst*cst1 / CBF(n0).log()**final_kappa
@@ -877,8 +877,8 @@ class FormalProduct:
     def expand(self):
         return self._exponential_factor*self._series_factor
 
-def to_asymptotic_expansion(Coeff, name, term_data, n0, beta, kappa,
-                            big_oh_rad=None):
+def to_asymptotic_expansion(Coeff, name, term_data, n0, beta, kappa, rad,
+                            cst_big_circle):
 
     from sage.categories.cartesian_product import cartesian_product
     from sage.rings.asymptotic.asymptotic_ring import AsymptoticRing
@@ -917,6 +917,14 @@ def to_asymptotic_expansion(Coeff, name, term_data, n0, beta, kappa,
         else:
             return ET(Arg(raw_element=dir))
 
+    if not term_data:
+        exp_factor = ET(Exp(raw_element=~rad))
+        if cst_big_circle is None:
+            terms = [OT(1)]
+        else:
+            terms = [BT(1, coefficient=cst_big_circle, valid_from={name: n0})]
+        return FormalProduct(Asy(exp_factor), Asy(terms))
+
     rho0 = term_data[0][0]
     mag0 = abs(rho0)
     exp_factor = ET(Exp(raw_element=~mag0))
@@ -925,7 +933,10 @@ def to_asymptotic_expansion(Coeff, name, term_data, n0, beta, kappa,
     else:
         rho0 = mag0
 
-    error_term_growth = ET(n**beta*log(n)**kappa)
+    if beta == -infinity:
+        alg_error_growth = None
+    else:
+        alg_error_growth = ET(n**beta*log(n)**kappa).growth
 
     terms = []
     for rho, symterms in term_data:
@@ -936,14 +947,18 @@ def to_asymptotic_expansion(Coeff, name, term_data, n0, beta, kappa,
             if symterm.is_trivial_zero():
                 continue
             term = arg_factor*ET(symterm.subs(n=n))
-            if term.growth == error_term_growth:
+            if alg_error_growth is not None and term.growth == alg_error_growth:
                 assert term.coefficient.contains_zero()
                 term = BT(term.growth, coefficient=term.coefficient.above_abs(),
                         valid_from={name: n0})
             terms.append(term)
 
-    if big_oh_rad is not None:
-        terms.append(OT((rho0/big_oh_rad)**n))
+    if cst_big_circle is None:
+        terms.append(OT(Exp(raw_element=(mag0/rad))))
+    elif beta == -infinity:
+        terms.append(BT((Exp(raw_element=(mag0/rad))),
+                        coefficient=cst_big_circle,
+                        valid_from={name: n0}))
 
     return FormalProduct(Asy(exp_factor), Asy(terms))
 
@@ -1107,10 +1122,11 @@ def bound_coefficients(deq, seqini, name='n', order=3, prec=53, n0=0, *,
     sing_data = [sdata for sdata in sing_data if sdata is not None]
 
     # All error terms will be reduced to the form cst*n^β*log(n)^final_kappa
-    ref_val = min(edata.val.real() for sdata in sing_data
-                                   for edata in sdata.expo_group_data)
+    ref_val = min((edata.val.real() for sdata in sing_data
+                                    for edata in sdata.expo_group_data),
+                  default=infinity)
     beta = - ref_val - 1 - order
-    final_kappa = 0
+    final_kappa = -1
     for sdata in sing_data:
         for edata in sdata.expo_group_data:
             shift = edata.val.real() - ref_val
@@ -1120,6 +1136,8 @@ def bound_coefficients(deq, seqini, name='n', order=3, prec=53, n0=0, *,
             final_kappa = max(
                 final_kappa,
                 edata.bound.coefficient({invn: order - shift}).degree(logn))
+    if final_kappa < 0: # all expansions were exact
+        beta = -infinity
 
     n = SR.var(name)
     bound = [(sdata.rho,
@@ -1131,25 +1149,28 @@ def bound_coefficients(deq, seqini, name='n', order=3, prec=53, n0=0, *,
     # Exponentially small error term
 
     if ignore_exponentially_small_term:
-        big_oh_rad = QQ(rad.below_abs())
+        cst_big_circle = None
     else:
-        big_oh_rad = None
         if halfside is None:
             halfside = min(abs(abs(ex) - rad) for ex in all_exn_pts)/10
-        cst = max_big_circle(deq, ini, dominant_sing, sing_data, rad, halfside)
-        mag_dom = abs(dominant_sing[0])
-        error_term_big_circle = absorb_exponentially_small_term(CB, cst,
-            mag_dom/rad, beta, final_kappa, n0, n)
-        logger.info("global error term = %s*%s^(-%s) ∈ %s*%s^(-%s)", cst, rad,
-                    name, error_term_big_circle, mag_dom, name)
-        add_error_term(bound, mag_dom, error_term_big_circle, n)
+        cst_big_circle = max_big_circle(deq, ini, dominant_sing, sing_data, rad,
+                                        halfside)
+        if beta != -infinity:
+            mag_dom = abs(dominant_sing[0])
+            error_term_big_circle = absorb_exponentially_small_term(CB,
+                        cst_big_circle, mag_dom/rad, beta, final_kappa, n0, n)
+            logger.info("global error term = %s*%s^(-%s) ∈ %s*%s^(-%s)",
+                        cst_big_circle, rad, name, error_term_big_circle,
+                        mag_dom, name)
+            add_error_term(bound, mag_dom, error_term_big_circle, n)
 
     if output == 'list':
         return n0, bound
     else:
         try:
             asy = to_asymptotic_expansion(CB, name, bound, n0,
-                                          beta, final_kappa, big_oh_rad)
+                                          beta, final_kappa, QQ(rad.lower()),
+                                          cst_big_circle)
         except (ImportError, ValueError):
             raise RuntimeError(f"conversion of bound {bound} to an asymptotic "
                                "expansion failed, try with output='list' or a "
