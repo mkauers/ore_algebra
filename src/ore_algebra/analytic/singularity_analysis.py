@@ -663,18 +663,18 @@ def _bound_local_integral_of_tail(rho, val_rho, order, Expr, s, n0, vb, kappa):
             for j in range(kappa + 1)])
 
     # Sub polynomial factor for bound on S(n)
-    cst_S = CB(0).add_error(CB(abs(rho)).pow(val_rho.real()+order)
+    cst_S = CB(0).add_error(CB(abs(rho))**(val_rho.real()+order)
             * ((abs(CB(rho).arg()) + 2*RB(pi))*abs(val_rho.imag())).exp()
-            * CB(1 - 1/n0).pow(CB(-n0-1)))
+            * CB(1 - 1/n0)**(CB(-n0-1)))
     bound_S = cst_S*B(CB(pi)+logn)
     # Sub polynomial factor for bound on L(n)
     if val_rho + order <= 0:
         C_nur = 1
     else:
         C_nur = 2 * (CB(e) / (CB(val_rho.real()) + order)
-                            * (s - 2)/(2*s)).pow((RB(val_rho.real()) + order))
+                            * (s - 2)/(2*s))**((RB(val_rho.real()) + order))
     cst_L = (CB(0).add_error(C_nur * CB(1/pi)
-                                * CB(abs(rho)).pow(RB(val_rho.real())+order))
+                                * CB(abs(rho))**(RB(val_rho.real())+order))
         * ((abs(CB(rho).arg()) + 2*RB(pi))*abs(val_rho.imag())).exp())
     bound_L = cst_L*B(CB(pi)+logn)
 
@@ -702,7 +702,7 @@ def _bound_local_integral_explicit_terms(rho, val_rho, order, Expr, s, n0, ser):
         # (=> tie to an object and add @cached_method decorator?)
         coeff_bounds = bound_coeff_mono(Expr, -val_rho-degZ, slice.degree() + 1,
                                         order - degZ, n0, s)
-        new_term = (CB(-rho).pow(CB(val_rho+degZ)) * invn**(degZ)
+        new_term = (CB(-rho)**(CB(val_rho+degZ)) * invn**(degZ)
                     * sum(c*coeff_bounds[degL] for degL, c in enumerate(slice)))
         bound_lead_terms += new_term
         logger.debug("  Z^%s*(%s) --> %s", -val_rho-degZ, slice, new_term)
@@ -825,7 +825,7 @@ def max_big_circle(deq, ini, dominant_sing, sing_data, rad, halfside):
     covering, f_big_circle = zip(*pairs)
 
     sum_g = [
-        sum((_z-_rho).pow(CBF(edata.val))
+        sum((_z-_rho)**(CBF(edata.val))
                 # some of the _z may lead to arguments of log that cross the
                 # branch cut, but that's okay
                 * edata.initial_terms(Z=_z-_rho, L=(~(1-_z/_rho)).log())
@@ -1047,8 +1047,8 @@ def truncate_tail_SR(val, f, beta, kappa, n0, n):
                 g.append(c * n**(val - deg_invn) * log(n)**deg_logn)
             else:
                 c_g = (((c if c.mid() == 0 else CB(0).add_error(abs(c)))
-                        / CB(n0).pow(beta + deg_invn - val.real()))
-                       * CB(n0).log().pow(deg_logn - kappa))
+                        / CB(n0)**(beta + deg_invn - val.real()))
+                       * CB(n0).log()**(deg_logn - kappa))
                 error_term += c_g * n**beta * log(n)**kappa
     g.append(error_term)
     return g
