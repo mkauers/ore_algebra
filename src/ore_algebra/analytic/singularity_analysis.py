@@ -4,11 +4,6 @@ Bounds on sequences by singularity analysis
 
 Main author: Ruiwen Dong <ruiwen.dong@polytechique.edu>
 
-This module currently requires Sage development branch u/mmezzarobba/tmp/bterms
-(= Sage 9.5.beta0 + #32229 + #32451 + a patch for combining BTerms with the same
-growth); ``check_seq_bound`` and the tests depending on it may need additional
-patches.
-
 EXAMPLES::
 
     sage: from ore_algebra import (OreAlgebra, DFiniteFunctionRing,
@@ -38,7 +33,7 @@ Membrane example::
     + ...
     + ([-0.283779713...91869...] + [+/- ...]*I)*n^(-1)*log(n)
     + ([35.493938347...65227...] + [+/- ...]*I)*n^(-1)
-    + B([115882.7...]*n^(-2)*log(n)^2, n >= 50))
+    + B([...]*n^(-2)*log(n)^2, n >= ...))
 
     sage: DFR = DFiniteFunctionRing(deq.parent())
     sage: ref = UnivariateDFiniteFunction(DFR, deq, seqini)
@@ -50,7 +45,7 @@ Algebraic example::
     sage: bound_coefficients(deq, [1], order=5) # long time (13 s)
     1.000...*2^n*([0.564189583547...]*n^(-1/2) + [-0.105785546915...]*n^(-3/2)
     + [-0.117906807499...]*n^(-5/2) + [-0.375001499318...]*n^(-7/2)
-    + [-1.255580304110...]*n^(-9/2) + B([1304.15...]*n^(-11/2), n >= 50))
+    + [-1.255580304110...]*n^(-9/2) + B([...]*n^(-11/2), n >= ...))
 
 Diagonal example (Sage is not yet able to correctly combine and order the error
 terms here)::
@@ -303,6 +298,16 @@ import logging
 
 from sage.all import *
 
+from sage.rings.asymptotic.growth_group import (
+        ExponentialGrowthGroup,
+        GrowthGroup,
+        MonomialGrowthGroup,
+)
+from sage.rings.asymptotic.term_monoid import (
+        BTerm,
+        BTermMonoid,
+        ExactTermMonoid,
+)
 
 from ..ore_algebra import OreAlgebra
 from . import utilities
@@ -1073,16 +1078,6 @@ def to_asymptotic_expansion(Coeff, name, term_data, n0, beta, kappa, rad,
 
     from sage.categories.cartesian_product import cartesian_product
     from sage.rings.asymptotic.asymptotic_ring import AsymptoticRing
-    from sage.rings.asymptotic.growth_group import (
-            ExponentialGrowthGroup,
-            GrowthGroup,
-            MonomialGrowthGroup,
-    )
-    from sage.rings.asymptotic.term_monoid import (
-            BTerm,
-            BTermMonoid,
-            ExactTermMonoid,
-    )
     from sage.rings.asymptotic.term_monoid import DefaultTermMonoidFactory
     from sage.symbolic.operators import add_vararg
 
@@ -1393,11 +1388,11 @@ def check_seq_bound(asy, ref, indices=None, *, verbose=False, force=False):
     BGG = cartesian_product([
         ExponentialGrowthGroup.factory(myCBF, 'n',
                                        extend_by_non_growth_group=True),
-        MonomialGrowthGroup.factory(myRBF, 'n',
-                                    extend_by_non_growth_group=True),
+        # factors like n^(RBF*I) do not work (#32452)
+        MonomialGrowthGroup.factory(myRBF, 'n'),
+                                    # extend_by_non_growth_group=True),
         GrowthGroup('log(n)^ZZ')])
     BAsy = AsymptoticRing(BGG, myCBF)
-    # XXX wrong results in the presence of complex exponents (#32500)
     basy = BAsy(asy, simplify=False)
     exact_part = basy.exact_part()
     error_part = basy.error_part()
