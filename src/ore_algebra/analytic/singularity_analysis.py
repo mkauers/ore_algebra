@@ -1187,7 +1187,7 @@ def _bound_validity_range(n0, dominant_sing, order):
     # FIXME: currently DOES NOT match [DMM, (10)]
     if len(dominant_sing) > 1:
         min_dist = min(s0.dist_to_sing() for s0 in dominant_sing)
-        n1 = ceil(2*abs(dominant_sing[-1])/min_dist)
+        n1 = ceil(2*abs(QQbar(dominant_sing[-1]))/min_dist)
     else:
         n1 = 0
 
