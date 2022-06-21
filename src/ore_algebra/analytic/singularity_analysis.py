@@ -302,6 +302,7 @@ from sage.rings.asymptotic.growth_group import (
         ExponentialGrowthGroup,
         GrowthGroup,
         MonomialGrowthGroup,
+        GenericNonGrowthElement,
 )
 from sage.rings.asymptotic.term_monoid import (
         BTerm,
@@ -1073,6 +1074,11 @@ class FormalProduct:
     def expand(self):
         return self._exponential_factor*self._series_factor
 
+def _remove_non_growth_factors(growth):
+    G = growth.parent()
+    return G([g for g in growth.factors()
+              if not isinstance(g, GenericNonGrowthElement)])
+
 def to_asymptotic_expansion(Coeff, name, term_data, n0, beta, kappa, rad,
                             cst_big_circle):
 
@@ -1125,6 +1131,7 @@ def to_asymptotic_expansion(Coeff, name, term_data, n0, beta, kappa, rad,
         alg_error_growth = ET(n**beta*log(n)**kappa).growth
 
     terms = []
+    alg_error_coeff = Coeff.zero()
     for rho, symterms in term_data:
         dir = rho0/rho
         assert abs(dir).is_one() # need an additional growth factor otherwise
@@ -1133,11 +1140,15 @@ def to_asymptotic_expansion(Coeff, name, term_data, n0, beta, kappa, rad,
             if symterm.is_trivial_zero():
                 continue
             term = arg_factor*ET(symterm.subs(n=n))
-            if alg_error_growth is not None and term.growth == alg_error_growth:
+            term_growth = _remove_non_growth_factors(term.growth)
+            if alg_error_growth is not None and term_growth == alg_error_growth:
                 assert term.coefficient.contains_zero()
-                term = BT(term.growth, coefficient=term.coefficient.above_abs(),
-                        valid_from={name: n0})
-            terms.append(term)
+                alg_error_coeff += term.coefficient.above_abs()
+            else:
+                terms.append(term)
+    if not alg_error_coeff.is_zero():
+        terms.append(BT(alg_error_growth, coefficient=alg_error_coeff,
+                        valid_from={name: n0}))
 
     if cst_big_circle is None:
         terms.append(OT(Exp(raw_element=(mag0/rad))))
