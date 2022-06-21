@@ -60,7 +60,7 @@ terms here)::
     ....:        + (21*z + 1)*(27*z + 1)*Dz + 3*(27*z + 1))
 
     sage: bound_coefficients(deq, seqini, order=2) # long time (3.5 s)
-    1.000000000000000*9.00000000000000?^n*(([0.30660...] + [0.14643...]*I)*(e^(I*arg(-0.77777...? + 0.62853...?*I)))^n*n^(-3/2)
+    1.000...*9.000...?^n*(([0.30660...] + [0.14643...]*I)*(e^(I*arg(-0.77777...? + 0.62853...?*I)))^n*n^(-3/2)
     + ([-0.26554...] + [-0.03529...]*I)*(e^(I*arg(-0.77777...? + 0.62853...?*I)))^n*n^(-5/2)
     + B([16.04...]*(e^(I*arg(-0.77777...? + 0.62853...?*I)))^n*n^(-7/2), n >= 50)
     + ([0.30660...] + [-0.14643...]*I)*(e^(I*arg(-0.77777...? - 0.62853...?*I)))^n*n^(-3/2)
@@ -74,7 +74,7 @@ Complex exponents example::
     sage: seqini = [1, 2, -1/8]
     sage: asy = bound_coefficients(deq, seqini, order=3) # long time (2 s)
     sage: asy # long time
-    1.000000000000000*(1/2)^n*(([1.124337...] + [0.462219...]*I)*n^(-0.500000...? + 0.866025...?*I)
+    1.000...*(1/2)^n*(([1.124337...] + [0.462219...]*I)*n^(-0.500000...? + 0.866025...?*I)
     + ([1.124337...] + [-0.462219...]*I)*n^(-0.500000...? - 0.866025...?*I)
     + ([-0.400293...] + [0.973704...]*I)*n^(-1.500000...? + 0.866025...?*I)
     + ([-0.400293...] + [-0.973704...]*I)*n^(-1.500000...? - 0.866025...?*I)
@@ -92,6 +92,197 @@ Complex exponents example::
 
 
 TESTS:
+
+Standard asymptotic expansions (algebro-logarithmic singularities)::
+
+    sage: from ore_algebra.analytic.singularity_analysis import test_monomial
+
+General exponents::
+
+    sage: test_monomial(alpha=3/2, beta=0)
+    (True, ... + B([...]*n^(-7/2), n >= ...) + O(...^n)))
+    sage: test_monomial(alpha=1/2, beta=0)
+    (True, ... + B([...]*n^(-9/2), n >= ...) + O(...^n)))
+    sage: test_monomial(alpha=1/3, beta=0)
+    (True, ... + B([...]*n^(-14/3), n >= ...) + O(...^n)))
+    sage: test_monomial(alpha=-1/3, beta=0)
+    (True, ... + B([...]*n^(-16/3), n >= ...) + O(...^n)))
+    sage: test_monomial(alpha=-1/2, beta=0)
+    (True, ... + B([...]*n^(-11/2), n >= ...) + O(...^n)))
+    sage: test_monomial(alpha=-3/2, beta=0)
+    (True, ... + B([...]*n^(-13/2), n >= ...) + O(...^n)))
+
+::
+
+    sage: test_monomial(alpha=-3/2, beta=1)
+    (True, ... + B([...]*n^(-13/2)*log(n), n >= ...) + O(...^n)))
+    sage: test_monomial(alpha=2/3, beta=1)
+    (True, ... + B([...]*n^(-13/3)*log(n), n >= ...) + O(...^n)))
+
+Here our code disagrees with ``asympotic_expansions.SingularityAnalysis``, but
+it does agree with ``gdev``, and numerical tests seem to confirm that the bug is
+in ``SingularityAnalysis`` (see Sage bug #33994) ::
+
+    sage: test_monomial(alpha=-3/2, beta=2) # long time
+    (...,
+    1.000...*(([0.4231421876608...]...)*n^(-5/2)*log(n)^2
+    + ([-0.595070478381...]...)*n^(-5/2)*log(n)
+    + ([-3.75954106470...]...)*n^(-5/2)
+    + ([0.7933916018640...]...)*n^(-7/2)*log(n)^2
+    + ([-2.808325897608...]...)*n^(-7/2)*log(n)
+    + ([-5.43585635190...]...)*n^(-7/2)
+    + ([1.272732361323...]...)*n^(-9/2)*log(n)^2
+    + ([-6.62073373238...]...)*n^(-9/2)*log(n)
+    + ([-4.57888923343...]...)*n^(-9/2)
+    + ([1.952487145212...]...)*n^(-11/2)*log(n)^2
+    + ([-13.05989942809...]...)*n^(-11/2)*log(n)
+    + ([0.9099324035...]...)*n^(-11/2)
+    + B([...]*n^(-13/2)*log(n)^2, n >= ...) + O((...)^n)))
+
+    sage: test_monomial(alpha=3/2, beta=2) # long time
+    (...,
+    1.000...*(([1.1283791670955...]...)*n^(1/2)*log(n)^2
+    + ([-0.0823490528905...]...)*n^(1/2)*log(n)
+    + ([-1.05330887105...]...)*n^(1/2)
+    + ([0.4231421876608...]...)*n^(-1/2)*log(n)^2
+    + ([2.225877439357...]...)*n^(-1/2)*log(n)
+    + ([0.651039287560...]...)*n^(-1/2)
+    + ([-0.06170823570053...]...)*n^(-3/2)*log(n)^2
+    + ([-0.183559730685...]...)*n^(-3/2)*log(n)
+    + ([0.487607437620...]...)*n^(-3/2)
+    + ([0.00991739502330...]...)*n^(-5/2)*log(n)^2
+    + ([0.052169002484...]...)*n^(-5/2)*log(n)
+    + ([-0.07289588912...]...)*n^(-5/2)
+    + B([...]*n^(-7/2)*log(n)^2, n >= ...) + O((...)^n)))
+
+Similar situation here. ``gdev`` gives the opposite sign, but, as far as I
+understand, this is because it uses a nonstandard branch of the logarithm::
+
+    sage: test_monomial(alpha=3/2, beta=3) # long time
+    (...,
+    1.000...*(([1.128379167095...]...)*n^(1/2)*log(n)^3
+    + ([-0.1235235793358...]...)*n^(1/2)*log(n)^2
+    + ([-3.15992661315...]...)*n^(1/2)*log(n)
+    + ([1.050612156263...]...)*n^(1/2)
+    + ([0.4231421876608...]...)*n^(-1/2)*log(n)^3
+    + ([3.338816159035...]...)*n^(-1/2)*log(n)^2
+    + ([1.95311786268...]...)*n^(-1/2)*log(n)
+    + ([-2.88947063389...]...)*n^(-1/2)
+    + ([-0.0617082357005...]...)*n^(-3/2)*log(n)^3
+    + ([-0.275339596028...]...)*n^(-3/2)*log(n)^2
+    + ([1.46282231286...]...)*n^(-3/2)*log(n)
+    + ([2.41630885740...]...)*n^(-3/2)
+    + ([0.00991739502330...]...)*n^(-5/2)*log(n)^3
+    + ([0.07825350372...]...)*n^(-5/2)*log(n)^2
+    + ([-0.21868766738...]...)*n^(-5/2)*log(n)
+    + ([-0.76330866778...]...)*n^(-5/2)
+    + B([...]*n^(-7/2)*log(n)^3, n >= ...) + O((...)^n)))
+
+Integer exponents. In simple cases, we are able to return error terms of the
+correct order of magnitude even when some of the series terminate::
+
+    sage: test_monomial(alpha=1, beta=0)
+    (True,
+    1.000...*(1.000... + O((...)^n)))
+    sage: test_monomial(alpha=2, beta=0)
+    (True,
+    1.000...*(1.000...*n + 1.000... + O((...)^n)))
+
+::
+
+    sage: test_monomial(alpha=10, beta=0)
+    (True,
+    1.000...*([2.75573192239...e-6 +/- ...]*n^9
+    + [0.0001240079365079...]*n^8 + [0.00239748677248...]*n^7
+    + [0.0260416666666...]*n^6 + B([...]*n^5, n >= ...) + O((...)^n)))
+    sage: test_monomial(alpha=10, beta=0, big_circle=True) # long time
+    (True,
+    1.000...*([2.75573192239...e-6 +/- ...]*n^9
+    + [0.0001240079365079...]*n^8 + [0.00239748677248...]*n^7
+    + [0.0260416666666...]*n^6 + B([...]*n^5, n >= ...)))
+
+::
+
+    sage: test_monomial(alpha=1, beta=3) # long time
+    (True, ... + B([...]*n^(-4)*log(n)^2, n >= ...) + O((...)^n)))
+    sage: test_monomial(alpha=3, beta=2, order=2)
+    (True, ... + B([...]*log(n)^2, n >= ...) + O((...)^n)))
+    sage: test_monomial(alpha=3, beta=2, order=3)
+    (True, ... + B([...]*n^(-1)*log(n), n >= ...) + O((...)^n)))
+
+::
+
+    sage: test_monomial(alpha=0, beta=1)
+    (True, 1.000...*([1.000...]*n^(-1) + O((...)^n)))
+    sage: test_monomial(alpha=0, beta=2) # long time
+    (True,
+    1.000...*(([2.000...]...)*n^(-1)*log(n) + ...
+    + B([...]*n^(-5), n >= ...) + O((...)^n)))
+
+::
+
+    sage: test_monomial(alpha=-1, beta=2) # long time
+    (True, ... + B([...]*n^(-6)*log(n), n >= ...) + O((...)^n)))
+
+Algebraic exponents::
+
+    sage: sqrt2 = QuadraticField(2).gen()
+    sage: test_monomial(alpha=sqrt2, beta=0)
+    (True, ... + B([...]*n^(-3.585786437626905?), n >= ...) + O((...)^n)))
+    sage: test_monomial(alpha=sqrt2, beta=2, compare=False, order=2)
+    (None,
+    1.000...*(([1.127927979999...]...)*n^(0.4142135623730951?)*log(n)^2
+    + ([0.105821360001...]...)*n^(0.4142135623730951?)*log(n)
+    + ([-1.13839359105...]...)*n^(0.4142135623730951?)
+    + ([0.330362456651...]...)*n^(-0.5857864376269049?)*log(n)^2
+    + ([2.09332847214...]...)*n^(-0.5857864376269049?)*log(n)
+    + ([0.89124353934...]...)*n^(-0.5857864376269049?)
+    + B([...]*n^(-1.585786437626905?)*log(n)^2, n >= 10)
+    + O((...)^n)))
+
+::
+
+    sage: test_monomial(alpha=I, beta=2, compare=False, order=2)
+    (None,
+    1.000...*(([-0.569607641036...] + [1.830744396590...]*I)*n^(I - 1)*log(n)^2
+    + ([7.71154584360...] + [2.019217722531...]*I)*n^(I - 1)*log(n)
+    + ([-0.02823947920...] + [-7.57203529270...]*I)*n^(I - 1)
+    + ([1.200176018813...] + [-0.630568377776...]*I)*n^(I - 2)*log(n)^2
+    + ([-5.93804521268...] + [-7.83534146173...]*I)*n^(I - 2)*log(n)
+    + ([-10.21649619212...] + [12.33281876488...]*I)*n^(I - 2)
+    + B([...]*n^(-3)*log(n)^2, n >= ... + O((...)^n)))
+
+An sequence that is ultimately zero::
+
+    sage: bound_coefficients((z-1)*Dz, [1], order=4)
+    1.000...*(...)^n*(B(1.000..., n >= 11))
+    sage: bound_coefficients((z-1)*Dz, [1], order=4, ignore_exponentially_small_term=True)
+    1.000...*(...)^n*(O(1))
+
+Variing the position of the singularity::
+
+    sage: test_monomial(zeta=2, alpha=1/2, beta=1)
+    (True, ... + B([...]*n^(-9/2)*log(n), n >= ...) + O((...)^n)))
+
+::
+
+    sage: test_monomial(zeta=1+I, alpha=1/2, beta=1, order=2, compare=False)
+    (None,
+    1.000...*(e^(I*arg(-1/2*I + 1/2)))^n*0.707...?^n*(([0.564...]...)*n^(-1/2)*log(n)
+    + ([1.107791903872...]...)*n^(-1/2)
+    + ([-0.07052369794346...]...)*n^(-3/2)*log(n)
+    + ([-0.1384739879841...]...)*n^(-3/2)
+    + B([...]*n^(-5/2)*log(n), n >= 8) + O(...^n)))
+
+::
+
+    sage: test_monomial(zeta=1+I, alpha=I/3+1, beta=1, order=2, compare=False)
+    (None,
+    1.000...*(e^(I*arg(-1/2*I + 1/2)))^n*0.7071067811865475?^n*(([1.074944392622...] + [0.193783909890...]*I)*n^(1/3*I)*log(n)
+    + ([0.588542135640...] + [-0.46215768679...]*I)*n^(1/3*I)
+    + ([-0.092016451238...] + [0.1683916259986...]*I)*n^(1/3*I - 1)*log(n)
+    + ([0.517207055500...] + [0.578972535470...]*I)*n^(1/3*I - 1)
+    + B([...]*n^(-2)*log(n), n >= ...) + O(...^n)))
 
 Incorrect output::
 
@@ -1177,6 +1368,10 @@ def bound_coefficients(deq, seqini, name='n', order=3, prec=53, n0=0, *,
                                "newer Sage version")
         return asy
 
+################################################################################
+# Tests
+################################################################################
+
 def eval_bound(bound, n_num, prec = 53):
     """
     Evaluation of a bound produced in contribution_all_singularity()
@@ -1246,3 +1441,25 @@ def check_seq_bound(asy, ref, indices=None, *, verbose=False, force=False):
         else:
             if verbose:
                 print(f"{name} = {n}, {relbound} contained in {error_ball}")
+
+def test_monomial(alpha, beta, zeta=1, order=4, compare=True, big_circle=False):
+    Pol, z = PolynomialRing(QQ, 'z').objgen()
+    Dop, Dz = OreAlgebra(Pol, 'Dz').objgen()
+    dop = ((z - zeta)*Dz + alpha)**(1 + beta)
+    rat = 1/(1-SR(z)/zeta)
+    expr = rat**alpha*log(rat)**beta
+    ini = list(expr.series(SR(z), 1+beta).truncate().polynomial(QQbar))
+    assert CBF(dop(expr)(z=pi)).contains_zero()
+    asy = bound_coefficients(dop, ini, order=order,
+                             ignore_exponentially_small_term=not big_circle)
+
+    if compare:
+        ref = asymptotic_expansions.SingularityAnalysis('n', zeta=zeta,
+                    alpha=alpha, beta=beta, normalized=False,
+                    precision=order*(beta+1))
+        ref = ref.parent().change_parameter(coefficient_ring=CBF)(ref)
+        ok = all(term.coefficient.contains_zero()
+                 for term in (asy.expand() - ref).summands if term.is_exact())
+    else:
+        ok = None
+    return ok, asy
