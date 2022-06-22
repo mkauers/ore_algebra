@@ -383,8 +383,8 @@ def _choose_big_radius(all_exn_pts, dominant_sing, next_sing_rad):
                                     for ex in all_exn_pts
                                     if ex != ds)
     dom_rad = abs(dominant_sing[-1])
-    rad = min(next_sing_rad*RBF(0.9) + dom_rad/10,
-              dom_rad + max_smallrad*RBF(0.8))
+    rad = min(next_sing_rad*RBF(0.875) + dom_rad*RBF(0.125),
+              dom_rad + max_smallrad*RBF(0.75))
     logger.info("radius of outer circle = %s", rad)
     return rad
 
@@ -852,6 +852,8 @@ def _bound_local_integral_of_tail(rho, val_rho, order, Expr, s, n0, vb, kappa):
 
     CB = CBF # These are error terms, no need for high prec. Still, TBI.
     RB = RBF
+    _pi = RB(pi)
+    _rho = CB(rho)
 
     # Change representation from log(z-ρ) to log(1/(1 - z/ρ))
     # The h_i are cofactors of powers of log(z-ρ), not log(1/(1-z/ρ)).
@@ -862,21 +864,23 @@ def _bound_local_integral_of_tail(rho, val_rho, order, Expr, s, n0, vb, kappa):
                     for m in range(j, kappa + 1)])
             for j in range(kappa + 1)])
 
+
+    beta = CB(val_rho).real() + order
+
+    A = ((abs(_rho.arg()) + 2*_pi)*abs(CB(val_rho).imag())).exp()
+    Bpi = B(_pi + logn)
+
     # Sub polynomial factor for bound on S(n)
-    cst_S = CB(0).add_error(CB(abs(rho))**(val_rho.real()+order)
-            * ((abs(CB(rho).arg()) + 2*RB(pi))*abs(val_rho.imag())).exp()
-            * CB(1 - 1/n0)**(CB(-n0-1)))
-    bound_S = cst_S*B(CB(pi)+logn)
+    assert isinstance(n0, Integer)
+    err_S = abs(_rho)**beta * A * CB(1 - 1/n0)**(CB(-n0-1))
+    bound_S = CB(0).add_error(err_S)*Bpi
     # Sub polynomial factor for bound on L(n)
     if val_rho + order <= 0:
         C_nur = 1
     else:
-        C_nur = 2 * (CB(e) / (CB(val_rho.real()) + order)
-                            * (s - 2)/(2*s))**((RB(val_rho.real()) + order))
-    cst_L = (CB(0).add_error(C_nur * CB(1/pi)
-                                * CB(abs(rho))**(RB(val_rho.real())+order))
-        * ((abs(CB(rho).arg()) + 2*RB(pi))*abs(val_rho.imag())).exp())
-    bound_L = cst_L*B(CB(pi)+logn)
+        C_nur = 2 * (CB(1).exp()*(s - 2)/(2*s *beta))**beta
+    err_L = C_nur/_pi * abs(_rho)**beta * A
+    bound_L = CB(0).add_error(err_L)*Bpi
 
     return Expr(bound_S + bound_L) * invn**order
 
@@ -1212,7 +1216,7 @@ def _bound_validity_range(n0, dominant_sing, order):
                       for sol in s0.local_basis_structure())
     n2 = max_abs_val + order + 1
     # FIXME: slightly different from [DMM, (46)]
-    n0 = max(n0, ceil(2.1*n2), n1)
+    n0 = ZZ(max(n0, ceil(2.1*n2), n1))
 
     logger.debug(f"{n1=}, {n2=}, {n0=}")
     return n0
