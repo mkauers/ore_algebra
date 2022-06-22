@@ -778,7 +778,7 @@ class SingularityAnalyzer(LocalBasisMapper):
         # by ini
         assert self.shifts[0][0] == 0 and order1 > 0
         kappa = max(k for shift, mult in self.shifts if shift < order1
-                      for k, c in enumerate(ser[shift]) if not c.is_zero())
+                    for k, c in enumerate(ser[shift]) if not c.is_zero())
         # We could use the complete family of critical monomials for a tighter
         # bound... but in the future we may want to avoid computing it
         kappa += sum(mult for shift, mult in self.shifts if shift >= order1)
@@ -841,6 +841,9 @@ def _bound_tail(dop, leftmost, smallrad, order, series):
     return tb + ib
 
 def _bound_local_integral_of_tail(rho, val_rho, order, Expr, s, n0, vb, kappa):
+
+    if kappa == 0 and val_rho in ZZ and val_rho >= 0:
+        return Expr.zero() # analytic case
 
     # XXX not great for integer val_rho (results in an error term of degree in
     # logn too large by one unit when val_rho + order >= 0)
@@ -1320,19 +1323,21 @@ def bound_coefficients(deq, seqini, name='n', order=3, prec=53, n0=0, *,
 
     # All error terms will be reduced to the form cst*n^β*log(n)^final_kappa
     ref_val = min((edata.val.real() for sdata in sing_data
-                                    for edata in sdata.expo_group_data),
+                                    for edata in sdata.expo_group_data
+                                    if not edata.bound.is_zero()),
                   default=infinity)
     beta = - ref_val - 1 - order
     final_kappa = -1
     for sdata in sing_data:
         for edata in sdata.expo_group_data:
             shift = edata.val.real() - ref_val
-            if shift not in ZZ:
+            if shift not in ZZ: # explicit terms + o(n^β)
                 continue
-            assert edata.bound.degree(invn) <= order - shift
-            final_kappa = max(
+            final_kappa = max([
                 final_kappa,
-                edata.bound.coefficient({invn: order - shift}).degree(logn))
+                *(edata.bound.coefficient({invn: d}).degree(logn)
+                  for d in range(order - ZZ(shift),
+                                 edata.bound.degree(invn) + 1))])
     if final_kappa < 0: # all expansions were exact
         beta = -infinity
 
