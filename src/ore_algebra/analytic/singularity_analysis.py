@@ -909,7 +909,7 @@ def _bound_local_integral_explicit_terms(rho, val_rho, order, Expr, s, n0, ser):
 
     bound_lead_terms = Expr.zero()
     for degZ, slice in enumerate(locf_ini_terms):
-        logger.debug("  Z^(%s - %s)*(...)...", -val_rho, degZ)
+        logger.debug("  (z - %s)^(%s + %s)*(...)...", rho, -val_rho, degZ)
         # XXX could be shared between singularities with common exponents...
         # (=> tie to an object and add @cached_method decorator?)
         coeff_bounds = bound_coeff_mono(Expr, -val_rho-degZ, slice.degree() + 1,
@@ -917,7 +917,8 @@ def _bound_local_integral_explicit_terms(rho, val_rho, order, Expr, s, n0, ser):
         new_term = (CB(-rho)**(CB(val_rho+degZ)) * invn**(degZ)
                     * sum(c*coeff_bounds[degL] for degL, c in enumerate(slice)))
         bound_lead_terms += new_term
-        logger.debug("  Z^%s*(%s) --> %s", -val_rho-degZ, slice, new_term)
+        logger.debug("  (z - %s)^%s*(%s) --> %s",
+                     rho, -val_rho+degZ, slice, new_term)
 
     return bound_lead_terms, locf_ini_terms
 
