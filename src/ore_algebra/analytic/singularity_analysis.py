@@ -333,47 +333,6 @@ from .path import Point
 
 logger = logging.getLogger(__name__)
 
-def trim_univariate(pol, order, varbound):
-    r"""
-    Replace each x^{order+j} with B(0, varbound)^j*x^order.
-    """
-    err = pol.base_ring().zero()
-    for j, c in enumerate(list(pol)[order:]):
-        err = err.add_error(abs(c)*varbound**j)
-    coeff = pol.padded_list(order)
-    coeff.append(err)
-    return pol.parent()(coeff)
-
-def trim_expr(f, order, n0):
-    """
-    Truncate and bound an expression f(1/n, log(n)) to a given degree
-
-    Each 1/n^(order+t) (t > 0) is replaced by 1/n^order*CB(0).add_error(1/n0^t);
-    factors log(n)^k are left untouched.
-    """
-    Expr = f.parent()
-    invn = Expr.gen(0)
-    CB = Expr.base_ring()
-    g = Expr.zero()
-    # TODO: simplify...
-    for c, mon in f:
-        deg = mon.degree(invn)
-        if deg > order:
-            tuple_mon_g = tuple(map(lambda x, y: x - y, mon.exponents()[0],
-                                    (invn**(deg - order)).exponents()[0]))
-            mon_g = prod(Expr.gens()[j]**(tuple_mon_g[j])
-                         for j in range(len(tuple_mon_g)))
-            c_g = ((c if c.mid() == 0 else CB(0).add_error(abs(c)))
-                   / CB(n0**(deg - order)))
-            g = g + c_g * mon_g
-        else:
-            g = g + c*mon
-    return g
-
-def trim_expr_series(f, order, n0):
-    trimmed = f.parent()([trim_expr(c, order, n0) for c in f])
-    return trimmed.add_bigoh(f.parent().default_prec())
-
 ################################################################################
 # Path choice
 #################################################################################
@@ -584,6 +543,47 @@ def truncated_power(alpha, order, invn, s):
     ser = (alpha - 1) * (1 + alpha/2 * t)._log_series(order)
     ser = ser._exp_series(order)
     return ser(invn) + CB(0).add_error(err) * invn**(order)
+
+def trim_univariate(pol, order, varbound):
+    r"""
+    Replace each x^{order+j} with B(0, varbound)^j*x^order.
+    """
+    err = pol.base_ring().zero()
+    for j, c in enumerate(list(pol)[order:]):
+        err = err.add_error(abs(c)*varbound**j)
+    coeff = pol.padded_list(order)
+    coeff.append(err)
+    return pol.parent()(coeff)
+
+def trim_expr(f, order, n0):
+    """
+    Truncate and bound an expression f(1/n, log(n)) to a given degree
+
+    Each 1/n^(order+t) (t > 0) is replaced by 1/n^order*CB(0).add_error(1/n0^t);
+    factors log(n)^k are left untouched.
+    """
+    Expr = f.parent()
+    invn = Expr.gen(0)
+    CB = Expr.base_ring()
+    g = Expr.zero()
+    # TODO: simplify...
+    for c, mon in f:
+        deg = mon.degree(invn)
+        if deg > order:
+            tuple_mon_g = tuple(map(lambda x, y: x - y, mon.exponents()[0],
+                                    (invn**(deg - order)).exponents()[0]))
+            mon_g = prod(Expr.gens()[j]**(tuple_mon_g[j])
+                         for j in range(len(tuple_mon_g)))
+            c_g = ((c if c.mid() == 0 else CB(0).add_error(abs(c)))
+                   / CB(n0**(deg - order)))
+            g = g + c_g * mon_g
+        else:
+            g = g + c*mon
+    return g
+
+def trim_expr_series(f, order, n0):
+    trimmed = f.parent()([trim_expr(c, order, n0) for c in f])
+    return trimmed.add_bigoh(f.parent().default_prec())
 
 def bound_coeff_mono(Expr, exact_alpha, log_order, order, n0, s):
     """
