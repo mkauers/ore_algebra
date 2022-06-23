@@ -16,6 +16,13 @@ EXAMPLES::
     sage: Diffops.<Dz> = OreAlgebra(Pols_z)
     sage: DFR = DFiniteFunctionRing(Diffops)
 
+A trivial example so that the warning does not appear with later tests::
+
+    sage: bound_coefficients((z-1)*Dz+1, [1], order=2)
+    doctest:...: FutureWarning: This class/method/function is marked as
+    experimental. ...
+    1.000...*(1.000... + B([...]*(...)^n, n >= ...))
+
 Membrane example::
 
     sage: seqini = [72, 1932, 31248, 790101/2, 17208645/4, 338898609/8, 1551478257/4]
@@ -25,8 +32,6 @@ Membrane example::
     ....: + 6341776308*z^12 - 427012938072*z^11 + 2435594423178*z^10 - 2400915979716*z^9 - 10724094731502*z^8 + 26272536406048*z^7 - 8496738740956*z^6 - 30570113263064*z^5 + 39394376229112*z^4 - 19173572139496*z^3 + 3825886272626*z^2 - 170758199108*z + 2701126946)
 
     sage: asy = bound_coefficients(deq, seqini, order=5, prec=200) # long time (5 s)
-    doctest:...: FutureWarning: This class/method/function is marked as
-    experimental. ...
     sage: asy # long time
     1.000...*5.828427124746190?^n*(([8.0719562915...] + [+/- ...]*I)*n^3*log(n)
     + ([1.3714048996...82527...] + [+/- ...]*I)*n^3
@@ -40,11 +45,23 @@ Membrane example::
     sage: ref = UnivariateDFiniteFunction(DFR, deq, seqini)
     sage: check_seq_bound(asy.expand(), ref, list(range(100)) + list(range(200, 230)) + [1000]) # long time
 
+The option ``ignore_exponentially_small_term`` computes an enclosure up to an
+error term that is exponentially smaller that the last computed term as n tends
+to infinity. This is significantly faster than computing a complete bound::
+
+    sage: bound_coefficients(deq, seqini, ignore_exponentially_small_term=True)
+    1.000000000000000*5.828427124746190?^n*(([8.07195629151...]...)*n^3*log(n)
+    + ([1.37140489963...]...)*n^3
+    + ([50.5091308739...]...)*n^2*log(n) + ([29.6985514518...]...)*n^2
+    + ([106.3602546895...]...)*n*log(n) + ([118.7598389584...]...)*n
+    + B([...]*log(n)^2, n >= ...)
+    + O(0.60...?^n))
+
 Algebraic example::
 
     sage: deq = (4*z^4 - 4*z^3 + z^2 - 2*z + 1)*Dz + (-4*z^3 + 4*z^2 - z - 1)
     sage: asy = bound_coefficients(deq, [1], order=5) # long time (13 s)
-    sage: asy
+    sage: asy # long time
     1.000...*2^n*([0.564189583547...]*n^(-1/2) + [-0.105785546915...]*n^(-3/2)
     + [-0.117906807499...]*n^(-5/2) + [-0.375001499318...]*n^(-7/2)
     + [-1.255580304110...]*n^(-9/2) + B([...]*n^(-11/2), n >= ...))
@@ -58,7 +75,7 @@ Diagonal example::
     sage: deq = (z^2*(81*z^2 + 14*z + 1)*Dz^3 + 3*z*(162*z^2 + 21*z + 1)*Dz^2
     ....:        + (21*z + 1)*(27*z + 1)*Dz + 3*(27*z + 1))
     sage: asy = bound_coefficients(deq, seqini, order=2) # long time (3.5 s)
-    sage: asy
+    sage: asy # long time
     1.000...*9.000...?^n*(([0.30660...] + [0.14643...]*I)*(e^(I*arg(-0.77777...? + 0.62853...?*I)))^n*n^(-3/2)
     + ([-0.26554...] + [-0.03529...]*I)*(e^(I*arg(-0.77777...? + 0.62853...?*I)))^n*n^(-5/2)
     + ([0.30660...] + [-0.14643...]*I)*(e^(I*arg(-0.77777...? - 0.62853...?*I)))^n*n^(-3/2)
@@ -93,6 +110,107 @@ Complex exponents example::
     sage: all(eval_bound(asy[1], j).contains_exact(ref[j]) for j in range(asy[0], 150)) # long time
     True
 
+We currently truncate the expansion at order ``(leading term)·n^-order``, and in
+particular do not compute exponentially small terms when the expansion in powers
+of n terminates::
+
+    sage: dop = ((z-1)*Dz + 1).lclm(((z-2)*Dz)^2)
+    sage: dop((1/(1-z) + log(1/(1-z/2)))).simplify_full()
+    0
+    sage: seqini = list((1/(1-z) + log(1/(1-z/2))).series(z, 3).truncate().polynomial(QQ))
+    sage: bound_coefficients(dop, seqini) # long time
+    1.000...*([1.000...] + B([...]*n^(-3), n >= ...))
+
+It is possible, however, to use the option ``known_analytic`` to indicate that
+the initial terms given on input define a solution that is analytic at a
+particular singular point of the differential operator::
+
+    sage: seqini = list(log(1/(1-z/2)).series(z, 3).truncate().polynomial(QQ))
+    sage: bound_coefficients(dop, seqini) # long time
+    1.000...*([+/-...] + B([...]*n^(-3), n >= ...))
+    sage: bound_coefficients(dop, seqini, known_analytic=[1]) # long time
+    1.000...*(1/2)^n*(([1.000...]...)*n^(-1) + B([...]*n^(-4)*log(n), n >= ...))
+
+Singularities and exponents with multiple scales. Note that Sage is not always
+able to correctly order the terms yet::
+
+    sage: dop = (((z-1)*Dz)^2*((z-1)*Dz-1/3)*((z-1)*Dz-4/3)).lclm((z-1/2)*Dz-1).lclm((z+1)*Dz+1/2)
+    sage: dop(log(1/(1-z))).simplify_full()
+    0
+    sage: dop((1-SR(z))^(1/3)).simplify_full()
+    0
+    sage: dop((1-SR(z))^(4/3)).simplify_full()
+    0
+    sage: dop(1/sqrt(1+z)).simplify_full()
+    0
+
+    sage: bound_coefficients(dop, [0, 1, 1/2, 1/3, 1/4, 1/5], order=3,
+    ....:         ignore_exponentially_small_term=True)
+    1.000000000000000*(([1.000000000000...] + [+/-...]*I)*n^(-1)
+    + ([+/-...] + [+/-...]*I)*n^(-4/3)
+    + ([+/-...] + [+/-...]*I)*n^(-7/3)
+    + ([+/-...] + [+/-...]*I)*n^(-10/3)
+    + B([...]*n^(-7/2), n >= ...)
+    + O(...)
+    + [+/-...]*(e^(I*arg(-1)))^n*n^(-1/2)
+    + [+/-...]*(e^(I*arg(-1)))^n*n^(-3/2)
+    + [+/-...]*(e^(I*arg(-1)))^n*n^(-5/2))
+    sage: assert 10/3 < 7/2 == 1/2 + 3 < 11/3
+
+    sage: bound_coefficients(dop, [0, 1, 1/2, 1/3, 1/4, 1/5], order=3,
+    ....:         known_analytic=[-1], ignore_exponentially_small_term=True)
+    1.000000000000000*(([1.000000000000...] + [+/-...]*I)*n^(-1)
+    + ([+/-...] + [+/-...]*I)*n^(-4/3)
+    + ([+/-...] + [+/-...]*I)*n^(-7/3)
+    + ([+/-...] + [+/-...]*I)*n^(-10/3)
+    + B([...]*n^(-4)*log(n), n >= 10) + O(...))
+
+    sage: bound_coefficients(dop, [1, -1/3, -1/9, -5/81, -10/243, -22/729],
+    ....:         known_analytic=[-1], ignore_exponentially_small_term=True)
+    1.000000000000000*(([+/- ...]...)*n^(-1)
+    + ([-0.2461627038738...]...)*n^(-4/3)
+    + ([-0.0547028230830...]...)*n^(-7/3)
+    + ([-0.02127332008786...]...)*n^(-10/3)
+    + B([...]*n^(-4)*log(n), n >= 10) + O(...n))
+
+    sage: bound_coefficients(dop, [1, -4/3, 2/9, 4/81, 5/243, 8/729], order=3,
+    ....:         known_analytic=[-1], ignore_exponentially_small_term=True)
+    1.000000000000000*(([+/-...] + [+/-...]*I)*n^(-1)
+    + ([+/-...] + [+/-...]*I)*n^(-4/3)
+    + ([0.328216938498...] + [+/-...]*I)*n^(-7/3)
+    + ([0.510559682108...] + [+/-...]*I)*n^(-10/3)
+    + B([...]*n^(-4)*log(n), n >= 10) + O(...))
+
+    sage: bound_coefficients(dop, [1, -1/2, 3/8, -5/16, 35/128, -63/256],
+    ....:         order=3, ignore_exponentially_small_term=True)
+    1.000000000000000*(([+/-...] + [+/-...]*I)*n^(-1)
+    + ([+/-...] + [+/-...]*I)*n^(-4/3)
+    + ([+/-...] + [+/-...]*I)*n^(-7/3)
+    + ([+/-...] + [+/-...]*I)*n^(-10/3)
+    + B([...]*n^(-7/2), n >= 10) + O(...)
+    + [0.5641895835477...]*(e^(I*arg(-1)))^n*n^(-1/2)
+    + [-0.07052369794346...]*(e^(I*arg(-1)))^n*n^(-3/2)
+    + [0.00440773112146...]*(e^(I*arg(-1)))^n*n^(-5/2))
+
+    sage: bound_coefficients(dop, [1, -1/2, 3/8, -5/16, 35/128, -63/256],
+    ....:         order=3, ignore_exponentially_small_term=True,
+    ....:         known_analytic=[1])
+    1.000000000000000*(e^(I*arg(-1)))^n*([0.5641895835477...]*n^(-1/2)
+    + [-0.07052369794346...]*n^(-3/2)
+    + [0.00440773112146...]*n^(-5/2)
+    + B([...]*n^(-7/2), n >= 10) + O(...))
+
+    sage: # 3*log(1/(1-z)) + 1/sqrt(1+z)
+    sage: bound_coefficients(dop, [1, 5/2, 15/8, 11/16, 131/128, 453/1280],
+    ....:         order=3, ignore_exponentially_small_term=True)
+    1.000000000000000*(([3.000000000000...] + [+/-...]*I)*n^(-1)
+    + ([+/-...] + [+/-...]*I)*n^(-4/3)
+    + ([+/-...] + [+/-...]*I)*n^(-7/3)
+    + ([+/-...] + [+/-...]*I)*n^(-10/3)
+    + B([...]*n^(-7/2), n >= 10) + O(...)
+    + [0.5641895835477...]*(e^(I*arg(-1)))^n*n^(-1/2)
+    + [-0.07052369794346...]*(e^(I*arg(-1)))^n*n^(-3/2)
+    + [0.00440773112146...]*(e^(I*arg(-1)))^n*n^(-5/2))
 
 TESTS:
 
@@ -210,7 +328,7 @@ correct order of magnitude even when some of the series terminate::
     (True, ... + B([...]*n^(-4)*log(n)^2, n >= ...) + O((...)^n)))
     sage: test_monomial(alpha=3, beta=2, order=2)
     (True, ... + B([...]*log(n)^2, n >= ...) + O((...)^n)))
-    sage: test_monomial(alpha=3, beta=2, order=3)
+    sage: test_monomial(alpha=3, beta=2, order=3) # long time
     (True, ... + B([...]*n^(-1)*log(n), n >= ...) + O((...)^n)))
 
 ::
@@ -257,7 +375,7 @@ Algebraic exponents::
 
 An sequence that is ultimately zero::
 
-    sage: bound_coefficients((z-1)*Dz, [1], order=4)
+    sage: bound_coefficients((z-1)*Dz, [1], order=4) # long time
     1.000...*(...)^n*(B(1.000..., n >= 11))
     sage: bound_coefficients((z-1)*Dz, [1], order=4, ignore_exponentially_small_term=True)
     1.000...*(...)^n*(O(1))
@@ -279,7 +397,7 @@ Variing the position of the singularity::
 
 ::
 
-    sage: test_monomial(zeta=1+I, alpha=I/3+1, beta=1, order=2, compare=False)
+    sage: test_monomial(zeta=1+I, alpha=I/3+1, beta=1, order=2, compare=False) # long time
     (None,
     1.000...*(e^(I*arg(-1/2*I + 1/2)))^n*0.7071067811865475?^n*(([1.074944392622...] + [0.193783909890...]*I)*n^(1/3*I)*log(n)
     + ([0.588542135640...] + [-0.46215768679...]*I)*n^(1/3*I)
@@ -287,7 +405,62 @@ Variing the position of the singularity::
     + ([0.517207055500...] + [0.578972535470...]*I)*n^(1/3*I - 1)
     + B([...]*n^(-2)*log(n), n >= ...) + O(...^n)))
 
-Incorrect output::
+Apparent singularities::
+
+    sage: dop = ((z-1)*Dz - 1).lclm((z+1)*Dz + 2)
+    sage: dop((1+z)^(-2))
+    0
+    sage: bound_coefficients(dop, [1, -2], order=5, ignore_exponentially_small_term=True)
+    1.000...*(e^(I*arg(-1)))^n*([1.000...]*n + [1.000...] + O(...^n))
+
+    sage: dop = ((z-1)*Dz - 1).lclm((z-2)*Dz + 2)
+    sage: bound_coefficients(dop, [1, 1], order=5, ignore_exponentially_small_term=True)
+    1.000...*(1/2)^n*(([1.000...]...)*n + [1.000...]... + O(...^n))
+
+Subtleties with branches of log::
+
+    sage: dop = ((1-z)*Dz)^3
+    sage: ref = list((ln(1/(1-SR(z)))^2).series(SR(z),1000).truncate().polynomial(QQ))
+    sage: asy = bound_coefficients(dop, ref[:3]) # long time
+    sage: asy # long time
+    1.000...*(([2.000000000000...] + [+/- ...]*I)*n^(-1)*log(n)
+    + ([1.154431329803...] + [+/- ...]*I)*n^(-1)
+    + ([-1.000000000000...] + [+/- ...]*I)*n^(-2)
+    + ([-0.1666666666666...] + [+/- ...]*I)*n^(-3) + B([...]*n^(-4), n >= 9))
+    sage: check_seq_bound(asy.expand(), ref) # long time
+
+Miscellaneous examples::
+
+    sage: bound_coefficients((z-1)*Dz + 2, seqini=[1,2,3], name='a') # long time
+    1.000...*(1.000...*a + 1.000... + B(..., a >= ...))
+    sage: bound_coefficients((z-1)*z*Dz + 2, seqini=[42, 42, 1]) # long time
+    1.000...*([1.000...]*n + [-1.000...] + B(..., n >= ...))
+
+::
+
+    sage: asy = bound_coefficients((z^2 - z)*Dz^2 + (3*z - 3)*Dz + 1, seqini=[1/2, 1/6], order=6) # long time
+    sage: asy # long time
+    1.000000000000000*(([1.000000000000...]...)*n^(-2)
+    + ([-3.000000000000...]...)*n^(-3)
+    + ([7.00000000000...]...)*n^(-4)
+    + ([-15.0000000000...]...)*n^(-5)
+    + ([31.000000000...]...)*n^(-6)
+    + B([72272529.03620188 +/- 6.19e-10]*n^(-7)*log(n), n >= 15))
+    sage: check_seq_bound(asy.expand(), [1/((n+1)*(n+2)) for n in range(1000)]) # long time
+
+::
+
+    sage: bound_coefficients((z^2 + z - 2)*Dz^2 + (-z + 1)*Dz + 1, seqini=[1, 1, 1/2], order=8) # long time
+    1.000000000000000*(([1.00000000000...]...)*n^(-2)
+    + ([1.00000000000...]...)*n^(-3)
+    + ([1.00000000000...]...)*n^(-4)
+    + ([1.00000000000...]...)*n^(-5)
+    + ([1.00000000000...]...)*n^(-6)
+    + ([1.00000000000...]...)*n^(-7)
+    + ([1.0000000000...]...)*n^(-8)
+    + B([...]*n^(-9), n >= 19))
+
+Incorrect input::
 
     sage: bound_coefficients(((z-1)*Dz+1)^2, [0])
     Traceback (most recent call last):
