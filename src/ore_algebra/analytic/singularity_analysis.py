@@ -376,9 +376,9 @@ Algebraic exponents::
 An sequence that is ultimately zero::
 
     sage: bound_coefficients((z-1)*Dz, [1], order=4) # long time
-    1.000...*(...)^n*(B(1.000..., n >= 11))
+    1.000...*(B(1.000..., n >= 11))
     sage: bound_coefficients((z-1)*Dz, [1], order=4, ignore_exponentially_small_term=True)
-    1.000...*(...)^n*(O(1))
+    1.000...*(O(...))
 
 Variing the position of the singularity::
 
@@ -914,11 +914,9 @@ SingularityData = collections.namedtuple('SingularityData', [
     'expo_group_data',  # as above, for each exponent group
 ])
 
-
 class SingularityAnalyzer(LocalBasisMapper):
 
-    def __init__(self, dop, inivec, *, rho, rad, Expr, abs_order, n0,
-                 struct):
+    def __init__(self, dop, inivec, *, rho, rad, Expr, rel_order, n0):
 
         super().__init__(dop)
 
@@ -926,9 +924,27 @@ class SingularityAnalyzer(LocalBasisMapper):
         self.rho = rho
         self.rad = rad
         self.Expr = Expr
-        self.abs_order = abs_order
         self.n0 = n0
-        self._local_basis_structure = struct
+        self.rel_order = rel_order
+
+    def run(self):
+        # Redundant work; TBI.
+        # (Cases where we really need this to detect non-analyticity are
+        # rare...)
+        self._local_basis_structure = critical_monomials(self.dop)
+
+        nonanalytic = [sol for sol in self._local_basis_structure if not (
+            sol.leftmost.is_integer()
+            and sol.leftmost + sol.shift >= 0
+            and all(c.is_zero() for term in sol.value.values()
+                    for c in term[1:]))]
+
+        if not nonanalytic:
+            return []
+
+        min_val_rho = (nonanalytic[0].leftmost + nonanalytic[0].shift).real()
+        self.abs_order = self.rel_order + min_val_rho
+        return super().run()
 
     def process_modZ_class(self):
 
@@ -1104,29 +1120,12 @@ def contribution_single_singularity(deq, ini, rho, rad, Expr,
 
     ldop = deq.shift(Point(rho, deq))
 
-    ### XXX move to SingularityAnalyzer?
-
-    # Redundant work; TBI
-    # (Cases where we really need this to detect non-analyticity are rare...)
-    crit = critical_monomials(ldop)
-    nonanalytic = [sol for sol in crit if not (
-        sol.leftmost.is_integer()
-        and sol.leftmost + sol.shift >= 0
-        and all(c.is_zero() for term in sol.value.values() for c in term[1:]))]
-    if not nonanalytic:
-        return None
-    min_val_rho = (nonanalytic[0].leftmost + nonanalytic[0].shift).real()
-    abs_order = rel_order + min_val_rho
-
-    ###
-
     # Split the local expansion of f according to the local exponents mod ℤ. For
     # each group (ℤ-coset) of exponents, compute coefficient asymptotics (and
     # some auxiliary data). Again: each element of the output corresponds to a
     # whole ℤ-coset of exponents, already incorporating initial values.
-    analyzer = SingularityAnalyzer(dop=ldop, inivec=coord_all, rho=rho,
-            rad=rad, Expr=Expr, abs_order=abs_order, n0=n0,
-            struct=crit)
+    analyzer = SingularityAnalyzer(dop=ldop, inivec=coord_all, rho=rho, rad=rad,
+                                   Expr=Expr, rel_order=rel_order, n0=n0)
     data = analyzer.run()
 
     data1 = SingularityData(
@@ -1505,7 +1504,6 @@ def bound_coefficients(deq, seqini, name='n', order=3, prec=53, n0=0, *,
     sing_data = [contribution_single_singularity(deq, ini, rho, rad, Expr,
                                                  order, n0)
                  for rho in dominant_sing]
-    sing_data = [sdata for sdata in sing_data if sdata is not None]
 
     # All error terms will be reduced to the form cst*n^β*log(n)^final_kappa
     ref_val = min((edata.val.real() for sdata in sing_data
