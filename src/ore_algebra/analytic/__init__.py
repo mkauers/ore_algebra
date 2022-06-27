@@ -74,7 +74,7 @@ Display some information on what is going on::
     sage: dop = (x^2 + 1)*Dx^2 + 2*x*Dx
     sage: dop.numerical_transition_matrix([0, 1], 1e-20)
     INFO:ore_algebra.analytic.analytic_continuation:path: 0 --> 1/2 --> 1
-    INFO:ore_algebra.analytic.analytic_continuation:0 --> 1/2: ordinary case
+    INFO:ore_algebra.analytic.analytic_continuation:[0 <-- 1/2, 1/2 --> 1]: ordinary case
     ...
     INFO:ore_algebra.analytic.naive_sum:summed ... terms, ...
     ...
@@ -124,12 +124,12 @@ or the cosine integral::
 
     sage: dop.numerical_solution(ini, path=[0, sqrt(2)])
     [0.46365280236686...]
-    sage: CBF(sqrt(2)).ci()
+    sage: CBF(sqrt(2)).Ci()
     [0.46365280236686...]
 
     sage: dop.numerical_solution(ini, path=[0, 456/123*i+1])
     [6.1267878728616...] + [-3.39197789100074...]*I
-    sage: CBF(456/123*I + 1).ci()
+    sage: CBF(456/123*I + 1).Ci()
     [6.126787872861...] + [-3.391977891000...]*I
 
 The slightly less classical Whittaker functions are an interesting test case as
@@ -317,8 +317,8 @@ TESTS::
     sage: dop = (x^2 + 1)*Dx^2 + 2*x*Dx
     sage: dop.numerical_transition_matrix([0,1], algorithm="binsplit")
     INFO:ore_algebra.analytic.binary_splitting:...
-    [[1.0000000000000...] [0.785398163397448...]]
-    [           [+/- ...] [0.500000000000000...]]
+    [ [1.0000000000000...] [0.785398163397448...]]
+    [            [+/- ...] [0.500000000000000...]]
     sage: logger.setLevel(logging.WARNING)
 
 Some corner cases::
@@ -431,7 +431,8 @@ A few larger or harder examples::
     ....:       + (-4*z^2 + 1/17*z)*Dz^8 + (-2/7*z^2 - 2*z)*Dz^7
     ....:       + (z + 2)*Dz^6 + (z^2 - 5/2*z)*Dz^5 + (-2*z + 2)*Dz^4
     ....:       + (1/2*z^2 + 1/2)*Dz^2 + (-3*z^2 - z + 17)*Dz - 1/9*z^2 + 1)
-    sage: mat = dop.numerical_transition_matrix([0,1/2], 1e-10)
+    sage: mat = dop.numerical_transition_matrix([0,1/2], 1e-10,
+    ....:                                       two_point_mode=False)
     sage: [mat[k,k] for k in range(mat.nrows())] # TODO double-check
     [[1.000000007...],
      [1.000003515...],
@@ -492,13 +493,22 @@ Operators with rational function coefficients::
     [[-0.579827135138349...]   [2.27958530233606...]]
     sage: ((x/1)*Dx^2 - 1).numerical_transition_matrix([0, 1], algorithm='binsplit')
     [[0.0340875989376363...]   [1.59063685463732...]]
-    [ [-0.579827135138349...]  [2.27958530233606...]]
+    [[-0.579827135138349...]   [2.27958530233606...]]
 
 Algorithm choice::
 
     sage: dop = Dx + 1/4/(x - 1/2)
     sage: dop.numerical_transition_matrix([0,1+I,1], 1e-300, algorithm='naive')
     [[0.707...399...] + [0.707...399...]*I]
+
+Custom bound precision:
+
+    sage: (x*(x-2)*Dx - 1).numerical_solution([1], [0,i], eps=1e-100,
+    ....:         bounds_prec=256, algorithm="naive")
+    [0.5558...2340... +/- ...e-103] + [-0.8994...5953... +/- ...e-103]*I
+    sage: (x*(x-2)*Dx - 1).numerical_solution([1], [0,i], eps=1e-100,
+    ....:         bounds_prec=256, algorithm='binsplit')
+    [0.5558...2340... +/- ...e-102] + [-0.8994...5953... +/- ...e-103]*I
 
 An interesting example borrower from M. Neher (“An Enclosure Method for the
 Solution of Linear ODEs with Polynomial Coefficients”, *Numerical Functional
@@ -509,11 +519,27 @@ to significantly decrease ``eps`` to get precise results::
     ....:       - (x^2+10*x+25)*Dx - (-2*x^2-4*x+29+1/2))
     sage: ini = [5,4,3/2,1/3]
     sage: dop.numerical_solution(ini, [0,1])
-    [10.87312731 +/- ...e-9]
-    sage: dop.numerical_solution(ini, [0,3/2], 1e-30)
+    [10.9 +/- ...]
+    sage: dop.numerical_solution(ini, [0,1], two_point_mode=False)
+    [10.873127314 +/- ...e-10]
+    sage: dop.numerical_solution(ini, [0,3/2], 1e-30, two_point_mode=False)
     [15.685911746183227 +/- ...e-16]
-    sage: dop.numerical_solution(ini, [0,5], 1e-150)
+    sage: dop.numerical_solution(ini, [0,5], 1e-150, two_point_mode=False)
     [+/- ...e-35]
+
+A random operator with prescribed singularities and exponents (from Chyzak,
+Goyer, Mezzarobba, 2022) that defines transition matrices with large entries::
+
+    sage: dop = ((21829048560*x^6-550862460720*x^5+5789380916880*x^4-
+    ....:        32434807101840*x^3+102165545592000*x^2-171548863200000*x+
+    ....:        119964240000000)*Dx^3 + (-506769209364*x^5+10798395588024*x^4-
+    ....:        91979496877620*x^3+391481933812992*x^2-832564302926400*x+
+    ....:        707776470720000)*Dx^2 + (251156588660*x^4-10005924091768*x^3+
+    ....:        99364591554260*x^2-379332696633792*x+503580376843200)*Dx +
+    ....:        (38987126730300*x^3-113173203800613*x^2-1127681839519020*x+
+    ....:        3827710032458400))
+    sage: dop.numerical_transition_matrix([75/17,4]).trace()
+    [-2.048077478517672...] + [-2.818936813156118...]*I
 
 Handling of algebraic points::
 
@@ -569,11 +595,11 @@ Algebraic points at high precision::
     sage: x + sqrt2 # populate coercion cache
     x + sqrt2
     sage: dop.numerical_transition_matrix([1, sqrt2], 1e-10000) # long time (1.6 s)
-    [ [1.11...015121538...] [0.43...3856086567...]]
-    [ [0.65...812947177...] [1.15...5867289418...]]
+    [[1.11...015121538...] [0.43...3856086567...]]
+    [[0.65...812947177...] [1.15...5867289418...]]
     sage: dop.numerical_transition_matrix([1, sqrt2], 1e-10000, algorithm="binsplit") # long time (1.6 s)
-    [ [1.11...015121538...] [0.43...3856086567...]]
-    [ [0.65...812947177...] [1.15...5867289418...]]
+    [[1.11...015121538...] [0.43...3856086567...]]
+    [[0.65...812947177...] [1.15...5867289418...]]
 
 Binary splitting when the bit-burst method is disabled::
 
@@ -636,8 +662,6 @@ To run the test suite of the ``ore_algebra.analytic`` subpackage, run::
 # version 2, or (at your option) any later version
 #
 # http://www.gnu.org/licenses/
-
-from __future__ import absolute_import
 
 from . import analytic_continuation as ancont
 from . import polynomial_approximation as polapprox

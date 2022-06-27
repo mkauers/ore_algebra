@@ -373,13 +373,6 @@ Algebraic exponents::
     + ([-10.21649619212...] + [12.33281876488...]*I)*n^(I - 2)
     + B([...]*n^(-3)*log(n)^2, n >= ... + O((...)^n)))
 
-An sequence that is ultimately zero::
-
-    sage: bound_coefficients((z-1)*Dz, [1], order=4) # long time
-    1.000...*(B(1.000..., n >= 11))
-    sage: bound_coefficients((z-1)*Dz, [1], order=4, ignore_exponentially_small_term=True)
-    1.000...*(O(...))
-
 Variing the position of the singularity::
 
     sage: test_monomial(zeta=2, alpha=1/2, beta=1)
@@ -399,10 +392,10 @@ Variing the position of the singularity::
 
     sage: test_monomial(zeta=1+I, alpha=I/3+1, beta=1, order=2, compare=False) # long time
     (None,
-    1.000...*(e^(I*arg(-1/2*I + 1/2)))^n*0.7071067811865475?^n*(([1.074944392622...] + [0.193783909890...]*I)*n^(1/3*I)*log(n)
-    + ([0.588542135640...] + [-0.46215768679...]*I)*n^(1/3*I)
-    + ([-0.092016451238...] + [0.1683916259986...]*I)*n^(1/3*I - 1)*log(n)
-    + ([0.517207055500...] + [0.578972535470...]*I)*n^(1/3*I - 1)
+    1.000...*(e^(I*arg(-1/2*I + 1/2)))^n*0.7071067811865475?^n*(([1.074944392622...] + [0.193783909890...]*I)*n^(0.333...?*I)*log(n)
+    + ([0.588542135640...] + [-0.46215768679...]*I)*n^(0.333...?*I)
+    + ([-0.092016451238...] + [0.1683916259986...]*I)*n^(-1 + 0.333...?*I)*log(n)
+    + ([0.517207055500...] + [0.578972535470...]*I)*n^(-1 + 0.333...?*I)
     + B([...]*n^(-2)*log(n), n >= ...) + O(...^n)))
 
 Apparent singularities::
@@ -445,7 +438,7 @@ Miscellaneous examples::
     + ([7.00000000000...]...)*n^(-4)
     + ([-15.0000000000...]...)*n^(-5)
     + ([31.000000000...]...)*n^(-6)
-    + B([72272529.03620188 +/- 6.19e-10]*n^(-7)*log(n), n >= 15))
+    + B([...]*n^(-7)*log(n), n >= 15))
     sage: check_seq_bound(asy.expand(), [1/((n+1)*(n+2)) for n in range(1000)]) # long time
 
 ::
@@ -469,6 +462,13 @@ Incorrect input::
 
     sage: from ore_algebra.analytic.singularity_analysis import *
     sage: bound_coefficients(Dz-1, [1])
+    Traceback (most recent call last):
+    ...
+    NotImplementedError: no nonzero finite singularities
+
+An sequence that is ultimately zero::
+
+    sage: bound_coefficients((z-1)*Dz, [1], order=4) # long time
     Traceback (most recent call last):
     ...
     NotImplementedError: no nonzero finite singularities
@@ -550,10 +550,10 @@ def _classify_sing(deq, known_analytic, rad):
 
     # Potential singularities of the function, sorted by magnitude
 
-    singularities = deq._singularities(QQbar, include_apparent=False,
+    singularities = deq._singularities(QQbar, apparent=False,
                                        multiplicities=False)
     singularities = [s for s in singularities if not s in known_analytic]
-    singularities.sort(key=lambda s: abs(s))
+    singularities.sort(key=lambda s: abs(s)) # XXX wasteful
     logger.debug(f"potential singularities: {singularities}")
 
     if not singularities:
@@ -866,22 +866,11 @@ def bound_coeff_mono(Expr, exact_alpha, log_order, order, n0, s):
 # Contribution of a single regular singularity
 #################################################################################
 
-def _modZ_class_ini(dop, inivec, leftmost, mults, struct):
+def _my_log_series(bwrec, inivec, leftmost, mults, struct, order):
     r"""
-    Compute a LogSeriesInitialValues object corresponding to the part with a
-    given local exponent mod 1 of a local solution specified by a vector of
-    initial conditions.
-    """
-    values = { (sol.shift, sol.log_power): c
-                for sol, c in zip(struct, inivec)
-                if sol.leftmost == leftmost }
-    ini = LogSeriesInitialValues(dop=dop, expo=leftmost, values=values,
-            mults=mults, check=False)
-    return ini
-
-def _my_log_series(dop, bwrec, inivec, leftmost, mults, struct, order):
-    r"""
-    Similar to _modZ_class_ini() followed by log_series(), but attempts to
+    Similar to log_series() called on a LogSeriesInitialValues object
+    corresponding to the part with a given local exponent mod 1 of a local
+    solution specified by a vector of initial conditions, but attempts to
     minimize interval swell by unrolling the recurrence in exact arithmetic
     (once per relevant initial value) and taking a linear combination.
 
@@ -890,13 +879,12 @@ def _my_log_series(dop, bwrec, inivec, leftmost, mults, struct, order):
     log_len = sum(m for _, m in mults)
     res = [[inivec.base_ring().zero()]*log_len for _ in range(order)]
     for sol, c in zip(struct, inivec):
-        if c.is_zero() or sol.leftmost != leftmost:
+        if c.is_zero() or sol.leftmost.as_algebraic() != leftmost.as_algebraic():
             continue
         values = { (sol1.shift, sol1.log_power): QQ.zero()
-                   for sol1 in struct if sol1.leftmost == leftmost }
+                   for sol1 in struct if sol1.leftmost.as_algebraic() == leftmost.as_algebraic() }
         values[sol.shift, sol.log_power] = QQ.one()
-        ini = LogSeriesInitialValues(dop=dop, expo=leftmost, values=values,
-                mults=mults, check=False)
+        ini = LogSeriesInitialValues(expo=leftmost, values=values, mults=mults)
         ser = log_series(ini, bwrec, order)
         for i in range(order):
             for j, a in enumerate(ser[i]):
@@ -934,15 +922,16 @@ class SingularityAnalyzer(LocalBasisMapper):
         self._local_basis_structure = critical_monomials(self.dop)
 
         nonanalytic = [sol for sol in self._local_basis_structure if not (
-            sol.leftmost.is_integer()
-            and sol.leftmost + sol.shift >= 0
+            sol.leftmost.as_algebraic().is_integer()
+            and sol.leftmost.as_algebraic() + sol.shift >= 0
             and all(c.is_zero() for term in sol.value.values()
                     for c in term[1:]))]
 
         if not nonanalytic:
             return []
 
-        min_val_rho = (nonanalytic[0].leftmost + nonanalytic[0].shift).real()
+        min_val_rho = (nonanalytic[0].leftmost.as_algebraic() +
+                       nonanalytic[0].shift).real()
         self.abs_order = self.rel_order + min_val_rho
         return super().run()
 
@@ -950,15 +939,15 @@ class SingularityAnalyzer(LocalBasisMapper):
 
         logger.info("sing=%s, valuation=%s", self.rho, self.leftmost)
 
-        order = (self.abs_order - self.leftmost.real()).ceil()
+        order = (self.abs_order - self.leftmost.as_algebraic().real()).ceil()
         # XXX don't hardocode this; ensure order1 ≥ bwrec.order
         order1 = order + 49
-        # XXX Works, and should be faster, but leads to worse bounds due to
-        # using the recurrence in interval arithmetic
-        # ini = _modZ_class_ini(self.edop, self.inivec, self.leftmost, self.shifts,
-        #                       self._local_basis_structure) # TBI?
-        # ser = log_series(ini, self.shifted_bwrec, order1)
-        ser = _my_log_series(self.edop, self.shifted_bwrec, self.inivec,
+        # XXX It works, and should be faster, to compute initial values and call
+        # log_series, but doing so leads to worse bounds due to using the
+        # recurrence in interval arithmetic
+        shifted_bwrec = self.bwrec.shift(
+            self.leftmost.as_number_field_element())
+        ser = _my_log_series(shifted_bwrec, self.inivec,
                 self.leftmost, self.shifts, self._local_basis_structure, order1)
 
         CB = CBF # XXX
@@ -966,9 +955,11 @@ class SingularityAnalyzer(LocalBasisMapper):
         # XXX do we really a bound on the tail *of order `order`*? why not
         # compute a bound on the tail of order `order1` and put everything else
         # in the "explicit terms" below?
-        vb = _bound_tail(self.edop, self.leftmost, smallrad, order, ser)
 
-        s = RBF(self.n0) / (abs(self.leftmost) + abs(order))
+        vb = _bound_tail(self.dop, self.leftmost, self.all_roots, self.shifts,
+                         smallrad, order, ser)
+
+        s = RBF(self.n0) / (abs(self.leftmost.as_ball(CBF)) + abs(order))
         assert s > 2
 
         # Bound degree in log(z) of the local expansion of the solution defined
@@ -981,15 +972,17 @@ class SingularityAnalyzer(LocalBasisMapper):
         kappa += sum(mult for shift, mult in self.shifts if shift >= order1)
 
         bound_lead_terms, initial_terms = _bound_local_integral_explicit_terms(
-                self.rho, self.leftmost, order, self.Expr, s, self.n0, ser[:order])
+                self.rho, self.leftmost.as_algebraic(), order, self.Expr, s,
+                self.n0, ser[:order])
         bound_int_SnLn = _bound_local_integral_of_tail(self.rho,
-                self.leftmost, order, self.Expr, s, self.n0, vb, kappa)
+                self.leftmost.as_algebraic(), order, self.Expr, s, self.n0, vb,
+                kappa)
 
         logger.info("  explicit part = %s", bound_lead_terms)
         logger.info("  local error term = %s", bound_int_SnLn)
 
         data = ExponentGroupData(
-            val = self.leftmost,
+            val = self.leftmost.as_algebraic(),
             bound = bound_lead_terms + bound_int_SnLn,
             initial_terms = initial_terms)
 
@@ -1001,7 +994,7 @@ class SingularityAnalyzer(LocalBasisMapper):
                                   log_power=kappa, value=data)
         self.irred_factor_cols.append(sol)
 
-def _bound_tail(dop, leftmost, smallrad, order, series):
+def _bound_tail(dop, leftmost, ind_roots, shifts, smallrad, order, series):
     r"""
     Upper-bound the tail of order ``order`` of a logarithmic series solution of
     ``dop`` with exponents in ``leftmost`` + ℤ, on a disk of radius
@@ -1010,8 +1003,13 @@ def _bound_tail(dop, leftmost, smallrad, order, series):
     terms of index ≥ ``order1``.
     """
     assert order <= len(series)
-    maj = DiffOpBound(dop, leftmost=leftmost, pol_part_len=30, # XXX
-                                                    bound_inverse="solve")
+    maj = DiffOpBound(dop,
+                      leftmost=leftmost,
+                      special_shifts=(None if dop.leading_coefficient()[0] != 0
+                                      else shifts),
+                      bound_inverse="solve",
+                      pol_part_len=30,
+                      ind_roots=ind_roots)
     ordrec = maj.dop.degree()
     last = list(reversed(series[-ordrec:]))
     order1 = len(series)
@@ -1392,12 +1390,12 @@ def _bound_validity_range(n0, dominant_sing, order):
 
     # Make sure that n0 > 2*|α| for all exponents α we encounter
 
-    max_abs_val = max(abs(sol.leftmost) # TODO: avoid redundant computation...
+    max_abs_val = max(abs(sol.leftmost.as_ball(CBF)) # TODO: avoid redundant computation...
                       for s0 in dominant_sing
                       for sol in s0.local_basis_structure())
     n2 = max_abs_val + order + 1
     # FIXME: slightly different from [DMM, (46)]
-    n0 = ZZ(max(n0, ceil(2.1*n2), n1))
+    n0 = ZZ(max(n0, ceil(21*n2/10), n1))
 
     logger.debug(f"{n1=}, {n2=}, {n0=}")
     return n0

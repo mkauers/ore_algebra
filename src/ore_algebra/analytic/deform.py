@@ -306,8 +306,6 @@ Errors::
 #
 # http://www.gnu.org/licenses/
 
-from __future__ import absolute_import, division, print_function
-
 import collections, logging, cmath, math
 import sage.plot.all as plot
 import numpy
@@ -577,6 +575,7 @@ class PathDeformer(object):
             dop = path.dop
             path = path.vert
         self.sing = [complex(z) for z in dop._singularities(CC)]
+        self.sing.sort(key=lambda z: z.real)
         if not self.sing:
             raise NotImplementedError("need at least one singularity")
         self.leftmost = int(argmin([z.real for z in self.sing]))
@@ -813,7 +812,7 @@ class PathDeformer(object):
         """
         def length(edge):
             return abs(self.sing[edge[0]] - self.sing[edge[1]])
-        edges = self.delaunay_graph.min_spanning_tree(length)
+        edges = self.delaunay_graph.min_spanning_tree(weight_function=length)
         edges.append((-1, self.leftmost, -1))
         return edges
 

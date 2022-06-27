@@ -16,14 +16,11 @@ Accuracy management
 import collections, logging
 
 from sage.rings.all import  ZZ, QQ, RR
-from sage.rings.all import RealBallField, ComplexBallField
+from sage.rings.real_arb import RBF, RealBall
 
 from .safe_cmp import *
 
 logger = logging.getLogger(__name__)
-
-IR = RealBallField()
-IC = IR.complex_field()
 
 ######################################################################
 # Convergence check
@@ -126,20 +123,22 @@ class StoppingCriterion(object):
             sage: series_sum(Dx-1, [1], 2, 1e-50, stride=1)
             ([7.3890560989306502272304274605750078131803155705...])
         """
+
         if sing:
-            return False, IR('inf')
+            return False, self.maj.IR('inf')
 
         eps = self.eps
 
         # XXX We shouldn't force the caller to give a full-precision estimate...
         accuracy = max(est.accuracy(), -int((est.rad() or RR(1)).log(2)))
-        width = IR(est.rad())
-        est = IR(est)
+        width = self.maj.IR(est.rad())
+        est = self.maj.IR(est)
         intervals_blowing_up = (accuracy < self.prec or
                                 safe_le(self.eps >> 2, width))
         if intervals_blowing_up:
             if self.fast_fail:
                 logger.debug("n=%d, est=%s, width=%s", n, est, width)
+                logger.debug("--> PrecisionError")
                 raise PrecisionError
             if safe_le(self.eps, width):
                 # Aim for tail_bound < width instead of tail_bound < self.eps
@@ -154,11 +153,11 @@ class StoppingCriterion(object):
             # hope of getting at least a reasonable relative error.
             logger.debug("n=%d, est=%s, width=%s", n, est, width)
             assert width.is_finite()
-            return False, IR('inf')
+            return False, self.maj.IR('inf')
 
         resid = cb.get_residuals()
 
-        tb = IR('inf')
+        tb = self.maj.IR('inf')
         while True:
             prev_tb = tb
             tb = cb.get_bound(resid)
@@ -230,7 +229,7 @@ class BoundRecorder(StoppingCriterion):
 
     def check(self, cb, sing, n, *args):
         if sing:
-            bound = IR('inf')
+            bound = self.maj.IR('inf')
             maj = None
         else:
             resid = cb.get_residuals()
@@ -261,7 +260,7 @@ class AccuracyTest(object):
 class AbsoluteError(AccuracyTest):
 
     def __init__(self, eps):
-        self.eps = IR(eps)
+        self.eps = RBF(eps)
 
     def reached(self, err, abs_val=None):
         return safe_lt(err.abs(), self.eps)
@@ -272,8 +271,8 @@ class AbsoluteError(AccuracyTest):
 class RelativeError(AccuracyTest):
 
     def __init__(self, eps, cutoff=None):
-        self.eps = IR(eps)
-        self.cutoff = eps if cutoff is None else IR(cutoff)
+        self.eps = RBF(eps)
+        self.cutoff = eps if cutoff is None else RBF(cutoff)
 
     def reached(self, err, val):
         # NOTE: we could provide a slightly faster test when err is a

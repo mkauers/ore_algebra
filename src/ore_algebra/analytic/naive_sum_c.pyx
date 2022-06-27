@@ -13,8 +13,6 @@ Lower-level reimplementation of key subroutines of naive_sum
 #
 # http://www.gnu.org/licenses/
 
-from __future__ import print_function
-
 from libc.stdlib cimport malloc, free
 from sage.libs.arb.types cimport *
 from sage.libs.arb.mag cimport *
@@ -26,19 +24,21 @@ from sage.rings.polynomial.polynomial_complex_arb cimport Polynomial_complex_arb
 from sage.rings.real_arb cimport RealBall
 from sage.structure.parent cimport Parent
 
+from sage.rings.real_arb import RBF
+
 cdef extern from "acb.h":
     void acb_dot(acb_t res, const acb_t s, bint subtract, acb_srcptr x, long
             xstep, acb_srcptr y, long ystep, long len, long prec)
 
 import cython
 
-from . import accuracy, naive_sum
+from . import naive_sum
 
-class PartialSum(naive_sum.PartialSum):
+class CoefficientSequence(naive_sum.CoefficientSequence):
 
     @cython.boundscheck(False)
     @cython.wraparound(False)
-    def next_term(self, py_n, py_mult, py_bwrec_n not None, py_cst, jetpow, squash):
+    def next_term(self, py_n, py_mult, py_bwrec_n not None, py_cst, squash):
 
         cdef ssize_t a, b, i, j, k, p, dot_length
         cdef list bwrec_n_i, last_i, last_0
@@ -51,21 +51,16 @@ class PartialSum(naive_sum.PartialSum):
         cdef list bwrec_n = <list> py_bwrec_n
         cdef ssize_t log_prec = self.log_prec
         cdef ssize_t ordrec = self.ordrec
-        cdef list psum = self.psum
         cdef ssize_t prec = self.Intervals.precision()
         cdef Parent Intervals = self.Intervals
-        cdef Parent IR = accuracy.IR
         cdef ComplexBall cst = <ComplexBall> py_cst
 
         cdef object last = self.last
 
-        assert n == self.trunc
         last.rotate(1)
-        self.trunc += 1
-
-        zero = Intervals.zero()
 
         if mult > 0:
+            zero = Intervals.zero()
             self.last[0] = [zero for _ in range(self.log_prec + mult)]
 
         last_0 = <list> (self.last[0])
@@ -95,7 +90,7 @@ class PartialSum(naive_sum.PartialSum):
             acb_mul(ball.value, cst.value, ball.value, prec)
             if mult == p == 0 and squash:
                 err = <RealBall> RealBall.__new__(RealBall)
-                err._parent = IR
+                err._parent = RBF
                 acb_get_rad_ubound_arf(arb_midref(err.value), ball.value, MAG_BITS)
                 mag_zero(arb_radref(acb_realref(ball.value)))
                 mag_zero(arb_radref(acb_imagref(ball.value)))
@@ -111,8 +106,28 @@ class PartialSum(naive_sum.PartialSum):
             self.handle_singular_index(n, mult)
             log_prec = self.log_prec
 
+        self.nterms += 1
+
         if log_prec == mult == 0:
-            return accuracy.IR.zero()
+            return RBF.zero()
+
+        return err
+
+
+class PartialSum(naive_sum.PartialSum):
+
+    @cython.boundscheck(False)
+    def next_term(self, jetpow, py_mult):
+
+        cdef ssize_t mult = py_mult
+        cdef list psum = self.psum
+        cdef list last_0 = <list> (self.cseq.last[0])
+        cdef ssize_t log_prec = self.cseq.log_prec
+        cdef ssize_t prec = self.Jets.base().precision()
+
+        if mult > 0:
+            naive_sum._resize_list(self.psum, log_prec,
+                                   self.Jets.zero())
 
         for k in range(log_prec):
             # XXX reuse existing object?
@@ -129,5 +144,3 @@ class PartialSum(naive_sum.PartialSum):
                     poly.__poly,
                     prec)
             psum[k] = poly
-
-        return err

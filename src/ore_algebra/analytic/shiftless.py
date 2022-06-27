@@ -15,8 +15,6 @@ Shiftless decomposition
 
 import logging
 
-from six.moves import range
-
 from sage.misc.cachefunc import cached_function
 from sage.misc.misc_c import prod
 from sage.structure.sequence import Sequence

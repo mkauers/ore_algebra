@@ -31,17 +31,17 @@ EXAMPLE::
      -5350452180523/76814438400000]
 """
 
-import logging, sys
-from sage.all import ( ceil, ComplexBallField, ComplexField, i, matrix, pari,
-        pi, PolynomialRing, QQ, sqrt, ZZ, )
+import logging
+from sage.all import (ceil, ComplexBallField, ComplexField, i, matrix, pari,
+                      pi, PolynomialRing, QQ, sqrt, ZZ)
 from ore_algebra import DifferentialOperators
 
 logging.basicConfig()
 
 logger = logging.getLogger("ore_algebra.examples.kontsevitch_odesskii")
 
-def h(t, prec):
 
+def h(t, prec):
     Dop, x, Dx = DifferentialOperators(QQ)
     L = Dx * (x*(x-1)*(x-t)) * Dx + x
 
@@ -51,7 +51,7 @@ def h(t, prec):
 
     # Formal monodromy + connection matrices
     base = t/2
-    m1 = L.numerical_transition_matrix([0,base], ZZ(2)**(-prec))
+    m1 = L.numerical_transition_matrix([0, base], ZZ(2)**(-prec))
     m2 = L.numerical_transition_matrix([t, base], ZZ(2)**(-prec))
     delta = matrix(CBF, [[1, 0], [2*pi*i, 1]])
     mat = m1*delta*~m1*m2*delta*~m2
@@ -65,8 +65,8 @@ def h(t, prec):
 
     return val
 
-def reconstruct(val, terms, t):
 
+def reconstruct(val, terms, t):
     coeffs = []
     cur = val
     for _ in range(terms):
@@ -76,8 +76,8 @@ def reconstruct(val, terms, t):
         coeffs.append(rat)
     return coeffs
 
-def h_series(terms):
 
+def h_series(terms):
     # Expected size, corresponding working precision
     sz = ceil((terms + 1)**2 * sqrt(ZZ(terms + 1).nbits())/2)
     prec = terms*(sz + 4)
