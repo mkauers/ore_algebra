@@ -621,7 +621,7 @@ def _classify_sing(deq, known_analytic, rad):
 # (variant with error bounds of Sage's SingularityAnalysis)
 #################################################################################
 
-def truncated_psi(n, m, invz):
+def truncated_psi(m, n, invz):
     """
     Compute psi^(m)(z) (or, for m = 0, psi(z) - log(z)) truncated at z^(-m-2n-1)
     with error bound of order z^(-m-2n)
@@ -636,13 +636,13 @@ def truncated_psi(n, m, invz):
 
         sage: from ore_algebra.analytic.singularity_analysis import truncated_psi
         sage: Pol.<invz> = CBF[]
-        sage: truncated_psi(3, 0, invz)
+        sage: truncated_psi(0, 3, invz)
         ([+/- ...] + [+/- ...]*I)*invz^6
         + ([0.008333...])*invz^4 + ([-0.08333...])*invz^2 - 0.5000...*invz
-        sage: truncated_psi(3, 1, invz)
+        sage: truncated_psi(1, 3, invz)
         ([+/- ...] + [+/- ...]*I)*invz^7
         + ([-0.0333...])*invz^5 + ([0.1666...])*invz^3 + 0.5000...*invz^2 + invz
-        sage: truncated_psi(3, 2, invz)
+        sage: truncated_psi(2, 3, invz)
         ([+/- ...] + [+/- ...]*I)*invz^8
         + ([0.1666...])*invz^6 + ([-0.5000...])*invz^4 - invz^3 - invz^2
         sage: truncated_psi(2, 2, invz)
@@ -857,12 +857,12 @@ def bound_coeff_mono(Expr, exact_alpha, log_order, order, n0, s):
     Series_z, eps = PowerSeriesRing(Pol_invz, 'eps', log_order).objgen()
     order_psi = max(1, ceil(order/2))
     if not reflect:
-        pols = [(truncated_psi(order_psi, m, invz) - alpha.psi(m))
+        pols = [(truncated_psi(m, order_psi, invz) - alpha.psi(m))
                 / (m + 1).factorial() for m in srange(log_order)]
         p = Series_z([0] + pols)
         hh1 = (1/alpha.gamma())*p.exp()
     else:
-        pols = [(truncated_psi(order_psi, m, invz)
+        pols = [(truncated_psi(m, order_psi, invz)
                  + (-1)**(m+1)*(1-alpha).psi(m)) / (m + 1).factorial()
                 for m in srange(log_order - 1)]
         p = Series_z([0] + pols)
