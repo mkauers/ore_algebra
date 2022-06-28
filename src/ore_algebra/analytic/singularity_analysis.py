@@ -2,7 +2,10 @@
 r"""
 Bounds on sequences by singularity analysis
 
-Main author: Ruiwen Dong <ruiwen.dong@polytechique.edu>
+AUTHORS:
+
+- Ruiwen Dong: initial version
+- Marc Mezzarobba
 
 EXAMPLES::
 
@@ -493,7 +496,21 @@ An sequence that is ultimately zero::
     Traceback (most recent call last):
     ...
     NotImplementedError: no nonzero finite singularities
+
+REFERENCES:
+
+    [D21] Ruiwen Dong. Asymptotic Expansions and Error Bounds of P-Recursive
+    Sequences. M2 Internship Report, Master parisien de recherche en
+    informatique, 2021.
+
+    [DMM] Ruiwen Dong, Stephen Melczer, and Marc Mezzarobba. Computing Error
+    Bounds for Asymptotic Expansions of Regular P-Recursive Sequences. In
+    preparation.
 """
+
+# Copyright 2021 Ruiwen Dong
+# Copyright 2021, 2022 Marc Mezzarobba
+# Copyright 2021, 2022 Centre national de la recherche scientifique
 
 import collections
 import logging
