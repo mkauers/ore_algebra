@@ -373,6 +373,27 @@ Algebraic exponents::
     + ([-10.21649619212...] + [12.33281876488...]*I)*n^(I - 2)
     + B([...]*n^(-3)*log(n)^2, n >= ... + O((...)^n)))
 
+::
+
+    sage: dop = (falling_factorial(z - 1, 4) + z)*Dz + 1
+    sage: asy = bound_coefficients(dop, [1], order=3, output='list') # long time
+    sage: asy # long time
+    (10,
+    [(1.272845131361936? - 0.2284421234572305?*I,
+    [([0.0990004637690...] + [0.2140635237159...]*I)*n^(-0.9424090224859841? + 0.3302957595950048?*I),
+    ([-0.150112291716...] + [-0.201113316532...]*I)*n^(-1.942409022485985? + 0.3302957595950048?*I),
+    ([-0.310200559727...] + [0.623654228068...]*I)*n^(-2.942409022485984? + 0.3302957595950048?*I),
+    ([+/- ...] + [+/- ...]*I)/n^3.942409022485984?]),
+    (1.272845131361936? + 0.2284421234572305?*I,
+    [([0.0990004637690...] + [-0.2140635237159...]*I)*n^(-0.9424090224859841? - 0.3302957595950048?*I),
+    ([-0.150112291716...] + [0.201113316532...]*I)*n^(-1.942409022485985? - 0.3302957595950048?*I),
+    ([-0.310200559727...] + [-0.623654228068...]*I)*n^(-2.942409022485984? - 0.3302957595950048?*I),
+    ([+/- ...] + [+/- ...]*I)/n^3.942409022485984?])])
+
+    sage: ref = UnivariateDFiniteFunction(DFR, dop, [1]).expand(200) # long time
+    sage: all(eval_bound(asy[1], j).contains_exact(ref[j]) for j in range(asy[0], len(ref))) # long time
+    True
+
 Variing the position of the singularity::
 
     sage: test_monomial(zeta=2, alpha=1/2, beta=1)
@@ -392,10 +413,10 @@ Variing the position of the singularity::
 
     sage: test_monomial(zeta=1+I, alpha=I/3+1, beta=1, order=2, compare=False) # long time
     (None,
-    1.000...*(e^(I*arg(-1/2*I + 1/2)))^n*0.7071067811865475?^n*(([1.074944392622...] + [0.193783909890...]*I)*n^(0.333...?*I)*log(n)
-    + ([0.588542135640...] + [-0.46215768679...]*I)*n^(0.333...?*I)
-    + ([-0.092016451238...] + [0.1683916259986...]*I)*n^(-1 + 0.333...?*I)*log(n)
-    + ([0.517207055500...] + [0.578972535470...]*I)*n^(-1 + 0.333...?*I)
+    1.000...*(e^(I*arg(-1/2*I + 1/2)))^n*0.7071067811865475?^n*(([1.074944392622...] + [0.193783909890...]*I)*n^(1/3*I)*log(n)
+    + ([0.588542135640...] + [-0.46215768679...]*I)*n^(1/3*I)
+    + ([-0.092016451238...] + [0.1683916259986...]*I)*n^(1/3*I - 1)*log(n)
+    + ([0.517207055500...] + [0.578972535470...]*I)*n^(1/3*I - 1)
     + B([...]*n^(-2)*log(n), n >= ...) + O(...^n)))
 
 Apparent singularities::
@@ -774,7 +795,7 @@ def bound_coeff_mono(Expr, exact_alpha, log_order, order, n0, s):
 
     OUTPUT:
 
-    - a list of length log_order of polynomials in invn, logn,
+    - a list of length log_order of polynomials P in invn, logn,
       corresponding to k = 0, ..., log_order - 1
     """
     # All entries can probably be deduced from the last one using Frobenius'
@@ -858,7 +879,7 @@ def bound_coeff_mono(Expr, exact_alpha, log_order, order, n0, s):
     res = [ZZ(k).factorial()*c
            for k, c in enumerate(full_prod.padded_list(log_order))]
     for k, pol in enumerate(res):
-        logger.debug("    1/(1-z)^%s*log(1/(1-z))^%s --> %s",
+        logger.debug("    1/(1-z)^(%s)*log(1/(1-z))^%s --> %s",
                      exact_alpha, k, pol)
     return res
 
@@ -893,6 +914,7 @@ def _my_log_series(bwrec, inivec, leftmost, mults, struct, order):
 
 ExponentGroupData = collections.namedtuple('ExponentGroupData', [
     'val',  # exponent group (lefmost element mod ℤ)
+    're_val', # real part of exponent group
     'bound',  # coefficient bound (explicit part + local error term)
     'initial_terms'  # explicit part of the local solution
 ])
@@ -930,18 +952,19 @@ class SingularityAnalyzer(LocalBasisMapper):
         if not nonanalytic:
             return []
 
-        min_val_rho = (nonanalytic[0].leftmost.as_algebraic() +
-                       nonanalytic[0].shift).real()
-        self.abs_order = self.rel_order + min_val_rho
+        self.re_leftmost = QQbar(nonanalytic[0].leftmost).real()
+        min_val = self.re_leftmost + nonanalytic[0].shift
+        self.abs_order = self.rel_order + min_val
         return super().run()
 
     def process_modZ_class(self):
 
-        logger.info("sing=%s, valuation=%s", self.rho, self.leftmost)
+        logger.info("sing=%s, valuation=%s", self.rho, QQbar(self.leftmost))
 
-        order = (self.abs_order - self.leftmost.as_algebraic().real()).ceil()
-        # XXX don't hardocode this; ensure order1 ≥ bwrec.order
-        order1 = order + 49
+        order = (self.abs_order - self.re_leftmost).ceil()
+        # TODO: consider increasing order1 adaptively, like we do with
+        # pol_part_len (via maj.refine()) in _bound_local_integral_of_tail
+        order1 = 40 + 4*order + self.bwrec.order
         # XXX It works, and should be faster, to compute initial values and call
         # log_series, but doing so leads to worse bounds due to using the
         # recurrence in interval arithmetic
@@ -950,12 +973,7 @@ class SingularityAnalyzer(LocalBasisMapper):
         ser = _my_log_series(shifted_bwrec, self.inivec,
                 self.leftmost, self.shifts, self._local_basis_structure, order1)
 
-        CB = CBF # XXX
-        smallrad = self.rad - CB(self.rho).below_abs()
-        # XXX do we really a bound on the tail *of order `order`*? why not
-        # compute a bound on the tail of order `order1` and put everything else
-        # in the "explicit terms" below?
-
+        smallrad = self.rad - CBF(self.rho).below_abs()
         vb = _bound_tail(self.dop, self.leftmost, self.all_roots, self.shifts,
                          smallrad, order, ser)
 
@@ -982,12 +1000,12 @@ class SingularityAnalyzer(LocalBasisMapper):
         logger.info("  local error term = %s", bound_int_SnLn)
 
         data = ExponentGroupData(
-            val = self.leftmost.as_algebraic(),
+            val = self.leftmost.as_exact(),
+            re_val = QQbar(self.leftmost).real(),
             bound = bound_lead_terms + bound_int_SnLn,
             initial_terms = initial_terms)
 
-        # XXX Abusing FundamentalSolution somewhat; consider creating another
-        # type of record compatible with FundamentalSolution if this stays.
+        # WARNING: Abusing FundamentalSolution somewhat here.
         # The log_power field is not meaningful, but we need _some_ integer
         # value to please code that will try to sort the solutions.
         sol = FundamentalSolution(leftmost=self.leftmost, shift=ZZ.zero(),
@@ -1008,27 +1026,31 @@ def _bound_tail(dop, leftmost, ind_roots, shifts, smallrad, order, series):
                       special_shifts=(None if dop.leading_coefficient()[0] != 0
                                       else shifts),
                       bound_inverse="solve",
-                      pol_part_len=30,
+                      pol_part_len=10,
                       ind_roots=ind_roots)
     ordrec = maj.dop.degree()
     last = list(reversed(series[-ordrec:]))
     order1 = len(series)
     # Coefficients of the normalized residual in the sense of [Mez19, Sec.
     # 6.3], with the indexing conventions of [Mez19, Prop. 6.10]
-    CB = CBF # TBI
-    res = maj.normalized_residual(order1, last, Ring=CB)
-    # Majorant series of [the components of] the tail of the local expansion
-    # of f at ρ. See [Mez19, Sec. 4.3] and [Mez19, Algo. 6.11].
-    tmaj = maj.tail_majorant(order1, [res])
-    # Make a second copy of the bound before we modify it in place.
-    tmaj1 = maj.tail_majorant(order1, [res])
-    # Shift it (= factor out z^order) ==> majorant series of the tails
-    # of the coefficients of log(z)^k/k!
-    tmaj1 >>= -order
-    # Bound on the *values* for |z| <= smallrad of the analytic functions
-    # appearing as coefficients of log(z)^k/k! in the tail of order 'order1' of
-    # the local expansion
-    tb = tmaj1.bound(smallrad)
+    res = maj.normalized_residual(order1, last, Ring=CBF)
+    oldtb = tb = RBF('inf')
+    while True:
+        # Majorant series of [the components of] the tail of the local expansion
+        # of f at ρ. See [Mez19, Sec. 4.3] and [Mez19, Algo. 6.11].
+        # WARNING: will be modified in-place
+        tmaj = maj.tail_majorant(order1, [res])
+        # Shift it (= factor out z^order) ==> majorant series of the tails
+        # of the coefficients of log(z)^k/k!
+        tmaj >>= -order
+        # Bound on the *values* for |z| <= smallrad of the analytic functions
+        # appearing as coefficients of log(z)^k/k! in the tail of order 'order1' of
+        # the local expansion
+        oldtb = tb
+        tb = tmaj.bound(smallrad)
+        if not tb < oldtb/16:
+            break
+        maj.refine()
     # Bound on the intermediate terms
     ib = sum(smallrad**n1 * max(c.above_abs() for c in vec)
             for n1, vec in enumerate(series[order:]))
@@ -1095,17 +1117,19 @@ def _bound_local_integral_explicit_terms(rho, val_rho, order, Expr, s, n0, ser):
                          for k, c in enumerate(vec))
 
     bound_lead_terms = Expr.zero()
+    _minus_val_rho = QQbar(-val_rho)
     for degZ, slice in enumerate(locf_ini_terms):
-        logger.debug("  (z - %s)^(%s + %s)*(...)...", rho, -val_rho, degZ)
+        logger.debug("  (z - %s)^(%s + %s)*(...)...",
+                     rho, _minus_val_rho, degZ)
         # XXX could be shared between singularities with common exponents...
         # (=> tie to an object and add @cached_method decorator?)
-        coeff_bounds = bound_coeff_mono(Expr, -val_rho-degZ, slice.degree() + 1,
-                                        order - degZ, n0, s)
-        new_term = (CB(-rho)**(CB(val_rho+degZ)) * invn**(degZ)
+        coeff_bounds = bound_coeff_mono(Expr, _minus_val_rho - degZ,
+                                        slice.degree() + 1, order - degZ, n0, s)
+        new_term = (CB(-rho)**CB(val_rho+degZ) * invn**(degZ)
                     * sum(c*coeff_bounds[degL] for degL, c in enumerate(slice)))
         bound_lead_terms += new_term
-        logger.debug("  (z - %s)^%s*(%s) --> %s",
-                     rho, -val_rho+degZ, slice, new_term)
+        logger.debug("  (z - %s)^(%s)*(%s) --> %s",
+                     rho, _minus_val_rho + degZ, slice, new_term)
 
     return bound_lead_terms, locf_ini_terms
 
@@ -1320,7 +1344,7 @@ def to_asymptotic_expansion(Coeff, name, term_data, n0, beta, kappa, rad,
     alg_error_coeff = Coeff.zero()
     for rho, symterms in term_data:
         dir = rho0/rho
-        assert abs(dir).is_one() # need an additional growth factor otherwise
+        assert RBF(abs(dir)).contains_exact(1) # need an additional growth factor otherwise
         arg_factor = make_arg_factor(dir)
         for symterm in symterms:
             if symterm.is_trivial_zero():
@@ -1400,7 +1424,7 @@ def _bound_validity_range(n0, dominant_sing, order):
     logger.debug(f"{n1=}, {n2=}, {n0=}")
     return n0
 
-def truncate_tail_SR(val, f, beta, kappa, n0, n):
+def truncate_tail_SR(val, re_val, f, beta, kappa, n0, n):
     """
     Truncate an expression n^val*f(1/n) to a given order
 
@@ -1409,6 +1433,7 @@ def truncate_tail_SR(val, f, beta, kappa, n0, n):
     INPUT:
 
     - val: algebraic number
+    - re_val: real part of val
     - f: polynomial in invn (representing 1/n) and logn (representing log(n))
     - beta, kappa: parameters of the new error term
     - n0: integer, result valid for n >= n0
@@ -1426,11 +1451,11 @@ def truncate_tail_SR(val, f, beta, kappa, n0, n):
     for deg_invn in range(f.degree(invn) + 1):
         for c, mon in list(f.coefficient({invn: deg_invn})):
             deg_logn = mon.degree(logn)
-            if val.real() - deg_invn > beta:
+            if re_val - deg_invn > beta:
                 g.append(c * n**(val - deg_invn) * log(n)**deg_logn)
             else:
                 c_g = (((c if c.mid() == 0 else CB(0).add_error(abs(c)))
-                        / CB(n0)**(beta + deg_invn - val.real()))
+                        / CB(n0)**(beta + deg_invn - re_val))
                        * CB(n0).log()**(deg_logn - kappa))
                 error_term += c_g * n**beta * log(n)**kappa
     g.append(error_term)
@@ -1504,15 +1529,15 @@ def bound_coefficients(deq, seqini, name='n', order=3, prec=53, n0=0, *,
                  for rho in dominant_sing]
 
     # All error terms will be reduced to the form cst*n^β*log(n)^final_kappa
-    ref_val = min((edata.val.real() for sdata in sing_data
-                                    for edata in sdata.expo_group_data
-                                    if not edata.bound.is_zero()),
+    ref_val = min((edata.re_val for sdata in sing_data
+                                for edata in sdata.expo_group_data
+                                if not edata.bound.is_zero()),
                   default=infinity)
     beta = - ref_val - 1 - order
     final_kappa = -1
     for sdata in sing_data:
         for edata in sdata.expo_group_data:
-            shift = edata.val.real() - ref_val
+            shift = edata.re_val - ref_val
             if shift not in ZZ: # explicit terms + o(n^β)
                 continue
             final_kappa = max([
@@ -1526,7 +1551,8 @@ def bound_coefficients(deq, seqini, name='n', order=3, prec=53, n0=0, *,
     n = SR.var(name)
     bound = [(sdata.rho,
               [term for edata in sdata.expo_group_data
-               for term in truncate_tail_SR(-edata.val-1, edata.bound, beta,
+               for term in truncate_tail_SR(-edata.val-1, -edata.re_val-1,
+                                            edata.bound, beta,
                                             final_kappa, n0, n)])
              for sdata in sing_data]
 
