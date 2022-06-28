@@ -796,45 +796,12 @@ def trim_expr_series(f, order, n0):
     trimmed = f.parent()([trim_expr(c, order, n0) for c in f])
     return trimmed.add_bigoh(f.parent().default_prec())
 
-def bound_coeff_mono(Expr, exact_alpha, log_order, order, n0, s):
-    """
-    Bound [z^n] (1-z)^(-α) * log(1/(1-z))^k by an expression
-    of the form n^(α-1) * P(1/n, log(n)) for all k < log_order
-
-    INPUT:
-
-    - Expr: output ring, of the form C[invn, logn]
-    - alpha: complex number, representing α
-    - log_order: non-negative integer
-    - order: expansion order wrt n
-    - n0: integer > -alpha, lower bound of validity range
-    - s: real number > 2 s.t. n >= s*|alpha| for all n >= n0
-
-    OUTPUT:
-
-    - a list of length log_order of polynomials P in invn, logn,
-      corresponding to k = 0, ..., log_order - 1
-    """
-    # All entries can probably be deduced from the last one using Frobenius'
-    # method, but I don't think it helps much computationally(?)
-
-    reflect = False
-    if exact_alpha.is_integer():
-        exact_alpha = ZZ(exact_alpha)
-        if exact_alpha <= 0:
-            reflect = True
-            # Our choice of n0 implies that the coefficients corresponding to k
-            # = 0 will be zero. In particular, we handle (1-z)^-α purely by
-            # returning a validity range that starts after the last nonzero
-            # term.
-            assert n0 >= -exact_alpha
-
-    CB = Expr.base_ring()
-    alpha = CB(exact_alpha)
-    invn, logn = Expr.gens()
-    order = max(0, order)
-
+def bound_gamma_ratio(Expr, exact_alpha, order, n0, s):
     # fg = n^(1-α) Γ(n+α)/Γ(n+1)
+    CB = Expr.base_ring()
+    invn, logn = Expr.gens()
+    alpha = CB(exact_alpha)
+
     if exact_alpha.parent() is ZZ and order >= exact_alpha >= 1:
         fg = product(1 + k*invn for k in range(1, exact_alpha))
         logger.debug("    fg = %s", fg)
@@ -849,6 +816,12 @@ def bound_coeff_mono(Expr, exact_alpha, log_order, order, n0, s):
         g = truncated_power(alpha, order, invn, s)
         logger.debug("    g = %s", g)
         fg = trim_expr(f*g, order, n0)
+    return fg
+
+def bound_gamma_ratio_derivatives(Expr, exact_alpha, log_order, order, n0, s):
+    CB = Expr.base_ring()
+    invn, logn = Expr.gens()
+    alpha = CB(exact_alpha)
 
     # Bound for 1/Γ(n+α) (d/dα)^k [Γ(n+α)/Γ(α)]
     # Use PowerSeriesRing because polynomials do not implement all the
@@ -856,7 +829,7 @@ def bound_coeff_mono(Expr, exact_alpha, log_order, order, n0, s):
     Pol_invz, invz = PolynomialRing(CB, 'invz').objgen() # z = n + α
     Series_z, eps = PowerSeriesRing(Pol_invz, 'eps', log_order).objgen()
     order_psi = max(1, ceil(order/2))
-    if not reflect:
+    if not (exact_alpha.parent() is ZZ and exact_alpha <= 0):
         pols = [(truncated_psi(m, order_psi, invz) - alpha.psi(m))
                 / (m + 1).factorial() for m in srange(log_order)]
         p = Series_z([0] + pols)
@@ -884,12 +857,43 @@ def bound_coeff_mono(Expr, exact_alpha, log_order, order, n0, s):
     h2 = trim_expr_series(h2, order, n0)
     h3 = (logn*eps).exp()
 
-    h = h1*h2*h3
-    h = trim_expr_series(h, order, n0)
-
     logger.debug("    h1 = %s", h1)
     logger.debug("    h2 = %s", h2)
     logger.debug("    h3 = %s", h3)
+
+    h = h1*h2*h3
+    h = trim_expr_series(h, order, n0)
+    return h
+
+def bound_coeff_mono(Expr, alpha, log_order, order, n0, s):
+    """
+    Bound [z^n] (1-z)^(-α) * log(1/(1-z))^k by an expression
+    of the form n^(α-1) * P(1/n, log(n)) for all k < log_order
+
+    INPUT:
+
+    - Expr: output ring, of the form C[invn, logn]
+    - alpha: complex number, representing α
+    - log_order: non-negative integer
+    - order: expansion order wrt n
+    - n0: integer > -alpha, lower bound of validity range
+    - s: real number > 2 s.t. n >= s*|alpha| for all n >= n0
+
+    OUTPUT:
+
+    - a list of length log_order of polynomials P in invn, logn,
+      corresponding to k = 0, ..., log_order - 1
+    """
+    # All entries can probably be deduced from the last one using Frobenius'
+    # method, but I don't think it helps much computationally(?)
+
+    if alpha.is_integer():
+        alpha = ZZ(alpha)
+
+    order = max(0, order)
+
+    fg = bound_gamma_ratio(Expr, alpha, order, n0, s)
+    h = bound_gamma_ratio_derivatives(Expr, alpha, log_order, order, n0, s)
 
     full_prod = fg * h
     full_prod = trim_expr_series(full_prod, order, n0)
@@ -897,7 +901,7 @@ def bound_coeff_mono(Expr, exact_alpha, log_order, order, n0, s):
            for k, c in enumerate(full_prod.padded_list(log_order))]
     for k, pol in enumerate(res):
         logger.debug("    1/(1-z)^(%s)*log(1/(1-z))^%s --> %s",
-                     exact_alpha, k, pol)
+                     alpha, k, pol)
     return res
 
 #################################################################################
