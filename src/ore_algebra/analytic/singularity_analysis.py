@@ -599,10 +599,10 @@ def _classify_sing(deq, known_analytic, rad):
 
     # Dominant singularities
 
-    # dominant_sing is the list of potential dominant
-    # singularities of the function, not of "dominant singular points". It does
-    # not include singular points of the equation lying in the disk where the
-    # function is known to be analytic.
+    # dominant_sing is the list of potential dominant singularities of the
+    # function, not of "dominant singular points". It does not include singular
+    # points of the equation lying in the disk where the function is known to be
+    # analytic.
     if rad is None:
         dominant_sing, next_sing_rad = _sing_in_disk(singularities,
                 abs(singularities[0]), abs(singularities[-1])*3)
@@ -624,7 +624,7 @@ def _classify_sing(deq, known_analytic, rad):
 def truncated_psi(m, n, invz):
     """
     Compute psi^(m)(z) (or, for m = 0, psi(z) - log(z)) truncated at z^(-m-2n-1)
-    with error bound of order z^(-m-2n)
+    with an error bound of order z^(-m-2n)
 
     INPUT:
 
@@ -1052,8 +1052,8 @@ def _bound_tail(dop, leftmost, ind_roots, shifts, smallrad, order, series):
     ordrec = maj.dop.degree()
     last = list(reversed(series[-ordrec:]))
     order1 = len(series)
-    # Coefficients of the normalized residual in the sense of [Mez19, Sec.
-    # 6.3], with the indexing conventions of [Mez19, Prop. 6.10]
+    # Coefficients of the normalized residual in the sense of [Mez19, Sec. 6.3],
+    # with the indexing conventions of [Mez19, Prop. 6.10]
     res = maj.normalized_residual(order1, last, Ring=CBF)
     oldtb = tb = RBF('inf')
     while True:
@@ -1320,7 +1320,7 @@ def to_asymptotic_expansion(Coeff, name, term_data, n0, beta, kappa, rad,
 
     n = SR.var(name)
 
-    # XXX detect cases where we can use 1 or ±1 or U as Arg
+    # TODO: detect cases where we can use 1 or ±1 or U as Arg
     Exp, Arg = ExponentialGrowthGroup.factory(QQbar, name, return_factors=True)
     # AsymptoticRing does not split MonomialGrowthGroups with non-real
     # exponent groups in growth*non-growth parts, presumably because this has no
