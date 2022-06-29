@@ -1510,7 +1510,6 @@ def _bound_validity_range(n0, dominant_sing, order):
 
     # Make sure the disks B(ρ, |ρ|/n) contain no other singular point
 
-    # FIXME: currently DOES NOT match [DMM, (10)]
     if len(dominant_sing) > 1:
         min_dist = min(s0.dist_to_sing() for s0 in dominant_sing)
         n1 = ceil(2*abs(QQbar(dominant_sing[-1]))/min_dist)
@@ -1523,9 +1522,9 @@ def _bound_validity_range(n0, dominant_sing, order):
     max_abs_val = max(abs(sol.leftmost.as_ball(CBF))
                       for s0 in dominant_sing
                       for sol in s0.local_basis_structure())
-    n2 = max_abs_val + order + 1
-    # FIXME: slightly different from [DMM, (46)]
-    n0 = ZZ(max(n0, ceil(21*n2/10), n1))
+    # XXX couldn't we limit ourselves to the exponents of non-analytic terms?
+    n2 = (RBF(21)/10*(max_abs_val + order + 1)).above_abs().ceil()
+    n0 = ZZ(max(n0, n1, n2))
 
     logger.debug(f"{n1=}, {n2=}, {n0=}")
     return n0
