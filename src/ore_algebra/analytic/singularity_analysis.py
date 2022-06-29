@@ -945,6 +945,7 @@ ExponentGroupData = collections.namedtuple('ExponentGroupData', [
     're_val', # real part of exponent group
     'bound',  # coefficient bound (explicit part + local error term)
     'initial_terms'  # explicit part of the local solution
+                     # (will be reused to compute the global error term)
 ])
 
 SingularityData = collections.namedtuple('SingularityData', [
@@ -1001,12 +1002,23 @@ class SingularityAnalyzer(LocalBasisMapper):
         ser = _my_log_series(shifted_bwrec, self.inivec,
                 self.leftmost, self.shifts, self._local_basis_structure, order1)
 
-        smallrad = self.rad - CBF(self.rho).below_abs()
-        vb = _bound_tail(self.dop, self.leftmost, self.all_roots, self.shifts,
-                         smallrad, order, ser)
-
-        s = RBF(self.n0) / (abs(self.leftmost.as_ball(CBF)) + abs(order))
+        # All contributions to the bound depend on a parameter s > 2 and are
+        # valid for n > n0 provided that n0 > s*|α| where α is the relevant
+        # valuation, which is always of the form leftmost + shift for some
+        # integer shift with 0 ≤ shift ≤ order.
+        s = RBF(self.n0) / (abs(self.leftmost.as_ball(CBF)) + abs(order) + 1)
+        logger.debug("s=%s", s)
         assert s > 2
+
+        bound_lead_terms, initial_terms = _bound_local_integral_explicit_terms(
+                self.Expr, self.rho, self.leftmost.as_algebraic(), order, s,
+                self.n0, ser[:order])
+
+        # TODO: move to _bound_local_integral_of_tail(?), simplify arguments,
+        # avoid calling _bound_tail in analytic case
+        smallrad = self.rad - CBF(self.rho).below_abs()
+        vb = _bound_tail(self.dop, self.leftmost, order, self.all_roots,
+                         self.shifts, smallrad, ser)
 
         # Bound degree in log(z) of the local expansion of the solution defined
         # by ini
@@ -1017,12 +1029,8 @@ class SingularityAnalyzer(LocalBasisMapper):
         # bound... but in the future we may want to avoid computing it
         kappa += sum(mult for shift, mult in self.shifts if shift >= order1)
 
-        bound_lead_terms, initial_terms = _bound_local_integral_explicit_terms(
-                self.rho, self.leftmost.as_algebraic(), order, self.Expr, s,
-                self.n0, ser[:order])
-        bound_int_SnLn = _bound_local_integral_of_tail(self.rho,
-                self.leftmost.as_algebraic(), order, self.Expr, s, self.n0, vb,
-                kappa)
+        bound_int_SnLn = _bound_local_integral_of_tail(self.Expr, self.rho,
+                self.leftmost.as_algebraic(), order, s, self.n0, vb, kappa)
 
         logger.info("  explicit part = %s", bound_lead_terms)
         logger.info("  local error term = %s", bound_int_SnLn)
@@ -1037,10 +1045,10 @@ class SingularityAnalyzer(LocalBasisMapper):
         # The log_power field is not meaningful, but we need _some_ integer
         # value to please code that will try to sort the solutions.
         sol = FundamentalSolution(leftmost=self.leftmost, shift=ZZ.zero(),
-                                  log_power=kappa, value=data)
+                                  log_power=0, value=data)
         self.irred_factor_cols.append(sol)
 
-def _bound_tail(dop, leftmost, ind_roots, shifts, smallrad, order, series):
+def _bound_tail(dop, leftmost, order, ind_roots, shifts, smallrad, series):
     r"""
     Upper-bound the tail of order ``order`` of a logarithmic series solution of
     ``dop`` with exponents in ``leftmost`` + ℤ, on a disk of radius
@@ -1072,8 +1080,8 @@ def _bound_tail(dop, leftmost, ind_roots, shifts, smallrad, order, series):
         # of the coefficients of log(z)^k/k!
         tmaj >>= -order
         # Bound on the *values* for |z| <= smallrad of the analytic functions
-        # appearing as coefficients of log(z)^k/k! in the tail of order 'order1' of
-        # the local expansion
+        # appearing as coefficients of log(z)^k/k! in the tail of order 'order1'
+        # of the local expansion
         oldtb = tb
         tb = tmaj.bound(smallrad)
         if not tb < oldtb/16:
@@ -1085,7 +1093,18 @@ def _bound_tail(dop, leftmost, ind_roots, shifts, smallrad, order, series):
     # Same as tb, but for the tail of order 'order'
     return tb + ib
 
-def _bound_local_integral_of_tail(rho, val_rho, order, Expr, s, n0, vb, kappa):
+def _bound_local_integral_of_tail(Expr, rho, val_rho, order, s, n0, vb, kappa):
+    r"""
+    Bound the integral over a small loop around the singularity ``rho``,
+    connecting to the big circle, of 1/(2πi)*g(z)/z^{n+1} where g is the tail
+    starting at z^{val_rho + order} of the local expansion of a certain
+    solution of the differential equation.
+
+    The bound is valid for n ≥ max(n0, s*(|val_rho| + order)) provided that
+    s > 2.
+    """
+
+    assert s > 2
 
     # Analytic case (terminating expansion in powers of n).
     # (This is more general than the case of a terminating local expansion in
@@ -1099,41 +1118,57 @@ def _bound_local_integral_of_tail(rho, val_rho, order, Expr, s, n0, vb, kappa):
 
     invn, logn = Expr.gens()
 
-    CB = CBF # These are error terms, no need for high prec. Still, TBI.
-    RB = RBF
-    _pi = RB(pi)
-    _rho = CB(rho)
+    _pi = RBF(pi)
+    _rho = CBF(rho)
 
     # Change representation from log(z-ρ) to log(1/(1 - z/ρ))
     # The h_i are cofactors of powers of log(z-ρ), not log(1/(1-z/ρ)).
     # Define the B polynomial in a way that accounts for that.
-    ll = abs(CB(-rho).log())
-    B = vb*RB['z']([
+    ll = abs(CBF(-rho).log())
+    B = vb*RBF['z']([
             sum([ll**(m - j) * binomial(m, j) / factorial(m)
                     for m in range(j, kappa + 1)])
             for j in range(kappa + 1)])
 
+    beta = CBF(val_rho).real() + order
 
-    beta = CB(val_rho).real() + order
-
-    A = ((abs(_rho.arg()) + 2*_pi)*abs(CB(val_rho).imag())).exp()
+    A = ((abs(_rho.arg()) + 2*_pi)*abs(CBF(val_rho).imag())).exp()
     Bpi = B(_pi + logn)
 
     # Sub polynomial factor for bound on S(n)
     assert isinstance(n0, Integer)
-    err_S = abs(_rho)**beta * A * CB(1 - 1/n0)**(CB(-n0-1))
-    bound_S = CB(0).add_error(err_S)*Bpi
+    err_S = abs(_rho)**beta * A * CBF(1 - 1/n0)**(-n0-1)
+    bound_S = CBF(0).add_error(err_S)*Bpi
     # Sub polynomial factor for bound on L(n)
-    if val_rho + order <= 0:
+    if beta <= 0:
         C_nur = 1
     else:
-        C_nur = 2 * (CB(1).exp()*(s - 2)/(2*s *beta))**beta
+        C_nur = 2 * (CBF(1).exp()*(s - 2)/(2*s*beta))**beta
     err_L = C_nur/_pi * abs(_rho)**beta * A
-    bound_L = CB(0).add_error(err_L)*Bpi
+    bound_L = CBF(0).add_error(err_L)*Bpi
 
     return Expr(bound_S + bound_L) * invn**order
 
-def _bound_local_integral_explicit_terms(rho, val_rho, order, Expr, s, n0, ser):
+def _bound_local_integral_explicit_terms(Expr, rho, val_rho, order, s, n0, ser):
+    r"""
+    Bound the coefficient of z^n in the expansion at the origin of the initial
+    terms of the local expansion at ρ whose coefficients are given in ser.
+
+    The first element of the output is a polynomial p(invn, logn), with an error
+    term of order Õ(invn^order), such that n^val_rho*p(1/n, log(n)) is the
+    desired bound.
+
+    The bound is valid for n ≥ n0. It is required that s > 2 and
+    n0 > s*(|val_rho| + order)).
+
+    The function additionally returns a polynomial ℓ(Z, L) such that the series
+    to whose coefficients the previous bound applies is equal to
+    ℓ(z-ρ, log(1-z/ρ)).
+    """
+
+    assert s > 2
+    assert order >= 0
+    assert n0 > s*(abs(val_rho) + order)
 
     invn, _ = Expr.gens()
     CB = Expr.base_ring()
@@ -1165,8 +1200,20 @@ def _bound_local_integral_explicit_terms(rho, val_rho, order, Expr, s, n0, ser):
 
     return bound_lead_terms, locf_ini_terms
 
-def contribution_single_singularity(deq, ini, rho, rad, Expr,
-        rel_order, n0):
+def contribution_single_singularity(deq, ini, rho, rad, Expr, rel_order, n0):
+    r"""
+    Bound the integral over a small loop around ρ, connecting to the big circle
+    of radius rad, of 1/(2πi)*f(z)/z^{n+1} where f is the solution of deq
+    corresponding to the initial conditions at 0 given in ini.
+
+    The result is a collection of contributions of the same form as the output
+    of _bound_local_integral_explicit_terms(). The bound is valid for all
+    n >= n0.
+
+    Some ancillary data is returned for each contribution, including an
+    expression of the associated local expansion at ρ of a component of f (see
+    _bound_local_integral_explicit_terms()).
+    """
 
     eps = RBF.one() >>  Expr.base_ring().precision() + 13
     tmat = deq.numerical_transition_matrix([0, rho], eps, assume_analytic=True)
@@ -1231,7 +1278,8 @@ def numerical_sol_big_circle(deq, ini, dominant_sing, rad, halfside):
         arg0 = sings[j0].arg()
         arg1 = sings[j1].arg()
         if j1 == 0:
-            # last arc is a bit special: we need to add 2*pi to ending
+            # last arc is a bit special: we need to add 2*pi to the argument of
+            # the end
             arg1 += 2*RBF.pi()
 
         # Compute initial values at a point on the large circle, halfway between
@@ -1299,6 +1347,11 @@ def add_error_term(bound, rho, term, n):
 ################################################################################
 
 class FormalProduct:
+    r"""
+    A formal product of a main exponential factor (1/ρ)^n and an asymptotic
+    expansion (which may contain terms involving ω^n for some ω as well,
+    typically with |ω| = 1).
+    """
 
     def __init__(self, exponential_factor, series_factor):
         self._exponential_factor = exponential_factor
@@ -1323,6 +1376,25 @@ def _remove_non_growth_factors(growth):
 
 def to_asymptotic_expansion(Coeff, name, term_data, n0, beta, kappa, rad,
                             cst_big_circle):
+    r"""
+    Convert a list ``term_data`` of contribution to a Sage asymptotic expansion.
+
+    As of Sage 9.6, may fail for some inputs because not everything we need is
+    implemented in Sage yet.
+
+    INPUT:
+
+    - ``Coeff``: coefficient ring (typically a complex ball field)
+    - ``name``: variable name
+    - ``term_data``: list of lists [ρ, [m0, m1, ...]], representing terms of the
+      form ρ^(-n)*mk
+    - ``n0``, ``beta``, ``kappa``, ``rad``: parameters (validity, exponent of n,
+      exponent of log(n)) of the desired error term; ``beta`` can be -∞,
+      indicating an exponentially small error term ``O(rad^(-n))``
+    - ``cst_big_circle``: coefficient of the _exponentially small_ error term;
+      if ``None``, the error term in the result will be an O-term instead of a
+      B-term; otherwise, ignored except when ``beta`` is -∞.
+    """
 
     from sage.categories.cartesian_product import cartesian_product
     from sage.rings.asymptotic.asymptotic_ring import AsymptoticRing
@@ -1376,7 +1448,8 @@ def to_asymptotic_expansion(Coeff, name, term_data, n0, beta, kappa, rad,
     alg_error_coeff = Coeff.zero()
     for rho, symterms in term_data:
         dir = rho0/rho
-        assert RBF(abs(dir)).contains_exact(1) # need an additional growth factor otherwise
+        # need an additional growth factor if this is not the case
+        assert RBF(abs(dir)).contains_exact(1)
         arg_factor = make_arg_factor(dir)
         for symterm in symterms:
             if symterm.is_trivial_zero():
@@ -1446,7 +1519,8 @@ def _bound_validity_range(n0, dominant_sing, order):
 
     # Make sure that n0 > 2*|α| for all exponents α we encounter
 
-    max_abs_val = max(abs(sol.leftmost.as_ball(CBF)) # TODO: avoid redundant computation...
+    # TODO: avoid redundant computation...
+    max_abs_val = max(abs(sol.leftmost.as_ball(CBF))
                       for s0 in dominant_sing
                       for sol in s0.local_basis_structure())
     n2 = max_abs_val + order + 1
@@ -1458,7 +1532,8 @@ def _bound_validity_range(n0, dominant_sing, order):
 
 def truncate_tail_SR(val, re_val, f, beta, kappa, n0, n):
     """
-    Truncate an expression n^val*f(1/n) to a given order
+    Convert a polynomial f ∈ C[invn, logn] to the symbolic expression
+    n^val*p(1/n, log(n)), truncating it to O(n^β*log(n)^κ) on the fly.
 
     1/n^(beta+t), t>=0 is replaced by cst*logn^kappa/n^beta
 
@@ -1518,9 +1593,13 @@ def bound_coefficients(deq, seqini, name='n', order=3, prec=53, n0=0, *,
       term)
     - ``halfside`` (optional, default: automatic choice): resolution parameter
       used in the computation of the exponentially small error term
-    - ``output`` (optional, default: ``asymptotic_expansion``): set to ``list``
-      to get the results as a list of terms instead of an
+    - ``output`` (optional, default: ``"asymptotic_expansion"``): set to
+      ``"list"`` to get the results as a list of terms instead of an
       ``AsymptoticRingElement``
+    - ``ignore_exponentially_small_term``: skip computation of an exponentially
+      small contribution to the error term; with
+      ``output="asymptotic_expansion"``, the resulting expansion will contain an
+      exponentially small O-term (usually in addition to a B-term)
 
     OUTPUT:
 
@@ -1545,7 +1624,8 @@ def bound_coefficients(deq, seqini, name='n', order=3, prec=53, n0=0, *,
     all_exn_pts, dominant_sing, rad = _classify_sing(deq, known_analytic, rad)
 
     # Compute validity range
-    _dominant_sing = [Point(s, deq) for s in dominant_sing] # tmp, should use Points everywhere
+    # TODO: also use Points elsewhere when relevant
+    _dominant_sing = [Point(s, deq) for s in dominant_sing]
     n0 = _bound_validity_range(n0, _dominant_sing, order)
 
     # Convert initial sequence terms to solution coordinates in the basis at 0
