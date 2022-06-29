@@ -479,6 +479,11 @@ Miscellaneous examples::
     + ([1.0000000000...]...)*n^(-8)
     + B([...]*n^(-9), n >= 19))
 
+Exponentially small error terms with ``output="list"``::
+
+    sage: bound_coefficients((z-1)*Dz+2, [1], output='list')
+    (13, [(1, [1.000...*n, 1.000..., 0]), (1.75000..., [[...]])])
+
 Incorrect input::
 
     sage: bound_coefficients(((z-1)*Dz+1)^2, [0])
@@ -1602,6 +1607,8 @@ def bound_coefficients(deq, seqini, name='n', order=3, prec=53, n0=0, *,
             add_error_term(bound, mag_dom, error_term_big_circle, n)
 
     if output == 'list':
+        if beta == -infinity and not ignore_exponentially_small_term:
+            bound.append((rad, [cst_big_circle]))
         return n0, bound
     else:
         try:
