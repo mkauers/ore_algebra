@@ -113,16 +113,18 @@ Complex exponents example::
     sage: all(eval_bound(asy[1], j).contains_exact(ref[j]) for j in range(asy[0], 150)) # long time
     True
 
-We currently truncate the expansion at order ``(leading term)·n^-order``, and in
-particular do not compute exponentially small terms when the expansion in powers
-of n terminates::
+We can often detect when the expansion in powers of n terminates, but currently
+do not compute the exponentially smaller terms that follow in this case::
 
     sage: dop = ((z-1)*Dz + 1).lclm(((z-2)*Dz)^2)
     sage: dop((1/(1-z) + log(1/(1-z/2)))).simplify_full()
     0
     sage: seqini = list((1/(1-z) + log(1/(1-z/2))).series(z, 3).truncate().polynomial(QQ))
     sage: bound_coefficients(dop, seqini) # long time
-    1.000...*([1.000...] + B([...]*n^(-3), n >= ...))
+    1.000...*([1.000...] + B([...]*(4/7)^n, n >= ...))
+
+    sage: bound_coefficients((z-1)*Dz-z+2, [1]) # exp(z)/(1-z) # long time
+    1.000...*([2.718281828459...] + B([...]*(4/7)^n, n >= ...))
 
 It is possible, however, to use the option ``known_analytic`` to indicate that
 the initial terms given on input define a solution that is analytic at a
@@ -130,7 +132,7 @@ particular singular point of the differential operator::
 
     sage: seqini = list(log(1/(1-z/2)).series(z, 3).truncate().polynomial(QQ))
     sage: bound_coefficients(dop, seqini) # long time
-    1.000...*([+/-...] + B([...]*n^(-3), n >= ...))
+    1.000...*([+/-...] + B([...]*(4/7)^n, n >= ...))
     sage: bound_coefficients(dop, seqini, known_analytic=[1]) # long time
     1.000...*(1/2)^n*(([1.000...]...)*n^(-1) + B([...]*n^(-4)*log(n), n >= ...))
 
@@ -1080,11 +1082,15 @@ def _bound_tail(dop, leftmost, ind_roots, shifts, smallrad, order, series):
 
 def _bound_local_integral_of_tail(rho, val_rho, order, Expr, s, n0, vb, kappa):
 
-    if kappa == 0 and val_rho in ZZ and val_rho >= 0:
-        return Expr.zero() # analytic case
+    # Analytic case (terminating expansion in powers of n).
+    # (This is more general than the case of a terminating local expansion in
+    # powers of (z-ρ), where vb would be zero anyway!)
+    if kappa == 0 and val_rho in ZZ and val_rho + order >= 0:
+        return Expr.zero()
 
-    # XXX not great for integer val_rho (results in an error term of degree in
-    # logn too large by one unit when val_rho + order >= 0)
+    # Results in an error term of degree in logn too large by one unit when
+    # val_rho is an integer and val_rho + order >= 0. This is no big deal here
+    # (unlike above) since one can always increase the expansion order.
 
     invn, logn = Expr.gens()
 
