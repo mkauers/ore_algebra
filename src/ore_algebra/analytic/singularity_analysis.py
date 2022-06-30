@@ -92,6 +92,20 @@ Diagonal example::
     sage: all(eval_bound(asy[1], j).contains_exact(ref[j]) for j in range(asy[0], 150)) # long time
     True
 
+Lattice path example from the paper::
+
+    sage: dop = (z^2*(4*z - 1)*(4*z + 1)*Dz^3 + 2*z*(4*z+1)*(16*z-3)*Dz^2
+    ....:        + 2*(112*z^2 + 14*z - 3)*Dz + 4*(16*z + 3))
+    sage: bound_coefficients(dop, [1, 2, 6], order=3) # long time
+    1.000000000000000*4^n*(([1.273239544735...] + [+/- ...]*I)*n^(-1)
+    + ([-1.909859317102...] + [+/- ...]*I)*n^(-2)
+    + ([3.023943918746...] + [+/- ...]*I)*n^(-3)
+    + B([3432.0...]*n^(-4)*log(n), n >= 9)
+    + [0.3183098861837...]*(e^(I*arg(-1)))^n*n^(-3))
+    sage: _, bound = bound_coefficients(dop, [1, 2, 6], order=6, output='list') # long time
+    sage: my_n = RBF(1000000); eval_bound(bound, my_n).real()/4^my_n # long time
+    [1.27323763487919e-6 +/- ...]
+
 Complex exponents example::
 
     sage: deq = (z-2)^2*Dz^2 + z*(z-2)*Dz + 1
