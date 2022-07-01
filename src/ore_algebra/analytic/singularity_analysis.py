@@ -823,6 +823,7 @@ def bound_gamma_ratio(Expr, exact_alpha, order, n0, s):
     invn, logn = Expr.gens()
     alpha = CB(exact_alpha)
 
+    # for α = 0, fg is a polynomial, but of degree α, not α - 1
     if exact_alpha.parent() is ZZ and order >= exact_alpha >= 1:
         fg = product(1 + k*invn for k in range(1, exact_alpha))
         logger.debug("    fg = %s", fg)
@@ -863,6 +864,7 @@ def bound_gamma_ratio_derivatives(Expr, exact_alpha, log_order, order, n0, s):
         _pi = CB(pi)
         sine = (-1 if exact_alpha%2 else 1)*(_pi*eps).sin()
         hh1 = ((1-alpha).gamma()/_pi)*(p.exp()*sine)
+    # XXX use s instead?
     invz_bound = ~(n0 - abs(alpha))
     hh1 = hh1.parent()([trim_univariate(c, order, invz_bound)
                         for k, c in enumerate(hh1)])
@@ -1686,6 +1688,7 @@ def bound_coefficients(deq, seqini, name='n', order=3, prec=53, n0=0, *,
     if ignore_exponentially_small_term:
         cst_big_circle = None
     else:
+        # TODO: use a non-uniform covering
         if halfside is None:
             halfside = min(abs(abs(ex) - rad) for ex in all_exn_pts)/10
         cst_big_circle = max_big_circle(deq, ini, dominant_sing, sing_data, rad,
