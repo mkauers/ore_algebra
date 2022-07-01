@@ -1342,7 +1342,7 @@ def max_big_circle(deq, ini, dominant_sing, sing_data, rad, halfside):
 def absorb_exponentially_small_term(CB, cst, ratio, beta, final_kappa, n0, n):
     if beta <= n0 * ratio.log():
         _beta = RBF(beta)
-        cst1 = _beta.exp()*(_beta/ratio.log())**_beta
+        cst1 = _beta.exp()*(_beta/ratio.log())**(-_beta)
     else:
         cst1 = ratio**n0 * CBF(n0)**(-beta)
     rad_err = cst*cst1 / CBF(n0).log()**final_kappa
