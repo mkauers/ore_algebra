@@ -1637,25 +1637,33 @@ def bound_coefficients(deq, seqini, name='n', order=3, prec=53, n0=0, *,
 
     deq = DifferentialOperator(deq)
 
-    # Identify dominant singularities, choose big radius
-    all_exn_pts, dominant_sing, rad = _classify_sing(deq, known_analytic, rad)
+    while True:
 
-    # Compute validity range
-    # TODO: also use Points elsewhere when relevant
-    _dominant_sing = [Point(s, deq) for s in dominant_sing]
-    n0 = _bound_validity_range(n0, _dominant_sing, order)
+        # Identify dominant singularities, choose big radius
+        all_exn_pts, dominant_sing, rad1 = _classify_sing(deq, known_analytic, rad)
 
-    # Convert initial sequence terms to solution coordinates in the basis at 0
-    ini = _coeff_zero(seqini, deq)
+        # Compute validity range
+        # TODO: also use Points elsewhere when relevant
+        _dominant_sing = [Point(s, deq) for s in dominant_sing]
+        n0 = _bound_validity_range(n0, _dominant_sing, order)
 
-    # Contribution of each singular point
+        # Convert initial sequence terms to solution coordinates in the basis at 0
+        ini = _coeff_zero(seqini, deq)
 
-    Expr = PolynomialRing(CB, ['invn', 'logn'], order='lex')
-    invn, logn = Expr.gens()
+        # Contribution of each singular point
 
-    sing_data = [contribution_single_singularity(deq, ini, rho, rad, Expr,
-                                                 order, n0)
-                 for rho in dominant_sing]
+        Expr = PolynomialRing(CB, ['invn', 'logn'], order='lex')
+        invn, logn = Expr.gens()
+
+        sing_data = [contribution_single_singularity(deq, ini, rho, rad1, Expr,
+                                                    order, n0)
+                    for rho in dominant_sing]
+
+        if all(sdata.expo_group_data == [] for sdata in sing_data):
+            known_analytic.extend(dominant_sing)
+        else:
+            rad = rad1
+            break
 
     # All error terms will be reduced to the form cst*n^β*log(n)^final_kappa
     ref_val = min((edata.re_val for sdata in sing_data
