@@ -995,6 +995,7 @@ class SingularityAnalyzer(LocalBasisMapper):
                     for c in term[1:]))]
 
         if not nonanalytic:
+            logger.debug("found an apparent singularity")
             return []
 
         self.re_leftmost = QQbar(nonanalytic[0].leftmost).real()
@@ -1231,9 +1232,11 @@ def contribution_single_singularity(deq, ini, rho, rad, Expr, rel_order, n0):
     _bound_local_integral_explicit_terms()).
     """
 
+    logger.info("singular point %s, computing transition matrix...", rho)
     eps = RBF.one() >>  Expr.base_ring().precision() + 13
     tmat = deq.numerical_transition_matrix([0, rho], eps, assume_analytic=True)
     coord_all = tmat*ini
+    logger.info("done")
 
     ldop = deq.shift(Point(rho, deq))
 
@@ -1288,7 +1291,6 @@ def numerical_sol_big_circle(deq, ini, dominant_sing, rad, halfside):
     sings.sort(key=lambda s: s.arg())
     num_sings = len(sings)
     pairs = []
-    num_sq = 0
     for j0 in range(num_sings):
         j1 = (j0 + 1) % num_sings
         arg0 = sings[j0].arg()
@@ -1308,7 +1310,8 @@ def numerical_sol_big_circle(deq, ini, dominant_sing, rad, halfside):
         # From there, walk along the large circle in both directions
         halfarc = (arg1 - arg0)/2
         np = ZZ(((halfarc*rad / (2*halfside)).above_abs()).ceil()) + 2
-        num_sq += np
+
+        logger.info("  sector %d, %d squares of half-side %s", j0, np, halfside)
         # TODO: optimize case of real coefficients
         # TODO: check path correctness (plot?) in complex cases
         for side in [1, -1]:
@@ -1318,8 +1321,7 @@ def numerical_sol_big_circle(deq, ini, dominant_sing, rad, halfside):
             pairs += deq.numerical_solution(ini_hub, path, eps)
 
     clock.toc()
-    logger.info("...done, %d squares of half-side %s, %s",
-                num_sq, halfside, clock)
+    logger.info("...done, %s", clock)
     return pairs
 
 def max_big_circle(deq, ini, dominant_sing, sing_data, rad, halfside):
