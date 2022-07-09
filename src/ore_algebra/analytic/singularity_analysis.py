@@ -106,6 +106,37 @@ Lattice path example from the paper::
     sage: my_n = RBF(1000000); eval_bound(bound, my_n).real()/4^my_n # long time
     [1.27323763487919e-6 +/- ...]
 
+Example from Y. Baryshnikov, S. Melczer, R. Pemantle, and A. Straub, "Diagonal
+asymptotics for symmetric rational functions via ACSV", arXiv:1804.10929::
+
+    sage: c = ZZ['c,z'].gen(0)
+    sage: dop = ((z^2*(c^4*z^4 + 4*c^3*z^3 + 6*c^2*z^2 + 4*c*z - 256*z + 1)*(3*c*z - 1)^2*Dz^3
+    ....:        + 3*z*(3*c*z - 1)*(6*c^5*z^5 + 15*c^4*z^4 + 8*c^3*z^3 - 6*c^2*z^2 - 384*c*z^2 - 6*c*z + 384*z - 1)*Dz^2
+    ....:        + (c*z + 1)*(63*c^5*z^5 - 3*c^4*z^4 - 66*c^3*z^3 + 18*c^2*z^2 + 720*c*z^2 + 19*c*z - 816*z + 1)*Dz
+    ....:        + (9*c^6*z^5 - 3*c^5*z^4 - 6*c^4*z^3 + 18*c^3*z^2 - 360*c^2*z^2 + 13*c^2*z - 384*c*z + c - 24)))
+
+    sage: dop28 = Diffops([p(c=28) for p in dop])
+    sage: bound_coefficients(dop28, [1, -4, -56], order=2, n0=50) # long time
+    1.000000000000000*83.3254624124113?^n*(([0.0311212622056357...] + [-0.0345183803114027...]*I)*(e^(I*arg(0.9521089229254642? - 0.3057590536447162?*I)))^n*n^(-3/2)
+    + ([-0.050269964085834...] + [-0.0298161277530909...]*I)*(e^(I*arg(0.9521089229254642? - 0.3057590536447162?*I)))^n*n^(-5/2)
+    + ([0.0311212622056357...] + [0.0345183803114027...]*I)*(e^(I*arg(0.9521089229254642? + 0.3057590536447162?*I)))^n*n^(-3/2)
+    + ([-0.050269964085834...] + [0.0298161277530909...]*I)*(e^(I*arg(0.9521089229254642? + 0.3057590536447162?*I)))^n*n^(-5/2)
+    + B([6.10...]*n^(-7/2), n >= 50))
+
+    sage: dop27 = Diffops([p(c=27) for p in dop]).primitive_part()
+    sage: bound_coefficients(dop27,  [1, -3, 9], order=2, n0=50) # long time
+    1.000000000000000*9.00000000000000?^n*(([0.306608607103967...] + [0.146433894558384...]*I)*(e^(I*arg(-0.7777777777777777? + 0.6285393610547089?*I)))^n*n^(-3/2)
+    + ([-0.265549842772215...] + [-0.035298693487940...]*I)*(e^(I*arg(-0.7777777777777777? + 0.6285393610547089?*I)))^n*n^(-5/2)
+    + ([0.306608607103967...] + [-0.146433894558384...]*I)*(e^(I*arg(-0.7777777777777777? - 0.6285393610547089?*I)))^n*n^(-3/2)
+    + ([-0.265549842772215...] + [0.035298693487940...]*I)*(e^(I*arg(-0.7777777777777777? - 0.6285393610547089?*I)))^n*n^(-5/2)
+    + B([50.0...]*n^(-7/2), n >= 50))
+
+    sage: dop26 = Diffops([p(c=26) for p in dop])
+    sage: bound_coefficients(dop26, [1, -2, 76], order=2, n0=50) # long time
+    1.000000000000000*108.1021465879489?^n*(([0.0484997667050581...] + [...]*I)*n^(-3/2)
+    + ([-0.068160009777454...] + [...]*I)*n^(-5/2)
+    + B([8.40...]*n^(-7/2), n >= 50))
+
 Complex exponents example::
 
     sage: deq = (z-2)^2*Dz^2 + z*(z-2)*Dz + 1
@@ -149,6 +180,22 @@ particular singular point of the differential operator::
     1.000...*([+/-...] + B([...]*(4/7)^n, n >= ...))
     sage: bound_coefficients(dop, seqini, known_analytic=[1]) # long time
     1.000...*(1/2)^n*(([1.000...]...)*n^(-1) + B([...]*n^(-4)*log(n), n >= ...))
+
+An example from M. Kauers and V. Pillwein, "When can we detect that a P-finite
+sequence is positive?", ISSAC 2010, where the generating function of interest is
+analytic at a non-apparent dominant singular point of the operator::
+
+    sage: Pols_n.<n> = QQ[]
+    sage: Recops.<Sn> = OreAlgebra(Pols_n)
+    sage: dop = ((n+3)^2*Sn^2-(n+2)*(3*n+11)/2*Sn+(n+4)*(n+1)/2).to_D(Diffops)
+
+    sage: bound_coefficients(dop, [1,1/4], order=2, n0=50, prec=1000)
+    1.00...*([...] + [...]*I + B(2975.8...*(4/7)^n, n >= 50))
+
+    sage: bound_coefficients(dop, [1,1/4], order=2, n0=50, known_analytic=[0,1])
+    1.00...*(1/2)^n*(([1.00...] + [...]*I)*n^(-1)
+    + ([-1.00...] + [...]*I)*n^(-2)
+    + B([65.1...]*n^(-3)*log(n), n >= 50))
 
 Singularities and exponents with multiple scales. Note that Sage is not always
 able to correctly order the terms yet::
