@@ -82,7 +82,7 @@ def nf(pol, n, tgt):
     else:
         return tgt(res)
 
-cdef short _qnf(mpz_t a, mpz_t b, Polynomial_generic_dense pol, n) except *:
+cdef int _qnf(mpz_t a, mpz_t b, Polynomial_generic_dense pol, n) except -1:
 
     cdef unsigned long _n = PyInt_AsLong(n)
     cdef long i
@@ -96,9 +96,10 @@ cdef short _qnf(mpz_t a, mpz_t b, Polynomial_generic_dense pol, n) except *:
         mpz_mul_ui(a, a, _n)
         mpz_mul_ui(b, b, _n)
         c = pol.get_unsafe(i)
-        # In general, quadratic algebraic integers can have c != 1, but the way
-        # we choose the generators of our quadratic number fields should avoid
-        # that.
+        # In general, quadratic algebraic integers can have denom != 1, but we
+        # choose the generators of our quadratic number fields should avoid
+        # that in most cases, and exceptional cases where we do have to work
+        # with a "bad" number fields should not take this code path.
         assert mpz_cmp_ui(c.denom, 1) == 0
         mpz_add(a, a, c.a)
         mpz_add(b, b, c.b)

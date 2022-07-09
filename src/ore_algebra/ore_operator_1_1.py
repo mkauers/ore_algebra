@@ -3140,7 +3140,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
                 return log_series(ini, shifted_bwrec, order)
         sols = Mapper(ldop).run()
         x = SR.var(dop.base_ring().variable_name())
-        dx = x if point.is_zero() else x.add(-point, hold=True)
+        dx = x if point == 0 else x.add(-point, hold=True)
         if ring is None:
             cm = get_coercion_model()
             ring = cm.common_parent(
