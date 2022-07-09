@@ -613,7 +613,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
           sage: A.<Sn> = OreAlgebra(R, 'Sn')
           sage: P = (-n^3 - 2*n^2 + 6*n + 9)*Sn^2 + (6*n^3 + 8*n^2 - 20*n - 30)*Sn - 8*n^3 - 12*n^2 + 20*n + 12
           sage: Q = P.desingularize()
-          sage: Q.order()
+          sage: Q.order() # random
           3
           sage: Q.leading_coefficient().degree()
           1
