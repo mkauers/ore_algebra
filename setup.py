@@ -1,5 +1,5 @@
-from distutils.core import setup
-from distutils.cmd import Command
+from setuptools import setup
+from setuptools import Command
 from setuptools import Extension
 from Cython.Build import cythonize
 
@@ -55,4 +55,5 @@ setup(
     ext_modules = extensions,
     include_dirs = sage.env.sage_include_directories(),
     cmdclass = {'test': TestCommand},
+    zip_safe=False,
 )
