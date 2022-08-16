@@ -22,6 +22,23 @@ class TestCommand(Command):
         if subprocess.call(['sage', '-tp', '--force-lib', 'src/']):
             raise SystemExit("Doctest failures")
 
+def do_cythonize():
+    return cythonize(
+            [Extension(
+                "*",
+                ["src/ore_algebra/analytic/*.pyx"],
+                extra_compile_args=['-std=c++11'],
+            )],
+            aliases = sage.env.cython_aliases(),
+        )
+
+try:
+    from sage.misc.package_dir import cython_namespace_package_support
+    with cython_namespace_package_support():
+        extensions = do_cythonize()
+except ImportError:
+    extensions = do_cythonize()
+
 setup(
     name = "ore_algebra",
     version = "0.5",
@@ -35,14 +52,7 @@ setup(
         "ore_algebra.examples",
     ],
     package_dir = {'': 'src/'},
-    ext_modules = cythonize(
-        [Extension(
-            "*",
-            ["src/ore_algebra/analytic/*.pyx"],
-            extra_compile_args=['-std=c++11'],
-        )],
-        aliases = sage.env.cython_aliases(),
-    ),
+    ext_modules = extensions,
     include_dirs = sage.env.sage_include_directories(),
     cmdclass = {'test': TestCommand},
 )
