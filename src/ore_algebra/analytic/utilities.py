@@ -66,7 +66,7 @@ class Clock(object):
         self._sum = 0.
         self._tic = None
     def __repr__(self):
-        return "{} = {}".format(self.name, self.total())
+        return "{} = {} s".format(self.name, self.total())
     def since_tic(self):
         return 0. if self._tic is None else cputime(self._tic)
     def total(self):
@@ -291,8 +291,9 @@ class PolynomialRoot:
     def as_algebraic(self, sloppy=True):
         if sloppy and self.pol.base_ring() is QQ:
             # bypass ANRoot.exactify()
-            # This seems to lead to elements of QQbar on which sign(imag())
-            # fails for a reason I don't understand.
+            # This seems to lead to elements of QQbar on which some operations
+            # (sign(imag), abs().exactify()) fail for a reason I don't
+            # understand.
             nf = NumberField(self.pol, 'a', check=False)
             rt = ANRoot(self.pol, self.all_roots[self.index])
             gen = AlgebraicGenerator(nf, rt)
@@ -301,7 +302,7 @@ class PolynomialRoot:
             return QQbar.polynomial_root(self.pol, self.all_roots[self.index])
 
     def _algebraic_(self, field):
-        return field(self.as_algebraic())
+        return field(self.as_algebraic(sloppy=False))
 
     @cached_method
     def as_number_field_element(self):

@@ -428,7 +428,8 @@ class Point(SageObject):
         # Fuchs criterion
         if (self.dop.base_ring().base_ring() is QQ
                 and self.value.parent() is not QQ # => number field element
-                and (pol := self.value.polynomial()).is_term()):
+                and (pol := self.value.polynomial()).is_term()
+                and pol.degree() == 1):
             # optimize frequent case
             nfpol = self.value.parent().polynomial()
             rootpol = nfpol(~pol[1]*pol.parent().gen())

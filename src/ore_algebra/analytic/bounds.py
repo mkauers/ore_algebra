@@ -672,7 +672,8 @@ class HyperexpMajorant(MajorantSeries):
         r"""
         IN-PLACE multiplication by x^n. Use with care!
         """
-        self.shift += n
+        if not self.num.is_zero():
+            self.shift += n
         return self
 
 ######################################################################

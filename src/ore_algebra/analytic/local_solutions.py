@@ -169,6 +169,18 @@ class BwShiftRec(object):
 
     @cached_method
     def poly_eval_strategy(self, tgt):
+        r"""
+        TESTS::
+
+            sage: from ore_algebra import OreAlgebra
+            sage: NF.<a> = NumberField(x^2-x+1, embedding = .5+.8*i)
+            sage: Pol.<z> = NF[]
+            sage: Dops.<Dz> = OreAlgebra(Pol)
+            sage: dop = (z^2 - 4*z + 4)*Dz^2 + (z^2 - 2*z)*Dz + 1
+            sage: dop.local_basis_expansions(2, 1)
+            [(z - 2)^(-0.50000000000000000? - 0.866025403784439?*I),
+            (z - 2)^(-0.50000000000000000? + 0.866025403784439?*I)]
+        """
 
         mor = self.scalars_embedding(tgt)
         def generic_eval(pol, x, _tgt):
@@ -621,6 +633,20 @@ def exponent_shifts(dop, leftmost):
     return shifts
 
 def log_series(ini, bwrec, order):
+    r"""
+    Compute the coefficients of a logarithmic series given by a recurrence.
+
+    INPUT:
+
+    - ``ini``: ``LogSeriesInitialValues``
+    - ``bwrec``: compatible ``BwShiftRec``
+    - ``order``: expansion order (counted from the common valuation `\lambda`)
+
+    OUTPUT:
+
+    List of ``order`` vectors; the coefficient of `z^{\lambda + \nu} \log(z)^k`
+    is ``sol[nu][k]/k!``.
+    """
     Coeffs = utilities.mypushout(bwrec.base_ring.base_ring(), ini.universe)
     max_log_prec = sum(len(v) for v in ini.shift.values())
     log_prec = 0
@@ -649,6 +675,34 @@ def log_series(ini, bwrec, order):
                 log_prec = p + 1
         series.append(new_term)
     return series
+
+def critical_monomials(dop):
+    r"""
+    For all fundamental solutions f, g, compute the terms of f of index equal to
+    the valuation of g.
+
+    OUTPUT:
+
+    A list of ``FundamentalSolution`` objects ``sol`` such that,
+    if ``sol = z^(λ+n)·(1 + Õ(z)`` where ``λ`` is the leftmost valuation of a
+    group of solutions and ``s`` is another shift of ``λ`` appearing in the
+    basis, then ``sol.value[s]`` contains the list of coefficients of
+    ``z^(λ+s)·log(z)^k/k!``, ``k = 0, 1, ...`` in ``sol``.
+    """
+
+    class Mapper(LocalBasisMapper):
+        def fun(self, ini):
+            # XXX should share algebraic part with Galois conjugates
+            order = max(s for s, _ in self.shifts) + 1
+            shifted_bwrec = self.bwrec.shift_by_PolynomialRoot(self.leftmost)
+            ser = log_series(ini, shifted_bwrec, order)
+            return {s: ser[s] for s, _ in self.shifts}
+
+    return Mapper(dop).run()
+
+##############################################################################
+# Evaluation of logarithmic series
+##############################################################################
 
 def log_series_values(Jets, expo, psum, pt, derivatives, is_numeric,
                       branch=(0,), downshift=(0,)):

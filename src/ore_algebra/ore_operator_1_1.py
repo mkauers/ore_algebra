@@ -613,7 +613,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
           sage: A.<Sn> = OreAlgebra(R, 'Sn')
           sage: P = (-n^3 - 2*n^2 + 6*n + 9)*Sn^2 + (6*n^3 + 8*n^2 - 20*n - 30)*Sn - 8*n^3 - 12*n^2 + 20*n + 12
           sage: Q = P.desingularize()
-          sage: Q.order()
+          sage: Q.order() # random
           3
           sage: Q.leading_coefficient().degree()
           1
@@ -3140,7 +3140,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
                 return log_series(ini, shifted_bwrec, order)
         sols = Mapper(ldop).run()
         x = SR.var(dop.base_ring().variable_name())
-        dx = x if point.is_zero() else x.add(-point, hold=True)
+        dx = x if point == 0 else x.add(-point, hold=True)
         if ring is None:
             cm = get_coercion_model()
             ring = cm.common_parent(
