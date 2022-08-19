@@ -71,8 +71,8 @@ We are now in a position to compute a majorant series for the tail::
     [0.1169590648741211 +/- 1.04e-17]*t^5/((-t + [2.995941329747438 +/-
     4.31e-16])^3)))
 
-Finally, to deduce a numeric bound, we fix a disk of validity |t| ≤ ρ and
-bound the value at ρ of the majorant series::
+Finally, to deduce a numeric bound, we fix a disk of validity ``|t| ≤ ρ`` and
+bound the value at ``ρ`` of the majorant series::
 
     sage: tmaj.bound(RBF(1))
     [2.212445766787241e-11 +/- 5.44e-27]
@@ -971,11 +971,13 @@ class RatSeqBound(object):
         - den - polynomial with complex coefficients,
         - nums - list of polynomials with complex coefficients, each
           with deg(num) < deg(den);
-        - exceptional_indices - dictionary {index: multiplicity},  typically
-            - either {-1: 1}, corresponding to bounds on |nums(n)/den(n)| (for
-              n≥ 0) that only become finite after the last integer zero of den
-              (accepting negative indices here is a bit of a hack, but is
-              convenient to test the bounds in simple cases...),
+        - exceptional_indices - dictionary {index: multiplicity},  typically:
+
+            - either {-1: 1}, corresponding to bounds on ``|nums(n)/den(n)|``
+              (for ``n ≥ 0``) that only become finite after the last
+              integer zero of den (accepting negative indices here is
+              a bit of a hack, but is convenient to test the bounds in
+              simple cases...),
             - or the integer zeros of den, the context of evaluations at
               regular singular points.
 
@@ -1070,14 +1072,15 @@ class RatSeqBound(object):
 
         OUTPUT:
 
-        A lower bound on self.den/n^r (where r = deg(self.den)) in the format
-        that _lbound_den expects. That is, a list of tuples (root, mult, n_min,
-        global_lbound) where
+        A lower bound on ``self.den/n^r`` (where r = deg(self.den)) in
+        the format that _lbound_den expects. That is, a list of tuples
+        (root, mult, n_min, global_lbound) where:
+
         - root ranges over a subset of the roots of den;
         - mult is the multiplicity of root in den;
-        - n_min is an integer s.t. |1-root/n| is nondecreasing for n ≥ nmin;
-        - global_lbound is a real (ball) s.t. |1-root/n|**mult ≥ global_lbound
-          for all n ∈ ⟦1,∞) ∖ exn (in particular, for n < n_min).
+        - n_min is an integer s.t. ``|1-root/n|`` is nondecreasing for ``n ≥ nmin``;
+        - global_lbound is a real (ball) s.t. ``|1-root/n|**mult ≥ global_lbound``
+          for all ``n ∈ ⟦1,∞) ∖ exn`` (in particular, for ``n < n_min``).
 
         Often (but not always), all integer roots of den will belong to the
         exceptional set, and in this case the returned global_lbound will be
@@ -1135,8 +1138,8 @@ class RatSeqBound(object):
 
     def _lbound_den(self, n):
         r"""
-        A lower bound on prod[den(α) = 0](|1-α/k|) valid for all k ≥ n with
-        n, k ∈ ℕ ∖ exn.
+        A lower bound on ``prod[den(α) = 0](|1-α/k|)`` valid
+        for all ``k ≥ n`` with ``n, k ∈ ℕ ∖ exn``.
 
         Reference: [M19, Lemma 7.2]
         """
@@ -1213,12 +1216,13 @@ class RatSeqBound(object):
     @cached_method
     def _stairs(self, count):
         r"""
-        Shared part of the computation of _bound_exn(n) for varying n.
+        Shared part of the computation of ``_bound_exn(n)`` for varying ``n``.
 
         OUTPUT:
 
         A list whose element of index i is a list of pairs (edge, val), ordered
-        by increasing edge, and such that |ref(n)[i]| ≤ val for all n ≥ edge.
+        by increasing edge, and such that ``|ref(n)[i]| ≤ val``
+        for all ``n ≥ edge``.
 
         ALGORITHM:
 
@@ -1262,7 +1266,7 @@ class RatSeqBound(object):
         (The pairs returned by _stairs() correspond to the *upper right* corner
         of each stair: the index associated to a given value is the last time
         this value will be reached by the staircase function _bound_exn().
-        One may well have |f[i](n)| > _bound_exn(n)[i] when n is ordinary.)
+        One may well have ``|f[i](n)| > _bound_exn(n)[i]`` when n is ordinary.)
 
         ALGORITHM:
 
@@ -2503,7 +2507,7 @@ def _test_diffop_bound(
     r"""
     Randomized testing of :func:`DiffOpBound`.
 
-    EXAMPLES::
+    EXAMPLES:
 
     Just an example of how to use this function; the real tests are run from
     the docstring of DiffOpBound. ::

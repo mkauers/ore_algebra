@@ -1007,7 +1007,7 @@ def DifferentialOperators(base=QQ, var='x'):
     Return an Ore algebra of differential operators with polynomial
     coefficients, along with objects representing, x and d/dx.
 
-    .. seealso:: :func:`OreAlgebra`
+    .. SEEALSO:: :func:`OreAlgebra`
 
     INPUT:
 
