@@ -77,12 +77,12 @@ class DFiniteFunctionRing(Algebra):
             Only ore algebras with the differential or the shift operator are accepted to
             define a D-finite function ring.
         - ``domain`` (default ``NN``) -- domain over which the sequence indices are considered,
-            i.e. if the domain is ``ZZ``also negative sequence inidices exist.
+            i.e. if the domain is ``ZZ`` also negative sequence indices exist.
             So far for d-finite sequences ``NN`` and ``ZZ`` are supported and for D-finite
-            functions only ``NN``is supported.
+            functions only ``NN`` is supported.
         
         OUTPUT:
-        
+
         A ring of either D-finite sequences or functions
             
         EXAMPLES::
@@ -141,38 +141,42 @@ class DFiniteFunctionRing(Algebra):
         
         EXAMPLES::
     
-        sage: from ore_algebra import *
-        sage: A = OreAlgebra(QQ['n'],'Sn')
-        sage: D1 = DFiniteFunctionRing(A)
-        sage: B = OreAlgebra(QQ['x'],'Dx')
-        sage: D2 = DFiniteFunctionRing(B)
-        sage: n = A.base_ring().gen()
-        sage: x = B.base_ring().gen()
+            sage: from ore_algebra import *
+            sage: A = OreAlgebra(QQ['n'],'Sn')
+            sage: D1 = DFiniteFunctionRing(A)
+            sage: B = OreAlgebra(QQ['x'],'Dx')
+            sage: D2 = DFiniteFunctionRing(B)
+            sage: n = A.base_ring().gen()
+            sage: x = B.base_ring().gen()
 
-        #conversion of a list of data
-        sage: D1([0,1,1,2,3,5,8,13])
-        Univariate D-finite sequence defined by the annihilating operator -Sn^2 + Sn + 1 and the initial conditions {0: 0, 1: 1}
-        sage: D2([1,-1,1,-1,1,-1])
-        Univariate D-finite function defined by the annihilating operator (x + 1)*Dx + 1 and the coefficient sequence defined by (n + 1)*Sn + n + 1 and {0: 1}
-        
-        #conversion of rational numbers
-        sage: D1(3)
-        Univariate D-finite sequence defined by the annihilating operator Sn - 1 and the initial conditions {0: 3}
-        sage: D2(7.5)
-        Univariate D-finite function defined by the annihilating operator Dx and the coefficient sequence defined by n and {0: 15/2}
-        
-        #conversion of rational functions
-        sage: D1((n-2)/((n+1)*(n+5)))
-        Univariate D-finite sequence defined by the annihilating operator (n^3 + 6*n^2 - 4*n - 24)*Sn - n^3 - 5*n^2 + n + 5 and the initial conditions {0: -2/5, 3: 1/32}
-        sage: D2((x^2+4)/(x-1))
-        Univariate D-finite function defined by the annihilating operator (x^3 - x^2 + 4*x - 4)*Dx - x^2 + 2*x + 4 and the coefficient sequence defined by (-4*n - 12)*Sn^3 + (4*n + 12)*Sn^2 + (-n + 1)*Sn + n - 1 and {0: -4, 1: -4, 2: -5}
-    
-        #conversion of symbolic expressions
-        sage: D1(harmonic_number(n))
-        Univariate D-finite sequence defined by the annihilating operator (n + 2)*Sn^2 + (-2*n - 3)*Sn + n + 1 and the initial conditions {0: 0, 1: 1}
-        sage: D2(sin(x^2))
-        Univariate D-finite function defined by the annihilating operator x*Dx^2 - Dx + 4*x^3 and the coefficient sequence defined by (n^8 + 9*n^7 + 21*n^6 - 21*n^5 - 126*n^4 - 84*n^3 + 104*n^2 + 96*n)*Sn^4 + 4*n^6 + 12*n^5 - 20*n^4 - 60*n^3 + 16*n^2 + 48*n and {0: 0, 1: 0, 2: 1, 3: 0, 4: 0, 5: 0, 6: -1/6}
-        
+        conversion of a list of data::
+
+            sage: D1([0,1,1,2,3,5,8,13])
+            Univariate D-finite sequence defined by the annihilating operator -Sn^2 + Sn + 1 and the initial conditions {0: 0, 1: 1}
+            sage: D2([1,-1,1,-1,1,-1])
+            Univariate D-finite function defined by the annihilating operator (x + 1)*Dx + 1 and the coefficient sequence defined by (n + 1)*Sn + n + 1 and {0: 1}
+
+        conversion of rational numbers::
+
+            sage: D1(3)
+            Univariate D-finite sequence defined by the annihilating operator Sn - 1 and the initial conditions {0: 3}
+            sage: D2(7.5)
+            Univariate D-finite function defined by the annihilating operator Dx and the coefficient sequence defined by n and {0: 15/2}
+
+        conversion of rational functions::
+
+            sage: D1((n-2)/((n+1)*(n+5)))
+            Univariate D-finite sequence defined by the annihilating operator (n^3 + 6*n^2 - 4*n - 24)*Sn - n^3 - 5*n^2 + n + 5 and the initial conditions {0: -2/5, 3: 1/32}
+            sage: D2((x^2+4)/(x-1))
+            Univariate D-finite function defined by the annihilating operator (x^3 - x^2 + 4*x - 4)*Dx - x^2 + 2*x + 4 and the coefficient sequence defined by (-4*n - 12)*Sn^3 + (4*n + 12)*Sn^2 + (-n + 1)*Sn + n - 1 and {0: -4, 1: -4, 2: -5}
+
+        conversion of symbolic expressions::
+
+            sage: D1(harmonic_number(n))
+            Univariate D-finite sequence defined by the annihilating operator (n + 2)*Sn^2 + (-2*n - 3)*Sn + n + 1 and the initial conditions {0: 0, 1: 1}
+            sage: D2(sin(x^2))
+            Univariate D-finite function defined by the annihilating operator x*Dx^2 - Dx + 4*x^3 and the coefficient sequence defined by (n^8 + 9*n^7 + 21*n^6 - 21*n^5 - 126*n^4 - 84*n^3 + 104*n^2 + 96*n)*Sn^4 + 4*n^6 + 12*n^5 - 20*n^4 - 60*n^3 + 16*n^2 + 48*n and {0: 0, 1: 0, 2: 1, 3: 0, 4: 0, 5: 0, 6: -1/6}
+
         """
         n = self.ore_algebra().is_S()
 
@@ -424,28 +428,31 @@ class DFiniteFunctionRing(Algebra):
         
         OUTPUT:
         
-        A D-finite object that either represents the sequence (a_n) = exp(n) or the rational function exp(z).
+        A D-finite object that either represents the sequence
+        ``(a_n) = exp(n)`` or the rational function ``exp(z)``.
         
-        EXAMPLES::
+        EXAMPLES:
         
-        #discrete case
-        sage: from ore_algebra import *
-        sage: A = OreAlgebra(QQ['n'],'Sn')
-        sage: D1 = DFiniteFunctionRing(A)
-        sage: n = A.base_ring().gen()
-        sage: D1(harmonic_number(3*n)+factorial(n+2))
-        Univariate D-finite sequence defined by the annihilating operator (-2187*n^10 - 42282*n^9 - 364905*n^8 - 1845423*n^7 - 6031683*n^6 - 13246704*n^5 - 19679543*n^4 - 19390967*n^3 - 12024690*n^2 - 4192544*n - 615552)*Sn^3 + (2187*n^11 + 57591*n^10 + 663066*n^9 + 4430376*n^8 + 19123470*n^7 + 55966311*n^6 + 113079500*n^5 + 157190572*n^4 + 146606713*n^3 + 86797038*n^2 + 29096584*n + 4133152)*Sn^2 + (-4374*n^11 - 106434*n^10 - 1151901*n^9 - 7304094*n^8 - 30065373*n^7 - 84062052*n^6 - 162242521*n^5 - 215119824*n^4 - 190943363*n^3 - 107309404*n^2 - 34064948*n - 4573552)*Sn + 2187*n^11 + 51030*n^10 + 531117*n^9 + 3238623*n^8 + 12787326*n^7 + 34127424*n^6 + 62409725*n^5 + 77608795*n^4 + 63727617*n^3 + 32537056*n^2 + 9160908*n + 1055952 and the initial conditions {0: 2, 1: 47/6, 2: 529/20}
+        discrete case::
+
+            sage: from ore_algebra import *
+            sage: A = OreAlgebra(QQ['n'],'Sn')
+            sage: D1 = DFiniteFunctionRing(A)
+            sage: n = A.base_ring().gen()
+            sage: D1(harmonic_number(3*n)+factorial(n+2))
+            Univariate D-finite sequence defined by the annihilating operator (-2187*n^10 - 42282*n^9 - 364905*n^8 - 1845423*n^7 - 6031683*n^6 - 13246704*n^5 - 19679543*n^4 - 19390967*n^3 - 12024690*n^2 - 4192544*n - 615552)*Sn^3 + (2187*n^11 + 57591*n^10 + 663066*n^9 + 4430376*n^8 + 19123470*n^7 + 55966311*n^6 + 113079500*n^5 + 157190572*n^4 + 146606713*n^3 + 86797038*n^2 + 29096584*n + 4133152)*Sn^2 + (-4374*n^11 - 106434*n^10 - 1151901*n^9 - 7304094*n^8 - 30065373*n^7 - 84062052*n^6 - 162242521*n^5 - 215119824*n^4 - 190943363*n^3 - 107309404*n^2 - 34064948*n - 4573552)*Sn + 2187*n^11 + 51030*n^10 + 531117*n^9 + 3238623*n^8 + 12787326*n^7 + 34127424*n^6 + 62409725*n^5 + 77608795*n^4 + 63727617*n^3 + 32537056*n^2 + 9160908*n + 1055952 and the initial conditions {0: 2, 1: 47/6, 2: 529/20}
         
-        #differential case
-        sage: from ore_algebra import *
-        sage: B = OreAlgebra(QQ['x'],'Dx')
-        sage: D2 = DFiniteFunctionRing(B)
-        sage: x = B.base_ring().gen()
-        sage: D2(cos(1/(x+1)-1) + erf(x))
-        Univariate D-finite function defined by the annihilating operator (x^10 + 8*x^9 + 49/2*x^8 + 31*x^7 - 11/2*x^6 - 68*x^5 - 357/4*x^4 - 52*x^3 - 10*x^2 + 3*x + 5/4)*Dx^4 + (2*x^11 + 16*x^10 + 53*x^9 + 88*x^8 + 38*x^7 - 164*x^6 - 823/2*x^5 - 450*x^4 - 453/2*x^3 - 5/2*x^2 + 47*x + 29/2)*Dx^3 + (12*x^10 + 84*x^9 + 198*x^8 + 78*x^7 - 479*x^6 - 986*x^5 - 1585/2*x^4 - 148*x^3 + 443/2*x^2 + 175*x + 173/4)*Dx^2 + (12*x^9 + 72*x^8 + 116*x^7 - 100*x^6 - 511*x^5 - 538*x^4 - 68*x^3 + 251*x^2 + 331/2*x + 29)*Dx and the coefficient sequence defined by (n^16 + 58*n^15 + 1586*n^14 + 27166*n^13 + 326302*n^12 + 2912554*n^11 + 19955316*n^10 + 106814918*n^9 + 450129433*n^8 + 1493422508*n^7 + 3874175930*n^6 + 7747309436*n^5 + 11664687464*n^4 + 12736187280*n^3 + 9474058368*n^2 + 4271719680*n + 875059200)*Sn^6 + (4*n^16 + 226*n^15 + 6024*n^14 + 100592*n^13 + 1177480*n^12 + 10234464*n^11 + 68209728*n^10 + 354734988*n^9 + 1450788084*n^8 + 4667051182*n^7 + 11732009336*n^6 + 22729682820*n^5 + 33164816192*n^4 + 35117569808*n^3 + 25364804352*n^2 + 11123953920*n + 2221516800)*Sn^5 + (6*n^16 + 332*n^15 + 8665*n^14 + 141575*n^13 + 1619527*n^12 + 13734455*n^11 + 89144987*n^10 + 450633211*n^9 + 1788177235*n^8 + 5572951365*n^7 + 13557803404*n^6 + 25406961342*n^5 + 35859170592*n^4 + 36752991608*n^3 + 25727020224*n^2 + 10954979712*n + 2129448960)*Sn^4 + (4*n^16 + 222*n^15 + 5800*n^14 + 94644*n^13 + 1078580*n^12 + 9088728*n^11 + 58465932*n^10 + 292217188*n^9 + 1144088016*n^8 + 3512007850*n^7 + 8404694540*n^6 + 15480277192*n^5 + 21465049560*n^4 + 21612626880*n^3 + 14866684128*n^2 + 6224622336*n + 1190868480)*Sn^3 + (n^16 + 64*n^15 + 1872*n^14 + 33490*n^13 + 412060*n^12 + 3705962*n^11 + 25218766*n^10 + 132382182*n^9 + 541045211*n^8 + 1724258998*n^7 + 4262072466*n^6 + 8068776120*n^5 + 11446089368*n^4 + 11738219056*n^3 + 8190152576*n^2 + 3465511488*n + 667895040)*Sn^2 + (8*n^15 + 396*n^14 + 9192*n^13 + 132528*n^12 + 1323888*n^11 + 9671720*n^10 + 53152704*n^9 + 222710256*n^8 + 713886792*n^7 + 1742615244*n^6 + 3199425048*n^5 + 4322678176*n^4 + 4146909952*n^3 + 2659625280*n^2 + 1017530496*n + 174804480)*Sn + 2*n^15 + 98*n^14 + 2246*n^13 + 31842*n^12 + 310942*n^11 + 2202770*n^10 + 11614202*n^9 + 46041790*n^8 + 137124544*n^7 + 303655500*n^6 + 489613472*n^5 + 554676448*n^4 + 415443392*n^3 + 183362112*n^2 + 35861760*n and {0: 1, 1: 2/sqrt(pi), 2: -1/2, 3: -2/3/sqrt(pi) + 1, 4: -35/24, 5: 1/5/sqrt(pi) + 11/6}
-        
-        sage: D2(sinh_integral(x+1)*exp(3*x^2))
-        Univariate D-finite function defined by the annihilating operator (x + 1)*Dx^3 + (-18*x^2 - 18*x + 2)*Dx^2 + (108*x^3 + 108*x^2 - 43*x - 19)*Dx - 216*x^4 - 216*x^3 + 186*x^2 + 114*x - 12 and the coefficient sequence defined by (n^13 + 43*n^12 + 797*n^11 + 8255*n^10 + 51363*n^9 + 187089*n^8 + 313151*n^7 - 264475*n^6 - 2183264*n^5 - 3322832*n^4 - 298848*n^3 + 3391920*n^2 + 2116800*n)*Sn^7 + (n^13 + 42*n^12 + 761*n^11 + 7710*n^10 + 46923*n^9 + 166806*n^8 + 268043*n^7 - 261870*n^6 - 1937024*n^5 - 2863248*n^4 - 193104*n^3 + 2950560*n^2 + 1814400*n)*Sn^6 + (-18*n^12 - 631*n^11 - 9300*n^10 - 73715*n^9 - 326844*n^8 - 696633*n^7 + 121860*n^6 + 3938215*n^5 + 7051062*n^4 + 1419164*n^3 - 6836760*n^2 - 4586400*n)*Sn^5 + (-18*n^12 - 619*n^11 - 8945*n^10 - 69460*n^9 - 301044*n^8 - 620487*n^7 + 167115*n^6 + 3605710*n^5 + 6252812*n^4 + 1116856*n^3 - 6109920*n^2 - 4032000*n)*Sn^4 + (108*n^11 + 3138*n^10 + 36870*n^9 + 218520*n^8 + 625464*n^7 + 319914*n^6 - 2807010*n^5 - 6455220*n^4 - 2270472*n^3 + 5913648*n^2 + 4415040*n)*Sn^3 + (108*n^11 + 3102*n^10 + 35970*n^9 + 209880*n^8 + 587664*n^7 + 264726*n^6 - 2689830*n^5 - 5994780*n^4 - 1986072*n^3 + 5517072*n^2 + 4052160*n)*Sn^2 + (-216*n^10 - 5400*n^9 - 51840*n^8 - 226800*n^7 - 331128*n^6 + 703080*n^5 + 2762640*n^4 + 1706400*n^3 - 2379456*n^2 - 2177280*n)*Sn - 216*n^10 - 5400*n^9 - 51840*n^8 - 226800*n^7 - 331128*n^6 + 703080*n^5 + 2762640*n^4 + 1706400*n^3 - 2379456*n^2 - 2177280*n and {0: sinh_integral(1), 1: sinh(1), 2: 1/2*cosh(1) - 1/2*sinh(1) + 3*sinh_integral(1), 3: -1/3*cosh(1) + 7/2*sinh(1), 4: 43/24*cosh(1) - 15/8*sinh(1) + 9/2*sinh_integral(1), 5: -37/30*cosh(1) + 757/120*sinh(1), 6: 797/240*cosh(1) - 523/144*sinh(1) + 9/2*sinh_integral(1), 7: -663/280*cosh(1) + 39793/5040*sinh(1), 8: 173251/40320*cosh(1) - 28231/5760*sinh(1) + 27/8*sinh_integral(1), 9: -144433/45360*cosh(1) + 316321/40320*sinh(1)}
+        differential case::
+
+            sage: from ore_algebra import *
+            sage: B = OreAlgebra(QQ['x'],'Dx')
+            sage: D2 = DFiniteFunctionRing(B)
+            sage: x = B.base_ring().gen()
+            sage: D2(cos(1/(x+1)-1) + erf(x))
+            Univariate D-finite function defined by the annihilating operator (x^10 + 8*x^9 + 49/2*x^8 + 31*x^7 - 11/2*x^6 - 68*x^5 - 357/4*x^4 - 52*x^3 - 10*x^2 + 3*x + 5/4)*Dx^4 + (2*x^11 + 16*x^10 + 53*x^9 + 88*x^8 + 38*x^7 - 164*x^6 - 823/2*x^5 - 450*x^4 - 453/2*x^3 - 5/2*x^2 + 47*x + 29/2)*Dx^3 + (12*x^10 + 84*x^9 + 198*x^8 + 78*x^7 - 479*x^6 - 986*x^5 - 1585/2*x^4 - 148*x^3 + 443/2*x^2 + 175*x + 173/4)*Dx^2 + (12*x^9 + 72*x^8 + 116*x^7 - 100*x^6 - 511*x^5 - 538*x^4 - 68*x^3 + 251*x^2 + 331/2*x + 29)*Dx and the coefficient sequence defined by (n^16 + 58*n^15 + 1586*n^14 + 27166*n^13 + 326302*n^12 + 2912554*n^11 + 19955316*n^10 + 106814918*n^9 + 450129433*n^8 + 1493422508*n^7 + 3874175930*n^6 + 7747309436*n^5 + 11664687464*n^4 + 12736187280*n^3 + 9474058368*n^2 + 4271719680*n + 875059200)*Sn^6 + (4*n^16 + 226*n^15 + 6024*n^14 + 100592*n^13 + 1177480*n^12 + 10234464*n^11 + 68209728*n^10 + 354734988*n^9 + 1450788084*n^8 + 4667051182*n^7 + 11732009336*n^6 + 22729682820*n^5 + 33164816192*n^4 + 35117569808*n^3 + 25364804352*n^2 + 11123953920*n + 2221516800)*Sn^5 + (6*n^16 + 332*n^15 + 8665*n^14 + 141575*n^13 + 1619527*n^12 + 13734455*n^11 + 89144987*n^10 + 450633211*n^9 + 1788177235*n^8 + 5572951365*n^7 + 13557803404*n^6 + 25406961342*n^5 + 35859170592*n^4 + 36752991608*n^3 + 25727020224*n^2 + 10954979712*n + 2129448960)*Sn^4 + (4*n^16 + 222*n^15 + 5800*n^14 + 94644*n^13 + 1078580*n^12 + 9088728*n^11 + 58465932*n^10 + 292217188*n^9 + 1144088016*n^8 + 3512007850*n^7 + 8404694540*n^6 + 15480277192*n^5 + 21465049560*n^4 + 21612626880*n^3 + 14866684128*n^2 + 6224622336*n + 1190868480)*Sn^3 + (n^16 + 64*n^15 + 1872*n^14 + 33490*n^13 + 412060*n^12 + 3705962*n^11 + 25218766*n^10 + 132382182*n^9 + 541045211*n^8 + 1724258998*n^7 + 4262072466*n^6 + 8068776120*n^5 + 11446089368*n^4 + 11738219056*n^3 + 8190152576*n^2 + 3465511488*n + 667895040)*Sn^2 + (8*n^15 + 396*n^14 + 9192*n^13 + 132528*n^12 + 1323888*n^11 + 9671720*n^10 + 53152704*n^9 + 222710256*n^8 + 713886792*n^7 + 1742615244*n^6 + 3199425048*n^5 + 4322678176*n^4 + 4146909952*n^3 + 2659625280*n^2 + 1017530496*n + 174804480)*Sn + 2*n^15 + 98*n^14 + 2246*n^13 + 31842*n^12 + 310942*n^11 + 2202770*n^10 + 11614202*n^9 + 46041790*n^8 + 137124544*n^7 + 303655500*n^6 + 489613472*n^5 + 554676448*n^4 + 415443392*n^3 + 183362112*n^2 + 35861760*n and {0: 1, 1: 2/sqrt(pi), 2: -1/2, 3: -2/3/sqrt(pi) + 1, 4: -35/24, 5: 1/5/sqrt(pi) + 11/6}
+
+            sage: D2(sinh_integral(x+1)*exp(3*x^2))
+            Univariate D-finite function defined by the annihilating operator (x + 1)*Dx^3 + (-18*x^2 - 18*x + 2)*Dx^2 + (108*x^3 + 108*x^2 - 43*x - 19)*Dx - 216*x^4 - 216*x^3 + 186*x^2 + 114*x - 12 and the coefficient sequence defined by (n^13 + 43*n^12 + 797*n^11 + 8255*n^10 + 51363*n^9 + 187089*n^8 + 313151*n^7 - 264475*n^6 - 2183264*n^5 - 3322832*n^4 - 298848*n^3 + 3391920*n^2 + 2116800*n)*Sn^7 + (n^13 + 42*n^12 + 761*n^11 + 7710*n^10 + 46923*n^9 + 166806*n^8 + 268043*n^7 - 261870*n^6 - 1937024*n^5 - 2863248*n^4 - 193104*n^3 + 2950560*n^2 + 1814400*n)*Sn^6 + (-18*n^12 - 631*n^11 - 9300*n^10 - 73715*n^9 - 326844*n^8 - 696633*n^7 + 121860*n^6 + 3938215*n^5 + 7051062*n^4 + 1419164*n^3 - 6836760*n^2 - 4586400*n)*Sn^5 + (-18*n^12 - 619*n^11 - 8945*n^10 - 69460*n^9 - 301044*n^8 - 620487*n^7 + 167115*n^6 + 3605710*n^5 + 6252812*n^4 + 1116856*n^3 - 6109920*n^2 - 4032000*n)*Sn^4 + (108*n^11 + 3138*n^10 + 36870*n^9 + 218520*n^8 + 625464*n^7 + 319914*n^6 - 2807010*n^5 - 6455220*n^4 - 2270472*n^3 + 5913648*n^2 + 4415040*n)*Sn^3 + (108*n^11 + 3102*n^10 + 35970*n^9 + 209880*n^8 + 587664*n^7 + 264726*n^6 - 2689830*n^5 - 5994780*n^4 - 1986072*n^3 + 5517072*n^2 + 4052160*n)*Sn^2 + (-216*n^10 - 5400*n^9 - 51840*n^8 - 226800*n^7 - 331128*n^6 + 703080*n^5 + 2762640*n^4 + 1706400*n^3 - 2379456*n^2 - 2177280*n)*Sn - 216*n^10 - 5400*n^9 - 51840*n^8 - 226800*n^7 - 331128*n^6 + 703080*n^5 + 2762640*n^4 + 1706400*n^3 - 2379456*n^2 - 2177280*n and {0: sinh_integral(1), 1: sinh(1), 2: 1/2*cosh(1) - 1/2*sinh(1) + 3*sinh_integral(1), 3: -1/3*cosh(1) + 7/2*sinh(1), 4: 43/24*cosh(1) - 15/8*sinh(1) + 9/2*sinh_integral(1), 5: -37/30*cosh(1) + 757/120*sinh(1), 6: 797/240*cosh(1) - 523/144*sinh(1) + 9/2*sinh_integral(1), 7: -663/280*cosh(1) + 39793/5040*sinh(1), 8: 173251/40320*cosh(1) - 28231/5760*sinh(1) + 27/8*sinh_integral(1), 9: -144433/45360*cosh(1) + 316321/40320*sinh(1)}
 
         """
         R = self.base_ring()

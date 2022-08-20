@@ -67,13 +67,13 @@ class Point(SageObject):
         """
         INPUT:
 
-        - ``singular``: can be set to True to force this point to be considered
-          a singular point, even if this cannot be checked (e.g. because we only
-          have an enclosure)
+        - ``singular``: can be set to ``True`` to force this point to be
+          considered a singular point, even if this cannot be checked
+          (e.g. because we only have an enclosure)
 
-        EXAMPLES::
+        EXAMPLES:
 
-        The handling of `RealLiteral`s can be confusing::
+        The handling of `RealLiteral` can be confusing::
 
             sage: from ore_algebra.analytic.examples.misc import pichon1_dop as dop
             sage: lit = 0.14521345101433106 - 0.1393025865960824*I
