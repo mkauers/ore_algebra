@@ -102,6 +102,20 @@ with algebraic numbers::
     sage: sum(m[0,0] for m in mon) # long time
     [147.295768366754912078365130734947766845585966...] +
     [32.8875197871257885741033226437532632035585810...]*I
+
+Melczer, An Invitation to Analytic Combinatorics (2021), (2.14)::
+
+    sage: from ore_algebra import OreAlgebra
+    sage: Pol.<z> = QQ[]
+    sage: Dop.<Dz> = OreAlgebra(Pol)
+    sage: dop = (5*z^2*(2*z-1)*(z-3)*Dz^4 + 2*z*(59*z^2-139*z+36)*Dz^3 +
+    ....:        6*(61*z^2-80*z+6)*Dz^2 + 12*(25*z-11)*Dz + 36)
+    sage: mat = dop.numerical_transition_matrix([0, 1/2], 1e-2500) # 0.8 s
+    sage: mat.change_ring(ComplexField(12))
+    [...    ...I        0.500 ...I       -1.50 ...I       -1.38 ...I]
+    [  2.00 ...I     2.15 - 1.57*I   -2.84 + 4.71*I   -2.73 + 4.33*I]
+    [ -4.00 ...I   0.0269 + 3.14*I    1.36 - 9.43*I    1.05 - 8.66*I]
+    [  8.00 ...I     1.67 - 6.28*I   -4.45 + 18.9*I   -4.09 + 17.3*I]
 """
 import collections
 
