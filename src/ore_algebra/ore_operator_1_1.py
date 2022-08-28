@@ -4832,8 +4832,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
             res.append((f(nn-n),val_fct,raise_val_fct# , sols, call
             ))
         return res
-    
-    
+
     def find_candidate_places(self, Zmax = None, infolevel=0, **kwargs):
         # TODO doc
 
@@ -4845,29 +4844,31 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
         coeffs = self.coefficients(sparse=False)
         
         r = self.order()
-        i = min(i for i in range(r+1) if coeffs[i] != 0)
+        i = min(i for i in range(r + 1) if coeffs[i] != 0)
         # Should we replace r with r-i when counting solutions?
         lr = coeffs[-1]
         l0 = coeffs[i]
         l0lr = l0*lr
 
         # Find the points of interest
-        fact0 = list(lr.factor())+list(l0.factor())
+        fact0 = list(lr.factor()) + list(l0.factor())
 
         print1("Factors (non unique): {}".format(fact0))
         
         # Cleanup the list
         fact = []
-        for f,m in fact0 :
+        for f, m in fact0 :
             if f.degree() == 0:
                 pass
-            elif any(True for i in range(len(fact))
-                     if (fact[i][0].degree() == f.degree()
-                         and roots_at_integer_distance(fact[i][0],f) != [])):
-                # f is a shift of a factor already seen
-                fact[i][1] += m
+            try:
+                idx = next(iter(i for i, facti in enumerate(fact)
+                                if facti[0].degree() == f.degree()
+                                and roots_at_integer_distance(facti[0], f)))
+            except StopIteration:
+                fact.append([f, m])
             else:
-                fact.append([f,m])
+                # f is a shift of a factor already seen
+                fact[idx][1] += m
 
         print1("Factors (unique): {}".format(fact))
 
@@ -4876,18 +4877,18 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
             print1("Computing places for {}".format(f))
         
             # Finding the actual indices of interest
-            inds = roots_at_integer_distance(l0lr,f)
+            inds = roots_at_integer_distance(l0lr, f)
             print1("Integer distances between roots: {}".format(inds))
             Nmin = min(inds)
-            Nmax = max(inds)+r
+            Nmax = max(inds) + r
             Nmin = Nmin - r
             if Zmax :
                 Nmax = min(Nmax,Zmax)
                 # Else the default max is Nmax
                 # TODO: Should we also update Nmin if Zmax < Nmax?
-            print1("Nmin={} Nmax={}".format(Nmin,Nmax))
+            print1("Nmin={} Nmax={}".format(Nmin, Nmax))
 
-            places += self._make_valuation_places(f, Nmin, Nmax, prec=m+1,
+            places += self._make_valuation_places(f, Nmin, Nmax, prec=m + 1,
                                                   infolevel=infolevel)
             # TODO: is +1 needed?
 
