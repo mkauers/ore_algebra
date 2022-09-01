@@ -1435,7 +1435,8 @@ class PathDeformer(object):
         if edge_colors is None:
             # roadmap_edges = self.roadmap.edges()
             # other_edges = list(set(vor.edges()) - set(roadmap_edges))
-            vor_edges, virt_edges = split(lambda e: e[-1] >= 0, vor.edges())
+            vor_edges, virt_edges = split(lambda e: e[-1] >= 0,
+                                          vor.edges(sort=False))
             edge_colors = {
                     # "blue": roadmap_edges,
                     "black": vor_edges,
