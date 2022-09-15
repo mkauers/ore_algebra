@@ -670,6 +670,15 @@ class OreLeftIdeal(Ideal_nc):
            sage: id.annihilator_of_composition(u=t,v=1-t)
            Left Ideal ((-x)*Dx + (2*y + 2)*Dy, (216*x^4*y^5 + 1080*x^4*y^4 + 2160*x^4*y^3 + 2160*x^4*y^2 + 432*x^2*y^4 + 1080*x^4*y + 1728*x^2*y^3 + 216*x^4 + 2592*x^2*y^2 + 1728*x^2*y + 216*y^3 + 432*x^2 + 648*y^2 + 648*y + 216)*Dy^4 + (1440*x^4*y^4 + 5760*x^4*y^3 + 8640*x^4*y^2 + 5760*x^4*y + 2232*x^2*y^3 + 1440*x^4 + 6696*x^2*y^2 + 6696*x^2*y + 2232*x^2 + 792*y^2 + 1584*y + 792)*Dy^3 + (1920*x^4*y^3 + 5760*x^4*y^2 + 5760*x^4*y + 1920*x^4 + 2094*x^2*y^2 + 4188*x^2*y + 2094*x^2 + 336*y + 336)*Dy^2 + (320*x^4*y^2 + 640*x^4*y + 320*x^4 + 187*x^2*y + 187*x^2 - 16)*Dy + 3*x^2) of Multivariate Ore algebra in Dx, Dy over Fraction Field of Multivariate Polynomial Ring in x, y over Integer Ring
 
+           sage: R.<x,y,z> = QQ[]
+           sage: S.<u,v,w> = QQ[]
+           sage: A.<Du,Dv,Dw> = OreAlgebra(S)
+           sage: I = A.ideal([u * w * Du^2 + (v + w) * Dv * Dw, (u - 1) * Du * Dw, v^2 * Dv + 1])
+           sage: I.annihilator_of_composition(u=x,v=y,w=z)
+           Left Ideal (Dz, (y^2)*Dy + 1, Dx^2) of Multivariate Ore algebra in Dx, Dy, Dz over Fraction Field of Multivariate Polynomial Ring in x, y, z over Rational Field
+           sage: I.annihilator_of_composition(u=z^2, v=1/(x+y+z), w=1/x)
+           Left Ideal (Dy - 1, Dx - 1, z*Dz^2 + (-2*z - 1)*Dz + (z + 1)) of Multivariate Ore algebra in Dx, Dy, Dz over Fraction Field of Multivariate Polynomial Ring in x, y, z over Rational Field
+
         """
 
         if len(kwargs) == 0: # no substitutions specified
@@ -693,7 +702,7 @@ class OreLeftIdeal(Ideal_nc):
         # domains for inner functions
         for x in K.gens():
             kwargs.setdefault(str(x), x)          # add missing arguments
-        R = reduce(canonical_coercion, kwargs.values())[0].parent()  # eg QQ(u,v)(t)
+        R = reduce(lambda a, b: canonical_coercion(a, b)[0], kwargs.values()).parent()  # eg QQ(u,v)(t)
         R = R.fraction_field()
         R0 = R if is_FractionField(R) else R.base_ring()         # eg QQ(u,v)
         from .ore_algebra import OreAlgebra
