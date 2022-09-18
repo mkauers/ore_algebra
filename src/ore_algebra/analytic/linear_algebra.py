@@ -431,8 +431,8 @@ def intersection(K1, K2):
 
     K = ker(matrix(K1 + K2).transpose())
     K = [sum(v[i]*K1[i] for i in range(len(K1))) for v in K]
-    row_echelon_form, p = row_echelon_form(matrix(K), pivots=True)
-    K = list(row_echelon_form[:len(p)])
+    ref, p = row_echelon_form(matrix(K), pivots=True)
+    K = list(ref[:len(p)])
 
     return K
 
@@ -803,7 +803,7 @@ def centralizer(alg):
 
     r"""
     Compute the centralizer of an algebra.
-    This function is designed for ComplexBall elements (optimistic arithmetic).
+    This function is designed for ComplexBall entries (optimistic arithmetic).
 
     INPUT:
 
