@@ -520,34 +520,29 @@ def customized_accuracy(x):
     Return either the absolute accuracy of x if x contains 0 or the relative
     accuracy of x if x does not contains 0.
 
-    Note that works also if x is a list or a vector or a matrix (minimum of the
-    accuracies of the coefficients).
+    Note that this function works also if x is a vector, a matrix, a polynomial
+    or a list (minimum of the accuracies of the coefficients).
 
     INPUT:
-     - 'x' - a complex ball
+     - 'x' - a complex ball objet
 
     OUTPUT:
-     - 'acc' - a nonnegative integer or +infinity
+     - 'acc' - a nonnegative integer (max = 9223372036854775807)
     """
 
+    if x==[]: return 9223372036854775807
     if isinstance(x, FreeModuleElement_generic_dense) or \
     isinstance(x, Matrix_dense) or isinstance(x, Polynomial):
-        xl = x.list()
-        if len(xl)==0: xl = [x[0]] # for zero polynomial
-        acc = min(customized_accuracy(c) for c in xl)
-        return acc
-
+        return customized_accuracy(x.list())
     if isinstance(x, list):
-        acc = min(customized_accuracy(c) for c in x)
-        return acc
+        return min(customized_accuracy(c) for c in x)
 
-    if x.contains_zero() :
-        acc = -log(x.rad(), 2)
-        if x.rad()!=0: acc = int(acc)
-    else:
-        acc = x.accuracy()
+    if x.contains_zero():
+        if x.rad().is_zero(): return 9223372036854775807
+        return max(0, (-log(x.rad(), 2)).floor())
 
-    return acc
+    return x.accuracy()
+
 
 def _clean(pol):
 
