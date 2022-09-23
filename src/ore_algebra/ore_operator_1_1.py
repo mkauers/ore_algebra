@@ -4870,10 +4870,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
             ))
         return res
 
-<<<<<<< HEAD
 
-=======
->>>>>>> mkauers/master
     def find_candidate_places(self, Zmax = None, infolevel=0, **kwargs):
         # TODO doc
 
