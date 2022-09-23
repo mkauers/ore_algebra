@@ -97,6 +97,9 @@ def _mygcd_ZZ(seq):
             return None
     return g
 
+if not hasattr(Integer, '_gcd'): # Sage < 9.3
+    _mygcd_ZZ = gcd
+
 class BwShiftRec(object):
     r"""
     A recurrence relation, written in terms of the backward shift operator.

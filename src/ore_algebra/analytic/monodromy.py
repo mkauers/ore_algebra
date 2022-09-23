@@ -345,12 +345,13 @@ def _monodromy_matrices(dop, base, eps=1e-16, sing=None, **kwds):
 
     OUTPUT:
 
-    A list of `LocalMonodromyData` named tuples, with fields:
-    - ``point`` - a singular point of ``dop``, represented as an element of
+    A list of ``LocalMonodromyData`` named tuples, with fields:
+
+    - ``point`` -- a singular point of ``dop``, represented as an element of
       ``QQbar``,
-    - ``monodromy`` - a local monodromy matrix attached to this point,
+    - ``monodromy`` -- a local monodromy matrix attached to this point,
       represented as a matrix with entries in a complex ball field,
-    - ``is_scalar`` - boolean, ``True`` iff the code could certify that the
+    - ``is_scalar`` -- boolean, ``True`` iff the code could certify that the
       ``monodromy`` is exactly a scalar matrix.
 
     EXAMPLES::

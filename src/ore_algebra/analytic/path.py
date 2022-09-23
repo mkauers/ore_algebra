@@ -67,13 +67,13 @@ class Point(SageObject):
         """
         INPUT:
 
-        - ``singular``: can be set to True to force this point to be considered
-          a singular point, even if this cannot be checked (e.g. because we only
-          have an enclosure)
+        - ``singular``: can be set to ``True`` to force this point to be
+          considered a singular point, even if this cannot be checked
+          (e.g. because we only have an enclosure)
 
-        EXAMPLES::
+        EXAMPLES:
 
-        The handling of `RealLiteral`s can be confusing::
+        The handling of `RealLiteral` can be confusing::
 
             sage: from ore_algebra.analytic.examples.misc import pichon1_dop as dop
             sage: lit = 0.14521345101433106 - 0.1393025865960824*I
@@ -426,16 +426,17 @@ class Point(SageObject):
             raise NotImplementedError("can't tell if inexact point is regular")
         assert self.is_exact()
         # Fuchs criterion
+        dop = None
         if (self.dop.base_ring().base_ring() is QQ
-                and self.value.parent() is not QQ # => number field element
-                and (pol := self.value.polynomial()).is_term()
-                and pol.degree() == 1):
-            # optimize frequent case
-            nfpol = self.value.parent().polynomial()
-            rootpol = nfpol(~pol[1]*pol.parent().gen())
-            rootpol = self.dop.base_ring()(rootpol)
-            dop = self.dop
-        else:
+                and self.value.parent() is not QQ): # => number field element
+            pol = self.value.polynomial()
+            if pol.is_term() and pol.degree() == 1:
+                # optimize frequent case
+                nfpol = self.value.parent().polynomial()
+                rootpol = nfpol(~pol[1]*pol.parent().gen())
+                rootpol = self.dop.base_ring()(rootpol)
+                dop = self.dop
+        if dop is None:
             dop, pt = self.dop.extend_scalars(self.value)
             Pols = dop.base_ring()
             rootpol = Pols([pt, -1])

@@ -310,10 +310,14 @@ import collections, logging, cmath, math
 import sage.plot.all as plot
 import numpy
 import scipy.optimize
-import scipy.spatial.qhull
 
 from itertools import combinations
 from numpy import argmin
+
+try:
+    from scipy.spatial import Voronoi, QhullError
+except ImportError:
+    from scipy.spatial.qhull import Voronoi, QhullError
 
 from sage.graphs.digraph import DiGraph
 from sage.graphs.graph import Graph
@@ -613,8 +617,8 @@ class PathDeformer(object):
         sing = self.sing[:-1]
         points = [(z.real, z.imag) for z in sing]
         try:
-            vor = scipy.spatial.qhull.Voronoi(points)
-        except (IndexError, scipy.spatial.qhull.QhullError):
+            vor = Voronoi(points)
+        except (IndexError, QhullError):
             vor = DegenerateVoronoi(points)
         assert [complex(*xy) for xy in vor.points] == sing
         return vor
@@ -1431,7 +1435,8 @@ class PathDeformer(object):
         if edge_colors is None:
             # roadmap_edges = self.roadmap.edges()
             # other_edges = list(set(vor.edges()) - set(roadmap_edges))
-            vor_edges, virt_edges = split(lambda e: e[-1] >= 0, vor.edges())
+            vor_edges, virt_edges = split(lambda e: e[-1] >= 0,
+                                          vor.edges(sort=False))
             edge_colors = {
                     # "blue": roadmap_edges,
                     "black": vor_edges,

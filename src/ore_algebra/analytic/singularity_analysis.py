@@ -1164,8 +1164,8 @@ def _bound_local_integral_of_tail(Expr, rho, val_rho, order, s, n0, vb, kappa):
     starting at z^{val_rho + order} of the local expansion of a certain
     solution of the differential equation.
 
-    The bound is valid for n ≥ max(n0, s*(|val_rho| + order)) provided that
-    s > 2.
+    The bound is valid for ``n ≥ max(n0, s*(|val_rho| + order))`` provided that
+    ``s > 2``.
     """
 
     assert s > 2
@@ -1222,8 +1222,8 @@ def _bound_local_integral_explicit_terms(Expr, rho, val_rho, order, s, n0, ser):
     term of order Õ(invn^order), such that n^val_rho*p(1/n, log(n)) is the
     desired bound.
 
-    The bound is valid for n ≥ n0. It is required that s > 2 and
-    n0 > s*(|val_rho| + order)).
+    The bound is valid for ``n ≥ n0``. It is required that s > 2 and
+    ``n0 > s*(|val_rho| + order))``.
 
     The function additionally returns a polynomial ℓ(Z, L) such that the series
     to whose coefficients the previous bound applies is equal to
@@ -1413,9 +1413,9 @@ def add_error_term(bound, rho, term, n):
 
 class FormalProduct:
     r"""
-    A formal product of a main exponential factor (1/ρ)^n and an asymptotic
-    expansion (which may contain terms involving ω^n for some ω as well,
-    typically with |ω| = 1).
+    A formal product of a main exponential factor ``(1/ρ)^n`` and an asymptotic
+    expansion (which may contain terms involving ``ω^n`` for some ``ω`` as well,
+    typically with ``|ω| = 1``).
     """
 
     def __init__(self, exponential_factor, series_factor):
@@ -1670,10 +1670,12 @@ def bound_coefficients(deq, seqini, name='n', order=3, prec=53, n0=0, *,
     - when ``output='asymptotic_expansion'``: an ``AsymptoticRingElement`` with
       a B-term encoding the error bound
 
-    - when ``output='list'``: a pair ``(N0, bound)`` where
+    - when ``output='list'``: a pair ``(N0, bound)`` where:
+
         - ``N0`` is an integer such that the bound is valid when ``n >= N0``
         - ``bound`` is list of lists of the form ``[rho, ser]`` where ``rho`` is
           in ``QQbar`` and ``ser`` is a symbolic expression
+
       such that the sum of ``rho**(-n) * ser`` is a bound for the `n`-th element
       of the input sequence
     """

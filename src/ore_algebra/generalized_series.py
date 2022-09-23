@@ -90,11 +90,11 @@ class GeneralizedSeriesMonoid(UniqueRepresentation, Parent):
         - ``type`` (optional) -- either ``"continuous"`` or ``"discrete"``.
         - ``default_prec`` (optional) -- default precision to use for the underlying series ring
 
-        If the type is ``"continuous"``, the domain contains series objects of the form
-p
+        If the type is ``"continuous"``, the domain contains series objects of the form:
+
         `\exp(\int_0^x \frac{p(t^{-1/r})}t dt)*q(x^{1/r},\log(x))`
 
-        where
+        where:
 
         * `r` is a positive integer (the object's "ramification")
         * `p` is in `K[x]` (the object's "exponential part")
@@ -108,19 +108,19 @@ p
 
         `(x/e)^{x u/v}\rho^x\exp\bigl(c_1 x^{1/(m*v)} +...+ c_{v-1} x^{1-1/(m*v)}\bigr)x^\alpha p(x^{-1/(m*v)},\log(x))`
 
-        where
+        where:
 
         * `e` is Euler's constant (2.71...)
         * `v` is a positive integer (the object's "ramification")
         * `u` is an integer; the term `(x/e)^(v/u)` is called the "superexponential part" of the solution
         * `\rho` is an element of an algebraic extension of the coefficient field `K`
-        (the algebra's base ring's base ring); the term `\rho^x` is called the "exponential part" of
-        the solution
+          (the algebra's base ring's base ring); the term `\rho^x` is called the "exponential part" of
+          the solution
         * `c_1,...,c_{v-1}` are elements of `K(\rho)`; the term `\exp(...)` is called the "subexponential
-        part" of the solution
+          part" of the solution
         * `m` is a positive integer
         * `\alpha` is an element of some algebraic extension of `K(\rho)`; the term `n^\alpha` is called
-        the "polynomial part" of the solution (even if `\alpha` is not an integer)
+          the "polynomial part" of the solution (even if `\alpha` is not an integer)
         * `p` is an element of `K(\rho)(\alpha)[[x]][y]`. It is called the "expansion part" of the solution.
 
         Any two such objects can be multiplied and shifted.
@@ -974,22 +974,20 @@ class ContinuousGeneralizedSeries(RingElement):
 
         This is the exponent `\alpha` such that the series is `c x^\alpha e^{\ldots} (1 + \ldots)`.
 
-        EXAMPLES::
-        #TODO
+        .. TODO:: Add examples.
         """
         return self.__exp.constant_coefficient()
 
     def tail_support(self):
-        """
+        r"""
         Return the support of the tail.
 
-        This could be an iterator.
+        .. TODO:: This could be an iterator.
 
         OUTPUT:
 
-            L : the list of all tuples (i,j) such that `c x^j log(x)^i`, with
-        `c \neq 0`, is a term of the polynomial part of ``self``.
-
+        - L -- the list of all tuples (i,j) such that `c x^j \log(x)^i` , with
+          `c \neq 0` , is a term of the polynomial part of ``self``
         """
         cc = self.__tail.coefficients(sparse=False)
         L = []
