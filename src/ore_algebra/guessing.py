@@ -49,7 +49,7 @@ from sage.modules.free_module_element import vector
 from sage.sets.primes import Primes
 
 from . import nullspace
-from .nullspace import _hermite
+from .nullspace import _hermite, _rational_reconstruction
 from .ore_algebra import OreAlgebra
 
 def guess_rec(data, n, S, **kwargs):
@@ -1127,7 +1127,7 @@ def _rat_recon(a, m, u=None):
     if a in (zero, one, mone):
         return a, one
     elif early_termination_bound <= 0:
-        out = a.rational_reconstruct(m)
+        out = _rational_reconstruction(a, m)
         return (a.numerator(), a.denominator())
 
     # p = q*a + r*m for some r

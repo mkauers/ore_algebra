@@ -176,6 +176,7 @@ from sage.arith.all import CRT_basis, xgcd, gcd, lcm, previous_prime as pp
 from sage.misc.all import prod
 from sage.misc.cachefunc import cached_function
 from sage.misc.lazy_string import lazy_string
+from sage.rings.polynomial.polynomial_element import Polynomial
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 from sage.rings.polynomial.multi_polynomial_libsingular import MPolynomialRing_libsingular
 from sage.rings.integer_ring import ZZ
@@ -462,6 +463,13 @@ def _launch_info(infolevel, name, dim=None, deg=None, domain=None):
                 message = message + ", domain=" + str(domain)
         return message + "."
     _info(infolevel, lazy_string(make_message))
+
+if hasattr(Polynomial, 'rational_reconstruction'): # sage >= 9.8
+    def _rational_reconstruction(pol, *args, **kwds):
+        return pol.rational_reconstruction(*args, **kwds)
+else:
+    def _rational_reconstruction(pol, *args, **kwds):
+        return pol.rational_reconstruct(*args, **kwds)
 
 ########################################
 ####### solvers and transformers #######
@@ -1123,7 +1131,7 @@ def _lagrange(subsolver, start_point, ncpus, mat, degrees, infolevel):
         for v in V:
             d = one
             for p in v:
-                d = d.lcm(p.rational_reconstruct(mod, split, split)[1])
+                d = d.lcm(_rational_reconstruction(p, mod, split, split)[1])
             for j in range(len(v)):
                 v[j] = (v[j]*d) % mod
             j = 0
@@ -1185,7 +1193,7 @@ def _lagrange(subsolver, start_point, ncpus, mat, degrees, infolevel):
             try:
                 d = one
                 for p in v:
-                    d = d.lcm(p.rational_reconstruct(modulus, split, split)[1])
+                    d = d.lcm(_rational_reconstruction(p, modulus, split, split)[1])
             except ValueError:
                 done = False
                 break
@@ -1608,7 +1616,7 @@ def _newton(subsolver, inverse, mat, degrees, infolevel):
     for v in V:
         d = one
         for p in v:
-            d = d.lcm(p.rational_reconstruct(xk, split, split)[1])
+            d = d.lcm(_rational_reconstruction(p, xk, split, split)[1])
         for j in range(len(v)):
             v[j] = phi((v[j]*d) % xk)
         j = 0
