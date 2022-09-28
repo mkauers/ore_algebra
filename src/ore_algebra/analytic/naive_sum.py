@@ -44,9 +44,9 @@ from .safe_cmp import *
 
 logger = logging.getLogger(__name__)
 
-##########################
+################################################################################
 # Argument processing etc.
-##########################
+################################################################################
 
 def series_sum(dop, ini, evpts, tgt_error, *, maj=None, bwrec=None, stop=None,
                fail_fast=False, effort=2, stride=None, ctx=dctx, **kwds):
@@ -229,7 +229,7 @@ def guard_bits(dop, maj, evpts, ordrec, nterms):
 
     This is done under the assumption that the first terms of the coefficient
     sequence are computed in interval arithmetic, and then, starting from some
-    cutoff index, we switch to something like floating-point arithmetic with an
+    cutoff index, we switch to something like floating-point arithmetic with a
     rounding error bound computed on the side. This function returns a suggested
     cutoff index and a corresponding number of guard bits to add to the
     precision of the output.

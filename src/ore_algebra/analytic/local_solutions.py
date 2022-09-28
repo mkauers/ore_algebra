@@ -690,7 +690,7 @@ def critical_monomials(dop):
     if ``sol = z^(λ+n)·(1 + Õ(z)`` where ``λ`` is the leftmost valuation of a
     group of solutions and ``s`` is another shift of ``λ`` appearing in the
     basis, then ``sol.value[s]`` contains the list of coefficients of
-    ``z^(λ+s)·log(z)^k/k!``, ``k = 0, 1, ...`` in ``sol``.
+    ``z^(λ+s)·log(z)^k/k!``, ``k = 0, 1, ...``,  in ``sol``.
     """
 
     class Mapper(LocalBasisMapper):
