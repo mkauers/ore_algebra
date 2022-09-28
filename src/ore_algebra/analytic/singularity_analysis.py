@@ -602,7 +602,6 @@ from . import utilities
 from .bounds import DiffOpBound
 from .differential_operator import DifferentialOperator
 from .local_solutions import (
-        critical_monomials,
         FundamentalSolution,
         LocalBasisMapper,
         log_series,
@@ -1033,7 +1032,7 @@ class SingularityAnalyzer(LocalBasisMapper):
         # Redundant work; TBI.
         # (Cases where we really need this to detect non-analyticity are
         # rare...)
-        self._local_basis_structure = critical_monomials(self.dop)
+        self._local_basis_structure = Point(0, self.dop).local_basis_structure()
 
         nonanalytic = [sol for sol in self._local_basis_structure if not (
             sol.leftmost.as_algebraic().is_integer()

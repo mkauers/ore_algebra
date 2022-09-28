@@ -624,6 +624,16 @@ class LocalBasisMapper(object):
     def fun(self, ini):
         return None
 
+class CriticalMonomials(LocalBasisMapper):
+    # XXX avoid redundancies with the work HighestSolMapper is doing?
+
+    def fun(self, ini):
+        # XXX should share algebraic part with Galois conjugates
+        order = max(s for s, _ in self.shifts) + 1
+        shifted_bwrec = self.bwrec.shift_by_PolynomialRoot(self.leftmost)
+        ser = log_series(ini, shifted_bwrec, order)
+        return {s: ser[s] for s, _ in self.shifts}
+
 def exponent_shifts(dop, leftmost):
     bwrec = bw_shift_rec(dop)
     ind = bwrec[0]
@@ -678,30 +688,6 @@ def log_series(ini, bwrec, order):
                 log_prec = p + 1
         series.append(new_term)
     return series
-
-def critical_monomials(dop):
-    r"""
-    For all fundamental solutions f, g, compute the terms of f of index equal to
-    the valuation of g.
-
-    OUTPUT:
-
-    A list of ``FundamentalSolution`` objects ``sol`` such that,
-    if ``sol = z^(λ+n)·(1 + Õ(z)`` where ``λ`` is the leftmost valuation of a
-    group of solutions and ``s`` is another shift of ``λ`` appearing in the
-    basis, then ``sol.value[s]`` contains the list of coefficients of
-    ``z^(λ+s)·log(z)^k/k!``, ``k = 0, 1, ...``,  in ``sol``.
-    """
-
-    class Mapper(LocalBasisMapper):
-        def fun(self, ini):
-            # XXX should share algebraic part with Galois conjugates
-            order = max(s for s, _ in self.shifts) + 1
-            shifted_bwrec = self.bwrec.shift_by_PolynomialRoot(self.leftmost)
-            ser = log_series(ini, shifted_bwrec, order)
-            return {s: ser[s] for s, _ in self.shifts}
-
-    return Mapper(dop).run()
 
 ##############################################################################
 # Evaluation of logarithmic series

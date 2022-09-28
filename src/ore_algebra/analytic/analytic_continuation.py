@@ -328,7 +328,7 @@ def analytic_continuation(dop, path, eps, ctx=dctx, ini=None, post=None,
             value = post(point.value)*value
         rec = {"point": point.value, "value": value}
         if return_local_bases:
-            rec["structure"] = point.local_basis_structure()
+            rec["structure"] = point.local_basis_structure(critical_monomials=False)
         lst.append(rec)
 
     res = []

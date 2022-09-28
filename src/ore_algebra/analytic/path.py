@@ -35,7 +35,7 @@ from . import utilities
 from .context import dctx
 from .deform import PathDeformer, PathDeformationFailed
 from .differential_operator import DifferentialOperator
-from .local_solutions import FundamentalSolution, LocalBasisMapper
+from .local_solutions import FundamentalSolution, LocalBasisMapper, CriticalMonomials
 from .safe_cmp import *
 from .utilities import *
 
@@ -515,32 +515,57 @@ class Point(SageObject):
             raise NotImplementedError # refine???
         return IR(min_dist.lower())
 
-    def local_basis_structure(self):
+    @cached_method
+    def local_basis_structure(self, critical_monomials=True):
         r"""
+        Compute the structure of the canonical local basis at this point.
+
+        With ``critical_monomials == False``, this is essentially the roots of
+        the indicial equation and their multiplicities, but encoded as
+        ``FundamentalSolution`` objects.
+
+        With ``critical_monomials == True``, also compute, for every pair (f, g)
+        of elements of the local basis, the terms of f of index equal to the
+        valuation of g.
+
+        OUTPUT:
+
+        A list of ``FundamentalSolution`` objects ``sol``.
+
+        With ``critical_monomials == False``, ``sol.value`` is meaningless.
+
+        Otherwise, for each ``sol = z^(λ+n)·(1 + Õ(z)`` where ``λ`` is the
+        leftmost valuation of a group of solutions and ``s`` is another shift of
+        ``λ`` appearing in the basis, ``sol.value[s]`` contains the list of
+        coefficients of ``z^(λ+s)·log(z)^k/k!``, ``k = 0, 1, ...``,  in ``sol``.
+
         EXAMPLES::
 
             sage: from ore_algebra import *
             sage: from ore_algebra.analytic.path import Point
             sage: Dops, x, Dx = DifferentialOperators()
-            sage: Point(0, x*Dx^2 + Dx + x).local_basis_structure()
+            sage: Point(0, x*Dx^2 + Dx + x).local_basis_structure(critical_monomials=False)
             [FundamentalSolution(leftmost=0, shift=0, log_power=1, value=None),
              FundamentalSolution(leftmost=0, shift=0, log_power=0, value=None)]
-            sage: Point(0, Dx^3 + x*Dx + x).local_basis_structure()
+            sage: Point(0, Dx^3 + x*Dx + x).local_basis_structure(critical_monomials=False)
             [FundamentalSolution(leftmost=0, shift=0, log_power=0, value=None),
              FundamentalSolution(leftmost=0, shift=1, log_power=0, value=None),
              FundamentalSolution(leftmost=0, shift=2, log_power=0, value=None)]
         """
-        # TODO: provide a way to compute the first terms of the series. First
-        # need a good way to share code with fundamental_matrix_regular. Or
-        # perhaps modify generalized_series_solutions() to agree with our
-        # definition of the basis?
+        ord = self.dop.order()
+        Scalars = self.dop.base_ring().base_ring()
         if self.is_ordinary(): # support inexact points in this case
-            return [FundamentalSolution(utilities.PolynomialRoot.make(0),
-                                        ZZ(expo), ZZ.zero(), None)
-                    for expo in range(self.dop.order())]
+            return [
+                FundamentalSolution(
+                    utilities.PolynomialRoot.make(0), ZZ(expo), ZZ.zero(),
+                    {s: [Scalars.one() if s == expo else Scalars.zero()]
+                     for s in range(ord)} if critical_monomials else None)
+                for expo in range(ord)]
         elif not self.is_regular():
             raise NotImplementedError("irregular singular point")
-        return LocalBasisMapper(self.dop.shift(self)).run()
+
+        Mapper = CriticalMonomials if critical_monomials else LocalBasisMapper
+        return Mapper(self.dop.shift(self)).run()
 
     def simple_approx(self, neighb, ctx=dctx):
         r"""

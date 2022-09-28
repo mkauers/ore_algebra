@@ -3035,7 +3035,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         from .analytic.local_solutions import simplify_exponent
         from .analytic.path import Point
         dop = DifferentialOperator(self)
-        struct = Point(point, dop).local_basis_structure()
+        struct = Point(point, dop).local_basis_structure(critical_monomials=False)
         x = SR(dop.base_ring().gen()) - point
         return [x**simplify_exponent(sol.valuation)
                     *symbolic_log.log(x, hold=True)**sol.log_power
