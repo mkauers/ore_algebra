@@ -2960,11 +2960,15 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
 
     def local_basis_monomials(self, point):
         r"""
-        Return the leading logarithmic monomials of a local basis of solutions.
+        Leading monomials of the local basis of “regular” solutions
+        (logarithmic series solutions) used in the definition of initial values
+        and transition matrices.
 
         INPUT:
 
-        ``point`` - a regular point of this operator
+        ``point`` -- Point where the local basis should be computed. (May be an
+        irregular singular point, but the output only covers regular
+        solutions.)
 
         OUTPUT:
 
@@ -2974,6 +2978,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         a nonnegative integer less than the multiplicity of that root.
 
         If ``point`` is an ordinary point, the output is ``[1, x, x^2, ...]``.
+
         More generally, a solution of the operator is characterized by the
         coefficients in its logarithmic power series expansion at ``point`` of
         the monomials returned by this method. The basis of solutions
@@ -2983,8 +2988,9 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         vectors of “generalized initial values” at regular singular points.
         (The order is essentially that of asymptotic dominance as ``x`` tends
         to ``point``, with oscillating functions being ordered in an arbitrary
-        but consistent way.) Note that this basis may not coincide with the one
-        computed by :meth:`generalized_series_solutions`.
+        but consistent way.) Note that this basis is not the usual Frobenius
+        basis and may not coincide with the one computed by
+        :meth:`generalized_series_solutions`.
 
         .. SEEALSO::
 
@@ -3017,6 +3023,12 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             [x*(1 - x + 5/6*x^2 + O(x^3)),
              (x - x^2 + O(x^3))*log(x) - 1 + 1/2*x^2 + O(x^3)]
 
+        An irregular case::
+
+            sage: dop = -x^3*Dx^2 + (-x^2-x)*Dx + 1
+            sage: dop.local_basis_monomials(0)
+            [x]
+
         TESTS::
 
             sage: ((x+1/3)*Dx^4+Dx-x).local_basis_monomials(-1/3)
@@ -3045,24 +3057,28 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
     # TODO: Add a version that returns DFiniteFunction objects
     def local_basis_expansions(self, point, order=None, ring=None):
         r"""
-        Generalized series expansions of the local basis.
+        Generalized series expansions of the local basis of “regular” solutions
+        (logarithmic series solutions) used in the definition of initial values
+        and transition matrices.
 
         INPUT:
 
-        * point - Point where the local basis is to be computed
+        * ``point`` -- Point where the local basis is to be computed. (May
+          be an irregular singular point, but this method only computes regular
+          solutions.)
 
-        * order (optional) - Number of terms to compute, *starting from each
-          “leftmost” valuation of a group of solutions with valuations differing by
-          integers*. (Thus, the absolute truncation order will be the same for all
-          solutions in such a group, with some solutions having more actual
-          coefficients computed that others.)
+        * ``order`` (optional) -- Number of terms to compute, starting from
+          each “leftmost” valuation of a group of solutions with valuations
+          differing by integers. (Thus, the absolute truncation order will be
+          the same for all solutions in such a group, with some solutions
+          having more actual coefficients computed that others.)
 
           The default is to choose the truncation order in such a way that the
           structure of the basis is apparent, and in particular that logarithmic
           terms appear if logarithms are involved at all in that basis. The
           corresponding order may be very large in some cases.
 
-        * ring (optional) - Ring into which to coerce the coefficients of the
+        * ``ring`` (optional) -- Ring into which to coerce the coefficients of the
           expansion
 
         OUTPUT:
@@ -3144,6 +3160,13 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             sage: c, mon = sol[1][1]
             sage: c, mon.n, mon.k
             ([-0.00056 +/- 3.06e-6], 4, 2)
+
+        The local basis at an irregular singular point has fewer elements than
+        the order of the operator::
+
+            sage: dop = -x^3*Dx^2+(-x^2-x)*Dx+1
+            sage: dop.local_basis_expansions(0)
+            [x - x^2 + 2*x^3 - 6*x^4 + 24*x^5]
 
         TESTS::
 

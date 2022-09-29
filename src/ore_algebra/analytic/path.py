@@ -561,8 +561,6 @@ class Point(SageObject):
                     {s: [Scalars.one() if s == expo else Scalars.zero()]
                      for s in range(ord)} if critical_monomials else None)
                 for expo in range(ord)]
-        elif not self.is_regular():
-            raise NotImplementedError("irregular singular point")
 
         Mapper = CriticalMonomials if critical_monomials else LocalBasisMapper
         return Mapper(self.dop.shift(self)).run()
