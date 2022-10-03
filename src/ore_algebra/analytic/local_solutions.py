@@ -529,7 +529,7 @@ class LocalBasisMapper(object):
     exported data and hooks is a bit ad hoc.
     """
 
-    def __init__(self, dop, ctx=dctx):
+    def __init__(self, dop, *, ctx=dctx):
         self.dop = dop
         self.ctx = ctx
 

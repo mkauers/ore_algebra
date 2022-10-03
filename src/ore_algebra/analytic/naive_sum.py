@@ -412,8 +412,8 @@ def interval_series_sum_wrapper(dop, inis, evpts, tgt_error, bwrec, stop,
 
 class HighestSolMapper(LocalBasisMapper):
 
-    def __init__(self, dop, evpts, eps, fail_fast, effort, ctx):
-        super(self.__class__, self).__init__(dop, ctx)
+    def __init__(self, dop, evpts, eps, fail_fast, effort, *, ctx):
+        super().__init__(dop, ctx=ctx)
         self.evpts = evpts
         self.eps = eps
         self.fail_fast = fail_fast
@@ -518,7 +518,7 @@ def fundamental_matrix_regular(dop, evpts, eps, fail_fast, effort, ctx=dctx):
     """
     eps_col = ctx.IR(eps)/ctx.IR(dop.order()).sqrt()
     eps_col = accuracy.AbsoluteError(eps_col)
-    unr = HighestSolMapper(dop, evpts, eps_col, fail_fast, effort, ctx)
+    unr = HighestSolMapper(dop, evpts, eps_col, fail_fast, effort, ctx=ctx)
     cols = unr.run()
     mats = [matrix([sol.value[i] for sol in cols]).transpose()
             for i in range(len(evpts))]
