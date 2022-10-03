@@ -634,6 +634,20 @@ class CriticalMonomials(LocalBasisMapper):
         ser = log_series(ini, shifted_bwrec, order)
         return {s: ser[s] for s, _ in self.shifts}
 
+class LocalExpansions(LocalBasisMapper):
+
+    def __init__(self, dop, order=None, *, ctx=dctx):
+        super().__init__(dop, ctx=ctx)
+        if order is None:
+            ind = dop.indicial_polynomial(dop.base_ring().gen())
+            self.order = max(dop.order(), ind.dispersion()) + 3
+        else:
+            self.order = order
+
+    def fun(self, ini):
+        shifted_bwrec = self.bwrec.shift_by_PolynomialRoot(self.leftmost)
+        return log_series(ini, shifted_bwrec, self.order)
+
 def exponent_shifts(dop, leftmost):
     bwrec = bw_shift_rec(dop)
     ind = bwrec[0]

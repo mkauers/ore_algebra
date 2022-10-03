@@ -3200,20 +3200,13 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             1 - 3/4*(x - 1) + 105/64*(x - 1)^2
         """
         from .analytic.differential_operator import DifferentialOperator
-        from .analytic.local_solutions import (log_series, LocalBasisMapper,
+        from .analytic.local_solutions import (log_series, LocalExpansions,
                 simplify_exponent, LogMonomial)
         from .analytic.path import Point
-        mypoint = Point(point, self)
         dop = DifferentialOperator(self)
+        mypoint = Point(point, dop)
         ldop = dop.shift(mypoint)
-        if order is None:
-            ind = ldop.indicial_polynomial(ldop.base_ring().gen())
-            order = max(dop.order(), ind.dispersion()) + 3
-        class Mapper(LocalBasisMapper):
-            def fun(self, ini):
-                shifted_bwrec = self.bwrec.shift_by_PolynomialRoot(self.leftmost)
-                return log_series(ini, shifted_bwrec, order)
-        sols = Mapper(ldop).run()
+        sols = LocalExpansions(ldop, order).run()
         x = SR.var(dop.base_ring().variable_name())
         dx = x if point == 0 else x.add(-point, hold=True)
         if ring is None:
