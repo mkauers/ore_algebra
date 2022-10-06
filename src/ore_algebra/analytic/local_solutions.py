@@ -437,9 +437,17 @@ _FundamentalSolution0 = collections.namedtuple(
     ['leftmost', 'shift', 'log_power', 'value'])
 
 class FundamentalSolution(_FundamentalSolution0):
+
     @lazy_attribute
     def valuation(self):
         return self.leftmost.as_algebraic() + self.shift # alg for re, im
+
+    def valuation_as_ball(self, IC):
+        return self.leftmost.as_ball(IC) + self.shift
+
+    def param_are_zero(self):
+        return (self.leftmost.is_zero() and self.shift == 0
+                and self.log_power.is_zero())
 
 class sort_key_by_asympt:
     r"""
