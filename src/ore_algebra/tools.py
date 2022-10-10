@@ -13,8 +13,6 @@ Auxiliary functions
 #  https://www.gnu.org/licenses/                                             #
 #############################################################################
 
-from __future__ import absolute_import
-
 from sage.structure.element import Element, canonical_coercion
 from sage.arith.all import gcd
 from sage.functions.other import real_part
@@ -191,7 +189,7 @@ def shift_factor(p, ram=ZZ.one(), q=1):
             d = u.degree()
             try:
                 return -q_log(qq, (u[d]/v[d])**ram)/d
-            except:
+            except ValueError:
                 return None
 
     for (q, b) in make_factor_iterator(p.parent())(p):

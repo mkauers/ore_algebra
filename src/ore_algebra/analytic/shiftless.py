@@ -15,8 +15,6 @@ Shiftless decomposition
 
 import logging
 
-from six.moves import range
-
 from sage.misc.cachefunc import cached_function
 from sage.misc.misc_c import prod
 from sage.structure.sequence import Sequence
@@ -264,11 +262,12 @@ def shiftless_decomposition(self):
 # XXX: tie life to a suitable object
 # @cached_function(key=lambda p: (id(p.parent()), p))
 def my_shiftless_decomposition(pol):
+    IniRing = pol.parent().base()
     try:
         pol = pol.monic().change_ring(QQ)
     except TypeError:
         logger.debug("failed to reduce to rational coefficients")
     x = pol.parent().gen()
     _, fac = shiftless_decomposition(pol(-x))
-    return [(polynomial(-x), shifts)
+    return [(polynomial(-x).change_ring(IniRing), shifts)
             for polynomial, shifts in fac]

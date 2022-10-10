@@ -2,7 +2,6 @@
 """
 Ideals
 """
-
 #############################################################################
 #  Copyright (C) 2015, 2016, 2017                                           #
 #                Manuel Kauers (mkauers@gmail.com),                         #
@@ -13,26 +12,24 @@ Ideals
 #  http://www.gnu.org/licenses/                                             #
 #############################################################################
 
-from __future__ import absolute_import, division, print_function
-
 from datetime import datetime
 from functools import cmp_to_key, reduce
+
 from sage.rings.noncommutative_ideals import Ideal_nc
-from sage.arith.all import gcd, lcm
+from sage.arith.all import gcd
 from sage.misc.all import prod, add
 from sage.rings.rational_field import QQ
-from sage.rings.integer_ring import ZZ
 from sage.modules.free_module_element import vector
-from sage.matrix.constructor import Matrix, matrix
+from sage.matrix.constructor import matrix
 from sage.misc.cachefunc import cached_function
 from sage.misc.lazy_string import lazy_string
 from sage.structure.all import coercion_model
-from sage.structure.element import RingElement, canonical_coercion
+from sage.structure.element import canonical_coercion
 from sage.rings.fraction_field import is_FractionField
 
 from . import nullspace
-
 from .tools import clear_denominators
+
 
 class OreLeftIdeal(Ideal_nc):
 
@@ -41,7 +38,7 @@ class OreLeftIdeal(Ideal_nc):
             ring = ring.change_ring(ring.base_ring().fraction_field())
         gens = tuple([ring(g).numerator() for g in gens])
         if is_known_to_be_a_groebner_basis:
-            self.__gb = gens        
+            self.__gb = gens
         Ideal_nc.__init__(self, ring, gens, coerce, "left")
 
     def _lm_poly_ideal(self):
@@ -53,16 +50,16 @@ class OreLeftIdeal(Ideal_nc):
         Checks two ideals for being equal. Ideals not belonging to the same ring will raise an error.
         """
 
-        if self.ring() is not other.ring(): 
+        if self.ring() is not other.ring():
             raise ValueError
-        
+
         # if rings are the same, then in particular the orders are the same
         A = self.groebner_basis()
         B = other.groebner_basis()
 
         if len(A) != len(B):
             return False
-        
+
         return all(A[i].lc()*B[i] == B[i].lc()*A[i] for i in range(len(A)))
 
     def __le__(self, other):
@@ -80,7 +77,7 @@ class OreLeftIdeal(Ideal_nc):
 
     def _contains_(self, other):
         return other.reduce(self.groebner_basis()).is_zero()
-    
+
     def dimension(self):
         """
         Returns the Hilbert dimension of self.
@@ -100,7 +97,7 @@ class OreLeftIdeal(Ideal_nc):
 
     def vector_space_dimension(self):
         """
-        Returns the vector space dimension of the A-module A/self 
+        Returns the vector space dimension of the A-module A/self
 
         EXAMPLES::
 
@@ -119,9 +116,9 @@ class OreLeftIdeal(Ideal_nc):
 
     def vector_space_basis(self):
         """
-        Returns a vector space basis of the A-module A/self if self is zero dimensional. 
+        Returns a vector space basis of the A-module A/self if self is zero dimensional.
 
-        Raises an assertion error if self is not zero dimensional. 
+        Raises an assertion error if self is not zero dimensional.
 
         EXAMPLES::
 
@@ -136,9 +133,9 @@ class OreLeftIdeal(Ideal_nc):
         """
         if self.dimension() == -1:
             return []
-        
+
         assert self.dimension() == 0
-        
+
         lms = self._lm_poly_ideal()
         basis = [lms.ring().one()]
 
@@ -157,7 +154,7 @@ class OreLeftIdeal(Ideal_nc):
         """
         Returns the multiplication matrix associated to the given generator of the ambient ring.
 
-        Raises an assertion error if self is not zero dimensional. 
+        Raises an assertion error if self is not zero dimensional.
 
         INPUT:
 
@@ -208,10 +205,10 @@ class OreLeftIdeal(Ideal_nc):
         mat = [(D*b).reduce(G) for b in B]
         mat = [[m[b.exp()] for b in B] for m in mat]
         return matrix(self.ring().base_ring(), mat).transpose()
-        
+
     def groebner_basis(self, infolevel=0, update_hook=None):
         """
-        Returns the Groebner basis of this ideal. 
+        Returns the Groebner basis of this ideal.
 
         INPUT:
 
@@ -255,7 +252,7 @@ class OreLeftIdeal(Ideal_nc):
         """
         try:
             return list(self.__gb)
-        except:
+        except AttributeError:
             pass
 
         gens = self.gens()
@@ -266,7 +263,7 @@ class OreLeftIdeal(Ideal_nc):
         A = gens[0].parent()
         A = A.change_ring(A.base_ring().ring())
         gens = list(map(A, gens))
-        
+
         # ~~~ relatively naive code ~~~
 
         # tools
@@ -275,18 +272,19 @@ class OreLeftIdeal(Ideal_nc):
                 print(msg)
 
         X = list(map(A, self.ring().gens()))
-        def maketerm(e): # exponent vector to monomial
-            return prod( x**i for x, i in zip(X, e) )
 
-        def lcm(u, v): # exponent vector of lcm(lt(u),lt(v))
+        def maketerm(e):  # exponent vector to monomial
+            return prod(x**i for x, i in zip(X, e))
+
+        def lcm(u, v):  # exponent vector of lcm(lt(u),lt(v))
             return u.exp().emax(v.exp())
-        
-        def makepair(u, v): # first entry is lcm(lt(u),lt(v))
+
+        def makepair(u, v):  # first entry is lcm(lt(u),lt(v))
             ht = maketerm(lcm(u, v))
             s = max(ht.tdeg() - u.lm().tdeg() + u.sugar, ht.tdeg() - v.lm().tdeg() + v.sugar)
             return (ht, u, v, s)
 
-        def update(G, B, h): # inspired by alg UPDATE in BWK p 230, but without using the first criterion 
+        def update(G, B, h):  # inspired by alg UPDATE in BWK p 230, but without using the first criterion
             if h.is_zero():
                 info(2, "new polynomial is zero")
                 return G, B
@@ -297,9 +295,9 @@ class OreLeftIdeal(Ideal_nc):
             C = [g for g in G]
             C.sort(key=smallest_lt_first, reverse=True) # smallest leading term last
             # 1. discard the pairs (C[i],h) for which there is another pair (C[j], h) with lt(C[j],h)|lt(C[i],h)
-            for i in range(len(C)): 
+            for i in range(len(C)):
                 for j in range(len(C)):
-                    if C[j] is not None and i != j and min(lcm(C[i],h).esub(lcm(C[j],h))) >= 0:
+                    if C[j] is not None and i != j and min(lcm(C[i], h).esub(lcm(C[j], h))) >= 0:
                         C[i] = None
                         break
             C = [makepair(g, h) for g in C if g is not None]
@@ -324,21 +322,22 @@ class OreLeftIdeal(Ideal_nc):
         info(1, "main loop...")
         while len(C) > 0:
             t, u, v, s = C.pop()
-            info(2, datetime.today().ctime() + ": " + str(len(C) + 1) + " pairs left; taking pair with lcm(lm,lm)=" + str(t))            
+            info(2, datetime.today().ctime() + ": " + str(len(C) + 1) + " pairs left; taking pair with lcm(lm,lm)=" + str(t))
             uterm = v.lc()*maketerm(t.exp().esub(u.exp()))
             vterm = u.lc()*maketerm(t.exp().esub(v.exp()))
-            spol = uterm*u - vterm*v; spol.sugar = s
+            spol = uterm*u - vterm*v
+            spol.sugar = s
             G, C = update(G, C, spol.reduce(G, normalize=True, infolevel=infolevel-2, coerce=False))
 
         # autoreduction
         info(2, "autoreduction...")
-        for i in range(len(G)): 
+        for i in range(len(G)):
             G[i] = G[i].reduce(G[:i] + G[i+1:], normalize=True, infolevel=infolevel-3, coerce=False)
         G = [g for g in G if not g.is_zero()]
         G.sort(key=smallest_lt_first)
 
         # todo: normalize coefficients of coefficients to ensure uniqueness
-        
+
         # done
         info(1, "completion completed, Groebner basis has " + str(len(G)) + " elements.")
         self.__gb = tuple(G)
@@ -355,7 +354,7 @@ class OreLeftIdeal(Ideal_nc):
 
         OUTPUT:
 
-           a vector of base ring elements 
+           a vector of base ring elements
 
         EXAMPLES::
 
@@ -368,8 +367,8 @@ class OreLeftIdeal(Ideal_nc):
            sage: I.vector_to_operator(_)
            ((50*x*y^2 + 10*y^3 - 18*x*y - 25*x + 25*y)/(10*y^2 - 5))*Dy + (12*x*y^2 + 16*y^3 + 3*x - 8*y - 15)/(2*y^2 - 1)
            sage: (3*Dx^2 + (5*x+y)*Dy - 3*x+8*y - _).reduce(I)
-           0 
-        
+           0
+
         """
         L = self.ring()(L).reduce(self.groebner_basis())
         return vector(self.ring().base_ring(), [L.monomial_coefficient(b) for b in self.vector_space_basis()])
@@ -379,7 +378,7 @@ class OreLeftIdeal(Ideal_nc):
         Returns a representative of the equivalence class of A/self corresponding to the given coefficient vector.
 
         INPUT:
-        
+
            vec -- a vector with coefficients in self.ring().base_ring() and dimension self.vector_space_dimension()
 
         OUTPUT:
@@ -397,11 +396,11 @@ class OreLeftIdeal(Ideal_nc):
            sage: I.vector_to_operator(_)
            ((50*x*y^2 + 10*y^3 - 18*x*y - 25*x + 25*y)/(10*y^2 - 5))*Dy + (12*x*y^2 + 16*y^3 + 3*x - 8*y - 15)/(2*y^2 - 1)
            sage: (3*Dx^2 + (5*x+y)*Dy - 3*x+8*y - _).reduce(I)
-           0 
+           0
 
         """
         return self.ring()(dict((b.exp(), vec[i]) for i, b in enumerate(self.vector_space_basis())))
-    
+
     def intersection(self, other, infolevel=0, solver=None):
         """
         Computes the intersection of self with the other ideal.
@@ -414,7 +413,7 @@ class OreLeftIdeal(Ideal_nc):
 
         OUTPUT:
 
-           The intersection of self with other. 
+           The intersection of self with other.
 
         EXAMPLES::
 
@@ -461,13 +460,14 @@ class OreLeftIdeal(Ideal_nc):
 
         A = self.ring()
         gen_matrices = {}
-        self_zero = matrix(A.base_ring(), n, m); other_zero = matrix(A.base_ring(), m, n)
+        self_zero = matrix(A.base_ring(), n, m)
+        other_zero = matrix(A.base_ring(), m, n)
         for X in A.gens():
-            # [ M_self     0    ] 
+            # [ M_self     0    ]
             # [  0      M_other ]
             gen_matrices[X] = other_zero.augment(other.multiplication_matrix(X).transpose()).transpose()
             gen_matrices[X] = self.multiplication_matrix(X).transpose().augment(self_zero).transpose().augment(gen_matrices[X])
-            
+
         return A.ideal(fglm(A, vector(A.base_ring(), [1] + [0]*(n-1) + [1] + [0]*(m-1)), \
                             gen_matrices, infolevel=infolevel, solver=solver), is_known_to_be_a_groebner_basis=True)
 
@@ -483,7 +483,7 @@ class OreLeftIdeal(Ideal_nc):
 
         OUTPUT:
 
-           The symmetric product of self with other. 
+           The symmetric product of self with other.
 
         EXAMPLES::
 
@@ -521,7 +521,7 @@ class OreLeftIdeal(Ideal_nc):
         elif n == 0:
             return self
         elif n == 1:
-            pass ## todo: special code for D-finite times hyper. 
+            pass  # todo: special code for D-finite times hyper.
 
         A = self.ring()
         gen_matrices = {}
@@ -540,7 +540,7 @@ class OreLeftIdeal(Ideal_nc):
             if w2 != 0:
                 M += w2*(self_MM.tensor_product(other_MM))
             gen_matrices[X] = M
-            
+
         return A.ideal(fglm(A, vector(A.base_ring(), [1] + [0]*(n*m-1)), \
                             gen_matrices, infolevel=infolevel, solver=solver), is_known_to_be_a_groebner_basis=True)
 
@@ -549,7 +549,7 @@ class OreLeftIdeal(Ideal_nc):
         Returns the elimination ideal of this with the algebra in which the generators in the list 'vars' are eliminated.
 
         INPUT:
-        
+
            vars -- list of generators of the ambient algebra to be eliminated
            infolevel (optional) -- verbosity of progress reports
            solver (optional) -- callable to be used for finding right kernels of matrices over the ambient algebra's base ring
@@ -559,7 +559,7 @@ class OreLeftIdeal(Ideal_nc):
 
            The elimination ideal of 'self' with respect to the specified variables
 
-        The current implementation is limited to zero dimensional ideals.           
+        The current implementation is limited to zero dimensional ideals.
 
         EXAMPLES::
 
@@ -573,17 +573,17 @@ class OreLeftIdeal(Ideal_nc):
            Left Ideal ((-9*x^2 + 2)*Dx^3 + (27*x^3 + 12*x)*Dx^2 + (45*x^2 - 10)*Dx - 135*x^3 - 60*x) of Univariate Ore algebra in Dx over Fraction Field of Multivariate Polynomial Ring in x, y over Integer Ring
            sage: A(_.gens()[0]).reduce(id.groebner_basis())
            0
-        
+
         """
 
         if len(vars) == 0:
-            return self        
-        
+            return self
+
         R = self.ring()
         vars = list(map(R, vars))
         vars = [g for g in R.gens() if g not in vars]
         target_algebra = R.subalgebra(vars)
-        
+
         if self.dimension() == -1:
             return target_algebra.ideal([1])
         elif self.dimension() > 0:
@@ -596,9 +596,9 @@ class OreLeftIdeal(Ideal_nc):
     def annihilator_of_associate(self, L, infolevel=0, solver=None, early_termination=False):
         """
         Given an operator L of the ambient algebra of 'self', this computes an ideal of annihilating operators for L(f), where f
-        is any solution of 'self'. 
+        is any solution of 'self'.
 
-        The method is only implemented for zero dimensional ideals. 
+        The method is only implemented for zero dimensional ideals.
 
         INPUT:
 
@@ -610,8 +610,8 @@ class OreLeftIdeal(Ideal_nc):
         OUTPUT:
 
            an ideal of annihilating operators for L(f), where f is any solution of 'self'.
-           If early_termination is set to True, the output ideal will have only one generator. 
-           Otherwise, the output ideal will be zero dimensional. 
+           If early_termination is set to True, the output ideal will have only one generator.
+           Otherwise, the output ideal will be zero dimensional.
 
         EXAMPLES::
 
@@ -627,7 +627,7 @@ class OreLeftIdeal(Ideal_nc):
             return self
         elif self.dimension() > 0:
             raise NotImplementedError
-        
+
         A = self.ring()
         mats = dict((g, self.multiplication_matrix(g)) for g in A.gens())
         return A.ideal(fglm(A, self.operator_to_vector(L), mats, infolevel=infolevel, solver=solver, early_termination=early_termination), is_known_to_be_a_groebner_basis=True)
@@ -635,14 +635,14 @@ class OreLeftIdeal(Ideal_nc):
 
     def annihilator_of_composition(self, **kwargs):
         """
-        Computes an ideal of annihilating operators for all functions f(g1,...,gn) where f(x1,...,xn) is 
-        any function annihilated by 'self' and g1,...,gn are elements of an algebraic function field. 
+        Computes an ideal of annihilating operators for all functions f(g1,...,gn) where f(x1,...,xn) is
+        any function annihilated by 'self' and g1,...,gn are elements of an algebraic function field.
 
         INPUT:
 
            A list of optional arguments that state which variables (lhs) are to be mapped to which algebraic functions (rhs).
            All right hand sides must be coercible to a common parent, which must be either a rational function field or an
-           algebraic extension of a rational function field. Variables for which no substitution rule is specified are mapped 
+           algebraic extension of a rational function field. Variables for which no substitution rule is specified are mapped
            to themselves.
 
            infolevel (optional) -- nonnegative integer indicating verbosity of progress reports
@@ -664,11 +664,20 @@ class OreLeftIdeal(Ideal_nc):
            sage: id.annihilator_of_composition(u=x,v=y)
            Left Ideal (x^2*Dx + (x*y - 2)*Dy - x, (2*x*y - 2)*Dy^2 + x*Dy) of Multivariate Ore algebra in Dx, Dy over Fraction Field of Multivariate Polynomial Ring in x, y over Integer Ring
            sage: id.annihilator_of_composition(u=u^2,v=1/(u-v))
-           Left Ideal ((-u^3)*Du + (-3*u^3 + 2*u^2*v + 4*u^2 - 8*u*v + 4*v^2)*Dv + 2*u^2, (-2*u^3 + 2*u^2*v + 2*u^2 - 4*u*v + 2*v^2)*Dv^2 + (3*u^2 - 4*u + 4*v)*Dv) of Multivariate Ore algebra in Du, Dv over Fraction Field of Multivariate Polynomial Ring in u, v over Integer Ring
+           Left Ideal (u^3*Du + (3*u^3 - 2*u^2*v - 4*u^2 + 8*u*v - 4*v^2)*Dv - 2*u^2, (2*u^3 - 2*u^2*v - 2*u^2 + 4*u*v - 2*v^2)*Dv^2 + (-3*u^2 + 4*u - 4*v)*Dv) of Multivariate Ore algebra in Du, Dv over Fraction Field of Multivariate Polynomial Ring in u, v over Integer Ring
            sage: id.annihilator_of_composition(v=0)
            Left Ideal (Dv, Du^2) of Multivariate Ore algebra in Du, Dv over Fraction Field of Multivariate Polynomial Ring in u, v over Integer Ring
            sage: id.annihilator_of_composition(u=t,v=1-t)
            Left Ideal ((-x)*Dx + (2*y + 2)*Dy, (216*x^4*y^5 + 1080*x^4*y^4 + 2160*x^4*y^3 + 2160*x^4*y^2 + 432*x^2*y^4 + 1080*x^4*y + 1728*x^2*y^3 + 216*x^4 + 2592*x^2*y^2 + 1728*x^2*y + 216*y^3 + 432*x^2 + 648*y^2 + 648*y + 216)*Dy^4 + (1440*x^4*y^4 + 5760*x^4*y^3 + 8640*x^4*y^2 + 5760*x^4*y + 2232*x^2*y^3 + 1440*x^4 + 6696*x^2*y^2 + 6696*x^2*y + 2232*x^2 + 792*y^2 + 1584*y + 792)*Dy^3 + (1920*x^4*y^3 + 5760*x^4*y^2 + 5760*x^4*y + 1920*x^4 + 2094*x^2*y^2 + 4188*x^2*y + 2094*x^2 + 336*y + 336)*Dy^2 + (320*x^4*y^2 + 640*x^4*y + 320*x^4 + 187*x^2*y + 187*x^2 - 16)*Dy + 3*x^2) of Multivariate Ore algebra in Dx, Dy over Fraction Field of Multivariate Polynomial Ring in x, y over Integer Ring
+
+           sage: R.<x,y,z> = QQ[]
+           sage: S.<u,v,w> = QQ[]
+           sage: A.<Du,Dv,Dw> = OreAlgebra(S)
+           sage: I = A.ideal([u * w * Du^2 + (v + w) * Dv * Dw, (u - 1) * Du * Dw, v^2 * Dv + 1])
+           sage: I.annihilator_of_composition(u=x,v=y,w=z)
+           Left Ideal (Dz, (y^2)*Dy + 1, Dx^2) of Multivariate Ore algebra in Dx, Dy, Dz over Fraction Field of Multivariate Polynomial Ring in x, y, z over Rational Field
+           sage: I.annihilator_of_composition(u=z^2, v=1/(x+y+z), w=1/x)
+           Left Ideal (Dy - 1, Dx - 1, z*Dz^2 + (-2*z - 1)*Dz + (z + 1)) of Multivariate Ore algebra in Dx, Dy, Dz over Fraction Field of Multivariate Polynomial Ring in x, y, z over Rational Field
 
         """
 
@@ -683,20 +692,21 @@ class OreLeftIdeal(Ideal_nc):
         def info(i, msg):
             if infolevel >= i:
                 print(msg)
-        
+
         # domains for outer function
-        A = self.ring()                                          ## eg ZZ[x,y][Dx,Dy]
+        A = self.ring()                                          # eg ZZ[x,y][Dx,Dy]
         K = A.base_ring().fraction_field()
         if not all(A.is_D(g) for g in A.gens()):
             raise NotImplementedError
 
         # domains for inner functions
-        for x in K.gens(): kwargs.setdefault(str(x), x)          ## add missing arguments
-        R = reduce(canonical_coercion, kwargs.values())[0].parent() ## eg QQ(u,v)(t)
-        R = R.fraction_field()                                   
-        R0 = R if is_FractionField(R) else R.base_ring()         ## eg QQ(u,v)
+        for x in K.gens():
+            kwargs.setdefault(str(x), x)          # add missing arguments
+        R = reduce(lambda a, b: canonical_coercion(a, b)[0], kwargs.values()).parent()  # eg QQ(u,v)(t)
+        R = R.fraction_field()
+        R0 = R if is_FractionField(R) else R.base_ring()         # eg QQ(u,v)
         from .ore_algebra import OreAlgebra
-        B = OreAlgebra(R0, *['D' + str(x) for x in R0.gens()])   ## eg QQ(u,v)[Du,Du]
+        B = OreAlgebra(R0, *['D' + str(x) for x in R0.gens()])   # eg QQ(u,v)[Du,Du]
 
         info(1, "Outer functions recognized as " + ("rational" if is_FractionField(R) else "irrational algebraic"))
         info(1, "Output is going to be an ideal of " + repr(B))
@@ -721,15 +731,15 @@ class OreLeftIdeal(Ideal_nc):
             q = minpoly.xgcd(minpoly.derivative())[2]
             for D in B.gens():
                 d = B.delta(D)
-                p = -R(q*minpoly.map_coefficients(d)) ## D of generator t of extension
+                p = -R(q*minpoly.map_coefficients(d))  # D of generator t of extension
                 der[D] = mulmat(p)*dermat
                 for x in K.gens():
                     u = R(kwargs[str(x)])
                     # apply D to image of x=u(y,t) : u_y + u_t*D(t)
                     der[x, D] = mulmat(R(list(map(d, u.list()))) + R(minpoly.parent()(u.list()).derivative())*p)
-                
+
         info(1, "Construction of derivatives completed.")
-        
+
         # create multiplication matrices
         n = self.vector_space_dimension()
         old_mats = {}
@@ -750,17 +760,19 @@ class OreLeftIdeal(Ideal_nc):
                 for j in range(n):
                     blocks[i, j] = sum(der[K(A.is_D(Da)), D]*old_mats[Da, i, j] for Da in A.gens())
                     if i == j:
-                        blocks[i, j] += der[D] 
+                        blocks[i, j] += der[D]
             mats[D] = matrix(R0, n*dim, lambda i, j: blocks[i//dim, j//dim][i%dim, j%dim])
 
         info(1, "Inflation of multiplication matrices completed.")
         # create one-vector
-        one = [0]*(n*dim); one[0] = 1; one = vector(R0, one)
+        one = [0]*(n*dim)
+        one[0] = 1
+        one = vector(R0, one)
 
         info(1, "Entering FGLM...")
         return B.ideal(fglm(B, one, mats, infolevel=infolevel-1, solver=B._solver(R0), early_termination=early_termination), is_known_to_be_a_groebner_basis=True)
 
-    
+
     def ct(self, D, algebra=None, certificates=True, early_termination=False, infolevel=0, iteration_limit=0):
         """
         Computes an ideal of telescopers for self.
@@ -799,7 +811,7 @@ class OreLeftIdeal(Ideal_nc):
            sage: A.ideal([(k+1)*Sk+(k-n),(1-k+n)*Sn+(-1-n)]).ct(Sk-1) # random
            ([Sn - 2], [k/(k - n - 1)])
 
-           sage: # gfun of legendre polynomials 
+           sage: # gfun of legendre polynomials
            sage: R.<t,n,x> = ZZ[]
            sage: A.<Dt,Dx,Sn> = OreAlgebra(R)
            sage: A.ideal([(-t+t*x^2)*Dx + (-1-n)*Sn+(t*x+n*t*x),(2+n)*Sn^2+(-3*t*x-2*n*t*x)*Sn+(t^2+n*t^2), t*Dt-n]).ct(Sn-1) # random
@@ -819,57 +831,60 @@ class OreLeftIdeal(Ideal_nc):
         def info(i, msg):
             if i <= infolevel:
                 print(msg)
-        
+
         # D must involve exactly one generator Dgen of the ambient algebra, and this generator must move exactly one
-        # generator var of the ground ring. 
+        # generator var of the ground ring.
         A = self.ring()
-        K = A.base_ring().fraction_field()
         Dgen = [Dgen for Dgen in A.gens() if D.degree(Dgen) != 0] # the unique generator of A appearing in D
-        var = [k for k in A.base_ring().gens() if D*k != k*D] # D must commute with all but exactly one 
+        var = [k for k in A.base_ring().gens() if D*k != k*D] # D must commute with all but exactly one
         if len(Dgen) != 1 or len(var) != 1:
             raise ValueError("bad choice of delta")
         Dgen, var = Dgen[0], var[0]
 
         from .ore_algebra import OreAlgebra
-        
+
         if algebra is None:
             G = A.base_ring().base_ring()
             Ggens = tuple(x for x in A.base_ring().gens() if x != var)
             G = G[Ggens].fraction_field()
             algebra = OreAlgebra(G, *tuple((str(g), A.sigma(g), A.delta(g)) for g in A.gens() if g != Dgen))
-            
+
         gen_matrices = dict( (d, self.multiplication_matrix(A(d))) for d in algebra.gens() )
         sigma = dict( (d, algebra.sigma(d)) for d in algebra.gens() )
         delta = dict( (d, algebra.delta(d)) for d in algebra.gens() )
-        
+
         info(1, "Output ideal will belong to " + repr(algebra))
         info(2, "Summation/Integration variable recognized as " + str(var))
-        
+
         # translate delta to matrix equation over univariate operator algebra
         info(1, "Constructing coupled system...")
         GG = algebra.base_ring().fraction_field()[var].fraction_field()
-        AA = OreAlgebra(GG, (str(Dgen), {str(var):GG(A.sigma(Dgen)(var))}, {str(var):GG(A.delta(Dgen)(var))}))
+        AA = OreAlgebra(GG, (str(Dgen), {str(var): GG(A.sigma(Dgen)(var))},
+                             {str(var): GG(A.delta(Dgen)(var))}))
         info(2, "Coupled system will have entries in " + repr(AA))
 
         def wrap_sigma(s):
             return lambda p: p.numerator().map_coefficients(s)/p.denominator().map_coefficients(s)
+
         def wrap_delta(d, s):
             if s is None:
                 def fun(p):
-                    a = p.numerator(); b = p.denominator()
+                    a = p.numerator()
+                    b = p.denominator()
                     return a.map_coefficients(d)/b - a*b.map_coefficients(d)/(b**2)
             else:
                 def fun(p):
-                    a = p.numerator(); b = p.denominator()
+                    a = p.numerator()
+                    b = p.denominator()
                     return a.map_coefficients(d)/b - a.map_coefficients(s)*b.map_coefficients(d)/(b*b.map_coefficients(s))
             return fun
-        
+
         for d in algebra.gens():
             sigma[d] = None if sigma[d].is_identity() else wrap_sigma(sigma[d])
             delta[d] = None if delta[d].is_zero() else wrap_delta(delta[d], sigma[d])
-        
+
         M = self.multiplication_matrix(Dgen).change_ring(GG)
-        
+
         if A.is_D(Dgen) and D == Dgen:
             sys = [[AA(m) for m in row] for row in M]
             for i in range(len(sys)):
@@ -899,13 +914,14 @@ class OreLeftIdeal(Ideal_nc):
 
         telescopers = []
         iterator = MonomialIterator(algebra)
-        terms = {next(iterator)[0] : vector(GG, [1] + [0]*(len(T)-1))}
+        terms = {next(iterator)[0]: vector(GG, [1] + [0]*(len(T)-1))}
         coresolver = nullspace.kronecker(nullspace.gauss())
         zerocount = [0] # so many zero telescopers have been found so far
         solver = [nullspace.quick_check(coresolver, cutoffdim=0)]
 
         def findrelation():
-            zero = 0; sol = []
+            zero = 0
+            sol = []
             for (g, c) in solve_triangular_system(T, rhs, solver=solver[0]):
                 if all(q.is_zero() for q in c):
                     zero += 1
@@ -921,9 +937,9 @@ class OreLeftIdeal(Ideal_nc):
                 Q = self.vector_to_operator(sol[0][0])
             return P, Q
 
-        B = [algebra.one()] ## terms under the stairs
-        rhs = [Ufy(terms[B[0]])] ## vectors corresponding to monomials in B, but in T-coordinates
-        
+        B = [algebra.one()]  # terms under the stairs
+        rhs = [Ufy(terms[B[0]])]  # vectors corresponding to monomials in B, but in T-coordinates
+
         info(1, "next monomial: 1")
         info(2, lazy_string(lambda: datetime.today().ctime() + ": calling solver..."))
         sol = findrelation()
@@ -935,15 +951,16 @@ class OreLeftIdeal(Ideal_nc):
                 while True:
                     tau, d = next(iterator)
                     info(1, "next monomial: " + str(tau*d))
-                    
+
                     # construct corresponding vector
                     v = terms[tau] if sigma[d] is None else terms[tau].apply_map(sigma[d])
                     v = gen_matrices[d]*v
                     if delta[d] is not None:
                         v += terms[tau].apply_map(delta[d])
                     terms[tau*d] = v
-                    B.append(tau*d); rhs.append(Ufy(terms[tau*d]))
-                
+                    B.append(tau*d)
+                    rhs.append(Ufy(terms[tau*d]))
+
                     # solve
                     info(2, lazy_string(lambda: datetime.today().ctime() + ": calling solver..."))
                     sol = findrelation()
@@ -951,7 +968,10 @@ class OreLeftIdeal(Ideal_nc):
                     if sol is not None:
                         info(2, "telescoper detected.")
                         telescopers.append(sol)
-                        B.pop(); rhs.pop(); del terms[tau*d]; iterator.declare_step()
+                        B.pop()
+                        rhs.pop()
+                        del terms[tau*d]
+                        iterator.declare_step()
                         if early_termination is True:
                             info(3, "early termination")
                             break
@@ -966,7 +986,7 @@ class OreLeftIdeal(Ideal_nc):
 
         for i in range(len(telescopers)):
             content = gcd([p.numerator() for p in telescopers[i][0].coefficients()])
-            T = telescopers[i][0].map_coefficients(lambda p : p/content)
+            T = telescopers[i][0].map_coefficients(lambda p: p/content)
             if certificates:
                 content = telescopers[i][1].base_ring()(content)
                 C = telescopers[i][1].map_coefficients(lambda p: p/content)
@@ -975,15 +995,15 @@ class OreLeftIdeal(Ideal_nc):
             telescopers[i] = (T, C)
 
         info(1, "done.")
-        
+
         if certificates:
             return [T for T, _ in telescopers], [C for _, C in telescopers]
         else:
             return [T for T, _ in telescopers]
-        
-            
+
+
     creative_telescoping = ct
-    
+
 class MonomialIterator(object):
     """
     Iterate in increasing order over the monomials that are below some staircase that is determined in parallel to the iteration.
@@ -994,19 +1014,19 @@ class MonomialIterator(object):
         self.__gens = algebra.gens()
         self.__pool = [(algebra.one(), algebra.one())]
         self.__prev = None
-        self.__stairs = [] 
+        self.__stairs = []
 
     def __next__(self):
         """
         Returns (tau, D) such that tau*D is the next term in the iteration, D is an algebra generator, and tau
-        is a term that was output earlier. The first output does not follow this rule but is (1, 1). 
+        is a term that was output earlier. The first output does not follow this rule but is (1, 1).
 
         tau*D is the smallest term (in the term order) which has not been listed before and which is not a multiple
         of some term that has been declared as a step in the staircase
         """
         try:
             u, v = self.__pool.pop()
-        except:
+        except IndexError:
             raise StopIteration
         self.__prev = next = u*v
         for g in self.__gens:
@@ -1017,7 +1037,7 @@ class MonomialIterator(object):
     def declare_step(self):
         """
         Informs this iterator that among the terms to be outputted in the future there should not be any multiples
-        of the previously otuputted term. 
+        of the previously otuputted term.
         """
         self.__stairs.append(self.__prev)
         self.__clear_pool()
@@ -1084,23 +1104,24 @@ def fglm(algebra, one_vector, gen_matrices, infolevel=0, solver=None, early_term
     def info(i, msg):
         if infolevel >= i:
             print(msg)
-    
-    basis = []; terms = {}
+
+    basis = []
+    terms = {}
     sigma = dict( (d, algebra.sigma(d)) for d in algebra.gens() )
     delta = dict( (d, algebra.delta(d)) for d in algebra.gens() )
 
     iterator = MonomialIterator(algebra)
-    terms[next(iterator)[0]] = one_vector ## map terms->vectors
+    terms[next(iterator)[0]] = one_vector  # map terms->vectors
 
-    B = [algebra.one()] ## terms under the stairs
-    M = matrix(algebra.base_ring(), len(one_vector), 1, one_vector) ## matrix whose columns are the vectors corresponding to B
+    B = [algebra.one()]  # terms under the stairs
+    M = matrix(algebra.base_ring(), len(one_vector), 1, one_vector)  # matrix whose columns are the vectors corresponding to B
 
     if solver is None:
         solver = algebra._solver()
-    
+
     try:
         while True:
-            tau, d = next(iterator) # current term
+            tau, d = next(iterator)  # current term
             info(1, "next monomial: " + str(tau*d))
 
             # corresponding vector
@@ -1109,13 +1130,17 @@ def fglm(algebra, one_vector, gen_matrices, infolevel=0, solver=None, early_term
             if not delta[d].is_zero():
                 v += terms[tau].apply_map(delta[d])
             terms[tau*d] = v
-            
-            B.append(tau*d); Mold = M; M = M.augment(terms[tau*d])
+
+            B.append(tau*d)
+            Mold = M
+            M = M.augment(terms[tau*d])
             ker = solver(M, infolevel=infolevel-3)
             if len(ker) > 0:
                 info(2, "relation found.")
                 basis.append(add([ker[0][i]*B[i] for i in range(len(B))])) ## new basis element
-                B.pop(); M = Mold; iterator.declare_step() ## current term is not under the stairs
+                B.pop()
+                M = Mold
+                iterator.declare_step() ## current term is not under the stairs
                 del terms[tau*d] # no longer needed -- hint to garbage collector
                 if early_termination:
                     break
@@ -1127,10 +1152,10 @@ def fglm(algebra, one_vector, gen_matrices, infolevel=0, solver=None, early_term
 
 def uncouple(mat, algebra=None, extended=False, column_swaps=False, infolevel=0):
     """
-    Triangularizes an operator matrix. 
+    Triangularizes an operator matrix.
 
     The matrix is to be specified as lists of lists. The inner lists represent the rows of the matrix.
-    The output matrix will be in staircase form. Row operations applied during the transformation act 
+    The output matrix will be in staircase form. Row operations applied during the transformation act
     on the matrix from the left.
 
     EXAMPLES::
@@ -1158,7 +1183,8 @@ def uncouple(mat, algebra=None, extended=False, column_swaps=False, infolevel=0)
     else:
         A = algebra
     A_ff = None
-    n = len(mat); m = len(mat[0])
+    n = len(mat)
+    m = len(mat[0])
     U = [None]*n
     V = [None]*n
 
@@ -1173,24 +1199,23 @@ def uncouple(mat, algebra=None, extended=False, column_swaps=False, infolevel=0)
             U[i] = [d if i == j else zero for j in range(n)]
             V[i] = [(one if i == j else zero) for j in range(m)]
 
-    r = 0 # all rows before this one have been handled. 
+    r = 0 # all rows before this one have been handled.
     for c in range(m):
 
         nonzero = [i for i in range(r, n) if not mat[i][c].is_zero()]
-        if len(nonzero) == 0:
+        if not nonzero:
             continue
-        
+
         while len(nonzero) > 1:
 
             piv_row = min(nonzero, key=lambda i: (mat[i][c].order(), mat[i][c].degree()))
-                
+
             # move pivot to front
             mat[r], mat[piv_row] = mat[piv_row], mat[r]
-            piv = mat[r][c]
             if extended:
-                U[r], U[piv_row] = U[piv_row], U[r]    
-            
-            # perform elimination 
+                U[r], U[piv_row] = U[piv_row], U[r]
+
+            # perform elimination
             for i in nonzero:
                 if i > r:
                     d, Q, mat[i][c] = mat[i][c].pseudo_quo_rem(mat[r][c])
@@ -1205,9 +1230,8 @@ def uncouple(mat, algebra=None, extended=False, column_swaps=False, infolevel=0)
         # move pivot to front
         piv_row = nonzero[0]
         mat[r], mat[piv_row] = mat[piv_row], mat[r]
-        piv = mat[r][c]
         if extended:
-            U[r], U[piv_row] = U[piv_row], U[r]    
+            U[r], U[piv_row] = U[piv_row], U[r]
 
         g = gcd([a for op in mat[r] + (U[r] if extended else []) for a in op])
         for j in range(n):
@@ -1229,14 +1253,14 @@ def uncouple(mat, algebra=None, extended=False, column_swaps=False, infolevel=0)
     else:
         return mat
 
-    
+
 def solve_triangular_system(mat, rhs, solver=None):
     """
     Constructs a vector space basis for the uncoupled system mat*f = rhs
 
     INPUT:
 
-      mat -- an upper triangular matrix of univariate operators, given as a list of list. 
+      mat -- an upper triangular matrix of univariate operators, given as a list of list.
       rhs -- a vector of right hand sides.
 
     OUTPUT:
@@ -1249,7 +1273,7 @@ def solve_triangular_system(mat, rhs, solver=None):
 
       sage: from ore_algebra import *
       sage: from ore_algebra.ideal import solve_triangular_system
-      sage: R.<x> = ZZ[]; A.<Dx> = OreAlgebra(R); 
+      sage: R.<x> = ZZ[]; A.<Dx> = OreAlgebra(R);
       sage: solve_triangular_system([list(map(A, [Dx-x, 2,x])), list(map(A, [0,x,Dx-4])), list(map(A, [0,0,Dx]))], [[1,0,0],[0,1,0],[0,0,1]])
       [([1, 0, 1], [0, -4, 0]), ([x, 4, x], [9, 1, 1])]
 
@@ -1265,7 +1289,7 @@ def solve_triangular_system(mat, rhs, solver=None):
     sol = tuple(([0]*len(mat), [1 if i==j else 0 for j in range(len(rhs))]) for i in range(len(rhs))) # init
     for i in range(m - 1, -1, -1):
         xrhs = tuple(sum(s[1][j]*rhs[j][i] for j in range(len(rhs)))-sum(mat[i][j](s[0][j]) for j in range(i+1, m)) for s in sol)
-        xsol = list(map(list, mat[i][i].rational_solutions(rhs=xrhs,solver=solver)))
+        xsol = list(map(list, mat[i][i].rational_solutions(rhs=xrhs, solver=solver)))
         for k in range(len(xsol)):
             xsol[k][0] = [xsol[k][0]]*(i+1) + [sum(xsol[k][l+1]*sol[l][0][j] for l in range(len(xrhs))) for j in range(i+1, m)]
             xsol[k] = (xsol[k][0], [sum(xsol[k][l+1]*sol[l][1][j] for l in range(len(xrhs))) for j in range(len(rhs))])
@@ -1273,6 +1297,6 @@ def solve_triangular_system(mat, rhs, solver=None):
 
     return sol
 
-smallest_lt_first = cmp_to_key(
-        lambda u,v: 1 if (u.lm()+v.lm()).lm() == u.lm() else -1)
 
+smallest_lt_first = cmp_to_key(
+    lambda u, v: 1 if (u.lm() + v.lm()).lm() == u.lm() else -1)

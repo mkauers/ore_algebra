@@ -29,8 +29,9 @@ from sage.symbolic.all import pi, SR
 
 from . import analytic_continuation as ancont, local_solutions, path, utilities
 
+from .context import Context
 from .differential_operator import DifferentialOperator
-from .local_solutions import LocalBasisMapper, log_series
+from .local_solutions import LocalBasisMapper, log_series, critical_monomials
 
 logger = logging.getLogger(__name__)
 
@@ -121,20 +122,9 @@ def formal_monodromy(dop, sing, ring=SR):
     return mon
 
 def _formal_monodromy_naive(dop, ring):
-    crit = _critical_monomials(dop)
+    crit = critical_monomials(dop)
     mor = dop.base_ring().base_ring().hom(ring)
     return _formal_monodromy_from_critical_monomials(crit, mor)
-
-def _critical_monomials(dop):
-
-    class Mapper(LocalBasisMapper):
-        def fun(self, ini):
-            # XXX should share algebraic part with Galois conjugates
-            order = max(s for s, _ in self.shifts) + 1
-            ser = log_series(ini, self.shifted_bwrec, order)
-            return {s: ser[s] for s, _ in self.shifts}
-
-    return Mapper(dop).run()
 
 def _formal_monodromy_from_critical_monomials(critical_monomials, mor):
     r"""
@@ -143,11 +133,8 @@ def _formal_monodromy_from_critical_monomials(critical_monomials, mor):
 
     INPUT:
 
-    - ``critical_monomials``: list of ``FundamentalSolution`` objects ``sol``
-      such that, if ``sol = z^(λ+n)·(1 + Õ(z)`` where ``λ`` is the leftmost
-      valuation of a group of solutions and ``s`` is another shift of ``λ``
-      appearing in the basis, then ``sol.value[s]`` contains the list of
-      coefficients of ``z^(λ+s)·log(z)^k/k!``, ``k = 0, 1, ...`` in ``sol``
+    - ``critical_monomials``: critical monomials in the format output by
+      :func:`ore_algebra.analytic.local_solutions.critical_monomials`
 
     - ``mor``: a morphism from the parent of critical monomials to a ring
       suitable for representing the entries of the formal monodromy matrix
@@ -170,7 +157,7 @@ def _formal_monodromy_from_critical_monomials(critical_monomials, mor):
     for j, jsol in enumerate(critical_monomials):
 
         for i, isol in enumerate(critical_monomials):
-            if isol.leftmost != jsol.leftmost:
+            if isol.leftmost is not jsol.leftmost:
                 continue
             for k, c in enumerate(jsol.value[isol.shift]):
                 delta = k - isol.log_power
@@ -183,10 +170,13 @@ def _formal_monodromy_from_critical_monomials(critical_monomials, mor):
                     scalar = False
 
         expo = jsol.leftmost
-        if expo != expo0:
+        if expo is not expo0:
             scalar = False
-        if expo.parent() is QQ:
-            eigv = ring(QQbar.zeta(expo.denominator())**expo.numerator())
+        if isinstance(ring, ComplexBallField): # optimization
+            eigv = (ring(expo)*2).exppii()
+        elif expo.is_rational():
+            rat = expo.as_number_field_element()
+            eigv = ring(QQbar.zeta(rat.denominator())**rat.numerator())
         else:
             # conversion via QQbar seems necessary with some number fields
             # XXX We should actually follow expo along mor, but this is not easy
@@ -226,19 +216,35 @@ def _test_formal_monodromy(dop):
 # transition matrix may not actually be analytic but we do not care which path
 # is taken
 
-def _local_monodromy_loop(dop, x, eps):
+def _local_monodromy_loop(dop, x, eps, ctx, effort=3):
+    r"""
+    TESTS::
+
+        sage: from ore_algebra.analytic.examples.misc import large_irregular_dop
+        sage: from ore_algebra.analytic.monodromy import monodromy_matrices
+        sage: monodromy_matrices(large_irregular_dop, 53/10, 1e-1000, # not tested
+        ....:                    sing=[21/4], bounds_prec=128)[0][-1,-1]
+        [3.7975339214908450838528472219121833930467139062244128500652173291400519760900043930710428392780611358292087744635087753829152392259557126284093959961212186601...e+1158 +/- ...] +
+        [-1.0907799857818368151501817928994979524542825249884040984277371301954332475924993671608411858764307809823591665306474900630885106316087831863249971763581367813...e+1158 +/- ...]*I
+    """
     polygon = path.polygon_around(x)
     n = len(polygon)
     mats = []
     for i in range(n):
         step = [polygon[i], polygon[(i+1)%n]]
         logger.debug("center = %s, step = %s", x, step)
-        step[0].options['keep_value'] = False # XXX bugware
-        step[1].options['keep_value'] = True
-        mat = x.dop.numerical_transition_matrix(step, eps, assume_analytic=True)
-        prec = utilities.prec_from_eps(eps)
-        assert all(c.accuracy() >= prec//2 or c.above_abs()**2 <= eps
-                   for c in mat.list())
+        step[0].options['store_value'] = False # XXX bugware
+        step[1].options['store_value'] = True
+        for attempt in range(effort):
+            mat = x.dop.numerical_transition_matrix(step, eps, ctx=ctx)
+            prec = utilities.prec_from_eps(eps)
+            accuracy = min((c.accuracy() for c in mat.list()
+                                         if c.above_abs()**2 > eps),
+                           default=prec)
+            if accuracy >= prec//2:
+                break
+            eps /= (1 << (prec - accuracy))
+            logger.debug("decreasing eps to %s...", eps)
         mats.append(mat)
     return polygon, mats
 
@@ -258,7 +264,7 @@ class TodoItem():
 
     @cached_method
     def point(self):
-        return path.Point(self.alg, self._dop)
+        return path.Point(self.alg.as_number_field_element(), self._dop)
 
     def __eq__(self, other):
         return self is other
@@ -272,13 +278,13 @@ class TodoItem():
 
 def _merge_conjugate_singularities(dop, sing, base, todo):
     need_conjugates = False
-    sgn = 1 if base.alg.imag() >= 0 else -1
+    sgn = 1 if base.alg.sign_imag() >= 0 else -1
     for x in sing:
-        if sgn*x.imag() < 0:
+        if sgn*x.sign_imag() < 0:
             need_conjugates = True
             del todo[x]
             xconj = x.conjugate()
-            item = todo.get(xconj) # dict queries on elts of QQbar are slow
+            item = todo.get(xconj)
             if item is None:
                 todo[xconj] = item = TodoItem(xconj, dop)
             item.want_conj = True
@@ -289,7 +295,7 @@ def _spanning_tree(base, verts):
     def length(edge):
         x, y, _ = edge
         return abs(CC(x.alg) - CC(y.alg))
-    tree = graph.min_spanning_tree(length)
+    tree = graph.min_spanning_tree(weight_function=length)
     tree = Graph(tree)
     tree.add_vertex(base)
     return tree
@@ -298,25 +304,37 @@ def _closest_unsafe(lst, x):
     x = CC(x.alg)
     return min(enumerate(lst), key=lambda y: abs(CC(y[1].value) - x))
 
-def _extend_path_mat(dop, path_mat, x, y, eps, matprod):
+def _extend_path_mat(dop, path_mat, inv_path_mat, x, y, eps, matprod, ctx):
     anchor_index_x, anchor_x = _closest_unsafe(x.polygon, y)
     anchor_index_y, anchor_y = _closest_unsafe(y.polygon, x)
     bypass_mat_x = matprod(x.local_monodromy[:anchor_index_x])
     bypass_mat_y = matprod(y.local_monodromy[anchor_index_y:]
                            if anchor_index_y > 0
                            else [])
-    anchor_x.options["keep_value"] = False # XXX bugware
-    anchor_y.options["keep_value"] = True
-    edge_mat = dop.numerical_transition_matrix([anchor_x, anchor_y],
-                                                eps, assume_analytic=True)
-    new_path_mat = bypass_mat_y*edge_mat*bypass_mat_x*path_mat
+    if anchor_y.is_singular():
+        # Avoid computing inverses of inverses
+        path = [anchor_y, anchor_x]
+        invert = True
+    else:
+        path = [anchor_x, anchor_y]
+        invert = False
+    path[0].options["store_value"] = False # XXX bugware
+    path[1].options["store_value"] = True
+    edge_mat = dop.numerical_transition_matrix(path, eps, ctx=ctx)
+    inv_edge_mat = ~edge_mat
+    if invert:
+        edge_mat, inv_edge_mat = inv_edge_mat, edge_mat
+    ext_mat = bypass_mat_y*edge_mat*bypass_mat_x
+    inv_ext_mat = ~bypass_mat_x*inv_edge_mat*~bypass_mat_y
+    new_path_mat = ext_mat*path_mat
+    new_inv_path_mat = inv_path_mat*inv_ext_mat
     assert isinstance(new_path_mat, Matrix_complex_ball_dense)
-    return new_path_mat
+    return new_path_mat, new_inv_path_mat
 
 LocalMonodromyData = collections.namedtuple("LocalMonodromyData",
         ["point", "monodromy", "is_scalar"])
 
-def _monodromy_matrices(dop, base, eps=1e-16, sing=None):
+def _monodromy_matrices(dop, base, eps=1e-16, sing=None, **kwds):
     r"""
     Return an iterator over local monodromy matrices of ``dop`` with base point
     ``base``.
@@ -327,12 +345,13 @@ def _monodromy_matrices(dop, base, eps=1e-16, sing=None):
 
     OUTPUT:
 
-    A list of `LocalMonodromyData` named tuples, with fields:
-    - ``point`` - a singular point of ``dop``, represented as an element of
+    A list of ``LocalMonodromyData`` named tuples, with fields:
+
+    - ``point`` -- a singular point of ``dop``, represented as an element of
       ``QQbar``,
-    - ``monodromy`` - a local monodromy matrix attached to this point,
+    - ``monodromy`` -- a local monodromy matrix attached to this point,
       represented as a matrix with entries in a complex ball field,
-    - ``is_scalar`` - boolean, ``True`` iff the code could certify that the
+    - ``is_scalar`` -- boolean, ``True`` iff the code could certify that the
       ``monodromy`` is exactly a scalar matrix.
 
     EXAMPLES::
@@ -348,7 +367,7 @@ def _monodromy_matrices(dop, base, eps=1e-16, sing=None):
     TESTS::
 
         sage: from ore_algebra.examples import fcc
-        sage: mon = list(_monodromy_matrices(fcc.dop5, -1, 2**(-2**7))) # long time (2.3 s)
+        sage: mon = list(_monodromy_matrices(fcc.dop5, -1, 2**(-2**7))) # long time (1.9 s)
         sage: [rec.monodromy[0][0] for rec in mon if rec.point == -5/3] # long time
         [[1.01088578589319884254557667137848...]]
 
@@ -360,7 +379,7 @@ def _monodromy_matrices(dop, base, eps=1e-16, sing=None):
         ....:      + (7/30*x^3 - 101/20*x^2 + 10*x)*Dx + 4/5*x^2 + 5/6*x + 2)
         sage: L = L1*L2
         sage: L = L.parent()(L.annihilator_of_composition(x+1))
-        sage: mon = list(_monodromy_matrices(L, 0, eps=1e-30)) # long time (1.3-1.7 s)
+        sage: mon = list(_monodromy_matrices(L, 0, eps=1e-30)) # long time (1.4 s)
         sage: mon[-1][0], mon[-1][1][0][0] # long time
         (0.6403882032022075?,
         [1.15462187280628880820271...] + [-0.018967673022432256251718...]*I)
@@ -371,13 +390,29 @@ def _monodromy_matrices(dop, base, eps=1e-16, sing=None):
         [LocalMonodromyData(point=1*I, monodromy=[1.0000000000000000], is_scalar=True),
         LocalMonodromyData(point=-1*I, monodromy=[1.0000000000000000], is_scalar=True)]
     """
+    ctx = Context(**kwds)
+    ctx.assume_analytic = True
+    dop = dop.numerator()
+    if all(c in QQ for pol in dop for c in pol):
+        dop = dop.change_ring(dop.base_ring().change_ring(QQ))
     dop = DifferentialOperator(dop)
-    base = QQbar.coerce(base)
     eps = RBF(eps)
     if sing is None:
-        sing = dop._singularities(QQbar)
+        sing = dop._singularities(apparent=False)
     else:
-        sing = [QQbar.coerce(s) for s in sing]
+        sing = [x for x in dop._singularities() if x.as_algebraic() in sing]
+
+    # Normalize base point. If it is one of the singularities, make sure we
+    # represent them by the same object (and thus by a PolynomialRoot compatible
+    # with the remaining singularities).
+    base = QQbar.coerce(base)
+    base_iv = CBF(base)
+    for s in dop._singularities():
+        if base_iv in s.as_ball(CBF) and base == s.as_algebraic():
+            base = s
+            break
+    else:
+        base = utilities.PolynomialRoot.make(base)
 
     todo = {x: TodoItem(x, dop, want_self=True, want_conj=False)
             for x in sing}
@@ -389,7 +424,7 @@ def _monodromy_matrices(dop, base, eps=1e-16, sing=None):
     # Galois conjugates.
     need_conjugates = False
     crit_cache = None
-    if all(c in QQ for pol in dop for c in pol):
+    if dop.base_ring().base_ring() is QQ:
         need_conjugates = _merge_conjugate_singularities(dop, sing, base, todo)
         # TODO: do something like that even over number fields?
         # XXX this is actually a bit costly: do it only after checking that the
@@ -408,7 +443,7 @@ def _monodromy_matrices(dop, base, eps=1e-16, sing=None):
         # delaying it may allow us to start returning results earlier.
         if point.is_regular():
             if crit_cache is None or point.algdeg() == 1:
-                crit = _critical_monomials(dop.shift(point))
+                crit = critical_monomials(dop.shift(point))
                 emb = point.value.parent().hom(Scalars)
             else:
                 mpol = point.value.minpoly()
@@ -416,7 +451,7 @@ def _monodromy_matrices(dop, base, eps=1e-16, sing=None):
                     NF, crit = crit_cache[mpol]
                 except KeyError:
                     NF = point.value.parent()
-                    crit = _critical_monomials(dop.shift(point))
+                    crit = critical_monomials(dop.shift(point))
                     # Only store the critical monomials for reusing when all
                     # local exponents are rational. We need to restrict to this
                     # case because we do not have the technology in place to
@@ -427,7 +462,7 @@ def _monodromy_matrices(dop, base, eps=1e-16, sing=None):
                     # algebraic extension. XXX: Ideally, LocalBasisMapper should
                     # give us access to the tower of extensions in which the
                     # exponents "naturally" live.)
-                    if all(sol.leftmost.parent() is QQ for sol in crit):
+                    if all(sol.leftmost.is_rational() for sol in crit):
                         crit_cache[mpol] = NF, crit
                 emb = NF.hom([Scalars(point.value.parent().gen())], check=False)
             mon, scalar = _formal_monodromy_from_critical_monomials(crit, emb)
@@ -436,13 +471,13 @@ def _monodromy_matrices(dop, base, eps=1e-16, sing=None):
                 # XXX When we do need them, though, it would be better to get
                 # the formal monodromy as a byproduct of their computation.
                 if todoitem.want_self:
-                    yield LocalMonodromyData(key, mon, True)
+                    yield LocalMonodromyData(key.as_algebraic(), mon, True)
                 if todoitem.want_conj:
                     conj = key.conjugate()
                     logger.info("Computing local monodromy around %s by "
                                 "complex conjugation", conj)
                     conj_mat = ~mon.conjugate()
-                    yield LocalMonodromyData(conj, conj_mat, True)
+                    yield LocalMonodromyData(conj.as_algebraic(), conj_mat, True)
                 if todoitem is not base:
                     del todo[key]
                     continue
@@ -453,28 +488,28 @@ def _monodromy_matrices(dop, base, eps=1e-16, sing=None):
 
     if need_conjugates:
         base_conj_mat = dop.numerical_transition_matrix(
-                            [base.point(), base.point().conjugate()],
-                            eps, assume_analytic=True)
+            [base.alg.as_exact(), base.alg.conjugate().as_exact()],
+            eps, ctx=ctx)
         def conjugate_monodromy(mat):
             return ~base_conj_mat*~mat.conjugate()*base_conj_mat
 
     tree = _spanning_tree(base, todo.values())
 
-    def dfs(x, path, path_mat):
+    def dfs(x, path, path_mat, inv_path_mat):
 
         logger.info("Computing local monodromy around %s via %s", x, path)
 
         local_mat = matprod(x.local_monodromy)
-        based_mat = (~path_mat)*local_mat*path_mat
+        based_mat = inv_path_mat*local_mat*path_mat
 
         if x.want_self:
-            yield LocalMonodromyData(x.alg, based_mat, False)
+            yield LocalMonodromyData(x.alg.as_algebraic(), based_mat, False)
         if x.want_conj:
             conj = x.alg.conjugate()
             logger.info("Computing local monodromy around %s by complex "
                         "conjugation", conj)
             conj_mat = conjugate_monodromy(based_mat)
-            yield LocalMonodromyData(conj, conj_mat, False)
+            yield LocalMonodromyData(conj.as_algebraic(), conj_mat, False)
 
         x.done = True
 
@@ -483,13 +518,14 @@ def _monodromy_matrices(dop, base, eps=1e-16, sing=None):
                 continue
             if y.local_monodromy is None:
                 y.polygon, y.local_monodromy = _local_monodromy_loop(dop,
-                                                                 y.point(), eps)
-            new_path_mat = _extend_path_mat(dop, path_mat, x, y, eps, matprod)
-            yield from dfs(y, path + [y], new_path_mat)
+                                                            y.point(), eps, ctx)
+            new_path_mat, new_inv_path_mat = _extend_path_mat(dop, path_mat,
+                                          inv_path_mat, x, y, eps, matprod, ctx)
+            yield from dfs(y, path + [y], new_path_mat, new_inv_path_mat)
 
-    yield from dfs(base, [base], id_mat)
+    yield from dfs(base, [base], id_mat, id_mat)
 
-def monodromy_matrices(dop, base, eps=1e-16, sing=None):
+def monodromy_matrices(dop, base, eps=1e-16, sing=None, **kwds):
     r"""
     Compute generators of the monodromy group of ``dop`` with base point
     ``base``.
@@ -499,9 +535,9 @@ def monodromy_matrices(dop, base, eps=1e-16, sing=None):
     - ``dop`` - differential operator
     - ``base`` - base point, must be coercible to ``QQbar``
     - ``eps`` - absolute tolerance (indicative)
-    - ``sing`` (optional) - list of singularities to consider (by default, all,
-      i.e., compute generators of the whole monodromy group); each entry must
-      coerce into ``QQbar``
+    - ``sing`` (optional) - list of singularities to consider ; each entry must
+      coerce into ``QQbar``. By default, all except maybe some apparent ones,
+      i.e., compute generators of the monodromy group.
 
     OUTPUT:
 
@@ -574,16 +610,13 @@ def monodromy_matrices(dop, base, eps=1e-16, sing=None):
         [             [-41.3...]*I                [-19.7...]  [6.28...]*I      1.00...        0        0]
         [                [64.9...]              [-41.3...]*I   [-19.7...]  [6.28...]*I  1.00...        0]
         [[-2.96...] + [-7.14...]*I  [-2.96...] + [0.94...]*I  [0.94...]*I            0        0  1.00...]
-        sage: mon[1]
-        [ [1.27...] + [+/-...]*I [-0.97...] + [+/-...]*I [-1.31...] + [+/-...]*I [-0.86...] + [+/-...]*I [-0.30...] + [+/-...]*I [-1.80...] + [+/-...]*I]
-        [[-1.01...] + [+/-...]*I  [4.60...] + [+/-...]*I  [4.86...] + [+/-...]*I  [3.19...] + [+/-...]*I  [1.13...] + [+/-...]*I  [6.65...] + [+/-...]*I]
-        [ [1.42...] + [+/-...]*I [-5.04...] + [+/-...]*I [-5.80...] + [+/-...]*I [-4.46...] + [+/-...]*I [-1.58...] + [+/-...]*I [-9.31...] + [+/-...]*I]
-        [[-0.63...] + [+/-...]*I  [2.24...] + [+/-...]*I  [3.02...] + [+/-...]*I  [2.98...] + [+/-...]*I  [0.70...] + [+/-...]*I  [4.14...] + [+/-...]*I]
-        [[-0.24...] + [+/-...]*I  [0.87...] + [+/-...]*I  [1.18...] + [+/-...]*I  [0.77...] + [+/-...]*I  [1.27...] + [+/-...]*I  [1.61...] + [+/-...]*I]
-        [ [0.20...] + [+/-...]*I [-0.73...] + [+/-...]*I [-0.98...] + [+/-...]*I [-0.64...] + [+/-...]*I [-0.23...] + [+/-...]*I [-0.34...] + [+/-...]*I]
-
+        sage: mon[1][2,5]
+        [-9.310353...] + [+/- ...]*I
+        sage: mon[1].trace()
+        [4.000000...] + [+/- ...]*I
     """
-    return list(mat for _, mat, _ in _monodromy_matrices(dop, base, eps, sing))
+    it = _monodromy_matrices(dop, base, eps, sing, **kwds)
+    return list(mat for _, mat, _ in it)
 
 def _test_monodromy_matrices():
     r"""

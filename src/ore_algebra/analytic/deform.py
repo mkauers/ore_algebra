@@ -306,16 +306,18 @@ Errors::
 #
 # http://www.gnu.org/licenses/
 
-from __future__ import absolute_import, division, print_function
-
 import collections, logging, cmath, math
 import sage.plot.all as plot
 import numpy
 import scipy.optimize
-import scipy.spatial.qhull
 
 from itertools import combinations
 from numpy import argmin
+
+try:
+    from scipy.spatial import Voronoi, QhullError
+except ImportError:
+    from scipy.spatial.qhull import Voronoi, QhullError
 
 from sage.graphs.digraph import DiGraph
 from sage.graphs.graph import Graph
@@ -577,6 +579,7 @@ class PathDeformer(object):
             dop = path.dop
             path = path.vert
         self.sing = [complex(z) for z in dop._singularities(CC)]
+        self.sing.sort(key=lambda z: z.real)
         if not self.sing:
             raise NotImplementedError("need at least one singularity")
         self.leftmost = int(argmin([z.real for z in self.sing]))
@@ -614,8 +617,8 @@ class PathDeformer(object):
         sing = self.sing[:-1]
         points = [(z.real, z.imag) for z in sing]
         try:
-            vor = scipy.spatial.qhull.Voronoi(points)
-        except (IndexError, scipy.spatial.qhull.QhullError):
+            vor = Voronoi(points)
+        except (IndexError, QhullError):
             vor = DegenerateVoronoi(points)
         assert [complex(*xy) for xy in vor.points] == sing
         return vor
@@ -813,7 +816,7 @@ class PathDeformer(object):
         """
         def length(edge):
             return abs(self.sing[edge[0]] - self.sing[edge[1]])
-        edges = self.delaunay_graph.min_spanning_tree(length)
+        edges = self.delaunay_graph.min_spanning_tree(weight_function=length)
         edges.append((-1, self.leftmost, -1))
         return edges
 
@@ -1432,7 +1435,8 @@ class PathDeformer(object):
         if edge_colors is None:
             # roadmap_edges = self.roadmap.edges()
             # other_edges = list(set(vor.edges()) - set(roadmap_edges))
-            vor_edges, virt_edges = split(lambda e: e[-1] >= 0, vor.edges())
+            vor_edges, virt_edges = split(lambda e: e[-1] >= 0,
+                                          vor.edges(sort=False))
             edge_colors = {
                     # "blue": roadmap_edges,
                     "black": vor_edges,
