@@ -3528,8 +3528,8 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
 
         r = self.order()
         ore = self.parent()
-
         base = ore.base_ring()
+        f = f.numerator()
 
         C = base.base_ring()
         if f.degree() > 1:
