@@ -1958,7 +1958,9 @@ def _tower(dom):
         vv = [conv(w) for w in wwinf]
         return vv
 
-    def _normalize_basis_at_infinity(self,ww,vv):
+    def _normalize_basis_at_infinity(self,ww,vv, infolevel=0):
+        if infolevel >= 1:
+            print("Normalizing the basis")
         r = self.order()
         x = self.base_ring().gen()
         from sage.matrix.constructor import matrix
@@ -2010,7 +2012,8 @@ def _tower(dom):
             tau = [min(tau_value(m) for m in row) for row in mm.rows()]
             B = matrix([[eval_inf(x**tau[i]*mm[i,j]) for j in range(r)]
                     for i in range(r)])
-            # print(tau)
+            if infolevel >= 1:
+                print(f"{tau=}")
             
         return ww, tau
     
@@ -2018,14 +2021,14 @@ def _tower(dom):
         ww = self.global_integral_basis(basis=basis,iota=iota, infolevel=infolevel)
         vv = self.local_integral_basis_at_infinity(iota=iota, infolevel=infolevel)
 
-        ww, _ = self._normalize_basis_at_infinity(ww,vv)
+        ww, _ = self._normalize_basis_at_infinity(ww,vv, infolevel=infolevel)
         return ww
         
     def quasiconstants(self, iota=None, infolevel=0):
         ww = self.global_integral_basis(iota=iota, infolevel=infolevel)
         vv = self.local_integral_basis_at_infinity(iota=iota, infolevel=infolevel)
 
-        ww, tau = self._normalize_basis_at_infinity(ww,vv)
+        ww, tau = self._normalize_basis_at_infinity(ww,vv, infolevel=infolevel)
         x = self.base_ring().gen()
         res = []
         for i in range(len(ww)):
