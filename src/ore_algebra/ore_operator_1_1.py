@@ -1570,18 +1570,19 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         r = len(basis)
         for d in range(r):
             print1(" [local] d={}".format(d))
-            print1(" [local] Processing {}".format(basis[d]))
+            print2(" [local] Processing {}".format(basis[d]))
             v = val_fct(basis[d],place=a,**val_kwargs)
             print1(" [local] Valuation: {}".format(v))
             res.append(a**(-v) * basis[d])
-            print1(" [local] Basis element after normalizing: {}".format(res[d]))
+            print2(" [local] Basis element after normalizing: {}".format(res[d]))
             done = False
             while not done:
                 alpha = raise_val_fct(res,place=a,dim=r,infolevel=infolevel,**val_kwargs)
                 if alpha is None:
                     done = True
                 else:
-                    print1(" [local] Relation found: {}".format(alpha))
+                    print1(" [local] Relation found")
+                    print2("   {}".format(alpha))
 
                     alpha_rep = [None for i in range(d+1)]
                     if deg > 1: # Should be harmless even otherwise (then Fvar=1), if we also force the cast to k
@@ -1595,7 +1596,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
                     
                     res[d] = sum(alpha_rep[i]*res[i] for i in range(d+1))
                     res[d] = a**(- val_fct(res[d],place=a,**val_kwargs))*res[d]
-                    print1(" [local] Basis element after combination: {}".format(res[d]))
+                    print2(" [local] Basis element after combination: {}".format(res[d]))
         return res
 
     def find_candidate_places(self, **kwargs):
@@ -3646,7 +3647,9 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         vv = [conv(w) for w in wwinf]
         return vv
 
-    def _normalize_basis_at_infinity(self,ww,vv):
+    def _normalize_basis_at_infinity(self,ww,vv, infolevel=0):
+        if infolevel >= 1:
+            print("Normalizing the basis")
         r = self.order()
         x = self.base_ring().gen()
         from sage.matrix.constructor import matrix
@@ -3698,7 +3701,8 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             tau = [min(tau_value(m) for m in row) for row in mm.rows()]
             B = matrix([[eval_inf(x**tau[i]*mm[i,j]) for j in range(r)]
                     for i in range(r)])
-            # print(tau)
+            if infolevel >= 1:
+                print(f"{tau=}")
             
         return ww, tau
     
@@ -3707,14 +3711,14 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         ww = self.global_integral_basis(basis=basis,iota=iota, infolevel=infolevel)
         vv = self.local_integral_basis_at_infinity(iota=iota, infolevel=infolevel)
 
-        ww, _ = self._normalize_basis_at_infinity(ww,vv)
+        ww, _ = self._normalize_basis_at_infinity(ww,vv, infolevel=infolevel)
         return ww
         
     def quasiconstants(self, iota=None, infolevel=0):
         ww = self.global_integral_basis(iota=iota, infolevel=infolevel)
         vv = self.local_integral_basis_at_infinity(iota=iota, infolevel=infolevel)
 
-        ww, tau = self._normalize_basis_at_infinity(ww,vv)
+        ww, tau = self._normalize_basis_at_infinity(ww,vv, infolevel=infolevel)
         x = self.base_ring().gen()
         res = []
         for i in range(len(ww)):
