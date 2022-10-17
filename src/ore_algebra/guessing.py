@@ -430,8 +430,11 @@ def guess_raw(data, A, order=-1, degree=-1, lift=None, solver=None, cut=25, ensu
             c.append(sigma(R(s[j*(degree + 1):(j + 1)*(degree + 1)]), j))
         sol[l] = A(c)
         sol[l] *= ~sol[l].leading_coefficient().leading_coefficient()
+        if sol[l].is_one() and any(data): # catch degenerate solution obtained for [0,0,0,1]
+            sol[l] = None
+            info(2, lazy_string("degenerate solution discarded."))
 
-    return sol
+    return [s for s in sol if s is not None]
 
 ###########################################################################################
 

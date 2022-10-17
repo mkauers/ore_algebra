@@ -811,8 +811,12 @@ class UnivariateOreOperator(OreOperator):
         if other.is_zero(): 
             raise ZeroDivisionError("other must be nonzero")
 
-        if (self.order() < other.order()):
-            return (self.parent().zero(),self)
+        elif self.parent() is not other.parent():
+            A, B = canonical_coercion(self, other)
+            return A.quo_rem(B, fractionFree=fractionFree)
+        
+        elif (self.order() < other.order()):
+            return (self.parent().zero(), self)
 
         p = self
         q = other

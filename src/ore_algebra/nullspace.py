@@ -2034,7 +2034,7 @@ def _berlekamp_massey(data):
     return [-R(d*p) for p in M] 
 
 def _wiedemann(A, degrees, infolevel):
-    
+
     R = A.parent().base_ring()
     x = R.gens()
     p = R.characteristic()
@@ -2063,18 +2063,17 @@ def _wiedemann(A, degrees, infolevel):
     _info(infolevel, "Computing minimal polynomial", alter=-1)
     M = _berlekamp_massey(data) ###### MOST EXPENSIVE STEP (if matrix is small and entries are big)
 
-    _info(infolevel, "Computing solution vector", alter=-1)
-    xi = x_base
-    x = M[0]*xi
-    for i in range(1, len(M)):
-        _info(infolevel, "power ", i, alter=-2)
-        xi = A*xi  ###### MOST EXPENSIVE STEP (if matrix is big and entries are small)
-        x += M[i]*xi
+    x = ZZ.zero()
+    while x.is_zero():
+        _info(infolevel, "Computing solution vector", alter=-1)
+        xi = vector(R, [R.random_element() for i in range(m) ]) # while loop needed to catch unlucky choice
+        x = M[0]*xi
+        for i in range(1, len(M)):
+            _info(infolevel, "power ", i, alter=-2)
+            xi = A*xi  ###### MOST EXPENSIVE STEP (if matrix is big and entries are small)
+            x += M[i]*xi
 
-    if not any(x):
-        return []
-    else:
-        return _normalize([ vector(R, x) ])
+    return _normalize([ vector(R, x) ])
 
 
 #################################################################################################################
