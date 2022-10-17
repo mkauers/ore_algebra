@@ -268,6 +268,7 @@ class RecUnroller:
 
         sage: #dop = (Dx-1).lclm(x*Dx-1000)
         sage: dop = (x^2-1000*x)*Dx^2 + (-x^2+999000)*Dx + 1000*x - 999000
+        sage: import logging; logging.basicConfig()
         sage: logger = logging.getLogger('ore_algebra.analytic.naive_sum')
         sage: logger.setLevel(logging.INFO) # TBI
         sage: series_sum(dop, {0:(1,), 1000:(0,)}, 1/10000000, 1e-16)
