@@ -132,9 +132,7 @@ from sage.rings.infinity import infinity
 from sage.rings.integer import Integer
 from sage.rings.integer_ring import ZZ
 from sage.rings.number_field.number_field import NumberField_quadratic
-from sage.rings.polynomial.complex_roots import complex_roots
 from sage.rings.polynomial.polynomial_element import Polynomial
-from sage.rings.polynomial.polynomial_ring import polygen
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 from sage.rings.power_series_ring import PowerSeriesRing
 from sage.rings.qqbar import QQbar
@@ -145,7 +143,7 @@ from sage.rings.real_mpfr import RealField, RR
 from sage.structure.factorization import Factorization
 
 from .. import ore_algebra
-from . import accuracy, local_solutions, utilities
+from . import local_solutions, utilities
 
 from .context import dctx
 from .differential_operator import DifferentialOperator
@@ -2349,6 +2347,10 @@ class DiffOpBound(object):
 
         if ini is None:
             ini = self._random_ini()
+        elif not isinstance(ini, local_solutions.LogSeriesInitialValues):
+            # single set of initial values, given as a list
+            ini = local_solutions.LogSeriesInitialValues(ZZ.zero(), ini,
+                                                         self._dop_D)
         if pt is None:
             pt = self._test_point()
         eps = RBF(eps)
@@ -2358,11 +2360,13 @@ class DiffOpBound(object):
 
         saved_max_effort = self.max_effort
         self.max_effort = 0
-        recorder = accuracy.BoundRecorder(maj=self, eps=eps>>2)
-        ref_sum = naive_sum.series_sum(self._dop_D, ini, pt, eps>>2, maj=self,
-                                       stride=1, stop=recorder)
+
+        recorder = naive_sum.BoundRecorder(self._dop_D, [ini], [pt],
+                                           bwrec=None)
+        recorder.sum_auto(eps>>2, self, effort=2, fail_fast=False, stride=1)
+        ref_sum = recorder.value()
         P = ref_sum[0].parent()
-        recd = recorder.recd[:-1]
+        recd = recorder.recorded_bounds[:-1]
         assert all(ref_sum[0].overlaps(P(rec.psum[0]).add_error(rec.b))
                    for rec in recd)
         self.max_effort = saved_max_effort

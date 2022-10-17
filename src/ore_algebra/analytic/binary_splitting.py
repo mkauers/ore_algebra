@@ -1100,7 +1100,8 @@ class MatrixRecsUnroller(LocalBasisMapper):
         stop = accuracy.StoppingCriterion(wrapper, self.eps, fast_fail=False)
 
         class BoundCallbacks(accuracy.BoundCallbacks):
-            def get_residuals(_): # “self” refers to the MatrixRecsUnroller
+            # “self” refers to the MatrixRecsUnroller
+            def get_residuals(_, __, ___):
                 # Will need updating if we want to support very large singular
                 # indices efficiently. For the time being, we wait to pass the
                 # last singular index before checking for convergence.
@@ -1112,7 +1113,7 @@ class MatrixRecsUnroller(LocalBasisMapper):
                                                       self.ctx.IC)
                         for rt in self.roots
                         for sol in self.irred_factor_cols}
-            def get_bound(_, residuals):
+            def get_bound(_, __, ___, residuals):
                 r"""
                 Bound the Frobenius norm of the matrix of tail majorants.
 
@@ -1178,7 +1179,7 @@ class MatrixRecsUnroller(LocalBasisMapper):
             if self.shift > last_singular_index:
                 est = max(sol.value.error_estimate(self.ctx.IR)
                           for sol in self.irred_factor_cols)
-                done, tail_bound = stop.check(cb, False, self.shift, tail_bound,
+                done, tail_bound = stop.check(cb, self.shift, tail_bound,
                                est, next_stride=self.shift-first_singular_index)
             if self.shift > 16 or self.mult > 0:
                 logger.log(logging.INFO if self.shift > 1000 else logging.DEBUG,

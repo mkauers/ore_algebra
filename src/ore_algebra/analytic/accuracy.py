@@ -13,7 +13,7 @@ Accuracy management
 #
 # http://www.gnu.org/licenses/
 
-import collections, logging
+import logging
 
 from sage.rings.all import  ZZ, QQ, RR
 from sage.rings.real_arb import RBF, RealBall
@@ -34,7 +34,7 @@ class BoundCallbacks(object):
     Used by StoppingCriterion.
     """
 
-    def get_residuals(self):
+    def get_residuals(self, stop, n):
         r"""
         Return the normalized residuals.
 
@@ -43,7 +43,7 @@ class BoundCallbacks(object):
         """
         raise NotImplementedError
 
-    def get_bound(self, residuals):
+    def get_bound(self, stop, n, resid):
         r"""
         Bound on the total error on the current partial sum (should return
         whatever quantity the client considers the “tail bound” and wants to
@@ -57,7 +57,7 @@ class BoundCallbacks(object):
 
         Optional: only required from clients that support bound recording.
         """
-        return stop.maj.tail_majorant(n, resid)
+        raise NotImplementedError
 
     def get_value(self):
         r"""
@@ -85,33 +85,30 @@ class StoppingCriterion(object):
         self.eps = eps
         self.prec = ZZ(eps.log(2).lower().floor()) - 2
         self.fast_fail = fast_fail
-        self.force = False
 
-    def check(self, cb, sing, n, ini_tb, est, next_stride):
+    def check(self, cb, n, ini_tb, est, next_stride):
         r"""
         Test if it is time to halt the computation of the sum of a series.
 
         INPUT:
 
-        - cb: BoundCallbacks object, see the documentation of that class;
-        - sing: boolean, True signals a singular index where we should return
-          infinity without even trying to compute a better bound (this is useful
-          to avoid special-casing singular indices elsewhere);
-        - n: current index;
-        - ini_tb: previous tail bound (can be infinite);
-        - est: real interval, heuristic estimate of the absolute value of the
-          tail of the series, **whose lower bound must tend to zero or
+        - ``cb``: ``BoundCallbacks`` (or compatible) object, see the
+          documentation of that class;
+        - ``n``: current index;
+        - ``ini_tb``: previous tail bound (can be infinite);
+        - ``est``: real interval, heuristic estimate of the absolute value of
+          the tail of the series, **whose lower bound must tend to zero or
           eventually become negative**, and whose width can be used to provide
           an indication of interval blow-up in the computation; typically
           something like abs(first nonzero neglected term);
-        - next_stride: indication of how many additional terms the caller
+        - ``next_stride``: indication of how many additional terms the caller
           intends to sum before calling us again.
 
         OUTPUT:
 
-        (done, bound) where done is a boolean indicating if it is time to stop
-        the computation, and bound is a rigorous (possibly infinite) bound on
-        the tail of the series.
+        ``(done, bound)`` where ``done`` is a boolean indicating if it is time
+        to stop the computation, and ``bound`` is a rigorous (possibly infinite)
+        bound on the tail of the series.
 
         TESTS::
 
@@ -124,15 +121,13 @@ class StoppingCriterion(object):
             ([7.3890560989306502272304274605750078131803155705...])
         """
 
-        if sing:
-            return False, self.maj.IR('inf')
-
         eps = self.eps
 
         # XXX We shouldn't force the caller to give a full-precision estimate...
         accuracy = max(est.accuracy(), -int((est.rad() or RR(1)).log(2)))
         width = self.maj.IR(est.rad())
         est = self.maj.IR(est)
+        tb = self.maj.IR('inf')
         intervals_blowing_up = (accuracy < self.prec or
                                 safe_le(self.eps >> 2, width))
         if intervals_blowing_up:
@@ -144,7 +139,7 @@ class StoppingCriterion(object):
                 # Aim for tail_bound < width instead of tail_bound < self.eps
                 eps = width
 
-        if safe_lt(eps, est) and accuracy >= self.prec and not self.force:
+        if safe_lt(eps, est) and accuracy >= self.prec:
             # It is important to test the inequality with the *interval* est, to
             # avoid getting caught in an infinite loop when est increases
             # indefinitely due to interval blow-up. When however the lower bound
@@ -153,22 +148,19 @@ class StoppingCriterion(object):
             # hope of getting at least a reasonable relative error.
             logger.debug("n=%d, est=%s, width=%s", n, est, width)
             assert width.is_finite()
-            return False, self.maj.IR('inf')
+            return False, tb
 
-        resid = cb.get_residuals()
+        resid = cb.get_residuals(self, n)
 
-        tb = self.maj.IR('inf')
         while True:
             prev_tb = tb
-            tb = cb.get_bound(resid)
+            tb = cb.get_bound(self, n, resid)
             logger.debug("n=%d, est=%s, width=%s, tail_bound=%s",
                          n, est, width, tb)
             bound_getting_worse = ini_tb.is_finite() and not safe_lt(tb, ini_tb)
             if safe_lt(tb, eps):
                 logger.debug("--> ok")
                 return True, tb
-            elif self.force and not self.maj.can_refine():
-                break
             elif (prev_tb.is_finite() and not safe_le(tb, prev_tb >> 8)
                     or not self.maj.can_refine()):
                 if bound_getting_worse:
@@ -213,72 +205,3 @@ class StoppingCriterion(object):
     def reset(self, eps, fast_fail):
         self.eps = eps
         self.fast_fail = fast_fail
-
-######################################################################
-# Bound recording
-######################################################################
-
-BoundRecord = collections.namedtuple("BoundRecord", ["n", "psum", "maj", "b"])
-
-class BoundRecorder(StoppingCriterion):
-
-    def __init__(self, maj, eps, fast_fail=False):
-        super(self.__class__, self).__init__(maj, eps, fast_fail=True)
-        self.force = True
-        self.recd = []
-
-    def check(self, cb, sing, n, *args):
-        if sing:
-            bound = self.maj.IR('inf')
-            maj = None
-        else:
-            resid = cb.get_residuals()
-            bound = cb.get_bound(resid)
-            maj = cb.get_maj(self, n, resid)
-        self.recd.append(BoundRecord(n, cb.get_value(), maj, bound))
-        return super(self.__class__, self).check(cb, sing, n, *args)
-
-    def reset(self, *args):
-        super(self.__class__, self).reset(*args)
-        self.recd = []
-
-######################################################################
-# Absolute and relative errors
-######################################################################
-
-class AccuracyTest(object):
-    r"""
-    Accuracy test.
-
-    Compared to StoppingCriterion (which is specifically for series summation
-    loops), these classes are intended for higher-level algorithm that just want
-    to check whether a certain result is satisfactory according to some accuracy
-    measure.
-    """
-    pass
-
-class AbsoluteError(AccuracyTest):
-
-    def __init__(self, eps):
-        self.eps = RBF(eps)
-
-    def reached(self, err, abs_val=None):
-        return safe_lt(err.abs(), self.eps)
-
-    def __repr__(self):
-        return str(self.eps.lower()) + " (absolute)"
-
-class RelativeError(AccuracyTest):
-
-    def __init__(self, eps, cutoff=None):
-        self.eps = RBF(eps)
-        self.cutoff = eps if cutoff is None else RBF(cutoff)
-
-    def reached(self, err, val):
-        # NOTE: we could provide a slightly faster test when err is a
-        # non-rigorous estimate (not a true tail bound)
-        return (safe_le(abs(err), self.eps*(abs(val) - err))
-                or safe_le(abs_val + err, self.cutoff))
-
-    def __repr__(self):
-        return str(self.eps.lower()) + " (relative)"
