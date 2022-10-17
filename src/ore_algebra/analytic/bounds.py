@@ -2402,7 +2402,6 @@ class DiffOpBound(object):
                             if rec.maj is not None]
                     data = pltfilter(data)
                     myplot += plot.line(data, color=color, scale="semilogy")
-        ymax = myplot.ymax()
         if title:
             if title is True:
                 title = repr(self._dop_D)

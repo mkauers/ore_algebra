@@ -174,8 +174,8 @@ class StoppingCriterion(object):
                     # singularity of the recurrence. (XXX: Unfortunately, we
                     # have no way of deciding if the bound is infinite because
                     # of a genuine mathematical reason or an evaluation issue.)
-                    logger.debug("--> bounds out of control ({} became {})"
-                                .format(ini_tb, tb))
+                    logger.debug("--> bounds out of control (%s became %s)",
+                                ini_tb, tb)
                     return True, tb
                 else:
                     # Refining no longer seems to help: sum more terms
@@ -193,8 +193,8 @@ class StoppingCriterion(object):
                 thr = tb*est**(QQ(next_stride*(self.maj.effort()**2 + 2))/(n+1))
                 if safe_le(thr, eps):
                     # Try summing a few more terms before refining
-                    logger.debug("--> above refinement threshold ({} <= {})"
-                                 .format(thr, eps))
+                    logger.debug("--> above refinement threshold (%s <= %s)",
+                                 thr, eps)
                     break
                 else:
                     logger.debug("--> bad bound but refining may help")
