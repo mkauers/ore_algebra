@@ -196,9 +196,8 @@ class StoppingCriterion(object):
                     logger.debug("--> above refinement threshold (%s <= %s)",
                                  thr, eps)
                     break
-                else:
-                    logger.debug("--> bad bound but refining may help")
-                    self.maj.refine()
+                logger.debug("--> bad bound but refining may help")
+                self.maj.refine()
         logger.debug("--> ko")
         return False, tb
 
