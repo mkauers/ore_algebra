@@ -1189,7 +1189,7 @@ class Path(SageObject):
             ....: 18161461388034*x^4 + 143883037728*x^3 +
             ....: 198323267016*x^2 + 3242277984*x - 171991488)*Dx)
             sage: step = [-134879941225471131681/7*I + 12/11, -119/8*I + 12/11]
-            sage: dop2.numerical_transition_matrix(step, assume_analytic=True).trace() # long time (4 s)
+            sage: dop2.numerical_transition_matrix(step, assume_analytic=True).trace() # long time (~6.5 s)
             [5.974916363812...e+72 +/- ...] + [-4.643666445284...e+72 +/- ...]*I
 
         ...and for this one, showing that step subdivision could silently change
