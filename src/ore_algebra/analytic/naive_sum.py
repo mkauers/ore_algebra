@@ -925,7 +925,7 @@ class HighestSolMapper(LocalBasisMapper):
                 psum.update_downshifts(range(m))
             self.highest_sols[s] = sol
         self._sols = {}
-        super(self.__class__, self).process_modZ_class()
+        super().process_modZ_class()
 
     def fun(self, ini):
         # Non-highest solutions of a given valuation can be deduced from the

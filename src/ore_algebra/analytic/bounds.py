@@ -829,8 +829,7 @@ def abs_min_nonzero_root(pol, tol=RR(1e-2), min_log=RR('-inf'),
                 lg_rad.absolute_diameter())
         # detect gross input errors (this does not prevent all infinite loops)
         if safe_le(lg_rad.upper(rnd='RNDN'), min_log):
-            raise ValueError("there is a root smaller than 2^({})"
-                             .format(min_log))
+            raise ValueError(f"there is a root smaller than 2^({min_log})")
         mypol = graeffe(mypol)
         i += 1
     res = myIR(2)**myIR(lg_rad)
@@ -1403,7 +1402,7 @@ class RatSeqBound(object):
         for n, mult in self.exn.items():
             if n >= 0:
                 pol = self.den
-                for i in range(mult):
+                for _ in range(mult):
                     assert pol(n).contains_zero()
                     pol = pol.derivative()
         # Test _lbound_den()
@@ -1821,7 +1820,7 @@ class DiffOpBound(object):
         lc = self._dop_ball_lc()
         inv = lc.inverse_series_trunc(pol_part_len + 1)
         if inv[0].contains_zero():
-            logging.warn("probable interval blow-up in bound computation")
+            logging.warning("probable interval blow-up in bound computation")
         # Including rcoeffs[-1] here actually is redundant: by construction,
         # the only term involving n^ordeq  in first will be 1·n^ordeq·z^0.
         first_zn = Pol_zn([pol._mul_trunc_(inv, pol_part_len + 1)
@@ -2139,7 +2138,6 @@ class DiffOpBound(object):
                                  for k, pol in enumerate(trunc))
         lc = self.dop.leading_coefficient()
         dop0 = self.dop.map_coefficients(lambda pol: pol[0]/lc[0])
-        Poly = self.Poly.change_ring(Ring)
         out = (dop0(nres)/z**leftmost).expand()
         ref = (self.dop(trunc_full)/z**leftmost).expand()
         return (out-ref).expand()

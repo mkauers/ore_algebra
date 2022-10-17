@@ -18,7 +18,6 @@ import collections, logging, warnings
 from itertools import chain
 
 import sage.functions.log as symbolic_log
-import sage.rings.number_field.number_field_base as number_field_base
 
 from sage.arith.all import gcd, lcm
 from sage.misc.cachefunc import cached_method
@@ -29,6 +28,7 @@ from sage.rings.all import RealBallField, ComplexBallField
 from sage.rings.complex_arb import ComplexBall
 from sage.rings.integer import Integer
 from sage.rings.number_field.number_field import (
+        number_field_base,
         NumberField_absolute,
         NumberField_quadratic,
     )
@@ -36,7 +36,7 @@ from sage.rings.polynomial import polynomial_element
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 from sage.structure.coerce_exceptions import CoercionException
 from sage.structure.sequence import Sequence
-from sage.symbolic.all import SR, pi
+from sage.symbolic.all import pi
 from sage.symbolic.constants import I
 
 from .. import ore_algebra
@@ -44,7 +44,7 @@ from . import utilities
 
 from .context import dctx
 from .differential_operator import DifferentialOperator
-from .shiftless import dispersion, my_shiftless_decomposition
+from .shiftless import my_shiftless_decomposition
 
 logger = logging.getLogger(__name__)
 
@@ -868,4 +868,4 @@ class LogMonomial(object):
         return s
 
     def _symbolic_(self):
-        return dx**self.n*symbolic_log.log(x, hold=True)**self.k
+        return self.dx**self.n*symbolic_log.log(self.dx, hold=True)**self.k

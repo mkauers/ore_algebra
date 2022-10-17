@@ -27,11 +27,11 @@ from sage.rings.all import (CC, CBF, ComplexBallField, QQ, QQbar,
 from sage.functions.all import exp
 from sage.symbolic.all import pi, SR
 
-from . import analytic_continuation as ancont, local_solutions, path, utilities
+from . import analytic_continuation as ancont, path, utilities
 
 from .context import Context
 from .differential_operator import DifferentialOperator
-from .local_solutions import LocalBasisMapper, log_series
+from .local_solutions import LocalBasisMapper
 
 logger = logging.getLogger(__name__)
 
@@ -212,7 +212,7 @@ def _test_formal_monodromy(dop):
 # transition matrix may not actually be analytic but we do not care which path
 # is taken
 
-def _local_monodromy_loop(dop, x, eps, ctx, effort=3):
+def _local_monodromy_loop(x, eps, ctx, effort=3):
     r"""
     TESTS::
 
@@ -513,8 +513,8 @@ def _monodromy_matrices(dop, base, eps=1e-16, sing=None, **kwds):
             if y.done:
                 continue
             if y.local_monodromy is None:
-                y.polygon, y.local_monodromy = _local_monodromy_loop(dop,
-                                                            y.point(), eps, ctx)
+                y.polygon, y.local_monodromy = _local_monodromy_loop(y.point(),
+                                                                     eps, ctx)
             new_path_mat, new_inv_path_mat = _extend_path_mat(dop, path_mat,
                                           inv_path_mat, x, y, eps, matprod, ctx)
             yield from dfs(y, path + [y], new_path_mat, new_inv_path_mat)

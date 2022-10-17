@@ -17,8 +17,6 @@ import itertools, logging, sys
 
 import sage.plot.all as plot
 import sage.rings.all as rings
-import sage.rings.number_field.number_field as number_field
-import sage.rings.number_field.number_field_base as number_field_base
 import sage.structure.coerce
 import sage.symbolic.ring
 
@@ -26,6 +24,8 @@ from sage.misc.cachefunc import cached_method
 from sage.misc.lazy_attribute import lazy_attribute
 from sage.rings.all import ZZ, QQ, CC, CIF, QQbar, RLF, CLF
 from sage.rings.complex_arb import CBF, ComplexBallField, ComplexBall
+from sage.rings.number_field import number_field
+from sage.rings.number_field import number_field_base
 from sage.rings.real_arb import RBF, RealBallField, RealBall
 from sage.structure.element import coercion_model
 from sage.structure.sage_object import SageObject
@@ -679,7 +679,7 @@ class Step(SageObject):
         self.max_split = 3 if max_split is None else max_split
 
     def _repr_(self):
-        type = "" if self.type is None else "[{}] ".format(self.type)
+        type = "" if self.type is None else f"[{self.type}] "
         bb = (self.type == "bit-burst")
         start = self.start._repr_(size=bb)
         end = self.end._repr_(size=bb)
