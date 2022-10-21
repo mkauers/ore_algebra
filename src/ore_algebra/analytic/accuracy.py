@@ -80,12 +80,6 @@ class StoppingCriterion(object):
     or interval width.
     """
 
-    def __init__(self, maj, eps, fast_fail=True):
-        self.maj = maj
-        self.eps = eps
-        self.prec = ZZ(eps.log(2).lower().floor()) - 2
-        self.fast_fail = fast_fail
-
     def check(self, cb, n, ini_tb, est, next_stride):
         r"""
         Test if it is time to halt the computation of the sum of a series.
@@ -106,10 +100,27 @@ class StoppingCriterion(object):
 
         OUTPUT:
 
-        ``(done, bound)`` where ``done`` is a boolean indicating if it is time
-        to stop the computation, and ``bound`` is a rigorous (possibly infinite)
-        bound on the tail of the series.
+        - a boolean indicating if it is time to stop the computation,
+        - a (possibly infinite) bound on or estimate of the tail of the series,
+          typically to be added to the radius of the output interval.
+        """
+        raise NotImplementedError
 
+class StopOnRigorousBound(StoppingCriterion):
+    r"""
+    Halt when we can prove that the tail of the series is smaller than some
+    given epsilon, or when we detect that we will probably not be able to reach
+    this accuracy. Provide a rigorous bound on the tail even in the latter case.
+    """
+
+    def __init__(self, maj, eps, fast_fail=True):
+        self.maj = maj
+        self.eps = eps
+        self.prec = ZZ(eps.log(2).lower().floor()) - 2
+        self.fast_fail = fast_fail
+
+    def check(self, cb, n, ini_tb, est, next_stride):
+        r"""
         TESTS::
 
             sage: from ore_algebra import DifferentialOperators
@@ -202,5 +213,8 @@ class StoppingCriterion(object):
         return False, tb
 
     def reset(self, eps, fast_fail):
+        r"""
+        Update internal parameters in view of a new computation.
+        """
         self.eps = eps
         self.fast_fail = fast_fail

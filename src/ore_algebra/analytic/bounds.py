@@ -661,6 +661,7 @@ class HyperexpMajorant(MajorantSeries):
 
         Note that this does not change the radius of convergence.
         """
+        pol = self.num.parent().coerce(pol)
         valuation = pol.valuation() if pol else 0
         self.shift += valuation
         self.num *= (pol >> valuation)
@@ -2429,7 +2430,7 @@ class DiffOpBound(object):
 
 class MultiDiffOpBound(object):
     r"""
-    Ad hoc wrapper for passing several DiffOpBounds to StoppingCriterion.
+    Ad hoc wrapper for passing several DiffOpBounds to StopOnRigorousBound.
 
     (Useful for handling several valuation groups at once.)
     """

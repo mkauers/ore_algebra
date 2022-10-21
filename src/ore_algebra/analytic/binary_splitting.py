@@ -1097,7 +1097,7 @@ class MatrixRecsUnroller(LocalBasisMapper): # pylint: disable=attribute-defined-
 
         wrapper = bounds.MultiDiffOpBound(maj.values())
         # TODO: switch to fast_fail=True?
-        stop = accuracy.StoppingCriterion(wrapper, self.eps, fast_fail=False)
+        stop = accuracy.StopOnRigorousBound(wrapper, self.eps, fast_fail=False)
 
         class BoundCallbacks(accuracy.BoundCallbacks): # pylint: disable=no-self-argument
             # “self” refers to the MatrixRecsUnroller

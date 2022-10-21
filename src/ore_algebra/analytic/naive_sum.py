@@ -13,11 +13,6 @@ Evaluation of convergent D-finite series by direct summation
 #
 # http://www.gnu.org/licenses/
 
-# TODO:
-# - support summing a given number of terms rather than until a target accuracy
-# is reached?
-# - cythonize critical parts?
-
 import collections, logging, sys, warnings
 
 from itertools import count, chain, repeat
@@ -236,12 +231,6 @@ class PartialSum(object):
                                 self.pt, self.ord, *self.pt_opts)
         return v
 
-    def interval_width(self):
-        try:
-            return max(c.rad() for c in self.value)
-        except RuntimeError:
-            return RealField(30)('inf')
-
 MPartialSums = collections.namedtuple("MPartialSums", ["cseq", "psums"])
 
 class RecUnroller:
@@ -318,23 +307,29 @@ class RecUnroller:
         self._init_final()
 
         # Dynamic data
+
         self.Intervals = None
         self.bwrec_nplus = None
         self.est = None
         self.jetpows = None
         self.jets = None
+        self.n = None
+        self._last_enclosure_update = -1
+        self.mult = None
         self.log_prec = None
         self.radpow = None
         self.rec_add_log_prec = None
         self.shifted_bwrec = None
         self.sols = None
-        self.tail_bound = None
+        self.tail_bound = None              # bound on the series parts
+        self.current_error = None           # ~radius of output if we stop now
 
+        # Experimental rounding error analysis stuff
+        self.n0_squash = sys.maxsize
         self.rnd_den = None
         self.rnd_err = None
         self.rnd_loc = None
         self.rnd_maj = None
-        self.n0_squash = None
 
     def _init_final(self):
         r"""
@@ -360,76 +355,22 @@ class RecUnroller:
         else:
             return ComplexBallField(bit_prec)
 
-    # Loop on working precision
-
-    def sum_auto(self, eps, maj, effort, fail_fast, stride=None):
-
-        stop = accuracy.StoppingCriterion(maj, eps) # XXX move elsewhere?
-
-        input_accuracy = max(0,
-                             min(chain((self.evpts.accuracy,),
-                                       (ini.accuracy() for ini in self.inis))))
-
-        if stride is None: # XXX move elsewhere?
-            stride = min(max(50, 2*self.orig_bwrec.order),
-                         max(2, input_accuracy))
-
-        bit_prec, n0_squash = self._choose_working_precision(eps, maj, effort,
-                                                             fail_fast, stride)
-        max_prec = bit_prec + 2*input_accuracy
-
-        for attempt in count(1):
-            ini_are_accurate = 2*input_accuracy > bit_prec
-            # Strictly decrease eps every time to avoid situations where doit
-            # would be happy with the result and stop at the same point despite
-            # the higher bit_prec. Since attempt starts at 1, we have a bit of
-            # room for round-off errors.
-            stop.reset(eps >> (4*attempt),
-                       stop.fast_fail and ini_are_accurate)
-
-            try:
-                self.sum(bit_prec, stop, stride, n0_squash=n0_squash)
-            except accuracy.PrecisionError:
-                if attempt > effort:
-                    raise
-            else:
-                logger.debug("bit_prec = %s, err = %s (tgt = %s)", bit_prec,
-                            self.current_error(), eps)
-                if all(psum.total_error < eps
-                       for _, psums in self.sols for psum in psums):
-                    return # self.sols
-
-            # if interval squashing didn't give accurate results, switch back to
-            # the classical method
-            n0_squash = sys.maxsize
-
-            bit_prec *= 2
-            if attempt <= effort and bit_prec < max_prec:
-                logger.info("lost too much precision, restarting with %d bits",
-                            bit_prec)
-                continue
-            if fail_fast:
-                raise accuracy.PrecisionError
-            else:
-                logger.info("lost too much precision, giving up")
-                return # self.sols
-
     # Main summation loop
 
-    def sum(self, bit_prec, stop, stride, *, n0_squash=sys.maxsize):
+    def sum(self, bit_prec, stride):
         if not self.inis:
             return # []
         self._init_sums(bit_prec)
-        self._init_error_analysis(n0_squash, stop.maj)
-        n = 0 # silence lint warning
-        for n in count():
-            mult = self.mult_dict[n] if n in self.mult_dict else 0
-            if n % stride == 0 and n > 0:
-                if self._check_convergence(stop, n, mult, stride):
+        self._init_error_analysis()
+        for self.n in count():
+            self.mult = (self.mult_dict[self.n]
+                         if self.n in self.mult_dict else 0)
+            if self.n % stride == 0:
+                if self._check_convergence(stride):
                     break
-            self._next_term(n, mult)
-        rnd_err = self._error_analysis(stop.maj)
-        self._report_stats(n, rnd_err)
+            self._next_term()
+        rnd_err = self._error_analysis()
+        self._report_stats(rnd_err)
         return # self.sols
 
     def _init_sums(self, bit_prec):
@@ -445,11 +386,12 @@ class RecUnroller:
             self.shifted_bwrec = self.orig_bwrec.shift_by_PolynomialRoot(
                                                                        leftmost)
 
+
         Jets, self.jets = self.evpts.jets(self.Intervals)
         self.jetpows = [Jets.one()]*len(self.jets)
 
         self.radpow = self._IR.one()
-        self.tail_bound = self._IR(infinity)
+        self.tail_bound = self.current_error = self._IR(infinity)
 
         if self.evpts.is_numeric:
             CS, PS = cy_classes()
@@ -481,55 +423,43 @@ class RecUnroller:
                     for i in range(self.precomp_len)),
                 maxlen=self.precomp_len)
 
-    def _check_convergence(self, stop, n, mult, stride):
-        if n <= self.last_index_with_ini or mult > 0:
-            # currently not implemented by error bounds (but could be supported
-            # in principle)
-            return False
-        assert self.log_prec == 1 or not self.ordinary
-        self.est = sum(cseq.coeff_estimate() for cseq, _ in self.sols)
-        self.est *= self.Intervals(self.radpow).squash()
-        done, self.tail_bound = stop.check(self, n, self.tail_bound, self.est,
-                                           stride)
-        return done
+    def _next_term(self):
 
-    def _next_term(self, n, mult):
-
-        if n < self.start:
+        if self.n < self.start:
             assert self.ordinary
             for (cseq, psums) in self.sols:
-                cseq.next_term_ordinary_initial_part(n)
+                cseq.next_term_ordinary_initial_part(self.n)
                 for (jetpow, psum) in zip(self.jetpows, psums):
                     psum.next_term_ordinary_initial_part(jetpow)
         else:
             # seems faster than relying on __missing__()
-            cst = - ~self.bwrec_nplus[0][0][mult]
-            squash = (n >= self.n0_squash)
+            cst = - ~self.bwrec_nplus[0][0][self.mult]
+            squash = (self.n >= self.n0_squash)
             if squash:
                 rnd_shift, hom_maj_coeff_lb = next(self.rnd_den)
-                assert self.n0_squash + rnd_shift == n
+                assert self.n0_squash + rnd_shift == self.n
             for (cseq, psums) in self.sols:
-                err = cseq.next_term(n, mult, self.bwrec_nplus[0],
+                err = cseq.next_term(self.n, self.mult, self.bwrec_nplus[0],
                                      cst, squash)
                 if squash:
                     # XXX lookup of IR and/or conversion is slow
-                    self.rnd_loc = self.rnd_loc.max(self._IR(n*err)
+                    self.rnd_loc = self.rnd_loc.max(self._IR(self.n*err)
                                                     /hom_maj_coeff_lb)
                     # normalize NaNs and infinities
                     if not self.rnd_loc.is_finite():
                         self.rnd_loc = self.rnd_loc.parent()('inf')
                 for (jetpow, psum) in zip(self.jetpows, psums):
-                    psum.next_term(jetpow, mult)
-            if mult > 0:
+                    psum.next_term(jetpow, self.mult)
+            if self.mult > 0:
                 self.log_prec = max(1, max(cseq.log_prec
                                            for cseq, _ in self.sols))
 
-            self.rec_add_log_prec += self.mult_dict[n + self.precomp_len]
-            self.rec_add_log_prec -= mult
+            self.rec_add_log_prec += self.mult_dict[self.n + self.precomp_len]
+            self.rec_add_log_prec -= self.mult
             self.bwrec_nplus.append(
                 self.shifted_bwrec.eval_series(
                     self.Intervals,
-                    n + self.precomp_len,
+                    self.n + self.precomp_len,
                     self.log_prec + self.rec_add_log_prec))
 
         for i in range(len(self.jetpows)):
@@ -537,45 +467,37 @@ class RecUnroller:
                                                           self.evpts.jet_order)
         self.radpow *= self.evpts.rad
 
-    def _report_stats(self, n, rnd_err):
+    def _check_convergence(self, stride):
+        raise NotImplementedError
+
+    def _report_stats(self, rnd_err):
         width = None
         if self.evpts.is_numeric:
-            width = max(psum.interval_width()
+            width = max(psum.total_error
                         for _, psums in self.sols
                         for psum in psums)
         logger.info("summed %d terms, tails = %s (est = %s), rnd_err <= %s, "
                     "interval width <= %s",
-                    n, self.tail_bound, self._IR(self.est), rnd_err, width)
-
-    # BoundCallbacks interface
-
-    def get_residuals(self, stop, n):
-        # Since this is called _before_ computing the new term, the relevant
-        # coefficients are given by last[:-1], not last[1:]
-        assert all(cseq.nterms == n for cseq, _ in self.sols)
-        return [stop.maj.normalized_residual(n, list(cseq.last)[:-1],
-                                             self.bwrec_nplus)
-                for cseq, _ in self.sols]
-
-    def get_bound(self, stop, n, resid):
-        # XXX consider maintaining separate tail bounds, and stopping the
-        # summation of some series before the others
-        maj = stop.maj.tail_majorant(n, resid)
-        tb = maj.bound(self.evpts.rad, rows=self.evpts.jet_order)
-        worst = self._IR.zero()
-        for _, psums in self.sols:
-            for psum in psums:
-                psum.update_enclosure(tb)
-                worst = worst.max(psum.total_error)
-        return worst
+                    self.n, self.tail_bound, self._IR(self.est), rnd_err, width)
 
     # Data extraction
 
-    def current_error(self):
-        return max(psum.total_error for _, psums in self.sols for psum in psums)
+    def update_enclosures(self, err):
+        r"""
+        Update the “full” (= including singular factors and the error bound on
+        the series part passed on input) solutions as well as a bound on the
+        current maximum error on the “full” solution.
+        """
+        self.current_error = self._IR.zero()
+        for _, psums in self.sols:
+            for psum in psums:
+                psum.update_enclosure(err)
+                self.current_error = self.current_error.max(psum.total_error)
+        self._last_enclosure_update = self.n
 
     def values_single_seq(self):
         assert len(self.inis) == 1
+        assert self._last_enclosure_update == self.n
         [(_, psums)] = self.sols
         for psum in psums:
             psum.update_downshifts((0,))
@@ -584,9 +506,151 @@ class RecUnroller:
 
     def value(self):
         assert len(self.evpts) == 1
+        assert self._last_enclosure_update == self.n
         return self.values_single_seq()[0]
 
     # Experimental rounding error analysis stuff
+    # (Requires self.rnd_maj to be set. Only RecUnroller_tail_bound does set it at the
+    # moment, but in principle, it could be decoupled from tail bounds.)
+
+    def _init_error_analysis(self):
+        if self.n0_squash == sys.maxsize:
+            return
+        assert self.ordinary
+        # the special path does not squash its result
+        assert self.start <= self.n0_squash
+        self.rnd_den = self.rnd_maj.exp_part_coeffs_lbounds()
+        self.rnd_loc = self._IR.zero()
+
+    def _error_analysis(self):
+        if self.n0_squash == sys.maxsize:
+            return self._IR.zero()
+        rnd_fac = self.rnd_maj.bound(self.evpts.rad, rows=self.evpts.jet_order)
+        rnd_fac /= self.n0_squash
+        rnd_err = self.rnd_loc*rnd_fac
+        self.update_enclosures(self.tail_bound + rnd_err)
+        return rnd_err
+
+class RecUnroller_partial_sum(RecUnroller):
+    r"""
+    Compute a partial sum of a series by naive unrolling of a recurrence.
+
+    Halt after a given number of terms.
+    """
+
+    def __init__(self, dop, inis, evpts, bwrec, terms, *, ctx=dctx):
+        super().__init__(dop, inis, evpts, bwrec, ctx=ctx)
+        self.__terms = terms
+
+    def _check_convergence(self, stride):
+        if self.n >= self.__terms :
+            assert self.n == self.__terms or self.__terms < 0, "overshot"
+            return True
+        return False
+
+class RecUnroller_tail_bound(RecUnroller):
+    r"""
+    Compute the sum of a series by naive unrolling of a recurrence.
+
+    The result is an enclosure of the value of the sum, i.e., it includes a
+    bound on the tail.
+    """
+
+    # XXX clean up / make interface more consistent with RecUnroller_partial_sum
+
+    def __init__(self, *args, **kwds):
+        super().__init__(*args, **kwds)
+        self._stop = None
+
+    def sum_auto(self, eps, maj, effort, fail_fast, stride=None):
+
+        self._stop = accuracy.StopOnRigorousBound(maj, eps)
+
+        input_accuracy = max(0,
+                             min(chain((self.evpts.accuracy,),
+                                       (ini.accuracy() for ini in self.inis))))
+
+        if stride is None:
+            stride = min(max(50, 2*self.orig_bwrec.order),
+                         max(2, input_accuracy))
+
+        bit_prec, self.n0_squash = self._choose_working_precision(eps, maj,
+                                                      effort, fail_fast, stride)
+        max_prec = bit_prec + 2*input_accuracy
+
+        if self.n0_squash < sys.maxsize:
+            self.rnd_maj = maj(self.n0_squash)
+            self.rnd_maj >>= self.n0_squash
+            # |ind(n)| = cst·|monic_ind(n)|
+            self.rnd_maj *= abs(self.ctx.IC(maj.dop.leading_coefficient()[0]))
+
+        for attempt in count(1):
+            ini_are_accurate = 2*input_accuracy > bit_prec
+            # Strictly decrease eps every time to avoid situations where doit
+            # would be happy with the result and stop at the same point despite
+            # the higher bit_prec. Since attempt starts at 1, we have a bit of
+            # room for round-off errors.
+            self._stop.reset(eps >> (4*attempt),
+                              self._stop.fast_fail and ini_are_accurate)
+
+            try:
+                self.sum(bit_prec, stride)
+            except accuracy.PrecisionError:
+                if attempt > effort:
+                    raise
+            else:
+                logger.debug("bit_prec = %s, err = %s (tgt = %s)", bit_prec,
+                            self.current_error, eps)
+                if all(psum.total_error < eps
+                       for _, psums in self.sols for psum in psums):
+                    return # self.sols
+
+            # if interval squashing didn't give accurate results, switch back to
+            # the classical method
+            self.n0_squash = sys.maxsize
+
+            bit_prec *= 2
+            if attempt <= effort and bit_prec < max_prec:
+                logger.info("lost too much precision, restarting with %d bits",
+                            bit_prec)
+                continue
+            if fail_fast:
+                raise accuracy.PrecisionError
+            else:
+                logger.info("lost too much precision, giving up")
+                return # self.sols
+
+    def _check_convergence(self, stride):
+        if self.n <= self.last_index_with_ini or self.mult > 0:
+            # currently not implemented by error bounds (but could be supported
+            # in principle)
+            return False
+        assert self.log_prec == 1 or not self.ordinary
+        self.est = sum(cseq.coeff_estimate() for cseq, _ in self.sols)
+        self.est *= self.Intervals(self.radpow).squash()
+        done, self.tail_bound = self._stop.check(self, self.n, self.tail_bound,
+                                                 self.est, stride)
+        return done
+
+    # BoundCallbacks interface
+
+    def get_residuals(self, stop, n):
+        # Since this is called _before_ computing the new term, the relevant
+        # coefficients are given by last[:-1], not last[1:]
+        assert all(cseq.nterms == self.n == n for cseq, _ in self.sols)
+        return [stop.maj.normalized_residual(n, list(cseq.last)[:-1],
+                                             self.bwrec_nplus)
+                for cseq, _ in self.sols]
+
+    def get_bound(self, stop, n, resid):
+        if self.n <= self.last_index_with_ini or self.mult > 0:
+            raise NotImplementedError
+        # XXX consider maintaining separate tail bounds, and stopping the
+        # summation of some series before the others
+        maj = stop.maj.tail_majorant(n, resid)
+        tb = maj.bound(self.evpts.rad, rows=self.evpts.jet_order)
+        self.update_enclosures(tb)
+        return self.current_error
 
     def _choose_working_precision(self, eps, maj, effort, fail_fast, stride):
         ordrec = self.orig_bwrec.order
@@ -611,32 +675,6 @@ class RecUnroller:
         if fail_fast and bit_prec > 4*bit_prec0 and effort <= 1:
             raise accuracy.PrecisionError
         return bit_prec, n0_squash
-
-    def _init_error_analysis(self, n0_squash, maj):
-        self.n0_squash = n0_squash
-        if n0_squash == sys.maxsize:
-            return
-        assert self.ordinary
-        # the special path does not squash its result
-        assert self.start <= n0_squash
-        self.rnd_maj = maj(n0_squash)
-        self.rnd_maj >>= n0_squash # XXX (a) useful? (b) check correctness
-        self.rnd_den = self.rnd_maj.exp_part_coeffs_lbounds()
-        self.rnd_loc = self._IR.zero()
-
-    def _error_analysis(self, maj):
-        if self.n0_squash == sys.maxsize:
-            return self._IR.zero()
-        # |ind(n)| = cst·|monic_ind(n)|
-        cst = abs(self.ctx.IC(maj.dop.leading_coefficient()[0]))
-        rnd_fac = cst*self.rnd_maj.bound(self.evpts.rad,
-                                         rows=self.evpts.jet_order)
-        rnd_fac /= self.n0_squash
-        rnd_err = self.rnd_loc*rnd_fac
-        for _, psums in self.sols:
-            for psum in psums:
-                psum.update_enclosure(self.tail_bound + rnd_err)
-        return rnd_err
 
 def guard_bits(dop, maj, evpts, ordrec, nterms):
     r"""
@@ -680,7 +718,8 @@ def guard_bits(dop, maj, evpts, ordrec, nterms):
         # ≈ (ordrec × working prec epsilon) × (value of majorant series)
         rnd_maj = maj(new_n0)
         rnd_maj >>= new_n0
-        est_lg_rnd_fac = (cst*rnd_maj.bound(evpts.rad, rows=orddeq)).log(2)
+        rnd_maj *= cst
+        est_lg_rnd_fac = rnd_maj.bound(evpts.rad, rows=orddeq).log(2)
         est_lg_rnd_err = 2*maj.IR(ordrec + 1).log(2)
         if not est_lg_rnd_fac < maj.IR.zero():
             est_lg_rnd_err += est_lg_rnd_fac
@@ -876,7 +915,7 @@ def series_sum(dop, ini, evpts, tgt_error, *, maj=None, bwrec=None,
         maj = bounds.DiffOpBound(dop, ini.expo, special_shifts, ctx=ctx)
     tgt_error = ctx.IR(tgt_error)
 
-    unr = RecUnroller(dop, [ini], evpts, bwrec, ctx=ctx)
+    unr = RecUnroller_tail_bound(dop, [ini], evpts, bwrec, ctx=ctx)
     unr.sum_auto(tgt_error, maj, effort, fail_fast, stride)
     values = unr.values_single_seq()
     if len(unr.evpts) == 1:
@@ -890,12 +929,9 @@ def series_sum(dop, ini, evpts, tgt_error, *, maj=None, bwrec=None,
 
 class HighestSolMapper(LocalBasisMapper):
 
-    def __init__(self, dop, evpts, eps, fail_fast, effort, *, ctx):
+    def __init__(self, dop, evpts, *, ctx):
         super().__init__(dop, ctx=ctx)
         self.evpts = evpts
-        self.eps = eps
-        self.fail_fast = fail_fast
-        self.effort = effort
         self.ordinary = (dop.leading_coefficient()[0] != 0)
         self._sols = None
         self.highest_sols = None
@@ -903,12 +939,6 @@ class HighestSolMapper(LocalBasisMapper):
     def process_modZ_class(self):
         logger.info(r"solutions z^(%s+n)·log(z)^k/k! + ···, n = %s",
                     self.leftmost, ", ".join(str(s) for s, _ in self.shifts))
-        maj = bounds.DiffOpBound(self.dop, self.leftmost,
-                        special_shifts=(None if self.ordinary else self.shifts),
-                        bound_inverse="solve",
-                        pol_part_len=(4 if self.ordinary else None),
-                        ind_roots=self.all_roots,
-                        ctx=self.ctx)
         # Compute the "highest" (in terms powers of log) solution of each
         # valuation
         inis = [LogSeriesInitialValues(
@@ -916,16 +946,18 @@ class HighestSolMapper(LocalBasisMapper):
                     mults=self.shifts,
                     values={(s, m-1): ZZ.one()})
                 for s, m in self.shifts]
-        unr = RecUnroller(self.dop, inis, self.evpts, self.bwrec, ctx=self.ctx)
-        unr.sum_auto(self.eps, maj, self.effort, self.fail_fast)
+        sols = self.do_sum(inis)
         self.highest_sols = {}
-        for (s, m), sol in zip(self.shifts, unr.sols):
+        for (s, m), sol in zip(self.shifts, sols):
             _, psums = sol
             for psum in psums:
                 psum.update_downshifts(range(m))
             self.highest_sols[s] = sol
         self._sols = {}
         super().process_modZ_class()
+
+    def do_sum(self, inis):
+        raise NotImplementedError
 
     def fun(self, ini):
         # Non-highest solutions of a given valuation can be deduced from the
@@ -944,6 +976,27 @@ class HighestSolMapper(LocalBasisMapper):
                         value[i] -= cc*self._sols[s,k][i]
         self._sols[self.shift, self.log_power] = value
         return [vector(v) for v in value]
+
+class HighestSolMapper_tail_bound(HighestSolMapper):
+
+    def __init__(self, dop, evpts, eps, fail_fast, effort, *, ctx):
+        super().__init__(dop, evpts, ctx=ctx)
+        self.eps = eps
+        self.fail_fast = fail_fast
+        self.effort = effort
+
+    def do_sum(self, inis):
+        maj = bounds.DiffOpBound(self.dop, self.leftmost,
+                        special_shifts=(None if self.ordinary else self.shifts),
+                        bound_inverse="solve",
+                        pol_part_len=(4 if self.ordinary else None),
+                        ind_roots=self.all_roots,
+                        ctx=self.ctx)
+        unr = RecUnroller_tail_bound(self.dop, inis, self.evpts, self.bwrec,
+                                     ctx=self.ctx)
+        unr.sum_auto(self.eps, maj, self.effort, self.fail_fast)
+        assert unr._last_enclosure_update == unr.n
+        return unr.sols
 
 def fundamental_matrix_regular(dop, evpts, eps, fail_fast, effort, ctx=dctx):
     r"""
@@ -993,8 +1046,80 @@ def fundamental_matrix_regular(dop, evpts, eps, fail_fast, effort, ctx=dctx):
         [-0.549046117782...]
     """
     eps_col = ctx.IR(eps)/ctx.IR(dop.order()).sqrt()
-    unr = HighestSolMapper(dop, evpts, eps_col, fail_fast, effort, ctx=ctx)
-    cols = unr.run()
+    hsm = HighestSolMapper_tail_bound(dop, evpts, eps_col, fail_fast, effort,
+                                      ctx=ctx)
+    cols = hsm.run()
+    mats = [matrix([sol.value[i] for sol in cols]).transpose()
+            for i in range(len(evpts))]
+    return mats
+
+class HighestSolMapper_partial_sums(HighestSolMapper):
+
+    def __init__(self, dop, evpts, trunc_index, bit_prec, *, ctx):
+        super().__init__(dop, evpts, ctx=ctx)
+        if ctx.squash_intervals:
+            raise NotImplementedError
+        self.trunc_index = trunc_index
+        self.bit_prec = bit_prec
+
+    def do_sum(self, inis):
+        terms = (self.trunc_index - self.leftmost.as_algebraic().real()).ceil()
+        unr = RecUnroller_partial_sum(self.dop, inis, self.evpts, self.bwrec,
+                                      terms=int(terms), ctx=self.ctx)
+        unr.sum(self.bit_prec, stride=1)
+        unr.update_enclosures(self.ctx.IR.zero())
+        return unr.sols
+
+def fundamental_matrix_regular_truncated(dop, evpts, trunc_index, bit_prec,
+                                         ctx=dctx):
+    r"""
+    Compute the values at the points given in `evpts` of the canonical basis of
+    solutions of ``dop``, all truncated at the same absolute order
+    ``trunc_index``, along with derivatives of the truncated series.
+
+    The output is organized in a matrix with derivatives renormalized in the
+    usual way.
+
+    TESTS::
+
+        sage: from ore_algebra import *
+        sage: from ore_algebra.analytic.naive_sum import *
+        sage: from ore_algebra.analytic.differential_operator import DifferentialOperator
+        sage: from ore_algebra.analytic.path import EvaluationPoint as EP
+        sage: Dops, x, Dx = DifferentialOperators()
+
+        sage: [fundamental_matrix_regular_truncated(Dx-1, EP(1), k, 30)[0] for k in range(4)]
+        [[0], [1.00000000], [2.00000000], [2.50000000]]
+
+        sage: fundamental_matrix_regular_truncated((x*Dx-3)^2, EP(1/2, 2), 3, 30)[0]
+        [0 0]
+        [0 0]
+        sage: a = RBF(1/2)
+        sage: mat = fundamental_matrix_regular_truncated((x*Dx-3)^2, EP(a, 2), 4, 30)[0]
+        sage: [ref in res for res, ref in zip(mat.list(), [a^3*log(a), a^3, 3*a^2*log(a)+a^2, 3*a^2])]
+        [True, True, True, True]
+
+        sage: fundamental_matrix_regular_truncated(((x*Dx)^2+1).lclm(Dx-1), EP(a, 3), 0, 30)[0]
+        [0 0 0]
+        [0 0 0]
+        [0 0 0]
+        sage: fundamental_matrix_regular_truncated(((x*Dx)^2+1).lclm(Dx-1), EP(a, 1), 1, 30)[0]
+        [ [0.7692...] + [0.6389...]*I [0.7692...] + [-0.6389...]*I  1.000...]
+
+        sage: [fundamental_matrix_regular_truncated(
+        ....:         ((x*Dx)^2-2).lclm(Dx-1), EP(a, 1), k, 30)[0]
+        ....:  for k in range(-2, 3)]
+        [[0                   0            0],
+        [[2.665...]           0            0],
+        [[2.665...]           0            0],
+        [[2.665...]    1.000...            0],
+        [ [2.665...]   1.500...   [0.375...]]]
+    """
+    ctx = Context(ctx)
+    ctx.squash_intervals = False
+    hsm = HighestSolMapper_partial_sums(dop, evpts, trunc_index, bit_prec,
+                                        ctx=ctx)
+    cols = hsm.run()
     mats = [matrix([sol.value[i] for sol in cols]).transpose()
             for i in range(len(evpts))]
     return mats
@@ -1005,7 +1130,7 @@ def fundamental_matrix_regular(dop, evpts, eps, fail_fast, effort, ctx=dctx):
 
 BoundRecord = collections.namedtuple("BoundRecord", ["n", "psum", "maj", "b"])
 
-class BoundRecorder(RecUnroller):
+class BoundRecorder(RecUnroller_tail_bound):
 
     def __init__(self, *args, **kwds):
         super().__init__(*args, **kwds)
@@ -1015,21 +1140,21 @@ class BoundRecorder(RecUnroller):
         super()._init_sums(*args, **kwds)
         self.recorded_bounds = []
 
-    def _check_convergence(self, stop, n, mult, stride):
+    def _check_convergence(self, stride):
         assert len(self.sols) == 1
-        if n <= self.last_index_with_ini or mult > 0:
-            bound = stop.maj.IR('inf')
+        if self.n <= self.last_index_with_ini or self.mult > 0:
+            bound = self._stop.maj.IR('inf')
             maj = None
         else:
-            resid = self.get_residuals(stop, n)
-            bound = self.get_bound(stop, n, resid)
-            maj = stop.maj.tail_majorant(n, resid)
+            resid = self.get_residuals(self._stop, self.n)
+            bound = self.get_bound(self._stop, self.n, resid)
+            maj = self._stop.maj.tail_majorant(self.n, resid)
         val = self.sols[0][1][0].bare_value()
-        self.recorded_bounds.append(BoundRecord(n, val, maj, bound))
+        self.recorded_bounds.append(BoundRecord(self.n, val, maj, bound))
         # Call the standard _check_convergence(), but ignore its verdict, and
-        # only stop if we really have obtained a bound < eps.
-        super()._check_convergence(stop, n, mult, stride)
-        return (self.tail_bound < stop.eps)
+        # only self._stop if we really have obtained a bound < eps.
+        super()._check_convergence(stride)
+        return (self.tail_bound < self._stop.eps)
 
 ################################################################################
 # Utilities
