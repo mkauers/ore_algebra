@@ -2352,6 +2352,60 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         else:
             return LL
 
+    def borel_transform(self):
+        r"""
+        Compute the Borel transform of this operator.
+
+        This is an operator annihilating the formal Borel transform
+        `\sum_n \frac{f_{n+1}}{n!} z^n`
+        of every series solution
+        `\sum_n f_n z^n`
+        of this operator (and the formal Borel transform of formal
+        logarithmic solutions as well).
+
+        EXAMPLES::
+
+            sage: from ore_algebra import OreAlgebra
+            sage: Pol.<z> = QQ[]
+            sage: Dop.<Dz> = OreAlgebra(Pol)
+            sage: (Dz*(1/z)).borel_transform()
+            z*Dz
+            sage: Dz.borel_transform()
+            z
+            sage: Dop(z).borel_transform()
+            1
+            sage: (-z^3*Dz^2 + (-z^2-z)*Dz + 1).borel_transform()
+            (-z^2 - z)*Dz - z
+
+        TESTS::
+
+            sage: Dop(0).borel_transform()
+            0
+
+            sage: dop = (z*Dz)^4 - 6/z*(z*Dz)^3 - 1/z^2*(z*Dz) - 7/z^2
+            sage: ref = (z^4 - 6*z^3)*Dz^4 + (10*z^3 - 54*z^2 - z)*Dz^3 + (25*z^2 - 114*z - 10)*Dz^2 + (15*z - 48)*Dz + 1 # van der Hoeven 2007, Figure 3.4
+            sage: ref.quo_rem(dop.borel_transform())
+            (Dz, 0)
+
+            sage: Pol0.<t> = QQ[i][]
+            sage: Pol.<z> = Pol0[]
+            sage: Dop.<Dz> = OreAlgebra(Pol)
+            sage: (i*t*z^2*Dz).borel_transform()
+            I*t*z
+        """
+        # Left-multiply by a suitable power of `z`;
+        # substitute `z` for `z^2 D_z` and `D_z` for `1/z`.
+        Dop, Pol, _, dop = self._normalize_base_ring()
+        Dz, z = Dop.gen(), Pol.gen()
+        z2Dz = z**2*Dz
+        coeff = []
+        while not dop.is_zero():
+            cor, dop, rem = dop.pseudo_quo_rem(z2Dz)
+            for i in range(len(coeff)):
+                coeff[i] *= cor
+            coeff.append(rem[0])
+        deg = max((pol.degree() for pol in coeff), default=0)
+        return sum(pol.reverse(deg)(Dz)*z**i for i, pol in enumerate(coeff))
 
     def power_series_solutions(self, n=5):
         r"""
