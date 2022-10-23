@@ -215,8 +215,14 @@ def shiftless_decomposition(self):
 
         sage: from ore_algebra.analytic.shiftless import *
         sage: Pol.<y> = QQ[]
+        sage: shiftless_decomposition(2*y^2*(y+1))
+        (2, [(y, [(0, 2), (1, 1)])])
         sage: shiftless_decomposition((y-1)*(y-1/2)*y) # random order
         (1, [(y - 1/2, [(0, 1)]), (y - 1, [(0, 1), (1, 1)])])
+        sage: shiftless_decomposition(Pol.gen())
+        (1, [(y, [(0, 1)])])
+        sage: shiftless_decomposition(2*Pol.one())
+        (2, [])
     """
     quo = self.monic()
     Pol, x = quo.parent().objgen()
@@ -227,7 +233,7 @@ def shiftless_decomposition(self):
         by_mult.append(sqf)
         quo //= sqf
     parts = set()
-    shifts = dispersion_set(by_mult[1])
+    shifts = dispersion_set(by_mult[1]) if len(by_mult) > 1 else []
     for shift in shifts:
         parts.update(by_mult[1].gcd(f(x + eps*shift))
                      for f in by_mult[1:]
@@ -238,7 +244,7 @@ def shiftless_decomposition(self):
             if part.divides(by_mult[m]): # the paper says part^m?!
                 return m
         assert False
-    shifts_of = dict() # factor -> nonnegative integer shifts
+    shifts_of = {} # factor -> nonnegative integer shifts
     remaining_parts = parts.copy()
     while remaining_parts:
         cur = remaining_parts.pop()
@@ -254,9 +260,7 @@ def shiftless_decomposition(self):
     assert prod(part(x + s)**mult
                 for part, shifts in shifts_of.items()
                 for (s, mult) in shifts)*unit == self
-    return (unit,
-        [(part, shifts)
-          for part, shifts in shifts_of.items()])
+    return (unit, list(shifts_of.items()))
 
 # key=... to avoid comparing number fields
 # XXX: tie life to a suitable object
