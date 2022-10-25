@@ -1055,15 +1055,21 @@ def fundamental_matrix_regular(dop, evpts, eps, fail_fast, effort, ctx=dctx):
 
 class HighestSolMapper_partial_sums(HighestSolMapper):
 
-    def __init__(self, dop, evpts, trunc_index, bit_prec, *, ctx):
+    def __init__(self, dop, evpts, trunc_index, bit_prec, *,
+                 inclusive, ctx):
         super().__init__(dop, evpts, ctx=ctx)
         if ctx.squash_intervals:
             raise NotImplementedError
         self.trunc_index = trunc_index
+        self.inclusive = inclusive
         self.bit_prec = bit_prec
 
     def do_sum(self, inis):
-        terms = (self.trunc_index - self.leftmost.as_algebraic().real()).ceil()
+        terms = self.trunc_index - self.leftmost.as_algebraic().real()
+        if self.inclusive:
+            terms = terms.floor() + 1
+        else:
+            terms = terms.ceil()
         unr = RecUnroller_partial_sum(self.dop, inis, self.evpts, self.bwrec,
                                       terms=int(terms), ctx=self.ctx)
         unr.sum(self.bit_prec, stride=1)
@@ -1071,7 +1077,7 @@ class HighestSolMapper_partial_sums(HighestSolMapper):
         return unr.sols
 
 def fundamental_matrix_regular_truncated(dop, evpts, trunc_index, bit_prec,
-                                         ctx=dctx):
+                                         inclusive=False, ctx=dctx):
     r"""
     Compute the values at the points given in `evpts` of the canonical basis of
     solutions of ``dop``, all truncated at the same absolute order
@@ -1090,6 +1096,9 @@ def fundamental_matrix_regular_truncated(dop, evpts, trunc_index, bit_prec,
 
         sage: [fundamental_matrix_regular_truncated(Dx-1, EP(1), k, 30)[0] for k in range(4)]
         [[0], [1.00000000], [2.00000000], [2.50000000]]
+
+        sage: [fundamental_matrix_regular_truncated(Dx-1, EP(1), k, 30, inclusive=True)[0] for k in range(4)]
+        [[1.00000000], [2.00000000], [2.50000000], [[2.66666666 +/- 8.15e-9]]]
 
         sage: fundamental_matrix_regular_truncated((x*Dx-3)^2, EP(1/2, 2), 3, 30)[0]
         [0 0]
@@ -1114,11 +1123,20 @@ def fundamental_matrix_regular_truncated(dop, evpts, trunc_index, bit_prec,
         [[2.665...]           0            0],
         [[2.665...]    1.000...            0],
         [ [2.665...]   1.500...   [0.375...]]]
+
+        sage: [fundamental_matrix_regular_truncated(
+        ....:         ((x*Dx)^2-2).lclm(Dx-1), EP(a, 1), k, 30, inclusive=True)[0]
+        ....:  for k in range(-2, 3)]
+        [[0                   0            0],
+        [[2.665...]           0            0],
+        [[2.665...]    1.000...            0],
+        [[2.665...]    1.500...            0],
+        [ [2.665...]   1.625...   [0.375...]]]
     """
     ctx = Context(ctx)
     ctx.squash_intervals = False
     hsm = HighestSolMapper_partial_sums(dop, evpts, trunc_index, bit_prec,
-                                        ctx=ctx)
+                                        inclusive=inclusive, ctx=ctx)
     cols = hsm.run()
     mats = [matrix([sol.value[i] for sol in cols]).transpose()
             for i in range(len(evpts))]
