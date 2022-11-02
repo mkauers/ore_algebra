@@ -565,9 +565,10 @@ class LocalBasisMapper(object):
         sl_data = []
         self.all_roots = []
         for sl_factor, shifts in self.sl_decomp:
+            sl_factor = sl_factor.monic()
             shifts.sort()
             irred_data = []
-            for irred_factor, irred_mult in sl_factor.factor():
+            for irred_factor, irred_mult in utilities.myfactor_monic(sl_factor):
                 assert irred_mult == 1
                 roots = utilities.roots_of_irred(irred_factor)
                 irred_data.append((irred_factor, roots))
