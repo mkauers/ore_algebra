@@ -3201,7 +3201,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         """
         from .analytic.differential_operator import DifferentialOperator
         from .analytic.local_solutions import (log_series, LocalExpansions,
-                simplify_exponent, LogMonomial)
+                                               LogMonomial)
         from .analytic.path import Point
         dop = DifferentialOperator(self)
         mypoint = Point(point, dop)
