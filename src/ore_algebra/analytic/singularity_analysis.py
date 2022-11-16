@@ -1590,7 +1590,7 @@ def _bound_validity_range(n0, dominant_sing, order):
     n2 = (RBF(21)/10*(max_abs_val + order + 1)).above_abs().ceil()
     n0 = ZZ(max(n0, n1, n2))
 
-    logger.debug(f"{n1=}, {n2=}, {n0=}")
+    logger.debug(f"n1=%s, n2=%s, n0=%s", n1, n2, n0)
     return n0
 
 def truncate_tail_SR(val, re_val, f, beta, kappa, n0, n):
