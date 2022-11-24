@@ -2,13 +2,94 @@
 r"""
 Borel-Laplace summation
 
-TESTS::
+EXAMPLES::
 
     sage: from ore_algebra import OreAlgebra
     sage: from ore_algebra.analytic.borel_laplace import *
 
     sage: Pol.<x> = QQ[]
     sage: Dop.<Dx> = OreAlgebra(Pol)
+
+We start with several examples involving the (homogeneized) Euler equation.
+(Compare, e.g., Thomann 1990, §5, §7.7, Thomann 1995, §3, §5.) We consider its
+power series solution `E` with `E'(0) = 1`. The first terms are::
+
+    sage: (-x^3*Dx^2+(-x^2-x)*Dx+1).local_basis_expansions(0)
+    [x - x^2 + 2*x^3 - 6*x^4 + 24*x^5]
+
+On a suitable domain (see Loday-Richaud 2016, Example 1.1.4 for details) is
+equal to ``Ei(1,1/x)*exp(1/x)``. ::
+
+    sage: def ref(x):
+    ....:     x = ComplexBallField(100)(x)
+    ....:     return (1/x).exp_integral_e(1)*(1/x).exp()
+
+Thus::
+
+    sage: ref(1/2)
+    [0.3613286168882225846971616...]
+    sage: borel_laplace(-x^3*Dx^2+(-x^2-x)*Dx+1, 1/2, 0, RBF(1e-20))
+    [[0.361328616888222584...] + [+/- ...]*I]
+
+    sage: ref(1/10)
+    [0.0915633339397880818...]
+    sage: borel_laplace(-x^3*Dx^2+(-x^2-x)*Dx+1, 1/10, 0, RBF(1e-50))
+    [[0.091563333939788081876069815766438449226677369109...] + [+/- ...]*I]
+
+We can change the direction of summation::
+
+    sage: borel_laplace(-x^3*Dx^2+(-x^2-x)*Dx+1, 1/2, pi/4, RBF(1e-20))
+    [[0.361328616888222584...] + [+/- ...]*I]
+
+Standard direction, but close to the border of the associated sector... ::
+
+    sage: borel_laplace(-x^3*Dx^2+(-x^2-x)*Dx+1, 1/100+1/2*i, RBF(0), RBF(1e-10))
+    [[0.150323330...] + [0.395016510...]*I]
+
+Attempting to evaluate on the border of the sector results in an error::
+
+    sage: borel_laplace(-x^3*Dx^2+(-x^2-x)*Dx+1, 1/2*i, 0, RBF(1e-10))
+    Traceback (most recent call last):
+    ...
+    ValueError: evaluation point not in the half-plane bisected by the direction
+    (or too close to the border)
+
+However, we can compute the analytic continuation of the sum by choosing a
+more suitable direction::
+
+    sage: borel_laplace(-x^3*Dx^2+(-x^2-x)*Dx+1, 1/2*i, pi/4, RBF(1e-20))
+    [[0.144545303037332420...] + [0.399020988594183846...]*I]
+
+    sage: borel_laplace(-x^3*Dx^2+(-x^2-x)*Dx+1, 1/2*i, pi/2, RBF(1e-20))
+    [[0.144545303037332420...] + [0.399020988594183846...]*I]
+
+    sage: ref(1/2*i)
+    [0.14454530303733242045870285...] + [0.39902098859418384689266651...]*I
+
+The negative real axis is a singular direction::
+
+    sage: borel_laplace(-x^3*Dx^2+(-x^2-x)*Dx+1, -1/2, pi, RBF(1e-20))
+    Traceback (most recent call last):
+    ...
+    ValueError: singular direction (or close)
+
+Stokes phenomenon (see again Loday-Richaud 2016, Example 1.1.4 for a detailed
+description of the situation)::
+
+    sage: ref(-1/2)
+    [-0.670482709790073281043223808...] + [-0.425168331587636328439122361...]*I
+    sage: val_above = borel_laplace(-x^3*Dx^2+(-x^2-x)*Dx+1, -1/2, 3*pi/4, RBF(1e-20))
+    sage: val_above
+    [[-0.67048270979007328...] + [0.42516833158763632...]*I]
+    sage: val_below = borel_laplace(-x^3*Dx^2+(-x^2-x)*Dx+1, -1/2, -3*pi/4, RBF(1e-20))
+    sage: val_below
+    [[-0.67048270979007328...] + [-0.42516833158763632...]*I]
+    sage: val_above - val_below
+    [[+/- ...] + [0.85033666317527265...]*I]
+    sage: CBF(2*pi*i*exp(-2))
+    [0.8503366631752...]*I
+
+TESTS:
 
 Monomials::
 
@@ -54,12 +135,6 @@ Convergent series::
     sage: RealBallField(400)(1/2).exp() in mat[0,0] # long time
     True
 
-Homogeneized Euler equation.  (The solution is ``Ei(1,1/x)*exp(1/x)``. Compare,
-e.g., Thomann 1990, §5, §7.7, Thomann 1995, §3, §5.)::
-
-    sage: borel_laplace(-x^3*Dx^2+(-x^2-x)*Dx+1, 1/10, RBF(0), RBF(1e-50))
-    [[0.091563333939788081876069815766438449226677369109...] + [+/- ...]*I]
-
 Fauvet-Thomann 2005, §4.2 (homogeneized). No reference values in the paper  but
 the computed value agrees with the sum to the least term. ::
 
@@ -67,8 +142,6 @@ the computed value agrees with the sum to the least term. ::
     ....:     -x^3*(x+1)*(x^2+1)*Dx^2-x*(2*x^4+4*x^3+x+1)*Dx-2*x^2+2*x+1,
     ....:     1/8, RBF(0), RBF(1e-65))
     [[0.13709092399032135599904213260371938637452001398221067...] + [+/- ...]*I]
-
-TESTS::
 
     sage: all( # long time
     ....:     (borel_laplace(
@@ -352,7 +425,6 @@ def bound_fundamental_matrix_on_ray(dop, z0, ini):
     ``F(z0) = ini`` on the ray ``[z0, z0*infinity)``.
     """
     # XXX maybe extend to support rectangular ini
-    dop = dop.numerator()
     dop = DifferentialOperator(dop)
     sing = dop._singularities(CBF, multiplicities=True)
     lc = dop.leading_coefficient()
@@ -466,6 +538,13 @@ def laplace_integrand_ini_map(itd_dop, z1, ring): # XXX derivatives
     ker_series = lambda order: (-zeta/z1)._exp_series(order)
     return MulBySeriesIniMap(itd_dop, itd_dop, ring, ker_series).run()
 
+def _check_singular_direction(dop, dir):
+    sing = dop._singularities(CBF, multiplicities=False)
+    for s in sing:
+        s /= dir
+        if s.imag().contains_zero() and s.real() > 0:
+            raise ValueError("singular direction (or close)")
+
 # - It would be better to compute all required derivatives simultaneously, but
 #   we do not have the tooling for that at the moment.
 # - Ideally, we should work in a basis adapted to the decomposition
@@ -479,6 +558,7 @@ def analytic_laplace(trd_dop, z1, theta, eps, derivative=0, *, ctx):
         coercion_model.common_parent(trd_dop.parent(), z1),
         z1, derivative)
     itd_dop = trd_dop.symmetric_product(ker_dop)
+    itd_dop = DifferentialOperator(itd_dop)
     itd_ini_map = laplace_integrand_ini_map(itd_dop, z1, IC)
     logger.debug("Integrand: %s", LazyDiffopInfo(itd_dop, itd_ini_map))
     int_dop = itd_dop*Dz
@@ -487,7 +567,14 @@ def analytic_laplace(trd_dop, z1, theta, eps, derivative=0, *, ctx):
                  LazyDiffopInfo(int_dop, int_ini_map))
     ini_map = int_ini_map*itd_ini_map
 
-    dir = CBF(0, theta).exp()
+    dir = IC(0, theta).exp()
+    _dir = CBF(dir)
+    _check_singular_direction(itd_dop, _dir)
+    expcoeff = -(_dir/z1).real()
+    if not expcoeff < 0:
+        raise ValueError("evaluation point not in the half-plane bisected "
+                         "by the direction (or too close to the border)")
+
     zeta0, zeta1 = 0, dir # XXX better initial zeta1? (|ζ₁| ≈ |z₁|?)
     int_mat = identity_matrix(IC, int_dop.order())
     prev_tail_bound = RBF('inf')
@@ -502,10 +589,10 @@ def analytic_laplace(trd_dop, z1, theta, eps, derivative=0, *, ctx):
         # precision, especially for large ζ₁/z₁. On simple examples at least,
         # the overestimation seems already to be present in int_mat; the
         # conversion does not make it much worse.
-        trd_mat = trd_mat_from_int_mat(int_mat, ini_map, z1, zeta1)
-        trd_bound = bound_fundamental_matrix_on_ray(trd_dop, zeta1, trd_mat)
+        _zeta1 = CBF(zeta1)
+        trd_mat = trd_mat_from_int_mat(int_mat, ini_map, z1, _zeta1)
+        trd_bound = bound_fundamental_matrix_on_ray(trd_dop, _zeta1, trd_mat)
         # Bound on the kernel, on the same ray
-        expcoeff = -(dir/z1).real()
         ker_bound = ExponentialBoundOnRay(RBF.one(), expcoeff, CBF.zero())
         # Bound the tail of the Laplace transform of each individual entry of
         # the fundamental matrix (but not on the norm of the whole matrix).
@@ -515,7 +602,7 @@ def analytic_laplace(trd_dop, z1, theta, eps, derivative=0, *, ctx):
         itg_bound = trd_bound*ker_bound
         tail_bound = itg_bound.integral()
         logger.info("integrand bounded by %s on [%s, %s∞)",
-                    itg_bound, zeta1, zeta1)
+                    itg_bound, _zeta1, _zeta1)
 
         int_row = vector([val.add_error(tail_bound) for val in int_mat.row(0)])
         if (all(val.rad() < eps.lower() for val in int_row)
@@ -552,7 +639,7 @@ def borel_laplace(dop, pt, theta, eps, derivatives=1, *, ctx=dctx):
     logger.debug("Shifted operator: %s",
                  LazyDiffopInfo(shifted_dop))
 
-    borel_dop = shifted_dop.borel_transform()
+    borel_dop = DifferentialOperator(shifted_dop.borel_transform())
     borel_ini_map = BorelIniMap(shifted_dop, borel_dop, IC).run()
     logger.debug("Borel transform: %s",
                  LazyDiffopInfo(borel_dop, borel_ini_map))
