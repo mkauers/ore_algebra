@@ -89,6 +89,21 @@ description of the situation)::
     sage: CBF(2*pi*i*exp(-2))
     [0.8503366631752...]*I
 
+Now consider Fauvet-Thomann 2005, §4.2 (homogeneized). We compute the connection
+constants λ₁, λ₂ found on page 339::
+
+    sage: dop = -x^3*(x+1)*(x^2+1)*Dx^2-x*(2*x^4+4*x^3+x+1)*Dx-2*x^2+2*x+1
+    sage: bdop = dop.borel_transform()
+    sage: bini = BorelIniMap(dop, bdop, CBF).run()
+    sage: bdop.numerical_transition_matrix([0,-1])*vector(bini)
+    ([1.2052482723029...], [0.9487662559867...], [+/- ...])
+
+And a value of the Borel-Laplace sum. (No reference values are given in the
+paper but at least the computed value agrees with the sum to the least term.) ::
+
+    sage: borel_laplace(dop, 1/8, RBF(0), RBF(1e-65))
+    [[0.13709092399032135599904213260371938637452001398221067...] + [+/- ...]*I]
+
 TESTS:
 
 Monomials::
@@ -135,13 +150,8 @@ Convergent series::
     sage: RealBallField(400)(1/2).exp() in mat[0,0] # long time
     True
 
-Fauvet-Thomann 2005, §4.2 (homogeneized). No reference values in the paper  but
-the computed value agrees with the sum to the least term. ::
-
-    sage: borel_laplace(
-    ....:     -x^3*(x+1)*(x^2+1)*Dx^2-x*(2*x^4+4*x^3+x+1)*Dx-2*x^2+2*x+1,
-    ....:     1/8, RBF(0), RBF(1e-65))
-    [[0.13709092399032135599904213260371938637452001398221067...] + [+/- ...]*I]
+Fauvet-Thomann 2005, §4.2 (homogeneized). Used to lead to strange jumps in
+output accuracy with an early version of the code::
 
     sage: all( # long time
     ....:     (borel_laplace(
