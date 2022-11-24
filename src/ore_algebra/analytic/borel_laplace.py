@@ -17,34 +17,41 @@ power series solution `E` with `E'(0) = 1`. The first terms are::
     sage: (-x^3*Dx^2+(-x^2-x)*Dx+1).local_basis_expansions(0)
     [x - x^2 + 2*x^3 - 6*x^4 + 24*x^5]
 
-On a suitable domain (see Loday-Richaud 2016, Example 1.1.4 for details) is
-equal to ``Ei(1,1/x)*exp(1/x)``. ::
+On a suitable domain (see Loday-Richaud 2016, Example 1.1.4 for details), the
+Borel sum is equal to ``Ei(1,1/x)*exp(1/x)``. ::
 
-    sage: def ref(x):
-    ....:     x = ComplexBallField(100)(x)
-    ....:     return (1/x).exp_integral_e(1)*(1/x).exp()
+     sage: def ref(x):
+     ....:     x = ComplexBallField(200)(x)
+     ....:     v = (1/x).exp_integral_e(1)*(1/x).exp()
+     ....:     return matrix(2, 1, [v, 1/x-v/x^2])
 
 Thus::
 
     sage: ref(1/2)
-    [0.3613286168882225846971616...]
+    [[0.36132861688822258469716165767873993895459064154730239617...]]
+    [[0.55468553244710966121135336928504024418163743381079041531...]]
     sage: borel_laplace(-x^3*Dx^2+(-x^2-x)*Dx+1, 1/2, 0, RBF(1e-20))
     [[0.361328616888222584...] + [+/- ...]*I]
+    [[0.554685532447109661...] + [+/- ...]*I]
 
     sage: ref(1/10)
-    [0.0915633339397880818...]
+    [[0.091563333939788081876069815766438449226677369109...]]
+    [  [0.8436666060211918123930184233561550773322630890...]]
     sage: borel_laplace(-x^3*Dx^2+(-x^2-x)*Dx+1, 1/10, 0, RBF(1e-50))
     [[0.091563333939788081876069815766438449226677369109...] + [+/- ...]*I]
+    [ [0.84366660602119181239301842335615507733226308908...] + [+/- ...]*I]
 
 We can change the direction of summation::
 
     sage: borel_laplace(-x^3*Dx^2+(-x^2-x)*Dx+1, 1/2, pi/4, RBF(1e-20))
     [[0.361328616888222584...] + [+/- ...]*I]
+    [[0.554685532447109661...] + [+/- ...]*I]
 
 Standard direction, but close to the border of the associated sector... ::
 
     sage: borel_laplace(-x^3*Dx^2+(-x^2-x)*Dx+1, 1/100+1/2*i, RBF(0), RBF(1e-10))
     [[0.150323330...] + [0.395016510...]*I]
+    [ [0.57740414...] + [-0.39699658...]*I]
 
 Attempting to evaluate on the border of the sector results in an error::
 
@@ -58,13 +65,12 @@ However, we can compute the analytic continuation of the sum by choosing a
 more suitable direction::
 
     sage: borel_laplace(-x^3*Dx^2+(-x^2-x)*Dx+1, 1/2*i, pi/4, RBF(1e-20))
-    [[0.144545303037332420...] + [0.399020988594183846...]*I]
+    [[0.144545303037332420...] + [0.39902098859418384...]*I]
+    [[0.578181212149329681...] + [-0.4039160456232646...]*I]
 
     sage: borel_laplace(-x^3*Dx^2+(-x^2-x)*Dx+1, 1/2*i, pi/2, RBF(1e-20))
-    [[0.144545303037332420...] + [0.399020988594183846...]*I]
-
-    sage: ref(1/2*i)
-    [0.14454530303733242045870285...] + [0.39902098859418384689266651...]*I
+    [ [0.14454530303733242...] + [0.39902098859418384...]*I]
+    [[0.578181212149329681...] + [-0.4039160456232646...]*I]
 
 The negative real axis is a singular direction::
 
@@ -77,17 +83,22 @@ Stokes phenomenon (see again Loday-Richaud 2016, Example 1.1.4 for a detailed
 description of the situation)::
 
     sage: ref(-1/2)
-    [-0.670482709790073281043223808...] + [-0.425168331587636328439122361...]*I
+    [[-0.670482709790073281043...] + [-0.425168331587636328439...]*I]
+    [   [0.6819308391602931241...] + [1.7006733263505453137564...]*I]
+
     sage: val_above = borel_laplace(-x^3*Dx^2+(-x^2-x)*Dx+1, -1/2, 3*pi/4, RBF(1e-20))
     sage: val_above
     [[-0.67048270979007328...] + [0.42516833158763632...]*I]
+    [[0.681930839160293124...] + [-1.7006733263505453...]*I]
+
     sage: val_below = borel_laplace(-x^3*Dx^2+(-x^2-x)*Dx+1, -1/2, -3*pi/4, RBF(1e-20))
     sage: val_below
     [[-0.67048270979007328...] + [-0.42516833158763632...]*I]
-    sage: val_above - val_below
-    [[+/- ...] + [0.85033666317527265...]*I]
-    sage: CBF(2*pi*i*exp(-2))
-    [0.8503366631752...]*I
+    [ [0.68193083916029312...] + [1.700673326350545313...]*I]
+
+    sage: d = ComplexBallField(150)(2*pi*i*exp(-2))
+    sage: d in (val_above[0,0] - val_below[0,0])
+    True
 
 Now consider Fauvet-Thomann 2005, §4.2 (homogeneized). We compute the connection
 constants λ₁, λ₂ found on page 339::
@@ -159,10 +170,19 @@ output accuracy with an early version of the code::
     ....:          1/8, RBF(0), RBF(10)^(-p))[0,0].rad() < 4*RR(10)^(-p))
     ....:     for p in range(10, 100, 10))
     True
+
+Derivatives::
+
+    sage: borel_laplace(-x^3*Dx^2+(-x^2-x)*Dx+1, 1/2, 0, RBF(1e-20), derivatives=4)
+    [[0.361328616888222584...] + [+/- ...]*I]
+    [[0.554685532447109661...] + [+/- ...]*I]
+    [[-0.21874212978843864...] + [+/- ...]*I]
+    [ [0.13538780922427503...] + [+/- ...]*I]
 """
 
 import logging
 
+from sage.arith.srange import srange
 from sage.matrix.constructor import identity_matrix, matrix
 from sage.matrix.special import companion_matrix
 from sage.modules.free_module_element import vector
@@ -172,6 +192,8 @@ from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 from sage.rings.real_arb import RBF, RealBall
 from sage.rings.real_mpfr import RealField
 from sage.structure.element import coercion_model
+
+from .. import OreAlgebra
 
 from . import utilities
 
@@ -412,12 +434,14 @@ class ExponentialBoundOnRay:
                                      self.expcoeff + other.expcoeff,
                                      self.base)
 
-    def integral(self):
+    def integral(self, k):
         r"""
-        Integrate this bound on the ray from ``base`` to ∞.
+        Integrate `ζ^k` times this bound on the ray from ``base`` to ∞.
         """
         if self.expcoeff < 0:
-            int_value = -1/self.expcoeff
+            b = abs(self.base)
+            lam = -self.expcoeff
+            int_value = (b*lam).exp()*RBF(k+1).gamma_inc(b*lam)/lam**(k+1)
         elif self.expcoeff > 0:
             int_value = RBF('inf')
         else:
@@ -452,7 +476,9 @@ def bound_fundamental_matrix_on_ray(dop, z0, ini):
 # Laplace transform
 ################################################################################
 
-def laplace_kernel_dop(Dop, pt, diff_order):
+# diff_order actually unused, at least for now: we can instead compute Laplace
+# transforms of (z·Dz)^k·f; then the corresponding kernel is just ζ^k·exp(-z/ζ)
+def laplace_kernel_dop(Dop, pt, diff_order=0):
     r"""
     Differential operator annihilating ``(d/dp)^diff_order exp(-z/p)``.
 
@@ -555,74 +581,104 @@ def _check_singular_direction(dop, dir):
         if s.imag().contains_zero() and s.real() > 0:
             raise ValueError("singular direction (or close)")
 
+def _z2Dz_to_taylor_coeff(rows_z2Dz, z1):
+    Pol, z = PolynomialRing(ZZ, 'z').objgen()
+    OA, z2Dz = OreAlgebra(Pol, ('z2Dz', {}, {z: z**2})).objgen()
+    derivatives = len(rows_z2Dz)
+    int_rows = []
+    Dz = z**(-2)*z2Dz
+    transform = OA.one()
+    for diff_order in srange(derivatives, universe=ZZ):
+        if diff_order > 0:
+            transform *= 1/diff_order*Dz
+        int_rows.append(sum(rat(z1)*rows_z2Dz[k]
+                        for k, rat in enumerate(transform)))
+    return int_rows
+
 # - It would be better to compute all required derivatives simultaneously, but
 #   we do not have the tooling for that at the moment.
 # - Ideally, we should work in a basis adapted to the decomposition
 #   int_dop = Dz*itd_dop
-def analytic_laplace(trd_dop, z1, theta, eps, derivative=0, *, ctx):
+def analytic_laplace(trd_dop, z1, theta, eps, derivatives=1, *, ctx):
 
     IC = ComplexBallField(utilities.prec_from_eps(eps))
-    Dz = trd_dop.parent().gen()
+    Dzeta = trd_dop.parent().gen()
+    zeta = trd_dop.base_ring().gen()
 
-    ker_dop = laplace_kernel_dop(
-        coercion_model.common_parent(trd_dop.parent(), z1),
-        z1, derivative)
-    itd_dop = trd_dop.symmetric_product(ker_dop)
-    itd_dop = DifferentialOperator(itd_dop)
-    itd_ini_map = laplace_integrand_ini_map(itd_dop, z1, IC)
-    logger.debug("Integrand: %s", LazyDiffopInfo(itd_dop, itd_ini_map))
-    int_dop = itd_dop*Dz
-    int_ini_map = IntIniMap(itd_dop, int_dop, IC).run()
-    logger.debug("Truncated Laplace transform: %s",
-                 LazyDiffopInfo(int_dop, int_ini_map))
-    ini_map = int_ini_map*itd_ini_map
+    Dop = coercion_model.common_parent(trd_dop.parent(), z1)
+    ker_dop = laplace_kernel_dop(Dop, z1)
+    itd0_dop = trd_dop.symmetric_product(ker_dop)
+    itd0_dop = DifferentialOperator(itd0_dop)
+    # initial condition vectors do not depend on diff_order
+    # (though of course they correspond to coordinates in different bases)
+    itd_ini_map = laplace_integrand_ini_map(itd0_dop, z1, IC)
 
     dir = IC(0, theta).exp()
     _dir = CBF(dir)
-    _check_singular_direction(itd_dop, _dir)
+    _check_singular_direction(itd0_dop, _dir)
     expcoeff = -(_dir/z1).real()
     if not expcoeff < 0:
         raise ValueError("evaluation point not in the half-plane bisected "
                          "by the direction (or too close to the border)")
 
-    zeta0, zeta1 = 0, dir # XXX better initial zeta1? (|ζ₁| ≈ |z₁|?)
-    int_mat = identity_matrix(IC, int_dop.order())
-    prev_tail_bound = RBF('inf')
-    while True:
-        step_mat = int_dop.numerical_transition_matrix([zeta0, zeta1], eps/16,
-                                                       ctx=ctx)
-        int_mat = step_mat*int_mat
+    int_rows_z2Dz = [] # entry k = Laplace transform of ((z²Dz)^k)(f)
+    for diff_order in range(derivatives):
 
-        # Bound on the fundamental matrix of trd_dop corresponding to unit
-        # initial values at zero, valid on the ray [ζ₁, ζ₁·∞).
-        # Computing the bound this way can lead to large overestimations at low
-        # precision, especially for large ζ₁/z₁. On simple examples at least,
-        # the overestimation seems already to be present in int_mat; the
-        # conversion does not make it much worse.
-        _zeta1 = CBF(zeta1)
-        trd_mat = trd_mat_from_int_mat(int_mat, ini_map, z1, _zeta1)
-        trd_bound = bound_fundamental_matrix_on_ray(trd_dop, _zeta1, trd_mat)
-        # Bound on the kernel, on the same ray
-        ker_bound = ExponentialBoundOnRay(RBF.one(), expcoeff, CBF.zero())
-        # Bound the tail of the Laplace transform of each individual entry of
-        # the fundamental matrix (but not on the norm of the whole matrix).
-        # [If f is one of the elements of the basis, we have no particular
-        # interest in L(f'), which anyhow is just (1/z₁)·Lf-f(0), but afaict the
-        # bound is valid for it.]
-        itg_bound = trd_bound*ker_bound
-        tail_bound = itg_bound.integral()
-        logger.info("integrand bounded by %s on [%s, %s∞)",
-                    itg_bound, _zeta1, _zeta1)
+        itd_dop = itd0_dop.symmetric_product(zeta*Dzeta - diff_order)
+        logger.debug("Integrand: %s", LazyDiffopInfo(itd_dop, itd_ini_map))
+        int_dop = itd_dop*Dzeta
+        int_ini_map = IntIniMap(itd_dop, int_dop, IC).run()
+        logger.debug("Truncated Laplace transform: %s",
+                    LazyDiffopInfo(int_dop, int_ini_map))
+        ini_map = int_ini_map*itd_ini_map
 
-        int_row = vector([val.add_error(tail_bound) for val in int_mat.row(0)])
-        if (all(val.rad() < eps.lower() for val in int_row)
-                # we expect tail_bound to decrease, val.rad() to increase
-                or any(val.rad() > tail_bound.upper() for val in int_mat.row(0))
-                # but tail_bound may also get worse
-                or not tail_bound <= prev_tail_bound):
-            return int_row*ini_map
+        zeta0, zeta1 = 0, dir # XXX better initial zeta1? (|ζ₁| ≈ |z₁|?)
+        int_mat = identity_matrix(IC, int_dop.order())
+        prev_tail_bound = RBF('inf')
+        while True:
+            step_mat = int_dop.numerical_transition_matrix([zeta0, zeta1],
+                                                           eps/16, ctx=ctx)
+            int_mat = step_mat*int_mat
 
-        zeta0, zeta1 = zeta1, 2*zeta1
+            # Bound on the fundamental matrix of trd_dop corresponding to unit
+            # initial values at zero, valid on the ray [ζ₁, ζ₁·∞).
+            # Computing the bound this way can lead to large overestimations at
+            # low precision, especially for large ζ₁/z₁. On simple examples at
+            # least, the overestimation seems already to be present in int_mat;
+            # the conversion does not make it much worse.
+            _zeta1 = CBF(zeta1)
+            trd_mat = trd_mat_from_int_mat(int_mat, ini_map, z1, _zeta1)
+            trd_bound = bound_fundamental_matrix_on_ray(trd_dop, _zeta1,
+                                                        trd_mat)
+            # Bound on the kernel, on the same ray
+            ker_bound = ExponentialBoundOnRay(RBF.one(), expcoeff, CBF.zero())
+            # Bound the tail of the Laplace transform of each individual entry
+            # of the fundamental matrix (but not on the norm of the whole
+            # matrix). [If f is one of the elements of the basis, we have no
+            # particular interest in L(f'), which anyhow is just (1/z₁)·Lf-f(0),
+            # but afaict the bound is valid for it.]
+            itg_bound = trd_bound*ker_bound
+            tail_bound = itg_bound.integral(diff_order)
+            logger.info("integrand bounded by %s on [%s, %s∞)",
+                        itg_bound, _zeta1, _zeta1)
+
+            int_row = vector([val.add_error(tail_bound)
+                              for val in int_mat.row(0)])
+            if (all(val.rad() < eps.lower() for val in int_row)
+                    # we expect tail_bound to decrease, val.rad() to increase
+                    or any(val.rad() > tail_bound.upper()
+                           for val in int_mat.row(0))
+                    # but tail_bound may also get worse
+                    or not tail_bound <= prev_tail_bound):
+                break
+
+            zeta0, zeta1 = zeta1, 2*zeta1
+
+        int_rows_z2Dz.append(int_row*ini_map)
+
+    int_rows = _z2Dz_to_taylor_coeff(int_rows_z2Dz, z1)
+    int_mat = matrix(derivatives, trd_dop.order(), int_rows)
+    return int_mat
 
 def _shift_exponents_to_right_hand_plane(dop):
     # Compute a change of unknown function that shifts all exponents to the open
@@ -640,9 +696,10 @@ def _shift_exponents_to_right_hand_plane(dop):
 
     return zshift, shifted_dop
 
-def borel_laplace(dop, pt, theta, eps, derivatives=1, *, ctx=dctx):
-    if derivatives != 1:
-        raise NotImplementedError
+def borel_laplace(dop, z1, theta, eps, derivatives=None, *, ctx=dctx):
+    if derivatives is None:
+        derivatives = dop.order()
+
     IC = ComplexBallField(utilities.prec_from_eps(eps))
 
     zshift, shifted_dop = _shift_exponents_to_right_hand_plane(dop)
@@ -654,11 +711,9 @@ def borel_laplace(dop, pt, theta, eps, derivatives=1, *, ctx=dctx):
     logger.debug("Borel transform: %s",
                  LazyDiffopInfo(borel_dop, borel_ini_map))
 
-    laplace_val = analytic_laplace(borel_dop, pt, theta, eps, ctx=ctx)
-    assert len(laplace_val) == borel_dop.order()
-    unshifted_val = pt**(-zshift)*laplace_val
-
-    unshifted_mat = matrix(1, len(unshifted_val), unshifted_val)
+    laplace_mat = analytic_laplace(borel_dop, z1, theta, eps, derivatives,
+                                   ctx=ctx)
+    unshifted_mat = z1**(-zshift)*laplace_mat
 
     result_mat = unshifted_mat*borel_ini_map
     return result_mat
