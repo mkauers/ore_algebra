@@ -14,8 +14,4 @@ papers/*/*_doctest.sage
 *.c
 *.cpp
 *.so
-__pycache__/*
-*/*/__pycache__/*
-*/*/*/__pycache__/*
-*/*/*/*/__pycache__/*
-src/ore_algebra/perso
+**/__pycache__/*
