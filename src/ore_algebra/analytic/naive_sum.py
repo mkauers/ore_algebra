@@ -13,23 +13,17 @@ Evaluation of convergent D-finite series by direct summation
 #
 # http://www.gnu.org/licenses/
 
-# TODO:
-# - support summing a given number of terms rather than until a target accuracy
-# is reached?
-# - cythonize critical parts?
-
 import collections, logging, sys, warnings
 
 from itertools import count, chain, repeat
 
 from sage.matrix.constructor import identity_matrix, matrix
 from sage.modules.free_module_element import vector
-from sage.rings.all import ZZ, QQ, RR, QQbar, infinity
+from sage.rings.all import ZZ, QQ, infinity
 from sage.rings.complex_arb import ComplexBallField, CBF, ComplexBall
 from sage.rings.integer import Integer
 from sage.rings.number_field.number_field_base import is_NumberField
 from sage.rings.polynomial import polynomial_element
-from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 from sage.rings.real_arb import RealBallField, RBF, RealBall
 from sage.rings.real_mpfr import RealField
 from sage.structure.sequence import Sequence
@@ -43,486 +37,6 @@ from .path import EvaluationPoint_base, EvaluationPoint
 from .safe_cmp import *
 
 logger = logging.getLogger(__name__)
-
-##########################
-# Argument processing etc.
-##########################
-
-def series_sum(dop, ini, evpts, tgt_error, *, maj=None, bwrec=None, stop=None,
-               fail_fast=False, effort=2, stride=None, ctx=dctx, **kwds):
-    r"""
-    Sum a (generalized) series solution of dop.
-
-    This is a somewhat more user-friendly wrapper to the series summation
-    routines, mainly for testing purposes. The analytic continuation code
-    typically calls lower level pieces directly.
-
-    Note that this functions returns a tuple of values when given multiple
-    evaluation points, but a bare value (instead of a tuple of length one) for a
-    single point, regardless how the points were specified.
-
-    EXAMPLES::
-
-        sage: from sage.rings.real_arb import RealBallField, RBF
-        sage: from sage.rings.complex_arb import ComplexBallField, CBF
-        sage: QQi.<i> = QuadraticField(-1)
-
-        sage: from ore_algebra import *
-        sage: from ore_algebra.analytic.naive_sum import series_sum
-        sage: from ore_algebra.analytic.path import EvaluationPoint
-        sage: Dops, x, Dx = DifferentialOperators()
-
-        sage: dop = ((4*x^2 + 3/58*x - 8)*Dx^10 + (2*x^2 - 2*x)*Dx^9 +
-        ....:       (x^2 - 1)*Dx^8 + (6*x^2 - 1/2*x + 4)*Dx^7 +
-        ....:       (3/2*x^2 + 2/5*x + 1)*Dx^6 + (-1/6*x^2 + x)*Dx^5 +
-        ....:       (-1/5*x^2 + 2*x - 1)*Dx^4 + (8*x^2 + x)*Dx^3 +
-        ....:       (-1/5*x^2 + 9/5*x + 5/2)*Dx^2 + (7/30*x - 12)*Dx +
-        ....:       8/7*x^2 - x - 2)
-        sage: ini = [CBF(-1/16, -2), CBF(-17/2, -1/2), CBF(-1, 1), CBF(5/2, 0),
-        ....:       CBF(1, 3/29), CBF(-1/2, -2), CBF(0, 0), CBF(80, -30),
-        ....:       CBF(1, -5), CBF(-1/2, 11)]
-
-    Funny: on the following example, both the evaluation point and most of the
-    initial values are exact, so that we end up with a significantly better
-    approximation than requested::
-
-        sage: series_sum(dop, ini, 1/2, RBF(1e-16))
-        ([-3.575140703474456...] + [-2.2884877202396862...]*I)
-
-        sage: import logging; logging.basicConfig()
-        sage: series_sum(dop, ini, 1/2, RBF(1e-30))
-        WARNING:ore_algebra.analytic.naive_sum:input intervals may be too wide
-        ...
-        ([-3.5751407034...] + [-2.2884877202...]*I)
-
-    In normal usage ``evpts`` should be an object coercible to a complex ball, a
-    tuple of such objects, or an :class:`EvaluationPoint` that wraps such a
-    tuple. In addition, there is some support for ``EvaluationPoints`` wrapping
-    identity polynomials. Other cases might work by accident. ::
-
-        sage: from ore_algebra.analytic.accuracy import AbsoluteError
-        sage: series_sum(Dx - 1, [RBF(1)],
-        ....:         EvaluationPoint(x, jet_order=2, rad=RBF(1)),
-        ....:         AbsoluteError(1e-3), stride=1)
-        (... + [0.0083...]*x^5 + [0.0416...]*x^4 + [0.1666...]*x^3
-        + 0.5000...*x^2 + x + [1.000...],
-        ... + [0.0083...]*x^5 + [0.0416...]*x^4 + [0.1666...]*x^3
-        + [0.5000...]*x^2 + x + [1.000...])
-
-    TESTS::
-
-        sage: b = series_sum((x^2 + 1)*Dx^2 + 2*x*Dx, [RBF(0), RBF(1)],
-        ....:                         7/10, RBF(1e-30))
-        sage: b.parent()
-        Vector space of dimension 1 over Real ball field with ... precision
-        sage: b[0].rad().exact_rational() < 10^(-30)
-        True
-        sage: b[0].overlaps(RealBallField(130)(7/10).arctan())
-        True
-
-        sage: b = series_sum((x^2 + 1)*Dx^2 + 2*x*Dx, [CBF(0), CBF(1)],
-        ....:                         (i+1)/2, RBF(1e-30))
-        sage: b.parent()
-        Vector space of dimension 1 over Complex ball field with ... precision
-        sage: b[0].overlaps(ComplexBallField(130)((1+i)/2).arctan())
-        True
-
-        sage: series_sum(x*Dx^2 + Dx + x, [0], 1/2, 1e-10)
-        Traceback (most recent call last):
-        ...
-        ValueError: invalid initial data for x*Dx^2 + Dx + x at 0
-
-        sage: iv = RBF(RIF(-10^(-6), 10^(-6)))
-        sage: series_sum(((6+x)^2 + 1)*Dx^2+2*(6+x)*Dx, [iv, iv], 4, RBF(1e-10))
-        WARNING:...
-        ([+/- ...])
-
-        sage: series_sum(Dx-1, [0], 2, 1e-50, stride=1)
-        (0)
-
-        sage: series_sum(Dx-1, [1], [1, CBF(i*pi)], 1e-15)
-        (([2.7182818284590...] + [+/- ...]*I),
-         ([-1.000000000000...] + [+/- ...]*I))
-
-    Test that automatic precision increases do something reasonable::
-
-        sage: logger = logging.getLogger('ore_algebra.analytic.naive_sum')
-        sage: logger.setLevel(logging.INFO)
-
-        sage: series_sum((x^2 + 1)*Dx^2 + 2*x*Dx, [0, 1/3], 5/7, 1e-16, effort=100)
-        INFO:...
-        ([0.20674982866094049...])
-
-        sage: series_sum((x^2 + 1)*Dx^2 + 2*x*Dx, [0, RBF(1/3)], 5/7, 1e-16, effort=100)
-        WARNING:ore_algebra.analytic.naive_sum:input intervals may be too wide compared to requested accuracy
-        ...
-        ([0.206749828660940...])
-
-        sage: series_sum((x^2 + 1)*Dx^2 + 2*x*Dx, [0, RBF(1/3)], RBF(5/7), 1e-12, effort=100)
-        INFO:...
-        ([0.2067498286609...])
-
-        sage: series_sum((x^2 + 1)*Dx^2 + 2*x*Dx, [0, RBF(1/3)], RBF(5/7), 1e-20, effort=100)
-        WARNING:ore_algebra.analytic.naive_sum:input intervals may be too wide compared to requested accuracy
-        ...
-        INFO:ore_algebra.analytic.naive_sum:lost too much precision, giving up
-        ([0.20674982866094...])
-
-        sage: xx = EvaluationPoint(x, jet_order=2, rad=RBF(1/4))
-        sage: series_sum((x^2 + 1)*Dx^2 + 2*x*Dx, [0, 1/3], xx, 1e-30)[0](1/6)
-        INFO:...
-        [0.05504955913820894609304276321...]
-
-        sage: series_sum((x^2 + 1)*Dx^2 + 2*x*Dx, [0, RBF(1/3)], xx, 1e-16)[0](1/6)
-        WARNING:ore_algebra.analytic.naive_sum:input intervals may be too wide compared to requested accuracy
-        ...
-        [0.055049559138208...]
-
-        sage: series_sum((x^2 + 1)*Dx^2 + 2*x*Dx, [0, RBF(1/3)], xx, 1e-30)[0](1/6)
-        WARNING:ore_algebra.analytic.naive_sum:input intervals may be too wide compared to requested accuracy
-        ...
-        INFO:ore_algebra.analytic.naive_sum:lost too much precision, giving up
-        [0.055049559138208...]
-
-        sage: logger.setLevel(logging.WARNING)
-    """
-
-    dop = DifferentialOperator(dop)
-    if not isinstance(ini, LogSeriesInitialValues):
-        ini = LogSeriesInitialValues(ZZ.zero(), ini, dop)
-    if not isinstance(evpts, EvaluationPoint_base):
-        if isinstance(evpts, (list, tuple)):
-            evpts = tuple(Sequence(evpts))
-        evpts = EvaluationPoint(evpts)
-    if isinstance(tgt_error, accuracy.RelativeError) and evpts.jet_order > 1:
-        raise TypeError("relative error not supported when computing derivatives")
-    if not isinstance(tgt_error, accuracy.AccuracyTest):
-        tgt_error = accuracy.AbsoluteError(tgt_error)
-        input_accuracy = min(evpts.accuracy, ini.accuracy())
-        if input_accuracy < -tgt_error.eps.upper().log2().floor():
-            logger.warning("input intervals may be too wide "
-                           "compared to requested accuracy")
-
-    ctx = Context(**kwds)
-
-    if maj is None:
-        special_shifts = [(s, len(v)) for s, v in ini.shift.items()]
-        maj = bounds.DiffOpBound(dop, ini.expo, special_shifts, ctx=ctx)
-    if bwrec is None:
-        bwrec = bw_shift_rec(dop)
-    if stop is None:
-        stop = accuracy.StoppingCriterion(maj, tgt_error.eps)
-
-    [(_, psums)] = interval_series_sum_wrapper(dop, [ini], evpts, tgt_error,
-                                    bwrec, stop, fail_fast, effort, stride, ctx)
-    for psum in psums:
-        psum.update_downshifts((0,))
-    values = tuple(psum.downshifts[0] for psum in psums)
-    if len(evpts) == 1:
-        return values[0]
-    else:
-        return values
-
-def guard_bits(dop, maj, evpts, ordrec, nterms):
-    r"""
-    Helper for choosing a working precision.
-
-    This is done under the assumption that the first terms of the coefficient
-    sequence are computed in interval arithmetic, and then, starting from some
-    cutoff index, we switch to something like floating-point arithmetic with an
-    rounding error bound computed on the side. This function returns a suggested
-    cutoff index and a corresponding number of guard bits to add to the
-    precision of the output.
-
-    The computation done by this function is heuristic, but the output does not
-    affect the correctness of the final result (only its sharpness and/or the
-    computation time).
-
-    The algorithm is based on what we can expect to happen at an ordinary point
-    and may or may not work in the regular singular case.
-    """
-
-    new_cost = cur_cost = sys.maxsize
-    new_bits = cur_bits = None
-    new_n0 = cur_n0 = orddeq = dop.order()
-    refine = False
-
-    cst = abs(maj.IC(maj.dop.leading_coefficient()[0])) # ???
-
-    while True:
-
-        # Roughly speaking, the computation of a new coefficient of the series
-        # *multiplies* the diameter by the order of the recurrence (minus two).
-        # Thus, it is not unreasonable that the loss of precision is of the
-        # order of log2(ordrec^nterms). This observation is far from explaining
-        # everything, though; in particular, it completely ignores the size of
-        # the coefficients. Anyhow, this formula seems to work reasonaly well in
-        # practice. It is perhaps a bit pessimistic for simple equations.
-        guard_bits_intervals = new_n0*max(1, ZZ(ordrec - 2).nbits())
-
-        # est_rnd_err = rough estimate of global round-off error
-        # ≈ (local error for a single term) × (propagation factor)
-        # ≈ (ordrec × working prec epsilon) × (value of majorant series)
-        rnd_maj = maj(new_n0)
-        rnd_maj >>= new_n0
-        est_lg_rnd_fac = (cst*rnd_maj.bound(evpts.rad, rows=orddeq)).log(2)
-        est_lg_rnd_err = 2*maj.IR(ordrec + 1).log(2)
-        if not est_lg_rnd_fac < maj.IR.zero():
-            est_lg_rnd_err += est_lg_rnd_fac
-        if est_lg_rnd_fac.is_finite():
-            guard_bits_squashed = int(est_lg_rnd_err.ceil().upper()) + 2
-        else:
-            guard_bits_squashed = sys.maxsize
-
-        # We expect the effective working precision to decrease linearly in the
-        # first phase due to interval blow-up, and then stabilize around (target
-        # prec + guard_bits_squashed).
-        new_cost = (new_n0//2)*guard_bits_intervals + nterms*guard_bits_squashed
-        new_bits = guard_bits_intervals + guard_bits_squashed
-
-        logger.debug(
-                "n0 = %s, terms = %s, guard bits = %s+%s = %s, cost = %s",
-                new_n0, nterms, guard_bits_intervals, guard_bits_squashed,
-                new_bits, new_cost)
-
-        if cur_cost <= new_cost < sys.maxsize:
-            return cur_n0, cur_bits
-
-        if (refine and maj.can_refine() and
-             guard_bits_squashed > guard_bits_intervals + 50):
-            maj.refine()
-        else:
-            new_n0, cur_n0 = new_n0*2, new_n0
-            cur_cost = new_cost
-            cur_bits = new_bits
-        refine = not refine
-
-        if new_n0 > nterms:
-            return nterms, guard_bits_intervals
-
-def _use_inexact_recurrence(bwrec, leftmost, prec):
-    Scalars = bwrec.Scalars
-    if not is_NumberField(Scalars):
-        return False
-    if ((Scalars is QQ or utilities.is_QQi(Scalars))
-            and leftmost.is_rational()
-            and bwrec[-1][0][0].numerator().nbits() < 10*prec):
-        return False
-    if prec <= 4000:
-        return True
-    h = max(a.numerator().nbits() for p in bwrec.coeff[::3]
-                                  for i in range(0, p.degree(), 10)
-                                  for a in p[i])
-    deg = Scalars.degree()*leftmost.pol.degree()
-    prefer_inexact = ( 4*(h + 16)*deg**2 + 4000 >= prec )
-    logger.debug("using %sexact version of recurrence with algebraic coeffs "
-            "of degree %s", "in" if prefer_inexact else "", Scalars.degree())
-    return prefer_inexact
-
-def interval_series_sum_wrapper(dop, inis, evpts, tgt_error, bwrec, stop,
-                                fail_fast, effort, stride, ctx=dctx):
-
-    real = evpts.is_real_or_symbolic and all(ini.is_real(dop) for ini in inis)
-    if evpts.is_numeric and cy_classes()[0] is not CoefficientSequence:
-        ivs = ComplexBallField
-    elif real:
-        ivs = RealBallField
-    else:
-        ivs = ComplexBallField
-    input_accuracy = max(0, min(chain((evpts.accuracy,),
-                                      (ini.accuracy() for ini in inis))))
-    logger.log(logging.INFO - 1, "target error = %s", tgt_error)
-    if stride is None:
-        stride = min(max(50, 2*bwrec.order), max(2, input_accuracy))
-
-    ordinary = dop.leading_coefficient()[0] != 0
-    bit_prec0 = utilities.prec_from_eps(tgt_error.eps)
-    old_bit_prec = 8 + bit_prec0*(1 + ZZ(bwrec.order - 2).nbits())
-    if ctx.squash_intervals and ordinary:
-        nterms, lg_mag = dop.est_terms(evpts, bit_prec0)
-        nterms = (bwrec.order*dop.order() + nterms)*1.2 # let's be pragmatic
-        nterms = ZZ((nterms//stride + 1)*stride)
-        bit_prec0 += ZZ(dop._naive_height()).nbits() + lg_mag + nterms.nbits()
-        n0_squash, g = guard_bits(dop, stop.maj, evpts, bwrec.order, nterms)
-        # adding twice the computed number of guard bits seems to work better
-        # in practice, but I don't really understand why
-        bit_prec = bit_prec0 + 2*g
-        logger.info("initial working precision = %s + %s = %s (naive = %s), "
-                    "squashing intervals for n >= %s",
-                    bit_prec0, 2*g, bit_prec, old_bit_prec, n0_squash)
-        if fail_fast and bit_prec > 4*bit_prec0 and effort <= 1:
-            raise accuracy.PrecisionError
-    else:
-        bit_prec = old_bit_prec
-        n0_squash = sys.maxsize
-        logger.info("initial working precision = %s bits", bit_prec)
-    max_prec = bit_prec + 2*input_accuracy
-
-    for attempt in count(1):
-        Intervals = ivs(bit_prec)
-        ini_are_accurate = 2*input_accuracy > bit_prec
-        # Strictly decrease eps every time to avoid situations where doit
-        # would be happy with the result and stop at the same point despite
-        # the higher bit_prec. Since attempt starts at 1, we have a bit of
-        # room for round-off errors.
-        stop.reset(tgt_error.eps >> (4*attempt),
-                   stop.fast_fail and ini_are_accurate)
-
-        leftmost = inis[0].expo # XXX fragile
-        if _use_inexact_recurrence(bwrec, leftmost, bit_prec):
-            shifted_bwrec = bwrec.shift(leftmost.as_ball(Intervals))
-        else:
-            shifted_bwrec = bwrec.shift_by_PolynomialRoot(leftmost)
-
-        try:
-            sols = series_sum_regular(Intervals, dop, shifted_bwrec, inis,
-                                      evpts, stop, stride, n0_squash, real, ctx)
-        except accuracy.PrecisionError:
-            if attempt > effort:
-                raise
-        else:
-            logger.debug("bit_prec = %s, err = %s (tgt = %s)", bit_prec,
-                         max(psum.total_error for _, psums in sols
-                                              for psum in psums),
-                         tgt_error)
-            if all(tgt_error.reached(
-                            psum.total_error,
-                            abs(psum.value[0]) if evpts.is_numeric else None)
-                    for _, psums in sols for psum in psums):
-                return sols
-
-        # if interval squashing didn't give accurate result, switch back to the
-        # classical method
-        n0_squash = sys.maxsize
-
-        bit_prec *= 2
-        if attempt <= effort and bit_prec < max_prec:
-            logger.info("lost too much precision, restarting with %d bits",
-                        bit_prec)
-            continue
-        if fail_fast:
-            raise accuracy.PrecisionError
-        else:
-            logger.info("lost too much precision, giving up")
-            return sols
-
-################################################################################
-# Transition matrices
-################################################################################
-
-class HighestSolMapper(LocalBasisMapper):
-
-    def __init__(self, dop, evpts, eps, fail_fast, effort, ctx):
-        super(self.__class__, self).__init__(dop, ctx)
-        self.evpts = evpts
-        self.eps = eps
-        self.fail_fast = fail_fast
-        self.effort = effort
-        self.ordinary = (dop.leading_coefficient()[0] != 0)
-        self._sols = None
-        self.highest_sols = None
-
-    def process_modZ_class(self):
-        logger.info(r"solutions z^(%s+n)·log(z)^k/k! + ···, n = %s",
-                    self.leftmost, ", ".join(str(s) for s, _ in self.shifts))
-        maj = bounds.DiffOpBound(self.dop, self.leftmost,
-                        special_shifts=(None if self.ordinary else self.shifts),
-                        bound_inverse="solve",
-                        pol_part_len=(4 if self.ordinary else None),
-                        ind_roots=self.all_roots,
-                        ctx=self.ctx)
-        stop = accuracy.StoppingCriterion(maj, self.eps.eps)
-        # Compute the "highest" (in terms powers of log) solution of each
-        # valuation
-        inis = [LogSeriesInitialValues(
-                    expo=self.leftmost,
-                    mults=self.shifts,
-                    values={(s, m-1): ZZ.one()})
-                for s, m in self.shifts]
-        highest_sols = interval_series_sum_wrapper(self.dop, inis, self.evpts,
-                self.eps, self.bwrec, stop, self.fail_fast, self.effort,
-                None, self.ctx)
-        self.highest_sols = {}
-        for (s, m), sol in zip(self.shifts, highest_sols):
-            _, psums = sol
-            for psum in psums:
-                psum.update_downshifts(range(m))
-            self.highest_sols[s] = sol
-        self._sols = {}
-        super(self.__class__, self).process_modZ_class()
-
-    def fun(self, ini):
-        # Non-highest solutions of a given valuation can be deduced from the
-        # highest one up to correcting factors that only involve solutions
-        # further to the right. We are relying on the iteration order, which
-        # ensures that all other solutions involved already have been
-        # computed.
-        highest = self.highest_sols[self.shift]
-        delta = self.mult - 1 - self.log_power
-        value = [psum.downshifts[delta] for psum in highest.psums]
-        for s, m in self.shifts:
-            if s > self.shift:
-                for k in range(max(m - delta, 0), m):
-                    cc = highest.cseq.critical_coeffs[s][k+delta]
-                    for i in range(len(value)):
-                        value[i] -= cc*self._sols[s,k][i]
-        self._sols[self.shift, self.log_power] = value
-        return [vector(v) for v in value]
-
-def fundamental_matrix_regular(dop, evpts, eps, fail_fast, effort, ctx=dctx):
-    r"""
-    Fundamental matrix at a possibly regular singular point
-
-    TESTS::
-
-        sage: from ore_algebra import *
-        sage: from ore_algebra.analytic.naive_sum import *
-        sage: from ore_algebra.analytic.differential_operator import DifferentialOperator
-        sage: from ore_algebra.analytic.path import EvaluationPoint as EP
-        sage: Dops, x, Dx = DifferentialOperators()
-
-        sage: fundamental_matrix_regular(
-        ....:         DifferentialOperator(x*Dx^2 + (1-x)*Dx),
-        ....:         EP(1, 2), RBF(1e-10), False, 2)
-        [
-        [[1.317902...] [1.000000...]]
-        [[2.718281...]     [+/- ...]]
-        ]
-
-        sage: dop = DifferentialOperator(
-        ....:         (x+1)*(x^2+1)*Dx^3-(x-1)*(x^2-3)*Dx^2-2*(x^2+2*x-1)*Dx)
-        sage: fundamental_matrix_regular(dop, EP(1/3, 3), RBF(1e-10), False, 2)
-        [
-        [ [1.000000...]  [0.321750554...]  [0.147723741...]]
-        [     [+/- ...]  [0.900000000...]  [0.991224850...]]
-        [     [+/- ...]  [-0.27000000...]  [1.935612425...]]
-        ]
-
-        sage: dop = DifferentialOperator(
-        ....:     (2*x^6 - x^5 - 3*x^4 - x^3 + x^2)*Dx^4
-        ....:     + (-2*x^6 + 5*x^5 - 11*x^3 - 6*x^2 + 6*x)*Dx^3
-        ....:     + (2*x^6 - 3*x^5 - 6*x^4 + 7*x^3 + 8*x^2 - 6*x + 6)*Dx^2
-        ....:     + (-2*x^6 + 3*x^5 + 5*x^4 - 2*x^3 - 9*x^2 + 9*x)*Dx)
-        sage: fundamental_matrix_regular(dop, EP(RBF(1/3), 4), RBF(1e-10), False, 2)
-        [
-        [ [3.1788470...] [-1.064032...]  [1.000...] [0.3287250...]]
-        [ [-8.981931...] [3.2281834...]    [+/-...] [0.9586537...]]
-        [  [26.18828...] [-4.063756...]    [+/-...] [-0.123080...]]
-        [ [-80.24671...]  [9.190740...]    [+/-...] [-0.119259...]]
-        ]
-
-        sage: dop = x*Dx^3 + 2*Dx^2 + x*Dx
-        sage: ini = [1, CBF(euler_gamma), 0]
-        sage: dop.numerical_solution(ini, [0, RBF(1/3)], 1e-14)
-        [-0.549046117782...]
-    """
-    eps_col = ctx.IR(eps)/ctx.IR(dop.order()).sqrt()
-    eps_col = accuracy.AbsoluteError(eps_col)
-    unr = HighestSolMapper(dop, evpts, eps_col, fail_fast, effort, ctx)
-    cols = unr.run()
-    mats = [matrix([sol.value[i] for sol in cols]).transpose()
-            for i in range(len(evpts))]
-    return mats
 
 ################################################################################
 # Series summation
@@ -717,16 +231,9 @@ class PartialSum(object):
                                 self.pt, self.ord, *self.pt_opts)
         return v
 
-    def interval_width(self):
-        try:
-            return max(c.rad() for c in self.value)
-        except RuntimeError:
-            return RealField(30)('inf')
-
 MPartialSums = collections.namedtuple("MPartialSums", ["cseq", "psums"])
 
-def series_sum_regular(Intervals, dop, bwrec, inis, evpts, stop, stride,
-                       n0_squash, real, ctx):
+class RecUnroller:
     r"""
     Compute partial sums of one or several logarithmic series solution of an
     operator that may have a regular singular point at the origin.
@@ -750,6 +257,7 @@ def series_sum_regular(Intervals, dop, bwrec, inis, evpts, stop, stride,
 
         sage: #dop = (Dx-1).lclm(x*Dx-1000)
         sage: dop = (x^2-1000*x)*Dx^2 + (-x^2+999000)*Dx + 1000*x - 999000
+        sage: import logging; logging.basicConfig()
         sage: logger = logging.getLogger('ore_algebra.analytic.naive_sum')
         sage: logger.setLevel(logging.INFO) # TBI
         sage: series_sum(dop, {0:(1,), 1000:(0,)}, 1/10000000, 1e-16)
@@ -770,154 +278,901 @@ def series_sum_regular(Intervals, dop, bwrec, inis, evpts, stop, stride,
         ([0.2238907...])
     """
 
-    IR = ctx.IR
+    def __init__(self, dop, inis, evpts, bwrec, *, ctx=dctx):
 
-    if not inis:
-        return []
-    assert inis[0].compatible(inis)
-    mult_dict = inis[0].mult_dict()
+        dop = DifferentialOperator(dop)
+        self.dop = dop
 
-    ordinary = (dop.leading_coefficient()[0] != 0)
+        # if not isinstance(inis, (list, tuple)):
+        #     inis = [inis]
+        # inis = [ini if isinstance(ini, LogSeriesInitialValues)
+        #         else LogSeriesInitialValues(ZZ.zero(), ini, self.dop)
+        #         for ini in inis]
+        if inis:
+            assert inis[0].compatible(inis)
+        self.inis = inis
 
-    ord = evpts.jet_order
-    Jets, jets = evpts.jets(Intervals)
-    jetpows = [Jets.one()]*len(jets)
+        if not isinstance(evpts, EvaluationPoint_base):
+            if isinstance(evpts, (list, tuple)):
+                evpts = tuple(Sequence(evpts))
+            evpts = EvaluationPoint(evpts)
+        self.evpts = evpts
 
-    radpow = IR.one()
-    tail_bound = IR(infinity)
+        if bwrec is None:
+            bwrec = bw_shift_rec(dop)
+        self.orig_bwrec = bwrec
 
-    if n0_squash < sys.maxsize:
-        assert ordinary
-        rnd_maj = stop.maj(n0_squash)
-        rnd_maj >>= n0_squash # XXX (a) useful? (b) check correctness
-        rnd_den = rnd_maj.exp_part_coeffs_lbounds()
-        rnd_loc = IR.zero()
+        self.ctx = ctx
 
-    last_index_with_ini = max(chain(iter([dop.order()]),
-                                    (ini.last_index() for ini in inis)))
+        self._init_final()
 
-    if evpts.is_numeric:
-        CS, PS = cy_classes()
-    else:
-        CS, PS = CoefficientSequence, PartialSum
+        # Dynamic data
 
-    sols = []
-    for ini in inis:
-        cseq = CS(Intervals, ini, bwrec.order, real)
-        # FIXME the branch should be computed separately for each component of
-        # the evaluation point, taking into account the orientation of the step
-        psums = [PS(cseq, Jets, ord, evpts.approx(Intervals, i),
-                    (evpts.is_numeric,), IR)
-                 for i in range(len(evpts))]
-        sols.append(MPartialSums(cseq, psums))
+        self.Intervals = None
+        self.bwrec_nplus = None
+        self.est = None
+        self.jetpows = None
+        self.jets = None
+        self.n = None
+        self._last_enclosure_update = -1
+        self.mult = None
+        self.log_prec = None
+        self.radpow = None
+        self.rec_add_log_prec = None
+        self.shifted_bwrec = None
+        self.sols = None
+        self.tail_bound = None              # bound on the series parts
+        self.current_error = None           # ~radius of output if we stop now
 
-    class BoundCallbacks(accuracy.BoundCallbacks):
-        def get_residuals(self):
-            # Since this is called _before_ computing the new term, the relevant
-            # coefficients are given by last[:-1], not last[1:]
-            assert all(cseq.nterms == n for cseq, _ in sols)
-            return [stop.maj.normalized_residual(n, list(cseq.last)[:-1],
-                                                 bwrec_nplus)
-                    for cseq, _ in sols]
-        def get_bound(self, residuals):
-            # XXX consider maintaining separate tail bounds, and stopping the
-            # summation of some series before the others
-            maj = self.get_maj(stop, n, residuals)
-            tb = maj.bound(evpts.rad, rows=ord)
-            worst = IR.zero()
-            for _, psums in sols:
-                for psum in psums:
-                    psum.update_enclosure(tb)
-                    worst = worst.max(psum.total_error)
-            return worst
-        def get_value(self):
-            assert len(sols) == 1
-            return sols[0][1][0].bare_value()
-    cb = BoundCallbacks()
+        # Experimental rounding error analysis stuff
+        self.n0_squash = sys.maxsize
+        self.rnd_den = None
+        self.rnd_err = None
+        self.rnd_loc = None
+        self.rnd_maj = None
 
-    log_prec = 1
-    precomp_len = max(1, bwrec.order) # hack for recurrences of order zero
-    start = int(dop.order()) if ordinary else 0
-    assert start <= n0_squash # the special path doesn't squash its result
-    # The next terms of the sum may need a higher log-prec than the current one.
-    rec_add_log_prec = sum(len(v) for s, v in inis[0].shift.items()
-                                   if start <= s < start + precomp_len)
-    assert rec_add_log_prec == 0 or not ordinary
-    bwrec_nplus = collections.deque(
-            (bwrec.eval_series(Intervals, start + i,
-                               log_prec + rec_add_log_prec)
-                for i in range(precomp_len)),
-            maxlen=precomp_len)
+    def _init_final(self):
+        r"""
+        Initialize computed parameters that need no update.
+        """
+        self._IR = self.ctx.IR
+        self.mult_dict = self.inis[0].mult_dict() if self.inis else None
+        self.real = (self.evpts.is_real_or_symbolic
+                     and all(ini.is_real(self.dop) for ini in self.inis))
+        self.ordinary = (self.dop.leading_coefficient()[0] != 0)
+        self.last_index_with_ini = max(
+            chain(iter([self.dop.order()]),
+                  (ini.last_index() for ini in self.inis)))
+        # hack for recurrences of order zero
+        self.precomp_len = max(1, self.orig_bwrec.order)
+        self.start = int(self.dop.order()) if self.ordinary else 0
 
-    for n in count():
+    def _intervals(self, bit_prec):
+        if self.evpts.is_numeric and cy_classes()[0] is not CoefficientSequence:
+            return ComplexBallField(bit_prec)
+        elif self.real:
+            return RealBallField(bit_prec)
+        else:
+            return ComplexBallField(bit_prec)
 
-        if n%stride == 0 and n > 0:
-            assert log_prec == 1 or not ordinary
-            est = sum(cseq.coeff_estimate() for cseq, _ in sols)
-            est *= Intervals(radpow).squash()
-            sing = (n <= last_index_with_ini) or (mult > 0) # ?
-            done, tail_bound = stop.check(cb, sing, n, tail_bound, est, stride)
-            if done:
-                break
+    # Main summation loop
 
-        if n < start:
-            assert ordinary
-            for (cseq, psums) in sols:
-                cseq.next_term_ordinary_initial_part(n)
-                for (jetpow, psum) in zip(jetpows, psums):
+    def sum(self, bit_prec, stride):
+        if not self.inis:
+            return # []
+        self._init_sums(bit_prec)
+        self._init_error_analysis()
+        for self.n in count():
+            self.mult = (self.mult_dict[self.n]
+                         if self.n in self.mult_dict else 0)
+            if self.n % stride == 0:
+                if self._check_convergence(stride):
+                    break
+            self._next_term()
+        rnd_err = self._error_analysis()
+        self._report_stats(rnd_err)
+        return # self.sols
+
+    def _init_sums(self, bit_prec):
+
+        self.Intervals = self._intervals(bit_prec)
+
+        # XXX make it possible to force the use of a given rec?
+        leftmost = self.inis[0].expo # XXX fragile
+        if _use_inexact_recurrence(self.orig_bwrec, leftmost, bit_prec):
+            self.shifted_bwrec = self.orig_bwrec.shift(
+                                               leftmost.as_ball(self.Intervals))
+        else:
+            self.shifted_bwrec = self.orig_bwrec.shift_by_PolynomialRoot(
+                                                                       leftmost)
+
+
+        Jets, self.jets = self.evpts.jets(self.Intervals)
+        self.jetpows = [Jets.one()]*len(self.jets)
+
+        self.radpow = self._IR.one()
+        self.tail_bound = self.current_error = self._IR(infinity)
+
+        if self.evpts.is_numeric:
+            CS, PS = cy_classes()
+        else:
+            CS, PS = CoefficientSequence, PartialSum
+
+        self.sols = []
+        for ini in self.inis:
+            cseq = CS(self.Intervals, ini, self.shifted_bwrec.order, self.real)
+            # FIXME the branch should be computed separately for each component
+            # of the evaluation point, taking into account the orientation of
+            # the step
+            psums = [PS(cseq, Jets, self.evpts.jet_order,
+                        self.evpts.approx(self.Intervals, i),
+                        (self.evpts.is_numeric,), self._IR)
+                    for i in range(len(self.evpts))]
+            self.sols.append(MPartialSums(cseq, psums))
+
+        self.log_prec = 1
+        # The next terms of the sum may need a higher log-prec than the current
+        # one.
+        self.rec_add_log_prec = sum(
+            len(v) for s, v in self.inis[0].shift.items()
+                   if self.start <= s < self.start + self.precomp_len)
+        assert self.rec_add_log_prec == 0 or not self.ordinary
+        self.bwrec_nplus = collections.deque(
+                (self.shifted_bwrec.eval_series(self.Intervals, self.start + i,
+                                self.log_prec + self.rec_add_log_prec)
+                    for i in range(self.precomp_len)),
+                maxlen=self.precomp_len)
+
+    def _next_term(self):
+
+        if self.n < self.start:
+            assert self.ordinary
+            for (cseq, psums) in self.sols:
+                cseq.next_term_ordinary_initial_part(self.n)
+                for (jetpow, psum) in zip(self.jetpows, psums):
                     psum.next_term_ordinary_initial_part(jetpow)
-
         else:
             # seems faster than relying on __missing__()
-            mult = mult_dict[n] if n in mult_dict else 0
-            cst = - ~bwrec_nplus[0][0][mult]
-            squash = (n >= n0_squash)
+            cst = - ~self.bwrec_nplus[0][0][self.mult]
+            squash = (self.n >= self.n0_squash)
             if squash:
-                rnd_shift, hom_maj_coeff_lb = next(rnd_den)
-                assert n0_squash + rnd_shift == n
-            for (cseq, psums) in sols:
-                err = cseq.next_term(n, mult, bwrec_nplus[0], cst, squash)
+                rnd_shift, hom_maj_coeff_lb = next(self.rnd_den)
+                assert self.n0_squash + rnd_shift == self.n
+            for (cseq, psums) in self.sols:
+                err = cseq.next_term(self.n, self.mult, self.bwrec_nplus[0],
+                                     cst, squash)
                 if squash:
                     # XXX lookup of IR and/or conversion is slow
-                    rnd_loc = rnd_loc.max(IR(n*err)/hom_maj_coeff_lb)
-                    if not rnd_loc.is_finite(): # normalize NaNs and infinities
-                        rnd_loc = rnd_loc.parent()('inf')
-                for (jetpow, psum) in zip(jetpows, psums):
-                    psum.next_term(jetpow, mult)
-            if mult > 0:
-                log_prec = max(1, max(cseq.log_prec for cseq, _ in sols))
+                    self.rnd_loc = self.rnd_loc.max(self._IR(self.n*err)
+                                                    /hom_maj_coeff_lb)
+                    # normalize NaNs and infinities
+                    if not self.rnd_loc.is_finite():
+                        self.rnd_loc = self.rnd_loc.parent()('inf')
+                for (jetpow, psum) in zip(self.jetpows, psums):
+                    psum.next_term(jetpow, self.mult)
+            if self.mult > 0:
+                self.log_prec = max(1, max(cseq.log_prec
+                                           for cseq, _ in self.sols))
 
-            rec_add_log_prec += mult_dict[n + precomp_len] - mult
-            bwrec_nplus.append(bwrec.eval_series(Intervals, n + precomp_len,
-                                                 log_prec + rec_add_log_prec))
+            self.rec_add_log_prec += self.mult_dict[self.n + self.precomp_len]
+            self.rec_add_log_prec -= self.mult
+            self.bwrec_nplus.append(
+                self.shifted_bwrec.eval_series(
+                    self.Intervals,
+                    self.n + self.precomp_len,
+                    self.log_prec + self.rec_add_log_prec))
 
-        for i in range(len(jetpows)):
-            jetpows[i] = jetpows[i]._mul_trunc_(jets[i], ord)
-        radpow *= evpts.rad
+        for i in range(len(self.jetpows)):
+            self.jetpows[i] = self.jetpows[i]._mul_trunc_(self.jets[i],
+                                                          self.evpts.jet_order)
+        self.radpow *= self.evpts.rad
 
-    # Accumulated round-off errors
-    # XXX: maybe move this to PartialSum, and/or do it at every convergence
-    # check
-    if n0_squash < sys.maxsize:
-        # |ind(n)| = cst·|monic_ind(n)|
-        cst = abs(ctx.IC(stop.maj.dop.leading_coefficient()[0]))
-        rnd_fac = cst*rnd_maj.bound(evpts.rad, rows=ord)/n0_squash
-        rnd_err = rnd_loc*rnd_fac
-        for _, psums in sols:
+    def _check_convergence(self, stride):
+        raise NotImplementedError
+
+    def _report_stats(self, rnd_err):
+        width = None
+        if self.evpts.is_numeric:
+            width = max(psum.total_error
+                        for _, psums in self.sols
+                        for psum in psums)
+        logger.info("summed %d terms, tails = %s (est = %s), rnd_err <= %s, "
+                    "interval width <= %s",
+                    self.n, self.tail_bound, self._IR(self.est), rnd_err, width)
+
+    # Data extraction
+
+    def update_enclosures(self, err):
+        r"""
+        Update the “full” (= including singular factors and the error bound on
+        the series part passed on input) solutions as well as a bound on the
+        current maximum error on the “full” solution.
+        """
+        self.current_error = self._IR.zero()
+        for _, psums in self.sols:
             for psum in psums:
-                psum.update_enclosure(tail_bound + rnd_err)
+                psum.update_enclosure(err)
+                self.current_error = self.current_error.max(psum.total_error)
+        self._last_enclosure_update = self.n
+
+    def values_single_seq(self):
+        assert len(self.inis) == 1
+        assert self._last_enclosure_update == self.n
+        [(_, psums)] = self.sols
+        for psum in psums:
+            psum.update_downshifts((0,))
+        values = tuple(psum.downshifts[0] for psum in psums)
+        return values
+
+    def value(self):
+        assert len(self.evpts) == 1
+        assert self._last_enclosure_update == self.n
+        return self.values_single_seq()[0]
+
+    # Experimental rounding error analysis stuff
+    # (Requires self.rnd_maj to be set. Only RecUnroller_tail_bound does set it at the
+    # moment, but in principle, it could be decoupled from tail bounds.)
+
+    def _init_error_analysis(self):
+        if self.n0_squash == sys.maxsize:
+            return
+        assert self.ordinary
+        # the special path does not squash its result
+        assert self.start <= self.n0_squash
+        self.rnd_den = self.rnd_maj.exp_part_coeffs_lbounds()
+        self.rnd_loc = self._IR.zero()
+
+    def _error_analysis(self):
+        if self.n0_squash == sys.maxsize:
+            return self._IR.zero()
+        rnd_fac = self.rnd_maj.bound(self.evpts.rad, rows=self.evpts.jet_order)
+        rnd_fac /= self.n0_squash
+        rnd_err = self.rnd_loc*rnd_fac
+        self.update_enclosures(self.tail_bound + rnd_err)
+        return rnd_err
+
+class RecUnroller_partial_sum(RecUnroller):
+    r"""
+    Compute a partial sum of a series by naive unrolling of a recurrence.
+
+    Halt after a given number of terms.
+    """
+
+    def __init__(self, dop, inis, evpts, bwrec, terms, *, ctx=dctx):
+        super().__init__(dop, inis, evpts, bwrec, ctx=ctx)
+        self.__terms = terms
+
+    def _check_convergence(self, stride):
+        if self.n >= self.__terms :
+            assert self.n == self.__terms or self.__terms < 0, "overshot"
+            return True
+        return False
+
+class RecUnroller_tail_bound(RecUnroller):
+    r"""
+    Compute the sum of a series by naive unrolling of a recurrence.
+
+    The result is an enclosure of the value of the sum, i.e., it includes a
+    bound on the tail.
+    """
+
+    # XXX clean up / make interface more consistent with RecUnroller_partial_sum
+
+    def __init__(self, *args, **kwds):
+        super().__init__(*args, **kwds)
+        self._stop = None
+
+    def sum_auto(self, eps, maj, effort, fail_fast, stride=None):
+
+        self._stop = accuracy.StopOnRigorousBound(maj, eps)
+
+        input_accuracy = max(0,
+                             min(chain((self.evpts.accuracy,),
+                                       (ini.accuracy() for ini in self.inis))))
+
+        if stride is None:
+            stride = min(max(50, 2*self.orig_bwrec.order),
+                         max(2, input_accuracy))
+
+        bit_prec, self.n0_squash = self._choose_working_precision(eps, maj,
+                                                      effort, fail_fast, stride)
+        max_prec = bit_prec + 2*input_accuracy
+
+        if self.n0_squash < sys.maxsize:
+            self.rnd_maj = maj(self.n0_squash)
+            self.rnd_maj >>= self.n0_squash
+            # |ind(n)| = cst·|monic_ind(n)|
+            self.rnd_maj *= abs(self.ctx.IC(maj.dop.leading_coefficient()[0]))
+
+        for attempt in count(1):
+            ini_are_accurate = 2*input_accuracy > bit_prec
+            # Strictly decrease eps every time to avoid situations where doit
+            # would be happy with the result and stop at the same point despite
+            # the higher bit_prec. Since attempt starts at 1, we have a bit of
+            # room for round-off errors.
+            self._stop.reset(eps >> (4*attempt),
+                              self._stop.fast_fail and ini_are_accurate)
+
+            try:
+                self.sum(bit_prec, stride)
+            except accuracy.PrecisionError:
+                if attempt > effort:
+                    raise
+            else:
+                logger.debug("bit_prec = %s, err = %s (tgt = %s)", bit_prec,
+                            self.current_error, eps)
+                if all(psum.total_error < eps
+                       for _, psums in self.sols for psum in psums):
+                    return # self.sols
+
+            # if interval squashing didn't give accurate results, switch back to
+            # the classical method
+            self.n0_squash = sys.maxsize
+
+            bit_prec *= 2
+            if attempt <= effort and bit_prec < max_prec:
+                logger.info("lost too much precision, restarting with %d bits",
+                            bit_prec)
+                continue
+            if fail_fast:
+                raise accuracy.PrecisionError
+            else:
+                logger.info("lost too much precision, giving up")
+                return # self.sols
+
+    def _check_convergence(self, stride):
+        if self.n <= self.last_index_with_ini or self.mult > 0:
+            # currently not implemented by error bounds (but could be supported
+            # in principle)
+            return False
+        assert self.log_prec == 1 or not self.ordinary
+        self.est = sum(cseq.coeff_estimate() for cseq, _ in self.sols)
+        self.est *= self.Intervals(self.radpow).squash()
+        done, self.tail_bound = self._stop.check(self, self.n, self.tail_bound,
+                                                 self.est, stride)
+        return done
+
+    # BoundCallbacks interface
+
+    def get_residuals(self, stop, n):
+        # Since this is called _before_ computing the new term, the relevant
+        # coefficients are given by last[:-1], not last[1:]
+        assert all(cseq.nterms == self.n == n for cseq, _ in self.sols)
+        return [stop.maj.normalized_residual(n, list(cseq.last)[:-1],
+                                             self.bwrec_nplus)
+                for cseq, _ in self.sols]
+
+    def get_bound(self, stop, n, resid):
+        if self.n <= self.last_index_with_ini or self.mult > 0:
+            raise NotImplementedError
+        # XXX consider maintaining separate tail bounds, and stopping the
+        # summation of some series before the others
+        maj = stop.maj.tail_majorant(n, resid)
+        tb = maj.bound(self.evpts.rad, rows=self.evpts.jet_order)
+        self.update_enclosures(tb)
+        return self.current_error
+
+    def _choose_working_precision(self, eps, maj, effort, fail_fast, stride):
+        ordrec = self.orig_bwrec.order
+        bit_prec0 = utilities.prec_from_eps(eps)
+        old_bit_prec = 8 + bit_prec0*(1 + ZZ(ordrec - 2).nbits())
+        if not(self.ctx.squash_intervals and self.ordinary):
+            logger.info("initial working precision = %s bits", old_bit_prec)
+            return old_bit_prec, sys.maxsize
+        nterms, lg_mag = self.dop.est_terms(self.evpts, bit_prec0)
+        nterms = (ordrec*self.dop.order() + nterms)*1.2 # be pragmatic
+        nterms = ZZ((nterms//stride + 1)*stride)
+        bit_prec0 += ZZ(self.dop._naive_height()).nbits()
+        bit_prec0 += lg_mag + nterms.nbits()
+        n0_squash, g = guard_bits(self.dop, maj, self.evpts,
+                                  ordrec, nterms)
+        # adding twice the computed number of guard bits seems to work better
+        # in practice, but I don't really understand why
+        bit_prec = bit_prec0 + 2*g
+        logger.info("initial working precision = %s + %s = %s (naive = %s), "
+                    "squashing intervals for n >= %s",
+                    bit_prec0, 2*g, bit_prec, old_bit_prec, n0_squash)
+        if fail_fast and bit_prec > 4*bit_prec0 and effort <= 1:
+            raise accuracy.PrecisionError
+        return bit_prec, n0_squash
+
+def guard_bits(dop, maj, evpts, ordrec, nterms):
+    r"""
+    Helper for choosing a working precision.
+
+    This is done under the assumption that the first terms of the coefficient
+    sequence are computed in interval arithmetic, and then, starting from some
+    cutoff index, we switch to something like floating-point arithmetic with a
+    rounding error bound computed on the side. This function returns a suggested
+    cutoff index and a corresponding number of guard bits to add to the
+    precision of the output.
+
+    The computation done by this function is heuristic, but the output does not
+    affect the correctness of the final result (only its sharpness and/or the
+    computation time).
+
+    The algorithm is based on what we can expect to happen at an ordinary point
+    and may or may not work in the regular singular case.
+    """
+
+    new_cost = cur_cost = sys.maxsize
+    new_bits = cur_bits = None
+    new_n0 = cur_n0 = orddeq = dop.order()
+    refine = False
+
+    cst = abs(maj.IC(maj.dop.leading_coefficient()[0])) # ???
+
+    while True:
+
+        # Roughly speaking, the computation of a new coefficient of the series
+        # *multiplies* the diameter by the order of the recurrence (minus two).
+        # Thus, it is not unreasonable that the loss of precision is of the
+        # order of log2(ordrec^nterms). This observation is far from explaining
+        # everything, though; in particular, it completely ignores the size of
+        # the coefficients. Anyhow, this formula seems to work reasonaly well in
+        # practice. It is perhaps a bit pessimistic for simple equations.
+        guard_bits_intervals = new_n0*max(1, ZZ(ordrec - 2).nbits())
+
+        # est_rnd_err = rough estimate of global round-off error
+        # ≈ (local error for a single term) × (propagation factor)
+        # ≈ (ordrec × working prec epsilon) × (value of majorant series)
+        rnd_maj = maj(new_n0)
+        rnd_maj >>= new_n0
+        rnd_maj *= cst
+        est_lg_rnd_fac = rnd_maj.bound(evpts.rad, rows=orddeq).log(2)
+        est_lg_rnd_err = 2*maj.IR(ordrec + 1).log(2)
+        if not est_lg_rnd_fac < maj.IR.zero():
+            est_lg_rnd_err += est_lg_rnd_fac
+        if est_lg_rnd_fac.is_finite():
+            guard_bits_squashed = int(est_lg_rnd_err.ceil().upper()) + 2
+        else:
+            guard_bits_squashed = sys.maxsize
+
+        # We expect the effective working precision to decrease linearly in the
+        # first phase due to interval blow-up, and then stabilize around (target
+        # prec + guard_bits_squashed).
+        new_cost = (new_n0//2)*guard_bits_intervals + nterms*guard_bits_squashed
+        new_bits = guard_bits_intervals + guard_bits_squashed
+
+        logger.debug(
+                "n0 = %s, terms = %s, guard bits = %s+%s = %s, cost = %s",
+                new_n0, nterms, guard_bits_intervals, guard_bits_squashed,
+                new_bits, new_cost)
+
+        if cur_cost <= new_cost < sys.maxsize:
+            return cur_n0, cur_bits
+
+        if (refine and maj.can_refine() and
+             guard_bits_squashed > guard_bits_intervals + 50):
+            maj.refine()
+        else:
+            new_n0, cur_n0 = new_n0*2, new_n0
+            cur_cost = new_cost
+            cur_bits = new_bits
+        refine = not refine
+
+        if new_n0 > nterms:
+            return nterms, guard_bits_intervals
+
+def _use_inexact_recurrence(bwrec, leftmost, prec):
+    Scalars = bwrec.Scalars
+    if not is_NumberField(Scalars):
+        return False
+    if ((Scalars is QQ or utilities.is_QQi(Scalars))
+            and leftmost.is_rational()
+            and bwrec[-1][0][0].numerator().nbits() < 10*prec):
+        return False
+    if prec <= 4000:
+        return True
+    h = max(a.numerator().nbits() for p in bwrec.coeff[::3]
+                                  for i in range(0, p.degree(), 10)
+                                  for a in p[i])
+    deg = Scalars.degree()*leftmost.pol.degree()
+    prefer_inexact = ( 4*(h + 16)*deg**2 + 4000 >= prec )
+    logger.debug("using %sexact version of recurrence with algebraic coeffs "
+            "of degree %s", "in" if prefer_inexact else "", Scalars.degree())
+    return prefer_inexact
+
+def series_sum(dop, ini, evpts, tgt_error, *, maj=None, bwrec=None,
+               fail_fast=False, effort=2, stride=None, **kwds):
+    r"""
+    Sum a (generalized) series solution of dop.
+
+    This is a semi-deprecated, somewhat more user-friendly wrapper to the series
+    summation routines, mainly for testing purposes. The analytic continuation
+    code typically calls lower level pieces directly.
+
+    Note that this functions returns a tuple of values when given multiple
+    evaluation points, but a bare value (instead of a tuple of length one) for a
+    single point, regardless how the points were specified.
+
+    EXAMPLES::
+
+        sage: from sage.rings.real_arb import RealBallField, RBF
+        sage: from sage.rings.complex_arb import ComplexBallField, CBF
+        sage: QQi.<i> = QuadraticField(-1)
+
+        sage: from ore_algebra import *
+        sage: from ore_algebra.analytic.naive_sum import series_sum
+        sage: from ore_algebra.analytic.path import EvaluationPoint
+        sage: Dops, x, Dx = DifferentialOperators()
+
+        sage: dop = ((4*x^2 + 3/58*x - 8)*Dx^10 + (2*x^2 - 2*x)*Dx^9 +
+        ....:       (x^2 - 1)*Dx^8 + (6*x^2 - 1/2*x + 4)*Dx^7 +
+        ....:       (3/2*x^2 + 2/5*x + 1)*Dx^6 + (-1/6*x^2 + x)*Dx^5 +
+        ....:       (-1/5*x^2 + 2*x - 1)*Dx^4 + (8*x^2 + x)*Dx^3 +
+        ....:       (-1/5*x^2 + 9/5*x + 5/2)*Dx^2 + (7/30*x - 12)*Dx +
+        ....:       8/7*x^2 - x - 2)
+        sage: ini = [CBF(-1/16, -2), CBF(-17/2, -1/2), CBF(-1, 1), CBF(5/2, 0),
+        ....:       CBF(1, 3/29), CBF(-1/2, -2), CBF(0, 0), CBF(80, -30),
+        ....:       CBF(1, -5), CBF(-1/2, 11)]
+
+    Funny: on the following example, both the evaluation point and most of the
+    initial values are exact, so that we end up with a significantly better
+    approximation than requested::
+
+        sage: series_sum(dop, ini, 1/2, RBF(1e-16))
+        ([-3.575140703474456...] + [-2.2884877202396862...]*I)
+
+        sage: series_sum(dop, ini, 1/2, RBF(1e-30))
+        ([-3.5751407034...] + [-2.2884877202...]*I)
+
+    In normal usage ``evpts`` should be an object coercible to a complex ball, a
+    tuple of such objects, or an :class:`EvaluationPoint` that wraps such a
+    tuple. In addition, there is some support for ``EvaluationPoints`` wrapping
+    identity polynomials. Other cases might work by accident. ::
+
+        sage: series_sum(Dx - 1, [RBF(1)],
+        ....:         EvaluationPoint(x, jet_order=2, rad=RBF(1)),
+        ....:         1e-3, stride=1)
+        (... + [0.0083...]*x^5 + [0.0416...]*x^4 + [0.1666...]*x^3
+        + 0.5000...*x^2 + x + [1.000...],
+        ... + [0.0083...]*x^5 + [0.0416...]*x^4 + [0.1666...]*x^3
+        + [0.5000...]*x^2 + x + [1.000...])
+
+    TESTS::
+
+        sage: b = series_sum((x^2 + 1)*Dx^2 + 2*x*Dx, [RBF(0), RBF(1)],
+        ....:                         7/10, RBF(1e-30))
+        sage: b.parent()
+        Vector space of dimension 1 over Real ball field with ... precision
+        sage: b[0].rad().exact_rational() < 10^(-30)
+        True
+        sage: b[0].overlaps(RealBallField(130)(7/10).arctan())
+        True
+
+        sage: b = series_sum((x^2 + 1)*Dx^2 + 2*x*Dx, [CBF(0), CBF(1)],
+        ....:                         (i+1)/2, RBF(1e-30))
+        sage: b.parent()
+        Vector space of dimension 1 over Complex ball field with ... precision
+        sage: b[0].overlaps(ComplexBallField(130)((1+i)/2).arctan())
+        True
+
+        sage: series_sum(x*Dx^2 + Dx + x, [0], 1/2, 1e-10)
+        Traceback (most recent call last):
+        ...
+        ValueError: invalid initial data for x*Dx^2 + Dx + x at 0
+
+        sage: iv = RBF(RIF(-10^(-6), 10^(-6)))
+        sage: series_sum(((6+x)^2 + 1)*Dx^2+2*(6+x)*Dx, [iv, iv], 4, RBF(1e-10))
+        ([+/- ...])
+
+        sage: series_sum(Dx-1, [0], 2, 1e-50, stride=1)
+        (0)
+
+        sage: series_sum(Dx-1, [1], [1, CBF(i*pi)], 1e-15)
+        (([2.7182818284590...] + [+/- ...]*I),
+         ([-1.000000000000...] + [+/- ...]*I))
+
+    Test that automatic precision increases do something reasonable::
+
+        sage: import logging; logging.basicConfig()
+        sage: logger = logging.getLogger('ore_algebra.analytic.naive_sum')
+        sage: logger.setLevel(logging.INFO)
+
+        sage: series_sum((x^2 + 1)*Dx^2 + 2*x*Dx, [0, 1/3], 5/7, 1e-16, effort=100)
+        INFO:...
+        ([0.20674982866094049...])
+
+        sage: series_sum((x^2 + 1)*Dx^2 + 2*x*Dx, [0, RBF(1/3)], 5/7, 1e-16, effort=100)
+        INFO:...
+        ([0.206749828660940...])
+
+        sage: series_sum((x^2 + 1)*Dx^2 + 2*x*Dx, [0, RBF(1/3)], RBF(5/7), 1e-12, effort=100)
+        INFO:...
+        ([0.2067498286609...])
+
+        sage: series_sum((x^2 + 1)*Dx^2 + 2*x*Dx, [0, RBF(1/3)], RBF(5/7), 1e-20, effort=100)
+        INFO:...
+        INFO:ore_algebra.analytic.naive_sum:lost too much precision, giving up
+        ([0.20674982866094...])
+
+        sage: xx = EvaluationPoint(x, jet_order=2, rad=RBF(1/4))
+        sage: series_sum((x^2 + 1)*Dx^2 + 2*x*Dx, [0, 1/3], xx, 1e-30)[0](1/6)
+        INFO:...
+        [0.05504955913820894609304276321...]
+
+        sage: series_sum((x^2 + 1)*Dx^2 + 2*x*Dx, [0, RBF(1/3)], xx, 1e-16)[0](1/6)
+        INFO:...
+        [0.055049559138208...]
+
+        sage: series_sum((x^2 + 1)*Dx^2 + 2*x*Dx, [0, RBF(1/3)], xx, 1e-30)[0](1/6)
+        INFO:...
+        INFO:ore_algebra.analytic.naive_sum:lost too much precision, giving up
+        [0.055049559138208...]
+
+        sage: logger.setLevel(logging.WARNING)
+    """
+
+    ctx = Context(**kwds)
+
+    dop = DifferentialOperator(dop)
+    if not isinstance(ini, LogSeriesInitialValues):
+        # single set of initial values, given as a list
+        ini = LogSeriesInitialValues(ZZ.zero(), ini, dop)
+    if maj is None:
+        special_shifts = [(s, len(v)) for s, v in ini.shift.items()]
+        maj = bounds.DiffOpBound(dop, ini.expo, special_shifts, ctx=ctx)
+    tgt_error = ctx.IR(tgt_error)
+
+    unr = RecUnroller_tail_bound(dop, [ini], evpts, bwrec, ctx=ctx)
+    unr.sum_auto(tgt_error, maj, effort, fail_fast, stride)
+    values = unr.values_single_seq()
+    if len(unr.evpts) == 1:
+        return values[0]
     else:
-        rnd_err = IR.zero()
+        return values
 
-    width = None
-    if evpts.is_numeric:
-        width = max(psum.interval_width() for _, psums in sols
-                                          for psum in psums)
-    logger.info("summed %d terms, tails = %s (est = %s), rnd_err <= %s, "
-                "interval width <= %s",
-                n, tail_bound, IR(est), rnd_err, width)
+################################################################################
+# Transition matrices
+################################################################################
 
-    return sols
+class HighestSolMapper(LocalBasisMapper):
+
+    def __init__(self, dop, evpts, *, ctx):
+        super().__init__(dop, ctx=ctx)
+        self.evpts = evpts
+        self.ordinary = (dop.leading_coefficient()[0] != 0)
+        self._sols = None
+        self.highest_sols = None
+
+    def process_modZ_class(self):
+        logger.info(r"solutions z^(%s+n)·log(z)^k/k! + ···, n = %s",
+                    self.leftmost, ", ".join(str(s) for s, _ in self.shifts))
+        # Compute the "highest" (in terms powers of log) solution of each
+        # valuation
+        inis = [LogSeriesInitialValues(
+                    expo=self.leftmost,
+                    mults=self.shifts,
+                    values={(s, m-1): ZZ.one()})
+                for s, m in self.shifts]
+        sols = self.do_sum(inis)
+        self.highest_sols = {}
+        for (s, m), sol in zip(self.shifts, sols):
+            _, psums = sol
+            for psum in psums:
+                psum.update_downshifts(range(m))
+            self.highest_sols[s] = sol
+        self._sols = {}
+        super().process_modZ_class()
+
+    def do_sum(self, inis):
+        raise NotImplementedError
+
+    def fun(self, ini):
+        # Non-highest solutions of a given valuation can be deduced from the
+        # highest one up to correcting factors that only involve solutions
+        # further to the right. We are relying on the iteration order, which
+        # ensures that all other solutions involved already have been
+        # computed.
+        highest = self.highest_sols[self.shift]
+        delta = self.mult - 1 - self.log_power
+        value = [psum.downshifts[delta] for psum in highest.psums]
+        for s, m in self.shifts:
+            if s > self.shift:
+                for k in range(max(m - delta, 0), m):
+                    cc = highest.cseq.critical_coeffs[s][k+delta]
+                    for i in range(len(value)):
+                        value[i] -= cc*self._sols[s,k][i]
+        self._sols[self.shift, self.log_power] = value
+        return [vector(v) for v in value]
+
+class HighestSolMapper_tail_bound(HighestSolMapper):
+
+    def __init__(self, dop, evpts, eps, fail_fast, effort, *, ctx):
+        super().__init__(dop, evpts, ctx=ctx)
+        self.eps = eps
+        self.fail_fast = fail_fast
+        self.effort = effort
+
+    def do_sum(self, inis):
+        maj = bounds.DiffOpBound(self.dop, self.leftmost,
+                        special_shifts=(None if self.ordinary else self.shifts),
+                        bound_inverse="solve",
+                        pol_part_len=(4 if self.ordinary else None),
+                        ind_roots=self.all_roots,
+                        ctx=self.ctx)
+        unr = RecUnroller_tail_bound(self.dop, inis, self.evpts, self.bwrec,
+                                     ctx=self.ctx)
+        unr.sum_auto(self.eps, maj, self.effort, self.fail_fast)
+        assert unr._last_enclosure_update == unr.n
+        return unr.sols
+
+def fundamental_matrix_regular(dop, evpts, eps, fail_fast, effort, ctx=dctx):
+    r"""
+    Fundamental matrix at a possibly regular singular point
+
+    TESTS::
+
+        sage: from ore_algebra import *
+        sage: from ore_algebra.analytic.naive_sum import *
+        sage: from ore_algebra.analytic.differential_operator import DifferentialOperator
+        sage: from ore_algebra.analytic.path import EvaluationPoint as EP
+        sage: Dops, x, Dx = DifferentialOperators()
+
+        sage: fundamental_matrix_regular(
+        ....:         DifferentialOperator(x*Dx^2 + (1-x)*Dx),
+        ....:         EP(1, 2), RBF(1e-10), False, 2)
+        [
+        [[1.317902...] [1.000000...]]
+        [[2.718281...]     [+/- ...]]
+        ]
+
+        sage: dop = DifferentialOperator(
+        ....:         (x+1)*(x^2+1)*Dx^3-(x-1)*(x^2-3)*Dx^2-2*(x^2+2*x-1)*Dx)
+        sage: fundamental_matrix_regular(dop, EP(1/3, 3), RBF(1e-10), False, 2)
+        [
+        [ [1.000000...]  [0.321750554...]  [0.147723741...]]
+        [     [+/- ...]  [0.900000000...]  [0.991224850...]]
+        [     [+/- ...]  [-0.27000000...]  [1.935612425...]]
+        ]
+
+        sage: dop = DifferentialOperator(
+        ....:     (2*x^6 - x^5 - 3*x^4 - x^3 + x^2)*Dx^4
+        ....:     + (-2*x^6 + 5*x^5 - 11*x^3 - 6*x^2 + 6*x)*Dx^3
+        ....:     + (2*x^6 - 3*x^5 - 6*x^4 + 7*x^3 + 8*x^2 - 6*x + 6)*Dx^2
+        ....:     + (-2*x^6 + 3*x^5 + 5*x^4 - 2*x^3 - 9*x^2 + 9*x)*Dx)
+        sage: fundamental_matrix_regular(dop, EP(RBF(1/3), 4), RBF(1e-10), False, 2)
+        [
+        [ [3.1788470...] [-1.064032...]  [1.000...] [0.3287250...]]
+        [ [-8.981931...] [3.2281834...]    [+/-...] [0.9586537...]]
+        [  [26.18828...] [-4.063756...]    [+/-...] [-0.123080...]]
+        [ [-80.24671...]  [9.190740...]    [+/-...] [-0.119259...]]
+        ]
+
+        sage: dop = x*Dx^3 + 2*Dx^2 + x*Dx
+        sage: ini = [1, CBF(euler_gamma), 0]
+        sage: dop.numerical_solution(ini, [0, RBF(1/3)], 1e-14)
+        [-0.549046117782...]
+    """
+    eps_col = ctx.IR(eps)/ctx.IR(dop.order()).sqrt()
+    hsm = HighestSolMapper_tail_bound(dop, evpts, eps_col, fail_fast, effort,
+                                      ctx=ctx)
+    cols = hsm.run()
+    mats = [matrix([sol.value[i] for sol in cols]).transpose()
+            for i in range(len(evpts))]
+    return mats
+
+class HighestSolMapper_partial_sums(HighestSolMapper):
+
+    def __init__(self, dop, evpts, trunc_index, bit_prec, *,
+                 inclusive, ctx):
+        super().__init__(dop, evpts, ctx=ctx)
+        if ctx.squash_intervals:
+            raise NotImplementedError
+        self.trunc_index = trunc_index
+        self.inclusive = inclusive
+        self.bit_prec = bit_prec
+
+    def do_sum(self, inis):
+        terms = self.trunc_index - self.leftmost.as_algebraic().real()
+        if self.inclusive:
+            terms = terms.floor() + 1
+        else:
+            terms = terms.ceil()
+        unr = RecUnroller_partial_sum(self.dop, inis, self.evpts, self.bwrec,
+                                      terms=int(terms), ctx=self.ctx)
+        unr.sum(self.bit_prec, stride=1)
+        unr.update_enclosures(self.ctx.IR.zero())
+        return unr.sols
+
+def fundamental_matrix_regular_truncated(dop, evpts, trunc_index, bit_prec,
+                                         inclusive=False, ctx=dctx):
+    r"""
+    Compute the values at the points given in `evpts` of the canonical basis of
+    solutions of ``dop``, all truncated at the same absolute order
+    ``trunc_index``, along with derivatives of the truncated series.
+
+    The output is organized in a matrix with derivatives renormalized in the
+    usual way.
+
+    TESTS::
+
+        sage: from ore_algebra import *
+        sage: from ore_algebra.analytic.naive_sum import *
+        sage: from ore_algebra.analytic.differential_operator import DifferentialOperator
+        sage: from ore_algebra.analytic.path import EvaluationPoint as EP
+        sage: Dops, x, Dx = DifferentialOperators()
+
+        sage: [fundamental_matrix_regular_truncated(Dx-1, EP(1), k, 30)[0] for k in range(4)]
+        [[0], [1.00000000], [2.00000000], [2.50000000]]
+
+        sage: [fundamental_matrix_regular_truncated(Dx-1, EP(1), k, 30, inclusive=True)[0] for k in range(4)]
+        [[1.00000000], [2.00000000], [2.50000000], [[2.66666666 +/- 8.15e-9]]]
+
+        sage: fundamental_matrix_regular_truncated((x*Dx-3)^2, EP(1/2, 2), 3, 30)[0]
+        [0 0]
+        [0 0]
+        sage: a = RBF(1/2)
+        sage: mat = fundamental_matrix_regular_truncated((x*Dx-3)^2, EP(a, 2), 4, 30)[0]
+        sage: [ref in res for res, ref in zip(mat.list(), [a^3*log(a), a^3, 3*a^2*log(a)+a^2, 3*a^2])]
+        [True, True, True, True]
+
+        sage: fundamental_matrix_regular_truncated(((x*Dx)^2+1).lclm(Dx-1), EP(a, 3), 0, 30)[0]
+        [0 0 0]
+        [0 0 0]
+        [0 0 0]
+        sage: fundamental_matrix_regular_truncated(((x*Dx)^2+1).lclm(Dx-1), EP(a, 1), 1, 30)[0]
+        [ [0.7692...] + [0.6389...]*I [0.7692...] + [-0.6389...]*I  1.000...]
+
+        sage: [fundamental_matrix_regular_truncated(
+        ....:         ((x*Dx)^2-2).lclm(Dx-1), EP(a, 1), k, 30)[0]
+        ....:  for k in range(-2, 3)]
+        [[0                   0            0],
+        [[2.665...]           0            0],
+        [[2.665...]           0            0],
+        [[2.665...]    1.000...            0],
+        [ [2.665...]   1.500...   [0.375...]]]
+
+        sage: [fundamental_matrix_regular_truncated(
+        ....:         ((x*Dx)^2-2).lclm(Dx-1), EP(a, 1), k, 30, inclusive=True)[0]
+        ....:  for k in range(-2, 3)]
+        [[0                   0            0],
+        [[2.665...]           0            0],
+        [[2.665...]    1.000...            0],
+        [[2.665...]    1.500...            0],
+        [ [2.665...]   1.625...   [0.375...]]]
+    """
+    ctx = Context(ctx)
+    ctx.squash_intervals = False
+    hsm = HighestSolMapper_partial_sums(dop, evpts, trunc_index, bit_prec,
+                                        inclusive=inclusive, ctx=ctx)
+    cols = hsm.run()
+    mats = [matrix([sol.value[i] for sol in cols]).transpose()
+            for i in range(len(evpts))]
+    return mats
+
+################################################################################
+# Bound recording
+################################################################################
+
+BoundRecord = collections.namedtuple("BoundRecord", ["n", "psum", "maj", "b"])
+
+class BoundRecorder(RecUnroller_tail_bound):
+
+    def __init__(self, *args, **kwds):
+        super().__init__(*args, **kwds)
+        self.recorded_bounds = None
+
+    def _init_sums(self, *args, **kwds):
+        super()._init_sums(*args, **kwds)
+        self.recorded_bounds = []
+
+    def _check_convergence(self, stride):
+        assert len(self.sols) == 1
+        if self.n <= self.last_index_with_ini or self.mult > 0:
+            bound = self._stop.maj.IR('inf')
+            maj = None
+        else:
+            resid = self.get_residuals(self._stop, self.n)
+            bound = self.get_bound(self._stop, self.n, resid)
+            maj = self._stop.maj.tail_majorant(self.n, resid)
+        val = self.sols[0][1][0].bare_value()
+        self.recorded_bounds.append(BoundRecord(self.n, val, maj, bound))
+        # Call the standard _check_convergence(), but ignore its verdict, and
+        # only self._stop if we really have obtained a bound < eps.
+        super()._check_convergence(stride)
+        return (self.tail_bound < self._stop.eps)
 
 ################################################################################
 # Utilities

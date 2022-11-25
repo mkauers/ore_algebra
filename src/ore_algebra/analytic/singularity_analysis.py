@@ -602,7 +602,6 @@ from . import utilities
 from .bounds import DiffOpBound
 from .differential_operator import DifferentialOperator
 from .local_solutions import (
-        critical_monomials,
         FundamentalSolution,
         LocalBasisMapper,
         log_series,
@@ -1033,7 +1032,7 @@ class SingularityAnalyzer(LocalBasisMapper):
         # Redundant work; TBI.
         # (Cases where we really need this to detect non-analyticity are
         # rare...)
-        self._local_basis_structure = critical_monomials(self.dop)
+        self._local_basis_structure = Point(0, self.dop).local_basis_structure()
 
         nonanalytic = [sol for sol in self._local_basis_structure if not (
             sol.leftmost.as_algebraic().is_integer()
@@ -1591,7 +1590,7 @@ def _bound_validity_range(n0, dominant_sing, order):
     n2 = (RBF(21)/10*(max_abs_val + order + 1)).above_abs().ceil()
     n0 = ZZ(max(n0, n1, n2))
 
-    logger.debug(f"{n1=}, {n2=}, {n0=}")
+    logger.debug(f"n1=%s, n2=%s, n0=%s", n1, n2, n0)
     return n0
 
 def truncate_tail_SR(val, re_val, f, beta, kappa, n0, n):

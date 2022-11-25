@@ -270,7 +270,7 @@ def PolynomialRing(base, var):
     else:
         return polyringconstr.PolynomialRing(base, var)
 
-class StepMatrix(object):
+class StepMatrix(object): # pylint: disable=attribute-defined-outside-init
     r"""
     A structured matrix that maps a vector of s coefficients and a partial sum
     (both around some truncation index n) of a D-finite series to a similar
@@ -385,7 +385,7 @@ class StepMatrix(object):
     # won't change anything for algebraic evaluation points, but it might
     # make a difference when the evaluation point is more complicated
 
-    def compute_sums_row(low, high, i):
+    def compute_sums_row(low, high, i): # pylint: disable=no-self-argument
 
         # sums_row[i] = high.sums_row[i]*low.rec_mat*low.pow_num[i]
         #                   δ, Sk, row     Sk, mat      δ
@@ -504,7 +504,7 @@ class StepMatrix_arb(StepMatrix):
             for p in a:
                 for b in p:
                     for c in b:
-                        assert b.is_exact()
+                        assert c.is_exact()
 
 class SolutionColumn(object):
     r"""
@@ -1021,10 +1021,10 @@ class MatrixRec(object):
     def __repr__(self):
         return pprint.pformat(self.__dict__)
 
-class MatrixRecsUnroller(LocalBasisMapper):
+class MatrixRecsUnroller(LocalBasisMapper): # pylint: disable=attribute-defined-outside-init
 
     def __init__(self, dop, evpts, eps, derivatives, ctx=dctx):
-        super(self.__class__, self).__init__(dop)
+        super().__init__(dop)
         self.evpts = evpts
         self.eps = eps
         self.derivatives = derivatives
@@ -1097,10 +1097,11 @@ class MatrixRecsUnroller(LocalBasisMapper):
 
         wrapper = bounds.MultiDiffOpBound(maj.values())
         # TODO: switch to fast_fail=True?
-        stop = accuracy.StoppingCriterion(wrapper, self.eps, fast_fail=False)
+        stop = accuracy.StopOnRigorousBound(wrapper, self.eps, fast_fail=False)
 
-        class BoundCallbacks(accuracy.BoundCallbacks):
-            def get_residuals(_): # “self” refers to the MatrixRecsUnroller
+        class BoundCallbacks(accuracy.BoundCallbacks): # pylint: disable=no-self-argument
+            # “self” refers to the MatrixRecsUnroller
+            def get_residuals(_, __, ___):
                 # Will need updating if we want to support very large singular
                 # indices efficiently. For the time being, we wait to pass the
                 # last singular index before checking for convergence.
@@ -1112,7 +1113,7 @@ class MatrixRecsUnroller(LocalBasisMapper):
                                                       self.ctx.IC)
                         for rt in self.roots
                         for sol in self.irred_factor_cols}
-            def get_bound(_, residuals):
+            def get_bound(_, __, ___, residuals):
                 r"""
                 Bound the Frobenius norm of the matrix of tail majorants.
 
@@ -1178,7 +1179,7 @@ class MatrixRecsUnroller(LocalBasisMapper):
             if self.shift > last_singular_index:
                 est = max(sol.value.error_estimate(self.ctx.IR)
                           for sol in self.irred_factor_cols)
-                done, tail_bound = stop.check(cb, False, self.shift, tail_bound,
+                done, tail_bound = stop.check(cb, self.shift, tail_bound,
                                est, next_stride=self.shift-first_singular_index)
             if self.shift > 16 or self.mult > 0:
                 logger.log(logging.INFO if self.shift > 1000 else logging.DEBUG,
@@ -1214,7 +1215,7 @@ class MatrixRecsUnroller(LocalBasisMapper):
         # solutions later on.
         return SolutionColumn(self.matrix_rec, self.shift, self.log_power)
 
-def fundamental_matrix_regular(dop, evpts, eps, fail_fast, effort, ctx=dctx):
+def fundamental_matrix_regular(dop, evpts, eps, fail_fast, effort, ctx=dctx): # pylint: disable=unused-argument
     rows = evpts.jet_order
     cols = MatrixRecsUnroller(dop, evpts, eps, rows, ctx).run()
     mats = [matrix([sol.value[i] for sol in cols]).transpose()

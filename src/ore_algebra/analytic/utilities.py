@@ -38,6 +38,7 @@ from sage.rings.qqbar import (qq_generator, AlgebraicGenerator, AlgebraicNumber,
 from sage.rings.rational import Rational
 from sage.structure.coerce_exceptions import CoercionException
 from sage.structure.element import coercion_model
+from sage.structure.factorization import Factorization
 from sage.structure.sequence import Sequence
 
 from sage.matrix.matrix_dense import Matrix_dense
@@ -1098,3 +1099,29 @@ def common_denominator_for_mixed_equation(R, L, c):
         D = D*(z-s)^(-v0r)
 
     return D
+
+
+def myfactor_monic(pol):
+    r"""
+        sage: from ore_algebra.analytic.utilities import myfactor_monic
+        sage: P.<x> = i.parent()[]
+        sage: myfactor_monic((x^2+1)^2*(x^2-1)^3)
+        [(x - 1, 3), (x + 1, 3), (x - I, 2), (x + I, 2)]
+    """
+    assert pol.is_monic()
+    if pol.degree() == 1:
+        return Factorization([(pol, 1)])
+    Base = pol.base_ring()
+    try:
+        pol = pol.change_ring(QQ)
+    except TypeError:
+        return pol.factor()
+    fac = []
+    for f, m in pol.factor():
+        f = f.change_ring(Base)
+        if f.degree() == 1:
+            fac.append((f, m))
+        else:
+            for f1, m1 in f.factor():
+                fac.append((f1, m*m1))
+    return fac

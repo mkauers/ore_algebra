@@ -17,169 +17,12 @@ import logging
 
 from sage.misc.cachefunc import cached_function
 from sage.misc.misc_c import prod
-from sage.structure.sequence import Sequence
-from sage.rings.infinity import minus_infinity
-from sage.rings.integer_ring import ZZ
 from sage.rings.rational_field import QQ
 
 logger = logging.getLogger(__name__)
 
-# -> EuclideanDomains.ParentMethods
-
-def gcd_free_basis(ring, elts):
-    r"""
-    Compute a set of coprime elements that can be used to express the
-    elements of ``elts``.
-
-    INPUT:
-
-    - ``elts`` - A sequence of elements of ``ring``.
-
-    OUTPUT:
-
-    A GCD-free basis (also called a coprime base) of ``elts``; that is,
-    a set of pairwise relatively prime elements of ``ring`` such that
-    any element of ``elts`` can be written as a product of elements of
-    the set.
-
-    ALGORITHM:
-
-    Naive implementation of the algorithm described in Section 4.8 of
-    Bach & Shallit [BachShallit1996]_.
-
-    .. [BachShallit1996] Eric Bach, Jeffrey Shallit.
-        *Algorithmic Number Theory, Vol. 1: Efficient Algorithms*.
-        MIT Press, 1996. ISBN 978-0262024051.
-
-    EXAMPLES::
-
-        sage: from ore_algebra.analytic.shiftless import *
-        sage: gcd_free_basis(ZZ, [1])
-        set()
-        sage: gcd_free_basis(ZZ, [4, 30, 14, 49])
-        {2, 7, 15}
-
-        sage: Pol.<x> = QQ[]
-        sage: gcd_free_basis(Pol,[
-        ....:     (x+1)^3*(x+2)^3*(x+3), (x+1)*(x+2)*(x+3),
-        ....:     (x+1)*(x+2)*(x+4)])
-        {x + 3, x + 4, x^2 + 3*x + 2}
-    """
-    def refine(a, b):
-        g = a.gcd(b)
-        if g.is_unit():
-            return (a, set(), b)
-        l1, s1, r1 = refine(a//g, g)
-        l2, s2, r2 = refine(r1, b//g)
-        s1.update(s2)
-        s1.add(l2)
-        return (l1, s1, r2)
-    elts = Sequence(elts, universe=ring)
-    res = set()
-    if len(elts) == 1:
-        res.update(elts)
-    else:
-        r = elts[-1]
-        for t in gcd_free_basis(ring, elts[:-1]):
-            l, s, r = refine(t, r)
-            res.update(s)
-            res.add(l)
-        res.add(r)
-    units = [x for x in res if x.is_unit()]
-    res.difference_update(units)
-    return res
-
-# -> UniqueFactorizationDomains.ElementMethods
-
 # -> Polynomial
 # note: parent() can become _parent in .pyx
-
-def dispersion_set(self, other=None):
-    r"""
-    Compute the dispersion set of two polynomials.
-
-    The dispersion set of `p` and `q` is the set of nonnegative integers
-    `n` such that `f(x + n)` and `g(x)` have a nonconstant common factor.
-
-    When ``other`` is ``None``, compute the auto-dispersion set of
-    ``self``, i.e., its dispersion set with itself.
-
-    ALGORITHM:
-
-    See Section 4 of Man & Wright [ManWright1994]_.
-
-    .. [ManWright1994] Yiu-Kwong Man and Francis J. Wright.
-       *Fast Polynomial Dispersion Computation and its Application to
-       Indefinite Summation*. ISSAC 1994.
-
-    .. SEEALSO:: :meth:`dispersion`
-
-    EXAMPLES::
-
-        sage: from ore_algebra.analytic.shiftless import *
-        sage: Pol.<x> = QQ[]
-        sage: dispersion_set(x, x + 1)
-        [1]
-        sage: dispersion_set(x + 1, x)
-        []
-
-        sage: pol = x^3 + x - 7
-        sage: dispersion_set(pol*pol(x+3)^2)
-        [0, 3]
-    """
-    other = self if other is None else self.parent().coerce(other)
-    x = self.parent().gen()
-    shifts = set()
-    for p, _ in self.factor():
-        # need both due to the semantics of is_primitive() over fields
-        assert p.is_monic() or p.is_primitive()
-        for q, _ in other.factor():
-            m, n = p.degree(), q.degree()
-            assert q.is_monic() or q.is_primitive()
-            if m != n or p[n] != q[n]:
-                continue
-            alpha = (q[n-1] - p[n-1])/(n*p[n])
-            if alpha.is_integer(): # ZZ() might work for non-integers...
-                alpha = ZZ(alpha)
-            else:
-                continue
-            if alpha < 0 or alpha in shifts:
-                continue
-            if n >= 1 and p(x + alpha) != q:
-                continue
-            shifts.add(alpha)
-    return list(shifts)
-
-def dispersion(self, other=None):
-    r"""
-    Compute the dispersion of a pair of polynomials.
-
-    The dispersion of `p` and `q` is the largest nonnegative integer `n`
-    such that `f(x + n)` and `g(x)` have a nonconstant common factor.
-
-    When ``other`` is ``None``, compute the auto-dispersion of ``self``,
-    i.e., its dispersion with itself.
-
-    .. SEEALSO:: :meth:`dispersion_set`
-
-    EXAMPLES::
-
-        sage: from ore_algebra.analytic.shiftless import *
-        sage: Pol.<x> = QQ[]
-        sage: dispersion(x, x + 1)
-        1
-        sage: dispersion(x + 1, x)
-        -Infinity
-
-        sage: Pol.<x> = QQbar[]
-        sage: pol = Pol([sqrt(5), 1, 3/2])
-        sage: dispersion(pol)
-        0
-        sage: dispersion(pol*pol(x+3))
-        3
-    """
-    shifts = dispersion_set(self, other)
-    return max(shifts) if len(shifts) > 0 else minus_infinity
 
 # TODO: debug, document
 def shiftless_decomposition(self):
@@ -215,8 +58,14 @@ def shiftless_decomposition(self):
 
         sage: from ore_algebra.analytic.shiftless import *
         sage: Pol.<y> = QQ[]
+        sage: shiftless_decomposition(2*y^2*(y+1))
+        (2, [(y, [(0, 2), (1, 1)])])
         sage: shiftless_decomposition((y-1)*(y-1/2)*y) # random order
         (1, [(y - 1/2, [(0, 1)]), (y - 1, [(0, 1), (1, 1)])])
+        sage: shiftless_decomposition(Pol.gen())
+        (1, [(y, [(0, 1)])])
+        sage: shiftless_decomposition(2*Pol.one())
+        (2, [])
     """
     quo = self.monic()
     Pol, x = quo.parent().objgen()
@@ -227,18 +76,18 @@ def shiftless_decomposition(self):
         by_mult.append(sqf)
         quo //= sqf
     parts = set()
-    shifts = dispersion_set(by_mult[1])
+    shifts = by_mult[1].dispersion_set() if len(by_mult) > 1 else []
     for shift in shifts:
         parts.update(by_mult[1].gcd(f(x + eps*shift))
                      for f in by_mult[1:]
                      for eps in [1, -1])
-        parts = gcd_free_basis(Pol, parts)
+        parts = set(Pol.gcd_free_basis(parts))
     def mult(part):
         for m in range(len(by_mult) - 1, -1, -1):
             if part.divides(by_mult[m]): # the paper says part^m?!
                 return m
         assert False
-    shifts_of = dict() # factor -> nonnegative integer shifts
+    shifts_of = {} # factor -> nonnegative integer shifts
     remaining_parts = parts.copy()
     while remaining_parts:
         cur = remaining_parts.pop()
@@ -254,9 +103,7 @@ def shiftless_decomposition(self):
     assert prod(part(x + s)**mult
                 for part, shifts in shifts_of.items()
                 for (s, mult) in shifts)*unit == self
-    return (unit,
-        [(part, shifts)
-          for part, shifts in shifts_of.items()])
+    return (unit, list(shifts_of.items()))
 
 # key=... to avoid comparing number fields
 # XXX: tie life to a suitable object

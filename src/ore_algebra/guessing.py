@@ -49,7 +49,7 @@ from sage.modules.free_module_element import vector
 from sage.sets.primes import Primes
 
 from . import nullspace
-from .nullspace import _hermite
+from .nullspace import _hermite, _rational_reconstruction
 from .ore_algebra import OreAlgebra
 
 def guess_rec(data, n, S, **kwargs):
@@ -433,8 +433,11 @@ def guess_raw(data, A, order=-1, degree=-1, lift=None, solver=None, cut=25, ensu
             c.append(sigma(R(s[j*(degree + 1):(j + 1)*(degree + 1)]), j))
         sol[l] = A(c)
         sol[l] *= ~sol[l].leading_coefficient().leading_coefficient()
+        if sol[l].is_one() and any(data): # catch degenerate solution obtained for [0,0,0,1]
+            sol[l] = None
+            info(2, lazy_string("degenerate solution discarded."))
 
-    return sol
+    return [s for s in sol if s is not None]
 
 ###########################################################################################
 
@@ -1130,7 +1133,7 @@ def _rat_recon(a, m, u=None):
     if a in (zero, one, mone):
         return a, one
     elif early_termination_bound <= 0:
-        out = a.rational_reconstruct(m)
+        out = _rational_reconstruction(a, m)
         return (a.numerator(), a.denominator())
 
     # p = q*a + r*m for some r

@@ -27,11 +27,11 @@ from sage.rings.all import (CC, CBF, ComplexBallField, QQ, QQbar,
 from sage.functions.all import exp
 from sage.symbolic.all import pi, SR
 
-from . import analytic_continuation as ancont, local_solutions, path, utilities
+from . import analytic_continuation as ancont, path, utilities
 
 from .context import Context
 from .differential_operator import DifferentialOperator
-from .local_solutions import LocalBasisMapper, log_series, critical_monomials
+from .local_solutions import LocalBasisMapper
 
 logger = logging.getLogger(__name__)
 
@@ -115,16 +115,12 @@ def formal_monodromy(dop, sing, ring=SR):
     """
     dop = DifferentialOperator(dop)
     sing = path.Point(sing, dop)
-    ldop = dop.shift(sing)
     # XXX should use binary splitting when the indicial polynomial has large
     # dispersion
-    mon, _ = _formal_monodromy_naive(ldop, ring)
-    return mon
-
-def _formal_monodromy_naive(dop, ring):
-    crit = critical_monomials(dop)
+    crit = sing.local_basis_structure()
     mor = dop.base_ring().base_ring().hom(ring)
-    return _formal_monodromy_from_critical_monomials(crit, mor)
+    mon, _ = _formal_monodromy_from_critical_monomials(crit, mor)
+    return mon
 
 def _formal_monodromy_from_critical_monomials(critical_monomials, mor):
     r"""
@@ -134,7 +130,7 @@ def _formal_monodromy_from_critical_monomials(critical_monomials, mor):
     INPUT:
 
     - ``critical_monomials``: critical monomials in the format output by
-      :func:`ore_algebra.analytic.local_solutions.critical_monomials`
+      :meth:`ore_algebra.analytic.path.Point.local_basis_structure`
 
     - ``mor``: a morphism from the parent of critical monomials to a ring
       suitable for representing the entries of the formal monodromy matrix
@@ -216,7 +212,7 @@ def _test_formal_monodromy(dop):
 # transition matrix may not actually be analytic but we do not care which path
 # is taken
 
-def _local_monodromy_loop(dop, x, eps, ctx, effort=3):
+def _local_monodromy_loop(x, eps, ctx, effort=3):
     r"""
     TESTS::
 
@@ -443,7 +439,7 @@ def _monodromy_matrices(dop, base, eps=1e-16, sing=None, **kwds):
         # delaying it may allow us to start returning results earlier.
         if point.is_regular():
             if crit_cache is None or point.algdeg() == 1:
-                crit = critical_monomials(dop.shift(point))
+                crit = point.local_basis_structure()
                 emb = point.value.parent().hom(Scalars)
             else:
                 mpol = point.value.minpoly()
@@ -451,7 +447,7 @@ def _monodromy_matrices(dop, base, eps=1e-16, sing=None, **kwds):
                     NF, crit = crit_cache[mpol]
                 except KeyError:
                     NF = point.value.parent()
-                    crit = critical_monomials(dop.shift(point))
+                    crit = point.local_basis_structure()
                     # Only store the critical monomials for reusing when all
                     # local exponents are rational. We need to restrict to this
                     # case because we do not have the technology in place to
@@ -517,8 +513,8 @@ def _monodromy_matrices(dop, base, eps=1e-16, sing=None, **kwds):
             if y.done:
                 continue
             if y.local_monodromy is None:
-                y.polygon, y.local_monodromy = _local_monodromy_loop(dop,
-                                                            y.point(), eps, ctx)
+                y.polygon, y.local_monodromy = _local_monodromy_loop(y.point(),
+                                                                     eps, ctx)
             new_path_mat, new_inv_path_mat = _extend_path_mat(dop, path_mat,
                                           inv_path_mat, x, y, eps, matprod, ctx)
             yield from dfs(y, path + [y], new_path_mat, new_inv_path_mat)

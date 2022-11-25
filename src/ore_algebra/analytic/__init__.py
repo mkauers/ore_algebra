@@ -188,7 +188,7 @@ Path rewriting
 
 The ``deform`` flag causes the integration path to be deformed using a more
 advanced algorithm than the default method. Setting this flag can lead to
-sustantial speedups for problems with many singularities and complicated paths,
+substantial speedups for problems with many singularities and complicated paths,
 especially at high precision. Currently, however, the default method is
 typically a bit faster in simple cases. ::
 

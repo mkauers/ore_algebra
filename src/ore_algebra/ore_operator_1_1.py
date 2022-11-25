@@ -2352,6 +2352,60 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         else:
             return LL
 
+    def borel_transform(self):
+        r"""
+        Compute the Borel transform of this operator.
+
+        This is an operator annihilating the formal Borel transform
+        `\sum_n \frac{f_{n+1}}{n!} z^n`
+        of every series solution
+        `\sum_n f_n z^n`
+        of this operator (and the formal Borel transform of formal
+        logarithmic solutions as well).
+
+        EXAMPLES::
+
+            sage: from ore_algebra import OreAlgebra
+            sage: Pol.<z> = QQ[]
+            sage: Dop.<Dz> = OreAlgebra(Pol)
+            sage: (Dz*(1/z)).borel_transform()
+            z*Dz
+            sage: Dz.borel_transform()
+            z
+            sage: Dop(z).borel_transform()
+            1
+            sage: (-z^3*Dz^2 + (-z^2-z)*Dz + 1).borel_transform()
+            (-z^2 - z)*Dz - z
+
+        TESTS::
+
+            sage: Dop(0).borel_transform()
+            0
+
+            sage: dop = (z*Dz)^4 - 6/z*(z*Dz)^3 - 1/z^2*(z*Dz) - 7/z^2
+            sage: ref = (z^4 - 6*z^3)*Dz^4 + (10*z^3 - 54*z^2 - z)*Dz^3 + (25*z^2 - 114*z - 10)*Dz^2 + (15*z - 48)*Dz + 1 # van der Hoeven 2007, Figure 3.4
+            sage: ref.quo_rem(dop.borel_transform())
+            (Dz, 0)
+
+            sage: Pol0.<t> = QQ[i][]
+            sage: Pol.<z> = Pol0[]
+            sage: Dop.<Dz> = OreAlgebra(Pol)
+            sage: (i*t*z^2*Dz).borel_transform()
+            I*t*z
+        """
+        # Left-multiply by a suitable power of `z`;
+        # substitute `z` for `z^2 D_z` and `D_z` for `1/z`.
+        Dop, Pol, _, dop = self._normalize_base_ring()
+        Dz, z = Dop.gen(), Pol.gen()
+        z2Dz = z**2*Dz
+        coeff = []
+        while not dop.is_zero():
+            cor, dop, rem = dop.pseudo_quo_rem(z2Dz)
+            for i in range(len(coeff)):
+                coeff[i] *= cor
+            coeff.append(rem[0])
+        deg = max((pol.degree() for pol in coeff), default=0)
+        return sum(pol.reverse(deg)(Dz)*z**i for i, pol in enumerate(coeff))
 
     def power_series_solutions(self, n=5):
         r"""
@@ -2906,11 +2960,15 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
 
     def local_basis_monomials(self, point):
         r"""
-        Return the leading logarithmic monomials of a local basis of solutions.
+        Leading monomials of the local basis of “regular” solutions
+        (logarithmic series solutions) used in the definition of initial values
+        and transition matrices.
 
         INPUT:
 
-        ``point`` - a regular point of this operator
+        ``point`` -- Point where the local basis should be computed. (May be an
+        irregular singular point, but the output only covers regular
+        solutions.)
 
         OUTPUT:
 
@@ -2920,6 +2978,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         a nonnegative integer less than the multiplicity of that root.
 
         If ``point`` is an ordinary point, the output is ``[1, x, x^2, ...]``.
+
         More generally, a solution of the operator is characterized by the
         coefficients in its logarithmic power series expansion at ``point`` of
         the monomials returned by this method. The basis of solutions
@@ -2929,8 +2988,9 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         vectors of “generalized initial values” at regular singular points.
         (The order is essentially that of asymptotic dominance as ``x`` tends
         to ``point``, with oscillating functions being ordered in an arbitrary
-        but consistent way.) Note that this basis may not coincide with the one
-        computed by :meth:`generalized_series_solutions`.
+        but consistent way.) Note that this basis is not the usual Frobenius
+        basis and may not coincide with the one computed by
+        :meth:`generalized_series_solutions`.
 
         .. SEEALSO::
 
@@ -2963,6 +3023,12 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             [x*(1 - x + 5/6*x^2 + O(x^3)),
              (x - x^2 + O(x^3))*log(x) - 1 + 1/2*x^2 + O(x^3)]
 
+        An irregular case::
+
+            sage: dop = -x^3*Dx^2 + (-x^2-x)*Dx + 1
+            sage: dop.local_basis_monomials(0)
+            [x]
+
         TESTS::
 
             sage: ((x+1/3)*Dx^4+Dx-x).local_basis_monomials(-1/3)
@@ -2981,7 +3047,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         from .analytic.local_solutions import simplify_exponent
         from .analytic.path import Point
         dop = DifferentialOperator(self)
-        struct = Point(point, dop).local_basis_structure()
+        struct = Point(point, dop).local_basis_structure(critical_monomials=False)
         x = SR(dop.base_ring().gen()) - point
         return [x**simplify_exponent(sol.valuation)
                     *symbolic_log.log(x, hold=True)**sol.log_power
@@ -2991,24 +3057,28 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
     # TODO: Add a version that returns DFiniteFunction objects
     def local_basis_expansions(self, point, order=None, ring=None):
         r"""
-        Generalized series expansions of the local basis.
+        Generalized series expansions of the local basis of “regular” solutions
+        (logarithmic series solutions) used in the definition of initial values
+        and transition matrices.
 
         INPUT:
 
-        * point - Point where the local basis is to be computed
+        * ``point`` -- Point where the local basis is to be computed. (May
+          be an irregular singular point, but this method only computes regular
+          solutions.)
 
-        * order (optional) - Number of terms to compute, *starting from each
-          “leftmost” valuation of a group of solutions with valuations differing by
-          integers*. (Thus, the absolute truncation order will be the same for all
-          solutions in such a group, with some solutions having more actual
-          coefficients computed that others.)
+        * ``order`` (optional) -- Number of terms to compute, starting from
+          each “leftmost” valuation of a group of solutions with valuations
+          differing by integers. (Thus, the absolute truncation order will be
+          the same for all solutions in such a group, with some solutions
+          having more actual coefficients computed that others.)
 
           The default is to choose the truncation order in such a way that the
           structure of the basis is apparent, and in particular that logarithmic
           terms appear if logarithms are involved at all in that basis. The
           corresponding order may be very large in some cases.
 
-        * ring (optional) - Ring into which to coerce the coefficients of the
+        * ``ring`` (optional) -- Ring into which to coerce the coefficients of the
           expansion
 
         OUTPUT:
@@ -3091,6 +3161,13 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             sage: c, mon.n, mon.k
             ([-0.00056 +/- 3.06e-6], 4, 2)
 
+        The local basis at an irregular singular point has fewer elements than
+        the order of the operator::
+
+            sage: dop = -x^3*Dx^2+(-x^2-x)*Dx+1
+            sage: dop.local_basis_expansions(0)
+            [x - x^2 + 2*x^3 - 6*x^4 + 24*x^5]
+
         TESTS::
 
             sage: (4*x^2*Dx^2 + (-x^2+8*x-11)).local_basis_expansions(0, 2)
@@ -3123,20 +3200,13 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             1 - 3/4*(x - 1) + 105/64*(x - 1)^2
         """
         from .analytic.differential_operator import DifferentialOperator
-        from .analytic.local_solutions import (log_series, LocalBasisMapper,
-                simplify_exponent, LogMonomial)
+        from .analytic.local_solutions import (log_series, LocalExpansions,
+                                               LogMonomial)
         from .analytic.path import Point
-        mypoint = Point(point, self)
         dop = DifferentialOperator(self)
+        mypoint = Point(point, dop)
         ldop = dop.shift(mypoint)
-        if order is None:
-            ind = ldop.indicial_polynomial(ldop.base_ring().gen())
-            order = max(dop.order(), ind.dispersion()) + 3
-        class Mapper(LocalBasisMapper):
-            def fun(self, ini):
-                shifted_bwrec = self.bwrec.shift_by_PolynomialRoot(self.leftmost)
-                return log_series(ini, shifted_bwrec, order)
-        sols = Mapper(ldop).run()
+        sols = LocalExpansions(ldop, order).run()
         x = SR.var(dop.base_ring().variable_name())
         dx = x if point == 0 else x.add(-point, hold=True)
         if ring is None:

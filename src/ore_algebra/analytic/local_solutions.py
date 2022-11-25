@@ -18,7 +18,6 @@ import collections, logging, warnings
 from itertools import chain
 
 import sage.functions.log as symbolic_log
-import sage.rings.number_field.number_field_base as number_field_base
 
 from sage.arith.all import gcd, lcm
 from sage.misc.cachefunc import cached_method
@@ -29,6 +28,7 @@ from sage.rings.all import RealBallField, ComplexBallField
 from sage.rings.complex_arb import ComplexBall
 from sage.rings.integer import Integer
 from sage.rings.number_field.number_field import (
+        number_field_base,
         NumberField_absolute,
         NumberField_quadratic,
     )
@@ -36,7 +36,7 @@ from sage.rings.polynomial import polynomial_element
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 from sage.structure.coerce_exceptions import CoercionException
 from sage.structure.sequence import Sequence
-from sage.symbolic.all import SR, pi
+from sage.symbolic.all import pi
 from sage.symbolic.constants import I
 
 from .. import ore_algebra
@@ -44,7 +44,7 @@ from . import utilities
 
 from .context import dctx
 from .differential_operator import DifferentialOperator
-from .shiftless import dispersion, my_shiftless_decomposition
+from .shiftless import my_shiftless_decomposition
 
 logger = logging.getLogger(__name__)
 
@@ -437,9 +437,17 @@ _FundamentalSolution0 = collections.namedtuple(
     ['leftmost', 'shift', 'log_power', 'value'])
 
 class FundamentalSolution(_FundamentalSolution0):
+
     @lazy_attribute
     def valuation(self):
         return self.leftmost.as_algebraic() + self.shift # alg for re, im
+
+    def valuation_as_ball(self, IC):
+        return self.leftmost.as_ball(IC) + self.shift
+
+    def param_are_zero(self):
+        return (self.leftmost.is_zero() and self.shift == 0
+                and self.log_power.is_zero())
 
 class sort_key_by_asympt:
     r"""
@@ -529,7 +537,7 @@ class LocalBasisMapper(object):
     exported data and hooks is a bit ad hoc.
     """
 
-    def __init__(self, dop, ctx=dctx):
+    def __init__(self, dop, *, ctx=dctx):
         self.dop = dop
         self.ctx = ctx
 
@@ -557,9 +565,10 @@ class LocalBasisMapper(object):
         sl_data = []
         self.all_roots = []
         for sl_factor, shifts in self.sl_decomp:
+            sl_factor = sl_factor.monic()
             shifts.sort()
             irred_data = []
-            for irred_factor, irred_mult in sl_factor.factor():
+            for irred_factor, irred_mult in utilities.myfactor_monic(sl_factor):
                 assert irred_mult == 1
                 roots = utilities.roots_of_irred(irred_factor)
                 irred_data.append((irred_factor, roots))
@@ -624,6 +633,30 @@ class LocalBasisMapper(object):
     def fun(self, ini):
         return None
 
+class CriticalMonomials(LocalBasisMapper):
+    # XXX avoid redundancies with the work HighestSolMapper is doing?
+
+    def fun(self, ini):
+        # XXX should share algebraic part with Galois conjugates
+        order = max(s for s, _ in self.shifts) + 1
+        shifted_bwrec = self.bwrec.shift_by_PolynomialRoot(self.leftmost)
+        ser = log_series(ini, shifted_bwrec, order)
+        return {s: ser[s] for s, _ in self.shifts}
+
+class LocalExpansions(LocalBasisMapper):
+
+    def __init__(self, dop, order=None, *, ctx=dctx):
+        super().__init__(dop, ctx=ctx)
+        if order is None:
+            ind = dop.indicial_polynomial(dop.base_ring().gen())
+            self.order = max(dop.order(), ind.dispersion()) + 3
+        else:
+            self.order = order
+
+    def fun(self, ini):
+        shifted_bwrec = self.bwrec.shift_by_PolynomialRoot(self.leftmost)
+        return log_series(ini, shifted_bwrec, self.order)
+
 def exponent_shifts(dop, leftmost):
     bwrec = bw_shift_rec(dop)
     ind = bwrec[0]
@@ -678,30 +711,6 @@ def log_series(ini, bwrec, order):
                 log_prec = p + 1
         series.append(new_term)
     return series
-
-def critical_monomials(dop):
-    r"""
-    For all fundamental solutions f, g, compute the terms of f of index equal to
-    the valuation of g.
-
-    OUTPUT:
-
-    A list of ``FundamentalSolution`` objects ``sol`` such that,
-    if ``sol = z^(λ+n)·(1 + Õ(z)`` where ``λ`` is the leftmost valuation of a
-    group of solutions and ``s`` is another shift of ``λ`` appearing in the
-    basis, then ``sol.value[s]`` contains the list of coefficients of
-    ``z^(λ+s)·log(z)^k/k!``, ``k = 0, 1, ...`` in ``sol``.
-    """
-
-    class Mapper(LocalBasisMapper):
-        def fun(self, ini):
-            # XXX should share algebraic part with Galois conjugates
-            order = max(s for s, _ in self.shifts) + 1
-            shifted_bwrec = self.bwrec.shift_by_PolynomialRoot(self.leftmost)
-            ser = log_series(ini, shifted_bwrec, order)
-            return {s: ser[s] for s, _ in self.shifts}
-
-    return Mapper(dop).run()
 
 ##############################################################################
 # Evaluation of logarithmic series
@@ -860,4 +869,4 @@ class LogMonomial(object):
         return s
 
     def _symbolic_(self):
-        return dx**self.n*symbolic_log.log(x, hold=True)**self.k
+        return self.dx**self.n*symbolic_log.log(self.dx, hold=True)**self.k

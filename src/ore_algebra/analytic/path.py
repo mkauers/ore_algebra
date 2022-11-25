@@ -17,8 +17,6 @@ import itertools, logging, sys
 
 import sage.plot.all as plot
 import sage.rings.all as rings
-import sage.rings.number_field.number_field as number_field
-import sage.rings.number_field.number_field_base as number_field_base
 import sage.structure.coerce
 import sage.symbolic.ring
 
@@ -26,6 +24,8 @@ from sage.misc.cachefunc import cached_method
 from sage.misc.lazy_attribute import lazy_attribute
 from sage.rings.all import ZZ, QQ, CC, CIF, QQbar, RLF, CLF
 from sage.rings.complex_arb import CBF, ComplexBallField, ComplexBall
+from sage.rings.number_field import number_field
+from sage.rings.number_field import number_field_base
 from sage.rings.real_arb import RBF, RealBallField, RealBall
 from sage.structure.element import coercion_model
 from sage.structure.sage_object import SageObject
@@ -35,7 +35,7 @@ from . import utilities
 from .context import dctx
 from .deform import PathDeformer, PathDeformationFailed
 from .differential_operator import DifferentialOperator
-from .local_solutions import FundamentalSolution, LocalBasisMapper
+from .local_solutions import FundamentalSolution, LocalBasisMapper, CriticalMonomials
 from .safe_cmp import *
 from .utilities import *
 
@@ -515,32 +515,55 @@ class Point(SageObject):
             raise NotImplementedError # refine???
         return IR(min_dist.lower())
 
-    def local_basis_structure(self):
+    @cached_method
+    def local_basis_structure(self, critical_monomials=True):
         r"""
+        Compute the structure of the canonical local basis at this point.
+
+        With ``critical_monomials == False``, this is essentially the roots of
+        the indicial equation and their multiplicities, but encoded as
+        ``FundamentalSolution`` objects.
+
+        With ``critical_monomials == True``, also compute, for every pair (f, g)
+        of elements of the local basis, the terms of f of index equal to the
+        valuation of g.
+
+        OUTPUT:
+
+        A list of ``FundamentalSolution`` objects ``sol``.
+
+        With ``critical_monomials == False``, ``sol.value`` is meaningless.
+
+        Otherwise, for each ``sol = z^(λ+n)·(1 + Õ(z)`` where ``λ`` is the
+        leftmost valuation of a group of solutions and ``s`` is another shift of
+        ``λ`` appearing in the basis, ``sol.value[s]`` contains the list of
+        coefficients of ``z^(λ+s)·log(z)^k/k!``, ``k = 0, 1, ...``,  in ``sol``.
+
         EXAMPLES::
 
             sage: from ore_algebra import *
             sage: from ore_algebra.analytic.path import Point
             sage: Dops, x, Dx = DifferentialOperators()
-            sage: Point(0, x*Dx^2 + Dx + x).local_basis_structure()
+            sage: Point(0, x*Dx^2 + Dx + x).local_basis_structure(critical_monomials=False)
             [FundamentalSolution(leftmost=0, shift=0, log_power=1, value=None),
              FundamentalSolution(leftmost=0, shift=0, log_power=0, value=None)]
-            sage: Point(0, Dx^3 + x*Dx + x).local_basis_structure()
+            sage: Point(0, Dx^3 + x*Dx + x).local_basis_structure(critical_monomials=False)
             [FundamentalSolution(leftmost=0, shift=0, log_power=0, value=None),
              FundamentalSolution(leftmost=0, shift=1, log_power=0, value=None),
              FundamentalSolution(leftmost=0, shift=2, log_power=0, value=None)]
         """
-        # TODO: provide a way to compute the first terms of the series. First
-        # need a good way to share code with fundamental_matrix_regular. Or
-        # perhaps modify generalized_series_solutions() to agree with our
-        # definition of the basis?
+        ord = self.dop.order()
+        Scalars = self.dop.base_ring().base_ring()
         if self.is_ordinary(): # support inexact points in this case
-            return [FundamentalSolution(utilities.PolynomialRoot.make(0),
-                                        ZZ(expo), ZZ.zero(), None)
-                    for expo in range(self.dop.order())]
-        elif not self.is_regular():
-            raise NotImplementedError("irregular singular point")
-        return LocalBasisMapper(self.dop.shift(self)).run()
+            return [
+                FundamentalSolution(
+                    utilities.PolynomialRoot.make(0), ZZ(expo), ZZ.zero(),
+                    {s: [Scalars.one() if s == expo else Scalars.zero()]
+                     for s in range(ord)} if critical_monomials else None)
+                for expo in range(ord)]
+
+        Mapper = CriticalMonomials if critical_monomials else LocalBasisMapper
+        return Mapper(self.dop.shift(self)).run()
 
     def simple_approx(self, neighb, ctx=dctx):
         r"""
@@ -656,7 +679,7 @@ class Step(SageObject):
         self.max_split = 3 if max_split is None else max_split
 
     def _repr_(self):
-        type = "" if self.type is None else "[{}] ".format(self.type)
+        type = "" if self.type is None else f"[{self.type}] "
         bb = (self.type == "bit-burst")
         start = self.start._repr_(size=bb)
         end = self.end._repr_(size=bb)
@@ -1166,7 +1189,7 @@ class Path(SageObject):
             ....: 18161461388034*x^4 + 143883037728*x^3 +
             ....: 198323267016*x^2 + 3242277984*x - 171991488)*Dx)
             sage: step = [-134879941225471131681/7*I + 12/11, -119/8*I + 12/11]
-            sage: dop2.numerical_transition_matrix(step, assume_analytic=True).trace() # long time (4 s)
+            sage: dop2.numerical_transition_matrix(step, assume_analytic=True).trace() # long time (~6.5 s)
             [5.974916363812...e+72 +/- ...] + [-4.643666445284...e+72 +/- ...]*I
 
         ...and for this one, showing that step subdivision could silently change
