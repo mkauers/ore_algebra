@@ -1232,6 +1232,8 @@ def _bound_local_integral_of_tail(Expr, rho, val_rho, order, s, n0, vb, kappa):
         C_nur = 1
     else:
         C_nur = 2 * (CBF(1).exp()*(s - 2)/(2*s*beta))**beta
+    # This constant differs from the one in the paper because we are working
+    # with powers of (z-ρ) instead of (1-z/ρ). (?)
     err_L = C_nur/_pi * abs(_rho)**beta * A
     bound_L = CBF(0).add_error(err_L)*Bpi
 
