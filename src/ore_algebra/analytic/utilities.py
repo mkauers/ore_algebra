@@ -508,43 +508,6 @@ def derivatives(f, m):
 # Relating to ComplexOptimisticField
 ######################################################################
 
-def overlaps(a, b):
-    """
-    Function overlaps designed for vectors and matrices.
-    """
-    l = len(a.list())
-    return all(a.list()[i].overlaps(b.list()[i]) for i in range(l))
-
-def customized_accuracy(x):
-
-    """
-    Return either the absolute accuracy of x if x contains 0 or the relative
-    accuracy of x if x does not contains 0.
-
-    Note that this function works also if x is a vector, a matrix, a polynomial
-    or a list (minimum of the accuracies of the coefficients).
-
-    INPUT:
-     - 'x' - a complex ball objet
-
-    OUTPUT:
-     - 'acc' - a nonnegative integer (max = 9223372036854775807)
-    """
-
-    if x==[]: return 9223372036854775807
-    if isinstance(x, FreeModuleElement_generic_dense) or \
-    isinstance(x, Matrix_dense) or isinstance(x, Polynomial):
-        return customized_accuracy(x.list())
-    if isinstance(x, list):
-        return min(customized_accuracy(c) for c in x)
-
-    if x.contains_zero():
-        if x.rad().is_zero(): return 9223372036854775807
-        return max(0, (-log(x.rad(), 2)).floor())
-
-    return x.accuracy()
-
-
 def _clean(pol):
 
     l = list(pol)

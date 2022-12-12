@@ -22,10 +22,73 @@ except ModuleNotFoundError: # versions of sage older than 9.3
     from sage.rings.complex_field import ComplexField
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 from sage.rings.real_mpfr import RealField
+from sage.matrix.matrix_dense import Matrix_dense
+from sage.modules.free_module_element import vector, FreeModuleElement_generic_dense
+from sage.rings.polynomial.polynomial_element import Polynomial
+from sage.rings.qqbar import number_field_elements_from_algebraics
+from sage.functions.all import log, floor
+from sage.arith.misc import algdep, gcd
+from sage.arith.functions import lcm
+from sage.functions.other import binomial
 
 from .complex_optimistic_field import ComplexOptimisticField
 from .accuracy import PrecisionError
-from .utilities import roots, XGCD, customized_accuracy
+from .utilities import roots, XGCD
+
+
+
+################################################################################
+### Some useful functions ######################################################
+################################################################################
+
+def customized_accuracy(x):
+
+    """
+    Return either the absolute accuracy of x if x contains 0 or the relative
+    accuracy of x if x does not contains 0.
+
+    Note that this function works also if x is a vector, a matrix, a polynomial
+    or a list (minimum of the accuracies of the coefficients).
+
+    INPUT:
+     - 'x' - a complex ball objet
+
+    OUTPUT:
+     - 'acc' - a nonnegative integer (max = 9223372036854775807)
+
+    EXAMPLES::
+
+        sage: from ore_algebra.analytic.utilities import customized_accuracy
+        sage: a = ComplexBallField().one()
+        sage: a.accuracy(), customized_accuracy(a)
+        (9223372036854775807, 9223372036854775807)
+        sage: a = a/3
+        sage: a.accuracy(), customized_accuracy(a)
+        (51, 51)
+        sage: a = a - 1/3
+        sage: a.accuracy(), customized_accuracy(a)
+        (-9223372036854775807, 52)
+
+    """
+
+    if x==[]: return 9223372036854775807
+    if isinstance(x, FreeModuleElement_generic_dense) or \
+    isinstance(x, Matrix_dense) or isinstance(x, Polynomial):
+        return customized_accuracy(x.list())
+    if isinstance(x, list):
+        return min(customized_accuracy(c) for c in x)
+
+    if x.contains_zero():
+        if x.rad().is_zero(): return 9223372036854775807
+        return max(0, (-log(x.rad(), 2)).floor())
+
+    return x.accuracy()
+
+
+
+################################################################################
+### Gaussian reduction and applications ########################################
+################################################################################
 
 
 def row_echelon_form(mat, *, transformation=False, pivots=False, prec_pivots={}):
@@ -437,6 +500,10 @@ def intersection(K1, K2):
     return K
 
 
+################################################################################
+### Eigenvalues, eigenvectors ##################################################
+################################################################################
+
 
 def eigenvalues(mat, multiplicities=False):
 
@@ -558,6 +625,9 @@ def gen_eigenspaces(mat, *, projections=False):
 
     return GenEigSpaces
 
+################################################################################
+### The class Splitting as in [van der Hoeven, 2007] ###########################
+################################################################################
 
 
 class Splitting():
