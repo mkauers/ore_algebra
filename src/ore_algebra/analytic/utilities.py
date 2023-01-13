@@ -270,21 +270,34 @@ class PolynomialRoot:
     _acb_ = _complex_mpfr_field_ = _complex_mpfi_ = as_ball
 
     @cached_method
-    def as_algebraic(self, sloppy=True):
-        if sloppy and self.pol.base_ring() is QQ:
+    def as_algebraic(self):
+        r"""
+        TESTS:
+
+        Check that we return well-formed algebraic numbers when pol ∈ QQ[x] has
+        a denominator::
+
+            sage: from ore_algebra.analytic.utilities import roots_of_irred
+            sage: Pol.<z> = QQ[]
+            sage: rts = roots_of_irred(z^3 + 59/23*z^2 - 59/23*z - 279/23)
+            sage: [a.as_algebraic().imag().sign() for a in rts]
+            [0, -1, 1]
+        """
+        if self.pol.base_ring() is QQ:
             # bypass ANRoot.exactify()
-            # This seems to lead to elements of QQbar on which some operations
-            # (sign(imag), abs().exactify()) fail for a reason I don't
-            # understand.
-            nf = NumberField(self.pol, 'a', check=False)
-            rt = ANRoot(self.pol, self.all_roots[self.index])
+            x = self.pol.parent().gen()
+            den = self.pol.monic().denominator()
+            pol = self.pol(x/den).monic()
+            assert pol.denominator().is_one()
+            nf = NumberField(pol, 'a', check=False)
+            rt = ANRoot(pol, self.all_roots[self.index]*den)
             gen = AlgebraicGenerator(nf, rt)
-            return AlgebraicNumber(ANExtensionElement(gen, nf.gen()))
+            return AlgebraicNumber(ANExtensionElement(gen, nf.gen()/den))
         else:
             return QQbar.polynomial_root(self.pol, self.all_roots[self.index])
 
     def _algebraic_(self, field):
-        return field(self.as_algebraic(sloppy=False))
+        return field(self.as_algebraic())
 
     @cached_method
     def as_number_field_element(self):
@@ -377,12 +390,7 @@ class PolynomialRoot:
         self.detect_real_roots()
         if self.all_roots[self.index].imag().is_zero():
             return 0
-        try:
-            return int(self.as_algebraic().imag().sign())
-        except ValueError:
-            # Work around an issue I don't really understand with some of the
-            # algebraic numbers created by self.as_algebraic()
-            return int(self.as_algebraic(sloppy=False).imag().sign())
+        return int(self.as_algebraic().imag().sign())
 
     @classmethod
     def make(cls, value):
