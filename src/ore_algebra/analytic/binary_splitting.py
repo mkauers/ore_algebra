@@ -839,14 +839,24 @@ class MatrixRec(object):
                 pts = Sequence(pts, universe=deq_Scalars)
                 self._init_generic(deq_Scalars, shift, pts)
 
-        bwrec = bw_shift_rec(dop, shift=self.shift)
-        # Also store an exact version of the leading coefficient to be able to
-        # compute the inverse exactly (and simplify the result) when working
-        # with arb balls. (Would it be enough to increase the working precision
-        # as in the Cython version?)
-        self.exact_lc = bwrec.lc_as_rec()
-        # separate step because Ore ops cannot have ball coefficients
-        self.bwrec = bwrec.change_base(self.AlgInts_rec)
+        if isinstance(self.AlgInts_rec, ComplexBallField):
+            bwrec = bw_shift_rec(dop, shift=self.shift)
+            # Also store an exact version of the leading coefficient to be able
+            # to compute the inverse exactly (and simplify the result) when
+            # working with arb balls. (Would it be enough to increase the
+            # working precision as in the Cython version?)
+            self.exact_lc = bwrec.lc_as_rec()
+            # separate step because Ore ops cannot have ball coefficients
+            self.bwrec = bwrec.change_base(self.AlgInts_rec)
+        else:
+            # In this case, passing to AlgInts_rec as a base ring may introduce
+            # denominators, so it is better to do that while computing the
+            # recurrence, and we need to store exact_lc *after* passing to
+            # AlgInts_rec
+            self.bwrec = bw_shift_rec(dop, shift=self.shift,
+                                      Scalars=self.AlgInts_rec)
+            self.exact_lc = self.bwrec.lc_as_rec()
+
         if self.bwrec.order == 0:
             # not sure what to do in this case
             raise NotImplementedError("recurrence of order zero")

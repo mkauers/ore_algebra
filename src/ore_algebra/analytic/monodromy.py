@@ -1,6 +1,20 @@
 # -*- coding: utf-8 - vim: tw=80
 r"""
 Monodromy matrices
+
+TESTS::
+
+    sage: from ore_algebra import *
+    sage: from ore_algebra.analytic.monodromy import monodromy_matrices
+    sage: Dops, z, Dz = DifferentialOperators()
+
+Thanks to Alexandre Goyer for this example, which used to crash because of a bug
+in the handling of algebraic numbers in the binary splitting code::
+
+    sage: dop = z^2*(14*z-3)*(23*z^3+128*z^2+128*z-256)*Dz^3+2*z*(1449*z^4+5255*z^3+1744*z^2-2208*z+672)*Dz^2+2*(2898*z^4+5513*z^3-1081*z^2-414*z+48)*Dz+1932*z^3+344*z^2-690*z-12
+    sage: dop = dop.annihilator_of_composition(z-1)
+    sage: monodromy_matrices(dop, 0, algorithm="binsplit", eps=1e-20)[-1].trace()
+    [2.00000000000...] + [1.00000000000...]*I
 """
 
 # Copyright 2017, 2018, 2019 Marc Mezzarobba
