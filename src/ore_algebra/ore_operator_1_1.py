@@ -3171,8 +3171,8 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         TESTS::
 
             sage: (4*x^2*Dx^2 + (-x^2+8*x-11)).local_basis_expansions(0, 2)
-            [x^(-1.232050807568878?) + (-4/11*a+4/11)*x^(-0.2320508075688773?),
-            x^2.232050807568878? - (-4/11*a)*x^3.232050807568878?]
+            [x^(-1.232050807568878?) + (-1/11*a+4/11)*x^(-0.2320508075688773?),
+            x^2.232050807568878? - (-1/11*a)*x^3.232050807568878?]
 
             sage: ((27*x^2+4*x)*Dx^2 + (54*x+6)*Dx + 6).local_basis_expansions(0, 2)
             [x^(-1/2) + 3/8*x^(1/2), 1 - x]
