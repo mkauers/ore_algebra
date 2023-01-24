@@ -17,6 +17,9 @@ from .dfinite_function import DFiniteFunctionRing, UnivariateDFiniteSequence, Un
 from ore_algebra import *
 from ore_operator import *
 from ore_operator_1_1 import *
+from differential_operator_1_1 import *
+from recurrence_operator_1_1 import *
+from q_operator_1_1 import *
 from ore_operator_mult import *
 from dfinite_function import *
 from nullspace import *

@@ -8,9 +8,9 @@ points of univariate differential operators.
 
 The basic features are accessible through methods of univariate differential
 operators, such as
-:meth:`~ore_algebra.ore_operator_1_1.UnivariateDifferentialOperatorOverUnivariateRing.numerical_solution`
+:meth:`~ore_algebra.differential_operator_1_1.UnivariateDifferentialOperatorOverUnivariateRing.numerical_solution`
 and
-:meth:`~ore_algebra.ore_operator_1_1.UnivariateDifferentialOperatorOverUnivariateRing.numerical_transition_matrix`.
+:meth:`~ore_algebra.differential_operator_1_1.UnivariateDifferentialOperatorOverUnivariateRing.numerical_transition_matrix`.
 Only more advanced or experimental functionality requires calling this module
 directly.
 A short introduction to the features most likely to be of interest to casual

@@ -960,7 +960,9 @@ def OreAlgebra(base_ring, *generators, **kwargs):
             product_rules[i] = (zero, one, zero)
 
     # Select element class
-    from . import ore_operator, ore_operator_1_1, ore_operator_mult
+    from . import (
+        ore_operator, ore_operator_1_1, differential_operator_1_1,
+        recurrence_operator_1_1, q_operator_1_1, ore_operator_mult)
     if "element_class" in kwargs:
         operator_class = kwargs["element_class"]
     elif len(gens) > 1:
@@ -968,17 +970,17 @@ def OreAlgebra(base_ring, *generators, **kwargs):
     elif len(Rgens) > 1:
         operator_class = ore_operator.UnivariateOreOperator
     elif is_shift[0]:
-        operator_class = ore_operator_1_1.UnivariateRecurrenceOperatorOverUnivariateRing
+        operator_class = recurrence_operator_1_1.UnivariateRecurrenceOperatorOverUnivariateRing
     elif is_derivation[0]:
-        operator_class = ore_operator_1_1.UnivariateDifferentialOperatorOverUnivariateRing
+        operator_class = differential_operator_1_1.UnivariateDifferentialOperatorOverUnivariateRing
     elif is_qshift[0]:
-        operator_class = ore_operator_1_1.UnivariateQRecurrenceOperatorOverUnivariateRing
+        operator_class = q_operator_1_1.UnivariateQRecurrenceOperatorOverUnivariateRing
     elif is_qderivation[0]:
-        operator_class = ore_operator_1_1.UnivariateQDifferentialOperatorOverUnivariateRing
+        operator_class = q_operator_1_1.UnivariateQDifferentialOperatorOverUnivariateRing
     elif is_delta[0]:
-        operator_class = ore_operator_1_1.UnivariateDifferenceOperatorOverUnivariateRing
+        operator_class = recurrence_operator_1_1.UnivariateDifferenceOperatorOverUnivariateRing
     elif is_theta[0]:
-        operator_class = ore_operator_1_1.UnivariateEulerDifferentialOperatorOverUnivariateRing
+        operator_class = differential_operator_1_1.UnivariateEulerDifferentialOperatorOverUnivariateRing
     elif is_commutative[0]:
         operator_class = ore_operator_1_1.UnivariateOreOperatorOverUnivariateRing
     else:
