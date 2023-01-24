@@ -1464,6 +1464,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         from .analytic import analytic_continuation as ancont
         from .analytic import local_solutions, utilities
         from .analytic.differential_operator import DifferentialOperator
+        from .analytic.polynomial_root import PolynomialRoot
         dop = DifferentialOperator(self)
         post_transform = ancont.normalize_post_transform(dop, post_transform)
         post_mat = matrix(1, dop.order(),
@@ -1473,7 +1474,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
                                          post=post_mat, return_local_bases=True)
         val = []
         asycst = local_solutions.sort_key_by_asympt(
-            (utilities.PolynomialRoot.make(QQ.zero()), 0, ZZ.zero()))
+            (PolynomialRoot.make(QQ.zero()), 0, ZZ.zero()))
         for sol_at_pt in sol:
             pt = sol_at_pt["point"]
             mat = sol_at_pt["value"]

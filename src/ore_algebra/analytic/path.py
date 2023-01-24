@@ -26,6 +26,7 @@ from sage.rings.all import ZZ, QQ, CC, CIF, QQbar, RLF, CLF
 from sage.rings.complex_arb import CBF, ComplexBallField, ComplexBall
 from sage.rings.number_field import number_field
 from sage.rings.number_field import number_field_base
+from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 from sage.rings.real_arb import RBF, RealBallField, RealBall
 from sage.structure.element import coercion_model
 from sage.structure.sage_object import SageObject
@@ -36,8 +37,10 @@ from .context import dctx
 from .deform import PathDeformer, PathDeformationFailed
 from .differential_operator import DifferentialOperator
 from .local_solutions import FundamentalSolution, LocalBasisMapper, CriticalMonomials
+from .polynomial_root import PolynomialRoot
 from .safe_cmp import *
-from .utilities import *
+from .utilities import (pairwise, split, is_QQi, is_real_parent,
+                        is_numeric_parent, as_embedded_number_field_elements)
 
 logger = logging.getLogger(__name__)
 
@@ -557,7 +560,7 @@ class Point(SageObject):
         if self.is_ordinary(): # support inexact points in this case
             return [
                 FundamentalSolution(
-                    utilities.PolynomialRoot.make(0), ZZ(expo), ZZ.zero(),
+                    PolynomialRoot.make(0), ZZ(expo), ZZ.zero(),
                     {s: [Scalars.one() if s == expo else Scalars.zero()]
                      for s in range(ord)} if critical_monomials else None)
                 for expo in range(ord)]

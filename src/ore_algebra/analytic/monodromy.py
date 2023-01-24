@@ -46,6 +46,7 @@ from . import analytic_continuation as ancont, path, utilities
 from .context import Context
 from .differential_operator import DifferentialOperator
 from .local_solutions import LocalBasisMapper
+from .polynomial_root import PolynomialRoot
 
 logger = logging.getLogger(__name__)
 
@@ -422,7 +423,7 @@ def _monodromy_matrices(dop, base, eps=1e-16, sing=None, **kwds):
             base = s
             break
     else:
-        base = utilities.PolynomialRoot.make(base)
+        base = PolynomialRoot.make(base)
 
     todo = {x: TodoItem(x, dop, want_self=True, want_conj=False)
             for x in sing}

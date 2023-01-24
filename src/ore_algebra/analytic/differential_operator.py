@@ -25,6 +25,7 @@ from ..ore_algebra import OreAlgebra
 from ..differential_operator_1_1 import UnivariateDifferentialOperatorOverUnivariateRing
 
 from .context import dctx
+from .polynomial_root import roots_of_irred
 from .utilities import as_embedded_number_field_elements
 
 from . import utilities
@@ -205,7 +206,7 @@ class PlainDifferentialOperator(UnivariateDifferentialOperatorOverUnivariateRing
             pol = alc if apparent else dlc
         sing = []
         for fac, mult in pol.factor():
-            roots = utilities.roots_of_irred(fac)
+            roots = roots_of_irred(fac)
             sing.extend((rt, mult) for rt in roots)
         return sing
 

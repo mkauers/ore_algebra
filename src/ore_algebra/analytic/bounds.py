@@ -149,6 +149,8 @@ from .context import dctx
 from .differential_operator import DifferentialOperator
 from .safe_cmp import *
 
+from .polynomial_root import PolynomialRoot
+
 logger = logging.getLogger(__name__)
 
 class BoundPrecisionError(Exception):
@@ -1682,7 +1684,7 @@ class DiffOpBound(object):
 
         self._rcoeffs = _dop_rcoeffs_of_T(dop_T, self.IC)
 
-        self.leftmost = utilities.PolynomialRoot.make(leftmost)
+        self.leftmost = PolynomialRoot.make(leftmost)
         self._ivleftmost = self.leftmost.as_ball(self.IC)
         if self._dop_D.leading_coefficient()[0] != 0:
             # Ordinary point: even though the indicial equation usually has
