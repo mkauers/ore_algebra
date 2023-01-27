@@ -22,7 +22,7 @@ from sage.rings.number_field.number_field import is_NumberField
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 
 from ..ore_algebra import OreAlgebra
-from ..ore_operator_1_1 import UnivariateDifferentialOperatorOverUnivariateRing
+from ..differential_operator_1_1 import UnivariateDifferentialOperatorOverUnivariateRing
 
 from .context import dctx
 from .utilities import as_embedded_number_field_elements
@@ -54,7 +54,7 @@ class PlainDifferentialOperator(UnivariateDifferentialOperatorOverUnivariateRing
 
     @cached_method
     def _indicial_polynomial_at_zero(self):
-        # Adapted from the version in ore_operator_1_1
+        # Adapted from the version in differential_operator_1_1
 
         op = self.numerator()
         R = op.base_ring()

@@ -16,6 +16,9 @@ Documentation of ore_algebra
 
     ore_algebra.ore_operator
     ore_algebra.ore_operator_1_1
+    ore_algebra.differential_operator_1_1
+    ore_algebra.recurrence_operator_1_1
+    ore_algebra.q_operator_1_1
     ore_algebra.ore_operator_mult
 
 .. rubric:: Differentially Finite Functions
