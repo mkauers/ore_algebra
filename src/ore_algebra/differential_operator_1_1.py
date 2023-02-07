@@ -1768,11 +1768,11 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         return places
 
     def value_function(self, op, place, iota=None, **kwargs):
-        val = self._make_valuation_place(place,iota=iota)[1]
+        val = self._make_valuation_place(place,iota=iota, **kwargs)[1]
         return val(op, place)
 
     def raise_value(self, basis, place, dim=None, iota=None, **kwargs):
-        fct = self._make_valuation_place(place,iota=iota)[2]
+        fct = self._make_valuation_place(place,iota=iota, **kwargs)[2]
         return fct(basis, place, dim)
 
 #############################################################################################################
@@ -1995,10 +1995,10 @@ def _tower(dom):
         D_to_vv = matrix([pad_list(b.coefficients(sparse=False),r)
                           for b in vv]).inverse()
 
-        init = True
-        while init or B.determinant() == 0:
-            if init:
-                init = False
+        first = True
+        while first or B.determinant() == 0:
+            if first:
+                first = False
             else:
                 a = B.kernel().basis()[0]
                 l = min([i for i in range(r) if a[i] != 0],
@@ -2018,13 +2018,66 @@ def _tower(dom):
         return ww, tau
     
     def normal_global_integral_basis(self,basis=None, iota=None, infolevel=0):
+        r"""
+        Compute a normal global integral basis
+
+        An global integral basis `w_1,...,w_r` is called normal at infinity if
+        there exist integers `\tau_1`, ..., `\tau_r` such that `\{x^{\tau_1}w_1,
+        ..., x^{\tau_r}w_r\}` is a local integral basis at infinity.
+
+        INPUT:
+
+        - ``basis`` (default: None) an initial basis for the
+          computation
+        
+        - ``iota`` (default: None) a function used to filter terms of
+          generalized series solutions which are to be considered
+          integral. For the conditions that this function must satisfy, see
+          :meth:`ContinuousGeneralizedSeries.valuation`
+
+        -- ``infolevel`` (default: 0) verbosity level to use in the computations
+
+        OUTPUT:
+
+        A normal global integral basis.
+
+        EXAMPLES:
+
+        # TODO
+
+        """
         ww = self.global_integral_basis(basis=basis,iota=iota, infolevel=infolevel)
         vv = self.local_integral_basis_at_infinity(iota=iota, infolevel=infolevel)
 
         ww, _ = self._normalize_basis_at_infinity(ww,vv, infolevel=infolevel)
         return ww
         
-    def quasiconstants(self, iota=None, infolevel=0):
+    def pseudoconstants(self, iota=None, infolevel=0):
+        r"""
+        Compute pseudoconstants.
+
+        A pseudoconstant is an operator which is integral at all points
+        including infinity, and which is not a constant.
+
+        INPUT:
+
+        - ``iota`` (default: None) a function used to filter terms of
+          generalized series solutions which are to be considered
+          integral. For the conditions that this function must satisfy, see
+          :meth:`ContinuousGeneralizedSeries.valuation`
+
+        -- ``infolevel`` (default: 0) verbosity level to use in the computations
+
+        OUTPUT:
+
+        A basis of the vector space of pseudoconstants.
+
+        EXAMPLES:
+
+        # TODO
+        
+        """
+        
         ww = self.global_integral_basis(iota=iota, infolevel=infolevel)
         vv = self.local_integral_basis_at_infinity(iota=iota, infolevel=infolevel)
 
@@ -2035,5 +2088,7 @@ def _tower(dom):
             if tau[i] >= 0:
                 for j in range(tau[i]+1):
                     res.append(x**j * ww[i])
+        Dx = self.gen()
+        res = [r for r in res if (Dx*r).quo_rem(self)[1] != 0]
         return res
 

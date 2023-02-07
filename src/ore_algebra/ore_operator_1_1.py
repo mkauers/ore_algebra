@@ -1580,7 +1580,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
                     done = True
                 else:
                     print1(" [local] Relation found")
-                    print2("   {}".format(alpha))
+                    print2("         {}".format(alpha))
 
                     alpha_rep = [None for i in range(d+1)]
                     if deg > 1: # Should be harmless even otherwise (then Fvar=1), if we also force the cast to k
@@ -1593,7 +1593,9 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
                     # __import__("pdb").set_trace()
                     
                     res[d] = sum(alpha_rep[i]*res[i] for i in range(d+1))
-                    res[d] = a**(- val_fct(res[d],place=a,**val_kwargs))*res[d]
+                    val = val_fct(res[d],place=a,infolevel=infolevel,**val_kwargs)
+                    print1(" [local] Valuation raised by {}".format(val))
+                    res[d] = a**(-val)*res[d]
                     print2(" [local] Basis element after combination: {}".format(res[d]))
         return res
 
