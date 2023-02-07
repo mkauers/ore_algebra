@@ -1582,7 +1582,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
                     done = True
                 else:
                     print1(" [local] Relation found")
-                    print2("   {}".format(alpha))
+                    print2("         {}".format(alpha))
 
                     alpha_rep = [None for i in range(d+1)]
                     if deg > 1: # Should be harmless even otherwise (then Fvar=1), if we also force the cast to k
@@ -1595,7 +1595,9 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
                     # __import__("pdb").set_trace()
                     
                     res[d] = sum(alpha_rep[i]*res[i] for i in range(d+1))
-                    res[d] = a**(- val_fct(res[d],place=a,**val_kwargs))*res[d]
+                    val = val_fct(res[d],place=a,infolevel=infolevel,**val_kwargs)
+                    print1(" [local] Valuation raised by {}".format(val))
+                    res[d] = a**(-val)*res[d]
                     print2(" [local] Basis element after combination: {}".format(res[d]))
         return res
 
@@ -3628,32 +3630,84 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         return places
 
     def value_function(self, op, place, iota=None, **kwargs):
-        val = self._make_valuation_place(place,iota=iota)[1]
+        val = self._make_valuation_place(place,iota=iota, **kwargs)[1]
         return val(op, place)
 
     def raise_value(self, basis, place, dim=None, iota=None, **kwargs):
-        fct = self._make_valuation_place(place,iota=iota)[2]
+        fct = self._make_valuation_place(place,iota=iota, **kwargs)[2]
         return fct(basis, place, dim)
 
     @cached_method
     def local_integral_basis_at_infinity(self, basis=None, iota=None,
                                          infolevel=0):
+        r"""
+        Compute a local integral basis at infinity
+
+        A basis of the quotient algebra by self is local at infinity if the
+        change of variable 1/x makes it local at 0.
+
+        INPUT:
+
+        - ``basis`` (default: None) an initial basis for the
+          computation
+        
+        - ``iota`` (default: None) a function used to filter terms of
+          generalized series solutions which are to be considered
+          integral. For the conditions that this function must satisfy, see
+          :meth:`ContinuousGeneralizedSeries.valuation`
+
+        -- ``infolevel`` (default: 0) verbosity level to use in the computations
+
+        OUTPUT:
+
+        A local integral basis at infinity. 
+
+        EXAMPLES:
+
+        # TODO
+
+        """
         x = self.base_ring().gen()
         Linf, conv = self.annihilator_of_composition(1/x, with_transform=True)
         f,v,rv = Linf._make_valuation_place(x, iota=iota)
         if basis:
             basis = [conv(b) for b in basis]
-        wwinf = Linf.local_integral_basis(f, val_fct=v, raise_val_fct=rv, basis=basis, infolevel=infolevel)
+        wwinf = Linf.local_integral_basis(f, val_fct=v, raise_val_fct=rv,
+                                          basis=basis, infolevel=infolevel)
         vv = [conv(w) for w in wwinf]
         return vv
 
-    def _normalize_basis_at_infinity(self,ww,vv, infolevel=0):
+    def _normalize_basis_at_infinity(self,uu,vv, infolevel=0):
+        r"""
+        Compute an integral basis normal at infinity
+
+        An integral basis `w_1,...,w_r` is called normal at infinity if there
+        exist integers `\tau_1`, ..., `\tau_r` such that `\{x^{\tau_1}w_1, ...,
+        x^{\tau_r}w_r\}` is a local integral basis at infinity.
+
+        INPUT:
+
+        - ``uu`` a global integral basis
+        - ``vv`` a local integral basis at infinity
+
+        OUTPUT:
+
+        A tuple composed of an integral basis local at infinity and the suitable
+        values of `\tau`.
+        
+        EXAMPLES:
+
+        # TODO
+
+        """
         if infolevel >= 1:
             print("Normalizing the basis")
         r = self.order()
         x = self.base_ring().gen()
         from sage.matrix.constructor import matrix
 
+        ww = uu[:]
+        
         def pad_list(ll,d):
             # add 0s to reach length d
             return ll+[0]*(d - len(ll))
@@ -3684,10 +3738,10 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         D_to_vv = matrix([pad_list(b.coefficients(sparse=False),r)
                           for b in vv]).inverse()
 
-        init = True
-        while init or B.determinant() == 0:
-            if init:
-                init = False
+        first = True
+        while first or B.determinant() == 0:
+            if first:
+                first = False
             else:
                 a = B.kernel().basis()[0]
                 l = min([i for i in range(r) if a[i] != 0],
@@ -3708,13 +3762,66 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
     
     
     def normal_global_integral_basis(self,basis=None, iota=None, infolevel=0):
+        r"""
+        Compute a normal global integral basis
+
+        An global integral basis `w_1,...,w_r` is called normal at infinity if
+        there exist integers `\tau_1`, ..., `\tau_r` such that `\{x^{\tau_1}w_1,
+        ..., x^{\tau_r}w_r\}` is a local integral basis at infinity.
+
+        INPUT:
+
+        - ``basis`` (default: None) an initial basis for the
+          computation
+        
+        - ``iota`` (default: None) a function used to filter terms of
+          generalized series solutions which are to be considered
+          integral. For the conditions that this function must satisfy, see
+          :meth:`ContinuousGeneralizedSeries.valuation`
+
+        -- ``infolevel`` (default: 0) verbosity level to use in the computations
+
+        OUTPUT:
+
+        A normal global integral basis.
+
+        EXAMPLES:
+
+        # TODO
+
+        """
         ww = self.global_integral_basis(basis=basis,iota=iota, infolevel=infolevel)
         vv = self.local_integral_basis_at_infinity(iota=iota, infolevel=infolevel)
 
         ww, _ = self._normalize_basis_at_infinity(ww,vv, infolevel=infolevel)
         return ww
         
-    def quasiconstants(self, iota=None, infolevel=0):
+    def pseudoconstants(self, iota=None, infolevel=0):
+        r"""
+        Compute pseudoconstants.
+
+        A pseudoconstant is an operator which is integral at all points
+        including infinity, and which is not a constant.
+
+        INPUT:
+
+        - ``iota`` (default: None) a function used to filter terms of
+          generalized series solutions which are to be considered
+          integral. For the conditions that this function must satisfy, see
+          :meth:`ContinuousGeneralizedSeries.valuation`
+
+        -- ``infolevel`` (default: 0) verbosity level to use in the computations
+
+        OUTPUT:
+
+        A basis of the vector space of pseudoconstants.
+
+        EXAMPLES:
+
+        # TODO
+        
+        """
+        
         ww = self.global_integral_basis(iota=iota, infolevel=infolevel)
         vv = self.local_integral_basis_at_infinity(iota=iota, infolevel=infolevel)
 
@@ -3725,6 +3832,8 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             if tau[i] >= 0:
                 for j in range(tau[i]+1):
                     res.append(x**j * ww[i])
+        Dx = self.gen()
+        res = [r for r in res if (Dx*r).quo_rem(self)[1] != 0]
         return res
 
     
