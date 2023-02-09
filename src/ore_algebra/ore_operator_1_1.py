@@ -1770,7 +1770,9 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
             -1.9398e-7 + 9.5133e-7*I
             sage: L.local_basis_expansions(a,2)
             [1.00000*1, 1.00000*(x + 0.39381 + 0.38222*I)]
-            sage: L.global_integral_basis()
+            sage: bb = L.global_integral_basis()
+            sage: bb = [1/b.leading_coefficient().numerator().leading_coefficient() * b for b in bb]
+            sage: bb
             [x^3 - 2*x^2 + x,
              ((x^2 - x)/(x^4 - x^3 + 1/3*x + 1/3))*Dx + (-3*x^6 + 9*x^5 - 9*x^4 + 2*x^3 + x^2 + 3*x - 1)/(x^4 - x^3 + 1/3*x + 1/3)]
 

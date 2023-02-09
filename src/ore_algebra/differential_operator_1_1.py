@@ -2027,7 +2027,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         EXAMPLES:
 
             sage: from ore_algebra import OreAlgebra
-            sage: Pol.<x> = QQ[]q
+            sage: Pol.<x> = QQ[]
             sage: Ore.<Dx> = OreAlgebra(Pol)
             sage: L = (x^2-x)*Dx^2 + (31/24*x - 5/6)*Dx + 1/48 # example 6 in [KKV23]
             sage: L.pseudoconstants()
