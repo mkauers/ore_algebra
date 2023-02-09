@@ -1989,7 +1989,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             sage: from ore_algebra import OreAlgebra
             sage: Pol.<x> = QQ[]
             sage: Ore.<Dx> = OreAlgebra(Pol)
-            sage: L = (x^2-x)*Dx^2 + (31/24*x - 5/6)*Dx + 1/48 #  # example 6 in [KKV23]
+            sage: L = (x^2-x)*Dx^2 + (31/24*x - 5/6)*Dx + 1/48 # example 6 in [KKV23]
             sage: L.normal_global_integral_basis()
             [1, (x^2 - x)*Dx]
             sage: L = (x^2-x)*Dx^2 + (49/6*x - 7/3)*Dx + 12 # example 15
@@ -2027,9 +2027,9 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         EXAMPLES:
 
             sage: from ore_algebra import OreAlgebra
-            sage: Pol.<x> = QQ[]
+            sage: Pol.<x> = QQ[]q
             sage: Ore.<Dx> = OreAlgebra(Pol)
-            sage: L = (x^2-x)*Dx^2 + (31/24*x - 5/6)*Dx + 1/48 #  # example 6 in [KKV23]
+            sage: L = (x^2-x)*Dx^2 + (31/24*x - 5/6)*Dx + 1/48 # example 6 in [KKV23]
             sage: L.pseudoconstants()
             [1]
             sage: L = (x^2-x)*Dx^2 + (49/6*x - 7/3)*Dx + 12 # example 15
