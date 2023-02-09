@@ -1658,7 +1658,15 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         
         EXAMPLES::
 
-        # TODO
+            sage: from ore_algebra import *
+            sage: from ore_algebra import OreAlgebra
+            sage: Pol.<x> = QQ[]
+            sage: Ore.<Dx> = OreAlgebra(Pol)
+            sage: L = x*(x-1)*Dx^2 - 1
+            sage: L._make_valuation_place(x-1) # random
+            (x - 1,
+             <function UnivariateDifferentialOperatorOverUnivariateRing._make_valuation_place.<locals>.get_functions.<locals>.val_fct at 0x7ff14825a0c0>,
+             <function UnivariateDifferentialOperatorOverUnivariateRing._make_valuation_place.<locals>.get_functions.<locals>.raise_val_fct at 0x7ff14825a020>)
         
         """
 
@@ -1750,6 +1758,21 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         return f,val_fct, raise_val_fct
 
     def _initial_integral_basis(self, place=None):
+        r"""
+        # TODO
+
+        EXAMPLES::
+
+            sage: from ore_algebra import OreAlgebra
+            sage: Pol.<x> = QQ[]
+            sage: Ore.<Dx> = OreAlgebra(Pol)
+            sage: L = x*(x-1)*Dx^3 - 1
+            sage: L._initial_integral_basis()
+            [1, (x^2 - x)*Dx, (x^4 - 2*x^3 + x^2)*Dx^2]
+            sage: L._initial_integral_basis(place=x)
+            [1, x*Dx, x^2*Dx^2]
+
+        """
         r = self.order()
         ore = self.parent()
         DD = ore.gen()
@@ -1758,6 +1781,25 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         return [place**i * DD**i for i in range(r)]
     
     def find_candidate_places(self, infolevel=0, iota=None, prec=5, **kwargs):
+        r"""
+
+        EXAMPLES::
+
+            sage: from ore_algebra import *
+            sage: from ore_algebra import OreAlgebra
+            sage: Pol.<x> = QQ[]
+            sage: Ore.<Dx> = OreAlgebra(Pol)
+            sage: L = x*(x-1)*Dx^2 - 1
+            sage: L.find_candidate_places() # random
+            [(x - 1,
+              <function UnivariateDifferentialOperatorOverUnivariateRing._make_valuation_place.<locals>.get_functions.<locals>.val_fct at 0x7ff148258cc0>,
+              <function UnivariateDifferentialOperatorOverUnivariateRing._make_valuation_place.<locals>.get_functions.<locals>.raise_val_fct at 0x7ff148258fe0>),
+             (x,
+              <function UnivariateDifferentialOperatorOverUnivariateRing._make_valuation_place.<locals>.get_functions.<locals>.val_fct at 0x7ff148258220>,
+              <function UnivariateDifferentialOperatorOverUnivariateRing._make_valuation_place.<locals>.get_functions.<locals>.raise_val_fct at 0x7ff148258ae0>)]
+            sage: L._make_valuation_place(x-1)
+
+        """
         lr = self.coefficients()[-1]
         fact = list(lr.factor())
         places = []
