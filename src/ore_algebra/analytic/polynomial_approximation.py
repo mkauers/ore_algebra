@@ -212,9 +212,8 @@ def doit(dop, ini, path, rad, eps, derivatives, economization, x_is_real, ctx):
 
     local_dop = dop.shift(center)
     evpt = EvaluationPoint_symbolic((x,), jet_order=derivatives, rad=rad)
-    polys = series_sum(local_dop, local_ini.column(0), evpt,
-                       accuracy.AbsoluteError(eps1),
-                       stride=5, ctx=dctx)
+    polys = series_sum(local_dop, local_ini.column(0), evpt, eps1, stride=5,
+                       ctx=dctx)
 
 
     rad = polys[0].base_ring()(rad)

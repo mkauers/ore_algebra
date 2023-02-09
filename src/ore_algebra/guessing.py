@@ -49,7 +49,7 @@ from sage.modules.free_module_element import vector
 from sage.sets.primes import Primes
 
 from . import nullspace
-from .nullspace import _hermite
+from .nullspace import _hermite, _rational_reconstruction
 from .ore_algebra import OreAlgebra
 
 def guess_rec(data, n, S, **kwargs):
@@ -169,7 +169,7 @@ def guess(data, algebra, **kwargs):
         with open(data, 'r') as f:
             data = [ K(line) for line in f ]
 
-    if (data[0] == 0 or data[1] == 0) and (A.is_C() or A.is_S()):
+    if (data[0] == 0 or data[1] == 0) and (A.is_C() or A.is_S() or A.is_D()):
 
         if all( d == 0 for d in data ):
             return A.one()
@@ -188,20 +188,26 @@ def guess(data, algebra, **kwargs):
 
         if m is not None and m > 1:
             a = a % m
-            if 'infolevel' in kwargs and kwargs['infolevel'] >= 1:
-                print("Recognized that only 1 out of " + str(m) + " terms is nonzero; removing zeros...")
-            eq = guess([data[m*k + a] for k in range(((len(data) - a)/m).floor())], A, **kwargs)
-            if 'infolevel' in kwargs and kwargs['infolevel'] >= 1:
-                print("Adjusting equation to restore deleted zeros...")
-            x = R.gen()
-            if A.is_S():
-                ops = [A.one()]*m
-                ops[a] = eq
-                return ops[0].annihilator_of_interlacing(*(ops[1:]))
+            if A.is_D():
+                if 'ensure' not in kwargs or kwargs['ensure'] < m:
+                    if 'infolevel' in kwargs and kwargs['infolevel'] >= 1:
+                        print("Recognized that only 1 out of " + str(m) + " terms is nonzero; increasing 'ensure'...")
+                    kwargs['ensure'] = m
             else:
-                eq = eq.polynomial().map_coefficients(lambda p: p(x**m))
-                if a != 0:
-                    eq = eq(x**(-a)*eq.parent().gen())*x**(a*eq.degree())
+                if 'infolevel' in kwargs and kwargs['infolevel'] >= 1:
+                    print("Recognized that only 1 out of " + str(m) + " terms is nonzero; removing zeros...")
+                eq = guess([data[m*k + a] for k in range(((len(data) - a)/m).floor())], A, **kwargs)
+                if 'infolevel' in kwargs and kwargs['infolevel'] >= 1:
+                    print("Adjusting equation to restore deleted zeros...")
+                x = R.gen()
+                if A.is_S():
+                    ops = [A.one()]*m
+                    ops[a] = eq
+                    return ops[0].annihilator_of_interlacing(*(ops[1:]))
+                else:
+                    eq = eq.polynomial().map_coefficients(lambda p: p(x**m))
+                    if a != 0:
+                        eq = eq(x**(-a)*eq.parent().gen())*x**(a*eq.degree())
                 return A(eq)
 
     def to_A(obj):
@@ -430,8 +436,11 @@ def guess_raw(data, A, order=-1, degree=-1, lift=None, solver=None, cut=25, ensu
             c.append(sigma(R(s[j*(degree + 1):(j + 1)*(degree + 1)]), j))
         sol[l] = A(c)
         sol[l] *= ~sol[l].leading_coefficient().leading_coefficient()
+        if sol[l].is_one() and any(data): # catch degenerate solution obtained for [0,0,0,1]
+            sol[l] = None
+            info(2, lazy_string("degenerate solution discarded."))
 
-    return sol
+    return [s for s in sol if s is not None]
 
 ###########################################################################################
 
@@ -1127,7 +1136,7 @@ def _rat_recon(a, m, u=None):
     if a in (zero, one, mone):
         return a, one
     elif early_termination_bound <= 0:
-        out = a.rational_reconstruct(m)
+        out = _rational_reconstruction(a, m)
         return (a.numerator(), a.denominator())
 
     # p = q*a + r*m for some r

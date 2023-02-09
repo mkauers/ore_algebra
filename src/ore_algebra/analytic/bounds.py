@@ -132,9 +132,7 @@ from sage.rings.infinity import infinity
 from sage.rings.integer import Integer
 from sage.rings.integer_ring import ZZ
 from sage.rings.number_field.number_field import NumberField_quadratic
-from sage.rings.polynomial.complex_roots import complex_roots
 from sage.rings.polynomial.polynomial_element import Polynomial
-from sage.rings.polynomial.polynomial_ring import polygen
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 from sage.rings.power_series_ring import PowerSeriesRing
 from sage.rings.qqbar import QQbar
@@ -145,7 +143,7 @@ from sage.rings.real_mpfr import RealField, RR
 from sage.structure.factorization import Factorization
 
 from .. import ore_algebra
-from . import accuracy, local_solutions, utilities
+from . import local_solutions, utilities
 
 from .context import dctx
 from .differential_operator import DifferentialOperator
@@ -663,6 +661,7 @@ class HyperexpMajorant(MajorantSeries):
 
         Note that this does not change the radius of convergence.
         """
+        pol = self.num.parent().coerce(pol)
         valuation = pol.valuation() if pol else 0
         self.shift += valuation
         self.num *= (pol >> valuation)
@@ -831,8 +830,7 @@ def abs_min_nonzero_root(pol, tol=RR(1e-2), min_log=RR('-inf'),
                 lg_rad.absolute_diameter())
         # detect gross input errors (this does not prevent all infinite loops)
         if safe_le(lg_rad.upper(rnd='RNDN'), min_log):
-            raise ValueError("there is a root smaller than 2^({})"
-                             .format(min_log))
+            raise ValueError(f"there is a root smaller than 2^({min_log})")
         mypol = graeffe(mypol)
         i += 1
     res = myIR(2)**myIR(lg_rad)
@@ -1405,7 +1403,7 @@ class RatSeqBound(object):
         for n, mult in self.exn.items():
             if n >= 0:
                 pol = self.den
-                for i in range(mult):
+                for _ in range(mult):
                     assert pol(n).contains_zero()
                     pol = pol.derivative()
         # Test _lbound_den()
@@ -1823,7 +1821,7 @@ class DiffOpBound(object):
         lc = self._dop_ball_lc()
         inv = lc.inverse_series_trunc(pol_part_len + 1)
         if inv[0].contains_zero():
-            logging.warn("probable interval blow-up in bound computation")
+            logging.warning("probable interval blow-up in bound computation")
         # Including rcoeffs[-1] here actually is redundant: by construction,
         # the only term involving n^ordeq  in first will be 1·n^ordeq·z^0.
         first_zn = Pol_zn([pol._mul_trunc_(inv, pol_part_len + 1)
@@ -2141,7 +2139,6 @@ class DiffOpBound(object):
                                  for k, pol in enumerate(trunc))
         lc = self.dop.leading_coefficient()
         dop0 = self.dop.map_coefficients(lambda pol: pol[0]/lc[0])
-        Poly = self.Poly.change_ring(Ring)
         out = (dop0(nres)/z**leftmost).expand()
         ref = (self.dop(trunc_full)/z**leftmost).expand()
         return (out-ref).expand()
@@ -2349,6 +2346,10 @@ class DiffOpBound(object):
 
         if ini is None:
             ini = self._random_ini()
+        elif not isinstance(ini, local_solutions.LogSeriesInitialValues):
+            # single set of initial values, given as a list
+            ini = local_solutions.LogSeriesInitialValues(ZZ.zero(), ini,
+                                                         self._dop_D)
         if pt is None:
             pt = self._test_point()
         eps = RBF(eps)
@@ -2358,11 +2359,13 @@ class DiffOpBound(object):
 
         saved_max_effort = self.max_effort
         self.max_effort = 0
-        recorder = accuracy.BoundRecorder(maj=self, eps=eps>>2)
-        ref_sum = naive_sum.series_sum(self._dop_D, ini, pt, eps>>2, maj=self,
-                                       stride=1, stop=recorder)
+
+        recorder = naive_sum.BoundRecorder(self._dop_D, [ini], [pt],
+                                           bwrec=None)
+        recorder.sum_auto(eps>>2, self, effort=2, fail_fast=False, stride=1)
+        ref_sum = recorder.value()
         P = ref_sum[0].parent()
-        recd = recorder.recd[:-1]
+        recd = recorder.recorded_bounds[:-1]
         assert all(ref_sum[0].overlaps(P(rec.psum[0]).add_error(rec.b))
                    for rec in recd)
         self.max_effort = saved_max_effort
@@ -2398,7 +2401,6 @@ class DiffOpBound(object):
                             if rec.maj is not None]
                     data = pltfilter(data)
                     myplot += plot.line(data, color=color, scale="semilogy")
-        ymax = myplot.ymax()
         if title:
             if title is True:
                 title = repr(self._dop_D)
@@ -2428,7 +2430,7 @@ class DiffOpBound(object):
 
 class MultiDiffOpBound(object):
     r"""
-    Ad hoc wrapper for passing several DiffOpBounds to StoppingCriterion.
+    Ad hoc wrapper for passing several DiffOpBounds to StopOnRigorousBound.
 
     (Useful for handling several valuation groups at once.)
     """

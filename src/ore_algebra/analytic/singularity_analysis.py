@@ -582,27 +582,51 @@ REFERENCES:
 
 import collections
 import logging
+import warnings
 
-from sage.all import *
-
+from sage.arith.misc import (
+    bernoulli,
+    rising_factorial,
+)
+from sage.arith.srange import srange
+from sage.categories.cartesian_product import cartesian_product
+from sage.categories.homset import Hom
+from sage.functions.gamma import gamma
+from sage.functions.log import log
+from sage.functions.other import (
+    binomial,
+    ceil,
+    factorial,
+)
+from sage.misc.misc_c import prod
+from sage.rings.asymptotic.asymptotic_expansion_generators import asymptotic_expansions
+from sage.rings.asymptotic.asymptotic_ring import AsymptoticRing
 from sage.rings.asymptotic.growth_group import (
         ExponentialGrowthGroup,
         GrowthGroup,
         MonomialGrowthGroup,
         GenericNonGrowthElement,
 )
-from sage.rings.asymptotic.term_monoid import (
-        BTerm,
-        BTermMonoid,
-        ExactTermMonoid,
-)
+from sage.rings.asymptotic.term_monoid import BTerm
+from sage.rings.complex_arb import CBF, ComplexBallField
+from sage.modules.free_module_element import vector
+from sage.rings.infinity import infinity
+from sage.rings.integer import Integer
+from sage.rings.integer_ring import ZZ
+from sage.rings.polynomial.polynomial_ring import polygen
+from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
+from sage.rings.power_series_ring import PowerSeriesRing
+from sage.rings.qqbar import QQbar
+from sage.rings.rational_field import QQ
+from sage.rings.real_arb import RBF
+from sage.symbolic.constants import pi
+from sage.symbolic.ring import SR
 
 from ..ore_algebra import OreAlgebra
 from . import utilities
 from .bounds import DiffOpBound
 from .differential_operator import DifferentialOperator
 from .local_solutions import (
-        critical_monomials,
         FundamentalSolution,
         LocalBasisMapper,
         log_series,
@@ -660,7 +684,7 @@ def _classify_sing(deq, known_analytic, rad):
                                        multiplicities=False)
     singularities = [s for s in singularities if not s in known_analytic]
     singularities.sort(key=lambda s: abs(s)) # XXX wasteful
-    logger.debug(f"potential singularities: {singularities}")
+    logger.debug("potential singularities: %s", singularities)
 
     if not singularities:
         raise NotImplementedError("no nonzero finite singularities")
@@ -867,12 +891,12 @@ def trim_expr_series(f, order, n0):
 def bound_gamma_ratio(Expr, exact_alpha, order, n0, s):
     # fg = n^(1-α) Γ(n+α)/Γ(n+1)
     CB = Expr.base_ring()
-    invn, logn = Expr.gens()
+    invn, _ = Expr.gens()
     alpha = CB(exact_alpha)
 
     # for α = 0, fg is a polynomial, but of degree α, not α - 1
     if exact_alpha.parent() is ZZ and order >= exact_alpha >= 1:
-        fg = product(1 + k*invn for k in range(1, exact_alpha))
+        fg = prod(1 + k*invn for k in range(1, exact_alpha))
         logger.debug("    fg = %s", fg)
     else:
         # (n+α/2)^(1-α) * Γ(n+α)/Γ(n+1)
@@ -1033,7 +1057,7 @@ class SingularityAnalyzer(LocalBasisMapper):
         # Redundant work; TBI.
         # (Cases where we really need this to detect non-analyticity are
         # rare...)
-        self._local_basis_structure = critical_monomials(self.dop)
+        self._local_basis_structure = Point(0, self.dop).local_basis_structure()
 
         nonanalytic = [sol for sol in self._local_basis_structure if not (
             sol.leftmost.as_algebraic().is_integer()
@@ -1208,6 +1232,8 @@ def _bound_local_integral_of_tail(Expr, rho, val_rho, order, s, n0, vb, kappa):
         C_nur = 1
     else:
         C_nur = 2 * (CBF(1).exp()*(s - 2)/(2*s*beta))**beta
+    # This constant differs from the one in the paper because we are working
+    # with powers of (z-ρ) instead of (1-z/ρ). (?)
     err_L = C_nur/_pi * abs(_rho)**beta * A
     bound_L = CBF(0).add_error(err_L)*Bpi
 
@@ -1398,12 +1424,12 @@ def absorb_exponentially_small_term(CB, cst, ratio, beta, final_kappa, n0, n):
     return (CB(0).add_error(rad_err) * n**QQbar(beta) * log(n)**final_kappa)
 
 def add_error_term(bound, rho, term, n):
-    for i, (rho1, local_bound) in enumerate(bound):
+    for rho1, local_bound in bound:
         if rho1 == rho:
             # We know that the last term is an error term with the same
             # power of n and log(n) as error_term_big_circle
             local_bound[-1] = (local_bound[-1] + term).collect(n)
-        return
+        break
     else:
         bound.append([rho, term])
 
@@ -1463,8 +1489,6 @@ def to_asymptotic_expansion(Coeff, name, term_data, n0, beta, kappa, rad,
 
     from sage.categories.cartesian_product import cartesian_product
     from sage.rings.asymptotic.asymptotic_ring import AsymptoticRing
-    from sage.rings.asymptotic.term_monoid import DefaultTermMonoidFactory
-    from sage.symbolic.operators import add_vararg
 
     n = SR.var(name)
 
@@ -1565,7 +1589,7 @@ def _coeff_zero(seqini, deq):
         mon = next(m for c, m in basis if not c == 0)
         if mon.k == 0 and mon.n >= 0:
             if mon.n >= len(seqini):
-                raise ValueError(f"not enough initial values")
+                raise ValueError("not enough initial values")
             list_coeff.append(seqini[mon.n])
         else:
             list_coeff.append(0)
@@ -1591,7 +1615,7 @@ def _bound_validity_range(n0, dominant_sing, order):
     n2 = (RBF(21)/10*(max_abs_val + order + 1)).above_abs().ceil()
     n0 = ZZ(max(n0, n1, n2))
 
-    logger.debug(f"{n1=}, {n2=}, {n0=}")
+    logger.debug("n1=%s, n2=%s, n0=%s", n1, n2, n0)
     return n0
 
 def truncate_tail_SR(val, re_val, f, beta, kappa, n0, n):
@@ -1859,7 +1883,7 @@ def check_seq_bound(asy, ref, indices=None, *, verbose=False, force=False):
 
 def test_monomial(alpha, beta, zeta=1, order=4, compare=True, big_circle=False):
     Pol, z = PolynomialRing(QQ, 'z').objgen()
-    Dop, Dz = OreAlgebra(Pol, 'Dz').objgen()
+    Dz = OreAlgebra(Pol, 'Dz').gen()
     dop = ((z - zeta)*Dz + alpha)**(1 + beta)
     rat = 1/(1-SR(z)/zeta)
     expr = rat**alpha*log(rat)**beta

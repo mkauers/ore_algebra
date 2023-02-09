@@ -17,6 +17,7 @@ from sage.structure.element import Element, canonical_coercion
 from sage.arith.all import gcd
 from sage.functions.other import real_part
 from sage.matrix.constructor import Matrix
+from sage.rings.power_series_ring import PowerSeriesRing
 from sage.rings.qqbar import QQbar
 from sage.rings.rational_field import QQ
 from sage.rings.integer_ring import ZZ
@@ -569,3 +570,107 @@ def generalized_series_term_valuation(z, i, j, iota=None):
     if iota is None:
         iota = generalized_series_default_iota
     return int(ZZ(z+i-iota(z, j)))
+
+
+def _rec2list(L, init, n, start, append, padd, deform, singularity_handler=None):
+    r"""
+    Common code for computing terms of holonomic and q-holonomic sequences.
+    """
+
+    r = L.order()
+    sigma = L.parent().sigma()
+    terms = init if append else list(init)
+    K = L.base_ring().base_ring().fraction_field()
+
+    if len(terms) >= n:
+        return terms
+
+    elif len(terms) < r:
+
+        if not padd:
+            raise ValueError("not enough initial values.")
+
+        z = K.zero()
+        padd = r - len(terms)
+
+        if append:
+            for i in range(padd):
+                terms.insert(0, z)
+            terms = _rec2list(L, terms, min(n, r) + padd, start - padd, True, False, deform, singularity_handler)
+            for i in range(padd):
+                terms.remove(0)
+        else:
+            terms = _rec2list(L, [z]*padd + terms, min(n, r) + padd, start - padd, False, False, deform, singularity_handler)[padd:]
+
+        return _rec2list(L, terms, n, start, append, False, deform, singularity_handler)
+
+    if None in terms:
+        for k in range(len(terms), n):
+            terms.append(None)
+        return terms
+
+    #for i in range(r):
+    #    if terms[-i - 1] not in K:
+    #        raise TypeError("illegal initial value object")
+
+    rec = L.numerator().coefficients(sparse=False)
+    sigma = L.parent().sigma()
+    rec = tuple( -sigma(p, -r) for p in rec )
+    lc = -rec[-1]
+
+    for k in range(len(terms), n):
+
+        lck = lc(deform(k + start))
+
+        if not lck.is_zero():
+            terms.append((~lck)*sum(terms[-r + k + i]*rec[i](deform(k + start)) for i in range(r)))
+        elif singularity_handler is None:
+            for i in range(k, n):
+                terms.append(None)
+            return terms
+        else:
+            terms.append(singularity_handler(k + start))
+
+    return terms
+
+
+def _power_series_solutions(op, rec, n, deform):
+    r"""
+    Common code for computing terms of holonomic and q-holonomic power series.
+    """
+
+    L = op.numerator()
+    factors = L.indicial_polynomial(L.base_ring().gen()).factor()
+    orders = []
+
+    for (p, _) in factors:
+        if p.degree() == 1:
+            try:
+                alpha = ZZ(-p[0]/p[1])
+                if alpha >= 0:
+                    orders.append(alpha)
+            except:
+                pass
+
+    if len(orders) == 0:
+        return orders # no power series solutions
+
+    r = L.order()
+    maxexp = max(orders) + max(n, r)
+    K = L.base_ring().base_ring().fraction_field()
+    zero = K.zero()
+    one = K.one()
+
+    R = PowerSeriesRing(K, str(L.base_ring().gen()))
+    x = R.gen()
+
+    sols = []
+    for alpha in orders:
+
+        p = _rec2list(rec, [one], maxexp - alpha, alpha, False, True, deform, lambda k: zero)
+        p = (x**alpha) * R(p, maxexp - alpha - 1)
+
+        if L(p).is_zero(): # L(p) nonzero indicates series involving logarithms.
+            sols.append(p)
+
+    return sols

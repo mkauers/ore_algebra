@@ -176,6 +176,7 @@ from sage.arith.all import CRT_basis, xgcd, gcd, lcm, previous_prime as pp
 from sage.misc.all import prod
 from sage.misc.cachefunc import cached_function
 from sage.misc.lazy_string import lazy_string
+from sage.rings.polynomial.polynomial_element import Polynomial
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 from sage.rings.polynomial.multi_polynomial_libsingular import MPolynomialRing_libsingular
 from sage.rings.integer_ring import ZZ
@@ -462,6 +463,13 @@ def _launch_info(infolevel, name, dim=None, deg=None, domain=None):
                 message = message + ", domain=" + str(domain)
         return message + "."
     _info(infolevel, lazy_string(make_message))
+
+if hasattr(Polynomial, 'rational_reconstruction'): # sage >= 9.8
+    def _rational_reconstruction(pol, *args, **kwds):
+        return pol.rational_reconstruction(*args, **kwds)
+else:
+    def _rational_reconstruction(pol, *args, **kwds):
+        return pol.rational_reconstruct(*args, **kwds)
 
 ########################################
 ####### solvers and transformers #######
@@ -1123,7 +1131,7 @@ def _lagrange(subsolver, start_point, ncpus, mat, degrees, infolevel):
         for v in V:
             d = one
             for p in v:
-                d = d.lcm(p.rational_reconstruct(mod, split, split)[1])
+                d = d.lcm(_rational_reconstruction(p, mod, split, split)[1])
             for j in range(len(v)):
                 v[j] = (v[j]*d) % mod
             j = 0
@@ -1185,7 +1193,7 @@ def _lagrange(subsolver, start_point, ncpus, mat, degrees, infolevel):
             try:
                 d = one
                 for p in v:
-                    d = d.lcm(p.rational_reconstruct(modulus, split, split)[1])
+                    d = d.lcm(_rational_reconstruction(p, modulus, split, split)[1])
             except ValueError:
                 done = False
                 break
@@ -1608,7 +1616,7 @@ def _newton(subsolver, inverse, mat, degrees, infolevel):
     for v in V:
         d = one
         for p in v:
-            d = d.lcm(p.rational_reconstruct(xk, split, split)[1])
+            d = d.lcm(_rational_reconstruction(p, xk, split, split)[1])
         for j in range(len(v)):
             v[j] = phi((v[j]*d) % xk)
         j = 0
@@ -2026,7 +2034,7 @@ def _berlekamp_massey(data):
     return [-R(d*p) for p in M] 
 
 def _wiedemann(A, degrees, infolevel):
-    
+
     R = A.parent().base_ring()
     x = R.gens()
     p = R.characteristic()
@@ -2055,18 +2063,17 @@ def _wiedemann(A, degrees, infolevel):
     _info(infolevel, "Computing minimal polynomial", alter=-1)
     M = _berlekamp_massey(data) ###### MOST EXPENSIVE STEP (if matrix is small and entries are big)
 
-    _info(infolevel, "Computing solution vector", alter=-1)
-    xi = x_base
-    x = M[0]*xi
-    for i in range(1, len(M)):
-        _info(infolevel, "power ", i, alter=-2)
-        xi = A*xi  ###### MOST EXPENSIVE STEP (if matrix is big and entries are small)
-        x += M[i]*xi
+    x = ZZ.zero()
+    while x.is_zero():
+        _info(infolevel, "Computing solution vector", alter=-1)
+        xi = vector(R, [R.random_element() for i in range(m) ]) # while loop needed to catch unlucky choice
+        x = M[0]*xi
+        for i in range(1, len(M)):
+            _info(infolevel, "power ", i, alter=-2)
+            xi = A*xi  ###### MOST EXPENSIVE STEP (if matrix is big and entries are small)
+            x += M[i]*xi
 
-    if not any(x):
-        return []
-    else:
-        return _normalize([ vector(R, x) ])
+    return _normalize([ vector(R, x) ])
 
 
 #################################################################################################################
