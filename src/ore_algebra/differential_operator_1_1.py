@@ -1817,177 +1817,6 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         fct = self._make_valuation_place(place,iota=iota, **kwargs)[2]
         return fct(basis, place, dim)
 
-#############################################################################################################
-
-class UnivariateEulerDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOverUnivariateRing):
-    r"""
-    Element of an Ore algebra K(x)[T], where T is the Euler differential operator T = x*d/dx
-    """
-
-    def __init__(self, parent, *data, **kwargs):
-        super(UnivariateOreOperatorOverUnivariateRing, self).__init__(parent, *data, **kwargs)
-
-    def __call__(self, f, **kwargs):
-
-        R = self.parent()
-        x = R.base_ring().gen()
-        if "action" not in kwargs:
-            kwargs["action"] = lambda p : x*p.derivative()
-
-        return UnivariateOreOperator.__call__(self, f, **kwargs)
-
-    def to_D(self, alg): # theta2d
-        """
-        Returns the differential operator corresponding to ``self``
-
-        INPUT:
-
-        - ``alg`` -- the Ore algebra in which the output should be expressed.
-          The algebra must satisfy ``alg.base_ring().base_ring() == self.base_ring().base_ring()``
-          and ``alg.is_D()`` is not ``False``.
-          Instead of an algebra object, also a string can be passed as argument.
-          This amounts to specifying an Ore algebra over ``self.base_ring()`` with
-          the standard derivation with respect to ``self.base_ring().gen()``.
-
-        EXAMPLES::
-
-          sage: from ore_algebra import *
-          sage: R.<x> = ZZ['x']
-          sage: A.<Tx> = OreAlgebra(R, 'Tx')
-          sage: (Tx^4).to_D(OreAlgebra(R, 'Dx'))
-          x^4*Dx^4 + 6*x^3*Dx^3 + 7*x^2*Dx^2 + x*Dx
-          sage: (Tx^4).to_D('Dx').to_T(A)
-          Tx^4
-        
-        """
-        R = self.base_ring()
-        x = R.gen()
-        one = R.one()
-
-        if type(alg) == str:
-            alg = self.parent().change_var_sigma_delta(alg, {}, {x:one})
-        elif not isinstance(alg, OreAlgebra_generic) or not alg.is_D():
-            raise TypeError("target algebra is not adequate")
-
-        if self.is_zero():
-            return alg.zero()
-
-        R = alg.base_ring()
-        theta = R.gen()*alg.gen()
-        theta_k = alg.one()
-        c = self.coefficients(sparse=False)
-        out = alg(R(c[0]))
-
-        for i in range(self.order()):
-            
-            theta_k *= theta
-            out += R(c[i + 1])*theta_k
-
-        return out
-
-    def to_S(self, alg):
-        r"""
-        Returns a recurrence operator annihilating the coefficient sequence of
-        every power series (at the origin) annihilated by ``self``.
-
-        INPUT:
-
-        - ``alg`` -- the Ore algebra in which the output should be expressed.
-          The algebra must satisfy ``alg.base_ring().base_ring() == self.base_ring().base_ring()``
-          and ``alg.is_S()`` is not ``False``.
-          Instead of an algebra object, also a string can be passed as argument.
-          This amounts to specifying an Ore algebra over ``self.base_ring()`` with
-          the standard shift with respect to ``self.base_ring().gen()``.
-
-        EXAMPLES::
-
-            sage: from ore_algebra import *
-            sage: R.<x> = ZZ['x']
-            sage: A.<Tx> = OreAlgebra(R, 'Tx')
-            sage: R2.<n> = ZZ['n']
-            sage: A2.<Sn> = OreAlgebra(R2, 'Sn')
-            sage: (Tx - 1).to_S(A2)
-            n - 1
-            sage: ((1+x)*Tx^2 + Tx).to_S(A2)
-            (n^2 + 3*n + 2)*Sn + n^2
-            sage: ((x^3+x^2-x)*Tx + (x^2+1)).to_S(A2)
-            Sn^3 + (-n - 2)*Sn^2 + (n + 2)*Sn + n
-
-        """
-        return self.to_D('D').to_S(alg)
-
-    def to_F(self, alg):
-        r"""
-        Returns a difference operator annihilating the coefficient sequence of
-        every power series (about the origin) annihilated by ``self``.
-
-        INPUT:
-
-        - ``alg`` -- the Ore algebra in which the output should be expressed.
-          The algebra must satisfy ``alg.base_ring().base_ring() == self.base_ring().base_ring()``
-          and ``alg.is_F()`` is not ``False``.
-          Instead of an algebra object, also a string can be passed as argument.
-          This amounts to specifying an Ore algebra over ``self.base_ring()`` with
-          the forward difference with respect to ``self.base_ring().gen()``.
-
-        EXAMPLES::
-
-            sage: from ore_algebra import *
-            sage: R.<x> = ZZ['x']
-            sage: A.<Tx> = OreAlgebra(R, 'Tx')
-            sage: R2.<n> = ZZ['n']
-            sage: A2.<Fn> = OreAlgebra(R2, 'Fn')
-            sage: (Tx - 1).to_F(A2)
-            n - 1
-            sage: ((1+x)*Tx^2 + Tx).to_F(A2)
-            (n^2 + 3*n + 2)*Fn + 2*n^2 + 3*n + 2
-            sage: ((x^3+x^2-x)*Tx + (x^2+1)).to_F(A2)
-            Fn^3 + (-n + 1)*Fn^2 + (-n + 1)*Fn + n + 1
-
-        """
-        return self.to_D('D').to_F(alg)
-
-    def power_series_solutions(self, *args, **kwargs):
-        return self.to_D('D').power_series_solutions(*args, **kwargs)
-
-    power_series_solutions.__doc__ = UnivariateDifferentialOperatorOverUnivariateRing.power_series_solutions.__doc__
-
-    def spread(self, p=0):
-        return self.to_D().spread(p)
-
-    spread.__doc__ = UnivariateDifferentialOperatorOverUnivariateRing.spread.__doc__
-
-    def _coeff_list_for_indicial_polynomial(self):
-        return self.to_D()._coeff_list_for_indicial_polynomial()
-
-    def _denominator_bound(self):
-        return self.to_D()._denominator_bound()
-
-    def symmetric_product(self, other, solver=None):
-
-        if not isinstance(other, UnivariateOreOperator):
-            raise TypeError("unexpected argument in symmetric_product")
-
-        if self.parent() != other.parent():
-            A, B = canonical_coercion(self, other)
-            return A.symmetric_product(B, solver=solver)
-
-        A = self.to_D('D')
-        B = other.to_D(A.parent())
-        return A.symmetric_product(B, solver=solver).to_T(self.parent())
-
-    symmetric_product.__doc__ = UnivariateOreOperator.symmetric_product.__doc__
-
-#############################################################################################################
-
-def _tower(dom):
-    if is_PolynomialRing(dom) or is_MPolynomialRing(dom):
-        base, vars = _tower(dom.base_ring())
-        return base, vars.union(set(dom.variable_names()))
-    elif isinstance(dom, FractionField_generic):
-        return _tower(dom.ring())
-    else:
-        return dom, set()
     @cached_method
     def local_integral_basis_at_infinity(self, basis=None, iota=None,
                                          infolevel=0):
@@ -2184,4 +2013,176 @@ def _tower(dom):
         Dx = self.gen()
         res = [r for r in res if (Dx*r).quo_rem(self)[1] != 0]
         return res
+
+#############################################################################################################
+
+class UnivariateEulerDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOverUnivariateRing):
+    r"""
+    Element of an Ore algebra K(x)[T], where T is the Euler differential operator T = x*d/dx
+    """
+
+    def __init__(self, parent, *data, **kwargs):
+        super(UnivariateOreOperatorOverUnivariateRing, self).__init__(parent, *data, **kwargs)
+
+    def __call__(self, f, **kwargs):
+
+        R = self.parent()
+        x = R.base_ring().gen()
+        if "action" not in kwargs:
+            kwargs["action"] = lambda p : x*p.derivative()
+
+        return UnivariateOreOperator.__call__(self, f, **kwargs)
+
+    def to_D(self, alg): # theta2d
+        """
+        Returns the differential operator corresponding to ``self``
+
+        INPUT:
+
+        - ``alg`` -- the Ore algebra in which the output should be expressed.
+          The algebra must satisfy ``alg.base_ring().base_ring() == self.base_ring().base_ring()``
+          and ``alg.is_D()`` is not ``False``.
+          Instead of an algebra object, also a string can be passed as argument.
+          This amounts to specifying an Ore algebra over ``self.base_ring()`` with
+          the standard derivation with respect to ``self.base_ring().gen()``.
+
+        EXAMPLES::
+
+          sage: from ore_algebra import *
+          sage: R.<x> = ZZ['x']
+          sage: A.<Tx> = OreAlgebra(R, 'Tx')
+          sage: (Tx^4).to_D(OreAlgebra(R, 'Dx'))
+          x^4*Dx^4 + 6*x^3*Dx^3 + 7*x^2*Dx^2 + x*Dx
+          sage: (Tx^4).to_D('Dx').to_T(A)
+          Tx^4
+        
+        """
+        R = self.base_ring()
+        x = R.gen()
+        one = R.one()
+
+        if type(alg) == str:
+            alg = self.parent().change_var_sigma_delta(alg, {}, {x:one})
+        elif not isinstance(alg, OreAlgebra_generic) or not alg.is_D():
+            raise TypeError("target algebra is not adequate")
+
+        if self.is_zero():
+            return alg.zero()
+
+        R = alg.base_ring()
+        theta = R.gen()*alg.gen()
+        theta_k = alg.one()
+        c = self.coefficients(sparse=False)
+        out = alg(R(c[0]))
+
+        for i in range(self.order()):
+            
+            theta_k *= theta
+            out += R(c[i + 1])*theta_k
+
+        return out
+
+    def to_S(self, alg):
+        r"""
+        Returns a recurrence operator annihilating the coefficient sequence of
+        every power series (at the origin) annihilated by ``self``.
+
+        INPUT:
+
+        - ``alg`` -- the Ore algebra in which the output should be expressed.
+          The algebra must satisfy ``alg.base_ring().base_ring() == self.base_ring().base_ring()``
+          and ``alg.is_S()`` is not ``False``.
+          Instead of an algebra object, also a string can be passed as argument.
+          This amounts to specifying an Ore algebra over ``self.base_ring()`` with
+          the standard shift with respect to ``self.base_ring().gen()``.
+
+        EXAMPLES::
+
+            sage: from ore_algebra import *
+            sage: R.<x> = ZZ['x']
+            sage: A.<Tx> = OreAlgebra(R, 'Tx')
+            sage: R2.<n> = ZZ['n']
+            sage: A2.<Sn> = OreAlgebra(R2, 'Sn')
+            sage: (Tx - 1).to_S(A2)
+            n - 1
+            sage: ((1+x)*Tx^2 + Tx).to_S(A2)
+            (n^2 + 3*n + 2)*Sn + n^2
+            sage: ((x^3+x^2-x)*Tx + (x^2+1)).to_S(A2)
+            Sn^3 + (-n - 2)*Sn^2 + (n + 2)*Sn + n
+
+        """
+        return self.to_D('D').to_S(alg)
+
+    def to_F(self, alg):
+        r"""
+        Returns a difference operator annihilating the coefficient sequence of
+        every power series (about the origin) annihilated by ``self``.
+
+        INPUT:
+
+        - ``alg`` -- the Ore algebra in which the output should be expressed.
+          The algebra must satisfy ``alg.base_ring().base_ring() == self.base_ring().base_ring()``
+          and ``alg.is_F()`` is not ``False``.
+          Instead of an algebra object, also a string can be passed as argument.
+          This amounts to specifying an Ore algebra over ``self.base_ring()`` with
+          the forward difference with respect to ``self.base_ring().gen()``.
+
+        EXAMPLES::
+
+            sage: from ore_algebra import *
+            sage: R.<x> = ZZ['x']
+            sage: A.<Tx> = OreAlgebra(R, 'Tx')
+            sage: R2.<n> = ZZ['n']
+            sage: A2.<Fn> = OreAlgebra(R2, 'Fn')
+            sage: (Tx - 1).to_F(A2)
+            n - 1
+            sage: ((1+x)*Tx^2 + Tx).to_F(A2)
+            (n^2 + 3*n + 2)*Fn + 2*n^2 + 3*n + 2
+            sage: ((x^3+x^2-x)*Tx + (x^2+1)).to_F(A2)
+            Fn^3 + (-n + 1)*Fn^2 + (-n + 1)*Fn + n + 1
+
+        """
+        return self.to_D('D').to_F(alg)
+
+    def power_series_solutions(self, *args, **kwargs):
+        return self.to_D('D').power_series_solutions(*args, **kwargs)
+
+    power_series_solutions.__doc__ = UnivariateDifferentialOperatorOverUnivariateRing.power_series_solutions.__doc__
+
+    def spread(self, p=0):
+        return self.to_D().spread(p)
+
+    spread.__doc__ = UnivariateDifferentialOperatorOverUnivariateRing.spread.__doc__
+
+    def _coeff_list_for_indicial_polynomial(self):
+        return self.to_D()._coeff_list_for_indicial_polynomial()
+
+    def _denominator_bound(self):
+        return self.to_D()._denominator_bound()
+
+    def symmetric_product(self, other, solver=None):
+
+        if not isinstance(other, UnivariateOreOperator):
+            raise TypeError("unexpected argument in symmetric_product")
+
+        if self.parent() != other.parent():
+            A, B = canonical_coercion(self, other)
+            return A.symmetric_product(B, solver=solver)
+
+        A = self.to_D('D')
+        B = other.to_D(A.parent())
+        return A.symmetric_product(B, solver=solver).to_T(self.parent())
+
+    symmetric_product.__doc__ = UnivariateOreOperator.symmetric_product.__doc__
+
+#############################################################################################################
+
+def _tower(dom):
+    if is_PolynomialRing(dom) or is_MPolynomialRing(dom):
+        base, vars = _tower(dom.base_ring())
+        return base, vars.union(set(dom.variable_names()))
+    elif isinstance(dom, FractionField_generic):
+        return _tower(dom.ring())
+    else:
+        return dom, set()
 
