@@ -1656,7 +1656,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         A tuple composed of ``f``, a suitable function for ``value_function`` at
         ``f`` and a suitable function for ``raise_value`` at ``f``.
         
-        EXAMPLES::
+        TESTS::
 
             sage: from ore_algebra import *
             sage: from ore_algebra import OreAlgebra
@@ -1667,6 +1667,8 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             (x - 1,
              <function UnivariateDifferentialOperatorOverUnivariateRing._make_valuation_place.<locals>.get_functions.<locals>.val_fct at 0x7ff14825a0c0>,
              <function UnivariateDifferentialOperatorOverUnivariateRing._make_valuation_place.<locals>.get_functions.<locals>.raise_val_fct at 0x7ff14825a020>)
+
+        # TODO: test properties of the output
         
         """
 
@@ -1761,7 +1763,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         r"""
         # TODO
 
-        EXAMPLES::
+        TESTS::
 
             sage: from ore_algebra import OreAlgebra
             sage: Pol.<x> = QQ[]
@@ -1797,7 +1799,6 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
              (x,
               <function UnivariateDifferentialOperatorOverUnivariateRing._make_valuation_place.<locals>.get_functions.<locals>.val_fct at 0x7ff148258220>,
               <function UnivariateDifferentialOperatorOverUnivariateRing._make_valuation_place.<locals>.get_functions.<locals>.raise_val_fct at 0x7ff148258ae0>)]
-            sage: L._make_valuation_place(x-1)
 
         """
         lr = self.coefficients()[-1]
@@ -1842,9 +1843,17 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
 
         A local integral basis at infinity. 
 
-        EXAMPLES:
+        EXAMPLES
 
-        # TODO
+            sage: from ore_algebra import OreAlgebra
+            sage: Pol.<x> = QQ[]
+            sage: Ore.<Dx> = OreAlgebra(Pol)
+            sage: L = (x^2-x)*Dx^2 + (31/24*x - 5/6)*Dx + 1/48 # example 6 in [KKV23]
+            sage: L.local_integral_basis_at_infinity()
+            [1, -x*Dx]
+            sage: L = (x^2-x)*Dx^2 + (49/6*x - 7/3)*Dx + 12 # example 15
+            sage: L.local_integral_basis_at_infinity()
+            [x^2, -x^5*Dx - 8/3*x^4 + 64/15*x^3]
 
         """
         x = self.base_ring().gen()
@@ -1875,9 +1884,21 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         A tuple composed of an integral basis local at infinity and the suitable
         values of `\tau`.
         
-        EXAMPLES:
+        TESTS::
 
-        # TODO
+            sage: from ore_algebra import OreAlgebra
+            sage: Pol.<x> = QQ[]
+            sage: Ore.<Dx> = OreAlgebra(Pol)
+            sage: L = (x^2-x)*Dx^2 + (49/6*x - 7/3)*Dx + 12 # example 15 in [KVV23]
+            sage: uu = L.global_integral_basis(); uu
+            [x^7 - 5*x^6 + 10*x^5 - 10*x^4 + 5*x^3 - x^2,
+             (x^2 - x)*Dx + 1085/46*x^6 - 5355/46*x^5 + 5250/23*x^4 - 5075/23*x^3 + 4725/46*x^2 - 34/3*x - 4/3]
+            sage: vv = L.local_integral_basis_at_infinity(); vv
+            [x^2, -x^5*Dx - 8/3*x^4 + 64/15*x^3]
+            sage: L._normalize_basis_at_infinity(uu,vv)
+            ([(-23/35*x^4 + 23/35*x^3)*Dx - 641/210*x^3 - 13/105*x^2,
+              (23/301*x^6 - 1104/1505*x^5 - 279427/12040*x^4 + 305877/12040*x^3 - 9867/6020*x^2 + 299/3010*x)*Dx + 184/903*x^5 - 1472/645*x^4 - 2708719/24080*x^3 + 10751/2580*x^2 - 598/645*x + 598/4515],
+             [-1, -1])
 
         """
         if infolevel >= 1:
@@ -1963,17 +1984,26 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
 
         A normal global integral basis.
 
-        EXAMPLES:
+        EXAMPLES::
 
-        # TODO
-
+            sage: from ore_algebra import OreAlgebra
+            sage: Pol.<x> = QQ[]
+            sage: Ore.<Dx> = OreAlgebra(Pol)
+            sage: L = (x^2-x)*Dx^2 + (31/24*x - 5/6)*Dx + 1/48 #  # example 6 in [KKV23]
+            sage: L.normal_global_integral_basis()
+            [1, (x^2 - x)*Dx]
+            sage: L = (x^2-x)*Dx^2 + (49/6*x - 7/3)*Dx + 12 # example 15
+            sage: L.normal_global_integral_basis()
+            [(-23/35*x^4 + 23/35*x^3)*Dx - 641/210*x^3 - 13/105*x^2,
+             (23/301*x^6 - 1104/1505*x^5 - 279427/12040*x^4 + 305877/12040*x^3 - 9867/6020*x^2 + 299/3010*x)*Dx + 184/903*x^5 - 1472/645*x^4 - 2708719/24080*x^3 + 10751/2580*x^2 - 598/645*x + 598/4515]
+        
         """
         ww = self.global_integral_basis(basis=basis,iota=iota, infolevel=infolevel)
         vv = self.local_integral_basis_at_infinity(iota=iota, infolevel=infolevel)
 
         ww, _ = self._normalize_basis_at_infinity(ww,vv, infolevel=infolevel)
         return ww
-        
+
     def pseudoconstants(self, iota=None, infolevel=0):
         r"""
         Compute pseudoconstants.
@@ -1996,7 +2026,19 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
 
         EXAMPLES:
 
-        # TODO
+            sage: from ore_algebra import OreAlgebra
+            sage: Pol.<x> = QQ[]
+            sage: Ore.<Dx> = OreAlgebra(Pol)
+            sage: L = (x^2-x)*Dx^2 + (31/24*x - 5/6)*Dx + 1/48 #  # example 6 in [KKV23]
+            sage: L.pseudoconstants()
+            [1]
+            sage: L = (x^2-x)*Dx^2 + (49/6*x - 7/3)*Dx + 12 # example 15
+            sage: L.pseudoconstants()
+            []
+            sage: L2 = L.symmetric_power(2)
+            sage: pc = L2.pseudoconstants() # long time (3 seconds)
+            sage: [p.order() for p in pc] # long time (previous)
+            [2]
         
         """
         
@@ -2010,7 +2052,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             if tau[i] >= 0:
                 for j in range(tau[i]+1):
                     res.append(x**j * ww[i])
-        Dx = self.gen()
+        Dx = self.parent().gen()
         res = [r for r in res if (Dx*r).quo_rem(self)[1] != 0]
         return res
 
