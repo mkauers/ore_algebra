@@ -1656,9 +1656,19 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         A tuple composed of ``f``, a suitable function for ``value_function`` at
         ``f`` and a suitable function for ``raise_value`` at ``f``.
         
-        EXAMPLES::
+        TESTS::
 
-        # TODO
+            sage: from ore_algebra import *
+            sage: from ore_algebra import OreAlgebra
+            sage: Pol.<x> = QQ[]
+            sage: Ore.<Dx> = OreAlgebra(Pol)
+            sage: L = x*(x-1)*Dx^2 - 1
+            sage: L._make_valuation_place(x-1) # random
+            (x - 1,
+             <function UnivariateDifferentialOperatorOverUnivariateRing._make_valuation_place.<locals>.get_functions.<locals>.val_fct at 0x7ff14825a0c0>,
+             <function UnivariateDifferentialOperatorOverUnivariateRing._make_valuation_place.<locals>.get_functions.<locals>.raise_val_fct at 0x7ff14825a020>)
+
+        # TODO: test properties of the output
         
         """
 
@@ -1669,8 +1679,8 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
 
         r = self.order()
         ore = self.parent()
-
         base = ore.base_ring()
+        f = f.numerator()
 
         C = base.base_ring()
         if f.degree() > 1:
@@ -1750,6 +1760,21 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         return f,val_fct, raise_val_fct
 
     def _initial_integral_basis(self, place=None):
+        r"""
+        # TODO
+
+        TESTS::
+
+            sage: from ore_algebra import OreAlgebra
+            sage: Pol.<x> = QQ[]
+            sage: Ore.<Dx> = OreAlgebra(Pol)
+            sage: L = x*(x-1)*Dx^3 - 1
+            sage: L._initial_integral_basis()
+            [1, (x^2 - x)*Dx, (x^4 - 2*x^3 + x^2)*Dx^2]
+            sage: L._initial_integral_basis(place=x)
+            [1, x*Dx, x^2*Dx^2]
+
+        """
         r = self.order()
         ore = self.parent()
         DD = ore.gen()
@@ -1758,6 +1783,24 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         return [place**i * DD**i for i in range(r)]
     
     def find_candidate_places(self, infolevel=0, iota=None, prec=5, **kwargs):
+        r"""
+
+        EXAMPLES::
+
+            sage: from ore_algebra import *
+            sage: from ore_algebra import OreAlgebra
+            sage: Pol.<x> = QQ[]
+            sage: Ore.<Dx> = OreAlgebra(Pol)
+            sage: L = x*(x-1)*Dx^2 - 1
+            sage: L.find_candidate_places() # random
+            [(x - 1,
+              <function UnivariateDifferentialOperatorOverUnivariateRing._make_valuation_place.<locals>.get_functions.<locals>.val_fct at 0x7ff148258cc0>,
+              <function UnivariateDifferentialOperatorOverUnivariateRing._make_valuation_place.<locals>.get_functions.<locals>.raise_val_fct at 0x7ff148258fe0>),
+             (x,
+              <function UnivariateDifferentialOperatorOverUnivariateRing._make_valuation_place.<locals>.get_functions.<locals>.val_fct at 0x7ff148258220>,
+              <function UnivariateDifferentialOperatorOverUnivariateRing._make_valuation_place.<locals>.get_functions.<locals>.raise_val_fct at 0x7ff148258ae0>)]
+
+        """
         lr = self.coefficients()[-1]
         fact = list(lr.factor())
         places = []
@@ -1768,12 +1811,267 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         return places
 
     def value_function(self, op, place, iota=None, **kwargs):
-        val = self._make_valuation_place(place,iota=iota)[1]
+        val = self._make_valuation_place(place,iota=iota, **kwargs)[1]
         return val(op, place)
 
     def raise_value(self, basis, place, dim=None, iota=None, **kwargs):
-        fct = self._make_valuation_place(place,iota=iota)[2]
+        fct = self._make_valuation_place(place,iota=iota, **kwargs)[2]
         return fct(basis, place, dim)
+
+    @cached_method
+    def local_integral_basis_at_infinity(self, basis=None, iota=None,
+                                         infolevel=0):
+        r"""
+        Compute a local integral basis at infinity
+
+        A basis of the quotient algebra by self is local at infinity if the
+        change of variable 1/x makes it local at 0.
+
+        INPUT:
+
+        - ``basis`` (default: None) an initial basis for the
+          computation
+        
+        - ``iota`` (default: None) a function used to filter terms of
+          generalized series solutions which are to be considered
+          integral. For the conditions that this function must satisfy, see
+          :meth:`ContinuousGeneralizedSeries.valuation`
+
+        -- ``infolevel`` (default: 0) verbosity level to use in the computations
+
+        OUTPUT:
+
+        A local integral basis at infinity. 
+
+        EXAMPLES:
+
+        Example 6 in https://arxiv.org/abs/2302.06396::
+        
+            sage: from ore_algebra import OreAlgebra
+            sage: Pol.<x> = QQ[]
+            sage: Ore.<Dx> = OreAlgebra(Pol)
+            sage: L = (x^2-x)*Dx^2 + (31/24*x - 5/6)*Dx + 1/48
+            sage: L.local_integral_basis_at_infinity()
+            [1, -x*Dx]
+
+        Example 15::
+        
+            sage: L = (x^2-x)*Dx^2 + (49/6*x - 7/3)*Dx + 12 
+            sage: L.local_integral_basis_at_infinity()
+            [x^2, -x^5*Dx - 8/3*x^4 + 64/15*x^3]
+
+        """
+        x = self.base_ring().gen()
+        Linf, conv = self.annihilator_of_composition(1/x, with_transform=True)
+        f,v,rv = Linf._make_valuation_place(x, iota=iota)
+        if basis:
+            basis = [conv(b) for b in basis]
+        wwinf = Linf.local_integral_basis(f, val_fct=v, raise_val_fct=rv,
+                                          basis=basis, infolevel=infolevel)
+        vv = [conv(w) for w in wwinf]
+        return vv
+
+    def _normalize_basis_at_infinity(self,uu,vv, infolevel=0):
+        r"""
+        Compute an integral basis normal at infinity
+
+        An integral basis `w_1,...,w_r` is called normal at infinity if there
+        exist integers `\tau_1`, ..., `\tau_r` such that `\{x^{\tau_1}w_1, ...,
+        x^{\tau_r}w_r\}` is a local integral basis at infinity.
+
+        INPUT:
+
+        - ``uu`` a global integral basis
+        - ``vv`` a local integral basis at infinity
+
+        OUTPUT:
+
+        A tuple composed of an integral basis local at infinity and the suitable
+        values of `\tau`.
+        
+        EXAMPLES:
+
+        Example 15 in https://arxiv.org/abs/2302.06396::
+        
+            sage: from ore_algebra import OreAlgebra
+            sage: Pol.<x> = QQ[]
+            sage: Ore.<Dx> = OreAlgebra(Pol)
+            sage: L = (x^2-x)*Dx^2 + (49/6*x - 7/3)*Dx + 12 
+            sage: uu = L.global_integral_basis(); uu
+            [x^7 - 5*x^6 + 10*x^5 - 10*x^4 + 5*x^3 - x^2,
+             (x^2 - x)*Dx + 1085/46*x^6 - 5355/46*x^5 + 5250/23*x^4 - 5075/23*x^3 + 4725/46*x^2 - 34/3*x - 4/3]
+            sage: vv = L.local_integral_basis_at_infinity(); vv
+            [x^2, -x^5*Dx - 8/3*x^4 + 64/15*x^3]
+            sage: L._normalize_basis_at_infinity(uu,vv)
+            ([(-23/35*x^4 + 23/35*x^3)*Dx - 641/210*x^3 - 13/105*x^2,
+              (23/301*x^6 - 1104/1505*x^5 - 279427/12040*x^4 + 305877/12040*x^3 - 9867/6020*x^2 + 299/3010*x)*Dx + 184/903*x^5 - 1472/645*x^4 - 2708719/24080*x^3 + 10751/2580*x^2 - 598/645*x + 598/4515],
+             [-1, -1])
+
+        """
+        if infolevel >= 1:
+            print("Normalizing the basis")
+        r = self.order()
+        x = self.base_ring().gen()
+        from sage.matrix.constructor import matrix
+        ww = uu[:]
+        
+        def pad_list(ll,d):
+            # add 0s to reach length d
+            return ll+[0]*(d - len(ll))
+        
+        def tau_value(f):
+            # smallest t st x^t f can be evaluated at infinity
+            if f == 0:
+                return infinity
+            if f in QQ:
+                return 0
+            else:
+                num = f.numerator().degree()
+                den = f.denominator().degree()
+                return den - num
+
+        def eval_inf(f):
+            # value of f at infinity
+            if f in QQ:
+                return f
+            else:
+                if f.denominator().degree() > f.numerator().degree():
+                    return 0
+                elif f.denominator().degree() < f.numerator().degree():
+                    raise ZeroDivisionError
+                else:
+                    return f.numerator().leading_coefficient() / f.denominator().leading_coefficient()
+
+        D_to_vv = matrix([pad_list(b.coefficients(sparse=False),r)
+                          for b in vv]).inverse()
+
+        first = True
+        while first or B.determinant() == 0:
+            if first:
+                first = False
+            else:
+                a = B.kernel().basis()[0]
+                l = min([i for i in range(r) if a[i] != 0],
+                        key = lambda i: tau[i]);
+                ww[l] = sum(a[i]*x**(tau[i]-tau[l])*ww[i] for i in range(r))
+            
+            ww_to_D = matrix([pad_list(b.coefficients(sparse=False),r)
+                              for b in ww])
+            mm = ww_to_D * D_to_vv
+            # print(mm)
+            tau = [min(tau_value(m) for m in row) for row in mm.rows()]
+            B = matrix([[eval_inf(x**tau[i]*mm[i,j]) for j in range(r)]
+                    for i in range(r)])
+            if infolevel >= 1:
+                print(f"{tau=}")
+            
+        return ww, tau
+    
+    def normal_global_integral_basis(self,basis=None, iota=None, infolevel=0):
+        r"""
+        Compute a normal global integral basis
+
+        An global integral basis `w_1,...,w_r` is called normal at infinity if
+        there exist integers `\tau_1`, ..., `\tau_r` such that `\{x^{\tau_1}w_1,
+        ..., x^{\tau_r}w_r\}` is a local integral basis at infinity.
+
+        INPUT:
+
+        - ``basis`` (default: None) an initial basis for the
+          computation
+        
+        - ``iota`` (default: None) a function used to filter terms of
+          generalized series solutions which are to be considered
+          integral. For the conditions that this function must satisfy, see
+          :meth:`ContinuousGeneralizedSeries.valuation`
+
+        -- ``infolevel`` (default: 0) verbosity level to use in the computations
+
+        OUTPUT:
+
+        A normal global integral basis.
+
+        EXAMPLES:
+
+        Example 6 in https://arxiv.org/abs/2302.06396::
+        
+            sage: from ore_algebra import OreAlgebra
+            sage: Pol.<x> = QQ[]
+            sage: Ore.<Dx> = OreAlgebra(Pol)
+            sage: L = (x^2-x)*Dx^2 + (31/24*x - 5/6)*Dx + 1/48
+            sage: L.normal_global_integral_basis()
+            [1, (x^2 - x)*Dx]
+
+        Example 15::
+        
+            sage: L = (x^2-x)*Dx^2 + (49/6*x - 7/3)*Dx + 12
+            sage: L.normal_global_integral_basis()
+            [(-23/35*x^4 + 23/35*x^3)*Dx - 641/210*x^3 - 13/105*x^2,
+             (23/301*x^6 - 1104/1505*x^5 - 279427/12040*x^4 + 305877/12040*x^3 - 9867/6020*x^2 + 299/3010*x)*Dx + 184/903*x^5 - 1472/645*x^4 - 2708719/24080*x^3 + 10751/2580*x^2 - 598/645*x + 598/4515]
+        
+        """
+        ww = self.global_integral_basis(basis=basis,iota=iota, infolevel=infolevel)
+        vv = self.local_integral_basis_at_infinity(iota=iota, infolevel=infolevel)
+
+        ww, _ = self._normalize_basis_at_infinity(ww,vv, infolevel=infolevel)
+        return ww
+
+    def pseudoconstants(self, iota=None, infolevel=0):
+        r"""
+        Compute pseudoconstants.
+
+        A pseudoconstant is an operator which is integral at all points
+        including infinity, and which is not a constant.
+
+        INPUT:
+
+        - ``iota`` (default: None) a function used to filter terms of
+          generalized series solutions which are to be considered
+          integral. For the conditions that this function must satisfy, see
+          :meth:`ContinuousGeneralizedSeries.valuation`
+
+        -- ``infolevel`` (default: 0) verbosity level to use in the computations
+
+        OUTPUT:
+
+        A basis of the vector space of pseudoconstants.
+
+        EXAMPLES:
+
+        Example 6 in https://arxiv.org/abs/2302.06396::
+        
+            sage: from ore_algebra import OreAlgebra
+            sage: Pol.<x> = QQ[]
+            sage: Ore.<Dx> = OreAlgebra(Pol)
+            sage: L = (x^2-x)*Dx^2 + (31/24*x - 5/6)*Dx + 1/48
+            sage: L.pseudoconstants()
+            [1]
+
+        Example 15::
+        
+            sage: L = (x^2-x)*Dx^2 + (49/6*x - 7/3)*Dx + 12
+            sage: L.pseudoconstants()
+            []
+            sage: L2 = L.symmetric_power(2)
+            sage: pc = L2.pseudoconstants() # long time (3 seconds)
+            sage: [p.order() for p in pc] # long time (previous)
+            [2]
+        
+        """
+        
+        ww = self.global_integral_basis(iota=iota, infolevel=infolevel)
+        vv = self.local_integral_basis_at_infinity(iota=iota, infolevel=infolevel)
+
+        ww, tau = self._normalize_basis_at_infinity(ww,vv, infolevel=infolevel)
+        x = self.base_ring().gen()
+        res = []
+        for i in range(len(ww)):
+            if tau[i] >= 0:
+                for j in range(tau[i]+1):
+                    res.append(x**j * ww[i])
+        Dx = self.parent().gen()
+        res = [r for r in res if (Dx*r).quo_rem(self)[1] != 0]
+        return res
 
 #############################################################################################################
 
@@ -1946,3 +2244,4 @@ def _tower(dom):
         return _tower(dom.ring())
     else:
         return dom, set()
+

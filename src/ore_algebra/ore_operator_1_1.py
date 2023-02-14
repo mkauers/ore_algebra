@@ -1568,18 +1568,19 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         r = len(basis)
         for d in range(r):
             print1(" [local] d={}".format(d))
-            print1(" [local] Processing {}".format(basis[d]))
+            print2(" [local] Processing {}".format(basis[d]))
             v = val_fct(basis[d],place=a,**val_kwargs)
             print1(" [local] Valuation: {}".format(v))
             res.append(a**(-v) * basis[d])
-            print1(" [local] Basis element after normalizing: {}".format(res[d]))
+            print2(" [local] Basis element after normalizing: {}".format(res[d]))
             done = False
             while not done:
                 alpha = raise_val_fct(res,place=a,dim=r,infolevel=infolevel,**val_kwargs)
                 if alpha is None:
                     done = True
                 else:
-                    print1(" [local] Relation found: {}".format(alpha))
+                    print1(" [local] Relation found")
+                    print2("         {}".format(alpha))
 
                     alpha_rep = [None for i in range(d+1)]
                     if deg > 1: # Should be harmless even otherwise (then Fvar=1), if we also force the cast to k
@@ -1592,8 +1593,10 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
                     # __import__("pdb").set_trace()
                     
                     res[d] = sum(alpha_rep[i]*res[i] for i in range(d+1))
-                    res[d] = a**(- val_fct(res[d],place=a,**val_kwargs))*res[d]
-                    print1(" [local] Basis element after combination: {}".format(res[d]))
+                    val = val_fct(res[d],place=a,infolevel=infolevel,**val_kwargs)
+                    print1(" [local] Valuation raised by {}".format(val))
+                    res[d] = a**(-val)*res[d]
+                    print2(" [local] Basis element after combination: {}".format(res[d]))
         return res
 
     def find_candidate_places(self, **kwargs):
@@ -1767,7 +1770,9 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
             -1.9398e-7 + 9.5133e-7*I
             sage: L.local_basis_expansions(a,2)
             [1.00000*1, 1.00000*(x + 0.39381 + 0.38222*I)]
-            sage: L.global_integral_basis()
+            sage: bb = L.global_integral_basis()
+            sage: bb = [1/b.leading_coefficient().numerator().leading_coefficient() * b for b in bb]
+            sage: bb
             [x^3 - 2*x^2 + x,
              ((x^2 - x)/(x^4 - x^3 + 1/3*x + 1/3))*Dx + (-3*x^6 + 9*x^5 - 9*x^4 + 2*x^3 + x^2 + 3*x - 1)/(x^4 - x^3 + 1/3*x + 1/3)]
 
