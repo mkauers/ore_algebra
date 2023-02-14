@@ -1843,15 +1843,20 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
 
         A local integral basis at infinity. 
 
-        EXAMPLES
+        EXAMPLES:
 
+        Example 6 in https://arxiv.org/abs/2302.06396::
+        
             sage: from ore_algebra import OreAlgebra
             sage: Pol.<x> = QQ[]
             sage: Ore.<Dx> = OreAlgebra(Pol)
-            sage: L = (x^2-x)*Dx^2 + (31/24*x - 5/6)*Dx + 1/48 # example 6 in [KKV23]
+            sage: L = (x^2-x)*Dx^2 + (31/24*x - 5/6)*Dx + 1/48
             sage: L.local_integral_basis_at_infinity()
             [1, -x*Dx]
-            sage: L = (x^2-x)*Dx^2 + (49/6*x - 7/3)*Dx + 12 # example 15
+
+        Example 15::
+        
+            sage: L = (x^2-x)*Dx^2 + (49/6*x - 7/3)*Dx + 12 
             sage: L.local_integral_basis_at_infinity()
             [x^2, -x^5*Dx - 8/3*x^4 + 64/15*x^3]
 
@@ -1884,12 +1889,14 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         A tuple composed of an integral basis local at infinity and the suitable
         values of `\tau`.
         
-        TESTS::
+        EXAMPLES:
 
+        Example 15 in https://arxiv.org/abs/2302.06396::
+        
             sage: from ore_algebra import OreAlgebra
             sage: Pol.<x> = QQ[]
             sage: Ore.<Dx> = OreAlgebra(Pol)
-            sage: L = (x^2-x)*Dx^2 + (49/6*x - 7/3)*Dx + 12 # example 15 in [KVV23]
+            sage: L = (x^2-x)*Dx^2 + (49/6*x - 7/3)*Dx + 12 
             sage: uu = L.global_integral_basis(); uu
             [x^7 - 5*x^6 + 10*x^5 - 10*x^4 + 5*x^3 - x^2,
              (x^2 - x)*Dx + 1085/46*x^6 - 5355/46*x^5 + 5250/23*x^4 - 5075/23*x^3 + 4725/46*x^2 - 34/3*x - 4/3]
@@ -1984,15 +1991,20 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
 
         A normal global integral basis.
 
-        EXAMPLES::
+        EXAMPLES:
 
+        Example 6 in https://arxiv.org/abs/2302.06396::
+        
             sage: from ore_algebra import OreAlgebra
             sage: Pol.<x> = QQ[]
             sage: Ore.<Dx> = OreAlgebra(Pol)
-            sage: L = (x^2-x)*Dx^2 + (31/24*x - 5/6)*Dx + 1/48 # example 6 in [KKV23]
+            sage: L = (x^2-x)*Dx^2 + (31/24*x - 5/6)*Dx + 1/48
             sage: L.normal_global_integral_basis()
             [1, (x^2 - x)*Dx]
-            sage: L = (x^2-x)*Dx^2 + (49/6*x - 7/3)*Dx + 12 # example 15
+
+        Example 15::
+        
+            sage: L = (x^2-x)*Dx^2 + (49/6*x - 7/3)*Dx + 12
             sage: L.normal_global_integral_basis()
             [(-23/35*x^4 + 23/35*x^3)*Dx - 641/210*x^3 - 13/105*x^2,
              (23/301*x^6 - 1104/1505*x^5 - 279427/12040*x^4 + 305877/12040*x^3 - 9867/6020*x^2 + 299/3010*x)*Dx + 184/903*x^5 - 1472/645*x^4 - 2708719/24080*x^3 + 10751/2580*x^2 - 598/645*x + 598/4515]
@@ -2026,13 +2038,18 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
 
         EXAMPLES:
 
+        Example 6 in https://arxiv.org/abs/2302.06396::
+        
             sage: from ore_algebra import OreAlgebra
             sage: Pol.<x> = QQ[]
             sage: Ore.<Dx> = OreAlgebra(Pol)
-            sage: L = (x^2-x)*Dx^2 + (31/24*x - 5/6)*Dx + 1/48 # example 6 in [KKV23]
+            sage: L = (x^2-x)*Dx^2 + (31/24*x - 5/6)*Dx + 1/48
             sage: L.pseudoconstants()
             [1]
-            sage: L = (x^2-x)*Dx^2 + (49/6*x - 7/3)*Dx + 12 # example 15
+
+        Example 15::
+        
+            sage: L = (x^2-x)*Dx^2 + (49/6*x - 7/3)*Dx + 12
             sage: L.pseudoconstants()
             []
             sage: L2 = L.symmetric_power(2)
