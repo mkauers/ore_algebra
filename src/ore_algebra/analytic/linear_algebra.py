@@ -33,7 +33,6 @@ from sage.functions.other import binomial
 
 from .complex_optimistic_field import ComplexOptimisticField
 from .accuracy import PrecisionError
-from .utilities import derivatives
 
 
 
@@ -248,6 +247,14 @@ def squarefree_part(pol):
     return sfp
 
 
+def _derivatives(f, m):
+
+    result = [f]
+    for k in range(m):
+        f = f.derivative()
+        result.append(f)
+
+    return result
 
 def roots(pol, *, multiplicities=False):
 
@@ -304,7 +311,7 @@ def roots(pol, *, multiplicities=False):
 
     for j, ev in enumerate(res):
         m = 1
-        evaluations = [p(ev) for p in derivatives(pol, n)]
+        evaluations = [p(ev) for p in _derivatives(pol, n)]
         while evaluations[m].contains_zero():
             m = m + 1
         res[j] = (ev, m)
