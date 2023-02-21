@@ -870,21 +870,18 @@ def _formal_finite_sum_to_power_series(f, PSR):
 ### Guessing tools #############################################################
 ################################################################################
 
-def hp_approximants(F, d):
+def hp_approximants(F, sigma):
 
     r"""
-    Return the Hermite-Padé approximants of F at order d.
+    Return an Hermite--Padé approximant of ``F`` at order ``sigma``.
 
-    Let F = [f1, ..., fm]. This function returns a list of polynomials P =
-    [p1, ..., pm] such that:
-    - max(deg(p1), ..., deg(pm)) is minimal,
-    - p1*f1 + ... + pm*fm = O(x^d).
-
-    Note that this function calls some methods of the Library of Polynomial
-    Matrices, see https://github.com/vneiger/pml to install it (if necessary).
+    Let ``F = [f1, ..., fm]``. This function returns a list of polynomials ``P =
+    [p1, ..., pm]`` such that:
+    - ``max(deg(p1), ..., deg(pm))`` is minimal,
+    - ``p1*f1 + ... + pm*fm = O(x^sigma)``.
 
     INPUT:
-     - ``F`` - a list of polynomials or series
+     - ``F`` - a list of polynomials or power series
 
     OUTPUT:
      - ``P`` - a list of polynomials
@@ -908,7 +905,7 @@ def hp_approximants(F, d):
     except: pass
 
     mat = matrix(len(F), 1, F)
-    basis = mat.minimal_approximant_basis(d)
+    basis = mat.minimal_approximant_basis(sigma)
     rdeg = basis.row_degrees()
     i = min(range(len(rdeg)), key = lambda i: rdeg[i])
 
