@@ -11,29 +11,28 @@ eigenspaces, invariant subspace, ...
 #
 # http://www.gnu.org/licenses/
 
+
+from ore_algebra.analytic.accuracy import PrecisionError
+from ore_algebra.analytic.complex_optimistic_field import ComplexOptimisticField
+
+from sage.arith.functions import lcm
+from sage.arith.misc import algdep, gcd
+from sage.functions.all import log, floor
+from sage.functions.other import binomial
 from sage.matrix.constructor import matrix
+from sage.matrix.matrix_dense import Matrix_dense
 from sage.matrix.special import identity_matrix, block_diagonal_matrix
 from sage.misc.misc_c import prod
 from sage.modules.free_module import VectorSpace
-from sage.modules.free_module_element import vector
+from sage.modules.free_module_element import vector, FreeModuleElement_generic_dense
 try:
     from sage.rings.complex_mpfr import ComplexField
 except ModuleNotFoundError: # versions of sage older than 9.3
     from sage.rings.complex_field import ComplexField
-from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
-from sage.rings.real_mpfr import RealField
-from sage.matrix.matrix_dense import Matrix_dense
-from sage.modules.free_module_element import vector, FreeModuleElement_generic_dense
 from sage.rings.polynomial.polynomial_element import Polynomial
+from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 from sage.rings.qqbar import number_field_elements_from_algebraics
-from sage.functions.all import log, floor
-from sage.arith.misc import algdep, gcd
-from sage.arith.functions import lcm
-from sage.functions.other import binomial
-
-from .complex_optimistic_field import ComplexOptimisticField
-from .accuracy import PrecisionError
-
+from sage.rings.real_mpfr import RealField
 
 
 ################################################################################

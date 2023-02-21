@@ -13,46 +13,41 @@ operators.
 
 import collections
 import tempfile
+import cProfile
+import pstats
 
-from sage.rings.rational_field import QQ
+from ore_algebra.analytic.accuracy import PrecisionError
+from ore_algebra.analytic.complex_optimistic_field import ComplexOptimisticField
+from ore_algebra.analytic.differential_operator import PlainDifferentialOperator
+from ore_algebra.analytic.linear_algebra import (invariant_subspace,
+                                                 row_echelon_form, ker,
+                                                 gen_eigenspaces, orbit,
+                                                 customized_accuracy)
+from ore_algebra.analytic.monodromy import _monodromy_matrices
+from ore_algebra.analytic.utilities import as_embedded_number_field_elements
+from ore_algebra.analytic.eigenring import euler_representation
+from ore_algebra.guessing import guess
+from sage.arith.functions import lcm
+from sage.arith.misc import valuation, algdep, gcd
+from sage.functions.all import log, floor
+from sage.functions.other import binomial, factorial
+from sage.matrix.constructor import matrix
+from sage.matrix.matrix_dense import Matrix_dense
+from sage.matrix.special import block_matrix, identity_matrix, diagonal_matrix
+from sage.misc.functional import numerical_approx
+from sage.misc.misc import cputime
+from sage.misc.misc_c import prod
+from sage.modules.free_module_element import vector, FreeModuleElement_generic_dense
+from sage.plot.line import line2d
 from sage.rings.integer_ring import ZZ
-from sage.rings.real_mpfr import RealField
+from sage.rings.laurent_series_ring import LaurentSeriesRing
 from sage.rings.qqbar import QQbar
-from sympy.core.numbers import oo
 from sage.rings.power_series_ring import PowerSeriesRing
 from sage.rings.polynomial.polynomial_element import Polynomial
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
-from sage.rings.laurent_series_ring import LaurentSeriesRing
-from sage.modules.free_module_element import vector
-from sage.matrix.constructor import matrix
-from sage.matrix.special import block_matrix, identity_matrix, diagonal_matrix
-from sage.misc.misc_c import prod
-from sage.arith.functions import lcm
-from sage.functions.other import binomial, factorial
-from sage.arith.misc import valuation, algdep, gcd
-from sage.misc.misc import cputime
-from sage.plot.line import line2d
-
-import cProfile
-import pstats
-from sage.misc.functional import numerical_approx
-
-from ore_algebra.guessing import guess
-
-from sage.matrix.matrix_dense import Matrix_dense
-from sage.modules.free_module_element import vector, FreeModuleElement_generic_dense
-from sage.rings.polynomial.polynomial_element import Polynomial
-from sage.functions.all import log, floor
-
-
-from .utilities import as_embedded_number_field_elements
-from .monodromy import _monodromy_matrices
-from .differential_operator import PlainDifferentialOperator
-from .accuracy import PrecisionError
-from .complex_optimistic_field import ComplexOptimisticField
-from .utilities import euler_representation
-from .linear_algebra import (invariant_subspace, row_echelon_form, ker,
-                             gen_eigenspaces, orbit, customized_accuracy)
+from sage.rings.rational_field import QQ
+from sage.rings.real_mpfr import RealField
+from sympy.core.numbers import oo
 
 Radii = RealField(30)
 
@@ -181,7 +176,7 @@ def factor(dop, return_data=False, verbose=False):
 def my_newton_polygon(dop):
 
     r"""
-    Computes the Newton polygon of ``self`` at 0.
+    Computes the Newton polygon of ``self`` at ``0``.
 
     INPUT:
 
@@ -658,7 +653,7 @@ def annihilator(dop, ic, order, bound, alg_degree, mono=None, verbose=False):
                 if dop%R==0: return R
 
     if order>r*(bound + 1) and verbose:
-        print("Ball Hermite-Padé approximants not implemented yet")
+        print("Ball Hermite--Padé approximants not implemented yet")
 
     return "Inconclusive"
 
@@ -825,7 +820,7 @@ def _rfactor(dop, data, order=None, bound=None, alg_degree=None, precision=None,
                 if R!="Inconclusive":
                     if verbose: print("Conclude with " + conclusive_method + " method")
                     try:
-                        cond_nb = max([frobenius_norm(m)*frobenius_norm(~m) for m in mono])
+                        cond_nb = max([_frobenius_norm(m)*_frobenius_norm(~m) for m in mono])
                         cond_nb = cond_nb.log(10).ceil()
                     except (ZeroDivisionError, PrecisionError):
                         cond_nb = oo
@@ -849,7 +844,7 @@ def _rfactor(dop, data, order=None, bound=None, alg_degree=None, precision=None,
 ### Tools ######################################################################
 ################################################################################
 
-frobenius_norm = lambda m: sum([x.abs().mid()**2 for x in m.list()]).sqrt()
+_frobenius_norm = lambda m: sum([x.abs().mid()**2 for x in m.list()]).sqrt()
 
 def _formal_finite_sum_to_power_series(f, PSR):
 
@@ -869,136 +864,136 @@ def _formal_finite_sum_to_power_series(f, PSR):
 ################################################################################
 ### Guessing tools #############################################################
 ################################################################################
-
-def hp_approximants(F, sigma):
-
-    r"""
-    Return an Hermite--Padé approximant of ``F`` at order ``sigma``.
-
-    Let ``F = [f1, ..., fm]``. This function returns a list of polynomials ``P =
-    [p1, ..., pm]`` such that:
-    - ``max(deg(p1), ..., deg(pm))`` is minimal,
-    - ``p1*f1 + ... + pm*fm = O(x^sigma)``.
-
-    INPUT:
-     - ``F`` - a list of polynomials or power series
-
-    OUTPUT:
-     - ``P`` - a list of polynomials
-
-    EXAMPLES::
-
-        sage: from ore_algebra.analytic.factorization import hp_approximants
-        sage: f = taylor(log(1+x), x, 0, 8).series(x).truncate().polynomial(QQ)
-        sage: F = [f, f.derivative(), f.derivative().derivative()]
-        sage: P = hp_approximants(F, 5); P
-        [0, 1, x + 1]
-        sage: from ore_algebra import OreAlgebra
-        sage: Pols.<x> = QQ[]; Dops.<Dx> = OreAlgebra(Pols); dop = Dops(P)
-        sage: dop, dop(log(1+x))
-        ((x + 1)*Dx^2 + Dx, 0)
-
-    """
-
-    try:
-        F = [f.truncate() for f in F]
-    except: pass
-
-    mat = matrix(len(F), 1, F)
-    basis = mat.minimal_approximant_basis(sigma)
-    rdeg = basis.row_degrees()
-    i = min(range(len(rdeg)), key = lambda i: rdeg[i])
-
-    return list(basis[i])
-
-
-
-def guess_rational_numbers(x, p=None):
-
-    r"""
-    Guess rational coefficients for a vector or a matrix or a polynomial or a
-    list or just a complex number.
-
-    Note: this function is designed for ComplexOptimisticField as base ring.
-
-    INPUT:
-     - 'x' - object with approximate coefficients
-
-    OUTPUT:
-     - 'r' - object with rational coefficients
-
-    EXAMPLES::
-
-        sage: from ore_algebra.analytic.complex_optimistic_field import ComplexOptimisticField
-        sage: from ore_algebra.analytic.factorization import guess_rational_numbers
-        sage: C = ComplexOptimisticField(30, 2^-10)
-        sage: a = 1/3 - C(1+I)*C(2^-20)
-        sage: Pols.<x> = C[]; pol = (1/a)*x + a; pol
-        ([3.0000086 +/- 2.86e-8] + [8.5831180e-6 +/- 7.79e-14]*I)*x + [0.333332379 +/- 8.15e-10] - [9.53674316e-7 +/- 4.07e-16]*I
-        sage: guess_rational_numbers(pol)
-        3*x + 1/3
-
-    """
-
-    if isinstance(x, list) :
-        return [guess_rational_numbers(c, p=p) for c in x]
-
-    if isinstance(x, FreeModuleElement_generic_dense) or isinstance(x, Matrix_dense) or isinstance(x, Polynomial):
-        return x.parent().change_ring(QQ)(guess_rational_numbers(x.list(), p=p))
-
-    if p is None:
-        eps = x.parent().eps
-        p = floor(-log(eps, 2)) # does eps.log2().floor() work? try Marc's function prec_from_eps?
-    else:
-        eps = RealField(30).one() >> p
-    if not x.imag().above_abs().mid()<eps:
-        raise PrecisionError('This number does not seem a rational number.')
-    x = x.real().mid()
-
-    return x.nearby_rational(max_error=x.parent()(eps))
-
-
-
-def guess_algebraic_numbers(x, d=2, p=None):
-
-    r"""
-    Guess algebraic coefficients for a vector or a matrix or a polynomial or a
-    list or just a complex number.
-
-    INPUT:
-     - 'x' - an object with approximate coefficients
-     - 'd' - a positive integer (bound for algebraicity degree)
-     - 'p' - a positive integer (number of known bits)
-
-    OUTPUT:
-     - 'a' - an object with algebraic coefficients
-
-    EXAMPLES::
-
-        sage: from ore_algebra.analytic.complex_optimistic_field import ComplexOptimisticField
-        sage: from ore_algebra.analytic.factorization import guess_algebraic_numbers
-        sage: a = ComplexOptimisticField()(sqrt(2))
-        sage: guess_algebraic_numbers(a)
-        1.414213562373095?
-        sage: _.minpoly()
-        x^2 - 2
-
-    """
-
-    if isinstance(x, list) :
-        return [guess_algebraic_numbers(c, d=d, p=p) for c in x]
-
-    if isinstance(x, FreeModuleElement_generic_dense) or \
-    isinstance(x, Matrix_dense) or isinstance(x, Polynomial):
-        return x.parent().change_ring(QQbar)(guess_algebraic_numbers(x.list(), p=p, d=d))
-
-    if p is None: p = floor(-log(x.parent().eps, 2))
-
-    pol = algdep(x.mid(), degree=d, known_bits=p)
-    roots = pol.roots(QQbar, multiplicities=False)
-    i = min(range(len(roots)), key = lambda i: abs(roots[i] - x.mid()))
-
-    return roots[i]
+#
+#def hp_approximants(F, sigma):
+#
+#    r"""
+#    Return an Hermite--Padé approximant of ``F`` at order ``sigma``.
+#
+#    Let ``F = [f1, ..., fm]``. This function returns a list of polynomials ``P =
+#    [p1, ..., pm]`` such that:
+#    - ``max(deg(p1), ..., deg(pm))`` is minimal,
+#    - ``p1*f1 + ... + pm*fm = O(x^sigma)``.
+#
+#    INPUT:
+#     - ``F`` - a list of polynomials or power series
+#
+#    OUTPUT:
+#     - ``P`` - a list of polynomials
+#
+#    EXAMPLES::
+#
+#        sage: from ore_algebra.analytic.factorization import hp_approximants
+#        sage: f = taylor(log(1+x), x, 0, 8).series(x).truncate().polynomial(QQ)
+#        sage: F = [f, f.derivative(), f.derivative().derivative()]
+#        sage: P = hp_approximants(F, 5); P
+#        [0, 1, x + 1]
+#        sage: from ore_algebra import OreAlgebra
+#        sage: Pols.<x> = QQ[]; Dops.<Dx> = OreAlgebra(Pols); dop = Dops(P)
+#        sage: dop, dop(log(1+x))
+#        ((x + 1)*Dx^2 + Dx, 0)
+#
+#    """
+#
+#    try:
+#        F = [f.truncate() for f in F]
+#    except: pass
+#
+#    mat = matrix(len(F), 1, F)
+#    basis = mat.minimal_approximant_basis(sigma)
+#    rdeg = basis.row_degrees()
+#    i = min(range(len(rdeg)), key = lambda i: rdeg[i])
+#
+#    return list(basis[i])
+#
+#
+#
+#def guess_rational_numbers(x, p=None):
+#
+#    r"""
+#    Guess rational coefficients for a vector or a matrix or a polynomial or a
+#    list or just a complex number.
+#
+#    Note: this function is designed for ComplexOptimisticField as base ring.
+#
+#    INPUT:
+#     - 'x' - object with approximate coefficients
+#
+#    OUTPUT:
+#     - 'r' - object with rational coefficients
+#
+#    EXAMPLES::
+#
+#        sage: from ore_algebra.analytic.complex_optimistic_field import ComplexOptimisticField
+#        sage: from ore_algebra.analytic.factorization import guess_rational_numbers
+#        sage: C = ComplexOptimisticField(30, 2^-10)
+#        sage: a = 1/3 - C(1+I)*C(2^-20)
+#        sage: Pols.<x> = C[]; pol = (1/a)*x + a; pol
+#        ([3.0000086 +/- 2.86e-8] + [8.5831180e-6 +/- 7.79e-14]*I)*x + [0.333332379 +/- 8.15e-10] - [9.53674316e-7 +/- 4.07e-16]*I
+#        sage: guess_rational_numbers(pol)
+#        3*x + 1/3
+#
+#    """
+#
+#    if isinstance(x, list) :
+#        return [guess_rational_numbers(c, p=p) for c in x]
+#
+#    if isinstance(x, FreeModuleElement_generic_dense) or isinstance(x, Matrix_dense) or isinstance(x, Polynomial):
+#        return x.parent().change_ring(QQ)(guess_rational_numbers(x.list(), p=p))
+#
+#    if p is None:
+#        eps = x.parent().eps
+#        p = floor(-log(eps, 2)) # does eps.log2().floor() work? try Marc's function prec_from_eps?
+#    else:
+#        eps = RealField(30).one() >> p
+#    if not x.imag().above_abs().mid()<eps:
+#        raise PrecisionError('This number does not seem a rational number.')
+#    x = x.real().mid()
+#
+#    return x.nearby_rational(max_error=x.parent()(eps))
+#
+#
+#
+#def guess_algebraic_numbers(x, d=2, p=None):
+#
+#    r"""
+#    Guess algebraic coefficients for a vector or a matrix or a polynomial or a
+#    list or just a complex number.
+#
+#    INPUT:
+#     - 'x' - an object with approximate coefficients
+#     - 'd' - a positive integer (bound for algebraicity degree)
+#     - 'p' - a positive integer (number of known bits)
+#
+#    OUTPUT:
+#     - 'a' - an object with algebraic coefficients
+#
+#    EXAMPLES::
+#
+#        sage: from ore_algebra.analytic.complex_optimistic_field import ComplexOptimisticField
+#        sage: from ore_algebra.analytic.factorization import guess_algebraic_numbers
+#        sage: a = ComplexOptimisticField()(sqrt(2))
+#        sage: guess_algebraic_numbers(a)
+#        1.414213562373095?
+#        sage: _.minpoly()
+#        x^2 - 2
+#
+#    """
+#
+#    if isinstance(x, list) :
+#        return [guess_algebraic_numbers(c, d=d, p=p) for c in x]
+#
+#    if isinstance(x, FreeModuleElement_generic_dense) or \
+#    isinstance(x, Matrix_dense) or isinstance(x, Polynomial):
+#        return x.parent().change_ring(QQbar)(guess_algebraic_numbers(x.list(), p=p, d=d))
+#
+#    if p is None: p = floor(-log(x.parent().eps, 2))
+#
+#    pol = algdep(x.mid(), degree=d, known_bits=p)
+#    roots = pol.roots(QQbar, multiplicities=False)
+#    i = min(range(len(roots)), key = lambda i: abs(roots[i] - x.mid()))
+#
+#    return roots[i]
 
 
 

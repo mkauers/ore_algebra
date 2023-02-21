@@ -14,7 +14,10 @@ contains 0)
 
 import sage.categories.fields
 
+from ore_algebra.analytic.accuracy import PrecisionError
 from sage.categories.functor import Functor
+from sage.categories.homset import Hom
+from sage.categories.morphism import SetMorphism
 from sage.categories.pushout import ConstructionFunctor
 from sage.rings.complex_arb import ComplexBallField, ComplexBall
 from sage.rings.real_mpfr import RealField
@@ -24,10 +27,6 @@ from sage.structure.richcmp import (op_EQ, op_NE, op_LT, op_LE, op_GT, op_GE,
         rich_to_bool)
 from sage.structure.unique_representation import UniqueRepresentation
 
-from sage.categories.morphism import SetMorphism
-from sage.categories.homset import Hom
-
-from .accuracy import PrecisionError
 
 Radii = RealField(30)
 

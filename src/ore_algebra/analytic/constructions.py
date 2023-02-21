@@ -12,9 +12,9 @@ symmetric product, etc...).
 # http://www.gnu.org/licenses/
 
 
+from sage.matrix.constructor import matrix
 from sage.rings.all import ZZ, QQ, QQbar, CBF, RationalField
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
-from sage.matrix.constructor import matrix
 
 
 def indices(n, r):
