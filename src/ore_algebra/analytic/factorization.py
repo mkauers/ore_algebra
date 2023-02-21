@@ -571,15 +571,16 @@ def transition_matrix_for_adjoint(dop):
 def guess_symbolic_coefficients(vec, alg_degree, verbose=False):
 
     """
-    Return a reasonable symbolic vector contained in the ball vector ``vec`` if
-    any; "NothingFound" otherwise.
+    Return a reasonable symbolic vector contained in the ball vector ``vec``
+    and its field of coefficients if something reasonable is found, or
+    "NothingFound" otherwise.
 
-    Input:
+    INPUT:
      -- ``vec`` -- ball vector
      -- ``alg_degree``   -- positive integer
 
-    Output:
-     -- ``symb_vec`` -- vector with coefficients, or "NothingFound"
+    OUTPUT:
+     -- ``symb_vec`` -- vector with exact coefficients, or "NothingFound"
      -- ``K``        -- QQ, or a number field, or None (if ``symb_vec``="NothingFound")
 
     EXAMPLES::
@@ -595,6 +596,7 @@ def guess_symbolic_coefficients(vec, alg_degree, verbose=False):
 
     if verbose: print("Try guessing symbolic coefficients")
 
+    # first fast attempt working well if rational
     v1, v2 = [], []
     for x in vec:
         if not x.imag().contains_zero(): break
