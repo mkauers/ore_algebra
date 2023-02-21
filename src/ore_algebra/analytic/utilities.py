@@ -615,12 +615,12 @@ def local_bound_problem(R, L, c):
 
     INPUT:
 
-     -- "R, L" -- linear differential operators
-     -- "c"    -- 0 or 1
+     -- ``R, L`` -- linear differential operators
+     -- ``c``    -- 0 or 1
 
     OUTPUT:
 
-     -- "v0r" -- integer or None if it is certified that no such r exists
+     -- ``v0r`` -- integer or None if it is certified that no such r exists
 
     """
 

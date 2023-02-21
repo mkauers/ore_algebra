@@ -94,7 +94,7 @@ class LinearDifferentialOperator(PlainDifferentialOperator):
     def is_fuchsian(self):
 
         r"""
-        Return True if "self" is fuchsian, False otherwise.
+        Return True if ``self`` is fuchsian, False otherwise.
 
         Fuch's criterion: p is a regular point of a_n*Dz^n + ... + a_0 (with a_i
         polynomial) iff no (z-p)^{n-k}*a_k/a_n admits p as pole.
@@ -118,9 +118,9 @@ class LinearDifferentialOperator(PlainDifferentialOperator):
     def monodromy(self, precision, verbose=False):
 
         r"""
-        Compute a generating set of matrices for the monodromy group of "self"
+        Compute a generating set of matrices for the monodromy group of ``self``
         at 0, such that the (customized) precision of each coefficient is at
-        least equal to "precision".
+        least equal to ``precision``.
         """
 
         if verbose: print("Monodromy computation with wanted precision = " + str(precision) + ".")
@@ -301,10 +301,10 @@ def search_exp_part_with_mult1(dop):
 def min_diff_exp(dop):
 
     """
-    renvoie (m, m_int) où m est la différence maximale, resp. m_int est la
-    différence entière maximale, entre exposants d'une même singularité.
+    returns ``(m, m_int)`` where m is the maximal difference, resp. the maximal
+    integer difference, between local exponents at a singularity.
 
-    Considère tout le temps l'infini comme une singularité.
+    The point at infinity is always considered as a singularity.
     """
 
     dop, z = LinearDifferentialOperator(dop), dop.base_ring().gen()
@@ -560,15 +560,15 @@ def guess_symbolic_coefficients(vec, alg_degree, verbose=False):
     """
     Return a reasonable symbolic vector contained in the ball vector ``vec``
     and its field of coefficients if something reasonable is found, or
-    "NothingFound" otherwise.
+    ``NothingFound`` otherwise.
 
     INPUT:
      -- ``vec`` -- ball vector
      -- ``alg_degree``   -- positive integer
 
     OUTPUT:
-     -- ``symb_vec`` -- vector with exact coefficients, or "NothingFound"
-     -- ``K``        -- QQ, or a number field, or None (if ``symb_vec``="NothingFound")
+     -- ``symb_vec`` -- vector with exact coefficients, or ``NothingFound``
+     -- ``K``        -- QQ, or a number field, or None (if ``symb_vec``=``NothingFound``)
 
     EXAMPLES::
         sage: C = ComplexBallField()
@@ -666,8 +666,8 @@ def annihilator(dop, ic, order, bound, alg_degree, mono=None, verbose=False):
 def one_dimensional_eigenspaces(dop, mono, order, bound, alg_degree, verbose=False):
 
     """
-    output: a nontrivial right factor R of dop, or None, or "NotGoodConditions",
-    or "Inconclusive"
+    output: a nontrivial right factor R of dop, or None, or ``NotGoodConditions``,
+    or ``Inconclusive``
     """
 
     mat = random_combination(mono)
@@ -692,8 +692,8 @@ def one_dimensional_eigenspaces(dop, mono, order, bound, alg_degree, verbose=Fal
 def simple_eigenvalue(dop, mono, order, bound, alg_degree, verbose=False):
 
     """
-    output: a nontrivial right factor R of dop, or None, or "NotGoodConditions",
-    or "Inconclusive"
+    output: a nontrivial right factor R of dop, or None, or ``NotGoodConditions``,
+    or ``Inconclusive``
 
     Assumption: dop is monic.
     """
@@ -727,7 +727,7 @@ def simple_eigenvalue(dop, mono, order, bound, alg_degree, verbose=False):
 
 def multiple_eigenvalue(dop, mono, order, bound, alg_degree, verbose=False):
     """
-    output: a nontrivial right factor R of dop, or None, or "Inconclusive"
+    output: a nontrivial right factor R of dop, or None, or ``Inconclusive``
     """
 
     r = dop.order()
@@ -884,10 +884,10 @@ def hp_approximants(F, d):
     Matrices, see https://github.com/vneiger/pml to install it (if necessary).
 
     INPUT:
-     - "F" - a list of polynomials or series
+     - ``F`` - a list of polynomials or series
 
     OUTPUT:
-     - "P" - a list of polynomials
+     - ``P`` - a list of polynomials
 
     EXAMPLES::
 

@@ -101,7 +101,7 @@ def _clean(pol):
 def GCD(a, b):
 
     r"""
-    Return a *non-rigorous* gcd of the polynomials "a" and "b".
+    Return a *non-rigorous* gcd of the polynomials ``a`` and ``b``.
 
     Note: this function is designed for BallField as base ring.
 
@@ -111,12 +111,12 @@ def GCD(a, b):
 
     INPUT:
 
-     -- "a" -- polynomial
-     -- "b" -- polynomial
+     -- ``a`` -- polynomial
+     -- ``b`` -- polynomial
 
     OUTPUT:
 
-     -- "a" -- polynomial
+     -- ``a`` -- polynomial
 
 
     EXAMPLES::
@@ -146,21 +146,21 @@ def GCD(a, b):
 def XGCD(a, b):
 
     r"""
-    Return a *non-rigorous* monic gcd of the polynomials "a" and "b" and the
+    Return a *non-rigorous* monic gcd of the polynomials ``a`` and ``b`` and the
     coefficients in the Bezout identity.
 
     Note: this function is designed for BallField as base ring.
 
     INPUT:
 
-     -- "a" -- polynomial
-     -- "b" -- polynomial
+     -- ``a`` -- polynomial
+     -- ``b`` -- polynomial
 
     OUTPUT:
 
-     -- "d" -- polynomial
-     -- "u" -- polynomial
-     -- "v" -- polynomial
+     -- ``d`` -- polynomial
+     -- ``u`` -- polynomial
+     -- ``v`` -- polynomial
 
 
     EXAMPLES::
@@ -202,7 +202,7 @@ def XGCD(a, b):
 def squarefree_part(pol):
 
     r"""
-    Return a *non-rigorous* squarefree part of the polynomial "pol".
+    Return a *non-rigorous* squarefree part of the polynomial ``pol``.
 
     Note: this function is designed for BallField as base ring.
 
@@ -213,12 +213,12 @@ def squarefree_part(pol):
 
     INPUT:
 
-     -- "pol" -- polynomial
+     -- ``pol`` -- polynomial
 
 
     OUTPUT:
 
-     -- "sfp" -- polynomial
+     -- ``sfp`` -- polynomial
 
 
     EXAMPLES::
@@ -259,7 +259,7 @@ def _derivatives(f, m):
 def roots(pol, *, multiplicities=False):
 
     r"""
-    Return the roots of the polynomial "pol".
+    Return the roots of the polynomial ``pol``.
 
     Note: this function is designed for CBF or COF as base ring.
 
@@ -268,15 +268,15 @@ def roots(pol, *, multiplicities=False):
 
     INPUT:
 
-     -- "mat"            -- n×n matrix
-     -- "multiplicities" -- boolean
+     -- ``mat``            -- n×n matrix
+     -- ``multiplicities`` -- boolean
 
 
     OUTPUT:
 
-     -- "s" -- list of complex numbers
+     -- ``s`` -- list of complex numbers
 
-    If 'multiplicities=True' is specified, "s" is a list of couples (r, m) with
+    If 'multiplicities=True' is specified, ``s`` is a list of couples (r, m) with
     r a complex number and m a positive integer.
 
 
@@ -332,7 +332,7 @@ def roots(pol, *, multiplicities=False):
 def row_echelon_form(mat, *, transformation=False, pivots=False, prec_pivots={}):
 
     r"""
-    Return a row echelon form of "mat".
+    Return a row echelon form of ``mat``.
 
     Note: this function is designed for BallField as base ring.
 
@@ -355,19 +355,19 @@ def row_echelon_form(mat, *, transformation=False, pivots=False, prec_pivots={})
 
     INPUT:
 
-     -- "mat"            -- m×n matrix
-     -- "transformation" -- boolean (optional, default: False)
-     -- "pivots"         -- boolean (optional, default: False)
-     -- "prec_pivots"    -- dictionary (optional, default: {})
+     -- ``mat``            -- m×n matrix
+     -- ``transformation`` -- boolean (optional, default: False)
+     -- ``pivots``         -- boolean (optional, default: False)
+     -- ``prec_pivots``    -- dictionary (optional, default: {})
 
 
     OUTPUT:
 
-     -- "R" -- m×n matrix
-     -- "T" -- m×m matrix (if 'transformation=True' is specified)
-     -- "p" -- dictionary (if 'pivots=True' is specified)
+     -- ``R`` -- m×n matrix
+     -- ``T`` -- m×m matrix (if 'transformation=True' is specified)
+     -- ``p`` -- dictionary (if 'pivots=True' is specified)
 
-    The keys of the dictionary "p" are the indices of the columns which contain
+    The keys of the dictionary ``p`` are the indices of the columns which contain
     a pivot and p[j] is the corresponding row index.
 
 
@@ -483,8 +483,8 @@ def row_echelon_form(mat, *, transformation=False, pivots=False, prec_pivots={})
 def orbit(Mats, vec, *, transition=False, pivots=False):
 
     r"""
-    Return a basis of the smallest subspace containing "vec" and invariant under
-    (the action of) the matrices of "Mats".
+    Return a basis of the smallest subspace containing ``vec`` and invariant under
+    (the action of) the matrices of ``Mats``.
 
     Note: this function is designed for BallField as base ring.
 
@@ -510,16 +510,16 @@ def orbit(Mats, vec, *, transition=False, pivots=False):
 
     INPUT:
 
-     -- "Mats"       -- list of n×n matrices
-     -- "vec"        -- vector of size n
-     -- "transition" -- boolean (optional, default: False)
-     -- "pivots"     -- boolean (optional, default: False)
+     -- ``Mats``       -- list of n×n matrices
+     -- ``vec``        -- vector of size n
+     -- ``transition`` -- boolean (optional, default: False)
+     -- ``pivots``     -- boolean (optional, default: False)
 
     OUTPUT:
 
-     -- "b" -- list of vectors of size n
-     -- "T" -- list of n×n matrix (if 'transition=True' is specified)
-     -- "p" -- dictionary (if 'pivots=True' is specified)
+     -- ``b`` -- list of vectors of size n
+     -- ``T`` -- list of n×n matrix (if 'transition=True' is specified)
+     -- ``p`` -- dictionary (if 'pivots=True' is specified)
 
 
     EXAMPLES:
@@ -593,7 +593,7 @@ def orbit(Mats, vec, *, transition=False, pivots=False):
 def generated_algebra(Mats, transformation=False):
 
     r"""
-    Return a basis of the unitary algebra generated by the matrices of "Mats".
+    Return a basis of the unitary algebra generated by the matrices of ``Mats``.
 
     Note: this function is designed for BallField as base ring.
     Let b be the output for generated_algebra(Mats). For any selection
@@ -613,11 +613,11 @@ def generated_algebra(Mats, transformation=False):
 
     INPUT:
 
-     -- "Mats" -- list of n×n matrices
+     -- ``Mats`` -- list of n×n matrices
 
     OUTPUT:
 
-     -- "b" -- list of n×n matrices
+     -- ``b`` -- list of n×n matrices
 
 
     EXAMPLES::
@@ -665,7 +665,7 @@ def generated_algebra(Mats, transformation=False):
 def ker(mat):
 
     r"""
-    Return a basis of the right kernel of "mat".
+    Return a basis of the right kernel of ``mat``.
 
     Note: this function is designed for BallField as base ring.
 
@@ -680,12 +680,12 @@ def ker(mat):
 
     INPUT:
 
-     -- "mat" -- m×n matrix
+     -- ``mat`` -- m×n matrix
 
 
     OUTPUT:
 
-     -- "b" -- list of vectors of size n
+     -- ``b`` -- list of vectors of size n
 
 
     EXAMPLE::
@@ -722,11 +722,11 @@ def intersection(K1, K2):
 
     INPUT:
 
-     -- "K1" -- list of vectors
-     -- "K2" -- list of vectors
+     -- ``K1`` -- list of vectors
+     -- ``K2`` -- list of vectors
 
     OUTPUT:
-     -- "K" -- list of vectors
+     -- ``K`` -- list of vectors
 
     """
 
@@ -746,7 +746,7 @@ def intersection(K1, K2):
 def eigenvalues(mat, multiplicities=False):
 
     r"""
-    Return the eigenvalues of "mat".
+    Return the eigenvalues of \\mat``.
 
     Note: this function is designed for ComplexBallField as base ring.
 
@@ -762,7 +762,7 @@ def eigenvalues(mat, multiplicities=False):
 def gen_eigenspaces(mat, *, projections=False):
 
     r"""
-    Return the generalized eigenspaces of "mat".
+    Return the generalized eigenspaces of ``mat``.
 
     Note: this function is designed for ComplexBallField as base ring.
 
@@ -782,16 +782,16 @@ def gen_eigenspaces(mat, *, projections=False):
 
     INPUT:
 
-     -- "mat"         -- n×n matrix
-     -- "projections" -- boolean
+     -- ``mat``         -- n×n matrix
+     -- ``projections`` -- boolean
 
 
     OUTPUT:
 
-     -- "GenEigSpaces" -- list of dictionary
+     -- ``GenEigSpaces`` -- list of dictionary
 
-    Each dictionary of "GenEigSpaces" represents a generalized eigenspace of
-    "mat", whose keys are the following strings:
+    Each dictionary of ``GenEigSpaces`` represents a generalized eigenspace of
+    ``mat``, whose keys are the following strings:
      - 'eigenvalue'   : complex number
      - 'multiplicity' : integer
      - 'basis'        : list of vectors
@@ -1018,7 +1018,7 @@ def invariant_subspace(Mats, *, verbose=False):
 
     r"""
     Return either a nontrivial subspace invariant under the action of the
-    matrices of "Mats" or None if there is none.
+    matrices of ``Mats`` or None if there is none.
 
     Note: this function is designed for BallField as base ring.
 
@@ -1029,12 +1029,12 @@ def invariant_subspace(Mats, *, verbose=False):
 
     INPUT:
 
-     -- "Mats" -- list of n×n matrices
+     -- ``Mats`` -- list of n×n matrices
 
 
     OUTPUT:
 
-     -- "V" -- list of vectors of size n or None
+     -- ``V`` -- list of vectors of size n or None
 
 
     EXAMPLE::
@@ -1115,10 +1115,10 @@ def centralizer(alg):
 
     INPUT:
 
-     -- "alg" -- list of matrices
+     -- ``alg`` -- list of matrices
 
     OUTPUT:
-     -- "C" -- list of matrices
+     -- ``C`` -- list of matrices
 
     """
 
