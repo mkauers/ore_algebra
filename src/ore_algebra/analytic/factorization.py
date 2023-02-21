@@ -50,27 +50,14 @@ from .monodromy import _monodromy_matrices
 from .differential_operator import PlainDifferentialOperator
 from .accuracy import PrecisionError
 from .complex_optimistic_field import ComplexOptimisticField
-from .utilities import power_series_coerce, euler_representation
+from .utilities import euler_representation
 from .linear_algebra import (invariant_subspace, row_echelon_form, ker,
                              gen_eigenspaces, orbit, customized_accuracy)
-
 
 Radii = RealField(30)
 
 MonoData = collections.namedtuple("MonoData", ["precision", "matrices", "points", "loss"])
 NewtonEdge = collections.namedtuple("NewtonEdge", ["slope", "startpoint", "length", "polynomial"])
-ProfileData = collections.namedtuple("ProfileData", ["bit_precision", "truncation_order", \
-                                     "algebraicity_degree", "number_of_monodromy_matrices", "log_condition_number"])
-
-def maj(data, l):
-    for i, x in enumerate(l):
-        y = data[i]
-        if x==None:
-            l[i] = y
-        else:
-            l[i] = max(x, y)
-    return ProfileData(l[0], l[1], l[2], l[3], l[4])
-
 
 
 class LinearDifferentialOperator(PlainDifferentialOperator):
@@ -649,7 +636,7 @@ def annihilator(dop, ic, order, bound, alg_degree, mono=None, verbose=False):
             symb_ic = [K(x) for x in symb_ic]
         S = PowerSeriesRing(K, default_prec=order + d)
         sol_basis = dop.local_basis_expansions(QQ.zero(), order + d)
-        sol_basis = [ power_series_coerce(sol, S) for sol in sol_basis ]
+        sol_basis = [ _formal_finite_sum_to_power_series(sol, S) for sol in sol_basis ]
         f = vector(symb_ic) * vector(sol_basis)
         if K==QQ and base_field==QQ:
             v = f.valuation()
@@ -770,21 +757,14 @@ def rfactor(dop, data, verbose=False):
     if R==None: return None, data
     return R.annihilator_of_composition(z - s0), data
 
+
 def rfactor_when_galois_algebra_is_trivial(dop, data, order, verbose=False):
 
     if verbose: print("Galois algebra is trivial: symbolic HP approximants method at order", order)
     K, r = dop.base_ring().base_ring(), dop.order()
     S = PowerSeriesRing(K, default_prec=order + r)
     f = dop.local_basis_expansions(QQ.zero(), order + r)[0]
-    f = power_series_coerce(f, S)
-    # trop de problèmes avec guess
-    # if K==QQ:
-    #     v = f.valuation()
-    #     try:
-    #         R = Se(guess(f.list()[v:], dop.parent()), -v)
-    #         if R.order()<r and dop%R==0: return R, data
-    #     except ValueError: pass
-    # else:
+    f = _formal_finite_sum_to_power_series(f, S)
 
     der = [ f.truncate() ]
     for k in range(r - 1): der.append( der[-1].derivative() )
@@ -799,9 +779,6 @@ def rfactor_when_galois_algebra_is_trivial(dop, data, order, verbose=False):
     order = order<<1
     data = maj(data, [None, order, None, None, None])
     return rfactor_when_galois_algebra_is_trivial(dop, data, order, verbose)
-
-
-frob_norm = lambda m: sum([x.abs().mid()**2 for x in m.list()]).sqrt()
 
 def _rfactor(dop, data, order=None, bound=None, alg_degree=None, precision=None, loss=0, verbose=False):
     """
@@ -848,7 +825,7 @@ def _rfactor(dop, data, order=None, bound=None, alg_degree=None, precision=None,
                 if R!="Inconclusive":
                     if verbose: print("Conclude with " + conclusive_method + " method")
                     try:
-                        cond_nb = max([frob_norm(m)*frob_norm(~m) for m in mono])
+                        cond_nb = max([frobenius_norm(m)*frobenius_norm(~m) for m in mono])
                         cond_nb = cond_nb.log(10).ceil()
                     except (ZeroDivisionError, PrecisionError):
                         cond_nb = oo
@@ -867,6 +844,26 @@ def _rfactor(dop, data, order=None, bound=None, alg_degree=None, precision=None,
     order = min( bound*(r + 1) + 1, order<<1 )
     return _rfactor(dop, data, order, bound, alg_degree + 1, precision, loss, verbose)
 
+
+################################################################################
+### Tools ######################################################################
+################################################################################
+
+frobenius_norm = lambda m: sum([x.abs().mid()**2 for x in m.list()]).sqrt()
+
+def _formal_finite_sum_to_power_series(f, PSR):
+
+    """ Assumtion: x is extended at 0 (shift otherwise). """
+
+    if isinstance(f, list):
+        return [ _formal_finite_sum_to_power_series(g, PSR) for g in f ]
+
+    out = PSR.zero()
+    for constant, monomial in f:
+        if constant!=0:
+            out += constant*PSR.gen()**monomial.n
+
+    return out
 
 
 ################################################################################
@@ -1013,6 +1010,17 @@ def guess_algebraic_numbers(x, d=2, p=None):
 ### Profiling #############################################################
 ################################################################################
 
+ProfileData = collections.namedtuple("ProfileData", ["bit_precision", "truncation_order", \
+                                     "algebraicity_degree", "number_of_monodromy_matrices", "log_condition_number"])
+
+def maj(data, l):
+    for i, x in enumerate(l):
+        y = data[i]
+        if x==None:
+            l[i] = y
+        else:
+            l[i] = max(x, y)
+    return ProfileData(l[0], l[1], l[2], l[3], l[4])
 
 def profile_factor(dop, verbose=False):
     fac, data = [None], [None]

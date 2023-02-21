@@ -479,30 +479,6 @@ def pairwise(iterable):
     next(b, None)
     return zip(a, b)
 
-def mygcd(zero, seq):
-    g = zero
-    for v in seq:
-        assert v in ZZ
-        g = g.gcd(v)
-        if g.is_one():
-            break
-    return g
-
-def power_series_coerce(x, S):
-
-    """ Warning: if x is extended w.r.t. another point that 0 then the output
-    power series is shifted. """
-
-    if isinstance(x, list):
-        return [power_series_coerce(y, S) for y in x]
-
-    result = S.zero()
-    for c, mon in x:
-        if c!=0:
-            result += c*S.gen()**mon.n
-
-    return result
-
 
 
 ######################################################################
