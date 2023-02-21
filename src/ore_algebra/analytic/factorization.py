@@ -68,11 +68,7 @@ class LinearDifferentialOperator(PlainDifferentialOperator):
         dop *= den
         super(LinearDifferentialOperator, self).__init__(dop)
 
-        self.z = self.base_ring().gen()
-        self.Dz = self.parent().gen()
-        self.n = self.order()
-
-        self.order_of_truncation = max(100, 2*self.degree() + self.n)
+        self.order_of_truncation = max(100, 2*self.degree() + self.order())
         self.algebraicity_degree = self.base_ring().base_ring().degree()
         self.precision = 100 #100*self.algebraicity_degree
 
@@ -95,11 +91,11 @@ class LinearDifferentialOperator(PlainDifferentialOperator):
         for (f, m) in fac:
             for k, ak in enumerate(coeffs):
                 mk = valuation(ak, f)
-                if mk - m < k - self.n: return False
+                if mk - m < k - self.order(): return False
 
-        dop = self.annihilator_of_composition(1/self.z)
+        dop = self.annihilator_of_composition(1/self.base_ring().gen())
         for k, frac in enumerate(dop.monic().coefficients()[:-1]):
-            d = (self.z**(self.n - k)*frac).denominator()
+            d = (self.base_ring().gen()**(self.order() - k)*frac).denominator()
             if d(0)==0: return False
 
         return True
@@ -140,74 +136,9 @@ class LinearDifferentialOperator(PlainDifferentialOperator):
             self.monodromy_data =  MonoData(output_precision, matrices, points, loss)
 
 
-def _factor(dop, data, verbose=False):
-
-    R, data = rfactor(dop, data, verbose)
-    if R==None: return [dop], data
-    OA = R.parent(); OA = OA.change_ring(OA.base_ring().fraction_field())
-    Q = OA(dop)//R
-    fac1, data = _factor(Q, data, verbose)
-    fac2, data = _factor(R, data, verbose)
-    return fac1 + fac2, data
-
-
-def factor(dop, return_data=False, verbose=False):
-
-    r"""
-    Return a list of irreductible operators [L1, L2, ..., Lr] such that L is
-    equal to the composition L1.L2...Lr.
-    """
-
-    data = ProfileData(0,0,1,0,0)
-    output, data = _factor(dop, data, verbose)
-    K0, K1 = output[0].base_ring().base_ring(), output[-1].base_ring().base_ring()
-    if K0 != K1:
-        A = output[0].parent()
-        output = [A(f) for f in output]
-    if return_data: return output, data
-    return output
-
-
 ########################
 ### Hybrid algorithm ###
 ########################
-
-
-def reduced_row_echelon_form(mat):
-    R, p = row_echelon_form(mat, pivots=True)
-    rows = list(R)
-    for j in p.keys():
-        for i in range(p[j]):
-            rows[i] = rows[i] - rows[i][j]*rows[p[j]]
-    return matrix(rows)
-
-def _local_exponents(dop, multiplicities=True):
-    ind_pol = dop.indicial_polynomial(dop.base_ring().gen())
-    return ind_pol.roots(QQbar, multiplicities=multiplicities)
-
-def largest_modulus_of_exponents(dop):
-
-    z = dop.base_ring().gen()
-    dop = LinearDifferentialOperator(dop)
-    lc = dop.leading_coefficient()//gcd(dop.list())
-
-    out = 0
-    for pol, _ in list(lc.factor()) + [ (1/z, None) ]:
-        local_exponents = dop.indicial_polynomial(pol).roots(QQbar, multiplicities=False)
-        local_largest_modulus = max([x.abs().ceil() for x in local_exponents], default=QQbar.zero())
-        out = max(local_largest_modulus, out)
-
-    return out
-
-def degree_bound_for_right_factor(dop):
-
-    r = dop.order() - 1
-    #S = len(dop.desingularize().leading_coefficient().roots(QQbar)) # trop lent (exemple QPP)
-    S = len(LinearDifferentialOperator(dop).leading_coefficient().roots(QQbar))
-    E = largest_modulus_of_exponents(dop)
-    bound = r**2*(S + 1)*E + r*S + r**2*(r - 1)*(S - 1)/2
-
-    return ZZ(bound)
 
 def try_rational(dop):
 
@@ -218,109 +149,6 @@ def try_rational(dop):
         return R
 
     return None
-
-
-def random_combination(mono):
-    prec, C = customized_accuracy(mono), mono[0].base_ring()
-    if prec<10: raise PrecisionError
-    ran = lambda : C(QQ.random_element(prec), QQ.random_element(prec))
-    return sum(ran()*mat for mat in mono)
-
-
-myadjoint = lambda dop: sum((-dop.parent().gen())**i*pi for i, pi in enumerate(dop.list()))
-
-
-def diffop_companion_matrix(dop):
-    r = dop.order()
-    A = block_matrix([[matrix(r - 1 , 1, [0]*(r - 1)), identity_matrix(r - 1)],\
-                      [ -matrix([[-dop.list()[0]]]) ,\
-                        -matrix(1, r - 1, dop.list()[1:-1] )]], subdivide=False)
-    return A
-
-
-def transition_matrix_for_adjoint(dop):
-
-    """
-    Return an invertible constant matrix Q such that: if M is the monodromy of
-    dop along a loop gamma, then the monodromy of the adjoint of dop along
-    gamma^{-1} is equal to Q*M.transpose()*(~Q), where the monodromies are
-    computed in the basis given by .local_basis_expansions method.
-
-    Assumptions: dop is monic, 0 is the base point, and 0 is not singular.
-    """
-
-    AT = diffop_companion_matrix(dop).transpose()
-    r = dop.order()
-    B = [identity_matrix(dop.base_ring(), r)]
-    for k in range(1, r):
-        Bk = B[k - 1].derivative() - B[k - 1] * AT
-        B.append(Bk)
-    P = matrix([ B[k][-1] for k in range(r) ])
-    Delta = diagonal_matrix(QQ, [1/factorial(i) for i in range(r)])
-    Q = Delta * P(0) * Delta
-    return Q
-
-
-def guess_symbolic_coefficients(vec, alg_degree, verbose=False):
-
-    """
-    Return a reasonable symbolic vector contained in the ball vector ``vec``
-    and its field of coefficients if something reasonable is found, or
-    ``NothingFound`` otherwise.
-
-    INPUT:
-     -- ``vec`` -- ball vector
-     -- ``alg_degree``   -- positive integer
-
-    OUTPUT:
-     -- ``symb_vec`` -- vector with exact coefficients, or ``NothingFound``
-     -- ``K``        -- QQ, or a number field, or None (if ``symb_vec``=``NothingFound``)
-
-    EXAMPLES::
-        sage: C = ComplexBallField()
-        sage: err = C(0).add_error(RR.one()>>40)
-        sage: vec = vector(C, [C(sqrt(2)) + err, 3 + err])
-        sage: guess_symbolic_coefficients(vec, 1)
-        ('NothingFound', None)
-        sage: guess_symbolic_coefficients(vec, 2)
-        ([a, 3],
-         Number Field in a with defining polynomial y^2 - 2 with a = 1.414213562373095?)
-    """
-
-    if verbose: print("Try guessing symbolic coefficients")
-
-    # first fast attempt working well if rational
-    v1, v2 = [], []
-    for x in vec:
-        if not x.imag().contains_zero(): break
-        x, err = x.real().mid(), x.rad()
-        err1, err2 = err, 2*err/3
-        v1.append(x.nearby_rational(max_error=x.parent()(err1)))
-        v2.append(x.nearby_rational(max_error=x.parent()(err2)))
-    if len(v1)==len(vec) and v1==v2:
-        if verbose: print("Find rational coefficients")
-        return v1, QQ
-
-    p = customized_accuracy(vec)
-    if p<30: return "NothingFound", None
-    for d in range(2, alg_degree + 1):
-        v1, v2 = [], []
-        for x in vec:
-            v1.append(algdep(x.mid(), degree=d, known_bits=p-10))
-            v2.append(algdep(x.mid(), degree=d, known_bits=p-20))
-        if v1==v2:
-            symb_vec = []
-            for i, x in enumerate(vec):
-                roots = v1[i].roots(QQbar, multiplicities=False)
-                k = len(roots)
-                i = min(range(k), key = lambda i: abs(roots[i] - x.mid()))
-                symb_vec.append(roots[i])
-            K, symb_vec = as_embedded_number_field_elements(symb_vec)
-            if not all(symb_vec[i] in x for i, x in enumerate(vec)): return "NothingFound", None
-            if verbose: print("Find algebraic coefficients in a number field of degree", K.degree())
-            return symb_vec, K
-
-    return "NothingFound", None
 
 
 def annihilator(dop, ic, order, bound, alg_degree, mono=None, verbose=False):
@@ -444,6 +272,33 @@ def multiple_eigenvalue(dop, mono, order, bound, alg_degree, verbose=False):
     return "Inconclusive"
 
 
+def _factor(dop, data, verbose=False):
+
+    R, data = rfactor(dop, data, verbose)
+    if R==None: return [dop], data
+    OA = R.parent(); OA = OA.change_ring(OA.base_ring().fraction_field())
+    Q = OA(dop)//R
+    fac1, data = _factor(Q, data, verbose)
+    fac2, data = _factor(R, data, verbose)
+    return fac1 + fac2, data
+
+
+def factor(dop, return_data=False, verbose=False):
+
+    r"""
+    Return a list of irreductible operators [L1, L2, ..., Lr] such that L is
+    equal to the composition L1.L2...Lr.
+    """
+
+    data = ProfileData(0,0,1,0,0)
+    output, data = _factor(dop, data, verbose)
+    K0, K1 = output[0].base_ring().base_ring(), output[-1].base_ring().base_ring()
+    if K0 != K1:
+        A = output[0].parent()
+        output = [A(f) for f in output]
+    if return_data: return output, data
+    return output
+
 def rfactor(dop, data, verbose=False):
 
     r = dop.order()
@@ -453,9 +308,6 @@ def rfactor(dop, data, verbose=False):
     R = try_rational(dop)
     if R!=None: return R, data
 
-    # try eigenring
-
-    #s0 = good_base_point(dop) # can be very long
     s0, sings = QQ.zero(), LinearDifferentialOperator(dop)._singularities(QQbar)
     while s0 in sings: s0 = s0 + QQ.one()
     dop = dop.annihilator_of_composition(z + s0).monic()
@@ -554,6 +406,143 @@ def _rfactor(dop, data, order=None, bound=None, alg_degree=None, precision=None,
 ################################################################################
 ### Tools ######################################################################
 ################################################################################
+
+
+def reduced_row_echelon_form(mat):
+    R, p = row_echelon_form(mat, pivots=True)
+    rows = list(R)
+    for j in p.keys():
+        for i in range(p[j]):
+            rows[i] = rows[i] - rows[i][j]*rows[p[j]]
+    return matrix(rows)
+
+def _local_exponents(dop, multiplicities=True):
+    ind_pol = dop.indicial_polynomial(dop.base_ring().gen())
+    return ind_pol.roots(QQbar, multiplicities=multiplicities)
+
+def largest_modulus_of_exponents(dop):
+
+    z = dop.base_ring().gen()
+    dop = LinearDifferentialOperator(dop)
+    lc = dop.leading_coefficient()//gcd(dop.list())
+
+    out = 0
+    for pol, _ in list(lc.factor()) + [ (1/z, None) ]:
+        local_exponents = dop.indicial_polynomial(pol).roots(QQbar, multiplicities=False)
+        local_largest_modulus = max([x.abs().ceil() for x in local_exponents], default=QQbar.zero())
+        out = max(local_largest_modulus, out)
+
+    return out
+
+def degree_bound_for_right_factor(dop):
+
+    r = dop.order() - 1
+    #S = len(dop.desingularize().leading_coefficient().roots(QQbar)) # trop lent (exemple QPP)
+    S = len(LinearDifferentialOperator(dop).leading_coefficient().roots(QQbar))
+    E = largest_modulus_of_exponents(dop)
+    bound = r**2*(S + 1)*E + r*S + r**2*(r - 1)*(S - 1)/2
+
+    return ZZ(bound)
+
+def random_combination(mono):
+    prec, C = customized_accuracy(mono), mono[0].base_ring()
+    if prec<10: raise PrecisionError
+    ran = lambda : C(QQ.random_element(prec), QQ.random_element(prec))
+    return sum(ran()*mat for mat in mono)
+
+
+myadjoint = lambda dop: sum((-dop.parent().gen())**i*pi for i, pi in enumerate(dop.list()))
+
+def diffop_companion_matrix(dop):
+    r = dop.order()
+    A = block_matrix([[matrix(r - 1 , 1, [0]*(r - 1)), identity_matrix(r - 1)],\
+                      [ -matrix([[-dop.list()[0]]]) ,\
+                        -matrix(1, r - 1, dop.list()[1:-1] )]], subdivide=False)
+    return A
+
+def transition_matrix_for_adjoint(dop):
+
+    """
+    Return an invertible constant matrix Q such that: if M is the monodromy of
+    dop along a loop gamma, then the monodromy of the adjoint of dop along
+    gamma^{-1} is equal to Q*M.transpose()*(~Q), where the monodromies are
+    computed in the basis given by .local_basis_expansions method.
+
+    Assumptions: dop is monic, 0 is the base point, and 0 is not singular.
+    """
+
+    AT = diffop_companion_matrix(dop).transpose()
+    r = dop.order()
+    B = [identity_matrix(dop.base_ring(), r)]
+    for k in range(1, r):
+        Bk = B[k - 1].derivative() - B[k - 1] * AT
+        B.append(Bk)
+    P = matrix([ B[k][-1] for k in range(r) ])
+    Delta = diagonal_matrix(QQ, [1/factorial(i) for i in range(r)])
+    Q = Delta * P(0) * Delta
+    return Q
+
+
+def guess_symbolic_coefficients(vec, alg_degree, verbose=False):
+
+    """
+    Return a reasonable symbolic vector contained in the ball vector ``vec``
+    and its field of coefficients if something reasonable is found, or
+    ``NothingFound`` otherwise.
+
+    INPUT:
+     -- ``vec`` -- ball vector
+     -- ``alg_degree``   -- positive integer
+
+    OUTPUT:
+     -- ``symb_vec`` -- vector with exact coefficients, or ``NothingFound``
+     -- ``K``        -- QQ, or a number field, or None (if ``symb_vec``=``NothingFound``)
+
+    EXAMPLES::
+        sage: C = ComplexBallField()
+        sage: err = C(0).add_error(RR.one()>>40)
+        sage: vec = vector(C, [C(sqrt(2)) + err, 3 + err])
+        sage: guess_symbolic_coefficients(vec, 1)
+        ('NothingFound', None)
+        sage: guess_symbolic_coefficients(vec, 2)
+        ([a, 3],
+         Number Field in a with defining polynomial y^2 - 2 with a = 1.414213562373095?)
+    """
+
+    if verbose: print("Try guessing symbolic coefficients")
+
+    # first fast attempt working well if rational
+    v1, v2 = [], []
+    for x in vec:
+        if not x.imag().contains_zero(): break
+        x, err = x.real().mid(), x.rad()
+        err1, err2 = err, 2*err/3
+        v1.append(x.nearby_rational(max_error=x.parent()(err1)))
+        v2.append(x.nearby_rational(max_error=x.parent()(err2)))
+    if len(v1)==len(vec) and v1==v2:
+        if verbose: print("Find rational coefficients")
+        return v1, QQ
+
+    p = customized_accuracy(vec)
+    if p<30: return "NothingFound", None
+    for d in range(2, alg_degree + 1):
+        v1, v2 = [], []
+        for x in vec:
+            v1.append(algdep(x.mid(), degree=d, known_bits=p-10))
+            v2.append(algdep(x.mid(), degree=d, known_bits=p-20))
+        if v1==v2:
+            symb_vec = []
+            for i, x in enumerate(vec):
+                roots = v1[i].roots(QQbar, multiplicities=False)
+                k = len(roots)
+                i = min(range(k), key = lambda i: abs(roots[i] - x.mid()))
+                symb_vec.append(roots[i])
+            K, symb_vec = as_embedded_number_field_elements(symb_vec)
+            if not all(symb_vec[i] in x for i, x in enumerate(vec)): return "NothingFound", None
+            if verbose: print("Find algebraic coefficients in a number field of degree", K.degree())
+            return symb_vec, K
+
+    return "NothingFound", None
 
 _frobenius_norm = lambda m: sum([x.abs().mid()**2 for x in m.list()]).sqrt()
 
