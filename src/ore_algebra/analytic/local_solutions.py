@@ -52,8 +52,9 @@ logger = logging.getLogger(__name__)
 # Recurrence relations
 ##############################################################################
 
-def bw_shift_rec(dop, shift=None):
-    Scalars = dop.base_ring().base_ring()
+def bw_shift_rec(dop, shift=None, Scalars=None):
+    if Scalars is None:
+        Scalars = dop.base_ring().base_ring()
     if shift is not None:
         Scalars = utilities.mypushout(Scalars, shift.parent())
     if dop.parent().is_D():

@@ -169,7 +169,7 @@ def guess(data, algebra, **kwargs):
         with open(data, 'r') as f:
             data = [ K(line) for line in f ]
 
-    if (data[0] == 0 or data[1] == 0) and (A.is_C() or A.is_S()):
+    if (data[0] == 0 or data[1] == 0) and (A.is_C() or A.is_S() or A.is_D()):
 
         if all( d == 0 for d in data ):
             return A.one()
@@ -188,20 +188,26 @@ def guess(data, algebra, **kwargs):
 
         if m is not None and m > 1:
             a = a % m
-            if 'infolevel' in kwargs and kwargs['infolevel'] >= 1:
-                print("Recognized that only 1 out of " + str(m) + " terms is nonzero; removing zeros...")
-            eq = guess([data[m*k + a] for k in range(((len(data) - a)/m).floor())], A, **kwargs)
-            if 'infolevel' in kwargs and kwargs['infolevel'] >= 1:
-                print("Adjusting equation to restore deleted zeros...")
-            x = R.gen()
-            if A.is_S():
-                ops = [A.one()]*m
-                ops[a] = eq
-                return ops[0].annihilator_of_interlacing(*(ops[1:]))
+            if A.is_D():
+                if 'ensure' not in kwargs or kwargs['ensure'] < m:
+                    if 'infolevel' in kwargs and kwargs['infolevel'] >= 1:
+                        print("Recognized that only 1 out of " + str(m) + " terms is nonzero; increasing 'ensure'...")
+                    kwargs['ensure'] = m
             else:
-                eq = eq.polynomial().map_coefficients(lambda p: p(x**m))
-                if a != 0:
-                    eq = eq(x**(-a)*eq.parent().gen())*x**(a*eq.degree())
+                if 'infolevel' in kwargs and kwargs['infolevel'] >= 1:
+                    print("Recognized that only 1 out of " + str(m) + " terms is nonzero; removing zeros...")
+                eq = guess([data[m*k + a] for k in range(((len(data) - a)/m).floor())], A, **kwargs)
+                if 'infolevel' in kwargs and kwargs['infolevel'] >= 1:
+                    print("Adjusting equation to restore deleted zeros...")
+                x = R.gen()
+                if A.is_S():
+                    ops = [A.one()]*m
+                    ops[a] = eq
+                    return ops[0].annihilator_of_interlacing(*(ops[1:]))
+                else:
+                    eq = eq.polynomial().map_coefficients(lambda p: p(x**m))
+                    if a != 0:
+                        eq = eq(x**(-a)*eq.parent().gen())*x**(a*eq.degree())
                 return A(eq)
 
     def to_A(obj):

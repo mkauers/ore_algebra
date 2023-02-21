@@ -943,8 +943,8 @@ class HighestSolMapper(LocalBasisMapper):
         # valuation
         inis = [LogSeriesInitialValues(
                     expo=self.leftmost,
-                    mults=self.shifts,
-                    values={(s, m-1): ZZ.one()})
+                    values={(s, m-1): ZZ.one()},
+                    mults=self.shifts)
                 for s, m in self.shifts]
         sols = self.do_sum(inis)
         self.highest_sols = {}
