@@ -16,6 +16,7 @@ import tempfile
 import cProfile
 import pstats
 
+from ore_algebra import guess
 from ore_algebra.analytic.accuracy import PrecisionError
 from ore_algebra.analytic.complex_optimistic_field import ComplexOptimisticField
 from ore_algebra.analytic.differential_operator import PlainDifferentialOperator
@@ -25,7 +26,6 @@ from ore_algebra.analytic.linear_algebra import (invariant_subspace,
                                                  customized_accuracy)
 from ore_algebra.analytic.monodromy import _monodromy_matrices
 from ore_algebra.analytic.utilities import as_embedded_number_field_elements
-from ore_algebra.analytic.eigenring import euler_representation
 from ore_algebra.guessing import guess
 from sage.arith.functions import lcm
 from sage.arith.misc import valuation, algdep, gcd
@@ -38,13 +38,10 @@ from sage.misc.functional import numerical_approx
 from sage.misc.misc import cputime
 from sage.misc.misc_c import prod
 from sage.modules.free_module_element import vector, FreeModuleElement_generic_dense
-from sage.plot.line import line2d
 from sage.rings.integer_ring import ZZ
 from sage.rings.laurent_series_ring import LaurentSeriesRing
 from sage.rings.qqbar import QQbar
 from sage.rings.power_series_ring import PowerSeriesRing
-from sage.rings.polynomial.polynomial_element import Polynomial
-from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 from sage.rings.rational_field import QQ
 from sage.rings.real_mpfr import RealField
 from sympy.core.numbers import oo
@@ -52,8 +49,6 @@ from sympy.core.numbers import oo
 Radii = RealField(30)
 
 MonoData = collections.namedtuple("MonoData", ["precision", "matrices", "points", "loss"])
-NewtonEdge = collections.namedtuple("NewtonEdge", ["slope", "startpoint", "length", "polynomial"])
-
 
 class LinearDifferentialOperator(PlainDifferentialOperator):
 
@@ -173,193 +168,6 @@ def factor(dop, return_data=False, verbose=False):
     return output
 
 
-def my_newton_polygon(dop):
-
-    r"""
-    Computes the Newton polygon of ``self`` at ``0``.
-
-    INPUT:
-
-      - ``dop`` -- a linear differential operator which polynomial coefficients
-
-    OUTPUT:
-
-    EXAMPLES::
-
-    """
-
-    n = dop.order(); z = dop.base_ring().gen()
-    Pols, X = PolynomialRing(QQ, 'X').objgen()
-
-    points = [ ((QQ(i), QQ(c.valuation(z))), c.coefficients()[0]) \
-               for i, c in enumerate(dop.to_T('Tz').list()) if c!=0 ]
-
-    (i1, j1), c1 = points[0]
-    for (i, j), c in points:
-        if j<=j1: (i1, j1), c1 = (i, j), c
-
-    Edges = []
-    if i1>0:
-        poly = dop.indicial_polynomial(z, var = 'X')
-
-        #pol = c1*X**i1
-        #for (i, j), c in points:
-        #    if i<i1 and j==j1: pol += c*X**i
-        ## it is the same think (pol = poly)
-
-        Edges.append( NewtonEdge(QQ(0), (0, j1), i1, poly) )
-
-    while i1<n:
-        poly = c1; (i2, j2), c2 = points[-1]; s = (j2 - j1)/(i2 - i1)
-        for (i, j), c in points:
-            if i>i1:
-                t = (j - j1)/(i - i1)
-                if t<s:
-                    poly = c1; s = t
-                    if t<=s:
-                        poly += c*X**((i - i1)//s.denominator()) # REDUCED characteristic polynomial
-                        (i2, j2), c2 = (i, j), c
-        Edges.append( NewtonEdge(s, (i1, j1), i2 - i1, poly) )
-        (i1, j1), c1 = (i2, j2), c2
-
-    return Edges
-
-
-def display_newton_polygon(dop):
-
-    Edges = my_newton_polygon(dop)
-
-    (i, j) = Edges[0].startpoint
-    L1 = line2d([(i - 3, j), (i, j)], thickness=3)
-    e = Edges[-1]; s = e.slope; (i,j) = e.startpoint; l = e.length
-    L2 = line2d([(i + l, j + l*s), (i + l, j + l*s + 3)], thickness=3)
-
-    L = sum(line2d([e.startpoint, (e.startpoint[0] + e.length, e.startpoint[1] \
-            + e.length*e.slope)], marker='o', thickness=3) for e in Edges)
-
-    return L1 + L + L2
-
-
-def exponents(dop, pt=0, multiplicities=True):
-
-    if pt!=0:
-        if not pt in QQ:
-            dop, pt = LinearDifferentialOperator(dop).extend_scalars(pt)
-        dop.annihilator_of_composition(dop.base_ring().gen() - pt)
-        return exponents(dop, multiplicities=multiplicities)
-    if dop.base_ring().base_ring()==QQ:
-        FLS = LaurentSeriesRing(QQ, dop.base_ring().variable_name())
-    else:
-        FLS = LaurentSeriesRing(QQbar, dop.base_ring().variable_name())
-    l = euler_representation(LinearDifferentialOperator(dop))
-    if FLS.base_ring()==QQ:
-        l = [FLS(c) for c in l]
-    else:
-        Pol, _ = PolynomialRing(QQbar, dop.base_ring().variable_name()).objgen()
-        l = [FLS(Pol.fraction_field()(c)) for c in l]
-    vmin = min(c.valuation() for c in l)
-    Pols, X = PolynomialRing(QQ, 'X').objgen()
-    pol = sum(FLS.base_ring()(c.coefficients()[0])*X**i for i, c in enumerate(l) if c.valuation()==vmin)
-    r = pol.roots(QQbar, multiplicities=multiplicities)
-
-    return r
-
-
-def Se(dop, e):
-    """ map: Tz --> Tz + e """
-
-    l = euler_representation(LinearDifferentialOperator(dop))
-    for i, c in enumerate(l):
-        for k in range(i):
-            l[k] += binomial(i, k)*e**(i - k)*c
-    T = dop.base_ring().gen()*dop.parent().gen()
-    output = sum(c*T**i for i, c in enumerate(l))
-
-    return output
-
-def search_exp_part_with_mult1(dop):
-
-    dop = LinearDifferentialOperator(dop)
-    lc = dop.leading_coefficient()//gcd(dop.list())
-    for f, _ in list(lc.factor()) + [ (1/dop.base_ring().gen(), None) ]:
-        pol = dop.indicial_polynomial(f)
-        roots = pol.roots(QQbar)
-        for r, m in roots:
-            if m==1:
-                success = True
-                for s, l in roots:
-                    if s!=r and r-s in ZZ: success = False
-                if success: return (f, r)
-
-    return (None, None)
-
-def min_diff_exp(dop):
-
-    """
-    returns ``(m, m_int)`` where m is the maximal difference, resp. the maximal
-    integer difference, between local exponents at a singularity.
-
-    The point at infinity is always considered as a singularity.
-    """
-
-    dop, z = LinearDifferentialOperator(dop), dop.base_ring().gen()
-    lc = dop.leading_coefficient()//gcd(dop.list())
-    sings = lc.roots(multiplicities=False)
-
-    roots = dop.indicial_polynomial(1/z).roots(QQbar, multiplicities=False)
-    l = [ (r-s).abs() for r in roots for s in roots ]
-    m, m_int = max(l, default=0), max([x for x in l if x in ZZ], default=0)
-
-    for f, _ in lc.factor():
-        roots = dop.indicial_polynomial(f).roots(QQbar, multiplicities=False)
-        l = [ (r-s).abs() for r in roots for s in roots ]
-        m, m_int = max([m] + l), max([m_int] + [x for x in l if x in ZZ])
-
-    return m, m_int
-
-def guessing_via_series(L, einZZ):
-    """ assumption: 0 is an exponential part of multiplicity 1 (at 0) """
-    if not einZZ: # if e in ZZ, this test has already been done
-        R = try_rational(L)
-        if not R is None: return R
-    r = L.order(); A = L.parent()
-    t = len(L.desingularize().leading_coefficient().roots(QQbar))
-    b = min(1000, max(50, (r - 1)**2*(r - 2)*(t - 1)))
-    try:
-        R = guess(L.power_series_solutions(b)[0].list(), A, order=r - 1) # ne marche pas avec une extension algébrique (-> TypeError)
-        if 0<R.order()<r and L%R==0: return R
-    except (ValueError, TypeError): pass
-    La = L.adjoint()
-    Ra = try_rational(La)
-    if not Ra is None: return (La//Ra).adjoint()
-    ea = ZZ([e for e in exponents(La, False) if e in ZZ][0]); La = Se(La, ea)
-    try:
-        Ra = guess(La.power_series_solutions(b)[0].list(), A, order=r - 1)
-        if 0<Ra.order()<r and La%Ra==0: return Se(La//Ra, -ea).adjoint()
-    except (ValueError, TypeError): return None
-
-
-
-def try_vanHoeij(L):
-    """ try to find a factor thank to an exponential part of multiplicity 1 """
-    z, (p, e) = L.base_ring().gen(), search_exp_part_with_mult1(L)
-    if not e in QQ: return None # not efficient enough for now (implem to be improved)
-    if p==None: return None
-    if (p*z).is_one():
-        L = L.annihilator_of_composition(p)
-        e = search_exp_part_with_mult1(L)[1]
-        L, e = LinearDifferentialOperator(L).extend_scalars(e)
-        L = Se(L, e)
-    elif p.degree()==1:
-        s = -p[0]/p[1]
-        L, e = LinearDifferentialOperator(L).extend_scalars(e)
-        L = Se(L.annihilator_of_composition(z + s), e)
-    else: return None # to be implemented?
-    R = guessing_via_series(L, e in ZZ)
-    if R==None: return None
-    if (p*z).is_one(): return Se(R, -e).annihilator_of_composition(p)
-    elif p.degree()==1: return Se(R, -e).annihilator_of_composition(z - s)
-
 ########################
 ### Hybrid algorithm ###
 ########################
@@ -373,104 +181,9 @@ def reduced_row_echelon_form(mat):
             rows[i] = rows[i] - rows[i][j]*rows[p[j]]
     return matrix(rows)
 
-
-def minimal_multiplicity(dop, pol):
-
-    """
-    Return (e, m) where e is an exponent of dop at a root of pol with a minimal
-    multiplicity modulo ZZ (m).
-
-    -> Representative of smallest real part (pas OK)
-    -> minimal algebraic degree (OK)
-    """
-
-    z, r = dop.base_ring().gen(), dop.order()
-
-    if (pol*z).is_one() or pol.degree()==1:
-        N = dop.indicial_polynomial(pol)
-    else:
-        s = pol.roots(QQbar, multiplicities=False)[0]
-        newdop, s = LinearDifferentialOperator(dop).extend_scalars(s)
-        z, r = newdop.base_ring().gen(), dop.order()
-        N = newdop.indicial_polynomial(z - s)
-    exponents = N.roots(QQbar)
-    exponents.sort(key = lambda x: x[0].degree())
-
-    good_exponent, min_mult = exponents[0][0], r
-    done_indices = []
-    for i, (e, m) in enumerate(exponents):
-        if not i in done_indices:
-            multiplicitymodZZ = m
-            for j, (f, n) in enumerate(exponents[(i+1):]):
-                if e - f in ZZ:
-                    multiplicitymodZZ += n
-                    done_indices.append(i + 1 + j)
-            if multiplicitymodZZ<min_mult:
-                min_mult = multiplicitymodZZ
-                good_exponent = e
-            #done_indices.append(i) --> useless
-    return good_exponent, min_mult
-
-
-def mydegree(pol): # for handling the case 1/z (point at infinity)
-    if isinstance(pol, Polynomial):
-        return pol.degree()
-    return 1
-
-
-def good_singular_point(dop):
-
-    r"""
-    Return (s, e, m) where ``s`` is a singular point (possibly ``infinity``) of
-    ``dop`` admitting an exponent ``e`` of minnimal mutliplicity ``m`` mod ZZ.
-
-    INPUT:
-
-      - ``dop`` -- differential operator
-
-    OUTPUT:
-
-      - ``s`` -- element of QQbar
-      - ``e`` -- element of QQbar
-      - ``m`` -- positive integer
-
-    """
-
-    z = dop.base_ring().gen()
-    dop = LinearDifferentialOperator(dop)
-    lc = dop.leading_coefficient()//gcd(dop.list())
-
-    all_min_mult = []
-    for pol, _ in list(lc.factor()) + [ (1/z, None) ]:
-        e, m = minimal_multiplicity(dop, pol)
-        all_min_mult.append((pol, e, m))
-
-    min_mult = min(all_min_mult, key = lambda x: x[2])[2]
-    good_sings = [ x for x in all_min_mult if x[2]==min_mult ]
-
-    min_deg = mydegree(min(good_sings, key = lambda x: mydegree(x[0]))[0])
-    good_sings = [ x for x in all_min_mult if mydegree(x[0])==min_deg ]
-
-    pol, e, m = good_sings[0]
-    if isinstance(pol, Polynomial):
-        s = pol.roots(QQbar, multiplicities=False)[0]
-    else:
-        s = 'infinity'
-
-    return s, e, m
-
-
-def good_base_point(dop):
-
-    s, e, m = good_singular_point(dop)
-    if s=='infinity': return 0
-
-    z0 = s.real().ceil()
-    sings = LinearDifferentialOperator(dop)._singularities(QQbar)
-    while z0 in sings: z0 = z0 + QQ.one()
-
-    return z0
-
+def _local_exponents(dop, multiplicities=True):
+    ind_pol = dop.indicial_polynomial(dop.base_ring().gen())
+    return ind_pol.roots(QQbar, multiplicities=multiplicities)
 
 def largest_modulus_of_exponents(dop):
 
@@ -486,7 +199,6 @@ def largest_modulus_of_exponents(dop):
 
     return out
 
-
 def degree_bound_for_right_factor(dop):
 
     r = dop.order() - 1
@@ -496,7 +208,6 @@ def degree_bound_for_right_factor(dop):
     bound = r**2*(S + 1)*E + r*S + r**2*(r - 1)*(S - 1)/2
 
     return ZZ(bound)
-
 
 def try_rational(dop):
 
@@ -636,7 +347,7 @@ def annihilator(dop, ic, order, bound, alg_degree, mono=None, verbose=False):
         if K==QQ and base_field==QQ:
             v = f.valuation()
             try:
-                R = Se(guess(f.list()[v:], OA, order=d), -v)
+                R = _Se(guess(f.list()[v:], OA, order=d), -v)
                 if 0<R.order()<r and dop%R==0: return R
             except ValueError: pass
         else:
@@ -646,8 +357,8 @@ def annihilator(dop, ic, order, bound, alg_degree, mono=None, verbose=False):
             if verbose: print("Try guessing annihilator with HP approximants")
             min_basis = mat.minimal_approximant_basis(order)
             rdeg = min_basis.row_degrees()
-            if max(rdeg)!=min(rdeg): # to avoid useless (possibly large) computation
-                i0 = min(range(len(rdeg)), key = lambda i: rdeg[i])
+            if max(rdeg) > 1 + min(rdeg): # to avoid useless (possibly large) computation
+                i0 = min(range(len(rdeg)), key=lambda i: rdeg[i])
                 R, g = LinearDifferentialOperator(dop).extend_scalars(K.gen())
                 R = R.parent()(list(min_basis[i0]))
                 if dop%R==0: return R
@@ -860,6 +571,42 @@ def _formal_finite_sum_to_power_series(f, PSR):
 
     return out
 
+def _euler_representation(dop):
+
+    r"""
+    Return the list of the coefficients of dop with respect to the powers of
+    z*Dz.
+    """
+
+    z, n = dop.base_ring().gen(), dop.order()
+    output = [ dop[0] ] + [0]*n
+    l = [0] # coefficients of T(T-1)...(T-k+1) (initial: k=0)
+
+    for k in range(1, n+1):
+
+        newl = [0]
+        for i in range(1, len(l)):
+            newl.append((-k+1)*l[i]+l[i-1])
+        l = newl + [1]
+
+        ck = dop[k]
+        for j in range(1, k+1):
+            output[j] += ck*z**(-k)*l[j]
+
+    return output
+
+def _Se(dop, e):
+
+    """ map: Tz --> Tz + e """
+
+    l = _euler_representation(LinearDifferentialOperator(dop))
+    for i, c in enumerate(l):
+        for k in range(i):
+            l[k] += binomial(i, k)*e**(i - k)*c
+    T = dop.base_ring().gen()*dop.parent().gen()
+    output = sum(c*T**i for i, c in enumerate(l))
+
+    return output
 
 ################################################################################
 ### Guessing tools #############################################################
