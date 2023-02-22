@@ -165,15 +165,20 @@ def row_echelon_form(mat, *, transformation=False, pivots=False, prec_pivots={})
     R = T*mat
     for j in p:
         R[p[j],j] = 1
-        for i in range(p[j]+1, m): R[i,j] = 0
+        for i in range(p[j]+1, m):
+            R[i,j] = 0
 
     if transformation:
         if T.det().contains_zero():
             raise PrecisionError("Cannot compute an invertible matrix.")
-        if pivots: return R, T, p
-        else: return R, T
-    if pivots: return R, p
-    else: return R
+        if pivots:
+            return R, T, p
+        else:
+            return R, T
+    if pivots:
+        return R, p
+    else:
+        return R
 
 def orbit(Mats, vec, *, transition=False, pivots=False):
     r"""
@@ -244,11 +249,14 @@ def orbit(Mats, vec, *, transition=False, pivots=False):
     n, C = len(vec), vec.base_ring()
 
     b, S, p = row_echelon_form(matrix(vec), transformation=True, pivots=True)
-    if transition: T = [S[0,0]*identity_matrix(C, n)]
+    if transition:
+        T = [S[0,0]*identity_matrix(C, n)]
 
-    if len(p)==0: # case where vec contains the null vector
-        if transition: return [], []
-        else: return []
+    if len(p) == 0: # case where vec contains the null vector
+        if transition:
+            return [], []
+        else:
+            return []
 
     r, new = 1, range(0, 1)
     while len(new) > 0 and r < n:
@@ -270,10 +278,14 @@ def orbit(Mats, vec, *, transition=False, pivots=False):
 
     b = list(b)
     if transition:
-        if pivots: return b, T, p
-        else : return b, T
-    if pivots: return b, p
-    else: return b
+        if pivots:
+            return b, T, p
+        else:
+            return b, T
+    if pivots:
+        return b, p
+    else:
+        return b
 
 def generated_algebra(Mats, transformation=False):
     r"""
@@ -318,24 +330,27 @@ def generated_algebra(Mats, transformation=False):
     if transformation:
         b, T, p = row_echelon_form(matrix([mat.list() for mat in Mats]), transformation=True, pivots=True)
         l = [sum(T[i,j]*Mats[j] for j in range(len(Mats))) for i in range(len(p))]
-    else: b, p = row_echelon_form(matrix([mat.list() for mat in Mats]), pivots=True)
+    else:
+        b, p = row_echelon_form(matrix([mat.list() for mat in Mats]), pivots=True)
 
     r, b, new = len(p), b[:len(p)], range(0, len(p))
 
-    while len(new)>0 and r<n**2:
+    while len(new) > 0 and r < n**2:
 
         b = b.stack(matrix([(matrix(n,b[i])*matrix(n,b[j])).list() for i in range(r) for j in new]))
         if transformation:
             l.extend(l[i]*l[j] for i in range(r) for j in new)
             b, T, p = row_echelon_form(b, transformation=True, pivots=True, prec_pivots = p)
             l = [sum(T[i,j]*l[j] for j in range(len(l))) for i in range(len(p))]
-        else: b, p = row_echelon_form(b, pivots=True, prec_pivots = p)
+        else:
+            b, p = row_echelon_form(b, pivots=True, prec_pivots = p)
 
         r, b, new = len(p), b[:len(p)], range(r, len(p))
 
     b = [matrix(n, x) for x in list(b)]
 
-    if transformation: return b, l
+    if transformation:
+        return b, l
     return b
 
 def ker(mat):
@@ -428,9 +443,12 @@ def GCD(a, b):
         ([1.0000000000 +/- 1.34e-12])*x + [-2.00000000000 +/- 1.94e-12]
     """
     a, b = _clean(a), _clean(b)
-    if a==0: return b
-    if b==0: return a
-    if a.degree() < b.degree(): return GCD(b, a)
+    if a == 0:
+        return b
+    if b == 0:
+        return a
+    if a.degree() < b.degree():
+        return GCD(b, a)
 
     while b != 0:
         a, b = b, a.quo_rem(b)[1]
@@ -468,8 +486,10 @@ def XGCD(a, b):
     P = a.parent()
 
     a, b = _clean(a), _clean(b)
-    if a==0: return b, P.zero(), P.one()
-    if b==0: return a, P.one(), P.zero()
+    if a == 0:
+        return b, P.zero(), P.one()
+    if b == 0:
+        return a, P.one(), P.zero()
     if a.degree() < b.degree():
         d, v, u = XGCD(b, a)
         return d, u, v
@@ -518,7 +538,7 @@ def squarefree_part(pol):
     d = GCD(pol, pol.derivative())
     sfp = _clean(pol.quo_rem(d)[0])
 
-    if sfp==0:
+    if sfp == 0:
         raise PrecisionError("Cannot compute the squarefree part of this polynomial.")
 
     return sfp
@@ -567,7 +587,7 @@ def roots(pol, *, multiplicities=False):
             m = m + 1
         res[j] = (ev, m)
 
-    if sum(m for _, m in res)<n:
+    if sum(m for _, m in res) < n:
         raise PrecisionError("Cannot compute multiplicities.")
 
     return res
@@ -674,7 +694,7 @@ def gen_eigenspaces(mat, *, projections=False):
     GenEigSpaces = []
     for i, (ev, m) in enumerate(s):
         b = ker((mat - ev*I)**m)
-        if len(b)!=m:
+        if len(b) != m:
             raise PrecisionError("Cannot compute a basis of this generalized eigenspace. ")
         space = {'eigenvalue' : ev, 'multiplicity' : m, 'basis' : b}
         if projections:
@@ -731,16 +751,16 @@ class Splitting():
 
         s = 0
         for j, nj in enumerate(self.partition):
-            if nj==1:
+            if nj == 1:
                 p = self.projections[j]
                 p[s,s] = p[s,s] - self.C.one()
                 err = max(sum(p[i,j].above_abs() for j in range(self.n)) for i in range(self.n))
                 err = self.C.zero().add_error(err)
                 vec = self.I[s] + vector([err]*self.n)
                 V = orbit(self.matrices, vec)
-                if len(V)==0:
+                if len(V) == 0:
                     raise PrecisionError('Projections are not precise enough.')
-                if len(V)<self.n:
+                if len(V) < self.n:
                     T = self.basis
                     V = [T*v for v in V]
                     return (True, V)
@@ -754,7 +774,8 @@ class Splitting():
         prec2 = min(customized_accuracy(M) for M in self.matrices)
         prec2 = min(prec2, customized_accuracy(self.basis))
 
-        if 2*prec2<prec1: raise PrecisionError("Losing too much precision to continue.")
+        if 2*prec2 < prec1:
+            raise PrecisionError("Losing too much precision to continue.")
 
         COF = ComplexOptimisticField(prec1, eps = RealField(30).one()>>(3*prec1//8))
 
@@ -769,28 +790,33 @@ class Splitting():
 
         s=0
         for j, nj in enumerate(p):
-            if nj>1:
-                if verbose: print('Check in a subspace of dimension', nj)
+            if nj > 1:
+                if verbose:
+                    print('Check in a subspace of dimension', nj)
                 ind = range(s, s + nj)
                 basis =  identity_matrix(COF, self.n)[s:s+nj]
                 K = VectorSpace(COF, nj)
                 for M in Mats:
                     mat = M.matrix_from_rows_and_columns(ind, ind)
                     K = intersect_eigenvectors(K, mat)
-                if returnK: return K
-                while K.dimension()>0:
-                    if verbose: print('dim K =', K.dimension())
+                if returnK:
+                    return K
+                while K.dimension() > 0:
+                    if verbose:
+                        print('dim K =', K.dimension())
                     vec0 = vector(COF, [0]*s + list(K.basis()[0]) + [0]*(self.n - s - nj))
                     V, T, p = orbit(Mats, vec0, transition=True, pivots=True)
-                    if len(V)<self.n:
+                    if len(V) < self.n:
                         V = [(b*v).change_ring(self.C) for v in V]
                         return (True, V)
                     vec1 = basis[0]
-                    if len(row_echelon_form(matrix([vec0, vec1]), pivots=True)[1])==1: vec1 = basis[1]
+                    if len(row_echelon_form(matrix([vec0, vec1]), pivots=True)[1]) == 1:
+                        vec1 = basis[1]
                     lc = linear_combination(vec1, V, p)
                     M = sum(cj*T[j] for j, cj in enumerate(lc))
                     mat = M.matrix_from_rows_and_columns(ind, ind)
-                    if len(eigenvalues(mat))>1: return ('new_matrix', M)
+                    if len(eigenvalues(mat)) > 1:
+                        return ('new_matrix', M)
                     K = intersect_eigenvectors(K, mat)
 
             s = s + nj
@@ -823,7 +849,8 @@ def invariant_subspace(Mats, *, verbose=False):
         sage: 1 in vec[0] and 1 in vec[1]
         True
     """
-    if Mats==[]: raise TypeError("This function requires at least one matrix.")
+    if Mats == []:
+        raise TypeError("This function requires at least one matrix.")
 
     n, C = Mats[0].nrows(), Mats[0].base_ring()
     if len(Mats)==1:
@@ -831,7 +858,8 @@ def invariant_subspace(Mats, *, verbose=False):
         Spaces = gen_eigenspaces(mat)
         v = ker(mat - Spaces[0]['eigenvalue']*(mat.parent().one()))[0]
         orb = orbit(Mats, v)
-        if len(orb)==n: raise Exception("problem with invariant_subspace computation: case 'one matrix'")
+        if len(orb) == n:
+            raise Exception("problem with invariant_subspace computation: case 'one matrix'")
         return orb
 
     split = Splitting(Mats)
@@ -840,25 +868,35 @@ def invariant_subspace(Mats, *, verbose=False):
 
     hope = True
     while hope:
-        if verbose: print("The partition is currently " + str(split.partition) + ".")
+        if verbose:
+            print("The partition is currently " + str(split.partition) + ".")
         b, V = split.check_lines()
-        if b: return V
-        if verbose: print("Lines checked.")
+        if b:
+            return V
+        if verbose:
+            print("Lines checked.")
 
-        if len(split.partition)==n: return None
-        if verbose: print("Need to check nolines.")
+        if len(split.partition) == n:
+            return None
+        if verbose:
+            print("Need to check nolines.")
 
         b, x = split.check_nolines(verbose=verbose)
-        if b=='new_matrix': split.refine(x)
-        elif b: return x
-        else: hope=False
+        if b == 'new_matrix':
+            split.refine(x)
+        elif b:
+            return x
+        else:
+            hope=False
 
-    if verbose: print("Need to compute a basis of the algebra.")
+    if verbose:
+        print("Need to compute a basis of the algebra.")
     Mats = generated_algebra(Mats)
-    if len(Mats)==n**2:
+    if len(Mats) == n**2:
         return None
     else:
-        if verbose: print("Restart with the basis of the algebra.")
+        if verbose:
+            print("Restart with the basis of the algebra.")
         return invariant_subspace(Mats)
 
 
@@ -869,7 +907,8 @@ def invariant_subspace(Mats, *, verbose=False):
 def _clean(pol):
 
     l = list(pol)
-    while len(l)>0 and l[-1].contains_zero(): l.pop()
+    while len(l)>0 and l[-1].contains_zero():
+        l.pop()
     cpol = pol.parent()(l)
 
     return cpol
@@ -909,7 +948,8 @@ def customized_accuracy(x):
         sage: a.accuracy(), customized_accuracy(a)
         (-9223372036854775807, 52)
     """
-    if x==[]: return 9223372036854775807
+    if x==[]:
+        return 9223372036854775807
     if isinstance(x, FreeModuleElement_generic_dense) or \
     isinstance(x, Matrix_dense) or isinstance(x, Polynomial):
         return customized_accuracy(x.list())
@@ -917,7 +957,8 @@ def customized_accuracy(x):
         return min(customized_accuracy(c) for c in x)
 
     if x.contains_zero():
-        if x.rad().is_zero(): return 9223372036854775807
+        if x.rad().is_zero():
+            return 9223372036854775807
         return max(0, (-log(x.rad(), 2)).floor())
 
     return x.accuracy()
@@ -937,7 +978,7 @@ def linear_combination(vec, Vecs, p):
 def intersect_eigenvectors(K, mat):
 
     eigvals = eigenvalues(mat)
-    if len(eigvals)>1:
+    if len(eigvals) > 1:
         raise PrecisionError('This matrix seems have several eigenvalues.')
     K = K.intersection((mat-eigvals[0]*(mat.parent().one())).right_kernel())
     return K
@@ -951,7 +992,8 @@ def _commutation_problem_as_linear_system(mat):
     S = block_diagonal_matrix([matT]*n)
     for i in range(n):
         li, l = list(mat[i]), []
-        for k in range(n): l.extend([li[k]] + [0]*(n-1))
+        for k in range(n):
+            l.extend([li[k]] + [0]*(n-1))
         for j in range(n):
             S[n*i + j] = [m - l[k] for k, m in enumerate(S[n*i + j])]
             l = [0] + l[:-1]
