@@ -2077,7 +2077,8 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
     def is_fuchsian(self):
 
         r"""
-        Return True if the operator is fuchsian, False otherwise.
+        Return whether this operator is Fuchsian (i.e. regular at each point of
+        the Riemann sphere).
 
         EXAMPLES::
 
@@ -2106,17 +2107,17 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         Return a decomposition of this operator as a product of irreducible
         operators (potentially introducing algebraic extensions).
 
-        NOTE: The termination of this method is currently not garanteed if the
+        The termination of this method is currently not garanteed if the
         operator is not Fuchsian.
 
         INPUT:
 
-        - ``verbose`` - (optional, default: False) - if set to True, this
-        method prints some messages about the progress of the computation.
+         -- ``verbose`` -- boolean (optional, default: False) - if set to True,
+        this method prints some messages about the progress of the computation.
 
         OUTPUT:
 
-        - ``fac`` - a list of irreducible operators such that the product of
+         -- ``fac`` -- a list of irreducible operators such that the product of
         its elements is equal to the operator ``self``.
 
 
@@ -2140,14 +2141,14 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         right-hand factor otherwise (potentially introducing algebraic
         extensions).
 
-        NOTE: The termination of this method is currently not garanteed if the
+        The termination of this method is currently not garanteed if the
         operator is not Fuchsian.
 
         INPUT:
          -- ``dop``     -- differential operator
-         -- ``verbose`` -- (optional, default: False) - if set to True, this
-                           method prints some messages about the progress of the
-                           computation.
+         -- ``verbose`` -- boolean (optional, default: False) - if set to True,
+                           this method prints some messages about the progress
+                           of the computation.
 
         OUTPUT: either ``None`` or a differential operator
 

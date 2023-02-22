@@ -56,17 +56,17 @@ def factor(dop, verbose=False):
     Return a decomposition of ``dop`` as a product of irreducible operators
     (potentially introducing algebraic extensions).
 
-    NOTE: The termination of this method is currently not garanteed if the
-    operator is not Fuchsian.
+    The termination of this method is currently not garanteed if the operator is
+    not Fuchsian.
 
     INPUT:
-
-    - ``verbose`` - (optional, default: False) - if set to True, this
+     -- ``dop``     -- differential operator
+     -- ``verbose`` -- boolean (optional, default: False) - if set to True, this
     method prints some messages about the progress of the computation.
 
     OUTPUT:
 
-    - ``fac`` - a list of irreducible operators such that the product of
+     -- ``fac`` -- a list of irreducible operators such that the product of
     its elements is equal to the operator ``self``.
 
 
@@ -100,12 +100,12 @@ def right_factor(dop, verbose=False):
     Return either ``None`` if ``dop`` is irreducible or a proper right-hand
     factor of ``dop`` otherwise (potentially introducing algebraic extensions).
 
-    NOTE: The termination of this method is currently not garanteed if the
-    operator is not Fuchsian.
+    The termination of this method is currently not garanteed if the operator is
+    not Fuchsian.
 
     INPUT:
      -- ``dop``     -- differential operator
-     -- ``verbose`` -- (optional, default: False) - if set to True, this
+     -- ``verbose`` -- boolean (optional, default: False) - if set to True, this
                        method prints some messages about the progress of the
                        computation.
 
@@ -137,6 +137,113 @@ def right_factor(dop, verbose=False):
 
     if R==None: return None
     return R.annihilator_of_composition(z - s0)
+
+def is_irreducible(dop, verbose=False, prec=None, max_prec=100000):
+    r"""
+    Return either ``True`` if the irreducibility of ``dop`` can be certified
+    from the monodromy matrices (at a limited working precision), or ``None``
+    otherwise.
+
+    WARNING: Compared to "right_factor()", this function cannot conclude when
+    the operator is reducible. The advantadge of this function is the speed.
+
+    The termination of this method is currently not garanteed if the operator is
+    not Fuchsian.
+
+    INPUT:
+     -- ``dop``      -- differential operator
+     -- ``verbose``  -- boolean (optional, default: False) - if set to True,
+                        this method prints some messages about the progress of
+                        the computation.
+     -- ``prec``     -- integer (optional, default: None)
+     -- ``max_prec`` -- integer (optional, default: 100000)
+
+    OUTPUT: either ``True`` or ``None`` if the function cannot decide.
+
+    EXAMPLES::
+
+        sage: from ore_algebra.analytic.factorization import is_irreducible
+        sage: from ore_algebra.examples import fcc
+        sage: is_irreducible(fcc.dop4)
+        True
+    """
+    if prec == None:
+        prec = 40*dop.order()
+    if prec > max_prec:
+        return
+
+    if verbose:
+        print("Try with precision", prec)
+
+    mono, it = [], _monodromy_matrices(dop, 0, eps=Radii.one()>>prec)
+    try:
+        for pt, m, scal in it:
+            if not scal:
+                mono.append(m)
+                if verbose:
+                    print(len(mono), "matrices computed")
+                if len(mono)>1:
+                    if invariant_subspace(mono)==None:
+                        return True
+    except PrecisionError:
+        pass
+
+    return is_irreducible(dop, verbose=verbose, prec=prec<<1)
+
+def is_minimal(dop, initial_conditions, verbose=False, prec=None, max_prec=100000):
+    r"""
+    Return either ``True`` if the minimality of ``dop`` (for the function given
+    by ``initial_conditions``) can be certified from the monodromy matrices
+    (at a limited working precision), or ``None`` otherwise.
+
+    The initial conditions are the coefficients of the monomials returned
+    by "local_basis_monomials(0)". If 0 is an ordinary point, it is simply
+    [f(0), f'(0), f''(0)/2, ..., f^{(r-1)}(0)/(r-1)!].
+
+    The termination of this method is currently not garanteed if the operator is
+    not Fuchsian.
+
+    INPUT:
+     -- ``dop``                -- differential operator
+     -- ``initial_conditions`` -- list of complex numbers
+     -- ``verbose``            -- boolean (optional, default: False) - if set to
+                                  True, this method prints some messages about
+                                  the progress of the computation.
+     -- ``prec``               -- integer (optional, default: None)
+     -- ``max_prec``           -- integer (optional, default: 100000)
+
+    OUTPUT: either ``True`` or ``None`` if the function cannot decide.
+
+    EXAMPLES::
+
+        sage: from ore_algebra.analytic.factorization import is_minimal
+        sage: from ore_algebra.analytic.examples.facto import beukeurs_vlasenko_dops
+        sage: dop = beukeurs_vlasenko_dops[1]; dop
+        (16*z^3 - z)*Dz^2 + (48*z^2 - 1)*Dz + 16*z
+        sage: is_minimal(dop, [0,1])
+    """
+    if prec == None:
+        prec = 40*dop.order()
+    if prec > max_prec:
+        return
+
+    if verbose:
+        print("Try with precision", prec)
+
+    mono, it = [], _monodromy_matrices(dop, 0, eps=Radii.one()>>prec)
+    try:
+        for pt, m, scal in it:
+            if not scal:
+                mono.append(m)
+                if verbose:
+                    print(len(mono), "matrices computed")
+                V = orbit(mono, vector(mono[0].base_ring(), initial_conditions))
+                if len(V)==dop.order():
+                    return True
+    except PrecisionError:
+        pass
+
+    return is_minimal(dop, initial_conditions, verbose=verbose, prec=prec<<1, max_prec=max_prec)
 
 ################################################################################
 ### Hybrid algorithm, see [Chyzak, Goyer, Mezzarobba, 2022] ####################

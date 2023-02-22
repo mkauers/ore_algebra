@@ -61,7 +61,6 @@ def row_echelon_form(mat, *, transformation=False, pivots=False, prec_pivots={})
 
     Assumption: for p=prec_pivots, the len(p) first rows of mat satisfy i).
 
-
     INPUT:
      -- ``mat``            -- m×n matrix
      -- ``transformation`` -- boolean (optional, default: False)
@@ -76,7 +75,6 @@ def row_echelon_form(mat, *, transformation=False, pivots=False, prec_pivots={})
 
     The keys of the dictionary ``p`` are the indices of the columns which contain
     a pivot and p[j] is the corresponding row index.
-
 
     EXAMPLES:
     An example with a generic 3×3 matrix. ::
@@ -203,7 +201,6 @@ def orbit(Mats, vec, *, transition=False, pivots=False):
     subspace containing vec· and invariant under mat1·, ..., matk· is the entire
     space.
 
-
     INPUT:
      -- ``Mats``       -- list of n×n matrices
      -- ``vec``        -- vector of size n
@@ -304,7 +301,6 @@ def generated_algebra(Mats, transformation=False):
     OUTPUT:
      -- ``b`` -- list of n×n matrices
 
-
     EXAMPLES::
 
         sage: from ore_algebra.analytic.linear_algebra import generated_algebra
@@ -356,14 +352,11 @@ def ker(mat):
     Reversely, let mat· be fixed. If mat is precise enough, no PrecisionError
     is raised and the inclusion is an equality.
 
-
     INPUT:
      -- ``mat`` -- m×n matrix
 
-
     OUTPUT:
      -- ``b`` -- list of vectors of size n
-
 
     EXAMPLES::
         sage: from ore_algebra.analytic.linear_algebra import ker
@@ -425,7 +418,6 @@ def GCD(a, b):
 
     OUTPUT:
      -- ``a`` -- polynomial
-
 
     EXAMPLES::
         sage: from ore_algebra.analytic.linear_algebra import GCD
@@ -503,14 +495,11 @@ def squarefree_part(pol):
     Let pol· be fixed. If pol is precise enough, squarefree_part(pol) contains
     the squarefree part of pol·.
 
-
     INPUT:
      -- ``pol`` -- polynomial
 
-
     OUTPUT:
      -- ``sfp`` -- polynomial
-
 
     EXAMPLES::
         sage: from ore_algebra.analytic.linear_algebra import squarefree_part
@@ -534,7 +523,6 @@ def squarefree_part(pol):
 
     return sfp
 
-
 def roots(pol, *, multiplicities=False):
     r"""
     Return the roots of the polynomial ``pol``.
@@ -543,17 +531,14 @@ def roots(pol, *, multiplicities=False):
 
     Some words about the correction of this algorithm:
 
-
     INPUT:
      -- ``mat``            -- n×n matrix
      -- ``multiplicities`` -- boolean
-
 
     OUTPUT: a list of complex numbers
 
     If `multiplicities=True` is specified, ``s`` is a list of couples (r, m) with
     r a complex number and m a positive integer.
-
 
     EXAMPLES::
         sage: from ore_algebra.analytic.linear_algebra import roots
@@ -628,7 +613,6 @@ def gen_eigenspaces(mat, *, projections=False):
      -- ``mat``         -- n×n matrix
      -- ``projections`` -- boolean
 
-
     OUTPUT:
      -- ``GenEigSpaces`` -- list of dictionary
 
@@ -638,7 +622,6 @@ def gen_eigenspaces(mat, *, projections=False):
      - 'multiplicity' : integer
      - 'basis'        : list of vectors
      - 'projection'   : polynomial (if 'projections=True' is specified).
-
 
     EXAMPLES:
     A generic example ::
@@ -706,8 +689,7 @@ def gen_eigenspaces(mat, *, projections=False):
 ################################################################################
 
 class Splitting():
-    r"""
-    """
+
     def __init__(self, Mats):
 
         self.n = Mats[0].nrows()
@@ -718,8 +700,6 @@ class Splitting():
         self.partition = [self.n]
         self.basis = self.I          # column-wise
         self.projections = [self.I]
-
-
 
     def refine(self, mat):
 
@@ -783,8 +763,6 @@ class Splitting():
 
         return COF, Mats, b
 
-
-
     def check_nolines(self, verbose=False, returnK=False):
 
         (COF, Mats, b), p = self.COF_version(), self.partition
@@ -834,10 +812,8 @@ def invariant_subspace(Mats, *, verbose=False):
     INPUT:
      -- ``Mats`` -- list of n×n matrices
 
-
     OUTPUT:
      -- ``V`` -- list of vectors of size n or None
-
 
     EXAMPLES::
         sage: from ore_algebra.analytic.linear_algebra import invariant_subspace
