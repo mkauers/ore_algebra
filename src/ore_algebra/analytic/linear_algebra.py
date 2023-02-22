@@ -40,7 +40,6 @@ from sage.rings.real_mpfr import RealField
 ################################################################################
 
 def customized_accuracy(x):
-
     """
     Return either the absolute accuracy of x if x contains 0 or the relative
     accuracy of x if x does not contains 0.
@@ -55,7 +54,6 @@ def customized_accuracy(x):
      - 'acc' - a nonnegative integer (max = 9223372036854775807)
 
     EXAMPLES::
-
         sage: from ore_algebra.analytic.linear_algebra import customized_accuracy
         sage: a = ComplexBallField().one()
         sage: a.accuracy(), customized_accuracy(a)
@@ -66,9 +64,7 @@ def customized_accuracy(x):
         sage: a = a - 1/3
         sage: a.accuracy(), customized_accuracy(a)
         (-9223372036854775807, 52)
-
     """
-
     if x==[]: return 9223372036854775807
     if isinstance(x, FreeModuleElement_generic_dense) or \
     isinstance(x, Matrix_dense) or isinstance(x, Polynomial):
@@ -81,9 +77,6 @@ def customized_accuracy(x):
         return max(0, (-log(x.rad(), 2)).floor())
 
     return x.accuracy()
-
-
-
 
 ################################################################################
 ### Polynomials avec ComplexOptimisticField ####################################
@@ -98,7 +91,6 @@ def _clean(pol):
     return cpol
 
 def GCD(a, b):
-
     r"""
     Return a *non-rigorous* gcd of the polynomials ``a`` and ``b``.
 
@@ -109,26 +101,21 @@ def GCD(a, b):
     the gcd of a· and b·.
 
     INPUT:
-
      -- ``a`` -- polynomial
      -- ``b`` -- polynomial
 
     OUTPUT:
-
      -- ``a`` -- polynomial
 
 
     EXAMPLES::
-
         sage: from ore_algebra.analytic.linear_algebra import GCD
         sage: P.<x> = CBF[]; a = CBF(pi)
         sage: p, q = (x-1)*(x-2)**2, (x-2)*(x-3)**2
         sage: p, q = p(x*a), q(x*a)
         sage: d = GCD(p, q); d(x/a).monic()
         ([1.0000000000 +/- 1.34e-12])*x + [-2.00000000000 +/- 1.94e-12]
-
     """
-
     a, b = _clean(a), _clean(b)
     if a==0: return b
     if b==0: return a
@@ -140,10 +127,7 @@ def GCD(a, b):
 
     return a
 
-
-
 def XGCD(a, b):
-
     r"""
     Return a *non-rigorous* monic gcd of the polynomials ``a`` and ``b`` and the
     coefficients in the Bezout identity.
@@ -151,19 +135,15 @@ def XGCD(a, b):
     Note: this function is designed for BallField as base ring.
 
     INPUT:
-
      -- ``a`` -- polynomial
      -- ``b`` -- polynomial
 
     OUTPUT:
-
      -- ``d`` -- polynomial
      -- ``u`` -- polynomial
      -- ``v`` -- polynomial
 
-
     EXAMPLES::
-
         sage: from ore_algebra.analytic.linear_algebra import XGCD, _clean
         sage: P.<x> = CBF[]; a = CBF(pi)
         sage: p, q = (x-1)*(x-2)**2, (x-2)*(x-3)**2
@@ -173,9 +153,7 @@ def XGCD(a, b):
          [0.636619772367581 +/- 4.28e-16])
         sage: _clean(u*p + v*q)
         ([1.000000000 +/- 3.39e-11])*x + [-0.63661977237 +/- 6.95e-12]
-
     """
-
     P = a.parent()
 
     a, b = _clean(a), _clean(b)
@@ -196,10 +174,7 @@ def XGCD(a, b):
 
     return d, u, v
 
-
-
 def squarefree_part(pol):
-
     r"""
     Return a *non-rigorous* squarefree part of the polynomial ``pol``.
 
@@ -211,17 +186,14 @@ def squarefree_part(pol):
 
 
     INPUT:
-
      -- ``pol`` -- polynomial
 
 
     OUTPUT:
-
      -- ``sfp`` -- polynomial
 
 
     EXAMPLES::
-
         sage: from ore_algebra.analytic.linear_algebra import squarefree_part
         sage: P.<x> = CBF[]; a = CBF(pi)
         sage: p = (x-1)*(x-2)**2
@@ -234,9 +206,7 @@ def squarefree_part(pol):
          [0.6366197724 +/- 4.20e-11] + [+/- 9.55e-12]*I]
         sage: [1/a, 2/a]
         [[0.318309886183791 +/- 4.43e-16], [0.636619772367581 +/- 4.28e-16]]
-
     """
-
     d = GCD(pol, pol.derivative())
     sfp = _clean(pol.quo_rem(d)[0])
 
@@ -256,7 +226,6 @@ def _derivatives(f, m):
     return result
 
 def roots(pol, *, multiplicities=False):
-
     r"""
     Return the roots of the polynomial ``pol``.
 
@@ -266,36 +235,24 @@ def roots(pol, *, multiplicities=False):
 
 
     INPUT:
-
      -- ``mat``            -- n×n matrix
      -- ``multiplicities`` -- boolean
 
 
-    OUTPUT:
+    OUTPUT: a list of complex numbers
 
-     -- ``s`` -- list of complex numbers
-
-    If 'multiplicities=True' is specified, ``s`` is a list of couples (r, m) with
+    If `multiplicities=True` is specified, ``s`` is a list of couples (r, m) with
     r a complex number and m a positive integer.
 
 
     EXAMPLES::
-
         sage: from ore_algebra.analytic.linear_algebra import roots
         sage: P.<x> = CBF[]; a = CBF(pi)
         sage: p = (x-1)*(x-2)**2; p = p(x*a).monic()
         sage: roots(p, multiplicities=True)
         [([0.3183098862 +/- 2.31e-11] + [+/- 6.86e-12]*I, 1),
          ([0.6366197724 +/- 4.20e-11] + [+/- 9.55e-12]*I, 2)]
-        sage: p.roots(multiplicities=False,proof=False)
-        <ipython-input-7-b3a160b9a5ea>:1: UserWarning: roots may have been lost
-          p.roots(multiplicities=False,proof=False)
-        [[0.3183098861838 +/- 2.69e-14] + [+/- 1.75e-14]*I,
-         [0.636620 +/- 8.62e-7] + [+/- 6.48e-7]*I,
-         [0.636620 +/- 8.62e-7] + [+/- 6.48e-7]*I]
-
     """
-
     K, n = pol.base_ring(), pol.degree()
     if isinstance(K, ComplexOptimisticField):
         pol = pol.change_ring(K._ball_field)
@@ -321,15 +278,11 @@ def roots(pol, *, multiplicities=False):
     return res
 
 
-
-
 ################################################################################
 ### Gaussian reduction and applications ########################################
 ################################################################################
 
-
 def row_echelon_form(mat, *, transformation=False, pivots=False, prec_pivots={}):
-
     r"""
     Return a row echelon form of ``mat``.
 
@@ -353,7 +306,6 @@ def row_echelon_form(mat, *, transformation=False, pivots=False, prec_pivots={})
 
 
     INPUT:
-
      -- ``mat``            -- m×n matrix
      -- ``transformation`` -- boolean (optional, default: False)
      -- ``pivots``         -- boolean (optional, default: False)
@@ -361,7 +313,6 @@ def row_echelon_form(mat, *, transformation=False, pivots=False, prec_pivots={})
 
 
     OUTPUT:
-
      -- ``R`` -- m×n matrix
      -- ``T`` -- m×m matrix (if 'transformation=True' is specified)
      -- ``p`` -- dictionary (if 'pivots=True' is specified)
@@ -371,78 +322,69 @@ def row_echelon_form(mat, *, transformation=False, pivots=False, prec_pivots={})
 
 
     EXAMPLES:
-
     An example with a generic 3×3 matrix. ::
-
-        sage: from diffop_factorization.reduction import row_echelon_form
-        sage: K = RealBallField(20)
-        sage: mat = matrix(K, 3, [RR.random_element() for cpt in range(9)]); mat
-        [ [-0.655408 +/- 6.67e-8]  [-0.134570 +/- 4.86e-7]   [0.150069 +/- 2.40e-7]]
-        [ [-0.222183 +/- 3.23e-7]  [-0.833284 +/- 2.13e-7]   [0.885925 +/- 5.44e-8]]
-        [ [-0.790008 +/- 1.47e-7] [-0.0786588 +/- 3.42e-8]   [0.146726 +/- 9.49e-8]]
+        sage: from ore_algebra.analytic.linear_algebra import row_echelon_form
+        sage: mat = matrix(RealBallField(20), 3, 3, [8.16,56.6,-17,5.11,-4.5,-7,89.2,66,-44.4]); mat
+        [ [8.16000 +/- 1e-9]  [56.6000 +/- 1e-9]            -17.0000]
+        [[5.11000 +/- 1e-10]            -4.50000            -7.00000]
+        [ [89.2000 +/- 1e-8]             66.0000 [-44.4000 +/- 3e-9]]
         sage: R, T, p = row_echelon_form(mat, transformation=True, pivots=True); R
-        [                1.00000  [0.099567 +/- 4.54e-7] [-0.185727 +/- 8.63e-7]]
-        [                      0                 1.00000   [-1.0413 +/- 1.48e-5]]
-        [                      0                       0                 1.00000]
+        [               1.00000  [0.73991 +/- 3.79e-6] [-0.49776 +/- 4.39e-6]]
+        [                     0                1.00000 [-0.25589 +/- 5.04e-6]]
+        [                     0                      0                1.00000]
         sage: T*mat
-        [  [1.00000 +/- 4.63e-6]  [0.099567 +/- 4.54e-7] [-0.185727 +/- 8.63e-7]]
-        [          [+/- 4.65e-6]    [1.0000 +/- 8.31e-6]   [-1.0413 +/- 1.48e-5]]
-        [          [+/- 1.95e-3]           [+/- 4.11e-4]     [1.000 +/- 5.21e-4]]
+        [  [1.0000 +/- 4.61e-6]  [0.73991 +/- 3.79e-6] [-0.49776 +/- 4.39e-6]]
+        [         [+/- 3.37e-6]    [1.000 +/- 1.05e-5] [-0.25589 +/- 5.04e-6]]
+        [         [+/- 4.07e-5]          [+/- 5.77e-5]    [1.000 +/- 3.84e-5]]
         sage: p
         {0: 0, 1: 1, 2: 2}
 
     An example with a singular 3×3 matrix. ::
-
-        sage: from diffop_factorization.reduction import row_echelon_form
-        sage: K = RealBallField(20)
-        sage: mat = random_matrix(QQ, 3, 3, algorithm='echelonizable', rank=2)
-        sage: ran = matrix(K, 3, [RR.random_element() for i in range(9)])
-        sage: mat = ~ran * mat * ran; mat
-        [ [3.089 +/- 8.73e-4]  [-2.05 +/- 2.67e-3] [-1.466 +/- 7.17e-4]]
-        [ [1.024 +/- 7.86e-4] [-10.81 +/- 3.26e-3] [-5.653 +/- 4.33e-4]]
-        [[-1.204 +/- 1.78e-4]  [8.927 +/- 4.31e-4]  [4.718 +/- 3.11e-4]]
-        sage: row_echelon_form(mat)
-        [             1.00000 [-0.664 +/- 5.83e-4] [-0.475 +/- 6.38e-4]]
-        [                   0              1.00000  [0.510 +/- 3.73e-4]]
-        [                   0                    0        [+/- 2.18e-3]]
-
-    An example with a generic 3×4 matrix. ::
-
-        sage: from diffop_factorization.reduction import row_echelon_form
-        sage: K = RealBallField(10)
-        sage: mat =  matrix(K, 3, 4, [RR.random_element() for i in range(12)]); mat
-        [[-0.794 +/- 2.56e-4]  [0.649 +/- 4.95e-4] [-0.109 +/- 1.70e-4]  [0.798 +/- 8.63e-5]]
-        [[-0.645 +/- 3.14e-4] [-0.882 +/- 3.60e-4] [-0.555 +/- 4.51e-4] [-0.986 +/- 4.24e-4]]
-        [ [0.298 +/- 5.29e-5]  [0.217 +/- 4.81e-4] [-0.521 +/- 1.37e-4]  [0.626 +/- 3.28e-4]]
-        sage: row_echelon_form(mat)
-        [               1.00 [-0.82 +/- 6.85e-3] [0.137 +/- 8.34e-4] [-1.00 +/- 6.71e-3]]
-        [                  0                1.00  [0.33 +/- 4.73e-3]    [1.2 +/- 0.0535]]
-        [                  0                   0                1.00   [-0.5 +/- 0.0772]]
-
-    An example with a generic 4×3 matrix. ::
-
-        sage: from diffop_factorization.reduction import row_echelon_form
-        sage: K = RealBallField(20)
-        sage: mat =  matrix(K, 4, 3, [RR.random_element() for i in range(12)]); mat
-        [  [0.314239 +/- 3.15e-7]   [0.572433 +/- 2.10e-7]   [0.794824 +/- 9.85e-8]]
-        [  [0.237214 +/- 1.11e-7]  [-0.579073 +/- 4.26e-7]   [0.444660 +/- 1.36e-7]]
-        [  [0.565036 +/- 3.48e-7]   [0.938426 +/- 3.17e-7]  [-0.674036 +/- 1.86e-7]]
-        [[-0.0756391 +/- 2.13e-8]  [-0.868542 +/- 2.49e-8]  [-0.827502 +/- 2.90e-7]]
-        sage: R, T = row_echelon_form(mat, transformation=True); R
-        [               1.00000   [1.6608 +/- 3.04e-5] [-1.19291 +/- 7.88e-6]]
-        [                     0                1.00000 [-0.74779 +/- 7.43e-6]]
-        [                     0                      0                1.00000]
-        [                     0                      0                      0]
+        sage: from ore_algebra.analytic.linear_algebra import row_echelon_form
+        sage: mat = matrix(RealBallField(20), 3, 3, [i/pi for i in [1,2..9]]); mat
+        [[0.31831 +/- 1.65e-6] [0.63662 +/- 4.25e-6] [0.95493 +/- 7.33e-6]]
+        [[1.27324 +/- 8.50e-6]  [1.5915 +/- 5.28e-5]  [1.9099 +/- 5.47e-5]]
+        [ [2.2282 +/- 4.68e-5]  [2.5465 +/- 3.70e-5]  [2.8648 +/- 3.49e-5]]
+        sage: R, T, p = row_echelon_form(mat, transformation=True, pivots=True); R
+        [             1.00000 [1.1429 +/- 5.76e-5] [1.2857 +/- 2.81e-5]]
+        [                   0              1.00000  [2.000 +/- 2.26e-4]]
+        [                   0                    0        [+/- 2.42e-4]]
         sage: T*mat
-        [ [1.00000 +/- 4.68e-6]   [1.6608 +/- 3.04e-5] [-1.19291 +/- 7.88e-6]]
-        [         [+/- 4.09e-6]   [1.0000 +/- 9.39e-6] [-0.74779 +/- 7.43e-6]]
-        [         [+/- 7.08e-6]          [+/- 2.07e-5]    [1.000 +/- 1.65e-5]]
-        [         [+/- 1.86e-5]          [+/- 4.95e-5]          [+/- 4.17e-5]]
+        [ [1.000 +/- 1.33e-5] [1.1429 +/- 5.76e-5] [1.2857 +/- 2.81e-5]]
+        [       [+/- 1.08e-4]   [1.00 +/- 1.64e-4]  [2.000 +/- 2.26e-4]]
+        [       [+/- 1.25e-4]        [+/- 1.84e-4]        [+/- 2.42e-4]]
+        sage: p
+        {0: 0, 1: 1}
+
+    An example with a generic 2×3 matrix. ::
+        sage: from ore_algebra.analytic.linear_algebra import row_echelon_form
+        sage: mat = matrix(RealBallField(20), 2, 3, [8.16,56.6,-17,5.11,-4.5,-7]); mat
+        [ [8.16000 +/- 1e-9]  [56.6000 +/- 1e-9]            -17.0000]
+        [[5.11000 +/- 1e-10]            -4.50000            -7.00000]
+        sage: R, T, p = row_echelon_form(mat, transformation=True, pivots=True); R
+        [               1.00000   [6.9363 +/- 4.81e-5]  [-2.0833 +/- 4.57e-5]]
+        [                     0                1.00000 [-0.09127 +/- 8.09e-6]]
+        sage: T*mat
+        [ [1.00000 +/- 4.76e-6]   [6.9363 +/- 4.81e-5]  [-2.0833 +/- 4.57e-5]]
+        [         [+/- 3.59e-6]   [1.0000 +/- 1.68e-5] [-0.09127 +/- 8.09e-6]]
+
+    An example with a generic 3×2 matrix. ::
+        sage: from ore_algebra.analytic.linear_algebra import row_echelon_form
+        sage: mat = matrix(RealBallField(20), 3, 2, [8.16,56.6,-17,5.11,-4.5,-7]); mat
+        [ [8.16000 +/- 1e-9]  [56.6000 +/- 1e-9]]
+        [           -17.0000 [5.11000 +/- 1e-10]]
+        [           -4.50000            -7.00000]
+        sage: R, T, p = row_echelon_form(mat, transformation=True, pivots=True); R
+        [                1.00000 [-0.300588 +/- 9.13e-7]]
+        [                      0                 1.00000]
+        [                      0                       0]
+        sage: T*mat
+        [   [1.0000 +/- 2.93e-6] [-0.300588 +/- 9.13e-7]]
+        [          [+/- 2.63e-6]   [1.00000 +/- 7.14e-6]]
+        [          [+/- 5.32e-5]           [+/- 9.13e-5]]
         sage: T.det()
-        [1.23 +/- 5.18e-3]
-
+        [0.0009961 +/- 2.35e-8]
     """
-
     m, n, C = mat.nrows(), mat.ncols(), mat.base_ring()
     T = identity_matrix(C, m)
     p = prec_pivots.copy()
@@ -478,9 +420,7 @@ def row_echelon_form(mat, *, transformation=False, pivots=False, prec_pivots={})
     if pivots: return R, p
     else: return R
 
-
 def orbit(Mats, vec, *, transition=False, pivots=False):
-
     r"""
     Return a basis of the smallest subspace containing ``vec`` and invariant under
     (the action of) the matrices of ``Mats``.
@@ -508,14 +448,12 @@ def orbit(Mats, vec, *, transition=False, pivots=False):
 
 
     INPUT:
-
      -- ``Mats``       -- list of n×n matrices
      -- ``vec``        -- vector of size n
      -- ``transition`` -- boolean (optional, default: False)
      -- ``pivots``     -- boolean (optional, default: False)
 
     OUTPUT:
-
      -- ``b`` -- list of vectors of size n
      -- ``T`` -- list of n×n matrix (if 'transition=True' is specified)
      -- ``p`` -- dictionary (if 'pivots=True' is specified)
@@ -524,35 +462,31 @@ def orbit(Mats, vec, *, transition=False, pivots=False):
     EXAMPLES:
 
     An example with one matrix. ::
-
-        sage: from diffop_factorization.reduction import orbit
+        sage: from ore_algebra.analytic.linear_algebra import orbit
         sage: mat = matrix(RBF, [[1, 1, 0], [0, 1, 1], [0, 0, 1]])
         sage: u, v, w = list(identity_matrix(RBF, 3))
-        sage: ran = MatrixSpace(RR, 3).random_element().change_ring(RBF)
-        sage: u, v, w, mat = ~ran * u, ~ran * v, ~ran * w, ~ran * mat * ran
+        sage: ran = matrix(RBF, 3, 3, [8.16,56.6,-17,5.11,-4.5,-7,89.2,66,-44.4])
+        sage: u, v, w, mat = ~ran*u, ~ran*v, ~ran*w, ~ran*mat*ran
         sage: len(orbit([mat], u)), len(orbit([mat], v)), len(orbit([mat], w))
         (1, 2, 3)
         sage: b, T = orbit([mat], v, transition=True)
         sage: b[0], T[0]*v
-        ((1.000000000000000, [1.630667151553 +/- 2.48e-13], [1.710645064117 +/- 4.32e-13]),
-         ([1.00000000000 +/- 2.41e-13], [1.630667151553 +/- 2.48e-13], [1.710645064117 +/- 4.32e-13]))
+        ((1.000000000000000, [0.8296641361859 +/- 5.41e-14], [3.242293535772 +/- 3.24e-13]),
+         ([1.000000000000 +/- 6.51e-14], [0.8296641361859 +/- 5.41e-14], [3.242293535772 +/- 3.24e-13]))
         sage: b[1], T[1]*v
-        ((0, 1.000000000000000, [5.2453796816 +/- 5.24e-11]),
-         ([+/- 5.79e-12], [1.0000000000 +/- 1.53e-11], [5.2453796816 +/- 5.25e-11]))
+        ((0, 1.000000000000000, [1.4864864865 +/- 4.16e-11]),
+         ([+/- 3.89e-11], [1.000000000 +/- 2.97e-11], [1.486486486 +/- 6.24e-10]))
 
     An example with two matrices. ::
-
-        sage: from diffop_factorization.reduction import orbit
+        sage: from ore_algebra.analytic.linear_algebra import orbit
         sage: mat1 = matrix(CBF, [[0, 0, 1], [0, 0, 0], [0, 0, 0]])
         sage: mat2 = matrix(CBF, [[0, 0, 0], [0, 0, 1], [0, 0, 0]])
         sage: vec = vector(CBF, [0, 0, 1])
         sage: ran = MatrixSpace(CC, 3).random_element().change_ring(CBF)
-        sage: vec, mat1, mat2 =  ~ran * vec, ~ran * mat1 * ran, ~ran * mat2 * ran
+        sage: vec, mat1, mat2 =  ~ran*vec, ~ran*mat1*ran, ~ran*mat2*ran
         sage: len(orbit([mat1], u)), len(orbit([mat1, mat2], u))
         (2, 3)
-
     """
-
     n, C = len(vec), vec.base_ring()
 
     b, S, p = row_echelon_form(matrix(vec), transformation=True, pivots=True)
@@ -587,10 +521,7 @@ def orbit(Mats, vec, *, transition=False, pivots=False):
     if pivots: return b, p
     else: return b
 
-
-
 def generated_algebra(Mats, transformation=False):
-
     r"""
     Return a basis of the unitary algebra generated by the matrices of ``Mats``.
 
@@ -611,17 +542,15 @@ def generated_algebra(Mats, transformation=False):
     mat1·, ..., matk· generate the entire algebra of matrices.
 
     INPUT:
-
      -- ``Mats`` -- list of n×n matrices
 
     OUTPUT:
-
      -- ``b`` -- list of n×n matrices
 
 
     EXAMPLES::
 
-        sage: from diffop_factorization.reduction import generated_algebra
+        sage: from ore_algebra.analytic.linear_algebra import generated_algebra
         sage: n, C = 4, ComplexBallField(100)
         sage: mat1 = MatrixSpace(CC, n).random_element().change_ring(C)
         sage: mat2 = MatrixSpace(CC, n).random_element().change_ring(C)
@@ -629,10 +558,7 @@ def generated_algebra(Mats, transformation=False):
         16
         sage: len(generated_algebra([mat1**2, mat1**3]))
         4
-
     """
-
-
     mat = Mats[0]
     n, C = mat.nrows(), mat.base_ring()
 
@@ -659,10 +585,7 @@ def generated_algebra(Mats, transformation=False):
     if transformation: return b, l
     return b
 
-
-
 def ker(mat):
-
     r"""
     Return a basis of the right kernel of ``mat``.
 
@@ -678,57 +601,45 @@ def ker(mat):
 
 
     INPUT:
-
      -- ``mat`` -- m×n matrix
 
 
     OUTPUT:
-
      -- ``b`` -- list of vectors of size n
 
 
-    EXAMPLE::
-
-        sage: from diffop_factorization.reduction import ker
-        sage: mat = random_matrix(QQ, 3, algorithm='diagonalizable', eigenvalues=[0,1], dimensions=[2,1])
-        sage: ran = MatrixSpace(CC, 3).random_element().change_ring(CBF)
-        sage: mat = ~ran * mat * ran; mat
-        [[-3.93916258348 +/- 3.39e-12] + [-29.98301156589 +/- 5.56e-12]*I [-32.31388378951 +/- 4.75e-12] + [-7.27390030643 +/- 3.95e-12]*I  [4.31307439346 +/- 4.62e-12] + [-20.93143334627 +/- 7.06e-12]*I]
-        [  [-9.32991924526 +/- 4.57e-12] + [8.03479991844 +/- 1.94e-12]*I   [4.73706780030 +/- 2.23e-12] + [12.62682833737 +/- 1.31e-12]*I   [-8.09008374791 +/- 4.77e-12] + [3.20418406755 +/- 4.82e-12]*I]
-        [  [8.31773777000 +/- 1.05e-12] + [23.10971869354 +/- 1.23e-12]*I [26.900986486615 +/- 9.18e-13] + [0.176324436596 +/- 6.03e-13]*I  [0.202094783181 +/- 7.11e-13] + [17.35618322852 +/- 3.05e-12]*I]
+    EXAMPLES::
+        sage: from ore_algebra.analytic.linear_algebra import ker
+        sage: mat = matrix(QQ, 3, 3, [-6, -12, -6, 3, 6, 3, 1, 2, 1]) # such that dim(ker)=2
+        sage: ran = matrix(CBF, 3, 3, [8.16,56.6,-17,5.11,-4.5,-7,89.2,66,-44.4])
+        sage: mat = ~ran*mat*ran; mat
+        [   [0.980818359715 +/- 5.23e-13]    [1.035703343221 +/- 4.40e-13]  [-0.6874298598489 +/- 5.30e-14]]
+        [[-21.1037881400433 +/- 4.23e-14] [-22.2847214418007 +/- 5.36e-14]  [14.7910915203501 +/- 2.76e-14]]
+        [[-31.8229959359513 +/- 9.12e-14]  [-33.603758489720 +/- 1.58e-13]  [22.3039030820852 +/- 8.40e-14]]
         sage: ker(mat)
-        [(1.000000000000000, [-0.314815526682 +/- 6.76e-13] + [-0.857002364379 +/- 5.99e-13]*I, 0),
-         (0, [-0.011740965563 +/- 3.70e-13] + [-0.645110654883 +/- 3.88e-13]*I, 1.000000000000000)]
-        sage: v1, v2 = ker(mat)
-        sage: mat*v1, mat*v2
-        (([+/- 1.59e-11] + [+/- 1.59e-11]*I, [+/- 6.85e-12] + [+/- 6.86e-12]*I, [+/- 7.76e-12] + [+/- 7.79e-12]*I),
-         ([+/- 1.21e-11] + [+/- 1.21e-11]*I, [+/- 5.20e-12] + [+/- 5.20e-12]*I, [+/- 6.05e-12] + [+/- 6.08e-12]*I))
-
+        [(1.000000000000000, [-0.947007042254 +/- 6.10e-13], 0),
+         (0, [0.663732394366 +/- 2.89e-13], 1.000000000000000)]
+        sage: v1, v2 = ker(mat); mat*v1, mat*v2
+        (([+/- 2.72e-13], [+/- 3.00e-12], [+/- 4.56e-12]),
+         ([+/- 1.91e-13], [+/- 2.11e-12], [+/- 3.20e-12]))
     """
-
     R, T, p = row_echelon_form(mat.transpose(), transformation=True, pivots=True)
     b = list(T[len(p):])
 
     return b
 
-
-
 def intersection(K1, K2):
-
     r"""
     Compute the intersection of two subspaces.
     This function is designed for ComplexBall elements (optimistic arithmetic).
 
     INPUT:
-
      -- ``K1`` -- list of vectors
      -- ``K2`` -- list of vectors
 
     OUTPUT:
      -- ``K`` -- list of vectors
-
     """
-
     K = ker(matrix(K1 + K2).transpose())
     K = [sum(v[i]*K1[i] for i in range(len(K1))) for v in K]
     ref, p = row_echelon_form(matrix(K), pivots=True)
@@ -741,25 +652,19 @@ def intersection(K1, K2):
 ### Eigenvalues, eigenvectors ##################################################
 ################################################################################
 
-
 def eigenvalues(mat, multiplicities=False):
-
     r"""
     Return the eigenvalues of \\mat``.
 
     Note: this function is designed for ComplexBallField as base ring.
 
-    See function 'roots' of polynomials module for more details.
+    See function `roots` of polynomials module for more details.
     """
-
     eigvals = roots(mat.charpoly(algorithm="df"), multiplicities=multiplicities)
 
     return eigvals
 
-
-
 def gen_eigenspaces(mat, *, projections=False):
-
     r"""
     Return the generalized eigenspaces of ``mat``.
 
@@ -780,13 +685,11 @@ def gen_eigenspaces(mat, *, projections=False):
     eigenspaces of mat one-to-one.
 
     INPUT:
-
      -- ``mat``         -- n×n matrix
      -- ``projections`` -- boolean
 
 
     OUTPUT:
-
      -- ``GenEigSpaces`` -- list of dictionary
 
     Each dictionary of ``GenEigSpaces`` represents a generalized eigenspace of
@@ -798,45 +701,40 @@ def gen_eigenspaces(mat, *, projections=False):
 
 
     EXAMPLES:
-
     A generic example ::
-
-        sage: from diffop_factorization.eigenspaces import gen_eigenspaces
-        sage: mat = MatrixSpace(CC, 3).random_element().change_ring(CBF)
+        sage: from ore_algebra.analytic.linear_algebra import gen_eigenspaces
+        sage: mat = matrix(CBF, 3, 3, [8.16,56.6,-17,5.11,-4.5,-7,89.2,66,-44.4])
         sage: gen_eigenspaces(mat)
-        [{'eigenvalue': [0.008731294334 +/- 5.79e-13] + [-0.457554487127 +/- 3.74e-13]*I,
-          'multiplicity': 1,
-          'basis': [([-0.081853906993 +/- 6.52e-13] + [-0.087179008676 +/- 7.81e-13]*I, 1.000000000000000, [-0.342339920094 +/- 3.62e-13] + [0.098986705031 +/- 3.30e-13]*I)]},
-         {'eigenvalue': [0.339079560015 +/- 4.32e-13] + [0.888549954437 +/- 3.85e-13]*I,
-          'multiplicity': 1,
-          'basis': [([-0.409699282668 +/- 6.41e-13] + [0.247473920868 +/- 5.86e-13]*I, [-0.066871473678 +/- 7.28e-13] + [0.685673697712 +/- 7.82e-13]*I, 1.000000000000000)]},
-         {'eigenvalue': [0.606834685948 +/- 7.61e-13] + [-0.992982372445 +/- 8.72e-13]*I,
-          'multiplicity': 1,
-          'basis': [([-0.63246660126 +/- 2.18e-12] + [-0.05887072347 +/- 3.44e-12]*I, 1.000000000000000, [-0.59541382749 +/- 5.20e-12] + [0.10852249946 +/- 5.37e-12]*I)]}]
+            [{'basis': [([-0.042000493002 +/- 5.15e-13] + [+/- 2.83e-13]*I, [0.326161958389 +/- 3.36e-13] + [+/- 1.79e-13]*I, 1.000000000000000)],
+              'eigenvalue': [-26.6197547221 +/- 1.30e-11] + [+/- 6.99e-12]*I,
+              'multiplicity': 1},
+             {'basis': [([0.380400612236 +/- 8.71e-13] + [0.254042964594 +/- 8.64e-13]*I, [0.051638526510 +/- 6.77e-13] + [0.150937316687 +/- 4.22e-13]*I, 1.000000000000000)],
+              'eigenvalue': [-7.06012263895 +/- 8.17e-12] + [32.62249534308 +/- 5.22e-12]*I,
+              'multiplicity': 1},
+             {'basis': [([0.380400612236 +/- 8.71e-13] + [-0.254042964594 +/- 8.64e-13]*I, [0.051638526510 +/- 6.77e-13] + [-0.150937316687 +/- 4.22e-13]*I, 1.000000000000000)],
+              'eigenvalue': [-7.06012263895 +/- 8.17e-12] + [-32.62249534308 +/- 5.22e-12]*I,
+              'multiplicity': 1}]
 
     An example with a multiple eigenvalue ::
-
-        sage: from diffop_factorization.eigenspaces import gen_eigenspaces
+        sage: from ore_algebra.analytic.linear_algebra import gen_eigenspaces
         sage: r2, r3 = CBF(sqrt(2)), CBF(sqrt(3))
         sage: mat = jordan_block(r2, 2).block_sum(matrix([r3]))
-        sage: ran = MatrixSpace(CC, 3).random_element().change_ring(CBF)
-        sage: mat = ~ran * mat * ran
+        sage: ran = ran = matrix(CBF, 3, 3, [8.16,56.6,-17,5.11,-4.5,-7,89.2,66,-44.4])
+        sage: mat = ~ran*mat*ran
         sage: GenEigSpaces = gen_eigenspaces(mat, projections=True)
         sage: [(space['eigenvalue'], space['multiplicity']) for space in GenEigSpaces]
-        [([1.41421356 +/- 7.84e-9] + [+/- 5.47e-9]*I, 2),
-         ([1.73205081 +/- 8.48e-9] + [+/- 6.05e-9]*I, 1)]
+        [([1.41421356 +/- 4.10e-9] + [+/- 1.72e-9]*I, 2),
+         ([1.73205081 +/- 4.34e-9] + [+/- 1.90e-9]*I, 1)]
         sage: ev, vec = GenEigSpaces[1]['eigenvalue'], GenEigSpaces[1]['basis'][0]
         sage: (mat - ev*identity_matrix(CBF, 3))*vec
-        ([+/- 1.37e-6] + [+/- 1.37e-6]*I, [+/- 4.33e-7] + [+/- 4.33e-7]*I, [+/- 1.17e-6] + [+/- 1.17e-6]*I)
+        ([+/- 5.35e-9] + [+/- 5.35e-9]*I, [+/- 3.54e-9] + [+/- 3.54e-9]*I, [+/- 6.79e-9] + [+/- 6.79e-9]*I)
         sage: T = matrix(GenEigSpaces[0]['basis'] + GenEigSpaces[1]['basis']).transpose()
         sage: pol = GenEigSpaces[0]['projection']
         sage: P = ~T * pol(mat) * T; P
-        [  [1.00 +/- 1.19e-4] + [+/- 1.19e-4]*I        [+/- 8.62e-5] + [+/- 8.62e-5]*I        [+/- 1.53e-4] + [+/- 1.53e-4]*I]
-        [       [+/- 3.97e-5] + [+/- 3.97e-5]*I [1.0000 +/- 4.89e-5] + [+/- 4.89e-5]*I        [+/- 5.52e-5] + [+/- 5.52e-5]*I]
-        [       [+/- 9.55e-5] + [+/- 9.55e-5]*I        [+/- 7.19e-5] + [+/- 7.19e-5]*I        [+/- 1.25e-4] + [+/- 1.25e-4]*I]
-
+        [[1.000 +/- 1.41e-5] + [+/- 1.41e-5]*I       [+/- 2.79e-6] + [+/- 2.79e-6]*I       [+/- 4.29e-6] + [+/- 4.29e-6]*I]
+        [      [+/- 3.23e-5] + [+/- 3.23e-5]*I [1.000 +/- 3.04e-5] + [+/- 3.04e-5]*I       [+/- 3.48e-5] + [+/- 3.48e-5]*I]
+        [      [+/- 4.01e-5] + [+/- 4.01e-5]*I       [+/- 2.39e-5] + [+/- 2.39e-5]*I       [+/- 3.44e-5] + [+/- 3.44e-5]*I]
     """
-
     n, C = mat.nrows(), mat.base_ring()
     I = identity_matrix(C, n)
     Pol, x = PolynomialRing(C, 'x').objgen()
@@ -862,16 +760,14 @@ def gen_eigenspaces(mat, *, projections=False):
 
     return GenEigSpaces
 
+
 ################################################################################
 ### The class Splitting as in [van der Hoeven, 2007] ###########################
 ################################################################################
 
-
 class Splitting():
-
     r"""
     """
-
     def __init__(self, Mats):
 
         self.n = Mats[0].nrows()
@@ -988,7 +884,6 @@ class Splitting():
         return (False, None)
 
 
-
 def linear_combination(vec, Vecs, p):
 
     n = len(Vecs)
@@ -1001,8 +896,6 @@ def linear_combination(vec, Vecs, p):
 
     return lc
 
-
-
 def intersect_eigenvectors(K, mat):
 
     eigvals = eigenvalues(mat)
@@ -1011,10 +904,7 @@ def intersect_eigenvectors(K, mat):
     K = K.intersection((mat-eigvals[0]*(mat.parent().one())).right_kernel())
     return K
 
-
-
 def invariant_subspace(Mats, *, verbose=False):
-
     r"""
     Return either a nontrivial subspace invariant under the action of the
     matrices of ``Mats`` or None if there is none.
@@ -1027,26 +917,21 @@ def invariant_subspace(Mats, *, verbose=False):
     action of M1·, ..., Mr·.
 
     INPUT:
-
      -- ``Mats`` -- list of n×n matrices
 
 
     OUTPUT:
-
      -- ``V`` -- list of vectors of size n or None
 
 
-    EXAMPLE::
-
-        sage: from diffop_factorization import invariant_subspace
-        sage: C = ComplexBallField(30)
-        sage: mat1 = matrix(C, [[1, 1], [1, 1]])
-        sage: mat2 = matrix(C, [[3, -1], [0 , 2]])
-        sage: invariant_subspace([mat1, mat2])
-        [([1.00 +/- 1.17e-3] + [+/- 1.17e-3]*I, [1.00 +/- 9.96e-4] + [+/- 9.96e-4]*I)]
-
+    EXAMPLES::
+        sage: from ore_algebra.analytic.linear_algebra import invariant_subspace
+        sage: mat1 = matrix(CBF, [[1, 1], [1, 1]])
+        sage: mat2 = matrix(CBF, [[3, -1], [0 , 2]])
+        sage: vec = invariant_subspace([mat1, mat2])[0]
+        sage: 1 in vec[0] and 1 in vec[1]
+        True
     """
-
     if Mats==[]: raise TypeError("This function requires at least one matrix.")
 
     n, C = Mats[0].nrows(), Mats[0].base_ring()
@@ -1087,12 +972,10 @@ def invariant_subspace(Mats, *, verbose=False):
 
 
 def _commutation_problem_as_linear_system(mat):
-
     r"""
     Compute S such that (x_{i,j})*mat = mat*(x_{i,j}) iff the vector
     (x_{1,1}, x_{1,2}, ..., x_{n,n}) belongs to the right kernel of S.
     """
-
     n, matT = mat.nrows(), mat.transpose()
     S = block_diagonal_matrix([matT]*n)
     for i in range(n):
@@ -1104,23 +987,18 @@ def _commutation_problem_as_linear_system(mat):
 
     return S
 
-
-
 def centralizer(alg):
-
     r"""
-    Compute the centralizer of an algebra.
+    Return the centralizer of the algebra generated by ``alg``.
     This function is designed for ComplexBall entries (optimistic arithmetic).
 
     INPUT:
-
      -- ``alg`` -- list of matrices
 
     OUTPUT:
      -- ``C`` -- list of matrices
 
     """
-
     mat = alg[0]; n = mat.nrows()
 
     S = _commutation_problem_as_linear_system(mat)
