@@ -2096,20 +2096,47 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
 
             sage: from ore_algebra import DifferentialOperators
             sage: Dops, z, Dz = DifferentialOperators(QQ, 'z')
-
             sage: dop = Dz*z*Dz
             sage: dop.factor()
             [z*Dz + 1, Dz]
-
-            sage: dop = (z - z^3)*Dz^2 + (1 - z^2)*Dz + z
-            sage: len(dop.factor()) == 1 # certifying the irreducibility
-            True
 
         """
 
         from .analytic.factorization import factor
         fac = factor(self, verbose=verbose)
         return fac
+
+    def right_factor(self, verbose=False):
+        r"""
+        Return either ``None`` if this operator is irreducible or a proper
+        right-hand factor otherwise (potentially introducing algebraic
+        extensions).
+
+        NOTE: The termination of this method is currently not garanteed if the
+        operator is not Fuchsian.
+
+        INPUT:
+         -- ``dop``     -- differential operator
+         -- ``verbose`` -- (optional, default: False) - if set to True, this
+                           method prints some messages about the progress of the
+                           computation.
+
+        OUTPUT: either ``None`` or a differential operator
+
+
+        EXAMPLES::
+
+            sage: from ore_algebra import DifferentialOperators
+            sage: Dops, z, Dz = DifferentialOperators(QQ, 'z')
+            sage: dop = Dz*z*Dz
+            sage: dop.right_factor()
+            Dz
+
+        """
+
+        from .analytic.factorization import right_factor
+        rfac = right_factor(self, verbose=verbose)
+        return rfac
 
 #############################################################################################################
 
