@@ -460,7 +460,7 @@ Algebraic exponents::
     sage: all(eval_bound(asy[1], j).contains_exact(ref[j]) for j in range(asy[0], len(ref))) # long time
     True
 
-Variing the position of the singularity::
+Varying the position of the singularity::
 
     sage: test_monomial(zeta=2, alpha=1/2, beta=1)
     (True, ... + B([...]*n^(-9/2)*log(n), n >= ...) + O((...)^n)))
