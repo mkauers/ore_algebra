@@ -20,6 +20,7 @@ from functools import reduce
 import sage.functions.log as symbolic_log
 
 from sage.arith.all import gcd, lcm, nth_prime
+from sage.arith.misc import valuation
 from sage.matrix.constructor import matrix
 from sage.misc.cachefunc import cached_method
 from sage.rings.fraction_field import FractionField_generic
@@ -2072,6 +2073,33 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         Dx = self.parent().gen()
         res = [r for r in res if (Dx*r).quo_rem(self)[1] != 0]
         return res
+
+    def is_fuchsian(self):
+
+        r"""
+        Return True if the operator is fuchsian, False otherwise.
+
+        EXAMPLES::
+
+            sage: from ore_algebra.examples import fcc
+            sage: fcc.dop4.is_fuchsian()
+            True
+
+        """
+
+        coeffs = self.coefficients()
+        fac = coeffs.pop().factor()
+        for (f, m) in fac:
+            for k, ak in enumerate(coeffs):
+                mk = valuation(ak, f)
+                if mk - m < k - self.order(): return False
+
+        dop = self.annihilator_of_composition(1/self.base_ring().gen())
+        for k, frac in enumerate(dop.monic().coefficients()[:-1]):
+            d = (self.base_ring().gen()**(self.order() - k)*frac).denominator()
+            if d(0)==0: return False
+
+        return True
 
     def factor(self, verbose=False):
         r"""

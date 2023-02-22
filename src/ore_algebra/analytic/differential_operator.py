@@ -13,7 +13,6 @@ Custom differential operators
 # http://www.gnu.org/licenses/
 
 from sage.arith.all import lcm
-from sage.arith.misc import valuation
 from sage.misc.cachefunc import cached_method
 from sage.rings.all import CIF, QQbar, QQ, ZZ
 from sage.rings.complex_arb import ComplexBallField
@@ -316,36 +315,6 @@ class PlainDifferentialOperator(UnivariateDifferentialOperatorOverUnivariateRing
             return pol(lin)
         shifted = dop_P.map_coefficients(shift_poly)
         return ShiftedDifferentialOperator(shifted, self, delta)
-
-    def is_fuchsian(self):
-
-        r"""
-        Return True if ``self`` is fuchsian, False otherwise.
-
-        Fuch's criterion: p is a regular point of a_n*Dz^n + ... + a_0 (with a_i
-        polynomial) iff no (z-p)^{n-k}*a_k/a_n admits p as pole.
-
-        EXAMPLES::
-
-            sage: from ore_algebra.analytic.examples.facto import fcc3
-            sage: PlainDifferentialOperator(fcc3).is_fuchsian()
-            True
-
-        """
-
-        coeffs = self.coefficients()
-        fac = coeffs.pop().factor()
-        for (f, m) in fac:
-            for k, ak in enumerate(coeffs):
-                mk = valuation(ak, f)
-                if mk - m < k - self.order(): return False
-
-        dop = self.annihilator_of_composition(1/self.base_ring().gen())
-        for k, frac in enumerate(dop.monic().coefficients()[:-1]):
-            d = (self.base_ring().gen()**(self.order() - k)*frac).denominator()
-            if d(0)==0: return False
-
-        return True
 
     @cached_method
     def _theta_alg_with_base(self, Scalars):

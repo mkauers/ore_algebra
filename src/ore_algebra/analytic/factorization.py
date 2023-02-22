@@ -138,10 +138,13 @@ def right_factor(dop, verbose=False):
     if R==None: return None
     return R.annihilator_of_composition(z - s0)
 
+################################################################################
+### Hybrid algorithm, see [Chyzak, Goyer, Mezzarobba, 2022] ####################
+################################################################################
+
 def right_factor_via_monodromy(dop, order=None, bound=None, alg_degree=None, precision=None, loss=0, verbose=False):
     r"""
-    Same as right_factor but focused on the algorithm in [Chyzak, Goyer, Mezzarobba,
-    2022].
+    Same as right_factor but focused on the hybrid algorithm.
 
     EXAMPLES::
 
@@ -304,7 +307,7 @@ def simple_eigenvalue(dop, mono, order, bound, alg_degree, verbose=False):
 
 def multiple_eigenvalue(dop, mono, order, bound, alg_degree, verbose=False):
     """
-    output: a nontrivial right factor R of dop, or None, or ``Inconclusive``
+    OUTPUT: a nontrivial right factor R of dop, or None, or ``Inconclusive``
     """
     r = dop.order()
     invspace = invariant_subspace(mono)
@@ -314,7 +317,9 @@ def multiple_eigenvalue(dop, mono, order, bound, alg_degree, verbose=False):
     return "Inconclusive"
 
 def annihilator(dop, ic, order, bound, alg_degree, mono=None, verbose=False):
-
+    """
+    OUTPUT: ``dop``, or a nontrivial right factor of ``dop``, or ``Inconclusive``
+    """
     r, OA = dop.order(), dop.parent()
     d = r - 1
     base_field = OA.base_ring().base_ring()
