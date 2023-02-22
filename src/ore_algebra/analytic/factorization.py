@@ -56,13 +56,16 @@ def factor(dop, verbose=False):
     Return a decomposition of ``dop`` as a product of irreducible operators
     (potentially introducing algebraic extensions).
 
-    The termination of this method is currently not garanteed if the operator is
-    not Fuchsian.
+    The termination of this function is currently not garanteed if the operator
+    is not Fuchsian.
+
+    See also "right_factor()" and "is_irreducible()".
 
     INPUT:
      -- ``dop``     -- differential operator
      -- ``verbose`` -- boolean (optional, default: False) - if set to True, this
-    method prints some messages about the progress of the computation.
+                       function prints some messages about the progress of the
+                       computation.
 
     OUTPUT:
 
@@ -100,13 +103,15 @@ def right_factor(dop, verbose=False):
     Return either ``None`` if ``dop`` is irreducible or a proper right-hand
     factor of ``dop`` otherwise (potentially introducing algebraic extensions).
 
-    The termination of this method is currently not garanteed if the operator is
-    not Fuchsian.
+    The termination of this function is currently not garanteed if the operator
+    is not Fuchsian.
+
+    See also "factor()" and "is_irreducible()".
 
     INPUT:
      -- ``dop``     -- differential operator
      -- ``verbose`` -- boolean (optional, default: False) - if set to True, this
-                       method prints some messages about the progress of the
+                       function prints some messages about the progress of the
                        computation.
 
     OUTPUT: either ``None`` or a differential operator
@@ -147,13 +152,13 @@ def is_irreducible(dop, verbose=False, prec=None, max_prec=100000):
     WARNING: Compared to "right_factor()", this function cannot conclude when
     the operator is reducible. The advantadge of this function is the speed.
 
-    The termination of this method is currently not garanteed if the operator is
-    not Fuchsian.
+    The termination of this function is currently not garanteed if the operator
+    is not Fuchsian.
 
     INPUT:
      -- ``dop``      -- differential operator
      -- ``verbose``  -- boolean (optional, default: False) - if set to True,
-                        this method prints some messages about the progress of
+                        this function prints some messages about the progress of
                         the computation.
      -- ``prec``     -- integer (optional, default: None)
      -- ``max_prec`` -- integer (optional, default: 100000)
@@ -200,14 +205,14 @@ def is_minimal(dop, initial_conditions, verbose=False, prec=None, max_prec=10000
     by "local_basis_monomials(0)". If 0 is an ordinary point, it is simply
     [f(0), f'(0), f''(0)/2, ..., f^{(r-1)}(0)/(r-1)!].
 
-    The termination of this method is currently not garanteed if the operator is
+    The termination of this function is currently not garanteed if the operator is
     not Fuchsian.
 
     INPUT:
      -- ``dop``                -- differential operator
      -- ``initial_conditions`` -- list of complex numbers
      -- ``verbose``            -- boolean (optional, default: False) - if set to
-                                  True, this method prints some messages about
+                                  True, this function prints some messages about
                                   the progress of the computation.
      -- ``prec``               -- integer (optional, default: None)
      -- ``max_prec``           -- integer (optional, default: 100000)
@@ -221,6 +226,7 @@ def is_minimal(dop, initial_conditions, verbose=False, prec=None, max_prec=10000
         sage: dop = beukeurs_vlasenko_dops[1]; dop
         (16*z^3 - z)*Dz^2 + (48*z^2 - 1)*Dz + 16*z
         sage: is_minimal(dop, [0,1])
+        True
     """
     if prec == None:
         prec = 40*dop.order()
@@ -559,7 +565,7 @@ def _transition_matrix_for_adjoint(dop):
     Return an invertible constant matrix Q such that: if M is the monodromy of
     dop along a loop gamma, then the monodromy of the adjoint of dop along
     gamma^{-1} is equal to Q*M.transpose()*(~Q), where the monodromies are
-    computed in the basis given by .local_basis_expansions method.
+    computed in the basis given by ".local_basis_expansions()" method.
 
     Assumptions: dop is monic, 0 is the base point, and 0 is not singular.
     """

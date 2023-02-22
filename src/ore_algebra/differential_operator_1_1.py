@@ -2075,19 +2075,15 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         return res
 
     def is_fuchsian(self):
-
         r"""
         Return whether this operator is Fuchsian (i.e. regular at each point of
         the Riemann sphere).
 
         EXAMPLES::
-
             sage: from ore_algebra.examples import fcc
             sage: fcc.dop4.is_fuchsian()
             True
-
         """
-
         coeffs = self.coefficients()
         fac = coeffs.pop().factor()
         for (f, m) in fac:
@@ -2111,26 +2107,21 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         operator is not Fuchsian.
 
         INPUT:
-
          -- ``verbose`` -- boolean (optional, default: False) - if set to True,
         this method prints some messages about the progress of the computation.
 
         OUTPUT:
-
          -- ``fac`` -- a list of irreducible operators such that the product of
         its elements is equal to the operator ``self``.
 
 
         EXAMPLES::
-
             sage: from ore_algebra import DifferentialOperators
             sage: Dops, z, Dz = DifferentialOperators(QQ, 'z')
             sage: dop = Dz*z*Dz
             sage: dop.factor()
             [z*Dz + 1, Dz]
-
         """
-
         from .analytic.factorization import factor
         fac = factor(self, verbose=verbose)
         return fac
@@ -2152,20 +2143,79 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
 
         OUTPUT: either ``None`` or a differential operator
 
-
         EXAMPLES::
-
             sage: from ore_algebra import DifferentialOperators
             sage: Dops, z, Dz = DifferentialOperators(QQ, 'z')
             sage: dop = Dz*z*Dz
             sage: dop.right_factor()
             Dz
-
         """
-
         from .analytic.factorization import right_factor
         rfac = right_factor(self, verbose=verbose)
         return rfac
+
+    def is_irreducible(self, verbose=False, prec=None, max_prec=100000):
+        r"""
+        Return either ``True`` if the irreducibility of this operator can be
+        certified from the monodromy matrices (at a limited working precision),
+        or ``None`` otherwise.
+
+        WARNING: Compared to ".right_factor()", this method cannot conclude when
+        the operator is reducible. The advantadge of this method is the speed.
+
+        The termination of this method is currently not garanteed if the
+        operator is not Fuchsian.
+
+        INPUT:
+         -- ``verbose``  -- boolean (optional, default: False) - if set to True,
+                            this method prints some messages about the progress
+                            of the computation.
+         -- ``prec``     -- integer (optional, default: None)
+         -- ``max_prec`` -- integer (optional, default: 100000)
+
+        OUTPUT: either ``True`` or ``None`` if the method cannot decide.
+
+        EXAMPLES::
+            sage: from ore_algebra.examples import fcc
+            sage: fcc.dop4.is_irreducible()
+            True
+        """
+        from .analytic.factorization import is_irreducible
+        return is_irreducible(self, verbose=verbose, prec=prec, max_prec=max_prec)
+
+    def is_minimal(self, initial_conditions, verbose=False, prec=None, max_prec=100000):
+        r"""
+        Return either ``True`` if the minimality of ``dop`` (for the function
+        given by ``initial_conditions``) can be certified from the monodromy
+        matrices (at a limited working precision), or ``None`` otherwise.
+
+        The initial conditions are the coefficients of the monomials returned
+        by "local_basis_monomials(0)". If 0 is an ordinary point, it is simply
+        [f(0), f'(0), f''(0)/2, ..., f^{(r-1)}(0)/(r-1)!].
+
+        The termination of this method is currently not garanteed if the
+        operator is not Fuchsian.
+
+        INPUT:
+         -- ``initial_conditions`` -- list of complex numbers
+         -- ``verbose``            -- boolean (optional, default: False) - if set to
+                                      True, this function prints some messages about
+                                      the progress of the computation.
+         -- ``prec``               -- integer (optional, default: None)
+         -- ``max_prec``           -- integer (optional, default: 100000)
+
+        OUTPUT: either ``True`` or ``None`` if the method cannot decide.
+
+        EXAMPLES::
+
+            sage: from ore_algebra.analytic.examples.facto import beukeurs_vlasenko_dops
+            sage: dop = beukeurs_vlasenko_dops[1]; dop
+            (16*z^3 - z)*Dz^2 + (48*z^2 - 1)*Dz + 16*z
+            sage: dop.is_minimal([0,1])
+            True
+        """
+        from .analytic.factorization import is_minimal
+        return is_minimal(self, initial_conditions, verbose=verbose, prec=prec, max_prec=max_prec)
 
 #############################################################################################################
 
