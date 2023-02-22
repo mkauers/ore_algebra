@@ -48,71 +48,6 @@ from sympy.core.numbers import oo
 
 Radii = RealField(30)
 
-MonoData = collections.namedtuple("MonoData", ["precision", "matrices", "points", "loss"])
-
-class LinearDifferentialOperator(PlainDifferentialOperator):
-
-    r"""
-    A subclass of linear differential operators for internal use.
-    Assumptions: polynomial coefficients and 0 is an ordinary point.
-    """
-
-    def __init__(self, dop):
-
-        if not dop:
-            raise ValueError("operator must be nonzero")
-        if not dop.parent().is_D():
-            raise ValueError("expected an operator in K(x)[D]")
-        _, _, _, dop = dop.numerator()._normalize_base_ring()
-        den = lcm(c.denominator() for c in dop)
-        dop *= den
-        super(LinearDifferentialOperator, self).__init__(dop)
-
-        self.order_of_truncation = max(100, 2*self.degree() + self.order())
-        self.algebraicity_degree = self.base_ring().base_ring().degree()
-        self.precision = 100 #100*self.algebraicity_degree
-
-        self.monodromy_data = MonoData(0, [], None, 0)
-
-
-    def monodromy(self, precision, verbose=False):
-
-        r"""
-        Compute a generating set of matrices for the monodromy group of ``self``
-        at 0, such that the (customized) precision of each coefficient is at
-        least equal to ``precision``.
-        """
-
-        if verbose: print("Monodromy computation with wanted precision = " + str(precision) + ".")
-        if self.monodromy_data.precision<precision:
-            success, increment, loss = False, 50, self.monodromy_data.loss
-            if self.monodromy_data.points==None:
-                useful_singularities = LinearDifferentialOperator(self.desingularize())._singularities(QQbar)
-            else:
-                useful_singularities = self.monodromy_data.points
-            while not success:
-                try:
-                    p = precision + loss + increment
-                    if verbose: print("Try with precision = " + str(p) + ".")
-                    it = _monodromy_matrices(self, 0, eps=Radii.one()>>p, sing=useful_singularities)
-                    points, matrices = [], []
-                    for pt, mat, is_scalar in it:
-                        if not is_scalar: matrices.append(mat); points.append(pt)
-                    output_precision = min(min([customized_accuracy(mat.list()) for mat in matrices], default=p), p)
-                    if output_precision<precision:
-                        if verbose: print("Insufficient precision, loss = " + str(p - output_precision) + ".")
-                        increment = 50 if loss==0 else increment<<1
-                    else: success=True
-                    loss = max(loss, p - output_precision)
-                except (ZeroDivisionError, PrecisionError):
-                    if verbose: print("Insufficient precision for computing monodromy.")
-                    increment = increment<<1
-            self.monodromy_data =  MonoData(output_precision, matrices, points, loss)
-
-
-########################
-### Hybrid algorithm ###
-########################
 
 def try_rational(dop):
 
@@ -161,7 +96,7 @@ def annihilator(dop, ic, order, bound, alg_degree, mono=None, verbose=False):
             rdeg = min_basis.row_degrees()
             if max(rdeg) > 1 + min(rdeg): # to avoid useless (possibly large) computation
                 i0 = min(range(len(rdeg)), key=lambda i: rdeg[i])
-                R, g = LinearDifferentialOperator(dop).extend_scalars(K.gen())
+                R, g = PlainDifferentialOperator(dop).extend_scalars(K.gen())
                 R = R.parent()(list(min_basis[i0]))
                 if dop%R==0: return R
 
@@ -281,7 +216,7 @@ def rfactor(dop, verbose=False):
     R = try_rational(dop)
     if R!=None: return R
 
-    s0, sings = QQ.zero(), LinearDifferentialOperator(dop)._singularities(QQbar)
+    s0, sings = QQ.zero(), PlainDifferentialOperator(dop)._singularities(QQbar)
     while s0 in sings: s0 = s0 + QQ.one()
     dop = dop.annihilator_of_composition(z + s0).monic()
     R = _rfactor(dop, verbose=verbose)
@@ -303,7 +238,7 @@ def rfactor_when_galois_algebra_is_trivial(dop, order, verbose=False):
     min_basis = mat.minimal_approximant_basis(max(order//r, 1))
     rdeg = min_basis.row_degrees()
     i0 = min(range(len(rdeg)), key = lambda i: rdeg[i])
-    #R, g = LinearDifferentialOperator(dop).extend_scalars(K.gen())
+    #R, g = PlainDifferentialOperator(dop).extend_scalars(K.gen())
     R = dop.parent()(list(min_basis[i0]))
     if dop%R==0: return R
 
@@ -320,7 +255,7 @@ def _rfactor(dop, order=None, bound=None, alg_degree=None, precision=None, loss=
         bound = degree_bound_for_right_factor(dop)
         if verbose: print("Degree bound for right factor", bound)
     if order==None:
-        deg_of_dop = LinearDifferentialOperator(dop).degree()
+        deg_of_dop = PlainDifferentialOperator(dop).degree()
         order = max(min( r*deg_of_dop, 100, bound*(r + 1) + 1 ), 1)
     if alg_degree==None:
         alg_degree = dop.base_ring().base_ring().degree()
@@ -394,7 +329,7 @@ def _local_exponents(dop, multiplicities=True):
 def largest_modulus_of_exponents(dop):
 
     z = dop.base_ring().gen()
-    dop = LinearDifferentialOperator(dop)
+    dop = PlainDifferentialOperator(dop)
     lc = dop.leading_coefficient()//gcd(dop.list())
 
     out = 0
@@ -409,7 +344,7 @@ def degree_bound_for_right_factor(dop):
 
     r = dop.order() - 1
     #S = len(dop.desingularize().leading_coefficient().roots(QQbar)) # trop lent (exemple QPP)
-    S = len(LinearDifferentialOperator(dop).leading_coefficient().roots(QQbar))
+    S = len(PlainDifferentialOperator(dop).leading_coefficient().roots(QQbar))
     E = largest_modulus_of_exponents(dop)
     bound = r**2*(S + 1)*E + r*S + r**2*(r - 1)*(S - 1)/2
 
@@ -559,7 +494,7 @@ def _Se(dop, e):
 
     """ map: Tz --> Tz + e """
 
-    l = _euler_representation(LinearDifferentialOperator(dop))
+    l = _euler_representation(PlainDifferentialOperator(dop))
     for i, c in enumerate(l):
         for k in range(i):
             l[k] += binomial(i, k)*e**(i - k)*c
