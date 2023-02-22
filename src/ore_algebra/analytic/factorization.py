@@ -246,51 +246,50 @@ def multiple_eigenvalue(dop, mono, order, bound, alg_degree, verbose=False):
     return "Inconclusive"
 
 
-def _factor(dop, data, verbose=False):
+def _factor(dop, verbose=False):
 
-    R, data = rfactor(dop, data, verbose)
-    if R==None: return [dop], data
+    R = rfactor(dop, verbose)
+    if R==None: return [dop]
     OA = R.parent(); OA = OA.change_ring(OA.base_ring().fraction_field())
     Q = OA(dop)//R
-    fac1, data = _factor(Q, data, verbose)
-    fac2, data = _factor(R, data, verbose)
-    return fac1 + fac2, data
+    fac1 = _factor(Q, verbose)
+    fac2 = _factor(R, verbose)
+    return fac1 + fac2
 
 
-def factor(dop, return_data=False, verbose=False):
+def factor(dop, verbose=False):
 
     r"""
     Return a list of irreductible operators [L1, L2, ..., Lr] such that L is
     equal to the composition L1.L2...Lr.
     """
 
-    data = ProfileData(0,0,1,0,0)
-    output, data = _factor(dop, data, verbose)
+    output = _factor(dop, verbose)
     K0, K1 = output[0].base_ring().base_ring(), output[-1].base_ring().base_ring()
     if K0 != K1:
         A = output[0].parent()
         output = [A(f) for f in output]
-    if return_data: return output, data
+
     return output
 
-def rfactor(dop, data, verbose=False):
+def rfactor(dop, verbose=False):
 
     r = dop.order()
-    if r<2: return None, data
+    if r<2: return None
     if verbose: print("### Try factoring an operator of order", r)
     z = dop.base_ring().gen()
     R = try_rational(dop)
-    if R!=None: return R, data
+    if R!=None: return R
 
     s0, sings = QQ.zero(), LinearDifferentialOperator(dop)._singularities(QQbar)
     while s0 in sings: s0 = s0 + QQ.one()
     dop = dop.annihilator_of_composition(z + s0).monic()
-    R, data = _rfactor(dop, data=data, verbose=verbose)
-    if R==None: return None, data
-    return R.annihilator_of_composition(z - s0), data
+    R = _rfactor(dop, verbose=verbose)
+    if R==None: return None
+    return R.annihilator_of_composition(z - s0)
 
 
-def rfactor_when_galois_algebra_is_trivial(dop, data, order, verbose=False):
+def rfactor_when_galois_algebra_is_trivial(dop, order, verbose=False):
 
     if verbose: print("Galois algebra is trivial: symbolic HP approximants method at order", order)
     K, r = dop.base_ring().base_ring(), dop.order()
@@ -306,13 +305,12 @@ def rfactor_when_galois_algebra_is_trivial(dop, data, order, verbose=False):
     i0 = min(range(len(rdeg)), key = lambda i: rdeg[i])
     #R, g = LinearDifferentialOperator(dop).extend_scalars(K.gen())
     R = dop.parent()(list(min_basis[i0]))
-    if dop%R==0: return R, data
+    if dop%R==0: return R
 
     order = order<<1
-    data = maj(data, [None, order, None, None, None])
-    return rfactor_when_galois_algebra_is_trivial(dop, data, order, verbose)
+    return rfactor_when_galois_algebra_is_trivial(dop, order, verbose)
 
-def _rfactor(dop, data, order=None, bound=None, alg_degree=None, precision=None, loss=0, verbose=False):
+def _rfactor(dop, order=None, bound=None, alg_degree=None, precision=None, loss=0, verbose=False):
     """
     Assumption: dop is monic and 0 is not singular.
     """
@@ -329,7 +327,6 @@ def _rfactor(dop, data, order=None, bound=None, alg_degree=None, precision=None,
     if precision==None:
         precision = 50*(r + 1)
 
-    data = maj(data, [precision-loss, order, alg_degree, None, None])
     if verbose:
         print("Current order of truncation", order)
         print("Current working precision", precision, "(before monodromy computation)")
@@ -361,20 +358,20 @@ def _rfactor(dop, data, order=None, bound=None, alg_degree=None, precision=None,
                         cond_nb = cond_nb.log(10).ceil()
                     except (ZeroDivisionError, PrecisionError):
                         cond_nb = oo
-                    return R, maj(data, [None, None, None, len(mono), cond_nb])
+                    return R
         if mono==[]:
-            return rfactor_when_galois_algebra_is_trivial(dop, data, order, verbose)
+            return rfactor_when_galois_algebra_is_trivial(dop, order, verbose)
 
 
     except (ZeroDivisionError, PrecisionError):
         precision += max(150, precision - loss)
         #precision = max( precision + loss, (precision<<1) - loss )
-        return _rfactor(dop, data, order, bound, alg_degree, precision, loss, verbose)
+        return _rfactor(dop, order, bound, alg_degree, precision, loss, verbose)
 
     precision += max(150, precision - loss)
     #precision = max( precision + loss, (precision<<1) - loss ) # trop violent?
     order = min( bound*(r + 1) + 1, order<<1 )
-    return _rfactor(dop, data, order, bound, alg_degree + 1, precision, loss, verbose)
+    return _rfactor(dop, order, bound, alg_degree + 1, precision, loss, verbose)
 
 
 ################################################################################
@@ -704,57 +701,3 @@ def _Se(dop, e):
 #    i = min(range(len(roots)), key = lambda i: abs(roots[i] - x.mid()))
 #
 #    return roots[i]
-
-
-
-
-################################################################################
-### Profiling #############################################################
-################################################################################
-
-ProfileData = collections.namedtuple("ProfileData", ["bit_precision", "truncation_order", \
-                                     "algebraicity_degree", "number_of_monodromy_matrices", "log_condition_number"])
-
-def maj(data, l):
-    for i, x in enumerate(l):
-        y = data[i]
-        if x==None:
-            l[i] = y
-        else:
-            l[i] = max(x, y)
-    return ProfileData(l[0], l[1], l[2], l[3], l[4])
-
-def profile_factor(dop, verbose=False):
-    fac, data = [None], [None]
-    def fun():
-        fac[0], data[0] = rfactor(dop, data=ProfileData(0,0,1,0,0), verbose=verbose)
-        return
-    with tempfile.NamedTemporaryFile() as tmp_stats:
-        cProfile.runctx('fun()', None, {'fun': fun}, tmp_stats.name)
-        s = pstats.Stats(tmp_stats.name)
-    if fac[0]==None:
-        fac[0] = [dop]
-    else:
-        fac[0] = [dop//fac[0], fac[0]]
-    key_tot = ('~', 0, '<built-in method builtins.exec>')
-    time_tot = numerical_approx(s.stats[key_tot][3], digits=3)
-    time_mono, time_hprat, time_hpalg, time_guess_coeff = [0]*4
-    for key in s.stats.keys():
-        if key[2] == '_monodromy_matrices':
-            time_mono = numerical_approx(s.stats[key][3], digits=3)
-        if key[2] == 'guess':
-            time_hprat = numerical_approx(s.stats[key][3], digits=3)
-        if key[2] == "<method 'minimal_approximant_basis' of 'sage.matrix.matrix_polynomial_dense.Matrix_polynomial_dense' objects>":
-            time_hpalg = numerical_approx(s.stats[key][3], digits=3)
-        if key[2]=='guess_symbolic_coefficients':
-            time_guess_coeff = numerical_approx(s.stats[key][3], digits=3)
-    profile = {'time_total' : time_tot, 'time_monodromy': time_mono, \
-    'time_hermitepade': time_hprat + time_hpalg, \
-    'time_guesscoefficients': time_guess_coeff, \
-    'bit_precision': data[0].bit_precision,\
-    'truncation_order': data[0].truncation_order,\
-    'algebraicity_degree': data[0].algebraicity_degree,\
-    'number_of_monodromy_matrices': data[0].number_of_monodromy_matrices,\
-    'log_condition_number': data[0].log_condition_number
-    }
-    return fac[0], profile
