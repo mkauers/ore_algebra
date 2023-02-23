@@ -2130,6 +2130,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         ALGORITHM:
 
         Seminumeric algorithm as described in:
+        
         - Around the Numeric-Symbolic Computation of Differential Galois Groups,
           van der Hoeven, 2007
         - Symbolic-Numeric Factorization of Differential Operators, Chyzak,
@@ -2257,7 +2258,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
 
         - ``True`` if the method could verify that the operator is irreducible
         - ``False`` if it reached the precision limit without being able to
-        conclude
+          conclude
 
         EXAMPLES::
 
@@ -2294,7 +2295,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
 
         - ``True`` if the method could verify minimality
         - ``False`` if it reached the precision limit without being able to
-        conclude
+          conclude
 
         EXAMPLES::
 
