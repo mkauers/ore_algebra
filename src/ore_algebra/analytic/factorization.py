@@ -507,8 +507,8 @@ def is_minimal(dop, initial_conditions, verbose=False, prec=None, max_prec=10000
     EXAMPLES::
 
         sage: from ore_algebra.analytic.factorization import is_minimal
-        sage: from ore_algebra.analytic.examples.facto import beukeurs_vlasenko_dops
-        sage: dop = beukeurs_vlasenko_dops[1]; dop
+        sage: from ore_algebra.analytic.examples.facto import beukers_vlasenko_dops
+        sage: dop = beukers_vlasenko_dops[1]; dop
         (16*z^3 - z)*Dz^2 + (48*z^2 - 1)*Dz + 16*z
         sage: is_minimal(dop, [0,1])
         True
