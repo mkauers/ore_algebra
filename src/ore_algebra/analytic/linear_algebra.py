@@ -41,7 +41,7 @@ def row_echelon_form(mat, *, transformation=False, pivots=False, prec_pivots={})
     r"""
     Return a row echelon form of ``mat``.
 
-    Note: this function is designed for BallField as base ring.
+    This function is designed for BallField as base ring.
 
     The computed row echelon form is semi-reduced: the pivots are set to 1 and
     the coefficients below the pivots are set to 0 but the coefficients above
@@ -60,22 +60,25 @@ def row_echelon_form(mat, *, transformation=False, pivots=False, prec_pivots={})
     Assumption: for p=prec_pivots, the len(p) first rows of mat satisfy i).
 
     INPUT:
-     -- ``mat``            -- m×n matrix
-     -- ``transformation`` -- boolean (optional, default: False)
-     -- ``pivots``         -- boolean (optional, default: False)
-     -- ``prec_pivots``    -- dictionary (optional, default: {})
+
+    - ``mat`` -- m×n matrix
+    - ``transformation`` -- boolean (optional, default: False)
+    - ``pivots`` -- boolean (optional, default: False)
+    - ``prec_pivots`` -- dictionary (optional, default: {})
 
 
     OUTPUT:
-     -- ``R`` -- m×n matrix
-     -- ``T`` -- m×m matrix (if 'transformation=True' is specified)
-     -- ``p`` -- dictionary (if 'pivots=True' is specified)
+
+    - ``R`` -- m×n matrix
+    - ``T`` -- m×m matrix (if 'transformation=True' is specified)
+    - ``p`` -- dictionary (if 'pivots=True' is specified)
 
     The keys of the dictionary ``p`` are the indices of the columns which contain
     a pivot and p[j] is the corresponding row index.
 
     EXAMPLES:
     An example with a generic 3×3 matrix. ::
+
         sage: from ore_algebra.analytic.linear_algebra import row_echelon_form
         sage: mat = matrix(RealBallField(20), 3, 3, [8.16,56.6,-17,5.11,-4.5,-7,89.2,66,-44.4]); mat
         [ [8.1600...]  [56.600...]            -17.0000]
@@ -93,6 +96,7 @@ def row_echelon_form(mat, *, transformation=False, pivots=False, prec_pivots={})
         {0: 0, 1: 1, 2: 2}
 
     An example with a singular 3×3 matrix. ::
+
         sage: from ore_algebra.analytic.linear_algebra import row_echelon_form
         sage: mat = matrix(RealBallField(20), 3, 3, [i/pi for i in [1,2..9]]); mat
         [[0.3183...] [0.6366...] [0.9549...]]
@@ -110,6 +114,7 @@ def row_echelon_form(mat, *, transformation=False, pivots=False, prec_pivots={})
         {0: 0, 1: 1}
 
     An example with a generic 2×3 matrix. ::
+
         sage: from ore_algebra.analytic.linear_algebra import row_echelon_form
         sage: mat = matrix(RealBallField(20), 2, 3, [8.16,56.6,-17,5.11,-4.5,-7]); mat
         [ [8.1600...]  [56.600...]            -17.0000]
@@ -122,6 +127,7 @@ def row_echelon_form(mat, *, transformation=False, pivots=False, prec_pivots={})
         [         [+/- ...]   [1.000...] [-0.0912...]]
 
     An example with a generic 3×2 matrix. ::
+
         sage: from ore_algebra.analytic.linear_algebra import row_echelon_form
         sage: mat = matrix(RealBallField(20), 3, 2, [8.16,56.6,-17,5.11,-4.5,-7]); mat
         [ [8.1600...]  [56.600...]]
@@ -183,7 +189,7 @@ def orbit(Mats, vec, *, transition=False, pivots=False):
     Return a basis of the smallest subspace containing ``vec`` and invariant under
     (the action of) the matrices of ``Mats``.
 
-    Note: this function is designed for BallField as base ring.
+    This function is designed for BallField as base ring.
 
     Some words about the correction of this function:
     Let (b, T) be the output for orbit(Mats, vec, transition=True). For any
@@ -205,20 +211,23 @@ def orbit(Mats, vec, *, transition=False, pivots=False):
     space.
 
     INPUT:
-     -- ``Mats``       -- list of n×n matrices
-     -- ``vec``        -- vector of size n
-     -- ``transition`` -- boolean (optional, default: False)
-     -- ``pivots``     -- boolean (optional, default: False)
+
+    - ``Mats`` -- list of n×n matrices
+    - ``vec`` -- vector of size n
+    - ``transition`` -- boolean (optional, default: False)
+    - ``pivots`` -- boolean (optional, default: False)
 
     OUTPUT:
-     -- ``b`` -- list of vectors of size n
-     -- ``T`` -- list of n×n matrix (if 'transition=True' is specified)
-     -- ``p`` -- dictionary (if 'pivots=True' is specified)
+
+    - ``b`` -- list of vectors of size n
+    - ``T`` -- list of n×n matrix (if 'transition=True' is specified)
+    - ``p`` -- dictionary (if 'pivots=True' is specified)
 
 
     EXAMPLES:
 
     An example with one matrix. ::
+
         sage: from ore_algebra.analytic.linear_algebra import orbit
         sage: mat = matrix(RBF, [[1, 1, 0], [0, 1, 1], [0, 0, 1]])
         sage: u, v, w = list(identity_matrix(RBF, 3))
@@ -235,6 +244,7 @@ def orbit(Mats, vec, *, transition=False, pivots=False):
          ([+/- ...], [1.00000000...], [1.48648648...]))
 
     An example with two matrices. ::
+
         sage: from ore_algebra.analytic.linear_algebra import orbit
         sage: mat1 = matrix(CBF, [[0, 0, 1], [0, 0, 0], [0, 0, 0]])
         sage: mat2 = matrix(CBF, [[0, 0, 0], [0, 0, 1], [0, 0, 0]])
@@ -289,7 +299,7 @@ def generated_algebra(Mats, transformation=False):
     r"""
     Return a basis of the unitary algebra generated by the matrices of ``Mats``.
 
-    Note: this function is designed for BallField as base ring.
+    This function is designed for BallField as base ring.
     Let b be the output for generated_algebra(Mats). For any selection
     [mat1·, ..., matk·] in Mats = [mat1, ..., matk], there is a selection
     [b1·, ..., bs·] in b = [b1, ..., bs] such that:
@@ -306,10 +316,12 @@ def generated_algebra(Mats, transformation=False):
     mat1·, ..., matk· generate the entire algebra of matrices.
 
     INPUT:
-     -- ``Mats`` -- list of n×n matrices
+
+    - ``Mats`` -- list of n×n matrices
 
     OUTPUT:
-     -- ``b`` -- list of n×n matrices
+
+    - ``b`` -- list of n×n matrices
 
     EXAMPLES::
 
@@ -355,7 +367,7 @@ def ker(mat):
     r"""
     Return a basis of the right kernel of ``mat``.
 
-    Note: this function is designed for BallField as base ring.
+    This function is designed for BallField as base ring.
 
     Some words about the correction of this function:
     Let b be the output for ker(mat). For any mat· in mat, there are b· in b
@@ -366,12 +378,15 @@ def ker(mat):
     is raised and the inclusion is an equality.
 
     INPUT:
-     -- ``mat`` -- m×n matrix
+
+    - ``mat`` -- m×n matrix
 
     OUTPUT:
-     -- ``b`` -- list of vectors of size n
+
+    - ``b`` -- list of vectors of size n
 
     EXAMPLES::
+
         sage: from ore_algebra.analytic.linear_algebra import ker
         sage: mat = matrix(QQ, 3, 3, [-6, -12, -6, 3, 6, 3, 1, 2, 1]) # such that dim(ker)=2
         sage: ran = matrix(CBF, 3, 3, [8.16,56.6,-17,5.11,-4.5,-7,89.2,66,-44.4])
@@ -397,11 +412,13 @@ def intersection(K1, K2):
     This function is designed for ComplexBall elements (optimistic arithmetic).
 
     INPUT:
-     -- ``K1`` -- list of vectors
-     -- ``K2`` -- list of vectors
+
+    - ``K1`` -- list of vectors
+    - ``K2`` -- list of vectors
 
     OUTPUT:
-     -- ``K`` -- list of vectors
+
+    - ``K`` -- list of vectors
     """
     K = ker(matrix(K1 + K2).transpose())
     K = [sum(v[i]*K1[i] for i in range(len(K1))) for v in K]
@@ -419,20 +436,23 @@ def GCD(a, b):
     r"""
     Return a *non-rigorous* gcd of the polynomials ``a`` and ``b``.
 
-    Note: this function is designed for BallField as base ring.
+    This function is designed for BallField as base ring.
 
     Some words about the correction of this function:
     Let a· and b· be fixed. If a and b are precise enough, GCD(a, b) contains
     the gcd of a· and b·.
 
     INPUT:
-     -- ``a`` -- polynomial
-     -- ``b`` -- polynomial
+
+    - ``a`` -- polynomial
+    - ``b`` -- polynomial
 
     OUTPUT:
-     -- ``a`` -- polynomial
+
+    - ``a`` -- polynomial
 
     EXAMPLES::
+
         sage: from ore_algebra.analytic.linear_algebra import GCD
         sage: P.<x> = CBF[]; a = CBF(pi)
         sage: p, q = (x-1)*(x-2)**2, (x-2)*(x-3)**2
@@ -459,18 +479,21 @@ def XGCD(a, b):
     Return a *non-rigorous* monic gcd of the polynomials ``a`` and ``b`` and the
     coefficients in the Bezout identity.
 
-    Note: this function is designed for BallField as base ring.
+    This function is designed for BallField as base ring.
 
     INPUT:
-     -- ``a`` -- polynomial
-     -- ``b`` -- polynomial
+
+    - ``a`` -- polynomial
+    - ``b`` -- polynomial
 
     OUTPUT:
-     -- ``d`` -- polynomial
-     -- ``u`` -- polynomial
-     -- ``v`` -- polynomial
+
+    - ``d`` -- polynomial
+    - ``u`` -- polynomial
+    - ``v`` -- polynomial
 
     EXAMPLES::
+
         sage: from ore_algebra.analytic.linear_algebra import XGCD, _clean
         sage: P.<x> = CBF[]; a = CBF(pi)
         sage: p, q = (x-1)*(x-2)**2, (x-2)*(x-3)**2
@@ -507,19 +530,22 @@ def squarefree_part(pol):
     r"""
     Return a *non-rigorous* squarefree part of the polynomial ``pol``.
 
-    Note: this function is designed for BallField as base ring.
+    This function is designed for BallField as base ring.
 
     Some words about the correction of this function:
     Let pol· be fixed. If pol is precise enough, squarefree_part(pol) contains
     the squarefree part of pol·.
 
     INPUT:
-     -- ``pol`` -- polynomial
+
+    - ``pol`` -- polynomial
 
     OUTPUT:
-     -- ``sfp`` -- polynomial
+
+    - ``sfp`` -- polynomial
 
     EXAMPLES::
+
         sage: from ore_algebra.analytic.linear_algebra import squarefree_part
         sage: P.<x> = CBF[]; a = CBF(pi)
         sage: p = (x-1)*(x-2)**2
@@ -545,20 +571,22 @@ def roots(pol, *, multiplicities=False):
     r"""
     Return the roots of the polynomial ``pol``.
 
-    Note: this function is designed for CBF or COF as base ring.
+    This function is designed for CBF or COF as base ring.
 
     Some words about the correction of this algorithm:
 
     INPUT:
-     -- ``mat``            -- n×n matrix
-     -- ``multiplicities`` -- boolean
+
+    - ``mat`` -- n×n matrix
+    - ``multiplicities`` -- boolean
 
     OUTPUT: a list of complex numbers
 
-    If `multiplicities=True` is specified, ``s`` is a list of couples (r, m) with
-    r a complex number and m a positive integer.
+    If multiplicities=``True`` is specified, ``s`` is a list of couples (r, m)
+    with r a complex number and m a positive integer.
 
     EXAMPLES::
+
         sage: from ore_algebra.analytic.linear_algebra import roots
         sage: P.<x> = CBF[]; a = CBF(pi)
         sage: p = (x-1)*(x-2)**2; p = p(x*a).monic()
@@ -597,11 +625,11 @@ def roots(pol, *, multiplicities=False):
 
 def eigenvalues(mat, multiplicities=False):
     r"""
-    Return the eigenvalues of \\mat``.
+    Return the eigenvalues of ``mat``.
 
-    Note: this function is designed for ComplexBallField as base ring.
+    This function is designed for ComplexBallField as base ring.
 
-    See function `roots` of polynomials module for more details.
+    See the function :fun:`roots` for more details.
     """
     eigvals = roots(mat.charpoly(algorithm="df"), multiplicities=multiplicities)
 
@@ -611,11 +639,11 @@ def gen_eigenspaces(mat, *, projections=False):
     r"""
     Return the generalized eigenspaces of ``mat``.
 
-    Note: this function is designed for ComplexBallField as base ring.
+    This function is designed for ComplexBallField as base ring.
 
     Some words about the correction of this algorithm:
     Let GenEigSpaces be the output for gen_eigenspaces(mat, projections=True).
-    For any mat· in mat, there is a selection [space1·, ..., spacek·] in
+    For any mat· in ``mat``, there is a selection [space1·, ..., spacek·] in
     GenEigSpaces=[space1, ..., spacek] where each spacei· is a selection
     {'eigenvalue' : li·, 'multiplicity' : mi, 'eigenvectors' : bi·,
     'projection' : pi·} in spacei, such that:
@@ -623,16 +651,18 @@ def gen_eigenspaces(mat, *, projections=False):
     ii) the li· are pairwise disjoints,
     iii) the sum of the mi is equal to the dimension,
     iv) for each i, bi· is a list of mi linearly independent vectors.
-    Reversely, let mat· be fixed. If mat is precise enough, no PrecisionError
-    is raised and the spaces in gen_eigspaces(mat) correspond to the generalized
-    eigenspaces of mat one-to-one.
+    Reversely, let mat· be fixed. If ``mat`` is precise enough, no
+    ``PrecisionError`` is raised and the spaces in gen_eigspaces(``mat``)
+    correspond to the generalized eigenspaces of mat· one-to-one.
 
     INPUT:
-     -- ``mat``         -- n×n matrix
-     -- ``projections`` -- boolean
+
+    - ``mat`` -- n×n matrix
+    - ``projections`` -- boolean
 
     OUTPUT:
-     -- ``GenEigSpaces`` -- list of dictionary
+
+    - ``GenEigSpaces`` -- list of dictionary
 
     Each dictionary of ``GenEigSpaces`` represents a generalized eigenspace of
     ``mat``, whose keys are the following strings:
@@ -642,7 +672,9 @@ def gen_eigenspaces(mat, *, projections=False):
      - 'projection'   : polynomial (if 'projections=True' is specified).
 
     EXAMPLES:
-    A generic example ::
+    
+    A generic example::
+
         sage: from ore_algebra.analytic.linear_algebra import gen_eigenspaces
         sage: mat = matrix(CBF, 3, 3, [8.16,56.6,-17,5.11,-4.5,-7,89.2,66,-44.4])
         sage: gen_eigenspaces(mat)
@@ -656,7 +688,8 @@ def gen_eigenspaces(mat, *, projections=False):
               'eigenvalue': [-7.0601226389...] + [-32.6224953430...]*I,
               'multiplicity': 1}]
 
-    An example with a multiple eigenvalue ::
+    An example with a multiple eigenvalue::
+
         sage: from ore_algebra.analytic.linear_algebra import gen_eigenspaces
         sage: r2, r3 = CBF(sqrt(2)), CBF(sqrt(3))
         sage: mat = jordan_block(r2, 2).block_sum(matrix([r3]))
@@ -824,22 +857,25 @@ class Splitting():
 def invariant_subspace(Mats, *, verbose=False):
     r"""
     Return either a nontrivial subspace invariant under the action of the
-    matrices of ``Mats`` or None if there is none.
+    matrices of ``Mats`` or ``None`` if there is none.
 
-    Note: this function is designed for BallField as base ring.
+    This function is designed for BallField as base ring.
 
-    Note: only the output None is rigorous, in the following sense. If
-    invariant_subspace(Mats) is None than for any [M1·, ..., Mr·] in
+    Only the output ``None`` is rigorous, in the following sense. If
+    invariant_subspace(Mats) is ``None`` than for any [M1·, ..., Mr·] in
     Mats=[M1, ..., Mr], there is no nontrivial subpace invariant under the
     action of M1·, ..., Mr·.
 
     INPUT:
-     -- ``Mats`` -- list of n×n matrices
+
+    - ``Mats`` -- list of n×n matrices
 
     OUTPUT:
-     -- ``V`` -- list of vectors of size n or None
+
+    - ``V`` -- list of vectors of size n or ``None``
 
     EXAMPLES::
+
         sage: from ore_algebra.analytic.linear_algebra import invariant_subspace
         sage: mat1 = matrix(CBF, [[1, 1], [1, 1]])
         sage: mat2 = matrix(CBF, [[3, -1], [0 , 2]])
@@ -930,19 +966,22 @@ def _derivatives(f, m):
 
 def accuracy(x):
     """
-    Return either the absolute accuracy of x if x contains 0 or the relative
-    accuracy of x if x does not contains 0.
+    Return either the absolute accuracy of ``x`` if ``x`` contains 0 or the
+    relative accuracy of ``x`` if ``x`` does not contains 0.
 
-    Note that this function works also if x is a vector, a matrix, a polynomial
-    or a list (minimum of the accuracies of the coefficients).
+    Note that this function works also if ``x`` is a vector, a matrix, a
+    polynomial or a list (minimum of the accuracies of the coefficients).
 
     INPUT:
-     - 'x' - a complex ball objet
+
+     - 'x' -- a complex ball objet
 
     OUTPUT:
-     - 'acc' - a nonnegative integer
+
+     - 'acc' -- a nonnegative integer
 
     EXAMPLES::
+    
         sage: from ore_algebra.analytic.linear_algebra import accuracy
         sage: a = ComplexBallField().one()
         sage: a.accuracy(), accuracy(a)
@@ -988,44 +1027,3 @@ def intersect_eigenvectors(K, mat):
         raise PrecisionError('this matrix seems to have several eigenvalues')
     K = K.intersection((mat-eigvals[0]*(mat.parent().one())).right_kernel())
     return K
-
-def _commutation_problem_as_linear_system(mat):
-    r"""
-    Compute S such that (x_{i,j})*mat = mat*(x_{i,j}) iff the vector
-    (x_{1,1}, x_{1,2}, ..., x_{n,n}) belongs to the right kernel of S.
-    """
-    n, matT = mat.nrows(), mat.transpose()
-    S = block_diagonal_matrix([matT]*n)
-    for i in range(n):
-        li, l = list(mat[i]), []
-        for k in range(n):
-            l.extend([li[k]] + [0]*(n-1))
-        for j in range(n):
-            S[n*i + j] = [m - l[k] for k, m in enumerate(S[n*i + j])]
-            l = [0] + l[:-1]
-
-    return S
-
-def centralizer(alg):
-    r"""
-    Return the centralizer of the algebra generated by ``alg``.
-    This function is designed for ComplexBall entries (optimistic arithmetic).
-
-    INPUT:
-     -- ``alg`` -- list of matrices
-
-    OUTPUT:
-     -- ``C`` -- list of matrices
-    """
-    mat = alg[0]; n = mat.nrows()
-
-    S = _commutation_problem_as_linear_system(mat)
-    K = list(row_echelon_form(matrix(ker(S))))
-
-    for mat in alg[1:]:
-        S = _commutation_problem_as_linear_system(mat)
-        K = intersection(K, ker(S))
-
-    C = [matrix(n, n, v) for v in K]
-
-    return C
