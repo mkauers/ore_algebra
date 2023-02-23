@@ -405,7 +405,7 @@ def right_factor(dop, verbose=False):
         return R
 
     if verbose:
-        print("### Try factoring an operator of order", r)
+        print("### Trying to factor an operator of order", r)
 
     s0, sings = QQ.zero(), DifferentialOperator(dop)._singularities(QQbar)
     while s0 in sings:
@@ -549,7 +549,7 @@ def right_factor_via_monodromy(dop, order=None, bound=None, alg_degree=None, pre
     if bound is None:
         bound = _degree_bound_for_right_factor(dop)
         if verbose:
-            print("Degree bound for right factor", bound)
+            print("Degree bound for right factor =", bound)
 
     if order is None:
         deg_of_dop = DifferentialOperator(dop).degree()
@@ -560,10 +560,10 @@ def right_factor_via_monodromy(dop, order=None, bound=None, alg_degree=None, pre
         precision = 50*(r + 1)
 
     if verbose:
-        print("Current order of truncation", order)
-        print("Current working precision", precision, "(before monodromy computation)")
-        print("Current algebraic degree", alg_degree)
-        print("Start computing monodromy matrices")
+        print("Current order of truncation =", order)
+        print("Current working precision =", precision, "(before monodromy computation)")
+        print("Current algebraic degree =", alg_degree)
+        print("Starting to compute the monodromy matrices")
 
     try:
         mono, it = [], _monodromy_matrices(dop, 0, eps=Radii.one()>>precision)
@@ -577,17 +577,17 @@ def right_factor_via_monodromy(dop, order=None, bound=None, alg_degree=None, pre
                 mono.append(mat)
                 if verbose:
                     print(len(mono), "matrices computed")
-                conclusive_method = "One_Dimensional"
+                conclusive_method ="One_Dimensional"
                 R = one_dimensional_eigenspaces(dop, mono, order, bound, alg_degree, verbose)
-                if R == "NotGoodConditions":
-                    conclusive_method = "Simple_Eigenvalue"
+                if R =="NotGoodConditions":
+                    conclusive_method ="Simple_Eigenvalue"
                     R = simple_eigenvalue(dop, mono, order, bound, alg_degree, verbose)
-                    if R == "NotGoodConditions":
-                        conclusive_method = "Multiple_Eigenvalue"
+                    if R =="NotGoodConditions":
+                        conclusive_method ="Multiple_Eigenvalue"
                         R = multiple_eigenvalue(dop, mono, order, bound, alg_degree, verbose)
-                if R != "Inconclusive":
+                if R !="Inconclusive":
                     if verbose:
-                        print("Conclude with " + conclusive_method + " method")
+                        print("Concluded with " + conclusive_method + " method")
                     try:
                         cond_nb = max([_frobenius_norm(m)*_frobenius_norm(~m) for m in mono])
                         cond_nb = cond_nb.log(10).ceil()
@@ -656,7 +656,7 @@ def one_dimensional_eigenspaces(dop, mono, order, bound, alg_degree, verbose=Fal
             goodconditions = False
             break
         R = annihilator(dop, eigspace[0], order, bound, alg_degree, mono, verbose)
-        if R == "Inconclusive":
+        if R =="Inconclusive":
             conclusive = False
         if R != dop:
             return R
@@ -682,7 +682,7 @@ def simple_eigenvalue(dop, mono, order, bound, alg_degree, verbose=False):
             goodconditions = True
             ic = space['basis'][0]
             R = annihilator(dop, ic, order, bound, alg_degree, mono, verbose)
-            if R != "Inconclusive" and R!=dop:
+            if R !="Inconclusive" and R!=dop:
                 return R
             adj_dop = myadjoint(dop)
             Q = _transition_matrix_for_adjoint(dop)
@@ -696,7 +696,7 @@ def simple_eigenvalue(dop, mono, order, bound, alg_degree, verbose=False):
             adj_ic = eigspace[0]
             adj_Q = annihilator(adj_dop, adj_ic, order, bound, alg_degree, adj_mono, verbose)
             # the bound could have to be changed
-            if adj_Q != "Inconclusive" and adj_Q != adj_dop:
+            if adj_Q !="Inconclusive" and adj_Q != adj_dop:
                 return myadjoint(adj_dop//adj_Q)
             if R == dop and adj_Q == adj_dop:
                 return None
@@ -714,7 +714,7 @@ def multiple_eigenvalue(dop, mono, order, bound, alg_degree, verbose=False):
     if invspace is None:
         return None
     R = annihilator(dop, invspace[0], order, bound, alg_degree, mono, verbose)
-    if R != "Inconclusive" and R.order() < r:
+    if R !="Inconclusive" and R.order() < r:
         return R
     return "Inconclusive"
 
@@ -734,7 +734,7 @@ def annihilator(dop, ic, order, bound, alg_degree, mono=None, verbose=False):
         ic = _reduced_row_echelon_form(matrix(orb))[0]
 
     symb_ic, K = _guess_symbolic_coefficients(ic, alg_degree, verbose=verbose)
-    if symb_ic != "NothingFound":
+    if symb_ic !="NothingFound":
         if base_field != QQ and K != QQ:
             K = K.composite_fields(base_field)[0]
             symb_ic = [K(x) for x in symb_ic]
@@ -754,7 +754,7 @@ def annihilator(dop, ic, order, bound, alg_degree, mono=None, verbose=False):
             der = [ f.truncate() ]
             for k in range(d): der.append( der[-1].derivative() )
             mat = matrix(d + 1, 1, der)
-            if verbose: print("Try guessing annihilator with HP approximants")
+            if verbose: print("Trying to guess an annihilator with HP approximants")
             min_basis = mat.minimal_approximant_basis(order)
             rdeg = min_basis.row_degrees()
             if max(rdeg) > 1 + min(rdeg):
@@ -902,7 +902,7 @@ def _guess_symbolic_coefficients(vec, alg_degree, verbose=False):
          Number Field in a with defining polynomial y^2 - 2 with a = 1.414213562373095?)
     """
     if verbose:
-        print("Try guessing symbolic coefficients")
+        print("Trying to guess symbolic coefficients")
 
     # fast attempt that working well if rational
     v1, v2 = [], []
@@ -914,7 +914,7 @@ def _guess_symbolic_coefficients(vec, alg_degree, verbose=False):
         v2.append(x.nearby_rational(max_error=x.parent()(err2)))
     if len(v1) == len(vec) and v1 == v2:
         if verbose:
-            print("Find rational coefficients")
+            print("Found rational coefficients")
         return v1, QQ
 
     p = customized_accuracy(vec)
@@ -935,7 +935,7 @@ def _guess_symbolic_coefficients(vec, alg_degree, verbose=False):
             if not all(symb_vec[i] in x for i, x in enumerate(vec)):
                 return "NothingFound", None
             if verbose:
-                print("Find algebraic coefficients in a number field of degree", K.degree())
+                print("Found algebraic coefficients in a number field of degree", K.degree())
             return symb_vec, K
 
     return "NothingFound", None
