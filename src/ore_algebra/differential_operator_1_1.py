@@ -2277,7 +2277,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         The initial conditions are the coefficients of the monomials returned
         by ``self.local_basis_monomials(0)`` (see :meth:`local_basis_monomials`).
         If 0 is an ordinary point, this is simply
-        `[f(0), f'(0), f''(0)/2, ..., f^{(r-1)}(0)/(r-1)!]`.
+        :math:`[f(0), f'(0), f''(0)/2, ..., f^{(r-1)}(0)/(r-1)!]`.
 
         If the operator is Fuchsian and minimal for the given solution then this
         method succeeds to prove the minimality when the precision is large
