@@ -1,7 +1,7 @@
 # -*- coding: utf-8 - vim: tw=80
 """
-A version of ComplexBallField with an optimistic zero test (b==0 as soon as b
-contains 0)
+A version of ``ComplexBallField`` with an optimistic zero test
+(``b==0`` as soon as ``b`` contains 0)
 """
 
 # Copyright 2021 Marc Mezzarobba, ?
