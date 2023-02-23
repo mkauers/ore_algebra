@@ -2252,7 +2252,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         OUTPUT:
 
         - ``True`` if the method could verify that the operator is irreducible
-        - ``None`` if it reached the precision limit without being able to
+        - ``False`` if it reached the precision limit without being able to
         conclude
 
         EXAMPLES::
