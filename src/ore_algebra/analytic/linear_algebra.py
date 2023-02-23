@@ -168,7 +168,7 @@ def row_echelon_form(mat, *, transformation=False, pivots=False, prec_pivots={})
 
     if transformation:
         if T.det().contains_zero():
-            raise PrecisionError("Cannot compute an invertible matrix.")
+            raise PrecisionError("transformation matrix is not invertible")
         if pivots:
             return R, T, p
         else:
@@ -250,7 +250,7 @@ def orbit(Mats, vec, *, transition=False, pivots=False):
     if transition:
         T = [S[0,0]*identity_matrix(C, n)]
 
-    if len(p) == 0: # case where vec contains the null vector
+    if len(p) == 0: # case where vec contains the zero vector
         if transition:
             return [], []
         else:
@@ -264,7 +264,7 @@ def orbit(Mats, vec, *, transition=False, pivots=False):
             T.extend([mat*T[i] for mat in Mats for i in new])
 
         if transition:
-            b, S, p = row_echelon_form(b, transformation=True, pivots=True, prec_pivots = p)
+            b, S, p = row_echelon_form(b, transformation=True, pivots=True, prec_pivots=p)
         else:
             b, p = row_echelon_form(b, pivots=True, prec_pivots = p)
 
@@ -323,7 +323,7 @@ def generated_algebra(Mats, transformation=False):
         4
     """
     mat = Mats[0]
-    n, C = mat.nrows(), mat.base_ring()
+    n, _ = mat.nrows(), mat.base_ring()
 
     if transformation:
         b, T, p = row_echelon_form(matrix([mat.list() for mat in Mats]), transformation=True, pivots=True)
@@ -386,7 +386,7 @@ def ker(mat):
         (([+/- ...], [+/- ...], [+/- ...]),
          ([+/- ...], [+/- ...], [+/- ...]))
     """
-    R, T, p = row_echelon_form(mat.transpose(), transformation=True, pivots=True)
+    _, T, p = row_echelon_form(mat.transpose(), transformation=True, pivots=True)
     b = list(T[len(p):])
 
     return b
@@ -537,7 +537,7 @@ def squarefree_part(pol):
     sfp = _clean(pol.quo_rem(d)[0])
 
     if sfp == 0:
-        raise PrecisionError("Cannot compute the squarefree part of this polynomial.")
+        raise PrecisionError("cannot compute the squarefree part of this polynomial")
 
     return sfp
 
@@ -574,7 +574,7 @@ def roots(pol, *, multiplicities=False):
         res = squarefree_part(pol).roots(multiplicities=False)
         res = [K(r) for r in res]
     except ValueError:
-        raise PrecisionError("Cannot compute the roots of this polynomial.") from None
+        raise PrecisionError("cannot compute the roots of this polynomial")
 
     if not multiplicities: return res
 
@@ -586,7 +586,7 @@ def roots(pol, *, multiplicities=False):
         res[j] = (ev, m)
 
     if sum(m for _, m in res) < n:
-        raise PrecisionError("Cannot compute multiplicities.")
+        raise PrecisionError("cannot compute multiplicities")
 
     return res
 
@@ -686,14 +686,14 @@ def gen_eigenspaces(mat, *, projections=False):
         k = len(s)
         P = [(x - ev)**m for ev, m in s]
         Q = [Pol(prod(P[j] for j in range(k) if j != i)) for i in range(k)]
-        d, u1, u2 = XGCD(Pol(Q[0]), Pol(sum(Q[1:])))
+        _, u1, u2 = XGCD(Pol(Q[0]), Pol(sum(Q[1:])))
         proj = [u*q for u, q in zip([u1] + [u2]*(k - 1), Q)]
 
     GenEigSpaces = []
     for i, (ev, m) in enumerate(s):
         b = ker((mat - ev*I)**m)
         if len(b) != m:
-            raise PrecisionError("Cannot compute a basis of this generalized eigenspace. ")
+            raise PrecisionError("cannot compute a basis of this generalized eigenspace")
         space = {'eigenvalue' : ev, 'multiplicity' : m, 'basis' : b}
         if projections:
             space['projection'] = proj[i]
@@ -726,20 +726,20 @@ class Splitting():
             new_dec.append(gen_eigenspaces(mat.submatrix(s, s, nj, nj), projections=True))
             s = s + nj
 
-        self.partition = [space['multiplicity'] for bloc in new_dec for space in bloc]
+        self.partition = [space['multiplicity'] for block in new_dec for space in block]
         self.projections = [p*space['projection'](mat)*p for j, p in enumerate(self.projections) for space in new_dec[j]]
 
         T = matrix()
-        for bloc in new_dec:
+        for block in new_dec:
             basis = []
-            for s in bloc:
+            for s in block:
                 basis.extend(s['basis'])
             T = T.block_sum(matrix(basis).transpose())
         self.basis = T*self.basis
         try:
             invT = ~T
         except ZeroDivisionError:
-            raise PrecisionError("Cannot compute the transition to the old basis from the new one.")
+            raise PrecisionError("cannot compute the transition to the old basis from the new one")
         self.matrices = [invT*M*T for M in self.matrices]
         self.projections = [invT*p*T for p in self.projections]
 
@@ -757,7 +757,7 @@ class Splitting():
                 vec = self.I[s] + vector([err]*self.n)
                 V = orbit(self.matrices, vec)
                 if len(V) == 0:
-                    raise PrecisionError('Projections are not precise enough.')
+                    raise PrecisionError('projections are not precise enough')
                 if len(V) < self.n:
                     T = self.basis
                     V = [T*v for v in V]
@@ -773,7 +773,7 @@ class Splitting():
         prec2 = min(prec2, accuracy(self.basis))
 
         if 2*prec2 < prec1:
-            raise PrecisionError("Losing too much precision to continue.")
+            raise PrecisionError("loosing too much precision to continue")
 
         COF = ComplexOptimisticField(prec1, eps = RealField(30).one()>>(3*prec1//8))
 
@@ -848,7 +848,7 @@ def invariant_subspace(Mats, *, verbose=False):
         True
     """
     if Mats == []:
-        raise TypeError("This function requires at least one matrix.")
+        raise ValueError("this function requires at least one matrix")
 
     n, C = Mats[0].nrows(), Mats[0].base_ring()
     if len(Mats)==1:
@@ -909,7 +909,7 @@ def _reduced_row_echelon_form(mat):
         for i in range(p[j]):
             rows[i] = rows[i] - rows[i][j]*rows[p[j]]
     return matrix(rows)
-    
+
 def _clean(pol):
 
     l = list(pol)
@@ -922,7 +922,7 @@ def _clean(pol):
 def _derivatives(f, m):
 
     result = [f]
-    for k in range(m):
+    for _ in range(m):
         f = f.derivative()
         result.append(f)
 
@@ -956,8 +956,8 @@ def accuracy(x):
     """
     if x==[]:
         return RBF.maximal_accuracy()
-    if isinstance(x, FreeModuleElement_generic_dense) or \
-    isinstance(x, Matrix_dense) or isinstance(x, Polynomial):
+    if isinstance(x, (FreeModuleElement_generic_dense, Matrix_dense,
+                      Polynomial)):
         return accuracy(x.list())
     if isinstance(x, list):
         return min(accuracy(c) for c in x)
@@ -985,7 +985,7 @@ def intersect_eigenvectors(K, mat):
 
     eigvals = eigenvalues(mat)
     if len(eigvals) > 1:
-        raise PrecisionError('This matrix seems have several eigenvalues.')
+        raise PrecisionError('this matrix seems to have several eigenvalues')
     K = K.intersection((mat-eigvals[0]*(mat.parent().one())).right_kernel())
     return K
 
