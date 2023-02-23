@@ -1241,11 +1241,6 @@ def uncouple(mat, algebra=None, extended=False, column_swaps=False, infolevel=0)
 
         r += 1
 
-        if infolevel:
-            print('nombre de lignes traitées :', r)
-            print(matrix([[op.order() for op in row] for row in mat]))
-            print(matrix([[op.degree() for op in row] for row in mat]))
-
     mat = [[A(a) for a in row] for row in mat]
 
     if extended:

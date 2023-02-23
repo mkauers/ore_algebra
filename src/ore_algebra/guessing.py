@@ -269,9 +269,6 @@ def guess(data, algebra, **kwargs):
     elif K is QQ:
         return to_A(guess(data, A.change_ring(ZZ[x]), **kwargs))
 
-    elif isinstance(K, NumberField_generic):
-        to_A(guess(data, A.change_ring(K.ring_of_integers()[x]), **kwargs))
-
     elif K.is_field():
         return to_A(guess(data, A.change_ring(K.ring()[x]), **kwargs))
 

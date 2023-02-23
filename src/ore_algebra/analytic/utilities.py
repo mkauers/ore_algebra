@@ -7,8 +7,6 @@ Miscellaneous utilities
 # Copyright 2015, 2016, 2017, 2018 Centre national de la recherche scientifique
 # Copyright 2015, 2016, 2017, 2018 Université Pierre et Marie Curie
 #
-# Copyright 2021 Alexandre Goyer, Inria Saclay Ile-de-France
-#
 # Distributed under the terms of the GNU General Public License (GPL) either
 # version 2, or (at your option) any later version
 #
@@ -23,8 +21,7 @@ import sage.rings.real_arb
 from sage.categories.pushout import pushout
 from sage.misc.cachefunc import cached_function, cached_method
 from sage.misc.misc import cputime
-from sage.rings.all import ZZ, QQ, QQbar, CIF, CBF, RationalField
-from sage.rings.real_mpfr import RealField
+from sage.rings.all import ZZ, QQ, QQbar, CIF, CBF
 from sage.rings.complex_interval_field import ComplexIntervalField
 from sage.rings.number_field.number_field import (NumberField,
         NumberField_quadratic, is_NumberField)
