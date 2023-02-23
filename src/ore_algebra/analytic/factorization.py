@@ -1,9 +1,8 @@
 # -*- coding: utf-8 - vim: tw=80
 """
-Symbolic-numeric algorithm for the factorization of linear differential
-operators.
+Symbolic-numeric factorization of linear differential operators
 
-TESTS
+TESTS:
 
 Examples related to Small Step Walks (https://specfun.inria.fr/chyzak/ssw/)::
 
@@ -266,7 +265,7 @@ Examples from ore_algebra.analytic.examples.facto::
     [(-z + 1)*Dz - 1, z*Dz + 2]
 
 
-Others::
+Other examples::
 
     sage: dop = Dz*(z*(z - 1)*(z - 23))*Dz + z # kontsevitch_odesskii for t = 23
     sage: fac = dop.factor()
@@ -295,7 +294,6 @@ from ore_algebra import guess
 from ore_algebra.analytic.accuracy import PrecisionError
 from ore_algebra.analytic.differential_operator import DifferentialOperator
 from ore_algebra.analytic.linear_algebra import (invariant_subspace,
-                                                 row_echelon_form,
                                                  _reduced_row_echelon_form, ker,
                                                  gen_eigenspaces, orbit,
                                                  accuracy)
@@ -316,7 +314,6 @@ from sage.rings.qqbar import QQbar
 from sage.rings.power_series_ring import PowerSeriesRing
 from sage.rings.rational_field import QQ
 from sage.rings.real_mpfr import RealField
-from sympy.core.numbers import oo
 
 Radii = RealField(30)
 
@@ -455,7 +452,7 @@ def right_factor_via_monodromy(dop, order=None, bound=None, alg_degree=None, pre
 
     try:
         mono, it = [], _monodromy_matrices(dop, 0, eps=Radii.one()>>precision)
-        for pt, mat, scal in it:
+        for _, mat, scal in it:
             if not scal:
                 local_loss = max(0, precision - accuracy(mat))
                 if local_loss > loss:
@@ -509,7 +506,7 @@ def right_factor_when_monodromy_is_trivial(dop, order, verbose=False):
     f = _formal_finite_sum_to_power_series(f, S)
 
     der = [ f.truncate() ]
-    for k in range(r - 1):
+    for _ in range(r - 1):
         der.append( der[-1].derivative() )
     mat = matrix(r, 1, der)
     min_basis = mat.minimal_approximant_basis(max(order//r, 1))
@@ -635,14 +632,15 @@ def annihilator(dop, ic, order, bound, alg_degree, mono=None, verbose=False):
                 pass
         else:
             der = [ f.truncate() ]
-            for k in range(d): der.append( der[-1].derivative() )
+            for _ in range(d):
+                der.append( der[-1].derivative() )
             mat = matrix(d + 1, 1, der)
             if verbose: print("Trying to guess an annihilator with HP approximants")
             min_basis = mat.minimal_approximant_basis(order)
             rdeg = min_basis.row_degrees()
             if max(rdeg) > 1 + min(rdeg):
                 i0 = min(range(len(rdeg)), key=lambda i: rdeg[i])
-                R, g = DifferentialOperator(dop).extend_scalars(K.gen())
+                R, _ = DifferentialOperator(dop).extend_scalars(K.gen())
                 R = R.parent()(list(min_basis[i0]))
                 if dop%R == 0:
                     return R
@@ -780,7 +778,7 @@ def _guess_symbolic_coefficients(vec, alg_degree, verbose=False):
     if verbose:
         print("Trying to guess symbolic coefficients")
 
-    # fast attempt that working well if rational
+    # fast attempt that works well if rational
     v1, v2 = [], []
     for x in vec:
         if not x.imag().contains_zero(): break
