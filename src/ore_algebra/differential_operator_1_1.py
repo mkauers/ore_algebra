@@ -2127,6 +2127,14 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         A list of irreducible operators such that the product of its elements
         is equal to the operator ``self``.
 
+        ALGORITHM:
+        
+        Seminumeric algorithm as described in:
+        - Around the Numeric-Symbolic Computation of Differential Galois Groups,
+          van der Hoeven, 2007 
+        - Symbolic-Numeric Factorization of Differential Operators, Chyzak, 
+          Goyer, Mezzarobba, 2022
+
         EXAMPLES:
 
         Reducible case::
