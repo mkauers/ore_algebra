@@ -1,4 +1,4 @@
-# -*- coding: utf-8 - vim: tw=79
+# vim: tw=79
 r"""
 Error bounds
 

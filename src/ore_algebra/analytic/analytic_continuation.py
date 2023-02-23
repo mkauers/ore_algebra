@@ -1,4 +1,4 @@
-# -*- coding: utf-8 - vim: tw=80
+# vim: tw=80
 """
 Evaluation of univariate D-finite functions by numerical analytic continuation
 """

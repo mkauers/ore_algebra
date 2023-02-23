@@ -1,4 +1,3 @@
-# coding: utf-8
 """
 Univariate differential operators over univariate rings
 """

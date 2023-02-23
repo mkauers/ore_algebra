@@ -1,4 +1,3 @@
-# coding: utf-8
 r"""
 Differentially finite functions and sequences
 

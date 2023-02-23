@@ -1,4 +1,3 @@
-# coding: utf-8
 """
 Univariate recurrence operators over univariate rings
 """

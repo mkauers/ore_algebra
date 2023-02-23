@@ -1,4 +1,3 @@
-# coding: utf-8
 """
 Univariate q-recurrence and q-differential operators over univariate rings
 """
