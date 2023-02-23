@@ -37,7 +37,7 @@ Examples related to random walks (http://koutschan.de/data/fcc1/)::
     sage: len(fac), fac[0] == fcc4
     (1, True)
 
-    sage: fac = fcc5.factor() # (1.5s)
+    sage: fac = fcc5.factor() # long time (1.5s)
     sage: len(fac), fac[0] == fcc5
     (1, True)
 
@@ -683,18 +683,6 @@ def _try_rational(dop):
 
     return None
 
-def _reduced_row_echelon_form(mat):
-    R, p = row_echelon_form(mat, pivots=True)
-    rows = list(R)
-    for j in p.keys():
-        for i in range(p[j]):
-            rows[i] = rows[i] - rows[i][j]*rows[p[j]]
-    return matrix(rows)
-
-def _local_exponents(dop, multiplicities=True):
-    ind_pol = dop.indicial_polynomial(dop.base_ring().gen())
-    return ind_pol.roots(QQbar, multiplicities=multiplicities)
-
 def _largest_modulus_of_exponents(dop):
 
     z = dop.base_ring().gen()
@@ -710,6 +698,11 @@ def _largest_modulus_of_exponents(dop):
     return out
 
 def _degree_bound_for_right_factor(dop):
+    """
+    ALGORITHM:
+    - Explicit Degree Bounds for Right Factors of Linear Differential 
+    Operators, Bostan, Rivoal, Salvy, 2019
+    """
 
     r = dop.order() - 1
     #S = len(dop.desingularize().leading_coefficient().roots(QQbar)) # too slow (example: QPP)

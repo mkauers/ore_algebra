@@ -902,6 +902,14 @@ def invariant_subspace(Mats, *, verbose=False):
 ### Useful functions ###########################################################
 ################################################################################
 
+def _reduced_row_echelon_form(mat):
+    R, p = row_echelon_form(mat, pivots=True)
+    rows = list(R)
+    for j in p.keys():
+        for i in range(p[j]):
+            rows[i] = rows[i] - rows[i][j]*rows[p[j]]
+    return matrix(rows)
+    
 def _clean(pol):
 
     l = list(pol)
