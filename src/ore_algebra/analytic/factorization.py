@@ -291,14 +291,8 @@ Others::
 #
 # http://www.gnu.org/licenses/
 
-import collections
-import tempfile
-import cProfile
-import pstats
-
 from ore_algebra import guess
 from ore_algebra.analytic.accuracy import PrecisionError
-from ore_algebra.analytic.complex_optimistic_field import ComplexOptimisticField
 from ore_algebra.analytic.differential_operator import DifferentialOperator
 from ore_algebra.analytic.linear_algebra import (invariant_subspace,
                                                  row_echelon_form, ker,
@@ -307,21 +301,16 @@ from ore_algebra.analytic.linear_algebra import (invariant_subspace,
 from ore_algebra.analytic.monodromy import _monodromy_matrices
 from ore_algebra.analytic.utilities import as_embedded_number_field_elements
 from ore_algebra.examples import ssw
-from ore_algebra.guessing import guess
 from sage.arith.functions import lcm
 from sage.arith.misc import algdep, gcd
-from sage.functions.all import log, floor
 from sage.functions.other import binomial, factorial
 from sage.matrix.constructor import matrix
 from sage.matrix.matrix_dense import Matrix_dense
 from sage.matrix.special import block_matrix, identity_matrix, diagonal_matrix
-from sage.misc.functional import numerical_approx
-from sage.misc.misc import cputime
 from sage.misc.misc_c import prod
 from sage.modules.free_module_element import (vector,
                                               FreeModuleElement_generic_dense)
 from sage.rings.integer_ring import ZZ
-from sage.rings.laurent_series_ring import LaurentSeriesRing
 from sage.rings.qqbar import QQbar
 from sage.rings.power_series_ring import PowerSeriesRing
 from sage.rings.rational_field import QQ

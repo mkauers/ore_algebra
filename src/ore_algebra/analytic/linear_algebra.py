@@ -16,9 +16,7 @@ from ore_algebra.analytic.accuracy import PrecisionError
 from ore_algebra.analytic.complex_optimistic_field import ComplexOptimisticField
 
 from sage.arith.functions import lcm
-from sage.arith.misc import algdep, gcd
-from sage.functions.all import log, floor
-from sage.functions.other import binomial
+from sage.functions.all import log
 from sage.matrix.constructor import matrix
 from sage.matrix.matrix_dense import Matrix_dense
 from sage.matrix.special import identity_matrix, block_diagonal_matrix
@@ -31,7 +29,6 @@ except ModuleNotFoundError: # versions of sage older than 9.3
     from sage.rings.complex_field import ComplexField
 from sage.rings.polynomial.polynomial_element import Polynomial
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
-from sage.rings.qqbar import number_field_elements_from_algebraics
 from sage.rings.real_arb import RBF
 from sage.rings.real_mpfr import RealField
 
