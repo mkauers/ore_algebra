@@ -340,7 +340,7 @@ def factor(dop, verbose=False):
     The termination of this function is currently not garanteed if the operator
     is not Fuchsian.
 
-    See also "right_factor()" and "is_irreducible()".
+    See also "right_factor()" and "check_irreducible()".
 
     INPUT:
      -- ``dop``     -- differential operator
@@ -361,17 +361,6 @@ def factor(dop, verbose=False):
         sage: factor(dop)
         [z*Dz + 1, Dz]
     """
-    def _factor(dop, verbose=False):
-
-        R = right_factor(dop, verbose)
-        if R == None:
-            return [dop]
-        OA = R.parent()
-        OA = OA.change_ring(OA.base_ring().fraction_field())
-        Q = OA(dop)//R
-        fac_left = _factor(Q, verbose)
-        fac_right = _factor(R, verbose)
-        return fac_left + fac_right
 
     fac = _factor(dop, verbose)
     K0, K1 = fac[0].base_ring().base_ring(), fac[-1].base_ring().base_ring()
@@ -389,7 +378,7 @@ def right_factor(dop, verbose=False):
     The termination of this function is currently not garanteed if the operator
     is not Fuchsian.
 
-    See also "factor()" and "is_irreducible()".
+    See also "factor()" and "check_irreducible()".
 
     INPUT:
      -- ``dop``     -- differential operator
@@ -428,7 +417,7 @@ def right_factor(dop, verbose=False):
         return None
     return R.annihilator_of_composition(z - s0)
 
-def is_irreducible(dop, verbose=False, prec=None, max_prec=100000):
+def check_irreducible(dop, verbose=False, prec=None, max_prec=100000):
     r"""
     Return either ``True`` if the irreducibility of ``dop`` can be certified
     from the monodromy matrices (at a limited working precision), or ``None``
@@ -452,9 +441,9 @@ def is_irreducible(dop, verbose=False, prec=None, max_prec=100000):
 
     EXAMPLES::
 
-        sage: from ore_algebra.analytic.factorization import is_irreducible
+        sage: from ore_algebra.analytic.factorization import check_irreducible
         sage: from ore_algebra.examples import fcc
-        sage: is_irreducible(fcc.dop4)
+        sage: check_irreducible(fcc.dop4)
         True
     """
     if prec == None:
@@ -478,9 +467,9 @@ def is_irreducible(dop, verbose=False, prec=None, max_prec=100000):
     except PrecisionError:
         pass
 
-    return is_irreducible(dop, verbose=verbose, prec=prec<<1)
+    return check_irreducible(dop, verbose=verbose, prec=prec<<1)
 
-def is_minimal(dop, initial_conditions, verbose=False, prec=None, max_prec=100000):
+def check_minimal_annihilator(dop, initial_conditions, verbose=False, prec=None, max_prec=100000):
     r"""
     Return either ``True`` if the minimality of ``dop`` (for the function given
     by ``initial_conditions``) can be certified from the monodromy matrices
@@ -506,11 +495,11 @@ def is_minimal(dop, initial_conditions, verbose=False, prec=None, max_prec=10000
 
     EXAMPLES::
 
-        sage: from ore_algebra.analytic.factorization import is_minimal
+        sage: from ore_algebra.analytic.factorization import check_minimal_annihilator
         sage: from ore_algebra.analytic.examples.facto import beukers_vlasenko_dops
         sage: dop = beukers_vlasenko_dops[1]; dop
         (16*z^3 - z)*Dz^2 + (48*z^2 - 1)*Dz + 16*z
-        sage: is_minimal(dop, [0,1])
+        sage: check_minimal_annihilator(dop, [0,1])
         True
     """
     if prec == None:
@@ -534,7 +523,7 @@ def is_minimal(dop, initial_conditions, verbose=False, prec=None, max_prec=10000
     except PrecisionError:
         pass
 
-    return is_minimal(dop, initial_conditions, verbose=verbose, prec=prec<<1, max_prec=max_prec)
+    return check_minimal_annihilator(dop, initial_conditions, verbose=verbose, prec=prec<<1, max_prec=max_prec)
 
 ################################################################################
 ### Hybrid algorithm, see [Chyzak, Goyer, Mezzarobba, 2022] ####################
@@ -1015,6 +1004,18 @@ def _substitution_map(dop, e):
     output = sum(c*T**i for i, c in enumerate(l))
 
     return output
+
+def _factor(dop, verbose=False):
+
+    R = right_factor(dop, verbose)
+    if R == None:
+        return [dop]
+    OA = R.parent()
+    OA = OA.change_ring(OA.base_ring().fraction_field())
+    Q = OA(dop)//R
+    fac_left = _factor(Q, verbose)
+    fac_right = _factor(R, verbose)
+    return fac_left + fac_right
 
 def _tests_ssw(): # to test all ssw examples
     b = True
