@@ -1,3 +1,4 @@
+# vim: tw=80
 r"""
 Ad-hoc algebraic numbers
 """
