@@ -299,7 +299,7 @@ import pstats
 from ore_algebra import guess
 from ore_algebra.analytic.accuracy import PrecisionError
 from ore_algebra.analytic.complex_optimistic_field import ComplexOptimisticField
-from ore_algebra.analytic.differential_operator import PlainDifferentialOperator
+from ore_algebra.analytic.differential_operator import DifferentialOperator
 from ore_algebra.analytic.linear_algebra import (invariant_subspace,
                                                  row_echelon_form, ker,
                                                  gen_eigenspaces, orbit,
@@ -407,7 +407,7 @@ def right_factor(dop, verbose=False):
     if verbose:
         print("### Try factoring an operator of order", r)
 
-    s0, sings = QQ.zero(), PlainDifferentialOperator(dop)._singularities(QQbar)
+    s0, sings = QQ.zero(), DifferentialOperator(dop)._singularities(QQbar)
     while s0 in sings:
         s0 = s0 + QQ.one()
     dop = dop.annihilator_of_composition(z + s0).monic()
@@ -542,7 +542,7 @@ def right_factor_via_monodromy(dop, order=None, bound=None, alg_degree=None, pre
         sage: right_factor_via_monodromy(dop)
         (2*z - 4)*Dz + 1
     """
-    if 0 in PlainDifferentialOperator(dop)._singularities(QQbar): breakpoint()
+    if 0 in DifferentialOperator(dop)._singularities(QQbar): breakpoint()
 
     r = dop.order()
 
@@ -552,7 +552,7 @@ def right_factor_via_monodromy(dop, order=None, bound=None, alg_degree=None, pre
             print("Degree bound for right factor", bound)
 
     if order == None:
-        deg_of_dop = PlainDifferentialOperator(dop).degree()
+        deg_of_dop = DifferentialOperator(dop).degree()
         order = max(min( r*deg_of_dop, 100, bound*(r + 1) + 1 ), 1)
     if alg_degree == None:
         alg_degree = dop.base_ring().base_ring().degree()
@@ -759,7 +759,7 @@ def annihilator(dop, ic, order, bound, alg_degree, mono=None, verbose=False):
             rdeg = min_basis.row_degrees()
             if max(rdeg) > 1 + min(rdeg):
                 i0 = min(range(len(rdeg)), key=lambda i: rdeg[i])
-                R, g = PlainDifferentialOperator(dop).extend_scalars(K.gen())
+                R, g = DifferentialOperator(dop).extend_scalars(K.gen())
                 R = R.parent()(list(min_basis[i0]))
                 if dop%R == 0:
                     return R
@@ -816,7 +816,7 @@ def _local_exponents(dop, multiplicities=True):
 def _largest_modulus_of_exponents(dop):
 
     z = dop.base_ring().gen()
-    dop = PlainDifferentialOperator(dop)
+    dop = DifferentialOperator(dop)
     lc = dop.leading_coefficient()//gcd(dop.list())
 
     out = 0
@@ -831,7 +831,7 @@ def _degree_bound_for_right_factor(dop):
 
     r = dop.order() - 1
     #S = len(dop.desingularize().leading_coefficient().roots(QQbar)) # too slow (example: QPP)
-    S = len(PlainDifferentialOperator(dop).leading_coefficient().roots(QQbar))
+    S = len(DifferentialOperator(dop).leading_coefficient().roots(QQbar))
     E = _largest_modulus_of_exponents(dop)
     bound = r**2*(S + 1)*E + r*S + r**2*(r - 1)*(S - 1)/2
 
@@ -996,7 +996,7 @@ def _substitution_map(dop, e):
         sage: dop(f.parent().gen()^3*f)
         O(t^21)
     """
-    l = _euler_representation(PlainDifferentialOperator(dop))
+    l = _euler_representation(DifferentialOperator(dop))
     for i, c in enumerate(l):
         for k in range(i):
             l[k] += binomial(i, k)*e**(i - k)*c
