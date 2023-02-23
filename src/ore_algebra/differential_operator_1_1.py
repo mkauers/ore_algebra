@@ -2191,10 +2191,6 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
 
         EXAMPLES:
 
-            sage: from ore_algebra.analytic.examples.facto import hypergeo_dop, z
-            sage: from ore_algebra.examples.stdfun import dawson
-            sage: from ore_algebra.examples import ssw, fcc
-
         Reducible case with a right-hand factor coming from a rational solution::
 
             sage: from ore_algebra.analytic.examples.facto import hypergeo_dop
@@ -2225,7 +2221,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             sage: dop.right_factor() is None # irreducible operator
             True
 
-        Case that requires an algebraix extension::
+        Case that requires an algebraic extension::
 
             sage: from ore_algebra.analytic.examples.facto import z, Dz
             sage: dop = 1 + z*Dz + z^2*Dz^2 + z^3*Dz^3
