@@ -2109,7 +2109,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         irreducible operators (potentially introducing algebraic extensions of
         the field of constants).
 
-        The termination of this method is currently not garanteed if the
+        The termination of this method is currently not guaranteed if the
         operator is not Fuchsian.
 
         .. SEEALSO::
@@ -2128,11 +2128,11 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         is equal to the operator ``self``.
 
         ALGORITHM:
-        
+
         Seminumeric algorithm as described in:
         - Around the Numeric-Symbolic Computation of Differential Galois Groups,
-          van der Hoeven, 2007 
-        - Symbolic-Numeric Factorization of Differential Operators, Chyzak, 
+          van der Hoeven, 2007
+        - Symbolic-Numeric Factorization of Differential Operators, Chyzak,
           Goyer, Mezzarobba, 2022
 
         EXAMPLES:
@@ -2170,12 +2170,12 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         r"""
         Find a right-hand factor of this operator.
 
-        The termination of this method is currently not garanteed if the
+        The termination of this method is currently not guaranteed if the
         operator is not Fuchsian.
 
         .. SEEALSO::
 
-            :meth:`check_irreducible`
+            :meth:`check_irreducible`,
             :meth:`factor`
 
         INPUT:
