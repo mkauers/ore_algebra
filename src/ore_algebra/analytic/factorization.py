@@ -38,7 +38,7 @@ Examples related to random walks (http://koutschan.de/data/fcc1/)::
     (1, True)
 
     sage: fac = fcc5.factor() # long time (1.5s)
-    sage: len(fac), fac[0] == fcc5
+    sage: len(fac), fac[0] == fcc5 # long time
     (1, True)
 
     sage: fac = fcc6.factor() # long time (35s, 9a7e7c6f of facto)
@@ -295,9 +295,10 @@ from ore_algebra import guess
 from ore_algebra.analytic.accuracy import PrecisionError
 from ore_algebra.analytic.differential_operator import DifferentialOperator
 from ore_algebra.analytic.linear_algebra import (invariant_subspace,
-                                                 row_echelon_form, ker,
+                                                 row_echelon_form,
+                                                 _reduced_row_echelon_form, ker,
                                                  gen_eigenspaces, orbit,
-                                                 customized_accuracy)
+                                                 accuracy)
 from ore_algebra.analytic.monodromy import _monodromy_matrices
 from ore_algebra.analytic.utilities import as_embedded_number_field_elements
 from ore_algebra.examples import ssw
@@ -456,7 +457,7 @@ def right_factor_via_monodromy(dop, order=None, bound=None, alg_degree=None, pre
         mono, it = [], _monodromy_matrices(dop, 0, eps=Radii.one()>>precision)
         for pt, mat, scal in it:
             if not scal:
-                local_loss = max(0, precision - customized_accuracy(mat))
+                local_loss = max(0, precision - accuracy(mat))
                 if local_loss > loss:
                     loss = local_loss
                     if verbose:
@@ -713,7 +714,7 @@ def _degree_bound_for_right_factor(dop):
     return ZZ(bound)
 
 def _random_combination(mono):
-    prec, C = customized_accuracy(mono), mono[0].base_ring()
+    prec, C = accuracy(mono), mono[0].base_ring()
     if prec < 10:
         raise PrecisionError
     ran = lambda : C(QQ.random_element(prec), QQ.random_element(prec))
@@ -792,7 +793,7 @@ def _guess_symbolic_coefficients(vec, alg_degree, verbose=False):
             print("Found rational coefficients")
         return v1, QQ
 
-    p = customized_accuracy(vec)
+    p = accuracy(vec)
     if p<30: return "NothingFound", None
     for d in range(2, alg_degree + 1):
         v1, v2 = [], []

@@ -769,8 +769,8 @@ class Splitting():
     def COF_version(self):
 
         prec1 = self.C.precision()
-        prec2 = min(customized_accuracy(M) for M in self.matrices)
-        prec2 = min(prec2, customized_accuracy(self.basis))
+        prec2 = min(accuracy(M) for M in self.matrices)
+        prec2 = min(prec2, accuracy(self.basis))
 
         if 2*prec2 < prec1:
             raise PrecisionError("Losing too much precision to continue.")
@@ -928,7 +928,7 @@ def _derivatives(f, m):
 
     return result
 
-def customized_accuracy(x):
+def accuracy(x):
     """
     Return either the absolute accuracy of x if x contains 0 or the relative
     accuracy of x if x does not contains 0.
@@ -943,24 +943,24 @@ def customized_accuracy(x):
      - 'acc' - a nonnegative integer
 
     EXAMPLES::
-        sage: from ore_algebra.analytic.linear_algebra import customized_accuracy
+        sage: from ore_algebra.analytic.linear_algebra import accuracy
         sage: a = ComplexBallField().one()
-        sage: a.accuracy(), customized_accuracy(a)
+        sage: a.accuracy(), accuracy(a)
         (9223372036854775807, 9223372036854775807)
         sage: a = a/3
-        sage: a.accuracy(), customized_accuracy(a)
+        sage: a.accuracy(), accuracy(a)
         (51, 51)
         sage: a = a - 1/3
-        sage: a.accuracy(), customized_accuracy(a)
+        sage: a.accuracy(), accuracy(a)
         (-9223372036854775807, 52)
     """
     if x==[]:
         return RBF.maximal_accuracy()
     if isinstance(x, FreeModuleElement_generic_dense) or \
     isinstance(x, Matrix_dense) or isinstance(x, Polynomial):
-        return customized_accuracy(x.list())
+        return accuracy(x.list())
     if isinstance(x, list):
-        return min(customized_accuracy(c) for c in x)
+        return min(accuracy(c) for c in x)
 
     if x.contains_zero():
         if x.rad().is_zero():
