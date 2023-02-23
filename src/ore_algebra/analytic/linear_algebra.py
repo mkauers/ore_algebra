@@ -32,6 +32,7 @@ except ModuleNotFoundError: # versions of sage older than 9.3
 from sage.rings.polynomial.polynomial_element import Polynomial
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 from sage.rings.qqbar import number_field_elements_from_algebraics
+from sage.rings.real_arb import RBF
 from sage.rings.real_mpfr import RealField
 
 
@@ -934,7 +935,7 @@ def customized_accuracy(x):
      - 'x' - a complex ball objet
 
     OUTPUT:
-     - 'acc' - a nonnegative integer (max = 9223372036854775807)
+     - 'acc' - a nonnegative integer
 
     EXAMPLES::
         sage: from ore_algebra.analytic.linear_algebra import customized_accuracy
@@ -949,7 +950,7 @@ def customized_accuracy(x):
         (-9223372036854775807, 52)
     """
     if x==[]:
-        return 9223372036854775807
+        return RBF.maximal_accuracy()
     if isinstance(x, FreeModuleElement_generic_dense) or \
     isinstance(x, Matrix_dense) or isinstance(x, Polynomial):
         return customized_accuracy(x.list())
@@ -958,7 +959,7 @@ def customized_accuracy(x):
 
     if x.contains_zero():
         if x.rad().is_zero():
-            return 9223372036854775807
+            return RBF.maximal_accuracy()
         return max(0, (-log(x.rad(), 2)).floor())
 
     return x.accuracy()

@@ -2127,13 +2127,32 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         A list of irreducible operators such that the product of its elements
         is equal to the operator ``self``.
 
-        EXAMPLES::
+        EXAMPLES:
 
-            sage: from ore_algebra import DifferentialOperators
-            sage: Dops, z, Dz = DifferentialOperators(QQ, 'z')
-            sage: dop = Dz*z*Dz
+        Reducible case::
+
+            sage: from ore_algebra.examples import ssw
+            sage: ssw.dop[13,0,0].factor()
+            [(2688*t^9 + 2048*t^7 - 594*t^5 + 45*t^3 - t)*Dt^2 + (24192*t^8 + 8192*t^6 - 2330*t^4 + 167*t^2 - 3)*Dt + 40320*t^7 - 672*t^3 + 48*t,
+             t*Dt + 1,
+             t*Dt + 2]
+
+        Irreducible case::
+
+            sage: from ore_algebra.examples import fcc
+            sage: fcc.dop4.factor() == [fcc.dop4] # irreducible case
+            True
+
+        Case that requires an algebraic extension::
+
+            sage: from ore_algebra.analytic.examples.facto import z, Dz
+            sage: dop = 1 + z*Dz + z^2*Dz^2 + z^3*Dz^3
             sage: dop.factor()
-            [z*Dz + 1, Dz]
+            [z*Dz - 20/28181*a0^5 + 701/56362*a0^4 + 334/28181*a0^3 + 2382/28181*a0^2 + 20005/56362*a0 - 14161/28181,
+             z*Dz + 20/84543*a0^5 - 701/169086*a0^4 - 334/84543*a0^3 - 794/28181*a0^2 - 76367/169086*a0 - 70382/84543,
+             z*Dz + 40/84543*a0^5 - 701/84543*a0^4 - 668/84543*a0^3 - 1588/28181*a0^2 + 8176/84543*a0 - 56221/84543]
+            sage: _[0].parent()
+            Univariate Ore algebra in Dz over Fraction Field of Univariate Polynomial Ring in z over Number Field in a0 with defining polynomial y^6 + 2*y^5 + 11*y^4 + 48*y^3 + 63*y^2 + 190*y + 1108 with a0 = -2.883024910498311? - 1.202820819285479?*I
         """
         from .analytic.factorization import factor
         fac = factor(self, verbose=verbose)
@@ -2162,13 +2181,50 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         - a proper right-hand factor (potentially with a larger field of
           constants) otherwise.
 
-        EXAMPLES::
+        EXAMPLES:
 
-            sage: from ore_algebra import DifferentialOperators
-            sage: Dops, z, Dz = DifferentialOperators(QQ, 'z')
-            sage: dop = Dz*z*Dz
+            sage: from ore_algebra.analytic.examples.facto import hypergeo_dop, z
+            sage: from ore_algebra.examples.stdfun import dawson
+            sage: from ore_algebra.examples import ssw, fcc
+
+        Reducible case with a right-hand factor coming from a rational solution::
+
+            sage: from ore_algebra.analytic.examples.facto import hypergeo_dop
+            sage: dop = hypergeo_dop(1,1,1); dop
+            (-z^2 + z)*Dz^2 + (-3*z + 1)*Dz - 1
+            sage: dop.right_factor().monic()
+            Dz + 1/(z - 1)
+
+        Reducible case with a right-hand factor coming from monodromy::
+
+            sage: from ore_algebra.analytic.examples.facto import hypergeo_dop
+            sage: dop = hypergeo_dop(1/2,1/3,1/3); dop
+            (-z^2 + z)*Dz^2 + (-11/6*z + 1/3)*Dz - 1/6
+            sage: dop.right_factor().monic()
+            Dz + 1/2/(z - 1)
+
+        Reducible case without rational solution, without monodromy (non Fuchsian)::
+
+            sage: from ore_algebra.examples.stdfun import dawson
+            sage: dawson.dop.right_factor()
+            1/2*Dx + x
+
+        Irreducible case::
+
+            sage: from ore_algebra.examples import fcc
+            sage: dop = fcc.dop4; dop
+            (9*z^10 + 186*z^9 + 1393*z^8 + 4608*z^7 + 6156*z^6 - 256*z^5 - 7488*z^4 - 4608*z^3)*Dz^4 + (126*z^9 + 2304*z^8 + 15322*z^7 + 46152*z^6 + 61416*z^5 + 15584*z^4 - 39168*z^3 - 27648*z^2)*Dz^3 + (486*z^8 + 7716*z^7 + 44592*z^6 + 119388*z^5 + 151716*z^4 + 66480*z^3 - 31488*z^2 - 32256*z)*Dz^2 + (540*z^7 + 7248*z^6 + 35268*z^5 + 80808*z^4 + 91596*z^3 + 44592*z^2 + 2688*z - 4608)*Dz + 108*z^6 + 1176*z^5 + 4584*z^4 + 8424*z^3 + 7584*z^2 + 3072*z
+            sage: dop.right_factor() is None # irreducible operator
+            True
+
+        Case that requires an algebraix extension::
+
+            sage: from ore_algebra.analytic.examples.facto import z, Dz
+            sage: dop = 1 + z*Dz + z^2*Dz^2 + z^3*Dz^3
             sage: dop.right_factor()
-            Dz
+            z*Dz + a - 1
+            sage: _.parent()
+            Univariate Ore algebra in Dz over Fraction Field of Univariate Polynomial Ring in z over Number Field in a with defining polynomial y^3 - y^2 + y - 2 with a = -0.1766049820996622? - 1.202820819285479?*I
         """
         from .analytic.factorization import right_factor
         rfac = right_factor(self, verbose=verbose)

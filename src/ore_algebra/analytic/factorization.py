@@ -334,32 +334,7 @@ Radii = RealField(30)
 
 def factor(dop, verbose=False):
     r"""
-    Return a decomposition of ``dop`` as a product of irreducible operators
-    (potentially introducing algebraic extensions).
-
-    The termination of this function is currently not garanteed if the operator
-    is not Fuchsian.
-
-    See also "right_factor()" and "check_irreducible()".
-
-    INPUT:
-     -- ``dop``     -- differential operator
-     -- ``verbose`` -- boolean (optional, default: False) - if set to True, this
-                       function prints some messages about the progress of the
-                       computation.
-
-    OUTPUT:
-
-     -- ``fac`` -- a list of irreducible operators such that the product of
-    its elements is equal to the operator ``self``.
-
-
-    EXAMPLES::
-
-        sage: from ore_algebra.analytic.examples.facto import z, Dz
-        sage: dop = Dz*z*Dz
-        sage: factor(dop)
-        [z*Dz + 1, Dz]
+    See the documentation of the associated method :meth:`factor`.
     """
 
     fac = _factor(dop, verbose)
@@ -372,30 +347,7 @@ def factor(dop, verbose=False):
 
 def right_factor(dop, verbose=False):
     r"""
-    Return either ``None`` if ``dop`` is irreducible or a proper right-hand
-    factor of ``dop`` otherwise (potentially introducing algebraic extensions).
-
-    The termination of this function is currently not garanteed if the operator
-    is not Fuchsian.
-
-    See also "factor()" and "check_irreducible()".
-
-    INPUT:
-     -- ``dop``     -- differential operator
-     -- ``verbose`` -- boolean (optional, default: False) - if set to True, this
-                       function prints some messages about the progress of the
-                       computation.
-
-    OUTPUT: either ``None`` or a differential operator
-
-    EXAMPLES::
-
-        sage: from ore_algebra.analytic.factorization import right_factor
-        sage: from ore_algebra.analytic.examples.facto import hypergeo_dop
-        sage: dop = hypergeo_dop(1,1,1); dop
-        (-z^2 + z)*Dz^2 + (-3*z + 1)*Dz - 1
-        sage: right_factor(dop).monic()
-        Dz + 1/(z - 1)
+    See the documentation of the associated method :meth:`.right_factor`.
     """
     z, r = dop.base_ring().gen(), dop.order()
     if r < 2:
@@ -419,32 +371,7 @@ def right_factor(dop, verbose=False):
 
 def check_irreducible(dop, verbose=False, prec=None, max_prec=100000):
     r"""
-    Return either ``True`` if the irreducibility of ``dop`` can be certified
-    from the monodromy matrices (at a limited working precision), or ``None``
-    otherwise.
-
-    WARNING: Compared to "right_factor()", this function cannot conclude when
-    the operator is reducible. The advantadge of this function is the speed.
-
-    The termination of this function is currently not garanteed if the operator
-    is not Fuchsian.
-
-    INPUT:
-     -- ``dop``      -- differential operator
-     -- ``verbose``  -- boolean (optional, default: False) - if set to True,
-                        this function prints some messages about the progress of
-                        the computation.
-     -- ``prec``     -- integer (optional, default: None)
-     -- ``max_prec`` -- integer (optional, default: 100000)
-
-    OUTPUT: either ``True`` or ``None`` if the function cannot decide.
-
-    EXAMPLES::
-
-        sage: from ore_algebra.analytic.factorization import check_irreducible
-        sage: from ore_algebra.examples import fcc
-        sage: check_irreducible(fcc.dop4)
-        True
+    See the documentation of the associated method :meth:`check_irreducible`.
     """
     if prec is None:
         prec = 40*dop.order()
@@ -471,36 +398,8 @@ def check_irreducible(dop, verbose=False, prec=None, max_prec=100000):
 
 def check_minimal_annihilator(dop, initial_conditions, verbose=False, prec=None, max_prec=100000):
     r"""
-    Return either ``True`` if the minimality of ``dop`` (for the function given
-    by ``initial_conditions``) can be certified from the monodromy matrices
-    (at a limited working precision), or ``None`` otherwise.
-
-    The initial conditions are the coefficients of the monomials returned
-    by "local_basis_monomials(0)". If 0 is an ordinary point, it is simply
-    [f(0), f'(0), f''(0)/2, ..., f^{(r-1)}(0)/(r-1)!].
-
-    The termination of this function is currently not garanteed if the operator is
-    not Fuchsian.
-
-    INPUT:
-     -- ``dop``                -- differential operator
-     -- ``initial_conditions`` -- list of complex numbers
-     -- ``verbose``            -- boolean (optional, default: False) - if set to
-                                  True, this function prints some messages about
-                                  the progress of the computation.
-     -- ``prec``               -- integer (optional, default: None)
-     -- ``max_prec``           -- integer (optional, default: 100000)
-
-    OUTPUT: either ``True`` or ``None`` if the function cannot decide.
-
-    EXAMPLES::
-
-        sage: from ore_algebra.analytic.factorization import check_minimal_annihilator
-        sage: from ore_algebra.analytic.examples.facto import beukers_vlasenko_dops
-        sage: dop = beukers_vlasenko_dops[1]; dop
-        (16*z^3 - z)*Dz^2 + (48*z^2 - 1)*Dz + 16*z
-        sage: check_minimal_annihilator(dop, [0,1])
-        True
+    See the documentation of the associated method
+    :meth:`check_minimal_annihilator`.
     """
     if prec is None:
         prec = 40*dop.order()
@@ -542,7 +441,6 @@ def right_factor_via_monodromy(dop, order=None, bound=None, alg_degree=None, pre
         sage: right_factor_via_monodromy(dop)
         (2*z - 4)*Dz + 1
     """
-    if 0 in DifferentialOperator(dop)._singularities(QQbar): breakpoint()
 
     r = dop.order()
 
@@ -588,11 +486,6 @@ def right_factor_via_monodromy(dop, order=None, bound=None, alg_degree=None, pre
                 if R !="Inconclusive":
                     if verbose:
                         print("Concluded with " + conclusive_method + " method")
-                    try:
-                        cond_nb = max([_frobenius_norm(m)*_frobenius_norm(~m) for m in mono])
-                        cond_nb = cond_nb.log(10).ceil()
-                    except (ZeroDivisionError, PrecisionError):
-                        cond_nb = oo
                     return R
         if mono == []:
             return right_factor_when_monodromy_is_trivial(dop, order, verbose)
