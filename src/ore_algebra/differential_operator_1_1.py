@@ -2076,10 +2076,11 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
 
     def is_fuchsian(self):
         r"""
-        Return whether this operator is Fuchsian (i.e. regular at each point of
-        the Riemann sphere).
+        Test if this operator is Fuchsian (i.e. regular at each point of the
+        Riemann sphere).
 
         EXAMPLES::
+
             sage: from ore_algebra.examples import fcc
             sage: fcc.dop4.is_fuchsian()
             True
@@ -2089,33 +2090,41 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         for (f, m) in fac:
             for k, ak in enumerate(coeffs):
                 mk = valuation(ak, f)
-                if mk - m < k - self.order(): return False
+                if mk - m < k - self.order():
+                    return False
 
         dop = self.annihilator_of_composition(1/self.base_ring().gen())
         for k, frac in enumerate(dop.monic().coefficients()[:-1]):
             d = (self.base_ring().gen()**(self.order() - k)*frac).denominator()
-            if d(0)==0: return False
+            if d(0) == 0:
+                return False
 
         return True
 
-    def factor(self, verbose=False):
+    def factor(self, *, verbose=False):
         r"""
-        Return a decomposition of this operator as a product of irreducible
-        operators (potentially introducing algebraic extensions).
+        Decompose this operator as a product of irreducible operators.
+
+        This method computes a decomposition of this operator as a product of
+        irreducible operators (potentially introducing algebraic extensions of
+        the field of constants).
 
         The termination of this method is currently not garanteed if the
         operator is not Fuchsian.
 
         INPUT:
-         -- ``verbose`` -- boolean (optional, default: False) - if set to True,
-        this method prints some messages about the progress of the computation.
+
+        - ``verbose`` (boolean, default: ``False``) -- if set to ``True``,
+          this method prints some messages about the progress of the
+          computation.
 
         OUTPUT:
-         -- ``fac`` -- a list of irreducible operators such that the product of
-        its elements is equal to the operator ``self``.
 
+        A list of irreducible operators such that the product of its elements
+        is equal to the operator ``self``.
 
         EXAMPLES::
+
             sage: from ore_algebra import DifferentialOperators
             sage: Dops, z, Dz = DifferentialOperators(QQ, 'z')
             sage: dop = Dz*z*Dz
@@ -2126,24 +2135,26 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         fac = factor(self, verbose=verbose)
         return fac
 
-    def right_factor(self, verbose=False):
+    def right_factor(self, *, verbose=False):
         r"""
-        Return either ``None`` if this operator is irreducible or a proper
-        right-hand factor otherwise (potentially introducing algebraic
-        extensions).
+        Find a right-hand factor of this operator.
 
         The termination of this method is currently not garanteed if the
         operator is not Fuchsian.
 
         INPUT:
-         -- ``dop``     -- differential operator
-         -- ``verbose`` -- boolean (optional, default: False) - if set to True,
-                           this method prints some messages about the progress
-                           of the computation.
 
-        OUTPUT: either ``None`` or a differential operator
+        - ``verbose`` (boolean, default: ``False``) -- if set to ``True``, this
+          method prints some messages about the progress of the computation.
+
+        OUTPUT:
+
+        - ``None`` if the operator is irreducible
+        - a proper right-hand factor (potentially with a larger field of
+          constants) otherwise.
 
         EXAMPLES::
+
             sage: from ore_algebra import DifferentialOperators
             sage: Dops, z, Dz = DifferentialOperators(QQ, 'z')
             sage: dop = Dz*z*Dz
@@ -2154,28 +2165,36 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         rfac = right_factor(self, verbose=verbose)
         return rfac
 
-    def is_irreducible(self, verbose=False, prec=None, max_prec=100000):
+    def is_irreducible(self, prec=None, max_prec=100000, *, verbose=False):
         r"""
+        Attempt to prove that this operator is irreducible.
+
         Return either ``True`` if the irreducibility of this operator can be
         certified from the monodromy matrices (at a limited working precision),
         or ``None`` otherwise.
 
-        WARNING: Compared to ".right_factor()", this method cannot conclude when
-        the operator is reducible. The advantadge of this method is the speed.
-
         The termination of this method is currently not garanteed if the
         operator is not Fuchsian.
 
-        INPUT:
-         -- ``verbose``  -- boolean (optional, default: False) - if set to True,
-                            this method prints some messages about the progress
-                            of the computation.
-         -- ``prec``     -- integer (optional, default: None)
-         -- ``max_prec`` -- integer (optional, default: 100000)
+        .. WARNING::
 
-        OUTPUT: either ``True`` or ``None`` if the method cannot decide.
+            Unlike :meth:`right_factor`, this method cannot conclude when the
+            operator is reducible. However, it is faster.
+
+        INPUT:
+
+        - ``verbose`` (boolean, default: False) -- if set to ``True``, this
+          method prints some messages about the progress of the computation.
+        - ``prec`` (integer, optional) -- initial working precision
+        - ``max_prec`` (integer, default: 100000) -- maximum working precision
+
+        OUTPUT:
+
+        - ``True`` if the method could verify that the operator is irreducible
+        - ``None`` if it reached the precision limit without being able to conclude
 
         EXAMPLES::
+
             sage: from ore_algebra.examples import fcc
             sage: fcc.dop4.is_irreducible()
             True
@@ -2183,28 +2202,35 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         from .analytic.factorization import is_irreducible
         return is_irreducible(self, verbose=verbose, prec=prec, max_prec=max_prec)
 
-    def is_minimal(self, initial_conditions, verbose=False, prec=None, max_prec=100000):
+    def is_minimal(self, initial_conditions, prec=None, max_prec=100000, *, verbose=False):
         r"""
+        Attempt to prove that this operator is the minimal annihilator of a
+        given solution.
+
         Return either ``True`` if the minimality of ``dop`` (for the function
         given by ``initial_conditions``) can be certified from the monodromy
         matrices (at a limited working precision), or ``None`` otherwise.
 
         The initial conditions are the coefficients of the monomials returned
-        by "local_basis_monomials(0)". If 0 is an ordinary point, it is simply
-        [f(0), f'(0), f''(0)/2, ..., f^{(r-1)}(0)/(r-1)!].
+        by ``self.local_basis_monomials(0)`` (see :meth:`local_basis_monomials`).
+        If 0 is an ordinary point, this is simply
+        `[f(0), f'(0), f''(0)/2, ..., f^{(r-1)}(0)/(r-1)!]`.
 
         The termination of this method is currently not garanteed if the
         operator is not Fuchsian.
 
         INPUT:
-         -- ``initial_conditions`` -- list of complex numbers
-         -- ``verbose``            -- boolean (optional, default: False) - if set to
-                                      True, this function prints some messages about
-                                      the progress of the computation.
-         -- ``prec``               -- integer (optional, default: None)
-         -- ``max_prec``           -- integer (optional, default: 100000)
 
-        OUTPUT: either ``True`` or ``None`` if the method cannot decide.
+        - ``initial_conditions`` -- list of complex numbers
+        - ``verbose`` (boolean, default: ``False``) -- if set to ``True``, this
+          function prints some messages about the progress of the computation.
+        - ``prec`` (integer, optional) -- initial working precision
+        - ``max_prec`` (integer, default: 100000) -- maximum working precision
+
+        OUTPUT:
+
+        - ``True`` if the method could verify minimality
+        - ``None`` if it reached the precision limit without being able to conclude
 
         EXAMPLES::
 
