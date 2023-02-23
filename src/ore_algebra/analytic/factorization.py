@@ -2,6 +2,289 @@
 """
 Symbolic-numeric algorithm for the factorization of linear differential
 operators.
+
+TESTS
+
+Examples related to Small Step Walks (https://specfun.inria.fr/chyzak/ssw/)::
+
+    sage: from ore_algebra.examples import ssw
+    sage: dop = ssw.dop[13,0,0]
+    sage: fac = dop.factor()
+    sage: [x.order() for x in fac], prod(fac)==dop
+    ([2, 1, 1], True)
+
+    sage: from ore_algebra.analytic.factorization import _tests_ssw
+    sage: _tests_ssw() # long time (50s, 9a7e7c6f of facto)
+    True
+
+    sage: dop = ssw.aux_dop
+    sage: fac = dop.factor() # long time (10s, 9a7e7c6f of facto)
+    sage: [x.order() for x in fac], prod(fac) == dop # long time
+    ([5, 1, 1], True)
+
+
+Examples related to random walks (http://koutschan.de/data/fcc1/)::
+
+    sage: from ore_algebra.analytic.examples import fcc
+    sage: from ore_algebra.analytic.examples.facto import fcc3
+    sage: fcc4, fcc5, fcc6 = fcc.dop4, fcc.dop5, fcc.dop6
+
+    sage: fac = fcc3.factor()
+    sage: len(fac), fac[0] == fcc3
+    (1, True)
+
+    sage: fac = fcc4.factor()
+    sage: len(fac), fac[0] == fcc4
+    (1, True)
+
+    sage: fac = fcc5.factor() # (1.5s)
+    sage: len(fac), fac[0] == fcc5
+    (1, True)
+
+    sage: fac = fcc6.factor() # long time (35s, 9a7e7c6f of facto)
+    sage: len(fac), fac[0] == fcc6 # long time
+    (1, True)
+
+    sage: dop = fcc3**2
+    sage: fac = dop.factor()
+    sage: [x.order() for x in fac], prod(fac) == dop
+    ([3, 3], True)
+
+    sage: dop = fcc3*fcc4
+    sage: fac = dop.factor() # long time (3s, 9a7e7c6f of facto)
+    sage: [x.order() for x in fac], prod(fac) == dop # long time
+    ([3, 4], True)
+
+    sage: dop = fcc4*fcc3
+    sage: fac = dop.factor() # long time (3s, 9a7e7c6f of facto)
+    sage: [x.order() for x in fac], prod(fac) == dop # long time
+    ([4, 3], True)
+
+    sage: dop = fcc4**2
+    sage: fac = dop.factor() # long time (2.5s, 9a7e7c6f of facto)
+    sage: [x.order() for x in fac], prod(fac) == dop # long time
+    ([4, 4], True)
+
+
+Computing periods of rational integrals (v24.147 at https://pierre.lairez.fr/supp/periods/)::
+
+    sage: from ore_algebra.analytic.examples.facto import z, Dz
+    sage: dop = (21292817700*z**14 + 67398344860*z**13 + 94987355417*z**12 + 78506801252*z**11 + 42103272002*z**10 + 15265487382*z**9 + 3762840342*z**8 + 612043042*z**7 + 59827597*z**6 + 2515785*z**5 - 71162*z**4 - 8281*z**3)*Dz**4 + (340685083200*z**13 + 1038647876420*z**12 + 1400226908946*z**11 + 1099765534766*z**10 + 557107264294*z**9 + 189803233386*z**8 + 43803871110*z**7 + 6671139470*z**6 + 617643708*z**5 + 26717232*z**4 - 256438*z**3 - 49686*z**2)*Dz**3 + (1533082874400*z**12 +4495150057860*z**11 + 5780819437704*z**10 + 4294604549884*z**9 + 2040150857974*z**8 + 646242963697*z**7 + 137523612381*z**6 + 19182940768*z**5 + 1627435425*z**4 + 67706000*z**3 + 123578*z**2 - 57967*z)*Dz**2 + (2044110499200*z**11 + 5755179562440*z**10 + 7037979509820*z**9 + 4917287798460*z**8 + 2170385444000*z**7 + 630170966596*z**6 + 121015612776*z**5 + 14952652460*z**4 + 1099932789*z**3 + 39329199*z**2 + 234325*z - 8281)*Dz + 511027624800*z**10 + 1379206428600*z**9 +1598005558080*z**8 + 1042508677240*z**7 + 422269162452*z**6 + 110147546634*z**5 + 18479595006*z**4 + 1915723890*z**3 + 110445426*z**2 + 2649920*z
+    sage: fac = dop.factor()
+    sage: len(fac), fac[0] == dop
+    (1, True)
+
+
+QPP, QPP+R, PQP (see [Chyzak, Goyer, Mezzarobba, ISSAC'22])::
+
+    sage: from ore_algebra.analytic.examples.facto import z, Dz
+    sage: Q = (48*z**6 - 288*z**5 + 624*z**4 - 576*z**3 + 192*z**2)*Dz**2 + (-2064*z**5 + 10752*z**4 - 20208*z**3 + 16320*z**2 - 4800*z)*Dz + 7680*z**4 - 53348*z**3 + 127788*z**2 - 111400*z + 29376
+    sage: P = (4*z**6 - 24*z**5 + 52*z**4 - 48*z**3 + 16*z**2)*Dz**2 + (-184*z**5 + 868*z**4 - 1460*z**3 + 1064*z**2 - 288*z)*Dz + 1984*z**4 - 5223*z**3 + 5305*z**2 - 4254*z + 1408
+    sage: R = 192*z**3 - 576*z**2 + 384*z
+
+    sage: dop = Q*P*P; fac = dop.factor() # long time (13s, 9a7e7c6f of facto)
+    sage: [x.order() for x in fac], prod(fac) == dop # long time
+    ([2, 2, 2], True)
+
+    sage: dop = P*Q*P; fac = dop.factor() # long time (18s, 9a7e7c6f of facto)
+    sage: [x.order() for x in fac], prod(fac) == dop # long time
+    ([2, 2, 2], True)
+
+    sage: dop = Q*P*P + R; fac = dop.factor() # long time (10s, 9a7e7c6f of facto)
+    sage: len(fac), fac[0] == dop # long time
+    (1, True)
+
+
+Examples with algebraic extensions::
+
+    sage: from ore_algebra.analytic.examples.facto import QQbar_dop
+    sage: dop = QQbar_dop(2); dop
+    z^2*Dz^2 + z*Dz + 1
+    sage: fac = dop.factor(); fac
+    [z*Dz + a, z*Dz - a]
+    sage: fac[0].parent()
+    Univariate Ore algebra in Dz over Fraction Field of Univariate Polynomial Ring in z over Number Field in a with defining polynomial y^2 + 1 with a = 1*I
+
+    sage: dop = QQbar_dop(3); fac = dop.factor(); fac # long time (0.5s <-> 25s, 9a7e7c6f of facto) ---> problème à résoudre
+    [z*Dz - 20/28181*a0^5 + 701/56362*a0^4 + 334/28181*a0^3 + 2382/28181*a0^2 + 20005/56362*a0 - 14161/28181,
+     z*Dz + 20/84543*a0^5 - 701/169086*a0^4 - 334/84543*a0^3 - 794/28181*a0^2 - 76367/169086*a0 - 70382/84543,
+     z*Dz + 40/84543*a0^5 - 701/84543*a0^4 - 668/84543*a0^3 - 1588/28181*a0^2 + 8176/84543*a0 - 56221/84543]
+    sage: fac[0].parent() # long time
+    Univariate Ore algebra in Dz over Fraction Field of Univariate Polynomial Ring in z over Number Field in a0 with defining polynomial y^6 + 2*y^5 + 11*y^4 + 48*y^3 + 63*y^2 + 190*y + 1108 with a0 = -2.883024910498311? - 1.202820819285479?*I
+
+
+Examples from Periods of hypersurfaces (ore_algebra.examples.periods)::
+
+    sage: from ore_algebra.examples.periods import lairez_sertoz
+    sage: from ore_algebra.examples.periods import *
+    sage: dop = lairez_sertoz # long time (28s, d0b5a297 of facto)
+    sage: fac = dop.factor() # long time
+    sage: len(fac), fac[0] == dop # long time
+    (1, True)
+
+    sage: dop = dop_140118_4 # long time (4s, d0b5a297 of facto)
+    sage: fac = dop.factor() # long time
+    sage: len(fac), fac[0] == dop # long time
+    (1, True)
+
+    sage: dop = allODEs[2][0] # long time (2s, d0b5a297 of facto)
+    sage: fac = dop.factor() # long time
+    sage: len(fac), fac[0] == dop # long time
+    (1, True)
+
+    sage: for i in range(21): # long time (4s, d0b5a297 of facto)
+    ....:     dop = allODEs[0][i] # long time
+    ....:     fac = dop.factor() # long time
+    ....:     assert prod(fac) == dop # long time
+
+    sage: for i in range(21): # long time (1min, d0b5a297 of facto)
+    ....:     dop = allODEs[1][i] # long time
+    ....:     fac = dop.factor() # long time
+    ....:     assert prod(fac) == dop # long time
+
+
+Examples from Iterated integrals (ore_algebra.examples.iint)::
+
+    sage: from ore_algebra.examples.iint import diffop, f, h, w
+    sage: dop = diffop([f[1], w[3]]) # (A.15)
+    sage: fac = dop.factor()
+    sage: [x.order() for x in fac], prod(fac) == dop
+    ([1, 1, 1], True)
+
+    sage: dop = diffop([f[1/4], w[1], f[1]]) # (A.8)
+    sage: fac = dop.factor()
+    sage: [x.order() for x in fac], prod(fac) == dop
+    ([1, 1, 1, 1], True)
+
+    sage: dop = diffop([w[29], w[8]]) # (A.23)
+    sage: fac = dop.factor()
+    sage: [x.order() for x in fac], prod(fac) == dop
+    ([1, 1, 1], True)
+
+    sage: dop = diffop([h[0], w[8], w[8], f[1], f[1]]) # (A.69)
+    sage: fac = dop.factor()
+    sage: [x.order() for x in fac], prod(fac) == dop
+    ([1, 1, 1, 1, 1, 1], True)
+
+
+Examples from Asymptotic enumeration of Compacted Binary Trees::
+
+    sage: from ore_algebra.examples import cbt
+    sage: dop = cbt.dop[2]; fac = dop.factor()
+    sage: [x.order() for x in fac], prod(fac) == dop
+    ([2, 1], True)
+
+
+Examples from ore_algebra.examples.polya::
+
+    sage: from ore_algebra.examples import polya
+    sage: dop = polya.dop[3]; fac = dop.factor()
+    sage: len(fac), fac[0] == dop
+    (1, True)
+
+    sage: dop = polya.dop[4]; fac = dop.factor()
+    sage: len(fac), fac[0] == dop
+    (1, True)
+
+    sage: for i in range(5, 8): # long time (9s, d0b5a297 of facto)
+    ....:     dop = polya.dop[i] # long time
+    ....:     fac = dop.factor() # long time
+    ....:     assert len(fac) == 1 and fac[0] == dop # long time
+
+
+Examples from ore_algebra.examples.stdfun::
+
+    sage: from ore_algebra.examples.stdfun import *
+    sage: dawson.dop.factor()
+    [2*Dx, 1/2*Dx + x]
+
+    sage: dop = mittag_leffler_e(1/2).dop # not fuchsian + without monodromy BUT ok
+    sage: dop.factor()
+    [-Dx, -1/2*Dx + x]
+
+
+Examples from ore_algebra.analytic.examples.misc::
+
+    sage: from ore_algebra.analytic.examples.misc import *
+    sage: dop = pichon1_dop
+    sage: fac = dop.factor(); len(fac), fac[0] == dop
+    (1, True)
+
+    sage: dop = pichon2_dop
+    sage: fac = dop.factor(); len(fac), fac[0] == dop # long time (6s, 9a7e7c6f of facto)
+    (1, True)
+
+    sage: dop = pichon3_dop
+    sage: fac = dop.factor() # long time (3s, 9a7e7c6f of facto)
+    sage: [x.order() for x in fac], prod(fac) == dop # long time
+    ([3, 1], True)
+
+    sage: dop = chyzak1_dop
+    sage: fac = dop.factor(); len(fac), fac[0] == dop # long time (55s, 9a7e7c6f of facto)
+    (1, True)
+
+    sage: dop = rodriguez_villegas_dop
+    sage: fac = dop.factor(); len(fac), fac[0] == dop # long time (1.5s, 9a7e7c6f of facto)
+    (1, True)
+
+    sage: dop = salvy1_dop
+    sage: fac = dop.factor() # long time (10s, 9a7e7c6f of facto)
+    sage: [x.order() for x in fac], prod(fac) == dop # long time
+    ([5, 1], True)
+
+    sage: dop = quadric_slice_dop
+    sage: fac = dop.factor() # long time (2.5s, 9a7e7c6f of facto)
+    sage: [x.order() for x in fac], prod(fac) == dop # long time
+    ([3, 1], True)
+
+    sage: iint_quadratic_alg[0].factor() # long time (2.5s, 9a7e7c6f of facto)
+    [(8680468749131953125000000000000000000000*x^6 + (34722222218750000000000000000000*a - 8680555572048611109375000000000000000000)*x^5 - 17369715535481778446278125000000000000000*x^4 + (-69479556937496488750000000000000*a + 17369889269113900656248244375000000000000)*x^3 + 8689246786349825321278125000000000000000*x^2 + (34757334718746488750000000000000*a - 8689333697065289546873244375000000000000)*x)*Dx - 26041406247395859375000000000000000000000*x^5 + (-138888888875000000000000000000000*a+ 34722222288194444437500000000000000000000)*x^4 + 34739431070963556892556250000000000000000*x^3 + (208438670812489466250000000000000*a - 52109667807341701968744733125000000000000)*x^2 - 8689246786349825321278125000000000000000*x - 69514669437492977500000000000000*a + 17378667394130579093746488750000000000000,
+     (x^7 - 41680711662497191/13888888887500000*x^5 + 2084737833124719028985671/694444444375000000000000*x^3 - 695146694374859478985671/694444444375000000000000*x)*Dx + 3*x^6 - 138945068874991573/27777777775000000*x^4 + 25025281/25000000*x^2 + 695146694374859478985671/694444444375000000000000,
+     Dx]
+
+
+Examples from ore_algebra.analytic.examples.facto::
+
+    sage: from ore_algebra.analytic.examples.facto import *
+    sage: dop = sqrt_dop; fac = dop.factor()
+    sage: [x.order() for x in fac], prod(fac) == dop
+    ([1, 1], True)
+
+    sage: dop = sertoz_dop; fac = dop.factor()
+    sage: [x.order() for x in fac], prod(fac) == dop
+    ([1, 1, 1], True)
+
+    sage: dop = salvy_dop; fac = dop.factor() # long time (1.5s, 9a7e7c6f of facto)
+    sage: [x.order() for x in fac], prod(fac) == dop # long time
+    ([1, 1], True)
+
+    sage: bostan_dop(5).factor()
+    [(-720*z/(z^5 - 30*z^4 + 300*z^3 - 1200*z^2 + 1800*z - 720))*Dz + (720*z - 1440)/(z^5 - 30*z^4 + 300*z^3 - 1200*z^2 + 1800*z - 720),
+     (-1/720*z^5 + 1/24*z^4 - 5/12*z^3 + 5/3*z^2 - 5/2*z + 1)*Dz + 1/144*z^4 - 1/6*z^3 + 5/4*z^2 - 10/3*z + 5/2]
+
+    sage: hypergeo_dop(1,2,3).factor()
+    [(-z + 1)*Dz - 1, z*Dz + 2]
+
+    sage: adjoint_exponent_dop.factor() # long time (1s <-> 50s, 9a7e7c6f of facto) ---> problème à résoudre
+    [2*z*Dz, z^2*Dz + 1/2*z + 3]
+
+
+Others::
+
+    sage: dop = Dz*(z*(z - 1)*(z - 23))*Dz + z # kontsevitch_odesskii for t = 23
+    sage: fac = dop.factor()
+    sage: len(fac), fac[0] == dop
+    (1, True)
+
+    sage: dop = ((2*z + 2)*Dz - 1).lclm((2*z - 2)*Dz - 1)
+    sage: fac = dop.factor()
+    sage: [x.order() for x in fac], prod(fac) == dop
+    ([1, 1], True)
+
+    sage: dop = (23328*z**30 - 2962656*z**29 + 167481432*z**28 - 5571556704*z**27 + 121729674150*z**26 - 1851395926086*z**25 + 40700956322629/2*z**24 - 166404060748989*z**23 + 2075213903062521/2*z**22 - 5039429066440560*z**21 + 19398104528727162*z**20 - 59991326512462044*z**19 + 150581068219429838*z**18 - 308893191659376156*z**17 + 519871215900006075*z**16 - 718528419860924574*z**15 + 813818978377742103*z**14 - 751139117952342336*z**13 + 559450624042995962*z**12 - 331096536795373020*z**11 +152073433106343000*z**10 - 52250704431108750*z**9 + 25272275126878125/2*z**8 - 1918124754778125*z**7 + 274941996890625/2*z**6)*Dz**6 + (2122848*z**29 - 251277552*z**28 + 13229814240*z**27 - 410223377880*z**26 + 8378506293030*z**25 - 119780974597491*z**24 + 1247451935860499*z**23 - 9753741779831230*z**22 + 58673669994057235*z**21 - 277014369667643170*z**20 + 1042973990433429142*z**19 - 3170371723000704238*z**18 + 7851382961812157130*z**17 - 15937382846325142040*z**16 +26603165524579973420*z**15 - 36533478019847750354*z**14 + 41171988038741033396*z**13 - 37854313332296302670*z**12 + 28111149739081942810*z**11 - 16600614478473845250*z**10 + 7612966802875410000*z**9 - 2613143160673903125*z**8 + 631635634021640625*z**7 - 95873891621625000*z**6 + 6873549922265625*z**5)*Dz**5 + (1772928*z**28 - 191060208*z**27 + 9303985296*z**26 - 272881870056*z**25 + 5414176964808*z**24 - 77161260988311*z**23 + 816942000683035*z**22 - 6564352661122430*z**21 +40730888154463260*z**20 - 198233317321299601*z**19 + 767285193309750131*z**18 - 2389345325654892933*z**17 + 6040114702696303343*z**16 - 12473992563919793515*z**15 + 21122384911404177021*z**14 - 29352110878545889685*z**13 + 33402828296724828019*z**12 - 30958636402896387771*z**11 + 23142803494946381409*z**10 - 13741279316128878615*z**9 + 6329965071185425125*z**8 - 2180688690729701250*z**7 + 528635258525362500*z**6 - 80415682172915625*z**5 + 5773781934703125*z**4)*Dz**4 + (3079296*z**27 -288314640*z**26 + 12291128568*z**25 - 322741102428*z**24 + 5933901927222*z**23 - 81199522929312*z**22 + 846595466790247*z**21 - 6783280316776317*z**20 + 42134994404044533*z**19 - 205280872844283139*z**18 + 794368617371094252*z**17 - 2469813602975656377*z**16 + 6227877247789998128*z**15 - 12822890652430754931*z**14 + 21643972013267727882*z**13 - 29983117541423786699*z**12 + 34021065623944456350*z**11 - 31446507800544432561*z**10 + 23448703697621235732*z**9 - 13889978259690737871*z**8 +6383770909597906290*z**7 - 2194230662646093225*z**6 + 530727301376148375*z**5 - 80562533545372500*z**4 + 5773781934703125*z**3)*Dz**3 + (1632960*z**26 - 154326384*z**25 + 7338837168*z**24 - 225663323436*z**23 + 4801890449016*z**22 - 72874733229288*z**21 + 808011192676735*z**20 - 6687793265835490*z**19 + 42187300083028603*z**18 - 206817067662336884*z**17 + 801560426130937658*z**16 - 2490727387230197624*z**15 + 6272063547301139206*z**14 - 12895041179674817944*z**13 +21738287032668387484*z**12 - 30083767255776896928*z**11 + 34108882884431529192*z**10 - 31507843213748157876*z**9 + 23481458285447155422*z**8 - 13902375219613699716*z**7 + 6386678527821802506*z**6 - 2194528584495136680*z**5 + 530717365635608925*z**4 - 80561169859929750*z**3 + 5773781934703125*z**2)*Dz**2 + (2356128*z**25 - 172802160*z**24 + 7290746496*z**23 - 220329890208*z**22 + 4748895867996*z**21 - 72989477514576*z**20 + 815018141851579*z**19 - 6762783377980019*z**18 +42644822731963227*z**17 - 208681301740955672*z**16 + 807002082826244992*z**15 - 2502711432378058869*z**14 + 6293052390293003992*z**13 - 12925897748676398084*z**12 + 21777653697882335640*z**11 - 30126732277129911711*z**10 + 34146782819340442956*z**9 - 31532942478475275696*z**8 + 23492924047512296220*z**7 - 13905563328105795207*z**6 + 6387084187992321264*z**5 - 2194529579280600948*z**4 + 530717772906189585*z**3 - 80561238605140050*z**2 + 5773781934703125*z)*Dz + 1376352*z**24 -124268256*z**23 + 6537065472*z**22 - 214686219744*z**21 + 4751137968516*z**20 - 73617218440524*z**19 + 823687823266975*z**18 - 6829979407739124*z**17 + 42978937261434045*z**16 - 209811099775500026*z**15 + 809761480688798142*z**14 - 2508043312587912396*z**13 + 6302258618186925892*z**12 - 12940989910793711676*z**11 + 21799463094240316488*z**10 - 30151403872312102182*z**9 + 34166775655227923766*z**8 - 31543700462524877778*z**7 + 23496355856172136314*z**6 - 13906054545221671128*z**5 +6387084190303343280*z**4 - 2194529586021124812*z**3 + 530717777625867777*z**2 - 80561239688783970*z + 5773781934703125 # fuchsian6 chez Marc
+    sage: fac = dop.factor() # long time (28s, d0b5a297 of facto)
+    sage: len(fac), fac[0] == dop # long time
+    (1, True)
 """
 
 # Copyright 2021 Alexandre Goyer, Inria Saclay Ile-de-France
@@ -26,6 +309,7 @@ from ore_algebra.analytic.linear_algebra import (invariant_subspace,
                                                  customized_accuracy)
 from ore_algebra.analytic.monodromy import _monodromy_matrices
 from ore_algebra.analytic.utilities import as_embedded_number_field_elements
+from ore_algebra.examples import ssw
 from ore_algebra.guessing import guess
 from sage.arith.functions import lcm
 from sage.arith.misc import algdep, gcd
@@ -734,3 +1018,13 @@ def _substitution_map(dop, e):
     output = sum(c*T**i for i, c in enumerate(l))
 
     return output
+
+def _tests_ssw(): # to test all ssw examples
+    b = True
+    for k in range(1,20):
+        for i in range(2):
+            for j in range(2):
+                dop = ssw.dop[k,i,j]
+                fac = dop.factor()
+                if prod(fac)!=dop: b = False
+    return b
