@@ -401,7 +401,7 @@ def right_factor(dop, verbose=False):
     if r < 2:
         return None
     R = _try_rational(dop)
-    if R != None:
+    if R is not None:
         return R
 
     if verbose:
@@ -413,7 +413,7 @@ def right_factor(dop, verbose=False):
     dop = dop.annihilator_of_composition(z + s0).monic()
     R = right_factor_via_monodromy(dop, verbose=verbose)
 
-    if R == None:
+    if R is None:
         return None
     return R.annihilator_of_composition(z - s0)
 
@@ -446,7 +446,7 @@ def check_irreducible(dop, verbose=False, prec=None, max_prec=100000):
         sage: check_irreducible(fcc.dop4)
         True
     """
-    if prec == None:
+    if prec is None:
         prec = 40*dop.order()
     if prec > max_prec:
         return
@@ -462,7 +462,7 @@ def check_irreducible(dop, verbose=False, prec=None, max_prec=100000):
                 if verbose:
                     print(len(mono), "matrices computed")
                 if len(mono)>1:
-                    if invariant_subspace(mono)==None:
+                    if invariant_subspace(mono) is None:
                         return True
     except PrecisionError:
         pass
@@ -502,7 +502,7 @@ def check_minimal_annihilator(dop, initial_conditions, verbose=False, prec=None,
         sage: check_minimal_annihilator(dop, [0,1])
         True
     """
-    if prec == None:
+    if prec is None:
         prec = 40*dop.order()
     if prec > max_prec:
         return
@@ -546,17 +546,17 @@ def right_factor_via_monodromy(dop, order=None, bound=None, alg_degree=None, pre
 
     r = dop.order()
 
-    if bound==None:
+    if bound is None:
         bound = _degree_bound_for_right_factor(dop)
         if verbose:
             print("Degree bound for right factor", bound)
 
-    if order == None:
+    if order is None:
         deg_of_dop = DifferentialOperator(dop).degree()
         order = max(min( r*deg_of_dop, 100, bound*(r + 1) + 1 ), 1)
-    if alg_degree == None:
+    if alg_degree is None:
         alg_degree = dop.base_ring().base_ring().degree()
-    if precision == None:
+    if precision is None:
         precision = 50*(r + 1)
 
     if verbose:
@@ -711,7 +711,7 @@ def multiple_eigenvalue(dop, mono, order, bound, alg_degree, verbose=False):
     """
     r = dop.order()
     invspace = invariant_subspace(mono)
-    if invspace == None:
+    if invspace is None:
         return None
     R = annihilator(dop, invspace[0], order, bound, alg_degree, mono, verbose)
     if R != "Inconclusive" and R.order() < r:
@@ -726,7 +726,7 @@ def annihilator(dop, ic, order, bound, alg_degree, mono=None, verbose=False):
     d = r - 1
     base_field = OA.base_ring().base_ring()
 
-    if mono != None:
+    if mono is not None:
         orb = orbit(mono, ic)
         d = len(orb)
         if d == r:
@@ -1008,7 +1008,7 @@ def _substitution_map(dop, e):
 def _factor(dop, verbose=False):
 
     R = right_factor(dop, verbose)
-    if R == None:
+    if R is None:
         return [dop]
     OA = R.parent()
     OA = OA.change_ring(OA.base_ring().fraction_field())
