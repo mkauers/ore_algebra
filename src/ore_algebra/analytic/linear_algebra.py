@@ -19,7 +19,7 @@ from sage.arith.functions import lcm
 from sage.functions.all import log
 from sage.matrix.constructor import matrix
 from sage.matrix.matrix_dense import Matrix_dense
-from sage.matrix.special import identity_matrix, block_diagonal_matrix
+from sage.matrix.special import identity_matrix
 from sage.misc.misc_c import prod
 from sage.modules.free_module import VectorSpace
 from sage.modules.free_module_element import vector, FreeModuleElement_generic_dense
@@ -668,6 +668,7 @@ def gen_eigenspaces(mat, *, projections=False):
 
     Each dictionary of ``GenEigSpaces`` represents a generalized eigenspace of
     ``mat``, whose keys are the following strings:
+
     - ``eigenvalue`` : complex number
     - ``multiplicity`` : integer
     - ``basis`` : list of vectors

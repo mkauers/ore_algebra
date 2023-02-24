@@ -1,7 +1,6 @@
 # -*- coding: utf-8 - vim: tw=80
 """
-Some examples arosing when I implemented the factorization of linear
-differential operators.
+Examples and testcases for operator factorization
 """
 
 # Copyright 2021 Alexandre Goyer, Inria Saclay Ile-de-France
