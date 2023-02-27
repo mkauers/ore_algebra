@@ -2154,7 +2154,8 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
 
         Case that requires an algebraic extension::
 
-            sage: from ore_algebra.analytic.examples.facto import z, Dz
+            sage: from ore_algebra import DifferentialOperators
+            sage: Diffops, z, Dz = DifferentialOperators(QQ, 'z')
             sage: dop = 1 + z*Dz + z^2*Dz^2 + z^3*Dz^3
             sage: dop.factor()
             [z*Dz - 20/28181*a0^5 + 701/56362*a0^4 + 334/28181*a0^3 + 2382/28181*a0^2 + 20005/56362*a0 - 14161/28181,
@@ -2224,7 +2225,8 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
 
         Case that requires an algebraic extension::
 
-            sage: from ore_algebra.analytic.examples.facto import z, Dz
+            sage: from ore_algebra import DifferentialOperators
+            sage: Diffops, z, Dz = DifferentialOperators(QQ, 'z')
             sage: dop = 1 + z*Dz + z^2*Dz^2 + z^3*Dz^3
             sage: dop.right_factor()
             z*Dz + a - 1
@@ -2266,8 +2268,8 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
 
         EXAMPLES::
 
-            sage: from ore_algebra import OreAlgebra
-            sage: Dops.<Dz> = OreAlgebra(PolynomialRing(QQ, 'z'))
+            sage: from ore_algebra import DifferentialOperators
+            sage: Diffops, z, Dz = DifferentialOperators(QQ, 'z')
             sage: red_dop = z^2*Dz^2 - 2*z*Dz + 2 # reducible operator
             sage: irred_dop = (z^2 - 1)*Dz^2 + Dz + 1 # irreducible operator
             sage: red_dop.is_provably_irreducible()
@@ -2321,8 +2323,8 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
 
         EXAMPLES::
 
-            sage: from ore_algebra import OreAlgebra
-            sage: Dops.<Dz> = OreAlgebra(PolynomialRing(QQ, 'z'))
+            sage: from ore_algebra import DifferentialOperators
+            sage: Diffops, z, Dz = DifferentialOperators(QQ, 'z')
             sage: dop = Dz*z*Dz # annihilator of 1 and log
             sage: dop.local_basis_monomials(0)
             [log(z), 1]
@@ -2338,7 +2340,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             sage: from ore_algebra.analytic.examples.facto import beukers_vlasenko_dops
             sage: dop = beukers_vlasenko_dops[1]; dop
             (16*z^3 - z)*Dz^2 + (48*z^2 - 1)*Dz + 16*z
-            sage: dop.is_provably_minimal_annihilator([0,1])
+            sage: dop.is_provably_minimal_annihilator([0, 1])
             True
         """
         from .analytic.factorization import is_provably_minimal_annihilator
