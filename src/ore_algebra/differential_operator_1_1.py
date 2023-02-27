@@ -20,6 +20,7 @@ from functools import reduce
 import sage.functions.log as symbolic_log
 
 from sage.arith.all import gcd, lcm, nth_prime
+from sage.arith.misc import valuation
 from sage.matrix.constructor import matrix
 from sage.misc.cachefunc import cached_method
 from sage.rings.fraction_field import FractionField_generic
@@ -2073,6 +2074,278 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         res = [r for r in res if (Dx*r).quo_rem(self)[1] != 0]
         return res
 
+    def is_fuchsian(self):
+        r"""
+        Test if this operator is Fuchsian (i.e. regular at each point of the
+        Riemann sphere).
+
+        EXAMPLES::
+
+            sage: from ore_algebra.examples import fcc
+            sage: fcc.dop4.is_fuchsian()
+            True
+        """
+        coeffs = self.coefficients()
+        fac = coeffs.pop().factor()
+        for (f, m) in fac:
+            for k, ak in enumerate(coeffs):
+                mk = valuation(ak, f)
+                if mk - m < k - self.order():
+                    return False
+
+        dop = self.annihilator_of_composition(1/self.base_ring().gen())
+        for k, frac in enumerate(dop.monic().coefficients()[:-1]):
+            d = (self.base_ring().gen()**(self.order() - k)*frac).denominator()
+            if d(0) == 0:
+                return False
+
+        return True
+
+    def factor(self, *, verbose=False):
+        r"""
+        Decompose this operator as a product of irreducible operators.
+
+        This method computes a decomposition of this operator as a product of
+        irreducible operators (potentially introducing algebraic extensions of
+        the field of constants).
+
+        The termination of this method is currently not guaranteed if the
+        operator is not Fuchsian.
+
+        .. SEEALSO::
+
+            :meth:`right_factor`
+
+        INPUT:
+
+        - ``verbose`` (boolean, default: ``False``) -- if set to ``True``,
+          this method prints some messages about the progress of the
+          computation.
+
+        OUTPUT:
+
+        A list of irreducible operators such that the product of its elements
+        is equal to the operator ``self``.
+
+        ALGORITHM:
+
+        Seminumeric algorithm as described in:
+
+        - Around the Numeric-Symbolic Computation of Differential Galois Groups,
+          van der Hoeven, 2007
+        - Symbolic-Numeric Factorization of Differential Operators, Chyzak,
+          Goyer, Mezzarobba, 2022
+
+        EXAMPLES:
+
+        Reducible case::
+
+            sage: from ore_algebra.examples import ssw
+            sage: ssw.dop[13,0,0].factor()
+            [(2688*t^9 + 2048*t^7 - 594*t^5 + 45*t^3 - t)*Dt^2 + (24192*t^8 + 8192*t^6 - 2330*t^4 + 167*t^2 - 3)*Dt + 40320*t^7 - 672*t^3 + 48*t,
+             t*Dt + 1,
+             t*Dt + 2]
+
+        Irreducible case::
+
+            sage: from ore_algebra.examples import fcc
+            sage: fcc.dop4.factor() == [fcc.dop4] # irreducible case
+            True
+
+        Case that requires an algebraic extension::
+
+            sage: from ore_algebra import DifferentialOperators
+            sage: Diffops, z, Dz = DifferentialOperators(QQ, 'z')
+            sage: dop = 1 + z*Dz + z^2*Dz^2 + z^3*Dz^3
+            sage: dop.factor()
+            [z*Dz - 20/28181*a0^5 + 701/56362*a0^4 + 334/28181*a0^3 + 2382/28181*a0^2 + 20005/56362*a0 - 14161/28181,
+             z*Dz + 20/84543*a0^5 - 701/169086*a0^4 - 334/84543*a0^3 - 794/28181*a0^2 - 76367/169086*a0 - 70382/84543,
+             z*Dz + 40/84543*a0^5 - 701/84543*a0^4 - 668/84543*a0^3 - 1588/28181*a0^2 + 8176/84543*a0 - 56221/84543]
+            sage: _[0].parent()
+            Univariate Ore algebra in Dz over Fraction Field of Univariate Polynomial Ring in z over Number Field in a0 with defining polynomial y^6 + 2*y^5 + 11*y^4 + 48*y^3 + 63*y^2 + 190*y + 1108 with a0 = -2.883024910498311? - 1.202820819285479?*I
+        """
+        from .analytic.factorization import factor
+        fac = factor(self, verbose=verbose)
+        return fac
+
+    def right_factor(self, *, verbose=False):
+        r"""
+        Find a right-hand factor of this operator.
+
+        The termination of this method is currently not guaranteed if the
+        operator is not Fuchsian.
+
+        .. SEEALSO::
+
+            :meth:`is_provably_irreducible`,
+            :meth:`factor`
+
+        INPUT:
+
+        - ``verbose`` (boolean, default: ``False``) -- if set to ``True``, this
+          method prints some messages about the progress of the computation.
+
+        OUTPUT:
+
+        - ``None`` if the operator is irreducible
+        - a proper right-hand factor (potentially with a larger field of
+          constants) otherwise.
+
+        EXAMPLES:
+
+        Reducible case with a right-hand factor coming from a rational solution::
+
+            sage: from ore_algebra.analytic.examples.facto import hypergeo_dop
+            sage: dop = hypergeo_dop(1,1,1); dop
+            (-z^2 + z)*Dz^2 + (-3*z + 1)*Dz - 1
+            sage: dop.right_factor().monic()
+            Dz + 1/(z - 1)
+
+        Reducible case with a right-hand factor coming from monodromy::
+
+            sage: from ore_algebra.analytic.examples.facto import hypergeo_dop
+            sage: dop = hypergeo_dop(1/2,1/3,1/3); dop
+            (-z^2 + z)*Dz^2 + (-11/6*z + 1/3)*Dz - 1/6
+            sage: dop.right_factor().monic()
+            Dz + 1/2/(z - 1)
+
+        Reducible case without rational solution, without monodromy (non Fuchsian)::
+
+            sage: from ore_algebra.examples.stdfun import dawson
+            sage: dawson.dop.right_factor()
+            1/2*Dx + x
+
+        Irreducible case::
+
+            sage: from ore_algebra.examples import fcc
+            sage: dop = fcc.dop4; dop
+            (9*z^10 + 186*z^9 + 1393*z^8 + 4608*z^7 + 6156*z^6 - 256*z^5 - 7488*z^4 - 4608*z^3)*Dz^4 + (126*z^9 + 2304*z^8 + 15322*z^7 + 46152*z^6 + 61416*z^5 + 15584*z^4 - 39168*z^3 - 27648*z^2)*Dz^3 + (486*z^8 + 7716*z^7 + 44592*z^6 + 119388*z^5 + 151716*z^4 + 66480*z^3 - 31488*z^2 - 32256*z)*Dz^2 + (540*z^7 + 7248*z^6 + 35268*z^5 + 80808*z^4 + 91596*z^3 + 44592*z^2 + 2688*z - 4608)*Dz + 108*z^6 + 1176*z^5 + 4584*z^4 + 8424*z^3 + 7584*z^2 + 3072*z
+            sage: dop.right_factor() is None # irreducible operator
+            True
+
+        Case that requires an algebraic extension::
+
+            sage: from ore_algebra import DifferentialOperators
+            sage: Diffops, z, Dz = DifferentialOperators(QQ, 'z')
+            sage: dop = 1 + z*Dz + z^2*Dz^2 + z^3*Dz^3
+            sage: dop.right_factor()
+            z*Dz + a - 1
+            sage: _.parent()
+            Univariate Ore algebra in Dz over Fraction Field of Univariate Polynomial Ring in z over Number Field in a with defining polynomial y^3 - y^2 + y - 2 with a = -0.1766049820996622? - 1.202820819285479?*I
+        """
+        from .analytic.factorization import right_factor
+        rfac = right_factor(self, verbose=verbose)
+        return rfac
+
+    def is_provably_irreducible(self, prec=None, max_prec=100000, *, verbose=False):
+        r"""
+        Attempt to prove that this operator is irreducible.
+
+        If the operator is Fuchsian and irreducible then this method succeeds to
+        prove the irreducibility when the permitted precision is large enough.
+
+        .. WARNING::
+
+            Unlike :meth:`right_factor`, this method cannot conclude when the
+            operator is reducible. However, it is faster.
+
+        .. SEEALSO::
+
+            :meth:`is_provably_minimal_annihilator`
+
+        INPUT:
+
+        - ``prec`` (integer, optional) -- initial working precision
+        - ``max_prec`` (integer, default: 100000) -- maximum working precision
+        - ``verbose`` (boolean, default: ``False``) -- if set to ``True``, this
+          method prints some messages about the progress of the computation.
+
+        OUTPUT:
+
+        - ``True`` if the method could verify that the operator is irreducible
+        - ``False`` if it reached the precision limit without being able to
+          conclude
+
+        EXAMPLES::
+
+            sage: from ore_algebra import DifferentialOperators
+            sage: Diffops, z, Dz = DifferentialOperators(QQ, 'z')
+            sage: red_dop = z^2*Dz^2 - 2*z*Dz + 2 # reducible operator
+            sage: irred_dop = (z^2 - 1)*Dz^2 + Dz + 1 # irreducible operator
+            sage: red_dop.is_provably_irreducible()
+            False
+            sage: irred_dop.is_provably_irreducible()
+            True
+            sage: irred_dop.is_provably_irreducible(max_prec=50) # insufficient precision
+            False
+        
+        An example coming from Face-Centered Cubic Lattices
+        (see http://www.koutschan.de/data/fcc/)::
+        
+            sage: from ore_algebra.examples import ssw, fcc
+            sage: fcc.dop4.is_provably_irreducible()
+            True
+        """
+        from .analytic.factorization import is_provably_irreducible
+        return is_provably_irreducible(self, verbose=verbose, prec=prec, max_prec=max_prec)
+
+    def is_provably_minimal_annihilator(self, initial_conditions, prec=None, max_prec=100000, *, verbose=False):
+        r"""
+        Attempt to prove that this operator is the minimal annihilator of a
+        given solution.
+
+        The initial conditions are the coefficients of the monomials returned
+        by ``self.local_basis_monomials(0)`` (see :meth:`local_basis_monomials`).
+        If 0 is an ordinary point, this is simply
+        :math:`[f(0), f'(0), f''(0)/2, ..., f^{(r-1)}(0)/(r-1)!]`.
+
+        If the operator is Fuchsian and minimal for the given solution then this
+        method succeeds to prove the minimality when the permitted precision is 
+        large enough.
+
+        .. SEEALSO::
+
+            :meth:`is_provably_irreducible`
+
+        INPUT:
+
+        - ``initial_conditions`` -- list of complex numbers
+        - ``prec`` (integer, optional) -- initial working precision
+        - ``max_prec`` (integer, default: 100000) -- maximum working precision
+        - ``verbose`` (boolean, default: ``False``) -- if set to ``True``, this
+          function prints some messages about the progress of the computation.
+
+        OUTPUT:
+
+        - ``True`` if the method could verify minimality
+        - ``False`` if it reached the precision limit without being able to
+          conclude
+
+        EXAMPLES::
+
+            sage: from ore_algebra import DifferentialOperators
+            sage: Diffops, z, Dz = DifferentialOperators(QQ, 'z')
+            sage: dop = Dz*z*Dz # annihilator of 1 and log
+            sage: dop.local_basis_monomials(0)
+            [log(z), 1]
+            sage: dop.is_provably_minimal_annihilator([0, 1]) # not minimal for 1
+            False
+            sage: dop.is_provably_minimal_annihilator([1, 0]) # minimal for log
+            True
+            sage: dop.is_provably_minimal_annihilator([1, 0], max_prec=50) # insufficient precision
+            False
+
+        A nontrivial example::
+
+            sage: from ore_algebra.analytic.examples.facto import beukers_vlasenko_dops
+            sage: dop = beukers_vlasenko_dops[1]; dop
+            (16*z^3 - z)*Dz^2 + (48*z^2 - 1)*Dz + 16*z
+            sage: dop.is_provably_minimal_annihilator([0, 1])
+            True
+        """
+        from .analytic.factorization import is_provably_minimal_annihilator
+        return is_provably_minimal_annihilator(self, initial_conditions, verbose=verbose, prec=prec, max_prec=max_prec)
+
 #############################################################################################################
 
 class UnivariateEulerDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOverUnivariateRing):
@@ -2244,4 +2517,3 @@ def _tower(dom):
         return _tower(dom.ring())
     else:
         return dom, set()
-

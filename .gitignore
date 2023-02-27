@@ -14,3 +14,4 @@ papers/*/*_doctest.sage
 *.c
 *.cpp
 *.so
+**/__pycache__/*

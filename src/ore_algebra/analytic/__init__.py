@@ -37,11 +37,21 @@ consequence, some features may be undocumented and/or very experimental.
     ore_algebra.analytic.polynomial_approximation
     ore_algebra.analytic.ui
 
+.. rubric:: Symbolic-Numeric Factorization
+
+.. autosummary::
+    :toctree: generated
+
+    ore_algebra.analytic.complex_optimistic_field
+    ore_algebra.analytic.factorization
+    ore_algebra.analytic.linear_algebra
+
 .. rubric:: Additional examples
 
 .. autosummary::
     :toctree: generated
 
+    ore_algebra.analytic.examples.facto
     ore_algebra.analytic.examples.misc
 
 Basic Usage
