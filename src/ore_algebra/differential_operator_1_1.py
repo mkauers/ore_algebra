@@ -2176,7 +2176,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
 
         .. SEEALSO::
 
-            :meth:`check_irreducible`,
+            :meth:`is_provably_irreducible`,
             :meth:`factor`
 
         INPUT:
@@ -2235,17 +2235,21 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         rfac = right_factor(self, verbose=verbose)
         return rfac
 
-    def check_irreducible(self, prec=None, max_prec=100000, *, verbose=False):
+    def is_provably_irreducible(self, prec=None, max_prec=100000, *, verbose=False):
         r"""
         Attempt to prove that this operator is irreducible.
 
         If the operator is Fuchsian and irreducible then this method succeeds to
-        prove the irreducibility when the precision is large enough.
+        prove the irreducibility when the permitted precision is large enough.
 
         .. WARNING::
 
             Unlike :meth:`right_factor`, this method cannot conclude when the
             operator is reducible. However, it is faster.
+
+        .. SEEALSO::
+
+            :meth:`is_provably_minimal_annihilator`
 
         INPUT:
 
@@ -2262,14 +2266,28 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
 
         EXAMPLES::
 
-            sage: from ore_algebra.examples import fcc
-            sage: fcc.dop4.check_irreducible()
+            sage: from ore_algebra import OreAlgebra
+            sage: Dops.<Dz> = OreAlgebra(PolynomialRing(QQ, 'z'))
+            sage: red_dop = z^2*Dz^2 - 2*z*Dz + 2 # reducible operator
+            sage: irred_dop = (z^2 - 1)*Dz^2 + Dz + 1 # irreducible operator
+            sage: red_dop.is_provably_irreducible()
+            False
+            sage: irred_dop.is_provably_irreducible()
+            True
+            sage: irred_dop.is_provably_irreducible(max_prec=50) # insufficient precision
+            False
+        
+        An example coming from Face-Centered Cubic Lattices
+        (see http://www.koutschan.de/data/fcc/)::
+        
+            sage: from ore_algebra.examples import ssw, fcc
+            sage: fcc.dop4.is_provably_irreducible()
             True
         """
-        from .analytic.factorization import check_irreducible
-        return check_irreducible(self, verbose=verbose, prec=prec, max_prec=max_prec)
+        from .analytic.factorization import is_provably_irreducible
+        return is_provably_irreducible(self, verbose=verbose, prec=prec, max_prec=max_prec)
 
-    def check_minimal_annihilator(self, initial_conditions, prec=None, max_prec=100000, *, verbose=False):
+    def is_provably_minimal_annihilator(self, initial_conditions, prec=None, max_prec=100000, *, verbose=False):
         r"""
         Attempt to prove that this operator is the minimal annihilator of a
         given solution.
@@ -2280,8 +2298,12 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         :math:`[f(0), f'(0), f''(0)/2, ..., f^{(r-1)}(0)/(r-1)!]`.
 
         If the operator is Fuchsian and minimal for the given solution then this
-        method succeeds to prove the minimality when the precision is large
-        enough.
+        method succeeds to prove the minimality when the permitted precision is 
+        large enough.
+
+        .. SEEALSO::
+
+            :meth:`is_provably_irreducible`
 
         INPUT:
 
@@ -2299,14 +2321,28 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
 
         EXAMPLES::
 
+            sage: from ore_algebra import OreAlgebra
+            sage: Dops.<Dz> = OreAlgebra(PolynomialRing(QQ, 'z'))
+            sage: dop = Dz*z*Dz # annihilator of 1 and log
+            sage: dop.local_basis_monomials(0)
+            [log(z), 1]
+            sage: dop.is_provably_minimal_annihilator([0, 1]) # not minimal for 1
+            False
+            sage: dop.is_provably_minimal_annihilator([1, 0]) # minimal for log
+            True
+            sage: dop.is_provably_minimal_annihilator([1, 0], max_prec=50) # insufficient precision
+            False
+
+        A nontrivial example::
+
             sage: from ore_algebra.analytic.examples.facto import beukers_vlasenko_dops
             sage: dop = beukers_vlasenko_dops[1]; dop
             (16*z^3 - z)*Dz^2 + (48*z^2 - 1)*Dz + 16*z
-            sage: dop.check_minimal_annihilator([0,1])
+            sage: dop.is_provably_minimal_annihilator([0,1])
             True
         """
-        from .analytic.factorization import check_minimal_annihilator
-        return check_minimal_annihilator(self, initial_conditions, verbose=verbose, prec=prec, max_prec=max_prec)
+        from .analytic.factorization import is_provably_minimal_annihilator
+        return is_provably_minimal_annihilator(self, initial_conditions, verbose=verbose, prec=prec, max_prec=max_prec)
 
 #############################################################################################################
 

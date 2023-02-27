@@ -358,15 +358,18 @@ def right_factor(dop, verbose=False):
         return None
     return R.annihilator_of_composition(z - s0)
 
-def check_irreducible(dop, verbose=False, prec=None, max_prec=100000):
+def is_provably_irreducible(dop, verbose=False, prec=None, max_prec=100000):
     r"""
     See the documentation of the associated method
-    :meth:`~ore_algebra.differential_operator_1_1.UnivariateDifferentialOperatorOverUnivariateRing.check_irreducible`.
+    :meth:`~ore_algebra.differential_operator_1_1.UnivariateDifferentialOperatorOverUnivariateRing.is_provably_irreducible`.
     """
+
+    if dop.order()==1: return True
+
     if prec is None:
         prec = 40*dop.order()
     if prec > max_prec:
-        return
+        return False
 
     if verbose:
         print("Try with precision", prec)
@@ -378,22 +381,21 @@ def check_irreducible(dop, verbose=False, prec=None, max_prec=100000):
                 mono.append(m)
                 if verbose:
                     print(len(mono), "matrices computed")
-                if len(mono)>1:
-                    if invariant_subspace(mono) is None:
-                        return True
+                if invariant_subspace(mono) is None:
+                    return True
     except PrecisionError:
         pass
 
-    return check_irreducible(dop, verbose=verbose, prec=prec<<1)
+    return is_provably_irreducible(dop, verbose=verbose, prec=prec<<1)
 
-def check_minimal_annihilator(dop, initial_conditions, verbose=False, prec=None, max_prec=100000):
+def is_provably_minimal_annihilator(dop, initial_conditions, verbose=False, prec=None, max_prec=100000):
     r"""
-    See the documentation of the associated method :meth:`~ore_algebra.differential_operator_1_1.UnivariateDifferentialOperatorOverUnivariateRing.check_minimal_annihilator`.
+    See the documentation of the associated method :meth:`~ore_algebra.differential_operator_1_1.UnivariateDifferentialOperatorOverUnivariateRing.is_provably_minimal_annihilator`.
     """
     if prec is None:
         prec = 40*dop.order()
     if prec > max_prec:
-        return
+        return False
 
     if verbose:
         print("Try with precision", prec)
@@ -411,7 +413,7 @@ def check_minimal_annihilator(dop, initial_conditions, verbose=False, prec=None,
     except PrecisionError:
         pass
 
-    return check_minimal_annihilator(dop, initial_conditions, verbose=verbose, prec=prec<<1, max_prec=max_prec)
+    return is_provably_minimal_annihilator(dop, initial_conditions, verbose=verbose, prec=prec<<1, max_prec=max_prec)
 
 ################################################################################
 ### Hybrid algorithm, see [Chyzak, Goyer, Mezzarobba, 2022] ####################
