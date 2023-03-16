@@ -1874,7 +1874,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         vv = [conv(w) for w in wwinf]
         return vv
 
-    def _normalize_basis_at_infinity(self,uu,vv, infolevel=0, modulus=None):
+    def _normalize_basis_at_infinity(self,uu,vv, infolevel=0, solver=None, modulus=None):
         r"""
         Compute an integral basis normal at infinity
 
@@ -1930,12 +1930,14 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             x = PolP.gen()
             ww = [DifP(w) for w in ww]
             vv = [DifP(v) for v in vv]
-            # TODO: make it a parameter
-            nullspace_solver = nullspace.sage_native
+            # TODO: make it a parameter]
+            if solver is None:
+                solver = nullspace.sage_native
         else:
             K = QQ
             Pol = self.base_ring()
-            nullspace_solver = nullspace.cra(nullspace.sage_native)
+            if solver is None:
+                solver = nullspace.cra(nullspace.sage_native)
         
         def pad_list(ll,d):
             # add 0s to reach length d
