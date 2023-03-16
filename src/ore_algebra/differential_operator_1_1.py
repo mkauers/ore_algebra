@@ -1980,7 +1980,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
                 import time
                 t = time.perf_counter()
                 # a = B.kernel()
-                a = nullspace_solver(B.transpose())
+                a = solver(B.transpose())
                 tt = time.perf_counter() - t
                 if infolevel >= 1 and modulus is None:
                     print(f"max coef size={max([len(str(c)) for r in B for c in r])} ; kernel time={tt}")
