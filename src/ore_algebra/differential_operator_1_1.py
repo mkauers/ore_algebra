@@ -2051,7 +2051,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         ww, _ = self._normalize_basis_at_infinity(ww,vv, infolevel=infolevel)
         return ww
 
-    def pseudoconstants(self, iota=None, infolevel=0, **val_kwargs):
+    def pseudoconstants(self, iota=None, infolevel=0, solver=None, **val_kwargs):
         r"""
         Compute pseudoconstants.
 
@@ -2097,7 +2097,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         ww = self.global_integral_basis(iota=iota, infolevel=infolevel, **val_kwargs)
         vv = self.local_integral_basis_at_infinity(iota=iota, infolevel=infolevel, **val_kwargs)
 
-        ww, tau = self._normalize_basis_at_infinity(ww,vv, infolevel=infolevel)
+        ww, tau = self._normalize_basis_at_infinity(ww,vv, solver=solver, infolevel=infolevel)
         x = self.base_ring().gen()
         res = []
         for i in range(len(ww)):
