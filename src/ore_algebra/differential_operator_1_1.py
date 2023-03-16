@@ -28,6 +28,7 @@ from sage.rings.infinity import infinity
 from sage.rings.integer_ring import ZZ
 from sage.rings.number_field.number_field_base import is_NumberField
 from sage.rings.number_field.number_field import NumberField
+from sage.rings.finite_rings.finite_field_constructor import FiniteField as GF
 from sage.rings.polynomial.multi_polynomial_ring import is_MPolynomialRing
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 from sage.rings.polynomial.polynomial_ring import is_PolynomialRing
@@ -39,10 +40,11 @@ from sage.structure.formal_sum import FormalSum, FormalSums
 from sage.symbolic.all import SR
 
 from .generalized_series import GeneralizedSeriesMonoid, _binomial
-from .ore_algebra import OreAlgebra_generic
+from .ore_algebra import OreAlgebra_generic, OreAlgebra
 from .ore_operator_1_1 import UnivariateOreOperatorOverUnivariateRing
 from .ore_operator import UnivariateOreOperator
 from .tools import clear_denominators, make_factor_iterator, shift_factor, _rec2list, _power_series_solutions
+from . import nullspace
 
 #############################################################################################################
 
@@ -1821,7 +1823,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
 
     @cached_method
     def local_integral_basis_at_infinity(self, basis=None, iota=None,
-                                         infolevel=0):
+                                         infolevel=0, **val_kwargs):
         r"""
         Compute a local integral basis at infinity
 
@@ -1864,15 +1866,15 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         """
         x = self.base_ring().gen()
         Linf, conv = self.annihilator_of_composition(1/x, with_transform=True)
-        f,v,rv = Linf._make_valuation_place(x, iota=iota)
+        f,v,rv = Linf._make_valuation_place(x, iota=iota, **val_kwargs)
         if basis:
             basis = [conv(b) for b in basis]
         wwinf = Linf.local_integral_basis(f, val_fct=v, raise_val_fct=rv,
-                                          basis=basis, infolevel=infolevel)
+                                          basis=basis, infolevel=infolevel, **val_kwargs)
         vv = [conv(w) for w in wwinf]
         return vv
 
-    def _normalize_basis_at_infinity(self,uu,vv, infolevel=0):
+    def _normalize_basis_at_infinity(self,uu,vv, infolevel=0, modulus=None):
         r"""
         Compute an integral basis normal at infinity
 
@@ -1884,6 +1886,8 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
 
         - ``uu`` a global integral basis
         - ``vv`` a local integral basis at infinity
+        - ``modulus`` (default: None) if given, perform the computations modulo
+          that number
 
         OUTPUT:
 
@@ -1911,10 +1915,27 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         """
         if infolevel >= 1:
             print("Normalizing the basis")
+
         r = self.order()
         x = self.base_ring().gen()
         from sage.matrix.constructor import matrix
         ww = uu[:]
+
+        if modulus:
+            K = GF(modulus)
+            Dif = self.parent()
+            Pol = self.base_ring()
+            PolP = Pol.change_ring(K)
+            DifP = OreAlgebra(PolP, *Dif.variable_names())
+            x = PolP.gen()
+            ww = [DifP(w) for w in ww]
+            vv = [DifP(v) for v in vv]
+            # TODO: make it a parameter
+            nullspace_solver = nullspace.sage_native
+        else:
+            K = QQ
+            Pol = self.base_ring()
+            nullspace_solver = nullspace.cra(nullspace.sage_native)
         
         def pad_list(ll,d):
             # add 0s to reach length d
@@ -1933,7 +1954,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
 
         def eval_inf(f):
             # value of f at infinity
-            if f in QQ:
+            if f in K:
                 return f
             else:
                 if f.denominator().degree() > f.numerator().degree():
@@ -1941,17 +1962,28 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
                 elif f.denominator().degree() < f.numerator().degree():
                     raise ZeroDivisionError
                 else:
-                    return f.numerator().leading_coefficient() / f.denominator().leading_coefficient()
+                    # casting in Pol for the nullspace solver which expects
+                    # polynomial coefficients
+                    return Pol(f.numerator().leading_coefficient() / f.denominator().leading_coefficient())
 
         D_to_vv = matrix([pad_list(b.coefficients(sparse=False),r)
                           for b in vv]).inverse()
 
         first = True
+        max_coef_size = None
         while first or B.determinant() == 0:
             if first:
                 first = False
             else:
-                a = B.kernel().basis()[0]
+                import time
+                t = time.perf_counter()
+                # a = B.kernel()
+                a = nullspace_solver(B.transpose())
+                tt = time.perf_counter() - t
+                if infolevel >= 1 and modulus is None:
+                    print(f"max coef size={max([len(str(c)) for r in B for c in r])} ; kernel time={tt}")
+                # a = a.basis()[0] # breaking for profiling
+                a = a[0]
                 l = min([i for i in range(r) if a[i] != 0],
                         key = lambda i: tau[i]);
                 ww[l] = sum(a[i]*x**(tau[i]-tau[l])*ww[i] for i in range(r))
@@ -1963,12 +1995,12 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             tau = [min(tau_value(m) for m in row) for row in mm.rows()]
             B = matrix([[eval_inf(x**tau[i]*mm[i,j]) for j in range(r)]
                     for i in range(r)])
-            if infolevel >= 1:
-                print(f"{tau=}")
+            if infolevel >= 1: print(f"{tau=}")
+                    
             
         return ww, tau
     
-    def normal_global_integral_basis(self,basis=None, iota=None, infolevel=0):
+    def normal_global_integral_basis(self,basis=None, iota=None, infolevel=0, **val_kwargs):
         r"""
         Compute a normal global integral basis
 
@@ -2011,13 +2043,13 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
              (23/301*x^6 - 1104/1505*x^5 - 279427/12040*x^4 + 305877/12040*x^3 - 9867/6020*x^2 + 299/3010*x)*Dx + 184/903*x^5 - 1472/645*x^4 - 2708719/24080*x^3 + 10751/2580*x^2 - 598/645*x + 598/4515]
         
         """
-        ww = self.global_integral_basis(basis=basis,iota=iota, infolevel=infolevel)
-        vv = self.local_integral_basis_at_infinity(iota=iota, infolevel=infolevel)
+        ww = self.global_integral_basis(basis=basis,iota=iota, infolevel=infolevel, **val_kwargs)
+        vv = self.local_integral_basis_at_infinity(iota=iota, infolevel=infolevel, **val_kwargs)
 
         ww, _ = self._normalize_basis_at_infinity(ww,vv, infolevel=infolevel)
         return ww
 
-    def pseudoconstants(self, iota=None, infolevel=0):
+    def pseudoconstants(self, iota=None, infolevel=0, **val_kwargs):
         r"""
         Compute pseudoconstants.
 
@@ -2060,8 +2092,8 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         
         """
         
-        ww = self.global_integral_basis(iota=iota, infolevel=infolevel)
-        vv = self.local_integral_basis_at_infinity(iota=iota, infolevel=infolevel)
+        ww = self.global_integral_basis(iota=iota, infolevel=infolevel, **val_kwargs)
+        vv = self.local_integral_basis_at_infinity(iota=iota, infolevel=infolevel, **val_kwargs)
 
         ww, tau = self._normalize_basis_at_infinity(ww,vv, infolevel=infolevel)
         x = self.base_ring().gen()
