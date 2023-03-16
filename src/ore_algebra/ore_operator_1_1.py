@@ -1541,11 +1541,17 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         """
 
         # Helpers
-        print1 = print if infolevel >= 1 else lambda *a, **k: None
-        print2 = print if infolevel >= 2 else lambda *a, **k: None
-        print3 = print if infolevel >= 3 else lambda *a, **k: None
+        prefix_base=f"[local {a}]"
+        prefix = prefix_base
+        
+        def print_with_prefix(*args, **kwargs):
+            print(prefix, *args, **kwargs)
+            
+        print1 = print_with_prefix if infolevel >= 1 else lambda *a, **k: None
+        print2 = print_with_prefix if infolevel >= 2 else lambda *a, **k: None
+        print3 = print_with_prefix if infolevel >= 3 else lambda *a, **k: None
 
-        print1(" [local] Computing local basis at {}".format(a))
+        print1(f"Computing local basis at {a}")
         
         if val_fct is None:
             val_fct = self.value_function
@@ -1567,20 +1573,21 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         res = []
         r = len(basis)
         for d in range(r):
-            print1(" [local] d={}".format(d))
-            print2(" [local] Processing {}".format(basis[d]))
+            # print1("d={}".format(d))
+            prefix = prefix_base + f" {d=}"
+            print2("Processing {}".format(basis[d]))
             v = val_fct(basis[d],place=a,**val_kwargs)
-            print1(" [local] Valuation: {}".format(v))
+            print1("Valuation: {}".format(v))
             res.append(a**(-v) * basis[d])
-            print2(" [local] Basis element after normalizing: {}".format(res[d]))
+            print2("Basis element after normalizing: {}".format(res[d]))
             done = False
             while not done:
                 alpha = raise_val_fct(res,place=a,dim=r,infolevel=infolevel,**val_kwargs)
                 if alpha is None:
                     done = True
                 else:
-                    print1(" [local] Relation found")
-                    print2("         {}".format(alpha))
+                    print1("Relation found")
+                    print2(alpha)
 
                     alpha_rep = [None for i in range(d+1)]
                     if deg > 1: # Should be harmless even otherwise (then Fvar=1), if we also force the cast to k
@@ -1589,14 +1596,14 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
                     else:
                         for i in range(d+1):
                             alpha_rep[i] = k(alpha[i])
-                    print2(" [local] In base field: {}".format(alpha_rep))
+                    print2("In base field: {}".format(alpha_rep))
                     # __import__("pdb").set_trace()
                     
                     res[d] = sum(alpha_rep[i]*res[i] for i in range(d+1))
                     val = val_fct(res[d],place=a,infolevel=infolevel,**val_kwargs)
-                    print1(" [local] Valuation raised by {}".format(val))
+                    print1("Valuation raised by {}".format(val))
                     res[d] = a**(-val)*res[d]
-                    print2(" [local] Basis element after combination: {}".format(res[d]))
+                    print2("Basis element after combination: {}".format(res[d]))
         return res
 
     def find_candidate_places(self, **kwargs):
