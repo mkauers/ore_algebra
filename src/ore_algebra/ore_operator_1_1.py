@@ -241,26 +241,28 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
           sage: R.<x> = ZZ['x']; A.<Dx> = OreAlgebra(R, 'Dx')
           sage: L = ((x+3)*Dx + 2).lclm(x*Dx + 3).symmetric_product((x+4)*Dx-2)
           sage: L.rational_solutions()
-          [((x^2 + 8*x + 16)/x^3,), ((x^2 + 8*x + 16)/(x^2 + 6*x + 9),)]
+          [((-x^2 - 8*x - 16)/x^3,),
+           ((-x^5 + 96*x^3 + 584*x^2 + 1344*x + 1152)/(x^5 + 6*x^4 + 9*x^3),)]
           sage: L.rational_solutions((1, x))
-          [((7*x^5 + 21*x^4 + 73*x^2 + 168*x + 144)/(x^5 + 6*x^4 + 9*x^3), 5184, 756),
-           ((4*x^2 + 14*x + 1)/(x^2 + 6*x + 9), 2592, 378),
-           ((7*x^2 + 24*x)/(x^2 + 6*x + 9), 4608, 672)]
+          [((x^2 + 8*x + 16)/(x^2 + 6*x + 9), 0, 0),
+           ((x^5 + 7*x^4 + 2*x^3 - 73*x^2 - 168*x - 144)/(x^5 + 6*x^4 + 9*x^3), 0, 0),
+           ((-2*x - 7)/(x^2 + 6*x + 9), 288, 42)]
           sage: L(_[0][0]) == _[0][1] + _[0][2]*x
           True
 
           sage: (x*(x*Dx-5)).rational_solutions([1])
-          [(1/x, -6), (x^5, 0)]
+          [(-x^5, 0), (1/x, -6)]
 
           sage: R.<n> = ZZ['n']; A.<Sn> = OreAlgebra(R, 'Sn');
           sage: L = ((n+3)*Sn - n).lclm((2*n+5)*Sn - (2*n+1))
           sage: L.rational_solutions()
-          [((-4*n^3 - 8*n^2 + 3)/(4*n^5 + 20*n^4 + 35*n^3 + 25*n^2 + 6*n),), (1/(4*n^2 + 8*n + 3),)]
+          [(-1/(n^3 + 3*n^2 + 2*n),),
+           ((-n^3 + n^2 + 6*n + 3)/(4*n^5 + 20*n^4 + 35*n^3 + 25*n^2 + 6*n),)]
 
           sage: L = (2*n^2 - n - 2)*Sn^2 + (-n^2 - n - 1)*Sn + n^2 - 14
           sage: y = (-n + 1)/(n^2 + 2*n - 2)
           sage: L.rational_solutions((L(y),))
-          [((-n + 1)/(n^2 + 2*n - 2), 1)]          
+          [((n - 1)/(n^2 + 2*n - 2), -1)]
         
         """
         A = self.parent()
