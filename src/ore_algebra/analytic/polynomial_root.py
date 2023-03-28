@@ -30,7 +30,8 @@ class PolynomialRoot:
     def __init__(self, pol, all_roots, index):
         assert pol.is_monic()
         self.pol = pol # may have coefficients in a number field
-        # all_roots is shared between the roots and may get modified
+        # all_roots is assumed to contain isolating intervals
+        # it is shared between the roots and may get modified
         assert isinstance(all_roots, list)
         self.all_roots = all_roots
         self.index = index
@@ -115,15 +116,17 @@ class PolynomialRoot:
         if self.pol.base_ring() is not QQ:
             raise NotImplementedError
         conj = self.all_roots[self.index].conjugate()
-        index = next(i for i, rt in enumerate(self.all_roots)
-                       if rt.overlaps(conj))
-        return PolynomialRoot(self.pol, self.all_roots, index)
+        candidates = [i for i, rt in enumerate(self.all_roots)
+                        if rt.overlaps(conj)]
+        if len(candidates) != 1:
+            raise NotImplementedError("isolating intervals of conjugate roots "
+                                      "are not conjugate intervals")
+        return PolynomialRoot(self.pol, self.all_roots, candidates[0])
 
     def try_eq_conjugate(self, other):
         return (self.pol.base_ring() is QQ
                 and self.all_roots is other.all_roots
-                and self.all_roots[self.index].conjugate().overlaps(
-                                                   self.all_roots[other.index]))
+                and self.conjugate().index == other.index)
 
     def is_rational(self):
         return self.pol.degree() == 1 and (self.pol.base_ring() is QQ
