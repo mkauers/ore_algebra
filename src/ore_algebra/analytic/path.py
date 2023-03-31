@@ -139,6 +139,8 @@ class Point(SageObject):
         from sage.rings.real_mpfr import RealField_class
 
         point = sage.structure.coerce.py_scalar_to_element(point)
+        if isinstance(point, PolynomialRoot):
+            point = point.as_number_field_element()
         try:
             parent = point.parent()
         except AttributeError:
