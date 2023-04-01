@@ -1513,9 +1513,6 @@ def crossing_sequence(sentinels, path):
                     append(-i)
     return seq
 
-def local_monodromy_path(sing):
-    raise NotImplementedError
-
 def polygon_around(point, size=17):
     # not ideal in the case of a single singularity...
     rad = (point.dist_to_sing()/2).min(1)
