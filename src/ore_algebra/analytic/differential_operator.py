@@ -18,7 +18,7 @@ from sage.rings.all import CIF, QQbar, QQ, ZZ
 from sage.rings.complex_arb import ComplexBallField
 from sage.rings.complex_interval_field import ComplexIntervalField
 from sage.rings.infinity import infinity
-from sage.rings.number_field.number_field import is_NumberField
+from sage.rings.number_field import number_field_base
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 
 from ..ore_algebra import OreAlgebra

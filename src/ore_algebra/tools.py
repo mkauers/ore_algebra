@@ -25,7 +25,7 @@ try:
     from sage.rings.complex_mpfr import ComplexField
 except ImportError:
     from sage.rings.complex_field import ComplexField
-from sage.rings.number_field.number_field_base import is_NumberField
+from sage.rings.number_field import number_field_base
 from sage.rings.fraction_field import FractionField_generic
 from sage.rings.fraction_field_element import FractionFieldElement
 
@@ -96,7 +96,7 @@ def make_factor_iterator(ring, multiplicities=True):
                 for f, e in C[x](p).factor():
                     if f.degree() > 0:
                         yield flush(f)
-    elif is_NumberField(R.base_ring()):
+    elif isinstance(R.base_ring(), number_field_base.NumberField):
         # R = QQ(alpha)[x]
         if multiplicities:
             def factors(p):
