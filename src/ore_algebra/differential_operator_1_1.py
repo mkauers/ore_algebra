@@ -25,7 +25,7 @@ from sage.misc.cachefunc import cached_method
 from sage.rings.fraction_field import FractionField_generic
 from sage.rings.infinity import infinity
 from sage.rings.integer_ring import ZZ
-from sage.rings.number_field.number_field_base import is_NumberField
+from sage.rings.number_field import number_field_base
 from sage.rings.number_field.number_field import NumberField
 from sage.rings.polynomial.multi_polynomial_ring import is_MPolynomialRing
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
@@ -613,7 +613,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             raise TypeError("cannot compute generalized solutions for this coefficient domain")
         elif R.is_field() or not R.base_ring().is_field():
             return self._normalize_base_ring()[-1].generalized_series_solutions(n, base_extend, ramification, exp)
-        elif not (R.base_ring() is QQ or is_NumberField(R.base_ring())):
+        elif not (R.base_ring() is QQ or isinstance(R.base_ring(), number_field_base.NumberField)):
             raise TypeError("cannot compute generalized solutions for this coefficient domain")
 
         solutions = []

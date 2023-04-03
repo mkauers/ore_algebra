@@ -25,7 +25,8 @@ from sage.rings.qqbar import (qq_generator, AlgebraicNumber, ANExtensionElement)
 from sage.rings.all import ZZ, QQ, QQbar, CBF
 from sage.rings.complex_interval_field import ComplexIntervalField
 from sage.rings.number_field.number_field import (NumberField,
-        NumberField_quadratic, is_NumberField)
+        NumberField_quadratic)
+from sage.rings.number_field import number_field_base
 from sage.rings.number_field.number_field_element_quadratic import NumberFieldElement_quadratic
 from sage.structure.coerce_exceptions import CoercionException
 from sage.structure.element import coercion_model
@@ -180,7 +181,9 @@ def mypushout(X, Y):
         return Y
     else:
         Z = pushout(X, Y)
-        if is_NumberField(X) and is_NumberField(Y) and not is_NumberField(Z):
+        if (isinstance(X, number_field_base.NumberField)
+                and isinstance(Y, number_field_base.NumberField)
+                and not isinstance(Z, number_field_base.NumberField)):
             # we likely obtained a parent where both number fields have a
             # canonical embedding, typically QQbar...
             raise CoercionException
@@ -193,7 +196,7 @@ def extend_scalars(Scalars, *pts):
         # in some cases, e.g. pushout(QQ, QQ(α)), where as_enf_elts() would
         # invent new generator names.
         NF = coercion_model.common_parent(Scalars, *pts)
-        if not is_NumberField(NF):
+        if not isinstance(NF, number_field_base.NumberField):
             raise CoercionException
         gen1 = NF.coerce(gen)
         pts1 = tuple(NF.coerce(pt) for pt in pts)
