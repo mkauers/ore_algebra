@@ -127,13 +127,22 @@ def formal_monodromy(dop, sing, ring=SR):
         sage: _test_formal_monodromy(Dx*x*Dx)
         sage: _test_formal_monodromy((x*Dx-1/2+x^2)^2*(x*Dx-5/2))
         sage: _test_formal_monodromy((x*Dx)^2 - 2)
+
+        sage: from ore_algebra.analytic.monodromy import formal_monodromy
+        sage: dop = (x^9 - 46656*x^3)*Dx^4 + (34*x^8 + 93312*x^2)*Dx^3 + (385*x^7 - 139968*x)*Dx^2 + (1695*x^6 + 139968)*Dx + 2401*x^5
+        sage: a = QQbar.polynomial_root(dop.leading_coefficient(), CIF(3, RIF(5.1, 5.2)))
+        sage: formal_monodromy(dop, a)
+        [                                          1  0  0  0]
+        [                            (67/17496*I*pi)  1  0  0]
+        [   (-9347/5038848*I*pi*(3*I*sqrt(1/3) - 1))  0  1  0]
+        [(-56135/45349632*I*pi*(-3*I*sqrt(1/3) - 1))  0  0  1]
     """
     dop = DifferentialOperator(dop)
     sing = path.Point(sing, dop)
     # XXX should use binary splitting when the indicial polynomial has large
     # dispersion
     crit = sing.local_basis_structure()
-    mor = dop.base_ring().base_ring().hom(ring)
+    mor = ring.hom(ring) # we need a Morphism but don't known the source ring
     mon, _ = _formal_monodromy_from_critical_monomials(crit, mor)
     return mon
 
