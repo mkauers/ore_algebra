@@ -278,3 +278,11 @@ def myfactor_monic(pol):
             for f1, m1 in f.factor():
                 fac.append((f1, m*m1))
     return fac
+
+def binomial_coefficients(s):
+    binom = [[0]*s for _ in range(s)]
+    for n in range(s):
+        binom[n][0] = 1
+        for k in range(1, n + 1):
+            binom[n][k] = binom[n-1][k-1] + binom[n-1][k]
+    return binom

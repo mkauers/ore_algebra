@@ -2484,11 +2484,7 @@ def _dop_rcoeffs_of_T(dop, base_ring):
     Pols = dop.base_ring().change_ring(base_ring)
     ordlen, deglen = dop.order() + 1, dop.degree() + 1
     _dop = dop._poly.list(copy=False) # micro-opt
-    binomial = [[0]*(ordlen) for _ in range(ordlen)]
-    for n in range(ordlen):
-        binomial[n][0] = 1
-        for k in range(1, n + 1):
-            binomial[n][k] = binomial[n-1][k-1] + binomial[n-1][k]
+    binomial = utilities.binomial_coefficients(ordlen)
     res = [None]*(ordlen)
     for k in range(ordlen):
         pol = [base_ring.zero()]*(deglen)
