@@ -22,24 +22,25 @@ Borel sum is equal to ``Ei(1,1/x)*exp(1/x)``. ::
 
      sage: def ref(x):
      ....:     x = ComplexBallField(200)(x)
-     ....:     v = (1/x).exp_integral_e(1)*(1/x).exp()
-     ....:     return matrix(2, 1, [v, 1/x-v/x^2])
+     ....:     u = (1/x).exp()
+     ....:     v = (1/x).exp_integral_e(1)*u
+     ....:     return matrix(2, 2, [[u, v], [-u/x^2, 1/x-v/x^2]])
 
 Thus::
 
-    sage: ref(1/2)
-    [[0.36132861688822258469716165767873993895459064154730239617...]]
-    [[0.55468553244710966121135336928504024418163743381079041531...]]
-    sage: borel_laplace(-x^3*Dx^2+(-x^2-x)*Dx+1, 1/2, 0, RBF(1e-20))
-    [[0.361328616888222584...] + [+/- ...]*I]
-    [[0.554685532447109661...] + [+/- ...]*I]
-
-    sage: ref(1/10)
+    sage: ref(1/10)[:,1]
     [[0.091563333939788081876069815766438449226677369109...]]
     [  [0.8436666060211918123930184233561550773322630890...]]
     sage: borel_laplace(-x^3*Dx^2+(-x^2-x)*Dx+1, 1/10, 0, RBF(1e-50))
     [[0.091563333939788081876069815766438449226677369109...] + [+/- ...]*I]
     [ [0.84366660602119181239301842335615507733226308908...] + [+/- ...]*I]
+
+    sage: ref(1/2)
+    [ [7.389056098930650227230427460...]   [0.361328616888222584697161657...]]
+    [[-29.55622439572260090892170984...]   [0.554685532447109661211353369...]]
+    sage: fundamental_matrix(-x^3*Dx^2+(-x^2-x)*Dx+1, 1/2, 0, RBF(1e-20))
+    [ [7.38905609893065...] + [+/- ...]*I|[0.3613286168882225...] + [+/- ...]*I]
+    [[-29.5562243957226...] + [+/- ...]*I|[0.5546855324471096...] + [+/- ...]*I]
 
 We can change the direction of summation::
 
@@ -184,7 +185,7 @@ import logging
 
 from sage.arith.srange import srange
 from sage.matrix.constructor import identity_matrix, matrix
-from sage.matrix.special import companion_matrix
+from sage.matrix.special import block_matrix, companion_matrix
 from sage.modules.free_module_element import vector
 from sage.rings.complex_arb import CBF, ComplexBallField, ComplexBall
 from sage.rings.integer_ring import ZZ
@@ -195,6 +196,7 @@ from sage.structure.element import coercion_model
 
 from .. import OreAlgebra
 
+from . import polynomial_root
 from . import utilities
 
 from .context import dctx
@@ -204,6 +206,7 @@ from .local_solutions import (
     log_series,
 )
 from .path import Point
+from .polynomial_root import PolynomialRoot
 
 logger = logging.getLogger(__name__)
 
@@ -696,6 +699,20 @@ def _shift_exponents_to_right_hand_plane(dop):
 
     return zshift, shifted_dop
 
+def _unshifting_matrix(z1, zshift, order):
+    r"""
+    ``z^(-zshift)*f(z)``
+    """
+    Pol = PolynomialRing(z1.parent(), 'eps')
+    ser = Pol([z1, 1])
+    if zshift > 0:
+        ser = ser.inverse_series_trunc(order)
+        zshift = -zshift
+    ser = ser._power_trunc(-zshift, order)
+    mat = matrix(order, order,
+                 lambda i, j: ser[i-j] if i >= j else 0)
+    return mat
+
 def borel_laplace(dop, z1, theta, eps, derivatives=None, *, ctx=dctx):
     if derivatives is None:
         derivatives = dop.order()
@@ -713,10 +730,61 @@ def borel_laplace(dop, z1, theta, eps, derivatives=None, *, ctx=dctx):
 
     laplace_mat = analytic_laplace(borel_dop, z1, theta, eps, derivatives,
                                    ctx=ctx)
-    unshifted_mat = z1**(-zshift)*laplace_mat
+    unshifted_mat = _unshifting_matrix(IC(z1), zshift, derivatives)*laplace_mat
 
     result_mat = unshifted_mat*borel_ini_map
     return result_mat
+
+def _exp_factors_matrix(z1, c, order):
+    Pol = PolynomialRing(z1.parent(), 'eps')
+    ser = Pol([z1, 1]).inverse_series_trunc(order)
+    ser = (c*ser)._exp_series(order)
+    mat = matrix(order, order,
+                 lambda i, j: ser[i-j] if i >= j else 0)
+    return mat
+
+def fundamental_matrix(dop, z1, theta, eps, derivatives=None, *, ctx=dctx):
+    r"""
+    Transition matrix from the origin to a nearby ordinary point
+    """
+
+    Dz = dop.parent().gen()
+    z = dop.base_ring().gen()
+    IC = ComplexBallField(utilities.prec_from_eps(eps))
+
+    if derivatives is None:
+        derivatives = dop.order()
+
+    col_blocks = []
+    for slope, charpoly in dop.newton_polygon(z):
+        level = slope - 1
+        if level == 0:
+            series_sums = borel_laplace(dop, z1, theta, eps, derivatives,
+                                        ctx=ctx)
+            # pure series solutions sort between exp(1/z) and exp(-1/z)
+            col_blocks.append([0, PolynomialRoot.make(0), series_sums])
+        elif level == 1:
+            for fac, _ in charpoly.factor():
+                roots = polynomial_root.roots_of_irred(fac)
+                for rt in roots: # coefficients of 1/z inside the exponential
+                    # XXX it is wasteful to do this for each root rather than
+                    # each factor
+                    expdop = z**2*Dz + rt.as_number_field_element()
+                    tdop = dop.symmetric_product(expdop)
+                    series_sums = borel_laplace(tdop, z1, theta, eps,
+                                                derivatives, ctx=ctx)
+                    # Each column of the result is to contain initial values in
+                    # the local basis at z1, that is, successive Taylor
+                    # coefficients of the corresponding solution
+                    exp_factors = _exp_factors_matrix(IC(z1), -IC(rt), derivatives)
+                    col_blocks.append((slope, rt, exp_factors*series_sums))
+        else:
+            raise NotImplementedError("levels ≠ 0, 1 are not supported")
+    col_blocks.sort(
+         key=lambda t: polynomial_root.sort_key_left_to_right_real_last(t[1]))
+    mat = block_matrix([[block for _, _, block in col_blocks]])
+    return mat
+
 
 ################################################################################
 # Utilities
