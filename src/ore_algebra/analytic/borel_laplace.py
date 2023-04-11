@@ -83,7 +83,7 @@ The negative real axis is a singular direction::
 Stokes phenomenon (see again Loday-Richaud 2016, Example 1.1.4 for a detailed
 description of the situation)::
 
-    sage: ref(-1/2)
+    sage: ref(-1/2)[:,1]
     [[-0.670482709790073281043...] + [-0.425168331587636328439...]*I]
     [   [0.6819308391602931241...] + [1.7006733263505453137564...]*I]
 
@@ -317,9 +317,26 @@ class BorelIniMap(IniMap):
     max_shift = 1
 
     def compute_coefficient(self, sol1, ser, offset):
+        r"""
+        TESTS::
+
+            sage: from ore_algebra import OreAlgebra
+            sage: from ore_algebra.analytic.borel_laplace import *
+            sage: from ore_algebra.analytic.borel_laplace import BorelIniMap
+
+            sage: Pol.<x> = QQ[]
+            sage: Dop.<Dx> = OreAlgebra(Pol)
+
+            sage: dop = (x^4 + 1/2*x^3)*Dx^2 + (4*x^3 + 3/2*x^2 + x)*Dx + 2*x^2 + x - 2
+            sage: BorelIniMap(dop, dop.borel_transform(), CBF).run()
+            [                0]
+            [                0]
+            [1.000000000000000]
+        """
         expo = sol1.valuation_as_ball(self.ring)
         ICeps = PolynomialRing(self.ring, 'eps')
-        coeff = ser[offset + sol1.shift + 1]
+        idx = offset + sol1.shift + 1
+        coeff = ser[idx] if idx >= 0 else []
         # XXX redundant computations when log_power > 0
         rgamma = ICeps([expo + 1, 1])._rgamma_series(len(coeff))
         # k-i = sol1.log_power
@@ -339,7 +356,9 @@ class IntIniMap(IniMap):
         if sol1.leftmost.try_integer() == -sol1.shift:
             return self.ring.zero()
         expo = sol1.valuation_as_ball(self.ring)
-        coeff = ser[offset + sol1.shift - 1]
+        idx = offset + sol1.shift - 1
+        assert idx >= 0
+        coeff = ser[idx]
         s = sum((c if i % 2 == 0 else -c)/expo**(i+1)
                 for i, c in enumerate(coeff[sol1.log_power:]))
         return s
