@@ -643,8 +643,8 @@ def analytic_laplace(trd_dop, z1, theta, eps, derivatives=1, *, ctx):
     Dzeta = trd_dop.parent().gen()
     zeta = trd_dop.base_ring().gen()
 
-    Dop = coercion_model.common_parent(trd_dop.parent(), z1)
-    ker_dop = laplace_kernel_dop(Dop, z1)
+    trd_dop, z1 = trd_dop.extend_scalars(z1)
+    ker_dop = laplace_kernel_dop(trd_dop.parent(), z1)
     itd0_dop = trd_dop.symmetric_product(ker_dop)
     itd0_dop = DifferentialOperator(itd0_dop)
     # initial condition vectors do not depend on diff_order
