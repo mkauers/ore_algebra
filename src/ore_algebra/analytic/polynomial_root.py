@@ -4,7 +4,7 @@ Ad-hoc algebraic numbers
 """
 
 from sage.misc.cachefunc import cached_method
-from sage.rings.all import ZZ, QQ, QQbar, CIF
+from sage.rings.all import ZZ, QQ, QQbar, CIF, CBF
 from sage.rings.number_field.number_field import NumberField, NumberField_quadratic
 from sage.rings.number_field.number_field_element import NumberFieldElement
 from sage.rings.polynomial.complex_roots import complex_roots
@@ -14,7 +14,13 @@ from sage.rings.rational import Rational
 from sage.rings.qqbar import (AlgebraicGenerator, AlgebraicNumber,
                               ANExtensionElement, ANRoot)
 
+from . import geometry
+
 from .utilities import as_embedded_number_field_element, is_real_parent
+
+################################################################################
+# Roots of a common minpoly
+################################################################################
 
 class PolynomialRoot:
     r"""
@@ -64,6 +70,9 @@ class PolynomialRoot:
         return tgt(alg._value)
 
     _acb_ = _complex_mpfr_field_ = _complex_mpfi_ = as_ball
+
+    def interval(self):
+        return self.all_roots[self.index]
 
     @cached_method
     def as_algebraic(self):
@@ -129,6 +138,18 @@ class PolynomialRoot:
                 and self.all_roots is other.all_roots
                 and self.conjugate().index == other.index)
 
+    def try_eq_opp_conjugate(self, other):
+        if not (self.pol.base_ring() is QQ
+                and self.all_roots is other.all_roots # same minpoly
+                and all(c.is_zero() for c in list(self.pol)[1::2])): # even poly
+            return False
+        # We know that the opposite conjugate must be among the roots of
+        # self.poly. If we can prove using the isolating intervals that it is
+        # equal to other, self and other have the same imaginary part.
+        oppconj = -self.all_roots[self.index].conjugate()
+        return all(oppconj.overlaps(rt) == (i == other.index)
+                   for i, rt in enumerate(self.all_roots))
+
     def is_rational(self):
         return self.pol.degree() == 1 and (self.pol.base_ring() is QQ
                                            or self.pol[0] in QQ)
@@ -190,13 +211,61 @@ class PolynomialRoot:
             return 0
         return int(self.as_algebraic().imag().sign())
 
+    def cmp_real(self, other):
+        if self is other:
+            return 0
+        re_self = self.all_roots[self.index].real()
+        re_other = other.all_roots[other.index].real()
+        if re_self < re_other:
+            return -1
+        elif re_self > re_other:
+            return +1
+        elif re_self == re_other:
+            return 0
+        try:
+            if self == other:
+                return 0
+        except NotImplementedError:
+            pass
+        if self.try_eq_conjugate(other):
+            return 0
+        delta = self.as_algebraic() - other.as_algebraic()
+        return int(delta.real().sign())
+
+    def cmp_imag(self, other):
+        if self is other:
+            return 0
+        im_self = self.all_roots[self.index].imag()
+        im_other = other.all_roots[other.index].imag()
+        if im_self < im_other:
+            return -1
+        elif im_self > im_other:
+            return +1
+        elif im_self == im_other:
+            return 0
+        try:
+            if self == other:
+                return 0
+        except NotImplementedError:
+            pass
+        # TODO: case g(x) = f(x + a) for real a, using [x^(n-1)]f?
+        if im_self.contains_zero() or im_other.contains_zero():
+            self.detect_real_roots()
+            if im_self == im_other:
+                return 0
+        if self.try_eq_opp_conjugate(other):
+            return 0
+        delta = self.as_algebraic() - other.as_algebraic()
+        return int(delta.imag().sign())
+
     @classmethod
     def make(cls, value):
         r"""
         Convenience method to create simple PolynomialRoot objects.
 
-        Warning: Comparison of the resulting objects with each other or to
-        PolynomialRoot objects created using root_of_irred is not supported.
+        Warning: Comparison (with ==) of the resulting objects with each other
+        or to PolynomialRoot objects created using root_of_irred is not
+        supported.
         """
         if isinstance(value, PolynomialRoot):
             return value
@@ -220,3 +289,144 @@ def roots_of_irred(pol):
                                  if a is not b)
     roots = list(roots)
     return [PolynomialRoot(pol, roots, i) for i in range(len(roots))]
+
+################################################################################
+# Utilities for sorting PolynomialRoot objects
+################################################################################
+
+class _sort_key:
+
+    def __init__(self, a):
+        assert isinstance(a, PolynomialRoot)
+        self.value = a
+
+    def __eq__(self, other):
+        return self.value == other.value
+
+class sort_key_left_to_right_real_last(_sort_key):
+    r"""
+    Sort by increasing real part, then by absolute value of the imaginary part,
+    then by increasing imaginary part.
+
+    Thus purely real values come last for each real part. This is intended for
+    sorting the exponential parts of the local solutions of a differential
+    operator.
+
+    TESTS::
+
+        sage: from ore_algebra.analytic.polynomial_root import (roots_of_irred,
+        ....:         sort_key_left_to_right_real_last)
+        sage: Pol.<x> = QQ[]
+        sage: v = [*roots_of_irred(x^4+1), *roots_of_irred(x^2-1/2),
+        ....:      *roots_of_irred(x^2+1/2), *roots_of_irred(x^4-2)]
+        sage: v.sort(key=sort_key_left_to_right_real_last)
+        sage: v
+        [-1.189207115002722?,
+        -0.7071067811865475? - 0.7071067811865475?*I,
+        -0.7071067811865475? + 0.7071067811865475?*I,
+        -0.7071067811865475?,
+        -1.189207115002722?*I,
+        1.189207115002722?*I,
+        -0.7071067811865475?*I,
+        0.7071067811865475?*I,
+        0.7071067811865475? - 0.7071067811865475?*I,
+        0.7071067811865475? + 0.7071067811865475?*I,
+        0.7071067811865475?,
+        1.189207115002722?]
+    """
+
+    def __lt__(self, other):
+        s = self.value.cmp_real(other.value)
+        if s < 0:
+            return True
+        elif s > 0:
+            return False
+        # We know that the real parts are equal.
+        # Compare the imaginary parts in such a way that purely real values come
+        # last (for consistency with sort_key_by_asympt).
+        im_self = self.value.interval().imag()
+        im_other = other.value.interval().imag()
+        if abs(im_self) > abs(im_other):
+            return True
+        elif abs(im_self) < abs(im_other):
+            return False
+        if self.value.try_eq_conjugate(other.value):
+            # then the conjugate with negative imaginary part must come first
+            return self.value.as_algebraic().imag() < 0
+        other.value.detect_real_roots()
+        if im_other.is_zero():
+            # then self == other or |im(self)| > 0
+            return False
+        if self.value.as_algebraic() == other.value.as_algebraic():
+            return False
+        # Since the real parts are equal, the largest imaginary part corresponds
+        # to the largest absolute value, but comparing the absolute values might
+        # be faster
+        abs0 = abs(self.value.as_algebraic())
+        abs1 = abs(other.value.as_algebraic())
+        if abs0 != abs1:
+            return abs0 > abs1
+        else:
+            # We know that self != other, so abs(self) == abs(other) here means
+            # that they are conjugates
+            return self.value.as_algebraic().imag() < 0
+
+class sort_key_bottom_to_top_with_cuts(_sort_key):
+    r"""
+    Sort objects by increasing imaginary part, then by decreasing real part.
+
+    This is intended for sorting singular points in a way compatible with the
+    “stickiness” rules for branch cuts.
+
+    TESTS::
+
+        sage: from ore_algebra.analytic.polynomial_root import (roots_of_irred,
+        ....:         sort_key_bottom_to_top_with_cuts)
+        sage: Pol.<x> = QQ[]
+        sage: v = [*roots_of_irred(x^4+1), *roots_of_irred(x^2-1/2),
+        ....:      *roots_of_irred(x^2+1/2), *roots_of_irred(x^4-2)]
+        sage: v.sort(key=sort_key_bottom_to_top_with_cuts)
+        sage: v
+        [-1.189207115002722?*I,
+        0.7071067811865475? - 0.7071067811865475?*I,
+        -0.7071067811865475?*I,
+        -0.7071067811865475? - 0.7071067811865475?*I,
+        1.189207115002722?,
+        0.7071067811865475?,
+        -0.7071067811865475?,
+        -1.189207115002722?,
+        0.7071067811865475? + 0.7071067811865475?*I,
+        0.7071067811865475?*I,
+        -0.7071067811865475? + 0.7071067811865475?*I,
+        1.189207115002722?*I]
+    """
+
+    def __lt__(self, other):
+        s = self.value.cmp_imag(other.value)
+        if s < 0:
+            return True
+        elif s > 0:
+            return False
+        return self.value.cmp_real(other.value) > 0
+
+################################################################################
+# Geometric predicates
+################################################################################
+
+def orient2d(p, q, r):
+    r"""
+    A version of the standard 2D orientation predicate for ``PolynomialRoot``
+    objects.
+
+    Positive when p, q, r are ordered counterclockwise around a point inside
+    their convex hull, i.e., when r lies to the left of pq.
+    """
+    bp, bq, br = CBF(p), CBF(q), CBF(r)
+    try:
+        return geometry.orient2d_interval(bp, bq, br)
+    except ValueError:
+        pass
+    ap, aq, ar = QQbar(p), QQbar(q), QQbar(r)
+    # XXX are there some special cases that we need to handle efficiently?
+    ratio = (ar - ap)/(aq - ap)
+    return ratio.imag().sign()
