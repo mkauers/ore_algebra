@@ -179,6 +179,12 @@ Derivatives::
     [[0.554685532447109661...] + [+/- ...]*I]
     [[-0.21874212978843864...] + [+/- ...]*I]
     [ [0.13538780922427503...] + [+/- ...]*I]
+
+Degenerate cases::
+
+    sage: dop = (x^2*Dx^2 + x*Dx + (x^2-1/16)).annihilator_of_composition(1/x)
+    sage: borel_laplace(dop, i/10, pi/4, RBF(1e-20))
+    []
 """
 
 import logging
@@ -715,7 +721,7 @@ def analytic_laplace(trd_dop, z1, theta, eps, derivatives=1, *, ctx):
 def _find_shift(dop, z):
     radind = dop.indicial_polynomial(z).radical()
     exponents = radind.roots(CBF, multiplicities=False)
-    return 1 - min(a.real().lower().ceil() for a in exponents)
+    return 1 - min((a.real().lower().ceil() for a in exponents), default=-1)
 
 def _shift_exponents_to_right_hand_plane(dop):
     # Compute a change of unknown function that shifts all exponents to the open
