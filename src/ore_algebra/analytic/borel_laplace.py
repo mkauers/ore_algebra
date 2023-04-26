@@ -227,6 +227,13 @@ class IniMap(LocalBasisMapper):
     max_shift = 0
 
     def __init__(self, dop, dop1, ring, *, ctx=dctx):
+        r"""
+        INPUT:
+
+        - ``dop`` -- “original” operator
+        - ``dop1`` -- “transformed" operator
+        - ``ring`` -- ring of constants in which to compute the initial values
+        """
         dop = DifferentialOperator(dop)
         super().__init__(dop, ctx=ctx)
         origin = Point(0, DifferentialOperator(dop1))
@@ -268,6 +275,9 @@ class IniMap(LocalBasisMapper):
 
         return inicol
 
+    # XXX consider redefining the interface to compute the coefficient of z^n
+    # (as a polynomial in log(z)) instead; this is sometimes more convenient and
+    # avoids some redundant computations
     def compute_coefficient(self, sol1, ser, offset):
         r"""
         Compute the coefficient of ``z^n·log(z)^k/k!`` in the image of `f`,
@@ -702,20 +712,20 @@ def analytic_laplace(trd_dop, z1, theta, eps, derivatives=1, *, ctx):
     int_mat = matrix(derivatives, trd_dop.order(), int_rows)
     return int_mat
 
+def _find_shift(dop, z):
+    radind = dop.indicial_polynomial(z).radical()
+    exponents = radind.roots(CBF, multiplicities=False)
+    return 1 - min(a.real().lower().ceil() for a in exponents)
+
 def _shift_exponents_to_right_hand_plane(dop):
     # Compute a change of unknown function that shifts all exponents to the open
     # right half-plane, so that the Laplace transform of each monomial
     # converges. (Thanks to the analytic continuation of Γ(z), it might actually
     # be enough to make all _integer_ exponents positive?)
-
     z = dop.base_ring().gen()
     Dz = dop.parent().gen()
-
-    radind = dop.indicial_polynomial(z).radical()
-    exponents = radind.roots(CBF, multiplicities=False)
-    zshift = 1 - min(a.real().lower().ceil() for a in exponents)
+    zshift = _find_shift(dop, z)
     shifted_dop = dop.symmetric_product(z*Dz - zshift)
-
     return zshift, shifted_dop
 
 def _unshifting_matrix(z1, zshift, order):
