@@ -190,7 +190,7 @@ analytic at a non-apparent dominant singular point of the operator::
     sage: dop = ((n+3)^2*Sn^2-(n+2)*(3*n+11)/2*Sn+(n+4)*(n+1)/2).to_D(Diffops)
 
     sage: bound_coefficients(dop, [1,1/4], order=2, n0=50, prec=1000)
-    1.00...*([...] + [...]*I + B(2975.8...*(4/7)^n, n >= 50))
+    1.00...*([...] + [...]*I + B(5.37...*(4/7)^n, n >= 50))
 
     sage: bound_coefficients(dop, [1,1/4], order=2, n0=50, known_analytic=[0,1])
     1.00...*(1/2)^n*(([1.00...] + [...]*I)*n^(-1)
@@ -1374,8 +1374,18 @@ def numerical_sol_big_circle(deq, ini, dominant_sing, rad, halfside):
             arg1 += 2*RBF.pi()
 
         # Compute initial values at a point on the large circle, halfway between
-        # two adjacent dominant singularities
+        # two adjacent dominant singularities. We need an exact point for the
+        # call to numerical_transition_matrix() because hub might be on the
+        # branch cut associated to the singularity at 0. (Since the solution we
+        # are interested in is analytic, it does not matter on which side of the
+        # cut hub lands.)
         hub = rad * ((arg0 + arg1)/2 * I).exp()
+        dir = hub/abs(hub)
+        if any(dir.overlaps(sings[j]/abs(sings[j])) for j in [j0, j1]):
+            # Then it might not be legal to squash the hub. Note that the
+            # interval (0, hub) may still contain apparent singularities
+            raise NotImplementedError
+        hub = hub.squash()
         tmat_hub = deq.numerical_transition_matrix([0, hub], eps,
                                                    assume_analytic=True)
         ini_hub = tmat_hub*vector(ini)
