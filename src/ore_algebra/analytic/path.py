@@ -227,7 +227,9 @@ class Point(SageObject):
                     else:
                         res = "~" + res
             except AttributeError:
-                res = repr(self.value)
+                pass
+            if res is None and not is_QQi(self.value.parent()):
+                res = repr(QQbar(self.value))
         if res is None:
             res = repr(self.value)
         if self.detour_to is not None:
