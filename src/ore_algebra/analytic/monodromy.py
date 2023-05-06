@@ -462,15 +462,16 @@ def _monodromy_matrices(dop, base, eps=1e-16, sing=None, **kwds):
         # We could call _local_monodromy_loop() if point is irregular, but
         # delaying it may allow us to start returning results earlier.
         if point.is_regular():
+            point_value = point.as_sage_value()
             if crit_cache is None or point.algdeg() == 1:
                 crit = point.local_basis_structure()
-                emb = point.value.parent().hom(Scalars)
+                emb = point_value.parent().hom(Scalars)
             else:
-                mpol = point.value.minpoly()
+                mpol = point_value.minpoly()
                 try:
                     NF, crit = crit_cache[mpol]
                 except KeyError:
-                    NF = point.value.parent()
+                    NF = point_value.parent()
                     crit = point.local_basis_structure()
                     # Only store the critical monomials for reusing when all
                     # local exponents are rational. We need to restrict to this
@@ -484,7 +485,7 @@ def _monodromy_matrices(dop, base, eps=1e-16, sing=None, **kwds):
                     # exponents "naturally" live.)
                     if all(sol.leftmost.is_rational() for sol in crit):
                         crit_cache[mpol] = NF, crit
-                emb = NF.hom([Scalars(point.value.parent().gen())], check=False)
+                emb = NF.hom([Scalars(point_value.parent().gen())], check=False)
             mon, scalar = _formal_monodromy_from_critical_monomials(crit, emb)
             if scalar:
                 # No need to compute the connection matrices then!

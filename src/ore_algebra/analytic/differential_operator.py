@@ -303,7 +303,7 @@ class PlainDifferentialOperator(UnivariateDifferentialOperatorOverUnivariateRing
         # an L equal but not identical to K. And then other constructors like
         # PolynomialRing(L, x) sometimes return objects over K found in cache,
         # leading to endless headaches with slow coercions.
-        dop_P, ex = self.extend_scalars(delta.exact().value)
+        dop_P, ex = self.extend_scalars(delta.exact().as_sage_value())
         Pols = dop_P.base_ring()
         # Gcd-avoiding shift by an algebraic delta
         deg = dop_P.degree()

@@ -139,9 +139,8 @@ class Point(SageObject):
         from sage.rings.real_mpfr import RealField_class
 
         point = sage.structure.coerce.py_scalar_to_element(point)
-        if isinstance(point, PolynomialRoot):
-            point = point.as_number_field_element()
         try:
+            # works for Point and PolynomialRoot objects (<: SageObject)
             parent = point.parent()
         except AttributeError:
             raise TypeError("unexpected value for point: " + repr(point))
@@ -150,6 +149,8 @@ class Point(SageObject):
         elif isinstance(parent, (RealBallField, ComplexBallField)):
             self.value = point
         elif isinstance(parent, number_field_base.NumberField):
+            self.value = point
+        elif isinstance(point, PolynomialRoot):
             self.value = point
         elif QQ.has_coerce_map_from(parent):
             self.value = QQ.coerce(point)
@@ -193,6 +194,7 @@ class Point(SageObject):
         parent = self.value.parent()
         assert (isinstance(parent, (number_field_base.NumberField,
                                     RealBallField, ComplexBallField))
+                or parent is PolynomialRoot
                 or parent is RLF or parent is CLF)
 
         if dop is None: # TBI XXX useful?
@@ -204,7 +206,13 @@ class Point(SageObject):
         self.detour_to = detour_to
         self.options = kwds
 
-    def _repr_(self, size=False):
+    def as_sage_value(self):
+        if isinstance(self.value, PolynomialRoot):
+            return self.value.as_number_field_element()
+        else:
+            return self.value
+
+    def _repr_(self, size=False):  # XXX?
         """
         TESTS::
 
@@ -242,15 +250,15 @@ class Point(SageObject):
     def nbits(self):
         if isinstance(self.value, (RealBall, ComplexBall)):
             return self.value.nbits()
-        else:
-            res = utilities.internal_denominator(self.value).nbits()
-            res += max(self.value.numerator().real().numerator().nbits(),
-                        self.value.numerator().imag().numerator().nbits())
-            return res
+        value = self.as_sage_value()
+        res = utilities.internal_denominator(value).nbits()
+        res += max(value.numerator().real().numerator().nbits(),
+                   value.numerator().imag().numerator().nbits())
+        return res
 
     def algdeg(self):
         if isinstance(self.value, rings.NumberFieldElement):
-            return self.value.parent().degree()
+            return self.value.parent().absolute_degree()
         else:
             return 1
 
@@ -258,6 +266,17 @@ class Point(SageObject):
     def is_fast(self):
         return isinstance(self.value, (RealBall, ComplexBall, rings.Integer,
                                  rings.Rational)) or is_QQi(self.value.parent())
+
+    def _sage_value_has_fast_coerce(self, other):
+        P0 = self.as_sage_value().parent()
+        P1 = other.as_sage_value().parent()
+        if P0 is P1 or P0 is QQ or P1 is QQ:
+            return True
+        elif isinstance(P0, number_field_base.NumberField):
+            return False
+        elif isinstance(P1, number_field_base.NumberField):
+            return False
+        return P0.has_coerce_map_from(P1) or P1.has_coerce_map_from(P0)
 
     def bit_burst_bits(self, tgt_prec):
         if self.is_fast():
@@ -267,8 +286,14 @@ class Point(SageObject):
             return tgt_prec
 
     def conjugate(self):
-        value = QQbar.coerce(self.value).conjugate()
-        return Point(value, self.dop, **self.options)
+        if isinstance(self.value, PolynomialRoot):
+            try:
+                conj = self.value.conjugate()
+            except ValueError:
+                conj = self.value.as_algebraic().conjugate()
+        else:
+            conj = QQbar.coerce(self.value).conjugate()
+        return Point(conj, self.dop, **self.options)
 
     def _imag_for_cmp(self):
         r"""
@@ -289,13 +314,17 @@ class Point(SageObject):
             return self.value.imag()
         elif isinstance(self.value, rings.NumberFieldElement):
             return QQbar.coerce(self.value).imag()
+        elif isinstance(self.value, PolynomialRoot):
+            return self.value.as_algebraic().imag()
         else:
             # Elements CLF do not implement imag(). (TBI...)
             return self.iv().imag()
 
     def cmp_imag(self, other, *, uncomparable=None):
         assert isinstance(other, Point)
-        # TODO: PolynomialRoot support
+        if (isinstance(self.value, PolynomialRoot)
+                and isinstance(other.value, PolynomialRoot)):
+            return self.value.cmp_imag(other.value)
         a = self._imag_for_cmp()
         b = other._imag_for_cmp()
         if a < b:
@@ -348,7 +377,9 @@ class Point(SageObject):
             ...
             ValueError
         """
-        if self.value.parent().is_exact():
+        if isinstance(self.value, PolynomialRoot):
+            return self
+        elif self.value.parent().is_exact():
             return self
         elif isinstance(self.value, RealBall) and self.value.is_exact():
             return Point(QQ(self.value), self.dop, **self.options)
@@ -358,7 +389,7 @@ class Point(SageObject):
         raise ValueError
 
     def _algebraic_(self, parent):
-        return parent(self.exact().value)
+        return parent(self.exact().as_sage_value())
 
     def approx_abs_real(self, prec):
         r"""
@@ -377,6 +408,11 @@ class Point(SageObject):
             raise ValueError("point may not be real")
 
     def is_real(self):
+        r"""
+        Try to quickly decide if this root is real. May return false negatives.
+        """
+        if isinstance(self.value, PolynomialRoot):
+            return self.value.is_real()
         return is_real_parent(self.value.parent())
 
     def is_exact(self):
@@ -385,7 +421,8 @@ class Point(SageObject):
         of an operator?
         """
         return (isinstance(self.value, (rings.Integer, rings.Rational,
-                                        rings.NumberFieldElement))
+                                        rings.NumberFieldElement,
+                                        PolynomialRoot))
                 or isinstance(self.value, (RealBall, ComplexBall))
                     and self.value.is_exact())
 
@@ -450,11 +487,13 @@ class Point(SageObject):
         if not any(iv.overlaps(s) for s in self.dop._singularities(IC)):
             return True
         if self.is_exact():
+            # XXX wasteful (though not terribly) when the points was created as
+            # a root of the leading coefficient...
             lc = self.dop.leading_coefficient()
             try:
                 val = lc(self.value)
-            except TypeError: # work around coercion weaknesses
-                val = lc.change_ring(QQbar)(QQbar.coerce(self.value))
+            except TypeError:
+                val = lc.change_ring(QQbar)(QQbar(self.value))
             return not val.is_zero()
         else:
             raise ValueError("can't tell if inexact point is singular")
@@ -472,18 +511,19 @@ class Point(SageObject):
             raise NotImplementedError("can't tell if inexact point is regular")
         assert self.is_exact()
         # Fuchs criterion
+        value = self.as_sage_value()
         dop = None
         if (self.dop.base_ring().base_ring() is QQ
-                and self.value.parent() is not QQ): # => number field element
-            pol = self.value.polynomial()
+                and value.parent() is not QQ): # => number field element
+            pol = value.polynomial()
             if pol.is_term() and pol.degree() == 1:
                 # optimize frequent case
-                nfpol = self.value.parent().polynomial()
+                nfpol = value.parent().polynomial()
                 rootpol = nfpol(~pol[1]*pol.parent().gen())
                 rootpol = self.dop.base_ring()(rootpol)
                 dop = self.dop
         if dop is None:
-            dop, pt = self.dop.extend_scalars(self.value)
+            dop, pt = self.dop.extend_scalars(value)
             Pols = dop.base_ring()
             rootpol = Pols([pt, -1])
         ref = dop.leading_coefficient().valuation(rootpol) - dop.order()
@@ -776,6 +816,9 @@ class Step(SageObject):
         return self.start.is_exact() and self.end.is_exact()
 
     def algdeg(self):
+        r"""
+        Compute an estimate of the algebraic degree of the increment.
+        """
         d0 = self.start.algdeg()
         d1 = self.end.algdeg()
         if d0 > 1 and d1 > 1:
@@ -783,19 +826,9 @@ class Step(SageObject):
                 return d0*d1
         return max(d0, d1)
 
-    def _fast_coerce(self):
-        P0 = self.start.value.parent()
-        P1 = self.end.value.parent()
-        if P0 is P1 or P0 is QQ or P1 is QQ:
-            return True
-        elif isinstance(P0, number_field_base.NumberField):
-            return False
-        elif isinstance(P1, number_field_base.NumberField):
-            return False
-        return P0.has_coerce_map_from(P1) or P1.has_coerce_map_from(P0)
-
     def is_trivial(self):
-        return self._fast_coerce() and self.start.value == self.end.value
+        return (self.start._sage_value_has_fast_coerce(self.end)
+                and self.start.as_sage_value() == self.end.as_sage_value())
 
     @cached_method
     def delta(self):
@@ -803,8 +836,8 @@ class Step(SageObject):
         Return the value of the increment, as an exact number if possible.
         """
         try:
-            z0 = self.start.exact().value
-            z1 = self.end.exact().value
+            z0 = self.start.exact().as_sage_value()
+            z1 = self.end.exact().as_sage_value()
         except ValueError:
             # no point in exactifying only one of the endpoints
             z0 = self.start.value
@@ -820,7 +853,7 @@ class Step(SageObject):
         if d.parent() is z0.parent() or d.parent() is z1.parent():
             return d
         else:
-            return as_embedded_number_field_element(d)
+            return utilities.as_embedded_number_field_element(d)
         assert False
 
     def approx_delta(self, Tgt):
@@ -832,12 +865,11 @@ class Step(SageObject):
             sage: (Dx - 1).numerical_solution([1], [0, RealField(10)(.33), 1])
             [2.71828182845904...]
         """
-        z0, z1 = self.start.value, self.end.value
-        if self._fast_coerce():
+        if self.start._sage_value_has_fast_coerce(self.end):
             return Tgt(self.delta())
         P = Tgt
         while True:
-            delta = P(z1) - P(z0)
+            delta = P(self.end.value) - P(self.start.value)
             if (delta.accuracy() >= 7*Tgt.precision()//8
                     or delta.rad() <= 2*(self.start.rad() + self.end.rad())):
                 return Tgt(delta)

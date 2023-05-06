@@ -13,6 +13,7 @@ from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 from sage.rings.rational import Rational
 from sage.rings.qqbar import (AlgebraicGenerator, AlgebraicNumber,
                               ANExtensionElement, ANRoot)
+from sage.structure.sage_object import SageObject
 
 from . import geometry
 
@@ -22,7 +23,7 @@ from .utilities import as_embedded_number_field_element, is_real_parent
 # Roots of a common minpoly
 ################################################################################
 
-class PolynomialRoot:
+class PolynomialRoot(SageObject):
     r"""
     Root of an irreducible polynomial over a number field
 
@@ -71,6 +72,9 @@ class PolynomialRoot:
 
     _acb_ = _complex_mpfr_field_ = _complex_mpfi_ = as_ball
 
+    def __complex__(self):
+        return complex(self.all_roots[self.index])
+
     def interval(self):
         return self.all_roots[self.index]
 
@@ -112,6 +116,12 @@ class PolynomialRoot:
                 val = QQ(val)
             return val
         return as_embedded_number_field_element(self.as_algebraic())
+
+    def algdeg(self):
+        if self.pol.base_ring() is QQ:
+            return self.pol.degree()
+        else:
+            return self.as_number_field_element().parent().absolute_degree()
 
     @cached_method
     def as_exact(self):
@@ -186,6 +196,15 @@ class PolynomialRoot:
                         if rt.overlaps(rrt)]
             if len(compat) == 1:
                 self.all_roots[compat[0]] = rrt
+
+    def is_real(self):
+        r"""
+        Try to decide if this root is real. May return false negatives.
+        """
+        if self.all_roots[self.index].imag().is_zero():
+            return True
+        self.detect_real_roots()
+        return self.all_roots[self.index].imag().is_zero()
 
     def sign_imag(self):
         r"""
