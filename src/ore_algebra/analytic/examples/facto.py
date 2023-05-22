@@ -1,4 +1,4 @@
-# -*- coding: utf-8 - vim: tw=80
+# -*- vim: tw=80
 """
 Examples and testcases for operator factorization
 """

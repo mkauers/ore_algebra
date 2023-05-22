@@ -1279,7 +1279,7 @@ def galois(subsolver, max_modulus=MAX_MODULUS, proof=False):
     INPUT:
 
     - ``subsolver`` -- a solver for matrices over `GF(p)[x]` (if the original matrix contains univariate
-      polynomails) or `GF(p)[x,y,...]` (if it contains multivariate polynomials)
+      polynomials) or `GF(p)[x,y,...]` (if it contains multivariate polynomials)
     - ``max_modulus`` -- a positive integer. The solver will iterate over the primes less than this number
       in decreasing order. Defaults to the largest word size integer for which we expect Sage to use hardware
       arithmetic.
@@ -1331,7 +1331,7 @@ def cra(subsolver, max_modulus=MAX_MODULUS, proof=False, ncpus=1):
     INPUT:
 
     - ``subsolver`` -- a solver for matrices over `GF(p)[x]` (if the original matrix contains univariate
-      polynomails) or `GF(p)[x,y,...]` (if it contains multivariate polynomials)
+      polynomials) or `GF(p)[x,y,...]` (if it contains multivariate polynomials)
     - ``max_modulus`` -- a positive integer. The solver will iterate over the primes less than this number
       in decreasing order. Defaults to the largest word size integer for which we expect Sage to use hardware
       arithmetic.

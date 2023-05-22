@@ -1,4 +1,4 @@
-# -*- coding: utf-8 - vim: tw=80
+# -*- vim: tw=80
 """
 Linear algebra over ComplexOptimisticField. Gauss reduction, generalized
 eigenspaces, invariant subspace, ...

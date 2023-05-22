@@ -1,4 +1,4 @@
-# -*- coding: utf-8 - vim: tw=80
+# vim: tw=80
 """
 Analytic continuation paths
 """
@@ -22,10 +22,11 @@ import sage.symbolic.ring
 
 from sage.misc.cachefunc import cached_method
 from sage.misc.lazy_attribute import lazy_attribute
-from sage.rings.all import ZZ, QQ, CC, CIF, QQbar, RLF, CLF
+from sage.rings.all import ZZ, QQ, CC, RIF, CIF, QQbar, RLF, CLF
 from sage.rings.complex_arb import CBF, ComplexBallField, ComplexBall
 from sage.rings.number_field import number_field
 from sage.rings.number_field import number_field_base
+from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 from sage.rings.real_arb import RBF, RealBallField, RealBall
 from sage.structure.element import coercion_model
 from sage.structure.sage_object import SageObject
@@ -36,8 +37,10 @@ from .context import dctx
 from .deform import PathDeformer, PathDeformationFailed
 from .differential_operator import DifferentialOperator
 from .local_solutions import FundamentalSolution, LocalBasisMapper, CriticalMonomials
+from .polynomial_root import PolynomialRoot
 from .safe_cmp import *
-from .utilities import *
+from .utilities import (pairwise, split, is_QQi, is_real_parent,
+                        is_numeric_parent, as_embedded_number_field_elements)
 
 logger = logging.getLogger(__name__)
 
@@ -86,7 +89,7 @@ class Point(SageObject):
             Complex Field with 54 bits of precision
             sage: ex = lit.real().exact_rational() + lit.imag().exact_rational()*i
             sage: dop.numerical_transition_matrix([-1, ex], eps=2^(-100))[0,0]
-            [4.125813903095431708598677807377 +/- 1.20e-31] + [-1.313974338582516424454539583070 +/- 5.33e-31]*I
+            [4.125813903095431708598677807377...] + [-1.313974338582516424454539583070...]*I
 
         not::
 
@@ -99,7 +102,7 @@ class Point(SageObject):
             sage: RealField(100)(dec.real()), RealField(100)(dec.imag())
             (0.14521345101433106000000000000, -0.13930258659608240000000000000)
             sage: dop.numerical_transition_matrix([-1, dec], eps=2^(-100))[0,0]
-            [4.125813903095431747118520383156 +/- 4.95e-31] + [-1.313974338582516650825691744162 +/- 1.67e-31]*I
+            [4.125813903095431747118520383156...] + [-1.313974338582516650825691744162...]*I
 
         or::
 
@@ -137,6 +140,7 @@ class Point(SageObject):
 
         point = sage.structure.coerce.py_scalar_to_element(point)
         try:
+            # works for Point and PolynomialRoot objects (<: SageObject)
             parent = point.parent()
         except AttributeError:
             raise TypeError("unexpected value for point: " + repr(point))
@@ -145,6 +149,8 @@ class Point(SageObject):
         elif isinstance(parent, (RealBallField, ComplexBallField)):
             self.value = point
         elif isinstance(parent, number_field_base.NumberField):
+            self.value = point
+        elif isinstance(point, PolynomialRoot):
             self.value = point
         elif QQ.has_coerce_map_from(parent):
             self.value = QQ.coerce(point)
@@ -188,6 +194,7 @@ class Point(SageObject):
         parent = self.value.parent()
         assert (isinstance(parent, (number_field_base.NumberField,
                                     RealBallField, ComplexBallField))
+                or parent is PolynomialRoot
                 or parent is RLF or parent is CLF)
 
         if dop is None: # TBI XXX useful?
@@ -199,7 +206,13 @@ class Point(SageObject):
         self.detour_to = detour_to
         self.options = kwds
 
-    def _repr_(self, size=False):
+    def as_sage_value(self):
+        if isinstance(self.value, PolynomialRoot):
+            return self.value.as_number_field_element()
+        else:
+            return self.value
+
+    def _repr_(self, size=False):  # XXX?
         """
         TESTS::
 
@@ -222,7 +235,9 @@ class Point(SageObject):
                     else:
                         res = "~" + res
             except AttributeError:
-                res = repr(self.value)
+                pass
+            if res is None and not is_QQi(self.value.parent()):
+                res = repr(QQbar(self.value))
         if res is None:
             res = repr(self.value)
         if self.detour_to is not None:
@@ -235,15 +250,15 @@ class Point(SageObject):
     def nbits(self):
         if isinstance(self.value, (RealBall, ComplexBall)):
             return self.value.nbits()
-        else:
-            res = utilities.internal_denominator(self.value).nbits()
-            res += max(self.value.numerator().real().numerator().nbits(),
-                        self.value.numerator().imag().numerator().nbits())
-            return res
+        value = self.as_sage_value()
+        res = utilities.internal_denominator(value).nbits()
+        res += max(value.numerator().real().numerator().nbits(),
+                   value.numerator().imag().numerator().nbits())
+        return res
 
     def algdeg(self):
         if isinstance(self.value, rings.NumberFieldElement):
-            return self.value.parent().degree()
+            return self.value.parent().absolute_degree()
         else:
             return 1
 
@@ -251,6 +266,17 @@ class Point(SageObject):
     def is_fast(self):
         return isinstance(self.value, (RealBall, ComplexBall, rings.Integer,
                                  rings.Rational)) or is_QQi(self.value.parent())
+
+    def _sage_value_has_fast_coerce(self, other):
+        P0 = self.as_sage_value().parent()
+        P1 = other.as_sage_value().parent()
+        if P0 is P1 or P0 is QQ or P1 is QQ:
+            return True
+        elif isinstance(P0, number_field_base.NumberField):
+            return False
+        elif isinstance(P1, number_field_base.NumberField):
+            return False
+        return P0.has_coerce_map_from(P1) or P1.has_coerce_map_from(P0)
 
     def bit_burst_bits(self, tgt_prec):
         if self.is_fast():
@@ -260,8 +286,57 @@ class Point(SageObject):
             return tgt_prec
 
     def conjugate(self):
-        value = QQbar.coerce(self.value).conjugate()
-        return Point(value, self.dop, **self.options)
+        if isinstance(self.value, PolynomialRoot):
+            try:
+                conj = self.value.conjugate()
+            except ValueError:
+                conj = self.value.as_algebraic().conjugate()
+        else:
+            conj = QQbar.coerce(self.value).conjugate()
+        return Point(conj, self.dop, **self.options)
+
+    def _imag_for_cmp(self):
+        r"""
+        Imaginary part of self in a form suitable for comparisons
+
+        By order of preference, as a rational number (or exact real ball), as an
+        algebraic number, or as an inexact ball.
+        """
+        if self.is_real():
+            return QQ.zero()
+        elif isinstance(self.value, ComplexBall):
+            im = self.value.imag()
+            if im.is_exact():
+                return QQ(im)
+            else:
+                return im
+        elif is_QQi(self.value.parent()):
+            return self.value.imag()
+        elif isinstance(self.value, rings.NumberFieldElement):
+            return QQbar.coerce(self.value).imag()
+        elif isinstance(self.value, PolynomialRoot):
+            return self.value.as_algebraic().imag()
+        else:
+            # Elements CLF do not implement imag(). (TBI...)
+            return self.iv().imag()
+
+    def cmp_imag(self, other, *, uncomparable=None):
+        assert isinstance(other, Point)
+        if (isinstance(self.value, PolynomialRoot)
+                and isinstance(other.value, PolynomialRoot)):
+            return self.value.cmp_imag(other.value)
+        a = self._imag_for_cmp()
+        b = other._imag_for_cmp()
+        if a < b:
+            return -1
+        elif a == b:
+            return 0
+        elif a > b:
+            return +1
+        if uncomparable is None:
+            raise ValueError("not comparable")
+        else:
+            return uncomparable
 
     # Numeric representations
 
@@ -302,7 +377,9 @@ class Point(SageObject):
             ...
             ValueError
         """
-        if self.value.parent().is_exact():
+        if isinstance(self.value, PolynomialRoot):
+            return self
+        elif self.value.parent().is_exact():
             return self
         elif isinstance(self.value, RealBall) and self.value.is_exact():
             return Point(QQ(self.value), self.dop, **self.options)
@@ -312,7 +389,7 @@ class Point(SageObject):
         raise ValueError
 
     def _algebraic_(self, parent):
-        return parent(self.exact().value)
+        return parent(self.exact().as_sage_value())
 
     def approx_abs_real(self, prec):
         r"""
@@ -331,6 +408,11 @@ class Point(SageObject):
             raise ValueError("point may not be real")
 
     def is_real(self):
+        r"""
+        Try to quickly decide if this root is real. May return false negatives.
+        """
+        if isinstance(self.value, PolynomialRoot):
+            return self.value.is_real()
         return is_real_parent(self.value.parent())
 
     def is_exact(self):
@@ -339,7 +421,8 @@ class Point(SageObject):
         of an operator?
         """
         return (isinstance(self.value, (rings.Integer, rings.Rational,
-                                        rings.NumberFieldElement))
+                                        rings.NumberFieldElement,
+                                        PolynomialRoot))
                 or isinstance(self.value, (RealBall, ComplexBall))
                     and self.value.is_exact())
 
@@ -404,11 +487,13 @@ class Point(SageObject):
         if not any(iv.overlaps(s) for s in self.dop._singularities(IC)):
             return True
         if self.is_exact():
+            # XXX wasteful (though not terribly) when the points was created as
+            # a root of the leading coefficient...
             lc = self.dop.leading_coefficient()
             try:
                 val = lc(self.value)
-            except TypeError: # work around coercion weaknesses
-                val = lc.change_ring(QQbar)(QQbar.coerce(self.value))
+            except TypeError:
+                val = lc.change_ring(QQbar)(QQbar(self.value))
             return not val.is_zero()
         else:
             raise ValueError("can't tell if inexact point is singular")
@@ -426,18 +511,19 @@ class Point(SageObject):
             raise NotImplementedError("can't tell if inexact point is regular")
         assert self.is_exact()
         # Fuchs criterion
+        value = self.as_sage_value()
         dop = None
         if (self.dop.base_ring().base_ring() is QQ
-                and self.value.parent() is not QQ): # => number field element
-            pol = self.value.polynomial()
+                and value.parent() is not QQ): # => number field element
+            pol = value.polynomial()
             if pol.is_term() and pol.degree() == 1:
                 # optimize frequent case
-                nfpol = self.value.parent().polynomial()
+                nfpol = value.parent().polynomial()
                 rootpol = nfpol(~pol[1]*pol.parent().gen())
                 rootpol = self.dop.base_ring()(rootpol)
                 dop = self.dop
         if dop is None:
-            dop, pt = self.dop.extend_scalars(self.value)
+            dop, pt = self.dop.extend_scalars(value)
             Pols = dop.base_ring()
             rootpol = Pols([pt, -1])
         ref = dop.leading_coefficient().valuation(rootpol) - dop.order()
@@ -557,7 +643,7 @@ class Point(SageObject):
         if self.is_ordinary(): # support inexact points in this case
             return [
                 FundamentalSolution(
-                    utilities.PolynomialRoot.make(0), ZZ(expo), ZZ.zero(),
+                    PolynomialRoot.make(0), ZZ(expo), ZZ.zero(),
                     {s: [Scalars.one() if s == expo else Scalars.zero()]
                      for s in range(ord)} if critical_monomials else None)
                 for expo in range(ord)]
@@ -576,6 +662,26 @@ class Point(SageObject):
 
         For intermediate steps where thick balls are shrunk to their center,
         see exact_approx().
+
+        TESTS:
+
+            sage: from ore_algebra import OreAlgebra
+            sage: Pol.<z> = QQ[]
+            sage: Dop.<Dz> = OreAlgebra(Pol)
+            sage: dop = ((z*(z*Dz+1/2) - z*Dz*(z*Dz-1)^4*(z*Dz-1/3)*(z*Dz-2/3))
+            ....:        .annihilator_of_composition(1/z^6)
+            ....:        .symmetric_product(z*Dz-3).borel_transform())
+            sage: a = dop.leading_coefficient().roots(QQbar)[-1][0]
+            sage: l = 5.196152422706631880582339024
+            sage: u = 5.196152422706631880582339025
+            sage: matl = dop.numerical_transition_matrix([a, l*i+2])
+            sage: matu = dop.numerical_transition_matrix([a, u*i+2])
+            sage: (matl - matu)[0,0]
+            [1.00239995083052...] + [-5.46259672984224...]*I
+            sage: matl = dop.numerical_transition_matrix([a, l*i-2])
+            sage: matu = dop.numerical_transition_matrix([a, u*i-2])
+            sage: (matl - matu)[0,0]
+            [-0.92793753699596...] + [1.66154359059463...]*I
         """
         # Point options become meaningless (and are lost) when not returning
         # self.
@@ -585,16 +691,22 @@ class Point(SageObject):
             return self
         _self = self.iv().squash()
         rad = RBF.one().min(self.dist_to_sing())
-        rad = rad.min(*(abs(_self - z.iv().squash()) for z in neighb))
+        rad = rad.min(*(abs(_self - c.iv().squash()) for c in neighb))
         rad /= 32
-        ball = self.iv().add_error(rad)
-        try:
-            for c in neighb:
-                Step(Point(ball, self.dop), c).check_singularity()
-        except ValueError:
-            return self
-        rat = _rationalize(ball, real=self.is_real())
-        return Point(rat, self.dop, detour_to=self)
+        for ball in [self.iv().add_error(rad), self.iv()]:
+            # branch cuts
+            if any(c.is_singular() and ball.imag().overlaps(c.iv().imag())
+                   and not ball.real() > c.iv().real() for c in neighb):
+                continue
+            # possible change of homotopy class
+            try:
+                for c in neighb:
+                    Step(Point(ball, self.dop), c).check_singularity()
+            except ValueError:
+                continue
+            rat = _rationalize(ball, real=self.is_real())
+            return Point(rat, self.dop, detour_to=self)
+        return self
 
     @cached_method
     def exact_approx(self):
@@ -704,6 +816,9 @@ class Step(SageObject):
         return self.start.is_exact() and self.end.is_exact()
 
     def algdeg(self):
+        r"""
+        Compute an estimate of the algebraic degree of the increment.
+        """
         d0 = self.start.algdeg()
         d1 = self.end.algdeg()
         if d0 > 1 and d1 > 1:
@@ -711,19 +826,9 @@ class Step(SageObject):
                 return d0*d1
         return max(d0, d1)
 
-    def _fast_coerce(self):
-        P0 = self.start.value.parent()
-        P1 = self.end.value.parent()
-        if P0 is P1 or P0 is QQ or P1 is QQ:
-            return True
-        elif isinstance(P0, number_field_base.NumberField):
-            return False
-        elif isinstance(P1, number_field_base.NumberField):
-            return False
-        return P0.has_coerce_map_from(P1) or P1.has_coerce_map_from(P0)
-
     def is_trivial(self):
-        return self._fast_coerce() and self.start.value == self.end.value
+        return (self.start._sage_value_has_fast_coerce(self.end)
+                and self.start.as_sage_value() == self.end.as_sage_value())
 
     @cached_method
     def delta(self):
@@ -731,8 +836,8 @@ class Step(SageObject):
         Return the value of the increment, as an exact number if possible.
         """
         try:
-            z0 = self.start.exact().value
-            z1 = self.end.exact().value
+            z0 = self.start.exact().as_sage_value()
+            z1 = self.end.exact().as_sage_value()
         except ValueError:
             # no point in exactifying only one of the endpoints
             z0 = self.start.value
@@ -748,7 +853,7 @@ class Step(SageObject):
         if d.parent() is z0.parent() or d.parent() is z1.parent():
             return d
         else:
-            return as_embedded_number_field_element(d)
+            return utilities.as_embedded_number_field_element(d)
         assert False
 
     def approx_delta(self, Tgt):
@@ -760,12 +865,11 @@ class Step(SageObject):
             sage: (Dx - 1).numerical_solution([1], [0, RealField(10)(.33), 1])
             [2.71828182845904...]
         """
-        z0, z1 = self.start.value, self.end.value
-        if self._fast_coerce():
+        if self.start._sage_value_has_fast_coerce(self.end):
             return Tgt(self.delta())
         P = Tgt
         while True:
-            delta = P(z1) - P(z0)
+            delta = P(self.end.value) - P(self.start.value)
             if (delta.accuracy() >= 7*Tgt.precision()//8
                     or delta.rad() <= 2*(self.start.rad() + self.end.rad())):
                 return Tgt(delta)
@@ -1223,7 +1327,11 @@ class Path(SageObject):
             newlength = length
 
         channel_half_width = a.dist_to_sing()
+        sing_overlapping_a = 0
         for s in self.dop._singularities(IC):
+            if s.overlaps(a.iv()):
+                sing_overlapping_a += 1
+                continue
             h = (s - a.iv())/dir
             xs, ys = h.real(), h.imag()
             # Find the closest singularity (if any) that projects orthogonally
@@ -1237,6 +1345,8 @@ class Path(SageObject):
                 newlength1 = (((t*abs(h))**2 - ys**2).sqrt() - xs)/den
                 if newlength1 < newlength:
                     newlength = newlength1
+        if sing_overlapping_a != int(a.is_singular()):
+            raise PathPrecisionError
 
         # if npoints == 2:
         #     _m0 = a.iv() + newlength*dir
@@ -1253,42 +1363,10 @@ class Path(SageObject):
                 # Better go straight to point b
                 break
 
-            m0 = a.iv() + p*newlength*dir
-
-            # Attempt to make m0 real and/or a simple Gaussian rational by
-            # perturbing it a little. To preserve the homotopy class of the
-            # path, the angular perturbation needs to be small (absolute
-            # perturbations <= channel_half_width/√2, up to numerical errors,
-            # are safe). However, we allow for larger perturbations in the
-            # direction of the step. This is interesting mainly for steps along
-            # one of the axes.
-            for i in range(3, -2, -1):
-                delta = dir*IC(p*newlength.add_error(rel_tol*newlength),
-                                IR.zero().add_error(rel_tol*channel_half_width))
-                rel_tol = rel_tol**2 if i else IR(0.)
-                # The condition p*newlength*(1 + rel_tol) < length holds and
-                # implies |δ| < length in exact arithmetic, but, due to the
-                # wrapping effect in the multiplication by dir, the interval
-                # version may not hold.
-                if not abs(delta) < length:
-                    continue
-                m = a.iv() + delta
-                r = _rationalize(m, is_real)
-                if is_real and a.iv().real() < r < b.iv().real():
-                    break
-                # Check that the homotopy class of the path did not change
-                c = Point(m0.union(r), self.dop)
-                try:
-                    Step(a, c).check_singularity()
-                    Step(c, b).check_singularity()
-                    break
-                except ValueError:
-                    logger.debug(
-                        "homotopy check failed (m0=%s, m=%s, r=%s), "
-                        "trying again with rel_tol=%s",
-                        m0, m, r, rel_tol)
-            else:
-                raise ValueError(f"failed to subdivide (sub)step {a}-->{b}")
+            m = a.iv() + p*newlength*dir
+            m = self._rationalize_intermediate_point(
+                p, m, a, b, vec, dir, length, newlength, channel_half_width,
+                rel_tol, is_real)
 
             # At the moment the action parameter is for debugging purposes; it
             # is not used to choose the actual action taken
@@ -1296,9 +1374,145 @@ class Path(SageObject):
                 action = "connect" if p == 2 else "expand"
             else:
                 action = None
-            res.append(Point(r, self.dop, action=action))
+            res.append(Point(m, self.dop, action=action))
 
         return res
+
+    def _rationalize_intermediate_point(self, p, m0, a, b, vec, dir,
+                                        length, newlength,
+                                        channel_half_width, rel_tol, is_real):
+        r"""
+        Attempt to make m0 real and/or a simple Gaussian rational by perturbing
+        it slightly.
+
+        TESTS::
+
+            sage: from ore_algebra import OreAlgebra
+            sage: Pol.<x> = QQ[]
+            sage: Dop.<Dx> = OreAlgebra(Pol)
+
+        Handling of branch cuts::
+
+            sage: def _test(dop, a, b, c):
+            ....:     mat0 = dop.numerical_transition_matrix([a, b, c])
+            ....:     mat1 = dop.numerical_transition_matrix([a, c])
+            ....:     if not sum(abs(x) for x in (mat0 - mat1).list()) < RBF(1e-5):
+            ....:         raise AssertionError
+
+            sage: dop = ((x*(x*Dx+1/2) - x*Dx*(x*Dx-1)^4*(x*Dx-1/3)*(x*Dx-2/3))
+            ....:        .annihilator_of_composition(1/x^6)
+            ....:        .symmetric_product(x*Dx-3).borel_transform())
+            sage: a = dop.leading_coefficient().roots(QQbar, multiplicities=False)[-1]; a
+            3.000000000000000? + 5.196152422706632?*I
+            sage: _test(dop, -a.conjugate(), 3 + 6*i, a) # long time
+            sage: _test(dop, a, 3 + 6*i, -a.conjugate()) # long time
+
+            sage: (dop.numerical_transition_matrix(
+            ....:     [-a.conjugate(), 519615242270664/10^14*i, a])
+            ....:  - dop.numerical_transition_matrix(
+            ....:     [-a.conjugate(), 519615242270663/10^14*i, a])).trace()
+            [4.9455150710314...] + [2.3803933603710...]*I
+
+            sage: _test((x^2+2)*Dx-1, -1+sqrt(2)*i, 2*i, sqrt(2)*i)
+            sage: _test((x^2+4)*Dx+1, 2*i/3, -1+i, -2+2*i/3)
+            sage: _test((9*x^2+4)*Dx+1, 2*i/3, -1+i, -2+2*i/3)
+
+            sage: val_below = ((9*x^2+4)*Dx+1).numerical_transition_matrix([2*i/3, i/2, -1/2+2*i/3])[0,0]
+            sage: val_above = ((9*x^2+4)*Dx+1).numerical_transition_matrix([2*i/3, i/2, -1/2+2*i/3])[0,0]
+            sage: val_both = ((9*x^2+4)*Dx+1).numerical_transition_matrix([2*i/3, CBF(-1/2+2*i/3)])[0,0]
+            sage: val_below in val_both, val_above in val_both
+            (True, True)
+
+            sage: ((9*x^2+4)*Dx+1).numerical_transition_matrix([2*i/3, CBF(-2+2*i/3)])[0,0]
+            Traceback (most recent call last):
+            ...
+            NotImplementedError: cannot subdivide singular step 2/3*I -->
+            -2.00... + [0.66...]*I involving an inexact point on or too close to
+            a local branch cut
+        """
+
+        # When handling a singular step, we must make sure that the new point
+        # lies on the correct side of the branch cut.
+
+        # When is_real is True, the real part of the new point will be exactly
+        # zero by construction. It may look like we only need to consider
+        # possible singular steps when p == 1, but this is not the case, since a
+        # call with p == 2 may decide to return only one point.
+        singular_end = side_of_cut = None
+        if not is_real:
+            assert not vec.contains_zero()
+            # Even if a and b are both singular, only the branch cut at a
+            # matters if we are going left, only that at b if going right.
+            # If vec.real() contains 0, the box in which we search for a simple
+            # point cannot overlap the cut without containing the singularity.
+            if b.is_singular() and vec.real() > 0:
+                # incoming singular step; c must be on the same side as a
+                singular_end = b
+                side_of_cut = a.cmp_imag(b, uncomparable=-2)
+            if a.is_singular() and vec.real() < 0:
+                # outgoing singular step; c must be on the same side as b
+                singular_end = a
+                side_of_cut = b.cmp_imag(a, uncomparable=-2)
+
+        if side_of_cut == -2:
+            raise NotImplementedError("cannot subdivide singular step "
+                    f"{a} --> {b} involving an inexact point on or too close "
+                    "to a local branch cut")
+
+        # In addition, to preserve the homotopy class of the path, the angular
+        # perturbation needs to be small enough (absolute perturbations <=
+        # channel_half_width/√2, up to numerical errors, are safe). However, we
+        # allow for larger perturbations in the direction of the step. This is
+        # interesting mainly for steps along one of the axes.
+
+        for i in range(3, -2, -1):
+
+            delta = dir*IC(p*newlength.add_error(rel_tol*newlength),
+                           IR.zero().add_error(rel_tol*channel_half_width))
+            rel_tol = rel_tol**2 if i else IR(0.)
+            # The condition p*newlength*(1 + rel_tol) < length holds and
+            # implies |δ| < length in exact arithmetic, but, due to the
+            # wrapping effect in the multiplication by dir, the interval
+            # version may not hold.
+            if not abs(delta) < length:
+                continue
+            m = CIF(a.iv() + delta)
+            # If overestimation in the previous step made m contain a or b,
+            # little of what we are trying to do makes sense.
+            if m.overlaps(CIF(a.iv())) or m.overlaps(CIF(b.iv())):
+                continue
+            if singular_end is not None:
+                # TODO: strict=False for i>1 once we have better support for
+                # evaluation right on a non-real branch cut
+                m = _clip_to_half_plane(m, singular_end, side_of_cut,
+                                        strict=not is_real)
+            r = _rationalize(m, is_real)
+            if is_real and a.iv().real() < r < b.iv().real():
+                break
+            # Check that the new point is on the correct side of the cut
+            if singular_end is not None:
+                c = Point(r, self.dop)
+                new_side_of_cut = c.cmp_imag(singular_end, uncomparable=-2)
+                logger.debug("singular_end=%s, side_of_cut=%s, "
+                             "new_side_of_cut=%s",
+                             singular_end, side_of_cut, new_side_of_cut)
+                # ok if both below, both across, or both (on or above)
+                if not (new_side_of_cut == side_of_cut
+                        or new_side_of_cut >= 0 and side_of_cut >= 0):
+                    logger.debug("side-of-cut check failed")
+                    continue
+            # Check that the homotopy class of the path did not change
+            c = Point(m0.union(r), self.dop)
+            try:
+                Step(a, c).check_singularity()
+                Step(c, b).check_singularity()
+                break
+            except ValueError:
+                logger.debug("homotopy check failed (m0=%s, m=%s, r=%s)",
+                            m0, m, r)
+        else:
+            raise ValueError(f"failed to subdivide (sub)step {a}-->{b}")
+        return r
 
     def subdivide(self, mode, thr=IR(0.6)):
         # TODO:
@@ -1508,9 +1722,6 @@ def crossing_sequence(sentinels, path):
                     append(-i)
     return seq
 
-def local_monodromy_path(sing):
-    raise NotImplementedError
-
 def polygon_around(point, size=17):
     # not ideal in the case of a single singularity...
     rad = (point.dist_to_sing()/2).min(1)
@@ -1524,6 +1735,21 @@ def polygon_around(point, size=17):
         x = _rationalize(IC(x))
         polygon.append(Point(x, point.dop))
     return polygon
+
+def _clip_to_half_plane(m, singular_end, side_of_cut, strict):
+    y_cut = singular_end.iv().imag()
+    if side_of_cut >= 0:
+        if strict:
+            clip_imag = RIF(y_cut.upper(), 'inf')
+        else:
+            # try with an interval that may overlap the cut, but just slightly,
+            # in the hope of finding a nice rational point right on the cut
+            clip_imag = RIF(y_cut.lower(), 'inf')
+    else:
+        # in that case we want a point strictly below the cut
+        clip_imag = RIF('-inf', y_cut.lower())
+    clip_box = CIF(RIF('-inf', 'inf'), clip_imag)
+    return m.intersection(clip_box)
 
 def _rationalize(civ, real=False):
     from sage.rings.real_mpfi import RealIntervalField

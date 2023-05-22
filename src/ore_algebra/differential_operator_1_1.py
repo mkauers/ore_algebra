@@ -1,4 +1,3 @@
-# coding: utf-8
 """
 Univariate differential operators over univariate rings
 """
@@ -26,7 +25,7 @@ from sage.misc.cachefunc import cached_method
 from sage.rings.fraction_field import FractionField_generic
 from sage.rings.infinity import infinity
 from sage.rings.integer_ring import ZZ
-from sage.rings.number_field.number_field_base import is_NumberField
+from sage.rings.number_field import number_field_base
 from sage.rings.number_field.number_field import NumberField
 from sage.rings.finite_rings.finite_field_constructor import FiniteField as GF
 from sage.rings.polynomial.multi_polynomial_ring import is_MPolynomialRing
@@ -616,7 +615,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             raise TypeError("cannot compute generalized solutions for this coefficient domain")
         elif R.is_field() or not R.base_ring().is_field():
             return self._normalize_base_ring()[-1].generalized_series_solutions(n, base_extend, ramification, exp)
-        elif not (R.base_ring() is QQ or is_NumberField(R.base_ring())):
+        elif not (R.base_ring() is QQ or isinstance(R.base_ring(), number_field_base.NumberField)):
             raise TypeError("cannot compute generalized solutions for this coefficient domain")
 
         solutions = []
@@ -1466,6 +1465,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         from .analytic import analytic_continuation as ancont
         from .analytic import local_solutions, utilities
         from .analytic.differential_operator import DifferentialOperator
+        from .analytic.polynomial_root import PolynomialRoot
         dop = DifferentialOperator(self)
         post_transform = ancont.normalize_post_transform(dop, post_transform)
         post_mat = matrix(1, dop.order(),
@@ -1475,7 +1475,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
                                          post=post_mat, return_local_bases=True)
         val = []
         asycst = local_solutions.sort_key_by_asympt(
-            (utilities.PolynomialRoot.make(QQ.zero()), 0, ZZ.zero()))
+            (PolynomialRoot.make(QQ.zero()), 0, ZZ.zero()))
         for sol_at_pt in sol:
             pt = sol_at_pt["point"]
             mat = sol_at_pt["value"]

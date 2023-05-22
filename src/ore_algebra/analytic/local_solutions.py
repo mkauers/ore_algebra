@@ -1,4 +1,4 @@
-# -*- coding: utf-8 - vim: tw=80
+# vim: tw=80
 r"""
 Local solutions
 """
@@ -44,6 +44,7 @@ from . import utilities
 
 from .context import dctx
 from .differential_operator import DifferentialOperator
+from .polynomial_root import PolynomialRoot, roots_of_irred
 from .shiftless import my_shiftless_decomposition
 
 logger = logging.getLogger(__name__)
@@ -271,7 +272,7 @@ class BwShiftRec(object):
 
     @cached_method
     def shift_by_PolynomialRoot(self, sh):
-        assert isinstance(sh, utilities.PolynomialRoot)
+        assert isinstance(sh, PolynomialRoot)
         return self.shift(sh.as_number_field_element())
 
     def change_base(self, base):
@@ -313,7 +314,7 @@ class LogSeriesInitialValues(object):
             ValueError: invalid initial data for x*Dx^3 + 2*Dx^2 + x*Dx at 0
         """
         try:
-            self.expo = utilities.PolynomialRoot.make(expo)
+            self.expo = PolynomialRoot.make(expo)
         # accept abstract number field elements; some methods will not work
         except (TypeError, ValueError):
             self.expo = expo
@@ -571,7 +572,7 @@ class LocalBasisMapper(object):
             irred_data = []
             for irred_factor, irred_mult in utilities.myfactor_monic(sl_factor):
                 assert irred_mult == 1
-                roots = utilities.roots_of_irred(irred_factor)
+                roots = roots_of_irred(irred_factor)
                 irred_data.append((irred_factor, roots))
                 self.all_roots.extend((self.ctx.IC(rt) + shift, mult)
                                       for rt in roots
@@ -736,7 +737,7 @@ def log_series_values(Jets, expo, psum, pt, derivatives, is_numeric,
     specialize abstract algebraic numbers that might appear in ``psum``.
     """
     # The 'branch' parameter is currently unused.
-    expo = utilities.PolynomialRoot.make(expo)
+    expo = PolynomialRoot.make(expo)
     expo_ZZ = expo.try_integer()
     log_prec = psum.length()
     assert all(d < log_prec for d in downshift) or log_prec == 0

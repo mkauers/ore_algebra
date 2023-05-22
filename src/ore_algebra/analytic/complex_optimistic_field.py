@@ -1,4 +1,4 @@
-# -*- coding: utf-8 - vim: tw=80
+# -*- vim: tw=80
 """
 A version of ``ComplexBallField`` with an optimistic zero test
 (``b==0`` as soon as ``b`` contains 0)

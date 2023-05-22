@@ -1,4 +1,4 @@
-# -*- coding: utf-8 - vim: tw=79
+# vim: tw=79
 r"""
 Error bounds
 
@@ -148,6 +148,8 @@ from . import local_solutions, utilities
 from .context import dctx
 from .differential_operator import DifferentialOperator
 from .safe_cmp import *
+
+from .polynomial_root import PolynomialRoot
 
 logger = logging.getLogger(__name__)
 
@@ -1682,7 +1684,7 @@ class DiffOpBound(object):
 
         self._rcoeffs = _dop_rcoeffs_of_T(dop_T, self.IC)
 
-        self.leftmost = utilities.PolynomialRoot.make(leftmost)
+        self.leftmost = PolynomialRoot.make(leftmost)
         self._ivleftmost = self.leftmost.as_ball(self.IC)
         if self._dop_D.leading_coefficient()[0] != 0:
             # Ordinary point: even though the indicial equation usually has
@@ -2482,11 +2484,7 @@ def _dop_rcoeffs_of_T(dop, base_ring):
     Pols = dop.base_ring().change_ring(base_ring)
     ordlen, deglen = dop.order() + 1, dop.degree() + 1
     _dop = dop._poly.list(copy=False) # micro-opt
-    binomial = [[0]*(ordlen) for _ in range(ordlen)]
-    for n in range(ordlen):
-        binomial[n][0] = 1
-        for k in range(1, n + 1):
-            binomial[n][k] = binomial[n-1][k-1] + binomial[n-1][k]
+    binomial = utilities.binomial_coefficients(ordlen)
     res = [None]*(ordlen)
     for k in range(ordlen):
         pol = [base_ring.zero()]*(deglen)
