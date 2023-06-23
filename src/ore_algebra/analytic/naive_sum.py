@@ -1,4 +1,4 @@
-# -*- coding: utf-8 - vim: tw=80
+# vim: tw=80
 """
 Evaluation of convergent D-finite series by direct summation
 """
@@ -22,7 +22,7 @@ from sage.modules.free_module_element import vector
 from sage.rings.all import ZZ, QQ, infinity
 from sage.rings.complex_arb import ComplexBallField, CBF, ComplexBall
 from sage.rings.integer import Integer
-from sage.rings.number_field.number_field_base import is_NumberField
+from sage.rings.number_field import number_field_base
 from sage.rings.polynomial import polynomial_element
 from sage.rings.real_arb import RealBallField, RBF, RealBall
 from sage.rings.real_mpfr import RealField
@@ -756,7 +756,7 @@ def guard_bits(dop, maj, evpts, ordrec, nterms):
 
 def _use_inexact_recurrence(bwrec, leftmost, prec):
     Scalars = bwrec.Scalars
-    if not is_NumberField(Scalars):
+    if not isinstance(Scalars, number_field_base.NumberField):
         return False
     if ((Scalars is QQ or utilities.is_QQi(Scalars))
             and leftmost.is_rational()
@@ -943,8 +943,8 @@ class HighestSolMapper(LocalBasisMapper):
         # valuation
         inis = [LogSeriesInitialValues(
                     expo=self.leftmost,
-                    mults=self.shifts,
-                    values={(s, m-1): ZZ.one()})
+                    values={(s, m-1): ZZ.one()},
+                    mults=self.shifts)
                 for s, m in self.shifts]
         sols = self.do_sum(inis)
         self.highest_sols = {}

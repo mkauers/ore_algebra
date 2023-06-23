@@ -1,4 +1,3 @@
-# coding: utf-8
 r"""
 p-determinants and monodromy, after Kontsevich and Odesskii
 

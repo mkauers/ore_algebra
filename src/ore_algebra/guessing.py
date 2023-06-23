@@ -1135,9 +1135,9 @@ def _rat_recon(a, m, u=None):
 
     zero = K.zero()
     one = K.one()
-    mone = -one
+    minus_one = -one
 
-    if a in (zero, one, mone):
+    if a in (zero, one, minus_one):
         return a, one
     elif early_termination_bound <= 0:
         out = _rational_reconstruction(a, m)

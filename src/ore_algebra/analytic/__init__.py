@@ -1,4 +1,4 @@
-# -*- coding: utf-8 - vim: tw=80
+# vim: tw=80
 r"""
 Symbolic-numeric tools
 
@@ -8,9 +8,9 @@ points of univariate differential operators.
 
 The basic features are accessible through methods of univariate differential
 operators, such as
-:meth:`~ore_algebra.ore_operator_1_1.UnivariateDifferentialOperatorOverUnivariateRing.numerical_solution`
+:meth:`~ore_algebra.differential_operator_1_1.UnivariateDifferentialOperatorOverUnivariateRing.numerical_solution`
 and
-:meth:`~ore_algebra.ore_operator_1_1.UnivariateDifferentialOperatorOverUnivariateRing.numerical_transition_matrix`.
+:meth:`~ore_algebra.differential_operator_1_1.UnivariateDifferentialOperatorOverUnivariateRing.numerical_transition_matrix`.
 Only more advanced or experimental functionality requires calling this module
 directly.
 A short introduction to the features most likely to be of interest to casual
@@ -37,11 +37,21 @@ consequence, some features may be undocumented and/or very experimental.
     ore_algebra.analytic.polynomial_approximation
     ore_algebra.analytic.ui
 
+.. rubric:: Symbolic-Numeric Factorization
+
+.. autosummary::
+    :toctree: generated
+
+    ore_algebra.analytic.complex_optimistic_field
+    ore_algebra.analytic.factorization
+    ore_algebra.analytic.linear_algebra
+
 .. rubric:: Additional examples
 
 .. autosummary::
     :toctree: generated
 
+    ore_algebra.analytic.examples.facto
     ore_algebra.analytic.examples.misc
 
 Basic Usage

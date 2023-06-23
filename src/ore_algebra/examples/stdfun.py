@@ -1,4 +1,3 @@
-# coding: utf-8
 r"""
 Elementary and special functions
 

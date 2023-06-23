@@ -17,14 +17,15 @@ Generalized series found in expansions at singularities
 
 import re
 
+
 from sage.arith.all import lcm
 from sage.rings.power_series_ring import PowerSeriesRing
 from sage.rings.integer_ring import ZZ
+from sage.rings.number_field import number_field_base
 from sage.rings.rational_field import QQ
 from sage.rings.real_mpfr import RR
 from sage.functions.log import log as LOG
 from sage.functions.log import exp as EXP
-from sage.rings.number_field.number_field_base import NumberField
 from sage.structure.element import Element, RingElement, canonical_coercion
 from sage.structure.parent import Parent
 from sage.structure.unique_representation import UniqueRepresentation
@@ -69,7 +70,7 @@ class GeneralizedSeriesMonoid(UniqueRepresentation, Parent):
     @staticmethod
     def __classcall__(cls, base, x, type="continuous", default_prec=None):
         if not (any(base is P for P in [ZZ, QQ, QQbar])
-                or isinstance(base, NumberField)):
+                or isinstance(base, number_field_base.NumberField)):
             raise TypeError("base ring must be ZZ, QQbar or a number field")
         x = str(x)
         if x.find("LOG") >= 0:

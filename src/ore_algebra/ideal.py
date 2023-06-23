@@ -1275,7 +1275,7 @@ def solve_triangular_system(mat, rhs, solver=None):
       sage: from ore_algebra.ideal import solve_triangular_system
       sage: R.<x> = ZZ[]; A.<Dx> = OreAlgebra(R);
       sage: solve_triangular_system([list(map(A, [Dx-x, 2,x])), list(map(A, [0,x,Dx-4])), list(map(A, [0,0,Dx]))], [[1,0,0],[0,1,0],[0,0,1]])
-      [([1, 0, 1], [0, -4, 0]), ([x, 4, x], [9, 1, 1])]
+      [([1, 0, 1], [0, -4, 0]), ([-x, -4, -x], [-9, -1, -1])]
 
     """
 

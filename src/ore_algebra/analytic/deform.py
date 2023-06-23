@@ -1,4 +1,4 @@
-# coding: utf-8
+# vim: tw=80
 r"""
 Path deformation
 
@@ -306,7 +306,7 @@ Errors::
 #
 # http://www.gnu.org/licenses/
 
-import collections, logging, cmath, math
+import logging, cmath, math
 import sage.plot.all as plot
 import numpy
 import scipy.optimize
@@ -324,6 +324,7 @@ from sage.graphs.graph import Graph
 from sage.misc.lazy_attribute import lazy_attribute
 from sage.rings.all import CC
 
+from .geometry import in_triangle
 from .utilities import pairwise, split
 
 logger = logging.getLogger(__name__)
@@ -421,12 +422,6 @@ def sgn_inter(u, v):
     if (cda >= 0.) == (cdb >= 0.):
         return 0
     return -1 if abd >= 0 else +1
-
-def in_triangle(a, b, c, z):
-    oa = orient2d(b, c, z)
-    ob = orient2d(c, a, z)
-    oc = orient2d(a, b, z)
-    return oa >= 0 and ob >= 0 and oc >= 0 or oa <= 0 and ob <= 0 and oc <= 0
 
 def circle_interval_intersections(zc, rad, za, zb, bounded):
     r"""
@@ -1398,7 +1393,7 @@ class PathDeformer(object):
             return c
 
         def ok(x, y, z):
-            return not any(in_triangle(x, y, z, w) for w in sing)
+            return not any(in_triangle(orient2d, x, y, z, w) for w in sing)
 
         path = [self.analytic_path[0]]
         for i in range(len(self.analytic_path) - 2):

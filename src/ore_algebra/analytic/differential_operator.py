@@ -1,4 +1,4 @@
-# -*- coding: utf-8 - vim: tw=80
+# vim: tw=80
 r"""
 Custom differential operators
 """
@@ -18,13 +18,14 @@ from sage.rings.all import CIF, QQbar, QQ, ZZ
 from sage.rings.complex_arb import ComplexBallField
 from sage.rings.complex_interval_field import ComplexIntervalField
 from sage.rings.infinity import infinity
-from sage.rings.number_field.number_field import is_NumberField
+from sage.rings.number_field import number_field_base
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 
 from ..ore_algebra import OreAlgebra
-from ..ore_operator_1_1 import UnivariateDifferentialOperatorOverUnivariateRing
+from ..differential_operator_1_1 import UnivariateDifferentialOperatorOverUnivariateRing
 
 from .context import dctx
+from .polynomial_root import roots_of_irred
 from .utilities import as_embedded_number_field_elements
 
 from . import utilities
@@ -54,7 +55,7 @@ class PlainDifferentialOperator(UnivariateDifferentialOperatorOverUnivariateRing
 
     @cached_method
     def _indicial_polynomial_at_zero(self):
-        # Adapted from the version in ore_operator_1_1
+        # Adapted from the version in differential_operator_1_1
 
         op = self.numerator()
         R = op.base_ring()
@@ -205,7 +206,7 @@ class PlainDifferentialOperator(UnivariateDifferentialOperatorOverUnivariateRing
             pol = alc if apparent else dlc
         sing = []
         for fac, mult in pol.factor():
-            roots = utilities.roots_of_irred(fac)
+            roots = roots_of_irred(fac)
             sing.extend((rt, mult) for rt in roots)
         return sing
 
@@ -302,7 +303,7 @@ class PlainDifferentialOperator(UnivariateDifferentialOperatorOverUnivariateRing
         # an L equal but not identical to K. And then other constructors like
         # PolynomialRing(L, x) sometimes return objects over K found in cache,
         # leading to endless headaches with slow coercions.
-        dop_P, ex = self.extend_scalars(delta.exact().value)
+        dop_P, ex = self.extend_scalars(delta.exact().as_sage_value())
         Pols = dop_P.base_ring()
         # Gcd-avoiding shift by an algebraic delta
         deg = dop_P.degree()

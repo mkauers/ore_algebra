@@ -1,4 +1,3 @@
-# coding: utf-8
 r"""
 Database of annihilators
 
@@ -50,10 +49,11 @@ from sage.rings.all import QQ
 
 from operator import pow
 
+
 def symbolic_database(A, f, inner = None, k = 0):
     r"""
     Tries to return an annihilating operator of a symbolic operator `f`, i.e. an element from a (suitable) OreAlgebra `A`
-    that represents a differential/recurrence equation for the symoblic epxression ``f(x)``
+    that represents a differential/recurrence equation for the symbolic expression ``f(x)``
     
     INPUT:
     

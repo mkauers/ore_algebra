@@ -1,4 +1,3 @@
-# coding: utf-8
 r"""
 Differentially finite functions and sequences
 
@@ -408,7 +407,7 @@ class DFiniteFunctionRing(Algebra):
         r"""
         Convert a symbolic expression ``exp`` into this ring, possibly non-canonically.
         
-        In the shift case the symoblic expression can contain the following symbolic functions:
+        In the shift case the symbolic expression can contain the following symbolic functions:
         ``harmonic_number(n)``, ``binomial(k,n)``, ``binomial(n,k)`` (where ``k`` is a fixed integer) and ``factorial(n)``.
         Of course all other functions that can be converted into a D-finite sequences (such as rational functions) can appear.
         Additionally addition and multiplication of these functions and composition of these functions with linear functions are

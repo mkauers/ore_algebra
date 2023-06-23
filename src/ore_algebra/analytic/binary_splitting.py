@@ -1,4 +1,4 @@
-# -*- coding: utf-8 - vim: tw=80
+# vim: tw=80
 """
 Evaluation of convergent D-finite series by binary splitting
 
@@ -248,7 +248,8 @@ from sage.matrix.constructor import matrix
 from sage.matrix.matrix_space import MatrixSpace
 from sage.modules.free_module_element import vector
 from sage.rings.all import ZZ, QQ, RLF, CLF, RealBallField, ComplexBallField
-from sage.rings.number_field.number_field import is_NumberField, NumberField
+from sage.rings.number_field.number_field import NumberField
+from sage.rings.number_field import number_field_base
 from sage.structure.coerce_exceptions import CoercionException
 from sage.structure.sequence import Sequence
 
@@ -264,7 +265,7 @@ from .safe_cmp import *
 logger = logging.getLogger(__name__)
 
 def PolynomialRing(base, var):
-    if is_NumberField(base) and base is not QQ:
+    if isinstance(base, number_field_base.NumberField) and base is not QQ:
         return polyring.PolynomialRing_field(base, var,
                 element_class=polyelt.Polynomial_generic_dense)
     else:
@@ -839,14 +840,24 @@ class MatrixRec(object):
                 pts = Sequence(pts, universe=deq_Scalars)
                 self._init_generic(deq_Scalars, shift, pts)
 
-        bwrec = bw_shift_rec(dop, shift=self.shift)
-        # Also store an exact version of the leading coefficient to be able to
-        # compute the inverse exactly (and simplify the result) when working
-        # with arb balls. (Would it be enough to increase the working precision
-        # as in the Cython version?)
-        self.exact_lc = bwrec.lc_as_rec()
-        # separate step because Ore ops cannot have ball coefficients
-        self.bwrec = bwrec.change_base(self.AlgInts_rec)
+        if isinstance(self.AlgInts_rec, ComplexBallField):
+            bwrec = bw_shift_rec(dop, shift=self.shift)
+            # Also store an exact version of the leading coefficient to be able
+            # to compute the inverse exactly (and simplify the result) when
+            # working with arb balls. (Would it be enough to increase the
+            # working precision as in the Cython version?)
+            self.exact_lc = bwrec.lc_as_rec()
+            # separate step because Ore ops cannot have ball coefficients
+            self.bwrec = bwrec.change_base(self.AlgInts_rec)
+        else:
+            # In this case, passing to AlgInts_rec as a base ring may introduce
+            # denominators, so it is better to do that while computing the
+            # recurrence, and we need to store exact_lc *after* passing to
+            # AlgInts_rec
+            self.bwrec = bw_shift_rec(dop, shift=self.shift,
+                                      Scalars=self.AlgInts_rec)
+            self.exact_lc = self.bwrec.lc_as_rec()
+
         if self.bwrec.order == 0:
             # not sure what to do in this case
             raise NotImplementedError("recurrence of order zero")
@@ -890,7 +901,7 @@ class MatrixRec(object):
         else:
             dom = ComplexBallField(prec)
         for i, pt in enumerate(evpts):
-            if is_NumberField(pt.parent()):
+            if isinstance(pt.parent(), number_field_base.NumberField):
                 den = utilities.internal_denominator(pt)
                 self.pow_num[i] = dom(den*pt) # mul must be exact
                 self.pow_den[i] = dom(den)
@@ -907,7 +918,7 @@ class MatrixRec(object):
 
         E = pts.universe()
         assert deq_Scalars is E or deq_Scalars != E
-        if is_NumberField(E): # includes QQ
+        if isinstance(E, number_field_base.NumberField): # includes QQ
             # In fact we should probably do something similar for pts in any
             # finite-dimensional Q-algebra. (But how?)
             NF_pow, AlgInts_pow = utilities.number_field_with_integer_gen(E)
@@ -1242,7 +1253,7 @@ def _specialization_map(source, dest, abstract_alg, alg):
     """
     if alg == abstract_alg:
         return dest
-    assert is_NumberField(abstract_alg.parent())
+    assert isinstance(abstract_alg.parent(), number_field_base.NumberField)
     den = abstract_alg.denominator()
     assert den*abstract_alg == abstract_alg.parent().gen()
     Homset = source.Hom(dest)

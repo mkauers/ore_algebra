@@ -1,4 +1,3 @@
-# coding: utf8
 # vim: tw=80 nowrap
 r"""
 Miscellaneous examples

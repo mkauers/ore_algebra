@@ -1,4 +1,4 @@
-# -*- coding: utf-8 - vim: tw=80
+# vim: tw=80
 """
 Some convenience functions for features not yet easily accessible from methods
 of differential operators.

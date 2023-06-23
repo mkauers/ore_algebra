@@ -1,6 +1,20 @@
-# -*- coding: utf-8 - vim: tw=80
+# vim: tw=80
 r"""
 Monodromy matrices
+
+TESTS::
+
+    sage: from ore_algebra import *
+    sage: from ore_algebra.analytic.monodromy import monodromy_matrices
+    sage: Dops, z, Dz = DifferentialOperators()
+
+Thanks to Alexandre Goyer for this example, which used to crash because of a bug
+in the handling of algebraic numbers in the binary splitting code::
+
+    sage: dop = z^2*(14*z-3)*(23*z^3+128*z^2+128*z-256)*Dz^3+2*z*(1449*z^4+5255*z^3+1744*z^2-2208*z+672)*Dz^2+2*(2898*z^4+5513*z^3-1081*z^2-414*z+48)*Dz+1932*z^3+344*z^2-690*z-12
+    sage: dop = dop.annihilator_of_composition(z-1)
+    sage: monodromy_matrices(dop, 0, algorithm="binsplit", eps=1e-20)[-1].trace()
+    [2.00000000000...] + [1.00000000000...]*I
 """
 
 # Copyright 2017, 2018, 2019 Marc Mezzarobba
@@ -32,6 +46,7 @@ from . import analytic_continuation as ancont, path, utilities
 from .context import Context
 from .differential_operator import DifferentialOperator
 from .local_solutions import LocalBasisMapper
+from .polynomial_root import PolynomialRoot
 
 logger = logging.getLogger(__name__)
 
@@ -112,13 +127,22 @@ def formal_monodromy(dop, sing, ring=SR):
         sage: _test_formal_monodromy(Dx*x*Dx)
         sage: _test_formal_monodromy((x*Dx-1/2+x^2)^2*(x*Dx-5/2))
         sage: _test_formal_monodromy((x*Dx)^2 - 2)
+
+        sage: from ore_algebra.analytic.monodromy import formal_monodromy
+        sage: dop = (x^9 - 46656*x^3)*Dx^4 + (34*x^8 + 93312*x^2)*Dx^3 + (385*x^7 - 139968*x)*Dx^2 + (1695*x^6 + 139968)*Dx + 2401*x^5
+        sage: a = QQbar.polynomial_root(dop.leading_coefficient(), CIF(3, RIF(5.1, 5.2)))
+        sage: formal_monodromy(dop, a)
+        [                                          1  0  0  0]
+        [                            (67/17496*I*pi)  1  0  0]
+        [   (-9347/5038848*I*pi*(3*I*sqrt(1/3) - 1))  0  1  0]
+        [(-56135/45349632*I*pi*(-3*I*sqrt(1/3) - 1))  0  0  1]
     """
     dop = DifferentialOperator(dop)
     sing = path.Point(sing, dop)
     # XXX should use binary splitting when the indicial polynomial has large
     # dispersion
     crit = sing.local_basis_structure()
-    mor = dop.base_ring().base_ring().hom(ring)
+    mor = ring.hom(ring) # we need a Morphism but don't known the source ring
     mon, _ = _formal_monodromy_from_critical_monomials(crit, mor)
     return mon
 
@@ -260,7 +284,7 @@ class TodoItem():
 
     @cached_method
     def point(self):
-        return path.Point(self.alg.as_number_field_element(), self._dop)
+        return path.Point(self.alg, self._dop)
 
     def __eq__(self, other):
         return self is other
@@ -408,7 +432,7 @@ def _monodromy_matrices(dop, base, eps=1e-16, sing=None, **kwds):
             base = s
             break
     else:
-        base = utilities.PolynomialRoot.make(base)
+        base = PolynomialRoot.make(base)
 
     todo = {x: TodoItem(x, dop, want_self=True, want_conj=False)
             for x in sing}
@@ -438,15 +462,16 @@ def _monodromy_matrices(dop, base, eps=1e-16, sing=None, **kwds):
         # We could call _local_monodromy_loop() if point is irregular, but
         # delaying it may allow us to start returning results earlier.
         if point.is_regular():
+            point_value = point.as_sage_value()
             if crit_cache is None or point.algdeg() == 1:
                 crit = point.local_basis_structure()
-                emb = point.value.parent().hom(Scalars)
+                emb = point_value.parent().hom(Scalars)
             else:
-                mpol = point.value.minpoly()
+                mpol = point_value.minpoly()
                 try:
                     NF, crit = crit_cache[mpol]
                 except KeyError:
-                    NF = point.value.parent()
+                    NF = point_value.parent()
                     crit = point.local_basis_structure()
                     # Only store the critical monomials for reusing when all
                     # local exponents are rational. We need to restrict to this
@@ -460,7 +485,7 @@ def _monodromy_matrices(dop, base, eps=1e-16, sing=None, **kwds):
                     # exponents "naturally" live.)
                     if all(sol.leftmost.is_rational() for sol in crit):
                         crit_cache[mpol] = NF, crit
-                emb = NF.hom([Scalars(point.value.parent().gen())], check=False)
+                emb = NF.hom([Scalars(point_value.parent().gen())], check=False)
             mon, scalar = _formal_monodromy_from_critical_monomials(crit, emb)
             if scalar:
                 # No need to compute the connection matrices then!

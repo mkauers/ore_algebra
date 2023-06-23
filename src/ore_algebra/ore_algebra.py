@@ -1,4 +1,3 @@
-# coding: utf-8
 """
 Ore algebras
 
@@ -101,7 +100,7 @@ from sage.rings.ring import Algebra
 from sage.rings.polynomial.polynomial_ring import is_PolynomialRing
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 from sage.rings.polynomial.multi_polynomial_ring import is_MPolynomialRing
-from sage.rings.number_field.number_field import is_NumberField
+from sage.rings.number_field import number_field_base
 from sage.rings.fraction_field import is_FractionField
 from sage.rings.integer_ring import ZZ
 from sage.rings.rational_field import QQ
@@ -139,7 +138,7 @@ def is_suitable_base_ring(R):
     
     """
     p = R.characteristic()
-    if (p == 0 and (R is ZZ or R is QQ or is_NumberField(R))) or (p > 0 and R is GF(p)):
+    if (p == 0 and (R is ZZ or R is QQ or isinstance(R, number_field_base.NumberField))) or (p > 0 and R is GF(p)):
         return True
     elif is_FractionField(R):
         return is_suitable_base_ring(R.ring())
@@ -960,7 +959,9 @@ def OreAlgebra(base_ring, *generators, **kwargs):
             product_rules[i] = (zero, one, zero)
 
     # Select element class
-    from . import ore_operator, ore_operator_1_1, ore_operator_mult
+    from . import (
+        ore_operator, ore_operator_1_1, differential_operator_1_1,
+        recurrence_operator_1_1, q_operator_1_1, ore_operator_mult)
     if "element_class" in kwargs:
         operator_class = kwargs["element_class"]
     elif len(gens) > 1:
@@ -968,17 +969,17 @@ def OreAlgebra(base_ring, *generators, **kwargs):
     elif len(Rgens) > 1:
         operator_class = ore_operator.UnivariateOreOperator
     elif is_shift[0]:
-        operator_class = ore_operator_1_1.UnivariateRecurrenceOperatorOverUnivariateRing
+        operator_class = recurrence_operator_1_1.UnivariateRecurrenceOperatorOverUnivariateRing
     elif is_derivation[0]:
-        operator_class = ore_operator_1_1.UnivariateDifferentialOperatorOverUnivariateRing
+        operator_class = differential_operator_1_1.UnivariateDifferentialOperatorOverUnivariateRing
     elif is_qshift[0]:
-        operator_class = ore_operator_1_1.UnivariateQRecurrenceOperatorOverUnivariateRing
+        operator_class = q_operator_1_1.UnivariateQRecurrenceOperatorOverUnivariateRing
     elif is_qderivation[0]:
-        operator_class = ore_operator_1_1.UnivariateQDifferentialOperatorOverUnivariateRing
+        operator_class = q_operator_1_1.UnivariateQDifferentialOperatorOverUnivariateRing
     elif is_delta[0]:
-        operator_class = ore_operator_1_1.UnivariateDifferenceOperatorOverUnivariateRing
+        operator_class = recurrence_operator_1_1.UnivariateDifferenceOperatorOverUnivariateRing
     elif is_theta[0]:
-        operator_class = ore_operator_1_1.UnivariateEulerDifferentialOperatorOverUnivariateRing
+        operator_class = differential_operator_1_1.UnivariateEulerDifferentialOperatorOverUnivariateRing
     elif is_commutative[0]:
         operator_class = ore_operator_1_1.UnivariateOreOperatorOverUnivariateRing
     else:
@@ -1715,7 +1716,7 @@ class OreAlgebra_generic(UniqueRepresentation, Algebra):
             return nullspace.sage_native
         elif R is ZZ or R is QQ:
             return nullspace.sage_native
-        elif is_NumberField(R):
+        elif isinstance(R, number_field_base.NumberField):
             return nullspace.cra(nullspace.sage_native)
         elif not (is_MPolynomialRing(R) or is_PolynomialRing(R) or is_FractionField(R)):
             return nullspace.sage_native # for lack of better ideas. 
@@ -1732,7 +1733,7 @@ class OreAlgebra_generic(UniqueRepresentation, Algebra):
         solver = nullspace.kronecker(nullspace.gauss()) # good for ZZ[x...] and GF(p)[x...]
         if B is QQ:
             solver = nullspace.clear(solver) # good for QQ[x...]
-        # elif is_NumberField(B):
+        # elif isinstance(B, number_field_base.NumberField):
         #     solver = nullspace.galois(solver)
         #     # good for QQ(alpha)[x...] but not implemented
         elif not (B is ZZ or B.characteristic() > 0):
