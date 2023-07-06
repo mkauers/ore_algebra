@@ -7,19 +7,20 @@ EXAMPLES::
 
     sage: from ore_algebra.examples.pseudoconstants import L9
     sage: L9.order(), L9.degree()
-    (6,76)
+    (6, 76)
     sage: L9.singularities()
     {0, 1, 2, 3, 4, 5, 6}
 
-We also provide the pseudoconstant, and we show how to verify that it is correct
+We also provide the pseudoconstant. One can verify that it is correct by
+computing generalized series solutions and the valuation of the pseudoconstant.
 
     sage: from ore_algebra.examples.pseudoconstants import L9_pc
     sage: prec=50
     sage: for (z,place) in [(s,x+s) for s in L9.singularities()] + [(Infinity,1/x)]:
-    sage:     L9_shift, phi = L9.annihilator_of_composition(place, with_transform=True)
-    sage:     sols = L9_shift.generalized_series_solutions(prec)
-    sage:     L9_pc_shift = phi(L9_pc)
-    sage:     print(f"Exponents at place {z}: {[L9_pc_shift(s).initial_exponent() for s in sols]}")
+    ....:     L9_shift, phi = L9.annihilator_of_composition(place, with_transform=True)
+    ....:     sols = L9_shift.generalized_series_solutions(prec)
+    ....:     L9_pc_shift = phi(L9_pc)
+    ....:     print(f"Exponents at place {z}: {[L9_pc_shift(s).initial_exponent() for s in sols]}")
     Exponents at place 0: [25/7, 20/7, 15/7, 10/7, 0, 5/7]
     Exponents at place 1: [25/7, 20/7, 15/7, 10/7, 0, 5/7]
     Exponents at place 2: [25/7, 20/7, 15/7, 10/7, 0, 5/7]
@@ -52,4 +53,3 @@ with open(os.path.join(path,"pseudoconstant_L9_pc.sage"),"r") as f:
     lines = f.readlines()
 
 L9_pc = Dif(eval("".join(preparse(l[:-1]) for l in lines)))
-
