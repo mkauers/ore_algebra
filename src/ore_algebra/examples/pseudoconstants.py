@@ -34,19 +34,21 @@ We also provide the pseudoconstant, and we show how to verify that it is correct
 from sage.repl.preparse import preparse
 from sage.rings.all import Frac, Integer, PolynomialRing, ZZ, QQ
 from ore_algebra import OreAlgebra
+import os
 
+path = os.path.dirname(__file__)
 
 Pol = PolynomialRing(QQ, "x")
 x = Pol.gen()
 Dif = OreAlgebra(Pol.fraction_field(), "Dx")
 Dx = Dif.gen()
 
-with open("pseudoconstant_L9.sage","r") as f:
+with open(os.path.join(path,"pseudoconstant_L9.sage"),"r") as f:
     lines = f.readlines()
     
 L9 = Dif(eval("".join(preparse(l[:-1]) for l in lines)))
 
-with open("pseudoconstant_L9_pc.sage","r") as f:
+with open(os.path.join(path,"pseudoconstant_L9_pc.sage"),"r") as f:
     lines = f.readlines()
 
 L9_pc = Dif(eval("".join(preparse(l[:-1]) for l in lines)))

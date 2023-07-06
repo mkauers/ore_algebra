@@ -1624,11 +1624,11 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             assert len(sol) == 1
             return sol[0]["value"]
 
-    def _normalize_make_valuation_place_args(self, f, iota=None, prec=None, infolevel=0):
+    def _normalize_make_valuation_place_args(self, f, iota=None, prec=None, infolevel=0, **kwargs):
         return (f,iota,prec)
         
     @cached_method(key=_normalize_make_valuation_place_args)
-    def _make_valuation_place(self, f, iota=None, prec=None, infolevel=0):
+    def _make_valuation_place(self, f, iota=None, prec=None, infolevel=0, **kwargs):
         r"""
         Compute value functions for the place ``f``.
 
@@ -1675,10 +1675,11 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         
         """
 
-        if infolevel >= 1:
-            print("Preparing place at {}"
-                                 .format(f if f.degree() < 10
-                                         else "{} + ... + {}".format(f[f.degree()]*f.monomials()[0],f[0])))
+        print1 = print if infolevel >= 1 else lambda *a, **k: None
+        
+        print1("Preparing place at {}"
+               .format(f if f.degree() < 10
+                       else "{} + ... + {}".format(f[f.degree()]*f.monomials()[0],f[0])))
 
         r = self.order()
         ore = self.parent()
@@ -1687,8 +1688,10 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
 
         C = base.base_ring()
         if f.degree() > 1:
+            print1("Computing field extension... ", end="", flush=True)
             FF = NumberField(f,"xi")
             xi = FF.gen()
+            print1("done")
         else:
             FF = C
             xi = -f[0]/f[1]
@@ -1702,10 +1705,12 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         ore_ext = ore.change_ring(pol_ext.fraction_field())
         
         reloc = ore_ext([c(x=x+xi) for c in self.coefficients(sparse=False)])
+        print1("Computing generalized series solutions... ", end="", flush=True)
         if prec is None:
             sols = reloc.generalized_series_solutions(exp=False)
         else:
             sols = reloc.generalized_series_solutions(prec, exp=False)
+        print1("done")
 
         # if any(True for s in sols if s.ramification()>1):
         #     raise NotImplementedError("Some generalized series solutions have ramification")
@@ -1717,10 +1722,12 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         def get_functions(xi,sols,x,ore_ext):
             # In both functions the second argument `place` is ignored because
             # captured
-            def val_fct(op,place,base=C, iota=None, **kwargs):
+            def val_fct(op,place,base=C, iota=None, infolevel=0, **kwargs):
                 op = ore_ext([c(x=x+xi)
                               for c in op.coefficients(sparse=False)])
                 vect = [op(s).valuation(base=C,iota=iota) for s in sols]
+                if infolevel>=1:
+                    print("Value function", vect)
                 return min(vect)
             def raise_val_fct(ops,place,dim=None,base=C,iota=None,
                               infolevel=0, **kwargs):
@@ -1747,7 +1754,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
                     for i in range(len(ops)):
                         for s in ss[i]:
                             mtx[i].append(s.coefficient(*t))
-                    if infolevel >= 2:
+                    if infolevel >= 3:
                         print(" [raise_val_fct] Current matrix:\n{}".format(mtx))
 
                 M = matrix(mtx)
@@ -1785,7 +1792,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             place = self.leading_coefficient().radical().monic()
         return [place**i * DD**i for i in range(r)]
     
-    def find_candidate_places(self, infolevel=0, iota=None, prec=5, **kwargs):
+    def find_candidate_places(self, infolevel=0, iota=None, prec=None, **kwargs):
         r"""
 
         EXAMPLES::
@@ -1808,7 +1815,8 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         fact = list(lr.factor())
         places = []
         for f,m in fact:
-            places.append(self._make_valuation_place(f,prec=m+1,
+
+            places.append(self._make_valuation_place(f,prec=m+1 if prec is None else prec,
                                                      infolevel=infolevel,
                                                      iota=None))
         return places
@@ -1944,7 +1952,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             return ll+[0]*(d - len(ll))
         
         def tau_value(f):
-            # smallest t st x^t f can be evaluated at infinity
+            # largest t st x^t f can be evaluated at infinity
             if f == 0:
                 return infinity
             if f in QQ:
@@ -1998,8 +2006,9 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             B = matrix([[eval_inf(x**tau[i]*mm[i,j]) for j in range(r)]
                     for i in range(r)])
             if infolevel >= 1: print(f"{tau=}")
+            if infolevel >= 2: print(f"{B=}")
                     
-            
+        #breakpoint()
         return ww, tau
     
     def normal_global_integral_basis(self,basis=None, iota=None, infolevel=0, **val_kwargs):
