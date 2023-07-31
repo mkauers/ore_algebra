@@ -1730,7 +1730,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
                     print("Value function", vect)
                 return min(vect)
 
-              def raise_val_fct(ops, place, dim=None, base=C, iota=None,
+            def raise_val_fct(ops, place, dim=None, base=C, iota=None,
                               infolevel=0, **kwargs):
                 # TODO: Is it okay that we don't use dim?
                 ops = [ore_ext([c(x=x+xi)
