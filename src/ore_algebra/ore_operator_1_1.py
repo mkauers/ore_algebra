@@ -1605,6 +1605,8 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
                     print1("Valuation raised by {}".format(val))
                     res[d] = a**(-val)*res[d]
                     print2("Basis element after combination: {}".format(res[d]))
+                    print1("Valuation after combination: {}".format(
+                           val_fct(res[d],place=a,infolevel=infolevel,**val_kwargs)))
         return res
 
     def find_candidate_places(self, **kwargs):

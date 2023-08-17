@@ -38,20 +38,19 @@ def q_log(q, u):
 
     q must not be zero or a root of unity.
 
-    A ValueError is thrown if no n exists.
+    A :class:`ValueError` is thrown if no n exists.
     """
     if q in QQ and u in QQ:
         qq, uu = q, u
     else:
         q, u = canonical_coercion(q, u)
-        ev = dict((y, hash(y)) for y in u.parent().gens_dict_recursive())
+        ev = {y: hash(y) for y in u.parent().gens_dict_recursive()}
         qq, uu = q(**ev), u(**ev)
 
-    n = ComplexField(53)(uu.n().log()/qq.n().log()).real_part().round()
+    n = ComplexField(53)(uu.n().log() / qq.n().log()).real_part().round()
     if q**n == u:
         return n
-    else:
-        raise ValueError
+    raise ValueError
 
 
 def make_factor_iterator(ring, multiplicities=True):
@@ -62,7 +61,7 @@ def make_factor_iterator(ring, multiplicities=True):
     method will attempt to construct a factorizer for elements as if they were
     elements of Frac(R)[x]. Only factors with positive x-degree will be returned.
     The factors will not be casted back to elements of R[x]. If multiplicities is set
-    to True (default), the iterator will return pairs (p, e), otherwise just the
+    to ``True`` (default), the iterator will return pairs (p, e), otherwise just the
     irreducible factors p.
 
     EXAMPLES::
@@ -93,7 +92,7 @@ def make_factor_iterator(ring, multiplicities=True):
                         yield flush(f), e
         else:
             def factors(p):
-                for f, e in C[x](p).factor():
+                for f, _ in C[x](p).factor():
                     if f.degree() > 0:
                         yield flush(f)
     elif isinstance(R.base_ring(), number_field_base.NumberField):
@@ -105,7 +104,7 @@ def make_factor_iterator(ring, multiplicities=True):
                         yield u, e
         else:
             def factors(p):
-                for u, e in R(p).factor():
+                for u, _ in R(p).factor():
                     if u.degree() > 0:
                         yield u
     elif C.base_ring() in (ZZ, QQ) and C == C.base_ring()[R.base_ring().gens()].fraction_field():
@@ -121,7 +120,7 @@ def make_factor_iterator(ring, multiplicities=True):
                         yield R(u), e
         else:
             def factors(p):
-                for u, e in R_ext(p.numerator()).factor():
+                for u, _ in R_ext(p.numerator()).factor():
                     if u.degree(x_ext) > 0:
                         yield R(u)
     else:
@@ -174,7 +173,7 @@ def shift_factor(p, ram=ZZ.one(), q=1):
     x = p.parent().gen()
 
     qq = q
-    assert(x.parent().characteristic() == 0)
+    assert x.parent().characteristic() == 0
     if qq == 1:
         def sigma(u, n=1):
             return u(x + n)
@@ -193,20 +192,19 @@ def shift_factor(p, ram=ZZ.one(), q=1):
             except ValueError:
                 return None
 
-    for (q, b) in make_factor_iterator(p.parent())(p):
+    for q, b in make_factor_iterator(p.parent())(p):
 
         if q.degree() < 1:
             continue
         if qq != 1:
             if q[0].is_zero():
                 continue
-            else:
-                q /= q[0]
+            q /= q[0]
 
         # have we already seen a member of the shift equivalence class of q?
         new = True
-        for i in range(len(classes)):
-            u = classes[i][0]
+        for cli in classes:
+            u = cli[0]
             if u.degree() != q.degree():
                 continue
             a = candidate(q, u)
@@ -217,11 +215,11 @@ def shift_factor(p, ram=ZZ.one(), q=1):
             a = ZZ(a)
             new = False
             if a < 0:
-                classes[i][1].append((-a, b))
+                cli[1].append((-a, b))
             elif a > 0:
-                classes[i][0] = q
-                classes[i][1] = [(n+a, m) for (n, m) in classes[i][1]]
-                classes[i][1].append((0, b))
+                cli[0] = q
+                cli[1] = [(n+a, m) for n, m in cli[1]]
+                cli[1].append((0, b))
             break
 
         # no, we haven't. this is the first.
@@ -237,7 +235,7 @@ def shift_factor(p, ram=ZZ.one(), q=1):
 def _my_lcm(elts):  # non monic
     l = ZZ.one()
     for p in elts:
-        l *= p//p.gcd(l)
+        l *= p // p.gcd(l)
     return l
 
 
@@ -256,16 +254,17 @@ def _clear_denominators_1(elt):
         gden = numden.gcd(denden)
         numden, denden = numden//gden, denden//gden
         return (numnum, numden, dennum, denden)
-    else:
-        return (num, dom.one(), den, dom.one())
+
+    return (num, dom.one(), den, dom.one())
 
 
 def _has_coefficients(elt):
     if isinstance(elt, (list, tuple)):
         return True
-    elif isinstance(elt, Element):
+    if isinstance(elt, Element):
         parent_ = elt.parent()
         return parent_.base_ring() is not parent_ and hasattr(parent_, 'change_ring')
+    return False
 
 
 def clear_denominators(elts, dom=None):
@@ -281,7 +280,7 @@ def clear_denominators(elts, dom=None):
         lcmnum = _my_lcm((dennum for _, _, dennum, _ in split))
         lcmden = _my_lcm((numden for _, numden, _, _ in split))
         num = [(denden*(lcmden//numden))*(numnum*(lcmnum//dennum))
-               for (numnum, numden, dennum, denden) in split]
+               for numnum, numden, dennum, denden in split]
         den = lcmden*lcmnum
         g = gcd(num + [den])  # XXX: can we be more specific here?
         num = [p//g for p in num]
@@ -366,14 +365,14 @@ def _residue(obj, place=None):
             den = den % place
         if den[0] == 0:
             raise TypeError("The element has negative valuation.")
-        res = num[0]/den[0]
+        res = num[0] / den[0]
         # If we want lowest valuation instead, we can use the first coefficient...
-    except AttributeError:  # Dirty...
+    except AttributeError as exc:  # Dirty...
         if place:
             raise NotImplementedError(
-                "Valuation at specific place not implemented for Laurent series")
+                "Valuation at specific place not implemented for Laurent series") from exc
         if obj.valuation() < 0:
-            raise TypeError("The element has negative valuation.")
+            raise TypeError("The element has negative valuation.") from exc
         res = obj[0]
     return res
 
@@ -386,7 +385,7 @@ def _vect_val_fct(v, place=None):
 
     - ``v`` -- a vector over a valued field, or anything iterable with values in a valued field.
 
-    - ``place`` (default: None) -- the point at which to evaluate the valuation; not supported over all fields
+    - ``place`` (default: ``None``) -- the point at which to evaluate the valuation; not supported over all fields
 
     OUTPUT:
 
@@ -404,12 +403,12 @@ def _vect_val_fct(v, place=None):
         sage: _vect_val_fct([K(1+q),K(q+q^2)],place=1+q)
         1
 
-    # TODO: Add examples with power series?
+    .. TODO:: Add examples with power series?
     """
     if place:
         return min(vv.valuation(place) for vv in v)
-    else:
-        return min(vv.valuation() for vv in v)
+
+    return min(vv.valuation() for vv in v)
 
 
 def _vect_elim_fct(basis, place=None, dim=None, infolevel=0, residue_fct=None):
@@ -428,7 +427,7 @@ def _vect_elim_fct(basis, place=None, dim=None, infolevel=0, residue_fct=None):
     - ``dim`` (default: length of the basis) -- the dimension of the
       vector space to consider; it should be at least ``d``.
 
-    - ``place`` (default: None) -- the point at which to evaluate the valuation; not supported over all fields
+    - ``place`` (default: ``None``) -- the point at which to evaluate the valuation; not supported over all fields
 
     OUTPUT:
 
@@ -438,9 +437,9 @@ def _vect_elim_fct(basis, place=None, dim=None, infolevel=0, residue_fct=None):
 
     Under the assumptions, it is guaranteed that ``alpha[d-1] == 1``.
 
-    EXAMPLES::
+    .. TODO:: Add examples with plain vectors?
 
-    # TODO: Add examples with plain vectors?
+    EXAMPLES::
 
         sage: from ore_algebra.tools import _vect_elim_fct
         sage: k.<q> = LaurentSeriesRing(QQ)
@@ -485,9 +484,7 @@ def _vect_elim_fct(basis, place=None, dim=None, infolevel=0, residue_fct=None):
         Traceback (most recent call last):
         ...
         NotImplementedError: Valuation at specific place not implemented for Laurent series
-    
     """
-
     # Helpers
     print2 = print if infolevel >= 2 else lambda *a, **k: None
 
@@ -498,15 +495,15 @@ def _vect_elim_fct(basis, place=None, dim=None, infolevel=0, residue_fct=None):
     if residue_fct is None:
         residue_fct = _residue
 
-    M = Matrix([[residue_fct(basis[i][j], place) for j in range(dim)]
+    M = Matrix([[residue_fct(basis[i][j], place)
+                 for j in range(dim)]
                 for i in range(d)])
     print2(" [elim_fct] Matrix:")
     print2(M)
     K = M.left_kernel().basis()
     if K:
         return (1/K[0][-1])*K[0]
-    else:
-        return None
+    return None
 
 
 def roots_at_integer_distance(f1, f2):
@@ -552,15 +549,16 @@ def roots_at_integer_distance(f1, f2):
     Pol = f1.parent().extend_variables("i")
     xx, ii = Pol.gens()
     resultant = f1(xx-ii).resultant(Pol(f2)).univariate_polynomial()
-    roots = [a for (a, m) in resultant.roots() if a.is_integer()]
-    return roots
+    return [a for a, _ in resultant.roots() if a.is_integer()]
 
 
 def generalized_series_default_iota(z, j):
+    """
+    TODO missing documentation
+    """
     if j == 0:
         return z-real_part(z).floor()
-    else:
-        return z-real_part(z).ceil()+1
+    return z-real_part(z).ceil()+1
 
 
 def generalized_series_term_valuation(z, i, j, iota=None):
@@ -585,7 +583,7 @@ def _rec2list(L, init, n, start, append, padd, deform, singularity_handler=None)
     if len(terms) >= n:
         return terms
 
-    elif len(terms) < r:
+    if len(terms) < r:
 
         if not padd:
             raise ValueError("not enough initial values.")
@@ -609,13 +607,13 @@ def _rec2list(L, init, n, start, append, padd, deform, singularity_handler=None)
             terms.append(None)
         return terms
 
-    #for i in range(r):
-    #    if terms[-i - 1] not in K:
-    #        raise TypeError("illegal initial value object")
+    # for i in range(r):
+    #     if terms[-i - 1] not in K:
+    #         raise TypeError("illegal initial value object")
 
     rec = L.numerator().coefficients(sparse=False)
     sigma = L.parent().sigma()
-    rec = tuple( -sigma(p, -r) for p in rec )
+    rec = tuple(-sigma(p, -r) for p in rec)
     lc = -rec[-1]
 
     for k in range(len(terms), n):
@@ -643,17 +641,17 @@ def _power_series_solutions(op, rec, n, deform):
     factors = L.indicial_polynomial(L.base_ring().gen()).factor()
     orders = []
 
-    for (p, _) in factors:
+    for p, _ in factors:
         if p.degree() == 1:
             try:
-                alpha = ZZ(-p[0]/p[1])
+                alpha = ZZ(-p[0] / p[1])
                 if alpha >= 0:
                     orders.append(alpha)
-            except:
+            except (TypeError, ValueError):
                 pass
 
     if len(orders) == 0:
-        return orders # no power series solutions
+        return orders  # no power series solutions
 
     r = L.order()
     maxexp = max(orders) + max(n, r)
@@ -670,7 +668,7 @@ def _power_series_solutions(op, rec, n, deform):
         p = _rec2list(rec, [one], maxexp - alpha, alpha, False, True, deform, lambda k: zero)
         p = (x**alpha) * R(p, maxexp - alpha - 1)
 
-        if L(p).is_zero(): # L(p) nonzero indicates series involving logarithms.
+        if L(p).is_zero():  # L(p) nonzero indicates series involving logarithms.
             sols.append(p)
 
     return sols
