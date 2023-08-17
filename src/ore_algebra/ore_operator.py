@@ -590,6 +590,8 @@ class OreOperator(RingElement):
           sage: op = (5*x+3)/(3*x+5)*Dx + (7*x+1)/(2*x+5)
           sage: op.denominator()
           6*x^2 + 25*x + 25
+          sage: op.denominator().parent()
+          Univariate Polynomial Ring in x over Integer Ring
           sage: R.<x> = QQ['x']
           sage: A.<Dx> = OreAlgebra(R.fraction_field(), 'Dx')
           sage: op = (5*x+3)/(3*x+5)*Dx + (7*x+1)/(2*x+5)
@@ -603,7 +605,7 @@ class OreOperator(RingElement):
         if not R.is_field():
             return R.one()
         else:
-            return R(lcm([R(c.denominator()) for c in self.coefficients()]))
+            return R.ring()(lcm([R(c.denominator()) for c in self.coefficients()]))
 
 
 #############################################################################################################
