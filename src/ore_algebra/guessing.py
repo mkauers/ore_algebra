@@ -929,7 +929,11 @@ def _guess_via_gcrd(data, A, **kwargs):
                     sols = probe(r, d)
                 break
 
-        if len(sols) > 0:
+        if len(sols) > 1:
+            short_path = [(r, d)]
+            L = sols
+            break
+        elif len(sols) == 1:
             short_path.append((r, d))
             L = L + sols
         if len(L) >= 2:
