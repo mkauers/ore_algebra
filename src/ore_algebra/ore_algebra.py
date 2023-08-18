@@ -301,6 +301,9 @@ class Sigma_class(object):
         """
         return self.__R
 
+    def change_ring(self, R):
+        return Sigma_class(R, self.dict())
+    
     def factorial(self, p, n):
         r"""
         Returns `p\sigma(p)...\sigma^{n-1}(p)` if `n` is nonnegative,
@@ -577,6 +580,9 @@ class Delta_class(object):
         """
         return self.__R
 
+    def change_ring(self, R):
+        return Delta_class(R, self.dict(), self.__sigma.change_ring(R))
+    
     def dict(self):
         r"""
         Returns a dictionary representing ``self``
@@ -1806,11 +1812,11 @@ class OreAlgebra_generic(UniqueRepresentation, Algebra):
         EXAMPLES:
 
           sage: from ore_algebra import *
-          sage: R.<x> = PolynomialRing(ZZ)
+          sage: R.<x> = PolynomialRing(QQ)
           sage: Ore.<Dx> = OreAlgebra(R)
           sage: S = R.fraction_field()
           sage: Ore.change_ring(S)
-          Univariate Ore algebra in Dx over Fraction Field of Univariate Polynomial Ring in x over Integer Ring
+          Univariate Ore algebra in Dx over Fraction Field of Univariate Polynomial Ring in x over Rational Field
           sage: T = R.change_ring(GF(5))
           sage: Ore.change_ring(T)
           Univariate Ore algebra in Dx over Univariate Polynomial Ring in x over Finite Field of size 5
@@ -1824,7 +1830,7 @@ class OreAlgebra_generic(UniqueRepresentation, Algebra):
         if R is self.base_ring():
             return self
         else:
-            return OreAlgebra(R, *self._gens)
+            return OreAlgebra(R, *((v, s.change_ring(R), d.change_ring(R)) for (v,s,d) in self._gens))
 
     def change_constant_ring(self, K):
         r"""
@@ -1833,7 +1839,7 @@ class OreAlgebra_generic(UniqueRepresentation, Algebra):
         EXAMPLES::
 
           sage: from ore_algebra import *
-          sage: R.<x> = PolynomialRing(ZZ)
+          sage: R.<x> = PolynomialRing(QQ)
           sage: Ore.<Dx> = OreAlgebra(R)
           sage: Ore.change_constant_ring(GF(5))
           Univariate Ore algebra in Dx over Univariate Polynomial Ring in x over Finite Field of size 5
