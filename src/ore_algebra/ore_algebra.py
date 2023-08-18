@@ -1815,6 +1815,19 @@ class OreAlgebra_generic(UniqueRepresentation, Algebra):
             self.__alternate_base_rings[R] = A
             return A
 
+    def change_constant_ring(self, K):
+        r"""
+        Creates the Ore algebra obtained from ``self`` by replacing the constant ring by `K`"""
+        R = self.base_ring()
+        if K is R.base_ring():
+            return self
+        elif R.is_field():
+            S = R.ring().change_ring(K).fraction_field()
+            return self.change_ring(S)
+        else:
+            S = R.change_ring(K)
+            return self.change_ring(S)
+
     def change_var(self, var, n=0):
         r"""
         Creates the Ore algebra obtained from ``self`` by renaming the `n` th generator to `var`
