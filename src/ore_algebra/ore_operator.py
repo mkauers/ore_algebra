@@ -199,15 +199,14 @@ class OreOperator(RingElement):
           sage: R.<x,y> = PolynomialRing(QQ)
           sage: A.<Dx,Dy> = OreAlgebra(R)
           sage: op = (x+6)*Dx^2 + 1/2*Dx*Dy
-          sage: _ = var('t')
-          sage: K.<a> = NumberField(t^2-2)
-          sage: op2 = op.change_constant_ring(K)
+          sage: op2 = op.change_constant_ring(GF(5)); op2
+          (x + 1)*Dx^2 + (-2)*Dx*Dy
           sage: op2.parent()
-          Multivariate Ore algebra in Dx, Dy over Multivariate Polynomial Ring in x, y over Number Field in a with defining polynomial t^2 - 2
-          sage: op = (1/x)*((x+6)*Dx^2 + 1/2*Dx*Dy)
-          sage: op2 = op.change_constant_ring(K)
+          Multivariate Ore algebra in Dx, Dy over Multivariate Polynomial Ring in x, y over Finite Field of size 5
+          sage: op = (1/x)*((x+6)*Dx^2 + 1/2*Dx*Dy); op2
+          sage: op2 = op.change_constant_ring(GF(5))
           sage: op2.parent()
-          Multivariate Ore algebra in Dx, Dy over Fraction Field of Multivariate Polynomial Ring in x, y over Number Field in a with defining polynomial t^2 - 2
+          Multivariate Ore algebra in Dx, Dy over Fraction Field of Multivariate Polynomial Ring in x, y over Finite Field of size 5
           sage: R.<x> = PolynomialRing(ZZ)
           sage: A.<Dx> = OreAlgebra(R)
           sage: op = (x+6)*Dx + 1
@@ -215,7 +214,7 @@ class OreOperator(RingElement):
           (x + 1)*Dx + 1
           sage: op2.parent()
           Univariate Ore algebra in Dx over Univariate Polynomial Ring in x over Finite Field of size 5
-
+        
         """
         R = self.base_ring()
         A = self.parent().change_constant_ring(K)
