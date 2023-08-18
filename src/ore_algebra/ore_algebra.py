@@ -1801,6 +1801,24 @@ class OreAlgebra_generic(UniqueRepresentation, Algebra):
     def change_ring(self, R):
         r"""
         Creates the Ore algebra obtained from ``self`` by replacing the base ring by `R`
+
+        EXAMPLES:
+
+          sage: from ore_algebra import *
+          sage: R.<x> = PolynomialRing(QQ)
+          sage: Ore.<Dx> = OreAlgebra(R)
+          sage: S = R.fraction_field()
+          sage: Ore.change_ring(S)
+          Univariate Ore algebra in Dx over Fraction Field of Univariate Polynomial Ring in x over Rational Field
+          sage: T = R.change_ring(GF(5))
+          sage: Ore.change_ring(T)
+          Univariate Ore algebra in Dx over Univariate Polynomial Ring in x over Finite Field of size 5
+
+        Identical inputs yield the same ring.
+
+          sage: Ore.change_ring(R.fraction_field()) is Ore.change_ring(R.fraction_field())
+          True
+        
         """
         if R is self.base_ring():
             return self
@@ -1817,7 +1835,25 @@ class OreAlgebra_generic(UniqueRepresentation, Algebra):
 
     def change_constant_ring(self, K):
         r"""
-        Creates the Ore algebra obtained from ``self`` by replacing the constant ring by `K`"""
+        Creates the Ore algebra obtained from ``self`` by replacing the constant ring by `K`
+
+        EXAMPLES::
+
+          sage: from ore_algebra import *
+          sage: R.<x> = PolynomialRing(QQ)
+          sage: Ore.<Dx> = OreAlgebra(R)
+          sage: Ore.change_constant_ring(GF(5))
+          Univariate Ore algebra in Dx over Univariate Polynomial Ring in x over Finite Field of size 5
+          sage: Ore2.<Dx> = OreAlgebra(R.fraction_field())
+          sage: Ore2.change_constant_ring(GF(5))
+          Univariate Ore algebra in Dx over Fraction Field of Univariate Polynomial Ring in x over Finite Field of size 5
+
+        Identical inputs yield the same ring.
+
+          sage: Ore.change_constant_ring(GF(5)) is Ore.change_constant_ring(ZZ.quo(5).field())
+          True
+        
+        """
         R = self.base_ring()
         if K is R.base_ring():
             return self
