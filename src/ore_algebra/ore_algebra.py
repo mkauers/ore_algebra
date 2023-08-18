@@ -1798,6 +1798,7 @@ class OreAlgebra_generic(UniqueRepresentation, Algebra):
                             if old[i][j] != new[i][j]:
                                 raise ValueError("inconsistent product rule specification")
 
+    @cached_method
     def change_ring(self, R):
         r"""
         Creates the Ore algebra obtained from ``self`` by replacing the base ring by `R`
@@ -1823,15 +1824,7 @@ class OreAlgebra_generic(UniqueRepresentation, Algebra):
         if R is self.base_ring():
             return self
         else:
-            try:
-                return self.__alternate_base_rings[R]
-            except AttributeError:
-                self.__alternate_base_rings = {}
-            except KeyError:
-                pass
-            A = OreAlgebra(R, *self.variable_names())
-            self.__alternate_base_rings[R] = A
-            return A
+            return OreAlgebra(R, *self.variable_names())
 
     def change_constant_ring(self, K):
         r"""

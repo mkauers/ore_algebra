@@ -184,11 +184,52 @@ class OreOperator(RingElement):
           Univariate Ore algebra in Dx over Fraction Field of Univariate Polynomial Ring in x over Rational Field
         
         """
-        if R == self.base_ring():
+        if R is self.base_ring():
             return self
         else:
             return self.parent().change_ring(R)(self)
 
+    def change_constant_ring(self, K):
+        r"""
+        Return a copy of this operator but with constant coefficients in K, if at all possible.
+
+        EXAMPLES:
+        
+          sage: from ore_algebra import *
+          sage: R.<x,y> = PolynomialRing(QQ)
+          sage: A.<Dx,Dy> = OreAlgebra(R)
+          sage: op = (x+6)*Dx^2 + 1/2*Dx*Dy
+          sage: op2 = op.change_constant_ring(GF(5)); op2
+          (x + 1)*Dx^2 + (-2)*Dx*Dy
+          sage: op2.parent()
+          Multivariate Ore algebra in Dx, Dy over Multivariate Polynomial Ring in x, y over Finite Field of size 5
+          sage: op = (1/x)*((x+6)*Dx^2 + 1/2*Dx*Dy)
+          sage: op2 = op.change_constant_ring(GF(5)); op2
+          (x + 1)/x*Dx^2 - 2/x*Dx*Dy
+          sage: op2.parent()
+          Multivariate Ore algebra in Dx, Dy over Fraction Field of Multivariate Polynomial Ring in x, y over Finite Field of size 5
+          sage: R.<x> = PolynomialRing(ZZ)
+          sage: A.<Dx> = OreAlgebra(R)
+          sage: op = (x+6)*Dx + 1
+          sage: op2 = op.change_constant_ring(GF(5)); op2
+          (x + 1)*Dx + 1
+          sage: op2.parent()
+          Univariate Ore algebra in Dx over Univariate Polynomial Ring in x over Finite Field of size 5
+
+        """
+        R = self.base_ring()
+        A = self.parent().change_constant_ring(K)
+        if K is R.base_ring():
+            return self
+        elif R.is_field():
+            d = {k: R(c).numerator().change_ring(K)/R(c).denominator().change_ring(K)
+                 for k,c in self.dict().items()}
+            return A(d)
+        else:
+            d = {k: R(c).change_ring(K) for k,c in self.dict().items()}
+            return A(d)
+            
+        
     def __iter__(self):
         return iter(self.list())
 
