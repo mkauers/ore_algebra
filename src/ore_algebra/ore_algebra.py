@@ -1811,7 +1811,7 @@ class OreAlgebra_generic(UniqueRepresentation, Algebra):
                 self.__alternate_base_rings = {}
             except KeyError:
                 pass
-            A = OreAlgebra(R, *self._gens)
+            A = OreAlgebra(R, *self.variable_names())
             self.__alternate_base_rings[R] = A
             return A
 
