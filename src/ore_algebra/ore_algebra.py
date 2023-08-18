@@ -1806,11 +1806,11 @@ class OreAlgebra_generic(UniqueRepresentation, Algebra):
         EXAMPLES:
 
           sage: from ore_algebra import *
-          sage: R.<x> = PolynomialRing(QQ)
+          sage: R.<x> = PolynomialRing(ZZ)
           sage: Ore.<Dx> = OreAlgebra(R)
           sage: S = R.fraction_field()
           sage: Ore.change_ring(S)
-          Univariate Ore algebra in Dx over Fraction Field of Univariate Polynomial Ring in x over Rational Field
+          Univariate Ore algebra in Dx over Fraction Field of Univariate Polynomial Ring in x over Integer Ring
           sage: T = R.change_ring(GF(5))
           sage: Ore.change_ring(T)
           Univariate Ore algebra in Dx over Univariate Polynomial Ring in x over Finite Field of size 5
@@ -1824,7 +1824,7 @@ class OreAlgebra_generic(UniqueRepresentation, Algebra):
         if R is self.base_ring():
             return self
         else:
-            return OreAlgebra(R, *self.variable_names())
+            return OreAlgebra(R, *self._gens)
 
     def change_constant_ring(self, K):
         r"""
@@ -1833,7 +1833,7 @@ class OreAlgebra_generic(UniqueRepresentation, Algebra):
         EXAMPLES::
 
           sage: from ore_algebra import *
-          sage: R.<x> = PolynomialRing(QQ)
+          sage: R.<x> = PolynomialRing(ZZ)
           sage: Ore.<Dx> = OreAlgebra(R)
           sage: Ore.change_constant_ring(GF(5))
           Univariate Ore algebra in Dx over Univariate Polynomial Ring in x over Finite Field of size 5
