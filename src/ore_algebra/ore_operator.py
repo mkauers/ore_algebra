@@ -203,8 +203,9 @@ class OreOperator(RingElement):
           (x + 1)*Dx^2 + (-2)*Dx*Dy
           sage: op2.parent()
           Multivariate Ore algebra in Dx, Dy over Multivariate Polynomial Ring in x, y over Finite Field of size 5
-          sage: op = (1/x)*((x+6)*Dx^2 + 1/2*Dx*Dy); op2
-          sage: op2 = op.change_constant_ring(GF(5))
+          sage: op = (1/x)*((x+6)*Dx^2 + 1/2*Dx*Dy)
+          sage: op2 = op.change_constant_ring(GF(5)); op2
+          (x + 1)/x*Dx^2 - 2/x*Dx*Dy
           sage: op2.parent()
           Multivariate Ore algebra in Dx, Dy over Fraction Field of Multivariate Polynomial Ring in x, y over Finite Field of size 5
           sage: R.<x> = PolynomialRing(ZZ)
