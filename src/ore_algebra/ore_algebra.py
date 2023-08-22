@@ -301,6 +301,9 @@ class Sigma_class(object):
         """
         return self.__R
 
+    def change_ring(self, R):
+        return Sigma_class(R, self.dict())
+    
     def factorial(self, p, n):
         r"""
         Returns `p\sigma(p)...\sigma^{n-1}(p)` if `n` is nonnegative,
@@ -577,6 +580,9 @@ class Delta_class(object):
         """
         return self.__R
 
+    def change_ring(self, R):
+        return Delta_class(R, self.dict(), self.__sigma.change_ring(R))
+    
     def dict(self):
         r"""
         Returns a dictionary representing ``self``
@@ -1798,22 +1804,64 @@ class OreAlgebra_generic(UniqueRepresentation, Algebra):
                             if old[i][j] != new[i][j]:
                                 raise ValueError("inconsistent product rule specification")
 
+    @cached_method
     def change_ring(self, R):
         r"""
         Creates the Ore algebra obtained from ``self`` by replacing the base ring by `R`
+
+        EXAMPLES:
+
+          sage: from ore_algebra import *
+          sage: R.<x> = PolynomialRing(QQ)
+          sage: Ore.<Dx> = OreAlgebra(R)
+          sage: S = R.fraction_field()
+          sage: Ore.change_ring(S)
+          Univariate Ore algebra in Dx over Fraction Field of Univariate Polynomial Ring in x over Rational Field
+          sage: T = R.change_ring(GF(5))
+          sage: Ore.change_ring(T)
+          Univariate Ore algebra in Dx over Univariate Polynomial Ring in x over Finite Field of size 5
+
+        Identical inputs yield the same ring.
+
+          sage: Ore.change_ring(R.fraction_field()) is Ore.change_ring(R.fraction_field())
+          True
+        
         """
         if R is self.base_ring():
             return self
         else:
-            try:
-                return self.__alternate_base_rings[R]
-            except AttributeError:
-                self.__alternate_base_rings = {}
-            except KeyError:
-                pass
-            A = OreAlgebra(R, *self._gens)
-            self.__alternate_base_rings[R] = A
-            return A
+            return OreAlgebra(R, *((v, s.change_ring(R), d.change_ring(R)) for (v,s,d) in self._gens))
+
+    def change_constant_ring(self, K):
+        r"""
+        Creates the Ore algebra obtained from ``self`` by replacing the constant ring by `K`
+
+        EXAMPLES::
+
+          sage: from ore_algebra import *
+          sage: R.<x> = PolynomialRing(QQ)
+          sage: Ore.<Dx> = OreAlgebra(R)
+          sage: Ore.change_constant_ring(GF(5))
+          Univariate Ore algebra in Dx over Univariate Polynomial Ring in x over Finite Field of size 5
+          sage: Ore2.<Dx> = OreAlgebra(R.fraction_field())
+          sage: Ore2.change_constant_ring(GF(5))
+          Univariate Ore algebra in Dx over Fraction Field of Univariate Polynomial Ring in x over Finite Field of size 5
+
+        Identical inputs yield the same ring.
+
+          sage: Ore.change_constant_ring(GF(5)) is Ore.change_constant_ring(ZZ.quo(5).field())
+          True
+        
+        """
+        R = self.base_ring()
+        if K is R.base_ring():
+            return self
+        elif R.is_field():
+            S = R.ring().change_ring(K).fraction_field()
+            return self.change_ring(S)
+        else:
+            S = R.change_ring(K)
+            return self.change_ring(S)
 
     def change_var(self, var, n=0):
         r"""
