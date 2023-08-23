@@ -1932,14 +1932,12 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
 
         if modulus:
             K = GF(modulus)
-            Dif = self.parent()
-            Pol = self.base_ring()
-            PolP = Pol.change_ring(K)
-            DifP = OreAlgebra(PolP, *Dif.variable_names())
-            x = PolP.gen()
-            ww = [DifP(w) for w in ww]
-            vv = [DifP(v) for v in vv]
-            # TODO: make it a parameter]
+            Dif = self.parent().change_constant_ring(K)
+            Pol = Dif.base_ring()
+            x = Pol.gen()
+            ww = [w.change_constant_ring(K) for w in ww]
+            vv = [v.change_constant_ring(K) for v in vv]
+            # TODO: make it a parameter
             if solver is None:
                 solver = nullspace.sage_native
         else:
