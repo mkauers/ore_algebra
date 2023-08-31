@@ -1785,12 +1785,25 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             sage: L._initial_integral_basis(place=x)
             [1, x*Dx, x^2*Dx^2]
 
+        The default place is also correct if the operator has a denominator or if the operator has no singularities:
+
+            sage: L = x*Dx^2 - 1/(x-1)
+            sage: L._initial_integral_basis()
+            [1, (x^2 - x)*Dx]
+            sage: L = Dx^2 - 1
+            sage: L._initial_integral_basis()
+            [1, Dx]
+
         """
         r = self.order()
         ore = self.parent()
         DD = ore.gen()
         if place is None:
-            place = self.leading_coefficient().radical().monic()
+            poly = (self.denominator()*self.leading_coefficient()).numerator()
+            if poly.degree() > 0:
+                place = poly.radical().monic()
+            else:
+                place = 1
         return [place**i * DD**i for i in range(r)]
     
     def find_candidate_places(self, infolevel=0, iota=None, prec=None, **kwargs):
@@ -1811,8 +1824,21 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
               <function UnivariateDifferentialOperatorOverUnivariateRing._make_valuation_place.<locals>.get_functions.<locals>.val_fct at 0x7ff148258220>,
               <function UnivariateDifferentialOperatorOverUnivariateRing._make_valuation_place.<locals>.get_functions.<locals>.raise_val_fct at 0x7ff148258ae0>)]
 
+        TESTS::
+
+            sage: L = x*(x-1)*Dx^2 - 1
+            sage: [p[0] for p in L.find_candidate_places()]
+            [x - 1, x]
+            sage: L = x*Dx^2 - 1/(x-1)
+            sage: [p[0] for p in L.find_candidate_places()]
+            [x - 1, x]
+            sage: L = Dx^2 - 1
+            sage: [p[0] for p in L.find_candidate_places()]
+            []
+
+        
         """
-        lr = self.coefficients()[-1]
+        lr = self.leading_coefficient()*self.denominator()
         fact = list(lr.factor())
         places = []
         for f, m in fact:
