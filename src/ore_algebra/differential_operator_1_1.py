@@ -1623,11 +1623,13 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             assert len(sol) == 1
             return sol[0]["value"]
 
-    def _normalize_make_valuation_place_args(self, f, iota=None, prec=None, infolevel=0, **kwargs):
-        return (f,iota,prec)
+    def _normalize_make_valuation_place_args(self, f, iota=None, prec=None, solutions=None, infolevel=0, **kwargs):
+        return (f,iota,prec,
+                None if solutions is None
+                else ((k, tuple(v)) for k,v in solutions.items()))
 
     @cached_method(key=_normalize_make_valuation_place_args)
-    def _make_valuation_place(self, f, iota=None, prec=None, infolevel=0, **kwargs):
+    def _make_valuation_place(self, f, iota=None, prec=None, solutions=None, infolevel=0, **kwargs):
         r"""
         Compute value functions for the place ``f``.
 
@@ -1650,6 +1652,12 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         - ``prec`` (default: None) - how many terms to compute in the series
           solutions to prepare the functions. If not provided, the default of
           :meth:``generalized_series_solutions`` is used.
+
+        - ``solutions`` (default: None) - if given, use those solutions at the
+          place ``f`` instead of computing new ones. The validity of the
+          solutions is not checked. The value of the parameter should be a
+          dictionary with ``f`` among the keys, such that ``solutions[f]`` is a
+          list of generalized series solutions at the place ``f``.
 
         - ``infolevel`` (default: 0) - verbosity flag
 
@@ -1685,12 +1693,26 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         base = ore.base_ring()
         f = f.numerator()
 
+        print(f,solutions.keys())
+        
+        if solutions is None or f not in solutions:
+            need_sols = True
+        else:
+            print1("Using precomputed solution")
+            sols = solutions[f]
+            need_sols = False
+
+            
         C = base.base_ring()
         if f.degree() > 1:
-            print1("Computing field extension... ", end="", flush=True)
-            FF = NumberField(f, "xi")
-            xi = FF.gen()
-            print1("done")
+            if need_sols:
+                print1("Computing field extension... ", end="", flush=True)
+                FF = NumberField(f, "xi")
+                xi = FF.gen()
+                print1("done")
+            else:
+                FF = sols[0].base_ring()
+                xi = FF.gen()
         else:
             FF = C
             xi = -f[0]/f[1]
@@ -1704,12 +1726,13 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         ore_ext = ore.change_ring(pol_ext.fraction_field())
 
         reloc = ore_ext([c(x=x+xi) for c in self.coefficients(sparse=False)])
-        print1("Computing generalized series solutions... ", end="", flush=True)
-        if prec is None:
-            sols = reloc.generalized_series_solutions(exp=False)
-        else:
-            sols = reloc.generalized_series_solutions(prec, exp=False)
-        print1("done")
+        if need_sols:
+            print1("Computing generalized series solutions... ", end="", flush=True)
+            if prec is None:
+                sols = reloc.generalized_series_solutions(exp=False)
+            else:
+                sols = reloc.generalized_series_solutions(prec, exp=False)
+            print1("done")
 
         # if any(True for s in sols if s.ramification()>1):
         #     raise NotImplementedError("Some generalized series solutions have ramification")
@@ -1806,7 +1829,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
                 place = 1
         return [place**i * DD**i for i in range(r)]
     
-    def find_candidate_places(self, infolevel=0, iota=None, prec=None, **kwargs):
+    def find_candidate_places(self, infolevel=0, iota=None, prec=None, solutions=None, **kwargs):
         r"""
 
         EXAMPLES::
@@ -1842,8 +1865,9 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         fact = list(lr.factor())
         places = []
         for f, m in fact:
-
-            places.append(self._make_valuation_place(f, prec=m+1 if prec is None else prec,
+            places.append(self._make_valuation_place(f,
+                                                     prec=m+1 if prec is None else prec,
+                                                     solutions=solutions,
                                                      infolevel=infolevel,
                                                      iota=None))
         return places
