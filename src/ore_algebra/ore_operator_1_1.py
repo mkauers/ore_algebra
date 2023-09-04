@@ -1478,10 +1478,6 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
             infolevel=0,**args):
         if basis:
             basis = tuple(basis)
-        if "solutions" in args:
-            sols = args["solutions"]
-            sols2 = ((k, tuple(v)) for k,v in sols.items())
-            args["solutions"] = sols2
         args = list(args.items())
         args.sort()
         args = tuple(args)
@@ -1659,10 +1655,6 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         if places:
             places.sort()
             places = tuple(places)
-        if "solutions" in args:
-            sols = args["solutions"]
-            sols2 = ((k, tuple(v)) for k,v in sols.items())
-            args["solutions"] = sols2
         args = list(args.items())
         args.sort()
         args = tuple(args)
