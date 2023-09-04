@@ -1623,7 +1623,8 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             assert len(sol) == 1
             return sol[0]["value"]
 
-    def _normalize_make_valuation_place_args(self, f, iota=None, prec=None, solutions=None, infolevel=0, **kwargs):
+    def _normalize_make_valuation_place_args(self, f, iota=None, prec=None, solutions=None,
+                                             infolevel=0, **kwargs):
         return (f,iota,prec,
                 None if solutions is None
                 else ((k, tuple(v)) for k,v in solutions.items()))
@@ -1653,7 +1654,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
           solutions to prepare the functions. If not provided, the default of
           :meth:``generalized_series_solutions`` is used.
 
-        - ``solutions`` (default: None) - if given, use those solutions at the
+        - ``sols`` (default: None) - if given, use those solutions at the
           place ``f`` instead of computing new ones. The validity of the
           solutions is not checked. The value of the parameter should be a
           dictionary with ``f`` among the keys, such that ``solutions[f]`` is a
@@ -1673,10 +1674,13 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             sage: Pol.<x> = QQ[]
             sage: Ore.<Dx> = OreAlgebra(Pol)
             sage: L = x*(x-1)*Dx^2 - 1
-            sage: L._make_valuation_place(x-1) # random
+            sage: f, v, rv = L._make_valuation_place(x-1)
+            sage: (f, v, rv) # random
             (x - 1,
              <function UnivariateDifferentialOperatorOverUnivariateRing._make_valuation_place.<locals>.get_functions.<locals>.val_fct at 0x7ff14825a0c0>,
              <function UnivariateDifferentialOperatorOverUnivariateRing._make_valuation_place.<locals>.get_functions.<locals>.raise_val_fct at 0x7ff14825a020>)
+
+        
 
         # TODO: test properties of the output
 
@@ -1795,8 +1799,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
 
     def _initial_integral_basis(self, place=None):
         r"""
-        # TODO
-
+        
         TESTS::
 
             sage: from ore_algebra import OreAlgebra
@@ -1861,7 +1864,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
 
         
         """
-        lr = self.leading_coefficient()*self.denominator()
+        lr = (self.leading_coefficient()*self.denominator()).numerator()
         fact = list(lr.factor())
         places = []
         for f, m in fact:
