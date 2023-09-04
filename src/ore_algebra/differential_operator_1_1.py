@@ -1686,7 +1686,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             sage: L3 = L.symmetric_power(3)
             sage: sols = [f1^i * f2^(3-i) for i in range(4)]
             sage: place = L3._make_valuation_place(x-1, sols=sols, infolevel=1)
-            Preparing place at x-1
+            Preparing place at x - 1
             Using precomputed solutions
             sage: _ = L3._make_valuation_place(x-1, sols=None, infolevel=1)
             Preparing place at x - 1
@@ -1713,7 +1713,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         if sols is None:
             need_sols = True
         else:
-            print1("Using precomputed solution")
+            print1("Using precomputed solutions")
             need_sols = False
             
         C = base.base_ring()
@@ -1928,13 +1928,13 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             sage: Ore.<Dx> = OreAlgebra(Pol)
             sage: L = (x^2-x)*Dx^2 + (49/6*x - 7/3)*Dx + 12
             sage: f1, f2 = L.annihilator_of_composition(1/x).generalized_series_solutions()
-            sage: d = 3
-            sage: L3 = L.symmetric_power(2)
+            sage: d = 2
+            sage: L2 = L.symmetric_power(d)
             sage: sols = [f1^i * f2^(d-i) for i in range(d+1)]
-            sage: L3.local_integral_basis_at_infinity(sols=sols)
-            [x^8,
-            -x^10*Dx - 8*x^9,
-            x^13*Dx^2 + (113/6*x^12 - 337/30*x^11)*Dx + 236/3*x^11 - 1508/15*x^10 + 2464/25*x^9]
+            sage: L2.local_integral_basis_at_infinity(sols=sols)
+            [x^5,
+            -x^8*Dx - 16/3*x^7 + 128/15*x^6,
+            x^11*Dx^2 + (27/2*x^10 - 27/10*x^9)*Dx + 344/9*x^9 - 968/45*x^8 + 6592/225*x^7 + 128/3*x^6]
 
         """
         x = self.base_ring().gen()
