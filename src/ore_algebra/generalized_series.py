@@ -518,6 +518,9 @@ class ContinuousGeneralizedSeries(RingElement):
         return self.__ramification == other.__ramification and self.__exp == other.__exp \
                and self.__tail == other.__tail
 
+    def __hash__(self):
+        return hash((self.__ramification, self.__exp, self.__tail))
+    
     def _mul_(self, other):
 
         if self.is_zero() or other.is_one():
