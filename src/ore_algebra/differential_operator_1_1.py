@@ -1914,24 +1914,33 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
 
         Example 15::
 
+            sage: from ore_algebra import OreAlgebra
+            sage: Pol.<x> = QQ[]
+            sage: Ore.<Dx> = OreAlgebra(Pol)
             sage: L = (x^2-x)*Dx^2 + (49/6*x - 7/3)*Dx + 12
             sage: L.local_integral_basis_at_infinity()
             [x^2, -x^5*Dx - 8/3*x^4 + 64/15*x^3]
 
-        Example with precomputed solutions:
+        Example use of the optional parameter ``sols``:
 
-        sage: L = (x^2-x)*Dx^2 + (49/6*x - 7/3)*Dx + 12
-        sage: f1, f2 = L.annihilator_of_composition(1/x).generalized_series_solutions()
-        sage: d = 3
-        sage: L3 = L.symmetric_power(d)
-        sage: sols = [f1^i * f2^(d-i) for i in range(d+1)]
-        sage: L3.local_integral_basis_at_infinity(sols=sols)
-        
+            sage: from ore_algebra import OreAlgebra
+            sage: Pol.<x> = QQ[]
+            sage: Ore.<Dx> = OreAlgebra(Pol)
+            sage: L = (x^2-x)*Dx^2 + (49/6*x - 7/3)*Dx + 12
+            sage: f1, f2 = L.annihilator_of_composition(1/x).generalized_series_solutions()
+            sage: d = 3
+            sage: L3 = L.symmetric_power(2)
+            sage: sols = [f1^i * f2^(d-i) for i in range(d+1)]
+            sage: L3.local_integral_basis_at_infinity(sols=sols)
+            [x^8,
+            -x^10*Dx - 8*x^9,
+            x^13*Dx^2 + (113/6*x^12 - 337/30*x^11)*Dx + 236/3*x^11 - 1508/15*x^10 + 2464/25*x^9]
 
         """
         x = self.base_ring().gen()
+        place = x.numerator()
         Linf, conv = self.annihilator_of_composition(1/x, with_transform=True)
-        f, v, rv = Linf._make_valuation_place(x, iota=iota, sols=sols, **val_kwargs)
+        f, v, rv = Linf._make_valuation_place(place, iota=iota, sols=sols, **val_kwargs)
         if basis:
             basis = [conv(b) for b in basis]
         wwinf = Linf.local_integral_basis(f, val_fct=v, raise_val_fct=rv,
