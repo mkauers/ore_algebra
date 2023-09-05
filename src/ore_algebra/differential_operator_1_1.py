@@ -1676,11 +1676,20 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
              <function UnivariateDifferentialOperatorOverUnivariateRing._make_valuation_place.<locals>.get_functions.<locals>.val_fct at 0x7ff14825a0c0>,
              <function UnivariateDifferentialOperatorOverUnivariateRing._make_valuation_place.<locals>.get_functions.<locals>.raise_val_fct at 0x7ff14825a020>)
 
-        
+        We verify that the functions behave as expected.
 
-        # TODO: test properties of the output
+            sage: v(Dx, x-1)
+            -1
+            sage: v(x*Dx, x-1)
+            -1
+            sage: v((x-1)*Dx, x-1)
+            0
+            sage: rv([Ore(1), (x-1)*Dx], x-1)
+            sage: rv([(x-1)*Dx, x*(x-1)*Dx], x-1)
+            (-1, 1)
 
-        Computing an integral basis if we already know the solutions:
+        If one already knows solutions to the operator and wants to use them for
+        computing an integral basis, it is possible to do it by using this method.
 
             sage: from ore_algebra import *
             sage: Pol.<x> = QQ[]
@@ -1689,18 +1698,26 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             sage: f1,f2 = L.annihilator_of_composition(x+1).generalized_series_solutions()
             sage: L3 = L.symmetric_power(3)
             sage: sols = [f1^i * f2^(3-i) for i in range(4)]
+
+        Now `sols` are a basis of solutions of `L3` at `-1`.
+        We prepare the functions using this basis of solutions.
+        
             sage: place = L3._make_valuation_place(x-1, sols=sols, infolevel=1)
             Preparing place at x - 1
             Using precomputed solutions
             sage: _ = L3._make_valuation_place(x-1, sols=None, infolevel=1)
             Preparing place at x - 1
             Computing generalized series solutions... done
-            sage: f, val_fct, raise_val_fct = place
+            sage: f, v, rv = place
+
+        This output can then be passed to the integral basis methods, skipping
+        the computation of new solutions.
+        
             sage: L3.global_integral_basis(places=[place], basis=[Ore(1),Dx,Dx^2, Dx^3])
             [1, (x - 1)*Dx, (x - 1)*Dx^2, (x - 1)*Dx^3 - 7*Dx + 3/(x - 1)]
-            sage: L3.local_integral_basis(f, val_fct=val_fct, raise_val_fct=raise_val_fct)
+            sage: L3.local_integral_basis(f, val_fct=v, raise_val_fct=rv)
             [1, (x - 1)*Dx, (x - 1)*Dx^2, (x - 1)*Dx^3 - 7*Dx + 3/(x - 1)]
-        
+
         """
 
         print1 = print if infolevel >= 1 else lambda *a, **k: None
@@ -2031,7 +2048,6 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             x = Pol.gen()
             ww = [w.change_constant_ring(K) for w in ww]
             vv = [v.change_constant_ring(K) for v in vv]
-            # TODO: make it a parameter
             if solver is None:
                 solver = nullspace.sage_native
         else:
