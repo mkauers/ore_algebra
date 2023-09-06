@@ -2,9 +2,190 @@
 r"""
 Stokes matrices
 
-via connection-to-Stokes formulas à la Loday-Richaud--Remy.
+This implementation is based on connection-to-Stokes formulas à la
+Loday-Richaud--Remy. It is currently limited to singular points of pure level
+one. It is also possible to compute Stokes matrices using Borel-Laplace
+summation (see :mod:`ore_algebra.analytic.borel_laplace`), but the present code
+should usually be faster.
 
-EXPERIMENTAL
+
+EXAMPLES::
+
+    sage: from ore_algebra import OreAlgebra
+    sage: Pol.<x> = QQ[]
+    sage: Dop.<Dx> = OreAlgebra(Pol, 'Dx')
+
+    sage: from ore_algebra.analytic.stokes import stokes_matrices, stokes_dict
+    sage: DD = x^2*Dx
+
+Example from §2 of (Fauvet, Richard-Jung, Thomann, 2009). Here our basis is the
+one used in the article, and the computed Stokes matrices agree with the results
+given in §3.3, (2)::
+
+    sage: dop = (x^4 + 2*x^5)*Dx^2 + (8*x^4-x^3)*Dx + (4*x^3-2*x^2-3*x-1)
+    sage: stokes = stokes_dict(dop)
+    sage: stokes.keys()
+    dict_keys([1, -1])
+    sage: stokes[1]
+    [                1.000000000000...                  0]
+    [[+/- ...] + [-0.99404246871...]*I  1.000000000000...]
+    sage: stokes[-1]
+    [ 1.000000000000...  [+/- ...] + [-72.363839794...]*I]
+    [                 0                 1.000000000000...]
+
+Same article, §3.3, (3)::
+
+    sage: dop = (x^4 + 2*x^5)*Dx^2 + (12*x^4+x^3)*Dx + (12*x^3-3*x^2-x-1)
+    sage: stokes = stokes_dict(dop, RBF(1e-15))
+    sage: stokes[1]
+    [                1.000000000000...                      0]
+    [[+/- ...] + [-0.21707530830...]*I      1.000000000000...]
+    sage: stokes[-1]
+    [  1.000000000000... [+/- ...] + [85.92634932...]*I]
+    [                  0              1.000000000000...]
+
+Bessel equation (same article, §3.3, (4)). Our basis puts `e^{i/x}` first
+(decreasing imaginary parts), and hence is in the reverse order compared theirs::
+
+    sage: dop = (x^2*Dx^2 + x*Dx + (x^2-1/16)).annihilator_of_composition(1/x)
+    sage: stokes = stokes_dict(dop, RBF(1e-15))
+    sage: stokes.keys()
+    dict_keys([-1*I, 1*I])
+    sage: stokes[I]
+    [                  1.000000000000...                        0]
+    [[+/- ...] + [-1.4142135623730...]*I        1.000000000000...]
+    sage: stokes[-I]
+    [       1.000000000000... [+/- ...] + [-1.4142135623730...]*I]
+    [                       0                   1.000000000000...]
+
+Example from §4.2 of the same article::
+
+    sage: dop = ((-4*x^5 + 6*x^6 - 2*x^7)*Dx^3
+    ....:       + (27*x^5 - 2*x^4 - 8*x^3 - 11*x^6)*Dx^2
+    ....:       + (-11*x^5 - 4*x + 9*x^3 + 28*x^4 + 4*x^2)*Dx
+    ....:       + (4 - x^4 - 4*x + 7*x^2 + 4*x^3))
+    sage: dop.generalized_series_solutions()
+    [exp(x^(-1))*x^(1/2)*(1 + x + x^2 + x^3 + x^4 + O(x^5)),
+     exp(x^(-1))*(1 + x + x^2 + x^3 + x^4 + O(x^5)),
+     x*(1 + 2*x^2 - 4*x^3 + 20*x^4 + O(x^5))]
+    sage: stokes = stokes_dict(dop, RBF(1e-30))
+    sage: (stokes[1] - 1).norm() < 1e-25
+    True
+    sage: stokes[-1]
+    [  1.000...        0 [+/- ...] + [6.2831853071795864769252867...]*I]
+    [       0   1.000...                        [+/- ...] + [+/- ...]*I]
+    [       0          0                                       1.000...]
+
+TESTS:
+
+Hypergeometric functions::
+
+    sage: def hgeom(mu, nu1, nu2):
+    ....:     return -DD^2 + (1 + (nu1 + nu2 - 1)*x)*DD - (mu*x + (nu1 - 1)*(nu2 - 1)*x^2)
+    sage: def hgeom_ref(mu, nu1, nu2):
+    ....:     return matrix(CBF, 2, 2, [1, 0, -2*I*pi/gamma(1+mu-nu1)/gamma(1+mu-nu2), 1])
+    sage: def hgeom_check(mu, nu1, nu2, eps=1e-13):
+    ....:     stokes = stokes_dict(hgeom(mu, nu1, nu2))
+    ....:     assert list(sorted(stokes.keys())) == [-1, 1]
+    ....:     delta = stokes[1] - hgeom_ref(mu, nu1, nu2)
+    ....:     assert all(c.contains_zero() for c in delta.list())
+    ....:     assert all(c.diameter() < eps for c in delta.list())
+    sage: hgeom_check(1, 1, 3/2)
+    sage: hgeom_check(1, 1/3, 3/2)
+    sage: hgeom_check(1, 4/3, 5/3)
+
+A case where the exponents do not lie in the right half-plane::
+
+    sage: hgeom_check(1, 1/2, 1/2)
+
+Operators with coefficients (and exponents) in a number field::
+
+    sage: hgeom_check(1, I, I, 1e-12)
+    sage: K.<cbrt2> = NumberField(x^3 - 2, embedding=2.^(1/3))
+    sage: hgeom_check(1, cbrt2, cbrt2-1, 1e-12)  # long time (1.8 s)
+
+Richard-Jung (2011), §5::
+
+    sage: dop = (x^3*Dx^2 - 1).annihilator_of_composition(x^2)
+    sage: dop.generalized_series_solutions()
+    [exp(2*x^(-1))*x^(3/2)*(1 - 3/16*x - 15/512*x^2 - 105/8192*x^3 - 4725/524288*x^4 + O(x^5)),
+     exp(-2*x^(-1))*x^(3/2)*(1 + 3/16*x - 15/512*x^2 + 105/8192*x^3 - 4725/524288*x^4 + O(x^5))]
+    sage: stokes_dict(dop)[1]
+    [                          1.000...         0]
+    [[+/- ...] + [2.0000000000000...]*I  1.000...]
+
+An example with three aligned Stokes values (result checked by comparing with
+Borel-Laplace summation) where and exact calculation should be possible(?)::
+
+    sage: dop = 2*DD^3+(x-5)*DD^2+(2*x+2)*DD-2*x
+    sage: stokes = stokes_dict(dop)
+    sage: stokes[1]
+    [                  1.000000000000...                                   0                  0]
+    [[+/- ...] + [-4.4562280437884...]*I                   1.000000000000...                  0]
+    [ [4.8367983046245...] + [+/- ...]*I  [+/- ...] + [2.1708037636748...]*I  1.000000000000...]
+    sage: norm(stokes[-1] - 1) < 1e-10
+    True
+
+A fourth-order example::
+
+    sage: dop = (x^8*(10*x^4+180*x^3+495*x^2-3888)*Dx^4
+    ....:        +1/4*x^6*(170*x^5+3540*x^4+8055*x^3-11880*x^2-128304*x+93312)*Dx^3
+    ....:        +1/9*x^4*(245*x^6+6525*x^5+22635*x^4-18225*x^3-413667*x^2+664848*x-384912)*Dx^2
+    ....:        +1/36*x^2*(20*x^7-880*x^6-3780*x^5-94320*x^4-471987*x^3+95256*x^2-104976*x+839808)*Dx
+    ....:        +2/9*x*(200*x^6+1440*x^5+11790*x^4+35640*x^3+23085*x^2-104976))
+    sage: stokes = stokes_dict(dop, RBF(1e-30))
+    sage: stokes.keys()
+    dict_keys([1, -1])
+    sage: stokes[1][2,0]
+    [+/- ...] + [-2.060897024589991165631724347...]*I
+    sage: stokes[1][3,1]
+    [+/- ...] + [-1.7320508075688772935274463415...]*I
+
+We double-check the above results using Borel-Laplace summation::
+
+    sage: import ore_algebra.analytic.borel_laplace as bl
+    sage: x0 = 1/10; dtheta = pi/16
+    sage: mat_left = bl.fundamental_matrix(dop, x0, dtheta, RBF(1e-40))    # not tested (90 s)
+    sage: mat_right = bl.fundamental_matrix(dop, x0, -dtheta, RBF(1e-40))  # not tested (85 s)
+    sage: (stokes[1] - ~mat_left*mat_right).norm() < 1e-9                  # not tested
+    True
+
+::
+
+    sage: dop1 = dop.annihilator_of_composition(-x)
+    sage: mat_left = bl.fundamental_matrix(dop1, x0, pi/16, RBF(1e-40))    # not tested (85 s)
+    sage: mat_right = bl.fundamental_matrix(dop1, x0, -pi/16, RBF(1e-40))  # not tested (83 s)
+
+The matrix `stokes[-1]` is expressed in the basis
+`f_1 = e^{-1/x} x + \cdots,
+ f_2 = e^{-2/x} x^{3/4} + \cdots,
+ f_3 = e^{-3/x} x + \cdots`,
+while the change of variables `z = -x` leads to a Stokes matrix naturally
+expressed in the basis
+`e^{3/z} z = -f_3,
+ e^{2/z} z^{3/4} = (-1)^{3/4} f_2,
+ e^{1/z} z = -f_1`. ::
+
+    sage: P = matrix(QQbar, 4)
+    sage: P[0,3] = P[2,1] = P[3,0] = -1; P[1,2] = QQbar(-1)^(3/4)
+    sage: norm(stokes[-1] - ~P*~mat_left*mat_right*P) < 1e-12              # not tested
+    True
+
+A decomposable operator::
+
+    sage: dop1 = -DD^2 + (3*x/2+2)*DD - 2*x
+    sage: dop2 = -DD^2 + (4 + 2*x)*DD + (-3-4*x-2/9*x^2)
+    sage: stokes1 = stokes_dict(dop1)
+    sage: stokes2 = stokes_dict(dop2)
+    sage: stokes12 = stokes_dict(dop1.lclm(dop2))
+    sage: for omega, mat in stokes12.items():
+    ....:     assert all(mat[i,j].contains_zero()
+    ....:                for i in range(4) for j in range(4)
+    ....:                if i != j and {i, j} not in [{0,2}, {1,3}])
+    ....:     assert mat[0,2].overlaps(stokes1[omega][0,1])
+    ....:     assert mat[2,0].overlaps(stokes1[omega][1,0])
+    ....:     assert mat[1,3].overlaps(stokes2[omega][0,1])
+    ....:     assert mat[3,1].overlaps(stokes2[omega][1,0])
 """
 
 import itertools
@@ -23,16 +204,14 @@ from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 from . import polynomial_root
 from . import utilities
 
-from .borel_laplace import (
-    BorelIniMap, IniMap,
-    _find_shift,
-)
+from .borel_laplace import BorelIniMap, IniMap
 from .differential_operator import DifferentialOperator
 from .geometry import in_triangle, orient2d_interval
 from .monodromy import formal_monodromy
 from .path import PathPrecisionError, Point
 
 logger = logging.getLogger(__name__)
+
 
 def connection_to_stokes_coefficients(expo, order, ring):
     r"""
@@ -75,6 +254,7 @@ def connection_to_stokes_coefficients(expo, order, ring):
     res = f.multiplication_trunc(g, order)
     return res.padded_list(order)
 
+
 class ConnectionToStokesIniMap(IniMap):
 
     max_shift = -1
@@ -91,6 +271,7 @@ class ConnectionToStokesIniMap(IniMap):
             self.ring)
         twopii = 2*self.ring.pi()*I
         return twopii*sum(c*a for c, a in zip(csts, coeff[sol1.log_power:]))
+
 
 class _sort_key_chords:
 
@@ -122,6 +303,10 @@ def _singular_directions(sing, ini_prec=53):
     Detect aligned singularities, sort alignments by direction
 
     TESTS::
+
+        sage: from ore_algebra import OreAlgebra
+        sage: Pol.<x> = QQ[]
+        sage: Dop.<Dx> = OreAlgebra(Pol)
 
         sage: from ore_algebra.analytic.differential_operator import DifferentialOperator
         sage: from ore_algebra.analytic.stokes import _singular_directions
@@ -196,6 +381,7 @@ def _singular_directions(sing, ini_prec=53):
 
     return dirs + opp
 
+
 class Triangle(frozenset):
 
     def __init__(self, elements, *, flat=False):
@@ -208,6 +394,7 @@ class Triangle(frozenset):
         C = ComplexField(10)
         return ("{" + ", ".join(str(C(a)) for a in self)
                 + (" (flat)" if self.flat else "") + "}")
+
 
 class TriangleQueue:
 
@@ -243,6 +430,7 @@ class TriangleQueue:
                 continue
             self.inc(Triangle((a, b, c)))
 
+
 def interval_triangle_is_empty(sing, a, b, c):
     aa, bb, cc = a.interval(), b.interval(), c.interval()
     for z in sing:
@@ -254,6 +442,7 @@ def interval_triangle_is_empty(sing, a, b, c):
         except ValueError:
             return False
     return True
+
 
 class SingConnectionDict(dict):
 
@@ -435,12 +624,14 @@ class SingConnectionDict(dict):
 
         return self
 
+
 def _newton_polygon(dop):
     r"""
     Newton polygon with weight(d/dx) = -1
     """
     x = dop.base_ring().gen()
     return [[max(slope-1, 0), pol] for slope, pol in dop.newton_polygon(x)]
+
 
 def _bdop_singularities(bdop, dop, npol):
     sing = bdop._singularities(multiplicities=True)
@@ -450,39 +641,56 @@ def _bdop_singularities(bdop, dop, npol):
                for s, m in sing if not s.is_zero())
     return [s for s, _ in sing]
 
-def stokes_matrices(dop, eps):
+
+def stokes_matrices(dop, eps=1e-15):
     r"""
     Stokes matrices of ``dop`` at the origin.
-    """
 
+    INPUT:
+
+    - ``dop`` - differential operator of pure level one at 0 (i.e., all
+      exponential parts must be of the form `e^{α/x}` for some `α`)
+    - ``eps`` - tolerance parameter
+
+    OUTPUT:
+
+    This method is a generator. It produces the pairs `(e^{iω}, M)` where `ω`
+    is a singular direction and `M` is the corresponding Stokes matrix.
+
+    See :func:`stokes_matrices` for more information on the conventions used to
+    define the Stokes matrices.
+
+    EXAMPLES::
+
+        sage: from ore_algebra import OreAlgebra
+        sage: Pol.<x> = QQ[]
+        sage: Dop.<Dx> = OreAlgebra(Pol, 'Dx')
+
+        sage: from ore_algebra.analytic.stokes import stokes_matrices
+
+        sage: dop = x^3*Dx^2 + x*(x+1)*Dx - 1
+        sage: stokes = dict(stokes_matrices(dop))
+        sage: stokes.keys()
+        dict_keys([1, -1])
+        sage: stokes[QQbar(-1)]
+        [ 1.000000000000... [+/- ...] + [6.2831853071795...]*I]
+        [                 0                  1.000000000000...]
+    """
     Dop, Pol, _, dop = dop._normalize_base_ring()
+    eps = RBF(eps)
     Dx = Dop.gen()
     x = Pol.gen()
     IC = ComplexBallField(utilities.prec_from_eps(eps))
 
     npol = _newton_polygon(dop)
     bad_levels = [level for level, _ in npol
-                        if not level in [0, 1]]
+                        if level not in [0, 1]]
     if bad_levels:
-        # Actually we will also need the singular points of the Borel transform
-        # to be regular, but we'll test that later.
         raise NotImplementedError(
             f"levels {bad_levels} ≠ 0, 1 are not supported")
 
     bdop = DifferentialOperator(dop.borel_transform())
     sing = _bdop_singularities(bdop, dop, npol)
-
-    tdop = {s: dop.symmetric_product(x**2*Dx + s.as_number_field_element())
-            for s in sing}
-
-    # Shift all local exponents to the open right-hand plane
-    # XXX Is this really necessary? Maybe not in the case of Stokes matrices.
-    # And we could maybe ignore non-integer exponents?
-    zshift = max(_find_shift(tdop[s], x) for s in sing)
-    logger.debug("zshift = %s", zshift)
-    if zshift > 0:
-        yield from stokes_matrices(dop.symmetric_product(x*Dx - zshift), eps)
-        return
 
     dirs = _singular_directions(sing)
     tmat = SingConnectionDict(bdop, IC).fill(sing, dirs)
@@ -494,17 +702,15 @@ def stokes_matrices(dop, eps):
     # We want to sort the rows/columns of the Stokes matrix by decreasing
     # asymptotic dominance. As each block corresponds to a factor exp(-s/x),
     # this corresponds to sorting sing by increasing real part.
-    # XXX is it true that the singularities of the Borel transform
-    # correspond exactly to the exponential parts? directly use the exponential
-    # parts instead?
     sing.sort(key=polynomial_root.sort_key_left_to_right_real_last) # XXX earlier?
 
     borel_mat = {}; c2s_mat = {}
     for s in sing:
+        tdop  = dop.symmetric_product(x**2*Dx + s.as_number_field_element())
         # sbdop = tdop.borel_transform()
         sbdop = bdop.shift(Point(s, bdop))
-        borel_mat[s] = BorelIniMap(tdop[s], sbdop, IC).run()
-        c2s_mat[s] = ConnectionToStokesIniMap(sbdop, tdop[s], IC).run()
+        borel_mat[s] = BorelIniMap(tdop, sbdop, IC).run()
+        c2s_mat[s] = ConnectionToStokesIniMap(sbdop, tdop, IC).run()
 
     for dir, *alignments in dirs:
         stokes_block = {(s0, s1): matrix(IC, c2s_mat[s1].nrows(),
@@ -528,7 +734,8 @@ def stokes_matrices(dop, eps):
                     branch_fix = identity_matrix(IC, bdop.order())
                 # Compute the block of the Stokes matrix corresponding to the
                 # exponential parts associated to s0 and s1
-                stokes_block[s0,s1] = (c2s_mat[s1] * branch_fix * tmat[s0,s1] * borel_mat[s0])
+                stokes_block[s0,s1] = (c2s_mat[s1] * branch_fix * tmat[s0,s1] *
+                                       borel_mat[s0])
                 logger.debug("%s -> %s, block=\n%s", s0, s1, stokes_block)
         stokes = block_matrix([[stokes_block[s0, s1] for s0 in sing]
                                for s1 in sing],
@@ -536,8 +743,105 @@ def stokes_matrices(dop, eps):
         stokes += 1
         yield dir, stokes
 
-def stokes_dict(dop, eps):
-    return KeyConvertingDict(QQbar, stokes_matrices(dop, RBF(eps)))
+
+def stokes_dict(dop, eps=1e-16):
+    r"""
+    Stokes matrices of ``dop`` at the origin, as a dictionary.
+
+    INPUT:
+
+    - ``dop`` - differential operator
+    - ``eps`` - tolerance parameter
+
+    OUTPUT:
+
+    A ``KeyConvertingDict`` mapping `e^{iω}` (viewed as an element of ``QQbar``)
+    to the Stokes matrix in the direction `ω` for each singular direction `ω`.
+
+    The Stokes matrices are expressed relative to a basis of solutions of
+    ``dop`` obtained as follows:
+    - For each exponential part `e^{α/x}`, consider the equation `L·z(x) = 0`
+      obtained from ``dop·y(x) = 0`` by the change of dependent variable
+      `y(x) = e^{α/x} z(x)`. The method
+      :meth:`ore_algebra.differential_operator_1_1.DifferentialOperator.local_basis_expansions`
+      can be used to compute a specific basis of the solutions of `L` free from
+      exponentials. Multiply each basis element by `e^{α/x}` to obtain a
+      solution of ``dop``.
+    - Sort the exponential parts `e^{α/x}`
+      * firstly by decreasing real part of `α`,
+      * then by absolute value of the imaginary part,
+      * then by decreasing imaginary part.
+      Concatenate the partial bases from the previous step in this order.
+
+    In particular, in the absence of oscillatory factors, the basis elements are
+    strictly ordered by decreasing asymptotic dominance as `x → 0` with `x > 0`.
+
+    EXAMPLES::
+
+        sage: from ore_algebra import OreAlgebra
+        sage: from ore_algebra.analytic.stokes import stokes_dict
+
+        sage: Pol.<x> = QQ[]
+        sage: Dop.<Dx> = OreAlgebra(Pol, 'Dx')
+
+    Consider the Euler equation::
+
+        sage: dop = x^3*Dx^2 + x*(x+1)*Dx - 1
+
+    The potential Stokes direction are 0 and π::
+
+        sage: stokes = stokes_dict(dop)
+        sage: stokes.keys()
+        dict_keys([1, -1])
+
+    The Stokes matrix in the direction π is given by::
+
+        sage: stokes[-1]
+        [ 1.000000000000... [+/- ...] + [6.2831853071795...]*I]
+        [                 0                  1.000000000000...]
+
+    However, it turns out that there is no Stokes phenomenon in the
+    direction 0::
+
+        sage: stokes[1]
+        [1.000000000000...                 0]
+        [                0 1.000000000000...]
+
+    (Note that compared to the numerical example given by Fauvet, Richard-Jung,
+    and Thomann (2009, §3.3, (1)), our basis of solutions is in the reverse
+    order, so that the Stokes matrices are transposed.)
+
+    An example with three Stokes values on the real line::
+
+        sage: dop = 2*(x^2*Dx)^3 + (x - 5)*(x^2*Dx)^2 + (2*x + 2)*(x^2*Dx) - 2*x
+        sage: dop.generalized_series_solutions()
+        [exp(-1/2*x^(-1))*x^(-1/2)*(1 - 2/3*x - 1/3*x^2 - 4/9*x^3 - 25/27*x^4 + O(x^5)),
+         exp(-2*x^(-1))*x^(-1)*(1 + x + O(x^5)),
+         x*(1 + 4*x + 45/2*x^2 + 333/2*x^3 + 3087/2*x^4 + O(x^5))]
+        sage: stokes = stokes_dict(dop, RBF(1e-15))
+        sage: stokes[1]
+        [                  1.000000000000...                                   0                  0]
+        [[+/- ...] + [-4.4562280437884...]*I                   1.000000000000...                  0]
+        [ [4.8367983046245...] + [+/- ...]*I  [+/- ...] + [2.1708037636748...]*I  1.000000000000...]
+
+    We can compute the Stokes constants to high precision::
+
+        sage: stokes = stokes_dict(dop, RBF(1e-1000))
+        sage: stokes[1][2,0]
+        [4.8367983046...69279128366... +/- ...e-1000] + [+/- ...]*I
+
+    See the documentation of the :mod:`ore_algebra.analytic.stokes` module for
+    further examples.
+
+    TESTS::
+
+        sage: stokes_dict(Dop.one())
+        {}
+        sage: stokes_dict(Dx)
+        {}
+    """
+    return KeyConvertingDict(QQbar, stokes_matrices(dop, eps))
+
 
 def _matrix_accuracy(mat):
     return min(c.accuracy() for c in mat.list())
