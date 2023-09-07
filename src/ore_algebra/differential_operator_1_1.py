@@ -1872,16 +1872,31 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             sage: Pol.<x> = QQ[]
             sage: Ore.<Dx> = OreAlgebra(Pol)
             sage: L = x*(x-1)*Dx^2 - 1
-            sage: L.find_candidate_places() # random
+            sage: places = L.find_candidate_places()
+            sage: places # random
             [(x - 1,
-              <function UnivariateDifferentialOperatorOverUnivariateRing._make_valuation_place.<locals>.get_functions.<locals>.val_fct at 0x7ff148258cc0>,
-              <function UnivariateDifferentialOperatorOverUnivariateRing._make_valuation_place.<locals>.get_functions.<locals>.raise_val_fct at 0x7ff148258fe0>),
-             (x,
-              <function UnivariateDifferentialOperatorOverUnivariateRing._make_valuation_place.<locals>.get_functions.<locals>.val_fct at 0x7ff148258220>,
-              <function UnivariateDifferentialOperatorOverUnivariateRing._make_valuation_place.<locals>.get_functions.<locals>.raise_val_fct at 0x7ff148258ae0>)]
+            <function UnivariateDifferentialOperatorOverUnivariateRing._make_valuation_place.<locals>.get_functions.<locals>.val_fct at 0x7f309097a5f0>,
+            <function UnivariateDifferentialOperatorOverUnivariateRing._make_valuation_place.<locals>.get_functions.<locals>.raise_val_fct at 0x7f308324a440>),
+            (x,
+            <function UnivariateDifferentialOperatorOverUnivariateRing._make_valuation_place.<locals>.get_functions.<locals>.val_fct at 0x7f3083249900>,
+            <function UnivariateDifferentialOperatorOverUnivariateRing._make_valuation_place.<locals>.get_functions.<locals>.raise_val_fct at 0x7f3083249fc0>)]
+            sage: [p[0] for p in places]
+            [x - 1, x]
+            sage: f,v,rv = places[0]; f
+            x-1
+            sage: v(Dx, f)
+            -1
+            sage: v((x-1)*Dx, f)
+            0
+            sage: rv([(x-1)*Dx, x*(x-1)*Dx], f)
+            (-1, 1)
 
         TESTS::
 
+            sage: from ore_algebra import *
+            sage: from ore_algebra import OreAlgebra
+            sage: Pol.<x> = QQ[]
+            sage: Ore.<Dx> = OreAlgebra(Pol)
             sage: L = x*(x-1)*Dx^2 - 1
             sage: [p[0] for p in L.find_candidate_places()]
             [x - 1, x]
