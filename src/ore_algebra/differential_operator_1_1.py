@@ -1678,14 +1678,14 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
 
         We verify that the functions behave as expected.
 
-            sage: v(Dx, x-1)
+            sage: v(Dx)
             -1
-            sage: v(x*Dx, x-1)
+            sage: v(x*Dx)
             -1
-            sage: v((x-1)*Dx, x-1)
+            sage: v((x-1)*Dx)
             0
-            sage: rv([Ore(1), (x-1)*Dx], x-1)
-            sage: rv([(x-1)*Dx, x*(x-1)*Dx], x-1)
+            sage: rv([Ore(1), (x-1)*Dx])
+            sage: rv([(x-1)*Dx, x*(x-1)*Dx])
             (-1, 1)
 
         If one already knows solutions to the operator and wants to use them for
@@ -1779,7 +1779,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             # In both functions the second argument `place` is ignored because
             # captured
 
-            def val_fct(op,place,base=C, iota=None, infolevel=0, **kwargs):
+            def val_fct(op,base=C, iota=None, infolevel=0, **kwargs):
                 op = ore_ext([c(x=x+xi)
                               for c in op.coefficients(sparse=False)])
                 vect = [op(s).valuation(base=C, iota=iota) for s in sols]
@@ -1787,7 +1787,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
                     print("Value function", vect)
                 return min(vect)
 
-            def raise_val_fct(ops, place, dim=None, base=C, iota=None,
+            def raise_val_fct(ops, dim=None, base=C, iota=None,
                               infolevel=0, **kwargs):
                 # TODO: Is it okay that we don't use dim?
                 ops = [ore_ext([c(x=x+xi)
@@ -1867,7 +1867,6 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
 
         EXAMPLES::
 
-            sage: from ore_algebra import *
             sage: from ore_algebra import OreAlgebra
             sage: Pol.<x> = QQ[]
             sage: Ore.<Dx> = OreAlgebra(Pol)
@@ -1883,12 +1882,12 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             sage: [p[0] for p in places]
             [x - 1, x]
             sage: f,v,rv = places[0]; f
-            x-1
-            sage: v(Dx, f)
+            x - 1
+            sage: v(Dx)
             -1
-            sage: v((x-1)*Dx, f)
+            sage: v((x-1)*Dx)
             0
-            sage: rv([(x-1)*Dx, x*(x-1)*Dx], f)
+            sage: rv([(x-1)*Dx, x*(x-1)*Dx])
             (-1, 1)
 
         TESTS::
@@ -1909,7 +1908,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
 
         
         """
-        lr = (self.leading_coefficient()*self.denominator()).numerator()
+        lr = (self.leading_coefficient()*self.denominator()).numerator().monic()
         fact = list(lr.factor())
         places = []
         for f, m in fact:
@@ -1921,11 +1920,11 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
 
     def value_function(self, op, place, iota=None, **kwargs):
         val = self._make_valuation_place(place, iota=iota, **kwargs)[1]
-        return val(op, place)
+        return val(op)
 
     def raise_value(self, basis, place, dim=None, iota=None, **kwargs):
         fct = self._make_valuation_place(place, iota=iota, **kwargs)[2]
-        return fct(basis, place, dim)
+        return fct(basis, dim)
 
     def _normalize_local_integral_basis_args(self, basis=None, iota=None, sols=None, infolevel=0, prec=None,
                                              **kwargs):
