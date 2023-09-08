@@ -1159,7 +1159,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
                .format(f,Nmin,Nmax))
         
         FF = NumberField(f,"xi")
-        # TODO: Do we have to choose a name?
+        # TODO: Do we have to choose a name for the algebraic generator?
         xi = FF.gen()
         r = self.order() 
         Ore = self.parent()
@@ -1185,7 +1185,6 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
             l.append(-sum(l[-r+i]*coeffs_q[i](qq+xi+n-r) for i in range(r))
                      / coeffs_q[-1](qq+xi+n-r))
 
-        # TODO: Refactor, not the most efficient
         def call(op,l,n):
             # Given another operator, and given the values l of a function at xi+n,...,xi+n+r,
             # apply its deformed version to l and compute the value at xi+n
@@ -1232,18 +1231,18 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
 
         EXAMPLES::
 
-        sage: from ore_algebra import OreAlgebra
-        sage: Pol.<x> = QQ[]
-        sage: Ore.<Sx> = OreAlgebra(Pol)
-        sage: L = x*(x-1)*Sx^2 - 1
-        sage: places = L.find_candidate_places()
-        sage: [p[0] for p in places]
-        [x - 1, x - 2, x - 3, x - 4]
-        sage: f,v,rv = places[0]
-        sage: v((x-1)*Sx)
-        0
-        sage: rv([(x-1)*Sx, x*(x-1)*Sx])
-        (-1, 1)
+            sage: from ore_algebra import OreAlgebra
+            sage: Pol.<x> = QQ[]
+            sage: Ore.<Sx> = OreAlgebra(Pol)
+            sage: L = x*(x-1)*Sx^2 - 1
+            sage: places = L.find_candidate_places()
+            sage: [p[0] for p in places]
+            [x - 1, x - 2, x - 3, x - 4]
+            sage: f,v,rv = places[0]
+            sage: v((x-1)*Sx)
+            0
+            sage: rv([(x-1)*Sx, x*(x-1)*Sx])
+            (-1, 1)
         
         """
 
