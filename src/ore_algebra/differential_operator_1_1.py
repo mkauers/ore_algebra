@@ -1623,6 +1623,41 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             assert len(sol) == 1
             return sol[0]["value"]
 
+    def _initial_integral_basis(self, place=None):
+        r"""
+        
+        TESTS::
+
+            sage: from ore_algebra import OreAlgebra
+            sage: Pol.<x> = QQ[]
+            sage: Ore.<Dx> = OreAlgebra(Pol)
+            sage: L = x*(x-1)*Dx^3 - 1
+            sage: L._initial_integral_basis()
+            [1, (x^2 - x)*Dx, (x^4 - 2*x^3 + x^2)*Dx^2]
+            sage: L._initial_integral_basis(place=x)
+            [1, x*Dx, x^2*Dx^2]
+
+        The default place is also correct if the operator has a denominator or if the operator has no singularities:
+
+            sage: L = x*Dx^2 - 1/(x-1)
+            sage: L._initial_integral_basis()
+            [1, (x^2 - x)*Dx]
+            sage: L = Dx^2 - 1
+            sage: L._initial_integral_basis()
+            [1, Dx]
+
+        """
+        r = self.order()
+        ore = self.parent()
+        DD = ore.gen()
+        if place is None:
+            poly = (self.denominator()*self.leading_coefficient()).numerator()
+            if poly.degree() > 0:
+                place = poly.radical().monic()
+            else:
+                place = 1
+        return [place**i * DD**i for i in range(r)]
+
     def _normalize_make_valuation_place_args(self, f, iota=None, prec=None, sols=None,
                                              infolevel=0, **kwargs):
         return (f,iota,prec, None if sols is None else tuple(sols))
@@ -1826,41 +1861,6 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
 
         val_fct, raise_val_fct = get_functions(xi, sols, x, ore_ext)
         return f, val_fct, raise_val_fct
-
-    def _initial_integral_basis(self, place=None):
-        r"""
-        
-        TESTS::
-
-            sage: from ore_algebra import OreAlgebra
-            sage: Pol.<x> = QQ[]
-            sage: Ore.<Dx> = OreAlgebra(Pol)
-            sage: L = x*(x-1)*Dx^3 - 1
-            sage: L._initial_integral_basis()
-            [1, (x^2 - x)*Dx, (x^4 - 2*x^3 + x^2)*Dx^2]
-            sage: L._initial_integral_basis(place=x)
-            [1, x*Dx, x^2*Dx^2]
-
-        The default place is also correct if the operator has a denominator or if the operator has no singularities:
-
-            sage: L = x*Dx^2 - 1/(x-1)
-            sage: L._initial_integral_basis()
-            [1, (x^2 - x)*Dx]
-            sage: L = Dx^2 - 1
-            sage: L._initial_integral_basis()
-            [1, Dx]
-
-        """
-        r = self.order()
-        ore = self.parent()
-        DD = ore.gen()
-        if place is None:
-            poly = (self.denominator()*self.leading_coefficient()).numerator()
-            if poly.degree() > 0:
-                place = poly.radical().monic()
-            else:
-                place = 1
-        return [place**i * DD**i for i in range(r)]
     
     def find_candidate_places(self, infolevel=0, iota=None, prec=None, **kwargs):
         r"""
