@@ -1137,8 +1137,6 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
           solutions. If not provided, the default precision of a power series
           ring is used.
 
-        TODO: Rephrase
-        
         - ``infolevel`` (default: None) - verbosity flag
 
         OUTPUT:
@@ -1150,9 +1148,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
         Each place is a tuple composed of ``f(x+k)``, a suitable function for
         ``value_function`` and a suitable function for ``raise_value``.
         
-        EXAMPLES::
-
-        # TODO
+        EXAMPLES: see `find_candidate_places`
         """
 
         print1 = print if infolevel >= 1 else lambda *a, **k: None
@@ -1232,7 +1228,24 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
         return res
 
     def find_candidate_places(self, Zmax = None, infolevel=0, **kwargs):
-        # TODO doc
+        r"""
+
+        EXAMPLES::
+
+        sage: from ore_algebra import OreAlgebra
+        sage: Pol.<x> = QQ[]
+        sage: Ore.<Sx> = OreAlgebra(Pol)
+        sage: L = x*(x-1)*Sx^2 - 1
+        sage: places = L.find_candidate_places()
+        sage: [p[0] for p in places]
+        [x - 1, x - 2, x - 3, x - 4]
+        sage: f,v,rv = places[0]
+        sage: v((x-1)*Sx)
+        0
+        sage: rv([(x-1)*Sx, x*(x-1)*Sx])
+        (-1, 1)
+        
+        """
 
         # Helpers
         print1 = print if infolevel >= 1 else lambda *a, **k: None
