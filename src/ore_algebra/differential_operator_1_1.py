@@ -1623,11 +1623,11 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             assert len(sol) == 1
             return sol[0]["value"]
 
-    def _normalize_make_valuation_place_args(self, f, iota=None, prec=None, infolevel=0, **kwargs):
-        return (f,iota,prec)
+    def _normalize_make_valuation_place_args(self, f, iota=None, prec=None, sols=None, infolevel=0, **kwargs):
+        return (f,iota,prec, None if sols is None else tuple(sols))
 
     @cached_method(key=_normalize_make_valuation_place_args)
-    def _make_valuation_place(self, f, iota=None, prec=None, infolevel=0, **kwargs):
+    def _make_valuation_place(self, f, iota=None, prec=None, sols=None, infolevel=0, **kwargs):
         r"""
         Compute value functions for the place ``f``.
 
@@ -1651,6 +1651,11 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
           solutions to prepare the functions. If not provided, the default of
           :meth:``generalized_series_solutions`` is used.
 
+        - ``sols`` (default: None) - if given, use those solutions at the place
+          ``f`` instead of computing new ones. The validity of the solutions is
+          not checked. The value of the parameter should be a tuple of
+          generalized series solutions at the given place.
+
         - ``infolevel`` (default: 0) - verbosity flag
 
         OUTPUT:
@@ -1658,9 +1663,8 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         A tuple composed of ``f``, a suitable function for ``value_function`` at
         ``f`` and a suitable function for ``raise_value`` at ``f``.
 
-        TESTS::
+        EXAMPLES::
 
-            sage: from ore_algebra import *
             sage: from ore_algebra import OreAlgebra
             sage: Pol.<x> = QQ[]
             sage: Ore.<Dx> = OreAlgebra(Pol)
@@ -1672,6 +1676,27 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
 
         # TODO: test properties of the output
 
+        Computing an integral basis if we already know the solutions:
+
+            sage: from ore_algebra import *
+            sage: Pol.<x> = QQ[]
+            sage: Ore.<Dx> = OreAlgebra(Pol)
+            sage: L = x*(x-1)*Dx^2 - 1
+            sage: f1,f2 = L.annihilator_of_composition(x+1).generalized_series_solutions()
+            sage: L3 = L.symmetric_power(3)
+            sage: sols = [f1^i * f2^(3-i) for i in range(4)]
+            sage: place = L3._make_valuation_place(x-1, sols=sols, infolevel=1)
+            Preparing place at x - 1
+            Using precomputed solutions
+            sage: _ = L3._make_valuation_place(x-1, sols=None, infolevel=1)
+            Preparing place at x - 1
+            Computing generalized series solutions... done
+            sage: f, val_fct, raise_val_fct = place
+            sage: L3.global_integral_basis(places=[place], basis=[Ore(1),Dx,Dx^2, Dx^3])
+            [1, (x - 1)*Dx, (x - 1)*Dx^2, (x - 1)*Dx^3 - 7*Dx + 3/(x - 1)]
+            sage: L3.local_integral_basis(f, val_fct=val_fct, raise_val_fct=raise_val_fct)
+            [1, (x - 1)*Dx, (x - 1)*Dx^2, (x - 1)*Dx^3 - 7*Dx + 3/(x - 1)]
+        
         """
 
         print1 = print if infolevel >= 1 else lambda *a, **k: None
@@ -1685,12 +1710,22 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         base = ore.base_ring()
         f = f.numerator()
 
+        if sols is None:
+            need_sols = True
+        else:
+            print1("Using precomputed solutions")
+            need_sols = False
+            
         C = base.base_ring()
         if f.degree() > 1:
-            print1("Computing field extension... ", end="", flush=True)
-            FF = NumberField(f, "xi")
-            xi = FF.gen()
-            print1("done")
+            if need_sols:
+                print1("Computing field extension... ", end="", flush=True)
+                FF = NumberField(f, "xi")
+                xi = FF.gen()
+                print1("done")
+            else:
+                FF = sols[0].base_ring()
+                xi = FF.gen()
         else:
             FF = C
             xi = -f[0]/f[1]
@@ -1704,12 +1739,13 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         ore_ext = ore.change_ring(pol_ext.fraction_field())
 
         reloc = ore_ext([c(x=x+xi) for c in self.coefficients(sparse=False)])
-        print1("Computing generalized series solutions... ", end="", flush=True)
-        if prec is None:
-            sols = reloc.generalized_series_solutions(exp=False)
-        else:
-            sols = reloc.generalized_series_solutions(prec, exp=False)
-        print1("done")
+        if need_sols:
+            print1("Computing generalized series solutions... ", end="", flush=True)
+            if prec is None:
+                sols = reloc.generalized_series_solutions(exp=False)
+            else:
+                sols = reloc.generalized_series_solutions(prec, exp=False)
+            print1("done")
 
         # if any(True for s in sols if s.ramification()>1):
         #     raise NotImplementedError("Some generalized series solutions have ramification")
@@ -1785,12 +1821,25 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             sage: L._initial_integral_basis(place=x)
             [1, x*Dx, x^2*Dx^2]
 
+        The default place is also correct if the operator has a denominator or if the operator has no singularities:
+
+            sage: L = x*Dx^2 - 1/(x-1)
+            sage: L._initial_integral_basis()
+            [1, (x^2 - x)*Dx]
+            sage: L = Dx^2 - 1
+            sage: L._initial_integral_basis()
+            [1, Dx]
+
         """
         r = self.order()
         ore = self.parent()
         DD = ore.gen()
         if place is None:
-            place = self.leading_coefficient().radical().monic()
+            poly = (self.denominator()*self.leading_coefficient()).numerator()
+            if poly.degree() > 0:
+                place = poly.radical().monic()
+            else:
+                place = 1
         return [place**i * DD**i for i in range(r)]
     
     def find_candidate_places(self, infolevel=0, iota=None, prec=None, **kwargs):
@@ -1811,13 +1860,26 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
               <function UnivariateDifferentialOperatorOverUnivariateRing._make_valuation_place.<locals>.get_functions.<locals>.val_fct at 0x7ff148258220>,
               <function UnivariateDifferentialOperatorOverUnivariateRing._make_valuation_place.<locals>.get_functions.<locals>.raise_val_fct at 0x7ff148258ae0>)]
 
+        TESTS::
+
+            sage: L = x*(x-1)*Dx^2 - 1
+            sage: [p[0] for p in L.find_candidate_places()]
+            [x - 1, x]
+            sage: L = x*Dx^2 - 1/(x-1)
+            sage: [p[0] for p in L.find_candidate_places()]
+            [x - 1, x]
+            sage: L = Dx^2 - 1
+            sage: [p[0] for p in L.find_candidate_places()]
+            []
+
+        
         """
-        lr = self.coefficients()[-1]
+        lr = self.leading_coefficient()*self.denominator()
         fact = list(lr.factor())
         places = []
         for f, m in fact:
-
-            places.append(self._make_valuation_place(f, prec=m+1 if prec is None else prec,
+            places.append(self._make_valuation_place(f,
+                                                     prec=m+1 if prec is None else prec,
                                                      infolevel=infolevel,
                                                      iota=None))
         return places
@@ -1830,8 +1892,15 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         fct = self._make_valuation_place(place, iota=iota, **kwargs)[2]
         return fct(basis, place, dim)
 
-    @cached_method
+    def _normalize_local_integral_basis_args(self, basis=None, iota=None, sols=None, infolevel=0, prec=None,
+                                             **kwargs):
+        return (prec,
+                None if sols is None else tuple(sols),
+                None if basis is None else tuple(basis))
+    
+    @cached_method(key=_normalize_local_integral_basis_args)
     def local_integral_basis_at_infinity(self, basis=None, iota=None,
+                                         sols=None,
                                          infolevel=0, **val_kwargs):
         r"""
         Compute a local integral basis at infinity
@@ -1851,6 +1920,9 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
 
         -- ``infolevel`` (default: 0) verbosity level to use in the computations
 
+        -- ``sols`` (default: None) if given, a basis of solutions at infinity
+           to use for computing the valuations.
+
         OUTPUT:
 
         A local integral basis at infinity.
@@ -1868,14 +1940,33 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
 
         Example 15::
 
+            sage: from ore_algebra import OreAlgebra
+            sage: Pol.<x> = QQ[]
+            sage: Ore.<Dx> = OreAlgebra(Pol)
             sage: L = (x^2-x)*Dx^2 + (49/6*x - 7/3)*Dx + 12
             sage: L.local_integral_basis_at_infinity()
             [x^2, -x^5*Dx - 8/3*x^4 + 64/15*x^3]
 
+        Example use of the optional parameter ``sols``:
+
+            sage: from ore_algebra import OreAlgebra
+            sage: Pol.<x> = QQ[]
+            sage: Ore.<Dx> = OreAlgebra(Pol)
+            sage: L = (x^2-x)*Dx^2 + (49/6*x - 7/3)*Dx + 12
+            sage: f1, f2 = L.annihilator_of_composition(1/x).generalized_series_solutions()
+            sage: d = 2
+            sage: L2 = L.symmetric_power(d)
+            sage: sols = [f1^i * f2^(d-i) for i in range(d+1)]
+            sage: L2.local_integral_basis_at_infinity(sols=sols)
+            [x^5,
+            -x^8*Dx - 16/3*x^7 + 128/15*x^6,
+            x^11*Dx^2 + (27/2*x^10 - 27/10*x^9)*Dx + 344/9*x^9 - 968/45*x^8 + 6592/225*x^7 + 128/3*x^6]
+
         """
         x = self.base_ring().gen()
+        place = x.numerator()
         Linf, conv = self.annihilator_of_composition(1/x, with_transform=True)
-        f, v, rv = Linf._make_valuation_place(x, iota=iota, **val_kwargs)
+        f, v, rv = Linf._make_valuation_place(place, iota=iota, sols=sols, **val_kwargs)
         if basis:
             basis = [conv(b) for b in basis]
         wwinf = Linf.local_integral_basis(f, val_fct=v, raise_val_fct=rv,
@@ -1932,14 +2023,12 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
 
         if modulus:
             K = GF(modulus)
-            Dif = self.parent()
-            Pol = self.base_ring()
-            PolP = Pol.change_ring(K)
-            DifP = OreAlgebra(PolP, *Dif.variable_names())
-            x = PolP.gen()
-            ww = [DifP(w) for w in ww]
-            vv = [DifP(v) for v in vv]
-            # TODO: make it a parameter]
+            Dif = self.parent().change_constant_ring(K)
+            Pol = Dif.base_ring()
+            x = Pol.gen()
+            ww = [w.change_constant_ring(K) for w in ww]
+            vv = [v.change_constant_ring(K) for v in vv]
+            # TODO: make it a parameter
             if solver is None:
                 solver = nullspace.sage_native
         else:

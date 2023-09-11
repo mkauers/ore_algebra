@@ -1551,9 +1551,9 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         print1 = print_with_prefix if infolevel >= 1 else lambda *a, **k: None
         print2 = print_with_prefix if infolevel >= 2 else lambda *a, **k: None
         print3 = print_with_prefix if infolevel >= 3 else lambda *a, **k: None
-
-        print1(f"Computing local basis at {a}")
         
+        print1(f"Computing local basis at {a}")
+
         if val_fct is None:
             val_fct = self.value_function
         if raise_val_fct is None:
@@ -1635,7 +1635,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         raise NotImplementedError # abstract
 
     def _normalize_global_integral_basis_args(
-            self, places=None, basis=None,
+            self, places=None, basis=None, 
             infolevel=0,**args):
         """
         Normalize the arguments in a call to `global_integral_basis`.
