@@ -1158,12 +1158,6 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
         print1(" [make_places] At (root of {}) + Nmin={}, Nmax={}"
                .format(f,Nmin,Nmax))
         
-<<<<<<< HEAD
-=======
-        FF = NumberField(f,"xi")
-        # TODO: Do we have to choose a name for the algebraic generator?
-        xi = FF.gen()
->>>>>>> master
         r = self.order() 
         Ore = self.parent()
         SS = Ore.gen()
