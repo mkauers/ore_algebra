@@ -1596,7 +1596,12 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
                             alpha_rep[i] = sum(alpha[i][j]*Fvar**j for j in range(deg))
                     else:
                         for i in range(d+1):
-                            alpha_rep[i] = k(alpha[i])
+                            try:
+                                alpha_rep[i] = k(alpha[i])
+                            except TypeError:
+                                # Workaround for missing conversions over
+                                # extensions of polynomial rings
+                                alpha_rep[i] = k(alpha[i][0])
                     print2("In base field: {}".format(alpha_rep))
                     # __import__("pdb").set_trace()
                     

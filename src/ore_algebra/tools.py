@@ -549,7 +549,7 @@ def roots_at_integer_distance(f1, f2):
     Pol = f1.parent().extend_variables("i")
     xx, ii = Pol.gens()
     resultant = f1(xx-ii).resultant(Pol(f2)).univariate_polynomial()
-    return [a for a, _ in resultant.roots() if a.is_integer()]
+    return [ZZ(a) for a, _ in resultant.roots() if a in ZZ]
 
 
 def generalized_series_default_iota(z, j):
