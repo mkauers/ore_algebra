@@ -1158,9 +1158,6 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
         print1(" [make_places] At (root of {}) + Nmin={}, Nmax={}"
                .format(f,Nmin,Nmax))
         
-        FF = NumberField(f,"xi")
-        # TODO: Do we have to choose a name for the algebraic generator?
-        xi = FF.gen()
         r = self.order() 
         Ore = self.parent()
         SS = Ore.gen()
@@ -1168,6 +1165,10 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
         nn = Pol.gen()
         Coef = Pol.base_ring()
 
+        # TODO: Do we have to choose a name?
+        FF = Coef.extension(f,"xi")
+        xi = FF.gen()
+        
         Laur = LaurentSeriesRing(FF,'q',default_prec=prec)
         qq = Laur.gen()
         Frac_q = Pol.change_ring(Laur).fraction_field()
@@ -1198,8 +1199,8 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
             for i in range(r):
                 prolong(sols[i],n)
 
-        print1(" [make_places] sols")
-        print1(sols)
+        print2(" [make_places] sols")
+        print2(sols)
 
         # Capture the relevant variables in the two functions
         def get_functions(xi,n,Nmin,sols,call):

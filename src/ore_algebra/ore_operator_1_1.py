@@ -1618,7 +1618,12 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
                             alpha_rep[i] = sum(alpha[i][j]*Fvar**j for j in range(deg))
                     else:
                         for i in range(d+1):
-                            alpha_rep[i] = k(alpha[i])
+                            try:
+                                alpha_rep[i] = k(alpha[i])
+                            except TypeError:
+                                # Workaround for missing conversions over
+                                # extensions of polynomial rings
+                                alpha_rep[i] = k(alpha[i][0])
                     print2("In base field: {}".format(alpha_rep))
                     # __import__("pdb").set_trace()
                     
@@ -1890,6 +1895,21 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
              (1/(x^3 - x^2 - x + 1))*Sx^2 + (1/(x^3 + x^2 - x - 1))*Sx + (1/4*x + 1/4)/(x - 1)]
             sage: B = L.global_integral_basis(Zmax=2); B
             [1, 1/x*Sx + (x - 2)/x^2, (1/(x + 1))*Sx^2 + ((x - 1)/(x^2 + 2*x + 1))*Sx]
+
+        In the recurrence case, the coefficient ring need not be the rational field. ::
+
+            sage: from ore_algebra import *
+            sage: R.<t> = QQ[]
+            sage: K = R.fraction_field()
+            sage: C.<x> = K[]
+            sage: A.<Sx> = OreAlgebra(C); A
+            Univariate Ore algebra in Sx over Univariate Polynomial Ring in x over Fraction Field of Univariate Polynomial Ring in t over Rational Field
+            sage: l0 = x^2 + (t^2+3)*x + t^2+3
+            sage: l1 = -(x^3 + (t^2+5)*x^2 + (3*t^2+7)*x + (t^2+4))
+            sage: l2 = (x+2)*(x^2+(t^2+1)*x + 1)
+            sage: L = l0 + l1*Sx + l2*Sx^2
+            sage: B = L.global_integral_basis(); B
+            [x, ((x + 1)/(x^2 + (t^2 + 1)*x + 1))*Sx - 1/(x^2 + (t^2 + 1)*x + 1)]
 
         The results of this function are cached. ::
 
