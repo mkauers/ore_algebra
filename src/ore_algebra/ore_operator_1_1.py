@@ -1385,6 +1385,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         return factors
 
     # FIXME: Find a better name, this one is ambiguous
+    # FIXME: Right now, if the input is 0, the function goes into an infinite loop
     def value_function(self, op, place, **kwargs):
         r"""
         Compute the value of the operator ``op`` in the algebra quotient of the ambient Ore algebra by `self`, at the place ``place``.
@@ -1399,10 +1400,24 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
 
         OUTPUT:
 
-        The value of ``op`` at the place ``place``
+        The image of ``op`` by the value function at the place ``place``.
+
+        The value function is a map `val` making the quotient of the ambient Ore algebra by this operator into a valued vector space:
+        - ``val(L) = \infty`` if and only if `x=0`
+        - ``val(a*L) = a.valuation() + val(L)``
+        - ``val(L+M) \geq min(val(L), val(M))``
 
         EXAMPLES::
-        #TODO
+
+            sage: from ore_algebra import *
+            sage: R.<x> = QQ[]
+            sage: A.<Dx> = OreAlgebra(R)
+            sage: L = Dx^2
+            sage: L.value_function(Dx, x)
+            0
+            sage: L.value_function(x*Dx, x)
+            1
+        
         
         """
         raise NotImplementedError # abstract
@@ -1435,7 +1450,14 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
 
         EXAMPLES::
 
-        #TODO
+            sage: from ore_algebra import *
+            sage: R.<x> = QQ[]
+            sage: A.<Dx> = OreAlgebra(R)
+            sage: L = Dx^2
+            sage: L.raise_value([A(1),Dx], x-1)
+            sage: L.raise_value([Dx, x*Dx], x-1)
+            (-1, 1)
+
         """
         raise NotImplementedError # abstract
 
@@ -1451,8 +1473,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         result of `local_integral_basis` only depends on the value of this
         object, and not on the choice of the specific set of arguments.
 
-        EXAMPLES:
-        #TODO
+        EXAMPLES: see ``local_integral_basis``        
         """
         if basis:
             basis = tuple(basis)
@@ -1471,17 +1492,6 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         ore = self.parent()
         DD = ore.gen()
         return [DD**i for i in range(r)]
-
-    
-    def _normalize_local_integral_basis_args(
-            self,a,basis=None, val_fct=None, raise_val_fct=None,
-            infolevel=0,**args):
-        if basis:
-            basis = tuple(basis)
-        args = list(args.items())
-        args.sort()
-        args = tuple(args)
-        return (a,basis,args)
     
     @cached_method(key=_normalize_local_integral_basis_args)
     def local_integral_basis(
@@ -1522,7 +1532,8 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
 
         - ``infolevel`` (default:0) -- verbosity flag
 
-        - All remaining named arguments are passed to the functions ``val_fct`` and ``raise_val_fct``.
+        - All remaining named arguments are passed to the functions ``val_fct``
+          and ``raise_val_fct``.
 
         If values are given for `val_fct` or `raise_val_fct`, it is the
         responsibility of the user to ensure that those functions are suitable
@@ -1537,7 +1548,18 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         basis was integral.
 
         EXAMPLES::
-        # TODO
+        
+            sage: from ore_algebra import OreAlgebra
+            sage: Pol.<x> = PolynomialRing(QQ)
+            sage: OreD.<Dx> = OreAlgebra(Pol)
+
+            sage: L = x^3*Dx^3 + x*Dx - 1
+            sage: B = L.local_integral_basis(x+1); B
+            [1, Dx, Dx^2]
+            sage: B = L.local_integral_basis(x); B
+            [1, x*Dx, x*Dx^2 - Dx + 1/x]
+
+        See ``global_integral_basis`` for more examples.
 
         """
 
@@ -1633,9 +1655,6 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         Each place may be output as either an irreducible polynomial in the base ring of the parent Ore algebra, or a 3-tuple composed of such a function, as well as suitable functions `value_function` and `raise_valuation`.
 
         This can be useful in situations where computing the value function involves non-trivial calculations. Defining the functions here allows to capture the relevant data in the function and to minimize the cost at the time of calling.
-
-        EXAMPLES::
-        # TODO
         """
         raise NotImplementedError # abstract
 
@@ -1678,7 +1697,10 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
           3-tuple composed of such a polynomial, as well as suitable functions
           `value_function` and `raise_value`.
 
-        - ``basis`` (default: None) -- a basis of the quotient space. If provided, the output of the function is such that the first `i` elements of the integral basis generate the same vector space as the first `i` elements of ``basis``
+        - ``basis`` (default: None) -- a basis of the quotient space. If
+          provided, the output of the function is such that the first `i`
+          elements of the integral basis generate the same vector space as the
+          first `i` elements of ``basis``
         
         - ``infolevel`` (default: 0) -- verbosity flag
 
@@ -1957,7 +1979,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
             [x - 1]
             sage: L.global_integral_basis.is_in_cache()
             True
-        
+
         """
         if places is None:
             places = self.find_candidate_places(infolevel=infolevel,**val_kwargs)

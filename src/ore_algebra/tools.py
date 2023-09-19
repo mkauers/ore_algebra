@@ -377,6 +377,7 @@ def _residue(obj, place=None):
     return res
 
 
+# TODO:: Add examples with power series?
 def _vect_val_fct(v, place=None):
     r"""
     Compute the valuation of a vector.
@@ -403,14 +404,13 @@ def _vect_val_fct(v, place=None):
         sage: _vect_val_fct([K(1+q),K(q+q^2)],place=1+q)
         1
 
-    .. TODO:: Add examples with power series?
     """
     if place:
         return min(vv.valuation(place) for vv in v)
 
     return min(vv.valuation() for vv in v)
 
-
+# TODO: Add examples with plain vectors?
 def _vect_elim_fct(basis, place=None, dim=None, infolevel=0, residue_fct=None):
     r"""
     Find a relation between vectors raising the valuation.
@@ -436,8 +436,6 @@ def _vect_elim_fct(basis, place=None, dim=None, infolevel=0, residue_fct=None):
     valuation, or `None` if no such relation exists.
 
     Under the assumptions, it is guaranteed that ``alpha[d-1] == 1``.
-
-    .. TODO:: Add examples with plain vectors?
 
     EXAMPLES::
 
@@ -554,7 +552,11 @@ def roots_at_integer_distance(f1, f2):
 
 def generalized_series_default_iota(z, j):
     """
-    TODO missing documentation
+    Corrective shift in the valuation of a term of the form x^(z) log(x)^j
+
+    This function is suitable as a iota function for computing the valuation of
+    differential operators (see `global_integral_basis`).
+
     """
     if j == 0:
         return z-real_part(z).floor()
