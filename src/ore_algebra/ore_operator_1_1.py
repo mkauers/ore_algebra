@@ -1896,6 +1896,22 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
             sage: B = L.global_integral_basis(Zmax=2); B
             [1, 1/x*Sx + (x - 2)/x^2, (1/(x + 1))*Sx^2 + ((x - 1)/(x^2 + 2*x + 1))*Sx]
 
+        In the recurrence case, the coefficient ring need not be the rational field. ::
+
+            sage: from ore_algebra import *
+            sage: R.<t> = QQ[]
+            sage: K = R.fraction_field()
+            sage: C.<x> = K[]
+            sage: A.<Sx> = OreAlgebra(C); A
+            Univariate Ore algebra in Sx over Univariate Polynomial Ring in x over Fraction Field of Univariate Polynomial Ring in t over Rational Field
+            sage: load('/tmp/sage_shell_modeYcbsU0/sage_shell_mode_temp.sage')
+            sage: l0 = x^2 + (t^2+3)*x + t^2+3
+            sage: l1 = -(x^3 + (t^2+5)*x^2 + (3*t^2+7)*x + (t^2+4))
+            sage: l2 = (x+2)*(x^2+(t^2+1)*x + 1)
+            sage: L = l0 + l1*Sx + l2*Sx^2
+            sage: B = L.global_integral_basis(); B
+            [x, ((x + 1)/(x^2 + (t^2 + 1)*x + 1))*Sx - 1/(x^2 + (t^2 + 1)*x + 1)]
+
         The results of this function are cached. ::
 
             sage: R.<x> = QQ['x']
