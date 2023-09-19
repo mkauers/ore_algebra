@@ -1904,7 +1904,6 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
             sage: C.<x> = K[]
             sage: A.<Sx> = OreAlgebra(C); A
             Univariate Ore algebra in Sx over Univariate Polynomial Ring in x over Fraction Field of Univariate Polynomial Ring in t over Rational Field
-            sage: load('/tmp/sage_shell_modeYcbsU0/sage_shell_mode_temp.sage')
             sage: l0 = x^2 + (t^2+3)*x + t^2+3
             sage: l1 = -(x^3 + (t^2+5)*x^2 + (3*t^2+7)*x + (t^2+4))
             sage: l2 = (x+2)*(x^2+(t^2+1)*x + 1)
