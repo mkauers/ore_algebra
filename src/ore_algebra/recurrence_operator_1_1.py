@@ -1199,8 +1199,8 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
             for i in range(r):
                 prolong(sols[i],n)
 
-        print1(" [make_places] sols")
-        print1(sols)
+        print2(" [make_places] sols")
+        print2(sols)
 
         # Capture the relevant variables in the two functions
         def get_functions(xi,n,Nmin,sols,call):
