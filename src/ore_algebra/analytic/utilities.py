@@ -289,6 +289,15 @@ def binomial_coefficients(s):
             binom[n][k] = binom[n-1][k-1] + binom[n-1][k]
     return binom
 
+def ctz(vec, maxlen):
+    z = 0
+    for m in range(min(len(vec), maxlen)):
+        if vec[-1 - m].is_zero():
+            z += 1
+        else:
+            break
+    return z
+
 def warn_no_cython_extensions(logger, *, fallback=False):
     import sage.version
     msg = "Cython extensions not found."
@@ -302,4 +311,3 @@ def warn_no_cython_extensions(logger, *, fallback=False):
             " Consider upgrading SageMath or downgrading ore_algebra to git"
             " commit 73a430aaf.)")
     warnings.warn(msg, stacklevel=2)
-

@@ -371,7 +371,7 @@ class LogSeriesInitialValues(object):
                     return True
         return False
 
-    def is_real(self, dop):
+    def is_real(self, dop_scalars):
         r"""
         Try to detect cases where the coefficients of the series will be real.
 
@@ -388,7 +388,7 @@ class LogSeriesInitialValues(object):
         # We check that the exponent is real to ensure that the coefficients
         # will stay real. Note however that we don't need to make sure that
         # pt^expo*log(z)^k is real.
-        return (utilities.is_real_parent(dop.base_ring().base_ring())
+        return (utilities.is_real_parent(dop_scalars)
                 and utilities.is_real_parent(self.universe)
                 and self.expo.as_exact().imag().is_zero())
 
@@ -403,6 +403,7 @@ class LogSeriesInitialValues(object):
         else:
             raise ValueError
 
+    @cached_method
     def last_index(self):
         return max(chain(iter((-1,)), (s for s, vals in self.shift.items()
                                         if not all(v.is_zero() for v in vals))))
@@ -635,6 +636,68 @@ class LocalBasisMapper(object):
     def fun(self, ini):
         return None
 
+class HighestSolMapper(LocalBasisMapper):
+    # This is used both by naive_sum and dac_sum, but maybe still too tightly
+    # coupled with naive_sum.
+
+    def __init__(self, dop, evpts, *, ctx):
+        super().__init__(dop, ctx=ctx)
+        self.evpts = evpts
+        self.ordinary = (dop.leading_coefficient()[0] != 0)
+        self._sols = None
+        self.highest_sols = None
+
+    def process_modZ_class(self):
+        logger.info(r"solutions z^(%s+n)·log(z)^k/k! + ···, n = %s",
+                    self.leftmost, ", ".join(str(s) for s, _ in self.shifts))
+        # Compute the "highest" (in terms powers of log) solution of each
+        # valuation
+        inis = [LogSeriesInitialValues(
+                    expo=self.leftmost,
+                    values={(s, m-1): ZZ.one()},
+                    mults=self.shifts)
+                for s, m in self.shifts]
+        sols = self.do_sum(inis)
+        self.highest_sols = {}
+        for (s, m), sol in zip(self.shifts, sols):
+            for psum in sol.psums:
+                psum.update_downshifts(range(m))
+            self.highest_sols[s] = sol
+        self._sols = {}
+        super().process_modZ_class()
+
+    def do_sum(self, inis):
+        r"""
+        Mus return a list of objects with fields ``cseq.critical_coeffs`` and
+        ``psums``, where ``psum`` is a list and each element has a
+        ``update_downshifts`` method that updates a field called
+        ``downshifts``?...
+        """
+        raise NotImplementedError
+
+    def fun(self, ini):
+        # Non-highest solutions of a given valuation can be deduced from the
+        # highest one up to correcting factors that only involve solutions
+        # further to the right. We are relying on the iteration order, which
+        # ensures that all other solutions involved already have been
+        # computed.
+        highest = self.highest_sols[self.shift]
+        delta = self.mult - 1 - self.log_power
+        value = [psum.downshifts[delta] for psum in highest.psums]
+        for s, m in self.shifts:
+            if s > self.shift:
+                for k in range(max(m - delta, 0), m):
+                    # Accept critical_coeffs lists that omit high-log-degree
+                    # coefficients that happen to be zero. Inside the loop
+                    # because critical_coeffs[s] might be undefined otherwise.
+                    if k + delta >= len(highest.cseq.critical_coeffs[s]):
+                        continue
+                    cc = highest.cseq.critical_coeffs[s][k+delta]
+                    for i in range(len(value)):
+                        value[i] -= cc*self._sols[s,k][i]
+        self._sols[self.shift, self.log_power] = value
+        return [vector(v) for v in value]
+
 class CriticalMonomials(LocalBasisMapper):
     # XXX avoid redundancies with the work HighestSolMapper is doing?
 
@@ -691,7 +754,7 @@ def log_series(ini, bwrec, order):
     series = []
     for n in range(order):
         mult = len(ini.shift.get(n, ()))
-        bwrec_n = bwrec.eval_series(Coeffs, n, log_prec + mult)
+        bwrec_n = bwrec.eval_series(Coeffs, n, log_prec + mult) # XXX prec trop grande ?
         invlc = None
         new_term = vector(Coeffs, max_log_prec)
         for p in range(log_prec - 1, -1, -1):

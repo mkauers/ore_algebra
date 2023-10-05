@@ -43,7 +43,8 @@ TESTS::
     [0.011501537469552017...]
 
 Note that the zeros here shouldn't be exact unless we have proved that the
-corresponding series do not continue::
+corresponding series do not continue (which we *could* do by checking that the
+residual is exactly zero)::
 
     sage: ((x + 1)*Dx^2 + Dx).numerical_transition_matrix([0,1/2], algorithm='binsplit')
     [ [1.00000000000000...] [0.405465108108164...]]

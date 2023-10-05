@@ -32,7 +32,7 @@ from . import accuracy, bounds, utilities
 from .context import Context, dctx
 from .differential_operator import DifferentialOperator
 from .local_solutions import (bw_shift_rec, LogSeriesInitialValues,
-                              LocalBasisMapper, log_series_values)
+                              HighestSolMapper, log_series_values)
 from .path import EvaluationPoint_base, EvaluationPoint
 from .safe_cmp import *
 
@@ -54,7 +54,7 @@ class CoefficientSequence(object):
 
     def __init__(self, Intervals, ini, ordrec, real):
         r"""
-        Coefficient sequence of a D-finie logarithmic series
+        Coefficient sequence of a D-finite logarithmic series
         (that is, for a specific equation and specific initial values)
         """
 
@@ -97,7 +97,7 @@ class CoefficientSequence(object):
                 c.real() if self.force_real else c
                 for c in self.last[0]]
 
-        nz = mult - _ctz(self.last[0], mult)
+        nz = mult - utilities.ctz(self.last[0], mult)
         self.log_prec += nz
         for l in self.last:
             _resize_list(l, self.log_prec, self.Intervals.zero())
@@ -336,8 +336,9 @@ class RecUnroller:
         """
         self._IR = self.ctx.IR
         self.mult_dict = self.inis[0].mult_dict() if self.inis else None
+        Scalars = self.dop.base_ring().base_ring()
         self.real = (self.evpts.is_real_or_symbolic
-                     and all(ini.is_real(self.dop) for ini in self.inis))
+                     and all(ini.is_real(Scalars) for ini in self.inis))
         self.ordinary = (self.dop.leading_coefficient()[0] != 0)
         self.last_index_with_ini = max(
             chain(iter([self.dop.order()]),
@@ -636,6 +637,7 @@ class RecUnroller_tail_bound(RecUnroller):
     def get_residuals(self, stop, n):
         # Since this is called _before_ computing the new term, the relevant
         # coefficients are given by last[:-1], not last[1:]
+
         assert all(cseq.nterms == self.n == n for cseq, _ in self.sols)
         return [stop.maj.normalized_residual(n, list(cseq.last)[:-1],
                                              self.bwrec_nplus)
@@ -926,56 +928,6 @@ def series_sum(dop, ini, evpts, tgt_error, *, maj=None, bwrec=None,
 # Transition matrices
 ################################################################################
 
-class HighestSolMapper(LocalBasisMapper):
-
-    def __init__(self, dop, evpts, *, ctx):
-        super().__init__(dop, ctx=ctx)
-        self.evpts = evpts
-        self.ordinary = (dop.leading_coefficient()[0] != 0)
-        self._sols = None
-        self.highest_sols = None
-
-    def process_modZ_class(self):
-        logger.info(r"solutions z^(%s+n)·log(z)^k/k! + ···, n = %s",
-                    self.leftmost, ", ".join(str(s) for s, _ in self.shifts))
-        # Compute the "highest" (in terms powers of log) solution of each
-        # valuation
-        inis = [LogSeriesInitialValues(
-                    expo=self.leftmost,
-                    values={(s, m-1): ZZ.one()},
-                    mults=self.shifts)
-                for s, m in self.shifts]
-        sols = self.do_sum(inis)
-        self.highest_sols = {}
-        for (s, m), sol in zip(self.shifts, sols):
-            _, psums = sol
-            for psum in psums:
-                psum.update_downshifts(range(m))
-            self.highest_sols[s] = sol
-        self._sols = {}
-        super().process_modZ_class()
-
-    def do_sum(self, inis):
-        raise NotImplementedError
-
-    def fun(self, ini):
-        # Non-highest solutions of a given valuation can be deduced from the
-        # highest one up to correcting factors that only involve solutions
-        # further to the right. We are relying on the iteration order, which
-        # ensures that all other solutions involved already have been
-        # computed.
-        highest = self.highest_sols[self.shift]
-        delta = self.mult - 1 - self.log_power
-        value = [psum.downshifts[delta] for psum in highest.psums]
-        for s, m in self.shifts:
-            if s > self.shift:
-                for k in range(max(m - delta, 0), m):
-                    cc = highest.cseq.critical_coeffs[s][k+delta]
-                    for i in range(len(value)):
-                        value[i] -= cc*self._sols[s,k][i]
-        self._sols[self.shift, self.log_power] = value
-        return [vector(v) for v in value]
-
 class HighestSolMapper_tail_bound(HighestSolMapper):
 
     def __init__(self, dop, evpts, eps, fail_fast, effort, *, ctx):
@@ -1190,15 +1142,6 @@ def _get_error(approx):
         return approx[0].abs().rad_as_ball()
     else:
         return approx.abs().rad_as_ball()
-
-def _ctz(vec, maxlen):
-    z = 0
-    for m in range(maxlen):
-        if vec[-1 - m].is_zero():
-            z += 1
-        else:
-            break
-    return z
 
 def _resize_list(l, n, z):
     n0 = len(l)
