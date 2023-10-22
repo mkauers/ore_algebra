@@ -49,9 +49,9 @@ def cbf(pol, n, tgt):
     cdef long prec = _pol._parent._base._prec
 
     acb_zero(res.value)
-    for i in range(acb_poly_degree(_pol.__poly), -1, -1):
+    for i in range(acb_poly_degree(_pol._poly), -1, -1):
         acb_mul_si(res.value, res.value, _n, prec)
-        acb_add(res.value, res.value, acb_poly_get_coeff_ptr(_pol.__poly, i), prec)
+        acb_add(res.value, res.value, acb_poly_get_coeff_ptr(_pol._poly, i), prec)
 
     return res
 
@@ -62,11 +62,11 @@ cdef ZZX_c _nf(Polynomial_generic_dense pol, n) except *:
     cdef NumberFieldElement c
     cdef ZZX_c res
 
-    for i in range(len(pol.__coeffs) - 1, -1, -1):
+    for i in range(len(pol._coeffs) - 1, -1, -1):
         ZZX_mul_long(res, res, _n)
         c = pol.get_unsafe(i)
-        assert ZZ_IsOne(c.__denominator)
-        ZZX_add(res, res, c.__numerator)
+        assert ZZ_IsOne(c._denominator)
+        ZZX_add(res, res, c._numerator)
 
     return res
 
@@ -75,8 +75,8 @@ def nf(pol, n, tgt):
 
     cdef NumberFieldElement res
     res = (<NumberFieldElement> (<Ring> _pol._parent._base)._zero_element)._new()
-    ZZ_conv_from_int(res.__denominator, 1)
-    res.__numerator = _nf(_pol, n)
+    ZZ_conv_from_int(res._denominator, 1)
+    res._numerator = _nf(_pol, n)
     if tgt is _pol._parent._base:
         return res
     else:
@@ -92,7 +92,7 @@ cdef int _qnf(mpz_t a, mpz_t b, Polynomial_generic_dense pol, n) except -1:
     mpz_set_ui(a, 0)
     mpz_set_ui(b, 0)
 
-    for i in range(len(pol.__coeffs) - 1, -1, -1):
+    for i in range(len(pol._coeffs) - 1, -1, -1):
         mpz_mul_ui(a, a, _n)
         mpz_mul_ui(b, b, _n)
         c = pol.get_unsafe(i)
@@ -176,12 +176,12 @@ def qq_or_qqi_to_cbf(zzpols not None, n, tgt):
     fmpz_init(tmp)
 
     pol = <Polynomial_integer_dense_flint> (zzpols[0])
-    fmpz_poly_evaluate_fmpz(tmp, pol.__poly, _n)
+    fmpz_poly_evaluate_fmpz(tmp, pol._poly, _n)
     arb_set_fmpz(acb_realref(res.value), tmp)
 
     if len(zzpols) == 2:
         pol = <Polynomial_integer_dense_flint> (zzpols[1])
-        fmpz_poly_evaluate_fmpz(tmp, pol.__poly, _n)
+        fmpz_poly_evaluate_fmpz(tmp, pol._poly, _n)
         arb_set_fmpz(acb_imagref(res.value), tmp)
     else:
         arb_zero(acb_imagref(res.value))
@@ -201,12 +201,12 @@ def qq(pol, n, tgt):
     cdef fmpz_t tmp
     fmpz_init(tmp)
 
-    _fmpz_poly_evaluate_fmpz(tmp, fmpq_poly_numref(_pol.__poly),
-            fmpq_poly_length(_pol.__poly), _n)
+    _fmpz_poly_evaluate_fmpz(tmp, fmpq_poly_numref(_pol._poly),
+            fmpq_poly_length(_pol._poly), _n)
 
     cdef Rational res = <Rational> Rational.__new__(Rational)
     fmpz_get_mpz(mpq_numref(res.value), tmp)
-    assert fmpz_is_one(fmpq_poly_denref(_pol.__poly))
+    assert fmpz_is_one(fmpq_poly_denref(_pol._poly))
     mpz_set_si(mpq_denref(res.value), 1)
 
     fmpz_clear(tmp)
