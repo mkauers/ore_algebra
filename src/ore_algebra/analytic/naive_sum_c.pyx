@@ -26,7 +26,15 @@ from sage.structure.parent cimport Parent
 
 from sage.rings.real_arb import RBF
 
-cdef extern from "acb.h":
+cdef extern from *:
+    """
+    #include "flint/flint.h"
+    #if __FLINT_VERSION >= 3
+    #include "flint/acb.h"
+    #else
+    #include "acb.h"
+    #endif
+    """
     void acb_dot(acb_t res, const acb_t s, bint subtract, acb_srcptr x, long
             xstep, acb_srcptr y, long ystep, long len, long prec)
 
