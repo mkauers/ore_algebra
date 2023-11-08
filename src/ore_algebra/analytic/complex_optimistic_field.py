@@ -131,7 +131,7 @@ class ComplexOptimisticField(UniqueRepresentation, Field):
             eps = Radii.one() >> (7*prec//8)
         else:
             eps = Radii.coerce(eps)
-        return super(ComplexOptimisticField, cls).__classcall__(cls, prec, eps)
+        return super().__classcall__(cls, prec, eps)
 
     def __init__(self, prec, eps):
         self.eps = eps
