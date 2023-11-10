@@ -78,7 +78,7 @@ class GeneralizedSeriesMonoid(UniqueRepresentation, Parent):
         type = str(type)
         if type != "continuous" and type != "discrete":
             raise ValueError("type must be either \"continuous\" or \"discrete\"")
-        return super(GeneralizedSeriesMonoid, cls).__classcall__(cls, base, x, type, default_prec=default_prec)
+        return super().__classcall__(cls, base, x, type, default_prec=default_prec)
 
     def __init__(self, base, x, type, default_prec=None):
         r"""

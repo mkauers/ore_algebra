@@ -1757,7 +1757,7 @@ class UnivariateDFiniteSequence(DFiniteFunction):
         """
         if not parent.ore_algebra().is_S():
             raise TypeError("Not the Shift Operator")
-        super(UnivariateDFiniteSequence, self).__init__(parent, ann, initial_val, is_gen, construct, cache)
+        super().__init__(parent, ann, initial_val, is_gen, construct, cache)
 
 #action
 
@@ -2720,7 +2720,7 @@ class UnivariateDFiniteFunction(DFiniteFunction):
         """
         if not parent.ore_algebra().is_D():
             raise TypeError("Not the Differential Operator")
-        super(UnivariateDFiniteFunction, self).__init__(parent, ann, initial_val, is_gen, construct, cache)
+        super().__init__(parent, ann, initial_val, is_gen, construct, cache)
     
 #action
     

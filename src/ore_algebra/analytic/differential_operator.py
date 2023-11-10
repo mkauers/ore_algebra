@@ -50,7 +50,7 @@ class PlainDifferentialOperator(UnivariateDifferentialOperatorOverUnivariateRing
         _, _, _, dop = dop.numerator()._normalize_base_ring()
         den = lcm(utilities.internal_denominator(c) for pol in dop for c in pol)
         dop *= den
-        super(PlainDifferentialOperator, self).__init__(
+        super().__init__(
                 dop.parent(), dop)
 
     @cached_method
@@ -338,7 +338,7 @@ class PlainDifferentialOperator(UnivariateDifferentialOperatorOverUnivariateRing
 class ShiftedDifferentialOperator(PlainDifferentialOperator):
 
     def __init__(self, dop, orig, delta):
-        super(ShiftedDifferentialOperator, self).__init__(dop)
+        super().__init__(dop)
         self._orig = orig
         self._delta = delta
 
