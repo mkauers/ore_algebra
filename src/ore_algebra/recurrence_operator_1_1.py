@@ -919,7 +919,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
                     for (p, _) in rest.leading_coefficient().factor():
                         c = -p[0]/p[1]
                         if not real_only or c.imag().is_zero():
-                            vec = [ee for ee in sub]
+                            vec = list(sub)
                             vec[i - 1] = c
                             subexpvecs.append(vec)
                 info(3, "after " + str(ram - i) + " of " + str(ram - 1) + " iterations: " + str(subexpvecs))
@@ -996,7 +996,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
                           for i in range(r + 1)]
             deg = max([c.degree() for c in coeffs])
             coeffs = [coeffs[i].shift(ram*prec - deg) for i in range(r + 1)]            
-            sols = dict( (a, []) for (a, b) in e )
+            sols = { a: [] for (a, b) in e }
 
             for (a, b) in e:
 
@@ -1099,7 +1099,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
 
         # determine the possible values of gamma and phi
         points = list(filter(lambda p: p[1] >= 0, [ (i, coeffs[i].degree()) for i in range(len(coeffs)) ]))
-        deg = max(list(map(lambda p: p[1], points)))
+        deg = max([p[1] for p in points])
         output = []
 
         for s, np in self.newton_polygon(~n):

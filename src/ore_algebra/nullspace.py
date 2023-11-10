@@ -324,7 +324,7 @@ def _pivot(mat, r, n, c, m, zero):
     if len(R.gens()) == 1:
         K = R.base_ring()
         if K == ZZ:
-            elsize = dict()
+            elsize = {}
             def size(ij):
                 if ij not in elsize:
                     pol = mat[ij[0] + r][ij[1] + c].coefficients()
@@ -337,13 +337,13 @@ def _pivot(mat, r, n, c, m, zero):
                 pol = mat[ij[0] + r][ij[1] + c]
                 return pol.degree() - pol.ord()
         else:
-            elsize = dict()
+            elsize = {}
             def size(ij):
                 if ij not in elsize:
                     elsize[ij] = len(mat[ij[0] + r][ij[1] + c].coefficients())
                 return elsize[ij]
     else:
-        elsize = dict()
+        elsize = {}
         def size(ij):
             if ij not in elsize:
                 elsize[ij] = len(mat[ij[0] + r][ij[1] + c].coefficients())
@@ -501,7 +501,7 @@ def sage_native(mat, degrees=[], infolevel=0):
 
     """
     _launch_info(infolevel, "sage_native", dim=mat.dimensions(), domain=mat.parent().base_ring())
-    return _normalize([v for v in mat.right_kernel_matrix()])
+    return _normalize(list(mat.right_kernel_matrix()))
 
 def gauss(pivot=_pivot, ncpus=1, fun=None):
     r"""
@@ -745,7 +745,7 @@ def _hermite(early_termination, mat, degrees, infolevel, truncate=None):
             piv = one/_leading_coefficient(v[j])
             for k in range(j, m):
                 v[k] *= piv
-    return [v for v in V]
+    return list(V)
 
 def _hermite_base(early_termination, R, A, u, D):
     ### this should be in cython. 
@@ -1952,7 +1952,7 @@ def _compress(subsolver, presolver, modulus, mat, degrees, infolevel):
     useless_rows = []
     for r in row_idx:
         _info(infolevel, "considering row ", r, " for deletion...", alter=-2)
-        row = [q for q in matp[r]]
+        row = list(matp[r])
         matp.set_row(r, [z for q in range(m)]) # replace r-th row by zeros
         if len(presolver(matp, degrees=[], infolevel=_alter_infolevel(infolevel, -3, 1))) == len(Vp):
             useless_rows.append(r) # not needed; keep the zeros and proceed

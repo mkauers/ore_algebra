@@ -1001,8 +1001,8 @@ class RatSeqBound(object):
             den = den.change_ring(self.IC)
         self.den = den
         self._rcpq_den = den.reverse()
-        self.exn = dict((int(n), int(m))
-                        for n, m in exceptional_indices.items())
+        self.exn = {int(n): int(m)
+                        for n, m in exceptional_indices.items()}
         # temporary(?), for compatibility with the previous version
         if not self.exn:
             self.exn = {0: 1}

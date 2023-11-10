@@ -386,14 +386,14 @@ class ContinuousGeneralizedSeries(RingElement):
                 quo = ramification / new_ram
                 ramification = new_ram
 
-                exp_new = dict()
+                exp_new = {}
                 for e in exp.exponents():
                     exp_new[e/quo] = exp[e]
                 exp = exp.parent()(exp_new) # exp = exp(x^(1/quo))
 
                 p_new = []
                 for c in p.coefficients(sparse=False):
-                    c_new = dict()
+                    c_new = {}
                     for e in c.exponents():
                         c_new[int(e/quo)] = c[e]
                     p_new.append(c.parent()(c_new))
@@ -1182,14 +1182,14 @@ class DiscreteGeneralizedSeries(RingElement):
 
             quo = ram/new_ram
 
-            subexp_new = dict()
+            subexp_new = {}
             for e in self.__subexp.exponents():
                 subexp_new[e/quo] = self.__subexp[e]
             self.__subexp = self.__subexp.parent()(subexp_new)
 
             expansion_new = []
             for c in self.__expansion.coefficients(sparse=False):
-                c_new = dict()
+                c_new = {}
                 for e in c.exponents():
                     c_new[int(e/quo)] = c[e]
                 expansion_new.append(c.parent()(c_new, c.prec()/quo))

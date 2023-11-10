@@ -325,7 +325,7 @@ class LogSeriesInitialValues(object):
                             for ini in values.values()))
         else:
             all_values = values
-            values = dict((n, (values[n],)) for n in range(len(values)))
+            values = {n: (values[n],) for n in range(len(values))}
         self.universe = Sequence(all_values).universe()
         if not utilities.is_numeric_parent(self.universe):
             raise ValueError("initial values must coerce into a ball field")

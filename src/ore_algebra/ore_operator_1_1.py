@@ -188,15 +188,15 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
             degree = L._degree_bound()
 
         if rhs:
-            degree = max(degree, max(list(map(lambda p: L.order() + p.degree(), rhs))))
+            degree = max(degree, max([L.order() + p.degree() for p in rhs]))
 
         if degree < 0 and not rhs:
             return []
 
         x = L.base_ring().gen()
         sys = [-L(x**i) for i in range(degree + 1)] + list(rhs)
-        neqs = max(1, max(list(map(lambda p: p.degree() + 1, sys))))
-        sys = list(map(lambda p: p.padded_list(neqs), sys))
+        neqs = max(1, max([p.degree() + 1 for p in sys]))
+        sys = [p.padded_list(neqs) for p in sys]
         
         if solver is None:
             solver = A._solver(K)
@@ -460,13 +460,13 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
 
         if (x*p).is_one():
             points = [ (QQ(i), QQ(coeffs[i].degree())) for i in range(len(coeffs)) if coeffs[i]!=0 ]
-            coeffs = dict( (i, coeffs[i].leading_coefficient()) \
-                           for i in range(len(coeffs)) if coeffs[i]!=0 )
+            coeffs = { i: coeffs[i].leading_coefficient() \
+                           for i in range(len(coeffs)) if coeffs[i]!=0 }
             flip = -1
         else:
             points = [ (QQ(i), QQ(coeffs[i].valuation(p))) for i in range(len(coeffs)) if coeffs[i]!=0 ]
-            coeffs = dict( (i, (coeffs[i]//p**coeffs[i].valuation(p))(0)) \
-                           for i in range(len(coeffs)) if coeffs[i]!=0 )
+            coeffs = { i: (coeffs[i]//p**coeffs[i].valuation(p))(0) \
+                           for i in range(len(coeffs)) if coeffs[i]!=0 }
             flip = 1 
 
         output = []
@@ -994,7 +994,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         L = L.parent()(coeffs)
         r = L.order()
 
-        imgs = dict( (y, hash(y)) for y in R.base_ring().gens_dict_recursive() )
+        imgs = { y: hash(y) for y in R.base_ring().gens_dict_recursive() }
         R_img = QQ # coefficient ring after evaluation of parameters
         ev = (lambda p: p) if len(imgs) == 0 else (lambda p: p(**imgs))
         x = R.gen()
@@ -1028,10 +1028,10 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
 
         output = []
         lctc_factors = sf(L[0]*L[r])
-        tc_factor_dict = dict( (u, sum(w for _, w in v) - 1) for u, v in 
-                               sf(prod(u for u, _ in lctc_factors)*L[0]) )
-        lc_factor_dict = dict( (u, sum(w for _, w in v) - 1) for u, v in 
-                               sf(prod(u for u, _ in lctc_factors)*L[r]) )
+        tc_factor_dict = { u: sum(w for _, w in v) - 1 for u, v in 
+                               sf(prod(u for u, _ in lctc_factors)*L[0]) }
+        lc_factor_dict = { u: sum(w for _, w in v) - 1 for u, v in 
+                               sf(prod(u for u, _ in lctc_factors)*L[r]) }
 
         for pol, e in lctc_factors:
 
@@ -1318,7 +1318,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
 
             if stat[1] > 0 and stat[1] % 1000 == 0:
                 info(2, "%i/%i combinations completed (%.2f%%)" % (stat[1], stat[0], 100.0*stat[1]/stat[0]))
-                info(3, "%.2f%% disc. by dimension, %.2f%% disc. by Fuchs-relation, %.4f%% disc. by degree, %.4f%% actually solved" % tuple(map(lambda u: 100.0*u/stat[1], [stat[2], stat[3], stat[4], stat[1] - (stat[2]+stat[3]+stat[4])])))
+                info(3, "%.2f%% disc. by dimension, %.2f%% disc. by Fuchs-relation, %.4f%% disc. by degree, %.4f%% actually solved" % tuple((100.0*u/stat[1] for u in [stat[2], stat[3], stat[4], stat[1] - (stat[2]+stat[3]+stat[4])])))
 
             stat[1] += 1
 
