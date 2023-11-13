@@ -357,13 +357,13 @@ class DFiniteFunctionRing(Algebra):
             singularities_positive = ann.singularities()
             singularities_negative = set()
             if self._backward_calculation is True:
-                singularities_negative = set([n for n in ann.singularities(True) if n < 0])
+                singularities_negative = {n for n in ann.singularities(True) if n < 0}
 
             initial_val = set(range(ord)).union(singularities_positive, singularities_negative)
             if self._backward_calculation is True:
-                pols = set(r for (r,m) in g.roots() if r in ZZ)
+                pols = {r for (r,m) in g.roots() if r in ZZ}
             else:
-                pols = set(r for (r,m) in g.roots() if r in NN)
+                pols = {r for (r,m) in g.roots() if r in NN}
                     
             int_val = {n:x(n) if n not in pols else None for n in initial_val}
             for n in pols:
@@ -510,7 +510,7 @@ class DFiniteFunctionRing(Algebra):
                     singularities_positive = ann.singularities()
                     singularities_negative = set()
                     if self._backward_calculation is True:
-                        singularities_negative = set([i for i in ann.singularities(True) if i < 0])
+                        singularities_negative = {i for i in ann.singularities(True) if i < 0}
                     int_val = set(range(ord)).union(singularities_positive, singularities_negative)
                     initial_val = {i: exp(n = i) for i in int_val}
                     return UnivariateDFiniteSequence(self,ann,initial_val)
@@ -528,7 +528,7 @@ class DFiniteFunctionRing(Algebra):
                     singularities_positive = ann.singularities()
                     singularities_negative = set()
                     if self._backward_calculation is True:
-                        singularities_negative = set([i for i in ann.singularities(True) if i < 0])
+                        singularities_negative = {i for i in ann.singularities(True) if i < 0}
                     int_val = set(range(ord)).union(singularities_positive, singularities_negative)
                     initial_val = {i: exp.subs(inner == var('n'))(n = i) for i in int_val}
                     #if inner == n we are done
@@ -749,7 +749,7 @@ class DFiniteFunctionRing(Algebra):
         singularities_positive = ann.singularities()
         singularities_negative = set()
         if self._backward_calculation is True:
-            singularities_negative = set([i for i in ann.singularities(True) if i < 0])
+            singularities_negative = {i for i in ann.singularities(True) if i < 0}
         
         initial_val = set(range(degree)).union(singularities_positive, singularities_negative)
         int_val = {n:randint(-100, 100) for n in initial_val}
@@ -954,7 +954,7 @@ class DFiniteFunction(RingElement):
                 #checking if the singularities for forward calculation are really needed
                 singularities_old = self.singularities()
                 singularities_new = ann.singularities()
-                singularities_missing = set([x for x in singularities_old.symmetric_difference(singularities_new) if x > max(0,ord-1)]).union(range(ord,r))
+                singularities_missing = {x for x in singularities_old.symmetric_difference(singularities_new) if x > max(0,ord-1)}.union(range(ord,r))
                 
                 if 0 in singularities_missing:
                     singularities_missing.remove(0)
@@ -992,7 +992,7 @@ class DFiniteFunction(RingElement):
                 if self.parent()._backward_calculation is True:
                     singularities_old = self.singularities(True)
                     singularities_new = ann.singularities(True)
-                    singularities_missing = set([x for x in singularities_old.symmetric_difference(singularities_new) if x < 0])
+                    singularities_missing = {x for x in singularities_old.symmetric_difference(singularities_new) if x < 0}
                     
                     #computing the operator for backward calculation
                     start = self.expand(ord-1)
@@ -1100,7 +1100,7 @@ class DFiniteFunction(RingElement):
                 
         if n:
             # checking if all positive initial conditions are really needed
-            singularities_pos = set([x+ord for x in g_roots if x+ord > max(0,ord-1)])
+            singularities_pos = {x+ord for x in g_roots if x+ord > max(0,ord-1)}
             while len(singularities_pos) > 0:
                 k = min(singularities_pos)
                 #taking care about NONE entries
@@ -1129,7 +1129,7 @@ class DFiniteFunction(RingElement):
                 start = self.expand(ord-1)
                 start.reverse()
                 start.pop()
-                singularities_neg = set([x+min_degree for x in g_roots if x+min_degree < 0])
+                singularities_neg = {x+min_degree for x in g_roots if x+min_degree < 0}
                 while len(singularities_neg) > 0:
                     k = max(singularities_neg)
                     #taking care of None entries
@@ -1243,7 +1243,7 @@ class DFiniteFunction(RingElement):
                 critical_points.update(range(n,n+ord+1))
         
         elif self.parent()._backward_calculation is True:
-            singularities_negative = set([i for i in self.__ann.singularities(True) if i < 0])
+            singularities_negative = {i for i in self.__ann.singularities(True) if i < 0}
             for n in singularities_negative:
                 critical_points.update(range(n-ord,n+1))
         
@@ -1807,7 +1807,7 @@ class UnivariateDFiniteSequence(DFiniteFunction):
             singularities_positive = ann.singularities()
             singularities_negative = set()
             if self.parent()._backward_calculation is True:
-                singularities_negative = set([i for i in ann.singularities(True) if i < 0])
+                singularities_negative = {i for i in ann.singularities(True) if i < 0}
         
             initial_val = set(range(ord)).union(singularities_positive, singularities_negative)
             int_val = {n:self[floor(x(n))] for n in initial_val}
@@ -1933,13 +1933,13 @@ class UnivariateDFiniteSequence(DFiniteFunction):
             raise TypeError("the D-finite sequence does not come from a polynomial")
         
         #generating an equation system
-        vars = list(var('x_%d' % i) for i in range(len(base)))
+        vars = [var('x_%d' % i) for i in range(len(base))]
         c = [0]*len(base)
         for i in range(len(base)):
             base[i] = base[i][0]
             c[i] = base[i]*vars[i]
         poly = sum(c)
-        eqs = list(poly(n = k) == self[k] for k in range(max_pol, len(base)+max_pol))
+        eqs = [poly(n = k) == self[k] for k in range(max_pol, len(base)+max_pol)]
         
         #solving the system and putting results together
         result = solve(eqs,vars)
@@ -1950,7 +1950,7 @@ class UnivariateDFiniteSequence(DFiniteFunction):
         coeffs_result = [0]*len(result)
         for i in range(len(result)):
             coeffs_result[i] = result[i].rhs()
-        result = sum(list(a*b for a,b in zip(coeffs_result,base)))
+        result = sum([a*b for a,b in zip(coeffs_result,base)])
         
         #checking if the polynomial also yields the correct values for all singularities (except from pols)
         if all(result(n = k) == self[k] for k in self.initial_conditions() if self[k] is not None):
@@ -1999,7 +1999,7 @@ class UnivariateDFiniteSequence(DFiniteFunction):
             raise TypeError("the D-finite sequence does not come from a rational function")
         
         #generating an equation system
-        vars = list(var('x_%d' % i) for i in range(len(base)))
+        vars = [var('x_%d' % i) for i in range(len(base))]
         c = [0]*len(base)
         for i in range(len(base)):
             base[i] = base[i][0]
@@ -2007,7 +2007,7 @@ class UnivariateDFiniteSequence(DFiniteFunction):
         rat = sum(c)
         num = rat.numerator()
         denom = rat.denominator()
-        eqs = list(num.subs(n = k) == denom.subs(n = k)*self[k] for k in range(max_pol, len(base)+max_pol))
+        eqs = [num.subs(n = k) == denom.subs(n = k)*self[k] for k in range(max_pol, len(base)+max_pol)]
         
         #solving the system and putting results together
         result = solve(eqs,vars)
@@ -2018,7 +2018,7 @@ class UnivariateDFiniteSequence(DFiniteFunction):
         coeffs_result = [0]*len(result)
         for i in range(len(result)):
             coeffs_result[i] = result[i].rhs()
-        result = sum(list(a*b for a,b in zip(coeffs_result,base)))
+        result = sum([a*b for a,b in zip(coeffs_result,base)])
         
         #checking if the ratinoal function also yields the correct values for all singularities (except from pols)
         if all(result(n = k) == self[k] for k in self.initial_conditions() if self[k] is not None):
@@ -2053,7 +2053,7 @@ class UnivariateDFiniteSequence(DFiniteFunction):
         singularities_positive = sum_ann.singularities()
         singularities_negative = set()
         if self.parent()._backward_calculation is True:
-            singularities_negative = set([i for i in sum_ann.singularities(True) if i < 0])
+            singularities_negative = {i for i in sum_ann.singularities(True) if i < 0}
     
         initial_val = set(range(ord)).union(singularities_positive, singularities_negative)
         int_val_sum = {n:self[n] + right[n] if (self[n] is not None and right[n] is not None) else None for n in initial_val}
@@ -2126,7 +2126,7 @@ class UnivariateDFiniteSequence(DFiniteFunction):
         singularities_positive = sum_ann.singularities()
         singularities_negative = set()
         if self.parent()._backward_calculation is True:
-            singularities_negative = set([i for i in sum_ann.singularities(True) if i < 0])
+            singularities_negative = {i for i in sum_ann.singularities(True) if i < 0}
     
         initial_val = set(range(ord)).union(singularities_positive, singularities_negative)
         int_val_sum = {n:self[n] + right[n] if (self[n] is not None and right[n] is not None) else None for n in initial_val}
@@ -2215,7 +2215,7 @@ class UnivariateDFiniteSequence(DFiniteFunction):
         singularities_positive = prod_ann.singularities()
         singularities_negative = set()
         if self.parent()._backward_calculation is True:
-            singularities_negative = set([i for i in prod_ann.singularities(True) if i < 0])
+            singularities_negative = {i for i in prod_ann.singularities(True) if i < 0}
     
         initial_val = set(range(ord)).union(singularities_positive, singularities_negative)
         int_val_prod = {n:self[n] * right[n] if (self[n] is not None and right[n] is not None) else None for n in initial_val }
@@ -2293,7 +2293,7 @@ class UnivariateDFiniteSequence(DFiniteFunction):
         singularities_positive = prod_ann.singularities()
         singularities_negative = set()
         if self.parent()._backward_calculation is True:
-            singularities_negative = set([i for i in prod_ann.singularities(True) if i < 0])
+            singularities_negative = {i for i in prod_ann.singularities(True) if i < 0}
     
         initial_val = set(range(ord)).union(singularities_positive, singularities_negative)
         int_val_prod = {}
@@ -2401,7 +2401,7 @@ class UnivariateDFiniteSequence(DFiniteFunction):
         singularities_positive = interlacing_ann.singularities()
         singularities_negative = set()
         if self.parent()._backward_calculation is True:
-            singularities_negative = set([i for i in interlacing_ann.singularities(True) if i < 0])
+            singularities_negative = {i for i in interlacing_ann.singularities(True) if i < 0}
         
         initial_val = set(range(ord)).union(singularities_positive, singularities_negative)
         int_val_interlacing = {}
@@ -2492,7 +2492,7 @@ class UnivariateDFiniteSequence(DFiniteFunction):
         singularities_positive = sum_ann.singularities()
         singularities_negative = set()
         if self.parent()._backward_calculation is True:
-            singularities_negative = set([i for i in sum_ann.singularities(True) if i < 0])
+            singularities_negative = {i for i in sum_ann.singularities(True) if i < 0}
     
         initial_val = set(range(ord)).union(singularities_positive, singularities_negative)
         int_val_sum = {n : sum(self.expand(n)) if all(self[k] is not None for k in range(n+1)) else None for n in initial_val}
@@ -2568,7 +2568,7 @@ class UnivariateDFiniteSequence(DFiniteFunction):
                 return self.ann().to_list(self.initial_values(),n, -start)[start:]
 
             #3rd case: there is at least one singularity in the first n terms of the sequence
-            s = set(x for x in self.initial_conditions() if ord <= x < n)
+            s = {x for x in self.initial_conditions() if ord <= x < n}
             r = self.initial_values()
             while s:
                 m = min(s)
@@ -2875,14 +2875,14 @@ class UnivariateDFiniteFunction(DFiniteFunction):
             raise TypeError("the D-finite function is not a polynomial")
         
         #generating an equation system
-        vars = list(var('x_%d' % i) for i in range(len(base)))
+        vars = [var('x_%d' % i) for i in range(len(base))]
         c = [0]*len(base)
         for i in range(len(base)):
             base[i] = base[i][0]
             c[i] = base[i]*vars[i]
         coeffs = sum(c).coefficients(x,False)
         int_val = self.expand(len(coeffs)-1)
-        eqs = list(coeffs[k] == int_val[k] for k in range(len(coeffs)))
+        eqs = [coeffs[k] == int_val[k] for k in range(len(coeffs))]
         
         #solving the system and putting results together
         result = solve(eqs,vars)
@@ -2893,7 +2893,7 @@ class UnivariateDFiniteFunction(DFiniteFunction):
         coeffs_result = [0]*len(result)
         for i in range(len(result)):
             coeffs_result[i] = result[i].rhs()
-        poly = sum(list(a*b for a,b in zip(coeffs_result,base)))
+        poly = sum([a*b for a,b in zip(coeffs_result,base)])
         
         if all(poly.derivative(k)(x=0)/factorial(k) == self[k] for k in self.initial_conditions().initial_conditions() if (self[k] is not None and k>=0)):
             return R(poly)
@@ -2938,7 +2938,7 @@ class UnivariateDFiniteFunction(DFiniteFunction):
             raise TypeError("the D-finite function is not a rational function")
         
         #generating an equation system
-        vars = list(var('a_%d' % i) for i in range(len(base)))
+        vars = [var('a_%d' % i) for i in range(len(base))]
         c = [0]*len(base)
         for i in range(len(base)):
             base[i] = base[i][0]
@@ -2958,8 +2958,8 @@ class UnivariateDFiniteFunction(DFiniteFunction):
             raise TypeError("the D-finite function is not a rational function")
         if type(result[0]) == list:
             result = result[0]
-        coeffs_result = list( result[i].rhs() for i in range(len(result)) )
-        result = sum(list(a*b for a,b in zip(coeffs_result,base)))
+        coeffs_result = [ result[i].rhs() for i in range(len(result)) ]
+        result = sum([a*b for a,b in zip(coeffs_result,base)])
 
         if all(result.derivative(k)(x=0)/factorial(k) == self[k] for k in self.initial_conditions().initial_conditions() if (self[k] is not None and k >= 0)):
             return R.fraction_field()(result)

@@ -94,9 +94,9 @@ class CoefficientSequence(object):
 
     def handle_singular_index(self, n, mult):
 
-        self.critical_coeffs[n] = list(
+        self.critical_coeffs[n] = [
                 c.real() if self.force_real else c
-                for c in self.last[0])
+                for c in self.last[0]]
 
         nz = mult - _ctz(self.last[0], mult)
         self.log_prec += nz

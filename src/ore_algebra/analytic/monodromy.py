@@ -637,7 +637,7 @@ def monodromy_matrices(dop, base, eps=1e-16, sing=None, **kwds):
         [4.000000...] + [+/- ...]*I
     """
     it = _monodromy_matrices(dop, base, eps, sing, **kwds)
-    return list(mat for _, mat, _ in it)
+    return [mat for _, mat, _ in it]
 
 def _test_monodromy_matrices():
     r"""

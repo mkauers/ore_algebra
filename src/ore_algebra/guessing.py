@@ -1186,7 +1186,7 @@ def _rat_recon(a, m, u=None):
 
 #############################################################################
 
-_ff_cache = dict()
+_ff_cache = {}
 
 
 def _ff_factory(domain):
@@ -1195,7 +1195,7 @@ def _ff_factory(domain):
         return _ff_cache[characteristic]
     except KeyError:
         characteristic = int(characteristic)
-        c = dict()
+        c = {}
         if characteristic == 0:
             one = ZZ.one()
             def ff(u, v): ## computation in ZZ; first argument must be integer too!
@@ -1223,14 +1223,14 @@ def _ff_factory(domain):
         return ff
 
 
-_power_cache = dict()
+_power_cache = {}
 
 
 def _power_factory(domain):
     try:
         return _power_cache[domain]
     except KeyError:
-        c = dict()
+        c = {}
         domain = domain.fraction_field()
         if domain.characteristic() > 0:
             characteristic = domain.characteristic()
@@ -1527,7 +1527,7 @@ def guess_mult(data, algebra, **kwargs):
     C = R.base_ring().fraction_field().base()
     R1 = PolynomialRing(C.fraction_field(), R.gens())
     for v in sol:
-        coeffs = dict( (o, dict()) for o in op_terms )
+        coeffs = { o: {} for o in op_terms }
         d = C.one()
         for i in range(len(terms)):
             coeffs[terms[i][1]][terms[i][0]] = v[i]
@@ -1577,7 +1577,7 @@ def guess_mult_raw(C, data, terms, points, power, A, B, **kwargs):
     C = C.fraction_field()
     mat = []
     info(1, lazy_string(lambda: datetime.today().ctime() + " : setting up modular system..."))
-    monomial_cache = dict()
+    monomial_cache = {}
     range_dim = list(range(len(A)))
 
     for k, n in enumerate(points):

@@ -821,7 +821,7 @@ class PathDeformer(object):
         The extended Voronoi diagram minus the ridges crossing finite cuts.
         """
         con = Graph(self.xvor)
-        cuts = set(r for _, _, r in self.cuts)
+        cuts = {r for _, _, r in self.cuts}
         for (v0, v1, r) in self.xvor.edge_iterator():
             if r in cuts:
                 con.delete_edge(v0, v1, r)

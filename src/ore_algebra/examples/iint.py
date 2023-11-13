@@ -228,7 +228,7 @@ def get_ini_Hstar():
 
 def iint_value(dop, ini, eps=1e-16, **kwds):
     roots = dop.leading_coefficient().roots(AA, multiplicities=False)
-    sing = list(reversed(sorted([s for s in roots if 0 < s < 1])))
+    sing = sorted([s for s in roots if 0 < s < 1], reverse=True)
     path = [1] + [Point(s, dop, outgoing_branch=(0,-1)) for s in sing] + [0]
     val = dop.numerical_solution(ini, path, eps, **kwds)
     return val.real()
@@ -243,7 +243,7 @@ class _F(object):
             return QQ(1-a).sign()/(x-a)
 f = _F()
 
-h = dict()
+h = {}
 h[0] = x/(x-1)
 h[1] = sqrt(x)/((x-1)*sqrt(8+x)) # rename?
 h[2] = sqrt(x)/((x+1)*sqrt(8-x)) # rename?
@@ -252,7 +252,7 @@ h[4] = x/((x+1)*sqrt(x+_one/4))
 h[5] = x/((x-1)*sqrt(x-_one/4))
 h[6] = 1/(x+1)
 
-w = dict()
+w = {}
 w[1]  = 1/(sqrt(x)*sqrt(1-x))
 w[2]  = 1/sqrt(x*(1+x))
 w[3]  = 1/(x*sqrt(1-x))
@@ -283,7 +283,7 @@ w[27] = 1/((x+_one/2)*sqrt(x*(4-x)))
 w[28] = 1/(x*sqrt(x+_one/8))
 w[29] = 1/((1-x)*sqrt(x-_one/4))
 
-word = dict()
+word = {}
 word[ 1] = [w[2], w[1]]
 word[ 2] = [w[2], w[2], w[1]]
 word[ 3] = [w[1], f[1]]
@@ -352,7 +352,7 @@ word[68] = [h[0], w[8], w[8], f[1], f[0]]
 word[69] = [h[0], w[8], w[8], f[1], f[1]]
 word[70] = [h[0], w[8], w[8], f[-1], f[0]]
 
-ini = dict()
+ini = {}
 
 # Computed with Maple, using get_ini_Hstar and some semi-manual
 # postprocessing

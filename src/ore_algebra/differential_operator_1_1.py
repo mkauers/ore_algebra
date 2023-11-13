@@ -677,7 +677,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
                     s = G(R.one(), exp=e*c*(x**(-a)), ramification=b)
                     L = self.annihilator_of_composition(x**b).symmetric_product(x**(1-a)*D + a*c)
                     sol = L.generalized_series_solutions(n, base_extend, ramification, -a)
-                    solutions = solutions + list(map(lambda f: s*f.substitute(~b), sol))
+                    solutions = solutions + [s*f.substitute(~b) for f in sol]
 
         # tails
         indpoly = self.indicial_polynomial(R.gen(), 's')
@@ -727,13 +727,13 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
                 m = sum([ee[1] for ee in e])
                 der = [coeffs]
                 while len(der) < m:
-                    der.append(list(map(lambda g: g.derivative(), der[-1])))
+                    der.append([g.derivative() for g in der[-1]])
 
                 accum = 0
                 for a, b in e:
                     der_a = {}
                     for i in range(accum + b):
-                        der_a[i] = PS(list(map(lambda g: g(alpha - a), der[i])), len(der[i]))
+                        der_a[i] = PS([g(alpha - a) for g in der[i]], len(der[i]))
                     for i in range(accum, accum + b):
                         sol = []
                         for j in range(i + 1):

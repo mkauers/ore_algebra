@@ -294,7 +294,7 @@ class OreLeftIdeal(Ideal_nc):
             if update_hook is not None:
                 info(1, "invoking update_hook...")
                 update_hook(G, B, h)
-            C = [g for g in G]
+            C = list(G)
             C.sort(key=smallest_lt_first, reverse=True)  # smallest leading term last
             # 1. discard the pairs (C[i],h) for which there is another pair (C[j], h) with lt(C[j],h)|lt(C[i],h)
             for i in range(len(C)):

@@ -1246,14 +1246,14 @@ class UnivariateOreOperator(OreOperator):
         if solver is None:
             solver = A.parent()._solver()
 
-        sys = Matrix(list(map(lambda p: p.coefficients(sparse=False,padd=t), rowsA + rowsB))).transpose()
+        sys = Matrix([p.coefficients(sparse=False,padd=t) for p in rowsA + rowsB]).transpose()
         sol = solver(sys)
 
         while len(sol) == 0:
             t += 1
             rowsA.append(D*rowsA[-1])
             rowsB.append(D*rowsB[-1])
-            sys = Matrix(list(map(lambda p: p.coefficients(sparse=False,padd=t), rowsA + rowsB))).transpose()
+            sys = Matrix([p.coefficients(sparse=False,padd=t) for p in rowsA + rowsB]).transpose()
             sol = solver(sys)
 
         U = A.parent()(list(sol[0])[:t+1-r])
