@@ -13,6 +13,8 @@ Miscellaneous utilities
 # http://www.gnu.org/licenses/
 
 import itertools
+import warnings
+
 from builtins import zip
 
 import sage.rings.complex_arb
@@ -286,3 +288,18 @@ def binomial_coefficients(s):
         for k in range(1, n + 1):
             binom[n][k] = binom[n-1][k-1] + binom[n-1][k]
     return binom
+
+def warn_no_cython_extensions(logger, *, fallback=False):
+    import sage.version
+    msg = "Cython extensions not found."
+    if fallback:
+        msg += " Falling back to slower Python implementation."
+    if list(map(int, sage.version.version.split('.')[:2])) < [10, 2]:
+        msg += (
+            f" (Hint: You are using SageMath version {sage.version.version}."
+            " The Cython extensions in this version of ore_algebra require"
+            " SageMath 10.2 or later."
+            " Consider upgrading SageMath or downgrading ore_algebra to git"
+            " commit 73a430aaf.)")
+    warnings.warn(msg, stacklevel=2)
+

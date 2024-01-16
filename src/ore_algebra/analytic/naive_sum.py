@@ -47,8 +47,7 @@ def cy_classes():
         from . import naive_sum_c
         return naive_sum_c.CoefficientSequence, naive_sum_c.PartialSum
     except ImportError:
-        warnings.warn("Cython implementation unavailable, "
-                      "falling back to slower Python implementation")
+        utilities.warn_no_cython_extensions(logger, fallback=True)
         return CoefficientSequence, PartialSum
 
 class CoefficientSequence(object):
