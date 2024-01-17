@@ -67,11 +67,11 @@ class StepMatrix_arb(binary_splitting.StepMatrix_arb):
             # the inner polynomial to have valuation > 0.
             # TODO: Maybe use evaluate or evaluate2 instead when applicable.
             acb_poly_taylor_shift(
-                    val_pert.__poly,
-                    (<Polynomial_complex_arb> (rec.bwrec.coeff[i])).__poly,
+                    val_pert._poly,
+                    (<Polynomial_complex_arb> (rec.bwrec.coeff[i]))._poly,
                     n, prec)
             acb_poly_truncate(
-                    val_pert.__poly,
+                    val_pert._poly,
                     ord_log + mult)
             bwrec_n[i] = val_pert
         acb_clear(n)
@@ -79,7 +79,7 @@ class StepMatrix_arb(binary_splitting.StepMatrix_arb):
         den = ComplexBall.__new__(ComplexBall)
         den._parent = rec.bwrec.Scalars
 
-        lc = (<Polynomial_complex_arb> (bwrec_n[0])).__poly
+        lc = (<Polynomial_complex_arb> (bwrec_n[0]))._poly
         for i in range(mult):
             assert acb_contains_zero(acb_poly_get_coeff_ptr(lc, i)), "!= 0"
         acb_poly_shift_right(lc, lc, mult)
@@ -134,8 +134,8 @@ class StepMatrix_arb(binary_splitting.StepMatrix_arb):
 
         for i in range(rec.ordrec):
             acb_poly_mullow(
-                    (<Polynomial_complex_arb> (bwrec_n[1+i])).__poly,
-                    (<Polynomial_complex_arb> (bwrec_n[1+i])).__poly,
+                    (<Polynomial_complex_arb> (bwrec_n[1+i]))._poly,
+                    (<Polynomial_complex_arb> (bwrec_n[1+i]))._poly,
                     lc, ord_log, prec)
 
         # TODO: implement the gcd of Gaussian integers represented as acb
@@ -160,7 +160,7 @@ class StepMatrix_arb(binary_splitting.StepMatrix_arb):
         seqs = [[zpol._new() for _ in range(rec.ordrec)]
                 for _ in range(rec.ordrec)]
         for k in range(1, rec.ordrec + 1):
-            acb_poly_one((<Polynomial_complex_arb> (seqs[-k][-k])).__poly)
+            acb_poly_one((<Polynomial_complex_arb> (seqs[-k][-k]))._poly)
 
         return zero, row, seqs
 
@@ -188,8 +188,8 @@ class StepMatrix_arb(binary_splitting.StepMatrix_arb):
 
         for q in range(ord_log):
             for p in range(ord_diff):
-                a = acb_poly_get_coeff_ptr(pow_num.__poly, p)
-                b = acb_poly_get_coeff_ptr(mynum.__poly, q)
+                a = acb_poly_get_coeff_ptr(pow_num._poly, p)
+                b = acb_poly_get_coeff_ptr(mynum._poly, q)
                 c = <ComplexBall> ((<list> (<list> psum)[q])[p])
                 if a != NULL and b != NULL:
                     acb_addmul(c.value, a, b, prec)
@@ -223,17 +223,17 @@ class StepMatrix_arb(binary_splitting.StepMatrix_arb):
         for k in range(1, len(bwrec_n)):
             coef = <Polynomial_complex_arb> (bwrec_n[k])
             mynum = <Polynomial_complex_arb> (num[len_num-k])
-            acb_poly_mullow(tmppol, coef.__poly, mynum.__poly, ord_log, prec)
+            acb_poly_mullow(tmppol, coef._poly, mynum._poly, ord_log, prec)
             acb_poly_sub(u_n, u_n, tmppol, prec)
         acb_poly_clear(tmppol)
 
         for k in range(len_num - 1):
             acb_poly_scalar_mul(
-                    (<Polynomial_complex_arb> num[k]).__poly,
-                    (<Polynomial_complex_arb> num[k+1]).__poly,
+                    (<Polynomial_complex_arb> num[k])._poly,
+                    (<Polynomial_complex_arb> num[k+1])._poly,
                     rec_den_n.value, prec)
 
-        acb_poly_swap((<Polynomial_complex_arb> num[len_num-1]).__poly, u_n)
+        acb_poly_swap((<Polynomial_complex_arb> num[len_num-1])._poly, u_n)
         acb_poly_clear(u_n)
 
     @cython.boundscheck(False)
@@ -254,7 +254,7 @@ class StepMatrix_arb(binary_splitting.StepMatrix_arb):
         cdef unsigned long prec = Scalars.precision()
 
         cdef acb_poly_struct *low_pow_num # why isn't this working with _ptr?
-        low_pow_num = (<Polynomial_complex_arb> ((<list> low.pow_num)[i])).__poly
+        low_pow_num = (<Polynomial_complex_arb> ((<list> low.pow_num)[i]))._poly
         cdef Polynomial low_rec_mat = <Polynomial> (low.rec_mat)
 
         cdef acb_t high_den

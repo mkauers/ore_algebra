@@ -142,13 +142,13 @@ class PartialSum(naive_sum.PartialSum):
             poly = <Polynomial_complex_arb> Polynomial_complex_arb.__new__(Polynomial_complex_arb)
             poly._parent = (<Polynomial_complex_arb> (psum[k]))._parent
             acb_poly_scalar_mul(
-                    poly.__poly,
-                    (<Polynomial_complex_arb> jetpow).__poly,
+                    poly._poly,
+                    (<Polynomial_complex_arb> jetpow)._poly,
                     (<ComplexBall> last_0[k]).value,
                     prec)
             acb_poly_add(
-                    poly.__poly,
-                    (<Polynomial_complex_arb> (psum[k])).__poly,
-                    poly.__poly,
+                    poly._poly,
+                    (<Polynomial_complex_arb> (psum[k]))._poly,
+                    poly._poly,
                     prec)
             psum[k] = poly

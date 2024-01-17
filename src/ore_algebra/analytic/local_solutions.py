@@ -195,7 +195,7 @@ class BwShiftRec(object):
         try:
             from . import eval_poly_at_int
         except ImportError:
-            warnings.warn("Cython code not found")
+            utilities.warn_no_cython_extensions(logger, fallback=True)
             return generic_eval, False
 
         if isinstance(self.Scalars, ComplexBallField):
