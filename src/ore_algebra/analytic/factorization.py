@@ -859,8 +859,7 @@ def _euler_representation(dop):
     for k in range(1, n+1):
 
         newl = [0]
-        for i in range(1, len(l)):
-            newl.append((-k+1)*l[i]+l[i-1])
+        newl.extend((-k+1)*l[i]+l[i-1]for i in range(1, len(l)))
         l = newl + [1]
 
         ck = dop[k]

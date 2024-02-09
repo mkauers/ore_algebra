@@ -808,14 +808,11 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         Q = K.base_ring()
         R2 = R.change_ring(PolynomialRing(PolynomialRing(Q,[('c'+str(i)+str(j)) for i in range(oBound) for j in range(dBound)]),K.gen()))
         L = reduce(lambda x,y: x+y,[reduce(lambda x,y: x+y,[R2.base_ring().base_ring().gens()[i+j*dBound]*R2.base_ring().gen()**i for i in range(dBound)])*R2.gen()**j for j in range(oBound)])
-        C=L*self-self*L
-        SYS=[]
-        for sC in C.coefficients(sparse=False):
-            for nC in sC.coefficients(sparse=False):
-                l=[]
-                for cC in R2.base_ring().base_ring().gens():
-                    l.append(Q(nC.coefficient(cC)))
-                SYS.append(l)
+        C = L*self-self*L
+        gens = R2.base_ring().base_ring().gens()
+        SYS = [[Q(nC.coefficient(cC)) for cC in gens]
+               for sC in C.coefficients(sparse=False)
+               for nC in sC.coefficients(sparse=False)]
         return Matrix(SYS).right_kernel()
 
     def radical(self):
@@ -1288,10 +1285,9 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
             info(1, "Searching for factors with singularities only at special points.")
             for gamma, phi, d, _ in special_local_data.setdefault(0, []):
                 if d in ZZ and d >= 0:
-                    f = []
-                    for p in SELF.symmetric_product(phi*x**gamma*S - 1).polynomial_solutions(degree=d):
-                        f.append( (p[0]*S - phi*x**gamma*sigma(p[0])).normalize() )
-                    if len(f) > 0:
+                    f = [(p[0]*S - phi*x**gamma*sigma(p[0])).normalize()
+                         for p in SELF.symmetric_product(phi*x**gamma*S - 1).polynomial_solutions(degree=d)]
+                    if f:
                         factors.append(f)
                         if early_termination:
                             return factors

@@ -649,11 +649,10 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
 
         if exp > 0:
 
-            points = []
             c = self.coefficients(sparse=False)
-            for i in range(self.order() + 1):
-                if not c[i].is_zero():
-                    points.append((QQ(i), QQ(c[i].valuation())))
+            points = [(QQ(i), QQ(c[i].valuation()))   # UNUSED !
+                      for i in range(self.order() + 1)
+                      if not c[i].is_zero()]
 
             y = R.base_ring()['x'].gen()  # variable name changed from y to x to avoid PARI warning
             x = R.gen()
@@ -2225,7 +2224,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             sage: [p.order() for p in pc] # long time (previous)
             [2]
 
-        """        
+        """
         ww = self.global_integral_basis(iota=iota, infolevel=infolevel, **val_kwargs)
         vv = self.local_integral_basis_at_infinity(iota=iota, infolevel=infolevel, **val_kwargs)
 
@@ -2234,11 +2233,9 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         res = []
         for i in range(len(ww)):
             if tau[i] >= 0:
-                for j in range(tau[i]+1):
-                    res.append(x**j * ww[i])
+                res.extend(x**j * ww[i] for j in range(tau[i] + 1))
         Dx = self.parent().gen()
-        res = [r for r in res if (Dx*r).quo_rem(self)[1] != 0]
-        return res
+        return [r for r in res if (Dx * r).quo_rem(self)[1] != 0]
 
     def is_fuchsian(self):
         r"""

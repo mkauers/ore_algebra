@@ -2945,18 +2945,18 @@ class UnivariateDFiniteFunction(DFiniteFunction):
             c[i] = base[i]*vars[i]
         
         rat = sum(c)
-        coeffs_num = rat.numerator().coefficients(x,False)
-        coeffs_denom = rat.denominator().coefficients(x,False)
-        
-        eqs = []
-        for k in range(len(coeffs_num)):
-            eqs.append( coeffs_num[k] == sum(coeffs_denom[i]*self[k-i] for i in range(len(coeffs_denom))) )
-        
-        #solving the system and putting results together
-        result = solve(eqs,vars)
+        coeffs_num = rat.numerator().coefficients(x, False)
+        coeffs_denom = rat.denominator().coefficients(x, False)
+
+        eqs = [coeff_k == sum(coeff_i * self[k - i]
+                              for i, coeff_i in enumerate(coeffs_denom))
+               for k, coeff_k in enumerate(coeffs_num)]
+
+        # solving the system and putting results together
+        result = solve(eqs, vars)
         if len(result) == 0:
             raise TypeError("the D-finite function is not a rational function")
-        if type(result[0]) == list:
+        if isinstance(result[0], list):
             result = result[0]
         coeffs_result = [ result[i].rhs() for i in range(len(result)) ]
         result = sum([a*b for a,b in zip(coeffs_result,base)])

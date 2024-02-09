@@ -1254,15 +1254,12 @@ class OreAlgebra_generic(UniqueRepresentation, Algebra):
         sigma = self.sigma(n)
         delta = self.delta(n)
         one = self.base_ring().one()
-        candidates = []
-        
-        for x in self.base_ring().gens():
-            if sigma(x) == x and delta(x) == one:
-                candidates.append(x)
+        candidates = [x for x in self.base_ring().gens()
+                      if sigma(x) == x and delta(x) == one]
 
         self.__is_D[n] = candidates[0] if len(candidates) == 1 else False
-        
-        return self.__is_D[n]        
+
+        return self.__is_D[n]
 
     def is_S(self, n=0):
         r"""
@@ -1292,15 +1289,12 @@ class OreAlgebra_generic(UniqueRepresentation, Algebra):
         R = self.base_ring()
         one = R.one()
         zero = R.zero()
-        candidates = []
-        
-        for x in R.gens():
-            if sigma(x) == x + one and delta(x) == zero:
-                candidates.append(x)
+        candidates = [x for x in R.gens()
+                      if sigma(x) == x + one and delta(x) == zero]
 
         self.__is_S[n] = candidates[0] if len(candidates) == 1 else False
-        
-        return self.__is_S[n]        
+
+        return self.__is_S[n]
 
     def is_C(self, n=0):
         r"""
@@ -1387,11 +1381,9 @@ class OreAlgebra_generic(UniqueRepresentation, Algebra):
         delta = self.delta(n)
         R = self.base_ring()
         one = R.one()
-        candidates = []
 
-        for x in R.gens():
-            if sigma(x) == x + one and delta(x) == one:
-                candidates.append(x)
+        candidates = [x for x in R.gens()
+                      if sigma(x) == x + one and delta(x) == one]
 
         self.__is_F[n] = candidates[0] if len(candidates) == 1 else False
 
@@ -1440,11 +1432,8 @@ class OreAlgebra_generic(UniqueRepresentation, Algebra):
         sigma = self.sigma(n)
         delta = self.delta(n)
         R = self.base_ring()
-        candidates = []
-
-        for x in R.gens():
-            if sigma(x) == x and delta(x) == x:
-                candidates.append(x)
+        candidates = [x for x in R.gens()
+                      if sigma(x) == x and delta(x) == x]
 
         self.__is_T[n] = candidates[0] if len(candidates) == 1 else False
 
