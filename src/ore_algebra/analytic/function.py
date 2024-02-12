@@ -432,7 +432,7 @@ class DFiniteFunction(object):
                                x_range, color=color)
                 g += plot.text(str(a.prec), (center, a.pol(center).mid()),
                                color=color)
-        for point, ini in self._inivecs.items():
+        for point in self._inivecs:
             g += plot.point2d((point, 0), size=50)
         return g
 

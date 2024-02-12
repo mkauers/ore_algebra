@@ -1933,12 +1933,9 @@ def _compress(subsolver, presolver, modulus, mat, degrees, infolevel):
     _info(infolevel, len(Vp), "solutions expected", alter=-1)
 
     # determine indices of unnecessary columns, if there are any.
-    useless_columns = []
-    for j in range(m):
-        if not any(v[j] for v in Vp):
-            useless_columns.append(j)
-    
-    if len(useless_columns) > 0:
+    useless_columns = [j for j in range(m) if not any(v[j] for v in Vp)]
+
+    if useless_columns:
         _info(infolevel, "discarding", len(useless_columns), "columns", alter=-1)
         mat = mat.delete_columns(useless_columns)
 

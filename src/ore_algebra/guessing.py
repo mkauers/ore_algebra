@@ -430,10 +430,9 @@ def guess_raw(data, A, order=-1, degree=-1, lift=None, solver=None, cut=25, ensu
 
     sigma = A.sigma()
     for l in range(len(sol)):
-        c = []
         s = list(sol[l])
-        for j in range(order + 1):
-            c.append(sigma(R(s[j*(degree + 1):(j + 1)*(degree + 1)]), j))
+        c = [sigma(R(s[j*(degree + 1):(j + 1)*(degree + 1)]), j)
+             for j in range(order + 1)]
         sol[l] = A(c)
         sol[l] *= ~sol[l].leading_coefficient().leading_coefficient()
         if sol[l].is_one() and any(data): # catch degenerate solution obtained for [0,0,0,1]
@@ -615,15 +614,13 @@ def _guess_via_hom(data, A, modulus, to_hom, **kwargs):
         c = []
         for i in range(r + 1):
             p = L[i]
-            for j in range(d + 1):
-                c.append(p[j])
+            c.extend(p[j] for j in range(d + 1))
         return vector(K, c)
 
     def vec2op(v, r, d):
         # convert a vector of dimension (r+1)*(d+1) into an operator of order <=r and degree <=d.
-        c = []
-        for i in range(r + 1):
-            c.append(R([v[(d + 1)*i + j] for j in range(d + 1)]))
+        c = [R([v[(d + 1)*i + j] for j in range(d + 1)])
+             for i in range(r + 1)]
         return A(c)
 
     while mod != 0:
@@ -1054,9 +1051,8 @@ def _merge_homomorphic_images(v, mod, vp, p, reconstruct=True):
         mod0 = R(mod0*p)
         p0 = R(p0*mod)
 
-        coords = []
-        for i in range(len(v)):
-            coords.append(mod0*v[i] + p0*B(vp[i]))
+        coords = [mod0 * v[i] + p0 * B(vp[i])
+                  for i in range(len(v))]
 
         vmod = vector(R, coords)
         mod *= p
@@ -1337,7 +1333,7 @@ def guess_mult(data, algebra, **kwargs):
     # 1. extract configuration from options and check input for plausibility
     l = data
     dims = []
-    while type(l) in (list, tuple):
+    while isinstance(l, (list, tuple)):
         dims.append(len(l))
         l = l[0]
     dim = len(dims)
@@ -1347,27 +1343,26 @@ def guess_mult(data, algebra, **kwargs):
     ord = kwargs.setdefault('order', 2)
     if ord in ZZ:
         ord = [ord for i in range_dim]
-    assert(dim == len(ord))
+    assert dim == len(ord)
 
     gens = list(algebra.gens())
     vars = algebra.base_ring().gens()
-    assert(dim == len(vars) == len(gens))
+    assert dim == len(vars) == len(gens)
 
     info(1, lazy_string(lambda: datetime.today().ctime() + ": multivariate guessing started."))
     info(1, "dim(data)=" + str(dim) + ", algebra=" + str(algebra._latex_()))
 
     # 2. prepare polynomial terms, operator terms (structure set), and all terms
     from itertools import combinations_with_replacement, product
-    pol_terms = [tuple(0 for i in range_dim)] # exponent vector (0,...,0)
-    for d in range(1, deg + 1): # create exponent vectors for terms of total degree d
-        for p in combinations_with_replacement(vars, d):
-            pol_terms.append( tuple(p.count(x) for x in vars) )
+    pol_terms = [tuple(0 for i in range_dim)]  # exponent vector (0,...,0)
+    pol_terms.extend(tuple(p.count(x) for x in vars)
+                     for d in range(1, deg + 1)
+                     # create exponent vectors for terms of total degree d
+                     for p in combinations_with_replacement(vars, d))
 
-    op_terms = []
     f = kwargs.setdefault('term_filter', lambda x: True)
-    for o in product(*[list(range(ord[i] + 1)) for i in range_dim]):
-        if f(o) or f(prod(gens[i]**o[i] for i in range_dim)):
-            op_terms.append(o)
+    op_terms = [o for o in product(*[range(ord[i] + 1) for i in range_dim])
+                if f(o) or f(prod(gens[i]**o[i] for i in range_dim))]
 
     terms = [(p, o) for o in op_terms for p in pol_terms]
     info(1, str(len(terms)) + " terms.")

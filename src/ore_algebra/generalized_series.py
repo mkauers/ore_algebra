@@ -994,12 +994,9 @@ class ContinuousGeneralizedSeries(RingElement):
           `c \neq 0` , is a term of the polynomial part of ``self``
         """
         cc = self.__tail.coefficients(sparse=False)
-        L = []
-        for i in range(len(cc)):
-            for j in range(cc[i].degree() + 1):
-                if cc[i][j] != 0:
-                    L.append((i, j))
-        return L
+        return [(i, j) for i in range(len(cc))
+                for j in range(cc[i].degree() + 1)
+                if cc[i][j] != 0]
 
     def valuation(self, base=QQ, iota=None):
         r"""
