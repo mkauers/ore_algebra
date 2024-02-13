@@ -511,7 +511,7 @@ def first_step(zs, z0, z1, orient, loops):
 # Global path deformation
 ######################################################################
 
-class DegenerateVoronoi(object):
+class DegenerateVoronoi:
     r"""
     Voronoi diagram of zero or more aligned points, in a format compatible (for
     our purposes) with the output of scipy.spatial.Voronoi.
@@ -538,7 +538,7 @@ class DegenerateVoronoi(object):
 
         self.hull = point_indices + list(reversed(point_indices[1:-1]))
 
-class VoronoiStep(object):
+class VoronoiStep:
     r"""
     A “combinatorial” step.
 
@@ -567,7 +567,7 @@ class VoronoiStep(object):
     def __repr__(self):
         return "{}→{}({})".format(self.v0, self.v1, self.ridge)
 
-class PathDeformer(object):
+class PathDeformer:
 
     def __init__(self, path, dop=None, max_subdivide=100):
         if dop is None: # then interpret path as a Path object
@@ -654,7 +654,7 @@ class PathDeformer(object):
         hull = [s for s in range(len(self.voronoi.points))
                 if -1 in self.voronoi.regions[self.voronoi.point_region[s]]]
         z0 = self.sing[hull[0]]
-        class Key(object):
+        class Key:
             def __init__(key, i):
                 key.i = i
             def __lt__(key0, key1, eps=eps):

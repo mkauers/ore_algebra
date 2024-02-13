@@ -51,7 +51,7 @@ logger = logging.getLogger(__name__)
 
 RealPolApprox = collections.namedtuple('RealPolApprox', ['pol', 'prec'])
 
-class DFiniteFunction(object):
+class DFiniteFunction:
     r"""
     At the moment, this class just provides a simple caching mechanism for
     repeated evaluations of a D-Finite function on the real line. It may

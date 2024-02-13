@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 class PrecisionError(Exception):
     pass
 
-class BoundCallbacks(object):
+class BoundCallbacks:
     r"""
     Used by StoppingCriterion.
     """
@@ -70,7 +70,7 @@ class BoundCallbacks(object):
         """
         raise NotImplementedError
 
-class StoppingCriterion(object):
+class StoppingCriterion:
     r"""
     Condition for dynamically deciding where to truncate a series.
 

@@ -160,7 +160,7 @@ class BoundPrecisionError(Exception):
 # Majorant series
 ######################################################################
 
-class MajorantSeries(object):
+class MajorantSeries:
     r"""
     A formal power series with nonnegative coefficients
     """
@@ -857,7 +857,7 @@ def _complex_roots(pol, IC):
 # - better take into account the range of derivatives needed at each step,
 # - allow ord to vary?
 
-class RatSeqBound(object):
+class RatSeqBound:
     r"""
     Bounds on the tails of a.e. rational sequences and their derivatives.
 
@@ -1515,7 +1515,7 @@ def bound_polynomials(pols, Poly):
     maj <<= val
     return maj
 
-class DiffOpBound(object):
+class DiffOpBound:
     r"""
     A “bound” on the “inverse” of a differential operator at a regular point.
 
@@ -2430,7 +2430,7 @@ class DiffOpBound(object):
         p.set_legend_options(handlelength=4, shadow=False)
         return p
 
-class MultiDiffOpBound(object):
+class MultiDiffOpBound:
     r"""
     Ad hoc wrapper for passing several DiffOpBounds to StopOnRigorousBound.
 

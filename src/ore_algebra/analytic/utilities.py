@@ -39,7 +39,7 @@ from sage.structure.sequence import Sequence
 # Timing
 ######################################################################
 
-class Clock(object):
+class Clock:
     def __init__(self, name="time"):
         self.name = name
         self._sum = 0.
@@ -57,7 +57,7 @@ class Clock(object):
         self._sum += cputime(self._tic)
         self._tic = None
 
-class Stats(object):
+class Stats:
     def __repr__(self):
         return ", ".join(str(clock) for clock in self.__dict__.values()
                                     if isinstance(clock, Clock))

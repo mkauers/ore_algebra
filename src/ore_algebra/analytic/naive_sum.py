@@ -50,7 +50,7 @@ def cy_classes():
         utilities.warn_no_cython_extensions(logger, fallback=True)
         return CoefficientSequence, PartialSum
 
-class CoefficientSequence(object):
+class CoefficientSequence:
 
     def __init__(self, Intervals, ini, ordrec, real):
         r"""
@@ -139,7 +139,7 @@ class CoefficientSequence(object):
 
         return err
 
-class PartialSum(object):
+class PartialSum:
 
     def __init__(self, cseq, Jets, ord, pt, pt_opts, IR):
 

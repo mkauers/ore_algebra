@@ -1001,7 +1001,7 @@ class OreLeftIdeal(Ideal_nc):
     creative_telescoping = ct
 
 
-class MonomialIterator(object):
+class MonomialIterator:
     """
     Iterate in increasing order over the monomials that are below some staircase that is determined in parallel to the iteration.
     Tool for FGLM.
