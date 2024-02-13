@@ -13,6 +13,7 @@ Miscellaneous utilities
 # http://www.gnu.org/licenses/
 
 import itertools
+import sys
 import warnings
 
 from builtins import zip
@@ -289,7 +290,7 @@ def binomial_coefficients(s):
             binom[n][k] = binom[n-1][k-1] + binom[n-1][k]
     return binom
 
-def ctz(vec, maxlen):
+def ctz(vec, maxlen=sys.maxsize):
     z = 0
     for m in range(min(len(vec), maxlen)):
         if vec[-1 - m].is_zero():

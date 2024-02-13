@@ -111,6 +111,8 @@ from .bounds import DiffOpBound
 from .context import dctx
 from .local_solutions import HighestSolMapper, log_series_values
 
+from .dac_sum_c import DACUnroller
+
 
 logger = logging.getLogger(__name__)
 
@@ -126,7 +128,7 @@ logger = logging.getLogger(__name__)
 # different indexing conventions).
 
 
-class DACUnroller:
+class PythonDACUnroller:
 
     def __init__(self, dop_T, ini, evpts, Ring, *, ctx=dctx):
 
@@ -166,11 +168,14 @@ class DACUnroller:
 
         self.critical_coeffs = {}
 
-        # self._last = None
-        self._residual = None
+        self._last = None
+
+        # Internal stuff
 
         self.__eval_ind_cache_key = None
         self.__eval_ind_cache_val = None
+        self._residual = None
+
 
     # Maybe get rid of this and use sum_dac only?
     def sum_blockwise(self, stop):
@@ -197,10 +202,13 @@ class DACUnroller:
             if b % blkstride == 0:
                 done, tb = self.check_convergence(stop, (b+1)*blksz, blkseries,
                                                   rhs, tb, radpow,
-                                                  blkstride*blksz)
+                                                  blkstride*blksz, blksz)
             if done:
                 break
             radpow *= radpow_blk
+            # could gain a bit of time by doing multiplying block _sums_ (not
+            # recursively) by powers of the evaluation point, ideally with a √N
+            # × √N split
             jetpows = [jet0._mul_trunc_(jet1, self.evpts.jet_order)
                        for (jet0, jet1) in zip(jetpows_blk, jetpows)]
 
@@ -274,13 +282,15 @@ class DACUnroller:
         """
 
         mult = len(self.ini.shift.get(n, ()))
+        # max(len(rhs), len(rhs) - ctz(rhz) + mult), where the first case
+        # ensures that log_prec is nondecreasing
         log_prec = len(rhs) + mult - utilities.ctz(rhs, mult)
 
         ind_n = self.eval_ind(n, log_prec)
 
         invlc = None
         new_term = vector(self.Pol.base_ring(), log_prec)
-        for k in range(log_prec - 1, -1, -1):
+        for k in range(log_prec - mult - 1, -1, -1):
             # XXX turn that into a truncated mul???
             # XXX sums_of_products?
             combin = sum(ind_n[j]*new_term[k+j]
@@ -349,18 +359,18 @@ class DACUnroller:
         log_prec = len(series)
         rhs = [self.Pol.zero()]*log_prec
         shder = [(self.leftmost + n) for n in range(low, mid)]
-        series = list(series)
-        for pol in self.dop_coeffs:
+        curder = list(series)
+        for i, pol in enumerate(self.dop_coeffs):
             for k in range(log_prec):
                 # We are only interested in the slice starting at mid, but have
                 # no efficient way of computing only those coefficients.
-                prod = pol._mul_trunc_(series[k], high - low)
+                prod = pol._mul_trunc_(curder[k], high - low)
                 rhs[k] += prod >> (mid - low)
                 # XXX Will be slow in python.
-                series[k] = self.Pol([shder[n]*u
-                                      for n, u in enumerate(series[k])])
+                curder[k] = self.Pol([shder[n]*u
+                                      for n, u in enumerate(curder[k])])
                 if k + 1 < log_prec:
-                    series[k] += series[k+1]
+                    curder[k] += curder[k+1]
         return rhs
 
     def combine_series(self, series_low, series_high, shift):
@@ -422,33 +432,36 @@ class DACUnroller:
         else:
             return a.add_error(err)
 
-    def check_convergence(self, stop, n, series, residual, tail_bound, radpow, blksz):
+    def check_convergence(self, stop, n, series, residual, tail_bound, radpow,
+                          next_stride, blksz):
         if n <= self.ini.last_index():
             return False, self.IR('inf')
-        deg = self.dop_T.degree()
-        if any(self.ini.shift.get(n+d, ()) for d in range(deg)):
-            return False, self.IR('inf')
+
+        # Probable leftover from debugging session (why did I put this here?!)
+        # deg = self.dop_T.degree()
+        # if any(self.ini.shift.get(n+d, ()) for d in range(deg)):
+        #     return False, self.IR('inf')
+
         # Note that here radpow contains the contribution of z^λ.
         est = sum(abs(c) for f in series for c in f)*radpow.squash()
         # used by callbacks to get_residuals etc.
         self._residual = residual
-        # self._last = [[f[blksz-1-i] for f in series]  ## temporary
-        #               for i in range(deg)]
-        done, tail_bound = stop.check(self, n, tail_bound, est, blksz)
+        self._last = [[f[blksz-1-i] for f in series]  ## temporary
+                      for i in range(self.dop_T.degree())]
+        done, tail_bound = stop.check(self, n, tail_bound, est, next_stride)
         return done, tail_bound
 
-    def get_residuals(self, _, n):
-        IC = self.IR.complex_field()
-        Pol = self.Pol.change_ring(IC)
+    def get_residuals(self, stop, n):
+        Pol = self.Pol.change_ring(self.IC)
 
         deg = self.dop_T.degree()
         logs = max(1, len(self._residual))
-        cst = IC.coerce(self.dop_T.leading_coefficient()[0])
+        cst = self.IC.coerce(self.dop_T.leading_coefficient()[0])
         nres = [[None]*deg for _ in range(logs)]
         for d in range(deg):
             # improvable when, e.g., the last elts of _residual have val > 0
             ind = self.eval_ind(n + d, logs)  # not monic!
-            ind = ind.change_ring(IC)
+            ind = ind.change_ring(self.IC)
             inv = ~ind[0]
             for k in reversed(range(logs)):
                 cor = sum(ind[u]*nres[k+u][d]
@@ -471,6 +484,8 @@ class DACUnroller:
         # XXX take log factors etc. into account (as in naive_sum)?
         return tb
 
+
+# DACUnroller = PythonDACUnroller
 
 class SolutionAdapter:
     r"""

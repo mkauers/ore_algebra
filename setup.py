@@ -1,4 +1,3 @@
-import sys
 import warnings
 
 from setuptools import setup
@@ -34,6 +33,7 @@ def do_cythonize():
                 extra_compile_args=['-std=c++11'],
             )],
             aliases = sage.env.cython_aliases(),
+            # gdb_debug=True,
         )
 
 if list(map(int, sage.version.version.split('.')[:2])) < [10, 2]:
