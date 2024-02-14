@@ -20,11 +20,10 @@ import sage.rings.complex_arb
 import sage.rings.real_arb
 
 from sage.categories.pushout import pushout
-from sage.misc.cachefunc import cached_function, cached_method
+from sage.misc.cachefunc import cached_function
 from sage.misc.misc import cputime
 from sage.rings.qqbar import (qq_generator, AlgebraicNumber, ANExtensionElement)
 from sage.rings.all import ZZ, QQ, QQbar, CBF
-from sage.rings.complex_interval_field import ComplexIntervalField
 from sage.rings.number_field.number_field import (NumberField,
         NumberField_quadratic)
 from sage.rings.number_field import number_field_base
@@ -85,9 +84,6 @@ def ball_field(eps, real):
         return sage.rings.real_arb.RealBallField(prec)
     else:
         return sage.rings.complex_arb.ComplexBallField(prec)
-
-def qqbar_to_cbf(tgt, elt):
-    return tgt(elt.interval_fast(ComplexIntervalField(tgt.precision())))
 
 ################################################################################
 # Number fields and orders

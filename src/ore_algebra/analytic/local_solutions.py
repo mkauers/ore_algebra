@@ -13,7 +13,7 @@ Local solutions
 #
 # http://www.gnu.org/licenses/
 
-import collections, logging, warnings
+import collections, logging
 
 from itertools import chain
 
