@@ -1787,12 +1787,7 @@ class DiffOpBound:
     @cached_method
     def _dop_ball_lc(self):
         lc = self.dop.leading_coefficient()
-        lcdeg = lc.degree()
-        some_coeffs = [lc[i] for i in range(0, lcdeg+1, 1+lcdeg//3)]
-        if isinstance(lc.base_ring(), NumberField_quadratic):
-            some_coeffs = [c.numerator() for c in some_coeffs]
-        prec = max(a.numerator().nbits() for c in some_coeffs for a in c)
-        prec += self.IC.precision()
+        prec = self._dop_D._naive_height() + self.IC.precision()
         CBFp = ComplexBallField(prec)
         Pol = PolynomialRing(CBFp, self.Poly.variable_name())
         return Pol([CBFp(c) for c in lc], check=False)
