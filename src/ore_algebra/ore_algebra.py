@@ -658,7 +658,7 @@ class OreAlgebraFunctor(ConstructionFunctor):
         return "OreAlgebra" + str(list(self.vars))
 
 
-def OreAlgebra(base_ring, *generators, **kwargs):
+def OreAlgebra(base_ring, *generators, check_base_ring=True, **kwargs):
     r"""
     An Ore algebra is a noncommutative polynomial ring whose elements are
     interpreted as operators.
@@ -822,14 +822,22 @@ def OreAlgebra(base_ring, *generators, **kwargs):
        (7*x + 18)*Sx^2 + (5*x - 7)*Sx + x^2 + 1
        sage: _^2
        (49*x^2 + 350*x + 576)*Sx^4 + (70*x^2 + 187*x - 121)*Sx^3 + (14*x^3 + 89*x^2 + 69*x + 122)*Sx^2 + (10*x^3 - 4*x^2 + x - 21)*Sx + x^4 + 2*x^2 + 1
-       
+
+    It is possible to bypass the check that the base ring is suitable, but doing so
+    may lead to mathematically incorrect results. Only use this if you know exactly
+    what you are doing! ::
+
+        sage: R.<x> = SR[]
+        sage: Dop.<Dx> = OreAlgebra(R, check_base_ring=False)
+        sage: (Dx - pi*x)^2
+        Dx^2 - 2*pi*x*Dx + pi^2*x^2 - pi
     """
     R = base_ring
     gens = list(generators)
     zero = R.zero()
     one = R.one()
 
-    if not is_suitable_base_ring(R):
+    if check_base_ring and not is_suitable_base_ring(R):
         raise TypeError("The base ring is not of the required form.")
     if len(gens) == 0:
         try:
