@@ -1715,7 +1715,6 @@ class DiffOpBound:
         self.__facto_one = Factorization([(one, 1)], unit=one, sort=False,
                                                      simplify=False)
 
-        self._CIF = ComplexIntervalField(self.IC.precision())
         self.CPol_z = Pols_z.change_ring(self.IC)
         self.CPol_zn = PolynomialRing(self.CPol_z, 'n')
         CPol_n = PolynomialRing(self.IC, 'n')
@@ -1730,7 +1729,10 @@ class DiffOpBound:
         assert self.ind.is_monic()
         if ind_roots is None:
             ind1 = self._dop_D._indicial_polynomial_at_zero()
-            ind_roots = ind1.roots(self._CIF)
+            # use CIF because, at the moment, pol.roots(CBF) with
+            # multiplicities fails even for exact pol
+            CIF = ComplexIntervalField(self.IC.precision())
+            ind_roots = ind1.roots(CIF)
         self.ind_roots = [(self.IC(rt) - self._ivleftmost, m)
                           for rt, m in ind_roots]
         self.majseq_pol_part = RatSeqBound([], self.ind, self.special_shifts,
@@ -1753,34 +1755,36 @@ class DiffOpBound:
                 num=pol_repr(self.majseq_num, shift=len(self.majseq_pol_part)),
                 pol=pol_repr(self.majseq_pol_part, shift=0))
 
-    @cached_method
-    def _poles(self):
-        sing = self._dop_D._singularities(self._CIF, multiplicities=True)
-        nz = [(s, m) for s, m in sing if not s.contains_zero()]
-        if sum(m for s, m in nz) == self.dop.leading_coefficient().degree():
-            return nz
-        else:
-            raise NotImplementedError
-
-    def _update_den_bound(self):
+    def _update_den_bound(self, algorithm=None):
         r"""
         Set self.cst, self.maj_den so that cst/maj_den is a majorant series
         of the leading coefficient of dop.
         """
+        if algorithm is None:
+            algorithm = self.bound_inverse
         den = self.dop.leading_coefficient()
         if den.degree() <= 0:
-            facs = []
-        # below_abs()/lower() to get thin intervals
-        elif self.bound_inverse == "simple":
+            rads = []
+        elif algorithm == "simple":
             rad = abs_min_nonzero_root(den, prec=self.IR.precision())
             rad = rad.below_abs(test_zero=True)
-            facs = [(self.Poly([rad, -1]), den.degree())]
-        elif self.bound_inverse == "solve":
-            facs = [(self.Poly([self.IR(iv.abs().lower()), -1]), mult)
-                    for iv, mult in self._poles()]
+            rads = [(rad, den.degree())]
+        elif algorithm == "solve":
+            try:
+                sing = self._dop_D._singularities(self.IC, multiplicities=True)
+            except ValueError:  # inexact with multiple or close singularities
+                # TODO: use bounds on root clusters
+                return self._update_den_bound("simple")
+            rads = [(s.below_abs(), m) for s, m in sing
+                                       if not s.contains_zero()]
+            # lc wrt the Euler derivative, its roots are all nonzero in the
+            # regular singular case
+            if sum(m for _, m in rads) != den.degree():
+                raise NotImplementedError
         else:
             raise ValueError("algorithm")
         self.cst = ~abs(self.IC(den.leading_coefficient()))
+        facs = [(self.Poly([rad, -1]), mult) for rad, mult in rads]
         self.maj_den = Factorization(facs, unit=self.Poly.one(),
                                      sort=False, simplify=False)
 

@@ -100,6 +100,24 @@ An operator annihilating `\exp + \arctan`::
     [ [+/- ...] + [+/- ...]*I  [0.200000000...] + [-0.40000000...]*I  [2.5373878...] + [5.37471057...]*I]
     [ [+/- ...] + [+/- ...]*I  [-0.04000000...] + [0.280000000...]*I  [1.5486939...] + [1.72735528...]*I]
 
+There is some limited experimental support for operators with ball
+coefficients::
+
+    sage: Pol_RBF.<u> = RBF[]
+    sage: Dop_RBF.<Du> = OreAlgebra(Pol_RBF, check_base_ring=False)
+    sage: (Du^2 - RBF(pi)).numerical_solution(ini=[1,0], path=[0,1])  # cosh(√π)
+    [3.02759638974277...]
+
+    sage: Pol_CBF.<u> = CBF[]
+    sage: Dop_CBF.<Du> = OreAlgebra(Pol_CBF, check_base_ring=False)
+    sage: (Du - CBF(i*pi)).numerical_transition_matrix([0,1])
+    [[-1.0000000000000...] + [+/- ...]*I]
+
+    sage: (u*Du - CBF(pi)).numerical_transition_matrix([0,1])
+    Traceback (most recent call last):
+    ...
+    NotImplementedError: inexact indicial polynomial: n + [-3.141592653589...]
+
 Regular Singular Connection Problems
 ====================================
 
@@ -610,6 +628,22 @@ Algebraic points at high precision::
     sage: dop.numerical_transition_matrix([1, sqrt2], 1e-10000, algorithm="binsplit") # long time (1.6 s)
     [[1.11...015121538...] [0.43...3856086567...]]
     [[0.65...812947177...] [1.15...5867289418...]]
+
+Inexact operators::
+
+    sage: Pol_CBF.<u> = CBF[]
+    sage: Dop_CBF.<Du> = OreAlgebra(Pol_CBF, check_base_ring=False)
+    sage: ((CBF.pi() - u)*Du - 1).numerical_transition_matrix([0, 1])
+    [[1.466942206924260 +/- 2.63e-16] + [+/- 6.84e-124]*I]
+    sage: (Du - CBF(i*pi)).numerical_transition_matrix([0,1], 1e-30)
+    [[-1.00000000000000...] + [+/- ...]*I]
+    sage: (u*Du - CBF(pi)*u).numerical_transition_matrix([0,1])
+    [[23.14069263277...] + [+/- ...]*I]
+
+    sage: CBF100 = ComplexBallField(100)
+    sage: Dop_CBF100.<Du> = OreAlgebra(CBF100['u'], check_base_ring=False)
+    sage: (Du - CBF100(i*pi)).numerical_transition_matrix([0,1], 1e-30)
+    [[-1.0000000000000000000000000000...] + [+/- ...]*I]
 
 Binary splitting when the bit-burst method is disabled::
 

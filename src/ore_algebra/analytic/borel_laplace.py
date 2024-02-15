@@ -620,7 +620,8 @@ def _check_singular_direction(dop, dir):
 
 def _z2Dz_to_taylor_coeff(rows_z2Dz, z1):
     Pol, z = PolynomialRing(ZZ, 'z').objgen()
-    OA, z2Dz = OreAlgebra(Pol, ('z2Dz', {}, {z: z**2})).objgen()
+    OA = OreAlgebra(Pol, ('z2Dz', {}, {z: z**2}), check_base_ring=False)
+    z2Dz = OA.gen()
     derivatives = len(rows_z2Dz)
     int_rows = []
     Dz = z**(-2)*z2Dz
