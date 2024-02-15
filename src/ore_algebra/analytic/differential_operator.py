@@ -74,12 +74,26 @@ class PlainDifferentialOperator(UnivariateDifferentialOperatorOverUnivariateRing
         r"""
         Something like the size of the largest integer appearing in the
         representation of the coefficients of this operator.
+
+        TESTS:
+
+            sage: from ore_algebra import *
+            sage: import ore_algebra.analytic.borel_laplace as bl
+            sage: DiffOps, x, Dx = DifferentialOperators()
+            sage: tau = QQ(RealField(200)(4*pi^2))
+            sage: dop = (Dx*((x^2-1)*Dx) + tau*(x^2-1)).annihilator_of_composition(1/x)
+            sage: bl.fundamental_matrix(dop, 1/100, 0, RBF(1e-30)).det()
+            [+/- ...] + [12.56762737709688264211478...]*I
         """
         Scalars = self.base_ring().base_ring()
         if isinstance(Scalars, number_field_base.NumberField):
             def h(c):
                 num = utilities.internal_denominator(c)*c
-                return max(ZZ(a).nbits() for a in num)
+                # taking the numerator again because, in the case of quadratic
+                # fields, the coefficients wrt the generator that we get after
+                # multiplying by the _internal_ denominator are not always
+                # integers
+                return max(ZZ(a.numerator()).nbits() for a in num)
         else:
             def h(c):
                 return c.nbits()
