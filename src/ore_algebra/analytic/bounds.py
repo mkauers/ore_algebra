@@ -503,7 +503,7 @@ class HyperexpMajorant(MajorantSeries):
         """
         if self.integrand.cvrad.is_infinity():
             if not self.integrand.fracs:
-                return(((n, self.IR.zero()) for n in itertools.count()))
+                return((n, self.IR.zero()) for n in itertools.count())
             else:
                 return self._exp_part_coeff_lbound_entire()
         else:
@@ -1152,7 +1152,7 @@ class RatSeqBound:
                 # note that global_lbound already takes mult into account
                 res *= global_lbound
             else:
-                res *= abs((self.IC.one() - root/n))**mult
+                res *= abs(self.IC.one() - root/n)**mult
         return res
 
     def _bound_rat(self, n, ord, tight=None):

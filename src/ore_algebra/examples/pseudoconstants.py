@@ -44,12 +44,12 @@ x = Pol.gen()
 Dif = OreAlgebra(Pol.fraction_field(), "Dx")
 Dx = Dif.gen()
 
-with open(os.path.join(path,"pseudoconstant_L9.sage"),"r") as f:
+with open(os.path.join(path,"pseudoconstant_L9.sage")) as f:
     lines = f.readlines()
     
 L9 = Dif(eval("".join(preparse(l[:-1]) for l in lines)))
 
-with open(os.path.join(path,"pseudoconstant_L9_pc.sage"),"r") as f:
+with open(os.path.join(path,"pseudoconstant_L9_pc.sage")) as f:
     lines = f.readlines()
 
 L9_pc = Dif(eval("".join(preparse(l[:-1]) for l in lines)))

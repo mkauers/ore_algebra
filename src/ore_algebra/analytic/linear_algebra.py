@@ -742,7 +742,7 @@ def gen_eigenspaces(mat, *, projections=False):
 ### The class Splitting as in [van der Hoeven, 2007] ###########################
 ################################################################################
 
-class Splitting():
+class Splitting:
 
     def __init__(self, Mats):
 

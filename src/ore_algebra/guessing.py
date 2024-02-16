@@ -166,7 +166,7 @@ def guess(data, algebra, **kwargs):
         return guess_mult(data, algebra, **kwargs)
 
     if type(data) == str:
-        with open(data, 'r') as f:
+        with open(data) as f:
             data = [ K(line) for line in f ]
 
     if (data[0] == 0 or data[1] == 0) and (A.is_C() or A.is_S() or A.is_D()):
