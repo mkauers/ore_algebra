@@ -235,7 +235,7 @@ def iint_value(dop, ini, eps=1e-16, **kwds):
 
 _one = ZZ.one()
 
-class _F(object):
+class _F:
     def __getitem__(self, a):
         if a == 1:
             return 1/(1-x)

@@ -102,7 +102,7 @@ def _mygcd_ZZ(seq):
 if not hasattr(Integer, '_gcd'): # Sage < 9.3
     _mygcd_ZZ = gcd
 
-class BwShiftRec(object):
+class BwShiftRec:
     r"""
     A recurrence relation, written in terms of the backward shift operator.
 
@@ -288,7 +288,7 @@ class MultDict(dict):
     def __missing__(self, k):
         return 0
 
-class LogSeriesInitialValues(object):
+class LogSeriesInitialValues:
     r"""
     Initial values defining a logarithmic series.
 
@@ -524,7 +524,7 @@ class sort_key_by_asympt:
                 -other.leftmost.as_algebraic().imag().sign())
         return self.leftmost.as_algebraic().imag() < 0
 
-class LocalBasisMapper(object):
+class LocalBasisMapper:
     r"""
     Utility class for iterating over the canonical local basis of solutions of
     an operator.
@@ -831,7 +831,7 @@ def simplify_exponent(e):
             pass
     return e
 
-class LogMonomial(object):
+class LogMonomial:
 
     def __init__(self, dx, expo, shift, k):
         self.dx = dx

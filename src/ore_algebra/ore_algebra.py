@@ -147,7 +147,7 @@ def is_suitable_base_ring(R):
     else:
         return False
 
-class Sigma_class(object):
+class Sigma_class:
     r"""
     A ring endomorphism for suitable rings. 
 
@@ -397,7 +397,7 @@ class Sigma_class(object):
         sigma_inv.__inverse = self
         return sigma_inv
 
-class Delta_class(object):
+class Delta_class:
     r"""
     A skew-derivation for suitable rings. 
 
