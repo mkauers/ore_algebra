@@ -1164,7 +1164,7 @@ class MatrixRecsUnroller(LocalBasisMapper): # pylint: disable=attribute-defined-
             stride = self._est_terms - prev
             if stride > 2*self.ctx.binsplit_thr:
                 resolution = ZZ(self.ctx.binsplit_thr).nbits()
-                stride = ((stride >> resolution)) << resolution
+                stride = (stride >> resolution) << resolution
             elif stride <= 0:
                 stride = max(1 << ZZ(stride).nbits(), self.ctx.binsplit_thr)
                 stride = min(prev, stride)

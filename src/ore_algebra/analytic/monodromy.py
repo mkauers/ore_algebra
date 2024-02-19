@@ -268,7 +268,7 @@ def _local_monodromy_loop(x, eps, ctx, effort=3):
         mats.append(mat)
     return polygon, mats
 
-class TodoItem():
+class TodoItem:
 
     def __init__(self, alg, dop, *, want_self=False, want_conj=False):
         self.alg = alg

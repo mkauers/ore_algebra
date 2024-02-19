@@ -873,9 +873,9 @@ def OreAlgebra(base_ring, *generators, check_base_ring=True, **kwargs):
                 gens[i] = (gens[i], {}, {x:one})
             elif head == 'S': # shift
                 gens[i] = (gens[i], {x:x + one}, lambda p: zero)
-            elif head == 'F' or head == u'\u0394': # forward difference
+            elif head == 'F' or head == '\u0394': # forward difference
                 gens[i] = (gens[i], {x:x + one}, {x:one})
-            elif head == 'T' or head == u'\u03B8' or head == 'E': # eulerian derivative
+            elif head == 'T' or head == '\u03B8' or head == 'E': # eulerian derivative
                 gens[i] = (gens[i], {}, {x:x})
             elif head == 'Q': # q-shift
                 if 'q' in kwargs:

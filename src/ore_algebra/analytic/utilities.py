@@ -15,7 +15,6 @@ Miscellaneous utilities
 import itertools
 import warnings
 
-from builtins import zip
 
 import sage.rings.complex_arb
 import sage.rings.real_arb

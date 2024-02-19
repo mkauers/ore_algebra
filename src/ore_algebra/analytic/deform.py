@@ -369,8 +369,8 @@ def orient2d(a, b, c):
     elif c.real == neg_inf:
         return sgn(b.imag - a.imag)
     else:
-        return sgn(((b.real - a.real)*(c.imag - a.imag)
-                   - (c.real - a.real)*(b.imag - a.imag)))
+        return sgn((b.real - a.real)*(c.imag - a.imag)
+                   - (c.real - a.real)*(b.imag - a.imag))
 
 def orient4(s, t, a, b, sticky):
     r"""

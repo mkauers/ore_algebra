@@ -1314,7 +1314,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
 
             if stat[1] > 0 and stat[1] % 1000 == 0:
                 info(2, "%i/%i combinations completed (%.2f%%)" % (stat[1], stat[0], 100.0*stat[1]/stat[0]))
-                info(3, "%.2f%% disc. by dimension, %.2f%% disc. by Fuchs-relation, %.4f%% disc. by degree, %.4f%% actually solved" % tuple((100.0*u/stat[1] for u in [stat[2], stat[3], stat[4], stat[1] - (stat[2]+stat[3]+stat[4])])))
+                info(3, "{:.2f}% disc. by dimension, {:.2f}% disc. by Fuchs-relation, {:.4f}% disc. by degree, {:.4f}% actually solved".format(*tuple(100.0*u/stat[1] for u in [stat[2], stat[3], stat[4], stat[1] - (stat[2]+stat[3]+stat[4])])))
 
             stat[1] += 1
 
