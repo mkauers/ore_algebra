@@ -1141,7 +1141,7 @@ class DiscreteGeneralizedSeries(RingElement):
 
         R = parent.tail_ring()
         PS = R.base_ring()
-        if not isinstance(expansion, list):
+        if isinstance(expansion, list):
             for i in range(len(expansion)):
                 if isinstance(expansion[i], list):
                     expansion[i] = PS(expansion[i], len(expansion[i]))
