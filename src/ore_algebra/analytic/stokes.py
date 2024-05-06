@@ -14,8 +14,8 @@ from sage.graphs.generators.basic import CompleteGraph
 from sage.matrix.constructor import matrix
 from sage.matrix.special import block_matrix, identity_matrix
 from sage.misc.converting_dict import KeyConvertingDict
-from sage.rings.all import ZZ, CC, QQbar
-from sage.rings.complex_arb import ComplexBallField, CBF
+from sage.rings.all import CC, QQbar
+from sage.rings.complex_arb import ComplexBallField
 from sage.rings.imaginary_unit import I
 from sage.rings.real_arb import RBF
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
@@ -53,14 +53,14 @@ def connection_to_stokes_coefficients(expo, order, ring):
         sage: from ore_algebra.analytic.stokes import connection_to_stokes_coefficients
         sage: connection_to_stokes_coefficients(0, 3, CBF)
         [0,
-        [1.0000000000000...],
+        1.0000000000000...,
         [-0.57721566490153...] + [-3.1415926535897...]*I]
         sage: connection_to_stokes_coefficients(4, 3, CBF)
         [0,
-        [24.000000000000...],
+        [24.000000000000...] + [+/- ...]*I,
         [36.146824042363...] + [-75.398223686155...]*I]
         sage: connection_to_stokes_coefficients(-1, 3, CBF)
-        [[1.0000000000000...] + [+/- 3.46e-16]*I,
+        [[1.0000000000000...] + [+/- ...]*I,
         [-0.5772156649015...] + [-3.1415926535897...]*I,
         [-5.5906802720649...] + [1.8133764923916...]*I]
         sage: connection_to_stokes_coefficients(QQbar.zeta(3), 3, CBF)
@@ -68,17 +68,10 @@ def connection_to_stokes_coefficients(expo, order, ring):
         [-61.7281620549...] + [92.6676427956...]*I,
         [215.841468281...] + [148.348871486...]*I]
     """
-    # XXX use _rgamma_series?
     eps = PolynomialRing(ring, 'eps').gen()
-    if expo in ZZ and expo.real() >= 0: # XXX use PolynomialRoot?
-        # avoid poles using the reflection formula
-        twopii = 2*ring.pi()*I
-        f = -((-twopii*eps)._exp_series(order) >> 1 << 1)/twopii
-        g = (1 + expo + eps)._gamma_series(order)
-    else:
-        pii = ring.pi()*I
-        f = -(-pii*(expo + eps))._exp_series(order)
-        g = (- expo - eps)._gamma_series(order).inverse_series_trunc(order)
+    pii = ring.pi()*I
+    f = -(-pii*(expo + eps))._exp_series(order)
+    g = (- expo - eps)._rgamma_series(order)
     res = f.multiplication_trunc(g, order)
     return res.padded_list(order)
 
