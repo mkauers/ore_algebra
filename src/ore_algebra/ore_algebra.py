@@ -927,8 +927,8 @@ def OreAlgebra(base_ring, *generators, check_base_ring=True, **kwargs):
 
     for i in range(len(gens)):
 
-        imgs = [(x, gens[i][1](x), gens[i][2](x)) for x in Rgens]
-        imgs = [(x, u, v) for (x, u, v) in imgs if (u != x or v != zero)]
+        imgs = ((x, gens[i][1](x), gens[i][2](x)) for x in Rgens)
+        imgs = [(x, u, v) for x, u, v in imgs if u != x or v != zero]
 
         if not imgs:
             is_commutative[i] = True
@@ -1594,7 +1594,7 @@ class OreAlgebra_generic(UniqueRepresentation, Parent):
         except AttributeError:
             pass
         d = {}
-        for (x, _, _) in self._gens:
+        for x, _, _ in self._gens:
             d[x] = self(x)
         self._gen_dict = d.copy()
         return d
@@ -1837,8 +1837,8 @@ class OreAlgebra_generic(UniqueRepresentation, Parent):
         """
         if R is self.base_ring():
             return self
-        else:
-            return OreAlgebra(R, *((v, s.change_ring(R), d.change_ring(R)) for (v, s, d) in self._gens))
+        return OreAlgebra(R, *((v, s.change_ring(R), d.change_ring(R))
+                               for v, s, d in self._gens))
 
     def change_constant_ring(self, K):
         r"""

@@ -359,9 +359,9 @@ class DFiniteFunctionRing(Parent):
 
             initial_val = set(range(ord)).union(singularities_positive, singularities_negative)
             if self._backward_calculation is True:
-                pols = {r for (r,m) in g.roots() if r in ZZ}
+                pols = {r for r, m in g.roots() if r in ZZ}
             else:
-                pols = {r for (r,m) in g.roots() if r in NN}
+                pols = {r for r, m in g.roots() if r in NN}
 
             int_val = {n:x(n) if n not in pols else None for n in initial_val}
             for n in pols:
@@ -1090,8 +1090,8 @@ class DFiniteFunction(RingElement):
         #killing multiple common factors in coefficients
         g = gcd(ann.coefficients())
         g_fac = g.factor()
-        g_roots = [r for (r,m) in g.roots()]
-        multiple_factors = prod([factor for (factor,power) in g_fac if power > 1])
+        g_roots = [r for r, m in g.roots()]
+        multiple_factors = prod([factor for factor, power in g_fac if power > 1])
         ann = A([coeff/multiple_factors for coeff in ann.coefficients(sparse = False)])
 
         if n:

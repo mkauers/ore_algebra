@@ -38,7 +38,7 @@ from sage.structure.formal_sum import FormalSum, FormalSums
 from sage.symbolic.all import SR
 
 from .generalized_series import GeneralizedSeriesMonoid, _binomial
-from .ore_algebra import OreAlgebra_generic, OreAlgebra
+from .ore_algebra import OreAlgebra_generic
 from .ore_operator_1_1 import UnivariateOreOperatorOverUnivariateRing
 from .ore_operator import UnivariateOreOperator
 from .tools import clear_denominators, make_factor_iterator, shift_factor, _rec2list, _power_series_solutions
@@ -650,18 +650,18 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         if exp > 0:
 
             c = self.coefficients(sparse=False)
-            points = [(QQ(i), QQ(c[i].valuation()))   # UNUSED !
-                      for i in range(self.order() + 1)
-                      if not c[i].is_zero()]
+            # points = [(QQ(i), QQ(c[i].valuation()))   # UNUSED !
+            #           for i in range(self.order() + 1)
+            #           if not c[i].is_zero()]
 
             y = R.base_ring()['x'].gen()  # variable name changed from y to x to avoid PARI warning
             x = R.gen()
             K = R.base_ring()
-            for (s, p) in self.newton_polygon(x):
+            for s, p in self.newton_polygon(x):
                 e = 1 - s
                 if e > 0 or -e >= exp or not (ramification or e in ZZ):
                     continue
-                for (q, _) in p(e*y).factor():
+                for q, _ in p(e*y).factor():
                     if q == y:
                         continue
                     elif q.degree() == 1:
@@ -683,7 +683,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         s = indpoly.parent().gen()
         x = R.gen()
 
-        for (c, e) in shift_factor(indpoly):
+        for c, e in shift_factor(indpoly):
 
             if c.degree() == 1:
                 K = R.base_ring()
@@ -983,7 +983,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             R1 = R.change_ring(K1)
             A1 = A.change_ring(R1)
             for _ in range(5):
-                subs = {x: K1(nth_prime(5 + _) + nth_prime(15 + i)) for (i, x) in enumerate(vars)}
+                subs = {x: K1(nth_prime(5 + _) + nth_prime(15 + i)) for i, x in enumerate(vars)}
                 L1 = A1([R1([c(**subs) for c in p]) for p in L])
                 fac1 = [R1([c(**subs) for c in p]) for p in fac]
                 if any(p1.degree() != p.degree() for p, p1 in zip(fac, fac1)):
@@ -995,12 +995,12 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             L1, fac1 = L, fac
 
         bound = []
-        for (p, p1) in zip(fac, fac1):
+        for p, p1 in zip(fac, fac1):
             e = 0
             for j in range(r + 1):  # may be needed for inhomogeneous part
                 if not L1[j].is_zero():
                     e = max(e, L1[j].valuation(p1) - j)
-            for (q, _) in L1.indicial_polynomial(p1).factor():  # contribution for homogeneous part
+            for q, _ in L1.indicial_polynomial(p1).factor():  # contribution for homogeneous part
                 if q.degree() == 1:
                     try:
                         e = max(e, ZZ(q[0]/q[1]))
@@ -2102,7 +2102,6 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
                           for b in vv]).inverse()
 
         first = True
-        max_coef_size = None
         while first or B.determinant() == 0:
             if first:
                 first = False
@@ -2133,7 +2132,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
                     
         #breakpoint()
         return ww, tau
-    
+
     def normal_global_integral_basis(self, basis=None, iota=None, infolevel=0, **val_kwargs):
         r"""
         Compute a normal global integral basis
@@ -2250,7 +2249,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         """
         coeffs = self.coefficients()
         fac = coeffs.pop().factor()
-        for (f, m) in fac:
+        for f, m in fac:
             for k, ak in enumerate(coeffs):
                 mk = valuation(ak, f)
                 if mk - m < k - self.order():

@@ -697,7 +697,7 @@ def _guess_via_hom(data, A, modulus, to_hom, **kwargs):
             else:
                 Lp = A.zero()
                 p = K.one()
-                for (Lpp, pp) in imgs:
+                for Lpp, pp in imgs:
                     try:
                         Lp, p = _merge_homomorphic_images(op2vec(Lp, r, d), p, op2vec(Lpp, r, d), pp, reconstruct=False)
                         Lp = vec2op(Lp, r, d)
@@ -709,11 +709,11 @@ def _guess_via_hom(data, A, modulus, to_hom, **kwargs):
             primes = [next(modulus) for i in range(ncpus)]
             info(2, "moduli = " + str(primes))
             primes = [ (p, to_hom(p)) for p in primes ]
-            primes = [ (p, hom, A.change_ring(hom(K.one()).parent()[x])) for (p, hom) in primes ]
+            primes = [ (p, hom, A.change_ring(hom(K.one()).parent()[x])) for p, hom in primes ]
             Lp = A.zero()
             p = K.one()
-            out = [ (arg[0][0], arg[0][2], Lpp) for (arg, Lpp) in forked_guess(primes) ]
-            for (pp, alg, Lpp) in out:
+            out = [ (arg[0][0], arg[0][2], Lpp) for arg, Lpp in forked_guess(primes) ]
+            for pp, alg, Lpp in out:
                 Lpp = alg(Lpp)
                 try:
                     Lp, p = _merge_homomorphic_images(op2vec(Lp, r, d), p, vec2op(Lpp, r, d), pp, reconstruct=False)
@@ -899,7 +899,7 @@ def _guess_via_gcrd(data, A, **kwargs):
     for i in range(len(path)):
 
         r, d = path[i]
-        for (r1, d1) in short_path:
+        for r1, d1 in short_path:
             if r >= r1:
                 d = min(d, d1 - 1)
 
@@ -1487,7 +1487,7 @@ def guess_mult(data, algebra, **kwargs):
 
                     p = [p]*len(solp)
                     solp = [vector(R, s) for s in solp]
-                    for (solpp, pp) in imgs:
+                    for solpp, pp in imgs:
                         for i in range(len(solp)):
                             try:
                                 solp[i], p[i] = _merge_homomorphic_images(solp[i], p[i], solpp[i], pp, reconstruct=False)
@@ -1555,7 +1555,7 @@ def guess_mult_raw(C, data, terms, points, power, A, B, **kwargs):
 
     A list of vectors generating the space of all vectors in C^len(terms) for which
     all(sum(prod(f[i][A[i][n[i],u[i],v[i]]]*a[B[i][n[i],u[i],v[i]]] for i in range(len(A)))
-    for (u,v) in terms) == 0 for n in points)
+    for u,v in terms) == 0 for n in points)
 
     SIDE EFFECT:
 
