@@ -94,14 +94,14 @@ class UnivariateQRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverU
           2*x*Jx^2 + (-4*x + 4)*Jx - 2
           sage: (x*Jx-1).to_Q(A).to_J(B) % (x*Jx - 1)
           0
-        
+
         """
         R = self.base_ring()
         K = R.base_ring()
         x, q = self.parent().is_Q()
         one = R.one()
 
-        if type(alg) == str:
+        if isinstance(alg, str):
             alg = self.parent().change_var_sigma_delta(alg, {x:q*x}, {x:one})
         elif not isinstance(alg, OreAlgebra_generic) or not alg.is_J() or \
              alg.base_ring().base_ring() is not K or K(alg.is_J()[1]) != K(q):

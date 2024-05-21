@@ -298,7 +298,6 @@ class PlainDifferentialOperator(UnivariateDifferentialOperatorOverUnivariateRing
             sage: dop.shift(Point(RBF(1/2), dop))
             (2*x + 1)*Dx - 2
         """
-        Pols_dop = self.base_ring()
         # NOTE: pushout(QQ[x], K) doesn't handle embeddings well, and creates
         # an L equal but not identical to K. And then other constructors like
         # PolynomialRing(L, x) sometimes return objects over K found in cache,

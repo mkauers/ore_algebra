@@ -13,7 +13,9 @@ Analytic continuation paths
 #
 # http://www.gnu.org/licenses/
 
-import itertools, logging, sys
+import itertools
+import logging
+import sys
 
 import sage.plot.all as plot
 import sage.rings.all as rings
@@ -21,14 +23,12 @@ import sage.structure.coerce
 import sage.symbolic.ring
 
 from sage.misc.cachefunc import cached_method
-from sage.misc.lazy_attribute import lazy_attribute
 from sage.rings.all import ZZ, QQ, CC, RIF, CIF, QQbar, RLF, CLF
 from sage.rings.complex_arb import CBF, ComplexBallField, ComplexBall
 from sage.rings.number_field import number_field
 from sage.rings.number_field import number_field_base
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 from sage.rings.real_arb import RBF, RealBallField, RealBall
-from sage.structure.element import coercion_model
 from sage.structure.sage_object import SageObject
 
 from . import utilities

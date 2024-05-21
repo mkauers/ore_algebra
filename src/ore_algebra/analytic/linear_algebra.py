@@ -156,7 +156,7 @@ def row_echelon_form(mat, *, transformation=False, pivots=False, prec_pivots={})
             T[i] = [T[i,k] - col[i]*T[p[j],k] for k in range(m)]
 
     for j in range(n):
-        if not j in p:
+        if j not in p:
             r, col = len(p), T*vector(mat[:,j])
             i = max((l for l in range(r, m) if col[l].is_nonzero()), \
             key=lambda l: col[l].below_abs(), default=None)

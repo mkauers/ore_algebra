@@ -13,19 +13,19 @@ Evaluation of convergent D-finite series by direct summation
 #
 # http://www.gnu.org/licenses/
 
-import collections, logging, sys, warnings
+import collections
+import logging
+import sys
 
 from itertools import count, chain, repeat
 
-from sage.matrix.constructor import identity_matrix, matrix
+from sage.matrix.constructor import matrix
 from sage.modules.free_module_element import vector
 from sage.rings.all import ZZ, QQ, infinity
-from sage.rings.complex_arb import ComplexBallField, CBF, ComplexBall
-from sage.rings.integer import Integer
+from sage.rings.complex_arb import ComplexBallField
 from sage.rings.number_field import number_field_base
 from sage.rings.polynomial import polynomial_element
-from sage.rings.real_arb import RealBallField, RBF, RealBall
-from sage.rings.real_mpfr import RealField
+from sage.rings.real_arb import RealBallField, RBF
 from sage.structure.sequence import Sequence
 
 from . import accuracy, bounds, utilities

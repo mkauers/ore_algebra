@@ -219,13 +219,13 @@ class Sigma_class:
                     is_id = False
         else:
             for x in d:
-                if not R(x) in Rgens:
+                if R(x) not in Rgens:
                     raise ValueError(str(x) + " is not a generator of " + str(R))
                 if R(x) != d[x]:
                     my_dict[str(x)] = R(d[x])
                     is_id = False
             for x in Rgens:
-                if not str(x) in my_dict:
+                if str(x) not in my_dict:
                     my_dict[str(x)] = R(x)
         self.__R = R
         self.__dict = my_dict
@@ -460,7 +460,7 @@ class Delta_class:
                 my_dict[str(x), 1] = R(dx)
         else:
             for x, dx in d.items():
-                if not R(x) in Rgens:
+                if R(x) not in Rgens:
                     raise ValueError(str(x) + " is not a generator of " + str(R))
                 is_zero = is_zero and dx.is_zero()
                 my_dict[str(x), 1] = R(dx)

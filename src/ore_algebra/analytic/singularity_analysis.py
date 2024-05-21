@@ -682,7 +682,7 @@ def _classify_sing(deq, known_analytic, rad):
 
     singularities = deq._singularities(QQbar, apparent=False,
                                        multiplicities=False)
-    singularities = [s for s in singularities if not s in known_analytic]
+    singularities = [s for s in singularities if s not in known_analytic]
     singularities.sort(key=lambda s: abs(s)) # XXX wasteful
     logger.debug("potential singularities: %s", singularities)
 

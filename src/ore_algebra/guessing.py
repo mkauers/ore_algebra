@@ -165,7 +165,7 @@ def guess(data, algebra, **kwargs):
     if A.ngens() > 1 or R.ngens() > 1:
         return guess_mult(data, algebra, **kwargs)
 
-    if type(data) == str:
+    if isinstance(data, str):
         with open(data) as f:
             data = [ K(line) for line in f ]
 

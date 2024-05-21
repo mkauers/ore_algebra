@@ -306,7 +306,9 @@ Errors::
 #
 # http://www.gnu.org/licenses/
 
-import logging, cmath, math
+import logging
+import cmath
+import math
 import sage.plot.all as plot
 import numpy
 import scipy.optimize
