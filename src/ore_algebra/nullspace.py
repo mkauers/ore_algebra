@@ -1420,7 +1420,7 @@ def _cra(subsolver, max_modulus, proof, ncpus, mat, degrees, infolevel):
                 while len(Zp) < ncpus:
                     p = pp(p)
                     Zp.append(GF(p)[x])
-                Vpp = [ (u[0][0].characteristic(), v) for (u, v) in forked_subsolver(Zp) ] # MAIN WORK, DONE IN PARALLEL
+                Vpp = [ (u[0][0].characteristic(), v) for u, v in forked_subsolver(Zp) ] # MAIN WORK, DONE IN PARALLEL
                 # combine them, provided all the Vp have the same length (viz. none of the primes was unlucky)
                 primes = [ u[0] for u in Vpp ]
                 Vpp = [ u[1] for u in Vpp ]

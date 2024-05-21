@@ -182,7 +182,7 @@ import string
 from sage.functions.all import log, sqrt
 from sage.misc.misc_c import prod
 from sage.rings.all import AA, QQ, ZZ
-from sage.symbolic.all import SR, pi
+from sage.symbolic.all import pi
 from sage.symbolic.constants import I
 
 from ore_algebra import DifferentialOperators
@@ -191,12 +191,13 @@ from ore_algebra.analytic.path import Point
 Dops, x, Dx = DifferentialOperators()
 Rat = Dops.base_ring().fraction_field()
 
+
 def diffop(word):
     dlog = [Rat(log(a).diff().canonicalize_radical()) for a in word]
-    factors = [(Dx - sum(dlog[:i])) for i in range(len(dlog)) ]
+    # factors = [(Dx - sum(dlog[:i])) for i in range(len(dlog)) ]
     dop = prod(reversed( [(Dx - sum(dlog[:i])) for i in range(len(dlog) + 1) ] ))
-    dop = dop.numerator()
-    return dop
+    return dop.numerator()
+
 
 # - Second part not robust, but seems to be enough for all our examples
 # - The last call to series() MUST use :-series (as opposed to

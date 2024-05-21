@@ -148,7 +148,7 @@ def shift_factor(p, ram=ZZ.one(), q=1):
 
     - q is an irreducible factor of p
     - e is a tuple of pairs (a, b) of nonnegative integers
-    - p = c*prod( sigma^(a/ram)(q)^b for (q, e) in output list for (a, b) in e ) for some nonzero constant c
+    - p = c*prod( sigma^(a/ram)(q)^b for q, e in output list for a, b in e ) for some nonzero constant c
       (in the q-case, a possible power of x is also omitted)
     - e[0][0] == 0, and e[i][0] < e[i+1][0] for all i
     - any two distinct q have no roots at integer distance.
