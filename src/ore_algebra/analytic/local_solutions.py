@@ -13,7 +13,8 @@ Local solutions
 #
 # http://www.gnu.org/licenses/
 
-import collections, logging, warnings
+import collections
+import logging
 
 from itertools import chain
 
@@ -25,7 +26,6 @@ from sage.misc.lazy_attribute import lazy_attribute
 from sage.modules.free_module_element import vector, FreeModuleElement_generic_dense
 from sage.rings.all import ZZ, QQ, AA, QQbar, RBF, CBF
 from sage.rings.all import RealBallField, ComplexBallField
-from sage.rings.complex_arb import ComplexBall
 from sage.rings.integer import Integer
 from sage.rings.number_field.number_field import (
         number_field_base,

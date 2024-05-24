@@ -100,7 +100,7 @@ class Context:
                      two_point_mode=None,
                      ):
 
-        if not algorithm in [None, "naive", "binsplit"]:
+        if algorithm not in [None, "naive", "binsplit"]:
             raise ValueError("algorithm", algorithm)
         self.algorithm = algorithm
 

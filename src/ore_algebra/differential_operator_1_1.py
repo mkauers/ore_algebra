@@ -916,8 +916,8 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             for q, _ in ip.change_ring(ip.base_ring().fraction_field()).factor():
                 if q.degree() == 1:
                     try:
-                        nn = max(nn, ZZ(-q[0]/q[1]))
-                    except:
+                        nn = max(nn, ZZ(-q[0] / q[1]))
+                    except (TypeError, ValueError):
                         pass
             if nn > 0:
                 ip = gcd(ip, reduce(lambda p, q: p*q, [ip.parent().gen() - i for i in range(nn)]))
@@ -1003,8 +1003,8 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             for q, _ in L1.indicial_polynomial(p1).factor():  # contribution for homogeneous part
                 if q.degree() == 1:
                     try:
-                        e = max(e, ZZ(q[0]/q[1]))
-                    except:
+                        e = max(e, ZZ(q[0] / q[1]))
+                    except (TypeError, ValueError):
                         pass
             bound.append((p, e))
 

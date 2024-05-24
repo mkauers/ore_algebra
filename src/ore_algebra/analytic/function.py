@@ -14,7 +14,9 @@ D-Finite analytic functions
 #
 # http://www.gnu.org/licenses/
 
-import collections, logging, sys
+import collections
+import logging
+import sys
 
 import sage.plot.all as plot
 
@@ -32,7 +34,6 @@ from sage.rings.real_mpfi import RealIntervalField
 from sage.rings.real_mpfr import RealNumber
 
 from . import analytic_continuation as ancont
-from . import bounds
 from . import polynomial_approximation as polapprox
 
 from .analytic_continuation import normalize_post_transform
@@ -395,10 +396,10 @@ class DFiniteFunction:
             Graphics object consisting of 1 graphics primitive
         """
         mids = generate_plot_points(
-                lambda x: self.approx(x, 20).mid(),
-                x_range, plot_points=200)
+            lambda x: self.approx(x, 20).mid(),
+            x_range, plot_points=200)
         ivs = [(x, self.approx(x, 20)) for x, _ in mids]
-        bounds  = [(x, y.upper()) for x, y in ivs]
+        bounds = [(x, y.upper()) for x, y in ivs]
         bounds += [(x, y.lower()) for x, y in reversed(ivs)]
         options.setdefault('aspect_ratio', 'automatic')
         g = plot.polygon(bounds, thickness=1, **options)

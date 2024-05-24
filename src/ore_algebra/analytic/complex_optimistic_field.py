@@ -22,7 +22,7 @@ from sage.categories.pushout import ConstructionFunctor
 from sage.rings.complex_arb import ComplexBallField, ComplexBall
 from sage.rings.real_mpfr import RealField
 from sage.rings.ring import Field
-from sage.structure.element import Element, RingElement
+from sage.structure.element import RingElement
 from sage.structure.richcmp import (op_EQ, op_NE, op_LT, op_LE, op_GT, op_GE,
         rich_to_bool)
 from sage.structure.unique_representation import UniqueRepresentation
