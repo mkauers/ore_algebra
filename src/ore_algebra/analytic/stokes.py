@@ -676,11 +676,13 @@ def stokes_matrices(dop, eps=1e-15):
         [ 1.000000000000... [+/- ...] + [6.2831853071795...]*I]
         [                 0                  1.000000000000...]
     """
-    Dop, Pol, _, dop = dop._normalize_base_ring()
+    Dop, Pol, Csts, dop = dop._normalize_base_ring()
     eps = RBF(eps)
     Dx = Dop.gen()
     x = Pol.gen()
     IC = ComplexBallField(utilities.prec_from_eps(eps))
+    if not IC.has_coerce_map_from(Csts):
+        raise ValueError(f"unsupported base ring {Csts}")
 
     npol = _newton_polygon(dop)
     bad_levels = [level for level, _ in npol
@@ -830,6 +832,13 @@ def stokes_dict(dop, eps=1e-16):
         sage: stokes[1][2,0]
         [4.8367983046...69279128366... +/- ...e-1000] + [+/- ...]*I
 
+    Only singular points of single level 1 are currently supported::
+
+        sage: stokes_dict(x^3*Dx - 1)
+        Traceback (most recent call last):
+        ...
+        NotImplementedError: levels [2] ≠ 0, 1 are not supported
+
     See the documentation of the :mod:`ore_algebra.analytic.stokes` module for
     further examples.
 
@@ -839,6 +848,16 @@ def stokes_dict(dop, eps=1e-16):
         {}
         sage: stokes_dict(Dx)
         {}
+
+        sage: Pol1.<t> = QQ[]; Dop1.<Dt> = OreAlgebra(Pol1)
+        sage: stokes_dict(t^3*Dt^2 + t*(t+1)*Dt - 1)[-1][0,1]
+        [+/- ...] + [6.28318530717958...]*I
+
+        sage: Pol1.<w> = Pol[]; Dop1.<Dw> = OreAlgebra(Pol1)
+        sage: stokes_dict(w*Dw-1)
+        Traceback (most recent call last):
+        ...
+        ValueError: unsupported base ring Univariate Polynomial Ring in x over Rational Field
     """
     return KeyConvertingDict(QQbar, stokes_matrices(dop, eps))
 
