@@ -25,7 +25,7 @@ from sage.misc.cachefunc import cached_function
 from sage.misc.lazy_string import lazy_string
 from sage.structure.all import coercion_model
 from sage.structure.element import canonical_coercion
-from sage.rings.fraction_field import is_FractionField
+from sage.rings.fraction_field import FractionField_generic
 
 from . import nullspace
 from .tools import clear_denominators
@@ -702,11 +702,11 @@ class OreLeftIdeal(Ideal_nc):
             kwargs.setdefault(str(x), x)          # add missing arguments
         R = reduce(lambda a, b: canonical_coercion(a, b)[0], kwargs.values()).parent()  # eg QQ(u,v)(t)
         R = R.fraction_field()
-        R0 = R if is_FractionField(R) else R.base_ring()         # eg QQ(u,v)
+        R0 = R if isinstance(R, FractionField_generic) else R.base_ring()         # eg QQ(u,v)
         from .ore_algebra import OreAlgebra
         B = OreAlgebra(R0, *['D' + str(x) for x in R0.gens()])   # eg QQ(u,v)[Du,Du]
 
-        info(1, "Outer functions recognized as " + ("rational" if is_FractionField(R) else "irrational algebraic"))
+        info(1, "Outer functions recognized as " + ("rational" if isinstance(R, FractionField_generic) else "irrational algebraic"))
         info(1, "Output is going to be an ideal of " + repr(B))
 
         if self.dimension() == -1:
@@ -714,7 +714,7 @@ class OreLeftIdeal(Ideal_nc):
 
         # create derivatives
         der = {}
-        if is_FractionField(R):
+        if isinstance(R, FractionField_generic):
             mulmat = lambda m: matrix(R, [m])
             dim = 1
             for D in B.gens():
