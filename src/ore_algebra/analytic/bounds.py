@@ -1441,10 +1441,9 @@ def _test_RatSeqBound(number=10, base=QQ, deg=20, verbose=False):
 
         sage: from ore_algebra.analytic.bounds import _test_RatSeqBound
         sage: _test_RatSeqBound(number=1, deg=4, verbose=True, seed=0)
-        num = 1/6
-        den = n^4 - 7/8*n^3 - 5/16*n^2 + 3/16*n
-        exns = {-1: 1}
-
+        num = -1/2
+        den = n^4 - 187/2*n^3 - 287/2*n^2 + 95*n
+        exns = {0: 1}
     """
     from sage.combinat.subset import Subsets
     Pols, n = PolynomialRing(base, 'n').objgen()
@@ -2511,7 +2510,7 @@ def _test_diffop_bound(
         sage: from ore_algebra.analytic.bounds import _test_diffop_bound
         sage: _test_diffop_bound(ords=[2], degs=[2], pplens=[1], prec=100,
         ....:         seed=0, verbose=True)
-        testing operator: 5/927*Dx^2 + ((-2/463*i - 1/463)*x + 1/463*i)*Dx - 95/396*i + 1/396
+        testing operator: ((1/457*i - 6/457)*x^2 + (-1/457*i + 1/457)*x + 1/457*i - 3/457)*Dx^2 + ((-1/106*i + 1/106)*x^2 + (-2/53*i + 2/53)*x)*Dx + (1/214*i + 1/107)*x - 6/107*i - 1/107
     """
     from sage.rings.number_field.number_field import QuadraticField
 
