@@ -121,17 +121,14 @@ REFERENCE:
 
 import collections, itertools, logging, sys, warnings
 
-from sage.arith.srange import srange
 from sage.misc.cachefunc import cached_function, cached_method
-from sage.misc.lazy_string import lazy_string
+# from sage.misc.lazy_string import lazy_string
 from sage.misc.misc_c import prod
 from sage.misc.random_testing import random_testing
 from sage.rings.all import ComplexIntervalField
 from sage.rings.complex_arb import CBF, ComplexBallField, ComplexBall
 from sage.rings.infinity import infinity
-from sage.rings.integer import Integer
 from sage.rings.integer_ring import ZZ
-from sage.rings.number_field.number_field import NumberField_quadratic
 from sage.rings.polynomial.polynomial_element import Polynomial
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 from sage.rings.power_series_ring import PowerSeriesRing
@@ -147,7 +144,7 @@ from . import local_solutions, utilities
 
 from .context import dctx
 from .differential_operator import DifferentialOperator
-from .safe_cmp import *
+from .safe_cmp import safe_le, safe_gt
 
 from .polynomial_root import PolynomialRoot
 
@@ -848,7 +845,7 @@ def abs_min_nonzero_root(pol, tol=RR(1e-2), min_log=RR('-inf'),
 # XXX: tie life to a suitable object
 @cached_function(key=lambda p, IC: (IC.precision(), id(p.parent()), p))
 def _complex_roots(pol, IC):
-    if not pol.parent() is QQ: # QQ typical (ordinary points)
+    if pol.parent() is not QQ: # QQ typical (ordinary points)
         pol = pol.change_ring(QQbar)
     myCIF = ComplexIntervalField(IC.precision())
     return [(IC(rt), mult) for rt, mult in pol.roots(myCIF)]
@@ -1131,7 +1128,7 @@ class RatSeqBound:
                     ns[0] -= 1
                 global_lbound = self.IR.one().min(*(
                         (self.IC.one() - root/n).abs()
-                        for n in ns if n >= 1 and not n in self.exn))
+                        for n in ns if n >= 1 and n not in self.exn))
             global_lbound = global_lbound.below_abs()**mult # point ball
             den_data.append((root, mult, n_min, global_lbound))
         return den_data

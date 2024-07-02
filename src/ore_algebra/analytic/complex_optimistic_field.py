@@ -19,12 +19,11 @@ from sage.categories.functor import Functor
 from sage.categories.homset import Hom
 from sage.categories.morphism import SetMorphism
 from sage.categories.pushout import ConstructionFunctor
-from sage.rings.complex_arb import ComplexBallField, ComplexBall
+from sage.rings.complex_arb import ComplexBallField
 from sage.rings.real_mpfr import RealField
 from sage.rings.ring import Field
-from sage.structure.element import Element, RingElement
-from sage.structure.richcmp import (op_EQ, op_NE, op_LT, op_LE, op_GT, op_GE,
-        rich_to_bool)
+from sage.structure.element import RingElement
+from sage.structure.richcmp import rich_to_bool
 from sage.structure.unique_representation import UniqueRepresentation
 
 

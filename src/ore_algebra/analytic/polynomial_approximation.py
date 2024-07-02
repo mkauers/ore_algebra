@@ -21,19 +21,17 @@ Rigorous approximation of D-finite functions by polynomials
 #   coefficients
 
 import logging
-logger = logging.getLogger(__name__)
-
-import sage.rings.real_arb
-import sage.rings.complex_arb
 
 from sage.rings.rational_field import QQ
 
-from . import accuracy, analytic_continuation as ancont, bounds, utilities
+from . import analytic_continuation as ancont
 
 from .context import Context, dctx
 from .naive_sum import series_sum
 from .path import EvaluationPoint_symbolic, Path
-from .safe_cmp import *
+from .safe_cmp import safe_lt, safe_le
+
+logger = logging.getLogger(__name__)
 
 def combine_radii(pol):
     coeff = list(pol)

@@ -14,14 +14,14 @@ D-Finite analytic functions
 #
 # http://www.gnu.org/licenses/
 
-import collections, logging, sys
+import collections, logging
 
 import sage.plot.all as plot
 
 from sage.misc.cachefunc import cached_method
 from sage.plot.plot import generate_plot_points
-from sage.rings.all import ZZ, QQ, RBF, CBF, RIF, CIF
-from sage.rings.complex_arb import ComplexBall, ComplexBallField
+from sage.rings.all import ZZ, QQ, RBF, RIF, CIF
+from sage.rings.complex_arb import ComplexBall
 try:
     from sage.rings.complex_mpfr import ComplexNumber
 except ImportError:
@@ -32,13 +32,12 @@ from sage.rings.real_mpfi import RealIntervalField
 from sage.rings.real_mpfr import RealNumber
 
 from . import analytic_continuation as ancont
-from . import bounds
 from . import polynomial_approximation as polapprox
 
 from .analytic_continuation import normalize_post_transform
 from .differential_operator import DifferentialOperator
 from .path import Point
-from .safe_cmp import *
+from .safe_cmp import safe_le, safe_gt, safe_ge, safe_eq
 
 logger = logging.getLogger(__name__)
 

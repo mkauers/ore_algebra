@@ -21,14 +21,12 @@ import sage.structure.coerce
 import sage.symbolic.ring
 
 from sage.misc.cachefunc import cached_method
-from sage.misc.lazy_attribute import lazy_attribute
 from sage.rings.all import ZZ, QQ, CC, RIF, CIF, QQbar, RLF, CLF
 from sage.rings.complex_arb import CBF, ComplexBallField, ComplexBall
 from sage.rings.number_field import number_field
 from sage.rings.number_field import number_field_base
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 from sage.rings.real_arb import RBF, RealBallField, RealBall
-from sage.structure.element import coercion_model
 from sage.structure.sage_object import SageObject
 
 from . import utilities
@@ -38,7 +36,7 @@ from .deform import PathDeformer, PathDeformationFailed
 from .differential_operator import DifferentialOperator
 from .local_solutions import FundamentalSolution, LocalBasisMapper, CriticalMonomials
 from .polynomial_root import PolynomialRoot
-from .safe_cmp import *
+from .safe_cmp import safe_lt, safe_le, safe_gt, safe_ge
 from .utilities import (pairwise, split, is_QQi, is_real_parent,
                         is_numeric_parent, as_embedded_number_field_elements)
 
