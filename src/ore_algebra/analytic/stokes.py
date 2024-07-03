@@ -195,6 +195,7 @@ from sage.graphs.generators.basic import CompleteGraph
 from sage.matrix.constructor import matrix
 from sage.matrix.special import block_matrix, identity_matrix
 from sage.misc.converting_dict import KeyConvertingDict
+from sage.misc.cachefunc import cached_method
 from sage.rings.all import CC, QQbar
 from sage.rings.complex_arb import ComplexBallField
 from sage.rings.imaginary_unit import I
@@ -432,6 +433,11 @@ class TriangleQueue:
 
 
 def interval_triangle_is_empty(sing, a, b, c):
+    r"""
+    Check that the triangle abc contains no element of sing other than a, b, c.
+
+    May give false negatives.
+    """
     aa, bb, cc = a.interval(), b.interval(), c.interval()
     for z in sing:
         if z is a or z is b or z is c:
@@ -467,62 +473,44 @@ class SingConnectionDict(dict):
             assert (b, c) in self and (a, c) in self
             return b, c, a
 
+    @cached_method
+    def _monodromy(self, a):
+        return formal_monodromy(self.dop, a, self.IC)
+
     def _combine_edges(self, a, b, c, flat):
         r"""
         Compute the transition matrix along ac from those along ab and bc.
         """
-        # If the vertex m ∈ {a, b, c} that lies vertically in the middle is
-        # located to the right of the opposite edge oriented from bottom to top,
-        # then one of the paths a → c and a → b → c crosses the branch cut at m
-        # while the other does not, and we need to correct for the local
-        # monodromy. In the presence of vertices with the same y-coordinate, the
-        # one to the right is considered infinitesimally lower for this purpose,
-        # because of branch cuts are sticky on their top side.
-        #
-        # When b lies on the segment [ac], the transition matrix associated to
-        # ac in our context corresponds to a path passing to the right of b.
-        # Thus, for flat triangles, we regard m (which then coincides with the
-        # vertex joining the two short edges) as lying to the right of the long
-        # edge (=> monodromy correction) iff the long edge is oriented from top
-        # to bottom by the path using it (that is, using the extended vertical
-        # ordering of the previous paragraph, iff c < m =  b < a or
-        # c < m = a < b or b < m = c < a, though, in practice, only the first of
-        # these three cases should be useful).
-
-        # XXX for flat triangles, we already have this information via the
-        # associated argument in alignments and could maybe avoid recomputing it.
         vsort = sorted([a, b, c],
                        key=polynomial_root.sort_key_bottom_to_top_with_cuts)
         if flat:
             assert vsort[1] is b, ("trying to compute a short edge of a flat "
                                    "triangle using the long edge")
+            return self[b,c]*self[a,b]
+
         # We only call orient2d on nondegenerate triangles. Except in extreme
         # cases, it should succeed without triggering exactification even if our
         # intervals for a, b, c are too wide.
-        if (flat and vsort[0] is c) or polynomial_root.orient2d(*vsort) > 0:
-            vert_with_cut = vsort[1]
-            delta = formal_monodromy(self.dop, vert_with_cut, self.IC)
-            # The correction one needs depends how the edge ac orients the
-            # triangle. This is not the same orientation condition as above!
-            orient = +1 if flat else -polynomial_root.orient2d(a, b, c)
-            delta = delta**orient
-        else:
-            vert_with_cut = None
+        orient = polynomial_root.orient2d(a, b, c)
+        delta = lambda: self._monodromy(vsort[1])**(-orient)
 
         mat_ac = identity_matrix(self.IC, self.dop.order())
-        if vert_with_cut is a:
-            mat_ac = delta*mat_ac
+        if vsort[1] is a and (   vsort[0] is b and orient == -1
+                              or vsort[0] is c and orient == +1):
+            mat_ac = delta()*mat_ac
         mat_ac = self[a, b]*mat_ac
-        if vert_with_cut is b:
-            mat_ac = delta*mat_ac
+        if vsort[1] is b and orient == +1:
+            mat_ac = delta()*mat_ac
+        elif vsort[0] is b:
+            mat_ac = ~self._monodromy(b)*mat_ac
         mat_ac = self[b, c]*mat_ac
-        if vert_with_cut is c:
-            mat_ac = delta*mat_ac
+        if vsort[1] is c and (   vsort[0] is b and orient == -1
+                              or vsort[0] is a and orient == +1):
+            mat_ac = delta()*mat_ac
 
         accu_ab = _matrix_accuracy(self[a, b])
         accu_bc = _matrix_accuracy(self[b, c])
         accu_ac = _matrix_accuracy(mat_ac)
-        # accu_delta = _matrix_accuracy(delta) if vert_with_cut
         logger.debug("%s -> %s: via %s, accuracies: (%s, %s) -> %s", a, c, b,
                      accu_ab, accu_bc, accu_ac)
 
@@ -531,22 +519,36 @@ class SingConnectionDict(dict):
     def _close_triangle(self, t):
         a, b, c = self._decompose_missing_edge(t)
         # logger.debug("closing triangle %s", t)
+        # Could share a little work between the two calls...
         mat_ac = self._combine_edges(a, b, c, t.flat)
-        if t.flat:
-            # In this case, the transition matrices a → c and c → a are not
-            # inverse of each other!
-            mat_ca = self._combine_edges(c, b, a, t.flat)
-        else:
-            # XXX call _combine_edges again (maybe sharing some work) to avoid
-            # losing too much accuracy?
-            mat_ca = ~mat_ac
+        mat_ca = self._combine_edges(c, b, a, t.flat)
         return a, c, mat_ac, mat_ca
 
-    def _transition_matrices_along_spanning_tree(self, sing):
-        # This computes the connection matrices with the usual oaa conventions
-        # (i.e., without the local adjustments that may be required for the
-        # connection-to-Stokes formulas to apply in the form stated by LRR)
+    def _transition_matrix_basecase(self, a, b, eps):
+        r"""
+        Compute the transition matrix from ``a`` to ``b`` by solving the ODE
+        numerically.
 
+        This is a wrapper for ``numerical_transition_matrix`` that uses with
+        branch conventions adapted to the computation of Stokes matrices.
+        """
+        logger.debug("%s -> %s: direct summation", a, b)
+        mat = self.dop.numerical_transition_matrix([a, b], eps)
+        # The connection-to-Stokes formulas are written under the assumption
+        # that the “current” sheet of the Riemann surface of log(b+z) is the one
+        # containing b·[1,+∞). In other words, the incoming path should be
+        # equivalent to a path arriving “just behind” b seen from a and from the
+        # right. This is the case with the definition used by
+        # numerical_transition_matrix when the path arrives from below the
+        # branch cut, or horizontally from the right; otherwise, we can reduce
+        # to this case by inserting a local monodromy matrix.
+        side = a.cmp_imag(b)
+        if side > 0 or side == 0 and a.cmp_real(b) < 0:
+            branch_fix = self._monodromy(b)
+            mat = branch_fix*mat
+        return mat
+
+    def _transition_matrices_along_spanning_tree(self, sing):
         eps = RBF.one() >> self.IC.precision() + 4
 
         def dist(e):
@@ -560,13 +562,20 @@ class SingConnectionDict(dict):
         # XXX we should actually compute all edges from a given vertex at
         # once... and use the same tricks as in monodromy_matrices
         for i, j, _ in spanning_tree:
-            a = sing[i].as_exact()
-            b = sing[j].as_exact()
-            logger.debug("%s -> %s: direct summation", a, b)
-            mat = self.dop.numerical_transition_matrix([a, b], eps)
+            mat = self._transition_matrix_basecase(sing[i], sing[j], eps)
             yield sing[i], sing[j], mat
 
     def fill(self, sing, sing_dirs):
+        r"""
+        Fill this dictionary with transition matrices between all pairs of
+        elements of ``sing``.
+
+        The matrix ``self[a,b]`` corresponds to analytic continuation along a
+        straight path from ``a`` to ``b`` except for small detours passing to
+        the right of the singular points lying on ``(a,b)`` and of ``b`` itself,
+        and ending just behind ``b`` seen from ``a``. Branch cuts work in the
+        usual way.
+        """
 
         nsing = len(sing)
 
@@ -720,24 +729,9 @@ def stokes_matrices(dop, eps=1e-15):
                         for s0 in sing for s1 in sing}
         for align in alignments:
             for s0, s1 in itertools.combinations(align, 2):
-                # The connection-to-Stokes formulas are written under the
-                # assumption that the “current” sheet of the Riemann surface of
-                # log(s1+z) is the one containing s1·[1,+∞). In other words, the
-                # incoming path should be equivalent to a path arriving “just
-                # behind” s1 seen from s0 and from the right. This is the case
-                # when it arrives from below the branch cut, or horizontally
-                # from the right; otherwise, we can reduce to this case by
-                # inserting a local monodromy matrix.
-                side = s0.cmp_imag(s1)
-                if side > 0 or side == 0 and s0.cmp_real(s1) < 0:
-                    # XXX potential redundant computation, see _combine_edges
-                    branch_fix = formal_monodromy(bdop, Point(s1, bdop), IC)
-                else:
-                    branch_fix = identity_matrix(IC, bdop.order())
                 # Compute the block of the Stokes matrix corresponding to the
                 # exponential parts associated to s0 and s1
-                stokes_block[s0,s1] = (c2s_mat[s1] * branch_fix * tmat[s0,s1] *
-                                       borel_mat[s0])
+                stokes_block[s0,s1] = c2s_mat[s1] * tmat[s0,s1] * borel_mat[s0]
                 logger.debug("%s -> %s, block=\n%s", s0, s1, stokes_block)
         stokes = block_matrix([[stokes_block[s0, s1] for s0 in sing]
                                for s1 in sing],
