@@ -689,8 +689,7 @@ def stokes_matrices(dop, eps=1e-15):
     eps = RBF(eps)
     Dx = Dop.gen()
     x = Pol.gen()
-    IC = ComplexBallField(utilities.prec_from_eps(eps))
-    if not IC.has_coerce_map_from(Csts):
+    if not utilities.is_numeric_parent(Csts):
         raise ValueError(f"unsupported base ring {Csts}")
 
     npol = _newton_polygon(dop)
@@ -732,7 +731,8 @@ def stokes_matrices(dop, eps=1e-15):
                 # Compute the block of the Stokes matrix corresponding to the
                 # exponential parts associated to s0 and s1
                 stokes_block[s0,s1] = c2s_mat[s1] * tmat[s0,s1] * borel_mat[s0]
-                logger.debug("%s -> %s, block=\n%s", s0, s1, stokes_block)
+                logger.debug("%s -> %s, block=\n%s", s0, s1,
+                             stokes_block[s0,s1])
         stokes = block_matrix([[stokes_block[s0, s1] for s0 in sing]
                                for s1 in sing],
                               subdivide=True)
