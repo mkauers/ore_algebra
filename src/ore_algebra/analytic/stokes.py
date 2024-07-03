@@ -452,8 +452,14 @@ def interval_triangle_is_empty(sing, a, b, c):
 
 class SingConnectionDict(dict):
 
-    def __init__(self, dop, IC):
+    def __init__(self, dop, eps, IC):
         self.dop = dop
+        # For calls to numerical_transition_matrix. Denominator pulled out of my
+        # hat.
+        self._eps = eps/(2*(dop.degree() + dop.order()))
+        # Base ring of the matrices. Typically IC.prec() should be somewhat
+        # larger than -log2(eps) to avoid throwing away hard-won bits of the
+        # connection constants in subsequent operations.
         self.IC = IC
 
     def _decompose_missing_edge(self, t):
@@ -524,7 +530,7 @@ class SingConnectionDict(dict):
         mat_ca = self._combine_edges(c, b, a, t.flat)
         return a, c, mat_ac, mat_ca
 
-    def _transition_matrix_basecase(self, a, b, eps):
+    def _transition_matrix_basecase(self, a, b):
         r"""
         Compute the transition matrix from ``a`` to ``b`` by solving the ODE
         numerically.
@@ -533,7 +539,8 @@ class SingConnectionDict(dict):
         branch conventions adapted to the computation of Stokes matrices.
         """
         logger.debug("%s -> %s: direct summation", a, b)
-        mat = self.dop.numerical_transition_matrix([a, b], eps)
+        mat = self.dop.numerical_transition_matrix([a, b], self._eps)
+        mat = mat.change_ring(self.IC)
         # The connection-to-Stokes formulas are written under the assumption
         # that the “current” sheet of the Riemann surface of log(b+z) is the one
         # containing b·[1,+∞). In other words, the incoming path should be
@@ -549,8 +556,6 @@ class SingConnectionDict(dict):
         return mat
 
     def _transition_matrices_along_spanning_tree(self, sing):
-        eps = RBF.one() >> self.IC.precision() + 4
-
         def dist(e):
             i, j, _ = e
             return abs(CC(sing[i]) - CC(sing[j]))
@@ -562,7 +567,7 @@ class SingConnectionDict(dict):
         # XXX we should actually compute all edges from a given vertex at
         # once... and use the same tricks as in monodromy_matrices
         for i, j, _ in spanning_tree:
-            mat = self._transition_matrix_basecase(sing[i], sing[j], eps)
+            mat = self._transition_matrix_basecase(sing[i], sing[j])
             yield sing[i], sing[j], mat
 
     def fill(self, sing, sing_dirs):
@@ -702,8 +707,15 @@ def stokes_matrices(dop, eps=1e-15):
     bdop = DifferentialOperator(dop.borel_transform())
     sing = _bdop_singularities(bdop, dop, npol)
 
+    # We work with a precision significantly better than the target accuracy so
+    # that the accuracy of the connection matrices is the limiting factor in
+    # that of the output. This means we may compute auxiliary quantities such
+    # as monodromy and connection-to-Stokes matrices more accurately than
+    # needed, but they are comparatively cheap to compute.
+    IC = ComplexBallField(utilities.prec_from_eps(eps) + 10 + 4*len(sing))
+
     dirs = _singular_directions(sing)
-    tmat = SingConnectionDict(bdop, IC).fill(sing, dirs)
+    tmat = SingConnectionDict(bdop, eps, IC).fill(sing, dirs)
 
     # The transition matrix s0 → s1 contributes to the columns of the Stokes
     # matrix in the singular direction [s0, s1) corresponding to solutions
