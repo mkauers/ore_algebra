@@ -30,8 +30,8 @@ given in §3.3, (2)::
     [                1.000000000000...                  0]
     [[+/- ...] + [-0.99404246871...]*I  1.000000000000...]
     sage: stokes[-1]
-    [ 1.000000000000...  [+/- ...] + [-72.363839794...]*I]
-    [                 0                 1.000000000000...]
+    [ 1.0000000000000000000000 [-72.363839794658178697...]*I]
+    [                        0                  1.0000000...]
 
 Same article, §3.3, (3)::
 
@@ -41,8 +41,8 @@ Same article, §3.3, (3)::
     [                1.000000000000...                      0]
     [[+/- ...] + [-0.21707530830...]*I      1.000000000000...]
     sage: stokes[-1]
-    [  1.000000000000... [+/- ...] + [85.92634932...]*I]
-    [                  0              1.000000000000...]
+    [  1.000000000000...  [85.926349321472019...]*I]
+    [                  0          1.000000000000...]
 
 Bessel equation (same article, §3.3, (4)). Our basis puts `e^{i/x}` first
 (decreasing imaginary parts), and hence is in the reverse order compared theirs::
@@ -530,32 +530,15 @@ class SingConnectionDict(dict):
         mat_ca = self._combine_edges(c, b, a, t.flat)
         return a, c, mat_ac, mat_ca
 
-    def _transition_matrix_basecase(self, a, b):
-        r"""
-        Compute the transition matrix from ``a`` to ``b`` by solving the ODE
-        numerically.
-
-        This is a wrapper for ``numerical_transition_matrix`` that uses with
-        branch conventions adapted to the computation of Stokes matrices.
-        """
-        logger.debug("%s -> %s: direct summation", a, b)
-        mat = self.dop.numerical_transition_matrix([a, b], self._eps)
-        mat = mat.change_ring(self.IC)
-        # The connection-to-Stokes formulas are written under the assumption
-        # that the “current” sheet of the Riemann surface of log(b+z) is the one
-        # containing b·[1,+∞). In other words, the incoming path should be
-        # equivalent to a path arriving “just behind” b seen from a and from the
-        # right. This is the case with the definition used by
-        # numerical_transition_matrix when the path arrives from below the
-        # branch cut, or horizontally from the right; otherwise, we can reduce
-        # to this case by inserting a local monodromy matrix.
-        side = a.cmp_imag(b)
-        if side > 0 or side == 0 and a.cmp_real(b) < 0:
-            branch_fix = self._monodromy(b)
-            mat = branch_fix*mat
-        return mat
-
     def _transition_matrices_along_spanning_tree(self, sing):
+        r"""
+        Iterator over the transition matrices (in both directions) along the
+        edges of some spanning tree.
+
+        The one from bottom to top is computed by soling the ODE numerically,
+        the other one by taking the inverse with a branch correction.
+        """
+
         def dist(e):
             i, j, _ = e
             return abs(CC(sing[i]) - CC(sing[j]))
@@ -567,8 +550,24 @@ class SingConnectionDict(dict):
         # XXX we should actually compute all edges from a given vertex at
         # once... and use the same tricks as in monodromy_matrices
         for i, j, _ in spanning_tree:
-            mat = self._transition_matrix_basecase(sing[i], sing[j])
-            yield sing[i], sing[j], mat
+            # The connection-to-Stokes formulas are written under the assumption
+            # that the “current” sheet of the Riemann surface of log(b+z) is the
+            # one containing b·[1,+∞). In other words, the incoming path should
+            # be equivalent to a path arriving “just behind” b seen from a and
+            # from the right. This is the case with the definition used by
+            # numerical_transition_matrix when the path arrives from below the
+            # branch cut, or horizontally from the right.
+            a, b = sing[i], sing[j]
+            cmp = a.cmp_imag(b)
+            if cmp > 0 or cmp == 0 and a.cmp_real(b) < 0:
+                a, b = b, a
+            logger.debug("%s -> %s: direct summation", a, b)
+            mat_ab = self.dop.numerical_transition_matrix([a, b], self._eps)
+            mat_ab = mat_ab.change_ring(self.IC)
+            # For the transition matrix in the other direction, we correct by
+            # inserting a local monodromy matrix.
+            mat_ba = self._monodromy(a)*~mat_ab
+            yield a, b, mat_ab, mat_ba
 
     def fill(self, sing, sing_dirs):
         r"""
@@ -623,9 +622,7 @@ class SingConnectionDict(dict):
                 a1, b1, mat_ab, mat_ba = self._close_triangle(triangles.pop())
             except KeyError:
                 try:
-                    a1, b1, mat_ab = next(spine)
-                    # XXX implicitly computes inverses of inverses
-                    mat_ba = ~mat_ab
+                    a1, b1, mat_ab, mat_ba = next(spine)
                 except StopIteration:
                     if edge_count < nsing*(nsing-1)//2:
                         raise PathPrecisionError("missed some edges")
@@ -836,7 +833,7 @@ def stokes_dict(dop, eps=1e-16):
 
         sage: stokes = stokes_dict(dop, RBF(1e-1000))
         sage: stokes[1][2,0]
-        [4.8367983046...69279128366... +/- ...e-1000] + [+/- ...]*I
+        [4.8367983046...69279128366... +/- ...e-100...] + [+/- ...]*I
 
     Only singular points of single level 1 are currently supported::
 
