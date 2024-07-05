@@ -76,6 +76,18 @@ Example from §4.2 of the same article::
     [       0   1.000...                        [+/- ...] + [+/- ...]*I]
     [       0          0                                       1.000...]
 
+A resonant tunnel::
+
+    sage: epsilon = 1/50
+    sage: dop = DD^4+(x^2-4)*DD^3+(epsilon^2*x+5+epsilon^2)*DD^2+(2*x-2-2*epsilon^2)*DD+(2+2*epsilon^2)*x
+    sage: stokes = stokes_dict(dop)
+    sage: stokes[1][3,0]  # XXX check???
+    [+/- ...] + [-8.26241804090059721...+270 +/- ...]*I
+    sage: stokes[-1][0,3]
+    [+/- ...] + [-14226.712062951... +/- ...]*I
+    sage: stokes[I][2,1]
+    [-0.857...] + [-0.514...]*I
+
 TESTS:
 
 Hypergeometric functions::
@@ -586,11 +598,21 @@ class SingConnectionDict(dict):
         if cmp > 0 or cmp == 0 and a.cmp_real(b) < 0:
             a, b = b, a
         logger.debug("%s -> %s: direct summation", a, b)
-        mat_ab = self.dop.numerical_transition_matrix([a, b], self._eps)
-        mat_ab = mat_ab.change_ring(self.IC)
+        eps = self._eps
+        for _ in range(6):
+            mat_ab = self.dop.numerical_transition_matrix([a, b], eps)
+            mat_ab = mat_ab.change_ring(self.IC)
+            try:
+                inv = ~mat_ab
+            except ZeroDivisionError:
+                eps = eps**2
+            else:
+                break
+        else:
+            inv =  mat_ab.parent().zero()*mat_ab.base_ring()('nan')
         # For the transition matrix in the other direction, we correct by
         # inserting a local monodromy matrix.
-        mat_ba = self._monodromy(a)*~mat_ab
+        mat_ba = self._monodromy(a)*inv
         return a, b, mat_ab, mat_ba
 
     def _transition_matrices_along_spanning_tree(self, sing):
