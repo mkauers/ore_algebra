@@ -530,46 +530,48 @@ class SingConnectionDict(dict):
         mat_ca = self._combine_edges(c, b, a, t.flat)
         return a, c, mat_ac, mat_ca
 
+    def _transition_matrix_basecase(self, a, b):
+        r"""
+        Transition matrices along a single edge.
+
+        The one from bottom to top is computed by solving the ODE numerically,
+        the other one by taking the inverse with a branch correction.
+        """
+        # The connection-to-Stokes formulas are written under the assumption
+        # that the “current” sheet of the Riemann surface of log(b+z) is the
+        # one containing b·[1,+∞). In other words, the incoming path should
+        # be equivalent to a path arriving “just behind” b seen from a and
+        # from the right. This is the case with the definition used by
+        # numerical_transition_matrix when the path arrives from below the
+        # branch cut, or horizontally from the right.
+        cmp = a.cmp_imag(b)
+        if cmp > 0 or cmp == 0 and a.cmp_real(b) < 0:
+            a, b = b, a
+        logger.debug("%s -> %s: direct summation", a, b)
+        mat_ab = self.dop.numerical_transition_matrix([a, b], self._eps)
+        mat_ab = mat_ab.change_ring(self.IC)
+        # For the transition matrix in the other direction, we correct by
+        # inserting a local monodromy matrix.
+        mat_ba = self._monodromy(a)*~mat_ab
+        return a, b, mat_ab, mat_ba
+
     def _transition_matrices_along_spanning_tree(self, sing):
         r"""
         Iterator over the transition matrices (in both directions) along the
         edges of some spanning tree.
-
-        The one from bottom to top is computed by soling the ODE numerically,
-        the other one by taking the inverse with a branch correction.
         """
-
         def dist(e):
             i, j, _ = e
             return abs(CC(sing[i]) - CC(sing[j]))
-
         # Sage graphs require vertices to be <-comparable, so we use indices
         complete_graph = CompleteGraph(len(sing))
         spanning_tree = complete_graph.min_spanning_tree(dist)
-
         # XXX we should actually compute all edges from a given vertex at
         # once... and use the same tricks as in monodromy_matrices
         for i, j, _ in spanning_tree:
-            # The connection-to-Stokes formulas are written under the assumption
-            # that the “current” sheet of the Riemann surface of log(b+z) is the
-            # one containing b·[1,+∞). In other words, the incoming path should
-            # be equivalent to a path arriving “just behind” b seen from a and
-            # from the right. This is the case with the definition used by
-            # numerical_transition_matrix when the path arrives from below the
-            # branch cut, or horizontally from the right.
-            a, b = sing[i], sing[j]
-            cmp = a.cmp_imag(b)
-            if cmp > 0 or cmp == 0 and a.cmp_real(b) < 0:
-                a, b = b, a
-            logger.debug("%s -> %s: direct summation", a, b)
-            mat_ab = self.dop.numerical_transition_matrix([a, b], self._eps)
-            mat_ab = mat_ab.change_ring(self.IC)
-            # For the transition matrix in the other direction, we correct by
-            # inserting a local monodromy matrix.
-            mat_ba = self._monodromy(a)*~mat_ab
-            yield a, b, mat_ab, mat_ba
+            yield self._transition_matrix_basecase(sing[i], sing[j])
 
-    def fill(self, sing, sing_dirs):
+    def fill(self, sing, sing_dirs=None):
         r"""
         Fill this dictionary with transition matrices between all pairs of
         elements of ``sing``.
@@ -580,6 +582,9 @@ class SingConnectionDict(dict):
         and ending just behind ``b`` seen from ``a``. Branch cuts work in the
         usual way.
         """
+
+        if sing_dirs is None:
+            sing_dirs = _singular_directions(sing)
 
         nsing = len(sing)
 
@@ -632,8 +637,6 @@ class SingConnectionDict(dict):
             self[a1, b1] = mat_ab
             self[b1, a1] = mat_ba
             triangles.inc_all(a1, b1, sing)
-
-        return self
 
 
 def _newton_polygon(dop):
@@ -712,7 +715,8 @@ def stokes_matrices(dop, eps=1e-15):
     IC = ComplexBallField(utilities.prec_from_eps(eps) + 10 + 4*len(sing))
 
     dirs = _singular_directions(sing)
-    tmat = SingConnectionDict(bdop, eps, IC).fill(sing, dirs)
+    tmat = SingConnectionDict(bdop, eps, IC)
+    tmat.fill(sing, dirs)
 
     # The transition matrix s0 → s1 contributes to the columns of the Stokes
     # matrix in the singular direction [s0, s1) corresponding to solutions
