@@ -451,6 +451,44 @@ def interval_triangle_is_empty(sing, a, b, c):
 
 
 class SingConnectionDict(dict):
+    r"""
+    TESTS::
+
+        sage: import itertools
+        sage: from ore_algebra import OreAlgebra
+        sage: from ore_algebra.analytic.differential_operator import DifferentialOperator
+        sage: from ore_algebra.analytic.stokes import SingConnectionDict
+
+        sage: Pol.<x> = QQ[]
+        sage: Dop.<Dx> = OreAlgebra(Pol, 'Dx')
+
+        sage: dop = DifferentialOperator((x+1+i)*(x+1-i)*(x-1+i)*(x-1-i)*x*Dx^2 - 3*Dx + 2)
+        sage: cnx = SingConnectionDict(dop, RBF(1e-16), ComplexBallField(100))
+        sage: sing = dop._singularities(multiplicities=False)
+        sage: sing.sort(key=lambda s: CBF(s).arg())
+        sage: sing
+        [-1 - 1*I, 1 - 1*I, 0, 1 + 1*I, -1 + 1*I]
+        sage: cnx.fill(sing)
+
+        sage: zero = Matrix(CBF, 2)
+
+        sage: for a, b in itertools.combinations(sing, 2):
+        ....:     if a.as_number_field_element() == -b.as_number_field_element():
+        ....:         continue
+        ....:     a, b, mat_ab, mat_ba = cnx._transition_matrix_basecase(a, b)
+        ....:     for aa, bb, mat in [(a, b, mat_ab), (b, a, mat_ba)]:
+        ....:         if not (mat - cnx[aa,bb]).contains(zero):
+        ....:             print(f"failed: {aa} → {bb}")
+
+        sage: (cnx[sing[0], sing[3]] - dop.numerical_transition_matrix([-1-i, 1/2, 3/2+i/2, 1+i])).contains(zero)
+        True
+        sage: (cnx[sing[3], sing[0]] - dop.numerical_transition_matrix([1+i, -1/2, -3/2-3/2*i, -1-i])).contains(zero)
+        True
+        sage: (cnx[sing[1], sing[4]] - dop.numerical_transition_matrix([1-i, 1/2, -1+i])).contains(zero)
+        True
+        sage: (cnx[sing[4], sing[1]] - dop.numerical_transition_matrix([-1+i, -1/2, 1-3/2*i, 1-i])).contains(zero)
+        True
+    """
 
     def __init__(self, dop, eps, IC):
         self.dop = dop
