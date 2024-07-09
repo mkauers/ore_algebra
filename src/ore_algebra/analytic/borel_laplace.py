@@ -48,19 +48,19 @@ We can change the direction of summation::
     [[0.361328616888222584...] + [+/- ...]*I]
     [[0.554685532447109661...] + [+/- ...]*I]
 
-Standard direction, but close to the border of the associated sector... ::
+Standard direction, but close to the boundary of the associated sector... ::
 
     sage: borel_laplace(-x^3*Dx^2+(-x^2-x)*Dx+1, 1/100+1/2*i, RBF(0), RBF(1e-10))
     [[0.150323330...] + [0.395016510...]*I]
     [ [0.57740414...] + [-0.39699658...]*I]
 
-Attempting to evaluate on the border of the sector results in an error::
+Attempting to evaluate on the boundary of the sector results in an error::
 
     sage: borel_laplace(-x^3*Dx^2+(-x^2-x)*Dx+1, 1/2*i, 0, RBF(1e-10))
     Traceback (most recent call last):
     ...
     ValueError: evaluation point not in the half-plane bisected by the direction
-    (or too close to the border)
+    (or too close to the boundary)
 
 However, we can compute the analytic continuation of the sum by choosing a
 more suitable direction::
@@ -657,7 +657,7 @@ def analytic_laplace(trd_dop, z1, theta, eps, derivatives=1, *, ctx):
     expcoeff = -(_dir/z1).real()
     if not expcoeff < 0:
         raise ValueError("evaluation point not in the half-plane bisected "
-                         "by the direction (or too close to the border)")
+                         "by the direction (or too close to the boundary)")
 
     int_rows_z2Dz = [] # entry k = Laplace transform of ((z²Dz)^k)(f)
     for diff_order in range(derivatives):
