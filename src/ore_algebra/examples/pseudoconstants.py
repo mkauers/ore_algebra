@@ -1,4 +1,5 @@
 """r
+Pseudoconstants and global integral bases
 
 This module contains examples for computation of pseudoconstants and global
 integral bases.
