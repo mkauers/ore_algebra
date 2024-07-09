@@ -253,14 +253,11 @@ from sage.rings.number_field import number_field_base
 from sage.structure.coerce_exceptions import CoercionException
 from sage.structure.sequence import Sequence
 
-from sage.rings.complex_arb import ComplexBall
-
 from . import accuracy, bounds, utilities
 
 from .context import dctx
 from .local_solutions import (bw_shift_rec, FundamentalSolution,
         LocalBasisMapper, log_series_values)
-from .safe_cmp import *
 
 logger = logging.getLogger(__name__)
 

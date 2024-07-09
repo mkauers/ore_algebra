@@ -38,14 +38,12 @@ from sage.misc.cachefunc import cached_method
 from sage.misc.misc_c import prod
 from sage.rings.all import (CC, CBF, ComplexBallField, QQ, QQbar,
         QuadraticField, RBF)
-from sage.functions.all import exp
 from sage.symbolic.all import pi, SR
 
-from . import analytic_continuation as ancont, path, utilities
+from . import path, utilities
 
 from .context import Context
 from .differential_operator import DifferentialOperator
-from .local_solutions import LocalBasisMapper
 from .polynomial_root import PolynomialRoot
 
 logger = logging.getLogger(__name__)

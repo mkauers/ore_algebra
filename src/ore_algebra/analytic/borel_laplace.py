@@ -198,7 +198,6 @@ from sage.rings.integer_ring import ZZ
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 from sage.rings.real_arb import RBF, RealBall
 from sage.rings.real_mpfr import RealField
-from sage.structure.element import coercion_model
 
 from .. import OreAlgebra
 
@@ -621,7 +620,8 @@ def _check_singular_direction(dop, dir):
 
 def _z2Dz_to_taylor_coeff(rows_z2Dz, z1):
     Pol, z = PolynomialRing(ZZ, 'z').objgen()
-    OA, z2Dz = OreAlgebra(Pol, ('z2Dz', {}, {z: z**2})).objgen()
+    OA = OreAlgebra(Pol, ('z2Dz', {}, {z: z**2}), check_base_ring=False)
+    z2Dz = OA.gen()
     derivatives = len(rows_z2Dz)
     int_rows = []
     Dz = z**(-2)*z2Dz

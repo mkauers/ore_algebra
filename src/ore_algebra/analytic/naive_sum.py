@@ -34,7 +34,6 @@ from .differential_operator import DifferentialOperator
 from .local_solutions import (bw_shift_rec, LogSeriesInitialValues,
                               LocalBasisMapper, log_series_values)
 from .path import EvaluationPoint_base, EvaluationPoint
-from .safe_cmp import *
 
 logger = logging.getLogger(__name__)
 
@@ -1134,6 +1133,7 @@ def fundamental_matrix_regular_truncated(dop, evpts, trunc_index, bit_prec,
     """
     ctx = Context(ctx)
     ctx.squash_intervals = False
+    dop = DifferentialOperator(dop)
     hsm = HighestSolMapper_partial_sums(dop, evpts, trunc_index, bit_prec,
                                         inclusive=inclusive, ctx=ctx)
     cols = hsm.run()

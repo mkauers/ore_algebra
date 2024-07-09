@@ -26,11 +26,11 @@ from . import naive_sum, binary_splitting
 from sage.matrix.constructor import identity_matrix, matrix
 from sage.rings.complex_arb import ComplexBallField
 from sage.rings.integer_ring import ZZ
-from sage.rings.number_field.number_field_element import NumberFieldElement
 from sage.rings.real_arb import RealBallField
 from sage.structure.element import Matrix, canonical_coercion
 
-from .context import Context, dctx # re-export Context
+from .context import Context as Context  # re-export
+from .context import dctx
 from .monodromy import formal_monodromy
 from .path import EvaluationPoint_step, Path, Step
 
