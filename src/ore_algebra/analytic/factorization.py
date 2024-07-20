@@ -13,7 +13,7 @@ Examples related to Small Step Walks (https://specfun.inria.fr/chyzak/ssw/)::
     ([2, 1, 1], True)
 
     sage: from ore_algebra.analytic.factorization import _tests_ssw
-    sage: _tests_ssw() # long time (50s, 9a7e7c6f of facto)
+    sage: _tests_ssw() # not tested (50s, 9a7e7c6f of facto)
     True
 
     sage: dop = ssw.aux_dop
@@ -40,8 +40,8 @@ Examples related to random walks (http://koutschan.de/data/fcc1/)::
     sage: len(fac), fac[0] == fcc5 # long time
     (1, True)
 
-    sage: fac = fcc6.factor() # long time (35s, 9a7e7c6f of facto)
-    sage: len(fac), fac[0] == fcc6 # long time
+    sage: fac = fcc6.factor() # not tested (35s, 9a7e7c6f of facto)
+    sage: len(fac), fac[0] == fcc6 # not tested
     (1, True)
 
     sage: dop = fcc3**2
@@ -116,9 +116,9 @@ Examples from Periods of hypersurfaces (ore_algebra.examples.periods)::
 
     sage: from ore_algebra.examples.periods import lairez_sertoz
     sage: from ore_algebra.examples.periods import *
-    sage: dop = lairez_sertoz # long time (28s, d0b5a297 of facto)
-    sage: fac = dop.factor() # long time
-    sage: len(fac), fac[0] == dop # long time
+    sage: dop = lairez_sertoz # not tested (28s, d0b5a297 of facto)
+    sage: fac = dop.factor() # not tested
+    sage: len(fac), fac[0] == dop # not tested
     (1, True)
 
     sage: dop = dop_140118_4 # long time (4s, d0b5a297 of facto)
@@ -136,10 +136,10 @@ Examples from Periods of hypersurfaces (ore_algebra.examples.periods)::
     ....:     fac = dop.factor() # long time
     ....:     assert prod(fac) == dop # long time
 
-    sage: for i in range(21): # long time (1min, d0b5a297 of facto)
-    ....:     dop = allODEs[1][i] # long time
-    ....:     fac = dop.factor() # long time
-    ....:     assert prod(fac) == dop # long time
+    sage: for i in range(21): # not tested (1min, d0b5a297 of facto)
+    ....:     dop = allODEs[1][i] # not tested
+    ....:     fac = dop.factor() # not tested
+    ....:     assert prod(fac) == dop # not tested
 
 
 Examples from Iterated integrals (ore_algebra.examples.iint)::
@@ -185,10 +185,10 @@ Examples from ore_algebra.examples.polya::
     sage: len(fac), fac[0] == dop
     (1, True)
 
-    sage: for i in range(5, 8): # long time (9s, d0b5a297 of facto)
-    ....:     dop = polya.dop[i] # long time
-    ....:     fac = dop.factor() # long time
-    ....:     assert len(fac) == 1 and fac[0] == dop # long time
+    sage: for i in range(5, 8): # not tested (9s, d0b5a297 of facto; 226 s as of 823d261c)
+    ....:     dop = polya.dop[i] # not tested
+    ....:     fac = dop.factor() # not tested
+    ....:     assert len(fac) == 1 and fac[0] == dop # not tested
 
 
 Examples from ore_algebra.examples.stdfun::
@@ -219,7 +219,7 @@ Examples from ore_algebra.analytic.examples.misc::
     ([3, 1], True)
 
     sage: dop = chyzak1_dop
-    sage: fac = dop.factor(); len(fac), fac[0] == dop # long time (55s, 9a7e7c6f of facto)
+    sage: fac = dop.factor(); len(fac), fac[0] == dop # not tested (55s, 9a7e7c6f of facto)
     (1, True)
 
     sage: dop = rodriguez_villegas_dop
@@ -278,8 +278,8 @@ Other examples::
     ([1, 1], True)
 
     sage: dop = (23328*z**30 - 2962656*z**29 + 167481432*z**28 - 5571556704*z**27 + 121729674150*z**26 - 1851395926086*z**25 + 40700956322629/2*z**24 - 166404060748989*z**23 + 2075213903062521/2*z**22 - 5039429066440560*z**21 + 19398104528727162*z**20 - 59991326512462044*z**19 + 150581068219429838*z**18 - 308893191659376156*z**17 + 519871215900006075*z**16 - 718528419860924574*z**15 + 813818978377742103*z**14 - 751139117952342336*z**13 + 559450624042995962*z**12 - 331096536795373020*z**11 +152073433106343000*z**10 - 52250704431108750*z**9 + 25272275126878125/2*z**8 - 1918124754778125*z**7 + 274941996890625/2*z**6)*Dz**6 + (2122848*z**29 - 251277552*z**28 + 13229814240*z**27 - 410223377880*z**26 + 8378506293030*z**25 - 119780974597491*z**24 + 1247451935860499*z**23 - 9753741779831230*z**22 + 58673669994057235*z**21 - 277014369667643170*z**20 + 1042973990433429142*z**19 - 3170371723000704238*z**18 + 7851382961812157130*z**17 - 15937382846325142040*z**16 +26603165524579973420*z**15 - 36533478019847750354*z**14 + 41171988038741033396*z**13 - 37854313332296302670*z**12 + 28111149739081942810*z**11 - 16600614478473845250*z**10 + 7612966802875410000*z**9 - 2613143160673903125*z**8 + 631635634021640625*z**7 - 95873891621625000*z**6 + 6873549922265625*z**5)*Dz**5 + (1772928*z**28 - 191060208*z**27 + 9303985296*z**26 - 272881870056*z**25 + 5414176964808*z**24 - 77161260988311*z**23 + 816942000683035*z**22 - 6564352661122430*z**21 +40730888154463260*z**20 - 198233317321299601*z**19 + 767285193309750131*z**18 - 2389345325654892933*z**17 + 6040114702696303343*z**16 - 12473992563919793515*z**15 + 21122384911404177021*z**14 - 29352110878545889685*z**13 + 33402828296724828019*z**12 - 30958636402896387771*z**11 + 23142803494946381409*z**10 - 13741279316128878615*z**9 + 6329965071185425125*z**8 - 2180688690729701250*z**7 + 528635258525362500*z**6 - 80415682172915625*z**5 + 5773781934703125*z**4)*Dz**4 + (3079296*z**27 -288314640*z**26 + 12291128568*z**25 - 322741102428*z**24 + 5933901927222*z**23 - 81199522929312*z**22 + 846595466790247*z**21 - 6783280316776317*z**20 + 42134994404044533*z**19 - 205280872844283139*z**18 + 794368617371094252*z**17 - 2469813602975656377*z**16 + 6227877247789998128*z**15 - 12822890652430754931*z**14 + 21643972013267727882*z**13 - 29983117541423786699*z**12 + 34021065623944456350*z**11 - 31446507800544432561*z**10 + 23448703697621235732*z**9 - 13889978259690737871*z**8 +6383770909597906290*z**7 - 2194230662646093225*z**6 + 530727301376148375*z**5 - 80562533545372500*z**4 + 5773781934703125*z**3)*Dz**3 + (1632960*z**26 - 154326384*z**25 + 7338837168*z**24 - 225663323436*z**23 + 4801890449016*z**22 - 72874733229288*z**21 + 808011192676735*z**20 - 6687793265835490*z**19 + 42187300083028603*z**18 - 206817067662336884*z**17 + 801560426130937658*z**16 - 2490727387230197624*z**15 + 6272063547301139206*z**14 - 12895041179674817944*z**13 +21738287032668387484*z**12 - 30083767255776896928*z**11 + 34108882884431529192*z**10 - 31507843213748157876*z**9 + 23481458285447155422*z**8 - 13902375219613699716*z**7 + 6386678527821802506*z**6 - 2194528584495136680*z**5 + 530717365635608925*z**4 - 80561169859929750*z**3 + 5773781934703125*z**2)*Dz**2 + (2356128*z**25 - 172802160*z**24 + 7290746496*z**23 - 220329890208*z**22 + 4748895867996*z**21 - 72989477514576*z**20 + 815018141851579*z**19 - 6762783377980019*z**18 +42644822731963227*z**17 - 208681301740955672*z**16 + 807002082826244992*z**15 - 2502711432378058869*z**14 + 6293052390293003992*z**13 - 12925897748676398084*z**12 + 21777653697882335640*z**11 - 30126732277129911711*z**10 + 34146782819340442956*z**9 - 31532942478475275696*z**8 + 23492924047512296220*z**7 - 13905563328105795207*z**6 + 6387084187992321264*z**5 - 2194529579280600948*z**4 + 530717772906189585*z**3 - 80561238605140050*z**2 + 5773781934703125*z)*Dz + 1376352*z**24 -124268256*z**23 + 6537065472*z**22 - 214686219744*z**21 + 4751137968516*z**20 - 73617218440524*z**19 + 823687823266975*z**18 - 6829979407739124*z**17 + 42978937261434045*z**16 - 209811099775500026*z**15 + 809761480688798142*z**14 - 2508043312587912396*z**13 + 6302258618186925892*z**12 - 12940989910793711676*z**11 + 21799463094240316488*z**10 - 30151403872312102182*z**9 + 34166775655227923766*z**8 - 31543700462524877778*z**7 + 23496355856172136314*z**6 - 13906054545221671128*z**5 +6387084190303343280*z**4 - 2194529586021124812*z**3 + 530717777625867777*z**2 - 80561239688783970*z + 5773781934703125 # fuchsian6 chez Marc
-    sage: fac = dop.factor() # long time (28s, d0b5a297 of facto)
-    sage: len(fac), fac[0] == dop # long time
+    sage: fac = dop.factor() # not tested (28s, d0b5a297 of facto)
+    sage: len(fac), fac[0] == dop # not tested
     (1, True)
 """
 
@@ -859,8 +859,7 @@ def _euler_representation(dop):
     for k in range(1, n+1):
 
         newl = [0]
-        for i in range(1, len(l)):
-            newl.append((-k+1)*l[i]+l[i-1])
+        newl.extend((-k+1)*l[i]+l[i-1]for i in range(1, len(l)))
         l = newl + [1]
 
         ck = dop[k]

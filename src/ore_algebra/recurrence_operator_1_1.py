@@ -11,19 +11,18 @@ Univariate recurrence operators over univariate rings
 #  Distributed under the terms of the GNU General Public License (GPL)      #
 #  either version 2, or (at your option) any later version                  #
 #                                                                           #
-#  http://www.gnu.org/licenses/                                             #
+#  https://www.gnu.org/licenses/                                             #
 #############################################################################
 
 from functools import reduce
 
-from sage.arith.all import gcd, lcm
+from sage.arith.all import gcd
 from sage.functions.all import floor
 from sage.misc.all import prod
 from sage.misc.cachefunc import cached_method
 from sage.rings.rational_field import QQ
 from sage.rings.integer_ring import ZZ
 from sage.rings.infinity import infinity
-from sage.rings.number_field.number_field import NumberField
 from sage.rings.qqbar import QQbar
 from sage.rings.power_series_ring import PowerSeriesRing
 from sage.rings.laurent_series_ring import LaurentSeriesRing
@@ -35,7 +34,8 @@ from .ore_operator import UnivariateOreOperator
 from .ore_operator_1_1 import UnivariateOreOperatorOverUnivariateRing
 from .generalized_series import GeneralizedSeriesMonoid, _generalized_series_shift_quotient, _binomial
 
-#############################################################################################################
+
+##########################################################################
 
 class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUnivariateRing):
     r"""
@@ -46,13 +46,9 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
         super(UnivariateOreOperatorOverUnivariateRing, self).__init__(parent, *data, **kwargs)
 
     def __call__(self, f, **kwargs):
-        
-        if type(f) in (tuple, list):
+        if isinstance(f, (tuple, list)):
 
             r = self.order()
-            R = self.parent().base_ring()
-            K = R.base_ring()
-            z = K.zero()
             c = self.numerator().coefficients(sparse=False)
             d = self.denominator()
 
@@ -67,9 +63,9 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
 
             return type(f)(fun(n) for n in range(len(f) - r))
 
-        sigma = self.parent().sigma()
         if "action" not in kwargs:
             x = self.parent().base_ring().gen()
+
             def shift(p):
                 try:
                     return p.subs({x:x+1})
@@ -112,7 +108,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
         x = R.gen()
         one = R.one()
 
-        if type(alg) == str:
+        if isinstance(alg, str):
             alg = self.parent().change_var_sigma_delta(alg, {}, {x:one})
         elif not isinstance(alg, OreAlgebra_generic) or not alg.is_D():
             raise TypeError("target algebra is not adequate")
@@ -164,7 +160,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
         x = R.gen()
         one = R.one()
 
-        if type(alg) == str:
+        if isinstance(alg, str):
             alg = self.parent().change_var_sigma_delta(alg, {x:x+one}, {x:one})
         elif not isinstance(alg, OreAlgebra_generic) or not alg.is_F():
             raise TypeError("target algebra is not adequate")
@@ -850,7 +846,6 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
 
         # 1. superexponential parts
         deg = max(c.degree() for c in coeffs if c!=0)
-        degdiff = deg - min(c.degree() for c in coeffs if c!=0)
 
         solutions = []
         for s, _ in self.newton_polygon(~x):
@@ -1090,16 +1085,14 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
            [[-2, 2, 0], [0, 1, -3/2], [1, 1, 0]]
 
         """
-
         S = self.parent().gen()
         n = self.parent().base_ring().gen()
         R = self.base_ring().base_ring().fraction_field()[n]
-        coeffs = list(map(R, self.normalize().coefficients(sparse=False)))
+        # coeffs = list(map(R, self.normalize().coefficients(sparse=False)))
         r = self.order()
 
         # determine the possible values of gamma and phi
-        points = list(filter(lambda p: p[1] >= 0, [ (i, coeffs[i].degree()) for i in range(len(coeffs)) ]))
-        deg = max([p[1] for p in points])
+        # points = list(filter(lambda p: p[1] >= 0, [ (i, coeffs[i].degree()) for i in range(len(coeffs)) ]))
         output = []
 
         for s, np in self.newton_polygon(~n):
@@ -1153,14 +1146,12 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
 
         print1 = print if infolevel >= 1 else lambda *a, **k: None
         print2 = print if infolevel >= 2 else lambda *a, **k: None
-        print3 = print if infolevel >= 3 else lambda *a, **k: None
 
         print1(" [make_places] At (root of {}) + Nmin={}, Nmax={}"
                .format(f,Nmin,Nmax))
         
         r = self.order() 
         Ore = self.parent()
-        SS = Ore.gen()
         Pol = Ore.base_ring()
         nn = Pol.gen()
         Coef = Pol.base_ring()
@@ -1244,18 +1235,14 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
             0
             sage: rv([(x-1)*Sx, x*(x-1)*Sx])
             (-1, 1)
-        
         """
-
         # Helpers
         print1 = print if infolevel >= 1 else lambda *a, **k: None
-        print2 = print if infolevel >= 2 else lambda *a, **k: None
-        print3 = print if infolevel >= 3 else lambda *a, **k: None
 
         coeffs = self.coefficients(sparse=False)
-        
+
         r = self.order()
-        i = min(i for i in range(r + 1) if coeffs[i] != 0)
+        i = next(i for i in range(r + 1) if coeffs[i] != 0)
         # Should we replace r with r-i when counting solutions?
         lr = coeffs[-1]
         l0 = coeffs[i]
@@ -1325,7 +1312,7 @@ class UnivariateDifferenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
 
     def __call__(self, f, **kwargs):
 
-        if type(f) in (tuple, list):
+        if isinstance(f, (tuple, list)):
             return self.to_S('S')(f, **kwargs)
             
         R = self.parent()
@@ -1358,13 +1345,12 @@ class UnivariateDifferenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
           Sx^4 - 4*Sx^3 + 6*Sx^2 - 4*Sx + 1
           sage: (Fx^4).to_S('Sx')
           Sx^4 - 4*Sx^3 + 6*Sx^2 - 4*Sx + 1
-        
         """
         R = self.base_ring()
         x = R.gen()
         one = R.one()
 
-        if type(alg) == str:
+        if isinstance(alg, str):
             alg = self.parent().change_var_sigma_delta(alg, {x:x+one}, {})
         elif not isinstance(alg, OreAlgebra_generic) or not alg.is_S():
             raise TypeError("target algebra is not adequate")

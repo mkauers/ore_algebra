@@ -15,7 +15,6 @@ eigenspaces, invariant subspace, ...
 from ore_algebra.analytic.accuracy import PrecisionError
 from ore_algebra.analytic.complex_optimistic_field import ComplexOptimisticField
 
-from sage.arith.functions import lcm
 from sage.functions.all import log
 from sage.matrix.constructor import matrix
 from sage.matrix.matrix_dense import Matrix_dense
@@ -156,7 +155,7 @@ def row_echelon_form(mat, *, transformation=False, pivots=False, prec_pivots={})
             T[i] = [T[i,k] - col[i]*T[p[j],k] for k in range(m)]
 
     for j in range(n):
-        if not j in p:
+        if j not in p:
             r, col = len(p), T*vector(mat[:,j])
             i = max((l for l in range(r, m) if col[l].is_nonzero()), \
             key=lambda l: col[l].below_abs(), default=None)
@@ -606,7 +605,8 @@ def roots(pol, *, multiplicities=False):
     except ValueError:
         raise PrecisionError("cannot compute the roots of this polynomial")
 
-    if not multiplicities: return res
+    if not multiplicities:
+        return res
 
     for j, ev in enumerate(res):
         m = 1
@@ -742,7 +742,7 @@ def gen_eigenspaces(mat, *, projections=False):
 ### The class Splitting as in [van der Hoeven, 2007] ###########################
 ################################################################################
 
-class Splitting():
+class Splitting:
 
     def __init__(self, Mats):
 

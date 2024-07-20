@@ -9,10 +9,13 @@ starting from this data.
 .. autosummary::
 
     cbt
+    ct
     fcc
     iint
+    kontsevich_odesskii
     periods
     polya
+    pseudoconstants
     ssw
     stdfun
 

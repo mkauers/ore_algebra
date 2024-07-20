@@ -38,14 +38,12 @@ from sage.misc.cachefunc import cached_method
 from sage.misc.misc_c import prod
 from sage.rings.all import (CC, CBF, ComplexBallField, QQ, QQbar,
         QuadraticField, RBF)
-from sage.functions.all import exp
 from sage.symbolic.all import pi, SR
 
-from . import analytic_continuation as ancont, path, utilities
+from . import path, utilities
 
 from .context import Context
 from .differential_operator import DifferentialOperator
-from .local_solutions import LocalBasisMapper
 from .polynomial_root import PolynomialRoot
 
 logger = logging.getLogger(__name__)
@@ -268,7 +266,7 @@ def _local_monodromy_loop(x, eps, ctx, effort=3):
         mats.append(mat)
     return polygon, mats
 
-class TodoItem():
+class TodoItem:
 
     def __init__(self, alg, dop, *, want_self=False, want_conj=False):
         self.alg = alg

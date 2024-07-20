@@ -17,7 +17,7 @@ import sys
 
 from sage.rings.real_arb import RealBallField
 
-class Context(object):
+class Context:
     r"""
     Analytic continuation context
 

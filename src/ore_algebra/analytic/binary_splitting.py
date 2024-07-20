@@ -254,14 +254,11 @@ from sage.rings.number_field import number_field_base
 from sage.structure.coerce_exceptions import CoercionException
 from sage.structure.sequence import Sequence
 
-from sage.rings.complex_arb import ComplexBall
-
 from . import accuracy, bounds, utilities
 
 from .context import dctx
 from .local_solutions import (bw_shift_rec, FundamentalSolution,
         LocalBasisMapper, log_series_values)
-from .safe_cmp import *
 
 logger = logging.getLogger(__name__)
 
@@ -272,7 +269,7 @@ def PolynomialRing(base, var):
     else:
         return polyringconstr.PolynomialRing(base, var)
 
-class StepMatrix(object): # pylint: disable=attribute-defined-outside-init
+class StepMatrix: # pylint: disable=attribute-defined-outside-init
     r"""
     A structured matrix that maps a vector of s coefficients and a partial sum
     (both around some truncation index n) of a D-finite series to a similar
@@ -508,7 +505,7 @@ class StepMatrix_arb(StepMatrix):
                     for c in b:
                         assert c.is_exact()
 
-class SolutionColumn(object):
+class SolutionColumn:
     r"""
     Partially “unrolled” local canonical solutions.
 
@@ -720,7 +717,7 @@ class SolutionColumn(object):
         den = abs(IC_est(self.v.rec_den))*IR(self.v.pow_den[0])
         return num1*num2/den
 
-class MatrixRec(object):
+class MatrixRec:
     r"""
     A matrix recurrence simultaneously generating the coefficients and partial
     sums at one or more points of solutions of an ODE (with exponents in a
@@ -1165,7 +1162,7 @@ class MatrixRecsUnroller(LocalBasisMapper): # pylint: disable=attribute-defined-
             stride = self._est_terms - prev
             if stride > 2*self.ctx.binsplit_thr:
                 resolution = ZZ(self.ctx.binsplit_thr).nbits()
-                stride = ((stride >> resolution)) << resolution
+                stride = (stride >> resolution) << resolution
             elif stride <= 0:
                 stride = max(1 << ZZ(stride).nbits(), self.ctx.binsplit_thr)
                 stride = min(prev, stride)

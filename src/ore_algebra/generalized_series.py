@@ -238,8 +238,8 @@ class GeneralizedSeriesMonoid(UniqueRepresentation, Parent):
         if isinstance(P, GeneralizedSeriesMonoid):
             return self.var() == P.var() and self.base().has_coerce_map_from(P.base())
         else:
-            return (self.base().has_coerce_map_from(P) # to const
-                    or self.tail_ring().base_ring().has_coerce_map_from(P)) # to power series
+            return (self.base().has_coerce_map_from(P)  # to const
+                    or self.tail_ring().base_ring().has_coerce_map_from(P))  # to power series
 
     def random_element(self):
         """
@@ -344,7 +344,7 @@ class ContinuousGeneralizedSeries(RingElement):
 
         try:
             tail2 = tail_ring_ext(tail)
-        except:
+        except (AttributeError, TypeError, ValueError):
             # The above fails if tail is an element of K(x)
             # FIXME: Make the conversion more robust
             tail2 = tail_ring_ext(laurent(tail))
@@ -389,7 +389,7 @@ class ContinuousGeneralizedSeries(RingElement):
                 exp_new = {}
                 for e in exp.exponents():
                     exp_new[e/quo] = exp[e]
-                exp = exp.parent()(exp_new) # exp = exp(x^(1/quo))
+                exp = exp.parent()(exp_new)  # exp = exp(x^(1/quo))
 
                 p_new = []
                 for c in p.coefficients(sparse=False):
@@ -397,7 +397,7 @@ class ContinuousGeneralizedSeries(RingElement):
                     for e in c.exponents():
                         c_new[int(e/quo)] = c[e]
                     p_new.append(c.parent()(c_new))
-                p = p.parent()(p_new) # p = p(x^(1/quo), log(x))
+                p = p.parent()(p_new)  # p = p(x^(1/quo), log(x))
 
             if make_monic:
                 p /= p.leading_coefficient().coefficients()[0]
@@ -516,11 +516,11 @@ class ContinuousGeneralizedSeries(RingElement):
                 return False
 
         return self.__ramification == other.__ramification and self.__exp == other.__exp \
-               and self.__tail == other.__tail
+            and self.__tail == other.__tail
 
     def __hash__(self):
         return hash((self.__ramification, self.__exp, self.__tail))
-    
+
     def _mul_(self, other):
 
         if self.is_zero() or other.is_one():
@@ -536,10 +536,9 @@ class ContinuousGeneralizedSeries(RingElement):
         return ContinuousGeneralizedSeries(G, At*Bt, exp=Ae + Be, ramification=s)
 
     def _neg_(self):
-
-        return ContinuousGeneralizedSeries(self.parent(), \
-                                           -self.__tail, \
-                                           exp=self.__exp, \
+        return ContinuousGeneralizedSeries(self.parent(),
+                                           -self.__tail,
+                                           exp=self.__exp,
                                            ramification=self.ramification())
 
     def _add_(self, other):
@@ -572,11 +571,10 @@ class ContinuousGeneralizedSeries(RingElement):
             raise ZeroDivisionError
         elif self.has_logarithms():
             raise ValueError("generalized series involving logarithms are not invertible")
-        else:
-            return ContinuousGeneralizedSeries(self.parent(), \
-                                               ~self.__tail, \
-                                               exp = -self.__exp, \
-                                               ramification = self.ramification())
+        return ContinuousGeneralizedSeries(self.parent(),
+                                           ~self.__tail,
+                                           exp=-self.__exp,
+                                           ramification=self.ramification())
 
     def _repr_(self):
 
@@ -670,7 +668,7 @@ class ContinuousGeneralizedSeries(RingElement):
                 elif alpha.is_one():
                     E_rep += "\\cdot " + x
                 elif alpha in QQ:
-                    E_rep += "\\cdot " + x + "^{" + str(alpha) + "}" # prefer 1/3 over \frac{1}{3} in exponents
+                    E_rep += "\\cdot " + x + "^{" + str(alpha) + "}"  # prefer 1/3 over \frac{1}{3} in exponents
                 else:
                     E_rep += "\\cdot " + x + "^{" + alpha._latex_() + "}"
 
@@ -901,7 +899,7 @@ class ContinuousGeneralizedSeries(RingElement):
         """
         if e not in QQ or e <= 0:
             raise TypeError("exponent must be a rational number")
-        elif e == 1:
+        if e == 1:
             return self
 
         e = QQ(e)
@@ -948,15 +946,15 @@ class ContinuousGeneralizedSeries(RingElement):
         # D(self) = E(x^(-1/r))/x * self  <<<< part1
         #         + exp(..) * ( T_1(x^(1/r),log(x)) * 1/r * x^(1/r - 1)  +  1/x * T_2(x^(1/r), log(x)) ) <<<< part2
 
-        part_1 = ContinuousGeneralizedSeries(self.parent(), \
-                                             ((xE**r)*E).reverse()*T, \
-                                             exp = E - E.degree()/r - 1, \
-                                             ramification = r)
+        part_1 = ContinuousGeneralizedSeries(self.parent(),
+                                             ((xE**r)*E).reverse()*T,
+                                             exp=E - E.degree()/r - 1,
+                                             ramification=r)
 
-        part_2 = ContinuousGeneralizedSeries(self.parent(), \
-                                             T.map_coefficients(lambda p: p.derivative()*xT/r) + T.derivative(), \
-                                             exp = E - 1, \
-                                             ramification = r)
+        part_2 = ContinuousGeneralizedSeries(self.parent(),
+                                             T.map_coefficients(lambda p: p.derivative()*xT/r) + T.derivative(),
+                                             exp=E - 1,
+                                             ramification=r)
 
         return part_1 + part_2
 
@@ -994,12 +992,9 @@ class ContinuousGeneralizedSeries(RingElement):
           `c \neq 0` , is a term of the polynomial part of ``self``
         """
         cc = self.__tail.coefficients(sparse=False)
-        L = []
-        for i in range(len(cc)):
-            for j in range(cc[i].degree() + 1):
-                if cc[i][j] != 0:
-                    L.append((i, j))
-        return L
+        return [(i, j) for i, cci in enumerate(cc)
+                for j in range(cci.degree() + 1)
+                if cci[j] != 0]
 
     def valuation(self, base=QQ, iota=None):
         r"""
@@ -1046,10 +1041,8 @@ class ContinuousGeneralizedSeries(RingElement):
         t = self.tail_support()
         if len(t) == 0:
             return infinity
-        else:
-            return min(generalized_series_term_valuation(
-                        z,j,i,iota=iota)
-                       for i,j in t)
+        return min(generalized_series_term_valuation(
+            z, j, i, iota=iota) for i, j in t)
 
     def non_integral_terms(self, base=QQ, iota=None, cutoff=0):
         """
@@ -1070,22 +1063,21 @@ class ContinuousGeneralizedSeries(RingElement):
         """
         z = base(self.initial_exponent())
         t = self.tail_support()
-        return [(i,j+z) for i,j in t
-                if generalized_series_term_valuation(z,j,i,iota=iota) < cutoff]
+        return [(i, j+z) for i, j in t
+                if generalized_series_term_valuation(z, j, i, iota=iota) < cutoff]
 
-    def coefficient(self,a,b):
+    def coefficient(self, a, b):
         # same as __getitem__ but takes into account the polynomial part
         # TODO: Should it be merged with __getitem__?
         z = self.initial_exponent()
         if not (b-z).is_integer():
             return 0
-        else:
-            try:
-                return self[(a,int(ZZ(b-z)))]
-            except IndexError:
-                return 0
+        try:
+            return self[(a, int(ZZ(b-z)))]
+        except IndexError:
+            return 0
 
-    def is_fuchsian(self,base):
+    def is_fuchsian(self, base):
         r"""
         Test whether this series is Fuchsian over the constant field `base`.
         """
@@ -1122,7 +1114,7 @@ class DiscreteGeneralizedSeries(RingElement):
                 self.__tail /= self.__expansion.leading_coefficient().coefficients()[0]
             return
 
-        if type(data) != list:
+        if not isinstance(data, list):
             K = parent.base()
             R = parent.exp_ring()
             B = parent.tail_ring().base_ring()
@@ -1149,9 +1141,9 @@ class DiscreteGeneralizedSeries(RingElement):
 
         R = parent.tail_ring()
         PS = R.base_ring()
-        if type(expansion) == list:
+        if isinstance(expansion, list):
             for i in range(len(expansion)):
-                if type(expansion[i]) == list:
+                if isinstance(expansion[i], list):
                     expansion[i] = PS(expansion[i], len(expansion[i]))
 
         self.__expansion = parent.tail_ring()(expansion)
@@ -1225,7 +1217,7 @@ class DiscreteGeneralizedSeries(RingElement):
                 raise ValueError
             return self.shift(ZZ(arg[0]))
         elif arg in RR:
-            if arg.parent().is_exact() and (self.__gamma != 0 or self.__ramification > 1 or \
+            if arg.parent().is_exact() and (self.__gamma != 0 or self.__ramification > 1 or
                                             self.__alpha not in ZZ or self.has_logarithms()):
                 R = RR
                 arg = R(arg)
@@ -1325,8 +1317,8 @@ class DiscreteGeneralizedSeries(RingElement):
                 return False
 
         return self.__gamma == other.__gamma and self.__ramification == other.__ramification \
-                   and self.__rho == other.__rho and self.__subexp == other.__subexp \
-                   and self.__alpha == other.__alpha and self.__expansion == other.__expansion
+            and self.__rho == other.__rho and self.__subexp == other.__subexp \
+            and self.__alpha == other.__alpha and self.__expansion == other.__expansion
 
     def _mul_(self, other):
 
@@ -1380,7 +1372,7 @@ class DiscreteGeneralizedSeries(RingElement):
         else:
             alpha = self.__alpha
 
-        return DiscreteGeneralizedSeries(self.parent(), \
+        return DiscreteGeneralizedSeries(self.parent(),
                                          [self.__gamma, self.__ramification, self.__rho, Asub, alpha, Aexp + Bexp])
 
     def __invert__(self):
@@ -1390,8 +1382,8 @@ class DiscreteGeneralizedSeries(RingElement):
         elif self.has_logarithms():
             raise ValueError("generalized series involving logarithms are not invertible")
 
-        return DiscreteGeneralizedSeries(self.parent(), \
-                                         [-self.__gamma, self.__ramification, ~self.__rho, -self.__subexp, \
+        return DiscreteGeneralizedSeries(self.parent(),
+                                         [-self.__gamma, self.__ramification, ~self.__rho, -self.__subexp,
                                           -self.__alpha, ~self.__expansion])
 
     def _repr_(self):
@@ -1520,15 +1512,15 @@ class DiscreteGeneralizedSeries(RingElement):
                 return False
 
         return self.__gamma == other.__gamma and self.__rho == other.__rho and \
-               self.__ramification == other.__ramification and self.__subexp == other.__subexp and \
-               self.__ramification*(self.__alpha - other.__alpha) in reference
+            self.__ramification == other.__ramification and self.__subexp == other.__subexp and \
+            self.__ramification*(self.__alpha - other.__alpha) in reference
 
     def is_zero(self):
         return self.__expansion.is_zero()
 
     def is_one(self):
         return self.__gamma == 0 and self.__rho == 1 and self.__subexp.is_zero() and self.__alpha == 0 \
-               and self.__expansion.is_one()
+            and self.__expansion.is_one()
 
     def shift(self, i=1):
 
@@ -1544,7 +1536,7 @@ class DiscreteGeneralizedSeries(RingElement):
         subexp = [subexp[j] for j in range(1, max(subexp.degree(), gamma.denominator()) + 1)]
         ram = self.__ramification
 
-        factor = _generalized_series_shift_quotient(x, prec=prec + 1, shift=i, gamma=gamma, rho=rho, \
+        factor = _generalized_series_shift_quotient(x, prec=prec + 1, shift=i, gamma=gamma, rho=rho,
                                                     subexp=subexp, ramification=ram, alpha=alpha).reverse()
 
         # (x+i)^(-1/ram) = x^(-1/ram) * (1+i/x)^(-1/ram)
@@ -1556,7 +1548,7 @@ class DiscreteGeneralizedSeries(RingElement):
         logx_shifted = expansion.parent().gen() - sum((-i*x**ram)**k/QQ(k) for k in range(1, prec + 1))
         expansion = expansion(logx_shifted)
 
-        return DiscreteGeneralizedSeries(self.parent(), [self.__gamma, ram, self.__rho, self.__subexp, \
+        return DiscreteGeneralizedSeries(self.parent(), [self.__gamma, ram, self.__rho, self.__subexp,
                                                          self.__alpha + self.__gamma*i, expansion])
 
     def prec(self):
@@ -1565,23 +1557,21 @@ class DiscreteGeneralizedSeries(RingElement):
         contained in it.
         """
         t = self.__expansion
-
         if t.is_zero():
             return infinity
-        else:
-            return min(c.prec() for c in t.coefficients())/self.__ramification
+        return min(c.prec() for c in t.coefficients())/self.__ramification
 
 
 ############################################################################################################
 
-def _binomial(lam, j): # works also when lambda is not an integer
-    if type(lam) == int:
+def _binomial(lam, j):  # works also when lambda is not an integer
+    if isinstance(lam, int):
         lam = ZZ(lam)
     b = one = lam.parent().one()
     for jj in range(j):
         b *= lam/(j - jj)
         lam -= one
-    return b # checked.
+    return b  # checked.
 
 
 def _super_expansion(gamma, i, n, prec):
@@ -1594,7 +1584,7 @@ def _super_expansion(gamma, i, n, prec):
         outer += inner_pow/ZZ(k).factorial()
     coeffs = outer.padded_list(prec + 1)
     coeffs.reverse()
-    return n.parent()(coeffs) # checked.
+    return n.parent()(coeffs)  # checked.
 
 
 def _sub_expansion(coeffs, ram, i, n, prec):

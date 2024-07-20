@@ -13,19 +13,19 @@ Evaluation of convergent D-finite series by direct summation
 #
 # http://www.gnu.org/licenses/
 
-import collections, logging, sys, warnings
+import collections
+import logging
+import sys
 
 from itertools import count, chain, repeat
 
-from sage.matrix.constructor import identity_matrix, matrix
+from sage.matrix.constructor import matrix
 from sage.modules.free_module_element import vector
 from sage.rings.all import ZZ, QQ, infinity
-from sage.rings.complex_arb import ComplexBallField, CBF, ComplexBall
-from sage.rings.integer import Integer
+from sage.rings.complex_arb import ComplexBallField
 from sage.rings.number_field import number_field_base
 from sage.rings.polynomial import polynomial_element
-from sage.rings.real_arb import RealBallField, RBF, RealBall
-from sage.rings.real_mpfr import RealField
+from sage.rings.real_arb import RealBallField, RBF
 from sage.structure.sequence import Sequence
 
 from . import accuracy, bounds, utilities
@@ -34,7 +34,6 @@ from .differential_operator import DifferentialOperator
 from .local_solutions import (bw_shift_rec, LogSeriesInitialValues,
                               HighestSolMapper, log_series_values)
 from .path import EvaluationPoint_base, EvaluationPoint
-from .safe_cmp import *
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +49,7 @@ def cy_classes():
         utilities.warn_no_cython_extensions(logger, fallback=True)
         return CoefficientSequence, PartialSum
 
-class CoefficientSequence(object):
+class CoefficientSequence:
 
     def __init__(self, Intervals, ini, ordrec, real):
         r"""
@@ -139,7 +138,7 @@ class CoefficientSequence(object):
 
         return err
 
-class PartialSum(object):
+class PartialSum:
 
     def __init__(self, cseq, Jets, ord, pt, pt_opts, IR):
 
@@ -1086,6 +1085,7 @@ def fundamental_matrix_regular_truncated(dop, evpts, trunc_index, bit_prec,
     """
     ctx = Context(ctx)
     ctx.squash_intervals = False
+    dop = DifferentialOperator(dop)
     hsm = HighestSolMapper_partial_sums(dop, evpts, trunc_index, bit_prec,
                                         inclusive=inclusive, ctx=ctx)
     cols = hsm.run()

@@ -39,13 +39,11 @@ class UnivariateQRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverU
 
     def __call__(self, f, **kwargs):
 
-        if type(f) in (tuple, list):
+        if isinstance(f, (tuple, list)):
 
             r = self.order()
             R = self.parent().base_ring()
             _, q = self.parent().is_Q()
-            K = R.base_ring()
-            z = K.zero()
             c = self.numerator().coefficients(sparse=False)
             d = self.denominator()
 
@@ -96,14 +94,14 @@ class UnivariateQRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverU
           2*x*Jx^2 + (-4*x + 4)*Jx - 2
           sage: (x*Jx-1).to_Q(A).to_J(B) % (x*Jx - 1)
           0
-        
+
         """
         R = self.base_ring()
         K = R.base_ring()
         x, q = self.parent().is_Q()
         one = R.one()
 
-        if type(alg) == str:
+        if isinstance(alg, str):
             alg = self.parent().change_var_sigma_delta(alg, {x:q*x}, {x:one})
         elif not isinstance(alg, OreAlgebra_generic) or not alg.is_J() or \
              alg.base_ring().base_ring() is not K or K(alg.is_J()[1]) != K(q):
@@ -304,9 +302,8 @@ class UnivariateQRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverU
             tc = [ u[1:] for _, u in shift_factor(prod(all_facs)*sigma(op[0].gcd(p), r), 1, q) ]
             lc = [ u[1:] for _, u in shift_factor(prod(all_facs)*op[r], 1, q) ]
             for u, v in zip(tc, lc):
-                s = union(s, [j[0] - i[0] for i in u for j in v])
-            s.sort()
-            return s
+                s.extend(j[0] - i[0] for i in u for j in v)
+            return sorted(set(s))
         except:
             pass
 
@@ -375,11 +372,11 @@ class UnivariateQRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverU
 
         # special factors (powers of x)
         e = 0
-        for (q, _) in L.indicial_polynomial(x).factor():
+        for q, _ in L.indicial_polynomial(x).factor():
             if q.degree() == 1:
                 try:
-                    e = min(e, ZZ(-q[0]/q[1]))
-                except:
+                    e = min(e, ZZ(-q[0] / q[1]))
+                except (TypeError, ValueError):
                     pass
 
         return Factorization([(quo*x + rem, 1), (x, -e)])
@@ -472,15 +469,13 @@ class UnivariateQDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOve
           sage: ((x+1)*Jx - 1).to_Q(B)
           (4*n - 1)*Qn^2 + (2*n - 2)*Qn
           sage: (n*Qn-1).to_J(A).to_Q(B) % (n*Qn - 1)
-          0 
-        
+          0
         """
         R = self.base_ring()
         K = R.base_ring()
         x, q = self.parent().is_J()
-        one = R.one()
 
-        if type(alg) == str:
+        if isinstance(alg, str):
             alg = self.parent().change_var_sigma_delta(alg, {x:q*x}, {})
         elif not isinstance(alg, OreAlgebra_generic) or not alg.is_Q() or \
              alg.base_ring().base_ring() is not R.base_ring() or K(alg.is_Q()[1]) != K(q) :

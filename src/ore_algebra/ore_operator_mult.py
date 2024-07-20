@@ -13,24 +13,21 @@ Multivariate operators
 #  Distributed under the terms of the GNU General Public License (GPL)      #
 #  either version 2, or (at your option) any later version                  #
 #                                                                           #
-#  http://www.gnu.org/licenses/                                             #
+#  https://www.gnu.org/licenses/                                             #
 #############################################################################
 
 from datetime import datetime
 from functools import reduce
 
-from sage.structure.element import RingElement, canonical_coercion
 from sage.structure.richcmp import richcmp
-from sage.arith.all import gcd, lcm
-from sage.matrix.constructor import Matrix, matrix
-from sage.misc.all import prod, add
+from sage.misc.all import prod
 from sage.misc.lazy_string import lazy_string
 from sage.modules.free_module_element import vector
 from sage.rings.rational_field import QQ
 from sage.rings.integer_ring import ZZ
-from sage.rings.infinity import infinity
 
 from .ore_operator import OreOperator
+
 
 class MultivariateOreOperator(OreOperator):
     """

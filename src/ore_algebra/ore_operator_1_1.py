@@ -22,14 +22,15 @@ from functools import reduce
 
 from sage.arith.all import previous_prime as pp
 from sage.arith.all import gcd, lcm, srange
+from sage.arith.misc import divisors
 from sage.matrix.constructor import matrix
 from sage.misc.all import prod
 from sage.misc.cachefunc import cached_method
+from sage.misc.functional import log
 from sage.misc.lazy_import import lazy_import
 from sage.rings.rational_field import QQ
 from sage.rings.integer_ring import ZZ
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
-from sage.rings.power_series_ring import PowerSeriesRing
 from sage.rings.laurent_series_ring import LaurentSeriesRing
 from sage.structure.factorization import Factorization
 
@@ -299,7 +300,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         R = self.base_ring()
         d = -1
 
-        for (p, _) in self.indicial_polynomial(~R.fraction_field()(R.gen())).factor():
+        for p, _ in self.indicial_polynomial(~R.fraction_field()(R.gen())).factor():
             p = R(p)
             if p.degree() == 1:
                 try:
@@ -626,7 +627,6 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
             A = A.change_base(A.base_ring().base())
             L = A(L)
         R = A.base_ring()
-        C = R.base_ring()
         sub = m - 1
 
         if m < 0:
@@ -738,7 +738,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
             raise ValueError("P must have at least order 1")
         elif A.is_F():
             sols = P.to_S('S').associate_solutions(D.to_S('S'), p)
-            return [ (M.to_F(str(A.gen())), m) for (M, m) in sols]
+            return [ (M.to_F(str(A.gen())), m) for M, m in sols]
         elif A.is_S() is not False or A.is_Q() is not False:
             S = A.gen()
             if not D == S - A.one():
@@ -763,7 +763,6 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         sol = adjoint.rational_solutions((-p,))
         A = A.change_ring(A.base_ring().fraction_field())
         sigma = A.sigma()
-        delta = A.delta()
 
         for i in range(len(sol)):
             if sol[i][1].is_zero():
@@ -808,15 +807,12 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         Q = K.base_ring()
         R2 = R.change_ring(PolynomialRing(PolynomialRing(Q,[('c'+str(i)+str(j)) for i in range(oBound) for j in range(dBound)]),K.gen()))
         L = reduce(lambda x,y: x+y,[reduce(lambda x,y: x+y,[R2.base_ring().base_ring().gens()[i+j*dBound]*R2.base_ring().gen()**i for i in range(dBound)])*R2.gen()**j for j in range(oBound)])
-        C=L*self-self*L
-        SYS=[]
-        for sC in C.coefficients(sparse=False):
-            for nC in sC.coefficients(sparse=False):
-                l=[]
-                for cC in R2.base_ring().base_ring().gens():
-                    l.append(Q(nC.coefficient(cC)))
-                SYS.append(l)
-        return Matrix(SYS).right_kernel()
+        C = L*self-self*L
+        gens = R2.base_ring().base_ring().gens()
+        SYS = [[Q(nC.coefficient(cC)) for cC in gens]
+               for sC in C.coefficients(sparse=False)
+               for nC in sC.coefficients(sparse=False)]
+        return matrix(SYS).right_kernel()
 
     def radical(self):
         r"""
@@ -865,11 +861,11 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
 
         """
         p = self._powerIndicator()
-        exponents=[divisors(d) for (c,d) in p.squarefree_decomposition()]
-        M=[]
+        exponents = [divisors(d) for c, d in p.squarefree_decomposition()]
+        M = []
         for a in exponents[0]:
             contained = True
-            for i in range(1,len(exponents)):
+            for i in range(1, len(exponents)):
                 contained = contained and a in exponents[i]
             if contained:
                 M.append(a)
@@ -976,9 +972,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
            sage: C.<q> = ZZ[]; R.<x> = C['x']; A.<Qx> = OreAlgebra(R)
            sage: ((q^2*x-1)*Qx-(x-1)).finite_singularities()
            [(-x + 1, [[0, 1, q*x^2 + (-q - 1)*x + 1]])]
-        
         """
-        from sage.matrix.constructor import matrix
         from sage.rings.finite_rings.all import GF
 
         R = self.parent().base_ring().fraction_field().base()
@@ -997,7 +991,6 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         imgs = { y: hash(y) for y in R.base_ring().gens_dict_recursive() }
         R_img = QQ # coefficient ring after evaluation of parameters
         ev = (lambda p: p) if len(imgs) == 0 else (lambda p: p(**imgs))
-        x = R.gen()
 
         if A.is_Q():
             _, q = A.is_Q()
@@ -1288,10 +1281,9 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
             info(1, "Searching for factors with singularities only at special points.")
             for gamma, phi, d, _ in special_local_data.setdefault(0, []):
                 if d in ZZ and d >= 0:
-                    f = []
-                    for p in SELF.symmetric_product(phi*x**gamma*S - 1).polynomial_solutions(degree=d):
-                        f.append( (p[0]*S - phi*x**gamma*sigma(p[0])).normalize() )
-                    if len(f) > 0:
+                    f = [(p[0]*S - phi*x**gamma*sigma(p[0])).normalize()
+                         for p in SELF.symmetric_product(phi*x**gamma*S - 1).polynomial_solutions(degree=d)]
+                    if f:
                         factors.append(f)
                         if early_termination:
                             return factors
@@ -1318,7 +1310,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
 
             if stat[1] > 0 and stat[1] % 1000 == 0:
                 info(2, "%i/%i combinations completed (%.2f%%)" % (stat[1], stat[0], 100.0*stat[1]/stat[0]))
-                info(3, "%.2f%% disc. by dimension, %.2f%% disc. by Fuchs-relation, %.4f%% disc. by degree, %.4f%% actually solved" % tuple((100.0*u/stat[1] for u in [stat[2], stat[3], stat[4], stat[1] - (stat[2]+stat[3]+stat[4])])))
+                info(3, "{:.2f}% disc. by dimension, {:.2f}% disc. by Fuchs-relation, {:.4f}% disc. by degree, {:.4f}% actually solved".format(*tuple(100.0*u/stat[1] for u in [stat[2], stat[3], stat[4], stat[1] - (stat[2]+stat[3]+stat[4])])))
 
             stat[1] += 1
 
@@ -1572,7 +1564,6 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
             
         print1 = print_with_prefix if infolevel >= 1 else lambda *a, **k: None
         print2 = print_with_prefix if infolevel >= 2 else lambda *a, **k: None
-        print3 = print_with_prefix if infolevel >= 3 else lambda *a, **k: None
         
         print1(f"Computing local basis at {a}")
 
@@ -1583,13 +1574,12 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
 
         r = self.order()
         ore = self.parent()
-        DD = ore.gen()
         if basis is None:
             basis = self._initial_integral_basis(place=a)
 
         k = ore.base_ring()
 
-        F = a.parent().base_ring()
+        # F = a.parent().base_ring()
         deg = a.degree() # Requires a to be the minimal polynomial in extension cases
         Fvar = a.parent().gen(0)
 
@@ -1999,9 +1989,6 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         if places is None:
             places = self.find_candidate_places(infolevel=infolevel,**val_kwargs)
 
-        r = self.order()
-        ore = self.parent()
-        DD = ore.gen()
         if basis is None:
             res = self._initial_integral_basis(place=None)
         else:
@@ -2011,7 +1998,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
             return [self.parent()(1)]
             
         for p in places :
-            if not isinstance(p,tuple) :
+            if not isinstance(p, tuple) :
                 x = p
                 val_fct = raise_val_fct = None
             else:
@@ -2040,7 +2027,7 @@ def _commutativeRadical(p):
                 pass
         return (p,1)
     sqf=p.squarefree_decomposition()
-    exponents=[d for (c,d) in sqf]
+    exponents = [d for _, d in sqf]
     prad=1
     d = gcd(exponents)
     for i in range(len(sqf)):

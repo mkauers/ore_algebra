@@ -306,7 +306,9 @@ Errors::
 #
 # http://www.gnu.org/licenses/
 
-import logging, cmath, math
+import logging
+import cmath
+import math
 import sage.plot.all as plot
 import numpy
 import scipy.optimize
@@ -369,8 +371,8 @@ def orient2d(a, b, c):
     elif c.real == neg_inf:
         return sgn(b.imag - a.imag)
     else:
-        return sgn(((b.real - a.real)*(c.imag - a.imag)
-                   - (c.real - a.real)*(b.imag - a.imag)))
+        return sgn((b.real - a.real)*(c.imag - a.imag)
+                   - (c.real - a.real)*(b.imag - a.imag))
 
 def orient4(s, t, a, b, sticky):
     r"""
@@ -511,7 +513,7 @@ def first_step(zs, z0, z1, orient, loops):
 # Global path deformation
 ######################################################################
 
-class DegenerateVoronoi(object):
+class DegenerateVoronoi:
     r"""
     Voronoi diagram of zero or more aligned points, in a format compatible (for
     our purposes) with the output of scipy.spatial.Voronoi.
@@ -538,7 +540,7 @@ class DegenerateVoronoi(object):
 
         self.hull = point_indices + list(reversed(point_indices[1:-1]))
 
-class VoronoiStep(object):
+class VoronoiStep:
     r"""
     A “combinatorial” step.
 
@@ -567,7 +569,7 @@ class VoronoiStep(object):
     def __repr__(self):
         return "{}→{}({})".format(self.v0, self.v1, self.ridge)
 
-class PathDeformer(object):
+class PathDeformer:
 
     def __init__(self, path, dop=None, max_subdivide=100):
         if dop is None: # then interpret path as a Path object
@@ -654,7 +656,7 @@ class PathDeformer(object):
         hull = [s for s in range(len(self.voronoi.points))
                 if -1 in self.voronoi.regions[self.voronoi.point_region[s]]]
         z0 = self.sing[hull[0]]
-        class Key(object):
+        class Key:
             def __init__(key, i):
                 key.i = i
             def __lt__(key0, key1, eps=eps):
@@ -722,7 +724,7 @@ class PathDeformer(object):
                 edges.append((v0, v1, r))
                 continue
             s0, s1 = self.oriented_hull_edge(*self.voronoi.ridge_points[r])
-            i0, i1 = self.hull.index(s0), self.hull.index(s1)
+            i0, _  = self.hull.index(s0), self.hull.index(s1)
             vec = self.sing[s1] - self.sing[s0]
             vec = vec/abs(vec)
             if v0 == -1:
@@ -1060,7 +1062,7 @@ class PathDeformer(object):
         boundary of region s, starting from a step *on that boundary*.
         The output can be i0 itself.
         """
-        region = self.voronoi.regions[self.voronoi.point_region[s]]
+        # region = self.voronoi.regions[self.voronoi.point_region[s]]
         try:
             j = next(i for i, step in enumerate(self.cpath[i0:], i0) if
                     # concrete ridge not on the boundary of this region
@@ -1144,7 +1146,6 @@ class PathDeformer(object):
             d1 = 0.5*abs(self.sing[s10] - self.sing[s11])
         dist = numpy.geomspace(d0, d1, len(path_sing) + 1)
 
-        path = []
         for j in range(i1 - i0):
             s, t = path_sing[j], path_sing[j+1]
             mid = (self.sing[s] + self.sing[t])/2.
@@ -1469,7 +1470,6 @@ class PathDeformer(object):
 
     def plot(self, both=False, **kwds):
         pl = self.plot_input()
-        failed = False
         try:
             path = self.result
             pl += plot.line([(z.real, z.imag) for z in path],

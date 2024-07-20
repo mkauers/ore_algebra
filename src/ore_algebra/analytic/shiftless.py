@@ -15,7 +15,6 @@ Shiftless decomposition
 
 import logging
 
-from sage.misc.cachefunc import cached_function
 from sage.misc.misc_c import prod
 from sage.rings.rational_field import QQ
 

@@ -14,14 +14,15 @@ D-Finite analytic functions
 #
 # http://www.gnu.org/licenses/
 
-import collections, logging, sys
+import collections
+import logging
 
 import sage.plot.all as plot
 
 from sage.misc.cachefunc import cached_method
 from sage.plot.plot import generate_plot_points
-from sage.rings.all import ZZ, QQ, RBF, CBF, RIF, CIF
-from sage.rings.complex_arb import ComplexBall, ComplexBallField
+from sage.rings.all import ZZ, QQ, RBF, RIF, CIF
+from sage.rings.complex_arb import ComplexBall
 try:
     from sage.rings.complex_mpfr import ComplexNumber
 except ImportError:
@@ -32,13 +33,12 @@ from sage.rings.real_mpfi import RealIntervalField
 from sage.rings.real_mpfr import RealNumber
 
 from . import analytic_continuation as ancont
-from . import bounds
 from . import polynomial_approximation as polapprox
 
 from .analytic_continuation import normalize_post_transform
 from .differential_operator import DifferentialOperator
 from .path import Point
-from .safe_cmp import *
+from .safe_cmp import safe_le, safe_gt, safe_ge, safe_eq
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +51,7 @@ logger = logging.getLogger(__name__)
 
 RealPolApprox = collections.namedtuple('RealPolApprox', ['pol', 'prec'])
 
-class DFiniteFunction(object):
+class DFiniteFunction:
     r"""
     At the moment, this class just provides a simple caching mechanism for
     repeated evaluations of a D-Finite function on the real line. It may
@@ -395,10 +395,10 @@ class DFiniteFunction(object):
             Graphics object consisting of 1 graphics primitive
         """
         mids = generate_plot_points(
-                lambda x: self.approx(x, 20).mid(),
-                x_range, plot_points=200)
+            lambda x: self.approx(x, 20).mid(),
+            x_range, plot_points=200)
         ivs = [(x, self.approx(x, 20)) for x, _ in mids]
-        bounds  = [(x, y.upper()) for x, y in ivs]
+        bounds = [(x, y.upper()) for x, y in ivs]
         bounds += [(x, y.lower()) for x, y in reversed(ivs)]
         options.setdefault('aspect_ratio', 'automatic')
         g = plot.polygon(bounds, thickness=1, **options)
@@ -432,7 +432,7 @@ class DFiniteFunction(object):
                                x_range, color=color)
                 g += plot.text(str(a.prec), (center, a.pol(center).mid()),
                                color=color)
-        for point, ini in self._inivecs.items():
+        for point in self._inivecs:
             g += plot.point2d((point, 0), size=50)
         return g
 

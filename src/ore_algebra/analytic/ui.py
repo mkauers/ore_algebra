@@ -13,7 +13,7 @@ of differential operators.
 #
 # http://www.gnu.org/licenses/
 
-from ..ore_algebra import DifferentialOperators
+from ..ore_algebra import DifferentialOperators as DifferentialOperators
 from . import analytic_continuation as ancont
 from . import polynomial_approximation as polapprox
 

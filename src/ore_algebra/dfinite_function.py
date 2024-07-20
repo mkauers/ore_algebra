@@ -13,7 +13,7 @@ D-finite sequences and functions are elements of D-finite function rings. D-fini
 function ``DFiniteFunctionRing`` as described below.
 
 Depending on the particular parent ring, D-finite functions/sequences may support different functionality.
-For example, for D-finite sequences, there is a method for computing an interlacing sequence, an operation 
+For example, for D-finite sequences, there is a method for computing an interlacing sequence, an operation
 which does not make sense for D-finite functions.
 However basic arithmetic, such as addition and multiplication is implemented for both cases.
 
@@ -31,7 +31,7 @@ AUTHOR:
 #  Distributed under the terms of the GNU General Public License (GPL)      #
 #  either version 2, or (at your option) any later version                  #
 #                                                                           #
-#  http://www.gnu.org/licenses/                                             #
+#  https://www.gnu.org/licenses/                                            #
 #############################################################################
 
 import pprint
@@ -40,18 +40,18 @@ from copy import copy
 from math import factorial
 from operator import pow
 
-from numpy import random
-
 from sage.arith.all import gcd
-from sage.calculus.var import var
+from sage.categories.algebras import Algebras
+from sage.symbolic.ring import SR
 from sage.functions.other import floor, ceil, binomial
 from sage.matrix.constructor import matrix
-from sage.matrix.constructor import Matrix
 from sage.misc.all import prod, randint
+from sage.misc.latex import latex
 from sage.rings.all import ZZ, QQ, CC
-from sage.rings.ring import Algebra
+from sage.rings.infinity import Infinity
 from sage.rings.semirings.non_negative_integer_semiring import NN
 from sage.structure.element import RingElement
+from sage.structure.parent import Parent
 from sage.symbolic.operators import add_vararg, mul_vararg
 from sage.symbolic.relation import solve
 
@@ -59,19 +59,20 @@ from .ore_algebra import OreAlgebra
 from .dfinite_symbolic import symbolic_database
 from .guessing import guess
 
-class DFiniteFunctionRing(Algebra):
+
+class DFiniteFunctionRing(Parent):
     r"""
     A Ring of Dfinite objects (functions or sequences)
     """
-    
+
 # constructor
-    
+
     def __init__(self, ore_algebra, domain = NN, name=None, element_class=None, category=None):
         r"""
         Constructor for a D-finite function ring.
-        
+
         INPUT:
-        
+
         - ``ore_algebra`` -- an Ore algebra over which the D-finite function ring is defined.
             Only ore algebras with the differential or the shift operator are accepted to
             define a D-finite function ring.
@@ -79,13 +80,13 @@ class DFiniteFunctionRing(Algebra):
             i.e. if the domain is ``ZZ`` also negative sequence indices exist.
             So far for d-finite sequences ``NN`` and ``ZZ`` are supported and for D-finite
             functions only ``NN`` is supported.
-        
+
         OUTPUT:
 
         A ring of either D-finite sequences or functions
-            
+
         EXAMPLES::
-        
+
             sage: from ore_algebra import *
 
             #This creates an d-finite sequence ring with indices in ``ZZ``
@@ -93,7 +94,7 @@ class DFiniteFunctionRing(Algebra):
             sage: D = DFiniteFunctionRing(A,ZZ)
             sage: D
             Ring of D-finite sequences over Univariate Polynomial Ring in n over Integer Ring
-            
+
             #This creates an d-finite function ring
             sage: B = OreAlgebra(QQ['x'],'Dx')
             sage: E = DFiniteFunctionRing(B)
@@ -103,43 +104,41 @@ class DFiniteFunctionRing(Algebra):
         """
         if domain != ZZ and domain != NN:
             raise TypeError("Domain does not fit")
-        
+
         self._ore_algebra = ore_algebra
         self._base_ring = ore_algebra.base_ring()
-        
+
         if ore_algebra.is_D() and domain == ZZ:
             raise NotImplementedError("D-finite functions with negative powers are not implemented")
         self._domain = domain
-        if domain == NN:
-            self._backward_calculation = False
-        else:
-            self._backward_calculation = True
-
+        self._backward_calculation = (domain != NN)
         self._populate_coercion_lists_()
-    
-#conversion
+
+        Parent.__init__(self, category=Algebras(self._base_ring))
+
+    #conversion
 
     def _element_constructor_(self, x=None, check=True, is_gen = False, construct=False, **kwds):
         r"""
         Convert ``x`` into this ring, possibly non-canonically.
-        
+
         This is possible if:
-        
+
         - ``x`` is already a d-finite object. Then it is converted into the new d-finite function ring if possible. See the
           method ``_construct_dfinite`` for further information
         - ``x`` is a list of data. Then it is interpreted as the first coefficients of
           a sequence or a power series and the method ``guess`` is called in order to
           find a suitable Ore Operator. See  the method ``_construct_list`` for further information
-        - ``x`` can be converted into a rational number. Then it is intpreted as the constant sequence 
+        - ``x`` can be converted into a rational number. Then it is intpreted as the constant sequence
            x,x,x,\dots or the constant function f(z) = x depending on the D-finite function ring.
         - ``x``can be converted into the fraction field of the base ring of the D-finite function ring. Then it is interpreted as
           the sequence (a_n) := x(n) for the recurrence case or as the function f(z) = x(z) for the
           differential case. See the method ``_construct_rational`` for further information
         - ``x`` is a symbolic expression. Then ``x``is decomposed into atomic expressions which are then converted to D-finite objects if possible
           and put back together. See ``_construct_symbolic`` for further information.
-        
+
         EXAMPLES::
-    
+
             sage: from ore_algebra import *
             sage: A = OreAlgebra(QQ['n'],'Sn')
             sage: D1 = DFiniteFunctionRing(A)
@@ -179,13 +178,13 @@ class DFiniteFunctionRing(Algebra):
         """
         n = self.ore_algebra().is_S()
 
-        #conversion for D-finite functions:
-        if isinstance(x,DFiniteFunction):
-            return self._construct_dfinite(x,n)
+        # conversion for D-finite functions:
+        if isinstance(x, DFiniteFunction):
+            return self._construct_dfinite(x, n)
 
-        #conversion for lists:
-        elif type(x) == list:
-            return self._construct_list(x,n)
+        # conversion for lists:
+        if isinstance(x, list):
+            return self._construct_list(x, n)
 
         #conversion for numbers
         elif x in QQ:
@@ -198,8 +197,8 @@ class DFiniteFunctionRing(Algebra):
 
         #conversion for rational functions
         elif x in self.base_ring().fraction_field():
-            return self._construct_rational(x,n)
-               
+            return self._construct_rational(x, n)
+
         #conversion for symbolic constants
         elif x.is_constant():
             if n:
@@ -210,29 +209,28 @@ class DFiniteFunctionRing(Algebra):
                 return UnivariateDFiniteFunction(self,Dy,{0:x})
         else:
             #conversion for symbolic expressions
-            return self._construct_symbolic(x,n)
+            return self._construct_symbolic(x, n)
 
-                
-    def _construct_dfinite(self,x,n):
+    def _construct_dfinite(self,x, n):
         r"""
         Convert a d-finite object ``x`` into this ring, possibly non-canonically
-        
+
         This is possible if there is a coercion from the Ore algebra of the parent of ``x`` into the Ore algebra of ``self``.
         In the shift case, if ``x`` represents a sequence that is defined over ``NN`` then also the domain of ``self``
         has to be ``NN``(can not convert sequence over domain ``NN`` into sequence over domain ``ZZ``)
-        
+
         INPUT:
-        
+
         - ``x`` -- a d-finite object
-        
+
         - ``n`` -- in the shift case the generator of the Ore algebra over which ``self`` is defined, in the differential case ``False``
-        
+
         OUTPUT:
-        
+
         The D-finite object ``x`` but now with ``self`` as parent
-        
+
         EXAMPLES::
-        
+
             sage: from ore_algebra import *
             sage: A = OreAlgebra(QQ['n'],'Sn')
             sage: D1 = DFiniteFunctionRing(A,ZZ)
@@ -248,7 +246,7 @@ class DFiniteFunctionRing(Algebra):
             Univariate D-finite sequence defined by the annihilating operator n*Sn - n - 1 and the initial conditions {0: 0, 1: 1}
 
             #D1(a2) would not work since a2 is defined over ``NN`` but D1 has domain ``ZZ``
-            
+
         """
         if self._coerce_map_from_(x.parent()):
             if n:
@@ -264,22 +262,22 @@ class DFiniteFunctionRing(Algebra):
     def _construct_list(self,x,n):
         r"""
         Convert a list of data ``x`` into this ring, possibly non-canonically.
-        
+
         This method may lead to problems when the D-finite object has singularities because these are not considered during
         the conversion. So in this case maybe not all sequence/power series term can be computed.
-        
+
         INPUT:
-        
+
         - ``x`` -- a list of rational numbers that are the first terms of a sequence or a power series
-        
+
         - ``n`` -- in the shift case the generator of the Ore algebra over which ``self`` is defined, in the differential case ``False``
-        
+
         OUTPUT:
-        
+
         A D-finite object with initial values from the list ``x`` and an ore operator which annihilates this initial values
-        
+
         EXAMPLES::
-            
+
             #discrete case
             sage: from ore_algebra import *
             sage: A = OreAlgebra(QQ['n'],'Sn')
@@ -293,33 +291,33 @@ class DFiniteFunctionRing(Algebra):
             sage: D2 = DFiniteFunctionRing(B)
             sage: D2([1,-1,1,-1,1,-1])
             Univariate D-finite function defined by the annihilating operator (x + 1)*Dx + 1 and the coefficient sequence defined by (n + 1)*Sn + n + 1 and {0: 1}
-            
+
         """
         try:
-            ann = guess(x,self.ore_algebra())
-        except:
+            ann = guess(x, self.ore_algebra())
+        except Exception:
             raise ValueError("no relation found")
-    
-        if n:
-            return UnivariateDFiniteSequence(self,ann,x)
-        else:
-            return UnivariateDFiniteFunction(self,ann,x)
 
-    def _construct_rational(self,x,n):
+        if n:
+            return UnivariateDFiniteSequence(self, ann, x)
+        else:
+            return UnivariateDFiniteFunction(self, ann, x)
+
+    def _construct_rational(self,x, n):
         r"""
         Convert a rational function ``x`` into this ring, possibly non-canonically.
         Pols of ``x`` will be represented as ``None`` entries.
-        
+
         - ``x`` -- a list of rational numbers that are the first terms of a sequence or a power series
-        
+
         - ``n`` -- in the shift case the generator of the Ore algebra over which ``self`` is defined, in the differential case ``False``
-        
+
         OUTPUT:
-        
+
         A D-finite object that either represents the sequence (a_n) = x(n) or the rational function x(z).
-        
+
         EXAMPLES::
-        
+
             #discrete case
             sage: from ore_algebra import *
             sage: A = OreAlgebra(QQ['n'],'Sn')
@@ -335,13 +333,13 @@ class DFiniteFunctionRing(Algebra):
             sage: x = B.base_ring().gen()
             sage: D2(1/(x+1))
             Univariate D-finite function defined by the annihilating operator (x + 1)*Dx + 1 and the coefficient sequence defined by (n + 1)*Sn + n + 1 and {0: 1}
-            
+
         """
         R = self.base_ring()
         x = R.fraction_field()(x)
 
         if n:
-                
+
             #getting the operator
             A = self.ore_algebra()
             N = R.gen()
@@ -349,7 +347,7 @@ class DFiniteFunctionRing(Algebra):
             f = x.numerator()
             g = x.denominator()
             ann = A(g(n+1)*f(n)*Sn - g(n)*f(n+1))
-                
+
             #getting the order of the operator
             ord = 1
 
@@ -361,10 +359,10 @@ class DFiniteFunctionRing(Algebra):
 
             initial_val = set(range(ord)).union(singularities_positive, singularities_negative)
             if self._backward_calculation is True:
-                pols = {r for (r,m) in g.roots() if r in ZZ}
+                pols = {r for r, m in g.roots() if r in ZZ}
             else:
-                pols = {r for (r,m) in g.roots() if r in NN}
-                    
+                pols = {r for r, m in g.roots() if r in NN}
+
             int_val = {n:x(n) if n not in pols else None for n in initial_val}
             for n in pols:
                 if self._backward_calculation is True and n-1 not in int_val:
@@ -377,61 +375,60 @@ class DFiniteFunctionRing(Algebra):
                     ann = A(N - n)*ann
 
             return UnivariateDFiniteSequence(self,ann,int_val)
-                    
+
         else:
             if R(x.denominator()).constant_coefficient() == 0:
                 raise ValueError("The rational function you tried to convert has a pole at x = 0. Hence, it can not be converted into a D-finite formal power series object. ")
-            y = self.ore_algebra().is_D()
             Dy = self.ore_algebra().gen()
             R = self.ore_algebra().base_ring().change_var('n')
             OreAlg = OreAlgebra(R,'Sn')
-    
+
             ann = x.denominator()**2*(x*Dy - x.derivative())
-            
+
             #getting the operator of the sequence
             s_ann = ann.to_S(OreAlg)
             ord = s_ann.order()
-                    
+
             #initial values and singularities of the sequence operator
             singularities_positive = s_ann.singularities()
 
             initial_val = set(range(ord)).union(singularities_positive)
             int_val = {n:(x.derivative(n)(0)/factorial(n)) for n in initial_val}
-            
+
             #getting the coefficient sequence
             seq = UnivariateDFiniteSequence(DFiniteFunctionRing(OreAlg,NN),s_ann, int_val)
-                
+
             return UnivariateDFiniteFunction(self,ann,seq)
-    
+
     def _construct_symbolic(self,exp,n):
         r"""
         Convert a symbolic expression ``exp`` into this ring, possibly non-canonically.
-        
+
         In the shift case the symbolic expression can contain the following symbolic functions:
         ``harmonic_number(n)``, ``binomial(k,n)``, ``binomial(n,k)`` (where ``k`` is a fixed integer) and ``factorial(n)``.
         Of course all other functions that can be converted into a D-finite sequences (such as rational functions) can appear.
         Additionally addition and multiplication of these functions and composition of these functions with linear functions are
         supported.
-        
-        In the differential case the symbolic expression can contain several symbolic functions, including most trigonometric functions, square root, 
+
+        In the differential case the symbolic expression can contain several symbolic functions, including most trigonometric functions, square root,
         logarithm, Airy functions, Bessel functions, error functions,\dots (for a detailed list see the documentation of ``dfinite_symbolic.py``). Of
         course all other functions that can be converrted into a D-finite function (such as rational functions) can appear. Additionally addition and
         multiplication of these functions and compostion of these functions with rational functions are supported.
         with linear inner functions
-        
+
         INPUT:
-        
+
         - ``exp`` -- a symbolic expression, i.e. an element of the ``Symbolic Ring``
-        
+
         - ``n`` -- in the shift case the generator of the Ore algebra over which ``self`` is defined, in the differential case ``False``
-        
+
         OUTPUT:
-        
+
         A D-finite object that either represents the sequence
         ``(a_n) = exp(n)`` or the rational function ``exp(z)``.
-        
+
         EXAMPLES:
-        
+
         discrete case::
 
             sage: from ore_algebra import *
@@ -440,7 +437,7 @@ class DFiniteFunctionRing(Algebra):
             sage: n = A.base_ring().gen()
             sage: D1(harmonic_number(3*n)+factorial(n+2))
             Univariate D-finite sequence defined by the annihilating operator (-2187*n^10 - 42282*n^9 - 364905*n^8 - 1845423*n^7 - 6031683*n^6 - 13246704*n^5 - 19679543*n^4 - 19390967*n^3 - 12024690*n^2 - 4192544*n - 615552)*Sn^3 + (2187*n^11 + 57591*n^10 + 663066*n^9 + 4430376*n^8 + 19123470*n^7 + 55966311*n^6 + 113079500*n^5 + 157190572*n^4 + 146606713*n^3 + 86797038*n^2 + 29096584*n + 4133152)*Sn^2 + (-4374*n^11 - 106434*n^10 - 1151901*n^9 - 7304094*n^8 - 30065373*n^7 - 84062052*n^6 - 162242521*n^5 - 215119824*n^4 - 190943363*n^3 - 107309404*n^2 - 34064948*n - 4573552)*Sn + 2187*n^11 + 51030*n^10 + 531117*n^9 + 3238623*n^8 + 12787326*n^7 + 34127424*n^6 + 62409725*n^5 + 77608795*n^4 + 63727617*n^3 + 32537056*n^2 + 9160908*n + 1055952 and the initial conditions {0: 2, 1: 47/6, 2: 529/20}
-        
+
         differential case::
 
             sage: from ore_algebra import *
@@ -455,27 +452,27 @@ class DFiniteFunctionRing(Algebra):
 
         """
         R = self.base_ring()
-    
+
         try:
             operator = exp.operator()
-        except:
+        except Exception:
             raise TypeError("no operator in this symbolic expression")
 
         operands = exp.operands()
-        
+
         #add, mul
         if operator == add_vararg or operator == mul_vararg:
             while len(operands) > 1:
                 operands.append( operator(self(operands.pop()), self(operands.pop())) )
             return operands[0]
-        
+
         # pow
         elif operator == pow:
             exponent = operands[1]
             # pow
             if exponent in ZZ and exponent >= 0:
                 return operator(self(operands[0]),ZZ(operands[1]))
-            
+
             #sqrt - only works for sqrt(u*x+v) (linear inner function) - not implemented for sequences
             elif (not n) and (exponent - QQ(0.5) in ZZ) and (exponent >= 0):
                 if R(operands[0]).degree() > 1:
@@ -516,11 +513,11 @@ class DFiniteFunctionRing(Algebra):
                     return UnivariateDFiniteSequence(self,ann,initial_val)
                 else:
                     raise ValueError("one of the operands has to be in QQ")
-                    
+
             #sequences
             if n:
                 inner = R(inner)
-                
+
                 #check if inner is of the form u*n + v
                 if inner.derivative() in QQ:
                     ann = symbolic_database(self.ore_algebra(),operator,n,k)
@@ -530,7 +527,7 @@ class DFiniteFunctionRing(Algebra):
                     if self._backward_calculation is True:
                         singularities_negative = {i for i in ann.singularities(True) if i < 0}
                     int_val = set(range(ord)).union(singularities_positive, singularities_negative)
-                    initial_val = {i: exp.subs(inner == var('n'))(n = i) for i in int_val}
+                    initial_val = {i: exp.subs(inner == SR.var('n'))(n = i) for i in int_val}
                     #if inner == n we are done
                     if inner == n:
                         return UnivariateDFiniteSequence(self,ann,initial_val)
@@ -555,16 +552,16 @@ class DFiniteFunctionRing(Algebra):
                         return self(operator(x))(self(inner))
                     else:
                         return self(operator(k,x))(self(inner))
-    
-#testing and information retrieving
 
-    def __eq__(self,right):
+    # testing and information retrieving
+
+    def __eq__(self, right):
         r"""
-        Tests if the two DFiniteFunctionRings ``self``and ``right`` are equal. 
+        Tests if the two DFiniteFunctionRings ``self``and ``right`` are equal.
         This is the case if and only if they are defined over equal Ore algebras and have the same domain
-        
+
         EXAMPLES::
-        
+
             sage: from ore_algebra import *
             sage: A = OreAlgebra(QQ['n'],'Sn')
             sage: D1 = DFiniteFunctionRing(A,ZZ)
@@ -574,11 +571,11 @@ class DFiniteFunctionRing(Algebra):
             False
             sage: D1 == D3
             True
-        
+
         """
         try:
             return (self.ore_algebra() == right.ore_algebra() and self.domain() == right.domain())
-        except:
+        except Exception:
             return False
 
     def is_integral_domain(self, proof = True):
@@ -597,14 +594,14 @@ class DFiniteFunctionRing(Algebra):
         r"""
         """
         raise NotImplementedError
-    
+
     def is_commutative(self):
         r"""
         Returns whether ``self`` is commutative.
         This is true for the function ring as well as the sequence ring
         """
         return True
-            
+
     def construction(self):
         r"""
         """
@@ -711,49 +708,49 @@ class DFiniteFunctionRing(Algebra):
         A DFiniteFunctionRing is not a field
         """
         return False
-        
+
     def random_element(self, degree=2, *args, **kwds):
         r"""
         Return a random D-finite object.
-        
+
         INPUT:
-        
+
         -``degree`` (default 2) -- the degree of the ore operator of the random D-finite object
-            
+
         OUTPUT:
-        
-        A D-finite sequence/function with a random ore operator of degree ``degree`` and random initial values constisting 
+
+        A D-finite sequence/function with a random ore operator of degree ``degree`` and random initial values constisting
         of integers between -100 and 100.
-        
+
         EXAMPLES::
-        
+
             #discrete case
             sage: from ore_algebra import *
             sage: A = OreAlgebra(QQ['n'],'Sn')
             sage: D1 = DFiniteFunctionRing(A,ZZ)
             sage: D1.random_element() # random
             Univariate D-finite sequence defined by the annihilating operator (-n^2 + n)*Sn^2 + (22/9*n - 1/622)*Sn - 5/6*n^2 - n - 1 and the initial conditions {0: -88, 1: 18, 2: -49, 3: -67}
-        
+
             #differential case
             sage: from ore_algebra import *
             sage: B = OreAlgebra(QQ['x'],'Dx')
             sage: D2 = DFiniteFunctionRing(B)
             sage: D2.random_element(3) # random
             Univariate D-finite function defined by the annihilating operator 20*x*Dx^3 + (2/31*x^2 + 1/2*x + 1/2)*Dx^2 + (2*x^2 - 2*x + 1)*Dx + x^2 - 1/6 and the coefficient sequence defined by (20*n^3 + 361/2*n^2 + 1047/2*n + 486)*Sn^4 + (1/2*n^2 + 7/2*n + 6)*Sn^3 + (2/31*n^2 - 56/31*n - 751/186)*Sn^2 + (2*n + 2)*Sn + 1 and {0: -53, 1: 69, 2: -90, 3: -86}
-            
+
         """
         #getting the operator
         ann = self.ore_algebra().random_element(degree)
-        
+
         #initial values and singularities
         singularities_positive = ann.singularities()
         singularities_negative = set()
         if self._backward_calculation is True:
             singularities_negative = {i for i in ann.singularities(True) if i < 0}
-        
+
         initial_val = set(range(degree)).union(singularities_positive, singularities_negative)
         int_val = {n:randint(-100, 100) for n in initial_val}
-        
+
         if self.ore_algebra().is_S():
             return UnivariateDFiniteSequence(self,ann,int_val)
         else:
@@ -795,7 +792,7 @@ class DFiniteFunctionRing(Algebra):
 class DFiniteFunction(RingElement):
     r"""
     An abstract class representing objects depending on one or more differential and one or more discrete variables
-    defined by an annihilating holonomic system and a suitable set of initial conditions. 
+    defined by an annihilating holonomic system and a suitable set of initial conditions.
     """
 
 #constructor
@@ -803,71 +800,70 @@ class DFiniteFunction(RingElement):
     def __init__(self, parent, ann, initial_val, is_gen = False, construct=False, cache=True):
         r"""
         Constructor for D-finite sequences and functions
-        
+
         INPUT:
-        
+
         - ``parent`` -- a DFiniteFunctionRing
-        
+
         - ``ann`` -- the operator in the corresponding Ore algebra annihilating the sequence or function
-        
+
         - ``initial_val`` -- a list of initial values, determining the sequence or function, containing at least
           as many values as the order of ``ann`` predicts. For sequences these are the first sequence terms; for functions
           the first taylor coefficients. If the annhilating operator has singularities then ``initial_val`` has to be given
           in form of a dictionary containing the initial values and the singularities. For functions ``initial_val`` can also
           be a D-finite sequence representing the coefficient sequence of the function
-          
-                             
+
+
         OUTPUT:
-        
+
         Either a D-finite sequence determined by ``ann`` and its initial conditions, i.e. initial values plus possible singularities
         or a D-finite function determined by ``ann`` and the D-finite sequence of its coefficients.
-        
+
         For examples see the constructors of ``UnivariateDFiniteSequence`` and ``UnivariateDFiniteFunction`` respectively.
-                            
+
         """
         RingElement.__init__(self, parent)
         self._is_gen = is_gen
-    
+
         self.__ann = parent._ore_algebra(ann)
         ord = self.__ann.order()
         singularities = self.__ann.singularities()
         if parent._backward_calculation is True:
             singularities.update([a for a in self.__ann.singularities(True) if a < 0])
-        
+
         #converting the initial values into sage rationals if possible
-        if type(initial_val) == dict:
+        if isinstance(initial_val, dict):
             initial_val = {key: QQ(initial_val[key]) if initial_val[key] in QQ else initial_val[key] for key in initial_val}
-        elif type(initial_val) == list:
+        elif isinstance(initial_val, list):
             initial_val = [QQ(k) if k in QQ else k for k in initial_val]
-        
-        
+
         initial_conditions = set(range(ord)).union(singularities)
-    
+
         if parent.ore_algebra().is_S():
-            #lists can only be given for sequences WITHOUT singularities (then the lists contains just the initial values)
-            if type(initial_val) == list:
+            # lists can only be given for sequences WITHOUT singularities (then the lists contains just the initial values)
+            if isinstance(initial_val, list):
                 self._initial_values = {i:initial_val[i] for i in range(min(ord,len(initial_val)))}
             else:
                 if self.parent()._backward_calculation is False:
                     self._initial_values = {keys: initial_val[keys] for keys in initial_val if keys >= 0}
                 else:
                     self._initial_values = initial_val
-            
+
             if len(self._initial_values) < len(initial_conditions):
                 if parent._backward_calculation is True:
                     print("Not enough initial values")
-                
+
                 #sequence comes from a d-finite function
                 if parent._backward_calculation is False and len(self._initial_values) < ord:
                     diff = len(initial_conditions) - len(self._initial_values)
                     zeros = {i:0 for i in range(-diff,0)}
                     self._initial_values.update(zeros)
-                
-                
+
+
         elif parent.ore_algebra().is_D():
             if isinstance(initial_val,UnivariateDFiniteSequence):
                 self._initial_values = initial_val
-            
+
             else:
                 if len(initial_val) < ord:
                     raise ValueError("not enough initial conditions given")
@@ -876,11 +872,11 @@ class DFiniteFunction(RingElement):
                 D = DFiniteFunctionRing(A,NN)
                 ann = self.__ann.to_S(A)
                 self._initial_values = UnivariateDFiniteSequence(D, ann, initial_val)
-        
+
         else:
             raise ValueError("not a suitable D-finite function ring")
 
-    
+
     def __copy__(self):
         r"""
         Return a "copy" of ``self``. This is just ``self``, since D-finite functions are immutable.
@@ -894,15 +890,15 @@ class DFiniteFunction(RingElement):
         Tries to compress the D-finite object ``self`` as much as
         possible by trying to find a smaller annihilating operator and deleting
         redundant initial conditions.
-        
+
         OUTPUT:
-        
+
         A D-finite object which is equal to ``self`` but may consist of a smaller operator
         (in terms of the order) and less initial conditions. In the worst case if no
         compression is possible ``self`` is returned.
-        
+
         EXAMPLES::
-            
+
             sage: from ore_algebra import *
             sage: A = OreAlgebra(QQ['n'],'Sn')
             sage: D1 = DFiniteFunctionRing(A)
@@ -910,7 +906,7 @@ class DFiniteFunction(RingElement):
             Univariate D-finite sequence defined by the annihilating operator (n^2 - 8*n + 15)*Sn^2 + (-n^2 + 8*n - 15)*Sn - n^2 + 8*n - 15 and the initial conditions {0: 0, 1: 1, 5: 5, 7: 13}
             sage: _.compress()
             Univariate D-finite sequence defined by the annihilating operator -Sn^2 + Sn + 1 and the initial conditions {0: 0, 1: 1}
-            
+
             sage: from ore_algebra import *
             sage: B = OreAlgebra(QQ[x],'Dx')
             sage: D2 = DFiniteFunctionRing(B)
@@ -924,54 +920,54 @@ class DFiniteFunction(RingElement):
         d = self.__ann.degree()
         r = self.__ann.order()
         ini = copy(self.initial_conditions())
-        
+
         if A.is_S():
             n = A.base_ring().gen()
-        
+
             #special case r = 0, here we only compute the squarefree part of the operator
             if r == 0:
                 return self.reduce_factors()
-            
+
             #if the initial values contain symbolic expressions we can't use guessing - but we can
             #try to get rid of multiple common factors in the coefficients and redundant initial conditions
             elif not all(x in QQ for x in ini.values() if x is not None):
                 return self.reduce_factors()
-            
+
             #if all initial conditions are in QQ we can try to guess a smaller operator
             else:
                 #computing the data needed for guessing
                 data = self.expand((r+1)*(d+2)+max(50,(r+1)*(d+2)))
                 ann = guess(data,A,cut=None)
-                
+
                 #we did not find a better operator
                 if ann.order() > r:
                     return self.reduce_factors()
-            
+
                 #order and minimal degree
                 ord = ann.order()
                 min_degree = next((index for index, coeff in enumerate(ann.list()) if coeff != 0), None)
-        
+
                 #checking if the singularities for forward calculation are really needed
                 singularities_old = self.singularities()
                 singularities_new = ann.singularities()
                 singularities_missing = {x for x in singularities_old.symmetric_difference(singularities_new) if x > max(0,ord-1)}.union(range(ord,r))
-                
+
                 if 0 in singularities_missing:
                     singularities_missing.remove(0)
-            
+
                 while len(singularities_missing) > 0:
                     k = min(singularities_missing)
-                    
+
                     #taking care about NONE entries
                     if self[k] is None:
                         for l in range(k,k+ord+1):
                             ann = A(n - (l - ord))*ann
                             ini.update({l: self[l]})
-                            
+
                             if self.parent()._backward_calculation is True and l < ord - min_degree:
                                 ini.update({l-ord+min_degree: self[l-ord+min_degree]})
                             singularities_missing.remove(l)
-                
+
                     #normal entries
                     else:
                         if self[k] == ann.to_list(self.expand(k-1)[k-ord:],ord+1,k-ord)[ord]:
@@ -987,13 +983,13 @@ class DFiniteFunction(RingElement):
                             if self.parent()._backward_calculation is True and k < ord - min_degree:
                                 ini.update({k-ord+min_degree: self[k-ord+min_degree]})
                         singularities_missing.remove(k)
-                
+
                 #checking if the singularities for backward calculation are really needed
                 if self.parent()._backward_calculation is True:
                     singularities_old = self.singularities(True)
                     singularities_new = ann.singularities(True)
                     singularities_missing = {x for x in singularities_old.symmetric_difference(singularities_new) if x < 0}
-                    
+
                     #computing the operator for backward calculation
                     start = self.expand(ord-1)
                     start.reverse()
@@ -1024,47 +1020,47 @@ class DFiniteFunction(RingElement):
                             singularities_missing.remove(k)
 
                 result = UnivariateDFiniteSequence(self.parent(),ann,ini)
-                
+
                 if self == result:
                     return result
                 else:
                     return self.reduce_factors()
-        
+
         else:
             #compress the coefficient sequence
             seq = ini.compress()
-            
+
             #try to guess a smaller differential operator
             if all(x in QQ for x in ini.initial_conditions().values()):
                 data = self.expand((r+1)*(d+2)+max(50,(r+1)*(d+2)))
                 ann = guess(data,A,cut=None)
-                
+
                 #no better operator found
                 if ann.order() > r:
                     ann = self.__ann
             else:
                 ann = self.__ann
-           
+
             result = UnivariateDFiniteFunction(self.parent(),ann,seq)
-            
+
             if self == result:
                 return result
             else:
                 return UnivariateDFiniteFunction(self.parent(),self.__ann,seq)
-                
-                
+
+
     def reduce_factors(self):
         r"""
         Tries to delete factors of order 0 of the annihilating operator of ``self`` which appear more than
         once. Additionally this method tries to delete redundant initial conditions. This method is a subroutine
         of compress
-        
+
         OUTPUT:
-        
+
         A D-finite object which is equal to ``self`` but may consist of a smaller operator
         (in terms of the degree) and less initial conditions. In the worst case if no
         reduction is possible ``self`` is returned.
-        
+
         EXAMPLES::
 
             sage: from ore_algebra import *
@@ -1086,18 +1082,18 @@ class DFiniteFunction(RingElement):
         n = A.is_S()
         ini = copy(self.initial_conditions())
         ann = self.__ann
-                
+
         #order and minimal degree
         ord = ann.order()
         min_degree = next((index for index, coeff in enumerate(ann.list()) if coeff != 0), None)
-                
+
         #killing multiple common factors in coefficients
         g = gcd(ann.coefficients())
         g_fac = g.factor()
-        g_roots = [r for (r,m) in g.roots()]
-        multiple_factors = prod([factor for (factor,power) in g_fac if power > 1])
+        g_roots = [r for r, m in g.roots()]
+        multiple_factors = prod([factor for factor, power in g_fac if power > 1])
         ann = A([coeff/multiple_factors for coeff in ann.coefficients(sparse = False)])
-                
+
         if n:
             # checking if all positive initial conditions are really needed
             singularities_pos = {x+ord for x in g_roots if x+ord > max(0,ord-1)}
@@ -1107,7 +1103,7 @@ class DFiniteFunction(RingElement):
                 if self[k] is None:
                     for l in range(k,k+ord+1):
                         singularities_pos.remove(l)
-                
+
                 #normal entries
                 else:
                     ann = A([coeff/(n - (k - ord)) for coeff in ann.coefficients(sparse = False)])
@@ -1123,7 +1119,7 @@ class DFiniteFunction(RingElement):
                     else:
                         ann = A(n - (k - ord))*ann
                     singularities_pos.remove(k)
-        
+
             #checking if all negative initial conditions are really needed
             if self.parent()._backward_calculation is True:
                 start = self.expand(ord-1)
@@ -1152,12 +1148,12 @@ class DFiniteFunction(RingElement):
                         else:
                             ann = A(n - (k - min_degree))*ann
                         singularities_neg.remove(k)
-        
+
             result = UnivariateDFiniteSequence(self.parent(),ann,ini)
-    
+
         else:
             result = UnivariateDFiniteFunction(self.parent(), ann, self.initial_conditions().reduce_factors())
-        
+
         #checking if the result is indeed equal to the input
         if self == result:
             return result
@@ -1171,23 +1167,23 @@ class DFiniteFunction(RingElement):
         or a (suitable) expression, then it represents composition and we return a new DFiniteFunction object.
         """
         raise NotImplementedError
-    
+
     def singularities(self, backwards = False):
         r"""
         Returns the integer singularities of the annihilating operator of ``self``.
-        
+
         INPUT:
-        
+
         - ``backwards`` (default ``False``) -- boolean value that decides whether the singularities needed for the forward calculation
           are returned or those for backward calculation.
-          
+
         OUTPUT:
-        
-        - If ``backwards`` is ``False``, a set containing the roots of the leading coefficient of the annihilator of ``self`` shifted by 
+
+        - If ``backwards`` is ``False``, a set containing the roots of the leading coefficient of the annihilator of ``self`` shifted by
           its order is returned
-        - If ``backwards`` is ``True``, a set containing the roots of the coefficient corresponding to the term of minimal order 
+        - If ``backwards`` is ``True``, a set containing the roots of the coefficient corresponding to the term of minimal order
           (regarding `Sn` or `Dx` respectively) is returned; shifted by the order of this term
-          
+
         EXAMPLES::
 
             sage: from ore_algebra import *
@@ -1200,26 +1196,26 @@ class DFiniteFunction(RingElement):
             {-4, 2}
         """
         return self.__ann.singularities(backwards)
-    
+
     def critical_points(self, order = None, backwards = False):
         r"""
         Returns the singularities of ``self`` and the values around those singularities that can be affected.
-        
+
         INPUT:
-        
+
         - ``order`` (default: the order of the annihilating operator of ``self``) -- nonnegative integer that determines how many values
           after or before each singularity are returned
-        
-        - ``backwards`` (default ``False``) -- boolean value that determines whether we are interested in the critical points for forward calculation, 
+
+        - ``backwards`` (default ``False``) -- boolean value that determines whether we are interested in the critical points for forward calculation,
           i.e. the singularities of the leading coefficient and ``order`` many values after each singularity, or in those for backward calculation, i.e.
           the singularities of the coefficient of minimal degree (regarding `Sn` or `Dx` respectively) and ``order`` many values before each singularity.
-        
+
         OUTPUT:
-        
+
         A set containing the critical points for forward calculation (if ``backwards`` is False) or those for backward calculation.
-        
+
         EXAMPLES::
-        
+
             sage: from ore_algebra import *
             sage: A = OreAlgebra(QQ['n'],'Sn')
             sage: D = DFiniteFunctionRing(A,ZZ)
@@ -1228,25 +1224,25 @@ class DFiniteFunction(RingElement):
             {1, 2, 3, 4, 6, 7, 8, 9}
             sage: a.critical_points(2,True)
             {-6, -5, -4}
-            
+
         """
         if order is None:
             ord = self.__ann.order()
         else:
             ord = order
-        
+
         critical_points = set()
-        
+
         if backwards is False:
             singularities_positive = self.__ann.singularities()
             for n in singularities_positive:
                 critical_points.update(range(n,n+ord+1))
-        
+
         elif self.parent()._backward_calculation is True:
             singularities_negative = {i for i in self.__ann.singularities(True) if i < 0}
             for n in singularities_negative:
                 critical_points.update(range(n-ord,n+1))
-        
+
         return critical_points
 
 #tests
@@ -1255,9 +1251,9 @@ class DFiniteFunction(RingElement):
         r"""
         Return whether ``self`` is the zero sequence 0,0,0,\dots or the zero function f(x) = 0 \forall x, respectively.
         This is the case iff all the initial conditions are 0 or ``None``.
-        
+
         EXAMPLES::
-        
+
             sage: from ore_algebra import *
             sage: A = OreAlgebra(QQ['n'],'Sn')
             sage: D1 = DFiniteFunctionRing(A,ZZ)
@@ -1267,7 +1263,7 @@ class DFiniteFunction(RingElement):
             sage: a = D1.random_element()
             sage: a.__is_zero__()
             False
-        
+
         """
         if self.parent().ore_algebra().is_S():
             for x in self.initial_conditions():
@@ -1276,16 +1272,16 @@ class DFiniteFunction(RingElement):
             return True
         else:
             return self.initial_conditions().__is_zero__()
-    
 
 
-    def __eq__(self,right):
+
+    def __eq__(self, right):
         r"""
         Return whether the two DFiniteFunctions ``self`` and ``right`` are equal.
         More precicsely it is tested if the difference of ``self`` and ``right`` equals 0.
-        
+
         EXAMPLES::
-        
+
             sage: from ore_algebra import *
             sage: A = OreAlgebra(QQ['n'],'Sn')
             sage: D = DFiniteFunctionRing(A,ZZ)
@@ -1293,17 +1289,17 @@ class DFiniteFunction(RingElement):
             sage: b = UnivariateDFiniteSequence(D,"Sn^2-Sn-1",[0,1])
             sage: a == b
             True
-            
+
         """
         if self.parent() != right.parent():
             right = self.parent()(right)
         return (self.__add_without_compress__(-right)).__is_zero__()
 
-    
-    def __ne__(self,right):
+
+    def __ne__(self, right):
         r"""
         Return ``True``if the DFiniteFunctions ``self`` and ``right`` are NOT equal; ``False`` otherwise
-        
+
         """
         return not self.__eq__(right)
 
@@ -1322,29 +1318,29 @@ class DFiniteFunction(RingElement):
         if self.__ann.order() == 1:
             return True
         raise NotImplementedError
-       
+
     def is_gen(self):
         r"""
         Return ``False``; the parent ring is not finitely generated.
         """
         return False
-    
+
     def prec(self):
         r"""
-        Return the precision of this object. 
+        Return the precision of this object.
         """
         return Infinity
-    
+
     def change_variable_name(self, var):
         r"""
         Return a copy of ``self`` but with an Ore operator in the variable ``var``
-        
+
         INPUT:
-        
+
         - ``var`` -- the new variable
-        
+
         EXAMPLES::
-        
+
             sage: from ore_algebra import *
             sage: A = OreAlgebra(ZZ['n'],'Sn')
             sage: D = DFiniteFunctionRing(A,ZZ)
@@ -1354,18 +1350,18 @@ class DFiniteFunction(RingElement):
             Univariate D-finite sequence defined by the annihilating operator Sn^2 - Sn - 1 and the initial conditions {0: 0, 1: 1}
             sage: c
             Univariate D-finite sequence defined by the annihilating operator x^2 - x - 1 and the initial conditions {0: 0, 1: 1}
-        
+
         """
         D = DFiniteFunctionRing(self.parent().ore_algebra().change_var(var),self.parent()._domain)
         if self.parent().ore_algebra().is_S():
             return UnivariateDFiniteSequence(D, self.__ann, self._initial_values)
         else:
             return UnivariateDFiniteFunction(D,self.__ann, self._initial_values)
-        
+
     def change_ring(self, R):
         r"""
         Return a copy of ``self`` but with an annihilating operator of an Ore algebra over ``R``
-        
+
         """
         D = self.parent().change_base_ring(R)
         if self.parent().ore_algebra().is_S():
@@ -1393,9 +1389,9 @@ class DFiniteFunction(RingElement):
         Tries to convert ``self`` into a float.
         This is possible iff ``self`` represents a constant sequence or constant function for some constant values in ``QQ``.
         If the conversion is not possible an error message is displayed.
-        
+
         EXAMPLES::
-        
+
             sage: from ore_algebra import *
             sage: A = OreAlgebra(QQ['n'],'Sn')
             sage: D1 = DFiniteFunctionRing(A,ZZ)
@@ -1407,22 +1403,22 @@ class DFiniteFunction(RingElement):
             3.4
             sage: float(b)
             4.0
-            
+
         """
         i = self._test_conversion_()
         if i is not None:
             return float(i)
-        
+
         raise TypeError("no conversion possible")
-    
+
     def __int__(self):
         r"""
         Tries to convert ``self`` into an integer.
         This is possible iff ``self`` represents a constant sequence or constant function for some constant value in ``ZZ``.
         If the conversion is not possible an error message is displayed.
-        
+
         EXAMPLES::
-        
+
             sage: from ore_algebra import *
             sage: A = OreAlgebra(QQ['n'],'Sn')
             sage: D1 = DFiniteFunctionRing(A,ZZ)
@@ -1437,7 +1433,7 @@ class DFiniteFunction(RingElement):
         i = self._test_conversion_()
         if i is not None and i in ZZ:
             return int(i)
-        
+
         raise TypeError("no conversion possible")
 
     def _integer_(self, ZZ):
@@ -1445,9 +1441,9 @@ class DFiniteFunction(RingElement):
         Tries to convert ``self`` into a Sage integer.
         This is possible iff ``self`` represents a constant sequence or constant function for some constant value in ``ZZ``.
         If the conversion is not possible an error message is displayed.
-        
+
         EXAMPLES::
-        
+
             sage: from ore_algebra import *
             sage: A = OreAlgebra(QQ['n'],'Sn')
             sage: D1 = DFiniteFunctionRing(A,ZZ)
@@ -1466,9 +1462,9 @@ class DFiniteFunction(RingElement):
         Tries to convert ``self`` into a Sage rational.
         This is possible iff ``self`` represents a constant sequence or constant function for some constant value in ``QQ``.
         If the conversion is not possible an error message is displayed.
-        
+
         EXAMPLES::
-        
+
             sage: from ore_algebra import *
             sage: A = OreAlgebra(QQ['n'],'Sn')
             sage: D1 = DFiniteFunctionRing(A,ZZ)
@@ -1480,14 +1476,14 @@ class DFiniteFunction(RingElement):
             17/5
             sage: QQ(b)
             4
-            
+
         """
         i = self._test_conversion_()
         if i is not None and i in QQ:
             return QQ(i)
-        
+
         raise TypeError("no conversion possible")
-    
+
     def _symbolic_(self, R):
         raise NotImplementedError
 
@@ -1509,7 +1505,7 @@ class DFiniteFunction(RingElement):
             r = r + str(self.__ann) + " and the coefficient sequence defined by "
             r = r + str(self.initial_conditions().__ann) + " and "
             r = r + pprint.pformat(self.initial_conditions().initial_conditions(), width=2**30)
-            
+
         return r
 
     def _latex_(self, name=None):
@@ -1525,11 +1521,11 @@ class DFiniteFunction(RingElement):
             r = r + latex(self.initial_conditions().__ann) + '\\text{ and }' + latex(self.initial_conditions().initial_conditions())
 
         return r
-        
+
     def _sage_input_(self, sib, coerced):
         r"""
         Produce an expression which will reproduce ``self`` when evaluated.
-        
+
         """
         par = self.parent()
         int_cond = self.initial_conditions()
@@ -1550,13 +1546,13 @@ class DFiniteFunction(RingElement):
 
     def __invert__(self):
         r"""
-        works if 1/self is again d-finite. 
+        works if 1/self is again d-finite.
         """
         raise NotImplementedError
 
     def __div__(self, right):
         r"""
-        This is division, not division with remainder. Works only if 1/right is d-finite. 
+        This is division, not division with remainder. Works only if 1/right is d-finite.
         """
         return self*right.__invert__()
 
@@ -1564,21 +1560,21 @@ class DFiniteFunction(RingElement):
         r"""
         """
         return self._pow(n)
-        
+
     def _pow(self, n):
         r"""
         Return ``self`` to the n-th power
-        
+
         INPUT:
-        
+
         - ``n`` -- a non-negative integer
-        
+
         OUTPUT:
-        
+
         self^n
-        
+
         EXAMPLES::
-        
+
             #discrete case
             sage: from ore_algebra import *
             sage: A = OreAlgebra(QQ['n'],'Sn')
@@ -1587,7 +1583,7 @@ class DFiniteFunction(RingElement):
             sage: a = D1(n)
             sage: a**3
             Univariate D-finite sequence defined by the annihilating operator (n^10 + 4*n^9 - 2*n^8 - 20*n^7 - 11*n^6 + 16*n^5 + 12*n^4)*Sn - n^10 - 7*n^9 - 13*n^8 + 13*n^7 + 73*n^6 + 79*n^5 - 7*n^4 - 73*n^3 - 52*n^2 - 12*n and the initial conditions {-3: -27, -2: -8, -1: -1, 0: 0, 1: 1, 2: 8, 3: 27}
-            
+
             #differential case
             sage: from ore_algebra import *
             sage: B = OreAlgebra(QQ['x'],'Dx')
@@ -1596,13 +1592,13 @@ class DFiniteFunction(RingElement):
             sage: b = D2(x^2)
             sage: b**2
             Univariate D-finite function defined by the annihilating operator x*Dx - 4 and the coefficient sequence defined by n^2 - 6*n + 8 and {2: 0, 4: 1}
-            
+
         """
         if n == 0:
             return self.parent().one()
         if n == 1:
             return self
-        
+
         #for small n the traditional method is faster
         if n <= 10:
             return self * (self._pow(n-1))
@@ -1616,8 +1612,8 @@ class DFiniteFunction(RingElement):
                 if bit[i] == '1':
                     result = result * self
             return result
-                   
-    def __floordiv__(self,right):
+
+    def __floordiv__(self, right):
         r"""
         """
         raise NotImplementedError
@@ -1628,11 +1624,11 @@ class DFiniteFunction(RingElement):
         raise NotImplementedError
 
 #base ring related functions
-        
+
     def base_ring(self):
         r"""
         Return the base ring of the parent of ``self``.
-        
+
         """
         return self.parent().base_ring()
 
@@ -1643,19 +1639,19 @@ class DFiniteFunction(RingElement):
         Return the annihilating operator of ``self``
         """
         return self.__ann
-    
+
     def initial_values(self):
         r"""
         Return the initial values of ``self`` in form of a list.
-        
+
         In the discrete case those are the first `r` sequence terms, where `r` is the order of the annihilating
         operator of ``self``. In the differential case those are the first `r` coefficients of ``self``, where
         `r` is again the order of the annihilating operator of ``self``.
         Singularities that might be saved will not be considered, unless they are within the first `r` terms. To get all saved
         values (initial values plus singularities) use the method ``initial_conditions``
-        
+
         EXAMPLES::
-        
+
             #discrete case
             sage: from ore_algebra import *
             sage: A = OreAlgebra(QQ['n'],'Sn')
@@ -1663,7 +1659,7 @@ class DFiniteFunction(RingElement):
             sage: a = UnivariateDFiniteSequence(D1, "(n+3)*(n-2)*Sn^2 + Sn + 4*n", {0:0,1:1,4:3,-1:2})
             sage: a.initial_values()
             [0, 1]
-            
+
             #differential case
             sage: from ore_algebra import *
             sage: B = OreAlgebra(QQ['x'],'Dx')
@@ -1671,7 +1667,7 @@ class DFiniteFunction(RingElement):
             sage: b = UnivariateDFiniteFunction(D2, "(x-3)*Dx - 1", {0:-3})
             sage: b.initial_values()
             [-3]
-    
+
         """
         if self.parent().ore_algebra().is_S():
             if self.parent()._backward_calculation is False and min(self.initial_conditions()) < 0:
@@ -1686,13 +1682,13 @@ class DFiniteFunction(RingElement):
     def initial_conditions(self):
         r"""
         Return all initial conditions of ``self``.
-        
+
         In the discrete case the initial conditions are all values that are saved, i.e. the initial values and all singularities.
         In the differential case this method will return the coefficient sequence of ``self`` in form of a UnivariateDFiniteSequence object.
         To get all saved values of a UnivariateDFiniteFunction one has to call this method twice (see examples).
-        
+
         EXAMPLES::
-          
+
             #discrete case
             sage: from ore_algebra import *
             sage: A = OreAlgebra(QQ['n'],'Sn')
@@ -1700,7 +1696,7 @@ class DFiniteFunction(RingElement):
             sage: a = UnivariateDFiniteSequence(D1, "(n+3)*(n-2)*Sn^2 + Sn + 4*n", {0:0,1:1,4:3,-1:2})
             sage: a.initial_conditions()
             {-1: 2, 0: 0, 1: 1, 4: 3}
-            
+
             #differential case
             sage: from ore_algebra import *
             sage: B = OreAlgebra(QQ['x'],'Dx')
@@ -1710,40 +1706,40 @@ class DFiniteFunction(RingElement):
             Univariate D-finite sequence defined by the annihilating operator (-3*n - 3)*Sn + n - 1 and the initial conditions {0: -3}
             sage: b.initial_conditions().initial_conditions()
             {0: -3}
-                        
+
         """
         return self._initial_values
 
 #############################################################################################################
-    
+
 class UnivariateDFiniteSequence(DFiniteFunction):
     r"""
     D-finite sequence in a single discrete variable.
     """
-    
+
 #constructor
 
     def __init__(self, parent, ann, initial_val, is_gen=False, construct=False, cache=True):
         r"""
         Constructor for a D-finite sequence in a single discrete variable.
-        
+
         INPUT:
-        
+
         - ``parent`` -- a DFiniteFunctionRing defined over an OreAlgebra with the shift operator
-        
+
         - ``ann`` -- an annihilating operator, i.e. an element from the OreAlgebra over which the DFiniteFunctionRing is defined,
            that defines a differential equation for the function ``self`` should represent.
-           
+
         - ``initial_val`` -- either a dictionary (or a list if no singularities occur) which contains the first r sequence terms (and all singularities if
           there are some) of ``self``, where r is the order of ``ann``
-          
+
         OUTPUT:
-        
-        An object consisting of ``ann`` and a dictionary that represents the D-finite sequence which is annihilated by ``ann``, has the initial values that 
+
+        An object consisting of ``ann`` and a dictionary that represents the D-finite sequence which is annihilated by ``ann``, has the initial values that
         appear in the dictionary and at all singularities of ``ann`` has the values that the dictionary predicts.
-       
+
         EXAMPLES::
-        
+
             sage: from ore_algebra import *
             sage: A = OreAlgebra(QQ['n'],'Sn')
             sage: n = A.base_ring().gen()
@@ -1753,7 +1749,7 @@ class UnivariateDFiniteSequence(DFiniteFunction):
             Univariate D-finite sequence defined by the annihilating operator Sn^2 - Sn - 1 and the initial conditions {0: 0, 1: 1}
             sage: UnivariateDFiniteSequence(D, (n^2 - n)*Sn - n^2 - n, {0: 0, 1: 0, 2: 2, -1: 2})
             Univariate D-finite sequence defined by the annihilating operator (n^2 - n)*Sn - n^2 - n and the initial conditions {-1: 2, 0: 0, 1: 0, 2: 2}
-            
+
         """
         if not parent.ore_algebra().is_S():
             raise TypeError("Not the Shift Operator")
@@ -1764,12 +1760,12 @@ class UnivariateDFiniteSequence(DFiniteFunction):
     def __call__(self, x):
         r"""
         Lets ``self`` act on `x`.
-        
+
         If `x` is an integer (or a float, which then gets ``cut`` to an integer) the x-th sequence term
         is returned. This is also possible for negative `x` if the DFiniteFunctionRing is defined
         over the domain ZZ. If `x` is a suitable expression, i.e. of the form x = u*n + v for
         some u,v in QQ, it is interpreted as the composition self(floor(x(n)))
-        
+
         EXAMPLES::
 
             sage: from ore_algebra import *
@@ -1784,13 +1780,13 @@ class UnivariateDFiniteSequence(DFiniteFunction):
 
         """
         try:
-            #x is a number
+            # x is a number
             n = int(x)
-        except:
-            #x is of the form u*n + v
-            y = var('y')
-            
-            #getting the operator
+        except (TypeError, ValueError):
+            # x is of the form u*n + v
+            y = SR.var('y')
+
+            # getting the operator
             A = self.parent().ore_algebra()
             N = A.is_S()
             if isinstance(x,UnivariateDFiniteSequence):
@@ -1798,68 +1794,68 @@ class UnivariateDFiniteSequence(DFiniteFunction):
             else:
                 x = QQ[N](x)
             ann = self.ann().annihilator_of_composition(x)
-            
+
             #getting the largest and smallest degree of the new operator
             ord = ann.order()
             min_degree = next((index for index, coeff in enumerate(ann.list()) if coeff != 0), None)
-            
+
             #initial values and singularities of the new operator
             singularities_positive = ann.singularities()
             singularities_negative = set()
             if self.parent()._backward_calculation is True:
                 singularities_negative = {i for i in ann.singularities(True) if i < 0}
-        
+
             initial_val = set(range(ord)).union(singularities_positive, singularities_negative)
             int_val = {n:self[floor(x(n))] for n in initial_val}
-                
+
             #critical points for forward calculation
             critical_points_positive = set()
             for n in singularities_positive:
                 critical_points_positive.update(range(n+1,n+ord+1))
-            
+
             for n in self.critical_points(ord):
                 k = ceil(solve( n == x(y), y)[0].rhs())
                 if n == floor(x(k)):
                     critical_points_positive.update([k])
-            
+
             for n in critical_points_positive:
                 int_val.update({n:self[floor(x(n))]})
                 ann = A(N - (n - ord) )*ann
                 if self.parent()._backward_calculation is True and n < ord - min_degree:
                     int_val.update({(n-ord)+min_degree: self[floor(x(n-ord+min_degree))]})
-                
+
             #critical points for backward calculation
             critical_points_negative = set()
             for n in singularities_negative:
                 critical_points_negative.update(range(n-ord,n))
-            
+
             for n in self.critical_points(ord,True):
                 k = ceil(solve( n == x(y), y)[0].rhs())
                 if n == floor(x(k)):
                     critical_points_negative.update([k])
-            
+
             for n in critical_points_negative:
                 int_val.update({n:self[floor(x(n))]})
-                ann = A(N - (n - min_degree) )*ann                                     
+                ann = A(N - (n - min_degree) )*ann
                 if n >= min_degree:
                     int_val.update({(n-min_degree)+ord : self[floor(x(n-min_degree+ord))]})
 
             return UnivariateDFiniteSequence(self.parent(), ann, int_val)
-            
+
         return self[n]
 
     def _test_conversion_(self):
         r"""
         Test whether a conversion of ``self`` into an int/float/long/... is possible;
         i.e. whether the sequence is constant or not.
-        
+
         OUTPUT:
-        
+
         If ``self`` is constant, i.e. there exists a `k` in QQ, such that self(n) = k for all n in NN,
         then this value `k` is returned. If ``self`` is not constant ``None`` is returned.
-        
+
         EXAMPLES::
-            
+
             sage: from ore_algebra import *
             sage: A = OreAlgebra(QQ['n'],'Sn')
             sage: D = DFiniteFunctionRing(A,ZZ)
@@ -1869,8 +1865,8 @@ class UnivariateDFiniteSequence(DFiniteFunction):
             sage: a._test_conversion_()
             3
             sage: b._test_conversion_() # returns None
-            
-            
+
+
         """
         ini = self.initial_values()
         if len(ini) > 0:
@@ -1882,7 +1878,7 @@ class UnivariateDFiniteSequence(DFiniteFunction):
             if self.ann().quo_rem(Sn-1)[1].is_zero():
                 return i
         return None
-    
+
     def dict(self):
         r"""
         """
@@ -1892,18 +1888,18 @@ class UnivariateDFiniteSequence(DFiniteFunction):
         r"""
         """
         raise NotImplementedError
-    
+
     def to_polynomial(self):
         r"""
         Try to convert ``self`` into a polynomial.
-        
+
         OUTPUT:
-        
+
         Either a polynomial f(n) from the base ring of the OreAlgebra of the annihilating operator of ``self`` such that self(n) = f(n)
         for all n in NN or an error message if no such polynomial exists.
-        
+
         EXAMPLES::
-        
+
             sage: from ore_algebra import *
             sage: A = OreAlgebra(QQ['n'],'Sn')
             sage: D = DFiniteFunctionRing(A,ZZ)
@@ -1920,38 +1916,37 @@ class UnivariateDFiniteSequence(DFiniteFunction):
         """
         #don`t want to care about None entries
         max_pol = max(self.initial_conditions()) + 1
-        
+
         R = self.parent().base_ring()
-        n = R.gen()
-        
+
         if self.__is_zero__():
             return R.zero()
-        
+
         #computing a base of the solution space
         base = self.ann().polynomial_solutions()
         if len(base) == 0:
             raise TypeError("the D-finite sequence does not come from a polynomial")
-        
+
         #generating an equation system
-        vars = [var('x_%d' % i) for i in range(len(base))]
+        vars = [SR.var('x_%d' % i) for i in range(len(base))]
         c = [0]*len(base)
         for i in range(len(base)):
             base[i] = base[i][0]
             c[i] = base[i]*vars[i]
         poly = sum(c)
         eqs = [poly(n = k) == self[k] for k in range(max_pol, len(base)+max_pol)]
-        
+
         #solving the system and putting results together
-        result = solve(eqs,vars)
+        result = solve(eqs, vars)
         if len(result) == 0:
             raise TypeError("the D-finite sequence does not come from a polynomial")
-        if type(result[0]) == list:
+        if isinstance(result[0], list):
             result = result[0]
         coeffs_result = [0]*len(result)
         for i in range(len(result)):
             coeffs_result[i] = result[i].rhs()
         result = sum([a*b for a,b in zip(coeffs_result,base)])
-        
+
         #checking if the polynomial also yields the correct values for all singularities (except from pols)
         if all(result(n = k) == self[k] for k in self.initial_conditions() if self[k] is not None):
             return R(result)
@@ -1961,15 +1956,15 @@ class UnivariateDFiniteSequence(DFiniteFunction):
     def to_rational(self):
         r"""
         Try to convert ``self`` into a rational function.
-        
+
         OUTPUT:
-        
-        Either a rational function r(n) from the fraction field of the base ring of the OreAlgebra of the annihilating 
+
+        Either a rational function r(n) from the fraction field of the base ring of the OreAlgebra of the annihilating
         operator of ``self`` such that self(n) = r(n) for all n in NN (eventually except from pols) or an error message
         if no such rational function exists.
-        
+
         EXAMPLES::
-        
+
             sage: from ore_algebra import *
             sage: A = OreAlgebra(QQ['n'],'Sn')
             sage: D = DFiniteFunctionRing(A,ZZ)
@@ -1982,24 +1977,23 @@ class UnivariateDFiniteSequence(DFiniteFunction):
             Univariate D-finite sequence defined by the annihilating operator (63/20*n^6 + 63/10*n^5 - 56/25*n^4 - 7*n^3 - 13/20*n^2 + 3/2*n + 3/10)*Sn - 63/20*n^6 - 63/5*n^5 - 1351/100*n^4 + 49/25*n^3 + 221/25*n^2 + 84/25*n + 6/25 and the initial conditions {0: -5/4}
             sage: l.to_rational()
             (63/20*n^4 - 7/2*n^2 + 3/4)/(n^2 - 3/5)
-            
+
         """
         #don`t want to care about None entries
         max_pol = max(self.initial_conditions()) + 1
-        
+
         R = self.parent().base_ring()
-        n = R.gen()
-        
+
         if self.__is_zero__():
             return R.fraction_field().zero()
-        
+
         #computing a base of the solution space
         base = self.ann().rational_solutions()
         if len(base) == 0:
             raise TypeError("the D-finite sequence does not come from a rational function")
-        
+
         #generating an equation system
-        vars = [var('x_%d' % i) for i in range(len(base))]
+        vars = [SR.var('x_%d' % i) for i in range(len(base))]
         c = [0]*len(base)
         for i in range(len(base)):
             base[i] = base[i][0]
@@ -2008,18 +2002,18 @@ class UnivariateDFiniteSequence(DFiniteFunction):
         num = rat.numerator()
         denom = rat.denominator()
         eqs = [num.subs(n = k) == denom.subs(n = k)*self[k] for k in range(max_pol, len(base)+max_pol)]
-        
+
         #solving the system and putting results together
-        result = solve(eqs,vars)
+        result = solve(eqs, vars)
         if len(result) == 0:
             raise TypeError("the D-finite sequence does not come from a rational function")
-        if type(result[0]) == list:
+        if isinstance(result[0], list):
             result = result[0]
         coeffs_result = [0]*len(result)
         for i in range(len(result)):
             coeffs_result[i] = result[i].rhs()
         result = sum([a*b for a,b in zip(coeffs_result,base)])
-        
+
         #checking if the ratinoal function also yields the correct values for all singularities (except from pols)
         if all(result(n = k) == self[k] for k in self.initial_conditions() if self[k] is not None):
             return R.fraction_field()(result)
@@ -2033,8 +2027,8 @@ class UnivariateDFiniteSequence(DFiniteFunction):
         A = OreAlgebra(QQ['x'],'Dx')
         D = DFiniteFunctionRing(A)
         return UnivariateDFiniteFunction(D,self.ann().to_D(A),self)
-    
-    def __add_without_compress__(self,right):
+
+    def __add_without_compress__(self, right):
         r"""
         Adds the D-finite sequences ``self`` and ``right`` without automatically trying
         to compress the result. This method is called whenever equality testing is done
@@ -2044,7 +2038,7 @@ class UnivariateDFiniteSequence(DFiniteFunction):
         N = self.parent().base_ring().gen()
         A = self.parent().ore_algebra()
         sum_ann = self.ann().lclm(right.ann())
-        
+
         #getting the largest and smallest degree of the operator
         ord = sum_ann.order()
         min_degree = next((index for index, coeff in enumerate(sum_ann.list()) if coeff != 0), None)
@@ -2054,7 +2048,7 @@ class UnivariateDFiniteSequence(DFiniteFunction):
         singularities_negative = set()
         if self.parent()._backward_calculation is True:
             singularities_negative = {i for i in sum_ann.singularities(True) if i < 0}
-    
+
         initial_val = set(range(ord)).union(singularities_positive, singularities_negative)
         int_val_sum = {n:self[n] + right[n] if (self[n] is not None and right[n] is not None) else None for n in initial_val}
 
@@ -2062,24 +2056,24 @@ class UnivariateDFiniteSequence(DFiniteFunction):
         critical_points_positive = self.critical_points(ord).union( right.critical_points(ord) )
         for n in singularities_positive:
             critical_points_positive.update(range(n+1,n+ord+1))
-        
+
         for n in critical_points_positive:
             int_val_sum.update({n:self[n] + right[n] if (self[n] is not None and right[n] is not None) else None})
             sum_ann = A(N - (n - ord) )*sum_ann
             if self.parent()._backward_calculation is True and n < ord - min_degree:
                 int_val_sum.update({(n-ord)+min_degree: self[(n-ord)+min_degree] + right[(n-ord)+min_degree] if (self[(n-ord)+min_degree] is not None and right[(n-ord)+min_degree] is not None) else None})
-        
+
         #critical points for backward calculation
         critical_points_negative = self.critical_points(ord,True).union( right.critical_points(ord,True) )
         for n in singularities_negative:
             critical_points_negative.update(range(n-ord,n))
-            
+
         for n in critical_points_negative:
             int_val_sum.update({n:self[n] + right[n] if (self[n] is not None and right[n] is not None) else None})
             sum_ann = A(N - (n - min_degree) )*sum_ann
             if n >= min_degree:
                 int_val_sum.update({(n-min_degree)+ord:self[(n-min_degree)+ord] + right[(n-min_degree)+ord] if (self[(n-min_degree)+ord] is not None and right[(n-min_degree)+ord] is not None) else None})
-                
+
         return UnivariateDFiniteSequence(self.parent(), sum_ann, int_val_sum)
 
 #arithmetic
@@ -2087,14 +2081,14 @@ class UnivariateDFiniteSequence(DFiniteFunction):
     def _add_(self, right):
         r"""
         Return the sum of ``self`` and ``right``.
-        
+
         ``_add_`` uses the method ``lclm`` from the OreAlgebra package to get the new annihilator.
-        If ``self`` or ``right`` contains a ``None`` value at a certain position, then the sum will also 
+        If ``self`` or ``right`` contains a ``None`` value at a certain position, then the sum will also
         have a ``None`` entry at this position.
         Additionally the result is automatically compressed using the compress() method.
-        
+
         EXAMPLES::
-        
+
             sage: from ore_algebra import *
             sage: A.<Sn> = OreAlgebra(QQ['n'],'Sn')
             sage: D = DFiniteFunctionRing(A)
@@ -2106,18 +2100,18 @@ class UnivariateDFiniteSequence(DFiniteFunction):
             [0, 2, 5/2, 23/6, 61/12, 437/60, 209/20, 2183/140, 6641/280]
             sage: [a(i) + b(i) for i in range(9)]
             [0, 2, 5/2, 23/6, 61/12, 437/60, 209/20, 2183/140, 6641/280]
-            
+
         """
         if self.__is_zero__():
             return right
         if right.__is_zero__():
             return self
-        
+
         #getting the operator
         N = self.parent().base_ring().gen()
         A = self.parent().ore_algebra()
         sum_ann = self.ann().lclm(right.ann())
-        
+
         #getting the largest and smallest degree of the operator
         ord = sum_ann.order()
         min_degree = next((index for index, coeff in enumerate(sum_ann.list()) if coeff != 0), None)
@@ -2127,7 +2121,7 @@ class UnivariateDFiniteSequence(DFiniteFunction):
         singularities_negative = set()
         if self.parent()._backward_calculation is True:
             singularities_negative = {i for i in sum_ann.singularities(True) if i < 0}
-    
+
         initial_val = set(range(ord)).union(singularities_positive, singularities_negative)
         int_val_sum = {n:self[n] + right[n] if (self[n] is not None and right[n] is not None) else None for n in initial_val}
 
@@ -2135,34 +2129,34 @@ class UnivariateDFiniteSequence(DFiniteFunction):
         critical_points_positive = self.critical_points(ord).union( right.critical_points(ord) )
         for n in singularities_positive:
             critical_points_positive.update(range(n+1,n+ord+1))
-        
+
         for n in critical_points_positive:
             int_val_sum.update({n:self[n] + right[n] if (self[n] is not None and right[n] is not None) else None})
             sum_ann = A(N - (n - ord) )*sum_ann
             if self.parent()._backward_calculation is True and n < ord - min_degree:
                 int_val_sum.update({(n-ord)+min_degree: self[(n-ord)+min_degree] + right[(n-ord)+min_degree] if (self[(n-ord)+min_degree] is not None and right[(n-ord)+min_degree] is not None) else None})
-        
+
         #critical points for backward calculation
         critical_points_negative = self.critical_points(ord,True).union( right.critical_points(ord,True) )
         for n in singularities_negative:
             critical_points_negative.update(range(n-ord,n))
-            
+
         for n in critical_points_negative:
             int_val_sum.update({n:self[n] + right[n] if (self[n] is not None and right[n] is not None) else None})
             sum_ann = A(N - (n - min_degree) )*sum_ann
             if n >= min_degree:
                 int_val_sum.update({(n-min_degree)+ord:self[(n-min_degree)+ord] + right[(n-min_degree)+ord] if (self[(n-min_degree)+ord] is not None and right[(n-min_degree)+ord] is not None) else None})
-        
+
         sum = UnivariateDFiniteSequence(self.parent(), sum_ann, int_val_sum)
 
         return sum.compress()
-        
+
     def _neg_(self):
         r"""
         Return the negative of ``self``.
-        
+
         EXAMPLES::
-        
+
             sage: from ore_algebra import *
             sage: A = OreAlgebra(QQ['n'],'Sn')
             sage: D = DFiniteFunctionRing(A,ZZ)
@@ -2180,14 +2174,14 @@ class UnivariateDFiniteSequence(DFiniteFunction):
     def _mul_(self, right):
         r"""
         Return the product of ``self`` and ``right``
-        
+
         The result is the termwise product (Hadamard product) of ``self`` and ``right``. To get the cauchy product
         use the method ``cauchy_product``.
         ``_mul_`` uses the method ``symmetric_product`` of the OreAlgebra package to get the new annihilator. If ``self``
         or ``right`` contains a ``None`` value at a certain position, then the product will also have a ``None`` entry at this position.
-        
+
         EXAMPLES::
-        
+
             sage: from ore_algebra import *
             sage: A = OreAlgebra(QQ['n'],'Sn')
             sage: D = DFiniteFunctionRing(A,ZZ)
@@ -2197,16 +2191,16 @@ class UnivariateDFiniteSequence(DFiniteFunction):
             sage: c = a*b
             sage: c.expand(10)
             [None, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
-            
+
         """
         if self.__is_zero__() or right.__is_zero__():
             return self.parent().zero()
-        
+
         #getting the operator
         N = self.parent().base_ring().gen()
         A = self.parent().ore_algebra()
         prod_ann = self.ann().symmetric_product(right.ann())
-        
+
         #getting the largest and smallest degree of the operator
         ord = prod_ann.order()
         min_degree = next((index for index, coeff in enumerate(prod_ann.list()) if coeff != 0), None)
@@ -2216,48 +2210,48 @@ class UnivariateDFiniteSequence(DFiniteFunction):
         singularities_negative = set()
         if self.parent()._backward_calculation is True:
             singularities_negative = {i for i in prod_ann.singularities(True) if i < 0}
-    
+
         initial_val = set(range(ord)).union(singularities_positive, singularities_negative)
         int_val_prod = {n:self[n] * right[n] if (self[n] is not None and right[n] is not None) else None for n in initial_val }
-        
+
         #critical points for forward calculation
         critical_points_positive = self.critical_points(ord).union( right.critical_points(ord) )
         for n in singularities_positive:
             critical_points_positive.update(range(n+1,n+ord+1))
-        
+
         for n in critical_points_positive:
             int_val_prod.update({n:self[n] * right[n] if (self[n] is not None and right[n] is not None) else None})
             prod_ann = A(N - (n - ord) )*prod_ann
             if self.parent()._backward_calculation is True and n < ord - min_degree:
                 int_val_prod.update({(n-ord)+min_degree: self[(n-ord)+min_degree] * right[(n-ord)+min_degree] if (self[(n-ord)+min_degree] is not None and right[(n-ord)+min_degree] is not None) else None})
-        
+
         #critical points for backward calculation
         critical_points_negative = self.critical_points(ord,True).union( right.critical_points(ord,True) )
         for n in singularities_negative:
             critical_points_negative.update(range(n-ord,n))
-        
+
         for n in critical_points_negative:
             int_val_prod.update({n:self[n] * right[n] if (self[n] is not None and right[n] is not None) else None})
             prod_ann = A(N-(n-min_degree))*prod_ann
             if n >= min_degree:
                 int_val_prod.update({(n-min_degree)+ord:self[(n-min_degree)+ord] * right[(n-min_degree)+ord] if (self[(n-min_degree)+ord] is not None and right[(n-min_degree)+ord] is not None) else None})
-        
+
         prod = UnivariateDFiniteSequence(self.parent(), prod_ann, int_val_prod)
         return prod
-        
-        
+
+
     def cauchy_product(self, right):
         r"""
         Return the cauchy product of ``self`` and ``right``
-        
+
         The result is the cauchy product of ``self`` and ``right``. To get the termwise product (Hadamard product)
         use the method ``_mul_``.
-        This method uses the method ``symmetric_product`` (but in an OreAlgebra with the differential operator) of the 
-        OreAlgebra package to get the new annihilator. If ``self`` or ``right`` contains a ``None`` value at a certain position, 
+        This method uses the method ``symmetric_product`` (but in an OreAlgebra with the differential operator) of the
+        OreAlgebra package to get the new annihilator. If ``self`` or ``right`` contains a ``None`` value at a certain position,
         then the cauchy product will have ``None`` entries at this position and all positions afterwards.
-        
+
         EXAMPLES::
-        
+
             sage: from ore_algebra import *
             sage: A = OreAlgebra(QQ['n'],'Sn')
             sage: D = DFiniteFunctionRing(A,ZZ)
@@ -2269,32 +2263,32 @@ class UnivariateDFiniteSequence(DFiniteFunction):
             [1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0]
             sage: a.cauchy_product(b).expand(10)
             [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-        
+
         """
         if self.__is_zero__() or right.__is_zero__():
             return self.parent().zero()
-        
+
         #getting the operator
         R = self.parent().base_ring()
         N = R.gen()
         A = self.parent().ore_algebra()
         D = OreAlgebra(R.change_var('x'),'Dx')
-        
+
         L = self.ann().to_D(D)
         M = right.ann().to_D(D)
-        
+
         prod_ann = L.symmetric_product(M).to_S(A)
-        
+
         #getting the largest and smallest degree of the operator
         ord = prod_ann.order()
         min_degree = next((index for index, coeff in enumerate(prod_ann.list()) if coeff != 0), None)
-        
+
         #initial values and singularities of the new operator
         singularities_positive = prod_ann.singularities()
         singularities_negative = set()
         if self.parent()._backward_calculation is True:
             singularities_negative = {i for i in prod_ann.singularities(True) if i < 0}
-    
+
         initial_val = set(range(ord)).union(singularities_positive, singularities_negative)
         int_val_prod = {}
         for n in initial_val:
@@ -2306,12 +2300,12 @@ class UnivariateDFiniteSequence(DFiniteFunction):
             else:
                 cauchy = None
             int_val_prod.update({n:cauchy})
-        
+
         #critical points for forward calculation
         critical_points_positive = self.critical_points(ord).union( right.critical_points(ord) )
         for n in singularities_positive:
             critical_points_positive.update(range(n+1,n+ord+1))
-        
+
         for n in critical_points_positive:
             a = self.expand(n)
             b = right.expand(n)
@@ -2332,12 +2326,12 @@ class UnivariateDFiniteSequence(DFiniteFunction):
                     cauchy = None
                 int_val_prod.update({(n-ord)+min_degree:cauchy})
 
-        
+
         #critical points for backward calculation
         critical_points_negative = self.critical_points(ord,True).union( right.critical_points(ord,True) )
         for n in singularities_negative:
             critical_points_negative.update(range(n-ord,n))
-        
+
         for n in critical_points_negative:
             a = self.expand(n)
             b = right.expand(n)
@@ -2357,26 +2351,26 @@ class UnivariateDFiniteSequence(DFiniteFunction):
                 else:
                     cauchy = None
                 int_val_prod.update({(n-min_degree)+ord:cauchy})
-    
+
         return UnivariateDFiniteSequence(self.parent(), prod_ann, int_val_prod)
-        
+
     def __invert__(self):
         r"""
         """
         raise NotImplementedError
-    
+
     def interlace(self, right):
         r"""
         Return the interlaced sequence of ``self`` and ``right``.
         ``interlace`` uses the method ``annihilator_of_interlacing`` of the OreAlgebra package to get the new operator.
-        
+
         OUTPUT:
-        
+
         If ``self`` is of the form a_0,a_1,a_2,\dots and ``right`` is of the form b_0,b_1,b_2,\dots, then
         the result is a UnivariateDFiniteSequence object that represents the sequence a_0,b_0,a_1,b_1,a_2,b_2,\dots
-        
+
         EXAMPLES::
-        
+
             sage: from ore_algebra import *
             sage: A = OreAlgebra(QQ['n'],'Sn')
             sage: D = DFiniteFunctionRing(A,ZZ)
@@ -2386,23 +2380,23 @@ class UnivariateDFiniteSequence(DFiniteFunction):
             sage: c = a.interlace(b)
             sage: c.expand(10)
             [0, None, 1, 1, 2, 1/2, 3, 1/3, 4, 1/4, 5]
-            
+
         """
         #getting the operator
         N = self.parent().base_ring().gen()
         A = self.parent().ore_algebra()
         interlacing_ann = self.ann().annihilator_of_interlacing(right.ann())
-        
+
         #getting the largest and smallest degree of the operator
         ord = interlacing_ann.order()
         min_degree = next((index for index, coeff in enumerate(interlacing_ann.list()) if coeff != 0), None)
-        
+
         #initial values and singularities of the new operator
         singularities_positive = interlacing_ann.singularities()
         singularities_negative = set()
         if self.parent()._backward_calculation is True:
             singularities_negative = {i for i in interlacing_ann.singularities(True) if i < 0}
-        
+
         initial_val = set(range(ord)).union(singularities_positive, singularities_negative)
         int_val_interlacing = {}
         for n in initial_val:
@@ -2410,12 +2404,12 @@ class UnivariateDFiniteSequence(DFiniteFunction):
                 int_val_interlacing.update({n:self[n//2]})
             else:
                 int_val_interlacing.update({n:right[n//2]})
-        
+
         #critical points for forward calculation
         critical_points_positive = set()
         for n in singularities_positive:
             critical_points_positive.update(range(n+1,n+ord+1))
-                
+
         for n in self.critical_points(ord):
             critical_points_positive.update([2 * n])
         for n in right.critical_points(ord):
@@ -2454,16 +2448,16 @@ class UnivariateDFiniteSequence(DFiniteFunction):
                     int_val_interlacing.update({(n-min_degree) + ord:self[((n-min_degree)+ ord)/2]})
                 else:
                     int_val_interlacing.update({(n-min_degree) + ord:right[floor(((n-min_degree)+ ord)/2)]})
-        
+
         return UnivariateDFiniteSequence(self.parent(), interlacing_ann, int_val_interlacing)
-        
-    
+
+
     def sum(self):
         r"""
         Return the sequence (s_n)_{n=0}^\infty with s_n = \sum_{k=0}^n self[k].
-        
+
         EXAMPLES::
-        
+
             sage: from ore_algebra import *
             sage: A = OreAlgebra(QQ['n'],'Sn')
             sage: D = DFiniteFunctionRing(A)
@@ -2473,17 +2467,17 @@ class UnivariateDFiniteSequence(DFiniteFunction):
             Univariate D-finite sequence defined by the annihilating operator (n + 3)*Sn^2 + (-2*n - 5)*Sn + n + 2 and the initial conditions {0: 1, 1: 3/2}
             sage: _ == D(harmonic_number(n+1))
             True
-            
+
         """
         #only makes sense for sequences over NN
         if self.parent().domain() == ZZ:
             raise TypeError("domain of the DFiniteFunctionRing has to be NN")
-        
+
         #getting the operator
         N = self.parent().base_ring().gen()
         A = self.parent().ore_algebra()
         sum_ann = self.ann().annihilator_of_sum()
-    
+
         #getting the largest and smallest degree of the operator
         ord = sum_ann.order()
         min_degree = next((index for index, coeff in enumerate(sum_ann.list()) if coeff != 0), None)
@@ -2493,7 +2487,7 @@ class UnivariateDFiniteSequence(DFiniteFunction):
         singularities_negative = set()
         if self.parent()._backward_calculation is True:
             singularities_negative = {i for i in sum_ann.singularities(True) if i < 0}
-    
+
         initial_val = set(range(ord)).union(singularities_positive, singularities_negative)
         int_val_sum = {n : sum(self.expand(n)) if all(self[k] is not None for k in range(n+1)) else None for n in initial_val}
 
@@ -2501,18 +2495,18 @@ class UnivariateDFiniteSequence(DFiniteFunction):
         critical_points_positive = self.critical_points(ord)
         for n in singularities_positive:
             critical_points_positive.update(range(n+1,n+ord+1))
-    
+
         for n in critical_points_positive:
             int_val_sum.update({n : sum(self.expand(n)) if all(self[k] is not None for k in range(n+1)) else None})
             sum_ann = A(N - (n - ord) )*sum_ann
             if self.parent()._backward_calculation is True and n < ord - min_degree:
                 int_val_sum.update({(n-ord)+min_degree : sum(self.expand((n-ord)+min_degree)) if all(self[k] is not None for k in range((n-ord)+min_degree+1)) else None})
-        
+
         #critical points for backward calculation
         critical_points_negative = self.critical_points(ord,True)
         for n in singularities_negative:
             critical_points_negative.update(range(n-ord,n))
-            
+
         for n in critical_points_negative:
             int_val_sum.update({n : sum(self.expand(n)) if all(self[k] is not None for k in range(n+1)) else None})
             sum_ann = A(N - (n - min_degree) )*sum_ann
@@ -2520,23 +2514,23 @@ class UnivariateDFiniteSequence(DFiniteFunction):
                 int_val_sum.update({(n-min_degree)+ord : sum(self.expand((n-min_degree)+ord)) if all(self[k] is not None for k in range((n-min_degree)+ord+1)) else None})
 
         return UnivariateDFiniteSequence(self.parent(), sum_ann, int_val_sum)
-    
+
 #evaluation
-    
+
     def expand(self, n):
         r"""
         Return all the terms of ``self`` between 0 and ``n``
-        
+
         INPUT:
-        
+
         - ``n`` -- an integer; if ``self`` is defined over the domain ZZ then ``n`` can also be negative
-        
+
         OUTPUT:
-        
+
         A list starting with the 0-th term up to the n-th term of ``self``.
-        
+
         EXAMPLES::
-        
+
             sage: from ore_algebra import *
             sage: A = OreAlgebra(QQ['n'],'Sn')
             sage: D = DFiniteFunctionRing(A,ZZ)
@@ -2549,19 +2543,19 @@ class UnivariateDFiniteSequence(DFiniteFunction):
         """
         ord = self.ann().order()
         start = 0
-        
+
         if n >= 0:
             n = n+1
             #check if self is coming from a d-finite function that contains added zeros:
             if self.parent()._backward_calculation is False and min(self.initial_conditions()) < 0:
                 start = -min(self.initial_conditions())
                 n = n + start
-            
+
             #1st case: n is smaller than the order - so all needed terms are already given
             if n < ord:
                 return self.initial_values()[start:n]
-        
-        
+
+
             #2nd case: n is smaller than all relevant singularities - nothing to worry about
             s = [x for x in self.initial_conditions() if ord <= x]
             if all(n < x for x in s):
@@ -2578,22 +2572,22 @@ class UnivariateDFiniteSequence(DFiniteFunction):
                     r2 = self.ann().to_list( r[len(r)-ord:], m-len(r)+ord, -start+len(r)-ord,True)
                     r = r + r2[ord:] + [self._initial_values[m]]
                 s.remove(m)
-            
+
             r2 = self.ann().to_list( r[len(r)-ord:], n-len(r)+ord, -start+len(r)-ord,True)
             r = r + r2[ord:]
 
             return r[start:]
-      
+
         if n < 0:
             if self.parent()._backward_calculation is False:
                 raise TypeError("Backward Calculation is not possible - the D-finite function ring is not suitable")
-            
+
             if ord != 0:
                 ord = self.ann().order()-1
             N = self.parent().base_ring().gen()
-                
+
             A = self.ann().annihilator_of_composition(ord-N)
-                
+
             int_val = {ord-i:self[i] for i in self.initial_conditions() if i <= ord}
             if int_val:
                 b = UnivariateDFiniteSequence(self.parent().change_domain(NN), A, int_val)
@@ -2605,17 +2599,17 @@ class UnivariateDFiniteSequence(DFiniteFunction):
     def __getitem__(self,n):
         r"""
         Return the n-th term of ``self``.
-        
+
         INPUT:
-        
+
         - ``n`` -- an integer; if ``self`` is defined over the domain ZZ then ``n`` can also be negative
 
         OUTPUT:
-        
+
         The n-th sequence term of ``self`` (starting with the 0-th, i.e. to get the first term one has to call ``self[0]``)
-        
+
         EXAMPLES::
-        
+
             sage: from ore_algebra import *
             sage: A = OreAlgebra(QQ['n'],'Sn')
             sage: D = DFiniteFunctionRing(A,ZZ)
@@ -2624,27 +2618,27 @@ class UnivariateDFiniteSequence(DFiniteFunction):
             267914296
             sage: a[-100]
             -354224848179261915075
-            
+
         """
         try:
             return self.initial_conditions()[n]
-        except:
+        except Exception:
             pass
-        
+
         ord = self.ann().order()
         if ord == 0:
             return 0
-        
+
         #special case: n is negative
         if n < 0:
             return self.expand(n)[-n]
-    
+
         #normal case: n >= 0
         if self.parent()._backward_calculation is False and min(self.initial_conditions()) < 0:
             start = min(self.initial_conditions())
         else:
             start = 0
-        
+
         #handling None entries
         values = [self.initial_conditions()[i] for i in self.initial_conditions() if 0 <= i < n]
         if not all(x is not None for x in values):
@@ -2655,12 +2649,12 @@ class UnivariateDFiniteSequence(DFiniteFunction):
         else:
             roots = [x - ord for x in self.singularities() if 0 <= x-ord <= n]
             int_val = self.initial_values()
-        
+
         #handling singularities
         while len(roots) > 0:
             root = min(roots)
             Q,M = self.ann().forward_matrix_bsplit(ZZ(root-start),ZZ(start))
-            v = Matrix([int_val]).transpose()/M
+            v = matrix([int_val]).transpose()/M
             result = Q * v
             if n < root + ord:
                 d = n - (root+ord)
@@ -2671,7 +2665,7 @@ class UnivariateDFiniteSequence(DFiniteFunction):
                 roots.remove(root)
 
         Q,M = self.ann().forward_matrix_bsplit(ZZ(n-start),ZZ(start))
-        v = Matrix([int_val]).transpose()/M
+        v = matrix([int_val]).transpose()/M
         result = Q * v
         return result[0][0]
 
@@ -2680,30 +2674,30 @@ class UnivariateDFiniteFunction(DFiniteFunction):
     r"""
     D-finite function in a single differentiable variable.
     """
-    
+
 #constructor
-    
+
     def __init__(self, parent, ann, initial_val, is_gen=False, construct=False, cache=True):
         r"""
         Constructor for a D-finite function in a single differentiable variable.
-        
+
          INPUT:
-        
+
         - ``parent`` -- a DFiniteFunctionRing defined over an OreAlgebra with the differential operator
-        
+
         - ``ann`` -- an annihilating operator, i.e. an element from the OreAlgebra over which the DFiniteFunctionRing is defined,
            that defines a differential equation for the function ``self`` should represent.
-           
+
         - ``initial_val`` -- either a dictionary (or a list if no singularities occur) which contains the first r Taylor coefficients
           of ``self``, where r is the order of ``ann``, or a UnivariateDFiniteSequence which represents the Taylor sequence of ``self``
-          
+
         OUTPUT:
-        
+
         An object consisting of ``ann`` and a UnivariateDFiniteSequence that represents the D-finite function which is annihilated by ``ann``
         and has the Taylor sequence which is described by the UnivariateDFiniteSequence.
-        
+
         EXAMPLES::
-        
+
             sage: from ore_algebra import *
             sage: A = OreAlgebra(QQ['x'],'Dx')
             sage: x = A.base_ring().gen()
@@ -2716,34 +2710,34 @@ class UnivariateDFiniteFunction(DFiniteFunction):
             sage: coeffs = D2([1,-1,1,-1,1,-1])  #a UnivariateDFiniteSequence
             sage: UnivariateDFiniteFunction(D1,(x + 1)*Dx + 1, coeffs )
             Univariate D-finite function defined by the annihilating operator (x + 1)*Dx + 1 and the coefficient sequence defined by Sn + 1 and {0: 1}
-        
+
         """
         if not parent.ore_algebra().is_D():
             raise TypeError("Not the Differential Operator")
         super().__init__(parent, ann, initial_val, is_gen, construct, cache)
-    
+
 #action
-    
+
     def __call__(self, r):
         r"""
         Lets ``self`` act on `r` and returns the result.
         `r` may be either a constant, then this method tries to evaluate ``self``at `r`. This evaluation might fail if there
-        is a singularity of the annihilating operator of ``self`` between 0 and `r`. To then compute an evaluation use 
+        is a singularity of the annihilating operator of ``self`` between 0 and `r`. To then compute an evaluation use
         ``evaluate`` and see the documentation there.
-        `r` can also be a (suitable) expression, then the composition ``self(r)`` is computed. A suitable expression means 
+        `r` can also be a (suitable) expression, then the composition ``self(r)`` is computed. A suitable expression means
         that `r` has to be a rational function (either in explicit form or in form of a UnivariateDFiniteFunction) whose first
         Taylor coefficient is 0.
-        
+
         INPUT:
-        
+
         - `r` -- either any data type that can be transformed into a float, or any data type that can be converted into a rational function
-        
+
         OUTPUT:
-        
+
         Either ``self`` evaluated at `r` (if possible) or the composition ``self(r)``
-        
+
         EXAMPLES::
-        
+
             sage: from ore_algebra import *
             sage: A = OreAlgebra(QQ['x'],'Dx')
             sage: x = A.base_ring().gen()
@@ -2759,66 +2753,64 @@ class UnivariateDFiniteFunction(DFiniteFunction):
             [+/- ...e-54]
 
         """
-        if type(r) == list:
-            return self.evaluate(r,0)
-        
+        if isinstance(r, list):
+            return self.evaluate(r, 0)
+
         if r in CC:
-            return self.evaluate(r,0)
-        
-        else:
-            if not isinstance(r, UnivariateDFiniteFunction):
-                r = self.parent()(r)
-            
-            A = self.parent().ore_algebra()
-            R = A.base_ring()
-            x = R.gen()
-            if r[0] != 0:
-                raise ValueError("constant term has to be zero")
-        
-            #getting the operator
-            ann = self.ann().annihilator_of_composition(r.to_rational())
-            S = OreAlgebra(R.change_var('n'),'Sn')
-            s_ann = ann.to_S(S)
-            ord = s_ann.order()
-            
-            #initial values and singularities of the new operator
-            singularities_positive = s_ann.singularities()
-                
-            initial_val = set(range(ord)).union(singularities_positive)
-            N = max(initial_val) + ord
-            
-            #computing the new coefficients
-            B = sum( r[k]*x**k for k in range(1,N+2) )
-            poly = sum( self[n]*B**n for n in range(N+1))
-            
-            int_val = {n:poly.derivative(n)(x=0)/factorial(n) for n in initial_val}
+            return self.evaluate(r, 0)
 
-            #critical points for forward calculation
-            critical_points_positive = self.critical_points(ord)
-            for n in singularities_positive:
-                critical_points_positive.update(range(n+1,n+ord+1))
-        
-            for n in critical_points_positive:
-                int_val.update({ n : poly.derivative(n)(x=0)/factorial(n) })
-                s_ann = S(s_ann.base_ring().gen() - (n - ord) )*s_ann
-            
-            seq = UnivariateDFiniteSequence(DFiniteFunctionRing(S,NN),s_ann,int_val)
-        
-            return UnivariateDFiniteFunction(self.parent(), ann, seq)
+        if not isinstance(r, UnivariateDFiniteFunction):
+            r = self.parent()(r)
 
-        
+        A = self.parent().ore_algebra()
+        R = A.base_ring()
+        x = R.gen()
+        if r[0] != 0:
+            raise ValueError("constant term has to be zero")
+
+        #getting the operator
+        ann = self.ann().annihilator_of_composition(r.to_rational())
+        S = OreAlgebra(R.change_var('n'),'Sn')
+        s_ann = ann.to_S(S)
+        ord = s_ann.order()
+
+        #initial values and singularities of the new operator
+        singularities_positive = s_ann.singularities()
+
+        initial_val = set(range(ord)).union(singularities_positive)
+        N = max(initial_val) + ord
+
+        #computing the new coefficients
+        B = sum( r[k]*x**k for k in range(1,N+2) )
+        poly = sum( self[n]*B**n for n in range(N+1))
+
+        int_val = {n:poly.derivative(n)(x=0)/factorial(n) for n in initial_val}
+
+        #critical points for forward calculation
+        critical_points_positive = self.critical_points(ord)
+        for n in singularities_positive:
+            critical_points_positive.update(range(n+1,n+ord+1))
+
+        for n in critical_points_positive:
+            int_val.update({ n : poly.derivative(n)(x=0)/factorial(n) })
+            s_ann = S(s_ann.base_ring().gen() - (n - ord) )*s_ann
+
+        seq = UnivariateDFiniteSequence(DFiniteFunctionRing(S,NN),s_ann,int_val)
+
+        return UnivariateDFiniteFunction(self.parent(), ann, seq)
+
     def _test_conversion_(self):
         r"""
         Test whether a conversion of ``self`` into an int/float/long/... is possible;
         i.e. whether the function is constant or not.
-        
+
         OUTPUT:
-        
+
         If ``self`` is constant, i.e. all but the 0-th coefficient of ``self`` are 0, then the 0-th coefficient
         is returned (as an element of QQ). Otherwise ``None`` is returned.
-        
+
         EXAMPLES::
-            
+
             sage: from ore_algebra import *
             sage: A = OreAlgebra(QQ['x'],'Dx')
             sage: D = DFiniteFunctionRing(A)
@@ -2827,28 +2819,28 @@ class UnivariateDFiniteFunction(DFiniteFunction):
             sage: b = D(x)
             sage: a._test_conversion_()
             17/5
-            sage: b._test_conversion_() # returns None            
-            
+            sage: b._test_conversion_() # returns None
+
         """
         ini = self.initial_conditions()
-        
+
         if all(x == 0 for x in ini.initial_conditions() if x != 0):
             Dx = self.parent().ore_algebra().gen()
             if self.ann().quo_rem(Dx)[1].is_zero():
                 return ini[0]
         return None
-        
+
     def to_polynomial(self):
         r"""
         Try to convert ``self`` into a polynomial.
-        
+
         OUTPUT:
-        
+
         Either a polynomial f(x) from the base ring of the OreAlgebra of the annihilating operator of ``self`` such that
         f(x) is the explicit form of ``self`` (if ``self`` represents a polynomial) or an error message if no such polynomial exists.
-        
+
         EXAMPLES::
-        
+
             sage: from ore_algebra import *
             sage: A = OreAlgebra(QQ['x'],'Dx')
             sage: D = DFiniteFunctionRing(A)
@@ -2865,17 +2857,17 @@ class UnivariateDFiniteFunction(DFiniteFunction):
         """
         R = self.parent().base_ring()
         x = R.gen()
-        
+
         if self.__is_zero__():
             return R.zero()
-        
+
         #computing a base of the solution space
         base = self.ann().polynomial_solutions()
         if len(base) == 0:
             raise TypeError("the D-finite function is not a polynomial")
-        
+
         #generating an equation system
-        vars = [var('x_%d' % i) for i in range(len(base))]
+        vars = [SR.var('x_%d' % i) for i in range(len(base))]
         c = [0]*len(base)
         for i in range(len(base)):
             base[i] = base[i][0]
@@ -2883,18 +2875,18 @@ class UnivariateDFiniteFunction(DFiniteFunction):
         coeffs = sum(c).coefficients(x,False)
         int_val = self.expand(len(coeffs)-1)
         eqs = [coeffs[k] == int_val[k] for k in range(len(coeffs))]
-        
+
         #solving the system and putting results together
-        result = solve(eqs,vars)
+        result = solve(eqs, vars)
         if len(result) == 0:
             raise TypeError("the D-finite function is not a polynomial")
-        if type(result[0]) == list:
+        if isinstance(result[0], list):
             result = result[0]
         coeffs_result = [0]*len(result)
         for i in range(len(result)):
             coeffs_result[i] = result[i].rhs()
         poly = sum([a*b for a,b in zip(coeffs_result,base)])
-        
+
         if all(poly.derivative(k)(x=0)/factorial(k) == self[k] for k in self.initial_conditions().initial_conditions() if (self[k] is not None and k>=0)):
             return R(poly)
         else:
@@ -2903,15 +2895,15 @@ class UnivariateDFiniteFunction(DFiniteFunction):
     def to_rational(self):
         r"""
         Try to convert ``self`` into a rational function.
-        
+
         OUTPUT:
-        
+
         Either a rational function r(x) from the fraction field of the base ring of the OreAlgebra of the annihilating
         operator of ``self`` such that r(x) is the explicit form of ``self`` (if ``self`` represents a rational function) or
         an error message if no such function exists.
-        
+
         EXAMPLES::
-        
+
             sage: from ore_algebra import *
             sage: A = OreAlgebra(QQ['x'],'Dx')
             sage: D = DFiniteFunctionRing(A)
@@ -2924,39 +2916,39 @@ class UnivariateDFiniteFunction(DFiniteFunction):
             Univariate D-finite function defined by the annihilating operator (63/20*x^6 - 539/100*x^4 + 57/20*x^2 - 9/20)*Dx - 63/10*x^5 + 189/25*x^3 - 27/10*x and the coefficient sequence defined by (-9/20*n - 27/10)*Sn^6 + (57/20*n + 87/10)*Sn^4 + (-539/100*n - 161/50)*Sn^2 + 63/20*n - 63/10 and {0: -5/4, 1: 0, 2: 15/4, 3: 0, 4: 1, 5: 0}
             sage: l.to_rational()
             (63/20*x^4 - 7/2*x^2 + 3/4)/(x^2 - 3/5)
-            
+
         """
         R = self.parent().base_ring()
         x = R.gen()
-        
+
         if self.__is_zero__():
             return R.fraction_field().zero()
-        
+
         #computing a base of the solution space
         base = self.ann().rational_solutions()
         if len(base) == 0:
             raise TypeError("the D-finite function is not a rational function")
-        
+
         #generating an equation system
-        vars = [var('a_%d' % i) for i in range(len(base))]
+        vars = [SR.var('a_%d' % i) for i in range(len(base))]
         c = [0]*len(base)
         for i in range(len(base)):
             base[i] = base[i][0]
             c[i] = base[i]*vars[i]
-        
+
         rat = sum(c)
-        coeffs_num = rat.numerator().coefficients(x,False)
-        coeffs_denom = rat.denominator().coefficients(x,False)
-        
-        eqs = []
-        for k in range(len(coeffs_num)):
-            eqs.append( coeffs_num[k] == sum(coeffs_denom[i]*self[k-i] for i in range(len(coeffs_denom))) )
-        
-        #solving the system and putting results together
-        result = solve(eqs,vars)
+        coeffs_num = rat.numerator().coefficients(x, False)
+        coeffs_denom = rat.denominator().coefficients(x, False)
+
+        eqs = [coeff_k == sum(coeff_i * self[k - i]
+                              for i, coeff_i in enumerate(coeffs_denom))
+               for k, coeff_k in enumerate(coeffs_num)]
+
+        # solving the system and putting results together
+        result = solve(eqs, vars)
         if len(result) == 0:
             raise TypeError("the D-finite function is not a rational function")
-        if type(result[0]) == list:
+        if isinstance(result[0], list):
             result = result[0]
         coeffs_result = [ result[i].rhs() for i in range(len(result)) ]
         result = sum([a*b for a,b in zip(coeffs_result,base)])
@@ -2966,19 +2958,19 @@ class UnivariateDFiniteFunction(DFiniteFunction):
         else:
             raise TypeError("the D-finite function is not a rational function")
 
-    def __add_without_compress__(self,right):
+    def __add_without_compress__(self, right):
         r"""
         Adds the D-finite functions ``self`` and ``right`` without automatically trying
         to compress the result. This method is called whenever equality testing is done
         because there compressing the result would be unnecessary work.
         """
         sum_ann = self.ann().lclm(right.ann())
-        
+
         lseq = self.initial_conditions()
         rseq = right.initial_conditions()
 
         seq = lseq.__add_without_compress__(rseq)
-    
+
         return UnivariateDFiniteFunction(self.parent(), sum_ann, seq)
 
     # evaluation
@@ -2988,20 +2980,20 @@ class UnivariateDFiniteFunction(DFiniteFunction):
 
     def list(self):
         raise NotImplementedError
-    
+
     def expand(self, n, deriv = False):
         r"""
         Return a list of the first `n+1` coefficients of ``self`` if ``deriv``is False.
         If ``deriv`` is True the first `n+1` derivations of self at x=0 are returned.
-        
+
         INPUT:
-        
+
         - `n` -- a non-negative integer
-        
+
         - ``deriv`` (default ``False``) -- boolean value. Determines whether the coefficients (default) or derivations of ``self`` are returned
-    
+
         EXAMPLES::
-        
+
             sage: from ore_algebra import *
             sage: A = OreAlgebra(QQ['x'],'Dx')
             sage: D = DFiniteFunctionRing(A)
@@ -3016,18 +3008,18 @@ class UnivariateDFiniteFunction(DFiniteFunction):
         result = self._initial_values.expand(n)
         if deriv is True:
             result = [result[i]* factorial(i) for i in range(len(result))]
-        
+
         return result
-    
+
 #arithmetic
-    
+
     def _add_(self, right):
         r"""
         Returns the sum of ``self`` and ``right``
         ``_add_`` uses the method ``lclm`` from the OreAlgebra package to get the new annihilator.
-        
+
         EXAMPLES::
-        
+
             sage: from ore_algebra import *
             sage: A = OreAlgebra(QQ['x'],'Dx')
             sage: D = DFiniteFunctionRing(A)
@@ -3041,29 +3033,28 @@ class UnivariateDFiniteFunction(DFiniteFunction):
             [1, 1, 1/2, 1/6, 1/24, 1/120, 1/720, 1/5040, 1/40320, 1/362880, 1/3628800]
             sage: s.expand(10)
             [5, 1, 7/2, 1/6, 1/24, 1/120, 1/720, 1/5040, 1/40320, 1/362880, 1/3628800]
-            
+
         """
         if self.__is_zero__():
             return right
         if right.__is_zero__():
             return self
-        
+
         sum_ann = self.ann().lclm(right.ann())
-        
+
         lseq = self.initial_conditions()
         rseq = right.initial_conditions()
 
         seq = lseq + rseq
-    
+
         return UnivariateDFiniteFunction(self.parent(), sum_ann, seq).compress()
-        
-    
+
     def _neg_(self):
         r"""
         Return the negative of ``self``
-        
+
         EXAMPLES::
-        
+
             sage: from ore_algebra import *
             sage: A = OreAlgebra(QQ['x'],'Dx')
             sage: D = DFiniteFunctionRing(A)
@@ -3074,7 +3065,7 @@ class UnivariateDFiniteFunction(DFiniteFunction):
             sage: -a
             Univariate D-finite function defined by the annihilating operator (x - 1)*Dx + 1 and the coefficient sequence defined by (-n - 1)*Sn + n + 1 and {0: 1}
             sage: (-a).expand(10)
-            [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]        
+            [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
         """
         return UnivariateDFiniteFunction(self.parent(), self.ann(),
                                          -self._initial_values)
@@ -3087,9 +3078,9 @@ class UnivariateDFiniteFunction(DFiniteFunction):
         lead to the same (correct) result. But to use that method one would have to use (more) transformations of the annihilating operators
         between the differential and the shift OreAlgebra, which would increase their orders (even more) and would eventually lead to an increased
         computation time.
-        
+
         EXAMPLES::
-        
+
             sage: from ore_algebra import *
             sage: A = OreAlgebra(QQ['x'],'Dx')
             sage: D = DFiniteFunctionRing(A)
@@ -3101,19 +3092,19 @@ class UnivariateDFiniteFunction(DFiniteFunction):
             Univariate D-finite function defined by the annihilating operator Dx and the coefficient sequence defined by n^2 and {0: 1}
             sage: p.to_polynomial()
             1
-            
+
         """
         if self.__is_zero__() or right.__is_zero__():
             return self.parent().zero()
-        
+
         if self == self.parent().one():
             return right
         if right == self.parent().one():
             return self
-        
+
         lseq = self.initial_conditions()
         rseq = right.initial_conditions()
-        
+
         #getting the new operators
         prod_ann = self.ann().symmetric_product(right.ann())
         A = OreAlgebra(self.parent().base_ring().change_var('n'),'Sn')
@@ -3123,7 +3114,7 @@ class UnivariateDFiniteFunction(DFiniteFunction):
 
         #initial values and singularities of the sequence operator
         singularities_positive = s_ann.singularities()
-    
+
         initial_val = set(range(ord)).union(singularities_positive)
         int_val_prod = {}
         for n in initial_val:
@@ -3132,12 +3123,12 @@ class UnivariateDFiniteFunction(DFiniteFunction):
             b.reverse()
             cauchy = sum([x*y for x,y in zip(a,b)])
             int_val_prod.update({n:cauchy})
-        
+
         #critical points for forward calculation
         critical_points_positive = lseq.critical_points(ord).union( rseq.critical_points(ord) )
         for n in singularities_positive:
             critical_points_positive.update(range(n+1,n+ord+1))
-        
+
         for n in critical_points_positive:
             a = lseq.expand(n)
             b = rseq.expand(n)
@@ -3145,13 +3136,12 @@ class UnivariateDFiniteFunction(DFiniteFunction):
             cauchy = sum([x*y for x,y in zip(a,b)])
             int_val_prod.update({n:cauchy})
             s_ann = A(N - (n - ord) )*s_ann
-        
+
         seq = UnivariateDFiniteSequence(DFiniteFunctionRing(A,NN),s_ann,int_val_prod)
-    
-        prod = UnivariateDFiniteFunction(self.parent(), prod_ann, seq)
-        return prod
-        
-    def hadamard_product(self,right):
+
+        return UnivariateDFiniteFunction(self.parent(), prod_ann, seq)
+
+    def hadamard_product(self, right):
         r"""
         Return the D-finite function corresponding to the Hadamard product of ``self`` and ``right``.
         The Hadamard product of two formal power series a(x) = \sum_{n=0}^\infty a_n x^n and b(x) = \sum_{n=0}^\infty b_n x^n
@@ -3159,20 +3149,20 @@ class UnivariateDFiniteFunction(DFiniteFunction):
         """
         seq = self.initial_conditions() * right.initial_conditions()
         return seq.generating_function()
-        
+
     def __invert__(self):
         r"""
         """
         raise NotImplementedError
-    
+
     def integral(self):
         r"""
         Return the D-finite function corresponding to the integral of ``self``.
-        By integral the formal integral of a power series is meant, i.e. 
+        By integral the formal integral of a power series is meant, i.e.
         \int a(x) = \int_0^x \sum_{n=0}^\infty a_n x^n = \sum_{n=0}^\infty \frac{a_n}{n+1} x^{n+1}
-        
+
         EXAMPLES::
-        
+
             sage: from ore_algebra import *
             sage: A = OreAlgebra(QQ[x],'Dx')
             sage: D = DFiniteFunctionRing(A)
@@ -3181,7 +3171,7 @@ class UnivariateDFiniteFunction(DFiniteFunction):
             Univariate D-finite function defined by the annihilating operator Dx^3 + Dx and the coefficient sequence defined by (n^7 + n^6 - 5*n^5 - 5*n^4 + 4*n^3 + 4*n^2)*Sn^2 + n^5 - 2*n^4 - n^3 + 2*n^2 and {0: 0, 1: 1, 2: 0, 3: -1/6, 4: 0}
             sage: _ == D(sin(x))
             True
-        
+
         """
         #getting the new operators
         ann = self.ann().annihilator_of_integral()
@@ -3192,42 +3182,42 @@ class UnivariateDFiniteFunction(DFiniteFunction):
 
         #initial values and singularities of the sequence operator
         singularities_positive = s_ann.singularities()
-    
+
         initial_val = set(range(ord)).union(singularities_positive)
         int_val = {n:self[n-1]/QQ(n) for n in initial_val if n > 0}
         int_val.update({0:0})
-        
+
         #critical points for forward calculation
         critical_points_positive = self.initial_conditions().critical_points(ord)
         for n in singularities_positive:
             critical_points_positive.update(range(n+1,n+ord+1))
         critical_points_positive.difference_update({0})
-        
+
         for n in critical_points_positive:
             int_val.update({n:self[n-1]/n})
             s_ann = A(N - (n - ord) )*s_ann
-        
+
         seq = UnivariateDFiniteSequence(DFiniteFunctionRing(A,NN),s_ann,int_val)
         integral = UnivariateDFiniteFunction(self.parent(), ann, seq)
         return integral
-    
-#evaluation
+
+    # evaluation
 
     def __getitem__(self, n):
         r"""
         Return the n-th coefficient of ``self`` (starting with 0).
-        
+
         INPUT:
-        
+
         - `n` -- an integer (`n` can also be negative)
-        
+
         OUTPUT:
-        
+
         If `n` is positive, then the n-th coefficient of ``self`` is returned (starting with the 0-th).
         If `n` is negative, then always 0 is returned.
-        
+
         EXAMPLES::
-        
+
             sage: from ore_algebra import *
             sage: A = OreAlgebra(QQ['x'],'Dx')
             sage: D = DFiniteFunctionRing(A)
@@ -3237,35 +3227,32 @@ class UnivariateDFiniteFunction(DFiniteFunction):
             3
             sage: f[-12]
             0
-        
         """
         if n >= 0:
             return self.initial_conditions()[n]
-        else:
-            return 0
-    
-    
+        return 0
+
     def evaluate(self, z, n = 0):
         r"""
         Tries to numerically evaluate the n-th derivative of ``self`` at  `z`
-        
+
         INPUT:
-        
+
         - `z` -- either a datatype that can be transformed into a float or a list of floating point numbers starting with 0 and ending
-          with the value that which the derivation should be computed. The list should provide a path from 0 to the evaluation point, not 
+          with the value that which the derivation should be computed. The list should provide a path from 0 to the evaluation point, not
           crossing any singularities of the annihilating operator of ``self`` (for further information see the documentation of the method
           ``numerical_solution`` of the OreAlgebra package).
-          
+
         - `n` (default 0) -- a non-negative integer
-        
+
         OUTPUT:
-        
+
         The evaluation of the n-th derivative of ``self`` at `z` if `z` is a floating point number. If
         `z` is a list, then the evaluation of the n-th derivative of ``self`` at the last point of the list
         is computed.
-            
+
         EXAMPLES::
-        
+
             sage: from ore_algebra import *
             sage: A = OreAlgebra(QQ['x'],'Dx')
             sage: D = DFiniteFunctionRing(A)
@@ -3280,17 +3267,18 @@ class UnivariateDFiniteFunction(DFiniteFunction):
             [1.000000000000000000000000000000000000000000000000...]
             sage: sin.evaluate(pi,1)
             [-1.00000000000000000000000000000000000000000000000...]
-            
+
         """
         ini = self.initial_values()
         Dx = self.parent().ore_algebra().gen()
-        
-        if z == 0 and n == 0:
+
+        if z == 0 == n:
             return self[0]
-        
+
         if z in CC:
             return self.ann().numerical_solution(ini,[0,z], eps=1e-50, post_transform=Dx**n)
-        elif type(z) == list:
+
+        if isinstance(z, list):
             return self.ann().numerical_solution(ini,z, eps=1e-50, post_transform=Dx**n)
-        else:
-            raise NotImplementedError("evaluation point has to be given in form of a single point or in form of a list")
+
+        raise NotImplementedError("evaluation point has to be given in form of a single point or in form of a list")

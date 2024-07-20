@@ -1420,7 +1420,7 @@ def _cra(subsolver, max_modulus, proof, ncpus, mat, degrees, infolevel):
                 while len(Zp) < ncpus:
                     p = pp(p)
                     Zp.append(GF(p)[x])
-                Vpp = [ (u[0][0].characteristic(), v) for (u, v) in forked_subsolver(Zp) ] # MAIN WORK, DONE IN PARALLEL
+                Vpp = [ (u[0][0].characteristic(), v) for u, v in forked_subsolver(Zp) ] # MAIN WORK, DONE IN PARALLEL
                 # combine them, provided all the Vp have the same length (viz. none of the primes was unlucky)
                 primes = [ u[0] for u in Vpp ]
                 Vpp = [ u[1] for u in Vpp ]
@@ -1933,12 +1933,9 @@ def _compress(subsolver, presolver, modulus, mat, degrees, infolevel):
     _info(infolevel, len(Vp), "solutions expected", alter=-1)
 
     # determine indices of unnecessary columns, if there are any.
-    useless_columns = []
-    for j in range(m):
-        if not any(v[j] for v in Vp):
-            useless_columns.append(j)
-    
-    if len(useless_columns) > 0:
+    useless_columns = [j for j in range(m) if not any(v[j] for v in Vp)]
+
+    if useless_columns:
         _info(infolevel, "discarding", len(useless_columns), "columns", alter=-1)
         mat = mat.delete_columns(useless_columns)
 

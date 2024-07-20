@@ -13,7 +13,8 @@ Local solutions
 #
 # http://www.gnu.org/licenses/
 
-import collections, logging, warnings
+import collections
+import logging
 
 from itertools import chain
 
@@ -25,7 +26,6 @@ from sage.misc.lazy_attribute import lazy_attribute
 from sage.modules.free_module_element import vector, FreeModuleElement_generic_dense
 from sage.rings.all import ZZ, QQ, AA, QQbar, RBF, CBF
 from sage.rings.all import RealBallField, ComplexBallField
-from sage.rings.complex_arb import ComplexBall
 from sage.rings.integer import Integer
 from sage.rings.number_field.number_field import (
         number_field_base,
@@ -43,7 +43,6 @@ from .. import ore_algebra
 from . import utilities
 
 from .context import dctx
-from .differential_operator import DifferentialOperator
 from .polynomial_root import PolynomialRoot, roots_of_irred
 from .shiftless import my_shiftless_decomposition
 
@@ -59,13 +58,15 @@ def bw_shift_rec(dop, shift=None, Scalars=None):
     if shift is not None:
         Scalars = utilities.mypushout(Scalars, shift.parent())
     if dop.parent().is_D():
-        dop = DifferentialOperator(dop) # compatibility bugware
         rop = dop._my_to_S()
-    else: # more compatibility bugware
+    else:  # compatibility bugware
+        Dops = ore_algebra.OreAlgebra(dop.base_ring(),
+                                      'D' + dop.base_ring().variable_name(), check_base_ring=False)
         Pols_n = PolynomialRing(dop.base_ring().base_ring(), 'n')
-        rop = dop.to_S(ore_algebra.OreAlgebra(Pols_n, 'Sn'))
+        Rops = ore_algebra.OreAlgebra(Pols_n, 'Sn', check_base_ring=False)
+        rop = dop.to_D(Dops).to_S(Rops)
     Pols_n, n = rop.base_ring().change_ring(Scalars).objgen()
-    Rops = ore_algebra.OreAlgebra(Pols_n, 'Sn')
+    Rops = ore_algebra.OreAlgebra(Pols_n, 'Sn', check_base_ring=False)
     ordrec = rop.order()
     if shift is None:
         shift = Scalars.zero()
@@ -102,7 +103,7 @@ def _mygcd_ZZ(seq):
 if not hasattr(Integer, '_gcd'): # Sage < 9.3
     _mygcd_ZZ = gcd
 
-class BwShiftRec(object):
+class BwShiftRec:
     r"""
     A recurrence relation, written in terms of the backward shift operator.
 
@@ -288,7 +289,7 @@ class MultDict(dict):
     def __missing__(self, k):
         return 0
 
-class LogSeriesInitialValues(object):
+class LogSeriesInitialValues:
     r"""
     Initial values defining a logarithmic series.
 
@@ -525,7 +526,7 @@ class sort_key_by_asympt:
                 -other.leftmost.as_algebraic().imag().sign())
         return self.leftmost.as_algebraic().imag() < 0
 
-class LocalBasisMapper(object):
+class LocalBasisMapper:
     r"""
     Utility class for iterating over the canonical local basis of solutions of
     an operator.
@@ -553,11 +554,18 @@ class LocalBasisMapper(object):
         """
 
         self.bwrec = bw_shift_rec(self.dop) # XXX wasteful in binsplit case
-        ind = self.bwrec[0]
+        ind = None
         if self.dop.leading_coefficient()[0] != 0:
-            n = ind.parent().gen()
+            n = self.bwrec.base_ring.change_ring(QQ).gen()
             self.sl_decomp = [(-n, [(i, 1) for i in range(self.dop.order())])]
         else:
+            ind = self.bwrec[0]
+            # Crude attempt to support operators with ball coefficients when the
+            # indicial polynomial is exact
+            try:
+                ind = utilities.exactify_polynomial(ind)
+            except ValueError:
+                raise NotImplementedError(f"inexact indicial polynomial: {ind}")
             self.sl_decomp = my_shiftless_decomposition(ind)
 
         self.process_decomposition()
@@ -580,9 +588,10 @@ class LocalBasisMapper(object):
                                       for (shift, mult) in shifts)
             sl_data.append((sl_factor, shifts, irred_data))
 
-        assert sum(mult for _, mult in self.all_roots) == ind.degree()
-        assert all(ind.change_ring(self.ctx.IC)(rt).contains_zero()
-                   for rt, _ in self.all_roots)
+        if ind is not None:
+            assert sum(mult for _, mult in self.all_roots) == ind.degree()
+            assert all(ind.change_ring(self.ctx.IC)(rt).contains_zero()
+                       for rt, _ in self.all_roots)
 
         self.cols = []
         self.nontrivial_factor_index = 0
@@ -894,7 +903,7 @@ def simplify_exponent(e):
             pass
     return e
 
-class LogMonomial(object):
+class LogMonomial:
 
     def __init__(self, dx, expo, shift, k):
         self.dx = dx
