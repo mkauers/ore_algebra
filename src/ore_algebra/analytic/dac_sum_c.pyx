@@ -357,7 +357,7 @@ cdef class DACUnroller:
             acb_dot(new_term + k,  # result
                     _coeffs(self.series + k) + n - base,  # initial value
                     False,  # subtract the sum from the initial value
-                    acb_poly_get_coeff_ptr(ind_n, mult + 1), 1,  # first vec, step
+                    _coeffs(ind_n) + mult + 1, 1,  # first vec, step
                     new_term + k + 1, 1,  # second vec, step
                     rhs_len - k - 1,  # terms
                     self.prec)
@@ -503,6 +503,7 @@ cdef class DACUnroller:
         # relevant?
         acb_poly_taylor_shift(ind_n, self.ind, expo, self.prec)
         acb_poly_truncate(ind_n, order)
+        acb_poly_fit_length(ind_n, order)
         acb_clear(expo)
 
 
