@@ -33,7 +33,7 @@ computing generalized series solutions and the valuation of the pseudoconstant.
 """
 
 from sage.repl.preparse import preparse
-from sage.rings.all import PolynomialRing, QQ
+from sage.rings.all import Integer, PolynomialRing, QQ
 from ore_algebra import OreAlgebra
 import os
 
