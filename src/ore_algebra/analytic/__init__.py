@@ -567,7 +567,7 @@ Goyer, Mezzarobba, 2022) that defines transition matrices with large entries::
     ....:        (38987126730300*x^3-113173203800613*x^2-1127681839519020*x+
     ....:        3827710032458400))
     sage: dop.numerical_transition_matrix([75/17,4]).trace()
-    [-2.048077478517672...] + [-2.818936813156118...]*I
+    [-2.048077478517672...e+95...] + [-2.818936813156118...e+95...]*I
 
 Handling of algebraic points::
 
