@@ -54,8 +54,13 @@ cdef class DACUnroller:
     cdef acb_t leftmost
     cdef arb_t rad
 
-    # Unlike the Python version, which creates, destroys, returns lists of
+    # Unlike the Python version, which creates/destroys/returns lists of
     # polynomials, this version acts on shared data buffers.
+    #
+    # The coefficient of a given log(x)^k/k! is represented as a contiguous
+    # array of coefficients (= FLINT polynomial), and subroutines that operate
+    # on slices of coefficients take as input offsets in this array (as opposed
+    # to direct pointers), with the same offset typically applying for all k.
 
     # vector of polynomials in x holding the coefficients wrt log(x)^k/k! of the
     # last few (???) terms of the series solution
@@ -164,6 +169,9 @@ cdef class DACUnroller:
 
         assert dop_T.parent().is_T()
 
+        ### Kept for gradual Python to Cython conversion; would change or
+        ### disappear in a pure Cython version
+
         self.dop_T = dop_T
         self.ini = ini  # LogSeriesInitialValues
         self.evpts = evpts
@@ -181,6 +189,8 @@ cdef class DACUnroller:
         self.IR = ctx.IR
         self.IC = self.IR.complex_field()
         self.Pol_IC = self.Pol.change_ring(self.IC)
+
+        ### Internal data used by the Cython part
 
         # maybe change this to a plain c data structure
         self._ini = {k: tuple(Ring(a) for a in v)

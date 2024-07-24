@@ -206,7 +206,7 @@ class PythonDACUnroller:
             if done:
                 break
             radpow *= radpow_blk
-            # could gain a bit of time by doing multiplying block _sums_ (not
+            # could save a bit of time by doing multiplying block _sums_ (not
             # recursively) by powers of the evaluation point, ideally with a √N
             # × √N split
             jetpows = [jet0._mul_trunc_(jet1, self.evpts.jet_order)
