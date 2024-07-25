@@ -16,21 +16,11 @@ from sage.structure.parent cimport Parent
 
 import logging
 
-from itertools import count, zip_longest
-from types import SimpleNamespace
-
-from sage.modules.free_module_element import vector
-from sage.matrix.constructor import matrix
-from sage.misc.cachefunc import cached_method
-from sage.rings.complex_arb import ComplexBallField
-from sage.rings.infinity import infinity
+from itertools import count
 
 from . import accuracy
-from . import utilities
 
-from .bounds import DiffOpBound
 from .context import dctx
-from .local_solutions import HighestSolMapper, log_series_values
 
 
 logger = logging.getLogger(__name__)
