@@ -562,9 +562,6 @@ cdef class DACUnroller:
         return done
 
 
-    # XXX Il faut adapter get_residuals pour qu'il utilise la partie haute de
-    # self.series en lieu et place de self._residual
-
     def get_residuals(self, stop, n):
         cdef Polynomial_complex_arb pol
         cdef slong d, k
