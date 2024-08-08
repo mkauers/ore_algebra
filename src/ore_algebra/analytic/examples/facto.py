@@ -93,6 +93,11 @@ zagier_dop_b = 90000*z**3*(2911*z+310)*(z**2+50*z+20)*Dz**4+18000*z**2*(154283*z
 simple_chebychev_dop = (216*z**2 - 2*z)*Dz**2 + (432*z - 1)*Dz + 30
 chebychev_dop = (11337408000000000*z**8 - 11250*z**7)*Dz**8 + (362797056000000000*z**7 - 275625*z**6)*Dz**7 + (4043927462400000000*z**6 - 2223250*z**5)*Dz**6 + (19459527091200000000*z**5 - 7118750*z**4)*Dz**5 + (40810981455014400000*z**4 - 8665432*z**3)*Dz**4 + (33378063480115200000*z**3 - 3181944*z**2)*Dz**3 + (7972406431637760000*z**2 - 181392*z)*Dz**2 + (251637206929920000*z - 48)*Dz + 3726543300480
 
+# Thanks to Thomas Cluzeau to propose me (A. G.) the following operator for
+# experimenting the computation of the Lie algebra of the differential Galois
+# group.
+cluzeau_dop = 125*z**3*(1207249920*z+31)*(859963392000*z**2+10368000*z+1)*Dz**4+25*z**2*(55024109018331217920000*z**3+445891448733696000*z**2+34747522560*z+713)*Dz**3+60*z*(60799044988415508480000*z**3+272741734877184000*z**2+13602660240*z+217)*Dz**2+(2278309570579770900480000*z**3+3361648619556864000*z**2+194247246240*z+372)*Dz+124271431122532958208000*z**2-2315118197145600*z+646833600
+
 # The Maple command DEtools[DFactor] fails with the following operator.
 # Thanks to Bruno Salvy for reporting it. We suspect that the large exponent
 # (=-972) at point 3 involves the resolution of a large system. !Not Fuchsian!
