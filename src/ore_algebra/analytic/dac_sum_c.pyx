@@ -14,6 +14,7 @@ from sage.rings.real_arb cimport RealBall
 from sage.structure.parent cimport Parent
 
 
+import cython
 import logging
 
 from itertools import count
@@ -26,6 +27,8 @@ from .context import dctx
 logger = logging.getLogger(__name__)
 
 
+@cython.boundscheck(False)
+@cython.wraparound(False)
 cdef class DACUnroller:
     r"""
     Several methods work in place on ``self.series``. The arguments ``low``,
@@ -79,11 +82,11 @@ cdef class DACUnroller:
     cdef readonly dict critical_coeffs
     cdef int _rhs_offset
 
-    ## pour le python restant
+    ## used by remaining python code
 
     cdef readonly object dop_T, ini, evpts, IR, IC, real, _leftmost
 
-    ## peut-être à garder
+    ## may or may not stay
 
     cdef object Ring, Pol, _Reals, Pol_IC
     cdef readonly object Jets
@@ -220,7 +223,7 @@ cdef class DACUnroller:
 
         # At the moment Ring must in practice be a complex ball field (other
         # rings do not support all required operations); this flag signals that
-        # the series (incl. singular part) and evaluation points are in real.
+        # the series (incl. singular part) and evaluation points are real.
         self.real = (evpts.is_real_or_symbolic
                      and ini.is_real(dop_T.base_ring().base_ring()))
 
@@ -249,7 +252,7 @@ cdef class DACUnroller:
             acb_poly_one(self.jetpows + i)
 
         cdef bint done = False
-        for b in count():
+        for b in count():  # XXX not optimized by cython
             self.sum_dac(b*blksz, b*blksz, (b+1)*blksz)
             self.apply_dop(b*blksz, b*blksz, (b+1)*blksz, (b+2)*blksz)
 
@@ -310,6 +313,7 @@ cdef class DACUnroller:
         resid_len = min(high - mid, self.dop_degree + 1)
         self.apply_dop(base, low, mid, mid + resid_len)
         self.sum_dac(base, mid, high)
+
 
     cdef next_term(self, slong base, slong n):
         r"""
@@ -660,5 +664,5 @@ cdef Polynomial_complex_arb _make_poly(acb_poly_struct *p, Parent parent):
 cdef _breakpoint():
     pass
 
-cdef acb_ptr _coeffs(acb_poly_t pol):  # pol->coeffs is not accessible from sage
+cdef acb_ptr _coeffs(acb_poly_t pol) noexcept:  # pol->coeffs is not accessible from sage
     return (<acb_ptr *> pol)[0]
