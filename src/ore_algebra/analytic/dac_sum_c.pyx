@@ -229,7 +229,7 @@ cdef class DACUnroller:
 
 
     def sum_blockwise(self, stop):
-        cdef slong b, i, j, k
+        cdef slong i, j, k
         cdef acb_ptr c
         cdef arb_t tb
         cdef arb_t radpow, radpow_blk
@@ -252,7 +252,8 @@ cdef class DACUnroller:
             acb_poly_one(self.jetpows + i)
 
         cdef bint done = False
-        for b in count():  # XXX not optimized by cython
+        cdef slong b = 0
+        while True:
             self.sum_dac(b*blksz, b*blksz, (b+1)*blksz)
             self.apply_dop(b*blksz, b*blksz, (b+1)*blksz, (b+2)*blksz)
 
@@ -265,6 +266,8 @@ cdef class DACUnroller:
                 acb_poly_shift_right(self.series + k, self.series + k, blksz)
 
             arb_mul(radpow, radpow, radpow_blk, self.bounds_prec)
+
+            b += 1
 
         psums = [[None]*self.log_prec for _ in range(self.numpts)]
         cdef Polynomial_complex_arb psum
