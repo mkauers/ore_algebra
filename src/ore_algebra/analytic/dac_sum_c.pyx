@@ -474,16 +474,16 @@ cdef class DACUnroller:
     cdef apply_dop_basecase(self, slong base, slong low, slong mid, slong high):
         # Compared to a version of apply_dop that uses fast polynomial
         # multiplication (and being able to exploit fast multiplication is the
-        # main point of the D&C algorithm!), this one performs a naïve,
-        # quadratic-time middle product.
+        # main point of the D&C algorithm!), this one performs amounts to a
+        # naïve, quadratic-time middle product.
         #
-        # However, instead of doing a separate product for each derivative up to
-        # the order of dop, it computes the ℤ-linear combination of coefficients
-        # of dop that gives the cofactor of a given term of the input series in
-        # the output series and multiplies this linear combination by the
-        # suitable term of the input series. This is beneficial because the
-        # coefficients of the operator are typically exact balls of bit length
-        # significantly smaller than the working precision.
+        # However, instead of performing a separate multiplication for each
+        # derivative up to the order of dop, it computes the ℤ-linear
+        # combination of coefficients of dop that gives the cofactor of a given
+        # term of the input series in the output series and multiplies the
+        # resulting quantity by the corresponding term of the input series. This
+        # is beneficial because the coefficients of dop are often exact balls of
+        # bit length significantly smaller than the working precision.
         #
         # These linear combinations are polynomial evaluations at n=0,1,2,....
         # Moreover, assuming no logs for simplicity, each pair (coeff of output
@@ -491,74 +491,85 @@ cdef class DACUnroller:
         # So in the end this does essentially the same computation as naïve
         # recurrence unrolling, just in a different order.
 
-        cdef slong i, j, k, s, t, p_in, p_out
-
-        cdef bint leftmost_is_zero = acb_is_zero(self.leftmost)
+        cdef slong i, j, k, n, t, j0, length
+        cdef acb_ptr b, c
 
         cdef fmpz_t bin
         fmpz_init(bin)
 
-        cdef acb_t cofac, expo
-        acb_init(cofac)
+        cdef acb_t expo
         acb_init(expo)
 
-        cdef acb_ptr b
+        cdef acb_ptr cofac = _acb_vec_init(mid - low)
+
+        # TODO: Also optimize for rational exponents.
+        cdef bint leftmost_is_zero = acb_is_zero(self.leftmost)
 
         for k in range(self.log_prec):
             if acb_poly_length(self.series + k) < high - base:
                 acb_poly_fit_length(self.series + k, high - base)
                 _acb_poly_set_length(self.series + k, high - base)
 
-        # TODO:
-        # - use acb_dot for the sum for fixed k and p_out + s?
-        # - use some kind of fast multi-point evaluation??
-        # - use acb_poly_taylor_shift instead of looping on t???
-        # j = expo of x in dop
-        for j in range(1, min(high - low, self.dop_degree + 1)):
-            p_in = max(low, mid - j)   # left input exponent for this j
-            p_out = max(mid, low + j)  # left output exponent
-            for s in range(min(mid - p_in, high - p_out)):
-                # ν = λ + p_in + s; small int in the ordinary case
-                if not leftmost_is_zero:
-                    acb_add_si(expo, self.leftmost, p_in + s, self.prec)
-                for t in range(self.log_prec - k):
-                    # cofac = cofactor of current coeff of self.series in
-                    # expression of current output coeff (=> collects
-                    # contributions from all terms of dop while often
-                    # staying exact and of moderate bit length)
-                    #
-                    # Each triple (n = p_in + s, j, t) occurs only once in the
-                    # whole computation (over all recursive calls etc.). So
-                    # computing all values of cofac is basically the same as
-                    # evaluating all coefficients of the recurrence associated
-                    # to dop at all n.
+        for n in range(mid, high):
 
-                    acb_zero(cofac)
+            j0 = n - mid + 1
+            length = min(n - low, self.dop_degree) + 1 - j0
+
+            for t in range(self.log_prec):
+
+                for j in range(j0, j0 + length):
+
+                    # c = cofactor of current coeff of self.series in expression
+                    # of current output coeff (=> collects contributions from
+                    # all terms of dop while often staying exact and of moderate
+                    # bit length)
+                    #
+                    # Each triple (n, t, j) occurs only once in the whole
+                    # computation (over all recursive calls etc.). So computing
+                    # all values of cofac is basically the same as evaluating
+                    # all coefficients of the recurrence associated to dop at
+                    # all n.
+
+                    if not leftmost_is_zero:
+                        acb_add_si(expo, self.leftmost, n - j, self.prec)
+
+                    # - Use some kind of fast multi-point evaluation??
+                    # - Use acb_poly_taylor_shift instead of looping on t???
+                    # - Precompute dop coeff*binom?
+
+                    c = cofac + j - j0
+                    acb_zero(c)
                     for i in range(self.dop_order, t - 1, -1):  # Horner
                         if leftmost_is_zero:
-                            acb_mul_si(cofac, cofac, p_in + s, self.prec)
+                            acb_mul_si(c, c, n - j, self.prec)
                         else:
-                            acb_mul(cofac, cofac, expo, self.prec)
+                            acb_mul(c, c, expo, self.prec)
                         if j >= acb_poly_length(self.dop_coeffs + i):
                             continue
                         b = _coeffs(self.dop_coeffs + i) + j
-                        # precompute dop coeff*binom?
                         if i <= FLINT_BITS:
-                            acb_addmul_si(cofac, b,
+                            acb_addmul_si(c, b,
                                           self.binom[i*self.dop_degree + t],
                                           self.prec)
                         else:
                             fmpz_bin_uiui(bin, i, t)  # could use gr_mat_pascal
-                            acb_addmul_fmpz(cofac, b, bin, self.prec)
-                    for k in range(self.log_prec - t):
-                        acb_addmul(
-                            _coeffs(self.series + k) + p_out + s - base,
-                            _coeffs(self.series + k + t) + p_in + s - base,
-                            cofac,
-                            self.prec)
+                            acb_addmul_fmpz(c, b, bin, self.prec)
 
+                # We could perform a dot product of length log_prec*that
+                # (looping over t in addition to j), but this does not seem
+                # worth the additional complexity at the moment.
+                for k in range(self.log_prec - t):
+                    acb_dot(
+                        _coeffs(self.series + k) + n - base,
+                        _coeffs(self.series + k) + n - base,
+                        False,
+                        cofac, 1,
+                        _coeffs(self.series + k + t) + mid - 1 - base, -1,
+                        length,
+                        self.prec)
+
+        _acb_vec_clear(cofac, mid - low)
         acb_clear(expo)
-        acb_clear(cofac)
         fmpz_clear(bin)
 
 
@@ -627,6 +638,7 @@ cdef class DACUnroller:
 
 
     cdef eval_ind(self, acb_poly_t ind_n, slong n, int order):
+        # XXX Somewhat redundant with the logic in apply_dop_basecase.
         cdef acb_t expo
         acb_poly_init(ind_n)
         acb_init(expo)
