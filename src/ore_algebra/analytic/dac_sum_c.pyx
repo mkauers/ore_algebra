@@ -236,7 +236,7 @@ cdef class DACUnroller:
                      and ini.is_real(dop_T.base_ring().base_ring()))
 
 
-    cdef init_binom(self, slong s):
+    cdef void init_binom(self, slong s) noexcept:
         cdef slong n, k
         s = min(s, FLINT_BITS)
         self.binom = <slong *> calloc(s*s, sizeof(slong))
@@ -247,7 +247,7 @@ cdef class DACUnroller:
                                        + self.binom[(n-1)*s+k])
 
 
-    cdef clear_binom(self):
+    cdef void clear_binom(self) noexcept:
         free(self.binom)
 
 
@@ -315,7 +315,7 @@ cdef class DACUnroller:
         return psums
 
 
-    cdef sum_dac(self, slong base, slong low, slong high):
+    cdef void sum_dac(self, slong base, slong low, slong high) noexcept:
         r"""
         Compute the chunk ``y[λ+low:λ+high]`` of the solution of ``L(y) = rhs``
         for a given rhs itself of support contained in ``λ+low:λ+high``.
@@ -325,7 +325,7 @@ cdef class DACUnroller:
         assert base <= low <= high
 
         if high == low:
-            return [[]]*len(self.evpts)
+            return
 
         if high == low + 1:
             self.next_term(base, low)
@@ -341,7 +341,7 @@ cdef class DACUnroller:
         self.sum_dac(base, mid, high)
 
 
-    cdef next_term(self, slong base, slong n):
+    cdef void next_term(self, slong base, slong n) noexcept:
         r"""
         Write to ``self.series[:][n-base]`` the coefficient of ``x^(λ+n)`` in
         the solution. Also store the corresponding critical coefficients in the
@@ -437,13 +437,13 @@ cdef class DACUnroller:
         acb_poly_clear(ind_n)
 
 
-    cdef acb_poly_struct *sum_ptr(self, int j, int k):
+    cdef acb_poly_struct *sum_ptr(self, int j, int k) noexcept:
         # self.sums + j*self.max_log_prec + k is the jet of order self.jet_order
         # of the coeff of log^k/k! in the sum at the point of index j
         return self.sums + j*self.max_log_prec + k
 
 
-    cdef next_sum(self, slong base, slong n):
+    cdef void next_sum(self, slong base, slong n) noexcept:
         cdef int j, k
         cdef acb_poly_t tmp
         acb_poly_init(tmp)
@@ -460,7 +460,7 @@ cdef class DACUnroller:
         acb_poly_clear(tmp)
 
 
-    cdef apply_dop(self, slong base, slong low, slong mid, slong high):
+    cdef void apply_dop(self, slong base, slong low, slong mid, slong high) noexcept:
         r"""
         *Add* to ``self.series[:][mid-base:high-base]`` the coefficients of
         ``self.dop(y[λ+low:λ+mid])``, where the input is given in
@@ -471,7 +471,7 @@ cdef class DACUnroller:
         self.apply_dop_basecase(base, low, mid, high)
 
 
-    cdef apply_dop_basecase(self, slong base, slong low, slong mid, slong high):
+    cdef void apply_dop_basecase(self, slong base, slong low, slong mid, slong high) noexcept:
         # Compared to a version of apply_dop that uses fast polynomial
         # multiplication (and being able to exploit fast multiplication is the
         # main point of the D&C algorithm!), this one performs amounts to a
@@ -576,7 +576,7 @@ cdef class DACUnroller:
     # Good asymptotic complexity wrt diffop degree, but slow in practice on
     # typical inputs. Might behave better than the basecase version for large
     # degree + large integer/ball coeffs.
-    cdef apply_dop_polmul(self, slong base, slong low, slong mid, slong high):
+    cdef void apply_dop_polmul(self, slong base, slong low, slong mid, slong high) noexcept:
 
         cdef slong i, j, k
 
@@ -637,7 +637,7 @@ cdef class DACUnroller:
         acb_poly_clear(tmp)
 
 
-    cdef eval_ind(self, acb_poly_t ind_n, slong n, int order):
+    cdef void eval_ind(self, acb_poly_t ind_n, slong n, int order) noexcept:
         # XXX Somewhat redundant with the logic in apply_dop_basecase.
         cdef acb_t expo
         acb_poly_init(ind_n)
