@@ -52,7 +52,7 @@ from sage.rings.finite_rings.all import GF
 from sage.rings.fraction_field import FractionField_generic
 from sage.rings.integer_ring import ZZ
 from sage.rings.number_field import number_field_base
-from sage.rings.polynomial.multi_polynomial_ring import is_MPolynomialRing
+from sage.rings.polynomial.multi_polynomial_ring import MPolynomialRing_base
 from sage.rings.polynomial.polynomial_ring import PolynomialRing_general
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 from sage.rings.rational_field import QQ
@@ -151,7 +151,7 @@ def is_suitable_base_ring(R):
         return True
     elif isinstance(R, FractionField_generic):
         return is_suitable_base_ring(R.ring())
-    elif isinstance(R, PolynomialRing_general) or is_MPolynomialRing(R):
+    elif isinstance(R, PolynomialRing_general) or isinstance(R, MPolynomialRing_base):
         return is_suitable_base_ring(R.base_ring())
     else:
         return False
@@ -516,7 +516,7 @@ class Delta_class:
             for i in range(p.degree() + 1):
                 out += sigma(p[i])*my_dict[strx, i]
             return out
-        elif is_MPolynomialRing(R0):
+        elif isinstance(R0, MPolynomialRing_base):
             Rgens = R0.gens()
             # special code for standard derivative
             if sigma.is_identity():
@@ -1732,14 +1732,14 @@ class OreAlgebra_generic(UniqueRepresentation, Parent):
             return nullspace.sage_native
         elif isinstance(R, number_field_base.NumberField):
             return nullspace.cra(nullspace.sage_native)
-        elif not (is_MPolynomialRing(R) or isinstance(R, PolynomialRing_general) or isinstance(R, FractionField_generic)):
+        elif not (isinstance(R, MPolynomialRing_base) or isinstance(R, PolynomialRing_general) or isinstance(R, FractionField_generic)):
             return nullspace.sage_native  # for lack of better ideas.
 
         B = R.base_ring()
         field = R.is_field()
         merge_levels = 0
 
-        while (is_MPolynomialRing(B) or isinstance(B, PolynomialRing_general) or isinstance(B, FractionField_generic)):
+        while (isinstance(B, MPolynomialRing_base) or isinstance(B, PolynomialRing_general) or isinstance(B, FractionField_generic)):
             field = field or B.is_field()
             merge_levels += 1
             B = B.base_ring()
