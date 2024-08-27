@@ -30,7 +30,7 @@ from sage.rings.number_field.number_field import NumberField
 from sage.rings.finite_rings.finite_field_constructor import FiniteField as GF
 from sage.rings.polynomial.multi_polynomial_ring import is_MPolynomialRing
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
-from sage.rings.polynomial.polynomial_ring import is_PolynomialRing
+from sage.rings.polynomial.polynomial_ring import PolynomialRing_general
 from sage.rings.rational_field import QQ
 from sage.structure.element import canonical_coercion, get_coercion_model
 from sage.structure.factorization import Factorization
@@ -2674,7 +2674,7 @@ class UnivariateEulerDifferentialOperatorOverUnivariateRing(UnivariateOreOperato
 #############################################################################################################
 
 def _tower(dom):
-    if is_PolynomialRing(dom) or is_MPolynomialRing(dom):
+    if isinstance(dom, PolynomialRing_general) or is_MPolynomialRing(dom):
         base, vars = _tower(dom.base_ring())
         return base, vars.union(set(dom.variable_names()))
     elif isinstance(dom, FractionField_generic):

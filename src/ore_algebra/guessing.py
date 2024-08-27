@@ -43,7 +43,7 @@ from sage.matrix.constructor import matrix
 from sage.matrix.matrix_space import MatrixSpace
 from sage.misc.lazy_string import lazy_string
 from sage.parallel.decorate import parallel
-from sage.rings.polynomial.polynomial_ring import is_PolynomialRing
+from sage.rings.polynomial.polynomial_ring import PolynomialRing_general
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 from sage.modules.free_module_element import vector
 from sage.sets.primes import Primes
@@ -236,13 +236,13 @@ def guess(data, algebra, **kwargs):
         # CRA
         return _guess_via_hom(data, A, _word_size_primes(), lambda mod : GF(mod), **kwargs)
 
-    elif is_PolynomialRing(K) and K.base_ring().is_prime_field() and K.characteristic() > 0:  # K == GF(p)[t]
+    elif isinstance(K, PolynomialRing_general) and K.base_ring().is_prime_field() and K.characteristic() > 0:  # K == GF(p)[t]
         # eval/interpol
         mod = _linear_polys(K.gen(), 7, K.characteristic())
         to_hom = lambda mod : (lambda pol : pol(-mod[0]))
         return _guess_via_hom(data, A, mod, to_hom, **kwargs)
 
-    elif is_PolynomialRing(K) and K.base_ring() is ZZ:  # K == ZZ[t]
+    elif isinstance(K, PolynomialRing_general) and K.base_ring() is ZZ:  # K == ZZ[t]
         # CRA + eval/interpol
 
         KK = QQ[K.gens()].fraction_field() ## all elements of 'data' must be coercible to KK
@@ -272,7 +272,7 @@ def guess(data, algebra, **kwargs):
     elif K.is_field():
         return to_A(guess(data, A.change_ring(K.ring()[x]), **kwargs))
 
-    elif is_PolynomialRing(K) and K.base_ring() is QQ:
+    elif isinstance(K, PolynomialRing_general) and K.base_ring() is QQ:
         return to_A(guess(data, A.change_ring(ZZ[K.gens()][x]), **kwargs))
 
     else:
@@ -595,7 +595,7 @@ def _guess_via_hom(data, A, modulus, to_hom, **kwargs):
     R = A.base_ring()
     x = R.gen()
     K = R.base_ring()
-    atomic = not ( is_PolynomialRing(K) and K.base_ring() is ZZ )
+    atomic = not ( isinstance(K, PolynomialRing_general) and K.base_ring() is ZZ )
 
     info(1, lazy_string(lambda: datetime.today().ctime() + ": guessing via homomorphic images started."))
     info(1, "len(data)=" + str(len(data)) + ", algebra=" + str(A._latex_()))
@@ -1419,7 +1419,7 @@ def guess_mult(data, algebra, **kwargs):
 
         sol = guess_mult_raw(C, data, terms, points, power, A, B, **kwargs)
 
-    elif C is QQ or is_PolynomialRing(C.base()) and len(C.base().gens()) == 1 and C.base_ring() is GF(C.characteristic()):
+    elif C is QQ or isinstance(C.base(), PolynomialRing_general) and len(C.base().gens()) == 1 and C.base_ring() is GF(C.characteristic()):
         ### C == QQ or C == GF(p)(t) --> plain chinese remaindering (resp interpolation) plus rational reconstruction
 
         modulus_generator = _word_size_primes() if C is QQ else _linear_polys(C.base().gen(), 7, C.characteristic())
@@ -1503,7 +1503,7 @@ def guess_mult(data, algebra, **kwargs):
                         except:
                             info(2, "unlucky modulus " + str(p[i]) + " discarded")
 
-    elif C.base_ring().fraction_field() is QQ and is_PolynomialRing(C.base()) and len(C.base().gens()) == 1:
+    elif C.base_ring().fraction_field() is QQ and isinstance(C.base(), PolynomialRing_general) and len(C.base().gens()) == 1:
         ### C = QQ(t)
 
         raise NotImplementedError
