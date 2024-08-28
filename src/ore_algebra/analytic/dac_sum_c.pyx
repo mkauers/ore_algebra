@@ -84,7 +84,8 @@ cdef class DACUnroller:
     cdef readonly dict critical_coeffs
     cdef int _rhs_offset
 
-    cdef slong *binom
+    cdef slong *binom_si
+    cdef char binom_si_rows
 
     ## used by remaining python code
 
@@ -133,7 +134,7 @@ cdef class DACUnroller:
         acb_init(self.leftmost)
         arb_init(self.rad)
 
-        self.init_binom(self.dop_degree)
+        self.init_binom(self.dop_order + 1)
 
 
     def __dealloc__(self):
@@ -239,16 +240,17 @@ cdef class DACUnroller:
     cdef void init_binom(self, slong s) noexcept:
         cdef slong n, k
         s = min(s, FLINT_BITS)
-        self.binom = <slong *> calloc(s*s, sizeof(slong))
+        self.binom_si_rows = s
+        self.binom_si = <slong *> calloc(s*s, sizeof(slong))
         for n in range(s):
-            self.binom[n*s] = 1
+            self.binom_si[n*s] = 1
             for k in range(1, n + 1):
-                self.binom[n*s + k] = (self.binom[(n-1)*s+k-1]
-                                       + self.binom[(n-1)*s+k])
+                self.binom_si[n*s + k] = (self.binom_si[(n-1)*s+k-1]
+                                       + self.binom_si[(n-1)*s+k])
 
 
     cdef void clear_binom(self) noexcept:
-        free(self.binom)
+        free(self.binom_si)
 
 
     def sum_blockwise(self, stop):
@@ -515,6 +517,7 @@ cdef class DACUnroller:
             j0 = n - mid + 1
             length = min(n - low, self.dop_degree) + 1 - j0
 
+
             for t in range(self.log_prec):
 
                 for j in range(j0, j0 + length):
@@ -549,11 +552,13 @@ cdef class DACUnroller:
                         b = _coeffs(self.dop_coeffs + i) + j
                         if i <= FLINT_BITS:
                             acb_addmul_si(c, b,
-                                          self.binom[i*self.dop_degree + t],
+                                          self.binom_si[i*self.binom_si_rows+t],
                                           self.prec)
                         else:
                             fmpz_bin_uiui(bin, i, t)  # could use gr_mat_pascal
                             acb_addmul_fmpz(c, b, bin, self.prec)
+
+
 
                 # We could perform a dot product of length log_prec*that
                 # (looping over t in addition to j), but this does not seem
@@ -567,6 +572,7 @@ cdef class DACUnroller:
                         _coeffs(self.series + k + t) + mid - 1 - base, -1,
                         length,
                         self.prec)
+
 
         _acb_vec_clear(cofac, mid - low)
         acb_clear(expo)
