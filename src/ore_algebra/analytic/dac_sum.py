@@ -86,6 +86,12 @@ Nonstandard branches::
     ....:            algorithm=["dac"])
     [-3.445141853366...]
 
+High degree::
+
+    sage: (((x^200-1)//(x-1))*Dx^2 + 5*x*Dx + sum((i+3)*x**i for i in range(500))).numerical_transition_matrix([0,1/16], algorithm="dac")  # long time
+    [ [0.99412284058692...] [0.062180605822178...]]
+    [[-0.18799810365157...]  [0.98478282225787...]]
+
 Miscellaneous examples::
 
     sage: QQi.<i> = QuadraticField(-1)

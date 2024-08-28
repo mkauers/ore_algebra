@@ -9,6 +9,14 @@ from sage.libs.flint.acb cimport *
 from sage.libs.flint.acb_poly cimport *
 from sage.libs.flint.arb cimport *
 from sage.libs.flint.fmpz cimport *
+from sage.libs.flint.fmpz_mat cimport *
+from sage.libs.flint.gr cimport *
+
+from sage.libs.flint.gr_mat cimport gr_mat_pascal
+
+cdef extern from "flint_wrap.h":
+    void gr_ctx_init_fmpz(gr_ctx_t ctx) noexcept
+    void GR_MUST_SUCCEED(int status)
 
 from sage.rings.complex_arb cimport ComplexBall
 from sage.rings.polynomial.polynomial_complex_arb cimport Polynomial_complex_arb
@@ -84,8 +92,7 @@ cdef class DACUnroller:
     cdef readonly dict critical_coeffs
     cdef int _rhs_offset
 
-    cdef slong *binom_si
-    cdef char binom_si_rows
+    cdef fmpz_mat_t binom
 
     ## used by remaining python code
 
@@ -238,19 +245,15 @@ cdef class DACUnroller:
 
 
     cdef void init_binom(self, slong s) noexcept:
-        cdef slong n, k
-        s = min(s, FLINT_BITS)
-        self.binom_si_rows = s
-        self.binom_si = <slong *> calloc(s*s, sizeof(slong))
-        for n in range(s):
-            self.binom_si[n*s] = 1
-            for k in range(1, n + 1):
-                self.binom_si[n*s + k] = (self.binom_si[(n-1)*s+k-1]
-                                       + self.binom_si[(n-1)*s+k])
+        cdef gr_ctx_t fmpz
+        gr_ctx_init_fmpz(fmpz)
+        fmpz_mat_init(self.binom, s, s)
+        GR_MUST_SUCCEED(gr_mat_pascal(<gr_mat_struct *> self.binom, -1, fmpz))
+        gr_ctx_clear(fmpz)
 
 
     cdef void clear_binom(self) noexcept:
-        free(self.binom_si)
+        fmpz_mat_clear(self.binom)
 
 
     def sum_blockwise(self, stop):
@@ -550,15 +553,8 @@ cdef class DACUnroller:
                         if j >= acb_poly_length(self.dop_coeffs + i):
                             continue
                         b = _coeffs(self.dop_coeffs + i) + j
-                        if i <= FLINT_BITS:
-                            acb_addmul_si(c, b,
-                                          self.binom_si[i*self.binom_si_rows+t],
-                                          self.prec)
-                        else:
-                            fmpz_bin_uiui(bin, i, t)  # could use gr_mat_pascal
-                            acb_addmul_fmpz(c, b, bin, self.prec)
-
-
+                        acb_addmul_fmpz(c, b, fmpz_mat_entry(self.binom, i, t),
+                                        self.prec)
 
                 # We could perform a dot product of length log_prec*that
                 # (looping over t in addition to j), but this does not seem
