@@ -11,6 +11,7 @@ from sage.libs.flint.arb cimport *
 from sage.libs.flint.fmpz cimport *
 from sage.libs.flint.fmpz_mat cimport *
 from sage.libs.flint.gr cimport *
+from sage.libs.flint.mag cimport *
 
 from sage.libs.flint.gr_mat cimport gr_mat_pascal
 
@@ -259,8 +260,9 @@ cdef class DACUnroller:
     def sum_blockwise(self, stop):
         cdef slong i, j, k
         cdef acb_ptr c
-        cdef arb_t tb
+        cdef arb_t est, tb
         cdef arb_t radpow, radpow_blk
+        cdef mag_t coeff_rad
 
         # Block size must be >= deg.
         cdef slong blksz = max(1, self.dop_degree)
@@ -273,8 +275,11 @@ cdef class DACUnroller:
         arb_init(radpow_blk)
         arb_pow_ui(radpow_blk, self.rad, blksz, self.bounds_prec)
 
+        arb_init(est)
+        arb_pos_inf(est)
         arb_init(tb)
         arb_pos_inf(tb)
+        mag_init(coeff_rad)
 
         for i in range(self.numpts):
             acb_poly_one(self.jetpows + i)
@@ -287,7 +292,7 @@ cdef class DACUnroller:
 
             if b % blkstride == 0:
                 if self.check_convergence(stop, (b+1)*blksz, blksz,
-                                          tb, radpow, blkstride*blksz):
+                                          est, tb, radpow, blkstride*blksz):
                     break
 
             for k in range(self.log_prec):
@@ -308,16 +313,39 @@ cdef class DACUnroller:
                         assert arb_is_zero(acb_imagref(c))
                     else:
                         arb_add_error(acb_imagref(c), tb)
+                    mag_max(coeff_rad, coeff_rad, arb_radref(acb_realref(c)))
+                    mag_max(coeff_rad, coeff_rad, arb_radref(acb_imagref(c)))
                 psum = Polynomial_complex_arb.__new__(Polynomial_complex_arb)
                 psum._parent = self.Jets
                 acb_poly_swap(psum._poly, self.sum_ptr(j, k))
                 psums[j][k] = psum
 
+        self._report_stats((b+1)*blksz, est, tb, coeff_rad)
+
         arb_clear(tb)
+        arb_clear(est)
         arb_clear(radpow_blk)
         arb_clear(radpow)
+        mag_clear(coeff_rad)
 
         return psums
+
+
+    cdef void _report_stats(self, slong n, arb_t est, arb_t tb,
+                            mag_t coeff_rad):
+        cdef RealBall _est = RealBall.__new__(RealBall)
+        _est._parent = self.IR
+        arb_swap(_est.value, est)
+        cdef RealBall _tb = RealBall.__new__(RealBall)
+        _tb._parent = self.IR
+        arb_swap(_tb.value, tb)
+        cdef RealBall _coeff_rad = RealBall.__new__(RealBall)
+        _coeff_rad._parent = self.IR
+        arb_set_interval_mag(_coeff_rad.value, coeff_rad, coeff_rad, MAG_BITS)
+        logger.info("summed %d terms, tail bound = %s (est = %s), max rad = %s",
+                    n, _tb, _est, _coeff_rad)
+        arb_swap(tb, _tb.value)
+        arb_swap(est, _est.value)
 
 
     cdef void sum_dac(self, slong base, slong low, slong high) noexcept:
@@ -658,6 +686,7 @@ cdef class DACUnroller:
 
     cdef bint check_convergence(self, object stop, slong n,
                                 slong blksz,
+                                arb_t est,         # W
                                 arb_t tail_bound,  # RW
                                 arb_srcptr radpow, slong next_stride):
         r"""
@@ -668,6 +697,12 @@ cdef class DACUnroller:
             value?
         residual (== rhs) in high part
         """
+        # XXX The estimates computed here are sometimes more pessimistic than
+        # the actual tail bounds. This can happen with naive_sum too, but seems
+        # less frequent. While the two implementations are not using exactly the
+        # same formulas for the estimates, I don't see why the results would
+        # differ by more than a small multiplicative factor.
+
         cdef slong i, k
         cdef acb_ptr c
 
@@ -675,26 +710,31 @@ cdef class DACUnroller:
             arb_pos_inf(tail_bound)
             return False
 
+        arb_zero(est)
+
         # Note that here radpow contains the contribution of z^λ.
-        cdef RealBall est = RealBall.__new__(RealBall)
-        est._parent = self._Reals
         for k in range(self.log_prec):
             for i in range(blksz):
                 # TODO Use a low-prec estimate instead (but keep reporting
                 # accuracy information)
                 c = _coeffs(self.series + k) + i
-                arb_addmul_si(est.value, acb_realref(c),
+                arb_addmul_si(est, acb_realref(c),
                               arb_sgn_nonzero(acb_realref(c)), self.prec)
-                arb_addmul_si(est.value, acb_imagref(c),
+                arb_addmul_si(est, acb_imagref(c),
                               arb_sgn_nonzero(acb_imagref(c)), self.prec)
-        arb_mul_arf(est.value, est.value, arb_midref(radpow), self.prec)
+        arb_mul_arf(est, est, arb_midref(radpow), self.prec)
 
+        cdef RealBall _est = RealBall.__new__(RealBall)
+        _est._parent = self._Reals
+        arb_swap(_est.value, est)
         cdef RealBall _tb = RealBall.__new__(RealBall)
         _tb._parent = self._Reals
         arb_swap(_tb.value, tail_bound)
         self._rhs_offset = blksz  # only used by __check_residuals
-        done, new_tail_bound = stop.check(self, n, _tb, est, next_stride)
+        done, new_tail_bound = stop.check(self, n, _tb, _est, next_stride)
         arb_swap(tail_bound, (<RealBall?> new_tail_bound).value)
+        arb_swap(est, _est.value)
+
         return done
 
 
