@@ -709,17 +709,24 @@ cdef class DACUnroller:
 
 
     cdef void eval_ind(self, acb_poly_t ind_n, slong n, int order) noexcept:
-        # XXX Somewhat redundant with the logic in apply_dop_basecase.
+        cdef slong i
         cdef acb_t expo
-        acb_poly_init(ind_n)
-        acb_init(expo)
-        acb_add_si(expo, self.leftmost, n, self.prec)
-        # XXX would compose_series be faster? or evaluate, evaluate2 when
-        # relevant?
-        acb_poly_taylor_shift(ind_n, self.ind, expo, self.prec)
-        acb_poly_truncate(ind_n, order)
+        cdef acb_ptr c
         acb_poly_fit_length(ind_n, order)
-        acb_clear(expo)
+        if order == 1 and acb_is_zero(self.leftmost):  # covers ordinary points
+            c = _coeffs(ind_n)
+            acb_zero(c)
+            for i in range(acb_poly_degree(self.ind), -1, -1):
+                acb_mul_si(c, c, n, self.prec)
+                acb_add(c, c, _coeffs(self.ind) + i, self.prec)
+            _acb_poly_set_length(ind_n, 1)
+            _acb_poly_normalise(ind_n)
+        else:  # improvable...
+            acb_init(expo)
+            acb_add_si(expo, self.leftmost, n, self.prec)
+            acb_poly_taylor_shift(ind_n, self.ind, expo, self.prec)
+            acb_poly_truncate(ind_n, order)
+            acb_clear(expo)
 
 
     # Error control and BoundCallbacks interface
