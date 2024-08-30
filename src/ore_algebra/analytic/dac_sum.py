@@ -571,7 +571,7 @@ class HighestSolMapper_dac(HighestSolMapper):
         input_accuracy = max(0, min(self.evpts.accuracy, ini.accuracy()))
         # cf. stop.reset(...) below for the term involving dop
         bit_prec0 = utilities.prec_from_eps(self.eps) + 2*self.dop.order()
-        bit_prec = 8 + bit_prec0*(1 + (self.dop_T.degree() - 2).nbits())*11//10
+        bit_prec = 8 + bit_prec0*(1 + (self.dop_T.degree() - 2).nbits())
         max_prec = bit_prec + 2*input_accuracy  # = ∞ for exact input
         logger.info("initial working precision = %s bits", bit_prec)
 
