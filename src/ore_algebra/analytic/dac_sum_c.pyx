@@ -10,6 +10,7 @@ from sage.libs.flint.acb_poly cimport *
 from sage.libs.flint.arb cimport *
 from sage.libs.flint.fmpz cimport *
 from sage.libs.flint.fmpz_mat cimport *
+from sage.libs.flint.fmpz_vec cimport *
 from sage.libs.flint.gr cimport *
 from sage.libs.flint.mag cimport *
 
@@ -84,8 +85,9 @@ cdef class DACUnroller:
 
     cdef int jet_order
 
-    cdef acb_poly_struct *jets
-    cdef acb_poly_struct *jetpows
+    cdef acb_ptr evpts
+    cdef acb_ptr pows
+    cdef fmpz *binom_n  # binom(n, j) for j < jet_order
 
     cdef dict _ini
     cdef slong _last_ini
@@ -97,7 +99,7 @@ cdef class DACUnroller:
 
     ## used by remaining python code
 
-    cdef readonly object dop_T, ini, evpts, IR, IC, real, _leftmost
+    cdef readonly object dop_T, ini, py_evpts, IR, IC, real, _leftmost
 
     ## may or may not stay
 
@@ -105,15 +107,15 @@ cdef class DACUnroller:
     cdef readonly object Jets
 
 
-    def __cinit__(self, dop_T, ini, evpts, *args, **kwds):
+    def __cinit__(self, dop_T, ini, py_evpts, *args, **kwds):
         # XXX maybe optimize data layout
         cdef int i
 
         cdef size_t sz_poly = sizeof(acb_poly_struct)
         self.dop_order = dop_T.order()
         self.dop_degree = dop_T.degree()
-        self.numpts = len(evpts)
-        self.jet_order = evpts.jet_order
+        self.numpts = len(py_evpts)
+        self.jet_order = py_evpts.jet_order
 
         self.dop_coeffs = <acb_poly_struct *> malloc((self.dop_order + 1)*sz_poly)
         for i in range(self.dop_order + 1):
@@ -127,16 +129,15 @@ cdef class DACUnroller:
         for i in range(self.max_log_prec):
             acb_poly_init(self.series + i)
 
-        self.jets = <acb_poly_struct *> malloc(self.numpts*sz_poly)
-        self.jetpows = <acb_poly_struct *> malloc(self.numpts*sz_poly)
-        for i in range(self.numpts):
-            acb_poly_init(self.jets + i)
-            acb_poly_init(self.jetpows + i)
+        self.evpts = _acb_vec_init(self.numpts)
+        self.pows =  _acb_vec_init(self.numpts)
+        self.binom_n = _fmpz_vec_init(self.jet_order)
 
         self.sums = <acb_poly_struct *> malloc(self.numpts*self.max_log_prec*sz_poly)
         for i in range(self.numpts*self.max_log_prec):
             acb_poly_init(self.sums + i)
             acb_poly_fit_length(self.sums + i, self.jet_order)
+            _acb_poly_set_length(self.sums + i, self.jet_order)
 
         acb_poly_init(self.ind)
         acb_init(self.leftmost)
@@ -158,11 +159,9 @@ cdef class DACUnroller:
             acb_poly_clear(self.sums + i)
         free(self.sums)
 
-        for i in range(self.numpts):
-            acb_poly_clear(self.jetpows + i)
-            acb_poly_clear(self.jets + i)
-        free(self.jetpows)
-        free(self.jets)
+        _acb_vec_clear(self.evpts, self.numpts)
+        _acb_vec_clear(self.pows, self.numpts)
+        _fmpz_vec_clear(self.binom_n, self.jet_order)
 
         for i in range(self.max_log_prec):
             acb_poly_clear(self.series + i)
@@ -173,7 +172,7 @@ cdef class DACUnroller:
         free(self.dop_coeffs)
 
 
-    def __init__(self, dop_T, ini, evpts, Ring, *, ctx=dctx):
+    def __init__(self, dop_T, ini, py_evpts, Ring, *, ctx=dctx):
 
         cdef int i
 
@@ -184,7 +183,7 @@ cdef class DACUnroller:
 
         self.dop_T = dop_T
         self.ini = ini  # LogSeriesInitialValues
-        self.evpts = evpts
+        self.py_evpts = py_evpts
 
         # Parents
 
@@ -214,7 +213,7 @@ cdef class DACUnroller:
         self._leftmost = leftmost = Ring(ini.expo)
         acb_set(self.leftmost, (<ComplexBall?> leftmost).value)
 
-        arb_set(self.rad, (<RealBall?> evpts.rad).value)
+        arb_set(self.rad, (<RealBall?> py_evpts.rad).value)
 
         acb_poly_fit_length(self.ind, self.dop_order + 1)
         _acb_poly_set_length(self.ind, self.dop_order + 1)
@@ -225,10 +224,12 @@ cdef class DACUnroller:
         self.prec = Ring.precision()
         self.bounds_prec = self.IR.precision()
 
-        Jets, jets = evpts.jets(Ring)
+        Jets, jets = py_evpts.jets(Ring)
         for i in range(self.numpts):
-            acb_poly_swap(self.jets + i,
-                          (<Polynomial_complex_arb?> jets[i])._poly)
+            assert jets[i].degree() == 0 or jets[i].degree() == 1 and jets[i][1].is_one()
+            acb_poly_get_coeff_acb(self.evpts + i,
+                                   (<Polynomial_complex_arb?> jets[i])._poly,
+                                   0)
 
         ### Auxiliary output
 
@@ -241,7 +242,7 @@ cdef class DACUnroller:
         # At the moment Ring must in practice be a complex ball field (other
         # rings do not support all required operations); this flag signals that
         # the series (incl. singular part) and evaluation points are real.
-        self.real = (evpts.is_real_or_symbolic
+        self.real = (py_evpts.is_real_or_symbolic
                      and ini.is_real(dop_T.base_ring().base_ring()))
 
 
@@ -282,7 +283,7 @@ cdef class DACUnroller:
         mag_init(coeff_rad)
 
         for i in range(self.numpts):
-            acb_poly_one(self.jetpows + i)
+            acb_one(self.pows + i)
 
         cdef bint done = False
         cdef slong b = 0
@@ -301,6 +302,8 @@ cdef class DACUnroller:
             arb_mul(radpow, radpow, radpow_blk, self.bounds_prec)
 
             b += 1
+
+        self.fix_sums()
 
         psums = [[None]*self.log_prec for _ in range(self.numpts)]
         cdef Polynomial_complex_arb psum
@@ -477,20 +480,58 @@ cdef class DACUnroller:
 
 
     cdef void next_sum(self, slong base, slong n) noexcept:
-        cdef int j, k
-        cdef acb_poly_t tmp
-        acb_poly_init(tmp)
+        r"""
+        Add to each entry of `self.sums` a term corresponding to the
+        current `n`.
+
+        WARNING: Repeated calls to this function compute x^i*f^(i)(x) instead of
+        f^(i)(x). Call `fix_sums()` to fix the result.
+        """
+        cdef slong i, j, k
+        if n == 0:
+            _fmpz_vec_zero(self.binom_n, self.jet_order)
+            fmpz_one(self.binom_n)
+        else:
+            for i in range(self.jet_order - 1, 0, -1):
+                fmpz_add(self.binom_n+i, self.binom_n+i, self.binom_n+i-1)
+        cdef acb_t tmp
+        acb_init(tmp)
         for j in range(self.numpts):
             for k in range(self.log_prec):
-                acb_poly_scalar_mul(tmp, self.jetpows + j,
-                                    _coeffs(self.series + k) + n - base,
-                                    self.prec)
-                acb_poly_add(self.sum_ptr(j, k), self.sum_ptr(j, k), tmp,
-                             self.prec)
+                acb_mul(tmp,
+                        _coeffs(self.series + k) + n - base,
+                        self.pows + j,
+                        self.prec)
+                for i in range(self.jet_order):
+                    acb_addmul_fmpz(_coeffs(self.sum_ptr(j, k)) + i,
+                                    tmp, self.binom_n + i, self.prec)
+            acb_mul(self.pows + j, self.pows + j, self.evpts + j, self.prec)
+        acb_clear(tmp)
 
-            acb_poly_mullow(self.jetpows + j, self.jetpows + j, self.jets + j,
-                            self.jet_order, self.prec)
-        acb_poly_clear(tmp)
+
+    cdef void fix_sums(self) noexcept:
+        r"""
+        Fix the partial sums computed by `next_sum` by dividing the terms
+        corresponding to derivatives by suitable powers of the corresponding
+        evaluation points.
+        """
+        cdef slong i, j, k
+        cdef acb_t inv, invpow
+        acb_init(inv)
+        acb_init(invpow)
+        for j in range(self.numpts):
+            acb_inv(inv, self.evpts + j, self.prec)
+            acb_one(invpow)
+            for i in range(1, self.jet_order):
+                acb_mul(invpow, invpow, inv, self.prec)
+                for k in range(self.log_prec):
+                    acb_mul(_coeffs(self.sum_ptr(j, k)) + i,
+                            _coeffs(self.sum_ptr(j, k)) + i,
+                            invpow,
+                            self.prec)
+        acb_clear(invpow)
+        acb_clear(inv)
+
 
 
     cdef void apply_dop(self, slong base, slong low, slong mid, slong high) noexcept:
@@ -826,7 +867,7 @@ cdef class DACUnroller:
         if n <= self.ini.last_index():
             raise NotImplementedError
         maj = stop.maj.tail_majorant(n, resid)
-        tb = maj.bound(self.evpts.rad, rows=self.evpts.jet_order)
+        tb = maj.bound(self.py_evpts.rad, rows=self.py_evpts.jet_order)
         # XXX take log factors etc. into account (as in naive_sum)?
         return tb
 
