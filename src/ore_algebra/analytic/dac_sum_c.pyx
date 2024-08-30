@@ -406,8 +406,10 @@ cdef class DACUnroller:
         acb_poly_init(ind_n)
         self.eval_ind(ind_n, n, rhs_len + mult)
 
-        cdef acb_t neginvlc
-        acb_init(neginvlc)  # XXX reuse?
+        cdef fmpz_t lc
+        fmpz_init(lc)
+        cdef acb_t invlc
+        acb_init(invlc)
 
         # Compute the high-order (wrt log) part of the new term from the
         # coefficient of x^{λ+n} on the rhs and the indicial polynomial.
@@ -429,13 +431,17 @@ cdef class DACUnroller:
                     self.prec)
             if acb_is_zero(new_term + k):
                 continue
-            # should probably use mul-by-rational's when λ ∈ ℚ and the
-            # coefficients of ind are exact
-            if acb_is_zero(neginvlc):
-                acb_inv(neginvlc, _coeffs(ind_n) + mult, self.prec)
-                acb_neg(neginvlc, neginvlc)
-
-            acb_mul(new_term + k, new_term + k, neginvlc, self.prec)
+            if acb_is_zero(invlc):
+                if (acb_is_exact(_coeffs(ind_n) + mult)
+                        and acb_get_unique_fmpz(lc, _coeffs(ind_n) + mult)):
+                    acb_indeterminate(invlc)
+                else:
+                    acb_inv(invlc, _coeffs(ind_n) + mult, self.prec)
+            if not fmpz_is_zero(lc):
+                acb_div_fmpz(new_term + k, new_term + k, lc, self.prec)
+            else:
+                acb_mul(new_term + k, new_term + k, invlc, self.prec)
+            acb_neg(new_term + k, new_term + k)
 
         # Write the new term to self.series
 
@@ -469,7 +475,8 @@ cdef class DACUnroller:
         for k in range(rhs_len):
             acb_clear(new_term + k)
         free(new_term)
-        acb_clear(neginvlc)
+        acb_clear(invlc)
+        fmpz_clear(lc)
         acb_poly_clear(ind_n)
 
 
