@@ -626,11 +626,17 @@ cdef class DACUnroller:
                             acb_mul_si(c, c, n - j, self.prec)
                         else:
                             acb_mul(c, c, expo, self.prec)
-                        if j >= acb_poly_length(self.dop_coeffs + i):
+                        if j >= acb_poly_length(self.dop_coeffs + i) or t > i:
                             continue
                         b = _coeffs(self.dop_coeffs + i) + j
-                        acb_addmul_fmpz(c, b, fmpz_mat_entry(self.binom, i, t),
-                                        self.prec)
+                        if t == 0:
+                            acb_add(c, c, b, self.prec)
+                        elif t == 1:
+                            acb_addmul_si(c, b, i, self.prec)
+                        else:
+                            acb_addmul_fmpz(c, b,
+                                            fmpz_mat_entry(self.binom, i, t),
+                                            self.prec)
 
                 # We could perform a dot product of length log_prec*that
                 # (looping over t in addition to j), but this does not seem
