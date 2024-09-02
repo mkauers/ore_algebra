@@ -10,6 +10,7 @@ from sage.libs.flint.acb_poly cimport *
 from sage.libs.flint.arb cimport *
 from sage.libs.flint.fmpz cimport *
 from sage.libs.flint.fmpz_mat cimport *
+from sage.libs.flint.fmpz_poly cimport *
 from sage.libs.flint.fmpz_vec cimport *
 from sage.libs.flint.gr cimport *
 from sage.libs.flint.mag cimport *
@@ -54,7 +55,9 @@ cdef class DACUnroller:
     cdef int numpts
     cdef slong dop_degree
 
+    cdef bint dop_is_exact
     cdef acb_poly_struct *dop_coeffs
+    cdef fmpz_poly_struct *dop_coeffs_fmpz  # TODO: coeffs in ℤ[i]
     cdef acb_poly_t ind
     cdef acb_t leftmost
     cdef arb_t rad
@@ -118,8 +121,11 @@ cdef class DACUnroller:
         self.jet_order = py_evpts.jet_order
 
         self.dop_coeffs = <acb_poly_struct *> malloc((self.dop_order + 1)*sz_poly)
+        self.dop_coeffs_fmpz = (<fmpz_poly_struct *> malloc((self.dop_order + 1)
+                                                     *sizeof(fmpz_poly_struct)))
         for i in range(self.dop_order + 1):
             acb_poly_init(self.dop_coeffs + i)
+            fmpz_poly_init(self.dop_coeffs_fmpz + i)
 
         # using dop_order as a crude bound for max log prec
         # (needs updating to support inhomogeneous equations)
@@ -169,12 +175,15 @@ cdef class DACUnroller:
 
         for i in range(self.dop_order + 1):
             acb_poly_clear(self.dop_coeffs + i)
+            fmpz_poly_clear(self.dop_coeffs_fmpz + i)
         free(self.dop_coeffs)
+        free(self.dop_coeffs_fmpz)
 
 
     def __init__(self, dop_T, ini, py_evpts, Ring, *, ctx=dctx):
 
-        cdef int i
+        cdef slong i, j
+        cdef acb_poly_struct *p
 
         assert dop_T.parent().is_T()
 
@@ -206,9 +215,16 @@ cdef class DACUnroller:
                      for k, v in ini.shift.items()}
         self._last_ini = self.ini.last_index()
 
+        self.dop_is_exact = True
         for i, pol in enumerate(dop_T):
-            acb_poly_swap(self.dop_coeffs + i,
-                          (<Polynomial_complex_arb?> (self.Pol(pol)))._poly)
+            p = self.dop_coeffs + i
+            acb_poly_swap(p, (<Polynomial_complex_arb?> (self.Pol(pol)))._poly)
+            for j in range(acb_poly_length(p)):
+                self.dop_is_exact = (self.dop_is_exact
+                                     and acb_is_exact(_coeffs(p) + j))
+            self.dop_is_exact = (self.dop_is_exact
+                                 and acb_poly_get_unique_fmpz_poly(
+                                                   self.dop_coeffs_fmpz + i, p))
 
         self._leftmost = leftmost = Ring(ini.expo)
         acb_set(self.leftmost, (<ComplexBall?> leftmost).value)
@@ -549,7 +565,10 @@ cdef class DACUnroller:
         """
 
         assert base <= low <= mid <= high
-        self.apply_dop_basecase(base, low, mid, high)
+        if self.dop_is_exact and acb_is_zero(self.leftmost):
+            self.apply_dop_basecase_exact(base, low, mid, high)
+        else:
+            self.apply_dop_basecase(base, low, mid, high)
 
 
     cdef void apply_dop_basecase(self, slong base, slong low, slong mid, slong high) noexcept:
@@ -571,12 +590,18 @@ cdef class DACUnroller:
         # series, degree in dop) occurs exactly once over all recursive calls.
         # So in the end this does essentially the same computation as naïve
         # recurrence unrolling, just in a different order.
+        #
+        # Approximate cost for high - mid = mid - low = d, log_prec = 1,
+        # leftmost = 0:
+        #
+        # d²/2·(M(h,p) + O(p)) + O(r·d²/2·h)
+        #
+        # ((r, d, h) = (order, degree, height) of dop, p = working prec).
+        # With the pure acb version, the O(r·d²/2·h) term can easily dominate in
+        # practice, even for small r...
 
         cdef slong i, j, k, n, t, j0, length
         cdef acb_ptr b, c
-
-        cdef fmpz_t bin
-        fmpz_init(bin)
 
         cdef acb_t expo
         acb_init(expo)
@@ -595,7 +620,6 @@ cdef class DACUnroller:
 
             j0 = n - mid + 1
             length = min(n - low, self.dop_degree) + 1 - j0
-
 
             for t in range(self.log_prec):
 
@@ -654,7 +678,59 @@ cdef class DACUnroller:
 
         _acb_vec_clear(cofac, mid - low)
         acb_clear(expo)
-        fmpz_clear(bin)
+
+
+    # Same as of apply_dop_basecase but using fmpz, for operators with exact
+    # integer coefficients
+    #
+    # TODO: support coefficients in ℤ[i]
+    cdef void apply_dop_basecase_exact(self, slong base, slong low, slong mid,
+                                       slong high) noexcept:
+
+        cdef slong i, j, k, n, t, j0, length
+        cdef fmpz *b
+        cdef fmpz *c
+
+        cdef fmpz *cofac = _fmpz_vec_init(mid - low)
+
+        for k in range(self.log_prec):
+            if acb_poly_length(self.series + k) < high - base:
+                acb_poly_fit_length(self.series + k, high - base)
+                _acb_poly_set_length(self.series + k, high - base)
+
+        for n in range(mid, high):
+
+            j0 = n - mid + 1
+            length = min(n - low, self.dop_degree) + 1 - j0
+
+            for t in range(self.log_prec):
+
+                for j in range(j0, j0 + length):
+
+                    c = cofac + j - j0
+
+                    fmpz_zero(c)
+                    for i in range(self.dop_order, t - 1, -1):  # Horner
+                        fmpz_mul_si(c, c, n - j)
+                        if (j >= fmpz_poly_length(self.dop_coeffs_fmpz + i)
+                                or t > i):
+                            continue
+                        # Here special-casing t ∈ {0,1} does not help much.
+                        fmpz_addmul(c,
+                                    (self.dop_coeffs_fmpz + i).coeffs + j,
+                                    fmpz_mat_entry(self.binom, i, t))
+
+                for k in range(self.log_prec - t):
+                    acb_dot_fmpz(
+                        _coeffs(self.series + k) + n - base,
+                        _coeffs(self.series + k) + n - base,
+                        False,
+                        _coeffs(self.series + k + t) + mid - 1 - base, -1,
+                        cofac, 1,
+                        length,
+                        self.prec)
+
+        _fmpz_vec_clear(cofac, mid - low)
 
 
     # Good asymptotic complexity wrt diffop degree, but slow in practice on
