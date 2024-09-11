@@ -606,7 +606,7 @@ def multiple_eigenvalue(dop, mono, order, bound, alg_degree, verbose=False):
         return R
     return "Inconclusive"
 
-def annihilator(dop, ic, order, bound, alg_degree, mono=None, verbose=False):
+def annihilator(dop, ic, order=None, bound=None, alg_degree=None, mono=None, verbose=False):
     """
     OUTPUT:
     
@@ -615,16 +615,27 @@ def annihilator(dop, ic, order, bound, alg_degree, mono=None, verbose=False):
     r, OA = dop.order(), dop.parent()
     d = r - 1
     base_field = OA.base_ring().base_ring()
-
+    
+    if bound is None:
+        bound = _degree_bound_for_right_factor(dop)
+    
+    if order is None:
+        deg_of_dop = DifferentialOperator(dop).degree()
+        order = max(min( r*deg_of_dop, 100, bound*(r + 1) + 1 ), 1)
+    
+    if alg_degree is None:
+        alg_degree = base_field.degree()
+    
     if mono is not None:
         orb = orbit(mono, ic)
         d = len(orb)
         if d == r:
             return dop
         ic = _reduced_row_echelon_form(matrix(orb))[0]
-
+    
     symb_ic, K = _guess_symbolic_coefficients(ic, alg_degree, verbose=verbose)
     if symb_ic !="NothingFound":
+        
         if base_field != QQ and K != QQ:
             K = K.composite_fields(base_field)[0]
             symb_ic = [K(x) for x in symb_ic]
@@ -632,6 +643,7 @@ def annihilator(dop, ic, order, bound, alg_degree, mono=None, verbose=False):
         sol_basis = dop.local_basis_expansions(QQ.zero(), order + d)
         sol_basis = [ _formal_finite_sum_to_power_series(sol, S) for sol in sol_basis ]
         f = vector(symb_ic) * vector(sol_basis)
+        
         if K == QQ and base_field == QQ:
             v = f.valuation()
             try:
@@ -640,6 +652,7 @@ def annihilator(dop, ic, order, bound, alg_degree, mono=None, verbose=False):
                     return R
             except ValueError:
                 pass
+        
         else:
             der = [ f.truncate() ]
             for _ in range(d):
