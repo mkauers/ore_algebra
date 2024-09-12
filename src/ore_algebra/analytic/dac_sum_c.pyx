@@ -842,6 +842,8 @@ cdef class DACUnroller:
 
         cdef slong i, k
         cdef acb_ptr c
+        cdef arb_t tmp
+        arb_init(tmp)
 
         if n <= self._last_ini:
             arb_pos_inf(tail_bound)
@@ -855,10 +857,10 @@ cdef class DACUnroller:
                 # TODO Use a low-prec estimate instead (but keep reporting
                 # accuracy information)
                 c = _coeffs(self.series + k) + i
-                arb_addmul_si(est, acb_realref(c),
-                              arb_sgn_nonzero(acb_realref(c)), self.prec)
-                arb_addmul_si(est, acb_imagref(c),
-                              arb_sgn_nonzero(acb_imagref(c)), self.prec)
+                arb_abs(tmp, acb_realref(c))
+                arb_add(est, est, tmp, self.prec)
+                arb_abs(tmp, acb_imagref(c))
+                arb_add(est, est, tmp, self.prec)
         arb_mul_arf(est, est, arb_midref(radpow), self.prec)
 
         cdef RealBall _est = RealBall.__new__(RealBall)
@@ -872,6 +874,7 @@ cdef class DACUnroller:
         arb_swap(tail_bound, (<RealBall?> new_tail_bound).value)
         arb_swap(est, _est.value)
 
+        arb_clear(tmp)
         return done
 
 
