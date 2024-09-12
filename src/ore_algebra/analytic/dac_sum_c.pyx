@@ -3,11 +3,12 @@
 
 from libc.stdlib cimport malloc, free, calloc
 
-from sage.libs.flint.flint cimport flint_printf
 from sage.libs.flint.types cimport *
 from sage.libs.flint.acb cimport *
+from sage.libs.flint.acb_mat cimport *
 from sage.libs.flint.acb_poly cimport *
 from sage.libs.flint.arb cimport *
+from sage.libs.flint.fmpq_poly cimport *
 from sage.libs.flint.fmpz cimport *
 from sage.libs.flint.fmpz_mat cimport *
 from sage.libs.flint.fmpz_poly cimport *
@@ -19,7 +20,8 @@ from sage.libs.flint.gr_mat cimport gr_mat_pascal
 
 cdef extern from "flint_wrap.h":
     void gr_ctx_init_fmpz(gr_ctx_t ctx) noexcept
-    void GR_MUST_SUCCEED(int status)
+    void GR_MUST_SUCCEED(int status) noexcept
+    mp_limb_t FLINT_BIT_COUNT(mp_limb_t x) noexcept
 
 from sage.rings.complex_arb cimport ComplexBall
 from sage.rings.polynomial.polynomial_complex_arb cimport Polynomial_complex_arb
@@ -38,6 +40,9 @@ from .context import dctx
 
 
 logger = logging.getLogger(__name__)
+
+
+cdef slong APPLY_DOP_INTERPOLATION_MAX_POINTS = 256
 
 
 @cython.boundscheck(False)
@@ -100,6 +105,11 @@ cdef class DACUnroller:
 
     cdef fmpz_mat_t binom
 
+    cdef acb_mat_struct *tinterp_cache_num
+    cdef fmpz *tinterp_cache_den
+    cdef slong tinterp_cache_size
+    cdef slong apply_dop_interpolation_max_len
+
     ## used by remaining python code
 
     cdef readonly object dop_T, ini, py_evpts, IR, IC, real, _leftmost
@@ -150,6 +160,10 @@ cdef class DACUnroller:
         arb_init(self.rad)
 
         self.init_binom(self.dop_order + 1)
+
+        self.tinterp_cache_num = NULL
+        self.tinterp_cache_den = NULL
+        self.tinterp_cache_size = 0
 
 
     def __dealloc__(self):
@@ -218,6 +232,7 @@ cdef class DACUnroller:
         self.dop_is_exact = True
         for i, pol in enumerate(dop_T):
             p = self.dop_coeffs + i
+            # This truncates the coefficients to self.prec
             acb_poly_swap(p, (<Polynomial_complex_arb?> (self.Pol(pol)))._poly)
             for j in range(acb_poly_length(p)):
                 self.dop_is_exact = (self.dop_is_exact
@@ -281,7 +296,8 @@ cdef class DACUnroller:
         cdef arb_t radpow, radpow_blk
         cdef mag_t coeff_rad
 
-        # Block size must be >= deg.
+        # Block size must be >= deg. Power-of-two factors may be beneficial when
+        # using apply_dop_interpolation.
         cdef slong blksz = max(1, self.dop_degree)
         for k in range(self.max_log_prec):
             acb_poly_fit_length(self.series + k, 2*blksz)
@@ -297,6 +313,12 @@ cdef class DACUnroller:
         arb_init(tb)
         arb_pos_inf(tb)
         mag_init(coeff_rad)
+
+        self.apply_dop_interpolation_max_len = min(
+            APPLY_DOP_INTERPOLATION_MAX_POINTS,
+            self.prec,
+            2*blksz)
+        self.tinterp_cache_init(self.apply_dop_interpolation_max_len//2)
 
         for i in range(self.numpts):
             acb_one(self.pows + i)
@@ -341,6 +363,7 @@ cdef class DACUnroller:
 
         self._report_stats((b+1)*blksz, est, tb, coeff_rad)
 
+        self.tinterp_cache_clear()
         arb_clear(tb)
         arb_clear(est)
         arb_clear(radpow_blk)
@@ -556,16 +579,24 @@ cdef class DACUnroller:
         acb_clear(inv)
 
 
-
     cdef void apply_dop(self, slong base, slong low, slong mid, slong high) noexcept:
         r"""
         *Add* to ``self.series[:][mid-base:high-base]`` the coefficients of
         ``self.dop(y[λ+low:λ+mid])``, where the input is given in
         ``self.series[:][low-base:mid-base]``.
         """
+        cdef int k
 
-        assert base <= low <= mid <= high
-        if self.dop_is_exact and acb_is_zero(self.leftmost):
+        if False:
+            # too slow at the moment; may/should be useful in some range of
+            # (high-low)/dop_order?
+            self.apply_dop_interpolation(base, low, mid, high)
+        elif False:
+            # really slow, but might be useful for huge (high-low)/dop_order when
+            # the bitlength coefficients of the operator is comparable to the
+            # working precision
+            self.apply_dop_polmul(base, low, mid, high)
+        elif self.dop_is_exact and acb_is_zero(self.leftmost):
             self.apply_dop_basecase_exact(base, low, mid, high)
         else:
             self.apply_dop_basecase(base, low, mid, high)
@@ -594,10 +625,10 @@ cdef class DACUnroller:
         # Approximate cost for high - mid = mid - low = d, log_prec = 1,
         # leftmost = 0:
         #
-        # d²/2·(M(h,p) + O(p)) + O(r·d²/2·h)
+        # d²/2·(M(h,p) + p) + r·d²/2·h
         #
         # ((r, d, h) = (order, degree, height) of dop, p = working prec).
-        # With the pure acb version, the O(r·d²/2·h) term can easily dominate in
+        # With the pure acb version, the O(r·d²·h) term can easily dominate in
         # practice, even for small r...
 
         cdef slong i, j, k, n, t, j0, length
@@ -623,6 +654,7 @@ cdef class DACUnroller:
 
             for t in range(self.log_prec):
 
+                # TODO This part could be shared between several solutions
                 for j in range(j0, j0 + length):
 
                     # c = cofactor of current coeff of self.series in expression
@@ -705,6 +737,7 @@ cdef class DACUnroller:
 
             for t in range(self.log_prec):
 
+                # TODO This part could be shared between several solutions
                 for j in range(j0, j0 + length):
 
                     c = cofac + j - j0
@@ -736,7 +769,8 @@ cdef class DACUnroller:
     # Good asymptotic complexity wrt diffop degree, but slow in practice on
     # typical inputs. Might behave better than the basecase version for large
     # degree + large integer/ball coeffs.
-    cdef void apply_dop_polmul(self, slong base, slong low, slong mid, slong high) noexcept:
+    cdef void apply_dop_polmul(self, slong base, slong low, slong mid,
+                               slong high) noexcept:
 
         cdef slong i, j, k
 
@@ -762,6 +796,7 @@ cdef class DACUnroller:
                 # This should be a mulmid. In practice mullow_classical or a
                 # quadratic-time naïve mulmid is faster on typical inputs...
                 # XXX Try with a Karatsuba mulmid?
+                # XXX Should ignore constant coefficients
                 acb_poly_mullow(tmp, self.dop_coeffs + i, curder + k,
                                 high - low, self.prec)
                 acb_poly_shift_right(tmp, tmp, mid - low)
@@ -795,6 +830,262 @@ cdef class DACUnroller:
         free(curder)
 
         acb_poly_clear(tmp)
+
+
+    # Variant of ``apply_dop`` using a polynomial middle product based on
+    # transposed interpolation at small integers.
+    #
+    # Approximate cost (partly heuristic) for high - mid = mid - low = d,
+    # log_prec = 1, leftmost = 0:
+    #
+    # 2·r·d·M(p, h + d·log(d)) + 2·r·d²·p  (+ precomputation)
+    #
+    # ((r, d, h) = (order, degree, height) of dop, p = working prec).
+    #
+    # Compared to the basecase version, we have only ~4rd “big” multiplications
+    # instead of ~d²/2, but with slightly larger operands, and some additional
+    # overhead. The number of operations of cost O(p) is still quadratic in d,
+    # again with an additional r factor and a larger constant.
+    #
+    # XXX Unfortunately, at the moment, this version seems to slow to be useful.
+    #
+    # XXX Also, this implementation is maybe more complicated than necessary:
+    # - Using points at infinity makes the code more complex, for an unclear
+    #   performance benefit.
+    # - Since the low-degree third of the full deg-3N result is known in
+    #   advance, we could maybe use a plain evaluation+interpolation scheme at
+    #   ~2N points, without relying on transposed multiplication? [Thanks to
+    #   Anne Vaugon for this remark!]
+    cdef void apply_dop_interpolation(self, slong base, slong low, slong mid,
+                                      slong high) noexcept:
+
+
+        cdef slong i, j, k, n, p
+        cdef acb_ptr dest
+
+        cdef acb_poly_t tmp
+        acb_poly_init(tmp)
+        acb_poly_fit_length(tmp, high - low)
+
+        cdef acb_t y
+        acb_init(y)
+
+        # To compute derivatives, we need a copy of a chunk of `series`
+        cdef acb_poly_struct *curder
+        curder = <acb_poly_struct *> malloc(self.log_prec
+                                            *sizeof(acb_poly_struct))
+        for k in range(self.log_prec):
+            acb_poly_init(curder + k)
+            acb_poly_shift_right(curder + k, self.series + k, low - base)
+            # typically already satisfied (?)
+            acb_poly_truncate(curder + k, mid - low)
+
+        # We need at least high - low - 1 interpolation points. We round this
+        # number to the next even integer to compute the transposed
+        # interpolation matrix, and use its upper left block in the case of an
+        # odd length.
+        assert high - low < APPLY_DOP_INTERPOLATION_MAX_POINTS
+        cdef slong halflen = (high - low)//2
+        self.tinterp_cache_compute(halflen)
+        cdef acb_mat_struct *tinterp_num = self.tinterp_cache_num + halflen
+        cdef fmpz *tinterp_den = self.tinterp_cache_den + halflen
+
+        # Each middle product decomposes as:
+        # (i)   a transposed interpolation at high-low-1 points of a coefficient
+        #       of dop, with the constant term omitted (precomputed, input
+        #       length = output length = high-low-1);
+        # (ii)  a direct evaluation at high-low-1 points of the reciprocal
+        #       polynomial one of the entries of curder (input length mid-low,
+        #       output length high-low-1);
+        # (iii) pointwise multiplications between the results of (i) and (ii);
+        # (iv)  a transposed evaluation in degree < high - mid of the output
+        #       vector (input length high-low-1, output length high-mid).
+        # Step (iv) is delayed until the contributions of all derivatives have
+        # been accumulated.
+
+        # XXX Not enough to avoid numerical issues. Why?
+        cdef slong prec = self.prec + 2*(high-low)*FLINT_BIT_COUNT(high-low)
+
+        cdef acb_ptr curderval = _acb_vec_init(2*halflen)
+        cdef acb_mat_t prodval
+        acb_mat_init(prodval, 2*halflen, self.log_prec)
+
+        for i in range(self.dop_order + 1):
+
+            for k in range(self.log_prec):
+
+                # (ii) Direct evaluation
+                #
+                # XXX Often the dominant step in practice... (Try fast
+                # multipoint evaluation at integers???)
+                eval_reverse_stdpts(curderval, halflen, curder + k, mid - low,
+                                    prec)
+
+                # (iii) Pointwise multiplications, with accumulation in the
+                # transformed domain
+                for p in range(high - low - 1):
+                    acb_addmul(acb_mat_entry(prodval, p, k),
+                               acb_mat_entry(tinterp_num, p, i),
+                               curderval + p,
+                               prec)
+
+                # curder[k] ← (d/dx)(previous curder)[k]
+
+                # XXX Optimize case of rational `leftmost`. Maybe fuse some
+                # operations.
+                acb_poly_scalar_mul(tmp, curder + k, self.leftmost, prec)
+                for j in range(acb_poly_length(curder + k)):
+                    acb_mul_ui(_coeffs(curder + k) + j,
+                               _coeffs(curder + k) + j,
+                               low + j,
+                               prec)
+                acb_poly_add(curder + k, curder + k, tmp, prec)
+                if k + 1 < self.log_prec:
+                    acb_poly_add(curder + k, curder + k, curder + k + 1,
+                                 prec)
+
+        for k in range(self.log_prec):
+            if acb_poly_length(self.series + k) < high - base:
+                acb_poly_fit_length(self.series + k, high - base)
+                _acb_poly_set_length(self.series + k, high - base)
+
+        # (iv) Transposed Horner evaluation, adding to the values already
+        # present in the high part of self.series.
+
+        # (iv.a) Finite points. When high-low == 2*halfen, so that 2*halflen-2 <
+        # high-low-1, the last row of the transposed interpolation matrix is not
+        # used.
+        for n in range(mid, high):
+            for k in range(self.log_prec):
+                # Would it be faster to compute the sum using acb_dot_ui with a
+                # vector of ones?
+                acb_zero(y)
+                for p in range(2*halflen - 1):
+                    acb_add(y, y,
+                            acb_mat_entry(prodval, p, k),
+                            prec)
+                acb_div_fmpz(y, y, tinterp_den, prec)
+                dest = _coeffs(self.series + k) + n - base
+                acb_add(dest, dest, y, prec)
+            if n == high - 1:
+                break
+            # Using acb_dot_ui with a vector of powers above should be faster
+            # than doing a second pass here when the powers fit on a single
+            # limb.
+            for p in range(2*halflen - 1):
+                for k in range(self.log_prec):
+                    # there is no _acb_vec_scalar_mul_si
+                    acb_mul_si(acb_mat_entry(prodval, p, k),
+                               acb_mat_entry(prodval, p, k),
+                               (p + 1)//2 if p % 2 == 1 else -p//2,
+                               prec)
+        # (iv.b) Infinity (last column of the transposed evaluation matrix). The
+        # point at infinity only contributes to the coefficient of
+        # x^{low+2*halfen-1}. In other words, it contributes to the coefficient
+        # of x^{high-1} when high-low is odd, and not at all when it is even.
+        if (high - low) % 2 == 1:
+            for k in range(self.log_prec):
+                acb_div_fmpz(y, acb_mat_entry(prodval, 2*halflen - 1, k),
+                             tinterp_den, prec)
+                dest = _coeffs(self.series + k) + high - 1 - base
+                acb_add(dest, dest, y, prec)
+
+        acb_mat_clear(prodval)
+        _acb_vec_clear(curderval, 2*halflen)
+        for k in range(self.log_prec):
+            acb_poly_clear(curder + k)
+        free(curder)
+        acb_clear(y)
+        acb_poly_clear(tmp)
+
+
+    cdef void tinterp_cache_init(self, slong size):
+        assert self.tinterp_cache_num == NULL
+        self.tinterp_cache_size = size
+        self.tinterp_cache_num = <acb_mat_struct *> calloc(size,
+                                                         sizeof(acb_mat_struct))
+        self.tinterp_cache_den = <fmpz *> malloc(size*sizeof(fmpz))
+
+
+    cdef void tinterp_cache_clear(self):
+        cdef slong i
+        for i in range(self.tinterp_cache_size):
+            if (<acb_ptr *> (self.tinterp_cache_num + i))[0] != NULL:
+                acb_mat_clear(self.tinterp_cache_num + i)
+                fmpz_clear(self.tinterp_cache_den + i)
+        free(self.tinterp_cache_num)
+        free(self.tinterp_cache_den)
+
+
+    cdef void tinterp_cache_compute(self, slong n):
+        r"""
+        Precompute the images by the transposed interpolation operator at the 2n
+        points ``0, 1, -1, ..., n-1, 1-n, ∞`` of the polynomials
+        ``a₁ + a_2·x + ··· + a_{2n}·x^{2n-1}`` where ``a`` is one of the
+        coefficients of ``dop``. Each value is represented as the quotient of a
+        complex numerator stored in ``tinterp_cache_num`` by a common
+        denominator stored in ``tinterp_cache_den``. In ``tinterp_cache_num``,
+        rows correspond to evaluation points and columns correspond to
+        coefficients of ``dop``.
+        """
+        cdef slong i, j, k, s
+        cdef acb_poly_struct *p
+        cdef fmpz *b
+        cdef acb_ptr c
+        cdef fmpz_t intpow
+
+        assert n < self.tinterp_cache_size
+        cdef acb_mat_struct *num = self.tinterp_cache_num + n
+        cdef fmpz *den = self.tinterp_cache_den + n
+        if (<acb_ptr *> num)[0] != NULL:  # initialized?
+            return
+
+        # TBI, see apply_dop_interpolation
+        cdef slong prec = self.prec + 2*n*FLINT_BIT_COUNT(n)
+
+        # cleared by tinterp_cache_clear
+        # possible optimization: fmpz or fmpzi version for operators with exact
+        # coefficients
+        acb_mat_init(num, 2*n, self.dop_order + 1)
+        fmpz_init(den)
+
+        cdef fmpz_mat_t pitvdm_num
+        fmpz_mat_init(pitvdm_num, n, 2*n-1)
+        pitvdm_stdpts(pitvdm_num, den, n)
+        for i in range(n):
+            for s in range(2):
+                if i == s == 0:
+                    continue
+                for j in range(self.dop_order + 1):
+                    p = self.dop_coeffs + j
+                    acb_dot_fmpz(acb_mat_entry(num, 2*i - 1 + s, j),
+                                 NULL, False,
+                                 _coeffs(p) + 1, 1,  # ignore cst coeff
+                                 fmpz_mat_entry(pitvdm_num, i, 0), 1,
+                                 min(2*n - 1, acb_poly_length(p) - 1),
+                                 prec)
+                for k in range(1, 2*n - 1, 2):
+                    b = fmpz_mat_entry(pitvdm_num, i, k)
+                    fmpz_neg(b, b)
+        fmpz_mat_clear(pitvdm_num)
+
+        # the row associated to the point at infinity
+        for j in range(self.dop_order + 1):
+            dest = acb_mat_entry(num, 2*n - 1, j)
+            c = acb_poly_get_coeff_ptr(self.dop_coeffs + j, 2*n)
+            if c != NULL:
+                acb_mul_fmpz(dest, c, den, prec)
+        fmpz_init(intpow)
+        for i in range(n):
+            fmpz_ui_pow_ui(intpow, i, 2*n - 1)
+            for j in range(self.dop_order + 1):
+                dest = acb_mat_entry(num, 2*n - 1, j)
+                if i > 0:
+                    acb_submul_fmpz(dest, acb_mat_entry(num, 2*i - 1, j),
+                                    intpow, prec)
+                acb_addmul_fmpz(dest, acb_mat_entry(num, 2*i, j), intpow,
+                                prec)
+        fmpz_clear(intpow)
 
 
     cdef void eval_ind(self, acb_poly_t ind_n, slong n, int order) noexcept:
@@ -971,6 +1262,83 @@ cdef class DACUnroller:
         return tb
 
 
+cdef void pitvdm_stdpts(fmpz_mat_t matnum, fmpz_t matden, slong n) noexcept:
+    r"""
+    Partial inverse transpose Vandermonde matrix at integer nodes.
+
+    Compute the rows associated to the nodes 0, 1, ..., n-1 of the inverse
+    transpose Vandermonde matrix at the nodes 0, -1, 1, -2, 2, ..., 1-n, n-1.
+    (The entry in column 0 ≤ j < 2n-1 of the row associated to -i is equal to
+    (-1)^j times the corresponding entry in the row associated to i.)
+    """
+    cdef slong i, j
+    assert n >= 1
+    assert fmpz_mat_nrows(matnum) == n
+    assert fmpz_mat_ncols(matnum) == 2*n-1
+    cdef fmpz_t tmp
+    fmpz_init(tmp)
+    cdef fmpz *points = _fmpz_vec_init(2*n-1)
+    cdef fmpz *values = _fmpz_vec_init(2*n-1)
+    cdef fmpz *rowden = _fmpz_vec_init(n)
+    fmpz_zero(points)
+    for i in range(1, n):
+        fmpz_set_si(points + 2*i - 1,  i)
+        fmpz_set_si(points + 2*i,     -i)
+    # FIXME This repeats essentially the same computation n times.
+    # (And we could also share some work between different values of n by
+    # working in the Newton basis...)
+    for i in range(n):
+        j = 0 if i == 0 else 2*i - 1
+        fmpz_one(values + j)
+        _fmpq_poly_interpolate_fmpz_vec(fmpz_mat_entry(matnum, i, 0),
+                                        rowden + i, points, values, 2*n-1)
+        fmpz_zero(values + j)
+    _fmpz_vec_lcm(matden, rowden, n)
+    for i in range(n):
+        fmpz_divexact(tmp, matden, rowden + i)
+        _fmpz_vec_scalar_mul_fmpz(fmpz_mat_entry(matnum, i, 0),
+                                  fmpz_mat_entry(matnum, i, 0),
+                                  2*n-1, tmp)
+    _fmpz_vec_clear(rowden, n)
+    _fmpz_vec_clear(values, 2*n-1)
+    _fmpz_vec_clear(points, 2*n-1)
+    fmpz_clear(tmp)
+
+
+cdef void eval_reverse_stdpts(acb_ptr val, slong n, const acb_poly_struct *pol,
+                              slong length, slong prec):
+    r"""
+    Evaluate at 0, 1, -1, 2, -2, ..., n-1, 1-n, ∞ the reciprocal polynomial of
+    ``pol`` viewed as a polynomial of length ``length``.
+    """
+    cdef slong i, j, deg
+    cdef acb_ptr c
+    cdef acb_t even, odd
+    acb_init(even)
+    acb_init(odd)
+
+    acb_poly_get_coeff_acb(val + 0, pol, length - 1)
+    deg = acb_poly_degree(pol)
+    for i in range(1, n):
+        acb_zero(even)
+        for j in range(1 - (length % 2), length, 2):
+            acb_mul_si(even, even, i*i, prec)
+            if j <= deg:
+                acb_add(even, even, acb_poly_get_coeff_ptr(pol, j), prec)
+        acb_zero(odd)
+        for j in range(length % 2, length, 2):
+            acb_mul_si(odd, odd, i*i, prec)
+            if j <= deg:
+                acb_add(odd, odd, acb_poly_get_coeff_ptr(pol, j), prec)
+        acb_mul_si(odd, odd, i, prec)
+        acb_add(val + 2*i - 1, even, odd, prec)
+        acb_sub(val + 2*i, even, odd, prec)
+    acb_poly_get_coeff_acb(val + 2*n - 1, pol, 0)
+
+    acb_clear(even)
+    acb_clear(odd)
+
+
 cdef Polynomial_complex_arb _make_constant_poly(acb_srcptr c, Parent parent):
     cdef Polynomial_complex_arb pol = Polynomial_complex_arb.__new__(Polynomial_complex_arb)
     pol._parent = parent
@@ -986,5 +1354,7 @@ cdef Polynomial_complex_arb _make_poly(acb_poly_struct *p, Parent parent):
 cdef _breakpoint():
     pass
 
-cdef acb_ptr _coeffs(acb_poly_t pol) noexcept:  # pol->coeffs is not accessible from sage
+cdef acb_ptr _coeffs(acb_poly_t pol) noexcept:
+    # pol->coeffs is not accessible from sage, and acb_poly_get_coeff_ptr
+    # returns null when the argument is out of bounds
     return (<acb_ptr *> pol)[0]
