@@ -25,6 +25,7 @@ cdef extern from "flint_wrap.h":
     void gr_ctx_init_fmpz(gr_ctx_t ctx) noexcept
     void GR_MUST_SUCCEED(int status) noexcept
     mp_limb_t FLINT_BIT_COUNT(mp_limb_t x) noexcept
+    cdef slong WORD_MAX
 
 from sage.rings.complex_arb cimport ComplexBall
 from sage.rings.polynomial.polynomial_complex_arb cimport Polynomial_complex_arb
@@ -307,7 +308,7 @@ cdef class DACUnroller:
 
 
     # Maybe get rid of this and use sum_dac only?
-    cpdef sum_blockwise(self, object stop):
+    cpdef sum_blockwise(self, object stop, slong max_terms=WORD_MAX):
         cdef slong i, j, k, base, low, high
         cdef acb_ptr c
         cdef arb_t est, tb
@@ -351,8 +352,17 @@ cdef class DACUnroller:
         cdef slong b = 0
         while True:
             base = low = b*blksz
-            high = low + blksz
+            high = min(low + blksz, max_terms)
             self.sum_dac(base, low, high)
+
+            if high >= max_terms:
+                if stop is None:
+                    arb_zero(tb)
+                    break
+                else:
+                    raise NotImplementedError(
+                        "reached max_terms with a StoppingCriterion object")
+
             self.apply_dop(base, low, high, high + blksz)
 
             # - Support stopping in the middle of a block when dop_degree is
@@ -362,7 +372,7 @@ cdef class DACUnroller:
             # shifting self.series so that it contains the residual, but doing
             # it before allows us to check the computation using the low-degree
             # part of self.series in debug mode.
-            if b % blkstride == 0:
+            if stop is not None and b % blkstride == 0:
                 self.rhs_offset = high - base
                 if self.check_convergence(stop, high, est, tb, radpow,
                                           blkstride*blksz):

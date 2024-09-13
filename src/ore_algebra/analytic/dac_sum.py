@@ -107,13 +107,21 @@ from types import SimpleNamespace
 from sage.modules.free_module_element import vector
 from sage.matrix.constructor import matrix
 from sage.rings.complex_arb import ComplexBallField
+from sage.rings.integer_ring import ZZ
+from sage.structure.sequence import Sequence
 
 from . import accuracy
 from . import utilities
 
 from .bounds import DiffOpBound
 from .context import dctx
-from .local_solutions import HighestSolMapper, log_series_values
+from .differential_operator import DifferentialOperator
+from .local_solutions import (
+    HighestSolMapper,
+    log_series_values,
+    LogSeriesInitialValues
+)
+from .path import EvaluationPoint_base, EvaluationPoint
 
 from .dac_sum_c import DACUnroller
 
@@ -259,3 +267,42 @@ def fundamental_matrix_regular(dop, evpts, eps, fail_fast, effort, ctx=dctx):
     mats = [matrix([sol.value[i] for sol in cols]).transpose()
             for i in range(len(evpts))]
     return mats
+
+
+def truncated_sum(dop, ini, evpts, bit_prec, terms):
+    r"""
+    Compute a partial sum of a logarithmic series at one or more points using
+    ``DACUnroller``.
+
+    EXAMPLES::
+
+        sage: from ore_algebra import DifferentialOperators
+        sage: Dops, x, Dx = DifferentialOperators(QQ, 'x')
+
+        sage: from ore_algebra.analytic.dac_sum import truncated_sum
+        sage: truncated_sum(Dx-1, [2], 1/2, 30, 4)
+        [[[3.2916666...]]]
+        sage: 2.*(1 + 1/2 + 1/2*(1/2)^2 + 1/6*(1/2)^3)
+        3.29166666666667
+
+        sage: truncated_sum(Dx^2 + 1, [1, 0], [RBF(pi), 1/2], 30, 30)
+        [[[-1.000000...]], [[0.877582...]]]
+
+    The zero series is represented as an empty list, since all the coefficients
+    of powers of log are zero::
+
+        sage: truncated_sum(Dx-1, [2], 1/2, 30, 0)
+        [[]]
+    """
+    dop = DifferentialOperator(dop)
+    dop_T = dop.to_T(dop._theta_alg())
+    if not isinstance(ini, LogSeriesInitialValues):
+        ini = LogSeriesInitialValues(ZZ.zero(), ini, dop)
+    if not isinstance(evpts, EvaluationPoint_base):
+        if isinstance(evpts, (list, tuple)):
+            evpts = tuple(Sequence(evpts))
+        evpts = EvaluationPoint(evpts)
+    Ring = ComplexBallField(bit_prec)
+    unr = DACUnroller(dop_T, ini, evpts, Ring)
+    res = unr.sum_blockwise(stop=None, max_terms=terms)
+    return res
