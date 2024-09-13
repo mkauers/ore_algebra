@@ -277,16 +277,10 @@ cdef class DACUnroller:
                      and ini.is_real(dop_T.base_ring().base_ring()))
 
 
-    cdef void init_binom(self, slong s) noexcept:
-        cdef gr_ctx_t fmpz
-        gr_ctx_init_fmpz(fmpz)
-        fmpz_mat_init(self.binom, s, s)
-        GR_MUST_SUCCEED(gr_mat_pascal(<gr_mat_struct *> self.binom, -1, fmpz))
-        gr_ctx_clear(fmpz)
-
-
-    cdef void clear_binom(self) noexcept:
-        fmpz_mat_clear(self.binom)
+    cdef acb_poly_struct *sum_ptr(self, int j, int k) noexcept:
+        # self.sums + j*self.max_log_prec + k is the jet of order self.jet_order
+        # of the coeff of log^k/k! in the sum at the point of index j
+        return self.sums + j*self.max_log_prec + k
 
 
     def sum_blockwise(self, stop):
@@ -373,23 +367,6 @@ cdef class DACUnroller:
         return psums
 
 
-    cdef void _report_stats(self, slong n, arb_t est, arb_t tb,
-                            mag_t coeff_rad):
-        cdef RealBall _est = RealBall.__new__(RealBall)
-        _est._parent = self.IR
-        arb_swap(_est.value, est)
-        cdef RealBall _tb = RealBall.__new__(RealBall)
-        _tb._parent = self.IR
-        arb_swap(_tb.value, tb)
-        cdef RealBall _coeff_rad = RealBall.__new__(RealBall)
-        _coeff_rad._parent = self.IR
-        arb_set_interval_mag(_coeff_rad.value, coeff_rad, coeff_rad, MAG_BITS)
-        logger.info("summed %d terms, tail bound = %s (est = %s), max rad = %s",
-                    n, _tb, _est, _coeff_rad)
-        arb_swap(tb, _tb.value)
-        arb_swap(est, _est.value)
-
-
     cdef void sum_dac(self, slong base, slong low, slong high) noexcept:
         r"""
         Compute the chunk ``y[λ+low:λ+high]`` of the solution of ``L(y) = rhs``
@@ -414,6 +391,23 @@ cdef class DACUnroller:
         resid_len = min(high - mid, self.dop_degree + 1)
         self.apply_dop(base, low, mid, mid + resid_len)
         self.sum_dac(base, mid, high)
+
+
+    cdef void _report_stats(self, slong n, arb_t est, arb_t tb,
+                            mag_t coeff_rad):
+        cdef RealBall _est = RealBall.__new__(RealBall)
+        _est._parent = self.IR
+        arb_swap(_est.value, est)
+        cdef RealBall _tb = RealBall.__new__(RealBall)
+        _tb._parent = self.IR
+        arb_swap(_tb.value, tb)
+        cdef RealBall _coeff_rad = RealBall.__new__(RealBall)
+        _coeff_rad._parent = self.IR
+        arb_set_interval_mag(_coeff_rad.value, coeff_rad, coeff_rad, MAG_BITS)
+        logger.info("summed %d terms, tail bound = %s (est = %s), max rad = %s",
+                    n, _tb, _est, _coeff_rad)
+        arb_swap(tb, _tb.value)
+        arb_swap(est, _est.value)
 
 
     cdef void next_term(self, slong base, slong n) noexcept:
@@ -519,10 +513,25 @@ cdef class DACUnroller:
         acb_poly_clear(ind_n)
 
 
-    cdef acb_poly_struct *sum_ptr(self, int j, int k) noexcept:
-        # self.sums + j*self.max_log_prec + k is the jet of order self.jet_order
-        # of the coeff of log^k/k! in the sum at the point of index j
-        return self.sums + j*self.max_log_prec + k
+    cdef void eval_ind(self, acb_poly_t ind_n, slong n, int order) noexcept:
+        cdef slong i
+        cdef acb_t expo
+        cdef acb_ptr c
+        acb_poly_fit_length(ind_n, order)
+        if order == 1 and acb_is_zero(self.leftmost):  # covers ordinary points
+            c = _coeffs(ind_n)
+            acb_zero(c)
+            for i in range(acb_poly_degree(self.ind), -1, -1):
+                acb_mul_si(c, c, n, self.prec)
+                acb_add(c, c, _coeffs(self.ind) + i, self.prec)
+            _acb_poly_set_length(ind_n, 1)
+            _acb_poly_normalise(ind_n)
+        else:  # improvable...
+            acb_init(expo)
+            acb_add_si(expo, self.leftmost, n, self.prec)
+            acb_poly_taylor_shift(ind_n, self.ind, expo, self.prec)
+            acb_poly_truncate(ind_n, order)
+            acb_clear(expo)
 
 
     cdef void next_sum(self, slong base, slong n) noexcept:
@@ -602,35 +611,35 @@ cdef class DACUnroller:
             self.apply_dop_basecase(base, low, mid, high)
 
 
-    cdef void apply_dop_basecase(self, slong base, slong low, slong mid, slong high) noexcept:
-        # Compared to a version of apply_dop that uses fast polynomial
-        # multiplication (and being able to exploit fast multiplication is the
-        # main point of the D&C algorithm!), this one performs amounts to a
-        # naïve, quadratic-time middle product.
-        #
-        # However, instead of performing a separate multiplication for each
-        # derivative up to the order of dop, it computes the ℤ-linear
-        # combination of coefficients of dop that gives the cofactor of a given
-        # term of the input series in the output series and multiplies the
-        # resulting quantity by the corresponding term of the input series. This
-        # is beneficial because the coefficients of dop are often exact balls of
-        # bit length significantly smaller than the working precision.
-        #
-        # These linear combinations are polynomial evaluations at n=0,1,2,....
-        # Moreover, assuming no logs for simplicity, each pair (coeff of output
-        # series, degree in dop) occurs exactly once over all recursive calls.
-        # So in the end this does essentially the same computation as naïve
-        # recurrence unrolling, just in a different order.
-        #
-        # Approximate cost for high - mid = mid - low = d, log_prec = 1,
-        # leftmost = 0:
-        #
-        # d²/2·(M(h,p) + p) + r·d²/2·h
-        #
-        # ((r, d, h) = (order, degree, height) of dop, p = working prec).
-        # With the pure acb version, the O(r·d²·h) term can easily dominate in
-        # practice, even for small r...
-
+    # Compared to a version of apply_dop that uses fast polynomial
+    # multiplication (and being able to exploit fast multiplication is the
+    # main point of the D&C algorithm!), this one performs amounts to a
+    # naïve, quadratic-time middle product.
+    #
+    # However, instead of performing a separate multiplication for each
+    # derivative up to the order of dop, it computes the ℤ-linear
+    # combination of coefficients of dop that gives the cofactor of a given
+    # term of the input series in the output series and multiplies the
+    # resulting quantity by the corresponding term of the input series. This
+    # is beneficial because the coefficients of dop are often exact balls of
+    # bit length significantly smaller than the working precision.
+    #
+    # These linear combinations are polynomial evaluations at n=0,1,2,....
+    # Moreover, assuming no logs for simplicity, each pair (coeff of output
+    # series, degree in dop) occurs exactly once over all recursive calls.
+    # So in the end this does essentially the same computation as naïve
+    # recurrence unrolling, just in a different order.
+    #
+    # Approximate cost for high - mid = mid - low = d, log_prec = 1,
+    # leftmost = 0:
+    #
+    # d²/2·(M(h,p) + p) + r·d²/2·h
+    #
+    # ((r, d, h) = (order, degree, height) of dop, p = working prec).
+    # With the pure acb version, the O(r·d²·h) term can easily dominate in
+    # practice, even for small r...
+    cdef void apply_dop_basecase(self, slong base, slong low, slong mid,
+                                 slong high) noexcept:
         cdef slong i, j, k, n, t, j0, length
         cdef acb_ptr b, c
 
@@ -764,6 +773,18 @@ cdef class DACUnroller:
                         self.prec)
 
         _fmpz_vec_clear(cofac, mid - low)
+
+
+    cdef void init_binom(self, slong s) noexcept:
+        cdef gr_ctx_t fmpz
+        gr_ctx_init_fmpz(fmpz)
+        fmpz_mat_init(self.binom, s, s)
+        GR_MUST_SUCCEED(gr_mat_pascal(<gr_mat_struct *> self.binom, -1, fmpz))
+        gr_ctx_clear(fmpz)
+
+
+    cdef void clear_binom(self) noexcept:
+        fmpz_mat_clear(self.binom)
 
 
     # Good asymptotic complexity wrt diffop degree, but slow in practice on
@@ -1086,27 +1107,6 @@ cdef class DACUnroller:
                 acb_addmul_fmpz(dest, acb_mat_entry(num, 2*i, j), intpow,
                                 prec)
         fmpz_clear(intpow)
-
-
-    cdef void eval_ind(self, acb_poly_t ind_n, slong n, int order) noexcept:
-        cdef slong i
-        cdef acb_t expo
-        cdef acb_ptr c
-        acb_poly_fit_length(ind_n, order)
-        if order == 1 and acb_is_zero(self.leftmost):  # covers ordinary points
-            c = _coeffs(ind_n)
-            acb_zero(c)
-            for i in range(acb_poly_degree(self.ind), -1, -1):
-                acb_mul_si(c, c, n, self.prec)
-                acb_add(c, c, _coeffs(self.ind) + i, self.prec)
-            _acb_poly_set_length(ind_n, 1)
-            _acb_poly_normalise(ind_n)
-        else:  # improvable...
-            acb_init(expo)
-            acb_add_si(expo, self.leftmost, n, self.prec)
-            acb_poly_taylor_shift(ind_n, self.ind, expo, self.prec)
-            acb_poly_truncate(ind_n, order)
-            acb_clear(expo)
 
 
     # Error control and BoundCallbacks interface
