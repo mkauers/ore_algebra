@@ -56,18 +56,36 @@ cdef class DACUnroller:
     (both on input and on output, in the solution and in the rhs).
     """
 
-    cdef int dop_order
-    cdef int numpts
+    cdef slong dop_order
     cdef slong dop_degree
+    cdef slong numpts
+    cdef slong jet_order
+    cdef slong prec         # general working precision (bits)
+    cdef slong bounds_prec  # bit precision for error bounds
 
-    cdef bint dop_is_exact
+    # max length wrt log of any of the coefficients of the solution, the rhs,
+    # or the sum
+    cdef slong max_log_prec  # future
+    cdef slong log_prec      # to date
+
     cdef acb_poly_struct *dop_coeffs
     cdef fmpz_poly_struct *dop_coeffs_fmpz  # TODO: coeffs in ℤ[i]
-    cdef acb_poly_t ind
-    cdef acb_t leftmost
-    cdef arb_t rad
+    cdef bint dop_is_exact
 
-    # Unlike the Python version, which creates/destroys/returns lists of
+    cdef acb_poly_t ind  # indicial polynomial
+    cdef acb_t leftmost  # aka λ, exponent of the _group_ of solutions
+
+    cdef dict ini          # n -> coeff of x^{λ+n}·log(x)^k/k!, 0≤k<mult(λ+n)
+    cdef slong last_ini_n  # position of last initial value (shift wrt λ)
+
+    cdef acb_ptr evpts  # evaluation points x[i], 0 < i < numpts
+    cdef arb_t rad      # ≥ abs(evaluation points), for error bounds
+
+    # main shared buffers
+
+    cdef acb_ptr pows   # x[i]^n
+
+    # Unlike the old Python version, which creates/destroys/returns lists of
     # polynomials, this version acts on shared data buffers.
     #
     # The coefficient of a given log(x)^k/k! is represented as a contiguous
@@ -83,46 +101,39 @@ cdef class DACUnroller:
     # the jets of coefficients wrt log(ζ)^k/k! of the partial sums
     cdef acb_poly_struct *sums
 
-    cdef slong prec
-    cdef slong bounds_prec
+    # internal data -- next_sum
 
-    cdef int max_log_prec
-    # max length wrt log of any of the coefficients (of the solution, the rhs,
-    # or the sum) computed to date
-    cdef int log_prec
-
-    cdef int jet_order
-
-    cdef acb_ptr evpts
-    cdef acb_ptr pows
     cdef fmpz *binom_n  # binom(n, j) for j < jet_order
 
-    cdef dict _ini
-    cdef slong _last_ini
+    # internal data -- apply_dop_basecase
 
-    cdef readonly dict critical_coeffs
-    cdef int _rhs_offset
+    cdef fmpz_mat_t binom  # binom(t, k) for k ≤ t < dop_order
 
-    cdef fmpz_mat_t binom
+    # internal data -- apply_dop_interpolation
 
     cdef acb_mat_struct *tinterp_cache_num
     cdef fmpz *tinterp_cache_den
     cdef slong tinterp_cache_size
     cdef slong apply_dop_interpolation_max_len
 
-    ## used by remaining python code
+    # internal data -- error bounds
 
-    cdef readonly object dop_T, ini, py_evpts, IR, IC, real, _leftmost
+    cdef slong _rhs_offset
 
-    ## may or may not stay
+    # internal data -- remaining python code
 
-    cdef object Ring, Pol, _Reals, Pol_IC
+    cdef readonly object py_evpts, IR, IC
+    cdef object Ring, Pol, Reals, Pol_IC
+
+    # auxiliary outputs ("cdef readonly" means read-only _from Python_!)
+
     cdef readonly object Jets
+    cdef readonly bint real
+    cdef readonly dict critical_coeffs
 
 
     def __cinit__(self, dop_T, ini, py_evpts, *args, **kwds):
-        # XXX maybe optimize data layout
-        cdef int i
+        cdef slong i
 
         cdef size_t sz_poly = sizeof(acb_poly_struct)
         self.dop_order = dop_T.order()
@@ -130,7 +141,7 @@ cdef class DACUnroller:
         self.numpts = len(py_evpts)
         self.jet_order = py_evpts.jet_order
 
-        self.dop_coeffs = <acb_poly_struct *> malloc((self.dop_order + 1)*sz_poly)
+        self.dop_coeffs = <acb_poly_struct *> malloc((self.dop_order+1)*sz_poly)
         self.dop_coeffs_fmpz = (<fmpz_poly_struct *> malloc((self.dop_order + 1)
                                                      *sizeof(fmpz_poly_struct)))
         for i in range(self.dop_order + 1):
@@ -167,21 +178,21 @@ cdef class DACUnroller:
 
 
     def __dealloc__(self):
-        cdef int i
+        cdef slong i
 
         self.clear_binom()
 
         arb_clear(self.rad)
-        acb_poly_clear(self.ind)
         acb_clear(self.leftmost)
+        acb_poly_clear(self.ind)
 
         for i in range(self.numpts*self.max_log_prec):
             acb_poly_clear(self.sums + i)
         free(self.sums)
 
-        _acb_vec_clear(self.evpts, self.numpts)
-        _acb_vec_clear(self.pows, self.numpts)
         _fmpz_vec_clear(self.binom_n, self.jet_order)
+        _acb_vec_clear(self.pows, self.numpts)
+        _acb_vec_clear(self.evpts, self.numpts)
 
         for i in range(self.max_log_prec):
             acb_poly_clear(self.series + i)
@@ -201,17 +212,10 @@ cdef class DACUnroller:
 
         assert dop_T.parent().is_T()
 
-        ### Kept for gradual Python to Cython conversion; would change or
-        ### disappear in a pure Cython version
-
-        self.dop_T = dop_T
-        self.ini = ini  # LogSeriesInitialValues
-        self.py_evpts = py_evpts
-
-        # Parents
+        ## Parents
 
         self.Ring = Ring
-        self._Reals = Ring.base()
+        self.Reals = Ring.base()
         # Slices of series solns (w/o logs); must contain λ.
         self.Pol = dop_T.base_ring().change_ring(Ring)
         # Values (of the evaluation point, of partial sums). Currently limited
@@ -222,12 +226,12 @@ cdef class DACUnroller:
         self.IC = self.IR.complex_field()
         self.Pol_IC = self.Pol.change_ring(self.IC)
 
-        ### Internal data used by the Cython part
+        ## Internal data
 
         # maybe change this to a plain c data structure
-        self._ini = {k: tuple(Ring(a) for a in v)
+        self.ini = {k: tuple(Ring(a) for a in v)
                      for k, v in ini.shift.items()}
-        self._last_ini = self.ini.last_index()
+        self.last_ini_n = ini.last_index()
 
         self.dop_is_exact = True
         for i, pol in enumerate(dop_T):
@@ -241,10 +245,8 @@ cdef class DACUnroller:
                                  and acb_poly_get_unique_fmpz_poly(
                                                    self.dop_coeffs_fmpz + i, p))
 
-        self._leftmost = leftmost = Ring(ini.expo)
+        leftmost = Ring(ini.expo)
         acb_set(self.leftmost, (<ComplexBall?> leftmost).value)
-
-        arb_set(self.rad, (<RealBall?> py_evpts.rad).value)
 
         acb_poly_fit_length(self.ind, self.dop_order + 1)
         _acb_poly_set_length(self.ind, self.dop_order + 1)
@@ -255,21 +257,19 @@ cdef class DACUnroller:
         self.prec = Ring.precision()
         self.bounds_prec = self.IR.precision()
 
+        self.py_evpts = py_evpts
         Jets, jets = py_evpts.jets(Ring)
         for i in range(self.numpts):
             assert jets[i].degree() == 0 or jets[i].degree() == 1 and jets[i][1].is_one()
             acb_poly_get_coeff_acb(self.evpts + i,
                                    (<Polynomial_complex_arb?> jets[i])._poly,
                                    0)
+        arb_set(self.rad, (<RealBall?> py_evpts.rad).value)
 
-        ### Auxiliary output
+        ## Auxiliary output (some also used internally)
 
         self.critical_coeffs = {}
-
-        # Precomputed data, also available as auxiliary output
-
         self.Jets = Jets
-
         # At the moment Ring must in practice be a complex ball field (other
         # rings do not support all required operations); this flag signals that
         # the series (incl. singular part) and evaluation points are real.
@@ -281,6 +281,9 @@ cdef class DACUnroller:
         # self.sums + j*self.max_log_prec + k is the jet of order self.jet_order
         # of the coeff of log^k/k! in the sum at the point of index j
         return self.sums + j*self.max_log_prec + k
+
+
+    ## Main summation loop
 
 
     def sum_blockwise(self, stop):
@@ -410,6 +413,9 @@ cdef class DACUnroller:
         arb_swap(est, _est.value)
 
 
+    ## Computation of individual terms
+
+
     cdef void next_term(self, slong base, slong n) noexcept:
         r"""
         Write to ``self.series[:][n-base]`` the coefficient of ``x^(λ+n)`` in
@@ -422,12 +428,12 @@ cdef class DACUnroller:
         cdef slong k
         cdef ComplexBall tmp_ball
 
-        cdef tuple ini = self._ini.get(n, ())
-        cdef int mult = len(ini)
+        cdef tuple ini = self.ini.get(n, ())
+        cdef slong mult = len(ini)
 
         # Probably don't need the max(len(rhs), ...) here since we initialize
         # series once and for all as a table of length max_log_prec.
-        cdef int rhs_len = self.log_prec
+        cdef slong rhs_len = self.log_prec
         while (rhs_len > 0
                and acb_is_zero(_coeffs(self.series + rhs_len - 1) + n - base)):
             rhs_len -= 1
@@ -588,13 +594,16 @@ cdef class DACUnroller:
         acb_clear(inv)
 
 
+    ## Image of a polynomial
+
+
     cdef void apply_dop(self, slong base, slong low, slong mid, slong high) noexcept:
         r"""
         *Add* to ``self.series[:][mid-base:high-base]`` the coefficients of
         ``self.dop(y[λ+low:λ+mid])``, where the input is given in
         ``self.series[:][low-base:mid-base]``.
         """
-        cdef int k
+        cdef slong k
 
         if False:
             # too slow at the moment; may/should be useful in some range of
@@ -1109,7 +1118,7 @@ cdef class DACUnroller:
         fmpz_clear(intpow)
 
 
-    # Error control and BoundCallbacks interface
+    ## Error control and BoundCallbacks interface
 
 
     cdef bint check_convergence(self, object stop, slong n,
@@ -1136,7 +1145,7 @@ cdef class DACUnroller:
         cdef arb_t tmp
         arb_init(tmp)
 
-        if n <= self._last_ini:
+        if n <= self.last_ini_n:
             arb_pos_inf(tail_bound)
             return False
 
@@ -1155,10 +1164,10 @@ cdef class DACUnroller:
         arb_mul_arf(est, est, arb_midref(radpow), self.prec)
 
         cdef RealBall _est = RealBall.__new__(RealBall)
-        _est._parent = self._Reals
+        _est._parent = self.Reals
         arb_swap(_est.value, est)
         cdef RealBall _tb = RealBall.__new__(RealBall)
-        _tb._parent = self._Reals
+        _tb._parent = self.Reals
         arb_swap(_tb.value, tail_bound)
         self._rhs_offset = blksz  # only used by __check_residuals
         done, new_tail_bound = stop.check(self, n, _tb, _est, next_stride)
@@ -1236,7 +1245,6 @@ cdef class DACUnroller:
         """
         cdef slong i, k
         cdef ComplexBall b
-        assert self.dop_T == stop.maj.dop
         last = []
         for i in range(self.dop_degree):
             cc = []
@@ -1254,12 +1262,15 @@ cdef class DACUnroller:
 
 
     def get_bound(self, stop, n, resid):
-        if n <= self.ini.last_index():
+        if n <= self.last_ini_n:
             raise NotImplementedError
         maj = stop.maj.tail_majorant(n, resid)
         tb = maj.bound(self.py_evpts.rad, rows=self.py_evpts.jet_order)
         # XXX take log factors etc. into account (as in naive_sum)?
         return tb
+
+
+## Subroutines for (transposed) evaluation/interpolation at small integers
 
 
 cdef void pitvdm_stdpts(fmpz_mat_t matnum, fmpz_t matden, slong n) noexcept:
@@ -1337,6 +1348,9 @@ cdef void eval_reverse_stdpts(acb_ptr val, slong n, const acb_poly_struct *pol,
 
     acb_clear(even)
     acb_clear(odd)
+
+
+## Debugging utilities
 
 
 cdef Polynomial_complex_arb _make_constant_poly(acb_srcptr c, Parent parent):
