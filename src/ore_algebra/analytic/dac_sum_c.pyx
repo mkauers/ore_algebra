@@ -70,6 +70,8 @@ cdef class DACUnroller:
     (both on input and on output, in the solution and in the rhs).
     """
 
+    cdef bint debug
+
     cdef slong dop_order
     cdef slong dop_degree
     cdef slong numpts
@@ -134,7 +136,7 @@ cdef class DACUnroller:
 
     # internal data -- error bounds
 
-    cdef slong _rhs_offset
+    cdef slong rhs_offset
 
     # internal data -- remaining python code
 
@@ -150,6 +152,8 @@ cdef class DACUnroller:
 
     def __cinit__(self, dop_T, ini, py_evpts, *args, **kwds):
         cdef slong i
+
+        self.debug = False
 
         cdef size_t sz_poly = sizeof(acb_poly_struct)
         self.dop_order = dop_T.order()
@@ -303,8 +307,8 @@ cdef class DACUnroller:
 
 
     # Maybe get rid of this and use sum_dac only?
-    def sum_blockwise(self, stop):
-        cdef slong i, j, k
+    cpdef sum_blockwise(self, object stop):
+        cdef slong i, j, k, base, low, high
         cdef acb_ptr c
         cdef arb_t est, tb
         cdef arb_t radpow, radpow_blk
@@ -317,7 +321,8 @@ cdef class DACUnroller:
         cdef slong blkstride = max(1, 32//blksz)
 
         arb_init(radpow)
-        arb_pow(radpow, self.rad, acb_imagref(self.leftmost), self.bounds_prec)
+        # neglects the contribution of Im(λ)...
+        arb_pow(radpow, self.rad, acb_realref(self.leftmost), self.bounds_prec)
         arb_init(radpow_blk)
         arb_pow_ui(radpow_blk, self.rad, blksz, self.bounds_prec)
 
@@ -345,15 +350,22 @@ cdef class DACUnroller:
         cdef bint done = False
         cdef slong b = 0
         while True:
-            self.sum_dac(b*blksz, b*blksz, (b+1)*blksz)
-            self.apply_dop(b*blksz, b*blksz, (b+1)*blksz, (b+2)*blksz)
+            base = low = b*blksz
+            high = low + blksz
+            self.sum_dac(base, low, high)
+            self.apply_dop(base, low, high, high + blksz)
 
-            # Support stopping in the middle of a block when dop_degree is
+            # - Support stopping in the middle of a block when dop_degree is
             # large? Would need the ability to compute the high part of the
             # residual (to low precision).
+            # - It would be simpler to perform the convergence check after
+            # shifting self.series so that it contains the residual, but doing
+            # it before allows us to check the computation using the low-degree
+            # part of self.series in debug mode.
             if b % blkstride == 0:
-                if self.check_convergence(stop, (b+1)*blksz, blksz,
-                                          est, tb, radpow, blkstride*blksz):
+                self.rhs_offset = high - base
+                if self.check_convergence(stop, high, est, tb, radpow,
+                                          blkstride*blksz):
                     break
 
             for k in range(self.log_prec):
@@ -1150,17 +1162,12 @@ cdef class DACUnroller:
 
 
     cdef bint check_convergence(self, object stop, slong n,
-                                slong blksz,
                                 arb_t est,         # W
                                 arb_t tail_bound,  # RW
                                 arb_srcptr radpow, slong next_stride):
         r"""
-        Requires:
-        last terms in low part (up to blksz) of self.series,
-            XXX not really necessary, since this is use only to compute an
-            estimate, and the residual is expected to have more or less the same
-            value?
-        residual (== rhs) in high part
+        Requires: residual (== rhs) in part of self.series starting at offset
+        self.rhs_offset.
         """
         # XXX The estimates computed here are sometimes more pessimistic than
         # the actual tail bounds. This can happen with naive_sum too, but seems
@@ -1181,10 +1188,10 @@ cdef class DACUnroller:
 
         # Note that here radpow contains the contribution of z^λ.
         for k in range(self.log_prec):
-            for i in range(blksz):
+            for i in range(self.dop_degree):
                 # TODO Use a low-prec estimate instead (but keep reporting
                 # accuracy information)
-                c = _coeffs(self.series + k) + i
+                c = _coeffs(self.series + k) + self.rhs_offset + i
                 arb_abs(tmp, acb_realref(c))
                 arb_add(est, est, tmp, self.prec)
                 arb_abs(tmp, acb_imagref(c))
@@ -1197,7 +1204,6 @@ cdef class DACUnroller:
         cdef RealBall _tb = RealBall.__new__(RealBall)
         _tb._parent = self.Reals
         arb_swap(_tb.value, tail_bound)
-        self._rhs_offset = blksz  # only used by __check_residuals
         done, new_tail_bound = stop.check(self, n, _tb, _est, next_stride)
         arb_swap(tail_bound, (<RealBall?> new_tail_bound).value)
         arb_swap(est, _est.value)
@@ -1238,7 +1244,7 @@ cdef class DACUnroller:
                 # (cst operand constant, could save a constant factor)
                 acb_mul(nres_term + k,
                         _coeffs(self.dop_coeffs + self.dop_order),  # cst
-                        _coeffs(self.series + k) + self._rhs_offset + d,
+                        _coeffs(self.series + k) + self.rhs_offset + d,
                         self.bounds_prec)
                 # ... - sum(ind[u]*nres[k+u][d], 1 <= u < log_prec - k)
                 acb_dot(nres_term + k,
@@ -1260,7 +1266,8 @@ cdef class DACUnroller:
         acb_clear(inv)
         acb_poly_clear(_ind)
 
-        # self.__check_residuals(stop, n, nres)
+        if self.debug:
+            self.__check_residuals(stop, n, nres)
 
         return [nres]
 
@@ -1273,19 +1280,23 @@ cdef class DACUnroller:
         """
         cdef slong i, k
         cdef ComplexBall b
+        if self.rhs_offset < self.dop_degree:
+            logger.info("n=%s cannot check residual", n)
         last = []
         for i in range(self.dop_degree):
             cc = []
             for k in range(self.log_prec):
                 b = <ComplexBall> ComplexBall.__new__(ComplexBall)
                 b._parent = self.IC.zero().parent()
-                acb_set(b.value, acb_poly_get_coeff_ptr(self.series + k,
-                                                        self._rhs_offset-1-i))
+                acb_set(b.value,
+                        acb_poly_get_coeff_ptr(self.series + k,
+                                               self.rhs_offset - 1 - i))
                 cc.append(b)
             last.append(cc)
         ref = stop.maj.normalized_residual(n, last)
         if not all(c.contains_zero() for p, q in zip(nres, ref) for c in p - q):
-            print(f"{n=} {nres=}\n{n=} {ref=}")
+            logger.error("n=%s residual check failed:\nnres=%s\nref=%s",
+                         n, nres, ref)
             assert False
 
 
