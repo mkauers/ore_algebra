@@ -1,5 +1,8 @@
 # cython: language_level=3
 # vim: tw=80
+r"""
+Divide-and-conquer summation of convergent D-finite series
+"""
 
 from libc.stdlib cimport malloc, free, calloc
 
@@ -43,6 +46,17 @@ logger = logging.getLogger(__name__)
 
 
 cdef slong APPLY_DOP_INTERPOLATION_MAX_POINTS = 256
+
+
+# MAYBE-TODO:
+#   - Decouple the code for computing (i) coefficients, (ii) partial sums,
+# (iii) sums with error bounds. Could be done by subclassing DACUnroller and/or
+# introducing additional classes for sums etc. Use this when computing formal
+# log-series solutions.
+#   - Add support for inhomogeneous equations with polynomial rhs. (Always
+# sum at least up to deg(rhs) when doing error control).
+#   - Could keep only the last deg coeffs even in the DAC part (=> slightly
+# different indexing conventions).
 
 
 @cython.boundscheck(False)
@@ -97,8 +111,10 @@ cdef class DACUnroller:
     # last few (???) terms of the series solution
     cdef acb_poly_struct *series
 
-    # vector of polynomials in δ (perturbation of ζ = evaluation point) holding
-    # the jets of coefficients wrt log(ζ)^k/k! of the partial sums
+    # vector of polynomials in δ (perturbation of ξ = evaluation point) holding
+    # the jets of coefficients wrt log(ξ)^k/k! of the partial sums:
+    # self.sums + j*self.max_log_prec + k is the jet of order self.jet_order
+    # of the coeff of log^k/k! in the sum at the point of index j
     cdef acb_poly_struct *sums
 
     # internal data -- next_sum
@@ -245,6 +261,8 @@ cdef class DACUnroller:
                                  and acb_poly_get_unique_fmpz_poly(
                                                    self.dop_coeffs_fmpz + i, p))
 
+        # ini.expo is a PolynomialRoot, consider doing part of the work
+        # with its exact value instead of an interval approximation
         leftmost = Ring(ini.expo)
         acb_set(self.leftmost, (<ComplexBall?> leftmost).value)
 
@@ -278,14 +296,13 @@ cdef class DACUnroller:
 
 
     cdef acb_poly_struct *sum_ptr(self, int j, int k) noexcept:
-        # self.sums + j*self.max_log_prec + k is the jet of order self.jet_order
-        # of the coeff of log^k/k! in the sum at the point of index j
         return self.sums + j*self.max_log_prec + k
 
 
     ## Main summation loop
 
 
+    # Maybe get rid of this and use sum_dac only?
     def sum_blockwise(self, stop):
         cdef slong i, j, k
         cdef acb_ptr c
@@ -296,6 +313,7 @@ cdef class DACUnroller:
         # Block size must be >= deg. Power-of-two factors may be beneficial when
         # using apply_dop_interpolation.
         cdef slong blksz = max(1, self.dop_degree)
+        # cdef slong blksz = 1 << (self.dop_degree - 1).bit_length()
         for k in range(self.max_log_prec):
             acb_poly_fit_length(self.series + k, 2*blksz)
         cdef slong blkstride = max(2, 32//blksz)
@@ -311,7 +329,7 @@ cdef class DACUnroller:
         arb_pos_inf(tb)
         mag_init(coeff_rad)
 
-        self.apply_dop_interpolation_max_len = min(
+        self.apply_dop_interpolation_max_len = min(  # threshold TBI
             APPLY_DOP_INTERPOLATION_MAX_POINTS,
             self.prec,
             2*blksz)
@@ -376,6 +394,7 @@ cdef class DACUnroller:
         for a given rhs itself of support contained in ``λ+low:λ+high``.
         Works in place on ``self.series[:][low-base:high-base]``.
         """
+        # XXX should it be L(y) = -rhs in the above docstring?
 
         assert base <= low <= high
 
@@ -519,6 +538,8 @@ cdef class DACUnroller:
         acb_poly_clear(ind_n)
 
 
+    # - cache (cf. get_residuals)?
+    # - use multi-point evaluation?
     cdef void eval_ind(self, acb_poly_t ind_n, slong n, int order) noexcept:
         cdef slong i
         cdef acb_t expo
