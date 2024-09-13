@@ -176,11 +176,11 @@ cdef class DACUnroller:
         self.pows =  _acb_vec_init(self.numpts)
         self.binom_n = _fmpz_vec_init(self.jet_order)
 
-        self.sums = <acb_poly_struct *> malloc(self.numpts*self.max_log_prec*sz_poly)
+        self.sums = <acb_poly_struct *> malloc(self.numpts
+                                               *self.max_log_prec*sz_poly)
         for i in range(self.numpts*self.max_log_prec):
             acb_poly_init(self.sums + i)
             acb_poly_fit_length(self.sums + i, self.jet_order)
-            _acb_poly_set_length(self.sums + i, self.jet_order)
 
         acb_poly_init(self.ind)
         acb_init(self.leftmost)
@@ -314,9 +314,7 @@ cdef class DACUnroller:
         # using apply_dop_interpolation.
         cdef slong blksz = max(1, self.dop_degree)
         # cdef slong blksz = 1 << (self.dop_degree - 1).bit_length()
-        for k in range(self.max_log_prec):
-            acb_poly_fit_length(self.series + k, 2*blksz)
-        cdef slong blkstride = max(2, 32//blksz)
+        cdef slong blkstride = max(1, 32//blksz)
 
         arb_init(radpow)
         arb_pow(radpow, self.rad, acb_imagref(self.leftmost), self.bounds_prec)
@@ -337,6 +335,12 @@ cdef class DACUnroller:
 
         for i in range(self.numpts):
             acb_one(self.pows + i)
+        for k in range(self.max_log_prec):
+            acb_poly_zero(self.series + k)
+            acb_poly_fit_length(self.series + k, 2*blksz)
+        for i in range(self.numpts*self.max_log_prec):
+            acb_poly_zero(self.sums + i)
+            _acb_poly_set_length(self.sums + i, self.jet_order)
 
         cdef bint done = False
         cdef slong b = 0
@@ -344,6 +348,9 @@ cdef class DACUnroller:
             self.sum_dac(b*blksz, b*blksz, (b+1)*blksz)
             self.apply_dop(b*blksz, b*blksz, (b+1)*blksz, (b+2)*blksz)
 
+            # Support stopping in the middle of a block when dop_degree is
+            # large? Would need the ability to compute the high part of the
+            # residual (to low precision).
             if b % blkstride == 0:
                 if self.check_convergence(stop, (b+1)*blksz, blksz,
                                           est, tb, radpow, blkstride*blksz):
