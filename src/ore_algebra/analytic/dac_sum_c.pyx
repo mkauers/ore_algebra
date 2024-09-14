@@ -56,8 +56,6 @@ cdef slong APPLY_DOP_INTERPOLATION_MAX_POINTS = 256
 # log-series solutions.
 #   - Add support for inhomogeneous equations with polynomial rhs. (Always
 # sum at least up to deg(rhs) when doing error control).
-#   - Could keep only the last deg coeffs even in the DAC part (=> slightly
-# different indexing conventions).
 
 
 @cython.boundscheck(False)
