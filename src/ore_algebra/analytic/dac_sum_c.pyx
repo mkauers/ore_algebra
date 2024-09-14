@@ -501,9 +501,7 @@ cdef class DACUnroller:
 
         # Working on copies allows us to use acb_dot.
         cdef acb_struct *new_term  # XXX reuse?
-        new_term = <acb_struct *> malloc(rhs_len*sizeof(acb_struct))
-        for k in range(rhs_len):
-            acb_init(new_term + k)
+        new_term = _acb_vec_init(rhs_len)
 
         for k in range(rhs_len - 1, -1, -1):
             # combin = rhs[k][0] + sum(ind_n[mult+1+j]*new_term[k+1+j], j≥0)
@@ -557,9 +555,7 @@ cdef class DACUnroller:
 
         self.log_prec = max(self.log_prec, rhs_len + mult)
 
-        for k in range(rhs_len):
-            acb_clear(new_term + k)
-        free(new_term)
+        _acb_vec_clear(new_term, rhs_len)
         acb_clear(invlc)
         fmpz_clear(lc)
         acb_poly_clear(ind_n)
