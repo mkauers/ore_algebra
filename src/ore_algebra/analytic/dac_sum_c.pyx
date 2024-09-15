@@ -335,7 +335,7 @@ cdef class DACUnroller:
             APPLY_DOP_INTERPOLATION_MAX_POINTS,
             self.prec,
             2*blksz)
-        self.tinterp_cache_init(self.apply_dop_interpolation_max_len//2)
+        self.tinterp_cache_init(self.apply_dop_interpolation_max_len//2 + 1)
 
         for i in range(self.numpts):
             acb_one(self.pows + i)
