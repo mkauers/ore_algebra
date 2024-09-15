@@ -865,27 +865,14 @@ cdef class DACUnroller:
 
         # To compute derivatives, we need a copy of a chunk of `series`
         cdef acb_poly_struct *curder
-        curder = <acb_poly_struct *> malloc(self.log_prec
-                                            *sizeof(acb_poly_struct))
-        for k in range(self.log_prec):
-            acb_poly_init(curder + k)
-            acb_poly_fit_length(curder + k, mid - low)
-            _acb_vec_set(_coeffs(curder + k),
-                         _coeffs(self.series + k) + low - base,
-                         mid - low)
-            _acb_poly_set_length(curder + k, mid - low)
-            _acb_poly_normalise(curder + k)
+        curder = self.__copy_series_block(low - base, mid - low)
 
         for i in range(self.dop_order + 1):
 
             for k in range(self.log_prec):
 
                 # rhs[k] ← rhs[k] + self.dop(chunk)[k]
-
-                # This should be a mulmid. In practice mullow_classical or a
-                # quadratic-time naïve mulmid is faster on typical inputs...
-                # XXX Try with a Karatsuba mulmid?
-                # XXX Should ignore constant coefficients
+                # This should be a mulmid, and ignore the constant coefficients.
                 acb_poly_mullow(tmp, self.dop_coeffs + i, curder + k,
                                 high - low, self.prec)
                 acb_poly_shift_right(tmp, tmp, mid - low)
@@ -897,24 +884,51 @@ cdef class DACUnroller:
                               self.prec)
 
                 # curder[k] ← (d/dx)(previous curder)[k]
+                self.__diff_log_coeff(curder, low, k)
 
-                # XXX Optimize case of rational `leftmost`. Maybe fuse some
-                # operations.
-                acb_poly_scalar_mul(tmp, curder + k, self.leftmost, self.prec)
-                for j in range(acb_poly_length(curder + k)):
-                    acb_mul_ui(_coeffs(curder + k) + j,
-                               _coeffs(curder + k) + j,
-                               low + j,
-                               self.prec)
-                acb_poly_add(curder + k, curder + k, tmp, self.prec)
-                if k + 1 < self.log_prec:
-                    acb_poly_add(curder + k, curder + k, curder + k + 1,
-                                 self.prec)
+        self.__clear_block(curder)
+        acb_poly_clear(tmp)
 
+
+    cdef acb_poly_struct *__copy_series_block(self, slong base, slong length):
+        cdef slong k
+        cdef slong bytes = self.log_prec*sizeof(acb_poly_struct)
+        cdef acb_poly_struct *tgt = <acb_poly_struct *> malloc(bytes)
         for k in range(self.log_prec):
-            acb_poly_clear(curder + k)
-        free(curder)
+            acb_poly_init(tgt + k)
+            acb_poly_fit_length(tgt + k, length)
+            _acb_vec_set(_coeffs(tgt + k),
+                         _coeffs(self.series + k) + base,
+                         length)
+            _acb_poly_set_length(tgt + k, length)
+            _acb_poly_normalise(tgt + k)
+        return tgt
 
+
+    # must be called before log_prec has changed!
+    cdef void __clear_block(self, acb_poly_struct *block):
+        cdef slong k
+        for k in range(self.log_prec):
+            acb_poly_clear(block + k)
+        free(block)
+
+
+    cdef void __diff_log_coeff(self, acb_poly_struct *f, slong low, slong k):
+        cdef slong j
+        cdef acb_poly_t tmp
+        acb_poly_init(tmp)
+        # XXX Optimize case of rational `leftmost`. Maybe fuse some
+        # operations.
+        acb_poly_scalar_mul(tmp, f + k, self.leftmost, self.prec)
+        for j in range(acb_poly_length(f + k)):
+            acb_mul_ui(_coeffs(f + k) + j,
+                       _coeffs(f + k) + j,
+                       low + j,
+                       self.prec)
+        acb_poly_add(f + k, f + k, tmp, self.prec)
+        if k + 1 < self.log_prec:
+            acb_poly_add(f + k, f + k, f + k + 1,
+                         self.prec)
         acb_poly_clear(tmp)
 
 
@@ -949,25 +963,12 @@ cdef class DACUnroller:
         cdef slong i, j, k, n, p
         cdef acb_ptr dest
 
-        cdef acb_poly_t tmp
-        acb_poly_init(tmp)
-        acb_poly_fit_length(tmp, high - low)
-
         cdef acb_t y
         acb_init(y)
 
         # To compute derivatives, we need a copy of a chunk of `series`
         cdef acb_poly_struct *curder
-        curder = <acb_poly_struct *> malloc(self.log_prec
-                                            *sizeof(acb_poly_struct))
-        for k in range(self.log_prec):
-            acb_poly_init(curder + k)
-            acb_poly_fit_length(curder + k, mid - low)
-            _acb_vec_set(_coeffs(curder + k),
-                         _coeffs(self.series + k) + low - base,
-                         mid - low)
-            _acb_poly_set_length(curder + k, mid - low)
-            _acb_poly_normalise(curder + k)
+        curder = self.__copy_series_block(low - base, mid - low)
 
         # We need at least high - low - 1 interpolation points. We round this
         # number to the next even integer to compute the transposed
@@ -1019,19 +1020,7 @@ cdef class DACUnroller:
                                prec)
 
                 # curder[k] ← (d/dx)(previous curder)[k]
-
-                # XXX Optimize case of rational `leftmost`. Maybe fuse some
-                # operations.
-                acb_poly_scalar_mul(tmp, curder + k, self.leftmost, prec)
-                for j in range(acb_poly_length(curder + k)):
-                    acb_mul_ui(_coeffs(curder + k) + j,
-                               _coeffs(curder + k) + j,
-                               low + j,
-                               prec)
-                acb_poly_add(curder + k, curder + k, tmp, prec)
-                if k + 1 < self.log_prec:
-                    acb_poly_add(curder + k, curder + k, curder + k + 1,
-                                 prec)
+                self.__diff_log_coeff(curder, low, k)
 
         # (iv) Transposed Horner evaluation, adding to the values already
         # present in the high part of self.series.
@@ -1076,11 +1065,8 @@ cdef class DACUnroller:
 
         acb_mat_clear(prodval)
         _acb_vec_clear(curderval, 2*halflen)
-        for k in range(self.log_prec):
-            acb_poly_clear(curder + k)
-        free(curder)
+        self.__clear_block(curder)
         acb_clear(y)
-        acb_poly_clear(tmp)
 
 
     cdef void tinterp_cache_init(self, slong size):
