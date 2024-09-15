@@ -178,6 +178,10 @@ cdef class DACUnroller:
         # (needs updating to support inhomogeneous equations)
         self.max_log_prec = self.dop_order
         self.log_prec = 0
+        # XXX maybe using a single acb_vec would be more convenient after all?
+        # (in particular, the coefficients of x^n·log(x)^k for k = 0, 1, ...
+        # would then be regularly spaced, and we don't use non-underscore
+        # acb_poly functions much)
         self.series = <acb_poly_struct *> malloc(self.max_log_prec*sz_poly)
         for i in range(self.max_log_prec):
             acb_poly_init(self.series + i)
@@ -351,6 +355,7 @@ cdef class DACUnroller:
         for k in range(self.max_log_prec):
             acb_poly_zero(self.series + k)
             acb_poly_fit_length(self.series + k, 2*blksz)
+            _acb_poly_set_length(self.series + k, 2*blksz)  # for printfs
         for i in range(self.numpts*self.max_log_prec):
             acb_poly_zero(self.sums + i)
             _acb_poly_set_length(self.sums + i, self.jet_order)
@@ -386,7 +391,10 @@ cdef class DACUnroller:
                     break
 
             for k in range(self.log_prec):
-                acb_poly_shift_right(self.series + k, self.series + k, blksz)
+                _acb_poly_shift_right(_coeffs(self.series + k),
+                                      _coeffs(self.series + k),
+                                      high + blksz - base, high - base)
+                _acb_vec_zero(_coeffs(self.series + k) + blksz, blksz)
 
             arb_mul(radpow, radpow, radpow_blk, self.bounds_prec)
 
@@ -538,15 +546,13 @@ cdef class DACUnroller:
         # Write the new term to self.series
 
         for k in range(mult):
-            acb_poly_set_coeff_acb(self.series + k, n - base,
-                                   (<ComplexBall?> ini[k]).value)
+            acb_set(_coeffs(self.series + k) +  n - base,
+                    (<ComplexBall?> ini[k]).value)
         for k in range(mult, rhs_len + mult):
-            if acb_poly_length(self.series + k) <= n - base:  # XXX crucial, but is this the right place to do it?
-                _acb_poly_set_length(self.series + k, n - base + 1)
             acb_swap(_coeffs(self.series + k) + n - base,
                      new_term + k - mult)
         for k in range(rhs_len + mult, self.log_prec):
-            acb_poly_set_coeff_si(self.series + k, n - base, 0)
+            acb_zero(_coeffs(self.series + k) + n - base)
 
         # Store the critical coefficients
 
@@ -719,11 +725,6 @@ cdef class DACUnroller:
         # TODO: Also optimize for rational exponents.
         cdef bint leftmost_is_zero = acb_is_zero(self.leftmost)
 
-        for k in range(self.log_prec):
-            if acb_poly_length(self.series + k) < high - base:
-                acb_poly_fit_length(self.series + k, high - base)
-                _acb_poly_set_length(self.series + k, high - base)
-
         for n in range(mid, high):
 
             j0 = n - mid + 1
@@ -802,11 +803,6 @@ cdef class DACUnroller:
 
         cdef fmpz *cofac = _fmpz_vec_init(mid - low)
 
-        for k in range(self.log_prec):
-            if acb_poly_length(self.series + k) < high - base:
-                acb_poly_fit_length(self.series + k, high - base)
-                _acb_poly_set_length(self.series + k, high - base)
-
         for n in range(mid, high):
 
             j0 = n - mid + 1
@@ -869,12 +865,16 @@ cdef class DACUnroller:
 
         # To compute derivatives, we need a copy of a chunk of `series`
         cdef acb_poly_struct *curder
-        curder = <acb_poly_struct *> malloc(self.log_prec*sizeof(acb_poly_struct))
+        curder = <acb_poly_struct *> malloc(self.log_prec
+                                            *sizeof(acb_poly_struct))
         for k in range(self.log_prec):
-            acb_poly_init(curder + k)  # XXX maybe reuse between calls
-            acb_poly_shift_right(curder + k, self.series + k, low - base)
-            # typically already satisfied (?)
-            acb_poly_truncate(curder + k, mid - low)
+            acb_poly_init(curder + k)
+            acb_poly_fit_length(curder + k, mid - low)
+            _acb_vec_set(_coeffs(curder + k),
+                         _coeffs(self.series + k) + low - base,
+                         mid - low)
+            _acb_poly_set_length(curder + k, mid - low)
+            _acb_poly_normalise(curder + k)
 
         for i in range(self.dop_order + 1):
 
@@ -889,9 +889,6 @@ cdef class DACUnroller:
                 acb_poly_mullow(tmp, self.dop_coeffs + i, curder + k,
                                 high - low, self.prec)
                 acb_poly_shift_right(tmp, tmp, mid - low)
-                if acb_poly_length(self.series + k) < high - base:
-                    acb_poly_fit_length(self.series + k, high - base)
-                    _acb_poly_set_length(self.series + k, high - base)
                 _acb_poly_add(_coeffs(self.series + k) + mid - base,
                               _coeffs(self.series + k) + mid - base,
                               high - mid,
@@ -965,9 +962,12 @@ cdef class DACUnroller:
                                             *sizeof(acb_poly_struct))
         for k in range(self.log_prec):
             acb_poly_init(curder + k)
-            acb_poly_shift_right(curder + k, self.series + k, low - base)
-            # typically already satisfied (?)
-            acb_poly_truncate(curder + k, mid - low)
+            acb_poly_fit_length(curder + k, mid - low)
+            _acb_vec_set(_coeffs(curder + k),
+                         _coeffs(self.series + k) + low - base,
+                         mid - low)
+            _acb_poly_set_length(curder + k, mid - low)
+            _acb_poly_normalise(curder + k)
 
         # We need at least high - low - 1 interpolation points. We round this
         # number to the next even integer to compute the transposed
@@ -1032,11 +1032,6 @@ cdef class DACUnroller:
                 if k + 1 < self.log_prec:
                     acb_poly_add(curder + k, curder + k, curder + k + 1,
                                  prec)
-
-        for k in range(self.log_prec):
-            if acb_poly_length(self.series + k) < high - base:
-                acb_poly_fit_length(self.series + k, high - base)
-                _acb_poly_set_length(self.series + k, high - base)
 
         # (iv) Transposed Horner evaluation, adding to the values already
         # present in the high part of self.series.
@@ -1308,8 +1303,7 @@ cdef class DACUnroller:
                 b = <ComplexBall> ComplexBall.__new__(ComplexBall)
                 b._parent = self.IC.zero().parent()
                 acb_set(b.value,
-                        acb_poly_get_coeff_ptr(self.series + k,
-                                               self.rhs_offset - 1 - i))
+                        _coeffs(self.series + k) + self.rhs_offset - 1 - i)
                 cc.append(b)
             last.append(cc)
         ref = stop.maj.normalized_residual(n, last)
