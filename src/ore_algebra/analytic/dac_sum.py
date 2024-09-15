@@ -25,11 +25,20 @@ TESTS::
     ....:         algorithm=["dac"], two_point_mode=False)
     [0.011501537469552017...]
 
+    sage: from ore_algebra.examples.periods import dop_140118_4
+    sage: dop_140118_4.numerical_transition_matrix([0,1], 1e-200,
+    ....:         assume_analytic=True, algorithm="dac")[3,3]
+    [0.0037773116...2646238326...]
+
     sage: from ore_algebra.examples import fcc
     sage: fcc.dop5.numerical_solution( # long time (4.8 s)
     ....:          [0, 0, 0, 0, 1, 0], [0, 1/5+i/2, 1],
     ....:          1e-60, algorithm=["dac"])
     [1.04885235135491485162956376369999275945402550465206640...] + [+/- ...]*I
+
+    sage: from ore_algebra.examples import polya
+    sage: polya.dop[10].numerical_solution([0]*9+[1], [0,1/20], algorithm="dac")
+    [1.05954374788826...] + [+/- ...]*I
 
 Easy singular example::
 
@@ -64,7 +73,6 @@ Whittaker functions with irrational exponents::
     [[-3.829367993175840...]  [7.857756823216673...]]
     [[-1.135875563239369...]  [1.426170676718429...]]
 
-An interesting “real-world” example, where one of the local exponents is
 Recurrences of order zero::
 
     sage: (x*Dx + 1).numerical_transition_matrix([0,2], algorithm=["dac"])
@@ -97,6 +105,24 @@ Miscellaneous examples::
     sage: QQi.<i> = QuadraticField(-1)
     sage: (Dx - i).numerical_solution([1], [sqrt(2), sqrt(3)], algorithm=["dac"])
     [0.9499135278648561...] + [0.3125128630622157...]*I
+
+Variants of ``apply_dop``::
+
+    sage: from ore_algebra.analytic.dac_sum_c import ApplyDopAlgorithm
+    sage: dop = (x*Dx)^4*(x*Dx-1/3)^4*((x*Dx)^2-2) + x^3*Dx + 5*x^2
+    sage: ref = dop.numerical_solution(range(10), [0,1],
+    ....:         post_transform=1+1/7*Dx^5, algorithm=["naive"])
+    sage: ref
+    [23.9550253138882...]
+    sage: [(algo,
+    ....:   dop.numerical_solution(range(10), [0,1], post_transform=1+1/7*Dx^5,
+    ....:                          algorithm=["dac"], apply_dop=algo)
+    ....:   .overlaps(ref))
+    ....:  for algo in ApplyDopAlgorithm.__members__.keys()]
+    [('APPLY_DOP_POLMUL', True),
+     ('APPLY_DOP_BASECASE_GENERIC', True),
+     ('APPLY_DOP_BASECASE_EXACT', True),
+     ('APPLY_DOP_INTERPOLATION', True)]
 """
 
 import logging

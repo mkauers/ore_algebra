@@ -37,6 +37,11 @@ class Context:
       specifying a *single* algorithm ``algo`` is interpreted as
       ``"algo,auto"``.
 
+    - ``apply_dop`` (string) -- (EXPERIMENTAL) Algorithm to use for applying an
+      operator to a polynomial when using the divide-and-conquer unrolling
+      method. Mainly for testing purposes. Accepted values may change in
+      backward incompatible ways.
+
     - ``assume_analytic`` (boolean) -- When ``True``, assume that the
       solution(s) of interest of the equation being solved are analytic at any
       singular point of the operator lying on the path (excluding the
@@ -97,6 +102,7 @@ class Context:
 
     def _set_options(self, *,
                      algorithm=("auto",),
+                     apply_dop="APPLY_DOP_BASECASE_EXACT",
                      assume_analytic=False,
                      binsplit_thr=128,
                      bit_burst_thr=32,
@@ -128,6 +134,8 @@ class Context:
                 raise ValueError("algorithm", algo)
         if len(set(self.algorithms)) < len(self.algorithms):
             raise ValueError("repeated values in algorithm option")
+
+        self.apply_dop = str(apply_dop)
 
         if not isinstance(assume_analytic, bool):
             raise TypeError("assume_analytic", type(assume_analytic))

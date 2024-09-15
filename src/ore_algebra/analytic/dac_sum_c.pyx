@@ -46,6 +46,12 @@ from .context import dctx
 logger = logging.getLogger(__name__)
 
 
+cpdef enum ApplyDopAlgorithm:
+    APPLY_DOP_POLMUL
+    APPLY_DOP_BASECASE_GENERIC
+    APPLY_DOP_BASECASE_EXACT
+    APPLY_DOP_INTERPOLATION
+
 cdef slong APPLY_DOP_INTERPOLATION_MAX_POINTS = 256
 
 
@@ -70,6 +76,7 @@ cdef class DACUnroller:
     """
 
     cdef bint debug
+    cdef ApplyDopAlgorithm apply_dop_algorithm
 
     cdef slong dop_order
     cdef slong dop_degree
@@ -230,6 +237,8 @@ cdef class DACUnroller:
         cdef acb_poly_struct *p
 
         assert dop_T.parent().is_T()
+
+        self.apply_dop_algorithm = ApplyDopAlgorithm[ctx.apply_dop]
 
         ## Parents
 
@@ -641,7 +650,8 @@ cdef class DACUnroller:
     ## Image of a polynomial
 
 
-    cdef void apply_dop(self, slong base, slong low, slong mid, slong high) noexcept:
+    cdef void apply_dop(self, slong base, slong low, slong mid,
+                        slong high) noexcept:
         r"""
         *Add* to ``self.series[:][mid-base:high-base]`` the coefficients of
         ``self.dop(y[λ+low:λ+mid])``, where the input is given in
@@ -649,19 +659,24 @@ cdef class DACUnroller:
         """
         cdef slong k
 
-        if False:
+        if self.apply_dop_algorithm == APPLY_DOP_INTERPOLATION:
             # too slow at the moment; may/should be useful in some range of
             # (high-low)/dop_order?
             self.apply_dop_interpolation(base, low, mid, high)
-        elif False:
+        elif self.apply_dop_algorithm == APPLY_DOP_POLMUL:
             # really slow, but might be useful for huge (high-low)/dop_order when
             # the bitlength coefficients of the operator is comparable to the
             # working precision
             self.apply_dop_polmul(base, low, mid, high)
-        elif self.dop_is_exact and acb_is_zero(self.leftmost):
-            self.apply_dop_basecase_exact(base, low, mid, high)
-        else:
+        elif self.apply_dop_algorithm == APPLY_DOP_BASECASE_EXACT:
+            if self.dop_is_exact and acb_is_zero(self.leftmost):
+                self.apply_dop_basecase_exact(base, low, mid, high)
+            else:
+                self.apply_dop_basecase(base, low, mid, high)
+        elif self.apply_dop_algorithm == APPLY_DOP_BASECASE_GENERIC:
             self.apply_dop_basecase(base, low, mid, high)
+        else:
+            assert False
 
 
     # Compared to a version of apply_dop that uses fast polynomial
