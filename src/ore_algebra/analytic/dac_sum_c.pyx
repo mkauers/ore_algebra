@@ -766,7 +766,8 @@ cdef class DACUnroller:
         acb_clear(expo)
 
 
-    cdef acb_addmul_binom(self, acb_ptr c, acb_srcptr b, slong i, slong t):
+    cdef acb_addmul_binom(self, acb_ptr c, acb_srcptr b,
+                          slong i, slong t) noexcept:
         if t == 0:
             acb_add(c, c, b, self.prec)
         elif t == 1:
@@ -877,7 +878,8 @@ cdef class DACUnroller:
         acb_poly_clear(tmp)
 
 
-    cdef void __diff_log_coeff(self, acb_poly_struct *f, slong low, slong k):
+    cdef void __diff_log_coeff(self, acb_poly_struct *f, slong low,
+                               slong k) noexcept:
         cdef slong j
         cdef acb_poly_t tmp
         acb_poly_init(tmp)
@@ -1033,7 +1035,7 @@ cdef class DACUnroller:
         acb_clear(y)
 
 
-    cdef void tinterp_cache_init(self, slong size):
+    cdef void tinterp_cache_init(self, slong size) noexcept:
         assert self.tinterp_cache_num == NULL
         self.tinterp_cache_size = size
         self.tinterp_cache_num = <acb_mat_struct *> calloc(size,
@@ -1041,7 +1043,7 @@ cdef class DACUnroller:
         self.tinterp_cache_den = <fmpz *> malloc(size*sizeof(fmpz))
 
 
-    cdef void tinterp_cache_clear(self):
+    cdef void tinterp_cache_clear(self) noexcept:
         cdef slong i
         for i in range(self.tinterp_cache_size):
             if (<acb_ptr *> (self.tinterp_cache_num + i))[0] != NULL:
@@ -1051,7 +1053,7 @@ cdef class DACUnroller:
         free(self.tinterp_cache_den)
 
 
-    cdef void tinterp_cache_compute(self, slong n):
+    cdef void tinterp_cache_compute(self, slong n) noexcept:
         r"""
         Precompute the images by the transposed interpolation operator at the 2n
         points ``0, 1, -1, ..., n-1, 1-n, ∞`` of the polynomials
