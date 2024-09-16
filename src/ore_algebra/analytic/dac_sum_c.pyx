@@ -161,18 +161,13 @@ cdef class DACUnroller:
 
         self.debug = False
 
-        cdef size_t sz_poly = sizeof(acb_poly_struct)
         self.dop_order = dop_T.order()
         self.dop_degree = dop_T.degree()
         self.numpts = len(py_evpts)
         self.jet_order = py_evpts.jet_order
 
-        self.dop_coeffs = <acb_poly_struct *> malloc((self.dop_order+1)*sz_poly)
-        self.dop_coeffs_fmpz = (<fmpz_poly_struct *> malloc((self.dop_order + 1)
-                                                     *sizeof(fmpz_poly_struct)))
-        for i in range(self.dop_order + 1):
-            acb_poly_init(self.dop_coeffs + i)
-            fmpz_poly_init(self.dop_coeffs_fmpz + i)
+        self.dop_coeffs = _acb_poly_vec_init(self.dop_order + 1)
+        self.dop_coeffs_fmpz = _fmpz_poly_vec_init(self.dop_order + 1)
 
         # using dop_order as a crude bound for max log prec
         # (needs updating to support inhomogeneous equations)
@@ -182,18 +177,14 @@ cdef class DACUnroller:
         # (in particular, the coefficients of x^n·log(x)^k for k = 0, 1, ...
         # would then be regularly spaced, and we don't use non-underscore
         # acb_poly functions much)
-        self.series = <acb_poly_struct *> malloc(self.max_log_prec*sz_poly)
-        for i in range(self.max_log_prec):
-            acb_poly_init(self.series + i)
+        self.series = _acb_poly_vec_init(self.max_log_prec)
 
         self.evpts = _acb_vec_init(self.numpts)
         self.pows =  _acb_vec_init(self.numpts)
         self.binom_n = _fmpz_vec_init(self.jet_order)
 
-        self.sums = <acb_poly_struct *> malloc(self.numpts
-                                               *self.max_log_prec*sz_poly)
+        self.sums = _acb_poly_vec_init(self.numpts*self.max_log_prec)
         for i in range(self.numpts*self.max_log_prec):
-            acb_poly_init(self.sums + i)
             acb_poly_fit_length(self.sums + i, self.jet_order)
 
         acb_poly_init(self.ind)
@@ -216,23 +207,16 @@ cdef class DACUnroller:
         acb_clear(self.leftmost)
         acb_poly_clear(self.ind)
 
-        for i in range(self.numpts*self.max_log_prec):
-            acb_poly_clear(self.sums + i)
-        free(self.sums)
+        _acb_poly_vec_clear(self.sums, self.numpts*self.max_log_prec)
 
         _fmpz_vec_clear(self.binom_n, self.jet_order)
         _acb_vec_clear(self.pows, self.numpts)
         _acb_vec_clear(self.evpts, self.numpts)
 
-        for i in range(self.max_log_prec):
-            acb_poly_clear(self.series + i)
-        free(self.series)
+        _acb_poly_vec_clear(self.series, self.max_log_prec)
 
-        for i in range(self.dop_order + 1):
-            acb_poly_clear(self.dop_coeffs + i)
-            fmpz_poly_clear(self.dop_coeffs_fmpz + i)
-        free(self.dop_coeffs)
-        free(self.dop_coeffs_fmpz)
+        _acb_poly_vec_clear(self.dop_coeffs, self.dop_order + 1)
+        _fmpz_poly_vec_clear(self.dop_coeffs_fmpz, self.dop_order + 1)
 
 
     def __init__(self, dop_T, ini, py_evpts, Ring, *, ctx=dctx):
@@ -866,8 +850,9 @@ cdef class DACUnroller:
         acb_poly_fit_length(tmp, high - low)
 
         # To compute derivatives, we need a copy of a chunk of `series`
-        cdef acb_poly_struct *curder
-        curder = self.__copy_series_block(low - base, mid - low)
+        cdef acb_poly_struct *curder = _acb_poly_vec_init(self.log_prec)
+        _acb_poly_vec_set_block(curder, self.series, self.log_prec,
+                                  low - base, mid - low)
 
         for i in range(self.dop_order + 1):
 
@@ -888,31 +873,8 @@ cdef class DACUnroller:
                 # curder[k] ← (d/dx)(previous curder)[k]
                 self.__diff_log_coeff(curder, low, k)
 
-        self.__clear_block(curder)
+        _acb_poly_vec_clear(curder, self.log_prec)
         acb_poly_clear(tmp)
-
-
-    cdef acb_poly_struct *__copy_series_block(self, slong base, slong length):
-        cdef slong k
-        cdef slong bytes = self.log_prec*sizeof(acb_poly_struct)
-        cdef acb_poly_struct *tgt = <acb_poly_struct *> malloc(bytes)
-        for k in range(self.log_prec):
-            acb_poly_init(tgt + k)
-            acb_poly_fit_length(tgt + k, length)
-            _acb_vec_set(_coeffs(tgt + k),
-                         _coeffs(self.series + k) + base,
-                         length)
-            _acb_poly_set_length(tgt + k, length)
-            _acb_poly_normalise(tgt + k)
-        return tgt
-
-
-    # must be called before log_prec has changed!
-    cdef void __clear_block(self, acb_poly_struct *block):
-        cdef slong k
-        for k in range(self.log_prec):
-            acb_poly_clear(block + k)
-        free(block)
 
 
     cdef void __diff_log_coeff(self, acb_poly_struct *f, slong low, slong k):
@@ -961,7 +923,6 @@ cdef class DACUnroller:
     cdef void apply_dop_interpolation(self, slong base, slong low, slong mid,
                                       slong high) noexcept:
 
-
         cdef slong i, j, k, n, p
         cdef acb_ptr dest
 
@@ -969,8 +930,9 @@ cdef class DACUnroller:
         acb_init(y)
 
         # To compute derivatives, we need a copy of a chunk of `series`
-        cdef acb_poly_struct *curder
-        curder = self.__copy_series_block(low - base, mid - low)
+        cdef acb_poly_struct *curder = _acb_poly_vec_init(self.log_prec)
+        _acb_poly_vec_set_block(curder, self.series, self.log_prec,
+                                  low - base, mid - low)
 
         # We need at least high - low - 1 interpolation points. We round this
         # number to the next even integer to compute the transposed
@@ -1067,7 +1029,7 @@ cdef class DACUnroller:
 
         acb_mat_clear(prodval)
         _acb_vec_clear(curderval, 2*halflen)
-        self.__clear_block(curder)
+        _acb_poly_vec_clear(curder, self.log_prec)
         acb_clear(y)
 
 
@@ -1388,6 +1350,48 @@ cdef void eval_reverse_stdpts(acb_ptr val, slong n, const acb_poly_struct *pol,
 
     acb_clear(even)
     acb_clear(odd)
+
+
+cdef acb_poly_struct *_acb_poly_vec_init(slong n) noexcept:
+    cdef slong i
+    cdef acb_poly_struct *vec
+    vec = <acb_poly_struct *> malloc(n*sizeof(acb_poly_struct))
+    for i in range(n):
+        acb_poly_init(vec + i)
+    return vec
+
+
+cdef void _acb_poly_vec_clear(acb_poly_struct *vec, slong n) noexcept:
+    cdef slong i
+    for i in range(n):
+        acb_poly_clear(vec + i)
+    free(vec)
+
+
+cdef void _acb_poly_vec_set_block(acb_poly_struct *tgt, acb_poly_struct *src,
+                                  slong n, slong base, slong length):
+    cdef slong k
+    for k in range(n):
+        acb_poly_fit_length(tgt + k, length)
+        _acb_vec_set(_coeffs(tgt + k), _coeffs(src + k) + base, length)
+        _acb_poly_set_length(tgt + k, length)
+        _acb_poly_normalise(tgt + k)
+
+
+cdef fmpz_poly_struct *_fmpz_poly_vec_init(slong n) noexcept:
+    cdef slong i
+    cdef fmpz_poly_struct *vec
+    vec = <fmpz_poly_struct *> malloc(n*sizeof(fmpz_poly_struct))
+    for i in range(n):
+        fmpz_poly_init(vec + i)
+    return vec
+
+
+cdef void _fmpz_poly_vec_clear(fmpz_poly_struct *vec, slong n) noexcept:
+    cdef slong i
+    for i in range(n):
+        fmpz_poly_clear(vec + i)
+    free(vec)
 
 
 ## Debugging utilities
