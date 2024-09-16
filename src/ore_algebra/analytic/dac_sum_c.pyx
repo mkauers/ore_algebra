@@ -730,6 +730,9 @@ cdef class DACUnroller:
             j0 = n - mid + 1
             length = min(n - low, self.dop_degree) + 1 - j0
 
+            # - Use some kind of fast multi-point evaluation??
+            # - Use acb_poly_taylor_shift instead of looping on t???
+            # - Precompute dop coeff*binom?
             for t in range(self.log_prec):
 
                 # TODO This part could be shared between several solutions
@@ -749,10 +752,6 @@ cdef class DACUnroller:
                     if not leftmost_is_zero:
                         acb_add_si(expo, self.leftmost, n - j, self.prec)
 
-                    # - Use some kind of fast multi-point evaluation??
-                    # - Use acb_poly_taylor_shift instead of looping on t???
-                    # - Precompute dop coeff*binom?
-
                     c = cofac + j - j0
                     acb_zero(c)
                     for i in range(self.dop_order, t - 1, -1):  # Horner
@@ -760,17 +759,10 @@ cdef class DACUnroller:
                             acb_mul_si(c, c, n - j, self.prec)
                         else:
                             acb_mul(c, c, expo, self.prec)
-                        if j >= acb_poly_length(self.dop_coeffs + i) or t > i:
+                        if j >= acb_poly_length(self.dop_coeffs + i):
                             continue
                         b = _coeffs(self.dop_coeffs + i) + j
-                        if t == 0:
-                            acb_add(c, c, b, self.prec)
-                        elif t == 1:
-                            acb_addmul_si(c, b, i, self.prec)
-                        else:
-                            acb_addmul_fmpz(c, b,
-                                            fmpz_mat_entry(self.binom, i, t),
-                                            self.prec)
+                        self.acb_addmul_binom(c, b, i, t)
 
                 # We could perform a dot product of length log_prec*that
                 # (looping over t in addition to j), but this does not seem
@@ -788,6 +780,17 @@ cdef class DACUnroller:
 
         _acb_vec_clear(cofac, mid - low)
         acb_clear(expo)
+
+
+    cdef acb_addmul_binom(self, acb_ptr c, acb_srcptr b, slong i, slong t):
+        if t == 0:
+            acb_add(c, c, b, self.prec)
+        elif t == 1:
+            acb_addmul_si(c, b, i, self.prec)
+        else:
+            acb_addmul_fmpz(c, b,
+                            fmpz_mat_entry(self.binom, i, t),
+                            self.prec)
 
 
     # Same as of apply_dop_basecase but using fmpz, for operators with exact
@@ -818,8 +821,7 @@ cdef class DACUnroller:
                     fmpz_zero(c)
                     for i in range(self.dop_order, t - 1, -1):  # Horner
                         fmpz_mul_si(c, c, n - j)
-                        if (j >= fmpz_poly_length(self.dop_coeffs_fmpz + i)
-                                or t > i):
+                        if j >= fmpz_poly_length(self.dop_coeffs_fmpz + i):
                             continue
                         # Here special-casing t ∈ {0,1} does not help much.
                         fmpz_addmul(c,
