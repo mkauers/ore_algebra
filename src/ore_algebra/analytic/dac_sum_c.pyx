@@ -385,25 +385,7 @@ cdef class DACUnroller:
             b += 1
 
         self.fix_sums()
-
-        psums = [[None]*self.log_prec for _ in range(self.numpts)]
-        cdef Polynomial_complex_arb psum
-        for j in range(self.numpts):  # psum in psums
-            for k in range(self.log_prec):  # jet in psum
-                for i in range(self.jet_order):
-                    c = _coeffs(self.sum_ptr(j, k)) + i
-                    arb_add_error(acb_realref(c), tb)
-                    if self.real:
-                        assert arb_is_zero(acb_imagref(c))
-                    else:
-                        arb_add_error(acb_imagref(c), tb)
-                    mag_max(coeff_rad, coeff_rad, arb_radref(acb_realref(c)))
-                    mag_max(coeff_rad, coeff_rad, arb_radref(acb_imagref(c)))
-                psum = Polynomial_complex_arb.__new__(Polynomial_complex_arb)
-                psum._parent = self.Jets
-                acb_poly_swap(psum._poly, self.sum_ptr(j, k))
-                psums[j][k] = psum
-
+        self.add_error_get_rad(coeff_rad, tb)
         self._report_stats((b+1)*blksz, est, tb, coeff_rad)
 
         self.tinterp_cache_clear()
@@ -412,8 +394,6 @@ cdef class DACUnroller:
         arb_clear(radpow_blk)
         arb_clear(radpow)
         mag_clear(coeff_rad)
-
-        return psums
 
 
     cdef void sum_dac(self, slong base, slong low, slong high) noexcept:
@@ -441,6 +421,35 @@ cdef class DACUnroller:
         resid_len = min(high - mid, self.dop_degree + 1)
         self.apply_dop(base, low, mid, mid + resid_len)
         self.sum_dac(base, mid, high)
+
+
+    cdef void add_error_get_rad(self, mag_ptr coeff_rad, arb_ptr err):
+        cdef slong i, j, k
+        mag_zero(coeff_rad)
+        for j in range(self.numpts):  # psum in psums
+            for k in range(self.log_prec):  # jet in psum
+                for i in range(self.jet_order):
+                    c = _coeffs(self.sum_ptr(j, k)) + i
+                    arb_add_error(acb_realref(c), err)
+                    if self.real:
+                        assert arb_is_zero(acb_imagref(c))
+                    else:
+                        arb_add_error(acb_imagref(c), err)
+                    mag_max(coeff_rad, coeff_rad, arb_radref(acb_realref(c)))
+                    mag_max(coeff_rad, coeff_rad, arb_radref(acb_imagref(c)))
+
+
+    def py_sums(self):
+        cdef slong j, k
+        cdef Polynomial_complex_arb psum
+        psums = [[None]*self.log_prec for _ in range(self.numpts)]
+        for j in range(self.numpts):  # psum in psums
+            for k in range(self.log_prec):  # jet in psum
+                psum = Polynomial_complex_arb.__new__(Polynomial_complex_arb)
+                psum._parent = self.Jets
+                acb_poly_swap(psum._poly, self.sum_ptr(j, k))
+                psums[j][k] = psum
+        return psums
 
 
     cdef void _report_stats(self, slong n, arb_t est, arb_t tb,

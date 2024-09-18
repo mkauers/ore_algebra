@@ -254,11 +254,12 @@ class HighestSolMapper_dac(HighestSolMapper):
                        stop.fast_fail and ini_are_accurate)
             unr = DACUnroller(self.dop_T, ini, self.evpts, Ring, ctx=self.ctx)
             try:
-                psums = unr.sum_blockwise(stop)
+                unr.sum_blockwise(stop)
             except accuracy.PrecisionError:
                 if attempt > effort:
                     raise
             else:
+                psums = unr.py_sums()
                 # estimated “total” error accounting for both method error (tail
                 # bounds) and interval growth, but ignoring derivatives and with
                 # just a rough estimate of the singular factors
@@ -330,5 +331,5 @@ def truncated_sum(dop, ini, evpts, bit_prec, terms):
         evpts = EvaluationPoint(evpts)
     Ring = ComplexBallField(bit_prec)
     unr = DACUnroller(dop_T, ini, evpts, Ring)
-    res = unr.sum_blockwise(stop=None, max_terms=terms)
-    return res
+    unr.sum_blockwise(stop=None, max_terms=terms)
+    return unr.py_sums()
