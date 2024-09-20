@@ -302,29 +302,28 @@ def truncated_sum(dop, ini, evpts, bit_prec, terms):
     Compute a partial sum of a logarithmic series at one or more points using
     ``DACUnroller``.
 
-    The output is a list of lists, where each inner list corresponds to an
-    evaluation points and contains the coefficients of `x^λ·log(x)^k/k!` for
-    `k = 0, 1, \dots`.
-
     EXAMPLES::
 
         sage: from ore_algebra import DifferentialOperators
+        sage: from ore_algebra.analytic.local_solutions import LogSeriesInitialValues
         sage: Dops, x, Dx = DifferentialOperators(QQ, 'x')
 
         sage: from ore_algebra.analytic.dac_sum import truncated_sum
         sage: truncated_sum(Dx-1, [2], 1/2, 30, 4)
-        [[[3.2916666...]]]
+        [[3.2916666...]]
         sage: 2.*(1 + 1/2 + 1/2*(1/2)^2 + 1/6*(1/2)^3)
         3.29166666666667
 
         sage: truncated_sum(Dx^2 + 1, [1, 0], [RBF(pi), 1/2], 30, 30)
-        [[[-1.000000...]], [[0.877582...]]]
-
-    The zero series is represented as an empty list, since all the coefficients
-    of powers of log are zero::
+        [[-1.000000...], [0.877582...]]
 
         sage: truncated_sum(Dx-1, [2], 1/2, 30, 0)
-        [[]]
+        [0]
+
+        sage: truncated_sum((x*Dx - 1/3)^3*(x*Dx - 7/3) + x,
+        ....:     LogSeriesInitialValues(1/3, {0: (1,2,3), 2:(4,)}),
+        ....:     [1/2], 30, 30)
+        [[6.3444...]]
     """
     dop = DifferentialOperator(dop)
     dop_T = dop.to_T(dop._theta_alg())
@@ -338,8 +337,8 @@ def truncated_sum(dop, ini, evpts, bit_prec, terms):
     unr = DACUnroller(dop_T, [ini], evpts, Ring)
     unr.sum_blockwise(stop=None, max_terms=terms)
     [sums] = unr.py_sums()
-    # return [log_series_values(unr.Jets, ini.expo, vector(unr.Jets, psum),
-    #                           evpts.approx(unr.Jets.base_ring(), i),
-    #                           evpts.jet_order, False)
-    #         for i, psum in enumerate(sums)]
-    return sums
+    return [log_series_values(unr.Jets, ini.expo, vector(unr.Jets, psum),
+                              evpts.approx(unr.Jets.base_ring(), i),
+                              derivatives=1, is_numeric=True)[0][0]
+            for i, psum in enumerate(sums)]
+
