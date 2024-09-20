@@ -148,6 +148,7 @@ cdef void clear_solution(Solution *sol):
 
 
 @cython.boundscheck(False)
+@cython.cdivision(True)
 @cython.wraparound(False)
 cdef class DACUnroller:
     r"""
@@ -224,8 +225,8 @@ cdef class DACUnroller:
 
     # internal data -- remaining python code
 
-    cdef readonly object py_evpts, IR, IC
-    cdef object Ring, Pol, Reals, Pol_IC
+    cdef readonly object IR, IC
+    cdef object py_evpts, Ring, Pol, Reals, Pol_IC
 
     # auxiliary outputs ("cdef readonly" means read-only _from Python_!)
 
@@ -509,6 +510,7 @@ cdef class DACUnroller:
         Works in place on ``self.sol[:].series[:][low-base:high-base]``.
         """
         # XXX should it be L(y) = -rhs in the above docstring?
+        cdef slong mid
 
         assert base <= low <= high
 
