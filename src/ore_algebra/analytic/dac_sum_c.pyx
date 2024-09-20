@@ -1332,6 +1332,9 @@ cdef class DACUnroller:
                 for i in range(self.dop_degree):
                     # TODO Use a low-prec estimate instead (but keep reporting
                     # accuracy information)
+                    # XXX Using the low part here (removing self.rhs_offser)
+                    # makes the code faster on some examples: what do we really
+                    # want?
                     c = _coeffs(self.sol[m].series + k) + self.rhs_offset + i
                     arb_abs(tmp, acb_realref(c))
                     arb_add(est, est, tmp, self.prec)
