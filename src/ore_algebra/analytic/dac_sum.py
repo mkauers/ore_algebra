@@ -302,6 +302,10 @@ def truncated_sum(dop, ini, evpts, bit_prec, terms):
     Compute a partial sum of a logarithmic series at one or more points using
     ``DACUnroller``.
 
+    The output is a list of lists, where each inner list corresponds to an
+    evaluation points and contains the coefficients of `x^λ·log(x)^k/k!` for
+    `k = 0, 1, \dots`.
+
     EXAMPLES::
 
         sage: from ore_algebra import DifferentialOperators
@@ -333,5 +337,9 @@ def truncated_sum(dop, ini, evpts, bit_prec, terms):
     Ring = ComplexBallField(bit_prec)
     unr = DACUnroller(dop_T, [ini], evpts, Ring)
     unr.sum_blockwise(stop=None, max_terms=terms)
-    [sum] = unr.py_sums()
-    return sum
+    [sums] = unr.py_sums()
+    # return [log_series_values(unr.Jets, ini.expo, vector(unr.Jets, psum),
+    #                           evpts.approx(unr.Jets.base_ring(), i),
+    #                           evpts.jet_order, False)
+    #         for i, psum in enumerate(sums)]
+    return sums
