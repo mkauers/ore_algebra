@@ -416,6 +416,12 @@ class LogSeriesInitialValues:
     def compatible(self, others):
         return all(self.mult_dict() == other.mult_dict() for other in others)
 
+    def flat_shifts(self):
+        return tuple(s for s, vals in sorted(self.shift.items()) for _ in vals)
+
+    def flat_values(self):
+        return tuple(v for _, vals in sorted(self.shift.items()) for v in vals)
+
 def random_ini(dop):
     import random
     from sage.all import VectorSpace

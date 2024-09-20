@@ -202,7 +202,7 @@ class HighestSolMapper_dac(HighestSolMapper):
         sols = []
         for (_, mult), ini in zip(self.shifts, inis):
             unr, sums = self._sum_auto(ini, maj, effort)
-            if unr.real:
+            if unr.real():
                 Jets = unr.Jets.change_ring(unr.Jets.base().base())
             else:
                 Jets = unr.Jets
@@ -216,7 +216,8 @@ class HighestSolMapper_dac(HighestSolMapper):
                     self.evpts.is_numeric,
                     downshift=range(mult))
                 for i, psum in enumerate(sums)]
-            sols.append(SolutionAdapter(unr.critical_coeffs, downshifts))
+            # XXX temporary, update to compute several solutions!
+            sols.append(SolutionAdapter(unr.py_critical_coeffs(0), downshifts))
             # if we computed at least one solution successfully, try a bit
             # harder to compute the remaining ones without splitting the
             # integration step
@@ -252,14 +253,14 @@ class HighestSolMapper_dac(HighestSolMapper):
             Ring = ComplexBallField(bit_prec)
             stop.reset(self.eps >> (self.dop.order() + 4*attempt),
                        stop.fast_fail and ini_are_accurate)
-            unr = DACUnroller(self.dop_T, ini, self.evpts, Ring, ctx=self.ctx)
+            unr = DACUnroller(self.dop_T, [ini], self.evpts, Ring, ctx=self.ctx)
             try:
                 unr.sum_blockwise(stop)
             except accuracy.PrecisionError:
                 if attempt > effort:
                     raise
             else:
-                psums = unr.py_sums()
+                psums = unr.py_sums()[0]  # XXX temporary
                 # estimated “total” error accounting for both method error (tail
                 # bounds) and interval growth, but ignoring derivatives and with
                 # just a rough estimate of the singular factors
@@ -330,6 +331,7 @@ def truncated_sum(dop, ini, evpts, bit_prec, terms):
             evpts = tuple(Sequence(evpts))
         evpts = EvaluationPoint(evpts)
     Ring = ComplexBallField(bit_prec)
-    unr = DACUnroller(dop_T, ini, evpts, Ring)
+    unr = DACUnroller(dop_T, [ini], evpts, Ring)
     unr.sum_blockwise(stop=None, max_terms=terms)
-    return unr.py_sums()
+    [sum] = unr.py_sums()
+    return sum

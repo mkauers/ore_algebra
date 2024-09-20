@@ -6,6 +6,7 @@ Divide-and-conquer summation of convergent D-finite series
 
 from libc.stdlib cimport malloc, free, calloc
 
+from sage.libs.flint.flint cimport flint_printf
 from sage.libs.flint.types cimport *
 from sage.libs.flint.acb cimport *
 from sage.libs.flint.acb_mat cimport *
@@ -57,22 +58,118 @@ cdef slong APPLY_DOP_INTERPOLATION_MAX_POINTS = 256
 
 # MAYBE-TODO:
 #   - Decouple the code for computing (i) coefficients, (ii) partial sums,
-# (iii) sums with error bounds. Could be done by subclassing DACUnroller and/or
-# introducing additional classes for sums etc. Use this when computing formal
-# log-series solutions.
+# (iii) sums with error bounds. In particular, split Solution into a class for
+# coefficients and one for partial sums. Maybe also subclass DACUnroller.
+# Use this when computing formal log-series solutions.
 #   - Add support for inhomogeneous equations with polynomial rhs. (Always
 # sum at least up to deg(rhs) when doing error control).
+
+
+# State of a solution currently being computed by :class:`DACUnroller`.
+#
+# This is a struct rather than an object because working with typed arrays of
+# Python objects is cumbersome, and (for now at least) all actual operations are
+# implemented in DACUnroller.
+cdef struct Solution:
+
+    # (i,k) -> coeff of x^{λ+n[i]}·log(x)^k/k!, 0 ≤ k < log_alloc, where the
+    # n[i] are the integer shifts such that λ+n[i] is a root of the indicial
+    # polynomial, in increasing order. Entries with k < mult(λ+n) must be
+    # specified as initial conditions, remaining entries with n < truncation
+    # order will be filled during the computation of the solution.
+    acb_mat_t critical_coeffs
+
+    # max length wrt log of any of the coefficients of the solution, the rhs,
+    # or the sum computed to date
+    slong log_prec
+
+    # The coefficient of a given log(x)^k/k! is represented as a contiguous
+    # array of coefficients (= FLINT polynomial), and routines that operate on
+    # slices of coefficients take as input offsets in this array (as opposed to
+    # direct pointers), with the same offset typically applying for all k.
+
+    # vector of polynomials in x holding the coefficients wrt log(x)^k/k! of the
+    # terms of the solution and/or of the rhs (= residual = image by dop of the
+    # truncated solution)
+    acb_poly_struct *series
+
+    # vector of polynomials in δ (perturbation of ξ = evaluation point) holding
+    # the jets of coefficients wrt log(ξ)^k/k! of the partial sums:
+    # self.sums + j*self.log_alloc + k is the jet of order self.jet_order
+    # of the coeff of log^k/k! in the sum at the point of index j
+    acb_poly_struct *sums
+
+    # true if the series (including the singular part) and evaluation points are
+    # known to be real
+    #
+    # XXX Useful? At the moment this is used to decide if the tail bounds need
+    # to be added to the imaginary parts of the sum, and queried by the
+    # SolMapper to choose a parent for its output. The latter could be done
+    # based on the imaginary part of the sum, at least when computing a sum.
+    # However, we might also use a flag like this to optimize the computation of
+    # the sum.
+    bint real
+
+    # used to keep track of the sizes of various data structures
+    slong _dop_order
+    slong _log_alloc
+    slong _numpts
+
+
+cdef void init_solution(Solution *sol, slong dop_order, slong numshifts, slong
+                        log_alloc, slong numpts, slong jet_order):
+    cdef slong i
+
+    sol.log_prec = 0
+    sol.real = False
+
+    sol._dop_order = dop_order
+    sol._log_alloc = log_alloc
+    sol._numpts = numpts
+
+    acb_mat_init(sol.critical_coeffs, numshifts, log_alloc)
+
+    # XXX maybe using a single acb_vec would be more convenient after all?
+    # (in particular, the coefficients of x^n·log(x)^k for k = 0, 1, ...
+    # would then be regularly spaced, and we don't use non-underscore
+    # acb_poly functions much)
+    sol.series = _acb_poly_vec_init(log_alloc)
+
+    sol.sums = _acb_poly_vec_init(numpts*log_alloc)
+    for i in range(numpts*log_alloc):
+        acb_poly_fit_length(sol.sums + i, jet_order)
+
+
+cdef void clear_solution(Solution *sol):
+
+    _acb_poly_vec_clear(sol.sums, sol._numpts*sol._log_alloc)
+    _acb_poly_vec_clear(sol.series, sol._log_alloc)
+    acb_mat_clear(sol.critical_coeffs)
 
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
 cdef class DACUnroller:
     r"""
-    Several methods work in place on ``self.series``. The arguments ``low``,
-    ``mid``, ``high``, and ``n`` are shifts wrt λ; the index into ``series``
-    corresponding to ``n`` is ``n - base``. In other words,
-    ``self.series[k][n-base]`` stores the coefficient of `x^{λ+n}·\log(x)^k/k!`
-    (both on input and on output, in the solution and in the rhs).
+    Tool for computing partial sums of solutions of an operator that may have a
+    regular singular point at the origin.
+
+    An instance of ``DACUnroller`` holds one or more instances of ``Solution``,
+    corresponding to one or more solutions of the same differential equation to
+    be computed simultaneously. These solutions must have exponents in the same
+    coset of ℂ/ℤ.
+
+    Each partial sum is evaluated at zero or more points (the same for all
+    solutions), along with its first ``jet_order`` derivatives. (This is mainly
+    intended for points of about the same absolute value, so the truncation
+    order is the same for all points.)
+
+    The main methods work in place on ``self.sol[:].series``. The arguments
+    ``low``, ``mid``, ``high``, and ``n`` are shifts wrt λ; the index into
+    ``series`` corresponding to ``n`` is ``n - base``. In other words,
+    ``self.sol[m].series[k][n-base]`` stores the coefficient of
+    `x^{λ+n}·\log(x)^k/k!` in the solution of index m (both on input and on
+    output, in the solution and in the rhs).
     """
 
     cdef bint debug
@@ -80,50 +177,31 @@ cdef class DACUnroller:
 
     cdef slong dop_order
     cdef slong dop_degree
+    cdef slong numsols
     cdef slong numpts
     cdef slong jet_order
     cdef slong prec         # general working precision (bits)
     cdef slong bounds_prec  # bit precision for error bounds
 
-    # max length wrt log of any of the coefficients of the solution, the rhs,
-    # or the sum
-    cdef slong max_log_prec  # future
-    cdef slong log_prec      # to date
-
     cdef acb_poly_struct *dop_coeffs
     cdef fmpz_poly_struct *dop_coeffs_fmpz  # TODO: coeffs in ℤ[i]
     cdef bint dop_is_exact
 
-    cdef acb_poly_t ind  # indicial polynomial
-    cdef acb_t leftmost  # aka λ, exponent of the _group_ of solutions
-
-    cdef dict ini          # n -> coeff of x^{λ+n}·log(x)^k/k!, 0≤k<mult(λ+n)
-    cdef slong last_ini_n  # position of last initial value (shift wrt λ)
+    cdef acb_poly_t ind     # indicial polynomial
+    cdef acb_t leftmost     # aka λ, exponent of the _group_ of solutions
+    # XXX not as convenient as I thought: use (s, mult) pairs instead?
+    cdef slong *ini_shifts  # s s.t. ind(λ+s)=0, multiple roots repeated,
+                            # (-1)-terminated
+    cdef slong ini_idx      # current index in ini_shifts
+    cdef slong shift_idx    # same but ignoring multiplicities (= distinct elts
+                            # elts seen so far, = row index in critical_coeffs)
 
     cdef acb_ptr evpts  # evaluation points x[i], 0 < i < numpts
+    cdef acb_ptr pows   # x[i]^n
     cdef arb_t rad      # ≥ abs(evaluation points), for error bounds
 
-    # main shared buffers
-
-    cdef acb_ptr pows   # x[i]^n
-
-    # Unlike the old Python version, which creates/destroys/returns lists of
-    # polynomials, this version acts on shared data buffers.
-    #
-    # The coefficient of a given log(x)^k/k! is represented as a contiguous
-    # array of coefficients (= FLINT polynomial), and subroutines that operate
-    # on slices of coefficients take as input offsets in this array (as opposed
-    # to direct pointers), with the same offset typically applying for all k.
-
-    # vector of polynomials in x holding the coefficients wrt log(x)^k/k! of the
-    # last few (???) terms of the series solution
-    cdef acb_poly_struct *series
-
-    # vector of polynomials in δ (perturbation of ξ = evaluation point) holding
-    # the jets of coefficients wrt log(ξ)^k/k! of the partial sums:
-    # self.sums + j*self.max_log_prec + k is the jet of order self.jet_order
-    # of the coeff of log^k/k! in the sum at the point of index j
-    cdef acb_poly_struct *sums
+    # the solutions we are computing
+    cdef Solution *sol
 
     # internal data -- next_sum
 
@@ -152,40 +230,39 @@ cdef class DACUnroller:
     # auxiliary outputs ("cdef readonly" means read-only _from Python_!)
 
     cdef readonly object Jets
-    cdef readonly bint real
-    cdef readonly dict critical_coeffs
 
 
-    def __cinit__(self, dop_T, ini, py_evpts, *args, **kwds):
-        cdef slong i
+    # for some reason (related to typed memory views?) making this a method of
+    # Solution does not seem to work
+    cdef acb_poly_struct *sum_ptr(self, slong m, slong j, slong k) noexcept:
+        return self.sol[m].sums + j*self.sol[m]._log_alloc + k
+
+
+    def __cinit__(self, dop_T, inis, py_evpts, *args, **kwds):
+        cdef slong m
 
         self.debug = False
 
         self.dop_order = dop_T.order()
         self.dop_degree = dop_T.degree()
+        self.numsols = len(inis)
         self.numpts = len(py_evpts)
         self.jet_order = py_evpts.jet_order
+
+        self.sol = <Solution *> malloc(self.numsols*sizeof(Solution))
+        for m, ini in enumerate(inis):
+            # using dop_order as a crude bound for max possible log prec
+            # (needs updating to support inhomogeneous equations)
+            init_solution(self.sol + m, self.dop_order, len(ini.shift),
+                          self.dop_order, self.numpts, self.jet_order)
 
         self.dop_coeffs = _acb_poly_vec_init(self.dop_order + 1)
         self.dop_coeffs_fmpz = _fmpz_poly_vec_init(self.dop_order + 1)
 
-        # using dop_order as a crude bound for max log prec
-        # (needs updating to support inhomogeneous equations)
-        self.max_log_prec = self.dop_order
-        self.log_prec = 0
-        # XXX maybe using a single acb_vec would be more convenient after all?
-        # (in particular, the coefficients of x^n·log(x)^k for k = 0, 1, ...
-        # would then be regularly spaced, and we don't use non-underscore
-        # acb_poly functions much)
-        self.series = _acb_poly_vec_init(self.max_log_prec)
-
         self.evpts = _acb_vec_init(self.numpts)
         self.pows =  _acb_vec_init(self.numpts)
         self.binom_n = _fmpz_vec_init(self.jet_order)
-
-        self.sums = _acb_poly_vec_init(self.numpts*self.max_log_prec)
-        for i in range(self.numpts*self.max_log_prec):
-            acb_poly_fit_length(self.sums + i, self.jet_order)
+        self.ini_shifts = <slong *> malloc((self.dop_order + 1)*sizeof(slong))
 
         acb_poly_init(self.ind)
         acb_init(self.leftmost)
@@ -199,7 +276,7 @@ cdef class DACUnroller:
 
 
     def __dealloc__(self):
-        cdef slong i
+        cdef slong m
 
         self.clear_binom()
 
@@ -207,22 +284,25 @@ cdef class DACUnroller:
         acb_clear(self.leftmost)
         acb_poly_clear(self.ind)
 
-        _acb_poly_vec_clear(self.sums, self.numpts*self.max_log_prec)
-
+        free(self.ini_shifts)
         _fmpz_vec_clear(self.binom_n, self.jet_order)
         _acb_vec_clear(self.pows, self.numpts)
         _acb_vec_clear(self.evpts, self.numpts)
 
-        _acb_poly_vec_clear(self.series, self.max_log_prec)
-
         _acb_poly_vec_clear(self.dop_coeffs, self.dop_order + 1)
         _fmpz_poly_vec_clear(self.dop_coeffs_fmpz, self.dop_order + 1)
 
+        for m in range(self.numsols):
+            clear_solution(self.sol + m)
+        free(self.sol)
 
-    def __init__(self, dop_T, ini, py_evpts, Ring, *, ctx=dctx):
 
-        cdef slong i, j
+    def __init__(self, dop_T, inis, py_evpts, Ring, *, ctx=dctx):
+
+        cdef slong i, j, k, m
         cdef acb_poly_struct *p
+        cdef ComplexBall b
+        cdef Solution sol
 
         assert dop_T.parent().is_T()
 
@@ -242,12 +322,20 @@ cdef class DACUnroller:
         self.IC = self.IR.complex_field()
         self.Pol_IC = self.Pol.change_ring(self.IC)
 
-        ## Internal data
+        ## Solutions
+        # XXX initialize outside and pass to DACUnroller, or along with
+        # DACUnroller to some other function?
 
-        # maybe change this to a plain c data structure
-        self.ini = {k: tuple(Ring(a) for a in v)
-                     for k, v in ini.shift.items()}
-        self.last_ini_n = ini.last_index()
+        for m, ini in enumerate(inis):
+            for j, (_, vec) in enumerate(sorted(ini.shift.items())):
+                for k, a in enumerate(vec):
+                    b = Ring(a)
+                    acb_swap(acb_mat_entry(self.sol[m].critical_coeffs, j, k),
+                             b.value)
+            self.sol[m].real = (py_evpts.is_real_or_symbolic and
+                                ini.is_real(dop_T.base_ring().base_ring()))
+
+        ## Internal data
 
         self.dop_is_exact = True
         for i, pol in enumerate(dop_T):
@@ -261,10 +349,19 @@ cdef class DACUnroller:
                                  and acb_poly_get_unique_fmpz_poly(
                                                    self.dop_coeffs_fmpz + i, p))
 
-        # ini.expo is a PolynomialRoot, consider doing part of the work
-        # with its exact value instead of an interval approximation
-        leftmost = Ring(ini.expo)
+        # expo is a PolynomialRoot, consider doing part of the work
+        # with its exact value instead of an interval
+        leftmost = Ring(inis[0].expo)
+        ini_shifts = inis[0].flat_shifts()
+        for ini in inis[1:]:
+            if ini.expo is not leftmost or ini.flat_shifts() != ini_shifts:
+                raise ValueError("incompatible initial conditions")
         acb_set(self.leftmost, (<ComplexBall?> leftmost).value)
+        for i, s in enumerate(ini_shifts):
+            self.ini_shifts[i] = ini_shifts[i]
+        self.ini_shifts[len(ini_shifts)] = -1
+        self.ini_idx = 0
+        self.shift_idx = 0
 
         acb_poly_fit_length(self.ind, self.dop_order + 1)
         _acb_poly_set_length(self.ind, self.dop_order + 1)
@@ -278,36 +375,54 @@ cdef class DACUnroller:
         self.py_evpts = py_evpts
         Jets, jets = py_evpts.jets(Ring)
         for i in range(self.numpts):
-            assert jets[i].degree() == 0 or jets[i].degree() == 1 and jets[i][1].is_one()
+            assert (jets[i].degree() == 0
+                    or jets[i].degree() == 1 and jets[i][1].is_one())
             acb_poly_get_coeff_acb(self.evpts + i,
                                    (<Polynomial_complex_arb?> jets[i])._poly,
                                    0)
         arb_set(self.rad, (<RealBall?> py_evpts.rad).value)
 
-        ## Auxiliary output (some also used internally)
+        ## Auxiliary output (also used internally)
 
-        self.critical_coeffs = {}
         self.Jets = Jets
-        # At the moment Ring must in practice be a complex ball field (other
-        # rings do not support all required operations); this flag signals that
-        # the series (incl. singular part) and evaluation points are real.
-        self.real = (py_evpts.is_real_or_symbolic
-                     and ini.is_real(dop_T.base_ring().base_ring()))
 
 
-    cdef acb_poly_struct *sum_ptr(self, int j, int k) noexcept:
-        return self.sums + j*self.max_log_prec + k
+    cdef slong max_log_prec(self) noexcept:
+        cdef slong m
+        cdef slong res = 0
+        # cython seems to ignore the type of m if using range here?!
+        for m in range(self.numsols):
+            if self.sol[m].log_prec > res:
+                res = self.sol[m].log_prec
+        return res
 
 
     ## Main summation loop
 
 
+    cdef void reset_solutions(self, slong series_length) noexcept:
+        cdef slong i, k, m
+        cdef acb_poly_struct *f
+        for i in range(self.numpts):
+            acb_one(self.pows + i)
+        for m in range(self.numsols):
+            for k in range(self.sol[m]._log_alloc):
+                f = self.sol[m].series + k
+                acb_poly_zero(f)
+                acb_poly_fit_length(f, series_length)
+                _acb_poly_set_length(f, series_length)  # for printing
+            for i in range(self.sol[m]._numpts*self.sol[m]._log_alloc):
+                f = self.sol[m].sums + i
+                acb_poly_zero(f)
+                _acb_poly_set_length(f, self.jet_order)
+
+
     # Maybe get rid of this and use sum_dac only?
-    cpdef sum_blockwise(self, object stop, slong max_terms=WORD_MAX):
-        cdef slong i, j, k, base, low, high
-        cdef acb_ptr c
-        cdef arb_t est, tb
+    cpdef void sum_blockwise(self, object stop, slong max_terms=WORD_MAX):
+        cdef slong k, m, base, low, high
+        cdef acb_ptr f
         cdef arb_t radpow, radpow_blk
+        cdef arb_t est, tb
         cdef mag_t coeff_rad
 
         # Block size must be >= deg. Power-of-two factors may be beneficial when
@@ -334,16 +449,7 @@ cdef class DACUnroller:
             2*blksz)
         self.tinterp_cache_init(self.apply_dop_interpolation_max_len//2 + 1)
 
-        for i in range(self.numpts):
-            acb_one(self.pows + i)
-        for k in range(self.max_log_prec):
-            acb_poly_zero(self.series + k)
-            acb_poly_fit_length(self.series + k, 2*blksz)
-            _acb_poly_set_length(self.series + k, 2*blksz)  # for printfs
-        for i in range(self.numpts*self.max_log_prec):
-            acb_poly_zero(self.sums + i)
-            _acb_poly_set_length(self.sums + i, self.jet_order)
-
+        self.reset_solutions(2*blksz)
         cdef bint done = False
         cdef slong b = 0
         while True:
@@ -365,20 +471,20 @@ cdef class DACUnroller:
             # large? Would need the ability to compute the high part of the
             # residual (to low precision).
             # - It would be simpler to perform the convergence check after
-            # shifting self.series so that it contains the residual, but doing
+            # shifting sol[:].series so that it contains the residual, but doing
             # it before allows us to check the computation using the low-degree
-            # part of self.series in debug mode.
+            # part in debug mode.
             if stop is not None and b % blkstride == 0:
                 self.rhs_offset = high - base
                 if self.check_convergence(stop, high, est, tb, radpow,
                                           blkstride*blksz):
                     break
 
-            for k in range(self.log_prec):
-                _acb_poly_shift_right(_coeffs(self.series + k),
-                                      _coeffs(self.series + k),
-                                      high + blksz - base, high - base)
-                _acb_vec_zero(_coeffs(self.series + k) + blksz, blksz)
+            for m in range(self.numsols):
+                for k in range(self.sol[m].log_prec):
+                    f = _coeffs(self.sol[m].series + k)
+                    _acb_poly_shift_right(f, f, high+blksz-base, high-base)
+                    _acb_vec_zero(f + blksz, blksz)
 
             arb_mul(radpow, radpow, radpow_blk, self.bounds_prec)
 
@@ -400,7 +506,7 @@ cdef class DACUnroller:
         r"""
         Compute the chunk ``y[λ+low:λ+high]`` of the solution of ``L(y) = rhs``
         for a given rhs itself of support contained in ``λ+low:λ+high``.
-        Works in place on ``self.series[:][low-base:high-base]``.
+        Works in place on ``self.sol[:].series[:][low-base:high-base]``.
         """
         # XXX should it be L(y) = -rhs in the above docstring?
 
@@ -424,32 +530,22 @@ cdef class DACUnroller:
 
 
     cdef void add_error_get_rad(self, mag_ptr coeff_rad, arb_ptr err):
-        cdef slong i, j, k
+        cdef slong i, j, k, m
         mag_zero(coeff_rad)
-        for j in range(self.numpts):  # psum in psums
-            for k in range(self.log_prec):  # jet in psum
-                for i in range(self.jet_order):
-                    c = _coeffs(self.sum_ptr(j, k)) + i
-                    arb_add_error(acb_realref(c), err)
-                    if self.real:
-                        assert arb_is_zero(acb_imagref(c))
-                    else:
-                        arb_add_error(acb_imagref(c), err)
-                    mag_max(coeff_rad, coeff_rad, arb_radref(acb_realref(c)))
-                    mag_max(coeff_rad, coeff_rad, arb_radref(acb_imagref(c)))
-
-
-    def py_sums(self):
-        cdef slong j, k
-        cdef Polynomial_complex_arb psum
-        psums = [[None]*self.log_prec for _ in range(self.numpts)]
-        for j in range(self.numpts):  # psum in psums
-            for k in range(self.log_prec):  # jet in psum
-                psum = Polynomial_complex_arb.__new__(Polynomial_complex_arb)
-                psum._parent = self.Jets
-                acb_poly_swap(psum._poly, self.sum_ptr(j, k))
-                psums[j][k] = psum
-        return psums
+        for m in range(self.numsols):
+            for j in range(self.numpts):  # psum in psums
+                for k in range(self.sol[m].log_prec):  # jet in psum
+                    for i in range(self.jet_order):
+                        c = _coeffs(self.sum_ptr(m, j, k)) + i
+                        arb_add_error(acb_realref(c), err)
+                        if self.sol[m].real:
+                            assert arb_is_zero(acb_imagref(c))
+                        else:
+                            arb_add_error(acb_imagref(c), err)
+                        mag_max(coeff_rad, coeff_rad,
+                                arb_radref(acb_realref(c)))
+                        mag_max(coeff_rad, coeff_rad,
+                                arb_radref(acb_imagref(c)))
 
 
     cdef void _report_stats(self, slong n, arb_t est, arb_t tb,
@@ -469,37 +565,78 @@ cdef class DACUnroller:
         arb_swap(est, _est.value)
 
 
+    ## Interface for retrieving the results from Python
+
+
+    def py_sums(self):
+        cdef slong j, k, m
+        cdef Polynomial_complex_arb psum
+        psums = [[[None]*self.sol[m].log_prec for _ in range(self.numpts)]
+                 for m in range(self.numsols)]
+        for m in range(self.numsols):
+            for j in range(self.numpts):  # psum in psums
+                for k in range(self.sol[m].log_prec):  # jet in psum
+                    psum = Polynomial_complex_arb.__new__(Polynomial_complex_arb)
+                    psum._parent = self.Jets
+                    acb_poly_set(psum._poly, self.sum_ptr(m, j, k))
+                    psums[m][j][k] = psum
+        return psums
+
+
+    def py_critical_coeffs(self, slong m):
+        cdef slong si, k
+        cdef list l
+        cdef ComplexBall b
+        crit = {}
+        cdef slong ii = 0
+        cdef slong n = -2
+        for si in range(self.shift_idx):
+            while self.ini_shifts[ii] == n:
+                ii += 1
+            n = self.ini_shifts[ii]
+            l = []
+            for k in range(self.sol[m].log_prec):
+                b = <ComplexBall> ComplexBall.__new__(ComplexBall)
+                acb_set(b.value,
+                        acb_mat_entry(self.sol[m].critical_coeffs, si, k))
+                b._parent = self.Ring
+                l.append(b)
+            crit[n] = l
+        return crit
+
+
+    def real(self):
+        cdef slong m
+        return all(self.sol[m].real for m in range(self.numsols))
+
+
     ## Computation of individual terms
 
 
     cdef void next_term(self, slong base, slong n) noexcept:
         r"""
-        Write to ``self.series[:][n-base]`` the coefficient of ``x^(λ+n)`` in
-        the solution. Also store the corresponding critical coefficients in the
-        Python dict ``self.critical_coeffs``.
+        Write to ``self.sol[:].series[:][n-base]`` the coefficients of
+        ``x^(λ+n)`` in the solutions. Also store the corresponding critical
+        coefficients in the Python dicts ``self.sol[:].self.critical_coeffs``.
         """
 
         assert n >= base
 
-        cdef slong k
+        cdef slong k, m, rhs_len
+        cdef acb_poly_struct *series
         cdef ComplexBall tmp_ball
 
-        cdef tuple ini = self.ini.get(n, ())
-        cdef slong mult = len(ini)
+        cdef slong mult = 0
+        while self.ini_shifts[self.ini_idx + mult] == n:
+            mult += 1
 
-        # Probably don't need the max(len(rhs), ...) here since we initialize
-        # series once and for all as a table of length max_log_prec.
-        cdef slong rhs_len = self.log_prec
-        while (rhs_len > 0
-               and acb_is_zero(_coeffs(self.series + rhs_len - 1) + n - base)):
-            rhs_len -= 1
-        assert rhs_len + mult <= self.max_log_prec
+        cdef slong max_rhs_len = self.max_length_of_coeff_of_x(base, n)
 
         # Evaluate the indicial polynomial at λ + n + δ
         # XXX cache for the benefit of get_residuals? use multipoint evaluation?
         cdef acb_poly_t ind_n
         acb_poly_init(ind_n)
-        self.eval_ind(ind_n, n, rhs_len + mult)
+        self.eval_ind(ind_n, n, max_rhs_len + mult)
 
         cdef fmpz_t lc
         fmpz_init(lc)
@@ -510,58 +647,66 @@ cdef class DACUnroller:
         # coefficient of x^{λ+n} on the rhs and the indicial polynomial.
 
         # Working on copies allows us to use acb_dot.
-        cdef acb_struct *new_term  # XXX reuse?
-        new_term = _acb_vec_init(rhs_len)
+        cdef acb_struct *new_term
+        new_term = _acb_vec_init(max_rhs_len)
 
-        for k in range(rhs_len - 1, -1, -1):
-            # combin = rhs[k][0] + sum(ind_n[mult+1+j]*new_term[k+1+j], j≥0)
-            acb_dot(new_term + k,  # result
-                    _coeffs(self.series + k) + n - base,  # initial value
-                    False,  # subtract the sum from the initial value
-                    _coeffs(ind_n) + mult + 1, 1,  # first vec, step
-                    new_term + k + 1, 1,  # second vec, step
-                    rhs_len - k - 1,  # terms
-                    self.prec)
-            if acb_is_zero(new_term + k):
-                continue
-            if acb_is_zero(invlc):
-                if (acb_is_exact(_coeffs(ind_n) + mult)
-                        and acb_get_unique_fmpz(lc, _coeffs(ind_n) + mult)):
-                    acb_indeterminate(invlc)
+        for m in range(self.numsols):
+
+            series = self.sol[m].series
+            rhs_len = self.sol[m].log_prec
+            while rhs_len > 0 and acb_is_zero(_coeffs(series + rhs_len - 1)
+                                              + n - base):
+                rhs_len -= 1
+
+            for k in range(rhs_len - 1, -1, -1):
+                # combin = rhs[k][0] + sum(ind_n[mult+1+j]*new_term[k+1+j], j≥0)
+                acb_dot(new_term + k,
+                        _coeffs(series + k) + n - base,
+                        False,
+                        _coeffs(ind_n) + mult + 1, 1,
+                        new_term + k + 1, 1,
+                        rhs_len - k - 1,
+                        self.prec)
+                if acb_is_zero(new_term + k):
+                    continue
+                # Only compute lc or invlc if (and when first) needed
+                if acb_is_zero(invlc):
+                    if (acb_is_exact(_coeffs(ind_n) + mult)
+                            and acb_get_unique_fmpz(lc, _coeffs(ind_n) + mult)):
+                        acb_indeterminate(invlc)
+                    else:
+                        acb_inv(invlc, _coeffs(ind_n) + mult, self.prec)
+                if not fmpz_is_zero(lc):
+                    acb_div_fmpz(new_term + k, new_term + k, lc, self.prec)
                 else:
-                    acb_inv(invlc, _coeffs(ind_n) + mult, self.prec)
-            if not fmpz_is_zero(lc):
-                acb_div_fmpz(new_term + k, new_term + k, lc, self.prec)
-            else:
-                acb_mul(new_term + k, new_term + k, invlc, self.prec)
-            acb_neg(new_term + k, new_term + k)
+                    acb_mul(new_term + k, new_term + k, invlc, self.prec)
+                acb_neg(new_term + k, new_term + k)
 
-        # Write the new term to self.series
+            # Write the new term to sol[:].series, store new critical coeffs
 
-        for k in range(mult):
-            acb_set(_coeffs(self.series + k) +  n - base,
-                    (<ComplexBall?> ini[k]).value)
-        for k in range(mult, rhs_len + mult):
-            acb_swap(_coeffs(self.series + k) + n - base,
-                     new_term + k - mult)
-        for k in range(rhs_len + mult, self.log_prec):
-            acb_zero(_coeffs(self.series + k) + n - base)
+            assert max_rhs_len + mult <= self.sol[m]._log_alloc
 
-        # Store the critical coefficients
+            for k in range(mult):  # initial conditions
+                acb_set(_coeffs(series + k) +  n - base,
+                        acb_mat_entry(self.sol[m].critical_coeffs,
+                                      self.shift_idx, k))
+            for k in range(mult, rhs_len + mult):
+                acb_swap(_coeffs(series + k) + n - base, new_term + k - mult)
+                # store new critical coeffs
+                if mult > 0:
+                    acb_set(acb_mat_entry(self.sol[m].critical_coeffs,
+                                          self.shift_idx, k),
+                            _coeffs(series + k) + n - base)
+            for k in range(rhs_len + mult, self.sol[m].log_prec):
+                acb_zero(_coeffs(series + k) + n - base)
 
-        crit = None
+            # Update log-degree
+
+            self.sol[m].log_prec = max(self.sol[m].log_prec, rhs_len + mult)
+
+        self.ini_idx += mult
         if mult > 0:
-            crit = [None]*(rhs_len + mult)
-            for k in range(rhs_len + mult):
-                tmp_ball = <ComplexBall> ComplexBall.__new__(ComplexBall)
-                acb_set(tmp_ball.value, _coeffs(self.series + k) + n - base)
-                tmp_ball._parent = self.Ring
-                crit[k] = tmp_ball
-            self.critical_coeffs[n] = crit
-
-        # Update log-degree
-
-        self.log_prec = max(self.log_prec, rhs_len + mult)
+            self.shift_idx += 1
 
         _acb_vec_clear(new_term, rhs_len)
         acb_clear(invlc)
@@ -569,8 +714,22 @@ cdef class DACUnroller:
         acb_poly_clear(ind_n)
 
 
-    # - cache (cf. get_residuals)?
-    # - use multi-point evaluation?
+    cdef slong max_length_of_coeff_of_x(self, slong base, slong n) noexcept:
+        cdef slong m
+        cdef slong length = self.max_log_prec()
+        while length > 0:
+            for m in range(self.numsols):
+                if length <= self.sol[m].log_prec:
+                    if not acb_is_zero(_coeffs(self.sol[m].series + length - 1)
+                                       + n - base):
+                        break
+            else:
+                length -= 1
+                continue
+            break
+        return length
+
+
     cdef void eval_ind(self, acb_poly_t ind_n, slong n, int order) noexcept:
         cdef slong i
         cdef acb_t expo
@@ -594,13 +753,13 @@ cdef class DACUnroller:
 
     cdef void next_sum(self, slong base, slong n) noexcept:
         r"""
-        Add to each entry of `self.sums` a term corresponding to the
+        Add to each entry of `self.sol[:].sums` a term corresponding to the
         current `n`.
 
         WARNING: Repeated calls to this function compute x^i*f^(i)(x) instead of
         f^(i)(x). Call `fix_sums()` to fix the result.
         """
-        cdef slong i, j, k
+        cdef slong i, j, k, m
         if n == 0:
             _fmpz_vec_zero(self.binom_n, self.jet_order)
             fmpz_one(self.binom_n)
@@ -610,14 +769,15 @@ cdef class DACUnroller:
         cdef acb_t tmp
         acb_init(tmp)
         for j in range(self.numpts):
-            for k in range(self.log_prec):
-                acb_mul(tmp,
-                        _coeffs(self.series + k) + n - base,
-                        self.pows + j,
-                        self.prec)
-                for i in range(self.jet_order):
-                    acb_addmul_fmpz(_coeffs(self.sum_ptr(j, k)) + i,
-                                    tmp, self.binom_n + i, self.prec)
+            for m in range(self.numsols):
+                for k in range(self.sol[m].log_prec):
+                    acb_mul(tmp,
+                            _coeffs(self.sol[m].series + k) + n - base,
+                            self.pows + j,
+                            self.prec)
+                    for i in range(self.jet_order):
+                        acb_addmul_fmpz(_coeffs(self.sum_ptr(m, j, k)) + i,
+                                        tmp, self.binom_n + i, self.prec)
             acb_mul(self.pows + j, self.pows + j, self.evpts + j, self.prec)
         acb_clear(tmp)
 
@@ -628,7 +788,7 @@ cdef class DACUnroller:
         corresponding to derivatives by suitable powers of the corresponding
         evaluation points.
         """
-        cdef slong i, j, k
+        cdef slong i, j, k, m
         cdef acb_t inv, invpow
         acb_init(inv)
         acb_init(invpow)
@@ -637,11 +797,12 @@ cdef class DACUnroller:
             acb_one(invpow)
             for i in range(1, self.jet_order):
                 acb_mul(invpow, invpow, inv, self.prec)
-                for k in range(self.log_prec):
-                    acb_mul(_coeffs(self.sum_ptr(j, k)) + i,
-                            _coeffs(self.sum_ptr(j, k)) + i,
-                            invpow,
-                            self.prec)
+                for m in range(self.numsols):
+                    for k in range(self.sol[m].log_prec):
+                        acb_mul(_coeffs(self.sum_ptr(m, j, k)) + i,
+                                _coeffs(self.sum_ptr(m, j, k)) + i,
+                                invpow,
+                                self.prec)
         acb_clear(invpow)
         acb_clear(inv)
 
@@ -652,9 +813,9 @@ cdef class DACUnroller:
     cdef void apply_dop(self, slong base, slong low, slong mid,
                         slong high) noexcept:
         r"""
-        *Add* to ``self.series[:][mid-base:high-base]`` the coefficients of
-        ``self.dop(y[λ+low:λ+mid])``, where the input is given in
-        ``self.series[:][low-base:mid-base]``.
+        *Add* to ``self.sol[:].series[:][mid-base:high-base]`` the coefficients
+        of ``self.dop(y[λ+low:λ+mid])`` for each solution ``y``, where the input
+        is given in ``self.sol[:].series[:][low-base:mid-base]``.
         """
         cdef slong k
 
@@ -698,7 +859,7 @@ cdef class DACUnroller:
     # recurrence unrolling, just in a different order.
     #
     # Approximate cost for high - mid = mid - low = d, log_prec = 1,
-    # leftmost = 0:
+    # leftmost = 0, numsols = 1:
     #
     # d²/2·(M(h,p) + p) + r·d²/2·h
     #
@@ -707,8 +868,9 @@ cdef class DACUnroller:
     # practice, even for small r...
     cdef void apply_dop_basecase(self, slong base, slong low, slong mid,
                                  slong high) noexcept:
-        cdef slong i, j, k, n, t, j0, length
-        cdef acb_ptr b, c
+        cdef slong i, j, k, m, n, t, j0, length
+        cdef acb_ptr b, c, src, dest
+        cdef acb_poly_struct *series
 
         cdef acb_t expo
         acb_init(expo)
@@ -726,15 +888,16 @@ cdef class DACUnroller:
             # - Use some kind of fast multi-point evaluation??
             # - Use acb_poly_taylor_shift instead of looping on t???
             # - Precompute dop coeff*binom?
-            for t in range(self.log_prec):
+            for t in range(self.max_log_prec()):
 
-                # TODO This part could be shared between several solutions
+                # The main reason for computing the sum for several initial
+                # conditions in parallel is to share this loop.
                 for j in range(j0, j0 + length):
 
-                    # c = cofactor of current coeff of self.series in expression
-                    # of current output coeff (=> collects contributions from
-                    # all terms of dop while often staying exact and of moderate
-                    # bit length)
+                    # c = cofactor of current coeff of sol[:].series in
+                    # expression of current output coeff (=> collects
+                    # contributions from all terms of dop while often staying
+                    # exact and of moderate bit length)
                     #
                     # Each triple (n, t, j) occurs only once in the whole
                     # computation (over all recursive calls etc.). So computing
@@ -757,25 +920,23 @@ cdef class DACUnroller:
                         b = _coeffs(self.dop_coeffs + i) + j
                         self.acb_addmul_binom(c, b, i, t)
 
-                # We could perform a dot product of length log_prec*that
-                # (looping over t in addition to j), but this does not seem
-                # worth the additional complexity at the moment.
-                for k in range(self.log_prec - t):
-                    acb_dot(
-                        _coeffs(self.series + k) + n - base,
-                        _coeffs(self.series + k) + n - base,
-                        False,
-                        cofac, 1,
-                        _coeffs(self.series + k + t) + mid - 1 - base, -1,
-                        length,
-                        self.prec)
-
+                for m in range(self.numsols):
+                    # We could perform a dot product of length log_prec*that
+                    # (looping over t in addition to j), but this does not seem
+                    # worth the additional complexity at the moment.
+                    for k in range(self.sol[m].log_prec - t):
+                        series = self.sol[m].series
+                        dest = _coeffs(series + k) + n - base
+                        src = _coeffs(series + k + t) + mid - 1 - base
+                        acb_dot(dest, dest, False,
+                                cofac, 1, src, -1, length,
+                                self.prec)
 
         _acb_vec_clear(cofac, mid - low)
         acb_clear(expo)
 
 
-    cdef acb_addmul_binom(self, acb_ptr c, acb_srcptr b,
+    cdef void acb_addmul_binom(self, acb_ptr c, acb_srcptr b,
                           slong i, slong t) noexcept:
         if t == 0:
             acb_add(c, c, b, self.prec)
@@ -794,7 +955,9 @@ cdef class DACUnroller:
     cdef void apply_dop_basecase_exact(self, slong base, slong low, slong mid,
                                        slong high) noexcept:
 
-        cdef slong i, j, k, n, t, j0, length
+        cdef slong i, j, k, m, n, t, j0, length
+        cdef acb_ptr src, dest
+        cdef acb_poly_struct *series
         cdef fmpz *b
         cdef fmpz *c
 
@@ -805,13 +968,10 @@ cdef class DACUnroller:
             j0 = n - mid + 1
             length = min(n - low, self.dop_degree) + 1 - j0
 
-            for t in range(self.log_prec):
+            for t in range(self.max_log_prec()):
 
-                # TODO This part could be shared between several solutions
                 for j in range(j0, j0 + length):
-
                     c = cofac + j - j0
-
                     fmpz_zero(c)
                     for i in range(self.dop_order, t - 1, -1):  # Horner
                         fmpz_mul_si(c, c, n - j)
@@ -822,15 +982,14 @@ cdef class DACUnroller:
                                     (self.dop_coeffs_fmpz + i).coeffs + j,
                                     fmpz_mat_entry(self.binom, i, t))
 
-                for k in range(self.log_prec - t):
-                    acb_dot_fmpz(
-                        _coeffs(self.series + k) + n - base,
-                        _coeffs(self.series + k) + n - base,
-                        False,
-                        _coeffs(self.series + k + t) + mid - 1 - base, -1,
-                        cofac, 1,
-                        length,
-                        self.prec)
+                for m in range(self.numsols):
+                    for k in range(self.sol[m].log_prec - t):
+                        series = self.sol[m].series
+                        dest = _coeffs(series + k) + n - base
+                        src = _coeffs(series + k + t) + mid - 1 - base
+                        acb_dot_fmpz(dest, dest, False,
+                                     src, -1, cofac, 1, length,
+                                     self.prec)
 
         _fmpz_vec_clear(cofac, mid - low)
 
@@ -852,43 +1011,46 @@ cdef class DACUnroller:
     # degree + large integer/ball coeffs.
     cdef void apply_dop_polmul(self, slong base, slong low, slong mid,
                                slong high) noexcept:
-
-        cdef slong i, j, k
+        cdef slong i, j, k, m
+        cdef acb_poly_struct *series
 
         cdef acb_poly_t tmp
         acb_poly_init(tmp)
         acb_poly_fit_length(tmp, high - low)
 
-        # To compute derivatives, we need a copy of a chunk of `series`
-        cdef acb_poly_struct *curder = _acb_poly_vec_init(self.log_prec)
-        _acb_poly_vec_set_block(curder, self.series, self.log_prec,
-                                  low - base, mid - low)
+        cdef acb_poly_struct *curder = _acb_poly_vec_init(self.max_log_prec())
 
-        for i in range(self.dop_order + 1):
+        for m in range(self.numpts):
+            series = self.sol[m].series
+            # To compute derivatives, we need a copy of a chunk of `series`
+            _acb_poly_vec_set_block(curder, series, self.sol[m].log_prec,
+                                    low - base, mid - low)
 
-            for k in range(self.log_prec):
+            for i in range(self.dop_order + 1):
 
-                # rhs[k] ← rhs[k] + self.dop(chunk)[k]
-                # This should be a mulmid, and ignore the constant coefficients.
-                acb_poly_mullow(tmp, self.dop_coeffs + i, curder + k,
-                                high - low, self.prec)
-                acb_poly_shift_right(tmp, tmp, mid - low)
-                _acb_poly_add(_coeffs(self.series + k) + mid - base,
-                              _coeffs(self.series + k) + mid - base,
-                              high - mid,
-                              _coeffs(tmp),
-                              acb_poly_length(tmp),
-                              self.prec)
+                for k in range(self.sol[m].log_prec):
 
-                # curder[k] ← (d/dx)(previous curder)[k]
-                self.__diff_log_coeff(curder, low, k)
+                    # rhs[k] ← rhs[k] + self.dop(chunk)[k]. This should be a
+                    # mulmid, and ignore the constant coefficients.
+                    acb_poly_mullow(tmp, self.dop_coeffs + i, curder + k,
+                                    high - low, self.prec)
+                    acb_poly_shift_right(tmp, tmp, mid - low)
+                    _acb_poly_add(_coeffs(series + k) + mid - base,
+                                  _coeffs(series + k) + mid - base,
+                                  high - mid,
+                                  _coeffs(tmp),
+                                  acb_poly_length(tmp),
+                                  self.prec)
 
-        _acb_poly_vec_clear(curder, self.log_prec)
+                    # curder[k] ← (d/dx)(previous curder)[k]
+                    self.__diff_log_coeff(curder, low, k, self.sol[m].log_prec)
+
+        _acb_poly_vec_clear(curder, self.max_log_prec())
         acb_poly_clear(tmp)
 
 
     cdef void __diff_log_coeff(self, acb_poly_struct *f, slong low,
-                               slong k) noexcept:
+                               slong k, slong log_prec) noexcept:
         cdef slong j
         cdef acb_poly_t tmp
         acb_poly_init(tmp)
@@ -901,7 +1063,7 @@ cdef class DACUnroller:
                        low + j,
                        self.prec)
         acb_poly_add(f + k, f + k, tmp, self.prec)
-        if k + 1 < self.log_prec:
+        if k + 1 < log_prec:
             acb_poly_add(f + k, f + k, f + k + 1,
                          self.prec)
         acb_poly_clear(tmp)
@@ -911,7 +1073,7 @@ cdef class DACUnroller:
     # transposed interpolation at small integers.
     #
     # Approximate cost (partly heuristic) for high - mid = mid - low = d,
-    # log_prec = 1, leftmost = 0:
+    # log_prec = 1, leftmost = 0, numsols = 1:
     #
     # 2·r·d·M(p, h + d·log(d)) + 2·r·d²·p  (+ precomputation)
     #
@@ -933,17 +1095,11 @@ cdef class DACUnroller:
     #   Anne Vaugon for this remark!]
     cdef void apply_dop_interpolation(self, slong base, slong low, slong mid,
                                       slong high) noexcept:
-
-        cdef slong i, j, k, n, p
+        cdef slong i, j, k, m, n, p
         cdef acb_ptr dest
 
         cdef acb_t y
         acb_init(y)
-
-        # To compute derivatives, we need a copy of a chunk of `series`
-        cdef acb_poly_struct *curder = _acb_poly_vec_init(self.log_prec)
-        _acb_poly_vec_set_block(curder, self.series, self.log_prec,
-                                  low - base, mid - low)
 
         # We need at least high - low - 1 interpolation points. We round this
         # number to the next even integer to compute the transposed
@@ -971,76 +1127,83 @@ cdef class DACUnroller:
         # XXX Not enough to avoid numerical issues. Why?
         cdef slong prec = self.prec + 2*(high-low)*FLINT_BIT_COUNT(high-low)
 
+        cdef acb_poly_struct *curder = _acb_poly_vec_init(self.max_log_prec())
         cdef acb_ptr curderval = _acb_vec_init(2*halflen)
         cdef acb_mat_t prodval
-        acb_mat_init(prodval, 2*halflen, self.log_prec)
+        acb_mat_init(prodval, 2*halflen, self.max_log_prec())
 
-        for i in range(self.dop_order + 1):
+        for m in range(self.numsols):
+            _acb_poly_vec_set_block(curder, self.sol[m].series,
+                                    self.sol[m].log_prec,
+                                    low - base, mid - low)
 
-            for k in range(self.log_prec):
+            for i in range(self.dop_order + 1):
 
-                # (ii) Direct evaluation
-                #
-                # XXX Often the dominant step in practice... (Try fast
-                # multipoint evaluation at integers???)
-                eval_reverse_stdpts(curderval, halflen, curder + k, mid - low,
-                                    prec)
+                for k in range(self.sol[m].log_prec):
 
-                # (iii) Pointwise multiplications, with accumulation in the
-                # transformed domain
-                for p in range(high - low - 1):
-                    acb_addmul(acb_mat_entry(prodval, p, k),
-                               acb_mat_entry(tinterp_num, p, i),
-                               curderval + p,
-                               prec)
+                    # (ii) Direct evaluation
+                    #
+                    # XXX Often the dominant step in practice... (Try fast
+                    # multipoint evaluation at integers???)
+                    eval_reverse_stdpts(curderval, halflen, curder + k,
+                                        mid - low, prec)
 
-                # curder[k] ← (d/dx)(previous curder)[k]
-                self.__diff_log_coeff(curder, low, k)
+                    # (iii) Pointwise multiplications, with accumulation in the
+                    # transformed domain
+                    for p in range(high - low - 1):
+                        acb_addmul(acb_mat_entry(prodval, p, k),
+                                   acb_mat_entry(tinterp_num, p, i),
+                                   curderval + p,
+                                   prec)
 
-        # (iv) Transposed Horner evaluation, adding to the values already
-        # present in the high part of self.series.
+                    # curder[k] ← (d/dx)(previous curder)[k]
+                    self.__diff_log_coeff(curder, low, k, self.sol[m].log_prec)
 
-        # (iv.a) Finite points. When high-low == 2*halfen, so that 2*halflen-2 <
-        # high-low-1, the last row of the transposed interpolation matrix is not
-        # used.
-        for n in range(mid, high):
-            for k in range(self.log_prec):
-                # Would it be faster to compute the sum using acb_dot_ui with a
-                # vector of ones?
-                acb_zero(y)
+            # (iv) Transposed Horner evaluation, adding to the values already
+            # present in the high part of sol[m].series.
+
+            # (iv.a) Finite points. When high-low == 2*halfen, so that
+            # 2*halflen-2 < high-low-1, the last row of the transposed
+            # interpolation matrix is not used.
+            for n in range(mid, high):
+                for k in range(self.sol[m].log_prec):
+                    # Would it be faster to compute the sum using acb_dot_ui
+                    # with a vector of ones?
+                    acb_zero(y)
+                    for p in range(2*halflen - 1):
+                        acb_add(y, y,
+                                acb_mat_entry(prodval, p, k),
+                                prec)
+                    acb_div_fmpz(y, y, tinterp_den, prec)
+                    dest = _coeffs(self.sol[m].series + k) + n - base
+                    acb_add(dest, dest, y, prec)
+                if n == high - 1:
+                    break
+                # Using acb_dot_ui with a vector of powers above should be
+                # faster than doing a second pass here when the powers fit on a
+                # single limb.
                 for p in range(2*halflen - 1):
-                    acb_add(y, y,
-                            acb_mat_entry(prodval, p, k),
-                            prec)
-                acb_div_fmpz(y, y, tinterp_den, prec)
-                dest = _coeffs(self.series + k) + n - base
-                acb_add(dest, dest, y, prec)
-            if n == high - 1:
-                break
-            # Using acb_dot_ui with a vector of powers above should be faster
-            # than doing a second pass here when the powers fit on a single
-            # limb.
-            for p in range(2*halflen - 1):
-                for k in range(self.log_prec):
-                    # there is no _acb_vec_scalar_mul_si
-                    acb_mul_si(acb_mat_entry(prodval, p, k),
-                               acb_mat_entry(prodval, p, k),
-                               (p + 1)//2 if p % 2 == 1 else -p//2,
-                               prec)
-        # (iv.b) Infinity (last column of the transposed evaluation matrix). The
-        # point at infinity only contributes to the coefficient of
-        # x^{low+2*halfen-1}. In other words, it contributes to the coefficient
-        # of x^{high-1} when high-low is odd, and not at all when it is even.
-        if (high - low) % 2 == 1:
-            for k in range(self.log_prec):
-                acb_div_fmpz(y, acb_mat_entry(prodval, 2*halflen - 1, k),
-                             tinterp_den, prec)
-                dest = _coeffs(self.series + k) + high - 1 - base
-                acb_add(dest, dest, y, prec)
+                    for k in range(self.sol[m].log_prec):
+                        # there is no _acb_vec_scalar_mul_si
+                        acb_mul_si(acb_mat_entry(prodval, p, k),
+                                   acb_mat_entry(prodval, p, k),
+                                   (p + 1)//2 if p % 2 == 1 else -p//2,
+                                   prec)
+            # (iv.b) Infinity (last column of the transposed evaluation matrix).
+            # The point at infinity only contributes to the coefficient of
+            # x^{low+2*halfen-1}. In other words, it contributes to the
+            # coefficient of x^{high-1} when high-low is odd, and not at all
+            # when it is even.
+            if (high - low) % 2 == 1:
+                for k in range(self.sol[m].log_prec):
+                    acb_div_fmpz(y, acb_mat_entry(prodval, 2*halflen - 1, k),
+                                 tinterp_den, prec)
+                    dest = _coeffs(self.sol[m].series + k) + high - 1 - base
+                    acb_add(dest, dest, y, prec)
 
         acb_mat_clear(prodval)
         _acb_vec_clear(curderval, 2*halflen)
-        _acb_poly_vec_clear(curder, self.log_prec)
+        _acb_poly_vec_clear(curder, self.max_log_prec())
         acb_clear(y)
 
 
@@ -1141,8 +1304,8 @@ cdef class DACUnroller:
                                 arb_t tail_bound,  # RW
                                 arb_srcptr radpow, slong next_stride):
         r"""
-        Requires: residual (== rhs) in part of self.series starting at offset
-        self.rhs_offset.
+        Requires: rhs (≈ residuals, see get_residual for the difference) in part
+        of sol[:].series starting at offset self.rhs_offset.
         """
         # XXX The estimates computed here are sometimes more pessimistic than
         # the actual tail bounds. This can happen with naive_sum too, but seems
@@ -1150,27 +1313,28 @@ cdef class DACUnroller:
         # same formulas for the estimates, I don't see why the results would
         # differ by more than a small multiplicative factor.
 
-        cdef slong i, k
+        cdef slong i, k, m
         cdef acb_ptr c
         cdef arb_t tmp
         arb_init(tmp)
 
-        if n <= self.last_ini_n:
+        if n <= self.max_ini_shift():
             arb_pos_inf(tail_bound)
             return False
 
         arb_zero(est)
 
         # Note that here radpow contains the contribution of z^λ.
-        for k in range(self.log_prec):
-            for i in range(self.dop_degree):
-                # TODO Use a low-prec estimate instead (but keep reporting
-                # accuracy information)
-                c = _coeffs(self.series + k) + self.rhs_offset + i
-                arb_abs(tmp, acb_realref(c))
-                arb_add(est, est, tmp, self.prec)
-                arb_abs(tmp, acb_imagref(c))
-                arb_add(est, est, tmp, self.prec)
+        for m in range(self.numsols):
+            for k in range(self.sol[m].log_prec):
+                for i in range(self.dop_degree):
+                    # TODO Use a low-prec estimate instead (but keep reporting
+                    # accuracy information)
+                    c = _coeffs(self.sol[m].series + k) + self.rhs_offset + i
+                    arb_abs(tmp, acb_realref(c))
+                    arb_add(est, est, tmp, self.prec)
+                    arb_abs(tmp, acb_imagref(c))
+                    arb_add(est, est, tmp, self.prec)
         arb_mul_arf(est, est, arb_midref(radpow), self.prec)
 
         cdef RealBall _est = RealBall.__new__(RealBall)
@@ -1179,7 +1343,9 @@ cdef class DACUnroller:
         cdef RealBall _tb = RealBall.__new__(RealBall)
         _tb._parent = self.Reals
         arb_swap(_tb.value, tail_bound)
+
         done, new_tail_bound = stop.check(self, n, _tb, _est, next_stride)
+
         arb_swap(tail_bound, (<RealBall?> new_tail_bound).value)
         arb_swap(est, _est.value)
 
@@ -1187,7 +1353,14 @@ cdef class DACUnroller:
         return done
 
 
-    def get_residuals(self, stop, n):
+    def get_residuals(self, stop, slong n):
+        nres = [self.get_residual(m, n) for m in range(self.numsols)]
+        if self.debug:
+            self.__check_residuals(stop, n, nres)
+        return nres
+
+
+    cdef object get_residual(self, slong m, slong n):
         cdef Polynomial_complex_arb pol
         cdef slong d, k
         cdef acb_poly_t _ind
@@ -1196,11 +1369,11 @@ cdef class DACUnroller:
         acb_init(inv)
         cdef acb_t tmp
         acb_init(tmp)
+        cdef slong log_prec = self.sol[m].log_prec
 
-        cdef acb_struct *nres_term  # XXX share scratch space with next_term?
-        nres_term = <acb_struct *> malloc(self.log_prec*sizeof(acb_struct))
-        nres = [None]*self.log_prec
-        for k in range(self.log_prec):
+        cdef acb_struct *nres_term = _acb_vec_init(log_prec)
+        nres = [None]*log_prec
+        for k in range(log_prec):
             acb_init(nres_term + k)  # coeff of x^d*log^k for varying d
             pol = Polynomial_complex_arb.__new__(Polynomial_complex_arb)
             pol._parent = self.Pol_IC
@@ -1212,14 +1385,14 @@ cdef class DACUnroller:
             # and should probably share code and/or intermediate results. At the
             # very least the evaluation of the indicial polynomial can be
             # shared.
-            self.eval_ind(_ind, n + d, self.log_prec)  # not monic!
+            self.eval_ind(_ind, n + d, log_prec)  # not monic!
             acb_inv(inv, acb_poly_get_coeff_ptr(_ind, 0), self.bounds_prec)
-            for k in reversed(range(self.log_prec)):
+            for k in reversed(range(log_prec)):
                 # cst*self._residual[k][d]
                 # (cst operand constant, could save a constant factor)
                 acb_mul(nres_term + k,
                         _coeffs(self.dop_coeffs + self.dop_order),  # cst
-                        _coeffs(self.series + k) + self.rhs_offset + d,
+                        _coeffs(self.sol[m].series + k) + self.rhs_offset + d,
                         self.bounds_prec)
                 # ... - sum(ind[u]*nres[k+u][d], 1 <= u < log_prec - k)
                 acb_dot(nres_term + k,
@@ -1227,24 +1400,20 @@ cdef class DACUnroller:
                         True,           # subtract
                         acb_poly_get_coeff_ptr(_ind, 1), 1,
                         nres_term + k + 1, 1,
-                        self.log_prec - k - 1,
+                        log_prec - k - 1,
                         self.bounds_prec)
                 # inv*(...)
                 acb_mul(nres_term + k, nres_term + k, inv, self.bounds_prec)
-            for k in range(self.log_prec):
+            for k in range(log_prec):
                 acb_swap(_coeffs((<Polynomial_complex_arb> nres[k])._poly) + d,
                          nres_term + k)
-        for k in range(self.log_prec):
+        for k in range(log_prec):
             _acb_poly_normalise((<Polynomial_complex_arb> nres[k])._poly)
-            acb_clear(nres_term + k)
-        free(nres_term)
+        _acb_vec_clear(nres_term, log_prec)
         acb_clear(inv)
         acb_poly_clear(_ind)
 
-        if self.debug:
-            self.__check_residuals(stop, n, nres)
-
-        return [nres]
+        return nres
 
 
     def __check_residuals(self, stop, n, nres):
@@ -1253,34 +1422,59 @@ cdef class DACUnroller:
 
         Recompute the residual using the reference code in bounds.py.
         """
-        cdef slong i, k
+        cdef slong i, k, m
         cdef ComplexBall b
+        cdef acb_ptr rhs
         if self.rhs_offset < self.dop_degree:
             logger.info("n=%s cannot check residual", n)
-        last = []
-        for i in range(self.dop_degree):
-            cc = []
-            for k in range(self.log_prec):
-                b = <ComplexBall> ComplexBall.__new__(ComplexBall)
-                b._parent = self.IC.zero().parent()
-                acb_set(b.value,
-                        _coeffs(self.series + k) + self.rhs_offset - 1 - i)
-                cc.append(b)
-            last.append(cc)
-        ref = stop.maj.normalized_residual(n, last)
-        if not all(c.contains_zero() for p, q in zip(nres, ref) for c in p - q):
-            logger.error("n=%s residual check failed:\nnres=%s\nref=%s",
-                         n, nres, ref)
-            assert False
+        for m in range(self.numsols):
+            last = []
+            for i in range(self.dop_degree):
+                cc = []
+                for k in range(self.sol[m].log_prec):
+                    b = <ComplexBall> ComplexBall.__new__(ComplexBall)
+                    b._parent = self.IC.zero().parent()
+                    rhs = _coeffs(self.sol[m].series + k) + self.rhs_offset
+                    acb_set(b.value, rhs - 1 - i)
+                    cc.append(b)
+                last.append(cc)
+            ref = stop.maj.normalized_residual(n, last)
+            if not all(c.contains_zero()
+                       for p, q in zip(nres[m], ref)
+                       for c in p - q):
+                logger.error("n=%s m=%s bad residual:\nnres=%s\nref=%s",
+                            n, m, nres, ref)
+                assert False
 
 
     def get_bound(self, stop, n, resid):
-        if n <= self.last_ini_n:
+        if n <= self.max_ini_shift():
             raise NotImplementedError
+        # Support separate tail bounds for individual series?
+        # (This should not be difficult to do by moving est and tb to Solution,
+        # but maybe not worth the repeated calls to tail_majorant, at least
+        # while the code for tail bounds is so slow. But do not forget we may
+        # also be evaluating the same series at several points.)
         maj = stop.maj.tail_majorant(n, resid)
-        tb = maj.bound(self.py_evpts.rad, rows=self.py_evpts.jet_order)
+        tb = maj.bound(self.py_evpts.rad, rows=self.jet_order)
         # XXX take log factors etc. into account (as in naive_sum)?
         return tb
+
+
+    cdef slong max_ini_shift(self):
+        cdef slong i
+        cdef slong res = -1
+        for i in range(self.dop_order):
+            if self.ini_shifts[i] == -1:
+                return res
+            if self.ini_shifts[i] > res:
+                res = self.ini_shifts[i]
+
+
+cdef acb_ptr _coeffs(acb_poly_t pol) noexcept:
+    # pol->coeffs is not accessible from sage, and acb_poly_get_coeff_ptr
+    # returns null when the argument is out of bounds
+    return (<acb_ptr *> pol)[0]
 
 
 ## Subroutines for (transposed) evaluation/interpolation at small integers
@@ -1408,11 +1602,22 @@ cdef void _fmpz_poly_vec_clear(fmpz_poly_struct *vec, slong n) noexcept:
 ## Debugging utilities
 
 
+cdef void _print_solution(Solution *sol):
+    cdef slong k
+    flint_printf("SOL(log_prec=%d real=%d):\n", sol.log_prec, sol.real)
+    flint_printf("ini/crit=\n%{acb_mat}\n", sol.critical_coeffs)
+    flint_printf("series=\n")
+    for k in range(sol._log_alloc):
+        flint_printf("[%{acb_poly}]*LOG^%d\n", sol.series + k, k)
+    flint_printf("\n")
+
+
 cdef Polynomial_complex_arb _make_constant_poly(acb_srcptr c, Parent parent):
     cdef Polynomial_complex_arb pol = Polynomial_complex_arb.__new__(Polynomial_complex_arb)
     pol._parent = parent
     acb_poly_set_acb(pol._poly, c)
     return pol
+
 
 cdef Polynomial_complex_arb _make_poly(acb_poly_struct *p, Parent parent):
     cdef Polynomial_complex_arb pol = Polynomial_complex_arb.__new__(Polynomial_complex_arb)
@@ -1420,10 +1625,3 @@ cdef Polynomial_complex_arb _make_poly(acb_poly_struct *p, Parent parent):
     acb_poly_set(pol._poly, p)
     return pol
 
-cdef _breakpoint():
-    pass
-
-cdef acb_ptr _coeffs(acb_poly_t pol) noexcept:
-    # pol->coeffs is not accessible from sage, and acb_poly_get_coeff_ptr
-    # returns null when the argument is out of bounds
-    return (<acb_ptr *> pol)[0]
