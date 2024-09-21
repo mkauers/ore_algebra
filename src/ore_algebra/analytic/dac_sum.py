@@ -199,39 +199,36 @@ class HighestSolMapper_dac(HighestSolMapper):
 
         effort = self.effort
 
+        unr, allsums = self._sum_auto(inis, maj, effort)
+        if unr.real():
+            Jets = unr.Jets.change_ring(unr.Jets.base().base())
+        else:
+            Jets = unr.Jets
         sols = []
-        for (_, mult), ini in zip(self.shifts, inis):
-            unr, sums = self._sum_auto(ini, maj, effort)
-            if unr.real():
-                Jets = unr.Jets.change_ring(unr.Jets.base().base())
-            else:
-                Jets = unr.Jets
+        for j, sums in enumerate(allsums):
+            # fixed solution, entries of sums <-> eval pts
+            mult = self.shifts[j][1]
             downshifts = [
                 log_series_values(
                     Jets,
-                    self.leftmost, # ini.expo???
+                    self.leftmost,  # ini.expo???
                     vector(Jets, psum),
                     self.evpts.approx(Jets.base_ring(), i),
                     self.evpts.jet_order,
                     self.evpts.is_numeric,
                     downshift=range(mult))
                 for i, psum in enumerate(sums)]
-            # XXX temporary, update to compute several solutions!
-            sols.append(SolutionAdapter(unr.py_critical_coeffs(0), downshifts))
-            # if we computed at least one solution successfully, try a bit
-            # harder to compute the remaining ones without splitting the
-            # integration step
-            effort = self.effort + 1
+            sols.append(SolutionAdapter(unr.py_critical_coeffs(j), downshifts))
 
         return sols
 
-    def _sum_auto(self, ini, maj, effort):
+    def _sum_auto(self, inis, maj, effort):
         # Adapted from naive_sum.RecUnroller_tail_bound.sum_auto, with a little
         # code duplication, but this version is much simpler without really
         # being a special case of the other one.
 
         stop = accuracy.StopOnRigorousBound(maj, self.eps)
-        input_accuracy = max(0, min(self.evpts.accuracy, ini.accuracy()))
+        input_accuracy = utilities.input_accuracy(self.evpts, inis)
         # cf. stop.reset(...) below for the term involving dop
         bit_prec0 = utilities.prec_from_eps(self.eps) + 2*self.dop.order()
         bit_prec = 8 + bit_prec0*(1 + (self.dop_T.degree() - 2).nbits())
@@ -253,25 +250,26 @@ class HighestSolMapper_dac(HighestSolMapper):
             Ring = ComplexBallField(bit_prec)
             stop.reset(self.eps >> (self.dop.order() + 4*attempt),
                        stop.fast_fail and ini_are_accurate)
-            unr = DACUnroller(self.dop_T, [ini], self.evpts, Ring, ctx=self.ctx)
+            unr = DACUnroller(self.dop_T, inis, self.evpts, Ring, ctx=self.ctx)
             try:
                 unr.sum_blockwise(stop)
             except accuracy.PrecisionError:
                 if attempt > effort:
                     raise
             else:
-                psums = unr.py_sums()[0]  # XXX temporary
+                allsums = unr.py_sums()
                 # estimated “total” error accounting for both method error (tail
                 # bounds) and interval growth, but ignoring derivatives and with
                 # just a rough estimate of the singular factors
+                # TODO cythonize, arb --> mag, return unr only
                 err = max((abs(jet[0]).rad_as_ball()  # CBF => no rad_as_ball()
-                           for psum in psums for jet in psum),
+                           for sol in allsums for psum in sol for jet in psum),
                           default=unr.IR.zero())
                 err *= self.evpts.rad**unr.IC(self.leftmost).real()
                 logger.debug("bit_prec = %s, err = %s (tgt = %s)",
                              bit_prec, err, self.eps)
                 if err < self.eps:
-                    return unr, psums
+                    return unr, allsums
 
             bit_prec *= 2
             if attempt <= effort and bit_prec < max_prec:
@@ -282,7 +280,7 @@ class HighestSolMapper_dac(HighestSolMapper):
                 raise accuracy.PrecisionError
             else:
                 logger.info("lost too much precision, giving up")
-                return unr, psums
+                return unr, allsums
 
 
 def fundamental_matrix_regular(dop, evpts, eps, fail_fast, effort, ctx=dctx):

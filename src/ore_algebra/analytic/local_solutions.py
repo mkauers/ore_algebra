@@ -352,12 +352,12 @@ class LogSeriesInitialValues:
             pass
 
     def __repr__(self):
-        return ", ".join(
+        return "{" + ", ".join(
             "[z^({expo}+{shift})·log(z)^{log_power}/{log_power}!] = {val}"
             .format(expo=self.expo, shift=s, log_power=log_power, val=val)
             for s, ini in self.shift.items()
             for log_power, val in enumerate(ini)
-            if ini)
+            if ini) + "}"
 
     def is_valid_for(self, dop):
         ind = dop._indicial_polynomial_at_zero()

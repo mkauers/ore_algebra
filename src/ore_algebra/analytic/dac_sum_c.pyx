@@ -352,12 +352,12 @@ cdef class DACUnroller:
 
         # expo is a PolynomialRoot, consider doing part of the work
         # with its exact value instead of an interval
-        leftmost = Ring(inis[0].expo)
+        leftmost = inis[0].expo
         ini_shifts = inis[0].flat_shifts()
         for ini in inis[1:]:
             if ini.expo is not leftmost or ini.flat_shifts() != ini_shifts:
                 raise ValueError("incompatible initial conditions")
-        acb_set(self.leftmost, (<ComplexBall?> leftmost).value)
+        acb_swap(self.leftmost, (<ComplexBall?> (Ring(leftmost))).value)
         for i, s in enumerate(ini_shifts):
             self.ini_shifts[i] = ini_shifts[i]
         self.ini_shifts[len(ini_shifts)] = -1
@@ -1462,7 +1462,7 @@ cdef class DACUnroller:
         # also be evaluating the same series at several points.)
         maj = stop.maj.tail_majorant(n, resid)
         tb = maj.bound(self.py_evpts.rad, rows=self.jet_order)
-        # XXX take log factors etc. into account (as in naive_sum)?
+        # XXX take values of x^λ and log(x) into account (as in naive_sum)?
         return tb
 
 

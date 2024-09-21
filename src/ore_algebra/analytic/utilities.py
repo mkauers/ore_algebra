@@ -255,6 +255,9 @@ def has_new_ComplexBall_constructor():
 def prec_from_eps(eps):
     return -eps.lower().log2().floor() + 4
 
+def input_accuracy(evpts, inis):
+    return max(0, min(evpts.accuracy, min(ini.accuracy() for ini in inis)))
+
 def split(cond, objs):
     matching, not_matching = [], []
     for x in objs:

@@ -565,9 +565,7 @@ class RecUnroller_tail_bound(RecUnroller):
 
         self._stop = accuracy.StopOnRigorousBound(maj, eps)
 
-        input_accuracy = max(0,
-                             min(chain((self.evpts.accuracy,),
-                                       (ini.accuracy() for ini in self.inis))))
+        input_accuracy = utilities.input_accuracy(self.evpts, self.inis)
 
         if stride is None:
             stride = min(max(50, 2*self.orig_bwrec.order),
