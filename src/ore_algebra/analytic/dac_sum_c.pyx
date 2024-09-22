@@ -286,15 +286,23 @@ cdef class DACUnroller:
         acb_poly_clear(self.ind)
 
         free(self.ini_shifts)
-        _fmpz_vec_clear(self.binom_n, self.jet_order)
-        _acb_vec_clear(self.pows, self.numpts)
-        _acb_vec_clear(self.evpts, self.numpts)
 
-        _acb_poly_vec_clear(self.dop_coeffs, self.dop_order + 1)
-        _fmpz_poly_vec_clear(self.dop_coeffs_fmpz, self.dop_order + 1)
+        # __dealloc__ may be called before the object is fully initialized if
+        # a python exception is raised in __cinit__. If dop_coeffs has been
+        # initialized, we can reasonably assume that all subsequent
+        # initializations have been done, but sol might be initialized even if
+        # dop_coeffs is not.
+        if self.dop_coeffs != NULL:
+            _fmpz_vec_clear(self.binom_n, self.jet_order)
+            _acb_vec_clear(self.pows, self.numpts)
+            _acb_vec_clear(self.evpts, self.numpts)
 
-        for m in range(self.numsols):
-            clear_solution(self.sol + m)
+            _acb_poly_vec_clear(self.dop_coeffs, self.dop_order + 1)
+            _fmpz_poly_vec_clear(self.dop_coeffs_fmpz, self.dop_order + 1)
+
+        if self.sol != NULL:
+            for m in range(self.numsols):
+                clear_solution(self.sol + m)
         free(self.sol)
 
 
