@@ -594,16 +594,19 @@ cdef class DACUnroller:
 
 
     def py_critical_coeffs(self, slong m):
-        cdef slong si, k
+        cdef slong k
         cdef list l
         cdef ComplexBall b
         crit = {}
+        cdef slong si = 0
         cdef slong ii = 0
         cdef slong n = -2
-        for si in range(self.shift_idx):
+        while True:
             while self.ini_shifts[ii] == n:
                 ii += 1
             n = self.ini_shifts[ii]
+            if n == -1:
+                break
             l = []
             for k in range(self.sol[m].log_prec):
                 b = <ComplexBall> ComplexBall.__new__(ComplexBall)
@@ -612,6 +615,7 @@ cdef class DACUnroller:
                 b._parent = self.Ring
                 l.append(b)
             crit[n] = l
+            si += 1
         return crit
 
 

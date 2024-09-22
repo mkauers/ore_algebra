@@ -2,6 +2,10 @@
 r"""
 Divide-and-conquer summation of convergent D-finite series
 
+The bulk of the implementation lives in ``dac_sum_c.pyx``; this module only
+provides utilities for using ``DACUnroller`` from Python and interfacing it with
+the rest of ``ore_algebra.analytic``.
+
 TESTS::
 
     sage: from ore_algebra import DifferentialOperators
@@ -176,6 +180,9 @@ class SolutionAdapter:
             self.psums.append(psum)
 
 
+# Fundamental matrices with rigorous error bounds
+
+
 # XXX maybe refactor to share more code with HighestSolMapper_tail_bound
 class HighestSolMapper_dac(HighestSolMapper):
 
@@ -295,6 +302,10 @@ def fundamental_matrix_regular(dop, evpts, eps, fail_fast, effort, ctx=dctx):
     return mats
 
 
+# Partial sums and truncated fundamental matrices
+# (computed in interval arithmetic but without tail bounds)
+
+
 def truncated_sum(dop, ini, evpts, bit_prec, terms):
     r"""
     Compute a partial sum of a logarithmic series at one or more points using
@@ -339,4 +350,109 @@ def truncated_sum(dop, ini, evpts, bit_prec, terms):
                               evpts.approx(unr.Jets.base_ring(), i),
                               derivatives=1, is_numeric=True)[0][0]
             for i, psum in enumerate(sums)]
+
+
+class HighestSolMapper_dac_truncated(HighestSolMapper):
+
+    def __init__(self, dop, evpts, bit_prec, terms, *, ctx):
+        super().__init__(dop, evpts, ctx=ctx)
+        self.Ring = ComplexBallField(bit_prec)
+        self.terms = terms
+        self.dop_T = dop.to_T(dop._theta_alg())
+
+    def do_sum(self, inis):
+        unr = DACUnroller(self.dop_T, inis, self.evpts, self.Ring, ctx=self.ctx)
+        unr.sum_blockwise(stop=None, max_terms=self.terms)
+        # basically copied from HighestSolMapper_dac
+        if unr.real():
+            Jets = unr.Jets.change_ring(unr.Jets.base().base())
+        else:
+            Jets = unr.Jets
+        sols = []
+        for j, sums in enumerate(unr.py_sums()):
+            mult = self.shifts[j][1]
+            downshifts = [
+                log_series_values(
+                    Jets,
+                    self.leftmost,  # ini.expo???
+                    vector(Jets, psum),
+                    self.evpts.approx(Jets.base_ring(), i),
+                    self.evpts.jet_order,
+                    self.evpts.is_numeric,
+                    downshift=range(mult))
+                for i, psum in enumerate(sums)]
+            sols.append(SolutionAdapter(unr.py_critical_coeffs(j), downshifts))
+        return sols
+
+
+def fundamental_matrix_regular_truncated(dop, evpts, bit_prec, *,
+                                         terms, ctx=dctx):
+    r"""
+    Fundamental matrices at the points in ``evtps``, truncated after ``terms``
+    terms.
+
+    The output is a list of matrices. Each list element corresponds to an
+    evaluation point. Each column of a given list element corresponds to an
+    element of the canonical basis of solutions of ``dop``, truncated after
+    ``terms`` terms counted not from its own valuation but from that of leading
+    solution in its group. The `i`th row contains the `i`th derivative (of the
+    truncated series, not the truncated derivative of the infinite series)
+    multiplied by `i!`.
+
+    Unlike the function of the same name in ``naive_sum``, this function
+    currently does not support truncating all series to the same absolute order.
+
+    TESTS::
+
+        sage: from ore_algebra import DifferentialOperators
+        sage: Dops, x, Dx = DifferentialOperators(QQ, 'x')
+        sage: from ore_algebra.analytic.dac_sum import fundamental_matrix_regular_truncated
+        sage: m1, m2 = fundamental_matrix_regular_truncated((x*Dx - 1/3)^3*(x*Dx - 7/3) + x, [1/2, -1/2], 30, terms=30)
+        sage: m1*vector((2, 3, 5, 7))
+        ([7.5038...], [17.5924...], [9.394...], [-1.418...])
+        sage: m2*vector((2, 3, 5, 7))
+        ([-6.9906...] + [0.0230...]*I, [6.806...] + [-12.278...]*I,
+        [18.406...] + [3.783...]*I, [7.993...] + [3.254...]*I)
+
+        sage: fundamental_matrix_regular_truncated((x*Dx)^2 - 3 + x^2, [1/4], bit_prec=20, terms=1)
+        [
+        [ [11.03...] [0.0906...]]
+        [ [-76.4...]  [0.627...]]
+        ]
+        sage: (1/4.)^(-sqrt(3.)), -sqrt(3.)*(1/4.)^(-sqrt(3.)-1)
+        (11.0356646359636, -76.4573273791203)
+        sage: (1/4.)^(sqrt(3)), sqrt(3.)*(1/4.)^(sqrt(3.)-1)
+        (0.250000000000000^sqrt(3), 0.627801175445067)
+        sage: (1/4.)^(sqrt(3.)), sqrt(3.)*(1/4.)^(sqrt(3.)-1)
+        (0.0906152944101932, 0.627801175445067)
+
+        sage: fundamental_matrix_regular_truncated((x*Dx)^2*(x*Dx-2), [1/2], bit_prec=20, terms=0)
+        [
+        [0 0 0]
+        [0 0 0]
+        [0 0 0]
+        ]
+        sage: fundamental_matrix_regular_truncated((x*Dx)^2*(x*Dx-2), [1/2], bit_prec=20, terms=2)
+        [
+        [[-0.6931...]                1.00000                      0]
+        [     2.00000                      0                      0]
+        [    -2.00000                      0                      0]
+        ]
+        sage: fundamental_matrix_regular_truncated((x*Dx)^2*(x*Dx-2), [1/2], bit_prec=20, terms=3)
+        [
+        [[-0.6931...]                1.00000               0.250000]
+        [     2.00000                      0                1.00000]
+        [    -2.00000                      0                1.00000]
+        ]
+    """
+    dop = DifferentialOperator(dop)
+    if not isinstance(evpts, EvaluationPoint_base):
+        if isinstance(evpts, (list, tuple)):
+            evpts = tuple(Sequence(evpts))
+        evpts = EvaluationPoint(evpts, jet_order=dop.order())
+    hsm = HighestSolMapper_dac_truncated(dop, evpts, bit_prec, terms, ctx=ctx)
+    cols = hsm.run()
+    mats = [matrix([sol.value[i] for sol in cols]).transpose()
+            for i in range(len(evpts))]
+    return mats
 
