@@ -312,7 +312,7 @@ def fundamental_matrix_regular(dop, evpts, eps, fail_fast, effort, ctx=dctx):
 # (computed in interval arithmetic but without tail bounds)
 
 
-def truncated_series(dop, inis, bit_prec, terms, var='x'):
+def truncated_series(dop, inis, bit_prec, terms):
     r"""
     Compute truncated series solutions of ``dop``.
 
@@ -343,6 +343,13 @@ def truncated_series(dop, inis, bit_prec, terms, var='x'):
            ([0.206...])*x^3 + ([-2.4...])*x^2 + ([-4.00...])*x + 2.00000,
            ([-0.0671...])*x^3 + ([1.06...])*x^2 + ([3.00...])*x + 3.00000,
            ([0.0138...])*x^3 + ([-0.375...])*x^2])]
+
+    TESTS::
+
+        sage: QQi.<I> = QuadraticField(-1)
+        sage: Dops, t, Dt = DifferentialOperators(QQi, 't')
+        sage: truncated_series(Dt - I, [(1,)], 30, 3)
+        [({[z^(0+0)·log(z)^0/0!] = 1}, [-0.500000000*t^2 + I*t + 1.00000000])]
     """
     dop = DifferentialOperator(dop)
     dop_T = dop.to_T(dop._theta_alg())
@@ -354,7 +361,7 @@ def truncated_series(dop, inis, bit_prec, terms, var='x'):
     evpts = EvaluationPoint([])
     unr = DACUnroller(dop_T, inis, evpts, bit_prec, keep_series=True)
     unr.sum_blockwise(stop=None, max_terms=terms)
-    Series = PolynomialRing(ComplexBallField(bit_prec), var)
+    Series = dop.base_ring().change_ring(ComplexBallField(bit_prec))
     series = [(ini, unr.py_series(m, Series))
               for m, ini in enumerate(inis)]
     return series
