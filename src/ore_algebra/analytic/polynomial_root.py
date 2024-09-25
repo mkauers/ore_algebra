@@ -50,7 +50,7 @@ class PolynomialRoot(SageObject):
     def __eq__(self, other):
         if self.pol is other.pol:
             return self.index == other.index
-        elif self.pol.parent() is other.pol.parent():
+        elif self.pol.parent() is other.pol.parent() and self.pol != other.pol:
             return False
         elif other.is_zero():
             return self.is_zero()

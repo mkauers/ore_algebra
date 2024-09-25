@@ -1788,7 +1788,8 @@ class EvaluationPoint_base:
 
     def jets(self, Intervals):
         points = [self.approx(Intervals, i) for i in range(len(self))]
-        Jets = PolynomialRing(points[0].parent(), 'delta')
+        Jets = PolynomialRing(points[0].parent() if points else Intervals,
+                              'delta')
         jets = tuple(Jets([pt, 1]).truncate(self.jet_order)
                      for pt in points)
         return Jets, jets
@@ -1802,7 +1803,8 @@ class EvaluationPoint_step(EvaluationPoint_base):
     def __init__(self, steps, jet_order):
         self._points = steps
         self.jet_order = jet_order
-        self.rad = max(step.length().above_abs() for step in steps)
+        self.rad = max((step.length().above_abs() for step in steps),
+                       default=IR.zero())
         self.is_numeric = True
         self.is_real_or_symbolic = all(step.is_real() for step in steps)
         self.accuracy = min(step.accuracy() for step in steps)
@@ -1843,7 +1845,8 @@ class EvaluationPoint_numeric(EvaluationPoint_base):
         if rad is not None:
             self.rad = rad
         else:
-            self.rad = max(IC(pt).above_abs() for pt in self._points)
+            self.rad = max((IC(pt).above_abs() for pt in self._points),
+                           default=IR.zero())
         self.is_numeric = True
         self.is_real_or_symbolic = all(is_real_parent(pt.parent())
                                        for pt in self._points)

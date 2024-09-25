@@ -94,6 +94,8 @@ cdef struct Solution:
     # truncated solution)
     acb_poly_struct *series
 
+    acb_poly_struct *full_series
+
     # vector of polynomials in δ (perturbation of ξ = evaluation point) holding
     # the jets of coefficients wrt log(ξ)^k/k! of the partial sums:
     # self.sums + j*self.log_alloc + k is the jet of order self.jet_order
@@ -118,7 +120,8 @@ cdef struct Solution:
 
 
 cdef void init_solution(Solution *sol, slong dop_order, slong numshifts, slong
-                        log_alloc, slong numpts, slong jet_order):
+                        log_alloc, slong numpts, slong jet_order,
+                        bint full_series):
     cdef slong i
 
     sol.log_prec = 0
@@ -135,6 +138,10 @@ cdef void init_solution(Solution *sol, slong dop_order, slong numshifts, slong
     # would then be regularly spaced, and we don't use non-underscore
     # acb_poly functions much)
     sol.series = _acb_poly_vec_init(log_alloc)
+    if full_series:
+        sol.full_series = _acb_poly_vec_init(log_alloc)
+    else:
+        sol.full_series = NULL
 
     sol.sums = _acb_poly_vec_init(numpts*log_alloc)
     for i in range(numpts*log_alloc):
@@ -145,6 +152,8 @@ cdef void clear_solution(Solution *sol):
 
     _acb_poly_vec_clear(sol.sums, sol._numpts*sol._log_alloc)
     _acb_poly_vec_clear(sol.series, sol._log_alloc)
+    if sol.full_series != NULL:
+        _acb_poly_vec_clear(sol.full_series, sol._log_alloc)
     acb_mat_clear(sol.critical_coeffs)
 
 
@@ -241,7 +250,8 @@ cdef class DACUnroller:
         return self.sol[m].sums + j*self.sol[m]._log_alloc + k
 
 
-    def __cinit__(self, dop_T, inis, py_evpts, *args, **kwds):
+    def __cinit__(self, dop_T, inis, py_evpts, *args,
+                  bint keep_series=False, **kwds):
         cdef slong m
 
         self.debug = False
@@ -257,7 +267,8 @@ cdef class DACUnroller:
             # using dop_order as a crude bound for max possible log prec
             # (needs updating to support inhomogeneous equations)
             init_solution(self.sol + m, self.dop_order, len(ini.shift),
-                          self.dop_order, self.numpts, self.jet_order)
+                          self.dop_order, self.numpts, self.jet_order,
+                          keep_series)
 
         self.dop_coeffs = _acb_poly_vec_init(self.dop_order + 1)
         self.dop_coeffs_fmpz = _fmpz_poly_vec_init(self.dop_order + 1)
@@ -308,7 +319,7 @@ cdef class DACUnroller:
         free(self.sol)
 
 
-    def __init__(self, dop_T, inis, py_evpts, Ring, *, ctx=dctx):
+    def __init__(self, dop_T, inis, py_evpts, Ring, *, ctx=dctx, **kwds):
 
         cdef slong i, j, k, m
         cdef acb_poly_struct *p
@@ -316,6 +327,7 @@ cdef class DACUnroller:
         cdef Solution sol
 
         assert dop_T.parent().is_T()
+        assert len(inis) > 0
 
         self.apply_dop_algorithm = ApplyDopAlgorithm[ctx.apply_dop]
 
@@ -365,7 +377,7 @@ cdef class DACUnroller:
         leftmost = inis[0].expo
         ini_shifts = inis[0].flat_shifts()
         for ini in inis[1:]:
-            if ini.expo is not leftmost or ini.flat_shifts() != ini_shifts:
+            if ini.expo != leftmost or ini.flat_shifts() != ini_shifts:
                 raise ValueError("incompatible initial conditions")
         acb_swap(self.leftmost, (<ComplexBall?> (Ring(leftmost))).value)
         for i, s in enumerate(ini_shifts):
@@ -422,6 +434,8 @@ cdef class DACUnroller:
                 acb_poly_zero(f)
                 acb_poly_fit_length(f, series_length)
                 _acb_poly_set_length(f, series_length)  # for printing
+                if self.sol[m].full_series != NULL:
+                    acb_poly_zero(self.sol[m].full_series + k)
             for i in range(self.sol[m]._numpts*self.sol[m]._log_alloc):
                 f = self.sol[m].sums + i
                 acb_poly_zero(f)
@@ -435,6 +449,8 @@ cdef class DACUnroller:
         cdef arb_t radpow, radpow_blk
         cdef arb_t est, tb
         cdef mag_t coeff_rad
+
+        max_terms = max(max_terms, 0)
 
         # Block size must be >= deg. Power-of-two factors may be beneficial when
         # using apply_dop_interpolation.
@@ -596,6 +612,22 @@ cdef class DACUnroller:
         return psums
 
 
+    def py_series(self, slong m, parent):
+        cdef slong k
+        cdef Polynomial_complex_arb ser
+        if m < 0 or m > self.numsols or self.sol[m].full_series == NULL:
+            raise IndexError(m)
+        if not issubclass(parent.Element, Polynomial_complex_arb):
+            raise ValueError("bad parent")
+        res = []
+        for k in range(self.sol[m].log_prec):
+            ser = Polynomial_complex_arb.__new__(Polynomial_complex_arb)
+            ser._parent = parent
+            acb_poly_set(ser._poly, self.sol[m].full_series + k)
+            res.append(ser)
+        return res
+
+
     def py_critical_coeffs(self, slong m):
         cdef slong k
         cdef list l
@@ -720,6 +752,13 @@ cdef class DACUnroller:
             # Update log-degree
 
             self.sol[m].log_prec = max(self.sol[m].log_prec, rhs_len + mult)
+
+            # Copy the new term to sol[:].full_series if desired
+
+            if self.sol[m].full_series != NULL:
+                for k in range(self.sol[m].log_prec):
+                    acb_poly_set_coeff_acb(self.sol[m].full_series + k, n,
+                                           _coeffs(series + k) + n - base)
 
         self.ini_idx += mult
         if mult > 0:

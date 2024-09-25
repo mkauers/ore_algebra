@@ -138,6 +138,7 @@ from sage.modules.free_module_element import vector
 from sage.matrix.constructor import matrix
 from sage.rings.complex_arb import ComplexBallField
 from sage.rings.integer_ring import ZZ
+from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 from sage.structure.sequence import Sequence
 
 from . import accuracy
@@ -302,8 +303,57 @@ def fundamental_matrix_regular(dop, evpts, eps, fail_fast, effort, ctx=dctx):
     return mats
 
 
-# Partial sums and truncated fundamental matrices
+# Truncated series, partial sums and truncated fundamental matrices
 # (computed in interval arithmetic but without tail bounds)
+
+
+def truncated_series(dop, inis, bit_prec, terms, var='x'):
+    r"""
+    Compute truncated series solutions of ``dop``.
+
+    The initial values must all define solutions in the same group.
+
+    The series are returned as lists of polynomials, where the i-th entry is the
+    coefficient of `\log(x)^i/i!`. Singular parts are omitted.
+
+    EXAMPLES::
+
+        sage: from ore_algebra import DifferentialOperators
+        sage: from ore_algebra.analytic.local_solutions import LogSeriesInitialValues
+        sage: Dops, x, Dx = DifferentialOperators(QQ, 'x')
+
+        sage: from ore_algebra.analytic.dac_sum import truncated_series
+
+        sage: truncated_series(Dx^2 - 1, [(1,0), (0,1)], 20, 6)
+        [({[z^(0+0)·log(z)^0/0!] = 1, [z^(0+1)·log(z)^0/0!] = 0},
+          [([0.041666...])*x^4 + 0.500000*x^2 + 1.00000]),
+         ({[z^(0+0)·log(z)^0/0!] = 0, [z^(0+1)·log(z)^0/0!] = 1},
+          [([0.008333...])*x^5 + ([0.16666...])*x^3 + x])]
+
+        sage: truncated_series((x*Dx - 1/3)^3*(x*Dx - 7/3) + x,
+        ....:        [LogSeriesInitialValues(1/3, {0: (1,2,3), 2:(4,)})], 20, 4)
+        [({[z^(1/3+0)·log(z)^0/0!] = 1, [z^(1/3+0)·log(z)^1/1!] = 2,
+        [z^(1/3+0)·log(z)^2/2!] = 3, [z^(1/3+2)·log(z)^0/0!] = 4},
+          [([-0.47...])*x^3 + 4.00000*x^2 + ([9.0...])*x + 1.00000,
+           ([0.206...])*x^3 + ([-2.4...])*x^2 + ([-4.00...])*x + 2.00000,
+           ([-0.0671...])*x^3 + ([1.06...])*x^2 + ([3.00...])*x + 3.00000,
+           ([0.0138...])*x^3 + ([-0.375...])*x^2])]
+    """
+    dop = DifferentialOperator(dop)
+    dop_T = dop.to_T(dop._theta_alg())
+    if not inis:
+        raise ValueError("need at least one set of initial values")
+    for i in range(len(inis)):
+        if not isinstance(inis[i], LogSeriesInitialValues):
+            inis[i] = LogSeriesInitialValues(ZZ.zero(), inis[i], dop)
+    evpts = EvaluationPoint([])
+    Scalars = ComplexBallField(bit_prec)
+    unr = DACUnroller(dop_T, inis, evpts, Scalars, keep_series=True)
+    unr.sum_blockwise(stop=None, max_terms=terms)
+    Series = PolynomialRing(Scalars, var)
+    series = [(ini, unr.py_series(m, Series))
+              for m, ini in enumerate(inis)]
+    return series
 
 
 def truncated_sum(dop, ini, evpts, bit_prec, terms):
@@ -329,10 +379,16 @@ def truncated_sum(dop, ini, evpts, bit_prec, terms):
         sage: truncated_sum(Dx-1, [2], 1/2, 30, 0)
         [0]
 
+        sage: truncated_sum(Dx-1, [2], 1/2, 30, -1)
+        [0]
+
         sage: truncated_sum((x*Dx - 1/3)^3*(x*Dx - 7/3) + x,
         ....:     LogSeriesInitialValues(1/3, {0: (1,2,3), 2:(4,)}),
         ....:     [1/2], 30, 30)
         [[6.3444...]]
+
+        sage: truncated_sum(Dx-1, [2], [], 30, 4)
+        []
     """
     dop = DifferentialOperator(dop)
     dop_T = dop.to_T(dop._theta_alg())
@@ -450,6 +506,9 @@ def fundamental_matrix_regular_truncated(dop, evpts, bit_prec, *,
         [[1.0 +/- 0.0313]      [+/- 0.251]]
         [     [+/- 0.251]       1.00000000]
         ]
+
+        sage: fundamental_matrix_regular_truncated(Dx^2 - 1, [], 30, terms=3)
+        []
     """
     dop = DifferentialOperator(dop)
     if not isinstance(evpts, EvaluationPoint_base):
