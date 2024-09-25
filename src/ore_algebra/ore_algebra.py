@@ -49,11 +49,11 @@ from sage.categories.algebras import Algebras
 from sage.categories.pushout import ConstructionFunctor
 from sage.misc.cachefunc import cached_method
 from sage.rings.finite_rings.all import GF
-from sage.rings.fraction_field import is_FractionField
+from sage.rings.fraction_field import FractionField_generic
 from sage.rings.integer_ring import ZZ
 from sage.rings.number_field import number_field_base
-from sage.rings.polynomial.multi_polynomial_ring import is_MPolynomialRing
-from sage.rings.polynomial.polynomial_ring import is_PolynomialRing
+from sage.rings.polynomial.multi_polynomial_ring import MPolynomialRing_base
+from sage.rings.polynomial.polynomial_ring import PolynomialRing_general
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 from sage.rings.rational_field import QQ
 from sage.structure.parent import Parent
@@ -149,9 +149,9 @@ def is_suitable_base_ring(R):
     p = R.characteristic()
     if (p == 0 and (R is ZZ or R is QQ or isinstance(R, number_field_base.NumberField))) or (p > 0 and R is GF(p)):
         return True
-    elif is_FractionField(R):
+    elif isinstance(R, FractionField_generic):
         return is_suitable_base_ring(R.ring())
-    elif is_PolynomialRing(R) or is_MPolynomialRing(R):
+    elif isinstance(R, PolynomialRing_general) or isinstance(R, MPolynomialRing_base):
         return is_suitable_base_ring(R.base_ring())
     else:
         return False
@@ -375,7 +375,7 @@ class Sigma_class:
             pass
 
         R = self.__R
-        if is_FractionField(R):
+        if isinstance(R, FractionField_generic):
             R = R.ring()
         C_one = R.base_ring().one()
         sigma = self
@@ -483,7 +483,7 @@ class Delta_class:
             return R.zero()
 
         R0 = p.parent()
-        if is_FractionField(R0):
+        if isinstance(R0, FractionField_generic):
             a = p.numerator()
             b = p.denominator()
             # try/except cascade needed to work around sage's difficulties with rational function towers
@@ -501,7 +501,7 @@ class Delta_class:
                 pass
             return R0(delta(a)*sigma(b) - sigma(a)*delta(b))/R0(b*sigma(b))
 
-        elif is_PolynomialRing(R0):
+        elif isinstance(R0, PolynomialRing_general):
             x = R0.gen()
             strx = str(x)
             if (strx, 0) not in my_dict:
@@ -516,7 +516,7 @@ class Delta_class:
             for i in range(p.degree() + 1):
                 out += sigma(p[i])*my_dict[strx, i]
             return out
-        elif is_MPolynomialRing(R0):
+        elif isinstance(R0, MPolynomialRing_base):
             Rgens = R0.gens()
             # special code for standard derivative
             if sigma.is_identity():
@@ -1732,14 +1732,14 @@ class OreAlgebra_generic(UniqueRepresentation, Parent):
             return nullspace.sage_native
         elif isinstance(R, number_field_base.NumberField):
             return nullspace.cra(nullspace.sage_native)
-        elif not (is_MPolynomialRing(R) or is_PolynomialRing(R) or is_FractionField(R)):
+        elif not (isinstance(R, MPolynomialRing_base) or isinstance(R, PolynomialRing_general) or isinstance(R, FractionField_generic)):
             return nullspace.sage_native  # for lack of better ideas.
 
         B = R.base_ring()
         field = R.is_field()
         merge_levels = 0
 
-        while (is_MPolynomialRing(B) or is_PolynomialRing(B) or is_FractionField(B)):
+        while (isinstance(B, MPolynomialRing_base) or isinstance(B, PolynomialRing_general) or isinstance(B, FractionField_generic)):
             field = field or B.is_field()
             merge_levels += 1
             B = B.base_ring()

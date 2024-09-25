@@ -43,7 +43,8 @@ TESTS::
     [0.011501537469552017...]
 
 Note that the zeros here shouldn't be exact unless we have proved that the
-corresponding series do not continue::
+corresponding series do not continue (which we *could* do by checking that the
+residual is exactly zero)::
 
     sage: ((x + 1)*Dx^2 + Dx).numerical_transition_matrix([0,1/2], algorithm='binsplit')
     [ [1.00000000000000...] [0.405465108108164...]]
@@ -253,14 +254,11 @@ from sage.rings.number_field import number_field_base
 from sage.structure.coerce_exceptions import CoercionException
 from sage.structure.sequence import Sequence
 
-from sage.rings.complex_arb import ComplexBall
-
 from . import accuracy, bounds, utilities
 
 from .context import dctx
 from .local_solutions import (bw_shift_rec, FundamentalSolution,
         LocalBasisMapper, log_series_values)
-from .safe_cmp import *
 
 logger = logging.getLogger(__name__)
 

@@ -21,16 +21,16 @@ import sage.rings.real_arb
 import sage.rings.complex_arb
 
 from . import accuracy, bounds, utilities
-from . import naive_sum, binary_splitting
+from . import naive_sum, dac_sum, binary_splitting
 
 from sage.matrix.constructor import identity_matrix, matrix
 from sage.rings.complex_arb import ComplexBallField
 from sage.rings.integer_ring import ZZ
-from sage.rings.number_field.number_field_element import NumberFieldElement
 from sage.rings.real_arb import RealBallField
 from sage.structure.element import Matrix, canonical_coercion
 
-from .context import Context, dctx # re-export Context
+from .context import Context as Context  # re-export
+from .context import dctx
 from .monodromy import formal_monodromy
 from .path import EvaluationPoint_step, Path, Step
 
@@ -105,11 +105,7 @@ def step_transition_matrix(dop, steps, eps, rows=None, split=0, ctx=dctx):
     return mat
 
 def _use_binsplit(dop, steps, tgt_prec, base_point_size, ctx):
-    if ctx.prefer_binsplit():
-        return True
-    elif ctx.prefer_naive():
-        return False
-    else:
+    if ctx.algorithms[0] == "auto":
         # (Cost of a bit burst step via a truncation at prec base_point_size)
         #   ≈ ordrec³·nterms·(op_height + base_point_size + ordrec + δ)
         # where δ is related to the algebraic degree of the point
@@ -130,6 +126,8 @@ def _use_binsplit(dop, steps, tgt_prec, base_point_size, ctx):
         logger.debug("tgt_prec = %s %s %s", tgt_prec,
                 ">=" if use_binsplit else "<", est)
         return use_binsplit
+    else:
+        return ctx.algorithms[0] == "binsplit"
 
 def step_transition_matrix_bit_burst(dop, steps, eps, rows, fail_fast, effort,
                                      ctx=dctx):
@@ -160,7 +158,8 @@ def step_transition_matrix_bit_burst(dop, steps, eps, rows, fail_fast, effort,
                             *(step.end.bit_burst_bits(tgt_prec)
                               for step in steps)))
     use_binsplit = _use_binsplit(dop, steps, tgt_prec, binsplit_prec, ctx)
-    use_fallback = not ctx.force_algorithm and (use_binsplit or not fail_fast)
+    use_fallback = ((use_binsplit or not fail_fast) and
+                    (len(ctx.algorithms) > 1 or "auto" in ctx.algorithms))
 
     while True:
 
@@ -195,8 +194,12 @@ def step_transition_matrix_bit_burst(dop, steps, eps, rows, fail_fast, effort,
                     raise
                 logger.info("falling back to direct summation")
         else:
+            if ctx.prefer_algorithm("dac", "naive"):
+                mod = dac_sum
+            else:
+                mod = naive_sum
             try:
-                return naive_sum.fundamental_matrix_regular(
+                return mod.fundamental_matrix_regular(
                     ldop, points, eps, fail_fast, effort, ctx)
             except accuracy.PrecisionError:
                 if not use_fallback:

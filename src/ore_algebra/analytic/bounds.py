@@ -126,13 +126,13 @@ import sys
 import warnings
 
 from sage.misc.cachefunc import cached_function, cached_method
+# from sage.misc.lazy_string import lazy_string
 from sage.misc.misc_c import prod
 from sage.misc.random_testing import random_testing
 from sage.rings.all import ComplexIntervalField
 from sage.rings.complex_arb import CBF, ComplexBallField, ComplexBall
 from sage.rings.infinity import infinity
 from sage.rings.integer_ring import ZZ
-from sage.rings.number_field.number_field import NumberField_quadratic
 from sage.rings.polynomial.polynomial_element import Polynomial
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 from sage.rings.power_series_ring import PowerSeriesRing
@@ -148,7 +148,7 @@ from . import local_solutions, utilities
 
 from .context import dctx
 from .differential_operator import DifferentialOperator
-from .safe_cmp import *
+from .safe_cmp import safe_le, safe_gt
 
 from .polynomial_root import PolynomialRoot
 
@@ -1445,10 +1445,9 @@ def _test_RatSeqBound(number=10, base=QQ, deg=20, verbose=False):
 
         sage: from ore_algebra.analytic.bounds import _test_RatSeqBound
         sage: _test_RatSeqBound(number=1, deg=4, verbose=True, seed=0)
-        num = 1/6
-        den = n^4 - 7/8*n^3 - 5/16*n^2 + 3/16*n
-        exns = {-1: 1}
-
+        num = -1/2
+        den = n^4 - 187/2*n^3 - 287/2*n^2 + 95*n
+        exns = {0: 1}
     """
     from sage.combinat.subset import Subsets
     Pols, n = PolynomialRing(base, 'n').objgen()
@@ -1716,7 +1715,6 @@ class DiffOpBound:
         self.__facto_one = Factorization([(one, 1)], unit=one, sort=False,
                                                      simplify=False)
 
-        self._CIF = ComplexIntervalField(self.IC.precision())
         self.CPol_z = Pols_z.change_ring(self.IC)
         self.CPol_zn = PolynomialRing(self.CPol_z, 'n')
         CPol_n = PolynomialRing(self.IC, 'n')
@@ -1731,7 +1729,10 @@ class DiffOpBound:
         assert self.ind.is_monic()
         if ind_roots is None:
             ind1 = self._dop_D._indicial_polynomial_at_zero()
-            ind_roots = ind1.roots(self._CIF)
+            # use CIF because, at the moment, pol.roots(CBF) with
+            # multiplicities fails even for exact pol
+            CIF = ComplexIntervalField(self.IC.precision())
+            ind_roots = ind1.roots(CIF)
         self.ind_roots = [(self.IC(rt) - self._ivleftmost, m)
                           for rt, m in ind_roots]
         self.majseq_pol_part = RatSeqBound([], self.ind, self.special_shifts,
@@ -1754,46 +1755,43 @@ class DiffOpBound:
                 num=pol_repr(self.majseq_num, shift=len(self.majseq_pol_part)),
                 pol=pol_repr(self.majseq_pol_part, shift=0))
 
-    @cached_method
-    def _poles(self):
-        sing = self._dop_D._singularities(self._CIF, multiplicities=True)
-        nz = [(s, m) for s, m in sing if not s.contains_zero()]
-        if sum(m for s, m in nz) == self.dop.leading_coefficient().degree():
-            return nz
-        else:
-            raise NotImplementedError
-
-    def _update_den_bound(self):
+    def _update_den_bound(self, algorithm=None):
         r"""
         Set self.cst, self.maj_den so that cst/maj_den is a majorant series
         of the leading coefficient of dop.
         """
+        if algorithm is None:
+            algorithm = self.bound_inverse
         den = self.dop.leading_coefficient()
         if den.degree() <= 0:
-            facs = []
-        # below_abs()/lower() to get thin intervals
-        elif self.bound_inverse == "simple":
+            rads = []
+        elif algorithm == "simple":
             rad = abs_min_nonzero_root(den, prec=self.IR.precision())
             rad = rad.below_abs(test_zero=True)
-            facs = [(self.Poly([rad, -1]), den.degree())]
-        elif self.bound_inverse == "solve":
-            facs = [(self.Poly([self.IR(iv.abs().lower()), -1]), mult)
-                    for iv, mult in self._poles()]
+            rads = [(rad, den.degree())]
+        elif algorithm == "solve":
+            try:
+                sing = self._dop_D._singularities(self.IC, multiplicities=True)
+            except ValueError:  # inexact with multiple or close singularities
+                # TODO: use bounds on root clusters
+                return self._update_den_bound("simple")
+            rads = [(s.below_abs(), m) for s, m in sing
+                                       if not s.contains_zero()]
+            # lc wrt the Euler derivative, its roots are all nonzero in the
+            # regular singular case
+            if sum(m for _, m in rads) != den.degree():
+                raise NotImplementedError
         else:
             raise ValueError("algorithm")
         self.cst = ~abs(self.IC(den.leading_coefficient()))
+        facs = [(self.Poly([rad, -1]), mult) for rad, mult in rads]
         self.maj_den = Factorization(facs, unit=self.Poly.one(),
                                      sort=False, simplify=False)
 
     @cached_method
     def _dop_ball_lc(self):
         lc = self.dop.leading_coefficient()
-        lcdeg = lc.degree()
-        some_coeffs = [lc[i] for i in range(0, lcdeg+1, 1+lcdeg//3)]
-        if isinstance(lc.base_ring(), NumberField_quadratic):
-            some_coeffs = [c.numerator() for c in some_coeffs]
-        prec = max(a.numerator().nbits() for c in some_coeffs for a in c)
-        prec += self.IC.precision()
+        prec = self._dop_D._naive_height() + self.IC.precision()
         CBFp = ComplexBallField(prec)
         Pol = PolynomialRing(CBFp, self.Poly.variable_name())
         return Pol([CBFp(c) for c in lc], check=False)
@@ -2516,7 +2514,7 @@ def _test_diffop_bound(
         sage: from ore_algebra.analytic.bounds import _test_diffop_bound
         sage: _test_diffop_bound(ords=[2], degs=[2], pplens=[1], prec=100,
         ....:         seed=0, verbose=True)
-        testing operator: 5/927*Dx^2 + ((-2/463*i - 1/463)*x + 1/463*i)*Dx - 95/396*i + 1/396
+        testing operator: ((1/457*i - 6/457)*x^2 + (-1/457*i + 1/457)*x + 1/457*i - 3/457)*Dx^2 + ((-1/106*i + 1/106)*x^2 + (-2/53*i + 2/53)*x)*Dx + (1/214*i + 1/107)*x - 6/107*i - 1/107
     """
     from sage.rings.number_field.number_field import QuadraticField
 

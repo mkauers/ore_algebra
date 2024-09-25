@@ -15,8 +15,6 @@ Custom differential operators
 from sage.arith.all import lcm
 from sage.misc.cachefunc import cached_method
 from sage.rings.all import CIF, QQbar, QQ, ZZ
-from sage.rings.complex_arb import ComplexBallField
-from sage.rings.complex_interval_field import ComplexIntervalField
 from sage.rings.infinity import infinity
 from sage.rings.number_field import number_field_base
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
@@ -26,7 +24,6 @@ from ..differential_operator_1_1 import UnivariateDifferentialOperatorOverUnivar
 
 from .context import dctx
 from .polynomial_root import roots_of_irred
-from .utilities import as_embedded_number_field_elements
 
 from . import utilities
 
@@ -47,11 +44,12 @@ class PlainDifferentialOperator(UnivariateDifferentialOperatorOverUnivariateRing
             raise ValueError("operator must be nonzero")
         if not dop.parent().is_D():
             raise ValueError("expected an operator in K(x)[D]")
-        _, _, _, dop = dop.numerator()._normalize_base_ring()
-        den = lcm(utilities.internal_denominator(c) for pol in dop for c in pol)
-        dop *= den
-        super().__init__(
-                dop.parent(), dop)
+        _, _, Scalars, dop = dop.numerator()._normalize_base_ring()
+        if isinstance(Scalars, number_field_base.NumberField):
+            den = lcm(utilities.internal_denominator(c)
+                        for pol in dop for c in pol)
+            dop *= den
+        super().__init__(dop.parent(), dop, check_base_ring=False)
 
     @cached_method
     def _indicial_polynomial_at_zero(self):
@@ -73,12 +71,32 @@ class PlainDifferentialOperator(UnivariateDifferentialOperatorOverUnivariateRing
 
     @cached_method
     def _naive_height(self):
-        def h(c):
-            den = utilities.internal_denominator(c)
-            num = den*c
-            l = list(num)
-            l.append(den)
-            return max(ZZ(a).nbits() for a in l)
+        r"""
+        Something like the size of the largest integer appearing in the
+        representation of the coefficients of this operator.
+
+        TESTS:
+
+            sage: from ore_algebra import *
+            sage: import ore_algebra.analytic.borel_laplace as bl
+            sage: DiffOps, x, Dx = DifferentialOperators()
+            sage: tau = QQ(RealField(200)(4*pi^2))
+            sage: dop = (Dx*((x^2-1)*Dx) + tau*(x^2-1)).annihilator_of_composition(1/x)
+            sage: bl.fundamental_matrix(dop, 1/100, 0, RBF(1e-30)).det()
+            [+/- ...] + [12.56762737709688264211478...]*I
+        """
+        Scalars = self.base_ring().base_ring()
+        if isinstance(Scalars, number_field_base.NumberField):
+            def h(c):
+                num = utilities.internal_denominator(c)*c
+                # taking the numerator again because, in the case of quadratic
+                # fields, the coefficients wrt the generator that we get after
+                # multiplying by the _internal_ denominator are not always
+                # integers
+                return max(ZZ(a.numerator()).nbits() for a in num)
+        else:
+            def h(c):
+                return c.nbits()
         return max(h(c) for pol in self for c in pol)
 
     @cached_method
@@ -181,9 +199,15 @@ class PlainDifferentialOperator(UnivariateDifferentialOperatorOverUnivariateRing
           ``apparent=False``.
         """
         if dom is not None or not multiplicities:
-            # Memoize the version with all information
-            sing = self._singularities(None, multiplicities=True,
-                                       apparent=apparent)
+            # If possible, memoize the exact roots with multiplicities
+            try:
+                sing = self._singularities(None, multiplicities=True,
+                                           apparent=apparent)
+            except ValueError:
+                if self.base_ring().is_exact():
+                    raise
+                return self._singularities_inexact(dom, multiplicities,
+                                                   apparent)
             if dom is not None:
                 sing = [(dom(rt), mult) for rt, mult in sing]
             if not multiplicities:
@@ -202,13 +226,36 @@ class PlainDifferentialOperator(UnivariateDifferentialOperatorOverUnivariateRing
                 return sing
             pol = self.leading_coefficient()
         else:
+            # The way we are doing this at the moment will likely fail for
+            # inexact operators, even if the leading coefficient is exact, so
+            # let's not even try doing anything clever in this case.
             dlc, alc = self.split_leading_coefficient()
             pol = alc if apparent else dlc
+        # No point in falling back on _singularities_inexact here.
+        assert dom is None
+        pol = utilities.exactify_polynomial(pol)
         sing = []
         for fac, mult in pol.factor():
             roots = roots_of_irred(fac)
             sing.extend((rt, mult) for rt in roots)
         return sing
+
+    @cached_method
+    def _singularities_inexact(self, dom, multiplicities, apparent):
+        if dom is None or apparent is not None:
+            raise ValueError("inexact leading coefficient, "
+                             "cannot compute the singularities exactly")
+        lc = self.leading_coefficient()
+        if multiplicities:
+            # Maybe we can still prove that the roots are simple (using a
+            # recursive call so that the result is cached).
+            sing = self._singularities_inexact(dom, multiplicities=False,
+                                               apparent=apparent)
+            if len(sing) == lc.degree():
+                return [(s, 1) for s in sing]
+            else:
+                raise ValueError("failed to isolate the singularities")
+        return lc.roots(dom, multiplicities=False)
 
     def _sing_as_alg(self, iv):
         pol = self.leading_coefficient().radical()
@@ -278,7 +325,8 @@ class PlainDifferentialOperator(UnivariateDifferentialOperatorOverUnivariateRing
             return (self,) + pts
         hom, *pts1 = utilities.extend_scalars(Scalars, *pts)
         Dops1 = OreAlgebra(Pols.change_ring(hom.codomain()),
-                (Dops.variable_name(), {}, {Pols.gen(): Pols.one()}))
+                           (Dops.variable_name(), {}, {Pols.gen(): Pols.one()}),
+                           check_base_ring=False)
         dop1 = Dops1([pol.map_coefficients(hom) for pol in self])
         dop1 = PlainDifferentialOperator(dop1)
         assert dop1.base_ring().base_ring() is hom.codomain()
@@ -321,7 +369,7 @@ class PlainDifferentialOperator(UnivariateDifferentialOperatorOverUnivariateRing
         Dop = self.parent()
         Pol = Dop.base_ring().change_ring(Scalars)
         x = Pol.gen()
-        return OreAlgebra(Pol, 'T'+str(x))
+        return OreAlgebra(Pol, 'T' + str(x), check_base_ring=False)
 
     def _theta_alg(self):
         return self._theta_alg_with_base(self.parent().base_ring().base_ring())
@@ -329,7 +377,7 @@ class PlainDifferentialOperator(UnivariateDifferentialOperatorOverUnivariateRing
     @cached_method
     def _shift_alg_with_base(self, Scalars):
         Pols_n, n = PolynomialRing(Scalars, 'n').objgen()
-        return OreAlgebra(Pols_n, 'Sn')
+        return OreAlgebra(Pols_n, 'Sn', check_base_ring=False)
 
     def _shift_alg(self):
         return self._shift_alg_with_base(self.base_ring().base_ring())

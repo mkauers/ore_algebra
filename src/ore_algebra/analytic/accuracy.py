@@ -16,9 +16,8 @@ Accuracy management
 import logging
 
 from sage.rings.all import  ZZ, QQ, RR
-from sage.rings.real_arb import RBF, RealBall
 
-from .safe_cmp import *
+from .safe_cmp import safe_lt, safe_le
 
 logger = logging.getLogger(__name__)
 

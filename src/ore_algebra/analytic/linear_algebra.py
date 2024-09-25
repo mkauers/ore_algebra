@@ -15,7 +15,6 @@ eigenspaces, invariant subspace, ...
 from ore_algebra.analytic.accuracy import PrecisionError
 from ore_algebra.analytic.complex_optimistic_field import ComplexOptimisticField
 
-from sage.arith.functions import lcm
 from sage.functions.all import log
 from sage.matrix.constructor import matrix
 from sage.matrix.matrix_dense import Matrix_dense
@@ -606,7 +605,8 @@ def roots(pol, *, multiplicities=False):
     except ValueError:
         raise PrecisionError("cannot compute the roots of this polynomial")
 
-    if not multiplicities: return res
+    if not multiplicities:
+        return res
 
     for j, ev in enumerate(res):
         m = 1

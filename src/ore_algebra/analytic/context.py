@@ -13,6 +13,7 @@ Analytic continuation contexts
 # http://www.gnu.org/licenses/
 
 import pprint
+import sys
 
 from sage.rings.real_arb import RealBallField
 
@@ -22,10 +23,24 @@ class Context:
 
     Options:
 
-    - ``algorithm`` (string) -- Which algorithm to try first for computing sums
-      of local expansions. Unless ``force_algorithm`` is set to ``True``, the
-      computation may still use other methods. Supported values: ``"naive"``
-      (direct summation), ``"binsplit"`` (binary splitting).
+    - ``algorithm`` (string or list of strings) -- Which algorithm(s) to try
+      for computing sums of local expansions. Supported values include
+      ``"naive"`` (direct summation), ``"dac"`` (divide-and-conquer method),
+      ``"binsplit"`` (binary splitting), ``"auto"`` (automatic choice among all
+      methods). Methods appearing earlier are preferred. Thus ``["binsplit"]``
+      means “only use binary splitting”, ``["naive","auto"]`` means “try direct
+      summation first”, and ``["auto","dac"]`` means “choose automatically, but
+      prefer divide-and-conquer summation when no other automatic choice is
+      implemented”. This option can also be specified as a string consisting of
+      comma-separated keywords such as ``"binsplit,dac"``. In this case, unless
+      the deprecated option ``force_algorithm`` is set to ``True``, a string
+      specifying a *single* algorithm ``algo`` is interpreted as
+      ``"algo,auto"``.
+
+    - ``apply_dop`` (string) -- (EXPERIMENTAL) Algorithm to use for applying an
+      operator to a polynomial when using the divide-and-conquer unrolling
+      method. Mainly for testing purposes. Accepted values may change in
+      backward incompatible ways.
 
     - ``assume_analytic`` (boolean) -- When ``True``, assume that the
       solution(s) of interest of the equation being solved are analytic at any
@@ -49,8 +64,7 @@ class Context:
       singularities, especially at high precision. It may be slower in simple
       cases, though.
 
-    - ``force_algorithm`` (boolean) -- If ``True``, only use the algorithm
-      specified by the ``algorithm`` option.
+    - ``force_algorithm`` -- DEPRECATED. See ``algorithm``.
 
     - ``recorder`` -- An object that will be used to record various intermediate
       results for debugging and analysis purposes. At the moment recording just
@@ -87,22 +101,41 @@ class Context:
             self.__dict__.update(ctx.__dict__)
 
     def _set_options(self, *,
-                     algorithm=None,
+                     algorithm=("auto",),
+                     apply_dop="APPLY_DOP_BASECASE_EXACT",
                      assume_analytic=False,
                      binsplit_thr=128,
                      bit_burst_thr=32,
                      bounds_prec=53,
                      deform=False,
-                     force_algorithm=False,
+                     force_algorithm=None,  # deprecated
                      recorder=None,
                      simple_approx_thr=64,
                      squash_intervals=False,
                      two_point_mode=None,
                      ):
 
-        if algorithm not in [None, "naive", "binsplit"]:
-            raise ValueError("algorithm", algorithm)
-        self.algorithm = algorithm
+        if isinstance(algorithm, (list, tuple)):
+            if not algorithm:
+                raise ValueError
+            self.algorithms = list(algorithm)
+            if force_algorithm is not None:
+                raise TypeError("force_algorithm should be None")
+        elif isinstance(algorithm, str):
+            self.algorithms = algorithm.split(",")
+            # backward compatibility
+            if len(self.algorithms) <= 1 and self.algorithms[0] != "auto":
+                if force_algorithm is not True:
+                    self.algorithms.append("auto")
+        else:
+            raise TypeError("algorithm", type(algorithm))
+        for algo in self.algorithms:
+            if algo not in ["auto", "naive", "binsplit", "dac"]:
+                raise ValueError("algorithm", algo)
+        if len(set(self.algorithms)) < len(self.algorithms):
+            raise ValueError("repeated values in algorithm option")
+
+        self.apply_dop = str(apply_dop)
 
         if not isinstance(assume_analytic, bool):
             raise TypeError("assume_analytic", type(assume_analytic))
@@ -117,10 +150,6 @@ class Context:
         if not isinstance(deform, bool):
             raise TypeError("deform", type(deform))
         self.deform = deform
-
-        if not isinstance(force_algorithm, bool):
-            raise TypeError("force_algorithm", type(force_algorithm))
-        self.force_algorithm = force_algorithm
 
         self.recorder = recorder
 
@@ -149,16 +178,13 @@ class Context:
     def increase_bounds_prec(self):
         self._set_interval_fields(2*self.IR.precision())
 
-    def prefer_binsplit(self):
-        return self.algorithm == "binsplit"
+    def _algorithm_index(self, key):
+        try:
+            return self.algorithms.index(key)
+        except ValueError:
+            return sys.maxsize
 
-    def force_binsplit(self):
-        return self.prefer_binsplit() and self.force_algorithm
-
-    def prefer_naive(self):
-        return self.algorithm == "naive"
-
-    def force_naive(self):
-        return self.prefer_naive() and self.force_algorithm
+    def prefer_algorithm(self, k0, k1):
+        return self._algorithm_index(k0) < self._algorithm_index(k1)
 
 dctx = Context() # default context

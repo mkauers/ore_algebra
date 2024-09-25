@@ -38,7 +38,7 @@ from .deform import PathDeformer, PathDeformationFailed
 from .differential_operator import DifferentialOperator
 from .local_solutions import FundamentalSolution, LocalBasisMapper, CriticalMonomials
 from .polynomial_root import PolynomialRoot
-from .safe_cmp import *
+from .safe_cmp import safe_lt, safe_le, safe_gt, safe_ge
 from .utilities import (pairwise, split, is_QQi, is_real_parent,
                         is_numeric_parent, as_embedded_number_field_elements)
 

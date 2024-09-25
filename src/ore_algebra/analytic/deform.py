@@ -724,7 +724,7 @@ class PathDeformer:
                 edges.append((v0, v1, r))
                 continue
             s0, s1 = self.oriented_hull_edge(*self.voronoi.ridge_points[r])
-            i0, i1 = self.hull.index(s0), self.hull.index(s1)
+            i0, _  = self.hull.index(s0), self.hull.index(s1)
             vec = self.sing[s1] - self.sing[s0]
             vec = vec/abs(vec)
             if v0 == -1:
@@ -1062,7 +1062,7 @@ class PathDeformer:
         boundary of region s, starting from a step *on that boundary*.
         The output can be i0 itself.
         """
-        region = self.voronoi.regions[self.voronoi.point_region[s]]
+        # region = self.voronoi.regions[self.voronoi.point_region[s]]
         try:
             j = next(i for i, step in enumerate(self.cpath[i0:], i0) if
                     # concrete ridge not on the boundary of this region
@@ -1146,7 +1146,6 @@ class PathDeformer:
             d1 = 0.5*abs(self.sing[s10] - self.sing[s11])
         dist = numpy.geomspace(d0, d1, len(path_sing) + 1)
 
-        path = []
         for j in range(i1 - i0):
             s, t = path_sing[j], path_sing[j+1]
             mid = (self.sing[s] + self.sing[t])/2.
@@ -1471,7 +1470,6 @@ class PathDeformer:
 
     def plot(self, both=False, **kwds):
         pl = self.plot_input()
-        failed = False
         try:
             path = self.result
             pl += plot.line([(z.real, z.imag) for z in path],
