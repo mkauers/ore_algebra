@@ -42,6 +42,9 @@ from itertools import count
 
 from . import accuracy
 
+from sage.rings.complex_arb import ComplexBallField
+from sage.rings.real_arb import RealBallField
+
 from .context import dctx
 
 
@@ -236,12 +239,7 @@ cdef class DACUnroller:
 
     # internal data -- remaining python code
 
-    cdef readonly object IR, IC
-    cdef object py_evpts, Ring, Pol, Reals, Pol_IC
-
-    # auxiliary outputs ("cdef readonly" means read-only _from Python_!)
-
-    cdef readonly object Jets
+    cdef object py_evpts, Reals, Pol_IC
 
 
     # for some reason (related to typed memory views?) making this a method of
@@ -319,7 +317,7 @@ cdef class DACUnroller:
         free(self.sol)
 
 
-    def __init__(self, dop_T, inis, py_evpts, Ring, *, ctx=dctx, **kwds):
+    def __init__(self, dop_T, inis, py_evpts, bit_prec, *, ctx=dctx, **kwds):
 
         cdef slong i, j, k, m
         cdef acb_poly_struct *p
@@ -333,17 +331,12 @@ cdef class DACUnroller:
 
         ## Parents
 
-        self.Ring = Ring
-        self.Reals = Ring.base()
+        Ring = ComplexBallField(bit_prec)
         # Slices of series solns (w/o logs); must contain λ.
-        self.Pol = dop_T.base_ring().change_ring(Ring)
-        # Values (of the evaluation point, of partial sums). Currently limited
-        # to using a ball field as a base ring, but this may change.
-        self.Jets = None  # see below
+        Pol = dop_T.base_ring().change_ring(Ring)
         # Error bounds
-        self.IR = ctx.IR
-        self.IC = self.IR.complex_field()
-        self.Pol_IC = self.Pol.change_ring(self.IC)
+        self.Pol_IC = Pol.change_ring(ctx.IR.complex_field())
+        self.Reals = RealBallField(bit_prec)
 
         ## Solutions
         # XXX initialize outside and pass to DACUnroller, or along with
@@ -364,7 +357,7 @@ cdef class DACUnroller:
         for i, pol in enumerate(dop_T):
             p = self.dop_coeffs + i
             # This truncates the coefficients to self.prec
-            acb_poly_swap(p, (<Polynomial_complex_arb?> (self.Pol(pol)))._poly)
+            acb_poly_swap(p, (<Polynomial_complex_arb?> (Pol(pol)))._poly)
             for j in range(acb_poly_length(p)):
                 self.dop_is_exact = (self.dop_is_exact
                                      and acb_is_exact(_coeffs(p) + j))
@@ -392,8 +385,8 @@ cdef class DACUnroller:
             acb_poly_get_coeff_acb(_coeffs(self.ind) + i, self.dop_coeffs + i, 0)
         _acb_poly_normalise(self.ind)
 
-        self.prec = Ring.precision()
-        self.bounds_prec = self.IR.precision()
+        self.prec = bit_prec
+        self.bounds_prec = ctx.IR.precision()
 
         self.py_evpts = py_evpts
         Jets, jets = py_evpts.jets(Ring)
@@ -404,10 +397,6 @@ cdef class DACUnroller:
                                    (<Polynomial_complex_arb?> jets[i])._poly,
                                    0)
         arb_set(self.rad, (<RealBall?> py_evpts.rad).value)
-
-        ## Auxiliary output (also used internally)
-
-        self.Jets = Jets
 
 
     cdef slong max_log_prec(self) noexcept:
@@ -579,14 +568,17 @@ cdef class DACUnroller:
 
     cdef void _report_stats(self, slong n, arb_t est, arb_t tb,
                             mag_t coeff_rad):
+        if not logger.isEnabledFor(logging.INFO):
+            return
+        cdef Parent IR = RealBallField(self.bounds_prec)
         cdef RealBall _est = RealBall.__new__(RealBall)
-        _est._parent = self.IR
+        _est._parent = IR
         arb_swap(_est.value, est)
         cdef RealBall _tb = RealBall.__new__(RealBall)
-        _tb._parent = self.IR
+        _tb._parent = IR
         arb_swap(_tb.value, tb)
         cdef RealBall _coeff_rad = RealBall.__new__(RealBall)
-        _coeff_rad._parent = self.IR
+        _coeff_rad._parent = IR
         arb_set_interval_mag(_coeff_rad.value, coeff_rad, coeff_rad, MAG_BITS)
         logger.info("summed %d terms, tail bound = %s (est = %s), max rad = %s",
                     n, _tb, _est, _coeff_rad)
@@ -597,22 +589,24 @@ cdef class DACUnroller:
     ## Interface for retrieving the results from Python
 
 
-    def py_sums(self):
+    def py_sums(self, Parent parent):
         cdef slong j, k, m
         cdef Polynomial_complex_arb psum
+        if not issubclass(parent.Element, Polynomial_complex_arb):
+            raise ValueError("bad parent")
         psums = [[[None]*self.sol[m].log_prec for _ in range(self.numpts)]
                  for m in range(self.numsols)]
         for m in range(self.numsols):
             for j in range(self.numpts):  # psum in psums
                 for k in range(self.sol[m].log_prec):  # jet in psum
                     psum = Polynomial_complex_arb.__new__(Polynomial_complex_arb)
-                    psum._parent = self.Jets
+                    psum._parent = parent
                     acb_poly_set(psum._poly, self.sum_ptr(m, j, k))
                     psums[m][j][k] = psum
         return psums
 
 
-    def py_series(self, slong m, parent):
+    def py_series(self, slong m, Parent parent):
         cdef slong k
         cdef Polynomial_complex_arb ser
         if m < 0 or m > self.numsols or self.sol[m].full_series == NULL:
@@ -628,7 +622,7 @@ cdef class DACUnroller:
         return res
 
 
-    def py_critical_coeffs(self, slong m):
+    def py_critical_coeffs(self, slong m, Parent parent):
         cdef slong k
         cdef list l
         cdef ComplexBall b
@@ -636,6 +630,8 @@ cdef class DACUnroller:
         cdef slong si = 0
         cdef slong ii = 0
         cdef slong n = -2
+        if not issubclass(parent.Element, ComplexBall):
+            raise ValueError("bad parent")
         while True:
             while self.ini_shifts[ii] == n:
                 ii += 1
@@ -647,7 +643,7 @@ cdef class DACUnroller:
                 b = <ComplexBall> ComplexBall.__new__(ComplexBall)
                 acb_set(b.value,
                         acb_mat_entry(self.sol[m].critical_coeffs, si, k))
-                b._parent = self.Ring
+                b._parent = parent
                 l.append(b)
             crit[n] = l
             si += 1
@@ -1508,6 +1504,7 @@ cdef class DACUnroller:
         cdef slong i, k, m
         cdef ComplexBall b
         cdef acb_ptr rhs
+        cdef Parent IC = ComplexBallField(self.bounds_prec)
         if self.rhs_offset < self.dop_degree:
             logger.info("n=%s cannot check residual", n)
         for m in range(self.numsols):
@@ -1516,7 +1513,7 @@ cdef class DACUnroller:
                 cc = []
                 for k in range(self.sol[m].log_prec):
                     b = <ComplexBall> ComplexBall.__new__(ComplexBall)
-                    b._parent = self.IC.zero().parent()
+                    b._parent = IC
                     rhs = _coeffs(self.sol[m].series + k) + self.rhs_offset
                     acb_set(b.value, rhs - 1 - i)
                     cc.append(b)

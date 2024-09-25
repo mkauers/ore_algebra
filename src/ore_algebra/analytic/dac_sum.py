@@ -139,6 +139,7 @@ from sage.matrix.constructor import matrix
 from sage.rings.complex_arb import ComplexBallField
 from sage.rings.integer_ring import ZZ
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
+from sage.rings.real_arb import RealBallField
 from sage.structure.sequence import Sequence
 
 from . import accuracy
@@ -195,6 +196,9 @@ class HighestSolMapper_dac(HighestSolMapper):
 
         self.dop_T = dop.to_T(dop._theta_alg())
 
+        self.IR = ctx.IR
+        self.IC = ctx.IC
+
     def do_sum(self, inis):
 
         # XXX get rid of this if possible?
@@ -207,30 +211,6 @@ class HighestSolMapper_dac(HighestSolMapper):
 
         effort = self.effort
 
-        unr, allsums = self._sum_auto(inis, maj, effort)
-        if unr.real():
-            Jets = unr.Jets.change_ring(unr.Jets.base().base())
-        else:
-            Jets = unr.Jets
-        sols = []
-        for j, sums in enumerate(allsums):
-            # fixed solution, entries of sums <-> eval pts
-            mult = self.shifts[j][1]
-            downshifts = [
-                log_series_values(
-                    Jets,
-                    self.leftmost,  # ini.expo???
-                    vector(Jets, psum),
-                    self.evpts.approx(Jets.base_ring(), i),
-                    self.evpts.jet_order,
-                    self.evpts.is_numeric,
-                    downshift=range(mult))
-                for i, psum in enumerate(sums)]
-            sols.append(SolutionAdapter(unr.py_critical_coeffs(j), downshifts))
-
-        return sols
-
-    def _sum_auto(self, inis, maj, effort):
         # Adapted from naive_sum.RecUnroller_tail_bound.sum_auto, with a little
         # code duplication, but this version is much simpler without really
         # being a special case of the other one.
@@ -255,29 +235,31 @@ class HighestSolMapper_dac(HighestSolMapper):
             # decrease self.eps at each new attempt to avoid situations where it
             # would be happy with the result and stop at the same point despite
             # the higher bit_prec.
-            Ring = ComplexBallField(bit_prec)
             stop.reset(self.eps >> (self.dop.order() + 4*attempt),
                        stop.fast_fail and ini_are_accurate)
-            unr = DACUnroller(self.dop_T, inis, self.evpts, Ring, ctx=self.ctx)
+            unr = DACUnroller(self.dop_T, inis, self.evpts, bit_prec,
+                              ctx=self.ctx)
+            CCp = ComplexBallField(bit_prec)
+            Jets = PolynomialRing(CCp, 'delta')
             try:
                 unr.sum_blockwise(stop)
             except accuracy.PrecisionError:
                 if attempt > effort:
                     raise
             else:
-                allsums = unr.py_sums()
+                allsums = unr.py_sums(Jets)
                 # estimated “total” error accounting for both method error (tail
                 # bounds) and interval growth, but ignoring derivatives and with
                 # just a rough estimate of the singular factors
-                # TODO cythonize, arb --> mag, return unr only
+                # TODO cythonize, arb --> mag
                 err = max((abs(jet[0]).rad_as_ball()  # CBF => no rad_as_ball()
                            for sol in allsums for psum in sol for jet in psum),
-                          default=unr.IR.zero())
-                err *= self.evpts.rad**unr.IC(self.leftmost).real()
+                          default=self.IR.zero())
+                err *= self.evpts.rad**self.IC(self.leftmost).real()
                 logger.debug("bit_prec = %s, err = %s (tgt = %s)",
                              bit_prec, err, self.eps)
                 if err < self.eps:
-                    return unr, allsums
+                    break
 
             bit_prec *= 2
             if attempt <= effort and bit_prec < max_prec:
@@ -288,7 +270,30 @@ class HighestSolMapper_dac(HighestSolMapper):
                 raise accuracy.PrecisionError
             else:
                 logger.info("lost too much precision, giving up")
-                return unr, allsums
+                break
+
+        if unr.real():
+            Jets = PolynomialRing(RealBallField(bit_prec), 'delta')
+
+        sols = []
+        for j, sums in enumerate(allsums):
+            # fixed solution, entries of sums <-> eval pts
+            mult = self.shifts[j][1]
+            downshifts = [
+                log_series_values(
+                    Jets,
+                    self.leftmost,  # ini.expo???
+                    vector(Jets, psum),
+                    self.evpts.approx(Jets.base_ring(), i),
+                    self.evpts.jet_order,
+                    self.evpts.is_numeric,
+                    downshift=range(mult))
+                for i, psum in enumerate(sums)]
+            # XXX should this use the real field when everything is real?
+            crit = unr.py_critical_coeffs(j, CCp)
+            sols.append(SolutionAdapter(crit, downshifts))
+
+        return sols
 
 
 def fundamental_matrix_regular(dop, evpts, eps, fail_fast, effort, ctx=dctx):
@@ -347,10 +352,9 @@ def truncated_series(dop, inis, bit_prec, terms, var='x'):
         if not isinstance(inis[i], LogSeriesInitialValues):
             inis[i] = LogSeriesInitialValues(ZZ.zero(), inis[i], dop)
     evpts = EvaluationPoint([])
-    Scalars = ComplexBallField(bit_prec)
-    unr = DACUnroller(dop_T, inis, evpts, Scalars, keep_series=True)
+    unr = DACUnroller(dop_T, inis, evpts, bit_prec, keep_series=True)
     unr.sum_blockwise(stop=None, max_terms=terms)
-    Series = PolynomialRing(Scalars, var)
+    Series = PolynomialRing(ComplexBallField(bit_prec), var)
     series = [(ini, unr.py_series(m, Series))
               for m, ini in enumerate(inis)]
     return series
@@ -398,12 +402,13 @@ def truncated_sum(dop, ini, evpts, bit_prec, terms):
         if isinstance(evpts, (list, tuple)):
             evpts = tuple(Sequence(evpts))
         evpts = EvaluationPoint(evpts)
-    Ring = ComplexBallField(bit_prec)
-    unr = DACUnroller(dop_T, [ini], evpts, Ring)
+    unr = DACUnroller(dop_T, [ini], evpts, bit_prec)
     unr.sum_blockwise(stop=None, max_terms=terms)
-    [sums] = unr.py_sums()
-    return [log_series_values(unr.Jets, ini.expo, vector(unr.Jets, psum),
-                              evpts.approx(unr.Jets.base_ring(), i),
+    CCp = ComplexBallField(bit_prec)
+    Jets = PolynomialRing(CCp, 'delta')
+    [sums] = unr.py_sums(Jets)
+    return [log_series_values(Jets, ini.expo, vector(Jets, psum),
+                              evpts.approx(CCp, i),
                               derivatives=1, is_numeric=True)[0][0]
             for i, psum in enumerate(sums)]
 
@@ -412,20 +417,19 @@ class HighestSolMapper_dac_truncated(HighestSolMapper):
 
     def __init__(self, dop, evpts, bit_prec, terms, *, ctx):
         super().__init__(dop, evpts, ctx=ctx)
-        self.Ring = ComplexBallField(bit_prec)
+        self.bit_prec = bit_prec
         self.terms = terms
         self.dop_T = dop.to_T(dop._theta_alg())
 
     def do_sum(self, inis):
-        unr = DACUnroller(self.dop_T, inis, self.evpts, self.Ring, ctx=self.ctx)
+        unr = DACUnroller(self.dop_T, inis, self.evpts, self.bit_prec,
+                          ctx=self.ctx)
         unr.sum_blockwise(stop=None, max_terms=self.terms)
+        CCp = ComplexBallField(self.bit_prec)
+        Jets = PolynomialRing(CCp, 'delta')
         # basically copied from HighestSolMapper_dac
-        if unr.real():
-            Jets = unr.Jets.change_ring(unr.Jets.base().base())
-        else:
-            Jets = unr.Jets
         sols = []
-        for j, sums in enumerate(unr.py_sums()):
+        for j, sums in enumerate(unr.py_sums(Jets)):
             mult = self.shifts[j][1]
             downshifts = [
                 log_series_values(
@@ -437,7 +441,8 @@ class HighestSolMapper_dac_truncated(HighestSolMapper):
                     self.evpts.is_numeric,
                     downshift=range(mult))
                 for i, psum in enumerate(sums)]
-            sols.append(SolutionAdapter(unr.py_critical_coeffs(j), downshifts))
+            crit = unr.py_critical_coeffs(j, CCp)
+            sols.append(SolutionAdapter(crit, downshifts))
         return sols
 
 
