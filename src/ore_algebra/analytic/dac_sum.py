@@ -219,6 +219,7 @@ class HighestSolMapper_dac(HighestSolMapper):
         input_accuracy = utilities.input_accuracy(self.evpts, inis)
         # cf. stop.reset(...) below for the term involving dop
         bit_prec0 = utilities.prec_from_eps(self.eps) + 2*self.dop.order()
+        sums_prec = 8 + bit_prec0 + 4*bit_prec0.nbits()  # TBI
         bit_prec = 8 + bit_prec0*(1 + (self.dop_T.degree() - 2).nbits())
         max_prec = bit_prec + 2*input_accuracy  # = ∞ for exact input
         logger.info("initial working precision = %s bits", bit_prec)
@@ -237,7 +238,7 @@ class HighestSolMapper_dac(HighestSolMapper):
             # the higher bit_prec.
             stop.reset(self.eps >> (self.dop.order() + 4*attempt),
                        stop.fast_fail and ini_are_accurate)
-            unr = DACUnroller(self.dop_T, inis, self.evpts, bit_prec,
+            unr = DACUnroller(self.dop_T, inis, self.evpts, sums_prec, bit_prec,
                               ctx=self.ctx)
             CCp = ComplexBallField(bit_prec)
             Jets = PolynomialRing(CCp, 'delta')
@@ -359,7 +360,7 @@ def truncated_series(dop, inis, bit_prec, terms):
         if not isinstance(inis[i], LogSeriesInitialValues):
             inis[i] = LogSeriesInitialValues(ZZ.zero(), inis[i], dop)
     evpts = EvaluationPoint([])
-    unr = DACUnroller(dop_T, inis, evpts, bit_prec, keep_series=True)
+    unr = DACUnroller(dop_T, inis, evpts, bit_prec, bit_prec, keep_series=True)
     unr.sum_blockwise(stop=None, max_terms=terms)
     Series = dop.base_ring().change_ring(ComplexBallField(bit_prec))
     series = [(ini, unr.py_series(m, Series))
@@ -409,7 +410,9 @@ def truncated_sum(dop, ini, evpts, bit_prec, terms):
         if isinstance(evpts, (list, tuple)):
             evpts = tuple(Sequence(evpts))
         evpts = EvaluationPoint(evpts)
-    unr = DACUnroller(dop_T, [ini], evpts, bit_prec)
+    # XXX accept a sums_prec here? or compute it based on
+    # utilities.input_accuracy(self.evpts, inis)?
+    unr = DACUnroller(dop_T, [ini], evpts, bit_prec, bit_prec)
     unr.sum_blockwise(stop=None, max_terms=terms)
     CCp = ComplexBallField(bit_prec)
     Jets = PolynomialRing(CCp, 'delta')
@@ -429,7 +432,10 @@ class HighestSolMapper_dac_truncated(HighestSolMapper):
         self.dop_T = dop.to_T(dop._theta_alg())
 
     def do_sum(self, inis):
-        unr = DACUnroller(self.dop_T, inis, self.evpts, self.bit_prec,
+        # XXX accept a sums_prec here? or compute it based on
+        # utilities.input_accuracy(self.evpts, inis)?
+        unr = DACUnroller(self.dop_T, inis, self.evpts,
+                          self.bit_prec, self.bit_prec,
                           ctx=self.ctx)
         unr.sum_blockwise(stop=None, max_terms=self.terms)
         CCp = ComplexBallField(self.bit_prec)

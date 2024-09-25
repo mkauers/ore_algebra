@@ -194,8 +194,11 @@ cdef class DACUnroller:
     cdef slong numsols
     cdef slong numpts
     cdef slong jet_order
-    cdef slong prec         # general working precision (bits)
-    cdef slong bounds_prec  # bit precision for error bounds
+
+    # working precisions in bits
+    cdef slong prec         # main (full) precision (series coefficients, etc.)
+    cdef slong sums_prec    # evaluation points, sums (shorter dep chains)
+    cdef slong bounds_prec  # error bounds
 
     cdef acb_poly_struct *dop_coeffs
     cdef fmpz_poly_struct *dop_coeffs_fmpz  # TODO: coeffs in ℤ[i]
@@ -317,7 +320,8 @@ cdef class DACUnroller:
         free(self.sol)
 
 
-    def __init__(self, dop_T, inis, py_evpts, bit_prec, *, ctx=dctx, **kwds):
+    def __init__(self, dop_T, inis, py_evpts, sums_prec, prec , *,
+                 ctx=dctx, **kwds):
 
         cdef slong i, j, k, m
         cdef acb_poly_struct *p
@@ -327,16 +331,21 @@ cdef class DACUnroller:
         assert dop_T.parent().is_T()
         assert len(inis) > 0
 
+        self.prec = prec
+        self.sums_prec = sums_prec
+        self.bounds_prec = ctx.IR.precision()
+
         self.apply_dop_algorithm = ApplyDopAlgorithm[ctx.apply_dop]
 
         ## Parents
 
-        Ring = ComplexBallField(bit_prec)
+        Coeffs = ComplexBallField(prec)
+        Sums = ComplexBallField(sums_prec)
         # Slices of series solns (w/o logs); must contain λ.
-        Pol = dop_T.base_ring().change_ring(Ring)
+        Pol = dop_T.base_ring().change_ring(Coeffs)
         # Error bounds
         self.Pol_IC = Pol.change_ring(ctx.IR.complex_field())
-        self.Reals = RealBallField(bit_prec)
+        self.Reals = RealBallField(prec)  # XXX temporary
 
         ## Solutions
         # XXX initialize outside and pass to DACUnroller, or along with
@@ -345,7 +354,7 @@ cdef class DACUnroller:
         for m, ini in enumerate(inis):
             for j, (_, vec) in enumerate(sorted(ini.shift.items())):
                 for k, a in enumerate(vec):
-                    b = Ring(a)
+                    b = Coeffs(a)
                     acb_swap(acb_mat_entry(self.sol[m].critical_coeffs, j, k),
                              b.value)
             self.sol[m].real = (py_evpts.is_real_or_symbolic and
@@ -372,7 +381,7 @@ cdef class DACUnroller:
         for ini in inis[1:]:
             if ini.expo != leftmost or ini.flat_shifts() != ini_shifts:
                 raise ValueError("incompatible initial conditions")
-        acb_swap(self.leftmost, (<ComplexBall?> (Ring(leftmost))).value)
+        acb_swap(self.leftmost, (<ComplexBall?> (Coeffs(leftmost))).value)
         for i, s in enumerate(ini_shifts):
             self.ini_shifts[i] = ini_shifts[i]
         self.ini_shifts[len(ini_shifts)] = -1
@@ -385,17 +394,10 @@ cdef class DACUnroller:
             acb_poly_get_coeff_acb(_coeffs(self.ind) + i, self.dop_coeffs + i, 0)
         _acb_poly_normalise(self.ind)
 
-        self.prec = bit_prec
-        self.bounds_prec = ctx.IR.precision()
-
         self.py_evpts = py_evpts
-        Jets, jets = py_evpts.jets(Ring)
         for i in range(self.numpts):
-            assert (jets[i].degree() <= 0
-                    or jets[i].degree() == 1 and jets[i][1].is_one())
-            acb_poly_get_coeff_acb(self.evpts + i,
-                                   (<Polynomial_complex_arb?> jets[i])._poly,
-                                   0)
+            b = py_evpts.approx(Sums, i)
+            acb_swap(self.evpts + i, b.value)
         arb_set(self.rad, (<RealBall?> py_evpts.rad).value)
 
 
@@ -837,22 +839,23 @@ cdef class DACUnroller:
                             acb_mul(tmp,
                                     _coeffs(self.sol[m].series + k) + n - base,
                                     self.pows + pows_offset + j,
-                                self.prec)
+                                self.sums_prec)
                             acb_addmul_fmpz(_coeffs(self.sum_ptr(m, j, k)) + i,
-                                            tmp, self.binom_n + i, self.prec)
+                                            tmp, self.binom_n + i,
+                                            self.sums_prec)
                     else:
                         pows_offset = (n % self.jet_order)*self.numpts
                         acb_mul(tmp,
                                 _coeffs(self.sol[m].series + k) + n - base,
                                 self.pows + pows_offset + j,
-                                self.prec)
+                                self.sums_prec)
                         for i in range(self.jet_order):
                             acb_addmul_fmpz(_coeffs(self.sum_ptr(m, j, k)) + i,
-                                            tmp, self.binom_n + i, self.prec)
+                                            tmp, self.binom_n + i, self.sums_prec)
             acb_mul(self.pows + ((n + 1) % self.jet_order)*self.numpts + j,
                     self.pows + (n       % self.jet_order)*self.numpts + j,
                     self.evpts + j,
-                    self.prec)
+                    self.sums_prec)
         acb_clear(tmp)
 
 
@@ -869,16 +872,16 @@ cdef class DACUnroller:
         for j in range(self.numpts):
             if acb_contains_zero(self.evpts + j):
                 continue
-            acb_inv(inv, self.evpts + j, self.prec)
+            acb_inv(inv, self.evpts + j, self.sums_prec)
             acb_one(invpow)
             for i in range(1, self.jet_order):
-                acb_mul(invpow, invpow, inv, self.prec)
+                acb_mul(invpow, invpow, inv, self.sums_prec)
                 for m in range(self.numsols):
                     for k in range(self.sol[m].log_prec):
                         acb_mul(_coeffs(self.sum_ptr(m, j, k)) + i,
                                 _coeffs(self.sum_ptr(m, j, k)) + i,
                                 invpow,
-                                self.prec)
+                                self.sums_prec)
         acb_clear(invpow)
         acb_clear(inv)
 
@@ -994,7 +997,7 @@ cdef class DACUnroller:
                         if j >= acb_poly_length(self.dop_coeffs + i):
                             continue
                         b = _coeffs(self.dop_coeffs + i) + j
-                        self.acb_addmul_binom(c, b, i, t)
+                        self.acb_addmul_binom(c, b, i, t, self.prec)
 
                 for m in range(self.numsols):
                     # We could perform a dot product of length log_prec*that
@@ -1013,15 +1016,13 @@ cdef class DACUnroller:
 
 
     cdef void acb_addmul_binom(self, acb_ptr c, acb_srcptr b,
-                          slong i, slong t) noexcept:
+                               slong i, slong t, slong prec) noexcept:
         if t == 0:
-            acb_add(c, c, b, self.prec)
+            acb_add(c, c, b, prec)
         elif t == 1:
-            acb_addmul_si(c, b, i, self.prec)
+            acb_addmul_si(c, b, i, prec)
         else:
-            acb_addmul_fmpz(c, b,
-                            fmpz_mat_entry(self.binom, i, t),
-                            self.prec)
+            acb_addmul_fmpz(c, b, fmpz_mat_entry(self.binom, i, t), prec)
 
 
     # Same as of apply_dop_basecase but using fmpz, for operators with exact
