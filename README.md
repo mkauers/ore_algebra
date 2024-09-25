@@ -67,6 +67,13 @@ packages to their Sage installations. See
 
 for more information.
 
+Apple users should check whether gcc is aliased to clang. If so, we recommend
+installing gcc using homebrew, then run
+
+  export CC=gcc-14
+
+in the terminal directly before installing ore_algebra.
+
 ### With Sage installed from operating system packages
 
 If your copy of Sage comes from operating system packages (e.g., Debian, Ubuntu,
