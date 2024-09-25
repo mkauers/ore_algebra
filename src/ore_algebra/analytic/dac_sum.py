@@ -444,6 +444,12 @@ def fundamental_matrix_regular_truncated(dop, evpts, bit_prec, *,
         [     2.00000                      0                1.00000]
         [    -2.00000                      0                1.00000]
         ]
+
+        sage: fundamental_matrix_regular_truncated(Dx^2 - 1, [RBF(0, rad=.25)], 30, terms=3)
+        [
+        [[1.0 +/- 0.0313]      [+/- 0.251]]
+        [     [+/- 0.251]       1.00000000]
+        ]
     """
     dop = DifferentialOperator(dop)
     if not isinstance(evpts, EvaluationPoint_base):

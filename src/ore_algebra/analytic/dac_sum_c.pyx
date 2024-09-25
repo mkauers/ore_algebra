@@ -12,6 +12,7 @@ from sage.libs.flint.acb cimport *
 from sage.libs.flint.acb_mat cimport *
 from sage.libs.flint.acb_poly cimport *
 from sage.libs.flint.arb cimport *
+from sage.libs.flint.arf cimport arf_is_nan
 from sage.libs.flint.fmpq_poly cimport *
 from sage.libs.flint.fmpz cimport *
 from sage.libs.flint.fmpz_mat cimport *
@@ -197,8 +198,9 @@ cdef class DACUnroller:
     cdef slong shift_idx    # same but ignoring multiplicities (= distinct elts
                             # elts seen so far, = row index in critical_coeffs)
 
-    cdef acb_ptr evpts  # evaluation points x[i], 0 < i < numpts
-    cdef acb_ptr pows   # x[i]^n
+    cdef acb_ptr evpts  # evaluation points x[j], 0 < j < numpts
+    cdef acb_ptr pows   # x[j]^{n-i} for i < jet_order (i-major, cyclic on i);
+                        # only the block i=0 is really used for nonzero points
     cdef arb_t rad      # ≥ abs(evaluation points), for error bounds
 
     # the solutions we are computing
@@ -261,7 +263,7 @@ cdef class DACUnroller:
         self.dop_coeffs_fmpz = _fmpz_poly_vec_init(self.dop_order + 1)
 
         self.evpts = _acb_vec_init(self.numpts)
-        self.pows =  _acb_vec_init(self.numpts)
+        self.pows =  _acb_vec_init(self.numpts*self.jet_order)
         self.binom_n = _fmpz_vec_init(self.jet_order)
         self.ini_shifts = <slong *> malloc((self.dop_order + 1)*sizeof(slong))
 
@@ -294,7 +296,7 @@ cdef class DACUnroller:
         # dop_coeffs is not.
         if self.dop_coeffs != NULL:
             _fmpz_vec_clear(self.binom_n, self.jet_order)
-            _acb_vec_clear(self.pows, self.numpts)
+            _acb_vec_clear(self.pows, self.numpts*self.jet_order)
             _acb_vec_clear(self.evpts, self.numpts)
 
             _acb_poly_vec_clear(self.dop_coeffs, self.dop_order + 1)
@@ -384,7 +386,7 @@ cdef class DACUnroller:
         self.py_evpts = py_evpts
         Jets, jets = py_evpts.jets(Ring)
         for i in range(self.numpts):
-            assert (jets[i].degree() == 0
+            assert (jets[i].degree() <= 0
                     or jets[i].degree() == 1 and jets[i][1].is_one())
             acb_poly_get_coeff_acb(self.evpts + i,
                                    (<Polynomial_complex_arb?> jets[i])._poly,
@@ -412,7 +414,7 @@ cdef class DACUnroller:
     cdef void reset_solutions(self, slong series_length) noexcept:
         cdef slong i, k, m
         cdef acb_poly_struct *f
-        for i in range(self.numpts):
+        for i in range(self.numpts):  # only set to one the first block
             acb_one(self.pows + i)
         for m in range(self.numsols):
             for k in range(self.sol[m]._log_alloc):
@@ -549,7 +551,8 @@ cdef class DACUnroller:
                         c = _coeffs(self.sum_ptr(m, j, k)) + i
                         arb_add_error(acb_realref(c), err)
                         if self.sol[m].real:
-                            assert arb_is_zero(acb_imagref(c))
+                            assert (arb_is_zero(acb_imagref(c))
+                                    or arf_is_nan(arb_midref(acb_imagref(c))))
                         else:
                             arb_add_error(acb_imagref(c), err)
                         mag_max(coeff_rad, coeff_rad,
@@ -770,10 +773,14 @@ cdef class DACUnroller:
         Add to each entry of `self.sol[:].sums` a term corresponding to the
         current `n`.
 
-        WARNING: Repeated calls to this function compute x^i*f^(i)(x) instead of
-        f^(i)(x). Call `fix_sums()` to fix the result.
+        WARNING: For `i > 0` and `ξ ≠ 0`, and only in this case, the term added
+        to the i-th derivative is `c·ξ^n` instead of `c·ξ^{n-i}` where `c` is
+        the coefficient of `x^{n-i}` in the `i`th derivative, so that repeated
+        calls to this function with `n = 0, 1, \dots` compute `ξ^i·f^(i)(ξ)`.
+        Call `fix_sums()` at the end to fix the result.
         """
-        cdef slong i, j, k, m
+        cdef slong i, j, k, m, pows_offset
+        cdef acb_ptr pows
         if n == 0:
             _fmpz_vec_zero(self.binom_n, self.jet_order)
             fmpz_one(self.binom_n)
@@ -785,14 +792,32 @@ cdef class DACUnroller:
         for j in range(self.numpts):
             for m in range(self.numsols):
                 for k in range(self.sol[m].log_prec):
-                    acb_mul(tmp,
-                            _coeffs(self.sol[m].series + k) + n - base,
-                            self.pows + j,
-                            self.prec)
-                    for i in range(self.jet_order):
-                        acb_addmul_fmpz(_coeffs(self.sum_ptr(m, j, k)) + i,
-                                        tmp, self.binom_n + i, self.prec)
-            acb_mul(self.pows + j, self.pows + j, self.evpts + j, self.prec)
+                    # We can trade some full-width muls for muls by small
+                    # integer by multiplying everyone by ξ^n), but this
+                    # optimization is valid only when ξ does not contain 0.
+                    if acb_contains_zero(self.evpts + j):
+                        for i in range(self.jet_order):
+                            pows_offset = ((n + self.jet_order - i)
+                                           % self.jet_order)*self.numpts
+                            acb_mul(tmp,
+                                    _coeffs(self.sol[m].series + k) + n - base,
+                                    self.pows + pows_offset + j,
+                                self.prec)
+                            acb_addmul_fmpz(_coeffs(self.sum_ptr(m, j, k)) + i,
+                                            tmp, self.binom_n + i, self.prec)
+                    else:
+                        pows_offset = (n % self.jet_order)*self.numpts
+                        acb_mul(tmp,
+                                _coeffs(self.sol[m].series + k) + n - base,
+                                self.pows + pows_offset + j,
+                                self.prec)
+                        for i in range(self.jet_order):
+                            acb_addmul_fmpz(_coeffs(self.sum_ptr(m, j, k)) + i,
+                                            tmp, self.binom_n + i, self.prec)
+            acb_mul(self.pows + ((n + 1) % self.jet_order)*self.numpts + j,
+                    self.pows + (n       % self.jet_order)*self.numpts + j,
+                    self.evpts + j,
+                    self.prec)
         acb_clear(tmp)
 
 
@@ -807,6 +832,8 @@ cdef class DACUnroller:
         acb_init(inv)
         acb_init(invpow)
         for j in range(self.numpts):
+            if acb_contains_zero(self.evpts + j):
+                continue
             acb_inv(inv, self.evpts + j, self.prec)
             acb_one(invpow)
             for i in range(1, self.jet_order):
