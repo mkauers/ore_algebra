@@ -93,8 +93,8 @@ cdef struct Solution:
     # direct pointers), with the same offset typically applying for all k.
 
     # vector of polynomials in x holding the coefficients wrt log(x)^k/k! of the
-    # terms of the solution and/or of the rhs (= residual = image by dop of the
-    # truncated solution)
+    # terms of the solution and/or of the rhs (= image by dop of the truncated
+    # solution ≈ residual)
     acb_poly_struct *series
 
     acb_poly_struct *full_series
@@ -492,6 +492,7 @@ cdef class DACUnroller:
             # shifting sol[:].series so that it contains the residual, but doing
             # it before allows us to check the computation using the low-degree
             # part in debug mode.
+            arb_mul(radpow, radpow, radpow_blk, self.bounds_prec)
             if stop is not None and b % blkstride == 0:
                 self.rhs_offset = high - base
                 if self.check_convergence(stop, high, est, tb, radpow,
@@ -503,8 +504,6 @@ cdef class DACUnroller:
                     f = _coeffs(self.sol[m].series + k)
                     _acb_poly_shift_right(f, f, high+blksz-base, high-base)
                     _acb_vec_zero(f + blksz, blksz)
-
-            arb_mul(radpow, radpow, radpow_blk, self.bounds_prec)
 
             b += 1
 
@@ -1384,11 +1383,6 @@ cdef class DACUnroller:
         Requires: rhs (≈ residuals, see get_residual for the difference) in part
         of sol[:].series starting at offset self.rhs_offset.
         """
-        # XXX The estimates computed here are sometimes more pessimistic than
-        # the actual tail bounds. This can happen with naive_sum too, but seems
-        # less frequent. While the two implementations are not using exactly the
-        # same formulas for the estimates, I don't see why the results would
-        # differ by more than a small multiplicative factor.
 
         cdef slong i, k, m
         cdef acb_ptr c
@@ -1405,11 +1399,9 @@ cdef class DACUnroller:
         for m in range(self.numsols):
             for k in range(self.sol[m].log_prec):
                 for i in range(self.dop_degree):
+                    # est based on rhs (unlike the version in naive_sum)
                     # TODO Use a low-prec estimate instead (but keep reporting
                     # accuracy information)
-                    # XXX Using the low part here (removing self.rhs_offser)
-                    # makes the code faster on some examples: what do we really
-                    # want?
                     c = _coeffs(self.sol[m].series + k) + self.rhs_offset + i
                     arb_abs(tmp, acb_realref(c))
                     arb_add(est, est, tmp, self.prec)

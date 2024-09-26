@@ -42,7 +42,7 @@ TESTS::
 
     sage: from ore_algebra.examples import polya
     sage: polya.dop[10].numerical_solution([0]*9+[1], [0,1/20], algorithm="dac")
-    [1.05954374788826...] + [+/- ...]*I
+    [1.059543747888...] + [+/- ...]*I
 
 Easy singular example::
 
