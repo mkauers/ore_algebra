@@ -268,6 +268,7 @@ class HighestSolMapper_dac(HighestSolMapper):
                 break
 
             bit_prec *= 2
+            sums_prec = sums_prec*6//5
             if attempt <= effort and bit_prec < max_prec:
                 logger.info("lost too much precision, restarting with %d bits",
                             bit_prec)
