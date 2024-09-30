@@ -221,6 +221,8 @@ class Point(SageObject):
             sage: Dops, x, Dx = DifferentialOperators()
             sage: Point(10**20, Dx)
             ~1.0000e20
+            sage: Point(ComplexBallField(10)(1+I), Dx)
+            1.00 + 1.00*I
         """
         res = None
         if self.is_exact():
@@ -237,7 +239,10 @@ class Point(SageObject):
             except AttributeError:
                 pass
             if res is None and not is_QQi(self.value.parent()):
-                res = repr(QQbar(self.value))
+                try:
+                    res = repr(QQbar(self.value))
+                except (TypeError, ValueError):
+                    pass
         if res is None:
             res = repr(self.value)
         if self.detour_to is not None:
