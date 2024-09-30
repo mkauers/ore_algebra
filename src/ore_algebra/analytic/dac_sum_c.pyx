@@ -1537,7 +1537,7 @@ cdef class DACUnroller:
     cdef slong max_ini_shift(self):
         cdef slong i
         cdef slong res = -1
-        for i in range(self.dop_order):
+        for i in range(self.dop_order + 1):
             if self.ini_shifts[i] == -1:
                 return res
             if self.ini_shifts[i] > res:
