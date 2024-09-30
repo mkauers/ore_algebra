@@ -547,7 +547,7 @@ to significantly decrease ``eps`` to get precise results::
     ....:       - (x^2+10*x+25)*Dx - (-2*x^2-4*x+29+1/2))
     sage: ini = [5,4,3/2,1/3]
     sage: dop.numerical_solution(ini, [0,1])
-    [10.9 +/- ...]
+    [+/- ...]
     sage: dop.numerical_solution(ini, [0,1], two_point_mode=False)
     [10.873127314 +/- ...e-10]
     sage: dop.numerical_solution(ini, [0,3/2], 1e-30, two_point_mode=False)

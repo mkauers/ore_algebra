@@ -33,6 +33,7 @@ from .context import Context as Context  # re-export
 from .context import dctx
 from .monodromy import formal_monodromy
 from .path import EvaluationPoint_step, Path, Step
+from .utilities import invmat
 
 logger = logging.getLogger(__name__)
 
@@ -78,7 +79,7 @@ def step_transition_matrix(dop, steps, eps, rows=None, split=0, ctx=dctx):
         for i, step in enumerate(steps):
             if step.reversed:
                 try:
-                    inv = ~mat[i]
+                    inv = invmat(mat[i])
                     rad, invrad = mat[i].trace().rad(), inv.trace().rad()
                     if invrad**2 > rad:
                         logger.info("precision loss in inverse: rad=%s, inv.rad=%s",
@@ -339,7 +340,7 @@ def analytic_continuation(dop, path, eps, ctx=dctx, ini=None, post=None,
     z0 = path.vert[0]
     path_mat = identity_matrix(ZZ, dop.order())
     maybe_push_point_dict(res, z0, path_mat) # value at z0 = identity
-    path_mat = ~_process_detour(dop, z0, path_mat, eps1, ctx=ctx)
+    path_mat = invmat(_process_detour(dop, z0, path_mat, eps1, ctx=ctx))
 
     steps = list(path.steps())
     i = 0

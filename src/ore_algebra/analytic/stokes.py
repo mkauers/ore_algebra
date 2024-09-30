@@ -205,6 +205,7 @@ import logging
 
 from sage.graphs.generators.basic import CompleteGraph
 from sage.matrix.constructor import matrix
+from sage.matrix.matrix_complex_ball_dense import Matrix_complex_ball_dense
 from sage.matrix.special import block_matrix, identity_matrix
 from sage.misc.converting_dict import KeyConvertingDict
 from sage.misc.cachefunc import cached_method
@@ -222,6 +223,7 @@ from .differential_operator import DifferentialOperator
 from .geometry import in_triangle, orient2d_interval
 from .monodromy import formal_monodromy
 from .path import PathPrecisionError, Point
+from .utilities import invmat
 
 logger = logging.getLogger(__name__)
 
@@ -558,7 +560,7 @@ class SingConnectionDict(dict):
         if vsort[1] is b and orient == +1:
             mat_ac = delta()*mat_ac
         elif vsort[0] is b:
-            mat_ac = ~self._monodromy(b)*mat_ac
+            mat_ac = invmat(self._monodromy(b))*mat_ac
         mat_ac = self[b, c]*mat_ac
         if vsort[1] is c and (   vsort[0] is b and orient == -1
                               or vsort[0] is a and orient == +1):
@@ -602,8 +604,9 @@ class SingConnectionDict(dict):
         for _ in range(6):
             mat_ab = self.dop.numerical_transition_matrix([a, b], eps)
             mat_ab = mat_ab.change_ring(self.IC)
+            assert isinstance(mat_ab, Matrix_complex_ball_dense)
             try:
-                inv = ~mat_ab
+                inv = invmat(mat_ab)
             except ZeroDivisionError:
                 eps = eps**2
             else:

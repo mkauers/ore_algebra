@@ -21,6 +21,7 @@ import sage.rings.complex_arb
 import sage.rings.real_arb
 
 from sage.categories.pushout import pushout
+from sage.matrix.matrix_complex_ball_dense import Matrix_complex_ball_dense
 from sage.misc.cachefunc import cached_function
 from sage.misc.misc import cputime
 from sage.rings.qqbar import (qq_generator, AlgebraicNumber, ANExtensionElement)
@@ -332,3 +333,16 @@ def warn_no_cython_extensions(logger, *, fallback=False):
             " Consider upgrading SageMath or downgrading ore_algebra to git"
             " commit 73a430aaf.)")
     warnings.warn(msg, stacklevel=2)
+
+def invmat(mat):
+    # inverting matrices over RBF yields nonsense results
+    # (sage bug #38746)
+    if isinstance(mat, Matrix_complex_ball_dense):
+        return ~mat
+    R = mat.base_ring()
+    if isinstance(R, RealBallField):
+        inv = ~(mat.change_ring(R.complex_field()))
+        return inv.change_ring(R)
+    assert R.is_exact(), "unexpected base ring in invmat"
+    # mainly for identity matrices over ZZ
+    return ~mat

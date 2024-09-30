@@ -45,6 +45,7 @@ from . import path, utilities
 from .context import Context
 from .differential_operator import DifferentialOperator
 from .polynomial_root import PolynomialRoot
+from .utilities import invmat
 
 logger = logging.getLogger(__name__)
 
@@ -223,7 +224,7 @@ def _test_formal_monodromy(dop):
     ref = dop.numerical_transition_matrix([1, i, -1, -i, 1])
     tmat = dop.numerical_transition_matrix([0,1])
     fmon = formal_monodromy(dop, 0, CBF)
-    mon = tmat*fmon*~tmat
+    mon = tmat*fmon*invmat(tmat)
     assert all(c.contains_zero() and c.rad() < 1e-10 for c in (ref - mon).list())
 
 ##############################################################################
@@ -339,11 +340,11 @@ def _extend_path_mat(dop, path_mat, inv_path_mat, x, y, eps, matprod, ctx):
     path[0].options["store_value"] = False # XXX bugware
     path[1].options["store_value"] = True
     edge_mat = dop.numerical_transition_matrix(path, eps, ctx=ctx)
-    inv_edge_mat = ~edge_mat
+    inv_edge_mat = invmat(edge_mat)
     if invert:
         edge_mat, inv_edge_mat = inv_edge_mat, edge_mat
     ext_mat = bypass_mat_y*edge_mat*bypass_mat_x
-    inv_ext_mat = ~bypass_mat_x*inv_edge_mat*~bypass_mat_y
+    inv_ext_mat = invmat(bypass_mat_x)*inv_edge_mat*invmat(bypass_mat_y)
     new_path_mat = ext_mat*path_mat
     new_inv_path_mat = inv_path_mat*inv_ext_mat
     assert isinstance(new_path_mat, Matrix_complex_ball_dense)
@@ -495,7 +496,7 @@ def _monodromy_matrices(dop, base, eps=1e-16, sing=None, **kwds):
                     conj = key.conjugate()
                     logger.info("Computing local monodromy around %s by "
                                 "complex conjugation", conj)
-                    conj_mat = ~mon.conjugate()
+                    conj_mat = invmat(mon).conjugate()
                     yield LocalMonodromyData(conj.as_algebraic(), conj_mat, True)
                 if todoitem is not base:
                     del todo[key]
@@ -510,7 +511,7 @@ def _monodromy_matrices(dop, base, eps=1e-16, sing=None, **kwds):
             [base.alg.as_exact(), base.alg.conjugate().as_exact()],
             eps, ctx=ctx)
         def conjugate_monodromy(mat):
-            return ~base_conj_mat*~mat.conjugate()*base_conj_mat
+            return invmat(base_conj_mat)*invmat(mat).conjugate()*base_conj_mat
 
     tree = _spanning_tree(base, todo.values())
 

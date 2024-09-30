@@ -65,7 +65,7 @@ borrowed from his lecture series at MPI-MiS, March 2021.) ::
 
     sage: from ore_algebra.analytic.examples.misc import rodriguez_villegas_dop as dop
     sage: dop.numerical_transition_matrix([1/4, 3/4], eps=1e-1000)[-1,-1] # long time (1.4 s)
-    [23.999268334...96006073125...]
+    [23.999268334...9600607312...]
 
 Examples provided by Eric Pichon that involve algebraic singularities of high
 degree, with large integer coefficients::
