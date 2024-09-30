@@ -1416,7 +1416,16 @@ cdef class DACUnroller:
         _tb._parent = self.Reals
         arb_swap(_tb.value, tail_bound)
 
-        done, new_tail_bound = stop.check(self, n, _tb, _est, next_stride)
+        # When the convergence checker raises a PrecisionError,
+        # analytic_continuation expects the result to be a bad but rigorous
+        # enclosure. So we keep the old tail bound and return True to instruct
+        # sum_blockwise to stop the computation.
+        # TODO: Simplify!
+        try:
+            done, new_tail_bound = stop.check(self, n, _tb, _est, next_stride)
+        except accuracy.PrecisionError:
+            arb_swap(tail_bound, _tb.value)
+            return True
 
         arb_swap(tail_bound, (<RealBall?> new_tail_bound).value)
         arb_swap(est, _est.value)

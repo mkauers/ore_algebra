@@ -251,25 +251,21 @@ class HighestSolMapper_dac(HighestSolMapper):
                               ctx=self.ctx)
             CCp = ComplexBallField(bit_prec)
             Jets = PolynomialRing(CCp, 'delta')
-            try:
-                unr.sum_blockwise(stop)
-            except accuracy.PrecisionError:
-                if attempt > effort:
-                    raise
-            else:
-                allsums = unr.py_sums(Jets)
-                # estimated “total” error accounting for both method error (tail
-                # bounds) and interval growth, but ignoring derivatives and with
-                # just a rough estimate of the singular factors
-                # TODO cythonize, arb --> mag
-                err = max((abs(jet[0]).rad_as_ball()  # CBF => no rad_as_ball()
-                           for sol in allsums for psum in sol for jet in psum),
-                          default=self.IR.zero())
-                err *= self.evpts.rad**self.IC(self.leftmost).real()
-                logger.debug("bit_prec = %s, err = %s (tgt = %s)",
-                             bit_prec, err, self.eps)
-                if err < self.eps:
-                    break
+
+            unr.sum_blockwise(stop)
+            allsums = unr.py_sums(Jets)
+            # estimated “total” error accounting for both method error (tail
+            # bounds) and interval growth, but ignoring derivatives and with
+            # just a rough estimate of the singular factors
+            # TODO cythonize, arb --> mag
+            err = max((abs(jet[0]).rad_as_ball()  # CBF => no rad_as_ball()
+                        for sol in allsums for psum in sol for jet in psum),
+                        default=self.IR.zero())
+            err *= self.evpts.rad**self.IC(self.leftmost).real()
+            logger.debug("bit_prec = %s, err = %s (tgt = %s)",
+                            bit_prec, err, self.eps)
+            if err < self.eps:
+                break
 
             bit_prec *= 2
             if attempt <= effort and bit_prec < max_prec:
