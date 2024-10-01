@@ -230,8 +230,8 @@ class HighestSolMapper_dac(HighestSolMapper):
         logger.info("initial working precision = %s bits", bit_prec)
 
         for attempt in count(1):
-            logger.debug("attempt #%s (of max %s), bit_prec=%s",
-                         attempt, effort + 1, bit_prec)
+            logger.debug("attempt #%s (of max %s), bit_prec=%s, sums_prec=%s",
+                         attempt, effort + 2, bit_prec, sums_prec)
             ini_are_accurate = 2*input_accuracy > bit_prec
             # Ask for a bit more accuracy than we really require because
             # DACUnroller does not guarantee that the result will really be < ε
@@ -264,10 +264,17 @@ class HighestSolMapper_dac(HighestSolMapper):
                 break
 
             bit_prec *= 2
-            sums_prec = sums_prec*6//5
-            if attempt <= effort and bit_prec < max_prec:
-                logger.info("lost too much precision, restarting with %d bits",
-                            bit_prec)
+            # Attempt to deal with large humps in the magnitude of the series
+            # terms. TODO This should really use information from the previous
+            # runs to refine the guess for sums_prec, and there should probably
+            # be some notion of _relative_ error tolerante in play somewhere.
+            sums_prec = 6*sums_prec//5 if attempt < (effort+1)//2 else bit_prec
+            # Try at least twice (attempts = effort + 2) so that the logic from
+            # the previous line has a chance to run.
+            if attempt <= effort + 1 and bit_prec < max_prec:
+                logger.info("lost too much precision, restarting with %d bits "
+                            "(%d bits for sums)",
+                            bit_prec, sums_prec)
                 continue
             if self.fail_fast:
                 raise accuracy.PrecisionError
