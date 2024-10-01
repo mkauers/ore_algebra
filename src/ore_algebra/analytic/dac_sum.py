@@ -131,11 +131,7 @@ Variants of ``apply_dop``::
 This used to return an incorrect enclosure due to Sage bug #38746::
 
     sage: (Dx^2 + x).numerical_solution([1, 0], [0,108], 1e-43, algorithm="dac")
-    Traceback (most recent call last):
-    ...
-    PrecisionError: failed to invert transition matrix [split] 189/2 <-- 108
-    sage: (Dx^2 + x).numerical_solution([1, 0], [0,108], 1e-60, algorithm="dac")
-    [0.2731261535202...]
+    [0.273126153520200398594082901520988383972...]
 """
 
 import logging

@@ -12,7 +12,7 @@ from sage.libs.flint.acb cimport *
 from sage.libs.flint.acb_mat cimport *
 from sage.libs.flint.acb_poly cimport *
 from sage.libs.flint.arb cimport *
-from sage.libs.flint.arf cimport arf_is_nan
+from sage.libs.flint.arf cimport arf_is_nan, arf_set_mag
 from sage.libs.flint.fmpq_poly cimport *
 from sage.libs.flint.fmpz cimport *
 from sage.libs.flint.fmpz_mat cimport *
@@ -216,7 +216,8 @@ cdef class DACUnroller:
     cdef acb_ptr evpts  # evaluation points x[j], 0 < j < numpts
     cdef acb_ptr pows   # x[j]^{n-i} for i < jet_order (i-major, cyclic on i);
                         # only the block i=0 is really used for nonzero points
-    cdef arb_t rad      # ≥ abs(evaluation points), for error bounds
+    cdef mag_t rad      # ≥ abs(evaluation points), for error estimate
+                        # (rigorous bounds currently use the python version)
 
     # the solutions we are computing
     cdef Solution *sol
@@ -281,7 +282,7 @@ cdef class DACUnroller:
 
         acb_poly_init(self.ind)
         acb_init(self.leftmost)
-        arb_init(self.rad)
+        mag_init(self.rad)
 
         self.init_binom(self.dop_order + 1)
 
@@ -295,7 +296,7 @@ cdef class DACUnroller:
 
         self.clear_binom()
 
-        arb_clear(self.rad)
+        mag_clear(self.rad)
         acb_clear(self.leftmost)
         acb_poly_clear(self.ind)
 
@@ -398,7 +399,7 @@ cdef class DACUnroller:
         for i in range(self.numpts):
             b = py_evpts.approx(Sums, i)
             acb_swap(self.evpts + i, b.value)
-        arb_set(self.rad, (<RealBall?> py_evpts.rad).value)
+        arb_get_mag(self.rad, (<RealBall?> py_evpts.rad).value)
 
 
     cdef slong max_log_prec(self) noexcept:
@@ -437,9 +438,8 @@ cdef class DACUnroller:
     cpdef void sum_blockwise(self, object stop, slong max_terms=WORD_MAX):
         cdef slong k, m, base, low, high
         cdef acb_ptr f
-        cdef arb_t radpow, radpow_blk
-        cdef arb_t est, tb
-        cdef mag_t coeff_rad
+        cdef mag_t radpow, radpow_blk, re_leftmost, sum_rad
+        cdef arb_t _radpow, est, tb
 
         max_terms = max(max_terms, 0)
 
@@ -449,17 +449,21 @@ cdef class DACUnroller:
         # cdef slong blksz = 1 << (self.dop_degree - 1).bit_length()
         cdef slong blkstride = max(1, 32//blksz)
 
-        arb_init(radpow)
-        # neglects the contribution of Im(λ)...
-        arb_pow(radpow, self.rad, acb_realref(self.leftmost), self.bounds_prec)
-        arb_init(radpow_blk)
-        arb_pow_ui(radpow_blk, self.rad, blksz, self.bounds_prec)
+        # initialize radpow >= rad^Re(λ) (neglecting Im(λ)...)
+        arb_init(_radpow)
+        arf_set_mag(arb_midref(_radpow), self.rad)
+        arb_pow(_radpow, _radpow, acb_realref(self.leftmost), self.bounds_prec)
+        arb_get_mag(radpow, _radpow)
+        arb_clear(_radpow)
+
+        mag_init(radpow_blk)
+        mag_pow_ui(radpow_blk, self.rad, blksz)
 
         arb_init(est)
         arb_pos_inf(est)
         arb_init(tb)
         arb_pos_inf(tb)
-        mag_init(coeff_rad)
+        mag_init(sum_rad)
 
         self.apply_dop_interpolation_max_len = min(  # threshold TBI
             APPLY_DOP_INTERPOLATION_MAX_POINTS,
@@ -492,7 +496,7 @@ cdef class DACUnroller:
             # shifting sol[:].series so that it contains the residual, but doing
             # it before allows us to check the computation using the low-degree
             # part in debug mode.
-            arb_mul(radpow, radpow, radpow_blk, self.bounds_prec)
+            mag_mul(radpow, radpow, radpow_blk)
             if stop is not None and b % blkstride == 0:
                 self.rhs_offset = high - base
                 if self.check_convergence(stop, high, est, tb, radpow,
@@ -508,15 +512,16 @@ cdef class DACUnroller:
             b += 1
 
         self.fix_sums()
-        self.add_error_get_rad(coeff_rad, tb)
-        self._report_stats((b+1)*blksz, est, tb, coeff_rad)
+        self.add_error_get_rad(sum_rad, tb)
+        self._report_stats((b+1)*blksz, est, tb, sum_rad)
 
         self.tinterp_cache_clear()
         arb_clear(tb)
         arb_clear(est)
-        arb_clear(radpow_blk)
-        arb_clear(radpow)
-        mag_clear(coeff_rad)
+        mag_clear(radpow_blk)
+        mag_clear(radpow)
+        mag_clear(re_leftmost)
+        mag_clear(sum_rad)
 
 
     cdef void sum_dac(self, slong base, slong low, slong high) noexcept:
@@ -547,9 +552,9 @@ cdef class DACUnroller:
         self.sum_dac(base, mid, high)
 
 
-    cdef void add_error_get_rad(self, mag_ptr coeff_rad, arb_ptr err):
+    cdef void add_error_get_rad(self, mag_ptr sum_rad, arb_ptr err):
         cdef slong i, j, k, m
-        mag_zero(coeff_rad)
+        mag_zero(sum_rad)
         for m in range(self.numsols):
             for j in range(self.numpts):  # psum in psums
                 for k in range(self.sol[m].log_prec):  # jet in psum
@@ -561,14 +566,14 @@ cdef class DACUnroller:
                                     or arf_is_nan(arb_midref(acb_imagref(c))))
                         else:
                             arb_add_error(acb_imagref(c), err)
-                        mag_max(coeff_rad, coeff_rad,
+                        mag_max(sum_rad, sum_rad,
                                 arb_radref(acb_realref(c)))
-                        mag_max(coeff_rad, coeff_rad,
+                        mag_max(sum_rad, sum_rad,
                                 arb_radref(acb_imagref(c)))
 
 
     cdef void _report_stats(self, slong n, arb_t est, arb_t tb,
-                            mag_t coeff_rad):
+                            mag_t sum_rad):
         if not logger.isEnabledFor(logging.INFO):
             return
         cdef Parent IR = RealBallField(self.bounds_prec)
@@ -578,11 +583,11 @@ cdef class DACUnroller:
         cdef RealBall _tb = RealBall.__new__(RealBall)
         _tb._parent = IR
         arb_swap(_tb.value, tb)
-        cdef RealBall _coeff_rad = RealBall.__new__(RealBall)
-        _coeff_rad._parent = IR
-        arb_set_interval_mag(_coeff_rad.value, coeff_rad, coeff_rad, MAG_BITS)
+        cdef RealBall _sum_rad = RealBall.__new__(RealBall)
+        _sum_rad._parent = IR
+        arb_set_interval_mag(_sum_rad.value, sum_rad, sum_rad, MAG_BITS)
         logger.info("summed %d terms, tail bound = %s (est = %s), max rad = %s",
-                    n, _tb, _est, _coeff_rad)
+                    n, _tb, _est, _sum_rad)
         arb_swap(tb, _tb.value)
         arb_swap(est, _est.value)
 
@@ -1378,7 +1383,7 @@ cdef class DACUnroller:
     cdef bint check_convergence(self, object stop, slong n,
                                 arb_t est,         # W
                                 arb_t tail_bound,  # RW
-                                arb_srcptr radpow, slong next_stride):
+                                mag_srcptr radpow, slong next_stride):
         r"""
         Requires: rhs (≈ residuals, see get_residual for the difference) in part
         of sol[:].series starting at offset self.rhs_offset.
@@ -1386,28 +1391,32 @@ cdef class DACUnroller:
 
         cdef slong i, k, m
         cdef acb_ptr c
-        cdef arb_t tmp
-        arb_init(tmp)
+        cdef mag_t _c, cmag
+        mag_init(_c)
+        mag_init(cmag)
 
         if n <= self.max_ini_shift():
             arb_pos_inf(tail_bound)
             return False
 
         arb_zero(est)
+        cdef mag_ptr crad = arb_radref(est)
 
         # Note that here radpow contains the contribution of z^λ.
         for m in range(self.numsols):
             for k in range(self.sol[m].log_prec):
                 for i in range(self.dop_degree):
                     # est based on rhs (unlike the version in naive_sum)
-                    # TODO Use a low-prec estimate instead (but keep reporting
-                    # accuracy information)
                     c = _coeffs(self.sol[m].series + k) + self.rhs_offset + i
-                    arb_abs(tmp, acb_realref(c))
-                    arb_add(est, est, tmp, self.prec)
-                    arb_abs(tmp, acb_imagref(c))
-                    arb_add(est, est, tmp, self.prec)
-        arb_mul_arf(est, est, arb_midref(radpow), self.prec)
+                    acb_get_mag(_c, c)
+                    mag_add(cmag, cmag, _c)
+                    mag_max(crad, crad, arb_radref(acb_realref(c)))
+                    mag_max(crad, crad, arb_radref(acb_imagref(c)))
+        mag_mul(cmag, cmag, radpow)
+        mag_mul(crad, crad, radpow)
+        # store both parts of the estimate in an arb object for compatibility
+        # with existing code
+        arf_set_mag(arb_midref(est), cmag)
 
         cdef RealBall _est = RealBall.__new__(RealBall)
         _est._parent = self.Reals
@@ -1430,7 +1439,8 @@ cdef class DACUnroller:
         arb_swap(tail_bound, (<RealBall?> new_tail_bound).value)
         arb_swap(est, _est.value)
 
-        arb_clear(tmp)
+        mag_clear(cmag)
+        mag_clear(_c)
         return done
 
 
