@@ -30,7 +30,6 @@ def do_cythonize():
             [Extension(
                 "*",
                 ["src/ore_algebra/analytic/*.pyx"],
-                extra_compile_args=['-std=c++11'],
             )],
             aliases = sage.env.cython_aliases(),
             # gdb_debug=True,
