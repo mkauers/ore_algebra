@@ -686,7 +686,7 @@ class Point(SageObject):
             sage: matl = dop.numerical_transition_matrix([a, l*i-2])
             sage: matu = dop.numerical_transition_matrix([a, u*i-2])
             sage: (matl - matu)[0,0]
-            [-0.92793753699596...] + [1.66154359059463...]*I
+            [-0.9279375369959...] + [1.66154359059463...]*I
         """
         # Point options become meaningless (and are lost) when not returning
         # self.
@@ -1299,7 +1299,7 @@ class Path(SageObject):
             ....: 198323267016*x^2 + 3242277984*x - 171991488)*Dx)
             sage: step = [-134879941225471131681/7*I + 12/11, -119/8*I + 12/11]
             sage: dop2.numerical_transition_matrix(step, assume_analytic=True).trace() # long time (~6.5 s)
-            [5.974916363812...e+72 +/- ...] + [-4.643666445284...e+72 +/- ...]*I
+            [5.974...e+72 +/- ...] + [-4.643...e+72 +/- ...]*I
 
         ...and for this one, showing that step subdivision could silently change
         the homotopy class of the path, leading to incorrect results::

@@ -631,9 +631,9 @@ def monodromy_matrices(dop, base, eps=1e-16, sing=None, **kwds):
         [                [64.9...]              [-41.3...]*I   [-19.7...]  [6.28...]*I  1.00...        0]
         [[-2.96...] + [-7.14...]*I  [-2.96...] + [0.94...]*I  [0.94...]*I            0        0  1.00...]
         sage: mon[1][2,5]
-        [-9.310353...] + [+/- ...]*I
+        [-9.310...] + [+/- ...]*I
         sage: mon[1].trace()
-        [4.000000...] + [+/- ...]*I
+        [4.000...] + [+/- ...]*I
     """
     it = _monodromy_matrices(dop, base, eps, sing, **kwds)
     return [mat for _, mat, _ in it]

@@ -45,9 +45,9 @@ test case for “rounded” recurrences::
     sage: mat = quadric_slice_dop.numerical_transition_matrix( # long time (1.3 s)
     ....:         [quadric_slice_crit, -46997/133120], 1e-30, assume_analytic=True)
     sage: mat[1,1] # long time
-    [5.35411995155753663629611...] + [+/- ...]*I
+    [5.354119951557536636296...] + [+/- ...]*I
     sage: mat[3,3] # long time
-    [-0.00019638929459859558122691...] + [+/- ...]*I
+    [-0.000196389294598595581226...] + [+/- ...]*I
 
 An example (coming from computations with iterated integrals) that requires
 handling elements of quadratic number fields other than ℚ[i] somewhat
@@ -55,7 +55,7 @@ efficiently::
 
     sage: from ore_algebra.analytic.examples.misc import iint_quadratic_alg as pb
     sage: pb.dop.numerical_solution(pb.ini, [0, 1/5000*sqrt(277774997191/11111)], 2^(-100))
-    [3368168.8058219185359508521...] + [+/- ...]*I
+    [3368168.80582191853...] + [+/- ...]*I
 
 The Beukers-Heckman-Rodriguez-Villegas hypergeometric function. Generalized
 hypergeometric series can benefit from binary splitting early on, but the

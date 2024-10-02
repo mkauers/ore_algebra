@@ -239,7 +239,7 @@ cdef class DACUnroller:
 
     # internal data -- error bounds
 
-    cdef slong rhs_offset
+    cdef slong __rhs_offset
 
     # internal data -- remaining python code
 
@@ -497,10 +497,9 @@ cdef class DACUnroller:
             # it before allows us to check the computation using the low-degree
             # part in debug mode.
             mag_mul(radpow, radpow, radpow_blk)
-            if stop is not None and b % blkstride == 0:
-                self.rhs_offset = high - base
-                if self.check_convergence(stop, high, est, tb, radpow,
-                                          blkstride*blksz):
+            if stop is not None and (b + 1) % blkstride == 0:
+                if self.check_convergence(stop, high, high - base, est, tb,
+                                          radpow, blkstride*blksz):
                     break
 
             for m in range(self.numsols):
@@ -1381,12 +1380,16 @@ cdef class DACUnroller:
 
 
     cdef bint check_convergence(self, object stop, slong n,
+                                slong rhs_offset,
                                 arb_t est,         # W
                                 arb_t tail_bound,  # RW
                                 mag_srcptr radpow, slong next_stride):
         r"""
-        Requires: rhs (≈ residuals, see get_residual for the difference) in part
-        of sol[:].series starting at offset self.rhs_offset.
+        Requires:
+
+        - rhs (≈ residuals, see ``get_residual`` for the difference) in
+          ``sol[:].series`` at offset ``self.rhs_offset``,
+        - last computed terms just before.
         """
 
         cdef slong i, k, m
@@ -1402,12 +1405,15 @@ cdef class DACUnroller:
         arb_zero(est)
         cdef mag_ptr crad = arb_radref(est)
 
+        # The code should still work (returning degraded estimates) when the
+        # inequality is not satisfied, but this is not used at the moment.
+        assert rhs_offset >= self.dop_degree
+
         # Note that here radpow contains the contribution of z^λ.
         for m in range(self.numsols):
-            for k in range(self.sol[m].log_prec):
+            for k in range(min(self.sol[m].log_prec, rhs_offset)):
                 for i in range(self.dop_degree):
-                    # est based on rhs (unlike the version in naive_sum)
-                    c = _coeffs(self.sol[m].series + k) + self.rhs_offset + i
+                    c = _coeffs(self.sol[m].series + k) + rhs_offset - 1 - i
                     acb_get_mag(_c, c)
                     mag_add(cmag, cmag, _c)
                     mag_max(crad, crad, arb_radref(acb_realref(c)))
@@ -1418,6 +1424,7 @@ cdef class DACUnroller:
         # with existing code
         arf_set_mag(arb_midref(est), cmag)
 
+        self.__rhs_offset = rhs_offset  # used in callbacks
         cdef RealBall _est = RealBall.__new__(RealBall)
         _est._parent = self.Reals
         arb_swap(_est.value, est)
@@ -1483,7 +1490,7 @@ cdef class DACUnroller:
                 # (cst operand constant, could save a constant factor)
                 acb_mul(nres_term + k,
                         _coeffs(self.dop_coeffs + self.dop_order),  # cst
-                        _coeffs(self.sol[m].series + k) + self.rhs_offset + d,
+                        _coeffs(self.sol[m].series + k) + self.__rhs_offset + d,
                         self.bounds_prec)
                 # ... - sum(ind[u]*nres[k+u][d], 1 <= u < log_prec - k)
                 acb_dot(nres_term + k,
@@ -1517,7 +1524,7 @@ cdef class DACUnroller:
         cdef ComplexBall b
         cdef acb_ptr rhs
         cdef Parent IC = ComplexBallField(self.bounds_prec)
-        if self.rhs_offset < self.dop_degree:
+        if self.__rhs_offset < self.dop_degree:
             logger.info("n=%s cannot check residual", n)
         for m in range(self.numsols):
             last = []
@@ -1526,7 +1533,7 @@ cdef class DACUnroller:
                 for k in range(self.sol[m].log_prec):
                     b = <ComplexBall> ComplexBall.__new__(ComplexBall)
                     b._parent = IC
-                    rhs = _coeffs(self.sol[m].series + k) + self.rhs_offset
+                    rhs = _coeffs(self.sol[m].series + k) + self.__rhs_offset
                     acb_set(b.value, rhs - 1 - i)
                     cc.append(b)
                 last.append(cc)

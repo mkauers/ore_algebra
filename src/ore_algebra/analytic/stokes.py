@@ -149,9 +149,9 @@ A fourth-order example::
     sage: stokes.keys()
     dict_keys([1, -1])
     sage: stokes[1][2,0]
-    [+/- ...] + [-2.060897024589991165631724347...]*I
+    [+/- ...] + [-2.0608970245899911656...]*I
     sage: stokes[1][3,1]
-    [+/- ...] + [-1.7320508075688772935274463415...]*I
+    [+/- ...] + [-1.73205080756887729352744...]*I
 
 We double-check the above results using Borel-Laplace summation::
 
