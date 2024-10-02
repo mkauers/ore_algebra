@@ -256,8 +256,15 @@ def has_new_ComplexBall_constructor():
 def prec_from_eps(eps):
     return -eps.lower().log2().floor() + 4
 
-def input_accuracy(evpts, inis):
-    return max(0, min(evpts.accuracy, min(ini.accuracy() for ini in inis)))
+def input_accuracy(dop, evpts, inis):
+    accuracy = min(evpts.accuracy, min(ini.accuracy() for ini in inis))
+    R = dop.base_ring().base_ring()
+    if not R.is_exact():
+        if isinstance(R, (RealBallField, ComplexBallField)):
+            accuracy = min(accuracy, min(c.accuracy() for p in dop for c in p))
+        else:
+            raise NotImplementedError
+    return max(0, accuracy)
 
 def split(cond, objs):
     matching, not_matching = [], []

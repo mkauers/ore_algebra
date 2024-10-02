@@ -221,7 +221,7 @@ class HighestSolMapper_dac(HighestSolMapper):
         # being a special case of the other one.
 
         stop = accuracy.StopOnRigorousBound(maj, self.eps)
-        input_accuracy = utilities.input_accuracy(self.evpts, inis)
+        input_accuracy = utilities.input_accuracy(self.dop, self.evpts, inis)
         # cf. stop.reset(...) below for the term involving dop
         bit_prec0 = utilities.prec_from_eps(self.eps) + 2*self.dop.order()
         sums_prec = 8 + bit_prec0 + 4*bit_prec0.nbits()  # TBI
