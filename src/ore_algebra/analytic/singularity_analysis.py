@@ -133,8 +133,8 @@ asymptotics for symmetric rational functions via ACSV", arXiv:1804.10929::
 
     sage: dop26 = Diffops([p(c=26) for p in dop])
     sage: bound_coefficients(dop26, [1, -2, 76], order=2, n0=50) # long time
-    1.000000000000000*108.1021465879489?^n*(([0.0484997667050581...] + [...]*I)*n^(-3/2)
-    + ([-0.068160009777454...] + [...]*I)*n^(-5/2)
+    1.000000000000000*108.1021465879489?^n*([0.0484997667050581...]*n^(-3/2)
+    + [-0.068160009777454...]*n^(-5/2)
     + B([8.40...]*n^(-7/2), n >= 50))
 
 Complex exponents example::

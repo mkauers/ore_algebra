@@ -195,10 +195,10 @@ def step_transition_matrix_bit_burst(dop, steps, eps, rows, fail_fast, effort,
                     raise
                 logger.info("falling back to direct summation")
         else:
-            if ctx.prefer_algorithm("dac", "naive"):
-                mod = dac_sum
-            else:
+            if ctx.prefer_algorithm("naive", "dac"):
                 mod = naive_sum
+            else:
+                mod = dac_sum
             try:
                 return mod.fundamental_matrix_regular(
                     ldop, points, eps, fail_fast, effort, ctx)

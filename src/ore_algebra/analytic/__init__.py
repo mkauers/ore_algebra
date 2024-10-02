@@ -82,7 +82,7 @@ Display some information on what is going on::
     sage: logger = logging.getLogger('ore_algebra.analytic')
     sage: logger.setLevel(logging.INFO)
     sage: dop = (x^2 + 1)*Dx^2 + 2*x*Dx
-    sage: dop.numerical_transition_matrix([0, 1], 1e-20)
+    sage: dop.numerical_transition_matrix([0, 1], 1e-20, algorithm="naive")
     INFO:ore_algebra.analytic.analytic_continuation:path: 0 --> 1/2 --> 1
     INFO:ore_algebra.analytic.analytic_continuation:[0 <-- 1/2, 1/2 --> 1]: ordinary case
     ...
@@ -198,15 +198,15 @@ constant::
     [(0, 2), (0.02943725152285942?, 1), (33.97056274847714?, 1)]
     sage: mat = dop.numerical_transition_matrix([0, roots[1][0]], 1e-10)
     sage: mat.list()
-    [[4.846055616...] + [+/- ...]*I,
-     [-3.77845406...] + [+/- ...]*I,
-     [1.473024273...] + [+/- ...]*I,
-     [+/- ...] + [-14.9569783...]*I,
-     [+/- ...] + [+/- ...]*I,
-     [+/- ...] + [4.546376247...]*I,
-     [-59.9006990...] + [+/- ...]*I,
-     [28.70759161...] + [+/- ...]*I,
-     [-18.2076291...] + [+/- ...]*I]
+    [[4.846055616...],
+     [-3.77845406...],
+     [1.473024273...],
+     [-14.9569783...]*I,
+     [+/- ...]*I,
+     [4.546376247...]*I,
+     [-59.9006990...],
+     [28.70759161...],
+     [-18.2076291...]]
     sage: cst = -((1/4)*I)*(1+2^(1/2))^2*2^(3/4)/(pi*(2*2^(1/2)-3))
     sage: mat[1][2].overlaps(CBF(cst))
     True
@@ -624,17 +624,17 @@ Algebraic points at high precision::
     x + sqrt2
     sage: dop.numerical_transition_matrix([1, sqrt2], 1e-10000) # long time (1.6 s)
     [[1.11...015121538...] [0.43...3856086567...]]
-    [[0.65...812947177...] [1.15...5867289418...]]
+    [ [0.65...31146540...] [1.15...4021327757...]]
     sage: dop.numerical_transition_matrix([1, sqrt2], 1e-10000, algorithm="binsplit") # long time (1.6 s)
-    [[1.11...015121538...] [0.43...3856086567...]]
-    [[0.65...812947177...] [1.15...5867289418...]]
+    [[1.11...015121538...]             [0.43...3856086567...]]
+    [[0.65...311465404...812947177...] [1.15...4021327757...5867289418...]]
 
 Inexact operators::
 
     sage: Pol_CBF.<u> = CBF[]
     sage: Dop_CBF.<Du> = OreAlgebra(Pol_CBF, check_base_ring=False)
     sage: ((CBF.pi() - u)*Du - 1).numerical_transition_matrix([0, 1])
-    [[1.466942206924260 +/- 2.63e-16] + [+/- 6.84e-124]*I]
+    [[1.4669422069242...] + [+/- ...]*I]
     sage: (Du - CBF(i*pi)).numerical_transition_matrix([0,1], 1e-30)
     [[-1.00000000000000...] + [+/- ...]*I]
     sage: (u*Du - CBF(pi)*u).numerical_transition_matrix([0,1])
@@ -681,7 +681,8 @@ Miscellaneous tests::
     sage: ((dop.numerical_transition_matrix([0,1])*dop.numerical_transition_matrix([1, 1+i, 0]) - 1)).norm('frob') < 1e-13
     True
 
-    sage: ((9*x^2 - 1)*Dx + 18*x).numerical_transition_matrix([0,I,1], squash_intervals=True)
+    sage: ((9*x^2 - 1)*Dx + 18*x).numerical_transition_matrix([0,I,1],
+    ....:         algorithm="naive", squash_intervals=True)
     [[-0.125000000000000...] + [+/- ...]*I]
 
     sage: dop = x*Dx^3 + 2*Dx^2 + x*Dx

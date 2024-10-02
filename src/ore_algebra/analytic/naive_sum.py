@@ -1,6 +1,111 @@
 # vim: tw=80
 """
 Evaluation of convergent D-finite series by direct summation
+
+TESTS::
+
+    sage: from ore_algebra import DifferentialOperators
+    sage: Dops, x, Dx = DifferentialOperators(QQ, 'x')
+
+    sage: ((x^2 + 1)*Dx^2 + 2*x*Dx).numerical_solution([0, 1],
+    ....:         [0, i+1, 2*i, i-1, 0], algorithm=["naive"])
+    [3.14159265358979...] + [+/- ...]*I
+
+    sage: NF.<sqrt2> = QuadraticField(2)
+    sage: dop = (x^2 - 3)*Dx^2 + x + 1
+    sage: dop.numerical_transition_matrix([0, sqrt2], 1e-10, algorithm=["naive"])
+    [[1.669017372...] [1.809514316...]]
+    [[1.556515516...] [2.286697055...]]
+
+    sage: (Dx - 1).numerical_solution([1], [0, i + pi], algorithm=["naive"])
+    [12.5029695888765...] + [19.4722214188416...]*I
+
+    sage: from ore_algebra.analytic.examples.misc import koutschan1
+    sage: koutschan1.dop.numerical_solution(koutschan1.ini, [0, 84],
+    ....:         algorithm=["naive"], two_point_mode=False)
+    [0.011501537469552017...]
+
+    sage: from ore_algebra.examples.periods import dop_140118_4
+    sage: dop_140118_4.numerical_transition_matrix([0,1], 1e-200,
+    ....:         assume_analytic=True, algorithm="naive")[3,3]
+    [0.0037773116...2646238326...]
+
+    sage: from ore_algebra.examples import fcc
+    sage: fcc.dop5.numerical_solution( # long time (4.8 s)
+    ....:          [0, 0, 0, 0, 1, 0], [0, 1/5+i/2, 1],
+    ....:          1e-60, algorithm=["naive"])
+    [1.04885235135491485162956376369999275945402550465206640...] + [+/- ...]*I
+
+    sage: from ore_algebra.examples import polya
+    sage: polya.dop[10].numerical_solution([0]*9+[1], [0,1/20], algorithm="naive")
+    [1.0595437478...] + [+/- ...]*I
+
+Easy singular example::
+
+    sage: (x*Dx^2 + x + 1).numerical_transition_matrix([0, 1], 1e-10,
+    ....:                                             algorithm=["naive"])
+    [[-0.006152006884...]    [0.4653635461...]]
+    [   [-2.148107776...]  [-0.05672090833...]]
+
+    sage: dop = (Dx*(x*Dx)^2).lclm(Dx-1)
+    sage: dop.numerical_solution([2, 0, 0, 0], [0, 1/4], algorithm=["naive"])
+    [1.921812055672805...]
+
+Bessel function at an algebraic point::
+
+    sage: alg = QQbar(-20)^(1/3)
+    sage: dop = x*Dx^2 + Dx + x
+    sage: dop.numerical_transition_matrix([0, alg], 1e-8, algorithm=["naive"])
+    [ [3.7849872...] +  [1.7263190...]*I  [1.3140884...] + [-2.3112610...]*I]
+    [ [1.0831414...] + [-3.3595150...]*I  [-2.0854436...] + [-0.7923237...]*I]
+
+Ci(sqrt(2))::
+
+    sage: dop = x*Dx^3 + 2*Dx^2 + x*Dx
+    sage: ini = [1, CBF(euler_gamma), 0]
+    sage: dop.numerical_solution(ini, path=[0, sqrt(2)], algorithm=["naive"])
+    [0.46365280236686...]
+
+Whittaker functions with irrational exponents::
+
+    sage: dop = 4*x^2*Dx^2 + (-x^2+8*x-11)
+    sage: dop.numerical_transition_matrix([0, 10], algorithm=["naive"])
+    [[-3.829367993175840...]  [7.857756823216673...]]
+    [[-1.135875563239369...]  [1.426170676718429...]]
+
+Recurrences of order zero::
+
+    sage: (x*Dx + 1).numerical_transition_matrix([0,2], algorithm=["naive"])
+    [0.50000000000000000]
+
+Some other corner cases::
+
+    sage: (x*Dx + 1).numerical_transition_matrix([i, i], algorithm=["naive"])
+    [1.0000000000000000]
+
+    sage: (Dx - (x - 1)).numerical_solution([1], [0, 1], algorithm=["naive"])
+    [0.6065306597126334...]
+
+Nonstandard branches::
+
+    sage: from ore_algebra.examples.iint import f, w, diffop, iint_value
+    sage: iint_value(diffop([f[1/4], w[1], f[1]]),
+    ....:            [0, 0, 16/9*i, -16/27*i*(-3*i*pi+8)],
+    ....:            algorithm=["naive"])
+    [-3.445141853366...]
+
+High degree::
+
+    sage: (((x^200-1)//(x-1))*Dx^2 + 5*x*Dx + sum((i+3)*x**i for i in range(500))).numerical_transition_matrix([0,1/16], algorithm="naive")  # long time
+    [ [0.99412284058692...] [0.062180605822178...]]
+    [[-0.18799810365157...]  [0.98478282225787...]]
+
+Miscellaneous examples::
+
+    sage: QQi.<i> = QuadraticField(-1)
+    sage: (Dx - i).numerical_solution([1], [sqrt(2), sqrt(3)], algorithm=["naive"])
+    [0.9499135278648561...] + [0.3125128630622157...]*I
+
 """
 
 # Copyright 2015, 2016, 2017, 2018, 2019 Marc Mezzarobba
@@ -993,7 +1098,7 @@ def fundamental_matrix_regular(dop, evpts, eps, fail_fast, effort, ctx=dctx):
 
         sage: dop = x*Dx^3 + 2*Dx^2 + x*Dx
         sage: ini = [1, CBF(euler_gamma), 0]
-        sage: dop.numerical_solution(ini, [0, RBF(1/3)], 1e-14)
+        sage: dop.numerical_solution(ini, [0, RBF(1/3)], 1e-14, algorithm="naive")
         [-0.549046117782...]
     """
     eps_col = ctx.IR(eps)/ctx.IR(dop.order()).sqrt()

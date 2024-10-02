@@ -108,7 +108,7 @@ constants λ₁, λ₂ found on page 339::
     sage: bdop = dop.borel_transform()
     sage: bini = BorelIniMap(dop, bdop, CBF).run()
     sage: bdop.numerical_transition_matrix([0,-1])*vector(bini)
-    ([1.2052482723029...], [0.9487662559867...], [+/- ...])
+    ([1.2052482723029...] + ...*I, [0.9487662559867...] + ...*I, [+/- ...] + ...*I)
 
 And a value of the Borel-Laplace sum. (No reference values are given in the
 paper but at least the computed value agrees with the sum to the least term.) ::

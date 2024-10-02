@@ -2749,8 +2749,8 @@ class UnivariateDFiniteFunction(DFiniteFunction):
             Univariate D-finite function defined by the annihilating operator (-x^4 - 4*x^3 - 6*x^2 - 4*x - 1)*Dx^2 + (-2*x^3 - 6*x^2 - 6*x - 2)*Dx - 1 and the coefficient sequence defined by (-n^7 - 12*n^6 - 52*n^5 - 90*n^4 - 19*n^3 + 102*n^2 + 72*n)*Sn^4 + (-4*n^7 - 42*n^6 - 160*n^5 - 240*n^4 - 16*n^3 + 282*n^2 + 180*n)*Sn^3 + (-6*n^7 - 54*n^6 - 175*n^5 - 215*n^4 + 31*n^3 + 269*n^2 + 150*n)*Sn^2 + (-4*n^7 - 30*n^6 - 76*n^5 - 60*n^4 + 44*n^3 + 90*n^2 + 36*n)*Sn - n^7 - 6*n^6 - 10*n^5 + 11*n^3 + 6*n^2 and {0: 0, 1: -1, 2: 1, 3: -5/6, 4: 1/2, 5: -1/120}
             sage: sin(g)
             Univariate D-finite function defined by the annihilating operator (-x^4 - 4*x^3 - 6*x^2 - 4*x - 1)*Dx^2 + (-2*x^3 - 6*x^2 - 6*x - 2)*Dx - 1 and the coefficient sequence defined by (-n^7 - 12*n^6 - 52*n^5 - 90*n^4 - 19*n^3 + 102*n^2 + 72*n)*Sn^4 + (-4*n^7 - 42*n^6 - 160*n^5 - 240*n^4 - 16*n^3 + 282*n^2 + 180*n)*Sn^3 + (-6*n^7 - 54*n^6 - 175*n^5 - 215*n^4 + 31*n^3 + 269*n^2 + 150*n)*Sn^2 + (-4*n^7 - 30*n^6 - 76*n^5 - 60*n^4 + 44*n^3 + 90*n^2 + 36*n)*Sn - n^7 - 6*n^6 - 10*n^5 + 11*n^3 + 6*n^2 and {0: 0, 1: -1, 2: 1, 3: -5/6, 4: 1/2, 5: -1/120}
-            sage: sin(pi)
-            [+/- ...e-54]
+            sage: sin(pi)  # abs tol 1e-50
+            [+/- 4.89e-56]
 
         """
         if isinstance(r, list):

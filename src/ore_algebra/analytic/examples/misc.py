@@ -55,7 +55,7 @@ efficiently::
 
     sage: from ore_algebra.analytic.examples.misc import iint_quadratic_alg as pb
     sage: pb.dop.numerical_solution(pb.ini, [0, 1/5000*sqrt(277774997191/11111)], 2^(-100))
-    [3368168.8058219185359508521...]
+    [3368168.8058219185359508521...] + [+/- ...]*I
 
 The Beukers-Heckman-Rodriguez-Villegas hypergeometric function. Generalized
 hypergeometric series can benefit from binary splitting early on, but the
