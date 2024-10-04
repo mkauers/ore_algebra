@@ -21,7 +21,6 @@ import sage.rings.real_arb
 import sage.rings.complex_arb
 
 from . import accuracy, bounds, utilities
-from . import naive_sum, dac_sum, binary_splitting
 
 from sage.matrix.constructor import identity_matrix, matrix
 from sage.rings.complex_arb import ComplexBallField
@@ -188,6 +187,7 @@ def step_transition_matrix_bit_burst(dop, steps, eps, rows, fail_fast, effort,
 
         if use_binsplit:
             try:
+                from . import binary_splitting
                 return binary_splitting.fundamental_matrix_regular(
                     ldop, points, eps, fail_fast, effort, ctx)
             except NotImplementedError:
@@ -196,9 +196,15 @@ def step_transition_matrix_bit_burst(dop, steps, eps, rows, fail_fast, effort,
                 logger.info("falling back to direct summation")
         else:
             if ctx.prefer_algorithm("naive", "dac"):
-                mod = naive_sum
+                from . import naive_sum as mod
             else:
-                mod = dac_sum
+                try:
+                    from . import dac_sum as mod
+                except ModuleNotFoundError:
+                    if "naive" in ctx.algorithms or "auto" in ctx.algorithms:
+                        from . import naive_sum as mod
+                    else:
+                        raise
             try:
                 return mod.fundamental_matrix_regular(
                     ldop, points, eps, fail_fast, effort, ctx)
