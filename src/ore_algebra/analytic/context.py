@@ -113,6 +113,7 @@ class Context:
                      simple_approx_thr=64,
                      squash_intervals=False,
                      two_point_mode=None,
+                     **kwds
                      ):
 
         if isinstance(algorithm, (list, tuple)):
@@ -166,6 +167,12 @@ class Context:
         if deform and two_point_mode:
             raise NotImplementedError("deform == two_point_mode == True")
         self.two_point_mode = two_point_mode
+
+        for kwd, val in kwds.items():
+            if kwd.startswith("_"):
+                self.__dict__[kwd] = val
+            else:
+                raise TypeError(f"unexpected keyword argument '{kwd}'")
 
     def _set_interval_fields(self, bounds_prec):
         bounds_prec = int(bounds_prec)
