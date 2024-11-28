@@ -275,20 +275,23 @@ class PlainDifferentialOperator(UnivariateDifferentialOperatorOverUnivariateRing
     def _est_growth(self, IR):
         # Originally intended for the case of ordinary points only; may need
         # improvements for singular points.
-        IC = IR.complex_field()
         kappa, alpha0 = self.growth_parameters(bit_prec=IR.precision())
         if kappa is infinity:
             return kappa, IR.zero()
         # The asymptotic exponential growth may not be such a great estimate
         # for the actual growth during the pre-convergence stage, so we
         # complement it by another one.
-        rop = self._my_to_S()
-        lc = rop.leading_coefficient()
-        n0 = 1
-        while lc(n0).is_zero():
-            n0 += 1
-        alpha1 = max(abs(IC(pol(n0))) for pol in list(rop)[:-1])/abs(IC(lc(n0)))
-        alpha = IR(alpha0).max(alpha1)
+        # XXX Commented as this can cause massive overestimations
+        # (e.g., for borel_laplace((x*Dx+1)^3, 1/1000, RBF(0), RBF(1e-40)).
+        # IC = IR.complex_field()
+        # rop = self._my_to_S()
+        # lc = rop.leading_coefficient()
+        # n0 = 1
+        # while lc(n0).is_zero():
+        #     n0 += 1
+        # alpha1 = max(abs(IC(pol(n0))) for pol in list(rop)[:-1])/abs(IC(lc(n0)))
+        # alpha = IR(alpha0).max(alpha1)
+        alpha = IR(alpha0)
         return kappa, alpha
 
     def est_terms(self, pt, prec, ctx=dctx):
@@ -298,6 +301,8 @@ class PlainDifferentialOperator(UnivariateDifferentialOperatorOverUnivariateRing
         maximum log-magnitude of these terms.
         """
         # pt should be an EvaluationPoint
+        if pt.rad.is_zero():
+            return 0, 0
         prec = ctx.IR(prec)
         cvrad = self.est_cvrad(ctx.IR)
         if cvrad.is_infinity():
@@ -305,10 +310,12 @@ class PlainDifferentialOperator(UnivariateDifferentialOperatorOverUnivariateRing
             if kappa is infinity:
                 return 0, 0
             ratio = ctx.IR(alpha*pt.rad)
+            # hump spread, in terms(?)
             hump = ctx.IR.one().exp() * ratio**(~kappa)
             klgp = kappa*prec.log(2)
             est = hump + prec/(klgp.max(-ratio.log(2)))
-            mag = hump.log(2).max(ctx.IR.zero())
+            # top of the hump (overestimation)
+            mag = (kappa*hump*hump.log(2)).max(ctx.IR.zero())
         else:
             est = prec/(cvrad/pt.rad).log(2)
             mag = ctx.IR.zero()
