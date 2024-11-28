@@ -123,7 +123,8 @@ Variants of ``apply_dop``::
     ....:                          algorithm=["dac"], apply_dop=algo)
     ....:   .overlaps(ref))
     ....:  for algo in ApplyDopAlgorithm.__members__.keys()]
-    [('APPLY_DOP_POLMUL', True),
+    [('APPLY_DOP_AUTO', True),
+     ('APPLY_DOP_POLMUL', True),
      ('APPLY_DOP_BASECASE_GENERIC', True),
      ('APPLY_DOP_BASECASE_EXACT', True),
      ('APPLY_DOP_INTERPOLATION', True)]

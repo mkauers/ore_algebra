@@ -52,6 +52,7 @@ logger = logging.getLogger(__name__)
 
 
 cpdef enum ApplyDopAlgorithm:
+    APPLY_DOP_AUTO
     APPLY_DOP_POLMUL
     APPLY_DOP_BASECASE_GENERIC
     APPLY_DOP_BASECASE_EXACT
@@ -1013,23 +1014,29 @@ cdef class DACUnroller:
         is given in ``self.sol[:].series[:][low-base:mid-base]``.
         """
         cdef slong k
+        cdef ApplyDopAlgorithm algo
 
-        if self.apply_dop_algorithm == APPLY_DOP_INTERPOLATION:
-            # too slow at the moment; may/should be useful in some range of
-            # (high-low)/dop_order?
-            self.apply_dop_interpolation(base, low, mid, high)
-        elif self.apply_dop_algorithm == APPLY_DOP_POLMUL:
-            # really slow, but might be useful for huge (high-low)/dop_order when
-            # the bitlength coefficients of the operator is comparable to the
-            # working precision
-            self.apply_dop_polmul(base, low, mid, high)
-        elif self.apply_dop_algorithm == APPLY_DOP_BASECASE_EXACT:
+        if self.apply_dop_algorithm == APPLY_DOP_AUTO:
+            # Crude threshold determined by experiments on the diffopdb.bkp.sel
+            # family of operators.
+            if high - mid >= 7*self.dop_order:
+                algo = APPLY_DOP_POLMUL
+            else:
+                algo = APPLY_DOP_BASECASE_EXACT
+        else:
+            algo = self.apply_dop_algorithm
+        if algo == APPLY_DOP_BASECASE_EXACT:
             if self.dop_is_exact and acb_is_zero(self.leftmost):
                 self.apply_dop_basecase_exact(base, low, mid, high)
             else:
                 self.apply_dop_basecase(base, low, mid, high)
-        elif self.apply_dop_algorithm == APPLY_DOP_BASECASE_GENERIC:
+        elif algo == APPLY_DOP_POLMUL:
+            self.apply_dop_polmul(base, low, mid, high)
+        elif algo == APPLY_DOP_BASECASE_GENERIC:
             self.apply_dop_basecase(base, low, mid, high)
+        elif algo == APPLY_DOP_INTERPOLATION:
+            # currently useless (slow and too precision-hungry)
+            self.apply_dop_interpolation(base, low, mid, high)
         else:
             assert False
 

@@ -102,7 +102,7 @@ class Context:
 
     def _set_options(self, *,
                      algorithm=("auto",),
-                     apply_dop="APPLY_DOP_BASECASE_EXACT",
+                     apply_dop="APPLY_DOP_AUTO",
                      assume_analytic=False,
                      binsplit_thr=128,
                      bit_burst_thr=32,
