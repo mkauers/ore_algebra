@@ -160,6 +160,16 @@ cdef void clear_solution(Solution *sol):
     acb_mat_clear(sol.critical_coeffs)
 
 
+cdef struct AccuracyEstimates:
+    double neglogterm
+    double cvg_rate
+    slong acc
+    double loss_rate
+    double terms_wanted
+    double terms_accessible
+    slong prec_wanted
+
+
 @cython.boundscheck(False)
 @cython.cdivision(True)
 @cython.wraparound(False)
@@ -436,7 +446,7 @@ cdef class DACUnroller:
 
     # Maybe get rid of this and use sum_dac only?
     cpdef void sum_blockwise(self, object stop, slong max_terms=WORD_MAX):
-        cdef slong k, m, base, low, high
+        cdef slong k, m, base, low, high, acc
         cdef acb_ptr f
         cdef mag_t radpow, radpow_blk, re_leftmost, sum_rad
         cdef arb_t _radpow, est, tb
@@ -465,6 +475,11 @@ cdef class DACUnroller:
         arb_pos_inf(tb)
         mag_init(sum_rad)
 
+        # Final wanted interval accuracy
+        cdef double tgt_acc = (self.prec if stop is None
+                               else -float(stop.eps.log(2)))
+        cdef AccuracyEstimates cvest = self.initial_accuracy_estimates()
+
         self.apply_dop_interpolation_max_len = min(  # threshold TBI
             APPLY_DOP_INTERPOLATION_MAX_POINTS,
             self.prec,
@@ -489,6 +504,8 @@ cdef class DACUnroller:
 
             self.apply_dop(base, low, high, high + blksz)
 
+            mag_mul(radpow, radpow, radpow_blk)
+
             # - Support stopping in the middle of a block when dop_degree is
             # large? Would need the ability to compute the high part of the
             # residual (to low precision).
@@ -496,11 +513,28 @@ cdef class DACUnroller:
             # shifting sol[:].series so that it contains the residual, but doing
             # it before allows us to check the computation using the low-degree
             # part in debug mode.
-            mag_mul(radpow, radpow, radpow_blk)
-            if stop is not None and (b + 1) % blkstride == 0:
-                if self.check_convergence(stop, high, high - base, est, tb,
-                                          radpow, blkstride*blksz):
+            if (b + 1) % blkstride == 0:
+                self.term_estimate(est, radpow, high - base)
+
+                if stop is not None and self.check_convergence(
+                        stop, high, high - base, est, tb, blkstride*blksz):
                     break
+
+                # Gradually decrease the working precision when [convergence
+                # and] accuracy estimates suggest the current value is wasteful.
+                # But we still want a larger initial working precision to result
+                # in a larger effective working precision, so we cannot just set
+                # it right away to the current best guess. Note that when the
+                # terms of the series get small enough, one can have self.prec <
+                # self.sums_prec.
+                # (TBI: Currently done only for multiples of blkstride to avoid
+                # bad interactions with the rigorous convergence check.)
+                cvest = self.update_accuracy_estimates(&cvest, tgt_acc, est,
+                                                          high, blksz)
+                if cvest.prec_wanted < self.prec:
+                    self.prec -= (self.prec - cvest.prec_wanted)//4
+                    logger.debug("prec_wanted=%s, new prec=%s",
+                                 cvest.prec_wanted, self.prec)
 
             for m in range(self.numsols):
                 for k in range(self.sol[m].log_prec):
@@ -551,6 +585,84 @@ cdef class DACUnroller:
         self.sum_dac(base, mid, high)
 
 
+    cdef AccuracyEstimates initial_accuracy_estimates(self):
+        cdef AccuracyEstimates cvest
+        cvest.neglogterm = 0.
+        cvest.cvg_rate = 0.
+        cvest.terms_wanted = WORD_MAX
+        cvest.acc = self.prec
+        # We do not want to underestimate the loss rate as this could lead us to
+        # cut too much working precision, but if we overestimate it too much, we
+        # will essentially just set prec_wanted to the current accuracy all the
+        # time. So we start with a rough guess that should at least ensure that
+        # a few exact operations in the initial iterations do not reduce the
+        # working precision too much.
+        cvest.loss_rate = self.dop_order*self.dop_degree
+        cvest.terms_accessible = float('inf')
+        cvest.prec_wanted = ARF_PREC_EXACT
+
+
+    cdef AccuracyEstimates update_accuracy_estimates(
+            self,
+            AccuracyEstimates *old,
+            double tgt_acc, arb_srcptr est,
+            slong terms, slong stride):
+
+        # TODO: use these estimates to decide when to give up, whether
+        # truncation bounds should be refined, etc.
+
+        cdef AccuracyEstimates new
+
+        # Estimated “known correct bits” of the result, for now with no attempt
+        # to distinguish between absolute and relative accuracy
+        cdef mag_t _est
+        arb_get_mag(_est, est)
+        new.neglogterm = -mag_get_d_log2_approx(_est)
+
+        # Running estimate of convergence rate (bit/term), exponential
+        # discounting
+        cdef double cvg_rate_stride = (new.neglogterm - old.neglogterm)/stride
+        new.cvg_rate = old.cvg_rate/2 + cvg_rate_stride/2
+
+        # Number of terms still needed for full accuracy at the current rate of
+        # convergence
+        new.terms_wanted = (tgt_acc - new.neglogterm)/max(0., new.cvg_rate)
+
+        # Current interval accuracy
+        new.acc = arb_rel_accuracy_bits(est)
+
+        # Running estimate of interval growth (lost bits/term), exponential
+        # discounting. Note that self.prec may have changed since old.acc was
+        # computed: putting the min(self.prec) here rather than in the
+        # definition of acc is expected to reduce the impact of working
+        # precision adjustments on the loss estimates.
+        cdef double loss_stride = min(old.acc, self.prec) - new.acc
+        cdef double loss_rate_stride = max(0., loss_stride)/stride
+        new.loss_rate = old.loss_rate/2 + loss_rate_stride/2
+
+        # Number of terms we should be able to compute before interval growth
+        # makes it impossible to meet the specified tolerance
+        new.terms_accessible = (new.neglogterm + new.acc - tgt_acc)/new.loss_rate
+
+        if (new.terms_accessible <= new.terms_wanted
+                or new.loss_rate >= old.loss_rate*1.01):
+            new.prec_wanted = ARF_PREC_EXACT
+        elif new.terms_wanted > 0:
+            new.prec_wanted = <slong> (tgt_acc - 0.9*new.neglogterm
+                                       + new.terms_wanted*new.loss_rate)
+        else:
+            new.prec_wanted = <slong> tgt_acc
+
+        # print(f"n={terms} {tgt_acc=} {new.acc=} {new.neglogterm=}\n"
+        #       f"  {cvg_rate_stride=} {new.cvg_rate=} \n"
+        #       f"  {loss_rate_stride=} {new.loss_rate=} \n"
+        #       f"  {new.terms_wanted=}({terms + new.terms_wanted}) "
+        #       f"{new.terms_accessible=} \n"
+        #       f"  {new.prec_wanted=}")
+
+        return new
+
+
     cdef void add_error_get_rad(self, mag_ptr sum_rad, arb_ptr err):
         cdef slong i, j, k, m
         mag_zero(sum_rad)
@@ -585,8 +697,9 @@ cdef class DACUnroller:
         cdef RealBall _sum_rad = RealBall.__new__(RealBall)
         _sum_rad._parent = IR
         arb_set_interval_mag(_sum_rad.value, sum_rad, sum_rad, MAG_BITS)
-        logger.info("summed %d terms, tail bound = %s (est = %s), max rad = %s",
-                    n, _tb, _est, _sum_rad)
+        logger.info("summed %d terms, tail bound = %s (est = %s), "
+                    "max rad = %s, final prec=%s",
+                    n, _tb, _est, _sum_rad, self.prec)
         arb_swap(tb, _tb.value)
         arb_swap(est, _est.value)
 
@@ -1379,28 +1492,12 @@ cdef class DACUnroller:
     ## Error control and BoundCallbacks interface
 
 
-    cdef bint check_convergence(self, object stop, slong n,
-                                slong rhs_offset,
-                                arb_t est,         # W
-                                arb_t tail_bound,  # RW
-                                mag_srcptr radpow, slong next_stride):
-        r"""
-        Requires:
-
-        - rhs (≈ residuals, see ``get_residual`` for the difference) in
-          ``sol[:].series`` at offset ``self.rhs_offset``,
-        - last computed terms just before.
-        """
-
+    cdef term_estimate(self, arb_t est, mag_srcptr radpow, slong rhs_offset):
         cdef slong i, k, m
         cdef acb_ptr c
         cdef mag_t _c, cmag
         mag_init(_c)
         mag_init(cmag)
-
-        if n <= self.max_ini_shift():
-            arb_pos_inf(tail_bound)
-            return False
 
         arb_zero(est)
         cdef mag_ptr crad = arb_radref(est)
@@ -1424,6 +1521,27 @@ cdef class DACUnroller:
         # with existing code
         arf_set_mag(arb_midref(est), cmag)
 
+        mag_clear(cmag)
+        mag_clear(_c)
+
+
+    cdef bint check_convergence(self, object stop, slong n,
+                                slong rhs_offset,
+                                arb_t est,         # W
+                                arb_t tail_bound,  # RW
+                                slong next_stride):
+        r"""
+        Requires:
+
+        - rhs (≈ residuals, see ``get_residual`` for the difference) in
+          ``sol[:].series`` at offset ``self.rhs_offset``,
+        - last computed terms just before.
+        """
+
+        if n <= self.max_ini_shift():
+            arb_pos_inf(tail_bound)
+            return False
+
         self.__rhs_offset = rhs_offset  # used in callbacks
         cdef RealBall _est = RealBall.__new__(RealBall)
         _est._parent = self.Reals
@@ -1446,8 +1564,6 @@ cdef class DACUnroller:
         arb_swap(tail_bound, (<RealBall?> new_tail_bound).value)
         arb_swap(est, _est.value)
 
-        mag_clear(cmag)
-        mag_clear(_c)
         return done
 
 

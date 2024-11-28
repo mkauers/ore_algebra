@@ -224,8 +224,12 @@ class HighestSolMapper_dac(HighestSolMapper):
         input_accuracy = utilities.input_accuracy(self.dop, self.evpts, inis)
         # cf. stop.reset(...) below for the term involving dop
         bit_prec0 = utilities.prec_from_eps(self.eps) + 2*self.dop.order()
-        sums_prec = 8 + bit_prec0 + 4*bit_prec0.nbits()  # TBI
         bit_prec = 8 + bit_prec0*(1 + (self.dop_T.degree() - 2).nbits())
+        # estimate hump height to choose sum_prec, but cap it to bit_prec
+        # (lg_mag can be extremely large)
+        nterms, lg_mag = self.dop.est_terms(self.evpts, bit_prec0)
+        sums_prec = 8 + 6*(bit_prec0 + 2*lg_mag + ZZ(nterms).nbits())//5
+        sums_prec = min(bit_prec, sums_prec)
         max_prec = bit_prec + 2*input_accuracy  # = ∞ for exact input
         logger.info("initial working precision = %s bits", bit_prec)
 
@@ -264,11 +268,12 @@ class HighestSolMapper_dac(HighestSolMapper):
                 break
 
             bit_prec *= 2
-            # Attempt to deal with large humps in the magnitude of the series
-            # terms. TODO This should really use information from the previous
-            # runs to refine the guess for sums_prec, and there should probably
-            # be some notion of _relative_ error tolerante in play somewhere.
-            sums_prec = 6*sums_prec//5 if attempt < (effort+1)//2 else bit_prec
+            # XXX Find a better way of dealing with large humps (and massive
+            # cancellation in general, though other cancellation patterns should
+            # not affect the absolute error), maybe based on estimates from the
+            # first run. We probably need a _relative_ error tolerance
+            # somewhere.
+            sums_prec *= 2
             # Try at least twice (attempts = effort + 2) so that the logic from
             # the previous line has a chance to run.
             if attempt <= effort + 1 and bit_prec < max_prec:

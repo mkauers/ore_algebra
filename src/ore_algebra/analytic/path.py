@@ -1299,7 +1299,7 @@ class Path(SageObject):
             ....: 198323267016*x^2 + 3242277984*x - 171991488)*Dx)
             sage: step = [-134879941225471131681/7*I + 12/11, -119/8*I + 12/11]
             sage: dop2.numerical_transition_matrix(step, assume_analytic=True).trace() # long time (~6.5 s)
-            [5.974...e+72 +/- ...] + [-4.643...e+72 +/- ...]*I
+            [6...e+72 +/- ...] + [-4.6...e+72 +/- ...]*I
 
         ...and for this one, showing that step subdivision could silently change
         the homotopy class of the path, leading to incorrect results::
