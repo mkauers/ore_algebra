@@ -1213,7 +1213,7 @@ cdef class DACUnroller:
 
         cdef acb_poly_struct *curder = _acb_poly_vec_init(self.max_log_prec())
 
-        for m in range(self.numpts):
+        for m in range(self.numsols):
             series = self.sol[m].series
             # To compute derivatives, we need a copy of a chunk of `series`
             _acb_poly_vec_set_block(curder, series, self.sol[m].log_prec,
