@@ -157,6 +157,9 @@ logger = logging.getLogger(__name__)
 class BoundPrecisionError(Exception):
     pass
 
+class BadBound(Exception):
+    pass
+
 ######################################################################
 # Majorant series
 ######################################################################

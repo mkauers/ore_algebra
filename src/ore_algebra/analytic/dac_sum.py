@@ -149,6 +149,7 @@ from sage.rings.real_arb import RealBallField
 from sage.structure.sequence import Sequence
 
 from . import accuracy
+from . import bounds
 from . import utilities
 
 from .bounds import DiffOpBound
@@ -232,6 +233,21 @@ class HighestSolMapper_dac(HighestSolMapper):
         sums_prec = 8 + 6*(bit_prec0 + 2*lg_mag + ZZ(nterms).nbits())//5
         sums_prec = min(bit_prec, sums_prec)
         max_prec = bit_prec + 2*input_accuracy  # = ∞ for exact input
+
+        # TODO Move somewhere more appropriate, apply to other summation algos.
+        # Maybe use the estimate to decide how to split.
+        if self.fail_fast:
+            while maj(nterms).bound(self.evpts.rad) > self.IR(2)**(nterms//4):
+                # If the majorant, without the contribution of the residual, is much
+                # larger than 1, we are unlikely to get a usable error bound.
+                # (XXX This is maybe a bit pessimistic for entire series.)
+                if maj.can_refine():
+                    maj.refine()
+                else:
+                    # Force splitting the step
+                    raise accuracy.PrecisionError
+                    # raise bounds.BadBound
+
         logger.info("initial working precision = %s bits", bit_prec)
 
         for attempt in count(1):

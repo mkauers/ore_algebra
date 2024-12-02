@@ -90,7 +90,8 @@ def step_transition_matrix(dop, steps, eps, rows=None, split=0, ctx=dctx):
                     raise accuracy.PrecisionError(
                             f"failed to invert transition matrix {step}")
 
-    except (accuracy.PrecisionError, bounds.BoundPrecisionError):
+    except (accuracy.PrecisionError, bounds.BoundPrecisionError,
+            bounds.BadBound):
         if any(step.max_split <= 0 for step in steps):
             raise
         logger.info("splitting step...")

@@ -82,7 +82,7 @@ A resonant tunnel::
     sage: dop = DD^4+(x^2-4)*DD^3+(epsilon^2*x+5+epsilon^2)*DD^2+(2*x-2-2*epsilon^2)*DD+(2+2*epsilon^2)*x
     sage: stokes = stokes_dict(dop)
     sage: stokes[1][3,0]  # XXX check???
-    [+/- ...] + [-8.26241804...+270 +/- ...]*I
+    [+/- ...] + [-8.2624...+270 +/- ...]*I
     sage: stokes[-1][0,3]
     [+/- ...] + [-14226.712062951... +/- ...]*I
     sage: stokes[I][2,1]
