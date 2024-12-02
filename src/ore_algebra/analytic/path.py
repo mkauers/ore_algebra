@@ -1416,10 +1416,9 @@ class Path(SageObject):
         Handling of branch cuts::
 
             sage: def _test(dop, a, b, c):
-            ....:     mat0 = dop.numerical_transition_matrix([a, b, c])
+            ....:     mat0 = dop.numerical_transition_matrix([a, b, c], 1e-25)
             ....:     mat1 = dop.numerical_transition_matrix([a, c])
-            ....:     if not sum(abs(x) for x in (mat0 - mat1).list()) < RBF(1e-5):
-            ....:         raise AssertionError
+            ....:     assert sum(abs(x) for x in (mat0 - mat1).list()) < RBF(1e-5)
 
             sage: dop = ((x*(x*Dx+1/2) - x*Dx*(x*Dx-1)^4*(x*Dx-1/3)*(x*Dx-2/3))
             ....:        .annihilator_of_composition(1/x^6)

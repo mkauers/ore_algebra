@@ -32,7 +32,7 @@ TESTS::
     sage: from ore_algebra.examples.periods import dop_140118_4
     sage: dop_140118_4.numerical_transition_matrix([0,1], 1e-200,
     ....:         assume_analytic=True, algorithm="dac")[3,3]
-    [0.0037773116...2646238326...]
+    [0.0037773116...25572646...]
 
     sage: from ore_algebra.examples import fcc
     sage: fcc.dop5.numerical_solution( # long time (4.8 s)
@@ -252,7 +252,7 @@ class HighestSolMapper_dac(HighestSolMapper):
 
         for attempt in count(1):
             logger.debug("attempt #%s (of max %s), bit_prec=%s, sums_prec=%s",
-                         attempt, effort + 2, bit_prec, sums_prec)
+                         attempt, effort + 1, bit_prec, sums_prec)
             ini_are_accurate = 2*input_accuracy > bit_prec
             # Ask for a bit more accuracy than we really require because
             # DACUnroller does not guarantee that the result will really be < ε
@@ -291,9 +291,7 @@ class HighestSolMapper_dac(HighestSolMapper):
             # first run. We probably need a _relative_ error tolerance
             # somewhere.
             sums_prec *= 2
-            # Try at least twice (attempts = effort + 2) so that the logic from
-            # the previous line has a chance to run.
-            if attempt <= effort + 1 and bit_prec < max_prec:
+            if attempt <= effort and bit_prec < max_prec:
                 logger.info("lost too much precision, restarting with %d bits "
                             "(%d bits for sums)",
                             bit_prec, sums_prec)

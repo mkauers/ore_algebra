@@ -688,7 +688,7 @@ class RecUnroller_tail_bound(RecUnroller):
             self.rnd_maj *= abs(self.ctx.IC(maj.dop.leading_coefficient()[0]))
 
         for attempt in count(1):
-            logger.debug("attempt #%d (of max %d)", attempt, effort + 1)
+            logger.debug("attempt #%d (of max %d)", attempt, effort)
 
             ini_are_accurate = 2*input_accuracy > bit_prec
             # Strictly decrease eps every time to avoid situations where doit
