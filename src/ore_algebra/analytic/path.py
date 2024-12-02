@@ -710,7 +710,10 @@ class Point(SageObject):
             except ValueError:
                 continue
             rat = _rationalize(ball, real=self.is_real())
-            return Point(rat, self.dop, detour_to=self)
+            if self.store_value():
+                return Point(rat, self.dop, detour_to=self)
+            else:
+                return Point(rat, self.dop, detour_to=self)
         return self
 
     @cached_method
