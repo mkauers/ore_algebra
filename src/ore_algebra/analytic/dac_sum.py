@@ -212,7 +212,6 @@ class HighestSolMapper_dac(HighestSolMapper):
         maj = DiffOpBound(self.dop, self.leftmost,
                         special_shifts=(None if self.ordinary else self.shifts),
                         bound_inverse="solve",
-                        pol_part_len=(4 if self.ordinary else None),
                         ind_roots=self.all_roots,
                         ctx=self.ctx)
 
