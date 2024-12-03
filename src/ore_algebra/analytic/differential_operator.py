@@ -114,6 +114,8 @@ class PlainDifferentialOperator(UnivariateDifferentialOperatorOverUnivariateRing
         Find κ, α such that the solutions of dop grow at most like
         sum(α^n*x^n/n!^κ) ≈ exp(κ*(α·x)^(1/κ)).
 
+        Only for operators without nonzero finite singular points.
+
         EXAMPLES::
 
             sage: from ore_algebra import *
@@ -161,6 +163,7 @@ class PlainDifferentialOperator(UnivariateDifferentialOperatorOverUnivariateRing
         Pol = self.base_ring()
         eqn = Pol({i0 - i: c for (h, i, c) in points if i == i0 + slope*(h-h0)})
         expo_growth = abs_min_nonzero_root(eqn, prec=bit_prec)**slope
+        expo_growth = expo_growth.above_abs()
         return -slope, expo_growth
 
     def singularities(self, *args):

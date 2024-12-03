@@ -103,7 +103,7 @@ Bessel, with an algebraic point of order > 2::
 
     sage: alg = QQbar(-20)^(1/3)
     sage: dop = x*Dx^2 + Dx + x
-    sage: dop.numerical_transition_matrix([0, alg], 1e-8, algorithm="binsplit")
+    sage: dop.numerical_transition_matrix([0, alg], 1e-10, algorithm="binsplit")
     [ [3.7849872...] +  [1.7263190...]*I  [1.3140884...] + [-2.3112610...]*I]
     [ [1.0831414...] + [-3.3595150...]*I  [-2.0854436...] + [-0.7923237...]*I]
 

@@ -1331,6 +1331,23 @@ class Path(SageObject):
             den = t**2 - 1
             newlength = length
 
+        # For entire series, subdivide enough to (mostly) avoid term humps.
+        if a.dist_to_sing().is_infinity():
+            if a.is_singular():
+                # a is the unique finite singular point of dop; we need an
+                # equation centered on it for growth_parameters() to work.
+                assert a.is_exact()
+                dop_a = self.dop.shift(a)
+            else:
+                # Using the original operator saves a potentially costly shift
+                # and does not change(?) the growth parameters. Also, shifting
+                # to inexact points is not implemented (when a path has inexact
+                # vertices, we take an exact approximation and add a detour).
+                dop_a = self.dop
+            _, exponential_growth = dop_a.growth_parameters()
+            if exponential_growth > 0 and newlength > 2*~exponential_growth:
+                newlength = ~exponential_growth
+
         channel_half_width = a.dist_to_sing()
         sing_overlapping_a = 0
         for s in self.dop._singularities(IC):
@@ -1343,9 +1360,9 @@ class Path(SageObject):
             # on the step that we are splitting...
             if not (IR.zero() > xs) and not (xs > length):
                 channel_half_width = min(channel_half_width, ys.below_abs())
-            # ...and the largest disk centered on [a, b], with a on the
-            # boundary, that is free of singularities (newlength = factor*radius
-            # of this disk)
+            # ...and the largest disk centered somewhere on [a, b], with a on
+            # the boundary, that is free of singularities (newlength =
+            # factor*radius of this disk)
             if npoints == 2:
                 newlength1 = (((t*abs(h))**2 - ys**2).sqrt() - xs)/den
                 if newlength1 < newlength:
@@ -1470,6 +1487,11 @@ class Path(SageObject):
         # allow for larger perturbations in the direction of the step. This is
         # interesting mainly for steps along one of the axes.
 
+        # somewhat arbitrary, just so that the sequel does not fail with entire
+        # functions
+        if channel_half_width.is_infinity():
+            channel_half_width = newlength
+
         for i in range(3, -2, -1):
 
             delta = dir*IC(p*newlength.add_error(rel_tol*newlength),
@@ -1543,7 +1565,8 @@ class Path(SageObject):
             # vertex is in "expansion" position).
             npoints = mode + 1 - npoints if skip else mode
             skip = False
-            if (npoints == 1 and next.is_ordinary()
+            if cur.dist_to_sing().is_finite() and (
+                npoints == 1 and next.is_ordinary()
                     and dist_to_next <= thr*cur.dist_to_sing()
                  or cur.is_ordinary() and (next.is_singular() or npoints == 2)
                     and dist_to_next <= thr*next.dist_to_sing()):

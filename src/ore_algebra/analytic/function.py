@@ -106,8 +106,8 @@ class DFiniteFunction:
         [+/- inf]
         sage: _ = f.approx(1/2, post_transform=Dx^2)
         sage: _ = f.approx(-1/2, post_transform=Dx^2)
-        sage: f._known_bound(RBF(RIF(-1/2,1/2)), post_transform=Dx^2)
-        [+/- 1.5...]
+        sage: f._known_bound(RBF(RIF(-1/2,1/2)), post_transform=Dx^2) # abs tol 0.1
+        [+/- 1.4]
     """
 
     # Stupid, but simple and deterministic caching strategy:

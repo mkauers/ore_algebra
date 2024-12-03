@@ -551,7 +551,7 @@ to significantly decrease ``eps`` to get precise results::
     sage: dop.numerical_solution(ini, [0,1], two_point_mode=False)
     [10.873127314 +/- ...e-10]
     sage: dop.numerical_solution(ini, [0,3/2], 1e-30, two_point_mode=False)
-    [15.685911746183227 +/- ...e-16]
+    [15.68591174618322...]
     sage: dop.numerical_solution(ini, [0,5], 1e-150, two_point_mode=False)
     [+/- ...e-35]
 
