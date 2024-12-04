@@ -1268,6 +1268,8 @@ class Path(SageObject):
         new = Path(new, self.dop)
         return new
 
+    # The default factor of 0.5 works well in most cases, but for some operators
+    # (with no obvious pattern for now) 0.4 is much better.
     def _intermediate_points(self, a, b, npoints, factor=IR(0.5),
                              rel_tol=IR(0.125)):
         r"""

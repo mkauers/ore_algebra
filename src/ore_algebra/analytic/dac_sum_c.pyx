@@ -530,6 +530,9 @@ cdef class DACUnroller:
                 # self.sums_prec.
                 # (TBI: Currently done only for multiples of blkstride to avoid
                 # bad interactions with the rigorous convergence check.)
+                # NOTE: Moving this before apply_dop (without changing the
+                # formulas used to estimate the speed of convergence etc.)
+                # results in code that seems to perform significantly worse.
                 cvest = self.update_accuracy_estimates(&cvest, tgt_acc, est,
                                                           high, blksz)
                 if cvest.prec_wanted < self.prec:
@@ -1232,6 +1235,8 @@ cdef class DACUnroller:
 
                     # rhs[k] ← rhs[k] + self.dop(chunk)[k]. This should be a
                     # mulmid, and ignore the constant coefficients.
+
+                    # also tried using mullow_gauss, it seems worse
                     acb_poly_mullow(tmp, self.dop_coeffs + i, curder + k,
                                     high - low, self.prec)
                     acb_poly_shift_right(tmp, tmp, mid - low)
