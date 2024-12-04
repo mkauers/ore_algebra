@@ -536,7 +536,7 @@ cdef class DACUnroller:
                 cvest = self.update_accuracy_estimates(&cvest, tgt_acc, est,
                                                           high, blksz)
                 if cvest.prec_wanted < self.prec:
-                    self.prec -= (self.prec - cvest.prec_wanted)//4
+                    self.prec -= (self.prec - cvest.prec_wanted)//2
                     logger.debug("prec_wanted=%s, new prec=%s",
                                  cvest.prec_wanted, self.prec)
 
