@@ -256,6 +256,23 @@ cdef class DACUnroller:
 
     cdef object py_evpts, Reals, Pol_IC
 
+    # State of sum_blockwise. This should perhaps be a separate object.
+    # Eventually we may want to support blockwise summation where the blocks are
+    # handled by different algorithms. However, this may be at odds with proper
+    # support for partial blocks, series coefficients, and inhomogeneous
+    # equations.
+
+    cdef slong blk
+    cdef slong blksz
+    cdef slong max_terms  # FIXME redundant with stop
+    cdef object stop
+    cdef arb_t tb         # merge into AccuracyEstimates?
+    cdef arb_t est        # merge into AccuracyEstimates?
+    cdef double tgt_acc   # XXX not sure what to do with that
+    cdef AccuracyEstimates cvest
+    cdef mag_t radpow
+    cdef mag_t radpow_blk
+
 
     # for some reason (related to typed memory views?) making this a method of
     # Solution does not seem to work
@@ -445,119 +462,135 @@ cdef class DACUnroller:
                 _acb_poly_set_length(f, self.jet_order)
 
 
-    # Maybe get rid of this and use sum_dac only?
     cpdef void sum_blockwise(self, object stop, slong max_terms=WORD_MAX):
-        cdef slong k, m, base, low, high, acc
-        cdef acb_ptr f
-        cdef mag_t radpow, radpow_blk, re_leftmost, sum_rad
-        cdef arb_t _radpow, est, tb
+        self.sum_init(stop, max_terms)
+        while not self.next_block():
+            pass
+        self.sum_finalize()
 
-        max_terms = max(max_terms, 0)
+
+    cpdef sum_init(self, object stop, slong max_terms):
+        cdef arb_t _radpow
+
+        self.stop = stop
+        self.max_terms = max(max_terms, 0)
 
         # Block size must be >= deg. Power-of-two factors may be beneficial when
         # using apply_dop_interpolation.
-        cdef slong blksz = max(1, self.dop_degree)
-        # cdef slong blksz = 1 << (self.dop_degree - 1).bit_length()
-        cdef slong blkstride = max(1, 32//blksz)
+        self.blksz = max(1, self.dop_degree)
+        # self.blksz = 1 << (self.dop_degree - 1).bit_length()
 
         # initialize radpow >= rad^Re(λ) (neglecting Im(λ)...)
         arb_init(_radpow)
         arf_set_mag(arb_midref(_radpow), self.rad)
         arb_pow(_radpow, _radpow, acb_realref(self.leftmost), self.bounds_prec)
-        arb_get_mag(radpow, _radpow)
+        arb_get_mag(self.radpow, _radpow)
         arb_clear(_radpow)
 
-        mag_init(radpow_blk)
-        mag_pow_ui(radpow_blk, self.rad, blksz)
+        mag_init(self.radpow_blk)
+        mag_pow_ui(self.radpow_blk, self.rad, self.blksz)
 
-        arb_init(est)
-        arb_pos_inf(est)
-        arb_init(tb)
-        arb_pos_inf(tb)
-        mag_init(sum_rad)
+        arb_init(self.est)
+        arb_init(self.tb)
+        arb_pos_inf(self.tb)
 
         # Final wanted interval accuracy
-        cdef double tgt_acc = (self.prec if stop is None
-                               else -float(stop.eps.log(2)))
-        cdef AccuracyEstimates cvest = self.initial_accuracy_estimates()
+        self.tgt_acc = self.prec if stop is None else -float(stop.eps.log(2))
+        self.cvest = self.initial_accuracy_estimates()
 
-        self.apply_dop_interpolation_max_len = min(  # threshold TBI
-            APPLY_DOP_INTERPOLATION_MAX_POINTS,
-            self.prec,
-            2*blksz)
-        self.tinterp_cache_init(self.apply_dop_interpolation_max_len//2 + 1)
+        if self.apply_dop_algorithm == APPLY_DOP_INTERPOLATION:
+            self.apply_dop_interpolation_max_len = min(  # threshold TBI
+                APPLY_DOP_INTERPOLATION_MAX_POINTS,
+                self.prec,
+                2*self.blksz)
+            self.tinterp_cache_init(self.apply_dop_interpolation_max_len//2 + 1)
 
-        self.reset_solutions(2*blksz)
-        cdef bint done = False
-        cdef slong b = 0
-        while True:
-            base = low = b*blksz
-            high = min(low + blksz, max_terms)
-            self.sum_dac(base, low, high)
+        self.reset_solutions(2*self.blksz)
+        self.blk = 0
 
-            if high >= max_terms:
-                if stop is None:
-                    arb_zero(tb)
-                    break
-                else:
-                    raise NotImplementedError(
-                        "reached max_terms with a StoppingCriterion object")
 
-            self.apply_dop(base, low, high, high + blksz)
+    # Provide an iterator and rewrite truncated_series based on this?
+    # Maybe get rid of this and use sum_dac only?
+    cpdef bint next_block(self):
+        cdef slong m, k
+        cdef acb_ptr f
+        cdef slong base = self.blk*self.blksz
+        cdef slong low = base
+        cdef slong high = min(low + self.blksz, self.max_terms)
+        cdef slong blkstride = max(1, 32//self.blksz)
 
-            mag_mul(radpow, radpow, radpow_blk)
+        self.sum_dac(base, low, high)
 
-            # - Support stopping in the middle of a block when dop_degree is
-            # large? Would need the ability to compute the high part of the
-            # residual (to low precision).
-            # - It would be simpler to perform the convergence check after
-            # shifting sol[:].series so that it contains the residual, but doing
-            # it before allows us to check the computation using the low-degree
-            # part in debug mode.
-            if (b + 1) % blkstride == 0:
-                self.term_estimate(est, radpow, high - base)
+        if high >= self.max_terms:
+            if self.stop is None:
+                arb_zero(self.tb)
+                return True
+            else:
+                raise NotImplementedError(
+                    "reached max_terms with a StoppingCriterion object")
 
-                if stop is not None and self.check_convergence(
-                        stop, high, high - base, est, tb, blkstride*blksz):
-                    break
+        self.apply_dop(base, low, high, high + self.blksz)
 
-                # Gradually decrease the working precision when [convergence
-                # and] accuracy estimates suggest the current value is wasteful.
-                # But we still want a larger initial working precision to result
-                # in a larger effective working precision, so we cannot just set
-                # it right away to the current best guess. Note that when the
-                # terms of the series get small enough, one can have self.prec <
-                # self.sums_prec.
-                # (TBI: Currently done only for multiples of blkstride to avoid
-                # bad interactions with the rigorous convergence check.)
-                # NOTE: Moving this before apply_dop (without changing the
-                # formulas used to estimate the speed of convergence etc.)
-                # results in code that seems to perform significantly worse.
-                cvest = self.update_accuracy_estimates(&cvest, tgt_acc, est,
-                                                          high, blksz)
-                if cvest.prec_wanted < self.prec:
-                    self.prec -= (self.prec - cvest.prec_wanted)//2
-                    logger.debug("prec_wanted=%s, new prec=%s",
-                                 cvest.prec_wanted, self.prec)
+        mag_mul(self.radpow, self.radpow, self.radpow_blk)
 
-            for m in range(self.numsols):
-                for k in range(self.sol[m].log_prec):
-                    f = _coeffs(self.sol[m].series + k)
-                    _acb_poly_shift_right(f, f, high+blksz-base, high-base)
-                    _acb_vec_zero(f + blksz, blksz)
+        # - Support stopping in the middle of a block when dop_degree is
+        # large? Would need the ability to compute the high part of the
+        # residual (to low precision).
+        # - It would be simpler to perform the convergence check after
+        # shifting sol[:].series so that it contains the residual, but doing
+        # it before allows us to check the computation using the low-degree
+        # part in debug mode.
+        if (self.blk + 1) % blkstride == 0:
+            self.term_estimate(self.est, self.radpow, high - base)
 
-            b += 1
+            if self.stop is not None and self.check_convergence(
+                    self.stop, high, high - base, self.est, self.tb,
+                    blkstride*self.blksz):
+                return True
+
+            # Gradually decrease the working precision when [convergence
+            # and] accuracy estimates suggest the current value is wasteful.
+            # But we still want a larger initial working precision to result
+            # in a larger effective working precision, so we cannot just set
+            # it right away to the current best guess. Note that when the
+            # terms of the series get small enough, one can have self.prec <
+            # self.sums_prec.
+            # (TBI: Currently done only for multiples of blkstride to avoid
+            # bad interactions with the rigorous convergence check.)
+            # NOTE: Moving this before apply_dop (without changing the
+            # formulas used to estimate the speed of convergence etc.)
+            # results in code that seems to perform significantly worse.
+            self.update_accuracy_estimates(self.est, high, self.blksz)
+            if self.cvest.prec_wanted < self.prec:
+                self.prec -= (self.prec - self.cvest.prec_wanted)//2
+                logger.debug("prec_wanted=%s, new prec=%s",
+                             self.cvest.prec_wanted, self.prec)
+
+        for m in range(self.numsols):
+            for k in range(self.sol[m].log_prec):
+                f = _coeffs(self.sol[m].series + k)
+                _acb_poly_shift_right(f, f, high+self.blksz-base, high-base)
+                _acb_vec_zero(f + self.blksz, self.blksz)
+
+        self.blk += 1
+        return False
+
+
+    cdef void sum_finalize(self):
+        cdef mag_t sum_rad
+        mag_init(sum_rad)
 
         self.fix_sums()
-        self.add_error_get_rad(sum_rad, tb)
-        self._report_stats((b+1)*blksz, est, tb, sum_rad)
+        self.add_error_get_rad(sum_rad, self.tb)
+        self._report_stats((self.blk+1)*self.blksz, self.est, self.tb, sum_rad)
 
-        self.tinterp_cache_clear()
-        arb_clear(tb)
-        arb_clear(est)
-        mag_clear(radpow_blk)
-        mag_clear(radpow)
-        mag_clear(re_leftmost)
+        if self.apply_dop_algorithm == APPLY_DOP_INTERPOLATION:
+            self.tinterp_cache_clear()
+        arb_clear(self.tb)
+        arb_clear(self.est)
+        mag_clear(self.radpow_blk)
+        mag_clear(self.radpow)
+
         mag_clear(sum_rad)
 
 
@@ -606,16 +639,14 @@ cdef class DACUnroller:
         cvest.prec_wanted = ARF_PREC_EXACT
 
 
-    cdef AccuracyEstimates update_accuracy_estimates(
-            self,
-            AccuracyEstimates *old,
-            double tgt_acc, arb_srcptr est,
-            slong terms, slong stride):
+    cdef void update_accuracy_estimates(self, arb_srcptr est, slong terms,
+                                        slong stride):
 
         # TODO: use these estimates to decide when to give up, whether
         # truncation bounds should be refined, etc.
 
-        cdef AccuracyEstimates new
+        cdef AccuracyEstimates old = self.cvest
+        cdef AccuracyEstimates *new = &self.cvest
 
         # Estimated “known correct bits” of the result, for now with no attempt
         # to distinguish between absolute and relative accuracy
@@ -630,7 +661,7 @@ cdef class DACUnroller:
 
         # Number of terms still needed for full accuracy at the current rate of
         # convergence
-        new.terms_wanted = (tgt_acc - new.neglogterm)/max(0., new.cvg_rate)
+        new.terms_wanted = (self.tgt_acc - new.neglogterm)/max(0., new.cvg_rate)
 
         # Current interval accuracy
         new.acc = arb_rel_accuracy_bits(est)
@@ -646,25 +677,24 @@ cdef class DACUnroller:
 
         # Number of terms we should be able to compute before interval growth
         # makes it impossible to meet the specified tolerance
-        new.terms_accessible = (new.neglogterm + new.acc - tgt_acc)/new.loss_rate
+        new.terms_accessible = (new.neglogterm + new.acc
+                                - self.tgt_acc)/new.loss_rate
 
         if (new.terms_accessible <= new.terms_wanted
                 or new.loss_rate >= old.loss_rate*1.01):
             new.prec_wanted = ARF_PREC_EXACT
         elif new.terms_wanted > 0:
-            new.prec_wanted = <slong> (tgt_acc - 0.9*new.neglogterm
+            new.prec_wanted = <slong> (self.tgt_acc - 0.9*new.neglogterm
                                        + new.terms_wanted*new.loss_rate)
         else:
-            new.prec_wanted = <slong> tgt_acc
+            new.prec_wanted = <slong> self.tgt_acc
 
-        # print(f"n={terms} {tgt_acc=} {new.acc=} {new.neglogterm=}\n"
+        # print(f"n={terms} {self.tgt_acc=} {new.acc=} {new.neglogterm=}\n"
         #       f"  {cvg_rate_stride=} {new.cvg_rate=} \n"
         #       f"  {loss_rate_stride=} {new.loss_rate=} \n"
         #       f"  {new.terms_wanted=}({terms + new.terms_wanted}) "
         #       f"{new.terms_accessible=} \n"
         #       f"  {new.prec_wanted=}")
-
-        return new
 
 
     cdef void add_error_get_rad(self, mag_ptr sum_rad, arb_ptr err):
