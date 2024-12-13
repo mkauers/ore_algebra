@@ -197,16 +197,16 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
 
         EXAMPLES::
 
-          sage: from ore_algebra import *
-          sage: R.<x> = ZZ['x']
-          sage: R2.<y> = ZZ['y']
-          sage: A.<Dx> = OreAlgebra(R, 'Dx')
-          sage: (Dx^4).to_T(OreAlgebra(R2, 'Ty'))
-          Ty^4 - 6*Ty^3 + 11*Ty^2 - 6*Ty
-          sage: (Dx^4).to_T('Tx').to_D(A)
-          x^4*Dx^4
-          sage: _.to_T('Tx')
-          Tx^4 - 6*Tx^3 + 11*Tx^2 - 6*Tx
+            sage: from ore_algebra import *
+            sage: R.<x> = ZZ['x']
+            sage: R2.<y> = ZZ['y']
+            sage: A.<Dx> = OreAlgebra(R, 'Dx')
+            sage: (Dx^4).to_T(OreAlgebra(R2, 'Ty'))
+            Ty^4 - 6*Ty^3 + 11*Ty^2 - 6*Ty
+            sage: (Dx^4).to_T('Tx').to_D(A)
+            x^4*Dx^4
+            sage: _.to_T('Tx')
+            Tx^4 - 6*Tx^3 + 11*Tx^2 - 6*Tx
         """
         R = self.base_ring()
         x = R.gen()
@@ -243,13 +243,13 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
 
         EXAMPLES::
 
-           sage: from ore_algebra import *
-           sage: R.<x> = ZZ['x']
-           sage: A.<Dx> = OreAlgebra(R, 'Dx')
-           sage: ((x-1)*Dx - 2*x).annihilator_of_integral()
-           (x - 1)*Dx^2 - 2*x*Dx
-           sage: _.annihilator_of_associate(Dx)
-           (x - 1)*Dx - 2*x
+            sage: from ore_algebra import *
+            sage: R.<x> = ZZ['x']
+            sage: A.<Dx> = OreAlgebra(R, 'Dx')
+            sage: ((x-1)*Dx - 2*x).annihilator_of_integral()
+            (x - 1)*Dx^2 - 2*x*Dx
+            sage: _.annihilator_of_associate(Dx)
+            (x - 1)*Dx - 2*x
 
         """
         return self*self.parent().gen()
@@ -280,7 +280,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
           returns an Ore operator ``Q`` such that for all functions ``f``
           annihilated by ``self``, ``P(f)(a(x)) = Q(f \circ a)(x)``.
 
-        EXAMPLES:
+        EXAMPLES::
 
             sage: from ore_algebra import *
             sage: R.<x> = ZZ['x']
@@ -295,7 +295,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             (-243*x^6 - 810*x^5 - 999*x^4 - 540*x^3 - 108*x^2)*Dx^3 + (-162*x^3 - 270*x^2 - 108*x)*Dx^2 + (162*x^2 + 180*x + 12)*Dx + 243*x^6 + 810*x^5 + 1080*x^4 + 720*x^3 + 240*x^2 + 32*x
 
         If composing with a rational function, one can also compute the
-        transformation map between the quotients.
+        transformation map between the quotients.::
 
             sage: L = x*Dx^2 + 1
             sage: LL, conv = L.annihilator_of_composition(x+1, with_transform=True)
@@ -502,17 +502,17 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
 
         EXAMPLES::
 
-          sage: from ore_algebra import *
-          sage: R.<x> = ZZ['x']
-          sage: A.<Dx> = OreAlgebra(R, 'Dx')
-          sage: ((1-x)*Dx - 1).power_series_solutions(10) # geometric series
-          [1 + x + x^2 + x^3 + x^4 + x^5 + x^6 + x^7 + x^8 + O(x^9)]
-          sage: (Dx - 1).power_series_solutions(5) # exp(x)
-          [1 + x + 1/2*x^2 + 1/6*x^3 + O(x^4)]
-          sage: (Dx^2 - Dx + x).power_series_solutions(5) # a 2nd order equation
-          [x + 1/2*x^2 + 1/6*x^3 - 1/24*x^4 + O(x^5), 1 - 1/6*x^3 - 1/24*x^4 + O(x^5)]
-          sage: (2*x*Dx - 1).power_series_solutions(5) # sqrt(x) is not a power series
-          []
+            sage: from ore_algebra import *
+            sage: R.<x> = ZZ['x']
+            sage: A.<Dx> = OreAlgebra(R, 'Dx')
+            sage: ((1-x)*Dx - 1).power_series_solutions(10) # geometric series
+            [1 + x + x^2 + x^3 + x^4 + x^5 + x^6 + x^7 + x^8 + O(x^9)]
+            sage: (Dx - 1).power_series_solutions(5) # exp(x)
+            [1 + x + 1/2*x^2 + 1/6*x^3 + O(x^4)]
+            sage: (Dx^2 - Dx + x).power_series_solutions(5) # a 2nd order equation
+            [x + 1/2*x^2 + 1/6*x^3 - 1/24*x^4 + O(x^5), 1 - 1/6*x^3 - 1/24*x^4 + O(x^5)]
+            sage: (2*x*Dx - 1).power_series_solutions(5) # sqrt(x) is not a power series
+            []
 
         """
         return _power_series_solutions(self, self.to_S('S'), n, ZZ)
@@ -570,37 +570,37 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
 
         EXAMPLES::
 
-          sage: from ore_algebra import *
-          sage: R.<x> = QQ['x']; A.<Dx> = OreAlgebra(R, 'Dx')
-          sage: L = (6+6*x-3*x^2) - (10*x-3*x^2-3*x^3)*Dx + (4*x^2-6*x^3+2*x^4)*Dx^2
-          sage: L.generalized_series_solutions()
-          [x^3*(1 + 3/2*x + 7/4*x^2 + 15/8*x^3 + 31/16*x^4 + O(x^5)), x^(1/2)*(1 + 3/2*x + 7/4*x^2 + 15/8*x^3 + 31/16*x^4 + O(x^5))]
-          sage: list(map(L, _))
-          [0, 0]
+            sage: from ore_algebra import *
+            sage: R.<x> = QQ['x']; A.<Dx> = OreAlgebra(R, 'Dx')
+            sage: L = (6+6*x-3*x^2) - (10*x-3*x^2-3*x^3)*Dx + (4*x^2-6*x^3+2*x^4)*Dx^2
+            sage: L.generalized_series_solutions()
+            [x^3*(1 + 3/2*x + 7/4*x^2 + 15/8*x^3 + 31/16*x^4 + O(x^5)), x^(1/2)*(1 + 3/2*x + 7/4*x^2 + 15/8*x^3 + 31/16*x^4 + O(x^5))]
+            sage: list(map(L, _))
+            [0, 0]
 
-          sage: L = (1-24*x+96*x^2) + (15*x-117*x^2+306*x^3)*Dx + (9*x^2-54*x^3)*Dx^2
-          sage: L.generalized_series_solutions(3)
-          [x^(-1/3)*(1 + x + 8/3*x^2 + O(x^3)), x^(-1/3)*((1 + x + 8/3*x^2 + O(x^3))*log(x) + x - 59/12*x^2 + O(x^3))]
-          sage: list(map(L, _))
-          [0, 0]
+            sage: L = (1-24*x+96*x^2) + (15*x-117*x^2+306*x^3)*Dx + (9*x^2-54*x^3)*Dx^2
+            sage: L.generalized_series_solutions(3)
+            [x^(-1/3)*(1 + x + 8/3*x^2 + O(x^3)), x^(-1/3)*((1 + x + 8/3*x^2 + O(x^3))*log(x) + x - 59/12*x^2 + O(x^3))]
+            sage: list(map(L, _))
+            [0, 0]
 
-          sage: L = 216*(1+x+x^3) + x^3*(36-48*x^2+41*x^4)*Dx - x^7*(6+6*x-x^2+4*x^3)*Dx^2
-          sage: L.generalized_series_solutions(3)
-          [exp(3*x^(-2))*x^(-2)*(1 + 91/12*x^2 + O(x^3)), exp(-2*x^(-3) + x^(-1))*x^2*(1 + 41/3*x + 2849/36*x^2 + O(x^3))]
-          sage: list(map(L, _))
-          [0, 0]
+            sage: L = 216*(1+x+x^3) + x^3*(36-48*x^2+41*x^4)*Dx - x^7*(6+6*x-x^2+4*x^3)*Dx^2
+            sage: L.generalized_series_solutions(3)
+            [exp(3*x^(-2))*x^(-2)*(1 + 91/12*x^2 + O(x^3)), exp(-2*x^(-3) + x^(-1))*x^2*(1 + 41/3*x + 2849/36*x^2 + O(x^3))]
+            sage: list(map(L, _))
+            [0, 0]
 
-          sage: L = 9 - 49*x - 2*x^2 + 6*x^2*(7 + 5*x)*Dx + 36*(-1 + x)*x^3*Dx^2
-          sage: L.generalized_series_solutions()
-          [exp(x^(-1/2))*x^(4/3)*(1 + x^(2/2) + x^(4/2)), exp(-x^(-1/2))*x^(4/3)*(1 + x^(2/2) + x^(4/2))]
-          sage: L.generalized_series_solutions(ramification=False)
-          []
+            sage: L = 9 - 49*x - 2*x^2 + 6*x^2*(7 + 5*x)*Dx + 36*(-1 + x)*x^3*Dx^2
+            sage: L.generalized_series_solutions()
+            [exp(x^(-1/2))*x^(4/3)*(1 + x^(2/2) + x^(4/2)), exp(-x^(-1/2))*x^(4/3)*(1 + x^(2/2) + x^(4/2))]
+            sage: L.generalized_series_solutions(ramification=False)
+            []
 
-          sage: L = 2*x^3*Dx^2 + 3*x^2*Dx-1
-          sage: L.generalized_series_solutions()
-          [exp(a_0*x^(-1/2))]
-          sage: _[0].base_ring()
-          Number Field in a_0 with defining polynomial x^2 - 2
+            sage: L = 2*x^3*Dx^2 + 3*x^2*Dx-1
+            sage: L.generalized_series_solutions()
+            [exp(a_0*x^(-1/2))]
+            sage: _[0].base_ring()
+            Number Field in a_0 with defining polynomial x^2 - 2
 
         """
 
