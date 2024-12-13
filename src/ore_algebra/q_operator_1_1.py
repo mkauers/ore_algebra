@@ -11,7 +11,7 @@ Univariate q-recurrence and q-differential operators over univariate rings
 #  Distributed under the terms of the GNU General Public License (GPL)      #
 #  either version 2, or (at your option) any later version                  #
 #                                                                           #
-#  http://www.gnu.org/licenses/                                             #
+#  https://www.gnu.org/licenses/                                             #
 #############################################################################
 
 from sage.arith.all import gcd
@@ -71,6 +71,7 @@ class UnivariateQRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverU
         """
         Returns a q-differential operator which annihilates every power series (about the origin)
         whose coefficient sequence is annihilated by ``self``.
+
         The output operator may not be minimal. 
 
         INPUT:
@@ -84,16 +85,16 @@ class UnivariateQRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverU
 
         EXAMPLES::
 
-          sage: from ore_algebra import *
-          sage: Rn.<n> = ZZ['n']; Rx.<x> = ZZ['x']
-          sage: A.<Qn> = OreAlgebra(Rn, 'Qn', q=2)
-          sage: B.<Jx> = OreAlgebra(Rx, 'Jx', q=2)
-          sage: (Qn - 1).to_J(B)
-          (-2*x + 1)*Jx - 1
-          sage: ((n+1)*Qn - 1).to_J(B)
-          2*x*Jx^2 + (-4*x + 4)*Jx - 2
-          sage: (x*Jx-1).to_Q(A).to_J(B) % (x*Jx - 1)
-          0
+            sage: from ore_algebra import *
+            sage: Rn.<n> = ZZ['n']; Rx.<x> = ZZ['x']
+            sage: A.<Qn> = OreAlgebra(Rn, 'Qn', q=2)
+            sage: B.<Jx> = OreAlgebra(Rx, 'Jx', q=2)
+            sage: (Qn - 1).to_J(B)
+            (-2*x + 1)*Jx - 1
+            sage: ((n+1)*Qn - 1).to_J(B)
+            2*x*Jx^2 + (-4*x + 4)*Jx - 2
+            sage: (x*Jx-1).to_Q(A).to_J(B) % (x*Jx - 1)
+            0
 
         """
         R = self.base_ring()
@@ -157,13 +158,13 @@ class UnivariateQRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverU
 
         EXAMPLES::
 
-           sage: from ore_algebra import *
-           sage: R.<x> = QQ['x']; A.<Qx> = OreAlgebra(R, 'Qx', q=3)
-           sage: (Qx^2-x*Qx + 1).to_list([1,1], 10)
-           [1, 1, 0, -1, -9, -242, -19593, -4760857, -3470645160, -7590296204063]
-           sage: (Qx^2-x*Qx + 1)(_)
-           [0, 0, 0, 0, 0, 0, 0, 0]
-        
+            sage: from ore_algebra import *
+            sage: R.<x> = QQ['x']; A.<Qx> = OreAlgebra(R, 'Qx', q=3)
+            sage: (Qx^2-x*Qx + 1).to_list([1,1], 10)
+            [1, 1, 0, -1, -9, -242, -19593, -4760857, -3470645160, -7590296204063]
+            sage: (Qx^2-x*Qx + 1)(_)
+            [0, 0, 0, 0, 0, 0, 0, 0]
+
         """
         _, q = self.parent().is_Q()
         return _rec2list(self, init, n, start, append, padd, lambda n: q**n)
@@ -172,16 +173,17 @@ class UnivariateQRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverU
         r"""
         Returns an operator `L` which annihilates all the indefinite sums `\sum_{k=0}^n a_k`
         where `a_n` runs through the sequences annihilated by ``self``.
+
         The output operator is not necessarily of smallest possible order. 
 
         EXAMPLES::
 
-           sage: from ore_algebra import *
-           sage: R.<x> = ZZ['q'].fraction_field()['x']
-           sage: A.<Qx> = OreAlgebra(R, 'Qx')
-           sage: ((x+1)*Qx - x).annihilator_of_sum()
-           (q*x + 1)*Qx^2 + (-2*q*x - 1)*Qx + q*x
-           
+            sage: from ore_algebra import *
+            sage: R.<x> = ZZ['q'].fraction_field()['x']
+            sage: A.<Qx> = OreAlgebra(R, 'Qx')
+            sage: ((x+1)*Qx - x).annihilator_of_sum()
+            (q*x + 1)*Qx^2 + (-2*q*x - 1)*Qx + q*x
+      
         """
         A = self.parent()
         return self.map_coefficients(A.sigma())*(A.gen() - A.one())
@@ -190,6 +192,7 @@ class UnivariateQRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverU
         r"""
         Returns an operator `L` which annihilates all the sequences `f(a(n))`
         where `f` runs through the functions annihilated by ``self``.
+
         The output operator is not necessarily of smallest possible order.
 
         INPUT:
@@ -201,21 +204,20 @@ class UnivariateQRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverU
 
         EXAMPLES::
 
-          sage: from ore_algebra import *
-          sage: R.<x> = QQ['x']
-          sage: A.<Qx> = OreAlgebra(R, 'Qx', q=3)
-          sage: L = (x+3)*Qx^2 - (5*x+3)*Qx + 2*x-1
-          sage: data = L.to_list([1,2], 11)
-          sage: data
-          [1, 2, 15/4, 115/12, 1585/48, 19435/144, 2387975/4032, 188901875/70848, 488427432475/40336128, 1461633379710215/26500836096, 14580926901721431215/57983829378048]
-          sage: L2 = L.annihilator_of_composition(2*x)
-          sage: L2.to_list([1,15/4], 5)
-          [1, 15/4, 1585/48, 2387975/4032, 488427432475/40336128]
-          sage: Lrev = L.annihilator_of_composition(10 - x)
-          sage: Lrev.to_list([data[10], data[9]], 11)
-          [14580926901721431215/57983829378048, 1461633379710215/26500836096, 488427432475/40336128, 188901875/70848, 2387975/4032, 19435/144, 1585/48, 115/12, 15/4, 2, 1]
-          
-          
+            sage: from ore_algebra import *
+            sage: R.<x> = QQ['x']
+            sage: A.<Qx> = OreAlgebra(R, 'Qx', q=3)
+            sage: L = (x+3)*Qx^2 - (5*x+3)*Qx + 2*x-1
+            sage: data = L.to_list([1,2], 11)
+            sage: data
+            [1, 2, 15/4, 115/12, 1585/48, 19435/144, 2387975/4032, 188901875/70848, 488427432475/40336128, 1461633379710215/26500836096, 14580926901721431215/57983829378048]
+            sage: L2 = L.annihilator_of_composition(2*x)
+            sage: L2.to_list([1,15/4], 5)
+            [1, 15/4, 1585/48, 2387975/4032, 488427432475/40336128]
+            sage: Lrev = L.annihilator_of_composition(10 - x)
+            sage: Lrev.to_list([data[10], data[9]], 11)
+            [14580926901721431215/57983829378048, 1461633379710215/26500836096, 488427432475/40336128, 188901875/70848, 2387975/4032, 19435/144, 1585/48, 115/12, 15/4, 2, 1]
+    
         """
         # ugly code duplication: the following is more or less the same as
         # UnivariateRecurrenceOperatorOverUnivariateRing.annihilator_of_composition :-(
@@ -389,7 +391,7 @@ class UnivariateQRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverU
         Returns information about the local behaviour of this operator's solutions at x=0 and
         at x=infinity.
 
-        The output is a list of all tuples `(gamma, phi, beta, alpha)` such that for every
+        The output is a list of all tuples ``(gamma, phi, beta, alpha)`` such that for every
         q-hypergeometric solution `f` of this operator (over the same constant field) there
         is a tuple such that 
         `f(q*x)/f(x) = phi * x^gamma * rat(q*x)/rat(x) * \prod_m (1-a_m*x)^{e_m}` 
@@ -397,10 +399,10 @@ class UnivariateQRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverU
 
         EXAMPLES::
 
-          sage: from ore_algebra import *
-          sage: R.<x> = QQ['x']; A.<Qx> = OreAlgebra(R, q=2) 
-          sage: ((2*x+3)*Qx - (8*x+3)).lclm(Qx-1)._local_data_at_special_points()
-          [(0, 2, 0, 2), (0, 2, 0, 1/2), (0, 1, 0, 4), (0, 1, 0, 1)]
+            sage: from ore_algebra import *
+            sage: R.<x> = QQ['x']; A.<Qx> = OreAlgebra(R, q=2) 
+            sage: ((2*x+3)*Qx - (8*x+3)).lclm(Qx-1)._local_data_at_special_points()
+            [(0, 2, 0, 2), (0, 2, 0, 1/2), (0, 1, 0, 4), (0, 1, 0, 1)]
 
         """
 
@@ -447,6 +449,7 @@ class UnivariateQDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOve
         """
         Returns a q-recurrence operator which annihilates the coefficient sequence
         of every power series (about the origin) annihilated by ``self``.
+
         The output operator may not be minimal. 
 
         INPUT:
@@ -460,16 +463,16 @@ class UnivariateQDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOve
 
         EXAMPLES::
 
-          sage: from ore_algebra import *
-          sage: Rn.<n> = ZZ['n']; Rx.<x> = ZZ['x']
-          sage: A.<Jx> = OreAlgebra(Rx, 'Jx', q=2)
-          sage: B.<Qn> = OreAlgebra(Rn, 'Qn', q=2)
-          sage: (Jx - 1).to_Q(B)
-          (2*n - 1)*Qn - 1
-          sage: ((x+1)*Jx - 1).to_Q(B)
-          (4*n - 1)*Qn^2 + (2*n - 2)*Qn
-          sage: (n*Qn-1).to_J(A).to_Q(B) % (n*Qn - 1)
-          0
+            sage: from ore_algebra import *
+            sage: Rn.<n> = ZZ['n']; Rx.<x> = ZZ['x']
+            sage: A.<Jx> = OreAlgebra(Rx, 'Jx', q=2)
+            sage: B.<Qn> = OreAlgebra(Rn, 'Qn', q=2)
+            sage: (Jx - 1).to_Q(B)
+            (2*n - 1)*Qn - 1
+            sage: ((x+1)*Jx - 1).to_Q(B)
+            (4*n - 1)*Qn^2 + (2*n - 2)*Qn
+            sage: (n*Qn-1).to_J(A).to_Q(B) % (n*Qn - 1)
+            0
         """
         R = self.base_ring()
         K = R.base_ring()
@@ -508,18 +511,19 @@ class UnivariateQDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOve
         r"""
         Returns an operator `L` which annihilates all the indefinite `q`-integrals `\int_q f`
         where `f` runs through the functions annihilated by ``self``.
+
         The output operator is not necessarily of smallest possible order. 
 
         EXAMPLES::
 
-           sage: from ore_algebra import *
-           sage: R.<x> = ZZ['q'].fraction_field()['x']
-           sage: A.<Jx> = OreAlgebra(R, 'Jx')
-           sage: ((x-1)*Jx - 2*x).annihilator_of_integral()
-           (x - 1)*Jx^2 - 2*x*Jx
-           sage: _.annihilator_of_associate(Jx)
-           (x - 1)*Jx - 2*x
-           
+            sage: from ore_algebra import *
+            sage: R.<x> = ZZ['q'].fraction_field()['x']
+            sage: A.<Jx> = OreAlgebra(R, 'Jx')
+            sage: ((x-1)*Jx - 2*x).annihilator_of_integral()
+            (x - 1)*Jx^2 - 2*x*Jx
+            sage: _.annihilator_of_associate(Jx)
+            (x - 1)*Jx - 2*x
+    
         """
         return self*self.parent().gen()
 
@@ -545,12 +549,12 @@ class UnivariateQDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOve
 
         EXAMPLES::
 
-          sage: from ore_algebra import *
-          sage: R.<x> = QQ['x']
-          sage: A.<Jx> = OreAlgebra(R, 'Jx', q=2)
-          sage: (Jx-1).lclm((1-x)*Jx-1).power_series_solutions()
-          [x^2 + x^3 + 3/5*x^4 + 11/35*x^5 + O(x^6), 1 + x - 2/7*x^3 - 62/315*x^4 - 146/1395*x^5 + O(x^6)]
-    
+            sage: from ore_algebra import *
+            sage: R.<x> = QQ['x']
+            sage: A.<Jx> = OreAlgebra(R, 'Jx', q=2)
+            sage: (Jx-1).lclm((1-x)*Jx-1).power_series_solutions()
+            [x^2 + x^3 + 3/5*x^4 + 11/35*x^5 + O(x^6), 1 + x - 2/7*x^3 - 62/315*x^4 - 146/1395*x^5 + O(x^6)]
+
         """
         _, q = self.parent().is_J()
         return _power_series_solutions(self, self.to_Q('Q'), n, lambda n: q**n)
