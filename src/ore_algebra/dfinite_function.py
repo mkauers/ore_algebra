@@ -3,11 +3,11 @@ Differentially finite functions and sequences
 
 The dfinite_function module provides functionality for doing computations with D-finite functions and sequences.
 
-A D-finite sequence can be represented by an ore operator which annihilates the sequence (for further information
-about ore operators check the ``ore_algebra`` package), the operators singularities and a finite amount of initial values.
+A D-finite sequence can be represented by an Ore operator which annihilates the sequence (for further information
+about Ore operators check the ``ore_algebra`` package), the operators singularities and a finite amount of initial values.
 
 A D-finite function can be envisioned as a power series, therefore it can be represented via a D-finite sequence which
-describes the coefficient sequence and an ore operator which annhilates the function.
+describes the coefficient sequence and an Ore operator which annhilates the function.
 
 D-finite sequences and functions are elements of D-finite function rings. D-finite function rings are ring objects created by the
 function ``DFiniteFunctionRing`` as described below.
@@ -74,11 +74,11 @@ class DFiniteFunctionRing(Parent):
         INPUT:
 
         - ``ore_algebra`` -- an Ore algebra over which the D-finite function ring is defined.
-            Only ore algebras with the differential or the shift operator are accepted to
+            Only Ore algebras with the differential or the shift operator are accepted to
             define a D-finite function ring.
         - ``domain`` (default ``NN``) -- domain over which the sequence indices are considered,
             i.e. if the domain is ``ZZ`` also negative sequence indices exist.
-            So far for d-finite sequences ``NN`` and ``ZZ`` are supported and for D-finite
+            So far for D-finite sequences ``NN`` and ``ZZ`` are supported and for D-finite
             functions only ``NN`` is supported.
 
         OUTPUT:
@@ -89,13 +89,15 @@ class DFiniteFunctionRing(Parent):
 
             sage: from ore_algebra import *
 
-            #This creates an d-finite sequence ring with indices in ``ZZ``
+        This creates a d-finite sequence ring with indices in ``ZZ``::
+
             sage: A = OreAlgebra(ZZ['n'],'Sn')
             sage: D = DFiniteFunctionRing(A,ZZ)
             sage: D
             Ring of D-finite sequences over Univariate Polynomial Ring in n over Integer Ring
 
-            #This creates an d-finite function ring
+        This creates an d-finite function ring::
+
             sage: B = OreAlgebra(QQ['x'],'Dx')
             sage: E = DFiniteFunctionRing(B)
             sage: E
@@ -259,7 +261,7 @@ class DFiniteFunctionRing(Parent):
         else:
             raise TypeError(str(x) + " could not be converted - the underlying Ore Algebras don't match")
 
-    def _construct_list(self,x,n):
+    def _construct_list(self, x, n):
         r"""
         Convert a list of data ``x`` into this ring, possibly non-canonically.
 
@@ -276,16 +278,18 @@ class DFiniteFunctionRing(Parent):
 
         A D-finite object with initial values from the list ``x`` and an ore operator which annihilates this initial values
 
-        EXAMPLES::
+        EXAMPLES:
 
-            #discrete case
+        Discrete case::
+
             sage: from ore_algebra import *
             sage: A = OreAlgebra(QQ['n'],'Sn')
             sage: D1 = DFiniteFunctionRing(A)
             sage: D1([0,1,1,2,3,5,8])
             Univariate D-finite sequence defined by the annihilating operator -Sn^2 + Sn + 1 and the initial conditions {0: 0, 1: 1}
 
-            #differential case
+        Differential case::
+    
             sage: from ore_algebra import *
             sage: B = OreAlgebra(QQ['x'],'Dx')
             sage: D2 = DFiniteFunctionRing(B)
@@ -303,9 +307,10 @@ class DFiniteFunctionRing(Parent):
         else:
             return UnivariateDFiniteFunction(self, ann, x)
 
-    def _construct_rational(self,x, n):
+    def _construct_rational(self, x, n):
         r"""
         Convert a rational function ``x`` into this ring, possibly non-canonically.
+
         Pols of ``x`` will be represented as ``None`` entries.
 
         - ``x`` -- a list of rational numbers that are the first terms of a sequence or a power series
@@ -316,9 +321,10 @@ class DFiniteFunctionRing(Parent):
 
         A D-finite object that either represents the sequence (a_n) = x(n) or the rational function x(z).
 
-        EXAMPLES::
+        EXAMPLES:
 
-            #discrete case
+        Discrete case::
+
             sage: from ore_algebra import *
             sage: A = OreAlgebra(QQ['n'],'Sn')
             sage: D1 = DFiniteFunctionRing(A,ZZ)
@@ -326,7 +332,8 @@ class DFiniteFunctionRing(Parent):
             sage: D1(1/n)
             Univariate D-finite sequence defined by the annihilating operator (n^3 + 3*n^2 + 2*n)*Sn - n^3 - 2*n^2 and the initial conditions {-2: -1/2, -1: -1, 0: None, 1: 1}
 
-            #differential case
+        Differential case::
+    
             sage: from ore_algebra import *
             sage: B = OreAlgebra(QQ['x'],'Dx')
             sage: D2 = DFiniteFunctionRing(B)
@@ -429,7 +436,7 @@ class DFiniteFunctionRing(Parent):
 
         EXAMPLES:
 
-        discrete case::
+        Discrete case::
 
             sage: from ore_algebra import *
             sage: A = OreAlgebra(QQ['n'],'Sn')
@@ -438,7 +445,7 @@ class DFiniteFunctionRing(Parent):
             sage: D1(harmonic_number(3*n)+factorial(n+2))
             Univariate D-finite sequence defined by the annihilating operator (-2187*n^10 - 42282*n^9 - 364905*n^8 - 1845423*n^7 - 6031683*n^6 - 13246704*n^5 - 19679543*n^4 - 19390967*n^3 - 12024690*n^2 - 4192544*n - 615552)*Sn^3 + (2187*n^11 + 57591*n^10 + 663066*n^9 + 4430376*n^8 + 19123470*n^7 + 55966311*n^6 + 113079500*n^5 + 157190572*n^4 + 146606713*n^3 + 86797038*n^2 + 29096584*n + 4133152)*Sn^2 + (-4374*n^11 - 106434*n^10 - 1151901*n^9 - 7304094*n^8 - 30065373*n^7 - 84062052*n^6 - 162242521*n^5 - 215119824*n^4 - 190943363*n^3 - 107309404*n^2 - 34064948*n - 4573552)*Sn + 2187*n^11 + 51030*n^10 + 531117*n^9 + 3238623*n^8 + 12787326*n^7 + 34127424*n^6 + 62409725*n^5 + 77608795*n^4 + 63727617*n^3 + 32537056*n^2 + 9160908*n + 1055952 and the initial conditions {0: 2, 1: 47/6, 2: 529/20}
 
-        differential case::
+        Differential case::
 
             sage: from ore_algebra import *
             sage: B = OreAlgebra(QQ['x'],'Dx')
@@ -558,7 +565,8 @@ class DFiniteFunctionRing(Parent):
     def __eq__(self, right):
         r"""
         Tests if the two DFiniteFunctionRings ``self``and ``right`` are equal.
-        This is the case if and only if they are defined over equal Ore algebras and have the same domain
+
+        This is the case if and only if they are defined over equal Ore algebras and have the same domain.
 
         EXAMPLES::
 
@@ -581,7 +589,8 @@ class DFiniteFunctionRing(Parent):
     def is_integral_domain(self, proof = True):
         r"""
         Returns whether ``self`` is an integral domain.
-        In the discrete case this is False; in the differential case this is true.
+
+        In the discrete case this is ``False``; in the differential case this is ``True``.
         """
         if self.ore_algebra().is_S():
             return False
@@ -598,7 +607,8 @@ class DFiniteFunctionRing(Parent):
     def is_commutative(self):
         r"""
         Returns whether ``self`` is commutative.
-        This is true for the function ring as well as the sequence ring
+
+        This is ``True`` for the function ring as well as the sequence ring
         """
         return True
 
@@ -689,17 +699,15 @@ class DFiniteFunctionRing(Parent):
 
     def is_finite(self):
         r"""
-        Return False since DFiniteFunctionRings are not finite (unless the base
+        Return ``False`` since DFiniteFunctionRings are not finite (unless the base
         ring is 0.)
         """
         R = self._base_ring
-        if R.is_finite() and R.order() == 1:
-            return True
-        return False
+        return R.is_finite() and R.order() == 1
 
     def is_exact(self):
         r"""
-        Return True if the Ore algebra over which the DFiniteFunctionRing is defined is exact
+        Return ``True`` if the Ore algebra over which the DFiniteFunctionRing is defined is exact
         """
         return self.ore_algebra().is_exact()
 
@@ -719,19 +727,21 @@ class DFiniteFunctionRing(Parent):
 
         OUTPUT:
 
-        A D-finite sequence/function with a random ore operator of degree ``degree`` and random initial values constisting
+        A D-finite sequence/function with a random Ore operator of degree ``degree`` and random initial values consisting
         of integers between -100 and 100.
 
-        EXAMPLES::
+        EXAMPLES:
 
-            #discrete case
+        Discrete case::
+    
             sage: from ore_algebra import *
             sage: A = OreAlgebra(QQ['n'],'Sn')
             sage: D1 = DFiniteFunctionRing(A,ZZ)
             sage: D1.random_element() # random
             Univariate D-finite sequence defined by the annihilating operator (-n^2 + n)*Sn^2 + (22/9*n - 1/622)*Sn - 5/6*n^2 - n - 1 and the initial conditions {0: -88, 1: 18, 2: -49, 3: -67}
 
-            #differential case
+        Differential case::
+
             sage: from ore_algebra import *
             sage: B = OreAlgebra(QQ['x'],'Dx')
             sage: D2 = DFiniteFunctionRing(B)
@@ -809,7 +819,7 @@ class DFiniteFunction(RingElement):
 
         - ``initial_val`` -- a list of initial values, determining the sequence or function, containing at least
           as many values as the order of ``ann`` predicts. For sequences these are the first sequence terms; for functions
-          the first taylor coefficients. If the annhilating operator has singularities then ``initial_val`` has to be given
+          the first Taylor coefficients. If the annhilating operator has singularities then ``initial_val`` has to be given
           in form of a dictionary containing the initial values and the singularities. For functions ``initial_val`` can also
           be a D-finite sequence representing the coefficient sequence of the function
 
@@ -1052,7 +1062,9 @@ class DFiniteFunction(RingElement):
     def reduce_factors(self):
         r"""
         Tries to delete factors of order 0 of the annihilating operator of ``self`` which appear more than
-        once. Additionally this method tries to delete redundant initial conditions. This method is a subroutine
+        once.
+        
+        Additionally this method tries to delete redundant initial conditions. This method is a subroutine
         of compress
 
         OUTPUT:
@@ -1163,6 +1175,7 @@ class DFiniteFunction(RingElement):
     def __call__(self, *x, **kwds):
         r"""
         Lets ``self`` act on ``x`` and returns the result.
+
         ``x`` may be either a constant, then this computes an evaluation,
         or a (suitable) expression, then it represents composition and we return a new DFiniteFunction object.
         """
@@ -1250,6 +1263,7 @@ class DFiniteFunction(RingElement):
     def __is_zero__(self):
         r"""
         Return whether ``self`` is the zero sequence 0,0,0,\dots or the zero function f(x) = 0 \forall x, respectively.
+
         This is the case iff all the initial conditions are 0 or ``None``.
 
         EXAMPLES::
@@ -1278,6 +1292,7 @@ class DFiniteFunction(RingElement):
     def __eq__(self, right):
         r"""
         Return whether the two DFiniteFunctions ``self`` and ``right`` are equal.
+
         More precicsely it is tested if the difference of ``self`` and ``right`` equals 0.
 
         EXAMPLES::
@@ -1312,7 +1327,7 @@ class DFiniteFunction(RingElement):
         r"""
         Return ``True`` if ``self`` is a unit.
 
-        This is the case if the annihialting operator of ``self`` has order 1.
+        This is the case if the annihilating operator of ``self`` has order 1.
         Otherwise we can not decide whether ``self`` is a unit or not.
         """
         if self.__ann.order() == 1:
@@ -1387,6 +1402,7 @@ class DFiniteFunction(RingElement):
     def __float__(self):
         r"""
         Tries to convert ``self`` into a float.
+
         This is possible iff ``self`` represents a constant sequence or constant function for some constant values in ``QQ``.
         If the conversion is not possible an error message is displayed.
 
@@ -1414,6 +1430,7 @@ class DFiniteFunction(RingElement):
     def __int__(self):
         r"""
         Tries to convert ``self`` into an integer.
+
         This is possible iff ``self`` represents a constant sequence or constant function for some constant value in ``ZZ``.
         If the conversion is not possible an error message is displayed.
 
@@ -1439,6 +1456,7 @@ class DFiniteFunction(RingElement):
     def _integer_(self, ZZ):
         r"""
         Tries to convert ``self`` into a Sage integer.
+
         This is possible iff ``self`` represents a constant sequence or constant function for some constant value in ``ZZ``.
         If the conversion is not possible an error message is displayed.
 
@@ -1460,6 +1478,7 @@ class DFiniteFunction(RingElement):
     def _rational_(self):
         r"""
         Tries to convert ``self`` into a Sage rational.
+
         This is possible iff ``self`` represents a constant sequence or constant function for some constant value in ``QQ``.
         If the conversion is not possible an error message is displayed.
 
@@ -1573,9 +1592,10 @@ class DFiniteFunction(RingElement):
 
         self^n
 
-        EXAMPLES::
+        EXAMPLES:
 
-            #discrete case
+        Discrete case::
+
             sage: from ore_algebra import *
             sage: A = OreAlgebra(QQ['n'],'Sn')
             sage: D1 = DFiniteFunctionRing(A,ZZ)
@@ -1584,7 +1604,8 @@ class DFiniteFunction(RingElement):
             sage: a**3
             Univariate D-finite sequence defined by the annihilating operator (n^10 + 4*n^9 - 2*n^8 - 20*n^7 - 11*n^6 + 16*n^5 + 12*n^4)*Sn - n^10 - 7*n^9 - 13*n^8 + 13*n^7 + 73*n^6 + 79*n^5 - 7*n^4 - 73*n^3 - 52*n^2 - 12*n and the initial conditions {-3: -27, -2: -8, -1: -1, 0: 0, 1: 1, 2: 8, 3: 27}
 
-            #differential case
+        Differential case::
+
             sage: from ore_algebra import *
             sage: B = OreAlgebra(QQ['x'],'Dx')
             sage: D2 = DFiniteFunctionRing(B)
@@ -1866,7 +1887,6 @@ class UnivariateDFiniteSequence(DFiniteFunction):
             3
             sage: b._test_conversion_() # returns None
 
-
         """
         ini = self.initial_values()
         if len(ini) > 0:
@@ -2031,7 +2051,9 @@ class UnivariateDFiniteSequence(DFiniteFunction):
     def __add_without_compress__(self, right):
         r"""
         Adds the D-finite sequences ``self`` and ``right`` without automatically trying
-        to compress the result. This method is called whenever equality testing is done
+        to compress the result.
+
+        This method is called whenever equality testing is done
         because in that case compressing the result would be unnecessary work.
         """
         #getting the operator
@@ -2175,7 +2197,7 @@ class UnivariateDFiniteSequence(DFiniteFunction):
         r"""
         Return the product of ``self`` and ``right``
 
-        The result is the termwise product (Hadamard product) of ``self`` and ``right``. To get the cauchy product
+        The result is the termwise product (Hadamard product) of ``self`` and ``right``. To get the Cauchy product
         use the method ``cauchy_product``.
         ``_mul_`` uses the method ``symmetric_product`` of the OreAlgebra package to get the new annihilator. If ``self``
         or ``right`` contains a ``None`` value at a certain position, then the product will also have a ``None`` entry at this position.
@@ -2242,13 +2264,13 @@ class UnivariateDFiniteSequence(DFiniteFunction):
 
     def cauchy_product(self, right):
         r"""
-        Return the cauchy product of ``self`` and ``right``
+        Return the Cauchy product of ``self`` and ``right``
 
-        The result is the cauchy product of ``self`` and ``right``. To get the termwise product (Hadamard product)
+        The result is the Cauchy product of ``self`` and ``right``. To get the termwise product (Hadamard product)
         use the method ``_mul_``.
         This method uses the method ``symmetric_product`` (but in an OreAlgebra with the differential operator) of the
         OreAlgebra package to get the new annihilator. If ``self`` or ``right`` contains a ``None`` value at a certain position,
-        then the cauchy product will have ``None`` entries at this position and all positions afterwards.
+        then the Cauchy product will have ``None`` entries at this position and all positions afterwards.
 
         EXAMPLES::
 
@@ -2362,12 +2384,13 @@ class UnivariateDFiniteSequence(DFiniteFunction):
     def interlace(self, right):
         r"""
         Return the interlaced sequence of ``self`` and ``right``.
+
         ``interlace`` uses the method ``annihilator_of_interlacing`` of the OreAlgebra package to get the new operator.
 
         OUTPUT:
 
-        If ``self`` is of the form a_0,a_1,a_2,\dots and ``right`` is of the form b_0,b_1,b_2,\dots, then
-        the result is a UnivariateDFiniteSequence object that represents the sequence a_0,b_0,a_1,b_1,a_2,b_2,\dots
+        If ``self`` is of the form `a_0,a_1,a_2,\dots` and ``right`` is of the form `b_0,b_1,b_2,\dots`, then
+        the result is a UnivariateDFiniteSequence object that represents the sequence `a_0,b_0,a_1,b_1,a_2,b_2,\dots`
 
         EXAMPLES::
 
@@ -2721,6 +2744,7 @@ class UnivariateDFiniteFunction(DFiniteFunction):
     def __call__(self, r):
         r"""
         Lets ``self`` act on `r` and returns the result.
+
         `r` may be either a constant, then this method tries to evaluate ``self``at `r`. This evaluation might fail if there
         is a singularity of the annihilating operator of ``self`` between 0 and `r`. To then compute an evaluation use
         ``evaluate`` and see the documentation there.
@@ -2961,7 +2985,9 @@ class UnivariateDFiniteFunction(DFiniteFunction):
     def __add_without_compress__(self, right):
         r"""
         Adds the D-finite functions ``self`` and ``right`` without automatically trying
-        to compress the result. This method is called whenever equality testing is done
+        to compress the result.
+
+        This method is called whenever equality testing is done
         because there compressing the result would be unnecessary work.
         """
         sum_ann = self.ann().lclm(right.ann())
@@ -2983,8 +3009,8 @@ class UnivariateDFiniteFunction(DFiniteFunction):
 
     def expand(self, n, deriv = False):
         r"""
-        Return a list of the first `n+1` coefficients of ``self`` if ``deriv``is False.
-        If ``deriv`` is True the first `n+1` derivations of self at x=0 are returned.
+        Return a list of the first `n+1` coefficients of ``self`` if ``deriv``is ``False``.
+        If ``deriv`` is ``True`` the first `n+1` derivations of self at x=0 are returned.
 
         INPUT:
 
@@ -3015,7 +3041,8 @@ class UnivariateDFiniteFunction(DFiniteFunction):
 
     def _add_(self, right):
         r"""
-        Returns the sum of ``self`` and ``right``
+        Returns the sum of ``self`` and ``right``.
+
         ``_add_`` uses the method ``lclm`` from the OreAlgebra package to get the new annihilator.
 
         EXAMPLES::
@@ -3072,7 +3099,8 @@ class UnivariateDFiniteFunction(DFiniteFunction):
 
     def _mul_(self, right):
         r"""
-        Return the product of ``self`` and ``right``
+        Return the product of ``self`` and ``right``.
+
         ``_mul_`` uses the method ``symmetric_product`` from the OreAlgebra package to get the new annihilator.
         Here we do not use the method ``cauchy_product`` from the class UnivariateDFiniteSequence, even though it would
         lead to the same (correct) result. But to use that method one would have to use (more) transformations of the annihilating operators
@@ -3144,8 +3172,9 @@ class UnivariateDFiniteFunction(DFiniteFunction):
     def hadamard_product(self, right):
         r"""
         Return the D-finite function corresponding to the Hadamard product of ``self`` and ``right``.
-        The Hadamard product of two formal power series a(x) = \sum_{n=0}^\infty a_n x^n and b(x) = \sum_{n=0}^\infty b_n x^n
-        is defined as a(x) \odot b(x) := \sum_{n=0}^\infty a_nb_n x^n
+
+        The Hadamard product of two formal power series `a(x) = \sum_{n=0}^\infty a_n x^n` and `b(x) = \sum_{n=0}^\infty b_n x^n`
+        is defined as `a(x) \odot b(x) := \sum_{n=0}^\infty a_nb_n x^n`.
         """
         seq = self.initial_conditions() * right.initial_conditions()
         return seq.generating_function()
@@ -3158,8 +3187,9 @@ class UnivariateDFiniteFunction(DFiniteFunction):
     def integral(self):
         r"""
         Return the D-finite function corresponding to the integral of ``self``.
+
         By integral the formal integral of a power series is meant, i.e.
-        \int a(x) = \int_0^x \sum_{n=0}^\infty a_n x^n = \sum_{n=0}^\infty \frac{a_n}{n+1} x^{n+1}
+        `\int a(x) = \int_0^x \sum_{n=0}^\infty a_n x^n = \sum_{n=0}^\infty \frac{a_n}{n+1} x^{n+1}`
 
         EXAMPLES::
 
