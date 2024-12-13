@@ -89,7 +89,7 @@ class DFiniteFunctionRing(Parent):
 
             sage: from ore_algebra import *
 
-        This creates an d-finite sequence ring with indices in ``ZZ``::
+        This creates a d-finite sequence ring with indices in ``ZZ``::
 
             sage: A = OreAlgebra(ZZ['n'],'Sn')
             sage: D = DFiniteFunctionRing(A,ZZ)
