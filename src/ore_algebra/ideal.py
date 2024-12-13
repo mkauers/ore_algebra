@@ -9,7 +9,7 @@ Ideals
 #  Distributed under the terms of the GNU General Public License (GPL)      #
 #  either version 2, or (at your option) any later version                  #
 #                                                                           #
-#  http://www.gnu.org/licenses/                                             #
+#  https://www.gnu.org/licenses/                                             #
 #############################################################################
 
 from datetime import datetime
@@ -86,32 +86,32 @@ class OreLeftIdeal(Ideal_nc):
 
         EXAMPLES::
 
-           sage: from ore_algebra import *
-           sage: R.<x,y> = ZZ[]
-           sage: A.<Dx,Dy> = OreAlgebra(R)
-           sage: A.ideal([Dx - 5]).dimension()
-           1
-           sage: A.ideal([Dx - 3, Dy - 4]).dimension()
-           0
+            sage: from ore_algebra import *
+            sage: R.<x,y> = ZZ[]
+            sage: A.<Dx,Dy> = OreAlgebra(R)
+            sage: A.ideal([Dx - 5]).dimension()
+            1
+            sage: A.ideal([Dx - 3, Dy - 4]).dimension()
+            0
 
         """
         return self._lm_poly_ideal().dimension()
 
     def vector_space_dimension(self):
         """
-        Returns the vector space dimension of the A-module A/self
+        Returns the vector space dimension of the A-module A/self.
 
         EXAMPLES::
 
-           sage: from ore_algebra import *
-           sage: R.<x,y> = ZZ[]
-           sage: A.<Dx,Dy> = OreAlgebra(R)
-           sage: A.ideal([Dx - 5]).vector_space_dimension()
-           +Infinity
-           sage: A.ideal([Dx - 3, Dy - 4]).vector_space_dimension()
-           1
-           sage: A.ideal([Dx^3 - 3, Dy^9 - 4]).vector_space_dimension()
-           27
+            sage: from ore_algebra import *
+            sage: R.<x,y> = ZZ[]
+            sage: A.<Dx,Dy> = OreAlgebra(R)
+            sage: A.ideal([Dx - 5]).vector_space_dimension()
+            +Infinity
+            sage: A.ideal([Dx - 3, Dy - 4]).vector_space_dimension()
+            1
+            sage: A.ideal([Dx^3 - 3, Dy^9 - 4]).vector_space_dimension()
+            27
 
         """
         return self._lm_poly_ideal().vector_space_dimension()
@@ -124,13 +124,13 @@ class OreLeftIdeal(Ideal_nc):
 
         EXAMPLES::
 
-           sage: from ore_algebra import *
-           sage: R.<x,y> = ZZ[]
-           sage: A.<Dx,Dy> = OreAlgebra(R)
-           sage: A.ideal([Dx - 3, Dy - 4]).vector_space_basis()
-           [1]
-           sage: A.ideal([Dx^2 - 3, Dy^4 - 4]).vector_space_basis()
-           [1, Dy, Dx, Dy^2, Dx*Dy, Dy^3, Dx*Dy^2, Dx*Dy^3]
+            sage: from ore_algebra import *
+            sage: R.<x,y> = ZZ[]
+            sage: A.<Dx,Dy> = OreAlgebra(R)
+            sage: A.ideal([Dx - 3, Dy - 4]).vector_space_basis()
+            [1]
+            sage: A.ideal([Dx^2 - 3, Dy^4 - 4]).vector_space_basis()
+            [1, Dy, Dx, Dy^2, Dx*Dy, Dy^3, Dx*Dy^2, Dx*Dy^3]
 
         """
         if self.dimension() == -1:
@@ -171,33 +171,33 @@ class OreLeftIdeal(Ideal_nc):
 
         EXAMPLES::
 
-           sage: from ore_algebra import *
-           sage: R.<x,y> = ZZ[]
-           sage: A.<Dx,Dy> = OreAlgebra(R)
-           sage: id = A.ideal([Dx - 2, Dy - 3])
-           sage: id.multiplication_matrix(Dx)
-           [2]
-           sage: id.multiplication_matrix(Dy)
-           [3]
-           sage: id = A.ideal([Dx + (2*x + 2*y - 1)*Dy - 1, (2*x + 2*y)*Dy^2 + Dy])
-           sage: id.multiplication_matrix(Dx)
-           [               1                0]
-           [  -2*x - 2*y + 1 (-1)/(2*x + 2*y)]
-           sage: id.multiplication_matrix(Dy)
-           [               0                0]
-           [               1 (-1)/(2*x + 2*y)]
+            sage: from ore_algebra import *
+            sage: R.<x,y> = ZZ[]
+            sage: A.<Dx,Dy> = OreAlgebra(R)
+            sage: id = A.ideal([Dx - 2, Dy - 3])
+            sage: id.multiplication_matrix(Dx)
+            [2]
+            sage: id.multiplication_matrix(Dy)
+            [3]
+            sage: id = A.ideal([Dx + (2*x + 2*y - 1)*Dy - 1, (2*x + 2*y)*Dy^2 + Dy])
+            sage: id.multiplication_matrix(Dx)
+            [               1                0]
+            [  -2*x - 2*y + 1 (-1)/(2*x + 2*y)]
+            sage: id.multiplication_matrix(Dy)
+            [               0                0]
+            [               1 (-1)/(2*x + 2*y)]
 
-           sage: R.<n,k> = ZZ[]
-           sage: A.<Sn,Sk> = OreAlgebra(R)
-           sage: id = A.ideal([1 + 6*k + 6*n + (10 - 8*k - 8*n)*Sk + (-3 + 2*k + 2*n)*Sk^2 - 4*Sn, 1 - Sk - Sn + Sk*Sn,  1 - 4*k - 4*n + Sk + (-7 + 6*k + 6*n)*Sn + (3 - 2*k - 2*n)*Sn^2])
-           sage: id.multiplication_matrix(Sn)
-           [                               0                               -1 (-4*n - 4*k + 1)/(2*n + 2*k - 3)]
-           [                               0                                1                1/(2*n + 2*k - 3)]
-           [                               1                                1  (6*n + 6*k - 7)/(2*n + 2*k - 3)]
-           sage: id.multiplication_matrix(Sk)
-           [                               0 (-6*n - 6*k - 1)/(2*n + 2*k - 3)                               -1]
-           [                               1 (8*n + 8*k - 10)/(2*n + 2*k - 3)                                1]
-           [                               0                4/(2*n + 2*k - 3)                                1]
+            sage: R.<n,k> = ZZ[]
+            sage: A.<Sn,Sk> = OreAlgebra(R)
+            sage: id = A.ideal([1 + 6*k + 6*n + (10 - 8*k - 8*n)*Sk + (-3 + 2*k + 2*n)*Sk^2 - 4*Sn, 1 - Sk - Sn + Sk*Sn,  1 - 4*k - 4*n + Sk + (-7 + 6*k + 6*n)*Sn + (3 - 2*k - 2*n)*Sn^2])
+            sage: id.multiplication_matrix(Sn)
+            [                               0                               -1 (-4*n - 4*k + 1)/(2*n + 2*k - 3)]
+            [                               0                                1                1/(2*n + 2*k - 3)]
+            [                               1                                1  (6*n + 6*k - 7)/(2*n + 2*k - 3)]
+            sage: id.multiplication_matrix(Sk)
+            [                               0 (-6*n - 6*k - 1)/(2*n + 2*k - 3)                               -1]
+            [                               1 (8*n + 8*k - 10)/(2*n + 2*k - 3)                                1]
+            [                               0                4/(2*n + 2*k - 3)                                1]
 
         """
         D = self.ring().gen(self.ring()._gen_to_idx(idx))
@@ -214,8 +214,8 @@ class OreLeftIdeal(Ideal_nc):
 
         INPUT:
 
-        - infolevel -- integer indicating the verbosity of progress reports
-        - update_hook -- a function which is envoked on (G, C, h) right before
+        - ``infolevel`` -- integer indicating the verbosity of progress reports
+        - ``update_hook`` -- a function which is envoked on (G, C, h) right before
           a new nonzero polynomial h is integrated into the basis G (a list of
           operators). The list C contains the critical pairs, each pair is
           encoded as a tuple (lcm(lm(a),lm(b)), a, b, s), where a and b are
@@ -235,21 +235,21 @@ class OreLeftIdeal(Ideal_nc):
 
         EXAMPLES::
 
-           sage: from ore_algebra import *
-           sage: R.<x,y> = ZZ[]
-           sage: A.<Dx,Dy> = OreAlgebra(R)
-           sage: sorted(A.ideal([Dy^5*(Dx + (-1 + 2*x - 2*y)*Dy - 1), (-2 + 2*x - 2*y)*Dy^2 - 3*Dy]).groebner_basis())
-           [(2*x - 2*y - 2)*Dy^2 + (-3)*Dy, (2*x - 2*y - 2)*Dx*Dy + 3*Dy]
-           sage: sorted(A.ideal([Dy^3*(Dx + (-1 + 2*x - 2*y)*Dy - 1), Dx^2*((-2 + 2*x - 2*y)*Dy^2 - 3*Dy)]).groebner_basis())
-           [3*Dx^2*Dy + (-4)*Dx*Dy^2 + (-7)*Dy^3,
-            (2*x - 2*y - 2)*Dy^4 + (-7)*Dy^3,
-            (2*x - 2*y - 2)*Dx*Dy^3 + 7*Dy^3]
+            sage: from ore_algebra import *
+            sage: R.<x,y> = ZZ[]
+            sage: A.<Dx,Dy> = OreAlgebra(R)
+            sage: sorted(A.ideal([Dy^5*(Dx + (-1 + 2*x - 2*y)*Dy - 1), (-2 + 2*x - 2*y)*Dy^2 - 3*Dy]).groebner_basis())
+            [(2*x - 2*y - 2)*Dy^2 + (-3)*Dy, (2*x - 2*y - 2)*Dx*Dy + 3*Dy]
+            sage: sorted(A.ideal([Dy^3*(Dx + (-1 + 2*x - 2*y)*Dy - 1), Dx^2*((-2 + 2*x - 2*y)*Dy^2 - 3*Dy)]).groebner_basis())
+            [3*Dx^2*Dy + (-4)*Dx*Dy^2 + (-7)*Dy^3,
+             (2*x - 2*y - 2)*Dy^4 + (-7)*Dy^3,
+             (2*x - 2*y - 2)*Dx*Dy^3 + 7*Dy^3]
 
-           sage: R.<n,k> = ZZ[]
-           sage: A.<Sn,Sk> = OreAlgebra(R)
-           sage: A.ideal([-5+2*k-n + Sk + (3-2*k+n)*Sn, -2+4*k-2*n + (7-6*k+3*n)*Sk + (-3+2*k-n)*Sk^2]).groebner_basis()
-           [(n - 2*k + 3)*Sn + Sk - n + 2*k - 5,
-            (n - 2*k + 3)*Sk^2 + (-3*n + 6*k - 7)*Sk + 2*n - 4*k + 2]
+            sage: R.<n,k> = ZZ[]
+            sage: A.<Sn,Sk> = OreAlgebra(R)
+            sage: A.ideal([-5+2*k-n + Sk + (3-2*k+n)*Sn, -2+4*k-2*n + (7-6*k+3*n)*Sk + (-3+2*k-n)*Sk^2]).groebner_basis()
+            [(n - 2*k + 3)*Sn + Sk - n + 2*k - 5,
+             (n - 2*k + 3)*Sk^2 + (-3*n + 6*k - 7)*Sk + 2*n - 4*k + 2]
 
         """
         try:
@@ -348,28 +348,29 @@ class OreLeftIdeal(Ideal_nc):
     def operator_to_vector(self, L):
         """
         Returns the vector in R^n corresponding to the equivalence class of L in A/self.
+
         This only works if self is a zero dimensional ideal.
 
         INPUT:
 
-           L -- an element of the ambient algebra A of 'self'
+        - L -- an element of the ambient algebra A of 'self'
 
         OUTPUT:
 
-           a vector of base ring elements
+        a vector of base ring elements
 
         EXAMPLES::
 
-           sage: from ore_algebra import *
-           sage: R.<x,y> = ZZ[]
-           sage: A.<Dx,Dy> = OreAlgebra(R)
-           sage: I = A.ideal([(-4*y^3 + 2*y)*Dy^2 + (20*y^4 + 4*y^2 - 3)*Dy - 50*y^3 + 5*y, (-10*y^2 + 5)*Dx^2 + (-6*x*y + 10*y)*Dy + 30*x*y^2 - 25])
-           sage: I.operator_to_vector(3*Dx^2 + (5*x+y)*Dy - 3*x+8*y)
-           ((12*x*y^2 + 16*y^3 + 3*x - 8*y - 15)/(2*y^2 - 1), (50*x*y^2 + 10*y^3 - 18*x*y - 25*x + 25*y)/(10*y^2 - 5), 0, 0)
-           sage: I.vector_to_operator(_)
-           ((50*x*y^2 + 10*y^3 - 18*x*y - 25*x + 25*y)/(10*y^2 - 5))*Dy + (12*x*y^2 + 16*y^3 + 3*x - 8*y - 15)/(2*y^2 - 1)
-           sage: (3*Dx^2 + (5*x+y)*Dy - 3*x+8*y - _).reduce(I)
-           0
+            sage: from ore_algebra import *
+            sage: R.<x,y> = ZZ[]
+            sage: A.<Dx,Dy> = OreAlgebra(R)
+            sage: I = A.ideal([(-4*y^3 + 2*y)*Dy^2 + (20*y^4 + 4*y^2 - 3)*Dy - 50*y^3 + 5*y, (-10*y^2 + 5)*Dx^2 + (-6*x*y + 10*y)*Dy + 30*x*y^2 - 25])
+            sage: I.operator_to_vector(3*Dx^2 + (5*x+y)*Dy - 3*x+8*y)
+            ((12*x*y^2 + 16*y^3 + 3*x - 8*y - 15)/(2*y^2 - 1), (50*x*y^2 + 10*y^3 - 18*x*y - 25*x + 25*y)/(10*y^2 - 5), 0, 0)
+            sage: I.vector_to_operator(_)
+            ((50*x*y^2 + 10*y^3 - 18*x*y - 25*x + 25*y)/(10*y^2 - 5))*Dy + (12*x*y^2 + 16*y^3 + 3*x - 8*y - 15)/(2*y^2 - 1)
+            sage: (3*Dx^2 + (5*x+y)*Dy - 3*x+8*y - _).reduce(I)
+            0
 
         """
         L = self.ring()(L).reduce(self.groebner_basis())
@@ -381,24 +382,24 @@ class OreLeftIdeal(Ideal_nc):
 
         INPUT:
 
-           vec -- a vector with coefficients in self.ring().base_ring() and dimension self.vector_space_dimension()
+        - vec -- a vector with coefficients in self.ring().base_ring() and dimension self.vector_space_dimension()
 
         OUTPUT:
 
-           an operator L in A such that self.operator_to_vector(L) == vec
+        an operator L in A such that self.operator_to_vector(L) == vec
 
         EXAMPLES::
 
-           sage: from ore_algebra import *
-           sage: R.<x,y> = ZZ[]
-           sage: A.<Dx,Dy> = OreAlgebra(R)
-           sage: I = A.ideal([(-4*y^3 + 2*y)*Dy^2 + (20*y^4 + 4*y^2 - 3)*Dy - 50*y^3 + 5*y, (-10*y^2 + 5)*Dx^2 + (-6*x*y + 10*y)*Dy + 30*x*y^2 - 25])
-           sage: I.operator_to_vector(3*Dx^2 + (5*x+y)*Dy - 3*x+8*y)
-           ((12*x*y^2 + 16*y^3 + 3*x - 8*y - 15)/(2*y^2 - 1), (50*x*y^2 + 10*y^3 - 18*x*y - 25*x + 25*y)/(10*y^2 - 5), 0, 0)
-           sage: I.vector_to_operator(_)
-           ((50*x*y^2 + 10*y^3 - 18*x*y - 25*x + 25*y)/(10*y^2 - 5))*Dy + (12*x*y^2 + 16*y^3 + 3*x - 8*y - 15)/(2*y^2 - 1)
-           sage: (3*Dx^2 + (5*x+y)*Dy - 3*x+8*y - _).reduce(I)
-           0
+            sage: from ore_algebra import *
+            sage: R.<x,y> = ZZ[]
+            sage: A.<Dx,Dy> = OreAlgebra(R)
+            sage: I = A.ideal([(-4*y^3 + 2*y)*Dy^2 + (20*y^4 + 4*y^2 - 3)*Dy - 50*y^3 + 5*y, (-10*y^2 + 5)*Dx^2 + (-6*x*y + 10*y)*Dy + 30*x*y^2 - 25])
+            sage: I.operator_to_vector(3*Dx^2 + (5*x+y)*Dy - 3*x+8*y)
+            ((12*x*y^2 + 16*y^3 + 3*x - 8*y - 15)/(2*y^2 - 1), (50*x*y^2 + 10*y^3 - 18*x*y - 25*x + 25*y)/(10*y^2 - 5), 0, 0)
+            sage: I.vector_to_operator(_)
+            ((50*x*y^2 + 10*y^3 - 18*x*y - 25*x + 25*y)/(10*y^2 - 5))*Dy + (12*x*y^2 + 16*y^3 + 3*x - 8*y - 15)/(2*y^2 - 1)
+            sage: (3*Dx^2 + (5*x+y)*Dy - 3*x+8*y - _).reduce(I)
+            0
         """
         return self.ring()({b.exp(): vec[i] for i, b in enumerate(self.vector_space_basis())})
 
@@ -408,44 +409,44 @@ class OreLeftIdeal(Ideal_nc):
 
         INPUT:
 
-           other -- a left ideal with the same ambient ring as self
-           infolevel (optional) -- verbosity of progress reports
-           solver (optional) -- callable to be used for finding right kernels of matrices over the ambient algebra's base ring
+        - other -- a left ideal with the same ambient ring as self
+        - infolevel (optional) -- verbosity of progress reports
+        - solver (optional) -- callable to be used for finding right kernels of matrices over the ambient algebra's base ring
 
         OUTPUT:
 
-           The intersection of self with other.
+        The intersection of self with other.
 
         EXAMPLES::
 
-           sage: from ore_algebra import *
-           sage: R.<n,k> = ZZ[]
-           sage: A.<Sn,Sk> = OreAlgebra(R)
-           sage: id1 = A.ideal([Sk-2*k,Sn-3])
-           sage: id2 = A.ideal([Sk-3,Sn-n])
-           sage: id3 = id1.intersection(id2)
-           sage: id3
-           Left Ideal ((-2*k + 3)*Sn + (-n + 3)*Sk + 2*n*k - 9, (-2*k + 3)*Sk^2 + (4*k^2 + 4*k - 9)*Sk - 12*k^2 + 6*k) of Multivariate Ore algebra in Sn, Sk over Fraction Field of Multivariate Polynomial Ring in n, k over Integer Ring
-           sage: id3 == id3.intersection(id3)
-           True
-           sage: id3 <= id1
-           True
-           sage: id3 <= id2
-           True
+            sage: from ore_algebra import *
+            sage: R.<n,k> = ZZ[]
+            sage: A.<Sn,Sk> = OreAlgebra(R)
+            sage: id1 = A.ideal([Sk-2*k,Sn-3])
+            sage: id2 = A.ideal([Sk-3,Sn-n])
+            sage: id3 = id1.intersection(id2)
+            sage: id3
+            Left Ideal ((-2*k + 3)*Sn + (-n + 3)*Sk + 2*n*k - 9, (-2*k + 3)*Sk^2 + (4*k^2 + 4*k - 9)*Sk - 12*k^2 + 6*k) of Multivariate Ore algebra in Sn, Sk over Fraction Field of Multivariate Polynomial Ring in n, k over Integer Ring
+            sage: id3 == id3.intersection(id3)
+            True
+            sage: id3 <= id1
+            True
+            sage: id3 <= id2
+            True
 
-           sage: R.<x, y> = ZZ[]
-           sage: A.<Dx,Dy> = OreAlgebra(R)
-           sage: id1 = A.ideal([2*Dx-Dy, (x+2*y)*Dy^2 + Dy])
-           sage: id2 = A.ideal([Dy - x, Dx - y])
-           sage: id3 = id1.intersection(id2)
-           sage: id3
-           Left Ideal ((-x^2 + 4*y^2)*Dy^2 + (-2*x^3 - 4*x^2*y - 2*x)*Dx + (x^3 + 2*x^2*y + 2*y)*Dy, (-x^2 + 4*y^2)*Dx*Dy + (-2*x^2*y - 4*x*y^2 - 3*x - 4*y)*Dx + (x^2*y + 2*x*y^2 + x + 3*y)*Dy, (-2*x^2 + 8*y^2)*Dx^2 + (-4*x*y^2 - 8*y^3 - x)*Dx + (2*x*y^2 + 4*y^3 + y)*Dy) of Multivariate Ore algebra in Dx, Dy over Fraction Field of Multivariate Polynomial Ring in x, y over Integer Ring
-           sage: id3 == id3.intersection(id3)
-           True
-           sage: id3 <= id1
-           True
-           sage: id3 <= id2
-           True
+            sage: R.<x, y> = ZZ[]
+            sage: A.<Dx,Dy> = OreAlgebra(R)
+            sage: id1 = A.ideal([2*Dx-Dy, (x+2*y)*Dy^2 + Dy])
+            sage: id2 = A.ideal([Dy - x, Dx - y])
+            sage: id3 = id1.intersection(id2)
+            sage: id3
+            Left Ideal ((-x^2 + 4*y^2)*Dy^2 + (-2*x^3 - 4*x^2*y - 2*x)*Dx + (x^3 + 2*x^2*y + 2*y)*Dy, (-x^2 + 4*y^2)*Dx*Dy + (-2*x^2*y - 4*x*y^2 - 3*x - 4*y)*Dx + (x^2*y + 2*x*y^2 + x + 3*y)*Dy, (-2*x^2 + 8*y^2)*Dx^2 + (-4*x*y^2 - 8*y^3 - x)*Dx + (2*x*y^2 + 4*y^3 + y)*Dy) of Multivariate Ore algebra in Dx, Dy over Fraction Field of Multivariate Polynomial Ring in x, y over Integer Ring
+            sage: id3 == id3.intersection(id3)
+            True
+            sage: id3 <= id1
+            True
+            sage: id3 <= id2
+            True
 
         """
         if max(self.dimension(), other.dimension()) > 0:
@@ -478,36 +479,36 @@ class OreLeftIdeal(Ideal_nc):
 
         INPUT:
 
-           other -- a left ideal with the same ambient ring as self
-           infolevel (optional) -- verbosity of progress reports
-           solver (optional) -- callable to be used for finding right kernels of matrices over the ambient algebra's base ring
+        - other -- a left ideal with the same ambient ring as self
+        - infolevel (optional) -- verbosity of progress reports
+        - solver (optional) -- callable to be used for finding right kernels of matrices over the ambient algebra's base ring
 
         OUTPUT:
 
-           The symmetric product of self with other.
+        The symmetric product of self with other.
 
         EXAMPLES::
 
-           sage: from ore_algebra import *
-           sage: R.<n,k> = ZZ[]
-           sage: A.<Sn,Sk> = OreAlgebra(R)
-           sage: id1 = A.ideal([Sk-2*k,Sn-3])
-           sage: id2 = A.ideal([Sk-3,Sn-n])
-           sage: id3 = A.ideal([Sk^2-3*k*Sk+1,Sn-3])
-           sage: id1.intersection(id2).symmetric_product(id3)
-           Left Ideal ((-6*k^2 + 3*k)*Sn*Sk + (-3*n + 9)*Sk^2 + (4*k^2 + 4*k - 9)*Sn + (18*n*k^2 + 18*n*k - 81*k)*Sk - 12*n*k^2 - 12*n*k + 81, (-n + 3)*Sn^2 + (3*n^2 + 3*n - 27)*Sn - 27*n^2 + 54*n, (18*n*k^2 - 9*n*k - 54*k^2 + 27*k)*Sk^3 + (-108*n*k^4 - 432*n*k^3 + 324*k^4 - 285*n*k^2 + 1296*k^3 + 63*n*k + 855*k^2 - 3*n - 189*k + 9)*Sk^2 + (216*k^5 + 200*k^4 - 442*k^3 - 548*k^2 - 50*k - 9)*Sn + (972*n*k^5 + 2430*n*k^4 - 2916*k^5 + 1836*n*k^3 - 7290*k^4 + 324*n*k^2 - 5508*k^3 - 54*n*k - 972*k^2 + 162*k)*Sk - 648*n*k^5 - 1572*n*k^4 - 1104*n*k^3 + 2916*k^4 - 192*n*k^2 + 7290*k^3 - 12*n*k + 5508*k^2 + 486*k + 81) of Multivariate Ore algebra in Sn, Sk over Fraction Field of Multivariate Polynomial Ring in n, k over Integer Ring
-           sage: (id1.symmetric_product(id3)).intersection(id2.symmetric_product(id3)) == _
-           True
+            sage: from ore_algebra import *
+            sage: R.<n,k> = ZZ[]
+            sage: A.<Sn,Sk> = OreAlgebra(R)
+            sage: id1 = A.ideal([Sk-2*k,Sn-3])
+            sage: id2 = A.ideal([Sk-3,Sn-n])
+            sage: id3 = A.ideal([Sk^2-3*k*Sk+1,Sn-3])
+            sage: id1.intersection(id2).symmetric_product(id3)
+            Left Ideal ((-6*k^2 + 3*k)*Sn*Sk + (-3*n + 9)*Sk^2 + (4*k^2 + 4*k - 9)*Sn + (18*n*k^2 + 18*n*k - 81*k)*Sk - 12*n*k^2 - 12*n*k + 81, (-n + 3)*Sn^2 + (3*n^2 + 3*n - 27)*Sn - 27*n^2 + 54*n, (18*n*k^2 - 9*n*k - 54*k^2 + 27*k)*Sk^3 + (-108*n*k^4 - 432*n*k^3 + 324*k^4 - 285*n*k^2 + 1296*k^3 + 63*n*k + 855*k^2 - 3*n - 189*k + 9)*Sk^2 + (216*k^5 + 200*k^4 - 442*k^3 - 548*k^2 - 50*k - 9)*Sn + (972*n*k^5 + 2430*n*k^4 - 2916*k^5 + 1836*n*k^3 - 7290*k^4 + 324*n*k^2 - 5508*k^3 - 54*n*k - 972*k^2 + 162*k)*Sk - 648*n*k^5 - 1572*n*k^4 - 1104*n*k^3 + 2916*k^4 - 192*n*k^2 + 7290*k^3 - 12*n*k + 5508*k^2 + 486*k + 81) of Multivariate Ore algebra in Sn, Sk over Fraction Field of Multivariate Polynomial Ring in n, k over Integer Ring
+            sage: (id1.symmetric_product(id3)).intersection(id2.symmetric_product(id3)) == _
+            True
 
-           sage: R.<x,y> = ZZ[]
-           sage: A.<Dx,Dy> = OreAlgebra(R)
-           sage: id1 = A.ideal([(x+y)*Dx + 1, (x+y)*Dy + 1])
-           sage: id2 = A.ideal([Dx - 1, y*Dy + 3])
-           sage: id3 = A.ideal([Dx^2 + 3*Dx - x, y^2*Dy + 2])
-           sage: id1.intersection(id2).symmetric_product(id3)
-           Left Ideal ((3*x^2*y^4 + 5*x*y^5 + 2*y^6)*Dy^2 + (12*x^2*y^3 + 24*x*y^4 + 10*y^5 + 12*x^2*y^2 + 20*x*y^3 + 8*y^4)*Dy + 12*x*y^3 + 6*y^4 + 12*x^2*y + 28*x*y^2 + 12*y^3 + 12*x^2 + 20*x*y + 8*y^2, (9*x^3*y + 21*x^2*y^2 + 16*x*y^3 + 4*y^4)*Dx^2 + (6*x^3*y^2 + 16*x^2*y^3 + 14*x*y^4 + 4*y^5 + 6*x^2*y^2 + 10*x*y^3 + 4*y^4)*Dx*Dy + (27*x^3*y + 69*x^2*y^2 + 58*x*y^3 + 16*y^4 + 12*x^3 + 50*x^2*y + 58*x*y^2 + 20*y^3 + 12*x^2 + 20*x*y + 8*y^2)*Dx + (6*x^3*y^2 + 16*x^2*y^3 + 14*x*y^4 + 4*y^5 + 9*x^2*y^2 + 13*x*y^3 + 4*y^4 - 2*y^3)*Dy - 9*x^4*y - 21*x^3*y^2 - 16*x^2*y^3 - 4*x*y^4 + 6*x^2*y^2 + 10*x*y^3 + 4*y^4 + 12*x^3 + 59*x^2*y + 67*x*y^2 + 20*y^3 + 18*x^2 + 26*x*y + 2*y^2 - 4*y) of Multivariate Ore algebra in Dx, Dy over Fraction Field of Multivariate Polynomial Ring in x, y over Integer Ring
-           sage: (id1.symmetric_product(id3)).intersection(id2.symmetric_product(id3)) == _
-           True
+            sage: R.<x,y> = ZZ[]
+            sage: A.<Dx,Dy> = OreAlgebra(R)
+            sage: id1 = A.ideal([(x+y)*Dx + 1, (x+y)*Dy + 1])
+            sage: id2 = A.ideal([Dx - 1, y*Dy + 3])
+            sage: id3 = A.ideal([Dx^2 + 3*Dx - x, y^2*Dy + 2])
+            sage: id1.intersection(id2).symmetric_product(id3)
+            Left Ideal ((3*x^2*y^4 + 5*x*y^5 + 2*y^6)*Dy^2 + (12*x^2*y^3 + 24*x*y^4 + 10*y^5 + 12*x^2*y^2 + 20*x*y^3 + 8*y^4)*Dy + 12*x*y^3 + 6*y^4 + 12*x^2*y + 28*x*y^2 + 12*y^3 + 12*x^2 + 20*x*y + 8*y^2, (9*x^3*y + 21*x^2*y^2 + 16*x*y^3 + 4*y^4)*Dx^2 + (6*x^3*y^2 + 16*x^2*y^3 + 14*x*y^4 + 4*y^5 + 6*x^2*y^2 + 10*x*y^3 + 4*y^4)*Dx*Dy + (27*x^3*y + 69*x^2*y^2 + 58*x*y^3 + 16*y^4 + 12*x^3 + 50*x^2*y + 58*x*y^2 + 20*y^3 + 12*x^2 + 20*x*y + 8*y^2)*Dx + (6*x^3*y^2 + 16*x^2*y^3 + 14*x*y^4 + 4*y^5 + 9*x^2*y^2 + 13*x*y^3 + 4*y^4 - 2*y^3)*Dy - 9*x^4*y - 21*x^3*y^2 - 16*x^2*y^3 - 4*x*y^4 + 6*x^2*y^2 + 10*x*y^3 + 4*y^4 + 12*x^3 + 59*x^2*y + 67*x*y^2 + 20*y^3 + 18*x^2 + 26*x*y + 2*y^2 - 4*y) of Multivariate Ore algebra in Dx, Dy over Fraction Field of Multivariate Polynomial Ring in x, y over Integer Ring
+            sage: (id1.symmetric_product(id3)).intersection(id2.symmetric_product(id3)) == _
+            True
 
         """
         if max(self.dimension(), other.dimension()) > 0:
@@ -551,29 +552,29 @@ class OreLeftIdeal(Ideal_nc):
 
         INPUT:
 
-           vars -- list of generators of the ambient algebra to be eliminated
-           infolevel (optional) -- verbosity of progress reports
-           solver (optional) -- callable to be used for finding right kernels of matrices over the ambient algebra's base ring
-           early_termination (optional) -- if set to True, the computation is stopped as soon as the first nonzero element of the elimination ideal is found
+        - vars -- list of generators of the ambient algebra to be eliminated
+        - infolevel (optional) -- verbosity of progress reports
+        - solver (optional) -- callable to be used for finding right kernels of matrices over the ambient algebra's base ring
+        - early_termination (optional) -- if set to True, the computation is stopped as soon as the first nonzero element of the elimination ideal is found
 
         OUTPUT:
 
-           The elimination ideal of 'self' with respect to the specified variables
+        The elimination ideal of 'self' with respect to the specified variables
 
         The current implementation is limited to zero dimensional ideals.
 
         EXAMPLES::
 
-           sage: from ore_algebra import *
-           sage: R.<x,y> = ZZ[]
-           sage: A.<Dx,Dy> = OreAlgebra(R)
-           sage: id = A.ideal([(4*y^3 - 2*y)*Dy^2 + (-20*y^4 - 4*y^2 + 3)*Dy + 50*y^3 - 5*y, Dx*Dy + (-5*y)*Dx + (-3*x)*Dy + 15*x*y, (10*y^2 - 5)*Dx^2 + (18*x^2*y - 4*y)*Dy - 90*x^2*y^2 - 30*y^2 + 25])
-           sage: id.eliminate([Dx])
-           Left Ideal ((4*y^3 - 2*y)*Dy^2 + (-20*y^4 - 4*y^2 + 3)*Dy + 50*y^3 - 5*y) of Univariate Ore algebra in Dy over Fraction Field of Multivariate Polynomial Ring in x, y over Integer Ring
-           sage: id.eliminate([Dy])
-           Left Ideal ((-9*x^2 + 2)*Dx^3 + (27*x^3 + 12*x)*Dx^2 + (45*x^2 - 10)*Dx - 135*x^3 - 60*x) of Univariate Ore algebra in Dx over Fraction Field of Multivariate Polynomial Ring in x, y over Integer Ring
-           sage: A(_.gens()[0]).reduce(id.groebner_basis())
-           0
+            sage: from ore_algebra import *
+            sage: R.<x,y> = ZZ[]
+            sage: A.<Dx,Dy> = OreAlgebra(R)
+            sage: id = A.ideal([(4*y^3 - 2*y)*Dy^2 + (-20*y^4 - 4*y^2 + 3)*Dy + 50*y^3 - 5*y, Dx*Dy + (-5*y)*Dx + (-3*x)*Dy + 15*x*y, (10*y^2 - 5)*Dx^2 + (18*x^2*y - 4*y)*Dy - 90*x^2*y^2 - 30*y^2 + 25])
+            sage: id.eliminate([Dx])
+            Left Ideal ((4*y^3 - 2*y)*Dy^2 + (-20*y^4 - 4*y^2 + 3)*Dy + 50*y^3 - 5*y) of Univariate Ore algebra in Dy over Fraction Field of Multivariate Polynomial Ring in x, y over Integer Ring
+            sage: id.eliminate([Dy])
+            Left Ideal ((-9*x^2 + 2)*Dx^3 + (27*x^3 + 12*x)*Dx^2 + (45*x^2 - 10)*Dx - 135*x^3 - 60*x) of Univariate Ore algebra in Dx over Fraction Field of Multivariate Polynomial Ring in x, y over Integer Ring
+            sage: A(_.gens()[0]).reduce(id.groebner_basis())
+            0
 
         """
 
@@ -602,25 +603,25 @@ class OreLeftIdeal(Ideal_nc):
 
         INPUT:
 
-           L -- an element of the ambient algebra of 'self'
-           infolevel (optional) -- verbosity of progress reports
-           solver (optional) -- callable to be used for finding right kernels of matrices over the ambient algebra's base ring
-           early_termination (optional) -- if set to True, the computation is stopped as soon as the first nonzero element of the output ideal is found
+        - L -- an element of the ambient algebra of 'self'
+        - infolevel (optional) -- verbosity of progress reports
+        - solver (optional) -- callable to be used for finding right kernels of matrices over the ambient algebra's base ring
+        - early_termination (optional) -- if set to True, the computation is stopped as soon as the first nonzero element of the output ideal is found
 
         OUTPUT:
 
-           an ideal of annihilating operators for L(f), where f is any solution of 'self'.
-           If early_termination is set to True, the output ideal will have only one generator.
-           Otherwise, the output ideal will be zero dimensional.
+        an ideal of annihilating operators for L(f), where f is any solution of 'self'.
+        If early_termination is set to ``True``, the output ideal will have only one generator.
+        Otherwise, the output ideal will be zero dimensional.
 
         EXAMPLES::
 
-           sage: from ore_algebra import *
-           sage: R.<x,y> = ZZ[]
-           sage: A.<Dx,Dy> = OreAlgebra(R)
-           sage: I = A.ideal([(-4*y^3 + 2*y)*Dy^2 + (20*y^4 + 4*y^2 - 3)*Dy - 50*y^3 + 5*y, (-10*y^2 + 5)*Dx^2 + (-6*x*y + 10*y)*Dy + 30*x*y^2 - 25])
-           sage: I.annihilator_of_associate(3*y*Dx-5*x*Dy)
-           Left Ideal ((2400*x*y^7 - 480*x*y^5 + 120*x*y^3)*Dx*Dy + (-864*x*y^10 + 864*x*y^8 + 5000*x^2*y^6 + 1200*y^8 - 216*x*y^6 - 1000*x^2*y^4 - 720*y^6 + 50*x^2*y^2 + 60*y^4)*Dy^2 + (-12000*x*y^8 - 120*x*y^4 - 120*x*y^2)*Dx + (4320*x*y^11 + 432*x*y^9 - 25000*x^2*y^7 - 6000*y^9 - 2808*x*y^7 - 12500*x^2*y^5 - 3000*y^7 + 756*x*y^5 + 2250*x^2*y^3 + 2460*y^5 - 75*x^2*y - 210*y^3)*Dy - 15120*x*y^10 + 6048*x*y^8 + 37500*x^2*y^6 + 21000*y^8 + 2268*x*y^6 + 15000*x^2*y^4 - 756*x*y^4 - 2625*x^2*y^2 - 2310*y^4 + 75*x^2 + 210*y^2, (62500*x^3*y^6 - 12500*x^3*y^4 + 3000*x*y^6 + 3125*x^3*y^2 - 600*x*y^4 + 150*x*y^2)*Dx^2 + (-4500*x^2*y^8 + 7500*x^4*y^4 + 2250*x^2*y^6 + 216*y^8 - 12500*x^3*y^4 + 12500*x*y^6 + 360*x^2*y^4 - 108*y^6 - 7350*x*y^4 + 250*x*y^2)*Dy^2 + (-125000*x^2*y^6 + 25000*x^2*y^4 - 6250*x^2*y^2)*Dx + (22500*x^2*y^9 + 13500*x^2*y^7 - 1080*y^9 - 62500*x*y^7 - 30000*x^4*y^3 - 7875*x^2*y^5 - 648*y^7 + 50000*x^3*y^3 - 25000*x*y^5 - 1440*x^2*y^3 + 378*y^5 + 23775*x*y^3 - 375*x*y)*Dy - 187500*x^4*y^6 - 78750*x^2*y^8 + 37500*x^4*y^4 - 16875*x^2*y^6 + 3780*y^8 + 218750*x*y^6 + 30000*x^4*y^2 + 9675*x^2*y^4 + 378*y^6 - 65625*x^3*y^2 + 3125*x*y^4 + 1440*x^2*y^2 - 378*y^4 - 23900*x*y^2 + 375*x, (80*y^7 - 16*y^5 + 4*y^3)*Dy^3 + (-400*y^8 - 480*y^6 + 60*y^4 - 12*y^2)*Dy^2 + (1600*y^7 + 1380*y^5 - 132*y^3 + 21*y)*Dy - 2100*y^6 - 1680*y^4 + 147*y^2 - 21) of Multivariate Ore algebra in Dx, Dy over Fraction Field of Multivariate Polynomial Ring in x, y over Integer Ring
+            sage: from ore_algebra import *
+            sage: R.<x,y> = ZZ[]
+            sage: A.<Dx,Dy> = OreAlgebra(R)
+            sage: I = A.ideal([(-4*y^3 + 2*y)*Dy^2 + (20*y^4 + 4*y^2 - 3)*Dy - 50*y^3 + 5*y, (-10*y^2 + 5)*Dx^2 + (-6*x*y + 10*y)*Dy + 30*x*y^2 - 25])
+            sage: I.annihilator_of_associate(3*y*Dx-5*x*Dy)
+            Left Ideal ((2400*x*y^7 - 480*x*y^5 + 120*x*y^3)*Dx*Dy + (-864*x*y^10 + 864*x*y^8 + 5000*x^2*y^6 + 1200*y^8 - 216*x*y^6 - 1000*x^2*y^4 - 720*y^6 + 50*x^2*y^2 + 60*y^4)*Dy^2 + (-12000*x*y^8 - 120*x*y^4 - 120*x*y^2)*Dx + (4320*x*y^11 + 432*x*y^9 - 25000*x^2*y^7 - 6000*y^9 - 2808*x*y^7 - 12500*x^2*y^5 - 3000*y^7 + 756*x*y^5 + 2250*x^2*y^3 + 2460*y^5 - 75*x^2*y - 210*y^3)*Dy - 15120*x*y^10 + 6048*x*y^8 + 37500*x^2*y^6 + 21000*y^8 + 2268*x*y^6 + 15000*x^2*y^4 - 756*x*y^4 - 2625*x^2*y^2 - 2310*y^4 + 75*x^2 + 210*y^2, (62500*x^3*y^6 - 12500*x^3*y^4 + 3000*x*y^6 + 3125*x^3*y^2 - 600*x*y^4 + 150*x*y^2)*Dx^2 + (-4500*x^2*y^8 + 7500*x^4*y^4 + 2250*x^2*y^6 + 216*y^8 - 12500*x^3*y^4 + 12500*x*y^6 + 360*x^2*y^4 - 108*y^6 - 7350*x*y^4 + 250*x*y^2)*Dy^2 + (-125000*x^2*y^6 + 25000*x^2*y^4 - 6250*x^2*y^2)*Dx + (22500*x^2*y^9 + 13500*x^2*y^7 - 1080*y^9 - 62500*x*y^7 - 30000*x^4*y^3 - 7875*x^2*y^5 - 648*y^7 + 50000*x^3*y^3 - 25000*x*y^5 - 1440*x^2*y^3 + 378*y^5 + 23775*x*y^3 - 375*x*y)*Dy - 187500*x^4*y^6 - 78750*x^2*y^8 + 37500*x^4*y^4 - 16875*x^2*y^6 + 3780*y^8 + 218750*x*y^6 + 30000*x^4*y^2 + 9675*x^2*y^4 + 378*y^6 - 65625*x^3*y^2 + 3125*x*y^4 + 1440*x^2*y^2 - 378*y^4 - 23900*x*y^2 + 375*x, (80*y^7 - 16*y^5 + 4*y^3)*Dy^3 + (-400*y^8 - 480*y^6 + 60*y^4 - 12*y^2)*Dy^2 + (1600*y^7 + 1380*y^5 - 132*y^3 + 21*y)*Dy - 2100*y^6 - 1680*y^4 + 147*y^2 - 21) of Multivariate Ore algebra in Dx, Dy over Fraction Field of Multivariate Polynomial Ring in x, y over Integer Ring
 
         """
         if self.dimension() == -1:
@@ -639,44 +640,44 @@ class OreLeftIdeal(Ideal_nc):
 
         INPUT:
 
-           A list of optional arguments that state which variables (lhs) are to be mapped to which algebraic functions (rhs).
-           All right hand sides must be coercible to a common parent, which must be either a rational function field or an
-           algebraic extension of a rational function field. Variables for which no substitution rule is specified are mapped
-           to themselves.
+        A list of optional arguments that state which variables (lhs) are to be mapped to which algebraic functions (rhs).
+        All right hand sides must be coercible to a common parent, which must be either a rational function field or an
+        algebraic extension of a rational function field. Variables for which no substitution rule is specified are mapped
+        to themselves.
 
-           infolevel (optional) -- nonnegative integer indicating verbosity of progress reports
-           early_termination (optional) -- if set to true, this stops as soon as the first nonzero ideal element has been found
+        - infolevel (optional) -- nonnegative integer indicating verbosity of progress reports
+        - early_termination (optional) -- if set to ``True``, this stops as soon as the first nonzero ideal element has been found
 
         OUTPUT:
 
-           An annihilating ideal for the composition of a solution of self with the specified algebraic functions.
+        An annihilating ideal for the composition of a solution of self with the specified algebraic functions.
 
         EXAMPLES::
 
-           sage: from ore_algebra import *
-           sage: R.<x,y> = ZZ[]
-           sage: K.<t> = R.fraction_field()['t']
-           sage: K.<t> = R.fraction_field().extension(t^3 - x^2*(y+1))
-           sage: S.<u,v> = ZZ[]
-           sage: A.<Du,Dv> = OreAlgebra(S)
-           sage: id = A.ideal([u^2*Du + (u*v-2)*Dv - u, (-2+2*u*v)*Dv^2 + u*Dv])
-           sage: id.annihilator_of_composition(u=x,v=y)
-           Left Ideal (x^2*Dx + (x*y - 2)*Dy - x, (2*x*y - 2)*Dy^2 + x*Dy) of Multivariate Ore algebra in Dx, Dy over Fraction Field of Multivariate Polynomial Ring in x, y over Integer Ring
-           sage: id.annihilator_of_composition(u=u^2,v=1/(u-v))
-           Left Ideal (u^3*Du + (3*u^3 - 2*u^2*v - 4*u^2 + 8*u*v - 4*v^2)*Dv - 2*u^2, (2*u^3 - 2*u^2*v - 2*u^2 + 4*u*v - 2*v^2)*Dv^2 + (-3*u^2 + 4*u - 4*v)*Dv) of Multivariate Ore algebra in Du, Dv over Fraction Field of Multivariate Polynomial Ring in u, v over Integer Ring
-           sage: id.annihilator_of_composition(v=0)
-           Left Ideal (Dv, Du^2) of Multivariate Ore algebra in Du, Dv over Fraction Field of Multivariate Polynomial Ring in u, v over Integer Ring
-           sage: id.annihilator_of_composition(u=t,v=1-t)
-           Left Ideal ((-x)*Dx + (2*y + 2)*Dy, (216*x^4*y^5 + 1080*x^4*y^4 + 2160*x^4*y^3 + 2160*x^4*y^2 + 432*x^2*y^4 + 1080*x^4*y + 1728*x^2*y^3 + 216*x^4 + 2592*x^2*y^2 + 1728*x^2*y + 216*y^3 + 432*x^2 + 648*y^2 + 648*y + 216)*Dy^4 + (1440*x^4*y^4 + 5760*x^4*y^3 + 8640*x^4*y^2 + 5760*x^4*y + 2232*x^2*y^3 + 1440*x^4 + 6696*x^2*y^2 + 6696*x^2*y + 2232*x^2 + 792*y^2 + 1584*y + 792)*Dy^3 + (1920*x^4*y^3 + 5760*x^4*y^2 + 5760*x^4*y + 1920*x^4 + 2094*x^2*y^2 + 4188*x^2*y + 2094*x^2 + 336*y + 336)*Dy^2 + (320*x^4*y^2 + 640*x^4*y + 320*x^4 + 187*x^2*y + 187*x^2 - 16)*Dy + 3*x^2) of Multivariate Ore algebra in Dx, Dy over Fraction Field of Multivariate Polynomial Ring in x, y over Integer Ring
+            sage: from ore_algebra import *
+            sage: R.<x,y> = ZZ[]
+            sage: K.<t> = R.fraction_field()['t']
+            sage: K.<t> = R.fraction_field().extension(t^3 - x^2*(y+1))
+            sage: S.<u,v> = ZZ[]
+            sage: A.<Du,Dv> = OreAlgebra(S)
+            sage: id = A.ideal([u^2*Du + (u*v-2)*Dv - u, (-2+2*u*v)*Dv^2 + u*Dv])
+            sage: id.annihilator_of_composition(u=x,v=y)
+            Left Ideal (x^2*Dx + (x*y - 2)*Dy - x, (2*x*y - 2)*Dy^2 + x*Dy) of Multivariate Ore algebra in Dx, Dy over Fraction Field of Multivariate Polynomial Ring in x, y over Integer Ring
+            sage: id.annihilator_of_composition(u=u^2,v=1/(u-v))
+            Left Ideal (u^3*Du + (3*u^3 - 2*u^2*v - 4*u^2 + 8*u*v - 4*v^2)*Dv - 2*u^2, (2*u^3 - 2*u^2*v - 2*u^2 + 4*u*v - 2*v^2)*Dv^2 + (-3*u^2 + 4*u - 4*v)*Dv) of Multivariate Ore algebra in Du, Dv over Fraction Field of Multivariate Polynomial Ring in u, v over Integer Ring
+            sage: id.annihilator_of_composition(v=0)
+            Left Ideal (Dv, Du^2) of Multivariate Ore algebra in Du, Dv over Fraction Field of Multivariate Polynomial Ring in u, v over Integer Ring
+            sage: id.annihilator_of_composition(u=t,v=1-t)
+            Left Ideal ((-x)*Dx + (2*y + 2)*Dy, (216*x^4*y^5 + 1080*x^4*y^4 + 2160*x^4*y^3 + 2160*x^4*y^2 + 432*x^2*y^4 + 1080*x^4*y + 1728*x^2*y^3 + 216*x^4 + 2592*x^2*y^2 + 1728*x^2*y + 216*y^3 + 432*x^2 + 648*y^2 + 648*y + 216)*Dy^4 + (1440*x^4*y^4 + 5760*x^4*y^3 + 8640*x^4*y^2 + 5760*x^4*y + 2232*x^2*y^3 + 1440*x^4 + 6696*x^2*y^2 + 6696*x^2*y + 2232*x^2 + 792*y^2 + 1584*y + 792)*Dy^3 + (1920*x^4*y^3 + 5760*x^4*y^2 + 5760*x^4*y + 1920*x^4 + 2094*x^2*y^2 + 4188*x^2*y + 2094*x^2 + 336*y + 336)*Dy^2 + (320*x^4*y^2 + 640*x^4*y + 320*x^4 + 187*x^2*y + 187*x^2 - 16)*Dy + 3*x^2) of Multivariate Ore algebra in Dx, Dy over Fraction Field of Multivariate Polynomial Ring in x, y over Integer Ring
 
-           sage: R.<x,y,z> = QQ[]
-           sage: S.<u,v,w> = QQ[]
-           sage: A.<Du,Dv,Dw> = OreAlgebra(S)
-           sage: I = A.ideal([u * w * Du^2 + (v + w) * Dv * Dw, (u - 1) * Du * Dw, v^2 * Dv + 1])
-           sage: I.annihilator_of_composition(u=x,v=y,w=z)
-           Left Ideal (Dz, (y^2)*Dy + 1, Dx^2) of Multivariate Ore algebra in Dx, Dy, Dz over Fraction Field of Multivariate Polynomial Ring in x, y, z over Rational Field
-           sage: I.annihilator_of_composition(u=z^2, v=1/(x+y+z), w=1/x)
-           Left Ideal (Dy - 1, Dx - 1, z*Dz^2 + (-2*z - 1)*Dz + (z + 1)) of Multivariate Ore algebra in Dx, Dy, Dz over Fraction Field of Multivariate Polynomial Ring in x, y, z over Rational Field
+            sage: R.<x,y,z> = QQ[]
+            sage: S.<u,v,w> = QQ[]
+            sage: A.<Du,Dv,Dw> = OreAlgebra(S)
+            sage: I = A.ideal([u * w * Du^2 + (v + w) * Dv * Dw, (u - 1) * Du * Dw, v^2 * Dv + 1])
+            sage: I.annihilator_of_composition(u=x,v=y,w=z)
+            Left Ideal (Dz, (y^2)*Dy + 1, Dx^2) of Multivariate Ore algebra in Dx, Dy, Dz over Fraction Field of Multivariate Polynomial Ring in x, y, z over Rational Field
+            sage: I.annihilator_of_composition(u=z^2, v=1/(x+y+z), w=1/x)
+            Left Ideal (Dy - 1, Dx - 1, z*Dz^2 + (-2*z - 1)*Dz + (z + 1)) of Multivariate Ore algebra in Dx, Dy, Dz over Fraction Field of Multivariate Polynomial Ring in x, y, z over Rational Field
 
         """
         if len(kwargs) == 0:  # no substitutions specified
@@ -772,7 +773,7 @@ class OreLeftIdeal(Ideal_nc):
 
     def ct(self, D, algebra=None, certificates=True, early_termination=False, infolevel=0, iteration_limit=0):
         """
-        Computes an ideal of telescopers for self.
+        Computes an ideal of telescopers for ``self``.
 
         INPUT:
 
@@ -801,28 +802,28 @@ class OreLeftIdeal(Ideal_nc):
 
         EXAMPLES::
 
-           sage: from ore_algebra import *
-           sage: # binomial theorem
-           sage: R.<n,k> = ZZ[]
-           sage: A.<Sn,Sk> = OreAlgebra(R)
-           sage: A.ideal([(k+1)*Sk+(k-n),(1-k+n)*Sn+(-1-n)]).ct(Sk-1) # random
-           ([Sn - 2], [k/(k - n - 1)])
+            sage: from ore_algebra import *
+            sage: # binomial theorem
+            sage: R.<n,k> = ZZ[]
+            sage: A.<Sn,Sk> = OreAlgebra(R)
+            sage: A.ideal([(k+1)*Sk+(k-n),(1-k+n)*Sn+(-1-n)]).ct(Sk-1) # random
+            ([Sn - 2], [k/(k - n - 1)])
 
-           sage: # gfun of legendre polynomials
-           sage: R.<t,n,x> = ZZ[]
-           sage: A.<Dt,Dx,Sn> = OreAlgebra(R)
-           sage: A.ideal([(-t+t*x^2)*Dx + (-1-n)*Sn+(t*x+n*t*x),(2+n)*Sn^2+(-3*t*x-2*n*t*x)*Sn+(t^2+n*t^2), t*Dt-n]).ct(Sn-1) # random
-           ([(-t^2 + 2*t*x - 1)*Dx + t, (-t^2 + 2*t*x - 1)*Dt - t + x],
-            [(((-t*x + 1)/(t*x^2 - t))*n + (-t*x + 1)/(t*x^2 - t))*Sn + ((2*t*x^2 - t - x)/(x^2 - 1))*n + (t*x^2 - x)/(x^2 - 1),
-             (1/t*n + 1/t)*Sn + ((-2*t*x + 1)/t)*n - x])
+            sage: # gfun of legendre polynomials
+            sage: R.<t,n,x> = ZZ[]
+            sage: A.<Dt,Dx,Sn> = OreAlgebra(R)
+            sage: A.ideal([(-t+t*x^2)*Dx + (-1-n)*Sn+(t*x+n*t*x),(2+n)*Sn^2+(-3*t*x-2*n*t*x)*Sn+(t^2+n*t^2), t*Dt-n]).ct(Sn-1) # random
+            ([(-t^2 + 2*t*x - 1)*Dx + t, (-t^2 + 2*t*x - 1)*Dt - t + x],
+             [(((-t*x + 1)/(t*x^2 - t))*n + (-t*x + 1)/(t*x^2 - t))*Sn + ((2*t*x^2 - t - x)/(x^2 - 1))*n + (t*x^2 - x)/(x^2 - 1),
+              (1/t*n + 1/t)*Sn + ((-2*t*x + 1)/t)*n - x])
 
-           sage: # integral of a bivariate algebraic function
-           sage: R.<x,y> = ZZ[]
-           sage: K.<t> = R.fraction_field()['t']
-           sage: K.<t> = R.fraction_field().extension((x-y)*t^3 + t - x^2*y - x^2)
-           sage: A.<Dx,Dy> = OreAlgebra(R)
-           sage: A.ideal([x*Dx-1,y*Dy-1]).annihilator_of_composition(x=t).ct(Dy, certificates=False)
-           [(252*x^5 - 108*x^4 - 81*x^3 + 36*x^2)*Dx^2 + (-504*x^4 + 108*x^3 + 36*x)*Dx + 224*x^3 + 360*x^2 + 66*x - 16]
+            sage: # integral of a bivariate algebraic function
+            sage: R.<x,y> = ZZ[]
+            sage: K.<t> = R.fraction_field()['t']
+            sage: K.<t> = R.fraction_field().extension((x-y)*t^3 + t - x^2*y - x^2)
+            sage: A.<Dx,Dy> = OreAlgebra(R)
+            sage: A.ideal([x*Dx-1,y*Dy-1]).annihilator_of_composition(x=t).ct(Dy, certificates=False)
+            [(252*x^5 - 108*x^4 - 81*x^3 + 36*x^2)*Dx^2 + (-504*x^4 + 108*x^3 + 36*x)*Dx + 224*x^3 + 360*x^2 + 66*x - 16]
         """
 
         def info(i, msg):
@@ -1004,6 +1005,7 @@ class OreLeftIdeal(Ideal_nc):
 class MonomialIterator:
     """
     Iterate in increasing order over the monomials that are below some staircase that is determined in parallel to the iteration.
+
     Tool for FGLM.
     """
 
@@ -1034,7 +1036,7 @@ class MonomialIterator:
     def declare_step(self):
         """
         Informs this iterator that among the terms to be outputted in the future there should not be any multiples
-        of the previously otuputted term.
+        of the previously outputted term.
         """
         self.__stairs.append(self.__prev)
         self.__clear_pool()
@@ -1075,24 +1077,24 @@ def fglm(algebra, one_vector, gen_matrices, infolevel=0, solver=None, early_term
 
     EXAMPLES::
 
-      sage: from ore_algebra import *
-      sage: R.<n,k> = ZZ[]
-      sage: A.<Sn,Sk> = OreAlgebra(R)
-      sage: id1 = A.ideal([Sk-2*k,Sn-3])
-      sage: id2 = A.ideal([Sk-3,Sn-n])
-      sage: id1.intersection(id2)
-      Left Ideal ((-2*k + 3)*Sn + (-n + 3)*Sk + 2*n*k - 9, (-2*k + 3)*Sk^2 + (4*k^2 + 4*k - 9)*Sk - 12*k^2 + 6*k) of Multivariate Ore algebra in Sn, Sk over Fraction Field of Multivariate Polynomial Ring in n, k over Integer Ring
-      sage: _.intersection(_)
-      Left Ideal ((-2*k + 3)*Sn + (-n + 3)*Sk + 2*n*k - 9, (-2*k + 3)*Sk^2 + (4*k^2 + 4*k - 9)*Sk - 12*k^2 + 6*k) of Multivariate Ore algebra in Sn, Sk over Fraction Field of Multivariate Polynomial Ring in n, k over Integer Ring
+        sage: from ore_algebra import *
+        sage: R.<n,k> = ZZ[]
+        sage: A.<Sn,Sk> = OreAlgebra(R)
+        sage: id1 = A.ideal([Sk-2*k,Sn-3])
+        sage: id2 = A.ideal([Sk-3,Sn-n])
+        sage: id1.intersection(id2)
+        Left Ideal ((-2*k + 3)*Sn + (-n + 3)*Sk + 2*n*k - 9, (-2*k + 3)*Sk^2 + (4*k^2 + 4*k - 9)*Sk - 12*k^2 + 6*k) of Multivariate Ore algebra in Sn, Sk over Fraction Field of Multivariate Polynomial Ring in n, k over Integer Ring
+        sage: _.intersection(_)
+        Left Ideal ((-2*k + 3)*Sn + (-n + 3)*Sk + 2*n*k - 9, (-2*k + 3)*Sk^2 + (4*k^2 + 4*k - 9)*Sk - 12*k^2 + 6*k) of Multivariate Ore algebra in Sn, Sk over Fraction Field of Multivariate Polynomial Ring in n, k over Integer Ring
 
-      sage: R.<x, y> = ZZ[]
-      sage: A.<Dx,Dy> = OreAlgebra(R)
-      sage: id1 = A.ideal([2*Dx-Dy, (x+2*y)*Dy^2 + Dy])
-      sage: id2 = A.ideal([Dy - x, Dx - y])
-      sage: id1.intersection(id2)
-      Left Ideal ((-x^2 + 4*y^2)*Dy^2 + (-2*x^3 - 4*x^2*y - 2*x)*Dx + (x^3 + 2*x^2*y + 2*y)*Dy, (-x^2 + 4*y^2)*Dx*Dy + (-2*x^2*y - 4*x*y^2 - 3*x - 4*y)*Dx + (x^2*y + 2*x*y^2 + x + 3*y)*Dy, (-2*x^2 + 8*y^2)*Dx^2 + (-4*x*y^2 - 8*y^3 - x)*Dx + (2*x*y^2 + 4*y^3 + y)*Dy) of Multivariate Ore algebra in Dx, Dy over Fraction Field of Multivariate Polynomial Ring in x, y over Integer Ring
-      sage: _.intersection(_)
-      Left Ideal ((-x^2 + 4*y^2)*Dy^2 + (-2*x^3 - 4*x^2*y - 2*x)*Dx + (x^3 + 2*x^2*y + 2*y)*Dy, (-x^2 + 4*y^2)*Dx*Dy + (-2*x^2*y - 4*x*y^2 - 3*x - 4*y)*Dx + (x^2*y + 2*x*y^2 + x + 3*y)*Dy, (-2*x^2 + 8*y^2)*Dx^2 + (-4*x*y^2 - 8*y^3 - x)*Dx + (2*x*y^2 + 4*y^3 + y)*Dy) of Multivariate Ore algebra in Dx, Dy over Fraction Field of Multivariate Polynomial Ring in x, y over Integer Ring
+        sage: R.<x, y> = ZZ[]
+        sage: A.<Dx,Dy> = OreAlgebra(R)
+        sage: id1 = A.ideal([2*Dx-Dy, (x+2*y)*Dy^2 + Dy])
+        sage: id2 = A.ideal([Dy - x, Dx - y])
+        sage: id1.intersection(id2)
+        Left Ideal ((-x^2 + 4*y^2)*Dy^2 + (-2*x^3 - 4*x^2*y - 2*x)*Dx + (x^3 + 2*x^2*y + 2*y)*Dy, (-x^2 + 4*y^2)*Dx*Dy + (-2*x^2*y - 4*x*y^2 - 3*x - 4*y)*Dx + (x^2*y + 2*x*y^2 + x + 3*y)*Dy, (-2*x^2 + 8*y^2)*Dx^2 + (-4*x*y^2 - 8*y^3 - x)*Dx + (2*x*y^2 + 4*y^3 + y)*Dy) of Multivariate Ore algebra in Dx, Dy over Fraction Field of Multivariate Polynomial Ring in x, y over Integer Ring
+        sage: _.intersection(_)
+        Left Ideal ((-x^2 + 4*y^2)*Dy^2 + (-2*x^3 - 4*x^2*y - 2*x)*Dx + (x^3 + 2*x^2*y + 2*y)*Dy, (-x^2 + 4*y^2)*Dx*Dy + (-2*x^2*y - 4*x*y^2 - 3*x - 4*y)*Dx + (x^2*y + 2*x*y^2 + x + 3*y)*Dy, (-2*x^2 + 8*y^2)*Dx^2 + (-4*x*y^2 - 8*y^3 - x)*Dx + (2*x*y^2 + 4*y^3 + y)*Dy) of Multivariate Ore algebra in Dx, Dy over Fraction Field of Multivariate Polynomial Ring in x, y over Integer Ring
 
     """
 
@@ -1158,18 +1160,18 @@ def uncouple(mat, algebra=None, extended=False, column_swaps=False, infolevel=0)
 
     EXAMPLES::
 
-      sage: from ore_algebra import *
-      sage: from ore_algebra.ideal import uncouple
-      sage: R.<x> = ZZ[]
-      sage: A.<Dx> = OreAlgebra(R)
-      sage: uncouple([[Dx, 3*Dx - 1], [x-Dx, x]])
-      [[x, 3*Dx + x - 1], [0, -3*x*Dx^2 + (2*x^2 + x + 3)*Dx - x^2 - 1]]
-      sage: uncouple([[Dx-x, 2,x], [3, x, Dx-4], [x*Dx-4, 4-x, 4]])
-      [[3, x, Dx - 4],
-       [0, x^3 + 5*x - 12, (x^2 - 4)*Dx - x^2 + 4],
-       [0,
-        0,
-        (-3*x^4 + 4*x^3 - 15*x^2 + 56*x - 48)*Dx^2 + (x^6 + x^5 + 9*x^4 - 9*x^3 - 4*x^2 - 88*x + 112)*Dx - x^5 + 4*x^4 - 19*x^3 + 44*x^2 - 88*x + 80]]
+        sage: from ore_algebra import *
+        sage: from ore_algebra.ideal import uncouple
+        sage: R.<x> = ZZ[]
+        sage: A.<Dx> = OreAlgebra(R)
+        sage: uncouple([[Dx, 3*Dx - 1], [x-Dx, x]])
+        [[x, 3*Dx + x - 1], [0, -3*x*Dx^2 + (2*x^2 + x + 3)*Dx - x^2 - 1]]
+        sage: uncouple([[Dx-x, 2,x], [3, x, Dx-4], [x*Dx-4, 4-x, 4]])
+        [[3, x, Dx - 4],
+         [0, x^3 + 5*x - 12, (x^2 - 4)*Dx - x^2 + 4],
+         [0,
+          0,
+          (-3*x^4 + 4*x^3 - 15*x^2 + 56*x - 48)*Dx^2 + (x^6 + x^5 + 9*x^4 - 9*x^3 - 4*x^2 - 88*x + 112)*Dx - x^5 + 4*x^4 - 19*x^3 + 44*x^2 - 88*x + 80]]
 
     """
 
@@ -1258,22 +1260,22 @@ def solve_triangular_system(mat, rhs, solver=None):
 
     INPUT:
 
-      mat -- an upper triangular matrix of univariate operators, given as a list of list.
-      rhs -- a vector of right hand sides.
+    - mat -- an upper triangular matrix of univariate operators, given as a list of list.
+    - rhs -- a vector of right hand sides.
 
     OUTPUT:
 
-      a list of pairs (u, c) where u is a list of rational functions and c is a list of constants such that mat*u == c*rhs
-      and every other pair (u, c) with mat*u == c*rhs is a linear combination (with constant coefficients) of the pairs in the
-      output
+    a list of pairs (u, c) where u is a list of rational functions and c is a list of constants such that mat*u == c*rhs
+    and every other pair (u, c) with mat*u == c*rhs is a linear combination (with constant coefficients) of the pairs in the
+    output
 
     EXAMPLES::
 
-      sage: from ore_algebra import *
-      sage: from ore_algebra.ideal import solve_triangular_system
-      sage: R.<x> = ZZ[]; A.<Dx> = OreAlgebra(R);
-      sage: solve_triangular_system([list(map(A, [Dx-x, 2,x])), list(map(A, [0,x,Dx-4])), list(map(A, [0,0,Dx]))], [[1,0,0],[0,1,0],[0,0,1]])
-      [([1, 0, 1], [0, -4, 0]), ([-x, -4, -x], [-9, -1, -1])]
+        sage: from ore_algebra import *
+        sage: from ore_algebra.ideal import solve_triangular_system
+        sage: R.<x> = ZZ[]; A.<Dx> = OreAlgebra(R);
+        sage: solve_triangular_system([list(map(A, [Dx-x, 2,x])), list(map(A, [0,x,Dx-4])), list(map(A, [0,0,Dx]))], [[1,0,0],[0,1,0],[0,0,1]])
+        [([1, 0, 1], [0, -4, 0]), ([-x, -4, -x], [-9, -1, -1])]
 
     """
 
