@@ -18,7 +18,7 @@ Generalized series found in expansions at singularities
 import re
 
 
-from sage.arith.all import lcm
+from sage.arith.functions import lcm
 from sage.rings.power_series_ring import PowerSeriesRing
 from sage.rings.integer_ring import ZZ
 from sage.rings.number_field import number_field_base

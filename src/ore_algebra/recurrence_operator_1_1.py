@@ -16,9 +16,9 @@ Univariate recurrence operators over univariate rings
 
 from functools import reduce
 
-from sage.arith.all import gcd
+from sage.arith.misc import GCD as gcd
 from sage.functions.all import floor
-from sage.misc.all import prod
+from sage.misc.misc_c import prod
 from sage.misc.cachefunc import cached_method
 from sage.rings.rational_field import QQ
 from sage.rings.integer_ring import ZZ

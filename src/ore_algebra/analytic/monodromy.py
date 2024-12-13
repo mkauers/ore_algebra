@@ -36,8 +36,13 @@ from sage.graphs.graph import Graph
 from sage.matrix.matrix_complex_ball_dense import Matrix_complex_ball_dense
 from sage.misc.cachefunc import cached_method
 from sage.misc.misc_c import prod
-from sage.rings.all import (CC, CBF, ComplexBallField, QQ, QQbar,
-        QuadraticField, RBF)
+from sage.rings.cc import CC
+from sage.rings.complex_arb import CBF
+from sage.rings.complex_arb import ComplexBallField
+from sage.rings.rational_field import Q as QQ
+from sage.rings.qqbar import QQbar
+from sage.rings.number_field.number_field import QuadraticField
+from sage.rings.real_arb import RBF
 from sage.symbolic.all import pi, SR
 
 from . import path, utilities
@@ -645,7 +650,7 @@ def _test_monodromy_matrices():
         sage: from ore_algebra.analytic.monodromy import _test_monodromy_matrices
         sage: _test_monodromy_matrices()
     """
-    from sage.all import matrix
+    from sage.matrix.constructor import Matrix as matrix
     from ore_algebra import DifferentialOperators
     Dops, x, Dx = DifferentialOperators()
 

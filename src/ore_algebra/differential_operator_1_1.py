@@ -18,7 +18,9 @@ from functools import reduce
 
 import sage.functions.log as symbolic_log
 
-from sage.arith.all import gcd, lcm, nth_prime
+from sage.arith.misc import GCD as gcd
+from sage.arith.functions import lcm
+from sage.arith.misc import nth_prime
 from sage.arith.misc import valuation
 from sage.matrix.constructor import matrix
 from sage.misc.cachefunc import cached_method

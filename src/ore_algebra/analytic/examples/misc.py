@@ -119,8 +119,12 @@ Melczer, An Invitation to Analytic Combinatorics (2021), (2.14)::
 import collections
 
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
-from sage.rings.all import NumberField
-from sage.rings.all import ZZ, QQ, AA, RIF, RR
+from sage.rings.number_field.number_field import NumberField
+from sage.rings.integer_ring import Z as ZZ
+from sage.rings.rational_field import Q as QQ
+from sage.rings.qqbar import AA
+from sage.rings.real_mpfi import RIF
+from sage.rings.real_mpfr import RR
 from ore_algebra import DifferentialOperators
 
 IVP = collections.namedtuple("IVP", ["dop", "ini"])

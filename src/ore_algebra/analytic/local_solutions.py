@@ -20,12 +20,19 @@ from itertools import chain
 
 import sage.functions.log as symbolic_log
 
-from sage.arith.all import gcd, lcm
+from sage.arith.misc import GCD as gcd
+from sage.arith.functions import lcm
 from sage.misc.cachefunc import cached_method
 from sage.misc.lazy_attribute import lazy_attribute
 from sage.modules.free_module_element import vector, FreeModuleElement_generic_dense
-from sage.rings.all import ZZ, QQ, AA, QQbar, RBF, CBF
-from sage.rings.all import RealBallField, ComplexBallField
+from sage.rings.integer_ring import Z as ZZ
+from sage.rings.rational_field import Q as QQ
+from sage.rings.qqbar import AA
+from sage.rings.qqbar import QQbar
+from sage.rings.real_arb import RBF
+from sage.rings.complex_arb import CBF
+from sage.rings.real_arb import RealBallField
+from sage.rings.complex_arb import ComplexBallField
 from sage.rings.integer import Integer
 from sage.rings.number_field.number_field import (
         number_field_base,
@@ -424,7 +431,7 @@ class LogSeriesInitialValues:
 
 def random_ini(dop):
     import random
-    from sage.all import VectorSpace
+    from sage.modules.free_module import VectorSpace
     ind = dop.indicial_polynomial(dop.base_ring().gen())
     sl_decomp = my_shiftless_decomposition(ind)
     pol, shifts = random.choice(sl_decomp)

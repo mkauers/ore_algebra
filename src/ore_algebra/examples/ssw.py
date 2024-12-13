@@ -54,7 +54,11 @@ double-checked)::
 
 """
 
-from sage.rings.all import Frac, Integer, PolynomialRing, ZZ, QQ
+from sage.rings.fraction_field import FractionField as Frac
+from sage.rings.integer import Integer
+from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
+from sage.rings.integer_ring import Z as ZZ
+from sage.rings.rational_field import Q as QQ
 from ore_algebra import DifferentialOperators, OreAlgebra
 
 Pols, (u, v, x, y, t) = PolynomialRing(ZZ, ('u', 'v', 'x', 'y', 't')).objgens()

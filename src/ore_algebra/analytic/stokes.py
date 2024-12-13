@@ -209,7 +209,8 @@ from sage.matrix.matrix_complex_ball_dense import Matrix_complex_ball_dense
 from sage.matrix.special import block_matrix, identity_matrix
 from sage.misc.converting_dict import KeyConvertingDict
 from sage.misc.cachefunc import cached_method
-from sage.rings.all import CC, QQbar
+from sage.rings.cc import CC
+from sage.rings.qqbar import QQbar
 from sage.rings.complex_arb import ComplexBallField
 from sage.rings.imaginary_unit import I
 from sage.rings.real_arb import RBF
@@ -405,7 +406,7 @@ class Triangle(frozenset):
         self.flat = flat # ignored by comparisons/hashing
 
     def __repr__(self):
-        from sage.all import ComplexField
+        from sage.rings.complex_mpfr import ComplexField
         C = ComplexField(10)
         return ("{" + ", ".join(str(C(a)) for a in self)
                 + (" (flat)" if self.flat else "") + "}")

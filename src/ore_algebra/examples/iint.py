@@ -181,7 +181,9 @@ import string
 
 from sage.functions.all import log, sqrt
 from sage.misc.misc_c import prod
-from sage.rings.all import AA, QQ, ZZ
+from sage.rings.qqbar import AA
+from sage.rings.rational_field import Q as QQ
+from sage.rings.integer_ring import Z as ZZ
 from sage.symbolic.all import pi
 from sage.symbolic.constants import I
 

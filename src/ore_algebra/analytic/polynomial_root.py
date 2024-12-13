@@ -4,7 +4,11 @@ Ad-hoc algebraic numbers
 """
 
 from sage.misc.cachefunc import cached_method
-from sage.rings.all import ZZ, QQ, QQbar, CIF, CBF
+from sage.rings.integer_ring import Z as ZZ
+from sage.rings.rational_field import Q as QQ
+from sage.rings.qqbar import QQbar
+from sage.rings.cif import CIF
+from sage.rings.complex_arb import CBF
 from sage.rings.number_field.number_field import NumberField, NumberField_quadratic
 from sage.rings.number_field.number_field_element import NumberFieldElement
 from sage.rings.polynomial.complex_roots import complex_roots

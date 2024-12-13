@@ -25,7 +25,9 @@ from sage.matrix.matrix_complex_ball_dense import Matrix_complex_ball_dense
 from sage.misc.cachefunc import cached_function
 from sage.misc.misc import cputime
 from sage.rings.qqbar import (qq_generator, AlgebraicNumber, ANExtensionElement)
-from sage.rings.all import ZZ, QQ, QQbar
+from sage.rings.integer_ring import Z as ZZ
+from sage.rings.rational_field import Q as QQ
+from sage.rings.qqbar import QQbar
 from sage.rings.complex_arb import CBF, ComplexBall, ComplexBallField
 from sage.rings.number_field.number_field import (
     GaussianField,

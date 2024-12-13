@@ -23,7 +23,14 @@ import sage.structure.coerce
 import sage.symbolic.ring
 
 from sage.misc.cachefunc import cached_method
-from sage.rings.all import ZZ, QQ, CC, RIF, CIF, QQbar, RLF, CLF
+from sage.rings.integer_ring import Z as ZZ
+from sage.rings.rational_field import Q as QQ
+from sage.rings.cc import CC
+from sage.rings.real_mpfi import RIF
+from sage.rings.cif import CIF
+from sage.rings.qqbar import QQbar
+from sage.rings.real_lazy import RLF
+from sage.rings.real_lazy import CLF
 from sage.rings.complex_arb import CBF, ComplexBallField, ComplexBall
 from sage.rings.number_field import number_field
 from sage.rings.number_field import number_field_base

@@ -20,11 +20,13 @@ one generator.
 
 from functools import reduce
 
-from sage.arith.all import previous_prime as pp
-from sage.arith.all import gcd, lcm, srange
+from sage.arith.misc import previous_prime as pp
+from sage.arith.misc import GCD as gcd
+from sage.arith.functions import lcm
+from sage.arith.srange import srange
 from sage.arith.misc import divisors
 from sage.matrix.constructor import matrix
-from sage.misc.all import prod
+from sage.misc.misc_c import prod
 from sage.misc.cachefunc import cached_method
 from sage.misc.functional import log
 from sage.misc.lazy_import import lazy_import

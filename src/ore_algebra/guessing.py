@@ -33,12 +33,12 @@ except:
 import math
 from datetime import datetime
 
-from sage.arith.all import previous_prime
+from sage.arith.misc import previous_prime
 from sage.arith.functions import lcm
 from sage.misc.misc_c import prod
 from sage.rings.integer_ring import ZZ
 from sage.rings.rational_field import QQ
-from sage.rings.finite_rings.all import GF
+from sage.rings.finite_rings.finite_field_constructor import FiniteField as GF
 from sage.matrix.constructor import matrix
 from sage.matrix.matrix_space import MatrixSpace
 from sage.misc.lazy_string import lazy_string
