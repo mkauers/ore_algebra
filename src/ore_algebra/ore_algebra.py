@@ -1,7 +1,7 @@
 """
 Ore algebras
 
-The ore_algebra package provides functionality for doing computations with Ore polynomials.
+The ``ore_algebra`` package provides functionality for doing computations with Ore polynomials.
 
 Ore polynomials are operators which can be used to describe special functions or combinatorial
 sequences. Typical examples are linear differential operators with polynomial coefficients.
@@ -40,7 +40,7 @@ AUTHOR:
 #  Distributed under the terms of the GNU General Public License (GPL)      #
 #  either version 2, or (at your option) any later version                  #
 #                                                                           #
-#  http://www.gnu.org/licenses/                                             #
+#  https://www.gnu.org/licenses/                                             #
 #############################################################################
 
 import sys
@@ -128,7 +128,9 @@ def is_OreAlgebra(A):
 def is_suitable_base_ring(R):
     r"""
     Checks whether `R` is suitable as base ring of an Ore algebra.
-    This is the case if and only if: (a) `R` is one of `ZZ`, `QQ`,
+
+    This is the case if and only if:
+    (a) `R` is one of `ZZ`, `QQ`,
     `GF(p)` for a prime `p`, or a finite algebraic extension of `QQ`,
     (b) `R` is a fraction field of a suitable base ring,
     (c) `R` is a (univariate or multivariate) polynomial ring over
@@ -283,8 +285,7 @@ class Sigma_class:
     @cached_method
     def __hash__(self):
         gens = self.__R.gens()
-        h = hash((self.__R, tuple(self(x) for x in gens)))
-        return h
+        return hash((self.__R, tuple(self(x) for x in gens)))
 
     def __eq__(self, other):
 
@@ -307,7 +308,7 @@ class Sigma_class:
 
     def ring(self):
         r"""
-        Returns the ring for which this sigma object is defined
+        Returns the ring for which this sigma object is defined.
         """
         return self.__R
 
@@ -564,10 +565,9 @@ class Delta_class:
     def __hash__(self):
         sigma = self.__sigma
         gens = self.__R.gens()
-        h = hash((self.__R,
-            tuple(self(x) for x in gens),
-            tuple(sigma(x) for x in gens)))
-        return h
+        return hash((self.__R,
+                     tuple(self(x) for x in gens),
+                     tuple(sigma(x) for x in gens)))
 
     def __eq__(self, other):
 
@@ -587,7 +587,7 @@ class Delta_class:
 
     def ring(self):
         r"""
-        Returns the ring for which this sigma object is defined
+        Returns the ring for which this sigma object is defined.
         """
         return self.__R
 
@@ -596,7 +596,7 @@ class Delta_class:
 
     def dict(self):
         r"""
-        Returns a dictionary representing ``self``
+        Returns a dictionary representing ``self``.
         """
 
         R = self.__R
@@ -702,20 +702,20 @@ def OreAlgebra(base_ring, *generators, check_base_ring=True, **kwargs):
 
     ::
 
-      sage: from ore_algebra import *
+        sage: from ore_algebra import *
 
-      sage: R.<x> = QQ['x']
-      sage: K = R.fraction_field()
+        sage: R.<x> = QQ['x']
+        sage: K = R.fraction_field()
 
-      # This creates an Ore algebra of linear differential operators
-      sage: A.<D> = OreAlgebra(K, ('D', lambda p: p, lambda p: p.derivative(x)))
-      sage: A
-      Univariate Ore algebra in D over Fraction Field of Univariate Polynomial Ring in x over Rational Field
+        # This creates an Ore algebra of linear differential operators
+        sage: A.<D> = OreAlgebra(K, ('D', lambda p: p, lambda p: p.derivative(x)))
+        sage: A
+        Univariate Ore algebra in D over Fraction Field of Univariate Polynomial Ring in x over Rational Field
 
-      # This creates an Ore algebra of linear recurrence operators
-      sage: A.<S> = OreAlgebra(K, ('S', lambda p: p(x+1), lambda p: K.zero()))
-      sage: A
-      Univariate Ore algebra in S over Fraction Field of Univariate Polynomial Ring in x over Rational Field
+        # This creates an Ore algebra of linear recurrence operators
+        sage: A.<S> = OreAlgebra(K, ('S', lambda p: p(x+1), lambda p: K.zero()))
+        sage: A
+        Univariate Ore algebra in S over Fraction Field of Univariate Polynomial Ring in x over Rational Field
 
     Instead of a callable object for `\sigma` and `\delta`, also a dictionary can
     be supplied which for every generator of the base ring specifies the desired
@@ -724,16 +724,16 @@ def OreAlgebra(base_ring, *generators, check_base_ring=True, **kwargs):
 
     ::
 
-      sage: U.<x, y> = ZZ['x', 'y']
+        sage: U.<x, y> = ZZ['x', 'y']
 
-      # here, the base ring represents the differential field QQ(x, e^x)
-      sage: A.<D> = OreAlgebra(U, ('D', {}, {x:1, y:y}))
+        # here, the base ring represents the differential field QQ(x, e^x)
+        sage: A.<D> = OreAlgebra(U, ('D', {}, {x:1, y:y}))
 
-      # here, the base ring represents the difference field QQ(x, 2^x)
-      sage: B.<S> = OreAlgebra(U, ('S', {x:x+1, y:2*y}, {}))
+        # here, the base ring represents the difference field QQ(x, 2^x)
+        sage: B.<S> = OreAlgebra(U, ('S', {x:x+1, y:2*y}, {}))
 
-      # here too, but the algebra's generator represents the forward difference instead of the shift
-      sage: C.<Delta> = OreAlgebra(U, ('Delta', {x:x+1, y:2*y}, {x:1, y:y}))
+        # here too, but the algebra's generator represents the forward difference instead of the shift
+        sage: C.<Delta> = OreAlgebra(U, ('Delta', {x:x+1, y:2*y}, {x:1, y:y}))
 
     For the most frequently needed operators, the constructor accepts their
     specification as a string only, without explicit statement of sigma or
@@ -761,21 +761,21 @@ def OreAlgebra(base_ring, *generators, check_base_ring=True, **kwargs):
 
     ::
 
-      sage: R.<x, y> = QQ['x', 'y']
-      sage: A = OreAlgebra(R, 'Dx') # This creates an Ore algebra of differential operators
-      sage: A == OreAlgebra(R, ('Dx', {}, {x:1}))
-      True
-      sage: A == OreAlgebra(R, ('Dx', {}, {y:1})) # the Dx in A acts on x, not on y
-      False
+        sage: R.<x, y> = QQ['x', 'y']
+        sage: A = OreAlgebra(R, 'Dx') # This creates an Ore algebra of differential operators
+        sage: A == OreAlgebra(R, ('Dx', {}, {x:1}))
+        True
+        sage: A == OreAlgebra(R, ('Dx', {}, {y:1})) # the Dx in A acts on x, not on y
+        False
 
-      # This creates an Ore algebra of linear recurrence operators
-      sage: A = OreAlgebra(R, 'Sx')
-      sage: A == OreAlgebra(R, ('Sx', {x:x+1}, {}))
-      True
-      sage: A == OreAlgebra(R, ('Sx', {y:y+1}, {})) # the Sx in A acts on x, not on y
-      False
-      sage: OreAlgebra(R, 'Qx', q=2)
-      Univariate Ore algebra in Qx over Multivariate Polynomial Ring in x, y over Rational Field
+        # This creates an Ore algebra of linear recurrence operators
+        sage: A = OreAlgebra(R, 'Sx')
+        sage: A == OreAlgebra(R, ('Sx', {x:x+1}, {}))
+        True
+        sage: A == OreAlgebra(R, ('Sx', {y:y+1}, {})) # the Sx in A acts on x, not on y
+        False
+        sage: OreAlgebra(R, 'Qx', q=2)
+        Univariate Ore algebra in Qx over Multivariate Polynomial Ring in x, y over Rational Field
 
     A generator can optionally be extended by a vector `(w_0,w_1,w_2)` of
     base ring elements which encodes the product rule for the generator:
@@ -802,34 +802,34 @@ def OreAlgebra(base_ring, *generators, check_base_ring=True, **kwargs):
 
     ::
 
-       sage: A = OreAlgebra(QQ['x'], 'Dx')
-       sage: A("Dx*x")
-       x*Dx
-       sage: A("Dx")*A("x")
-       x*Dx + 1
+        sage: A = OreAlgebra(QQ['x'], 'Dx')
+        sage: A("Dx*x")
+        x*Dx
+        sage: A("Dx")*A("x")
+        x*Dx + 1
 
     A safer way of creating operators is via a list of coefficients. These are then
     always interpreted as standing to the left of the respective algebra generator monomial.
 
     ::
 
-       sage: R.<x> = QQ['x']
-       sage: A.<Dx> = OreAlgebra(R, 'Dx')
-       sage: A([x^2+1, 5*x-7, 7*x+18])
-       (7*x + 18)*Dx^2 + (5*x - 7)*Dx + x^2 + 1
-       sage: (7*x + 18)*Dx^2 + (5*x - 7)*Dx + x^2 + 1
-       (7*x + 18)*Dx^2 + (5*x - 7)*Dx + x^2 + 1
-       sage: _^2
-       (49*x^2 + 252*x + 324)*Dx^4 + (70*x^2 + 180*x)*Dx^3 + (14*x^3 + 61*x^2 + 49*x + 216)*Dx^2 + (10*x^3 + 14*x^2 + 107*x - 49)*Dx + x^4 + 12*x^2 + 37
+        sage: R.<x> = QQ['x']
+        sage: A.<Dx> = OreAlgebra(R, 'Dx')
+        sage: A([x^2+1, 5*x-7, 7*x+18])
+        (7*x + 18)*Dx^2 + (5*x - 7)*Dx + x^2 + 1
+        sage: (7*x + 18)*Dx^2 + (5*x - 7)*Dx + x^2 + 1
+        (7*x + 18)*Dx^2 + (5*x - 7)*Dx + x^2 + 1
+        sage: _^2
+        (49*x^2 + 252*x + 324)*Dx^4 + (70*x^2 + 180*x)*Dx^3 + (14*x^3 + 61*x^2 + 49*x + 216)*Dx^2 + (10*x^3 + 14*x^2 + 107*x - 49)*Dx + x^4 + 12*x^2 + 37
 
-       sage: R.<x> = QQ['x']
-       sage: A.<Sx> = OreAlgebra(QQ['x'], 'Sx')
-       sage: A([x^2+1, 5*x-7, 7*x+18])
-       (7*x + 18)*Sx^2 + (5*x - 7)*Sx + x^2 + 1
-       sage: (7*x + 18)*Sx^2 + (5*x - 7)*Sx + x^2 + 1
-       (7*x + 18)*Sx^2 + (5*x - 7)*Sx + x^2 + 1
-       sage: _^2
-       (49*x^2 + 350*x + 576)*Sx^4 + (70*x^2 + 187*x - 121)*Sx^3 + (14*x^3 + 89*x^2 + 69*x + 122)*Sx^2 + (10*x^3 - 4*x^2 + x - 21)*Sx + x^4 + 2*x^2 + 1
+        sage: R.<x> = QQ['x']
+        sage: A.<Sx> = OreAlgebra(QQ['x'], 'Sx')
+        sage: A([x^2+1, 5*x-7, 7*x+18])
+        (7*x + 18)*Sx^2 + (5*x - 7)*Sx + x^2 + 1
+        sage: (7*x + 18)*Sx^2 + (5*x - 7)*Sx + x^2 + 1
+        (7*x + 18)*Sx^2 + (5*x - 7)*Sx + x^2 + 1
+        sage: _^2
+        (49*x^2 + 350*x + 576)*Sx^4 + (70*x^2 + 187*x - 121)*Sx^3 + (14*x^3 + 89*x^2 + 69*x + 122)*Sx^2 + (10*x^3 - 4*x^2 + x - 21)*Sx + x^4 + 2*x^2 + 1
 
     It is possible to bypass the check that the base ring is suitable, but doing so
     may lead to mathematically incorrect results. Only use this if you know exactly
@@ -1038,7 +1038,7 @@ def DifferentialOperators(base=QQ, var='x'):
     * ``base`` (default ``QQ``) - base ring of the polynomial coefficients
     * ``var`` (default ``x``) - variable name
 
-    EXAMPLE::
+    EXAMPLES::
 
         sage: from ore_algebra import *
         sage: Dops, x, Dx = DifferentialOperators()
@@ -1091,7 +1091,7 @@ class OreAlgebra_generic(UniqueRepresentation, Parent):
 
     def construction(self):
         r"""
-        Returns a functorial description of this Ore algebra
+        Returns a functorial description of this Ore algebra.
         """
         gens = tuple((str(x), self.sigma(x).dict(), self.delta(x).dict()) for x in self.gens())
         return (OreAlgebraFunctor(*gens), self.base_ring())
@@ -1189,8 +1189,9 @@ class OreAlgebra_generic(UniqueRepresentation, Parent):
         r"""
         If `D` is a generator of this algebra, given either as string or as an actual algebra element,
         return the index `n` such that ``self.gen(n) == self(D)``.
+
         If `D` is already an integer, return `D` itself.
-        An IndexError is raised if `gen` is not a generator of this algebra.
+        An ``IndexError`` is raised if `gen` is not a generator of this algebra.
         """
         if D in ZZ:
             D = int(D)
@@ -1206,6 +1207,7 @@ class OreAlgebra_generic(UniqueRepresentation, Parent):
     def sigma(self, n=0):
         r"""
         Returns the sigma callable associated to the `n` th generator of this algebra.
+
         The generator can be specified by index (as integer), or by name (as string),
         or as algebra element.
 
@@ -1228,6 +1230,7 @@ class OreAlgebra_generic(UniqueRepresentation, Parent):
     def delta(self, n=0):
         r"""
         Returns the delta callable associated to the `n` th generator of this algebra.
+
         The generator can be specified by index (as integer), or by name (as string),
         or as algebra element.
 
@@ -1317,6 +1320,7 @@ class OreAlgebra_generic(UniqueRepresentation, Parent):
     def is_C(self, n=0):
         r"""
         Checks whether the `n` th generator of this algebra is a commutative variable.
+
         If so, it returns ``True``, otherwise ``False``.
 
         EXAMPLES::
@@ -1593,15 +1597,14 @@ class OreAlgebra_generic(UniqueRepresentation, Parent):
             return self._gen_dict.copy()
         except AttributeError:
             pass
-        d = {}
-        for x, _, _ in self._gens:
-            d[x] = self(x)
+        d = {x: self(x) for x, _, _ in self._gens}
         self._gen_dict = d.copy()
         return d
 
     def subalgebra(self, gens):
         r"""
         Returns the subalgebra of 'self' generated by the given generators.
+
         The given generators must be generators ("variables") of 'self'.
         The base ring is not affected.
         """
@@ -1618,7 +1621,7 @@ class OreAlgebra_generic(UniqueRepresentation, Parent):
 
     def is_finite(self):
         r"""
-        Return False since Ore algebras are not finite (unless the base ring is 0).
+        Return ``False`` since Ore algebras are not finite (unless the base ring is 0).
         """
         R = self.base_ring()
         if R.is_finite() and R.order() == 1:
@@ -1627,13 +1630,13 @@ class OreAlgebra_generic(UniqueRepresentation, Parent):
 
     def is_exact(self):
         r"""
-        This algebra is exact iff its base ring is
+        This algebra is exact iff its base ring is.
         """
         return self.base_ring().is_exact()
 
     def is_field(self, proof=True):
         r"""
-        Returns False since Ore algebras are not fields (unless they have 0 generators and the base ring is a field)
+        Returns ``False`` since Ore algebras are not fields (unless they have 0 generators and the base ring is a field).
         """
         return self.ngens() == 0 and self.base_ring().is_field()
 
@@ -1646,7 +1649,7 @@ class OreAlgebra_generic(UniqueRepresentation, Parent):
 
     def ngens(self):
         r"""
-        Return the number of generators of this Ore algebra
+        Return the number of generators of this Ore algebra.
         """
         return len(self._gens)
 
@@ -1698,7 +1701,7 @@ class OreAlgebra_generic(UniqueRepresentation, Parent):
         r"""
         Creates the left ideal generated by the given generators.
 
-        The generators must be elements of self.
+        The generators must be elements of ``self``.
         """
         from .ideal import OreLeftIdeal
         return OreLeftIdeal(self, gens, coerce, is_known_to_be_a_groebner_basis)
@@ -1767,6 +1770,7 @@ class OreAlgebra_generic(UniqueRepresentation, Parent):
     def _set_solvers(self, solvers):
         r"""
         Defines a collection of linear system solvers which Ore algebra prefers.
+
         The argument is supposed to be a dictionary which some rings `R` to solvers
         for matrices with coefficients in `R`
         """
@@ -1815,24 +1819,24 @@ class OreAlgebra_generic(UniqueRepresentation, Parent):
     @cached_method
     def change_ring(self, R):
         r"""
-        Creates the Ore algebra obtained from ``self`` by replacing the base ring by `R`
+        Creates the Ore algebra obtained from ``self`` by replacing the base ring by `R`.
 
-        EXAMPLES:
+        EXAMPLES::
 
-          sage: from ore_algebra import *
-          sage: R.<x> = PolynomialRing(QQ)
-          sage: Ore.<Dx> = OreAlgebra(R)
-          sage: S = R.fraction_field()
-          sage: Ore.change_ring(S)
-          Univariate Ore algebra in Dx over Fraction Field of Univariate Polynomial Ring in x over Rational Field
-          sage: T = R.change_ring(GF(5))
-          sage: Ore.change_ring(T)
-          Univariate Ore algebra in Dx over Univariate Polynomial Ring in x over Finite Field of size 5
+            sage: from ore_algebra import *
+            sage: R.<x> = PolynomialRing(QQ)
+            sage: Ore.<Dx> = OreAlgebra(R)
+            sage: S = R.fraction_field()
+            sage: Ore.change_ring(S)
+            Univariate Ore algebra in Dx over Fraction Field of Univariate Polynomial Ring in x over Rational Field
+            sage: T = R.change_ring(GF(5))
+            sage: Ore.change_ring(T)
+            Univariate Ore algebra in Dx over Univariate Polynomial Ring in x over Finite Field of size 5
 
-        Identical inputs yield the same ring.
+        Identical inputs yield the same ring. ::
 
-          sage: Ore.change_ring(R.fraction_field()) is Ore.change_ring(R.fraction_field())
-          True
+            sage: Ore.change_ring(R.fraction_field()) is Ore.change_ring(R.fraction_field())
+            True
 
         """
         if R is self.base_ring():
@@ -1842,23 +1846,23 @@ class OreAlgebra_generic(UniqueRepresentation, Parent):
 
     def change_constant_ring(self, K):
         r"""
-        Creates the Ore algebra obtained from ``self`` by replacing the constant ring by `K`
+        Creates the Ore algebra obtained from ``self`` by replacing the constant ring by `K`.
 
         EXAMPLES::
 
-          sage: from ore_algebra import *
-          sage: R.<x> = PolynomialRing(QQ)
-          sage: Ore.<Dx> = OreAlgebra(R)
-          sage: Ore.change_constant_ring(GF(5))
-          Univariate Ore algebra in Dx over Univariate Polynomial Ring in x over Finite Field of size 5
-          sage: Ore2.<Dx> = OreAlgebra(R.fraction_field())
-          sage: Ore2.change_constant_ring(GF(5))
-          Univariate Ore algebra in Dx over Fraction Field of Univariate Polynomial Ring in x over Finite Field of size 5
+            sage: from ore_algebra import *
+            sage: R.<x> = PolynomialRing(QQ)
+            sage: Ore.<Dx> = OreAlgebra(R)
+            sage: Ore.change_constant_ring(GF(5))
+            Univariate Ore algebra in Dx over Univariate Polynomial Ring in x over Finite Field of size 5
+            sage: Ore2.<Dx> = OreAlgebra(R.fraction_field())
+            sage: Ore2.change_constant_ring(GF(5))
+            Univariate Ore algebra in Dx over Fraction Field of Univariate Polynomial Ring in x over Finite Field of size 5
 
-        Identical inputs yield the same ring.
+        Identical inputs yield the same ring. ::
 
-          sage: Ore.change_constant_ring(GF(5)) is Ore.change_constant_ring(ZZ.quo(5).field())
-          True
+            sage: Ore.change_constant_ring(GF(5)) is Ore.change_constant_ring(ZZ.quo(5).field())
+            True
 
         """
         R = self.base_ring()
@@ -1873,7 +1877,7 @@ class OreAlgebra_generic(UniqueRepresentation, Parent):
 
     def change_var(self, var, n=0):
         r"""
-        Creates the Ore algebra obtained from ``self`` by renaming the `n` th generator to `var`
+        Creates the Ore algebra obtained from ``self`` by renaming the `n` th generator to `var`.
         """
         n = self._gen_to_idx(n)
         return self.change_var_sigma_delta(var, self._gens[n][1], self._gens[n][2], n)
@@ -1899,6 +1903,7 @@ class OreAlgebra_generic(UniqueRepresentation, Parent):
         Creates the Ore algebra obtained from ``self`` by replacing the
         `n` th generator and its associated homomorphism and skew-derivation
         by `var`, `\sigma`, and `\delta`, respectively.
+
         The maps `\sigma` and `\delta` may be specified as callables or dictionaries.
         """
         n = self._gen_to_idx(n)
