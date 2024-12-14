@@ -31,7 +31,7 @@ def do_cythonize():
                 "*",
                 ["src/ore_algebra/analytic/*.pyx"],
             )],
-            aliases = sage.env.cython_aliases(),
+            aliases = sage.env.cython_aliases(required_modules=(), optional_modules=()),
             # gdb_debug=True,
             # annotate=True,
         )
@@ -73,4 +73,9 @@ setup(
     include_dirs = sage.env.sage_include_directories(),
     cmdclass = {'test': TestCommand},
     zip_safe=False,
+    extras_require={'passagemath': ['passagemath-graphs',
+                                    'passagemath-modules',
+                                    'passagemath-repl',
+                                    'passagemath-singular',
+                                    'passagemath-symbolics']},
 )
