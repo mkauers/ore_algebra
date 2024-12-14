@@ -139,7 +139,6 @@ def step_transition_matrix_bit_burst(dop, steps, eps, rows, fail_fast, effort,
     """
 
     # assert all(step.start is steps[0].start for step in steps)
-    z0 = steps[0].start
     ldop = dop.shift(steps[0].start)
     points = EvaluationPoint_step(steps, jet_order=rows)
 
@@ -155,7 +154,7 @@ def step_transition_matrix_bit_burst(dop, steps, eps, rows, fail_fast, effort,
     # bit size of base point of the step; only matters when bit_burst_thr is
     # large, could be replaced by bit_burst_prec otherwise
     binsplit_prec = min(bit_burst_prec,
-                        max(z0.bit_burst_bits(tgt_prec),
+                        max(steps[0].start.bit_burst_bits(tgt_prec),
                             *(step.end.bit_burst_bits(tgt_prec)
                               for step in steps)))
     use_binsplit = _use_binsplit(dop, steps, tgt_prec, binsplit_prec, ctx)

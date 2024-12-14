@@ -1191,7 +1191,7 @@ def fundamental_matrix_regular_truncated(dop, evpts, trunc_index, bit_prec,
         [[2.665...]    1.500...            0],
         [ [2.665...]   1.625...   [0.375...]]]
     """
-    ctx = Context(ctx)
+    ctx = Context(ctx=ctx)
     ctx.squash_intervals = False
     dop = DifferentialOperator(dop)
     hsm = HighestSolMapper_partial_sums(dop, evpts, trunc_index, bit_prec,
