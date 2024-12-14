@@ -207,8 +207,8 @@ cdef class DACUnroller:
     cdef slong jet_order
 
     # working precisions in bits
-    cdef slong prec         # main (full) precision (series coefficients, etc.)
-    cdef slong sums_prec    # evaluation points, sums (shorter dep chains)
+    cdef readonly slong prec         # main (full) precision (series coefficients, etc.)
+    cdef readonly slong sums_prec    # evaluation points, sums (shorter dep chains)
     cdef slong bounds_prec  # error bounds
 
     cdef acb_poly_struct *dop_coeffs
@@ -256,14 +256,19 @@ cdef class DACUnroller:
 
     cdef object py_evpts, Reals, Pol_IC
 
+    # an object to which to push each coefficient block after computing it
+
+    cdef object coeff_observer
+    cdef object __Pol
+
     # State of sum_blockwise. This should perhaps be a separate object.
     # Eventually we may want to support blockwise summation where the blocks are
     # handled by different algorithms. However, this may be at odds with proper
     # support for partial blocks, series coefficients, and inhomogeneous
     # equations.
 
-    cdef slong blk
-    cdef slong blksz
+    cdef readonly slong blk
+    cdef readonly slong blksz
     cdef slong max_terms  # FIXME redundant with stop
     cdef object stop
     cdef arb_t tb         # merge into AccuracyEstimates?
@@ -366,12 +371,16 @@ cdef class DACUnroller:
 
         self.apply_dop_algorithm = ApplyDopAlgorithm[ctx.apply_dop]
 
+        self.coeff_observer = getattr(ctx, "__coeff_observer", None)
+
         ## Parents
 
         Coeffs = ComplexBallField(prec)
         Sums = ComplexBallField(sums_prec)
         # Slices of series solns (w/o logs); must contain λ.
         Pol = dop_T.base_ring().change_ring(Coeffs)
+        if self.coeff_observer is not None:
+            self.__Pol = Pol
         # Error bounds
         self.Pol_IC = Pol.change_ring(ctx.IR.complex_field())
         self.Reals = RealBallField(prec)  # XXX temporary
@@ -464,7 +473,7 @@ cdef class DACUnroller:
 
     cpdef void sum_blockwise(self, object stop, slong max_terms=WORD_MAX):
         self.sum_init(stop, max_terms)
-        while not self.next_block():
+        while self.next_block():
             pass
         self.sum_finalize()
 
@@ -506,6 +515,8 @@ cdef class DACUnroller:
             self.tinterp_cache_init(self.apply_dop_interpolation_max_len//2 + 1)
 
         self.reset_solutions(2*self.blksz)
+        if self.coeff_observer is not None:
+            self.coeff_observer.reset(self)
         self.blk = 0
 
 
@@ -520,11 +531,12 @@ cdef class DACUnroller:
         cdef slong blkstride = max(1, 32//self.blksz)
 
         self.sum_dac(base, low, high)
+        self.publish_block()
 
         if high >= self.max_terms:
             if self.stop is None:
                 arb_zero(self.tb)
-                return True
+                return False
             else:
                 raise NotImplementedError(
                     "reached max_terms with a StoppingCriterion object")
@@ -546,7 +558,7 @@ cdef class DACUnroller:
             if self.stop is not None and self.check_convergence(
                     self.stop, high, high - base, self.est, self.tb,
                     blkstride*self.blksz):
-                return True
+                return False
 
             # Gradually decrease the working precision when [convergence
             # and] accuracy estimates suggest the current value is wasteful.
@@ -573,12 +585,32 @@ cdef class DACUnroller:
                 _acb_vec_zero(f + self.blksz, self.blksz)
 
         self.blk += 1
-        return False
+        return True
+
+
+    cdef void publish_block(self):
+        cdef slong k, m
+        cdef Polynomial_complex_arb pol
+        cdef list obj
+        if self.coeff_observer is None:
+            return
+        obj = [[None]*self.sol[m].log_prec for m in range(self.numsols)]
+        for m in range(self.numsols):
+            for k in range(self.sol[m].log_prec):
+                pol = Polynomial_complex_arb.__new__(Polynomial_complex_arb)
+                pol._parent = self.__Pol
+                acb_poly_set_trunc(pol._poly, self.sol[m].series + k,
+                                   self.blksz)
+                obj[m][k] = pol
+        self.coeff_observer.push_block(self, obj)
 
 
     cdef void sum_finalize(self):
         cdef mag_t sum_rad
         mag_init(sum_rad)
+
+        if self.coeff_observer is not None:
+            self.coeff_observer.finalize()
 
         self.fix_sums()
         self.add_error_get_rad(sum_rad, self.tb)
@@ -592,7 +624,6 @@ cdef class DACUnroller:
         mag_clear(self.radpow)
 
         mag_clear(sum_rad)
-
 
     cdef void sum_dac(self, slong base, slong low, slong high) noexcept:
         r"""
@@ -738,7 +769,7 @@ cdef class DACUnroller:
         arb_swap(est, _est.value)
 
 
-    ## Interface for retrieving the results from Python
+    ## Interface for retrieving data from Python
 
 
     def py_sums(self, Parent parent):

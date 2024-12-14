@@ -95,7 +95,7 @@ Display some information on what is going on::
 An operator annihilating `\exp + \arctan`::
 
     sage: dop = (x+1)*(x^2+1)*Dx^3-(x-1)*(x^2-3)*Dx^2-2*(x^2+2*x-1)*Dx
-    sage: dop.numerical_transition_matrix( [0, 1+i], 1e-10)
+    sage: dop.numerical_transition_matrix( [0, 1+i], 1e-12)
     [ [1.00...] + [+/- ...]*I  [1.017221967...] + [0.402359478...]*I  [-1.097056...] + [3.76999161...]*I]
     [ [+/- ...] + [+/- ...]*I  [0.200000000...] + [-0.40000000...]*I  [2.5373878...] + [5.37471057...]*I]
     [ [+/- ...] + [+/- ...]*I  [-0.04000000...] + [0.280000000...]*I  [1.5486939...] + [1.72735528...]*I]
