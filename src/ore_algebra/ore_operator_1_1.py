@@ -975,7 +975,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
            sage: ((q^2*x-1)*Qx-(x-1)).finite_singularities()
            [(-x + 1, [[0, 1, q*x^2 + (-q - 1)*x + 1]])]
         """
-        from sage.rings.finite_rings.all import GF
+        from sage.rings.finite_rings.finite_field_constructor import FiniteField as GF
 
         R = self.parent().base_ring().fraction_field().base()
         R = R.change_ring(R.base_ring().fraction_field())
