@@ -105,7 +105,7 @@ class PolynomialRoot(SageObject):
             nf = NumberField(pol, 'a', check=False)
             rt = ANRoot(pol, self.all_roots[self.index]*den)
             gen = AlgebraicGenerator(nf, rt)
-            return AlgebraicNumber(ANExtensionElement(gen, nf.gen()/den))
+            return AlgebraicNumber(ANExtensionElement(gen, (1/den)*nf.gen()))
         else:
             return QQbar.polynomial_root(self.pol, self.all_roots[self.index])
 
