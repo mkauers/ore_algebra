@@ -27,6 +27,7 @@ from .ore_operator_1_1 import UnivariateOreOperatorOverUnivariateRing
 from .ore_operator import UnivariateOreOperator
 from .tools import q_log, make_factor_iterator, shift_factor, _rec2list, _power_series_solutions
 
+
 #############################################################################################################
 
 class UnivariateQRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUnivariateRing):
@@ -67,12 +68,12 @@ class UnivariateQRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverU
 
         return UnivariateOreOperator.__call__(self, f, **kwargs)
 
-    def to_J(self, alg): # q2j
+    def to_J(self, alg):  # q2j
         """
         Returns a q-differential operator which annihilates every power series (about the origin)
         whose coefficient sequence is annihilated by ``self``.
 
-        The output operator may not be minimal. 
+        The output operator may not be minimal.
 
         INPUT:
 
@@ -140,8 +141,8 @@ class UnivariateQRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverU
         - ``init`` -- a vector (or list or tuple) of initial values.
           The components must be elements of ``self.base_ring().base_ring().fraction_field()``.
           If the length is more than ``self.order()``, we do not check whether the given
-          terms are consistent with ``self``. 
-        - ``n`` -- desired number of terms. 
+          terms are consistent with ``self``.
+        - ``n`` -- desired number of terms.
         - ``start`` (optional) -- index of the sequence term which is represented
           by the first entry of ``init``. Defaults to zero.
         - ``append`` (optional) -- if ``True``, the computed terms are appended
@@ -154,7 +155,7 @@ class UnivariateQRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverU
 
         A list of ``n`` terms whose `k` th component carries the sequence term with
         index ``start+k``.
-        Terms whose calculation causes an error are represented by ``None``. 
+        Terms whose calculation causes an error are represented by ``None``.
 
         EXAMPLES::
 
@@ -174,7 +175,7 @@ class UnivariateQRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverU
         Returns an operator `L` which annihilates all the indefinite sums `\sum_{k=0}^n a_k`
         where `a_n` runs through the sequences annihilated by ``self``.
 
-        The output operator is not necessarily of smallest possible order. 
+        The output operator is not necessarily of smallest possible order.
 
         EXAMPLES::
 
@@ -183,7 +184,7 @@ class UnivariateQRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverU
             sage: A.<Qx> = OreAlgebra(R, 'Qx')
             sage: ((x+1)*Qx - x).annihilator_of_sum()
             (q*x + 1)*Qx^2 + (-2*q*x - 1)*Qx + q*x
-      
+
         """
         A = self.parent()
         return self.map_coefficients(A.sigma())*(A.gen() - A.one())
@@ -198,9 +199,9 @@ class UnivariateQRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverU
         INPUT:
 
         - ``a`` -- a polynomial `u*x+v` where `x` is the generator of the base ring,
-          `u` and `v` are integers. 
+          `u` and `v` are integers.
         - ``solver`` (optional) -- a callable object which applied to a matrix
-          with polynomial entries returns its kernel. 
+          with polynomial entries returns its kernel.
 
         EXAMPLES::
 
@@ -217,13 +218,13 @@ class UnivariateQRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverU
             sage: Lrev = L.annihilator_of_composition(10 - x)
             sage: Lrev.to_list([data[10], data[9]], 11)
             [14580926901721431215/57983829378048, 1461633379710215/26500836096, 488427432475/40336128, 188901875/70848, 2387975/4032, 19435/144, 1585/48, 115/12, 15/4, 2, 1]
-    
+
         """
         # ugly code duplication: the following is more or less the same as
         # UnivariateRecurrenceOperatorOverUnivariateRing.annihilator_of_composition :-(
-        
+
         A = self.parent()
-        
+
         if a in ZZ:
             # a is constant => f(a) is constant => Q-1 kills it
             return A.gen() - A.one()
@@ -261,19 +262,19 @@ class UnivariateQRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverU
             c.reverse()
             return A(c).numerator().annihilator_of_composition(-u*x)
 
-        # now a = u*x where u > 1 
+        # now a = u*x where u > 1
         from sage.matrix.constructor import Matrix
         if solver is None:
             solver = A._solver()
 
         p = A.one()
-        Qu = A.gen()**u # possible improvement: multiplication matrix. 
+        Qu = A.gen()**u  # possible improvement: multiplication matrix.
         mat = [ p.coefficients(sparse=False, padd=r) ]
         sol = []
 
         while len(sol) == 0:
 
-            p = (Qu*p) % L  
+            p = (Qu*p) % L
             mat.append( p.coefficients(sparse=False, padd=r) )
             sol = solver(Matrix(mat).transpose())
 
@@ -289,13 +290,13 @@ class UnivariateQRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverU
         r = op.order()
         _, q = A.is_Q()
 
-        if op.order()==0:
+        if op.order() == 0:
             return []
         elif op[0].is_zero():
             return [infinity]
 
         if R.is_field():
-            R = R.ring() # R = k[x]
+            R = R.ring()  # R = k[x]
             R = R.change_ring(R.base_ring().fraction_field())
 
         try:
@@ -309,8 +310,8 @@ class UnivariateQRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverU
         except:
             pass
 
-        K = PolynomialRing(R.base_ring(), 'y').fraction_field() # F(k[y])
-        R = R.change_ring(K) # FF(k[y])[x]
+        K = PolynomialRing(R.base_ring(), 'y').fraction_field()  # F(k[y])
+        R = R.change_ring(K)  # FF(k[y])[x]
 
         y = R(K.gen())
         x, q = op.parent().is_Q()
@@ -326,7 +327,7 @@ class UnivariateQRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverU
                 except:
                     pass
 
-        s = list(set(s)) # remove duplicates
+        s = list(set(s))  # remove duplicates
         s.sort()
         return s
 
@@ -393,14 +394,14 @@ class UnivariateQRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverU
 
         The output is a list of all tuples ``(gamma, phi, beta, alpha)`` such that for every
         q-hypergeometric solution `f` of this operator (over the same constant field) there
-        is a tuple such that 
-        `f(q*x)/f(x) = phi * x^gamma * rat(q*x)/rat(x) * \prod_m (1-a_m*x)^{e_m}` 
+        is a tuple such that
+        `f(q*x)/f(x) = phi * x^gamma * rat(q*x)/rat(x) * \prod_m (1-a_m*x)^{e_m}`
         with `\sum_m e_m = beta` and `q^(deg(num(rat)) - deg(den(rat)))*\prod_m (-a_m)^{e_m} = alpha`.
 
         EXAMPLES::
 
             sage: from ore_algebra import *
-            sage: R.<x> = QQ['x']; A.<Qx> = OreAlgebra(R, q=2) 
+            sage: R.<x> = QQ['x']; A.<Qx> = OreAlgebra(R, q=2)
             sage: ((2*x+3)*Qx - (8*x+3)).lclm(Qx-1)._local_data_at_special_points()
             [(0, 2, 0, 2), (0, 2, 0, 1/2), (0, 1, 0, 4), (0, 1, 0, 1)]
 
@@ -419,13 +420,14 @@ class UnivariateQRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverU
                         L = self.symmetric_product(phi*x**max(-gamma, 0)*Q - x**max(gamma, 0))
                         for beta, qoly in L.newton_polygon(~x):
                             if beta in ZZ:
-                                for q in factors(qoly(x*qq**beta) + (qq**beta-1)*qoly[0]): # is this right?
+                                for q in factors(qoly(x*qq**beta) + (qq**beta-1)*qoly[0]):  # is this right?
                                     if q.degree() == 1 and q[0] != 0:
                                         out.append((-gamma, phi, beta, -q[0]/q[1]))
 
         return out
 
-#############################################################################################################
+
+####################################################################################
 
 class UnivariateQDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOverUnivariateRing):
     r"""
@@ -445,12 +447,12 @@ class UnivariateQDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOve
 
         return UnivariateOreOperator.__call__(self, f, **kwargs)
 
-    def to_Q(self, alg): # j2q
+    def to_Q(self, alg):  # j2q
         """
         Returns a q-recurrence operator which annihilates the coefficient sequence
         of every power series (about the origin) annihilated by ``self``.
 
-        The output operator may not be minimal. 
+        The output operator may not be minimal.
 
         INPUT:
 
@@ -503,7 +505,7 @@ class UnivariateQDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOve
                 J_pow *= J
             c = coeffs[i].padded_list(d + 1)
             c.reverse()
-            out += alg(list(map(R, c))) * J_pow            
+            out += alg(list(map(R, c))) * J_pow
 
         return ((q-1)**(len(coeffs)-1)*out).numerator().change_ring(alg.base_ring())
 
@@ -512,7 +514,7 @@ class UnivariateQDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOve
         Returns an operator `L` which annihilates all the indefinite `q`-integrals `\int_q f`
         where `f` runs through the functions annihilated by ``self``.
 
-        The output operator is not necessarily of smallest possible order. 
+        The output operator is not necessarily of smallest possible order.
 
         EXAMPLES::
 
@@ -523,7 +525,7 @@ class UnivariateQDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOve
             (x - 1)*Jx^2 - 2*x*Jx
             sage: _.annihilator_of_associate(Jx)
             (x - 1)*Jx - 2*x
-    
+
         """
         return self*self.parent().gen()
 
@@ -534,7 +536,7 @@ class UnivariateQDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOve
         The method raises an error if Sage does not know how to factor univariate polynomials
         over the base ring's base ring.
 
-        The base ring has to have characteristic zero.         
+        The base ring has to have characteristic zero.
 
         INPUT:
 
@@ -545,7 +547,7 @@ class UnivariateQDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOve
         A list of power series of the form `x^{\alpha} + ...` with pairwise distinct
         exponents `\alpha` and coefficients in the base ring's base ring's fraction field.
         All expansions are computed up to order `k` where `k` is obtained by adding the
-        maximal `\alpha` to the maximum of `n` and the order of ``self``.         
+        maximal `\alpha` to the maximum of `n` and the order of ``self``.
 
         EXAMPLES::
 
@@ -565,7 +567,7 @@ class UnivariateQDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOve
         that `J` is rewritten to `1/(q-1)/x * (Q - 1)`
         """
         x, q = self.parent().is_J()
-        
+
         alg = self.parent().change_var_sigma_delta(gen, {x:q*x}, {})
         alg = alg.change_ring(self.base_ring().fraction_field())
 
@@ -579,7 +581,7 @@ class UnivariateQDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOve
         out = alg(R(c[0]))
 
         for i in range(self.order()):
-            
+
             J_k *= J
             out += R(c[i + 1])*J_k
 
