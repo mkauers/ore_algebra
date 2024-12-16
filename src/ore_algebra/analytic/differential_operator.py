@@ -12,9 +12,12 @@ Custom differential operators
 #
 # http://www.gnu.org/licenses/
 
-from sage.arith.all import lcm
+from sage.arith.functions import lcm
 from sage.misc.cachefunc import cached_method
-from sage.rings.all import CIF, QQbar, QQ, ZZ
+from sage.rings.cif import CIF
+from sage.rings.qqbar import QQbar
+from sage.rings.rational_field import Q as QQ
+from sage.rings.integer_ring import Z as ZZ
 from sage.rings.infinity import infinity
 from sage.rings.number_field import number_field_base
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing

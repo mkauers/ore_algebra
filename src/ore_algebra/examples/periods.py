@@ -57,7 +57,8 @@ TESTS::
     + [-1.91246198476198469508767598629886364696739005798493876043889476390321377701075614142704673111...]*I
 """
 
-from sage.rings.all import ZZ, QQ
+from sage.rings.integer_ring import Z as ZZ
+from sage.rings.rational_field import Q as QQ
 from ore_algebra import DifferentialOperators
 
 Dops, t, D = DifferentialOperators(QQ, 't')

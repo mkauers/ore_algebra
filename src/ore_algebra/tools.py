@@ -14,7 +14,7 @@ Auxiliary functions
 #############################################################################
 
 from sage.structure.element import Element, canonical_coercion
-from sage.arith.all import gcd
+from sage.arith.misc import GCD as gcd
 from sage.functions.other import real_part
 from sage.matrix.constructor import Matrix
 from sage.rings.power_series_ring import PowerSeriesRing

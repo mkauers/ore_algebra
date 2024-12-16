@@ -129,7 +129,7 @@ from sage.misc.cachefunc import cached_function, cached_method
 # from sage.misc.lazy_string import lazy_string
 from sage.misc.misc_c import prod
 from sage.misc.random_testing import random_testing
-from sage.rings.all import ComplexIntervalField
+from sage.rings.complex_interval_field import ComplexIntervalField
 from sage.rings.complex_arb import CBF, ComplexBallField, ComplexBall
 from sage.rings.infinity import infinity
 from sage.rings.integer_ring import ZZ
@@ -2134,7 +2134,8 @@ class DiffOpBound:
         last = reversed(list(zip(*(pol.padded_list(n)[n-ordrec:n]
                                    for pol in trunc))))
         coeff = self.normalized_residual(n, list(last), Ring=Ring)
-        from sage.all import log, SR
+        from sage.misc.functional import log
+        from sage.symbolic.ring import SR
         z = SR.var(self.Poly.variable_name())
         leftmost = self.leftmost.as_number_field_element()
         nres = z**(leftmost + n)*sum(pol*log(z)**k/ZZ(k).factorial()

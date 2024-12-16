@@ -31,8 +31,17 @@ EXAMPLE::
 """
 
 import logging
-from sage.all import (ceil, ComplexBallField, ComplexField, i, matrix, pari,
-                      pi, PolynomialRing, QQ, sqrt, ZZ)
+from sage.functions.other import ceil
+from sage.rings.complex_arb import ComplexBallField
+from sage.rings.complex_mpfr import ComplexField
+from sage.rings.imaginary_unit import I as i
+from sage.matrix.constructor import Matrix as matrix
+from sage.libs.pari import pari
+from sage.symbolic.constants import pi
+from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
+from sage.rings.rational_field import Q as QQ
+from sage.misc.functional import sqrt
+from sage.rings.integer_ring import Z as ZZ
 from ore_algebra import DifferentialOperators
 
 logging.basicConfig()

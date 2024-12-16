@@ -16,8 +16,9 @@ from datetime import datetime
 from functools import cmp_to_key, reduce
 
 from sage.rings.noncommutative_ideals import Ideal_nc
-from sage.arith.all import gcd
-from sage.misc.all import prod, add
+from sage.arith.misc import GCD as gcd
+from sage.misc.misc_c import prod
+from builtins import sum as add
 from sage.rings.rational_field import QQ
 from sage.modules.free_module_element import vector
 from sage.matrix.constructor import matrix

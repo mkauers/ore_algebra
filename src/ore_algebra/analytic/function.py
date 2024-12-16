@@ -21,7 +21,11 @@ import sage.plot.all as plot
 
 from sage.misc.cachefunc import cached_method
 from sage.plot.plot import generate_plot_points
-from sage.rings.all import ZZ, QQ, RBF, RIF, CIF
+from sage.rings.integer_ring import Z as ZZ
+from sage.rings.rational_field import Q as QQ
+from sage.rings.real_arb import RBF
+from sage.rings.real_mpfi import RIF
+from sage.rings.cif import CIF
 from sage.rings.complex_arb import ComplexBall
 try:
     from sage.rings.complex_mpfr import ComplexNumber

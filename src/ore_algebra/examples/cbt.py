@@ -188,7 +188,8 @@ We obtain::
     10 [645.82842969986593153458120613640308394397361391...]
 """
 
-from sage.all import ZZ, QQ
+from sage.rings.integer_ring import Z as ZZ
+from sage.rings.rational_field import Q as QQ
 from ore_algebra import DifferentialOperators
 
 Dops, z, Dz = DifferentialOperators(QQ, 'z')

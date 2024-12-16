@@ -324,7 +324,7 @@ except ImportError:
 from sage.graphs.digraph import DiGraph
 from sage.graphs.graph import Graph
 from sage.misc.lazy_attribute import lazy_attribute
-from sage.rings.all import CC
+from sage.rings.cc import CC
 
 from .geometry import in_triangle
 from .utilities import pairwise, split

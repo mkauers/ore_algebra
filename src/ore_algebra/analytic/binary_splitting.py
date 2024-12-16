@@ -244,11 +244,16 @@ import sage.rings.polynomial.polynomial_element as polyelt
 import sage.rings.polynomial.polynomial_ring as polyring
 import sage.rings.polynomial.polynomial_ring_constructor as polyringconstr
 
-from sage.arith.all import gcd
+from sage.arith.misc import GCD as gcd
 from sage.matrix.constructor import matrix
 from sage.matrix.matrix_space import MatrixSpace
 from sage.modules.free_module_element import vector
-from sage.rings.all import ZZ, QQ, RLF, CLF, RealBallField, ComplexBallField
+from sage.rings.integer_ring import Z as ZZ
+from sage.rings.rational_field import Q as QQ
+from sage.rings.real_lazy import RLF
+from sage.rings.real_lazy import CLF
+from sage.rings.real_arb import RealBallField
+from sage.rings.complex_arb import ComplexBallField
 from sage.rings.number_field.number_field import NumberField
 from sage.rings.number_field import number_field_base
 from sage.structure.coerce_exceptions import CoercionException

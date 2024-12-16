@@ -46,7 +46,7 @@ import sage.functions.special
 import sage.functions.trig
 
 from sage.misc.misc_c import prod
-from sage.rings.all import QQ
+from sage.rings.rational_field import Q as QQ
 
 from operator import pow
 

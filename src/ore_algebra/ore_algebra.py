@@ -48,7 +48,7 @@ import sys
 from sage.categories.algebras import Algebras
 from sage.categories.pushout import ConstructionFunctor
 from sage.misc.cachefunc import cached_method
-from sage.rings.finite_rings.all import GF
+from sage.rings.finite_rings.finite_field_constructor import FiniteField as GF
 from sage.rings.fraction_field import FractionField_generic
 from sage.rings.integer_ring import ZZ
 from sage.rings.number_field import number_field_base

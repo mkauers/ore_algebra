@@ -16,7 +16,6 @@ Evaluation of univariate D-finite functions by numerical analytic continuation
 import logging
 import sys
 
-import sage.rings.all as rings
 import sage.rings.real_arb
 import sage.rings.complex_arb
 
@@ -26,6 +25,7 @@ from sage.matrix.constructor import identity_matrix, matrix
 from sage.rings.complex_arb import ComplexBallField
 from sage.rings.integer_ring import ZZ
 from sage.rings.real_arb import RealBallField
+from sage.rings.real_mpfi import RIF
 from sage.structure.element import Matrix, canonical_coercion
 
 from .context import Context as Context  # re-export
@@ -372,7 +372,7 @@ def analytic_continuation(dop, path, eps, ctx=dctx, ini=None, post=None,
         i += np
 
     cm = sage.structure.element.get_coercion_model()
-    real = (rings.RIF.has_coerce_map_from(dop.base_ring().base_ring())
+    real = (RIF.has_coerce_map_from(dop.base_ring().base_ring())
             and all(v.is_real() for v in path.vert))
     OutputIntervals = cm.common_parent(
             utilities.ball_field(eps, real),

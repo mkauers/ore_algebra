@@ -92,7 +92,10 @@ solutions of differential initial value problems.
 
 import collections
 import sage.functions.all as funs
-from sage.all import pi, prod, QQ, ZZ
+from sage.symbolic.constants import pi
+from sage.misc.misc_c import prod
+from sage.rings.rational_field import Q as QQ
+from sage.rings.integer_ring import Z as ZZ
 from ore_algebra import DifferentialOperators
 
 Dops, x, Dx = DifferentialOperators(QQ, 'x')

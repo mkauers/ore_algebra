@@ -14,8 +14,8 @@ Univariate q-recurrence and q-differential operators over univariate rings
 #  https://www.gnu.org/licenses/                                             #
 #############################################################################
 
-from sage.arith.all import gcd
-from sage.misc.all import prod
+from sage.arith.misc import GCD as gcd
+from sage.misc.misc_c import prod
 from sage.rings.infinity import infinity
 from sage.rings.integer_ring import ZZ
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing

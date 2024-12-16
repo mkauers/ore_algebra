@@ -172,8 +172,12 @@ testsuite
 """
 import math
 
-from sage.arith.all import CRT_basis, xgcd, gcd, lcm, previous_prime as pp
-from sage.misc.all import prod
+from sage.arith.misc import CRT_basis
+from sage.arith.misc import XGCD as xgcd
+from sage.arith.misc import GCD as gcd
+from sage.arith.functions import lcm
+from sage.arith.misc import previous_prime as pp
+from sage.misc.misc_c import prod
 from sage.misc.cachefunc import cached_function
 from sage.misc.lazy_string import lazy_string
 from sage.rings.polynomial.polynomial_element import Polynomial
@@ -181,7 +185,7 @@ from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 from sage.rings.polynomial.multi_polynomial_libsingular import MPolynomialRing_libsingular
 from sage.rings.integer_ring import ZZ
 from sage.rings.rational_field import QQ
-from sage.rings.finite_rings.all import GF
+from sage.rings.finite_rings.finite_field_constructor import FiniteField as GF
 from sage.matrix.berlekamp_massey import berlekamp_massey
 from sage.arith.multi_modular import MAX_MODULUS
 from sage.parallel.decorate import parallel

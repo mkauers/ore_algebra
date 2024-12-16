@@ -40,14 +40,17 @@ from copy import copy
 from math import factorial
 from operator import pow
 
-from sage.arith.all import gcd
+from sage.arith.misc import GCD as gcd
 from sage.categories.algebras import Algebras
 from sage.symbolic.ring import SR
 from sage.functions.other import floor, ceil, binomial
 from sage.matrix.constructor import matrix
-from sage.misc.all import prod, randint
+from sage.misc.misc_c import prod
+from sage.misc.prandom import randint
 from sage.misc.latex import latex
-from sage.rings.all import ZZ, QQ, CC
+from sage.rings.integer_ring import Z as ZZ
+from sage.rings.rational_field import Q as QQ
+from sage.rings.cc import CC
 from sage.rings.infinity import Infinity
 from sage.rings.semirings.non_negative_integer_semiring import NN
 from sage.structure.element import RingElement

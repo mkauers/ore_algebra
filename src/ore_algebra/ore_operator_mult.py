@@ -20,7 +20,7 @@ from datetime import datetime
 from functools import reduce
 
 from sage.structure.richcmp import richcmp
-from sage.misc.all import prod
+from sage.misc.misc_c import prod
 from sage.misc.lazy_string import lazy_string
 from sage.modules.free_module_element import vector
 from sage.rings.rational_field import QQ

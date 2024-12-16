@@ -23,7 +23,8 @@ EXAMPLE::
     [1.059543747888261071316975957...] + [+/- ...]*I
 """
 
-from sage.rings.all import PolynomialRing, ZZ
+from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
+from sage.rings.integer_ring import Z as ZZ
 from ore_algebra import OreAlgebra
 
 Pol, z = PolynomialRing(ZZ, 'z').objgen()

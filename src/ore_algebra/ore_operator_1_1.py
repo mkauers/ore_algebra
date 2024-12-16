@@ -20,11 +20,13 @@ one generator.
 
 from functools import reduce
 
-from sage.arith.all import previous_prime as pp
-from sage.arith.all import gcd, lcm, srange
+from sage.arith.misc import previous_prime as pp
+from sage.arith.misc import GCD as gcd
+from sage.arith.functions import lcm
+from sage.arith.srange import srange
 from sage.arith.misc import divisors
 from sage.matrix.constructor import matrix
-from sage.misc.all import prod
+from sage.misc.misc_c import prod
 from sage.misc.cachefunc import cached_method
 from sage.misc.functional import log
 from sage.misc.lazy_import import lazy_import
@@ -973,7 +975,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
            sage: ((q^2*x-1)*Qx-(x-1)).finite_singularities()
            [(-x + 1, [[0, 1, q*x^2 + (-q - 1)*x + 1]])]
         """
-        from sage.rings.finite_rings.all import GF
+        from sage.rings.finite_rings.finite_field_constructor import FiniteField as GF
 
         R = self.parent().base_ring().fraction_field().base()
         R = R.change_ring(R.base_ring().fraction_field())

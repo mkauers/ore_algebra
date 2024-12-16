@@ -20,7 +20,8 @@ from functools import reduce
 
 from sage.structure.element import RingElement, canonical_coercion
 from sage.structure.richcmp import richcmp
-from sage.arith.all import gcd, lcm
+from sage.arith.misc import GCD as gcd
+from sage.arith.functions import lcm
 from sage.rings.infinity import infinity
 from sage.rings.power_series_ring_element import PowerSeries
 from sage.rings.laurent_series_ring import LaurentSeriesRing
@@ -62,7 +63,7 @@ class OreOperator(RingElement):
         whose left hand sides are the names of the generator and the
         right hand side some callable object. If no such information
         is provided for some generator, a default function is used.
-        The choice of the default depends on the subclass. 
+        The choice of the default depends on the subclass.
 
         The parent of ``f`` must be a ring supporting conversion
         from the base ring of ``self``. (There is room for generalization.)

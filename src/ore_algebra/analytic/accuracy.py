@@ -15,7 +15,9 @@ Accuracy management
 
 import logging
 
-from sage.rings.all import  ZZ, QQ, RR
+from sage.rings.integer_ring import Z as ZZ
+from sage.rings.rational_field import Q as QQ
+from sage.rings.real_mpfr import RR
 
 from .safe_cmp import safe_lt, safe_le
 
