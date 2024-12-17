@@ -1852,7 +1852,7 @@ def _quick_check(subsolver, modsolver, modulus, cutoffdim, mat, degrees, infolev
     R = mat.base_ring()
     _launch_info(infolevel, "quick_check", dim=mat.dimensions(), domain=R)
 
-    if R.is_prime_field() and R.characteristic() > 0:
+    if R in FiniteFields() and R.degree() == 1:
         return modsolver(mat, degrees=degrees, infolevel=_alter_infolevel(infolevel, -1, 1))
 
     K = R.base_ring()
