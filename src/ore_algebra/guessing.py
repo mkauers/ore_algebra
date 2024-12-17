@@ -47,11 +47,11 @@ from sage.parallel.decorate import parallel
 from sage.rings.polynomial.polynomial_ring import PolynomialRing_general
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 from sage.modules.free_module_element import vector
-from sage.sets.primes import Primes
 
 from . import nullspace
 from .nullspace import _hermite, _rational_reconstruction
 from .ore_algebra import OreAlgebra
+
 
 def guess_rec(data, n, S, **kwargs):
     """
@@ -62,6 +62,7 @@ def guess_rec(data, n, S, **kwargs):
     """
     R = data[0].parent()[n]
     return guess(data, OreAlgebra(R, (S, {n:n+R.one()}, {})), **kwargs)
+
 
 def guess_deq(data, x, D, **kwargs):
     """
@@ -74,6 +75,7 @@ def guess_deq(data, x, D, **kwargs):
     x = R.gen()
     return guess(data, OreAlgebra(R, (D, {}, {x:R.one()})), **kwargs)
 
+
 def guess_qrec(data, qn, Q, q, **kwargs):
     """
     Shortcut for ``guess`` applied with an Ore algebra of `q`-recurrence operators in `Q` over `K[qn]`
@@ -83,6 +85,7 @@ def guess_qrec(data, qn, Q, q, **kwargs):
     """
     R = q.parent()[qn]
     return guess(data, OreAlgebra(R, (Q, {qn:q*qn}, {qn:R.one()})), **kwargs)
+
 
 def guess(data, algebra, **kwargs):
     """

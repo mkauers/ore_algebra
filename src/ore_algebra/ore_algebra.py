@@ -46,6 +46,7 @@ AUTHOR:
 import sys
 
 from sage.categories.algebras import Algebras
+from sage.categories.finite_field import FiniteFields
 from sage.categories.pushout import ConstructionFunctor
 from sage.misc.cachefunc import cached_method
 from sage.rings.finite_rings.finite_field_constructor import FiniteField as GF
@@ -1729,7 +1730,7 @@ class OreAlgebra_generic(UniqueRepresentation, Parent):
             pass
 
         # make a reasonable choice
-        if R.is_prime_field() and R.characteristic() > 0:
+        if R in FiniteFields():
             return nullspace.sage_native
         elif R is ZZ or R is QQ:
             return nullspace.sage_native
