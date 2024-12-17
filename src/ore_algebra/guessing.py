@@ -35,6 +35,7 @@ from datetime import datetime
 
 from sage.arith.misc import previous_prime
 from sage.arith.functions import lcm
+from sage.categories.finite_fields import FiniteFields
 from sage.misc.misc_c import prod
 from sage.rings.integer_ring import ZZ
 from sage.rings.rational_field import QQ
@@ -229,14 +230,14 @@ def guess(data, algebra, **kwargs):
     elif (not A.is_S() and not A.is_D() and not A.is_Q() and not A.is_C()):
         raise TypeError("unexpected algebra: " + str(A))
 
-    elif K.is_prime_field() and K.characteristic() > 0:
+    elif K in FiniteFields() and K.degree() == 1:
         return _guess_via_gcrd(data, A, **kwargs)
 
     elif K is ZZ:
         # CRA
         return _guess_via_hom(data, A, _word_size_primes(), lambda mod : GF(mod), **kwargs)
 
-    elif isinstance(K, PolynomialRing_general) and K.base_ring().is_prime_field() and K.characteristic() > 0:  # K == GF(p)[t]
+    elif isinstance(K, PolynomialRing_general) and K.base_ring() in FiniteFields() and K.base_ring().degree() == 1:  # K == GF(p)[t]
         # eval/interpol
         mod = _linear_polys(K.gen(), 7, K.characteristic())
         to_hom = lambda mod : (lambda pol : pol(-mod[0]))
@@ -1406,7 +1407,7 @@ def guess_mult(data, algebra, **kwargs):
 
     C = algebra.base_ring().base_ring().fraction_field() ### constant field
 
-    if C.characteristic() in Primes() and C is GF(C.characteristic()): ### constant field is GF(p) --> raw guessing
+    if C in FiniteFields() and C.degree() == 1: ### constant field is GF(p) --> raw guessing
 
         power = []
         for i in range_dim:
@@ -1419,7 +1420,7 @@ def guess_mult(data, algebra, **kwargs):
 
         sol = guess_mult_raw(C, data, terms, points, power, A, B, **kwargs)
 
-    elif C is QQ or isinstance(C.base(), PolynomialRing_general) and len(C.base().gens()) == 1 and C.base_ring() is GF(C.characteristic()):
+    elif C is QQ or (isinstance(C.base(), PolynomialRing_general) and len(C.base().gens()) == 1 and C.base_ring() in FiniteFields() and C.base_ring().degree() == 1):
         ### C == QQ or C == GF(p)(t) --> plain chinese remaindering (resp interpolation) plus rational reconstruction
 
         modulus_generator = _word_size_primes() if C is QQ else _linear_polys(C.base().gen(), 7, C.characteristic())
