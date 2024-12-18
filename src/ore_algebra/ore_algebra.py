@@ -46,7 +46,7 @@ AUTHOR:
 import sys
 
 from sage.categories.algebras import Algebras
-from sage.categories.finite_field import FiniteFields
+from sage.categories.finite_fields import FiniteFields
 from sage.categories.pushout import ConstructionFunctor
 from sage.misc.cachefunc import cached_method
 from sage.rings.finite_rings.finite_field_constructor import FiniteField as GF
