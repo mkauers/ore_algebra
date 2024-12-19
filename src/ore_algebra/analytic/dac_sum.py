@@ -149,7 +149,6 @@ from sage.rings.real_arb import RealBallField
 from sage.structure.sequence import Sequence
 
 from . import accuracy
-from . import bounds
 from . import utilities
 
 from .bounds import DiffOpBound
