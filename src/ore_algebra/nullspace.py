@@ -177,6 +177,7 @@ from sage.arith.misc import XGCD as xgcd
 from sage.arith.misc import GCD as gcd
 from sage.arith.functions import lcm
 from sage.arith.misc import previous_prime as pp
+from sage.categories.finite_fields import FiniteFields
 from sage.misc.misc_c import prod
 from sage.misc.cachefunc import cached_function
 from sage.misc.lazy_string import lazy_string
