@@ -390,7 +390,6 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
 
         TESTS::
 
-            sage: from sage.all import Matrix, randrange
             sage: from ore_algebra import *
             sage: R = ZZ
             sage: Rx = R['x']; x = Rx.gen()
