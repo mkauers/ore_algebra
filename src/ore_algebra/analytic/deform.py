@@ -309,7 +309,6 @@ Errors::
 import logging
 import cmath
 import math
-import sage.plot.all as plot
 import numpy
 import scipy.optimize
 
@@ -1451,6 +1450,7 @@ class PathDeformer:
                           **kwds)
 
     def plot_input(self, **kwds):
+        import sage.plot.all as plot
         pl = self.plot_voronoi(edge_labels=False, **kwds)
         pl += self.plot_cuts(edge_style="dotted")
         pl += plot.line([(z.real, z.imag) for z in self.input_path[:-1]],
@@ -1460,6 +1460,7 @@ class PathDeformer:
         return pl
 
     def plot_cpath(self, thickness=3, **kwds):
+        import sage.plot.all as plot
         pl = self.plot_input()
         pos = self.xvor.get_pos()
         for step in self.cpath[1:-1]:
@@ -1469,6 +1470,7 @@ class PathDeformer:
         return pl
 
     def plot(self, both=False, **kwds):
+        import sage.plot.all as plot
         pl = self.plot_input()
         try:
             path = self.result
