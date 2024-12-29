@@ -75,7 +75,10 @@ setup(
     zip_safe=False,
     extras_require={'passagemath': ['passagemath-graphs',
                                     'passagemath-modules',
+                                    'passagemath-pari',
+                                    'passagemath-plot',
                                     'passagemath-repl',
                                     'passagemath-singular',
-                                    'passagemath-symbolics']},
+                                    'passagemath-symbolics',
+                                    'scipy']},
 )
