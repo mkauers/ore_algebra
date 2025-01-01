@@ -809,7 +809,7 @@ class Splitting:
         prec2 = min(prec2, accuracy(self.basis))
 
         if 2*prec2 < prec1:
-            raise PrecisionError("loosing too much precision to continue")
+            raise PrecisionError("losing too much precision to continue")
 
         COF = ComplexOptimisticField(prec1, eps = RealField(30).one()>>(3*prec1//8))
 
@@ -977,14 +977,14 @@ def accuracy(x):
 
     INPUT:
 
-     - ``x`` -- a complex ball objet
+     - ``x`` -- a complex ball object
 
     OUTPUT:
 
      - ``acc`` -- a nonnegative integer
 
     EXAMPLES::
-    
+
         sage: from ore_algebra.analytic.linear_algebra import accuracy
         sage: a = ComplexBallField().one()
         sage: a.accuracy(), accuracy(a)

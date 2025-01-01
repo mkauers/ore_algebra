@@ -410,6 +410,7 @@ def _vect_val_fct(v, place=None):
 
     return min(vv.valuation() for vv in v)
 
+
 # TODO: Add examples with plain vectors?
 def _vect_elim_fct(basis, place=None, dim=None, infolevel=0, residue_fct=None):
     r"""

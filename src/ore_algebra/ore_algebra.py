@@ -11,7 +11,7 @@ function ``OreAlgebra`` as described below.
 
 Depending on the particular parent algebra, Ore polynomials may support different functionality.
 For example, for Ore polynomials representing recurrence operators, there is a method for
-computing interlacing operatos, an operation which does not make sense for differential operators.
+computing interlacing operators, an operation which does not make sense for differential operators.
 
 The typical user will only need two functions defined in the package:
 
@@ -27,7 +27,7 @@ tutorial paper *Ore Polynomials in Sage* by the authors.
 
 AUTHOR:
 
- - Manuel Kauers, Maximilian Jaroschek, Fredrik Johansson (2013-06-15)
+- Manuel Kauers, Maximilian Jaroschek, Fredrik Johansson (2013-06-15)
 
 """
 

@@ -7,7 +7,7 @@ A D-finite sequence can be represented by an Ore operator which annihilates the 
 about Ore operators check the ``ore_algebra`` package), the operators singularities and a finite amount of initial values.
 
 A D-finite function can be envisioned as a power series, therefore it can be represented via a D-finite sequence which
-describes the coefficient sequence and an Ore operator which annhilates the function.
+describes the coefficient sequence and an Ore operator which annihilates the function.
 
 D-finite sequences and functions are elements of D-finite function rings. D-finite function rings are ring objects created by the
 function ``DFiniteFunctionRing`` as described below.
@@ -822,7 +822,7 @@ class DFiniteFunction(RingElement):
 
         - ``initial_val`` -- a list of initial values, determining the sequence or function, containing at least
           as many values as the order of ``ann`` predicts. For sequences these are the first sequence terms; for functions
-          the first Taylor coefficients. If the annhilating operator has singularities then ``initial_val`` has to be given
+          the first Taylor coefficients. If the annihilating operator has singularities then ``initial_val`` has to be given
           in form of a dictionary containing the initial values and the singularities. For functions ``initial_val`` can also
           be a D-finite sequence representing the coefficient sequence of the function
 
