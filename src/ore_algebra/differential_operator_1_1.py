@@ -14,6 +14,8 @@ Univariate differential operators over univariate rings
 #  http://www.gnu.org/licenses/                                             #
 #############################################################################
 
+import logging
+
 from functools import reduce
 
 import sage.functions.log as symbolic_log
@@ -24,6 +26,7 @@ from sage.arith.misc import nth_prime
 from sage.arith.misc import valuation
 from sage.matrix.constructor import matrix
 from sage.misc.cachefunc import cached_method
+from sage.numerical.mip import MixedIntegerLinearProgram
 from sage.rings.fraction_field import FractionField_generic
 from sage.rings.infinity import infinity
 from sage.rings.integer_ring import ZZ
@@ -40,12 +43,11 @@ from sage.structure.formal_sum import FormalSum, FormalSums
 from sage.symbolic.all import SR
 
 from .generalized_series import GeneralizedSeriesMonoid, _binomial
-from .ore_algebra import OreAlgebra_generic
+from .ore_algebra import OreAlgebra_generic, OreAlgebra
 from .ore_operator_1_1 import UnivariateOreOperatorOverUnivariateRing
 from .ore_operator import UnivariateOreOperator
 from .tools import clear_denominators, make_factor_iterator, shift_factor, _rec2list, _power_series_solutions
 from . import nullspace
-
 
 #############################################################################################################
 
@@ -2510,6 +2512,377 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         from .analytic.factorization import is_provably_minimal_annihilator
         return is_provably_minimal_annihilator(self, initial_conditions, verbose=verbose, prec=prec, max_prec=max_prec)
 
+    def _valuation_bound(self):
+        r"""
+        Upper bound on the valuations of power series solutions
+
+        This quantity is used in the computation of minimal annihilator
+        following Bostan, Rivoal, Salvy (2024), where it is denoted
+        ``max(Z_{self})``.
+
+        EXAMPLES::
+
+            sage: from ore_algebra import *
+            sage: from ore_algebra.examples import random_fuchsian
+
+            sage: R.<x>=PolynomialRing(QQ)
+            sage: A.<Dx>=OreAlgebra(R)
+
+            sage: dop = random_fuchsian.irred[2,5,6].numerator()
+            sage: dop._valuation_bound()
+            4
+
+            sage: dop = random_fuchsian.irred[3,3,5].numerator()
+            sage: dop._valuation_bound()
+            2
+        """
+        x_ = self.base_ring().gen()
+        m = max(self.indicial_polynomial(x_).roots(ZZ, multiplicities=False), default=0)
+        return m
+
+    def _extend_series_solution(self, t, p):
+        r"""
+        INPUT:
+
+        - ``t`` -- list of initial terms of a power series solution of this
+          operator
+
+        - ''p'' -- integer
+
+        OUTPUT:
+
+        At least ``p`` terms of the same series solution.
+
+        EXAMPLES:
+
+        Fibonacci sequence::
+
+            sage: from ore_algebra import *
+            sage: R.<x>=PolynomialRing(QQ)
+            sage: A.<Dx>=OreAlgebra(R)
+
+            sage: dop = (-x^3-x^2+x)*Dx-x^2-1
+            sage: t = dop._extend_series_solution([0, 1], 50)
+            sage: list_fibonacci_sequence = [fibonacci(i) for i in range(50)]
+            sage: t == list_fibonacci_sequence
+            True
+
+        Exponential and inverse factorial::
+
+            sage: t = (Dx - 1)._extend_series_solution([1, 1], 50)
+            sage: t == [1/factorial(i) for i in range(50)]
+            True
+        """
+        R = self.base_ring().base_ring()
+        if len(t) < p:
+            rop_ = self.to_S(OreAlgebra(R['n'], 'Sn'))
+            t = rop_.to_list(t, p)
+        return t
+
+    def _list_factor_singularity_data(self):
+        r"""
+        OUTPUT:
+
+        A list of ``Factor_Singularity_Data`` objects describing the singular
+        points of ``self``.
+        """
+        x_ = self.base_ring().gen()
+        list_fac = [(1/x_, 1)] + list(self.leading_coefficient().factor())
+        list_factor_singularity_data = [_FactorSingularityData(fac, self) for fac, _ in list_fac]
+        return list_factor_singularity_data
+
+    def _right_factor_apparent_singularities_bound(self, r_order, list_factor_singularity_data=None):
+        r"""
+        Bound the number of apparent singularities of a right factor
+
+        INPUT:
+
+        - ``r_order`` -- order of the factor
+
+        - ``list_factor_singularity_data`` (optional) -- precomputed
+          information about the singularities of ``self``, as returned by
+          ``self._list_factor_singularity_data()``
+
+        OUTPUT:
+
+        An upper bound on the number of apparent singularities of any
+        right-hand factor of ``self`` of order exactly ``r_order``.
+
+        EXAMPLES::
+
+            sage: from ore_algebra import *
+            sage: from ore_algebra.examples import random_fuchsian
+
+            sage: R.<x>=PolynomialRing(QQ)
+            sage: A.<Dx>=OreAlgebra(R)
+
+            sage: p = (x^6 - 6*x^5 + 13*x^4 - 12*x^3 + 4*x^2)*Dx^2 + (-46*x^5 + 217*x^4 - 365*x^3 + 266*x^2 - 72*x)*Dx + 496*x^4 - 5223/4*x^3 + 5305/4*x^2 - 2127/2*x + 352
+            sage: q = (x^6 - 6*x^5 + 13*x^4 - 12*x^3 + 4*x^2)*Dx^2 + (-19*x^5 + 104*x^4 - 213*x^3 + 196*x^2 - 68*x)*Dx - 224*x^4 + 6391/12*x^3 + 537/4*x^2 - 4181/6*x + 260
+            sage: qpp = q*p*p
+            sage: list_factor_singularity_data = qpp._list_factor_singularity_data()
+            sage: qpp._right_factor_apparent_singularities_bound(4, list_factor_singularity_data)
+            70
+            sage: qpp._right_factor_apparent_singularities_bound(2, list_factor_singularity_data)
+            68
+
+            sage: pol = -x^5 + 2*x^3 + 1/2*x^2 + x - 2
+            sage: dop_pol = pol*Dx - pol.derivative()
+            sage: q = random_fuchsian.irred[1,2,2].numerator()
+            sage: dop = q*dop_pol
+            sage: dop._right_factor_apparent_singularities_bound(2)
+            35
+            sage: dop._right_factor_apparent_singularities_bound(1)
+            29
+
+            sage: dop = random_fuchsian.irred[1,4,2].numerator()
+            sage: dop._right_factor_apparent_singularities_bound(2)
+            59
+            sage: dop._right_factor_apparent_singularities_bound(1)
+            Traceback (most recent call last):
+            ...
+            MIPSolverException: PPL : There is no feasible solution
+
+            sage: dop = random_fuchsian.irred[2,5,4].numerator()
+            sage: dop._right_factor_apparent_singularities_bound(3) # long time (17 s)
+            28
+        """
+        import contextlib
+        import io
+        if list_factor_singularity_data is None:
+            list_factor_singularity_data = self._list_factor_singularity_data()
+
+        lcm_denominator_ = lcm(r_.denominator()
+                               for fsd in list_factor_singularity_data
+                               for r_ in fsd.ind_pol_fac_sum_roots)
+        # TODO:
+        # - support other solvers (especially SCIP)
+        # - use the LP relaxation when solving the ILP problem is too slow
+        p = MixedIntegerLinearProgram(maximization=True, solver="PPL")
+        c = p.new_variable(binary=True)
+        d = p.new_variable(integer=True, nonnegative=True)
+        for i, fsd in enumerate(list_factor_singularity_data):
+            if not fsd.is_apparent:
+                p.add_constraint(sum(c[i, j]*d for j, d in enumerate(fsd.ind_pol_fac_degree)) == r_order)
+        p.add_constraint(lcm_denominator_*d[0] == lcm_denominator_*(-r_order*(r_order - 1)
+                                 - sum(fsd.fac_degree*(sum (c[i, j]*e
+                                    for j, e in enumerate(fsd.ind_pol_fac_sum_roots)) -r_order*(r_order - 1)/2)
+                                 for i, fsd in enumerate(list_factor_singularity_data) if not fsd.is_apparent)))
+        p.set_objective(d[0])
+        with contextlib.redirect_stdout(io.StringIO()) as f:
+            p.show()
+        logging.debug(f.getvalue())
+        b = p.solve()
+        return b
+
+    def _right_factor_degree_bound(self, r_order, list_factor_singularity_data=None):
+        r"""
+        Bound the degree of a right factor
+
+        INPUT:
+
+        - ''r_order'' -- order of the factor
+
+        - ``list_factor_singularity_data`` (optional) -- precomputed
+          information about the singularities of ``self``, as returned by
+          ``self._list_factor_singularity_data()``
+
+        OUTPUT:
+
+        An upper bound on the degree of any right-hand factor of ``self`` of
+        order exactly ``r_order``.
+
+        EXAMPLES::
+
+            sage: from ore_algebra import *
+            sage: from ore_algebra.examples import random_fuchsian
+
+            sage: R.<x>=PolynomialRing(QQ)
+            sage: A.<Dx>=OreAlgebra(R)
+            sage: p = (x^6 - 6*x^5 + 13*x^4 - 12*x^3 + 4*x^2)*Dx^2 + (-46*x^5 + 217*x^4 - 365*x^3 + 266*x^2 - 72*x)*Dx + 496*x^4 - 5223/4*x^3 + 5305/4*x^2 - 2127/2*x + 352
+            sage: q = (x^6 - 6*x^5 + 13*x^4 - 12*x^3 + 4*x^2)*Dx^2 + (-19*x^5 + 104*x^4 - 213*x^3 + 196*x^2 - 68*x)*Dx - 224*x^4 + 6391/12*x^3 + 537/4*x^2 - 4181/6*x + 260
+            sage: qpp = q*p*p
+            sage: qpp._right_factor_degree_bound(4)
+            444
+            sage: qpp._right_factor_degree_bound(2)
+            432
+
+            sage: from ore_algebra import *
+            sage: R.<x>=PolynomialRing(QQ)
+            sage: A.<Dx>=OreAlgebra(R)
+            sage: pol = -x^5 + 2*x^3 + 1/2*x^2 + x - 2
+            sage: dop_pol = pol*Dx - pol.derivative()
+            sage: q = random_fuchsian.irred[1,2,2].numerator()
+            sage: dop = q*dop_pol
+            sage: dop._right_factor_degree_bound(2)
+            129
+            sage: dop._right_factor_degree_bound(1)
+            111
+
+            sage: from ore_algebra import *
+            sage: R.<x>=PolynomialRing(QQ)
+            sage: A.<Dx>=OreAlgebra(R)
+            sage: dop = random_fuchsian.irred[1,4,2]
+            sage: dop = dop.numerator()
+            sage: dop._right_factor_degree_bound(3)
+            Traceback (most recent call last):
+            ...
+            MIPSolverException: PPL : There is no feasible solution
+            sage: dop._right_factor_degree_bound(2)
+            248
+
+            sage: from ore_algebra import *
+            sage: R.<x>=PolynomialRing(QQ)
+            sage: A.<Dx>=OreAlgebra(R)
+            sage: dop = random_fuchsian.irred[2,5,4]
+            sage: dop = dop.numerator()
+            sage: dop._right_factor_degree_bound(3) # long time (17 s)
+            165
+        """
+        if list_factor_singularity_data is None:
+            list_factor_singularity_data = self._list_factor_singularity_data()
+        r = self.order()
+        # compute the number of non apparent singularities of this operator
+        s_dop = sum([fsd.fac_degree for fsd in list_factor_singularity_data if not fsd.is_apparent])
+        # bound on the degree of the coefficient of a right factor of order
+        # r_order: see Bostan, Rivoal, Salvy, 'Explicit degree bounds for right
+        # factors of linear differential operators', pages 6--7.
+        b = self._right_factor_apparent_singularities_bound(r_order, list_factor_singularity_data)
+        N = r*(b + s_dop)
+        return N
+
+    def minimal_annihilator(self, initial_conditions):
+        r"""
+        Compute the minimal annihilator of a power series solution of this operator
+
+        This method is currently limited to the case where the differential
+        operator is Fuchsian.
+
+        INPUT:
+
+        - ``initial_conditions`` -- list of initial coefficients which
+          determine a unique power series solution of this operator
+
+        OUTPUT:
+
+        The operator of minimal order operator which annihilates the
+        corresponding power series.
+
+        ALGORITHM:
+
+        Follows Bostan, Rivoal, Salvy, *Minimisation of differential equations
+        and algebraic values of E-functions*, Math. Comp., 2024,
+        <https://arxiv.org/abs/2209.01827>.
+
+        This experimental implementation omits several optimizations discussed
+        in the article.
+
+        Steps that are slow in some cases and could be improved include in
+        particular:
+
+        - testing if a point is a apparent singularity (esp. when the point is
+          a root of a polynomial of high degree),
+        - bounding the number of apparent singularities,
+        - reconstructing candidate minimal annihilators using ``guess()``.
+
+        EXAMPLES::
+
+            sage: from ore_algebra import *
+            sage: from ore_algebra.examples import random_fuchsian
+
+            sage: R.<x>=PolynomialRing(QQ)
+            sage: A.<Dx>=OreAlgebra(R)
+            sage: pol = -x^5 + 2*x^3 + 1/2*x^2 + x - 2
+            sage: dop_pol = pol*Dx - pol.derivative()
+            sage: q = (1) * Dx^2 + ((-4302*x-33686)/(180*x^2-905*x-4785)) * Dx^1 + ((7128324*x^2+170561664*x-914731699)/(129600*x^4-1303200*x^3-3614300*x^2+34643400*x+91584900))
+            sage: q = q.numerator()
+            sage: dop = q*dop_pol
+            sage: initial_conditions = list(pol) + [0 for _ in range(50)]
+            sage: dop_min = dop.minimal_annihilator(initial_conditions)
+            sage: dop_pol.monic() == dop_min.monic()
+            True
+
+            sage: from ore_algebra import *
+            sage: R.<x>=PolynomialRing(QQ)
+            sage: A.<Dx>=OreAlgebra(R)
+            sage: pol = -3/26*x^10 - 1/2*x^9 - 7*x^8 + 34*x^7 + x^5 - 3/2*x^4 + x^3 - 162*x^2 - 29/51*x + 1
+            sage: dop_pol = pol*Dx-pol.derivative()
+            sage: e = random_fuchsian.irred[4,4,3]
+            sage: e = e.numerator()
+            sage: dop = e*dop_pol
+            sage: initial_conditions = list(pol) + [0 for _ in range(50)]
+            sage: dop_min = dop.minimal_annihilator(initial_conditions)  # long time (15 s)
+            sage: dop_pol.monic() == dop_min.monic()  # long time
+            True
+
+            sage: from ore_algebra import *
+            sage: R.<x>=PolynomialRing(QQ)
+            sage: A.<Dx>=OreAlgebra(R)
+            sage: p = (x^6 - 6*x^5 + 13*x^4 - 12*x^3 + 4*x^2)*Dx^2 + (-46*x^5 + 217*x^4 - 365*x^3 + 266*x^2 - 72*x)*Dx + 496*x^4 - 5223/4*x^3 + 5305/4*x^2 - 2127/2*x + 352
+            sage: q = (x^6 - 6*x^5 + 13*x^4 - 12*x^3 + 4*x^2)*Dx^2 + (-19*x^5 + 104*x^4 - 213*x^3 + 196*x^2 - 68*x)*Dx - 224*x^4 + 6391/12*x^3 + 537/4*x^2 - 4181/6*x + 260
+            sage: qpp = q*p*p
+            sage: list_factor_singularity_data = qpp._list_factor_singularity_data()
+            sage: initial_conditions = list((p.power_series_solutions(50)[0]))
+            sage: qpp_min = qpp.minimal_annihilator(initial_conditions)
+            sage: p.monic() == qpp_min.monic()
+            True
+        """
+
+        from ore_algebra.guessing import guess
+        from sage.numerical.mip import MIPSolverException
+        import time
+        logging.basicConfig(format='%(created)f -- %(message)s')
+
+        t1 = time.time()
+        # initialize current right factor of this operator of minimal order
+        # with coefficients in R[x] which annihilates initial_conditions
+        right_fac_dop = self.numerator()
+        t = initial_conditions
+        r = self.order()
+        r_order = r  # current tested order
+        p = self._valuation_bound() + r
+        R = self.base_ring()
+        list_factor_singularity_data = self._list_factor_singularity_data()
+        while r_order > 1:
+            # we test if an annihilator of order r_order-1 exists
+            r_order = r_order - 1
+            logging.debug('r_order : %s' % (r_order))
+            try:
+                t2 = time.time()
+                N = self._right_factor_degree_bound(r_order, list_factor_singularity_data)
+            except MIPSolverException:
+                # TODO: check that the problem is indeed infeasible, there may
+                # be other exceptions!
+                continue  # There is no right factor of this operator of order r_order
+            finally:
+                logging.debug('N, r_order : %s, succeed, time : %f' % (r_order, time.time()-t2))
+            while True:
+                t3 = time.time()
+                t = self._extend_series_solution(t, p + r_order)
+                logging.debug('_extend_series_solution, r_order : %s, time : %f' % (r_order, time.time()-t3))
+                k = p//(r_order + 1)
+                try:
+                    t4 = time.time()
+                    # we can either set min_order as 1 or as r_order
+                    guess_dop = guess(t, self.parent(), min_order=r_order, max_order=r_order, max_degree=k)
+                    logging.debug('guess, r_order : %s, succeed, time : %f' % (r_order, time.time()-t4))
+                    logging.debug('guess_dop : %s' % (guess_dop))
+                except ValueError:
+                    logging.debug('guess, r_order : %s, fail, time : %f' % (r_order, time.time()-t4))
+                    pass
+                else:
+                    # XXX take the gcd with self to ensure that we are working with a factor
+                    g_guess_dop = min([valuation(a_i) - i for i, a_i in enumerate(self)], default=0)  # g_{self} in the paper
+                    # XXX typo in the paper: g_L instead of g_G?
+                    if valuation(guess_dop(R(t))) >= self._valuation_bound() + max(0, g_guess_dop) + 1:
+                        right_fac_dop = guess_dop
+                        r_order = guess_dop.order()
+                        break  # guess_dop is an exact annihilator of lower order than right_fac_dop
+                if p >= (r_order + 1)*(N + 1):
+                    break  # There is no right factor of this operator of order r_order
+                p = 2*p
+        logging.debug('time : %f' % (time.time()-t1))
+        return right_fac_dop
+
 
 #############################################################################################################
 
@@ -2683,3 +3056,191 @@ def _tower(dom):
         return _tower(dom.ring())
     else:
         return dom, set()
+
+
+class _FactorSingularityData:
+    r"""
+    TESTS::
+
+        sage: from ore_algebra import *
+        sage: from ore_algebra.examples import random_fuchsian
+        sage: from ore_algebra.differential_operator_1_1 import _FactorSingularityData
+
+        sage: R.<x>=PolynomialRing(QQ)
+        sage: A.<Dx>=OreAlgebra(R)
+
+        sage: dop = random_fuchsian.irred[2,3,3].numerator()
+        sage: fsd_1 = _FactorSingularityData(x - 33/5, dop)
+        sage: fsd_1.fac
+        x - 33/5
+        sage: fsd_1.is_regular
+        True
+        sage: fsd_1.is_apparent
+        False
+        sage: fsd_1.ind_pol
+        alpha^3 - 1811/51*alpha^2 + 28213/68*alpha - 27027/17
+        sage: fsd_1.ind_pol_fac
+        [alpha - 27/2, alpha - 77/6, alpha - 156/17]
+        sage: fsd_1.ind_pol_fac_degree
+        [1, 1, 1]
+        sage: fsd_1.ind_pol_fac_sum_roots
+        [27/2, 77/6, 156/17]
+        sage: fsd_2 = _FactorSingularityData(x - 27/5, dop)
+        sage: fsd_2.fac
+        x - 27/5
+        sage: fsd_2.is_regular
+        True
+        sage: fsd_2.is_apparent
+        False
+        sage: fsd_2.ind_pol
+        alpha^3 - 5917/180*alpha^2 + 18917/90*alpha + 47177/60
+        sage: fsd_2.ind_pol_fac
+        [alpha - 191/9, alpha - 57/4, alpha + 13/5]
+        sage: fsd_2.ind_pol_fac_degree
+        [1, 1, 1]
+        sage: fsd_2.ind_pol_fac_sum_roots
+        [191/9, 57/4, -13/5]
+
+        sage: dop = (x*Dx-2)*(x*Dx-1)
+        sage: fsd_0 = _FactorSingularityData(1/x, dop)
+        sage: fsd_0.fac
+        1/x
+        sage: fsd_0.is_regular
+        True
+        sage: fsd_0.is_apparent
+        False
+        sage: fsd_0.ind_pol
+        alpha^2 + 3*alpha + 2
+        sage: fsd_0.ind_pol_fac
+        [alpha + 1, alpha + 2]
+        sage: fsd_0.ind_pol_fac_degree
+        [1, 1]
+        sage: fsd_0.ind_pol_fac_sum_roots
+        [-1, -2]
+        sage: fsd_1 = _FactorSingularityData(x, dop)
+        sage: fsd_1.fac
+        x
+        sage: fsd_1.is_regular
+        True
+        sage: fsd_1.is_apparent
+        True
+
+        sage: dop = (x^2 + 1)*Dx -1
+        sage: dop = dop.numerator()
+        sage: fsd_1 = _FactorSingularityData(x^2 + 1, dop)
+        sage: fsd_1.fac
+        x^2 + 1
+        sage: fsd_1.is_regular
+        True
+        sage: fsd_1.is_apparent
+        False
+        sage: fsd_1.ind_pol
+        alpha + 1/2*s
+        sage: fsd_1.ind_pol_fac
+        [alpha + 1/2*s]
+        sage: fsd_1.ind_pol_fac_degree
+        [1]
+        sage: fsd_1.ind_pol_fac_sum_roots
+        [-1/2*s]
+    """
+
+    def __init__(self, fac, dop):
+
+        self.fac = fac
+        self.classify_singularity(dop)
+        self.degree_roots_sum_indicial_polynomial_irreducible_factor(dop)
+
+    def classify_singularity(self, dop):
+        r"""
+        Classify the singular points of ``dop`` as regular or not, apparent or
+        not.
+
+        It is assumed that ``self.fac`` is an irreducible factor of the leading
+        coefficient of ``dop``, so that all roots of ``self.fac`` correspond to
+        singularities of the same nature.
+
+        INPUT:
+
+        - ``dop`` -- a linear differential operator.
+
+        OUTPUT:
+
+        None. (Updates the fields of ``self``.)
+        """
+        from sage.misc.misc_c import prod
+
+        r = dop.order()
+        R = dop.base_ring()
+        x_ = dop.base_ring().gen()
+        if self.fac == 1/x_:
+            self.fac_degree = 1
+            dop = dop.annihilator_of_composition(self.fac)
+            pol = x_
+            pol_= x_
+        elif self.fac.degree() == 1:
+            self.fac_degree = 1
+            pol = self.fac
+            pol_= self.fac[1]*x_ - self.fac[0]
+        else :
+            self.fac_degree = self.fac.degree()
+            K = R.base_ring().extension(self.fac, 's')
+            s = K.gen()
+            dop = dop.change_ring(K[str(x_)])
+            pol = x_- s
+            pol_ = x_ + s
+        ind_pol = dop.indicial_polynomial(pol, 'alpha')
+        alpha = ind_pol.parent().gen()
+        if ind_pol.degree() < r:
+            self.is_regular = False
+            raise NotImplementedError(f'{dop} is not Fuchsian')
+        else:
+            self.is_regular = True
+            ind_pol = ind_pol.monic()
+            self.ind_pol = ind_pol
+            ind_pol_roots = ind_pol.roots(multiplicities=False)
+            ind_pol_roots = [r_ for r_ in ind_pol_roots if r_.is_integer() and r_ >= 0]
+            if len(ind_pol_roots) != r:
+                # if there are less than r distinct exponents, the singularity
+                # cannot be apparent
+                self.is_apparent = False
+            elif ind_pol == prod([alpha-i for i in range(r)]):
+                # same if the exponents are 0, ..., r-1 (only an ordinary point
+                # can have series solutions with these exponents)
+                self.is_apparent = False
+            else:
+                # the roots of fac are apparent singularities iff the space of
+                # power series solutions at one of these roots has dimension r
+                dop_c = dop.annihilator_of_composition(pol_)
+                self.is_apparent = (len(dop_c.power_series_solutions()) == r)
+
+    def degree_roots_sum_indicial_polynomial_irreducible_factor(self, dop):
+        r"""
+        Compute some quantities associated to the singular points of ``dop`` at
+        the zeros of ``self.fac``, for use by ``minimal_annihilator``.
+
+        - In the case where the roots of ``self.fac`` are non-apparent regular
+          singular points, this computes the irreducibles factors of the
+          indicial polynomial, their degrees, and their root sum.
+        - In the case where the roots of the factor are apparent singularities,
+          none of this information is needed, so this function does nothing.
+
+        INPUT:
+
+        - ``dop`` -- a linear differential operator.
+
+        OUTPUT:
+
+        None. (Updates the fields of ``self``.)
+        """
+
+        if self.is_regular:
+            if not self.is_apparent:
+                ind_pol = self.ind_pol
+                ind_pol_fac_ = list(ind_pol.factor())
+                ind_pol_fac = []
+                for fac_, mult_ in ind_pol_fac_:
+                    ind_pol_fac += [fac_]*mult_
+                self.ind_pol_fac = ind_pol_fac
+                self.ind_pol_fac_degree = [fac_.degree() for fac_ in ind_pol_fac]
+                self.ind_pol_fac_sum_roots = [-fac_[fac_.degree()-1]/fac_[fac_.degree()] for fac_ in ind_pol_fac]
+
