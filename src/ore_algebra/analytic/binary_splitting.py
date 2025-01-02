@@ -528,7 +528,7 @@ class SolutionColumn:
 
     The ord_log field is meant to be initialized to k+1 ≤ μ for a solution of
     leading monomial z^ν*log(z)^k/k! where ν is a singular index of
-    multiplicity μ, and then increased (if necesssary) when crossing other
+    multiplicity μ, and then increased (if necessary) when crossing other
     singular indices.
 
     Applying a StepMatrix (viewed as a matrix of operators) to a SolutionColumn

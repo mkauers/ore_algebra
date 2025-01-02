@@ -79,7 +79,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
         """
         Returns a differential operator which annihilates every power series whose
         coefficient sequence is annihilated by ``self``.
-        The output operator may not be minimal. 
+        The output operator may not be minimal.
 
         INPUT:
 
@@ -102,7 +102,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
           x*Dx^2 + (-x + 1)*Dx - 1
           sage: (x*Dx-1).to_S(A).to_D(B)
           x*Dx - 1
-        
+
         """
         R = self.base_ring()
         x = R.gen()
@@ -154,7 +154,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
           Fx^4 + 4*Fx^3 + 6*Fx^2 + 4*Fx + 1
           sage: (Sx^4).to_F('Fx').to_S(A)
           Sx^4
-        
+
         """
         R = self.base_ring()
         x = R.gen()
@@ -175,7 +175,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
         out = alg(R(c[0]))
 
         for i in range(self.order()):
-            
+
             delta_k *= delta
             out += R(c[i + 1])*delta_k
 
@@ -186,7 +186,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
         Returns a differential operator, expressed in terms of the Euler derivation,
         which annihilates every power series (about the origin) whose coefficient
         sequence is annihilated by ``self``.
-        The output operator may not be minimal. 
+        The output operator may not be minimal.
 
         INPUT:
 
@@ -209,9 +209,9 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
           Tx^2 - x*Tx - x
           sage: (x*Tx-1).to_S(A).to_T(B)
           x*Tx^2 + (x - 1)*Tx
-        
+
         """
-        return self.to_D('D').to_T(alg)        
+        return self.to_D('D').to_T(alg)
 
     def to_list(self, init, n, start=0, append=False, padd=False):
         r"""
@@ -222,8 +222,8 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
         - ``init`` -- a vector (or list or tuple) of initial values.
           The components must be elements of ``self.base_ring().base_ring().fraction_field()``.
           If the length is more than ``self.order()``, we do not check whether the given
-          terms are consistent with ``self``. 
-        - ``n`` -- desired number of terms. 
+          terms are consistent with ``self``.
+        - ``n`` -- desired number of terms.
         - ``start`` (optional) -- index of the sequence term which is represented
           by the first entry of ``init``. Defaults to zero.
         - ``append`` (optional) -- if ``True``, the computed terms are appended
@@ -236,7 +236,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
 
         A list of ``n`` terms whose `k` th component carries the sequence term with
         index ``start+k``.
-        Terms whose calculation causes an error are represented by ``None``. 
+        Terms whose calculation causes an error are represented by ``None``.
 
         EXAMPLES::
 
@@ -260,7 +260,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
             (46189*x^10 - 109395*x^8 + 90090*x^6 - 30030*x^4 + 3465*x^2 - 63)/256]
            sage: ((n-5)*Sn - 1).to_list([1], 10)
            [1, 1/-5, 1/20, 1/-60, 1/120, -1/120, None, None, None, None]
-        
+
         """
         return _rec2list(self, init, n, start, append, padd, ZZ)
 
@@ -347,7 +347,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
         from sage.matrix.matrix_space import MatrixSpace
 
         m = ZZ(m) # exact division below fails if n or start are in QQ, as reported by Clemens Hofstadler 2018-03-14.
-        
+
         r = self.order()
 
         delta_ring = self.base_ring()
@@ -513,7 +513,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
         r"""
         Returns an operator `L` which annihilates all the indefinite sums `\sum_{k=0}^n a_k`
         where `a_n` runs through the sequences annihilated by ``self``.
-        The output operator is not necessarily of smallest possible order. 
+        The output operator is not necessarily of smallest possible order.
 
         EXAMPLES::
 
@@ -522,7 +522,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
            sage: A.<Sx> = OreAlgebra(R, 'Sx')
            sage: ((x+1)*Sx - x).annihilator_of_sum() # constructs L such that L(H_n) == 0
            (x + 2)*Sx^2 + (-2*x - 3)*Sx + x + 1
-           
+
         """
         A = self.parent()
         return self.map_coefficients(A.sigma())*(A.gen() - A.one())
@@ -539,14 +539,14 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
           `u` and `v` are integers or rational numbers. If they are rational,
           the base ring of the parent of ``self`` must contain ``QQ``.
         - ``solver`` (optional) -- a callable object which applied to a matrix
-          with polynomial entries returns its kernel. 
+          with polynomial entries returns its kernel.
 
         EXAMPLES::
 
           sage: from ore_algebra import *
           sage: R.<x> = QQ['x']
           sage: A.<Sx> = OreAlgebra(R, 'Sx')
-          sage: ((2+x)*Sx^2-(2*x+3)*Sx+(x+1)).annihilator_of_composition(2*x+5) 
+          sage: ((2+x)*Sx^2-(2*x+3)*Sx+(x+1)).annihilator_of_composition(2*x+5)
           (16*x^3 + 188*x^2 + 730*x + 936)*Sx^2 + (-32*x^3 - 360*x^2 - 1340*x - 1650)*Sx + 16*x^3 + 172*x^2 + 610*x + 714
           sage: ((2+x)*Sx^2-(2*x+3)*Sx+(x+1)).annihilator_of_composition(1/2*x)
           (x^2 + 11*x + 30)*Sx^6 + (-3*x^2 - 25*x - 54)*Sx^4 + (3*x^2 + 17*x + 26)*Sx^2 - x^2 - 3*x - 2
@@ -555,7 +555,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
         """
 
         A = self.parent()
-        
+
         if a in QQ:
             # a is constant => f(a) is constant => S-1 kills it
             return A.gen() - A.one()
@@ -601,7 +601,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
             c.reverse()
             return A(c).annihilator_of_composition(-u*x)
 
-        # now a = u*x where u > 1 is an integer. 
+        # now a = u*x where u > 1 is an integer.
         u = u.numerator()
         from sage.matrix.constructor import Matrix
         A = A.change_ring(A.base_ring().fraction_field())
@@ -610,7 +610,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
         L = A(self)
 
         p = A.one()
-        Su = A.gen()**u # possible improvement: multiplication matrix. 
+        Su = A.gen()**u # possible improvement: multiplication matrix.
         mat = [ p.coefficients(sparse=False, padd=r) ]
         sol = []
 
@@ -691,7 +691,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
           [4]
           sage: ((x+5)*Sx - x).lclm((x+19)*Sx - x).spread()
           [3, 4, 17, 18]
-        
+
         """
         op = self#.normalize(); // don't kill
         A = op.parent()
@@ -720,7 +720,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
         except:
             pass
 
-        # generic fall back code with using the resultant. 
+        # generic fall back code with using the resultant.
 
         K = R.base_ring()
         R0 = R
@@ -739,7 +739,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
 
         return sorted(s)
 
-    def generalized_series_solutions(self, n=5, dominant_only=False, real_only=False, infolevel=0): 
+    def generalized_series_solutions(self, n=5, dominant_only=False, real_only=False, infolevel=0):
         r"""
         Returns the generalized series solutions of this operator.
 
@@ -766,16 +766,16 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
         This method computes them all, unless the flags specified in the arguments rule out
         some of them.
 
-        Generalized series solutions are asymptotic expansions of sequences annihilated by the operator. 
+        Generalized series solutions are asymptotic expansions of sequences annihilated by the operator.
 
         At present, the method only works for operators where `K` is some field which supports
-        coercion to ``QQbar``. 
+        coercion to ``QQbar``.
 
         INPUT:
 
         - ``n`` (default: 5) -- minimum number of terms in the expansions parts to be computed.
         - ``dominant_only`` (default: False) -- if set to True, only compute solution(s) with maximal
-          growth. 
+          growth.
         - ``real_only`` (default: False) -- if set to True, only compute solution(s) where `\rho,c_1,...,c_{v-1},\alpha`
           are real.
         - ``infolevel`` (default: 0) -- if set to a positive integer, the methods prints some messages
@@ -783,7 +783,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
 
         OUTPUT:
 
-        - a list of ``DiscreteGeneralizedSeries`` objects forming a fundamental system for this operator. 
+        - a list of ``DiscreteGeneralizedSeries`` objects forming a fundamental system for this operator.
 
         EXAMPLES::
 
@@ -793,7 +793,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
           [(n/e)^n*n^(1/2)*(1 + 1/12*n^(-1) + 1/288*n^(-2) - 139/51840*n^(-3) - 571/2488320*n^(-4) + O(n^(-5)))]
           sage: list(map(Sn - (n+1), _))
           [0]
-          
+
           sage: L = ((n+1)*Sn - n).annihilator_of_sum().symmetric_power(2)
           sage: L.generalized_series_solutions()
           [1 + O(n^(-5)),
@@ -837,7 +837,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
         def info(level, msg):
             if level <= infolevel:
                 print(" "*3*(level - 1) + msg)
-        
+
         r = len(coeffs) - 1
         x = coeffs[0].parent().gen()
         subs = _generalized_series_shift_quotient
@@ -896,7 +896,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
 
             def mysubs(x, prec, shift, subexp, ramification=ram):
                 return subs(x, prec, shift, subexp=subexp, ramification=ram)
-            
+
             KK = K['s'].fraction_field()
             X = x.change_ring(KK)
             v = gamma.denominator()
@@ -930,7 +930,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
 
         info(1, "subexponential parts completed; " + str(len(refined_solutions)) + " solutions separated.")
 
-        # 4. polynomial parts and expansion 
+        # 4. polynomial parts and expansion
         solutions = refined_solutions
         refined_solutions = []
         for (gamma, rho, subexp, ram, coeffs) in solutions:
@@ -944,7 +944,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
             for (p, e) in shift_factor(rest.leading_coefficient().numerator(), ram):
                 e.reverse()
                 alpha = -p[0]/p[1]
-                if alpha in QQ: # cause conversion to explicit rational 
+                if alpha in QQ: # cause conversion to explicit rational
                     pass
                 if (not real_only or alpha.imag().is_zero()):
                     info(3, "found alpha=" + str(alpha))
@@ -964,7 +964,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
         poly_tails = [[x**(ram*prec)]*(ram*prec)]
         log_tails = [[x**(ram*prec)]*max_log_power]
         for l in range(1, r + 1):
-                
+
             # (n+l)^(-1/ram) = n^(-1/ram)*sum(bin(-1/ram, i)*(l/n)^i, i=0...)
             # poly_tails[l][k] = expansion of (n+l)^(-k/ram)/n^(-k/ram)
             p = sum(_binomial(-1/ram, i)*(l*x**ram)**i for i in range(prec + 1))
@@ -989,7 +989,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
             coeffs = [(origcoeffs[i](x**ram)*subs(x, prec + underflow, i, gamma, rho, subexp, ram)).shift(-underflow)\
                           for i in range(r + 1)]
             deg = max([c.degree() for c in coeffs])
-            coeffs = [coeffs[i].shift(ram*prec - deg) for i in range(r + 1)]            
+            coeffs = [coeffs[i].shift(ram*prec - deg) for i in range(r + 1)]
             sols = { a: [] for (a, b) in e }
 
             for (a, b) in e:
@@ -1007,7 +1007,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
                         # = binom(l, i)*log_tails[j][l - i]*poly_tails[j][k]*spoly_tails[j]
                         contrib = x-x #=0
                         for j in range(r + 1):
-                            if i != l and j == 0: # [log(n)^i] log(n)^l 
+                            if i != l and j == 0: # [log(n)^i] log(n)^l
                                 continue
                             contrib += ((coeffs[j]*log_tails[j][l - i]).shift(-ram*prec)* \
                                         (poly_tails[j][k]*spoly_tails[j]).shift(-ram*prec)).shift(-ram*prec - k)
@@ -1015,7 +1015,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
 
                     return out
 
-                while len(sols[a]) < b: 
+                while len(sols[a]) < b:
 
                     info(3, str(len(sols[a])) + " of " + str(sum([bb for _, bb in e])) + " solutions...")
 
@@ -1051,7 +1051,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
                                 rest.append(x.parent().zero())
                             for i in range(len(adjustment)):
                                 rest[i] += newcoeff*adjustment[i]
-                            
+
             for a in sols.keys():
                 for eexp in sols[a]:
                     refined_solutions.append(G([gamma, ram, rho, subexp, alpha - a/ram, [PS(p, len(p)) for p in eexp]]))
@@ -1063,17 +1063,17 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
 
     def _infinite_singularity(self):
         r"""
-        Simplified version of generalized_series_solutions, without subexponential parts, without 
+        Simplified version of generalized_series_solutions, without subexponential parts, without
         logarithms, and without extensions of the constant field.
 
-        This function is used in the hypergeometric solver. 
+        This function is used in the hypergeometric solver.
 
         OUTPUT:
-        
+
            A list of all triples (gamma, phi, alpha) such that 'self' has a local
            solution at infinity of the form Gamma(x)^gamma phi^x x^alpha
            series(1/x), where gamma is in ZZ and phi and alpha are in the constant
-           field of this operator's parent algebra. 
+           field of this operator's parent algebra.
 
         EXAMPLES::
 
@@ -1105,7 +1105,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
                                 .indicial_polynomial(~n).factor():
                             if q.degree() == 1:
                                 output.append([s, phi, -q[0]/q[1]])
-        
+
         return output
 
     def _normalize_make_valuation_places_args(self,f,Nmin,Nmax,prec=None, infolevel=0):
@@ -1139,7 +1139,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
 
         Each place is a tuple composed of ``f(x+k)``, a suitable function for
         ``value_function`` and a suitable function for ``raise_value``.
-        
+
         EXAMPLES: see `find_candidate_places`
         """
 
@@ -1148,8 +1148,8 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
 
         print1(" [make_places] At (root of {}) + Nmin={}, Nmax={}"
                .format(f,Nmin,Nmax))
-        
-        r = self.order() 
+
+        r = self.order()
         Ore = self.parent()
         Pol = Ore.base_ring()
         nn = Pol.gen()
@@ -1158,7 +1158,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
         # TODO: Do we have to choose a name?
         FF = Coef.extension(f,"xi")
         xi = FF.gen()
-        
+
         Laur = LaurentSeriesRing(FF,'q',default_prec=prec)
         qq = Laur.gen()
         Frac_q = Pol.change_ring(Laur).fraction_field()
@@ -1168,7 +1168,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
         # Variable convention: k is a list index in the whole sequence, n is an
         # actual shift compared to xi, so k=n-Nmin, and the value at index k corresponds to the
         # values of the sequence at position xi+n = xi+k+Nmin.
-        
+
         def prolong(l,n):
             # Given the values of a function at ...xi+n-r...xi+n-1, compute the
             # value at xi+n
@@ -1207,7 +1207,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
                 #if infolevel >= 2: print(mat)
                 return _vect_elim_fct(mat,place=None,dim=dim,infolevel=infolevel)
             return val_fct, raise_val_fct# , sols, call
-        
+
         res = []
         for n in range(Nmin+r,Nmax+1):
             print1(" [make_places] preparing place at {}+{} (min poly = {})"
@@ -1251,7 +1251,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
         fact0 = list(lr.factor()) + list(l0.factor())
 
         print1("Factors (non unique): {}".format(fact0))
-        
+
         # Cleanup the list
         fact = []
         for f, m in fact0 :
@@ -1272,7 +1272,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
         places = []
         for f, m in fact:
             print1("Computing places for {}".format(f))
-        
+
             # Finding the actual indices of interest
             inds = roots_at_integer_distance(l0lr, f)
             print1("Integer distances between roots: {}".format(inds))
@@ -1298,7 +1298,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
     def raise_value(self, basis, place, dim, **kwargs):
         fct = self._make_valuation_places(place,0,0)[0][2]
         return fct(basis, place, dim)
-    
+
 #############################################################################################################
 
 class UnivariateDifferenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUnivariateRing):
@@ -1313,7 +1313,7 @@ class UnivariateDifferenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
 
         if isinstance(f, (tuple, list)):
             return self.to_S('S')(f, **kwargs)
-            
+
         R = self.parent()
         x = R.base_ring().gen()
         qx = R.sigma()(x)
@@ -1364,7 +1364,7 @@ class UnivariateDifferenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
         out = alg(R(c[0]))
 
         for i in range(self.order()):
-            
+
             delta_k *= delta
             out += R(c[i + 1])*delta_k
 
@@ -1374,7 +1374,7 @@ class UnivariateDifferenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
         r"""
         Returns a differential operator which annihilates every power series (about
         the origin) whose coefficient sequence is annihilated by ``self``.
-        The output operator may not be minimal. 
+        The output operator may not be minimal.
 
         INPUT:
 
@@ -1397,7 +1397,7 @@ class UnivariateDifferenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
           (-x^2 + x)*Dx^2 + (-4*x + 1)*Dx - 2
           sage: (x*Dx-1).to_F(A).to_D(B)
           x*Dx - 1
-        
+
         """
         return self.to_S('S').to_D(alg)
 
@@ -1406,7 +1406,7 @@ class UnivariateDifferenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
         Returns a differential operator, expressed in terms of the Euler derivation,
         which annihilates every power series (about the origin) whose coefficient
         sequence is annihilated by ``self``.
-        The output operator may not be minimal. 
+        The output operator may not be minimal.
 
         INPUT:
 
@@ -1429,7 +1429,7 @@ class UnivariateDifferenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
           (-x + 1)*Tx^2 - 3*x*Tx - 2*x
           sage: (x*Tx-1).to_F(A).to_T(B)
           x*Tx^2 + (x - 1)*Tx
-        
+
         """
         return self.to_S('S').to_T(alg)
 
@@ -1437,7 +1437,7 @@ class UnivariateDifferenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
         return self.to_S('S').to_list(*args, **kwargs)
 
     to_list.__doc__ = UnivariateRecurrenceOperatorOverUnivariateRing.to_list.__doc__
-    
+
     def indicial_polynomial(self, *args, **kwargs):
         return self.to_S('S').indicial_polynomial(*args, **kwargs)
 

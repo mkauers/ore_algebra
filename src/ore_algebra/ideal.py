@@ -216,7 +216,7 @@ class OreLeftIdeal(Ideal_nc):
         INPUT:
 
         - ``infolevel`` -- integer indicating the verbosity of progress reports
-        - ``update_hook`` -- a function which is envoked on (G, C, h) right before
+        - ``update_hook`` -- a function which is invoked on (G, C, h) right before
           a new nonzero polynomial h is integrated into the basis G (a list of
           operators). The list C contains the critical pairs, each pair is
           encoded as a tuple (lcm(lm(a),lm(b)), a, b, s), where a and b are
