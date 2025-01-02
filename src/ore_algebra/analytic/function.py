@@ -17,10 +17,7 @@ D-Finite analytic functions
 import collections
 import logging
 
-import sage.plot.all as plot
-
 from sage.misc.cachefunc import cached_method
-from sage.plot.plot import generate_plot_points
 from sage.rings.integer_ring import Z as ZZ
 from sage.rings.rational_field import Q as QQ
 from sage.rings.real_arb import RBF
@@ -398,6 +395,8 @@ class DFiniteFunction:
             sage: plot(f, (-10, 5), color='black')
             Graphics object consisting of 1 graphics primitive
         """
+        import sage.plot.all as plot
+        from sage.plot.plot import generate_plot_points
         mids = generate_plot_points(
             lambda x: self.approx(x, 20).mid(),
             x_range, plot_points=200)
@@ -424,6 +423,7 @@ class DFiniteFunction:
             sage: f.plot_known()
             Graphics object consisting of ... graphics primitives
         """
+        import sage.plot.all as plot
         g = plot.Graphics()
         for center, polys in self._polys.items():
             center, rad = self._disk(Point(center, self.dop))

@@ -17,23 +17,26 @@ import itertools
 import logging
 import sys
 
-import sage.plot.all as plot
-import sage.rings.all as rings
 import sage.structure.coerce
 import sage.symbolic.ring
 
 from sage.misc.cachefunc import cached_method
+
 from sage.rings.integer_ring import Z as ZZ
 from sage.rings.rational_field import Q as QQ
 from sage.rings.cc import CC
 from sage.rings.real_mpfi import RIF
 from sage.rings.cif import CIF
 from sage.rings.qqbar import QQbar
+from sage.rings.rational import Rational
 from sage.rings.real_lazy import RLF
 from sage.rings.real_lazy import CLF
 from sage.rings.complex_arb import CBF, ComplexBallField, ComplexBall
+from sage.rings.infinity import infinity
+from sage.rings.integer import Integer
 from sage.rings.number_field import number_field
 from sage.rings.number_field import number_field_base
+from sage.rings.number_field.number_field_element import NumberFieldElement
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
 from sage.rings.real_arb import RBF, RealBallField, RealBall
 from sage.structure.sage_object import SageObject
@@ -269,15 +272,15 @@ class Point(SageObject):
         return res
 
     def algdeg(self):
-        if isinstance(self.value, rings.NumberFieldElement):
+        if isinstance(self.value, NumberFieldElement):
             return self.value.parent().absolute_degree()
         else:
             return 1
 
     @cached_method
     def is_fast(self):
-        return isinstance(self.value, (RealBall, ComplexBall, rings.Integer,
-                                 rings.Rational)) or is_QQi(self.value.parent())
+        return isinstance(self.value, (RealBall, ComplexBall, Integer,
+                                       Rational)) or is_QQi(self.value.parent())
 
     def _sage_value_has_fast_coerce(self, other):
         P0 = self.as_sage_value().parent()
@@ -324,7 +327,7 @@ class Point(SageObject):
                 return im
         elif is_QQi(self.value.parent()):
             return self.value.imag()
-        elif isinstance(self.value, rings.NumberFieldElement):
+        elif isinstance(self.value, NumberFieldElement):
             return QQbar.coerce(self.value).imag()
         elif isinstance(self.value, PolynomialRoot):
             return self.value.as_algebraic().imag()
@@ -432,8 +435,8 @@ class Point(SageObject):
         Is this point exact in the sense that we can use it in the coefficients
         of an operator?
         """
-        return (isinstance(self.value, (rings.Integer, rings.Rational,
-                                        rings.NumberFieldElement,
+        return (isinstance(self.value, (Integer, Rational,
+                                        NumberFieldElement,
                                         PolynomialRoot))
                 or isinstance(self.value, (RealBall, ComplexBall))
                     and self.value.is_exact())
@@ -608,7 +611,7 @@ class Point(SageObject):
         if (len(close) >= 2 or len(close) == 1 and not self.is_singular()):
             raise NotImplementedError # refine?
         dist = [(self.iv() - s).abs() for s in distant]
-        min_dist = IR(rings.infinity).min(*dist)
+        min_dist = IR(infinity).min(*dist)
         if min_dist.contains_zero():
             raise NotImplementedError # refine???
         return IR(min_dist.lower())
@@ -1034,6 +1037,7 @@ class Step(SageObject):
                     .format(self, self.start.descr()))
 
     def plot(self):
+        import sage.plot.all as plot
         return plot.arrow2d(self.start.iv().mid(), self.end.iv().mid())
 
 class Path(SageObject):
@@ -1143,6 +1147,7 @@ class Path(SageObject):
         return repr(self.vert[0]) + arrow + repr(self.vert[-1])
 
     def plot(self, disks=False, **kwds):
+        import sage.plot.all as plot
         gr  = plot.point2d(self.dop._singularities(CC),
                            marker='*', color='red', **kwds)
         gr += plot.line([z.iv().mid() for z in self.vert])

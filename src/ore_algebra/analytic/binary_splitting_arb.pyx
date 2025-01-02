@@ -1,5 +1,6 @@
 # cython: language=c++
 # cython: language_level=3
+# distutils: extra_compile_args = -std=c++11
 r"""
 Lower-level reimplementation of key subroutines of binary_splitting
 """

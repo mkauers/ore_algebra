@@ -105,6 +105,21 @@ part of the installation procedure. Installation will fail if they cannot be
 built. Only some specific features depend on these modules, though, and the core
 features should work even if Cython modules are unavailable.
 
+### Using ore_algebra in a virtual Python environment (no SageMath installation required)
+
+Create and activate a virtual environment:
+
+    python3 -m venv venv_ore_algebra
+    . venv_ore_algebra/bin/activate
+
+Install the package in the virtual environment:
+
+    pip install "git+https://github.com/mkauers/ore_algebra.git[passagemath]"
+
+This automatically installs the modularized parts of the Sage library that are
+needed by the package. (These modularized distributions are provided by
+https://github.com/passagemath.)
+
 Documentation
 -------------
 

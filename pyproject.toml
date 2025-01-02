@@ -1,0 +1,10 @@
+[build-system]
+requires = [
+  'setuptools',
+  'Cython',
+  'pkgconfig',
+  'passagemath-environment',
+  'passagemath-flint',
+  'passagemath-modules',
+]
+build-backend = "setuptools.build_meta"

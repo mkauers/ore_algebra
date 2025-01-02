@@ -180,10 +180,10 @@ from sage.arith.misc import previous_prime as pp
 from sage.categories.finite_fields import FiniteFields
 from sage.misc.misc_c import prod
 from sage.misc.cachefunc import cached_function
+from sage.misc.lazy_import import lazy_import
 from sage.misc.lazy_string import lazy_string
 from sage.rings.polynomial.polynomial_element import Polynomial
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
-from sage.rings.polynomial.multi_polynomial_libsingular import MPolynomialRing_libsingular
 from sage.rings.integer_ring import ZZ
 from sage.rings.rational_field import QQ
 from sage.rings.finite_rings.finite_field_constructor import FiniteField as GF
@@ -195,6 +195,9 @@ from sage.matrix.matrix_space import MatrixSpace
 from sage.modules.free_module_element import vector
 from sage.modules.free_module import VectorSpace
 from datetime import datetime
+
+lazy_import('sage.rings.polynomial.multi_polynomial_libsingular', 'MPolynomialRing_libsingular')
+
 
 #####################
 ####### tools #######
