@@ -1298,6 +1298,197 @@ def solve_triangular_system(mat, rhs, solver=None):
 
     return sol
 
+def uncouple_cyclic(mat, algebra=None, infolevel=0):
+    
+    """
+    Computes a matrix P such that (sigma(P)*A+delta(P))*P.inverse() has the form of a companion matrix for (I*Dx-mat)f=0. 
+
+    INPUT:: 
+    
+        mat     -- The matrix is to be specified as list of lists. The inner lists represent the rows of the matrix.
+        algebra -- The OreAlgebra that should be used for the computation. If no OreAlgebra is passed the algebra with
+                     the standard derivative in the first variable is used.
+        
+    OUTPUT:: 
+    
+    a pair of matrices (PA,P) specified as list of lists with PA=(sigma(P)*A+delta(P))*P.inverse()
+
+    EXAMPLES::
+
+      sage: from ore_algebra import *
+      sage: from ore_algebra.ideal import uncouple_cyclic
+      sage: R.<x> = QQ[]
+      sage: A.<Dx> = OreAlgebra(R)
+      sage: uncouple_cyclic([[x,x-2],[-x/3,1-x/3]])
+      ([[0, 1], [(-1/3*x^2 + 2/3*x - 2)/(x - 2), (2/3*x^2 - 1/3*x - 1)/(x - 2)]], [[1, 0], [x, x - 2]])
+      sage: uncouple_cyclic([[2, -2,-x], [4-2*x, 3*x-4, x^2-4], [-3, -x, 4]])
+      ([[0, 1, 0],
+      [0, 0, 1],
+      [(x^5 + 10*x^4 - 33*x^3 + 254*x^2 - 546*x + 280)/(x^3 - 2*x^2 + 16*x - 14),
+       (-x^6 + 2*x^5 - 23*x^4 + 31*x^3 - 132*x^2 + 239*x - 122)/(x^3 - 2*x^2 + 16*x - 14),
+       (3*x^4 - 4*x^3 + 47*x^2 - 14*x - 12)/(x^3 - 2*x^2 + 16*x - 14)]],
+     [[1, 0, 0], [2, -2, -x], [7*x - 4, x^2 - 6*x + 4, -2*x^2 - 6*x + 7]])
+
+    """
+    from .ore_algebra import OreAlgebra
+    from sage.matrix.special import identity_matrix
+    from sage.misc.functional import rank
+    from sage.modules.free_module import span
+
+    if algebra is None:
+        R=coercion_model.common_parent(*[elt for row in mat for elt in row])
+        A=OreAlgebra(R,'D'+R.variable_name())
+    else:
+        A = algebra
+
+    n=len(mat)
+    P=[None]*n
+    k=0
+    
+    m=matrix(mat)
+    sigma=A.sigma()
+    delta=A.delta()
+    identity=list(identity_matrix(n))
+    identity.reverse()
+
+    while k<n:
+        p= identity.pop().list() 
+        if k>0:
+            listRowsToTest=P[0:k+1] 
+            #check if p is a fitting candidate
+            while matrix(listRowsToTest).row_space().intersection(span([vector(p,R)])).basis()!=[]:
+                if infolevel>0:
+                    print("candidate for p skipped:",p)
+                p=identity.pop().list()
+                        
+        P[k]=p
+        for i in range(k+1,n): #compute the next rows
+            p=(matrix(sigma(p))*m + matrix(p).apply_map(delta)).list()
+            P[i]=p
+
+        if infolevel>0:
+            print("before computation k=",k)
+            print("currently matrix P is:",P)
+
+        for k in range(1,n+1):#check whether the first k rows are l.i.
+            if rank(matrix(P[0:k+1]))!=k+1:
+                break
+        if infolevel>0:
+            print("after computation k=:", k)
+
+
+    PA=[list(row) for row in list((matrix(P).apply_map(sigma)*m+matrix(P).apply_map(delta))*(matrix(P).inverse()))]
+    return (PA,P)
+
+def solve_CVM_system(PA, P=None, solver=None, algebra=None,infolevel=0):
+
+    """
+    Solves the system (I*Dx-PA)f=0. 
+    If a matrix P is given the solution is transformed back to a solution of the original system  (I*Dx-A)f=0, whereby (PA,P)=uncouple_cyclic(A).
+
+    INPUT:: 
+    
+        PA     -- The matrix is to be specified as list of lists. The inner lists represent the rows of the matrix.
+        P      -- The basis change matrix between the two systems. 
+        solver --  Solver to be used for finding the rational solutions.
+        algebra -- The OreAlgebra that should be used for the computation. If no OreAlgebra is passed the algebra with the standard derivative in the first variable is used.
+        
+    OUTPUT:: 
+    
+    a vector f such that (I*Dx-PA)f=0 is satisfied
+
+    EXAMPLES::
+        sage: from ore_algebra import *
+        sage: from ore_algebra.ideal import uncouple_cyclic
+        sage: R.<x> = QQ[]
+        sage: A.<Dx> = OreAlgebra(R)
+        sage: (PA,P)=uncouple_cyclic([[(4+3*x^2)/(2*x+3*x^2),-(-12+6*x)/(2*x+3*x^2)],[(3-x)/(2+3*x),11/(2+3*x)]])
+        sage: solve_CVM_system(PA)
+        (x^2, 2*x)
+        sage: solve_CVM_system(PA,P)
+        (x^2, 1/2*x^3)
+
+    """
+    from .ore_algebra import OreAlgebra
+    from sage.misc.flatten import flatten
+    
+    if algebra is None:
+        R=coercion_model.common_parent(*[elt for row in PA for elt in row])
+        A=OreAlgebra(R,'D'+R.variable_name())
+    else:
+        A = algebra
+    n=len(PA)
+    
+    PA=matrix(PA)
+    rr=[0]
+    ff=[]
+    i=-1
+    j=0
+    while i+1<n: #compute the r indices
+        i+=1
+        j+=1
+        while i+1<n and PA[i,j]==1:
+            i+=1
+            j+=1
+        rr.append(i+1)   
+    if infolevel>0:
+        print("List of r indices:",rr)
+    for index in range(1,len(rr)):
+        RHS=[]
+        Ai=list(PA[rr[index-1]:rr[index],rr[index-1]:rr[index]])
+        if infolevel>0:
+            print("block number: ",index," Ai selected is:", Ai)
+       
+        for j in range(1,index):
+            Mi=(PA[rr[j+1]-1:rr[j+1],rr[j-1]:rr[j]]).list()
+            for i in range(rr[j]):
+                RHS.append(Mi[i]*(ff[j-1][i])) 
+        if infolevel>0:
+            print("RHS for selected block is:",RHS)
+        sol=solve_CVM_system_helper(Ai,RHS,solver,A)
+        if sol==None:
+            print("Coupled system has no solution.")
+            return None
+        ff.append(sol)
+    
+    ff=vector(flatten(ff)) if ff!=[[]] else zero_vector(A.base_ring(),n)
+    if P is None:
+        return ff
+    else:
+        return (matrix(P).inverse()*ff).list()
+    
+def solve_CVM_system_helper(P, rhs, solver, algebra):
+    A=algebra
+    n=len(P)
+
+    eq=(sum([-P[n-1][k]*A.gen()**k for k in range(n)])+A.gen()**n)
+    sol=eq.rational_solutions(rhs,solver)
+
+    if sol==[]:
+        print("No solution found for the equation:",eq,"=0")
+        return []
+    else:
+        if rhs==[]:
+            sol=sol[0][0]
+        elif len(sol)==1:
+            sol=sol[0][0]/sol[0][1]
+        else:
+            mat=matrix([row[1:] for row in sol]).transpose()
+            try:
+                vec=mat.solve_right(vector([1]*len(rhs)))
+                sol=sum([vec[i]*sol[i][0] for i in range(len(rhs
+            ))])
+            except Exception as e:
+                print("Equation has no solution.")
+                print("LHS:",eq)
+                print("RHS:",rhs)
+                return None
+
+    res=[None]*n
+    res[0]=sol
+    for k in range(1,n): 
+        res[k]=A.gen()(res[k-1])
+    return res     
 
 smallest_lt_first = cmp_to_key(
     lambda u, v: 1 if (u.lm() + v.lm()).lm() == u.lm() else -1)
