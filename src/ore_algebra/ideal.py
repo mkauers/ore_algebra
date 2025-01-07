@@ -1339,6 +1339,7 @@ def uncouple_cyclic(mat, algebra=None, infolevel=0):
         A=OreAlgebra(R,'D'+R.variable_name())
     else:
         A = algebra
+        R = A.base_ring()
 
     n=len(mat)
     P=[None]*n
@@ -1355,9 +1356,7 @@ def uncouple_cyclic(mat, algebra=None, infolevel=0):
         if k>0:
             listRowsToTest=P[0:k+1] 
             #check if p is a fitting candidate
-            while matrix(listRowsToTest).row_space().intersection(span([vector(p,R)])).basis()!=[]:
-                if infolevel>0:
-                    print("Not suitable candidate p skipped:",p)
+            while rank(matrix(listRowsToTest+[p]))!=k+1:
                 p=identity.pop().list()
                         
         P[k]=p
@@ -1365,8 +1364,8 @@ def uncouple_cyclic(mat, algebra=None, infolevel=0):
             p=(matrix(sigma(p))*m + matrix(p).apply_map(delta)).list()
             P[i]=p
 
-        for k in range(1,n+1):#check whether the first k rows are l.i.
-            if rank(matrix(P[0:k+1]))!=k+1:
+        for k in range(n,k-1,-1):#check whether the first k rows are l.i.
+            if rank(matrix(P[0:k+1]))==k:
                 break
 
     PA=[list(row) for row in list((matrix(P).apply_map(sigma)*m+matrix(P).apply_map(delta))*(matrix(P).inverse()))]
@@ -1375,8 +1374,8 @@ def uncouple_cyclic(mat, algebra=None, infolevel=0):
 def solve_CVM_system(PA, P=None, solver=None, algebra=None,infolevel=0):
 
     """
-    Solves the system (I*Dx-PA)f=0, where PA=(sigma(P)*A+delta(P))*P.inverse().
-    If a gauge matrix P is given the solution is transformed back to a solution of the original system  (I*Dx-A)f=0, whereby (PA,P)=uncouple_cyclic(A).
+    Solves the system (I*Dx-PA)f=0. 
+    If a matrix P is given the solution is transformed back to a solution of the original system  (I*Dx-A)f=0, whereby (PA,P)=uncouple_cyclic(A).
 
     INPUT:: 
     
@@ -1387,7 +1386,7 @@ def solve_CVM_system(PA, P=None, solver=None, algebra=None,infolevel=0):
         
     OUTPUT:: 
     
-    a vector f such that (I*Dx-PA)f=0 is satisfied 
+    a vector f such that (I*Dx-PA)f=0 is satisfied
 
     EXAMPLES::
         sage: from ore_algebra import *
@@ -1411,6 +1410,40 @@ def solve_CVM_system(PA, P=None, solver=None, algebra=None,infolevel=0):
         A = algebra
     n=len(PA)
 
+
+    def solve_CVM_system_helper(P, rhs, solver, algebra):
+        A=algebra
+        n=len(P)
+        eq=(sum([-P[n-1][k]*A.gen()**k for k in range(n)])+A.gen()**n)
+        sol=eq.rational_solutions(rhs,solver)
+
+        if sol==[]:
+            print("No solution found for the equation:",eq,"=0")
+            return []
+        else:
+            if rhs==[]:
+                sol=sol[0][0]
+            elif len(sol)==1:
+                sol=sol[0][0]/sol[0][1]
+            else:
+                mat=matrix([row[1:] for row in sol]).transpose()
+                try:
+                    vec=mat.solve_right(vector([1]*len(rhs)))
+                    sol=sum([vec[i]*sol[i][0] for i in range(len(rhs
+                ))])
+                except Exception as e:
+                    print("Equation has no solution.")
+                    print("LHS:",eq)
+                    print("RHS:",rhs)
+                    return None
+
+        res=[None]*n
+        res[0]=sol
+        for k in range(1,n): 
+            res[k]=A.gen()(res[k-1])
+        return res  
+    
+    
     def solve_CVM_system_helper(P, rhs, solver, algebra):
         A=algebra
         n=len(P)
@@ -1455,20 +1488,15 @@ def solve_CVM_system(PA, P=None, solver=None, algebra=None,infolevel=0):
             i+=1
             j+=1
         rr.append(i+1)   
-    if infolevel>0:
-        print("List of block indices indices:",rr)
     for index in range(1,len(rr)):
         RHS=[]
         Ai=list(PA[rr[index-1]:rr[index],rr[index-1]:rr[index]])
-        if infolevel>1:
-            print("Block number: ",index," Block is:", Ai)
        
         for j in range(1,index):
             Mi=(PA[rr[j+1]-1:rr[j+1],rr[j-1]:rr[j]]).list()
             for i in range(rr[j]):
                 RHS.append(Mi[i]*(ff[j-1][i])) 
-        if infolevel>1:
-            print("RHS for selected block is:",RHS)
+        
         sol=solve_CVM_system_helper(Ai,RHS,solver,A)
         if sol==None:
             print("No solution found.")
