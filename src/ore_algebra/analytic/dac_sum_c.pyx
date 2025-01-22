@@ -648,7 +648,7 @@ cdef class DACUnroller:
         # mid = (high + low + 1)//2
 
         self.sum_dac(base, low, mid)
-        resid_len = min(high - mid, self.dop_degree + 1)
+        resid_len = min(high - mid, self.blksz)
         self.apply_dop(base, low, mid, mid + resid_len)
         self.sum_dac(base, mid, high)
 
