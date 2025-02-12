@@ -332,6 +332,14 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         sigma = A.sigma()
         r = L.order()
 
+        v = 0
+        while L[v].is_zero():
+            v += 1
+        if v > 0:
+            u = (self//A.gen()**v)._denominator_bound()
+            u = Factorization([(sigma(p, -v), e) for (p, e) in u])
+            return u
+
         n = L.dispersion()
         A = sigma(L[r], -r)
         B = L[0]

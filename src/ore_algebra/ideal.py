@@ -1442,10 +1442,10 @@ def solve_CVM_system(PA, P=None, algebra=None, solver=None, infolevel=0):
 
         nn = len(Ai)
         eq = sum([-Ai[nn - 1][k] * A.gen() ** k for k in range(nn)]) + A.gen() ** nn
-        try:
-            sol = eq.rational_solutions(RHS, solver=solver)
-        except TypeError:
-            sol=eq.rational_solutions(RHS, denominator=1,solver=solver)
+        #try:
+        sol = eq.rational_solutions(RHS, solver=solver)
+        #except TypeError:
+        #    sol=eq.rational_solutions(RHS, denominator=1,solver=solver)
         
         if sol == []:
             sol = [[0]]
