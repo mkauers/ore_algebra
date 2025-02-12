@@ -1298,6 +1298,224 @@ def solve_triangular_system(mat, rhs, solver=None):
 
     return sol
 
+def uncouple_cyclic(mat, algebra=None, infolevel=0):
 
+    """
+    Computes a matrix P and PA such that PA=(sigma(P)*A+delta(P))*P.inverse() has the form of a companion matrix for (I*Dx-mat)f=0 or such that PA has serveral blocks in companion form.
+
+    INPUT::
+
+        mat     -- The matrix is to be specified as list of lists. The inner lists represent the rows of the matrix.
+        algebra -- The OreAlgebra that should be used for the computation. If no OreAlgebra is passed the algebra with the standard derivative in the first variable is used.
+
+    OUTPUT::
+
+    a pair of matrices (PA, P) specified as list of lists with PA=(sigma(P)*A+delta(P))*P.inverse()
+
+    EXAMPLES::
+
+      sage: from ore_algebra import *
+      sage: from ore_algebra.ideal import uncouple_cyclic
+      sage: R.<x> = QQ[]
+      sage: A.<Dx> = OreAlgebra(R)
+      sage: uncouple_cyclic([[x, x-2], [-x/3, 1-x/3]])
+      ([[0, 1], [(-1/3*x^2 + 2/3*x - 2)/(x - 2), (2/3*x^2 - 1/3*x - 1)/(x - 2)]], [[1, 0], [x, x - 2]])
+      sage: uncouple_cyclic([[2, -2, -x], [4-2*x, 3*x-4, x^2-4], [-3, -x, 4]])
+      ([[0, 1, 0],
+      [0, 0, 1],
+      [(x^5 + 10*x^4 - 33*x^3 + 254*x^2 - 546*x + 280)/(x^3 - 2*x^2 + 16*x - 14),
+       (-x^6 + 2*x^5 - 23*x^4 + 31*x^3 - 132*x^2 + 239*x - 122)/(x^3 - 2*x^2 + 16*x - 14),
+       (3*x^4 - 4*x^3 + 47*x^2 - 14*x - 12)/(x^3 - 2*x^2 + 16*x - 14)]],
+     [[1, 0, 0], [2, -2, -x], [7*x - 4, x^2 - 6*x + 4, -2*x^2 - 6*x + 7]])
+
+    """
+    from .ore_algebra import OreAlgebra
+    from sage.matrix.special import identity_matrix
+    from sage.misc.functional import rank
+
+    if algebra is None:
+        R = coercion_model.common_parent(*[elt for row in mat for elt in row])
+        A = OreAlgebra(R, "D" + R.variable_name())
+    else:
+        A = algebra
+        R = A.base_ring()
+
+    n = len(mat)
+    P = [None] * n
+    k = 0
+
+    m = matrix(mat)
+    sigma = A.sigma()
+    delta = A.delta()
+    identity = list(identity_matrix(n))
+    identity.reverse()
+
+    while k < n:
+        p = identity.pop().list()
+        if k > 0:
+            listRowsToTest = P[0 : k + 1]
+            # check if p is a fitting candidate
+            while rank(matrix(listRowsToTest + [p])) != k + 1:
+                p = identity.pop().list()
+
+        P[k] = p
+        for i in range(k + 1, n):  # compute the next rows
+            p = (vector(R, p).apply_map(sigma) * m + vector(R, p).apply_map(delta)).list()
+            P[i] = p
+
+        for k in range(n, k - 1, -1):  # check whether the first k rows are l.i.
+            if rank(matrix(P[0 : k + 1])) == k:
+                break
+
+    PA = [
+        list(row)
+        for row in list(
+            (matrix(P).apply_map(sigma) * m + matrix(P).apply_map(delta))
+            * (matrix(P).inverse())
+        )
+    ]
+    return (PA, P)
+
+
+def solve_CVM_system(PA, P=None, algebra=None, solver=None, infolevel=0):
+    """
+    Constructs a vector space basis for the uncoupled system (I*D-mat)*f = 0
+    If a matrix P is given the solution is transformed back to a solution of the original system  (I*Dx-A)f=0, whereby (PA, P)=uncouple_cyclic(A).
+
+    INPUT::
+
+        PA     -- The matrix is to be specified as list of lists. The inner lists represent the rows of the matrix. The matrix is in companion form or in companion form with multiple blocks.
+        P      -- The basis change matrix between the two systems.
+        solver --  Solver to be used for finding the rational solutions.
+        algebra -- The OreAlgebra that should be used for the computation. If no OreAlgebra is passed the algebra with the standard derivative in the first variable is used.
+
+    OUTPUT::
+
+    a basis of the C-vector space of all lists u of rational functions such that (I*D-mat)*u == 0 
+
+    EXAMPLES::
+        sage: from ore_algebra import *
+        sage: from ore_algebra.ideal import uncouple_cyclic
+        sage: R.<x> = QQ[]
+        sage: A.<Dx> = OreAlgebra(R)
+        sage: (PA, P)=uncouple_cyclic([[(4+3*x^2)/(2*x+3*x^2), -(-12+6*x)/(2*x+3*x^2)], [(3-x)/(2+3*x), 11/(2+3*x)]])
+        sage: solve_CVM_system(PA, P)
+        [[x^2, 1/2*x^3]]
+        sage: mat=[[0,1,0,0,0,0],[0,0,1,0,0,0],[-1,x, 1,0,0,0],[0,0,0,0,1,0],[0,0,0,0,0,1],[0,1,1,-1, x, 1]]
+        sage: solve_CVM_system(mat)
+        [[x, 1, 0, 1, 0, 0], [0, 0, 0, x, 1, 0]]
+
+    """
+    from .ore_algebra import OreAlgebra
+    from sage.misc.flatten import flatten
+
+    if algebra is None:
+        R = coercion_model.common_parent(*[elt for row in PA for elt in row])
+        A = OreAlgebra(R, "D" + R.variable_name())
+    else:
+        A = algebra
+    n = len(PA)
+
+    PA = matrix(PA)
+    rr = [0]
+    ff = [[]]
+    i = -1
+    j = 0
+    while i + 1 < n:  # compute the block indices r
+        i += 1
+        j += 1
+        while i + 1 < n and PA[i, j] == 1 and sum([p**2 for p in PA[i]]) == 1:
+            i += 1
+            j += 1
+        rr.append(i + 1)
+
+    for index in range(1, len(rr)): #go through blocks
+        RHS = []
+        Ai = list(PA[rr[index - 1] : rr[index], rr[index - 1] : rr[index]])
+
+        for f in ff:
+            Mi = (PA[rr[index] - 1 : rr[index], 0 : rr[index - 1]]).list()
+            RHS.append(sum([Mi[i] * (f[i]) for i in range(len(Mi))]))
+
+        if RHS == [0]:
+            RHS = []
+
+        nn = len(Ai)
+        eq = sum([-Ai[nn - 1][k] * A.gen() ** k for k in range(nn)]) + A.gen() ** nn
+        try:
+            sol = eq.rational_solutions(RHS, solver=solver)
+        except TypeError:
+            sol=eq.rational_solutions(RHS, denominator=1,solver=solver)
+        
+        if sol == []:
+            sol = [[0]]
+
+        # adjust new solutions
+        g = [[sol[i][0]] for i in range(len(sol))]
+        for gg in g:
+            for j in range(1, nn):
+                gg += [A.gen()(gg[j - 1])]
+
+        # adjust old solutions
+        ffNew = []
+        sol = [s[1:] for s in sol]
+        # when previous solutions don't depend on the next solutions
+        if flatten(sol) == [] and ff != [[]]:
+            for f in ff:
+                ffNew.append(f + ([0] * nn))
+
+        for j in range(len(sol)):
+            res = vector([0] * len(ff[0]))
+            for i in range(len(sol[j])):
+                res += vector([ff[i][k] * sol[j][i] for k in range(len(ff[i]))])
+
+            res = list(res)
+            ffNew.append(res + g[j])
+        ff = ffNew
+
+    if P is None:
+        return ff
+    else:
+        return [(matrix(P).inverse() * vector(sol)).list() for sol in ff]
+
+
+def solve_coupled_system_CVM(mat, rhs=[], algebra=None, solver=None, infolevel=0):
+    """
+    Constructs a vector space basis for the coupled system (I*D-mat)*f = rhs
+
+    INPUT::
+
+        PA     -- The matrix is to be specified as list of lists. The inner lists represent the rows of the matrix.
+        rhs    -- Right hand sides of the equation
+        algebra -- The OreAlgebra that should be used for the computation. If no OreAlgebra is passed the algebra with the standard derivation in the first variable is used.
+        solver --  Solver to be used for finding the rational solutions.
+
+
+    OUTPUT::
+
+    a basis of the C-vector space of all pairs (u, c) where u is a list of rational functions and c is a list of constants such that u' - mat*u == c[0]*rhs[0]+...+c[n]*rhs[n] 
+
+    """
+    from .ore_algebra import OreAlgebra
+
+    if algebra is None:
+        R = coercion_model.common_parent(*[elt for row in mat for elt in row])
+        A = OreAlgebra(R, "D" + R.variable_name())
+    else:
+        A = algebra
+        R = A.base_ring()
+
+    n = len(mat) 
+    if rhs != []:  # constructing new matrix which has the RHS encoded in it
+        B = list(map(list,(zip(*rhs))))
+        zeros = [[0]*(n+len(B[0]))]*(len(rhs))
+        mat = ([mat[i] + B[i] for i in range(n)]) + zeros
+
+    (PA, P) = uncouple_cyclic(mat, A, infolevel)
+    res = solve_CVM_system(PA, P, A, solver, infolevel)
+    
+    return [(res[i][:n],res[i][n:n+len(rhs)]) for i in range(len(res))]
+
+    
 smallest_lt_first = cmp_to_key(
     lambda u, v: 1 if (u.lm() + v.lm()).lm() == u.lm() else -1)
