@@ -1379,7 +1379,7 @@ def uncouple_cyclic(mat, algebra=None, infolevel=0):
 
 def solve_CVM_system(PA, P=None, algebra=None, solver=None, infolevel=0):
     """
-    Constructs a vector space basis for the uncoupled system (I*D-mat)*f = 0
+    Constructs a vector space basis for the solution space of the uncoupled system (I*D-mat)*f = 0
     If a matrix P is given the solution is transformed back to a solution of the original system  (I*Dx-A)f=0, whereby (PA, P)=uncouple_cyclic(A).
 
     INPUT::
@@ -1391,7 +1391,7 @@ def solve_CVM_system(PA, P=None, algebra=None, solver=None, infolevel=0):
 
     OUTPUT::
 
-    a basis of the C-vector space of all lists u of rational functions such that (I*D-mat)*u == 0 
+    a basis of the C-vector solution space consisting of lists u of rational functions such that (I*D-mat)*u == 0 
 
     EXAMPLES::
         sage: from ore_algebra import *
@@ -1442,10 +1442,7 @@ def solve_CVM_system(PA, P=None, algebra=None, solver=None, infolevel=0):
 
         nn = len(Ai)
         eq = sum([-Ai[nn - 1][k] * A.gen() ** k for k in range(nn)]) + A.gen() ** nn
-        #try:
         sol = eq.rational_solutions(RHS, solver=solver)
-        #except TypeError:
-        #    sol=eq.rational_solutions(RHS, denominator=1,solver=solver)
         
         if sol == []:
             sol = [[0]]
@@ -1473,6 +1470,7 @@ def solve_CVM_system(PA, P=None, algebra=None, solver=None, infolevel=0):
             ffNew.append(res + g[j])
         ff = ffNew
 
+    ff= [f for f in ff if sum([p**2 for p in f]) != 0]
     if P is None:
         return ff
     else:
@@ -1481,7 +1479,7 @@ def solve_CVM_system(PA, P=None, algebra=None, solver=None, infolevel=0):
 
 def solve_coupled_system_CVM(mat, rhs=[], algebra=None, solver=None, infolevel=0):
     """
-    Constructs a vector space basis for the coupled system (I*D-mat)*f = rhs
+    Constructs a vector space basis for the solution space of the coupled system (I*D-mat)*f = rhs
 
     INPUT::
 
@@ -1494,6 +1492,18 @@ def solve_coupled_system_CVM(mat, rhs=[], algebra=None, solver=None, infolevel=0
     OUTPUT::
 
     a basis of the C-vector space of all pairs (u, c) where u is a list of rational functions and c is a list of constants such that u' - mat*u == c[0]*rhs[0]+...+c[n]*rhs[n] 
+
+    EXAMPLES::
+    sage: from ore_algebra import *
+    sage: from ore_algebra.ideal import solve_couples_system_CVM
+    sage: R.<x> = QQ[]
+    sage: A.<Dx> = OreAlgebra(R)
+    sage: solve_coupled_system_CVM([[1, 0, 2/(2 + x^2) - x/(2 + x^2)], [1/x^2 - 1 + x)/x^2, 1, 0], [-((-2 - 3*x^2)/x^2) - (2 + x^2)/x, 0, 1]],[[0,1,0]])
+    [([0, 1, 0], [-1]), ([x^2, x, x^3 + 2*x], [1])]
+    sage: R.<n> = ZZ['n']; A.<Sn> = OreAlgebra(Frac(R), 'Sn');
+    sage: solve_coupled_system_CVM([[0, 5 + 2*n], [(3 + 8*n - 10*n^2 - 32*n^3 - 8*n^4)/(105 + 142*n + 60*n^2 + 8*n^3), 2*n^2]],[],A)
+    [([-1/(2*n + 1), -1/(4*n^2 + 16*n + 15)], [])]
+
 
     """
     from .ore_algebra import OreAlgebra
