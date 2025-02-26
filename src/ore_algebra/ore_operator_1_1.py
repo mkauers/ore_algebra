@@ -307,7 +307,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
             if p.degree() == 1:
                 try:
                     d = max(d, ZZ(-p[0]/p[1]))
-                except:
+                except (TypeError, ValueError):
                     pass
 
         return d        
@@ -2033,7 +2033,7 @@ def _commutativeRadical(p):
         for i in range(min(log(p.numerator()),log(p.denominator()))+1,2,-1):
             try:
                 return (p.nth_root(i),i)
-            except:
+            except (TypeError, ValueError, AttributeError):
                 pass
         return (p,1)
     sqf=p.squarefree_decomposition()
