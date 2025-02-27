@@ -82,7 +82,7 @@ if True:
     import datetime
     try:
         v = version()
-    except:
+    except NameError:
         v = "2013-01-01"
 
     if datetime.date(int(v[-10:-6]), int(v[-5:-3]), int(v[-2:])) >= datetime.date(2013, 05, 15):

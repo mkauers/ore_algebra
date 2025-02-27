@@ -233,7 +233,7 @@ class UnivariateQRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverU
 
         try:
             a = R(a)
-        except:
+        except (TypeError, ValueError):
             raise ValueError("argument has to be of the form u*x+v where u,v are integers")
 
         if a.degree() > 1:
@@ -242,7 +242,7 @@ class UnivariateQRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverU
         try:
             u = ZZ(a[1])
             v = ZZ(a[0])
-        except:
+        except (TypeError, ValueError):
             raise ValueError("argument has to be of the form u*x+v where u,v are rational")
 
         A = A.change_ring(A.base_ring().fraction_field())
@@ -324,7 +324,7 @@ class UnivariateQRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverU
             if p.degree() == 1:
                 try:
                     s.append(q_log(q, K(-p[0]/p[1])))
-                except:
+                except (TypeError, ValueError):
                     pass
 
         s = list(set(s))  # remove duplicates
@@ -615,7 +615,7 @@ class UnivariateQDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOve
 
         try:
             return self.parent()(C.numerator().coefficients(sparse=False))
-        except:
+        except (TypeError, ValueError, AttributeError):
             return C
 
     symmetric_product.__doc__ = UnivariateOreOperator.symmetric_product.__doc__

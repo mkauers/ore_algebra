@@ -467,7 +467,7 @@ def _launch_info(infolevel, name, dim=None, deg=None, domain=None):
         if domain is not None:
             try:
                 message = message + ", domain=" + domain._latex_()
-            except:
+            except AttributeError:
                 message = message + ", domain=" + str(domain)
         return message + "."
     _info(infolevel, lazy_string(make_message))
@@ -2057,7 +2057,7 @@ def _berlekamp_massey(data):
 
     try:
         d = lcm([p.denominator() for p in M])
-    except:
+    except (TypeError, ValueError, AttributeError):
         d = R.one()
 
     return [-R(d*p) for p in M]
