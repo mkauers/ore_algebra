@@ -66,11 +66,11 @@ class MultivariateOreOperator(OreOperator):
                 if e[i] > 0:
                     try:
                         u = d(u, e[i])
-                    except:
+                    except (TypeError, ValueError, KeyError):
                         for j in range(e[i]):
                             u = d(u)
-            out += terms[e]*u
-            
+            out += terms[e] * u
+
         return out
 
     # tests
@@ -258,17 +258,17 @@ class MultivariateOreOperator(OreOperator):
         """
         try:
             return self.__poly.exponents()[0]
-        except:
+        except (AttributeError, KeyError, ValueError):
             # zero operator
-            return tuple( [-1]*self.parent().ngens() )
-    
+            return tuple([-1] * self.parent().ngens())
+
     def constant_coefficient(self):
         return self.__poly.constant_coefficient()
 
     def monomial_coefficient(self, term):
         return self.__poly.monomial_coefficient(self.parent()(term).__poly)
-    
-    def map_coefficients(self, f, new_base_ring = None):
+
+    def map_coefficients(self, f, new_base_ring=None):
         if new_base_ring is None:
             return self.parent()(self.__poly.map_coefficients(f))
         else:
@@ -447,13 +447,13 @@ class MultivariateOreOperator(OreOperator):
                     p -= (p.lc()/b0lc)*b0
 
         if normalize and not r0.is_zero() and r0.lc().parent().base_ring() is ZZ:
-            ## make leading term of leading coefficient of r0 positive
+            # make leading term of leading coefficient of r0 positive
             try:
                 sgn = r0.lc().lc().sign()
-            except:
+            except (AttributeError, ValueError):
                 try:
                     sgn = r0.lc().coefficients(sparse=True)[-1].sign()
-                except:
+                except (AttributeError, ValueError, KeyError):
                     sgn = ZZ.one()
             r0 *= sgn
             c *= sgn

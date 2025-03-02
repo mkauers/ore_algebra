@@ -51,12 +51,11 @@ class UnivariateQRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverU
             def fun(n):
                 if f[n + r] is None:
                     return None
-                else:
-                    try:
-                        qn = q**n
-                        return sum( c[i](qn)*f[n + i] for i in range(r + 1) )/d(qn)
-                    except:
-                        return None
+                try:
+                    qn = q**n
+                    return sum( c[i](qn)*f[n + i] for i in range(r + 1) )/d(qn)
+                except (KeyError, ValueError, TypeError):
+                    return None
 
             return type(f)(fun(n) for n in range(len(f) - r))
 
