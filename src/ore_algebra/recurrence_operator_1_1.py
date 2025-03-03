@@ -58,7 +58,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
                 else:
                     try:
                         return sum( c[i](n)*f[n + i] for i in range(r + 1) )/d(n)
-                    except:
+                    except (ValueError, TypeError, KeyError):
                         return None
 
             return type(f)(fun(n) for n in range(len(f) - r))
@@ -68,9 +68,10 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
 
             def shift(p):
                 try:
-                    return p.subs({x:x+1})
-                except:
-                    return p(x+1)
+                    return p.subs({x: x + 1})
+                except (TypeError, AttributeError, ValueError):
+                    return p(x + 1)
+
             kwargs["action"] = shift
 
         return UnivariateOreOperator.__call__(self, f, **kwargs)

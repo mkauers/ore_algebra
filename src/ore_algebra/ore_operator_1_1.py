@@ -569,7 +569,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         try: ## facilitate factorization
             den = lcm( [ p.denominator() for p in s ] )
             s = s.map_coefficients(lambda p: den*p)
-        except:
+        except (TypeError, ValueError, AttributeError):
             pass                
             
         return s
@@ -1256,14 +1256,17 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         # reorganize data in the form {valg:[[gamma,phi,max_alpha,dim],[gamma,phi,max_alpha,dim],...], ...}
         if q_case:
             special_local_data = SELF._local_data_at_special_points()
+
             def equiv(a, b):
                 try:
                     return q_log(q, a/b) in ZZ
-                except:
+                except (TypeError, ValueError):
                     return False
+
             def merge(a, b):
                 e = q_log(q, a/b)
                 return a if e > 0 else b
+
         else:
             special_local_data = SELF._infinite_singularity()
             special_local_data = [ (0, phi, gamma, alpha) for gamma, phi, alpha in special_local_data]
@@ -1274,7 +1277,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         for gamma, phi, beta, alpha in special_local_data:
             try:
                 u = [u for u in spec[beta] if u[1]==phi and equiv(u[2], alpha)]
-            except:
+            except (KeyError, TypeError, ValueError):
                 u = spec[beta] = []
             if len(u) == 0:
                 spec[beta].append([gamma, phi, alpha, 1])
