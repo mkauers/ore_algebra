@@ -17,10 +17,10 @@ TESTS::
 #  Distributed under the terms of the GNU General Public License (GPL)      #
 #  either version 2, or (at your option) any later version                  #
 #                                                                           #
-#  http://www.gnu.org/licenses/                                             #
+#  https://www.gnu.org/licenses/                                             #
 #############################################################################
 
-######### development mode ###########
+# ######## development mode ###########
 """
 try:
     if 'ore_algebra' in sys.modules:
@@ -28,7 +28,7 @@ try:
 except:
     pass
 """
-#######################################
+# ######################################
 
 import math
 from datetime import datetime
@@ -265,7 +265,7 @@ def guess(data, algebra, **kwargs):
             KK3 = GF(mod)
             KK4 = KK3[K.gens()]
             KK5 = KK4.fraction_field()
-            return lambda rat: KK5(KK4(rat.numerator()).map_coefficients(KK3, KK3) / \
+            return lambda rat: KK5(KK4(rat.numerator()).map_coefficients(KK3, KK3) /
                                    KK4(rat.denominator()).map_coefficients(KK3, KK3))
 
         return _guess_via_hom(data, A, _word_size_primes(), to_hom, **kwargs)
@@ -282,7 +282,8 @@ def guess(data, algebra, **kwargs):
     else:
         raise TypeError("unexpected coefficient domain: " + str(K))
 
-###########################################################################################
+
+#############################################################################
 
 def guess_raw(data, A, order=-1, degree=-1, lift=None, solver=None, cut=25, ensure=0, infolevel=0):
     """
@@ -548,7 +549,7 @@ def guess_hp(data, A, order=-1, degree=-1, lift=None, cut=25, ensure=0, infoleve
             series.append((series[1]*series[-1]).truncate(truncate))
 
     info(2, lazy_string(lambda: datetime.today().ctime() + ": matrix construction completed."))
-    sol = _hermite(True, matrix(R, [series]), [degree], infolevel - 2, truncate = truncate - 1)
+    sol = _hermite(True, matrix(R, [series]), [degree], infolevel - 2, truncate=truncate - 1)
     info(2, lazy_string(lambda: datetime.today().ctime() + ": hermite pade approximation completed."))
 
     sol = [A(list(map(R, s))) for s in sol]
@@ -688,7 +689,7 @@ def _guess_via_hom(data, A, modulus, to_hom, **kwargs):
                     qq = hom(qq[1])
                     Lp = guess(data_mod, OreAlgebra(hom(K.one()).parent()[x], (A.var(), {x:qq*x}, {}), q=qq), **kwargs)
 
-                if type(Lp) is tuple and len(Lp) == 2:  ## this implies nn < 3
+                if isinstance(Lp, tuple) and len(Lp) == 2:  # this implies nn < 3
                     Lp, path = Lp
                     kwargs['path'] = path
 
@@ -705,7 +706,7 @@ def _guess_via_hom(data, A, modulus, to_hom, **kwargs):
                     try:
                         Lp, p = _merge_homomorphic_images(op2vec(Lp, r, d), p, op2vec(Lpp, r, d), pp, reconstruct=False)
                         Lp = vec2op(Lp, r, d)
-                    except:
+                    except (TypeError, ValueError):
                         info(2, "unlucky modulus " + str(pp) + " discarded")
 
         else:
@@ -722,7 +723,7 @@ def _guess_via_hom(data, A, modulus, to_hom, **kwargs):
                 try:
                     Lp, p = _merge_homomorphic_images(op2vec(Lp, r, d), p, vec2op(Lpp, r, d), pp, reconstruct=False)
                     Lp = vec2op(Lp, r, d)
-                except:
+                except (TypeError, ValueError):
                     info(2, "unlucky modulus " + str(pp) + " discarded")
 
         if nn == 1:
@@ -754,7 +755,7 @@ def _guess_via_hom(data, A, modulus, to_hom, **kwargs):
                     if order_adjustment is None:
                         order_adjustment = Lp.order() // ZZ(2)
                     Lp = Lp.map_coefficients(lambda p: s(p, -order_adjustment))
-                except:
+                except (TypeError, ValueError):
                     L = A.zero()
                     mod = K.one() if atomic else ZZ.one()
                     order_adjustment = 0
@@ -887,6 +888,7 @@ def _guess_via_gcrd(data, A, **kwargs):
     # search equation
 
     neg_probes = []
+
     def probe(r, d):
         if (r, d) in neg_probes:
             return []
@@ -956,8 +958,6 @@ def _guess_via_gcrd(data, A, **kwargs):
 
 
 ###############################################################################
-
-
 
 
 def _word_size_primes(init=2**23, bound=1000):
@@ -1198,6 +1198,7 @@ def _ff_factory(domain):
         c = {}
         if characteristic == 0:
             one = ZZ.one()
+
             def ff(u, v): ## computation in ZZ; first argument must be integer too!
                 try:
                     return c[u, v]
@@ -1234,7 +1235,9 @@ def _power_factory(domain):
         domain = domain.fraction_field()
         if domain.characteristic() > 0:
             characteristic = domain.characteristic()
-            def power(u, v): # using Python integers
+
+            def power(u, v):
+                # using Python integers
                 try:
                     return c[u, v]
                 except KeyError:
@@ -1248,10 +1251,12 @@ def _power_factory(domain):
                         return cc
         else:
             one = domain.one()
-            def power(u, v): # using the actual domain (because u might contain q)
+
+            def power(u, v):
+                # using the actual domain (because u might contain q)
                 try:
                     return c[u, v]
-                except:
+                except (KeyError, ValueError, TypeError):
                     if v == 0:
                         return one
                     elif v < 0:
@@ -1483,11 +1488,11 @@ def guess_mult(data, algebra, **kwargs):
                 if cut is not None and len(points) > len(terms) + cut:
                     points = points[:len(terms) + cut]
 
-            else: ## subsequent iterations
+            else:  # subsequent iterations
 
-                try: ## save
+                try:  # save
                     imgs[imgs.index(None)] = ([vector(R, s) for s in solp], p)
-                except: ## merge, merge, and reconstruct
+                except (TypeError, ValueError):  # merge, merge, and reconstruct
 
                     p = [p]*len(solp)
                     solp = [vector(R, s) for s in solp]
@@ -1532,7 +1537,7 @@ def guess_mult(data, algebra, **kwargs):
             coeffs[terms[i][1]][terms[i][0]] = v[i]
             try:
                 d = lcm(d, C(v[i].denominator()))
-            except:
+            except (TypeError, ValueError, AttributeError):
                 pass
         for o in op_terms:
             coeffs[o] = R(d*R1(coeffs[o]))
