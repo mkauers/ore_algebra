@@ -1301,12 +1301,14 @@ def solve_triangular_system(mat, rhs, solver=None):
 
 def uncouple_cyclic(mat, algebra=None, infolevel=0):
     """
-    Computes a matrix P and PA such that PA=(sigma(P)*A+delta(P))*P.inverse() has the form of a companion matrix for (I*Dx-mat)f=0 or such that PA has serveral blocks in companion form.
+    Computes a matrix P and PA such that PA=(sigma(P)*A+delta(P))*P.inverse() has the form of a companion matrix for (I*Dx-mat)f=0 or such that PA has several blocks in companion form.
 
-    INPUT::
+    INPUT:
 
-        mat     -- The matrix is to be specified as list of lists. The inner lists represent the rows of the matrix.
-        algebra -- The OreAlgebra that should be used for the computation. If no OreAlgebra is passed the algebra with the standard derivative in the first variable is used.
+    - mat     -- The matrix is to be specified as list of lists.
+      The inner lists represent the rows of the matrix.
+    - algebra -- The OreAlgebra that should be used for the computation.
+      If no OreAlgebra is passed the algebra with the standard derivative in the first variable is used.
 
     OUTPUT:
 
@@ -1381,12 +1383,14 @@ def solve_CVM_system(PA, P=None, algebra=None, solver=None, infolevel=0):
     Constructs a vector space basis for the solution space of the uncoupled system (I*D-mat)*f = 0
     If a matrix P is given the solution is transformed back to a solution of the original system  (I*Dx-A)f=0, whereby (PA, P)=uncouple_cyclic(A).
 
-    INPUT::
+    INPUT:
 
-        PA     -- The matrix is to be specified as list of lists. The inner lists represent the rows of the matrix. The matrix is in companion form or in companion form with multiple blocks.
-        P      -- The basis change matrix between the two systems.
-        solver --  Solver to be used for finding the rational solutions.
-        algebra -- The OreAlgebra that should be used for the computation. If no OreAlgebra is passed the algebra with the standard derivative in the first variable is used.
+    - PA     -- The matrix is to be specified as list of lists.
+      The inner lists represent the rows of the matrix. The matrix is in companion form or in companion form with multiple blocks.
+    - P      -- The basis change matrix between the two systems.
+    - solver --  Solver to be used for finding the rational solutions.
+    - algebra -- The OreAlgebra that should be used for the computation.
+      If no OreAlgebra is passed the algebra with the standard derivative in the first variable is used.
 
     OUTPUT:
 
@@ -1481,15 +1485,16 @@ def solve_coupled_system_CVM(mat, rhs=[], algebra=None, solver=None, infolevel=0
     """
     Constructs a vector space basis for the solution space of the coupled system (I*D-mat)*f = rhs
 
-    INPUT::
+    INPUT:
 
-        PA     -- The matrix is to be specified as list of lists. The inner lists represent the rows of the matrix.
-        rhs    -- Right hand sides of the equation
-        algebra -- The OreAlgebra that should be used for the computation. If no OreAlgebra is passed the algebra with the standard derivation in the first variable is used.
-        solver --  Solver to be used for finding the rational solutions.
+    - PA     -- The matrix is to be specified as list of lists.
+      The inner lists represent the rows of the matrix.
+    - rhs    -- Right hand sides of the equation
+    - algebra -- The OreAlgebra that should be used for the computation.
+      If no OreAlgebra is passed the algebra with the standard derivation in the first variable is used.
+    - solver --  Solver to be used for finding the rational solutions.
 
-
-    OUTPUT::
+    OUTPUT:
 
     a basis of the C-vector space of all pairs (u, c) where u is a list of rational functions and c is a list of constants such that u' - mat*u == c[0]*rhs[0]+...+c[n]*rhs[n] 
 
