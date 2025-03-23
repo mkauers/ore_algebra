@@ -443,36 +443,36 @@ class OreOperator(RingElement):
         R = self.base_ring()
         if self.is_zero():
             return R.one()
-        elif R.is_field():
+
+        if R.is_field():
             return self.leading_coefficient()
-        else:
 
-            coeffs = self.coefficients() # nonzero coefficients only
-            if len(coeffs) == 1:
-                return coeffs[0]
-            
+        coeffs = self.coefficients() # nonzero coefficients only
+        if len(coeffs) == 1:
+            return coeffs[0]
+
+        try:
+            a = sum(R(29*i+13)*coeffs[i] for i in range(len(coeffs)))
+            b = sum(R(31*i+17)*coeffs[i] for i in range(len(coeffs)))
             try:
-                a = sum(R(29*i+13)*coeffs[i] for i in range(len(coeffs)))
-                b = sum(R(31*i+17)*coeffs[i] for i in range(len(coeffs)))
-                try:
-                    c = a.gcd(b)
-                except:
-                    c = R.zero()
-                if not proof and not c.is_zero() and \
-                   sum(len(p.coefficients()) for p in coeffs) > 1000: # no shortcut for small operators
-                    return c
+                c = a.gcd(b)
+            except (TypeError, ValueError, AttributeError):
+                c = R.zero()
+            if not proof and not c.is_zero() and \
+               sum(len(p.coefficients()) for p in coeffs) > 1000: # no shortcut for small operators
+                return c
 
-                coeffs.append(c)
-                if R.ngens() == 1:
-                    # move polynomials of lower degree to front
-                    coeffs.sort(key=lambda p: p.degree())
-                else:
-                    # move polynomials with fewer terms to front
-                    coeffs.sort(key=lambda p: len(p.exponents()))
+            coeffs.append(c)
+            if R.ngens() == 1:
+                # move polynomials of lower degree to front
+                coeffs.sort(key=lambda p: p.degree())
+            else:
+                # move polynomials with fewer terms to front
+                coeffs.sort(key=lambda p: len(p.exponents()))
 
-                return gcd(coeffs)
-            except:
-                return R.one()
+            return gcd(coeffs)
+        except:
+            return R.one()
 
     def primitive_part(self, proof=True):
         """
@@ -529,20 +529,20 @@ class OreOperator(RingElement):
         while not c.is_unit() and c.parent() is not c.parent().base_ring():
             try:
                 c = c.leading_coefficient()
-            except:
+            except AttributeError:
                 try:
                     c = c.lc()
-                except:
+                except AttributeError:
                     break
         while c.parent() is not c.parent().base_ring():
             try:
                 c = c.parent().base_ring()(c)
-            except:
+            except (AttributeError, TypeError, ValueError):
                 break
         if not c.is_unit(): 
             try:
                 c = sign(c)
-            except:
+            except (TypeError, ValueError):
                 c = c.parent().one()
         return self.parent()((~c)*num)
 
@@ -607,7 +607,7 @@ class OreOperator(RingElement):
 
         try:
             op = A.change_ring(R.ring())(op)
-        except:
+        except (TypeError, ValueError, AttributeError):
             pass
 
         return op
@@ -681,8 +681,8 @@ class UnivariateOreOperator(OreOperator):
         try:
             f, _ = canonical_coercion(f, self.base_ring().zero())
             R = f.parent()
-        except:
-            if isinstance(f,PowerSeries) or isinstance(f,LaurentSeries):
+        except (TypeError, ValueError):
+            if isinstance(f, PowerSeries) or isinstance(f, LaurentSeries):
                 prec = f.precision_relative()
                 if prec is infinity:
                     prec = None
@@ -1006,7 +1006,7 @@ class UnivariateOreOperator(OreOperator):
 
         try:
             prs = prslist[prs]
-        except:
+        except KeyError:
             if self.base_ring().is_field():
                 prs = __classicPRS__
             else:
@@ -1091,7 +1091,7 @@ class UnivariateOreOperator(OreOperator):
         else:
             try:
                 prs = prslist[prs]
-            except:
+            except KeyError:
                 if self.base_ring().is_field():
                     prs = __classicPRS__
                 else:
@@ -2086,9 +2086,9 @@ def __essentialPRS__(r,additional):
     newRem = (alpha*r[0]).quo_rem(r[1],fractionFree=True)
     try:
         r2 = newRem[1].map_coefficients(lambda p: p/beta)
-    except:
-        return ((0,0),0,0,0,False)
-    additional.extend([phi,d1,gamma2,gamma1,essentialPart,initD])
+    except (TypeError, ValueError, AttributeError):
+        return ((0, 0), 0, 0, 0, False)
+    additional.extend([phi, d1, gamma2, gamma1, essentialPart, initD])
 
     return ((r[1],r2),newRem[0],alpha,beta,True)
 
