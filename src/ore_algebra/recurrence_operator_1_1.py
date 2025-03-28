@@ -566,7 +566,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
 
         try:
             a = R(a)
-        except:
+        except (TypeError, ValueError):
             raise ValueError("argument has to be of the form u*x+v where u,v are rational")
 
         if a.degree() > 1:
@@ -575,7 +575,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
         try:
             u = QQ(a[1])
             v = QQ(a[0])
-        except:
+        except (TypeError, ValueError):
             raise ValueError("argument has to be of the form u*x+v where u,v are rational")
 
         r = self.order()
@@ -731,7 +731,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
         y = R(K.gen())
         x = R.gen()
 
-        for (q, _) in R(gcd(R0(p), R0(op[r])))(x - r).resultant(R(op[0])(x + y)).numerator().factor():
+        for q, _ in R(gcd(R0(p), R0(op[r])))(x - r).resultant(R(op[0])(x + y)).numerator().factor():
             if q.degree() == 1:
                 try:
                     s.add(ZZ(-q[0]/q[1]))
@@ -860,34 +860,34 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
             solutions.append( [s, newcoeffs ] )
 
         if dominant_only:
-            max_gamma = max( [g for (g, _) in solutions ] )
+            max_gamma = max( [g for g, _ in solutions ] )
             solutions = [s for s in solutions if s[0]==max_gamma]
 
         info(1, "superexponential parts isolated: " + str([g for g, _ in solutions]))
 
         # 2. exponential parts
         refined_solutions = []
-        for (gamma, coeffs) in solutions:
+        for gamma, coeffs in solutions:
             info(2, "determining exponential parts for gamma=" + str(gamma))
             deg = max([p.degree() for p in coeffs])
             v = gamma.denominator()
             char_poly = K['rho']([ c[deg] for c in coeffs ])
-            for (cp, e) in char_poly.factor():
+            for cp, e in char_poly.factor():
                 rho = -cp[0]/cp[1] # K is algebraically closed, so all factors are linear.
                 if not rho.is_zero() and (not real_only or rho.imag().is_zero()):
                     info(3, "found rho=" + str(rho))
                     refined_solutions.append([gamma, rho, [coeffs[i]*(rho**i) for i in range(len(coeffs))], e*v])
 
         if dominant_only:
-            max_rho = max( [abs(rho) for (_, rho, _, _) in refined_solutions ] )
+            max_rho = max( [abs(rho) for _, rho, _, _ in refined_solutions ] )
             refined_solutions = [s for s in refined_solutions if abs(s[1])==max_rho]
 
-        info(1, "exponential parts isolated: " + str([(gamma, rho) for (gamma, rho, _, _) in refined_solutions]))
+        info(1, "exponential parts isolated: " + str([(gamma, rho) for gamma, rho, _, _ in refined_solutions]))
 
         # 3. subexponential parts
         solutions = refined_solutions
         refined_solutions = []
-        for (gamma, rho, coeffs, ram) in solutions:
+        for gamma, rho, coeffs, ram in solutions:
 
             info(2, "determining subexponential parts for (gamma,rho)=" + str((gamma, rho)))
 
@@ -911,7 +911,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
                 for sub in old:
                     sub[i - 1] = KK.gen()
                     rest = sum((cc[j]*mysubs(X, e, j, sub)) for j in range(r + 1))
-                    for (p, _) in rest.leading_coefficient().factor():
+                    for p, _ in rest.leading_coefficient().factor():
                         c = -p[0]/p[1]
                         if not real_only or c.imag().is_zero():
                             vec = list(sub)
@@ -934,7 +934,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
         # 4. polynomial parts and expansion
         solutions = refined_solutions
         refined_solutions = []
-        for (gamma, rho, subexp, ram, coeffs) in solutions:
+        for gamma, rho, subexp, ram, coeffs in solutions:
 
             info(2, "determining polynomial parts for (gamma,rho,subexp)=" + str((gamma, rho, subexp)))
 
@@ -942,7 +942,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
             s = KK.gen()
             X = x.change_ring(KK)
             rest = sum(coeffs[i].change_ring(KK)*subs(X, w_prec, i, alpha=s)(X**ram) for i in range(len(coeffs)))
-            for (p, e) in shift_factor(rest.leading_coefficient().numerator(), ram):
+            for p, e in shift_factor(rest.leading_coefficient().numerator(), ram):
                 e.reverse()
                 alpha = -p[0]/p[1]
                 if alpha in QQ: # cause conversion to explicit rational
@@ -961,7 +961,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
         PS = PowerSeriesRing(K, 'x')
 
         info(2, "preparing computation of expansion terms...")
-        max_log_power = max([sum(b for (_, b) in e[5]) for e in solutions])
+        max_log_power = max([sum(b for _, b in e[5]) for e in solutions])
         poly_tails = [[x**(ram*prec)]*(ram*prec)]
         log_tails = [[x**(ram*prec)]*max_log_power]
         for l in range(1, r + 1):
@@ -982,7 +982,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
                 lt.append((lt[-1]*p) % x**(prec*ram + 1))
             log_tails.append([x**(ram*prec - p.degree())*p.reverse() for p in lt])
 
-        for (gamma, rho, subexp, ram, alpha, e, degdrop) in solutions:
+        for gamma, rho, subexp, ram, alpha, e, degdrop in solutions:
 
             info(2, "determining expansions for (gamma,rho,subexp,alpha)=" + str((gamma, rho, subexp,alpha)))
 
@@ -991,9 +991,9 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
                           for i in range(r + 1)]
             deg = max([c.degree() for c in coeffs])
             coeffs = [coeffs[i].shift(ram*prec - deg) for i in range(r + 1)]
-            sols = { a: [] for (a, b) in e }
+            sols = { a: [] for a, b in e }
 
-            for (a, b) in e:
+            for a, b in e:
 
                 s = alpha - a/ram
                 # (n+l)^s/n^s = sum(binom(s,i) (l/n)^i, i=0...)
