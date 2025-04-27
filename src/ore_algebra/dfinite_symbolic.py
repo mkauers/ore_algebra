@@ -67,8 +67,11 @@ def symbolic_database(A, f, inner=None, k=0):
         for f(x) but for f(inner) is returned. However ``inner`` has to be a linear function, i.e. of the form u*x + v for
         u,v in QQ. For discrete functions ``inner`` does not have any impact.
 
-    - `k` (default 0) -- a rational number that has to be handed over if the symolic operator `f` depends on two variables (such as binomial(k,n) or bessel_I(k,x) ) because only operators for univariate functions can be returned and
-        therefore one variable has to be assigned with a certain value `k`
+    - `k` (default 0) -- a rational number that has to be handed over if
+      the symbolic operator `f` depends on two variables (such as
+      binomial(k,n) or bessel_I(k,x) ) because only operators for
+      univariate functions can be returned and therefore one variable
+      has to be assigned with a certain value `k`
 
     OUTPUT:
 

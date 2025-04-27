@@ -422,8 +422,8 @@ class DFiniteFunctionRing(Parent):
 
         In the differential case the symbolic expression can contain several symbolic functions, including most trigonometric functions, square root,
         logarithm, Airy functions, Bessel functions, error functions,\dots (for a detailed list see the documentation of ``dfinite_symbolic.py``). Of
-        course all other functions that can be converrted into a D-finite function (such as rational functions) can appear. Additionally addition and
-        multiplication of these functions and compostion of these functions with rational functions are supported.
+        course all other functions that can be converted into a D-finite function (such as rational functions) can appear. Additionally addition and
+        multiplication of these functions and composition of these functions with rational functions are supported.
         with linear inner functions
 
         INPUT:
@@ -1296,7 +1296,7 @@ class DFiniteFunction(RingElement):
         r"""
         Return whether the two DFiniteFunctions ``self`` and ``right`` are equal.
 
-        More precicsely it is tested if the difference of ``self`` and ``right`` equals 0.
+        More precisely it is tested if the difference of ``self`` and ``right`` equals 0.
 
         EXAMPLES::
 
@@ -2037,7 +2037,7 @@ class UnivariateDFiniteSequence(DFiniteFunction):
             coeffs_result[i] = result[i].rhs()
         result = sum([a*b for a,b in zip(coeffs_result,base)])
 
-        #checking if the ratinoal function also yields the correct values for all singularities (except from pols)
+        # checking if the rational function also yields the correct values for all singularities (except from pols)
         if all(result(n = k) == self[k] for k in self.initial_conditions() if self[k] is not None):
             return R.fraction_field()(result)
         else:

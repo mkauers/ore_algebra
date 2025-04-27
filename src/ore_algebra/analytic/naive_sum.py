@@ -817,7 +817,7 @@ def guard_bits(dop, maj, evpts, ordrec, nterms):
         # Thus, it is not unreasonable that the loss of precision is of the
         # order of log2(ordrec^nterms). This observation is far from explaining
         # everything, though; in particular, it completely ignores the size of
-        # the coefficients. Anyhow, this formula seems to work reasonaly well in
+        # the coefficients. Anyhow, this formula seems to work reasonably well in
         # practice. It is perhaps a bit pessimistic for simple equations.
         guard_bits_intervals = new_n0*max(1, ZZ(ordrec - 2).nbits())
 
