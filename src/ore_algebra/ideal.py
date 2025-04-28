@@ -161,7 +161,7 @@ class OreLeftIdeal(Ideal_nc):
 
         INPUT:
 
-        - idx -- a generator of the anbient algebra. May be either an integer or an Ore algebra element
+        - idx -- a generator of the ambient algebra. May be either an integer or an Ore algebra element
           or a string representation of the generator
 
         OUTPUT:
