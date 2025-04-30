@@ -1601,11 +1601,11 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         for d in range(r):
             # print1("d={}".format(d))
             prefix = prefix_base + f" {d=}"
-            print2("Processing {}".format(basis[d]))
+            print2(f"Processing {basis[d]}")
             v = val_fct(basis[d],place=a,**val_kwargs)
-            print1("Valuation: {}".format(v))
+            print1(f"Valuation: {v}")
             res.append(a**(-v) * basis[d])
-            print2("Basis element after normalizing: {}".format(res[d]))
+            print2(f"Basis element after normalizing: {res[d]}")
             done = False
             while not done:
                 alpha = raise_val_fct(res,place=a,dim=r,infolevel=infolevel,**val_kwargs)
@@ -1627,16 +1627,15 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
                                 # Workaround for missing conversions over
                                 # extensions of polynomial rings
                                 alpha_rep[i] = k(alpha[i][0])
-                    print2("In base field: {}".format(alpha_rep))
+                    print2(f"In base field: {alpha_rep}")
                     # __import__("pdb").set_trace()
                     
                     res[d] = sum(alpha_rep[i]*res[i] for i in range(d+1))
                     val = val_fct(res[d],place=a,infolevel=infolevel,**val_kwargs)
-                    print1("Valuation raised by {}".format(val))
+                    print1(f"Valuation raised by {val}")
                     res[d] = a**(-val)*res[d]
-                    print2("Basis element after combination: {}".format(res[d]))
-                    print1("Valuation after combination: {}".format(
-                           val_fct(res[d],place=a,infolevel=infolevel,**val_kwargs)))
+                    print2(f"Basis element after combination: {res[d]}")
+                    print1(f"Valuation after combination: {val_fct(res[d],place=a,infolevel=infolevel,**val_kwargs)}")
         return res
 
     def find_candidate_places(self, **kwargs):

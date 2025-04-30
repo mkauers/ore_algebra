@@ -1147,8 +1147,8 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
         print1 = print if infolevel >= 1 else lambda *a, **k: None
         print2 = print if infolevel >= 2 else lambda *a, **k: None
 
-        print1(" [make_places] At (root of {}) + Nmin={}, Nmax={}"
-               .format(f,Nmin,Nmax))
+        print1(f" [make_places] At (root of {f}) + Nmin={Nmin}, Nmax={Nmax}"
+               )
 
         r = self.order()
         Ore = self.parent()
@@ -1211,8 +1211,8 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
 
         res = []
         for n in range(Nmin+r,Nmax+1):
-            print1(" [make_places] preparing place at {}+{} (min poly = {})"
-                   .format(xi,n,f(nn-n)))
+            print1(f" [make_places] preparing place at {xi}+{n} (min poly = {f(nn-n)})"
+                   )
             val_fct, raise_val_fct = get_functions(xi,n,Nmin,sols,call)
             res.append((f(nn-n),val_fct,raise_val_fct# , sols, call
             ))
@@ -1251,7 +1251,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
         # Find the points of interest
         fact0 = list(lr.factor()) + list(l0.factor())
 
-        print1("Factors (non unique): {}".format(fact0))
+        print1(f"Factors (non unique): {fact0}")
 
         # Cleanup the list
         fact = []
@@ -1268,15 +1268,15 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
                 # f is a shift of a factor already seen
                 fact[idx][1] += m
 
-        print1("Factors (unique): {}".format(fact))
+        print1(f"Factors (unique): {fact}")
 
         places = []
         for f, m in fact:
-            print1("Computing places for {}".format(f))
+            print1(f"Computing places for {f}")
 
             # Finding the actual indices of interest
             inds = roots_at_integer_distance(l0lr, f)
-            print1("Integer distances between roots: {}".format(inds))
+            print1(f"Integer distances between roots: {inds}")
             Nmin = min(inds)
             Nmax = max(inds) + r
             Nmin = Nmin - r
@@ -1284,7 +1284,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
                 Nmax = min(Nmax,Zmax)
                 # Else the default max is Nmax
                 # TODO: Should we also update Nmin if Zmax < Nmax?
-            print1("Nmin={} Nmax={}".format(Nmin, Nmax))
+            print1(f"Nmin={Nmin} Nmax={Nmax}")
 
             places += self._make_valuation_places(f, Nmin, Nmax, prec=m + 1,
                                                   infolevel=infolevel)
