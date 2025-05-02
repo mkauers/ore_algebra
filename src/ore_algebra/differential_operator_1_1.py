@@ -1760,7 +1760,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         
         print1("Preparing place at {}"
                .format(f if f.degree() < 10
-                       else "{} + ... + {}".format(f[f.degree()]*f.monomials()[0], f[0])))
+                       else f"{f[f.degree()]*f.monomials()[0]} + ... + {f[0]}"))
 
         r = self.order()
         ore = self.parent()
@@ -1844,12 +1844,12 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
                 mtx = [[] for i in range(len(ops))]
                 for t in cands:
                     if infolevel >= 2:
-                        print(" [raise_val_fct] Processing term x^({}) log(x)^{}".format(t[1], t[0]))
+                        print(f" [raise_val_fct] Processing term x^({t[1]}) log(x)^{t[0]}")
                     for i in range(len(ops)):
                         for s in ss[i]:
                             mtx[i].append(s.coefficient(*t))
                     if infolevel >= 3:
-                        print(" [raise_val_fct] Current matrix:\n{}".format(mtx))
+                        print(f" [raise_val_fct] Current matrix:\n{mtx}")
 
                 M = matrix(mtx)
                 K = M.left_kernel().basis()

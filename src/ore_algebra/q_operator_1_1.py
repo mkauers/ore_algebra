@@ -35,7 +35,7 @@ class UnivariateQRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverU
     Element of an Ore algebra K(x)[S], where S is the shift x->q*x for some q in K.
     """
 
-    def __init__(self, parent, *data, **kwargs):
+    def __init__(self, parent, *data, **kwargs) -> None:
         super(UnivariateOreOperatorOverUnivariateRing, self).__init__(parent, *data, **kwargs)
 
     def __call__(self, f, **kwargs):
@@ -53,7 +53,7 @@ class UnivariateQRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverU
                     return None
                 try:
                     qn = q**n
-                    return sum( c[i](qn)*f[n + i] for i in range(r + 1) )/d(qn)
+                    return sum(c[i](qn) * f[n + i] for i in range(r + 1)) / d(qn)
                 except (KeyError, ValueError, TypeError):
                     return None
 
@@ -63,7 +63,7 @@ class UnivariateQRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverU
         x = R.base_ring().gen()
         qx = R.sigma()(x)
         if "action" not in kwargs:
-            kwargs["action"] = lambda p : p.subs({x:qx})
+            kwargs["action"] = lambda p: p.subs({x: qx})
 
         return UnivariateOreOperator.__call__(self, f, **kwargs)
 
@@ -95,7 +95,6 @@ class UnivariateQRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverU
             2*x*Jx^2 + (-4*x + 4)*Jx - 2
             sage: (x*Jx-1).to_Q(A).to_J(B) % (x*Jx - 1)
             0
-
         """
         R = self.base_ring()
         K = R.base_ring()
@@ -103,9 +102,9 @@ class UnivariateQRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverU
         one = R.one()
 
         if isinstance(alg, str):
-            alg = self.parent().change_var_sigma_delta(alg, {x:q*x}, {x:one})
+            alg = self.parent().change_var_sigma_delta(alg, {x: q * x}, {x: one})
         elif not isinstance(alg, OreAlgebra_generic) or not alg.is_J() or \
-             alg.base_ring().base_ring() is not K or K(alg.is_J()[1]) != K(q):
+                alg.base_ring().base_ring() is not K or K(alg.is_J()[1]) != K(q):
             raise TypeError("target algebra is not adequate")
 
         if self.is_zero():
@@ -118,7 +117,7 @@ class UnivariateQRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverU
         Q = alg(~x)
         out = alg.zero()
         coeffs = self.numerator().coefficients(sparse=False)
-        x_pows = {0 : alg.one(), 1 : ((q - R.one())*x)*alg.gen() + alg.one()}
+        x_pows = {0: alg.one(), 1: ((q - R.one())*x)*alg.gen() + alg.one()}
 
         for i in range(len(coeffs)):
             term = alg.zero()
@@ -131,7 +130,7 @@ class UnivariateQRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverU
 
         return (alg.gen()**(len(coeffs)-1))*out.numerator().change_ring(alg.base_ring())
 
-    def to_list(self, init, n, start=0, append=False, padd=False):
+    def to_list(self, init, n, start=0, append=False, padd=False) -> list:
         r"""
         Computes the terms of some sequence annihilated by ``self``.
 
@@ -164,7 +163,6 @@ class UnivariateQRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverU
             [1, 1, 0, -1, -9, -242, -19593, -4760857, -3470645160, -7590296204063]
             sage: (Qx^2-x*Qx + 1)(_)
             [0, 0, 0, 0, 0, 0, 0, 0]
-
         """
         _, q = self.parent().is_Q()
         return _rec2list(self, init, n, start, append, padd, lambda n: q**n)
@@ -183,7 +181,6 @@ class UnivariateQRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverU
             sage: A.<Qx> = OreAlgebra(R, 'Qx')
             sage: ((x+1)*Qx - x).annihilator_of_sum()
             (q*x + 1)*Qx^2 + (-2*q*x - 1)*Qx + q*x
-
         """
         A = self.parent()
         return self.map_coefficients(A.sigma())*(A.gen() - A.one())
@@ -217,7 +214,6 @@ class UnivariateQRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverU
             sage: Lrev = L.annihilator_of_composition(10 - x)
             sage: Lrev.to_list([data[10], data[9]], 11)
             [14580926901721431215/57983829378048, 1461633379710215/26500836096, 488427432475/40336128, 188901875/70848, 2387975/4032, 19435/144, 1585/48, 115/12, 15/4, 2, 1]
-
         """
         # ugly code duplication: the following is more or less the same as
         # UnivariateRecurrenceOperatorOverUnivariateRing.annihilator_of_composition :-(
@@ -257,7 +253,7 @@ class UnivariateQRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverU
         elif u == 1:
             return self
         elif u < 0:
-            c = [ p(q**(-r)/x) for p in self.coefficients(sparse=False) ]
+            c = [p(q**(-r) / x) for p in self.coefficients(sparse=False)]
             c.reverse()
             return A(c).numerator().annihilator_of_composition(-u*x)
 
@@ -268,13 +264,13 @@ class UnivariateQRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverU
 
         p = A.one()
         Qu = A.gen()**u  # possible improvement: multiplication matrix.
-        mat = [ p.coefficients(sparse=False, padd=r) ]
+        mat = [p.coefficients(sparse=False, padd=r)]
         sol = []
 
         while len(sol) == 0:
 
             p = (Qu*p) % L
-            mat.append( p.coefficients(sparse=False, padd=r) )
+            mat.append(p.coefficients(sparse=False, padd=r))
             sol = solver(Matrix(mat).transpose())
 
         return self.parent()(list(sol[0])).map_coefficients(lambda p: p(x**u))
@@ -301,12 +297,12 @@ class UnivariateQRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverU
         try:
             # first try to use shift factorization. this seems to be more efficient in most cases.
             all_facs = [sigma(u, -1) for u, _ in shift_factor(sigma(op[0].gcd(p), r)*op[r], 1, q)]
-            tc = [ u[1:] for _, u in shift_factor(prod(all_facs)*sigma(op[0].gcd(p), r), 1, q) ]
-            lc = [ u[1:] for _, u in shift_factor(prod(all_facs)*op[r], 1, q) ]
+            tc = [u[1:] for _, u in shift_factor(prod(all_facs)*sigma(op[0].gcd(p), r), 1, q)]
+            lc = [u[1:] for _, u in shift_factor(prod(all_facs)*op[r], 1, q)]
             for u, v in zip(tc, lc):
                 s.extend(j[0] - i[0] for i in u for j in v)
             return sorted(set(s))
-        except:
+        except (TypeError, ValueError, AttributeError):
             pass
 
         K = PolynomialRing(R.base_ring(), 'y').fraction_field()  # F(k[y])
@@ -340,7 +336,7 @@ class UnivariateQRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverU
         R = A.base_ring()
         x, q = A.is_Q()
         one = R.one()
-        A = A.change_var_sigma_delta(gen, {x:q*x}, {x:one})
+        A = A.change_var_sigma_delta(gen, {x: q*x}, {x: one})
 
         if self.is_zero():
             return A.zero()
@@ -386,7 +382,7 @@ class UnivariateQRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverU
     def _powerIndicator(self):
         return self.coefficients(sparse=False)[0]
 
-    def _local_data_at_special_points(self):
+    def _local_data_at_special_points(self) -> list:
         r"""
         Returns information about the local behaviour of this operator's solutions at x=0 and
         at x=infinity.
@@ -403,9 +399,7 @@ class UnivariateQRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverU
             sage: R.<x> = QQ['x']; A.<Qx> = OreAlgebra(R, q=2)
             sage: ((2*x+3)*Qx - (8*x+3)).lclm(Qx-1)._local_data_at_special_points()
             [(0, 2, 0, 2), (0, 2, 0, 1/2), (0, 1, 0, 4), (0, 1, 0, 1)]
-
         """
-
         Q = self.parent().gen()
         x, qq = self.parent().is_Q()
         factors = make_factor_iterator(x.parent(), multiplicities=False)
@@ -433,7 +427,7 @@ class UnivariateQDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOve
     Element of an Ore algebra K(x)[J], where J is the Jackson q-differentiation J f(x) = (f(q*x) - f(x))/(q*(x-1))
     """
 
-    def __init__(self, parent, *data, **kwargs):
+    def __init__(self, parent, *data, **kwargs) -> None:
         super(UnivariateOreOperatorOverUnivariateRing, self).__init__(parent, *data, **kwargs)
 
     def __call__(self, f, **kwargs):
@@ -442,7 +436,7 @@ class UnivariateQDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOve
         x, q = A.is_J()
         qx = A.sigma()(x)
         if "action" not in kwargs:
-            kwargs["action"] = lambda p : (p.subs({x:qx}) - p)/(x*(q-1))
+            kwargs["action"] = lambda p: (p.subs({x: qx}) - p)/(x*(q-1))
 
         return UnivariateOreOperator.__call__(self, f, **kwargs)
 
@@ -480,9 +474,9 @@ class UnivariateQDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOve
         x, q = self.parent().is_J()
 
         if isinstance(alg, str):
-            alg = self.parent().change_var_sigma_delta(alg, {x:q*x}, {})
+            alg = self.parent().change_var_sigma_delta(alg, {x: q*x}, {})
         elif not isinstance(alg, OreAlgebra_generic) or not alg.is_Q() or \
-             alg.base_ring().base_ring() is not R.base_ring() or K(alg.is_Q()[1]) != K(q) :
+                alg.base_ring().base_ring() is not R.base_ring() or K(alg.is_Q()[1]) != K(q):
             raise TypeError("target algebra is not adequate")
 
         if self.is_zero():
@@ -493,11 +487,11 @@ class UnivariateQDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOve
         alg = alg.change_ring(R)
 
         Q = alg.gen()
-        J = ((q*x - R.one())/(q - R.one()))*Q
+        J = ((q*x - R.one()) / (q - R.one())) * Q
         J_pow = alg.one()
         out = alg.zero()
         coeffs = self.numerator().coefficients(sparse=False)
-        d = max( c.degree() for c in coeffs )
+        d = max(c.degree() for c in coeffs)
 
         for i in range(len(coeffs)):
             if i > 0:
@@ -524,11 +518,10 @@ class UnivariateQDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOve
             (x - 1)*Jx^2 - 2*x*Jx
             sage: _.annihilator_of_associate(Jx)
             (x - 1)*Jx - 2*x
-
         """
-        return self*self.parent().gen()
+        return self * self.parent().gen()
 
-    def power_series_solutions(self, n=5):
+    def power_series_solutions(self, n=5) -> list:
         r"""
         Computes the first few terms of the power series solutions of this operator.
 
@@ -555,7 +548,6 @@ class UnivariateQDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOve
             sage: A.<Jx> = OreAlgebra(R, 'Jx', q=2)
             sage: (Jx-1).lclm((1-x)*Jx-1).power_series_solutions()
             [x^2 + x^3 + 3/5*x^4 + 11/35*x^5 + O(x^6), 1 + x - 2/7*x^3 - 62/315*x^4 - 146/1395*x^5 + O(x^6)]
-
         """
         _, q = self.parent().is_J()
         return _power_series_solutions(self, self.to_Q('Q'), n, lambda n: q**n)
@@ -567,7 +559,7 @@ class UnivariateQDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOve
         """
         x, q = self.parent().is_J()
 
-        alg = self.parent().change_var_sigma_delta(gen, {x:q*x}, {})
+        alg = self.parent().change_var_sigma_delta(gen, {x: q*x}, {})
         alg = alg.change_ring(self.base_ring().fraction_field())
 
         if self.is_zero():
@@ -582,7 +574,7 @@ class UnivariateQDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOve
         for i in range(self.order()):
 
             J_k *= J
-            out += R(c[i + 1])*J_k
+            out += R(c[i + 1]) * J_k
 
         return out.numerator().change_ring(R.ring())
 
