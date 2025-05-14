@@ -1,9 +1,6 @@
-
 """
 Multivariate operators
 """
-
-
 #############################################################################
 #  Copyright (C) 2013, 2014, 2017                                           #
 #                Manuel Kauers (mkauers@gmail.com),                         #
@@ -15,29 +12,30 @@ Multivariate operators
 #                                                                           #
 #  https://www.gnu.org/licenses/                                             #
 #############################################################################
-
 from datetime import datetime
 from functools import reduce
 
-from sage.structure.richcmp import richcmp
-from sage.misc.misc_c import prod
 from sage.misc.lazy_string import lazy_string
+from sage.misc.misc_c import prod
 from sage.modules.free_module_element import vector
-from sage.rings.rational_field import QQ
 from sage.rings.integer_ring import ZZ
+from sage.rings.rational_field import QQ
+from sage.structure.richcmp import richcmp
 
 from .ore_operator import OreOperator
 
 
 class MultivariateOreOperator(OreOperator):
     """
-    An Ore operator. Instances of this class represent elements of Ore algebras with more than
+    An Ore operator.
+
+    Instances of this class represent elements of Ore algebras with more than
     one generator.
     """
 
     # constructor
 
-    def __init__(self, parent, data): 
+    def __init__(self, parent, data):
         OreOperator.__init__(self, parent)
         if isinstance(data, OreOperator):
             data = data.polynomial()
@@ -46,10 +44,13 @@ class MultivariateOreOperator(OreOperator):
     # action
 
     def __call__(self, f, **kwds):
-        
+
         A = self.parent()
         gens = A.gens()
-        make_der = lambda x, e=1: (lambda u: 0 if u in QQ else u.derivative(x, e))
+
+        def make_der(x, e=1):
+            return lambda u: 0 if u in QQ else u.derivative(x, e)
+
         for d in gens:
             if str(d) not in kwds:
                 if A.is_D(d):
@@ -83,14 +84,14 @@ class MultivariateOreOperator(OreOperator):
 
     def _is_atomic(self):
         return self.__poly._is_atomic()
-       
+
     def is_gen(self):
         return self.__poly.is_gen()
 
     # conversion
 
     def polynomial(self):
-        return self.__poly            
+        return self.__poly
 
     def change_ring(self, R):
         """
@@ -99,16 +100,15 @@ class MultivariateOreOperator(OreOperator):
 
         EXAMPLES::
 
-          sage: from ore_algebra import *
-          sage: R.<x> = QQ['x']
-          sage: A.<Dx> = OreAlgebra(R, 'Dx')
-          sage: op = Dx^2 + 5*x*Dx + 1
-          sage: op.parent()
-          Univariate Ore algebra in Dx over Univariate Polynomial Ring in x over Rational Field
-          sage: op = op.change_ring(R.fraction_field())
-          sage: op.parent()
-          Univariate Ore algebra in Dx over Fraction Field of Univariate Polynomial Ring in x over Rational Field
-        
+            sage: from ore_algebra import *
+            sage: R.<x> = QQ['x']
+            sage: A.<Dx> = OreAlgebra(R, 'Dx')
+            sage: op = Dx^2 + 5*x*Dx + 1
+            sage: op.parent()
+            Univariate Ore algebra in Dx over Univariate Polynomial Ring in x over Rational Field
+            sage: op = op.change_ring(R.fraction_field())
+            sage: op.parent()
+            Univariate Ore algebra in Dx over Fraction Field of Univariate Polynomial Ring in x over Rational Field
         """
         if R == self.base_ring():
             return self
@@ -136,11 +136,11 @@ class MultivariateOreOperator(OreOperator):
 
         A = self.parent()
         n = A.ngens()
-        sigma = [ A.sigma(i) for i in range(n) ] 
-        delta = [ A.delta(i) for i in range(n) ]
-        D = [ A.gen(i).polynomial() for i in range(n) ]
-        
-        monomial_times_other = {tuple(0 for i in range(n)): other.polynomial()}
+        sigma = [A.sigma(i) for i in range(n)]
+        delta = [A.delta(i) for i in range(n)]
+        D = [A.gen(i).polynomial() for i in range(n)]
+
+        monomial_times_other = {tuple(0 for _ in range(n)): other.polynomial()}
 
         def multiple(exp):
             exp = tuple(int(e) for e in exp)
@@ -151,16 +151,16 @@ class MultivariateOreOperator(OreOperator):
                 sub = list(exp)
                 sub[i] -= 1
                 prev = multiple(sub)
-                new = prev.map_coefficients(sigma[i])*D[i] + prev.map_coefficients(delta[i])
+                new = prev.map_coefficients(sigma[i]) * D[i] + prev.map_coefficients(delta[i])
                 monomial_times_other[exp] = new
             return monomial_times_other[exp]
 
         out = A.zero()
         poly = self.__poly
         for exp in poly.dict():
-            out += poly[exp]*multiple(exp)
+            out += poly[exp] * multiple(exp)
 
-        monomial_times_other.clear() # support garbage collector
+        monomial_times_other.clear()  # support garbage collector
         return A(out)
 
     def _add_(self, other):
@@ -188,73 +188,69 @@ class MultivariateOreOperator(OreOperator):
 
     def lc(self):
         """
-        Returns the leading coefficient of self
+        Return the leading coefficient of ``self``.
 
         EXAMPLES::
 
-           sage: from ore_algebra import *
-           sage: R.<x,y> = QQ[]
-           sage: A.<Dx,Dy> = OreAlgebra(R)
-           sage: p = (3*x+y-3)*Dx^3*Dy^2 + Dx - Dy + 1
-           sage: p.lc()
-           3*x + y - 3
-           sage: (0*p).lc()
-           0
-
+            sage: from ore_algebra import *
+            sage: R.<x,y> = QQ[]
+            sage: A.<Dx,Dy> = OreAlgebra(R)
+            sage: p = (3*x+y-3)*Dx^3*Dy^2 + Dx - Dy + 1
+            sage: p.lc()
+            3*x + y - 3
+            sage: (0*p).lc()
+            0
         """
         return self.__poly.lc()
 
     def lm(self):
         """
-        Returns the leading monomial of self
+        Return the leading monomial of ``self``.
 
         EXAMPLES::
 
-           sage: from ore_algebra import *
-           sage: R.<x,y> = QQ[]
-           sage: A.<Dx,Dy> = OreAlgebra(R)
-           sage: p = (3*x+y-3)*Dx^3*Dy^2 + Dx - Dy + 1
-           sage: p.lm()
-           Dx^3*Dy^2
-           sage: (0*p).lm()
-           0
-
+            sage: from ore_algebra import *
+            sage: R.<x,y> = QQ[]
+            sage: A.<Dx,Dy> = OreAlgebra(R)
+            sage: p = (3*x+y-3)*Dx^3*Dy^2 + Dx - Dy + 1
+            sage: p.lm()
+            Dx^3*Dy^2
+            sage: (0*p).lm()
+            0
         """
         return self.parent()(self.__poly.lm())
 
     def lt(self):
         """
-        Returns the leading term of self
+        Return the leading term of ``self``.
 
         EXAMPLES::
 
-           sage: from ore_algebra import *
-           sage: R.<x,y> = QQ[]
-           sage: A.<Dx,Dy> = OreAlgebra(R)
-           sage: p = (3*x+y-3)*Dx^3*Dy^2 + Dx - Dy + 1
-           sage: p.lt()
-           (3*x + y - 3)*Dx^3*Dy^2
-           sage: (0*p).lt()
-           0
-
+            sage: from ore_algebra import *
+            sage: R.<x,y> = QQ[]
+            sage: A.<Dx,Dy> = OreAlgebra(R)
+            sage: p = (3*x+y-3)*Dx^3*Dy^2 + Dx - Dy + 1
+            sage: p.lt()
+            (3*x + y - 3)*Dx^3*Dy^2
+            sage: (0*p).lt()
+            0
         """
         return self.parent()(self.__poly.lt())
 
     def exp(self):
         """
-        Returns the exponent vector of the leading monomial of self
+        Return the exponent vector of the leading monomial of ``self``.
 
         EXAMPLES::
 
-           sage: from ore_algebra import *
-           sage: R.<x,y> = QQ[]
-           sage: A.<Dx,Dy> = OreAlgebra(R)
-           sage: p = (3*x+y-3)*Dx^3*Dy^2 + Dx - Dy + 1
-           sage: p.exp()
-           (3, 2)
-           sage: (0*p).exp()
-           (-1, -1)
-
+            sage: from ore_algebra import *
+            sage: R.<x,y> = QQ[]
+            sage: A.<Dx,Dy> = OreAlgebra(R)
+            sage: p = (3*x+y-3)*Dx^3*Dy^2 + Dx - Dy + 1
+            sage: p.exp()
+            (3, 2)
+            sage: (0*p).exp()
+            (-1, -1)
         """
         try:
             return self.__poly.exponents()[0]
@@ -290,7 +286,7 @@ class MultivariateOreOperator(OreOperator):
 
     def reduce(self, basis, normalize=False, cofactors=False, infolevel=0, coerce=True):
         """
-        Compute the remainder of self with respect to the given basis.
+        Compute the remainder of ``self`` with respect to the given basis.
 
         INPUT:
 
@@ -307,82 +303,85 @@ class MultivariateOreOperator(OreOperator):
 
         OUTPUT:
 
-           if self is p and basis=[b1,..,bn], this returns an operator r such that
-           p - r is in the left ideal generated by [b1,..,bn] and lt(r) is as small as possible
-           in the order of self's parent. 
+        if self is p and basis=[b1,..,bn], this returns an operator r such that
+        p - r is in the left ideal generated by [b1,..,bn] and lt(r) is as small as possible
+        in the order of self's parent.
 
-           if normalize is set to True, the output r0 is such that there exists some c in the parent's
-           base ring such that r = (1/c)*r0 is as above. 
+        if normalize is set to True, the output r0 is such that there exists some c in the parent's
+        base ring such that r = (1/c)*r0 is as above.
 
-           if cofactors is set to True, then instead of r the method returns (r0, [p1,...,pn], c) such
-           that c*p - r0 = p1*b1 + ... + pn*bn and c is a nonzero element of the parent's base ring 
-           (and c=1 if normalize=False) and the leading term of r0 is as small as possible. 
+        if cofactors is set to True, then instead of r the method returns (r0, [p1,...,pn], c) such
+        that c*p - r0 = p1*b1 + ... + pn*bn and c is a nonzero element of the parent's base ring
+        (and c=1 if normalize=False) and the leading term of r0 is as small as possible.
 
         EXAMPLES::
 
-           sage: from ore_algebra import *
-           sage: P.<x,y> = ZZ[]
-           sage: A.<Dx,Dy> = OreAlgebra(P)
-           sage: p = Dx^2*Dy^1-1; basis = [(x-y)*Dx+y,(x+y)*Dy-2]
-           sage: p.reduce(basis)
-           (-x^4 + 2*x^3*y - 2*x*y^3 + y^4 + 2*x^2*y + 4*x*y^2 - 2*y^3 + x^2 + 4*x*y - y^2)/(x^4 - 2*x^3*y + 2*x*y^3 - y^4)
-           sage: p.reduce(basis, normalize=True)
-           1
-           sage: u = p.reduce(basis, cofactors=True)
-           sage: u[2]*p - u[0] - (u[1][0]*basis[0] + u[1][1]*basis[1])
-           0
-           sage: u = p.reduce(basis, cofactors=True, normalize=True)
-           sage: u[2]*p - u[0] - (u[1][0]*basis[0] + u[1][1]*basis[1])
-           0
-           sage: A.<Sx,Sy> = OreAlgebra(ZZ[x,y])
-           sage: p = Sx^2*Sy^1-1; basis = [(x-y)*Sx+y,(x+y)*Sy-2]
-           sage: p.reduce(basis)
-           (-x^3 + x^2*y + x*y^2 - y^3 + x^2 + y^2 + 4*y + 2)/(x^3 - x^2*y - x*y^2 + y^3 - x^2 + y^2)
-           sage: p.reduce(basis, normalize=True)
-           1
-           sage: u = p.reduce(basis, cofactors=True)
-           sage: u[2]*p - u[0] - (u[1][0]*basis[0] + u[1][1]*basis[1])
-           0
-           sage: u = p.reduce(basis, cofactors=True, normalize=True)
-           sage: u[2]*p - u[0] - (u[1][0]*basis[0] + u[1][1]*basis[1])
-           0
-        
+            sage: from ore_algebra import *
+            sage: P.<x,y> = ZZ[]
+            sage: A.<Dx,Dy> = OreAlgebra(P)
+            sage: p = Dx^2*Dy^1-1; basis = [(x-y)*Dx+y,(x+y)*Dy-2]
+            sage: p.reduce(basis)
+            (-x^4 + 2*x^3*y - 2*x*y^3 + y^4 + 2*x^2*y + 4*x*y^2 - 2*y^3 + x^2 + 4*x*y - y^2)/(x^4 - 2*x^3*y + 2*x*y^3 - y^4)
+            sage: p.reduce(basis, normalize=True)
+            1
+            sage: u = p.reduce(basis, cofactors=True)
+            sage: u[2]*p - u[0] - (u[1][0]*basis[0] + u[1][1]*basis[1])
+            0
+            sage: u = p.reduce(basis, cofactors=True, normalize=True)
+            sage: u[2]*p - u[0] - (u[1][0]*basis[0] + u[1][1]*basis[1])
+            0
+            sage: A.<Sx,Sy> = OreAlgebra(ZZ[x,y])
+            sage: p = Sx^2*Sy^1-1; basis = [(x-y)*Sx+y,(x+y)*Sy-2]
+            sage: p.reduce(basis)
+            (-x^3 + x^2*y + x*y^2 - y^3 + x^2 + y^2 + 4*y + 2)/(x^3 - x^2*y - x*y^2 + y^3 - x^2 + y^2)
+            sage: p.reduce(basis, normalize=True)
+            1
+            sage: u = p.reduce(basis, cofactors=True)
+            sage: u[2]*p - u[0] - (u[1][0]*basis[0] + u[1][1]*basis[1])
+            0
+            sage: u = p.reduce(basis, cofactors=True, normalize=True)
+            sage: u[2]*p - u[0] - (u[1][0]*basis[0] + u[1][1]*basis[1])
+            0
         """
 
         # ~~~ naive code ~~~
-        
+
         def info(i, msg):
             if infolevel >= i:
                 print(msg)
 
         try:
-            # handle case where input is an ideal 
+            # handle case where input is an ideal
             return self.reduce(basis.groebner_basis(), normalize=normalize, coerce=coerce, cofactors=cofactors, infolevel=infolevel)
         except AttributeError:
             pass
 
         # assuming basis is a list of operators
-                
+
         if normalize and coerce:
 
             if self.base_ring().is_field():
                 info(1, "switch to polynomial base ring")
-                A = self.parent() ## K(x,y)[Dx,Dy]
-                R = A.base_ring() ## K(x,y)
-                B = R.ring() ## K[x,y]
-                A = A.change_ring(B) ## K[x,y][Dx, Dy]
+                A = self.parent()  # K(x,y)[Dx,Dy]
+                R = A.base_ring()  # K(x,y)
+                B = R.ring()  # K[x,y]
+                A = A.change_ring(B)  # K[x,y][Dx, Dy]
                 c = self.denominator()
-                out = list(A(c*self).reduce(basis, normalize=True, cofactors=cofactors, infolevel=infolevel))
+                out = list(A(c * self).reduce(basis, normalize=True,
+                                              cofactors=cofactors,
+                                              infolevel=infolevel))
                 out[2] *= c
                 return tuple(out)
 
             d = reduce(lambda u, v: u.lcm(v), [b.denominator() for b in basis], self.denominator())
             if not d.is_one():
                 info(1, "clearing denominator of basis elements")
-                out = list(self.reduce([self.parent()(d*b) for b in basis], normalize=True, cofactors=cofactors, infolevel=infolevel))
-                out[1] = [o*d for o in out[1]]
+                out = list(self.reduce([self.parent()(d * b) for b in basis],
+                                       normalize=True, cofactors=cofactors,
+                                       infolevel=infolevel))
+                out[1] = [o * d for o in out[1]]
                 return tuple(out)
-            
+
             basis = list(map(self.parent(), basis))
 
         exp = [vector(ZZ, b.exp()) for b in basis]
@@ -405,7 +404,7 @@ class MultivariateOreOperator(OreOperator):
         while not p.is_zero():
 
             info(1, lazy_string(lambda: datetime.today().ctime() + ": " + str(len(p.coefficients())) + " terms left; continuing with " + str(p.lm())))
-            
+
             e = vector(ZZ, p.exp())
             candidates = list(filter(lambda i: min(e - exp[i]) >= 0, range_basis))
 
@@ -414,7 +413,7 @@ class MultivariateOreOperator(OreOperator):
                 r0 += p.lt()
                 p -= p.lt()
             else:
-                k = candidates[0] ## care for a more clever choice?
+                k = candidates[0]  # care for a more clever choice?
                 b = basis[k]
                 tau = prod(x**i for x, i in zip(gens, e - exp[k]))
                 info(2, str(len(candidates)) + " basis elements apply, taking no " + str(k) + " with leading monomial " + str(b.lm()))
@@ -424,13 +423,13 @@ class MultivariateOreOperator(OreOperator):
                     sugar = max(sugar, tau.tdeg() + basis_sugar[k])
                 if normalize:
                     c *= b0lc
-                    r0 = b0lc*r0
+                    r0 = b0lc * r0
                     if cofactors:
                         for i in range(len(cofs)):
-                            cofs[i] = b0lc*cofs[i]
-                        cofs[k] += p.lc()*tau
-                    p = b0lc*p - p.lc()*b0
-                    ## clear content
+                            cofs[i] = b0lc * cofs[i]
+                        cofs[k] += p.lc() * tau
+                    p = b0lc * p - p.lc() * b0
+                    # clear content
                     gcd = p.base_ring().zero()
                     for u in [p, r0] + cofs:
                         for uu in u.coefficients():
@@ -443,8 +442,8 @@ class MultivariateOreOperator(OreOperator):
                             cofs[i] = cofs[i].map_coefficients(lambda u: u//gcd)
                 else:
                     if cofactors:
-                        cofs[k] += (p.lc()/b0lc)*tau
-                    p -= (p.lc()/b0lc)*b0
+                        cofs[k] += (p.lc() / b0lc) * tau
+                    p -= (p.lc() / b0lc) * b0
 
         if normalize and not r0.is_zero() and r0.lc().parent().base_ring() is ZZ:
             # make leading term of leading coefficient of r0 positive
@@ -463,6 +462,6 @@ class MultivariateOreOperator(OreOperator):
 
         if sugar is not None:
             r0.sugar = sugar
-            
+
         info(1, "reduction completed, remainder has " + str(len(r0.coefficients())) + " terms.")
         return (r0, cofs, c) if cofactors else r0
