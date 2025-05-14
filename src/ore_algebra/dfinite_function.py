@@ -292,7 +292,7 @@ class DFiniteFunctionRing(Parent):
             Univariate D-finite sequence defined by the annihilating operator -Sn^2 + Sn + 1 and the initial conditions {0: 0, 1: 1}
 
         Differential case::
-    
+
             sage: from ore_algebra import *
             sage: B = OreAlgebra(QQ['x'],'Dx')
             sage: D2 = DFiniteFunctionRing(B)
@@ -336,7 +336,7 @@ class DFiniteFunctionRing(Parent):
             Univariate D-finite sequence defined by the annihilating operator (n^3 + 3*n^2 + 2*n)*Sn - n^3 - 2*n^2 and the initial conditions {-2: -1/2, -1: -1, 0: None, 1: 1}
 
         Differential case::
-    
+
             sage: from ore_algebra import *
             sage: B = OreAlgebra(QQ['x'],'Dx')
             sage: D2 = DFiniteFunctionRing(B)
@@ -736,7 +736,7 @@ class DFiniteFunctionRing(Parent):
         EXAMPLES:
 
         Discrete case::
-    
+
             sage: from ore_algebra import *
             sage: A = OreAlgebra(QQ['n'],'Sn')
             sage: D1 = DFiniteFunctionRing(A,ZZ)
@@ -1066,7 +1066,7 @@ class DFiniteFunction(RingElement):
         r"""
         Tries to delete factors of order 0 of the annihilating operator of ``self`` which appear more than
         once.
-        
+
         Additionally this method tries to delete redundant initial conditions. This method is a subroutine
         of compress
 

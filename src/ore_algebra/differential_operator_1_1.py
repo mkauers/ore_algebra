@@ -1626,7 +1626,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
 
     def _initial_integral_basis(self, place=None):
         r"""
-        
+
         TESTS::
 
             sage: from ore_algebra import OreAlgebra
@@ -1737,7 +1737,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
 
         Now `sols` are a basis of solutions of `L3` at `-1`.
         We prepare the functions using this basis of solutions.
-        
+
             sage: place = L3._make_valuation_place(x-1, sols=sols, infolevel=1)
             Preparing place at x - 1
             Using precomputed solutions
@@ -1748,7 +1748,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
 
         This output can then be passed to the integral basis methods, skipping
         the computation of new solutions.
-        
+
             sage: L3.global_integral_basis(places=[place], basis=[Ore(1),Dx,Dx^2, Dx^3])
             [1, (x - 1)*Dx, (x - 1)*Dx^2, (x - 1)*Dx^3 - 7*Dx + 3/(x - 1)]
             sage: L3.local_integral_basis(f, val_fct=v, raise_val_fct=rv)
@@ -1757,7 +1757,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         """
 
         print1 = print if infolevel >= 1 else lambda *a, **k: None
-        
+
         print1("Preparing place at {}"
                .format(f if f.degree() < 10
                        else f"{f[f.degree()]*f.monomials()[0]} + ... + {f[0]}"))
@@ -1772,7 +1772,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         else:
             print1("Using precomputed solutions")
             need_sols = False
-            
+
         C = base.base_ring()
         if f.degree() > 1:
             if need_sols:
@@ -1862,7 +1862,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
 
         val_fct, raise_val_fct = get_functions(xi, sols, x, ore_ext)
         return f, val_fct, raise_val_fct
-    
+
     def find_candidate_places(self, infolevel=0, iota=None, prec=None, **kwargs):
         r"""
 
@@ -1907,7 +1907,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             sage: [p[0] for p in L.find_candidate_places()]
             []
 
-        
+
         """
         lr = (self.leading_coefficient()*self.denominator()).numerator().monic()
         fact = list(lr.factor())
@@ -1932,7 +1932,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         return (prec,
                 None if sols is None else tuple(sols),
                 None if basis is None else tuple(basis))
-    
+
     @cached_method(key=_normalize_local_integral_basis_args)
     def local_integral_basis_at_infinity(self, basis=None, iota=None,
                                          sols=None,
@@ -2070,7 +2070,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             Pol = self.base_ring()
             if solver is None:
                 solver = nullspace.cra(nullspace.sage_native)
-        
+
         def pad_list(ll, d):
             # add 0s to reach length d
             return ll+[0]*(d - len(ll))
@@ -2131,7 +2131,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
                     for i in range(r)])
             if infolevel >= 1: print(f"{tau=}")
             if infolevel >= 2: print(f"{B=}")
-                    
+
         #breakpoint()
         return ww, tau
 
@@ -2673,7 +2673,7 @@ class UnivariateEulerDifferentialOperatorOverUnivariateRing(UnivariateOreOperato
     symmetric_product.__doc__ = UnivariateOreOperator.symmetric_product.__doc__
 
 
-#############################################################################################################
+###############################################################################
 
 def _tower(dom):
     if isinstance(dom, PolynomialRing_general) or isinstance(dom, MPolynomialRing_base):

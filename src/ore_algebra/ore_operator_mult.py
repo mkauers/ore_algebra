@@ -10,7 +10,7 @@ Multivariate operators
 #  Distributed under the terms of the GNU General Public License (GPL)      #
 #  either version 2, or (at your option) any later version                  #
 #                                                                           #
-#  https://www.gnu.org/licenses/                                             #
+#  https://www.gnu.org/licenses/                                            #
 #############################################################################
 from datetime import datetime
 from functools import reduce
