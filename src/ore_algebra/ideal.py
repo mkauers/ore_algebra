@@ -1394,7 +1394,7 @@ def solve_CVM_system(PA, P=None, algebra=None, solver=None, infolevel=0):
 
     OUTPUT:
 
-    a basis of the C-vector solution space consisting of lists u of rational functions such that (I*D-mat)*u == 0 
+    a basis of the C-vector solution space consisting of lists u of rational functions such that (I*D-mat)*u == 0
 
     EXAMPLES::
 
@@ -1447,7 +1447,7 @@ def solve_CVM_system(PA, P=None, algebra=None, solver=None, infolevel=0):
         nn = len(Ai)
         eq = sum([-Ai[nn - 1][k] * A.gen() ** k for k in range(nn)]) + A.gen() ** nn
         sol = eq.rational_solutions(RHS, solver=solver)
-        
+
         if sol == []:
             sol = [[0]]
 
@@ -1496,7 +1496,7 @@ def solve_coupled_system_CVM(mat, rhs=[], algebra=None, solver=None, infolevel=0
 
     OUTPUT:
 
-    a basis of the C-vector space of all pairs (u, c) where u is a list of rational functions and c is a list of constants such that u' - mat*u == c[0]*rhs[0]+...+c[n]*rhs[n] 
+    a basis of the C-vector space of all pairs (u, c) where u is a list of rational functions and c is a list of constants such that u' - mat*u == c[0]*rhs[0]+...+c[n]*rhs[n]
 
     EXAMPLES::
 
@@ -1520,7 +1520,7 @@ def solve_coupled_system_CVM(mat, rhs=[], algebra=None, solver=None, infolevel=0
         A = algebra
         R = A.base_ring()
 
-    n = len(mat) 
+    n = len(mat)
     if rhs != []:  # constructing new matrix which has the RHS encoded in it
         B = list(map(list,(zip(*rhs))))
         zeros = [[0]*(n+len(B[0]))]*(len(rhs))
@@ -1528,9 +1528,9 @@ def solve_coupled_system_CVM(mat, rhs=[], algebra=None, solver=None, infolevel=0
 
     (PA, P) = uncouple_cyclic(mat, A, infolevel)
     res = solve_CVM_system(PA, P, A, solver, infolevel)
-    
+
     return [(res[i][:n],res[i][n:n+len(rhs)]) for i in range(len(res))]
 
-    
+
 smallest_lt_first = cmp_to_key(
     lambda u, v: 1 if (u.lm() + v.lm()).lm() == u.lm() else -1)

@@ -13,7 +13,7 @@ Operators
 #  Distributed under the terms of the GNU General Public License (GPL)      #
 #  either version 2, or (at your option) any later version                  #
 #                                                                           #
-#  http://www.gnu.org/licenses/                                             #
+#  https://www.gnu.org/licenses/                                            #
 #############################################################################
 
 from functools import reduce
@@ -119,8 +119,8 @@ class OreOperator(RingElement):
           sage: (Dx^3 + (5*x+3)*Dx + (71*x+1)).is_monic()
           True
           sage: ((5*x+3)*Dx^2 + (71*x+1)).is_monic()
-          False 
-        
+          False
+
         """
         if self.is_zero():
             return False
@@ -141,17 +141,17 @@ class OreOperator(RingElement):
           sage: A.<Dx> = OreAlgebra(R.fraction_field(), 'Dx')
           sage: A(x).is_unit()
           True
-          
+
         """
         if len(self.exponents()) > 1:
             return False
         else:
             return self.constant_coefficient().is_unit()
-       
+
     def is_gen(self):
         """
-        Return True if this operator is one of the generators of the parent Ore algebra. 
-                
+        Return True if this operator is one of the generators of the parent Ore algebra.
+
         Important - this function doesn't return True if self equals the
         generator; it returns True if self *is* the generator.
         """
@@ -166,7 +166,7 @@ class OreOperator(RingElement):
         return infinity
 
     # conversion
-        
+
     def change_ring(self, R):
         """
         Return a copy of this operator but with coefficients in R, if at
@@ -183,7 +183,7 @@ class OreOperator(RingElement):
           sage: op = op.change_ring(R.fraction_field())
           sage: op.parent()
           Univariate Ore algebra in Dx over Fraction Field of Univariate Polynomial Ring in x over Rational Field
-        
+
         """
         if R is self.base_ring():
             return self
@@ -195,7 +195,7 @@ class OreOperator(RingElement):
         Return a copy of this operator but with constant coefficients in K, if at all possible.
 
         EXAMPLES:
-        
+
           sage: from ore_algebra import *
           sage: R.<x,y> = PolynomialRing(QQ)
           sage: A.<Dx,Dy> = OreAlgebra(R)
@@ -216,7 +216,7 @@ class OreOperator(RingElement):
           (x + 1)*Dx + 1
           sage: op2.parent()
           Univariate Ore algebra in Dx over Univariate Polynomial Ring in x over Finite Field of size 5
-        
+
         """
         R = self.base_ring()
         A = self.parent().change_constant_ring(K)
@@ -229,8 +229,8 @@ class OreOperator(RingElement):
         else:
             d = {k: R(c).change_ring(K) for k,c in self.dict().items()}
             return A(d)
-            
-        
+
+
     def __iter__(self):
         return iter(self.list())
 
@@ -242,7 +242,7 @@ class OreOperator(RingElement):
 
     def _latex_(self, name=None):
         raise NotImplementedError
-        
+
     def _sage_input_(self, sib, coerced):
         raise NotImplementedError
 
@@ -273,11 +273,11 @@ class OreOperator(RingElement):
            sage: V = (3*x+5)*Dx + (x-9)
            sage: U//V
            ((5*x^2 + 29/3*x + 5/3)/(x + 5/3))*Dx + (-64/9*x^2 - 68/3*x - 175/9)/(x^2 + 10/3*x + 25/9)
-        
+
         """
         Q, _ = self.quo_rem(right)
         return Q
-        
+
     def __mod__(self, other):
         """
         Remainder of quotient with remainder.
@@ -291,7 +291,7 @@ class OreOperator(RingElement):
            sage: V = (3*x+5)*Dx + (x-9)
            sage: U % V
            (1/9*x^3 - 2*x^2 + 49/9*x)/(x^2 + 10/3*x + 25/9)
-        
+
         """
         _, R = self.quo_rem(other)
         return R
@@ -309,13 +309,13 @@ class OreOperator(RingElement):
           sage: V = (3*x+5)*Dx + (x-9)
           sage: Q, R = U.quo_rem(V)
           sage: Q*V + R == U
-          True 
-        
+          True
+
         """
         raise NotImplementedError
 
     # base ring related functions
-        
+
     def base_ring(self):
         """
         Return the base ring of the parent of self.
@@ -325,7 +325,7 @@ class OreOperator(RingElement):
            sage: from ore_algebra import *
            sage: OreAlgebra(QQ['x'], 'Dx').random_element().base_ring()
            Univariate Polynomial Ring in x over Rational Field
-        
+
         """
         return self.parent().base_ring()
 
@@ -355,25 +355,25 @@ class OreOperator(RingElement):
 
     def is_primitive(self, n=None, n_prime_divs=None):
         """
-        Returns ``True`` if this operator's content is a unit of the base ring. 
+        Returns ``True`` if this operator's content is a unit of the base ring.
         """
         return self.content().is_unit()
 
     def is_monomial(self):
         """
-        Returns True if self is a monomial, i.e., a power product of the generators. 
+        Returns True if self is a monomial, i.e., a power product of the generators.
         """
         return len(self.exponents()) == 1 and self.leading_coefficient() == self.parent().base_ring().one()
 
     def leading_coefficient(self):
         """
-        Return the leading coefficient of this operator. 
+        Return the leading coefficient of this operator.
         """
         raise NotImplementedError
 
     def constant_coefficient(self):
         r"""
-        Return the coefficient of `\partial^0` of this operator. 
+        Return the coefficient of `\partial^0` of this operator.
         """
         raise NotImplementedError
 
@@ -393,7 +393,7 @@ class OreOperator(RingElement):
           Dx + 1/x
           sage: _.parent()
           Univariate Ore algebra in Dx over Fraction Field of Univariate Polynomial Ring in x over Rational Field
-        
+
         """
         if self.is_zero():
             raise ZeroDivisionError
@@ -419,7 +419,7 @@ class OreOperator(RingElement):
         ``self``. If the base ring does not know how to compute gcds, the method returns `1`.
 
         If ``proof`` is set to ``False``, the gcd of two random linear combinations of
-        the coefficients is taken instead of the gcd of all the coefficients. 
+        the coefficients is taken instead of the gcd of all the coefficients.
 
         EXAMPLES::
 
@@ -438,7 +438,7 @@ class OreOperator(RingElement):
            sage: A.<Dx> = OreAlgebra(R.fraction_field(), 'Dx')
            sage: (5*x^2*Dx + 10*x).content()
            5*x^2
-        
+
         """
         R = self.base_ring()
         if self.is_zero():
@@ -480,7 +480,7 @@ class OreOperator(RingElement):
 
         It is obtained by dividing ``self`` from the left by ``self.content()``.
 
-        The ``proof`` option is passed on to the content computation. 
+        The ``proof`` option is passed on to the content computation.
 
         EXAMPLES::
 
@@ -492,7 +492,7 @@ class OreOperator(RingElement):
           sage: A.<Dx> = OreAlgebra(R.fraction_field(), 'Dx')
           sage: (5*x^2*Dx + 10*x).primitive_part()
           Dx + 2/x
-        
+
         """
         c = self.content(proof=proof)
         if c.is_one():
@@ -520,7 +520,7 @@ class OreOperator(RingElement):
           sage: A.<Dx> = OreAlgebra(R, 'Dx')
           sage: (10*(x+1)*Dx - 5*x).normalize()
           (x + 1)*Dx - 1/2*x
-        
+
         """
         if self.is_zero():
             return self
@@ -539,7 +539,7 @@ class OreOperator(RingElement):
                 c = c.parent().base_ring()(c)
             except (AttributeError, TypeError, ValueError):
                 break
-        if not c.is_unit(): 
+        if not c.is_unit():
             try:
                 c = sign(c)
             except (TypeError, ValueError):
@@ -564,7 +564,7 @@ class OreOperator(RingElement):
         Return the exponents of the monomials appearing in self.
         """
         raise NotImplementedError
-             
+
     # numerator and denominator
 
     def numerator(self):
@@ -594,7 +594,7 @@ class OreOperator(RingElement):
           sage: A.<Dx> = OreAlgebra(R.fraction_field(), 'Dx')
           sage: op = (5*x+3)/(3*x+5)*Dx + (7*x+1)/(2*x+5)
           sage: op.numerator()
-          (5/3*x^2 + 31/6*x + 5/2)*Dx + 7/2*x^2 + 19/3*x + 5/6          
+          (5/3*x^2 + 31/6*x + 5/2)*Dx + 7/2*x^2 + 19/3*x + 5/6
 
         """
         A = self.parent()
@@ -622,7 +622,7 @@ class OreOperator(RingElement):
         If the base ring is a field, then it is the fraction field of a
         polynomial ring. In this case, the method returns the least common multiple
         of the denominators of all the coefficients of ``self``.
-        It is an element of the polynomial ring. 
+        It is an element of the polynomial ring.
 
         EXAMPLES::
 
@@ -639,7 +639,7 @@ class OreOperator(RingElement):
           sage: op = (5*x+3)/(3*x+5)*Dx + (7*x+1)/(2*x+5)
           sage: op.denominator()
           x^2 + 25/6*x + 25/6
-          
+
         """
         A = self.parent()
         R = A.base_ring()
@@ -651,10 +651,10 @@ class OreOperator(RingElement):
 
 
 #############################################################################################################
-    
+
 class UnivariateOreOperator(OreOperator):
     """
-    Element of an Ore algebra with a single generator and a commutative field as base ring.     
+    Element of an Ore algebra with a single generator and a commutative field as base ring.
     """
 
     def __init__(self, parent, *data, **kwargs):
@@ -663,7 +663,7 @@ class UnivariateOreOperator(OreOperator):
             # CASE 1:  *data is an OreOperator, possibly from a different algebra
             self._poly = parent.associated_commutative_algebra()(data[0].polynomial(), **kwargs)
         else:
-            # CASE 2:  *data can be coerced to a commutative polynomial         
+            # CASE 2:  *data can be coerced to a commutative polynomial
             self._poly = parent.associated_commutative_algebra()(*data, **kwargs)
 
     # action
@@ -688,21 +688,21 @@ class UnivariateOreOperator(OreOperator):
                     prec = None
                 R = f.parent()
                 R = LaurentSeriesRing(R.base_ring(), R.gen(), default_prec=prec)
-            elif isinstance(f,ContinuousGeneralizedSeries): 
+            elif isinstance(f,ContinuousGeneralizedSeries):
                 prec = f.prec()
                 R = f.parent()
                 R = GeneralizedSeriesMonoid(R.base_ring(), R.gen(),
                                             "continuous", default_prec=prec)
             else:
                 R = f.parent()
-                
+
         coeffs = self.coefficients(sparse=False)
         Dif = f
         result = R(coeffs[0])*f
         for i in range(1, self.order() + 1):
             Dif = D(Dif)
             result += R(coeffs[i])*Dif
-        
+
         return result
 
     # tests
@@ -721,19 +721,19 @@ class UnivariateOreOperator(OreOperator):
 
     def is_unit(self):
         return self._poly.is_unit()
-       
+
     def is_gen(self):
         return self._poly.is_gen()
 
     def __hash__(self):
         return hash(self._poly)
-    
+
     is_monic.__doc__ = OreOperator.is_monic.__doc__
     is_unit.__doc__ = OreOperator.is_unit.__doc__
     is_gen.__doc__ = OreOperator.is_gen.__doc__
-    
+
     # conversion
-    
+
     def __iter__(self):
         return iter(self.list())
 
@@ -760,9 +760,9 @@ class UnivariateOreOperator(OreOperator):
 
     def _latex_(self, name=None):
         return self._poly._latex_(name=name)
-        
+
     def _sage_input_(self, sib, coerced):
-        
+
         if self.order() > 0:
             gen = sib.gen(self.parent())
             coeffs = self.list()
@@ -795,7 +795,7 @@ class UnivariateOreOperator(OreOperator):
 
     def _add_(self, right):
         return self.parent()(self.polynomial() + right.polynomial())
-    
+
     def _neg_(self):
         return self.parent()(self.polynomial()._neg_())
 
@@ -839,26 +839,26 @@ class UnivariateOreOperator(OreOperator):
             raise NotImplementedError
 
         try:
-            # handle case where input is an ideal 
+            # handle case where input is an ideal
             return self.reduce(basis.groebner_basis(), normalize=normalize, coerce=coerce, cofactors=cofactors, infolevel=infolevel)
         except AttributeError:
             pass
-        
+
         p = self
         for b in basis:
             p = p % b
 
         return p.normalize() if normalize else p
-    
+
     def quo_rem(self, other, fractionFree=False):
 
-        if other.is_zero(): 
+        if other.is_zero():
             raise ZeroDivisionError("other must be nonzero")
 
         elif self.parent() is not other.parent():
             A, B = canonical_coercion(self, other)
             return A.quo_rem(B, fractionFree=fractionFree)
-        
+
         elif (self.order() < other.order()):
             return (self.parent().zero(), self)
 
@@ -953,7 +953,7 @@ class UnivariateOreOperator(OreOperator):
         - ``other`` -- one or more operators which together with ``self`` can be coerced to a common parent.
         - ``prs`` (default: "essential") -- pseudo remainder sequence to be used. Possible values are
           "essential", "primitive", "classic", "subresultant", "monic".
-        
+
         OUTPUT:
 
         An operator of maximum possible order which right divides ``self`` and all the ``other`` operators.
@@ -964,11 +964,11 @@ class UnivariateOreOperator(OreOperator):
            sage: A = OreAlgebra(ZZ['n'], 'Sn')
            sage: G = A.random_element(2)
            sage: L1, L2 = A.random_element(7), A.random_element(5)
-           sage: while L1.gcrd(L2) != 1: L2 = A.random_element(5)                       
-           sage: L1, L2 = L1*G, L2*G                                                        
+           sage: while L1.gcrd(L2) != 1: L2 = A.random_element(5)
+           sage: L1, L2 = L1*G, L2*G
            sage: L1.gcrd(L2) == G.normalize()
            True
-           sage: L3, S, T = L1.xgcrd(L2)                             
+           sage: L3, S, T = L1.xgcrd(L2)
            sage: S*L1 + T*L2 == L3
            True
 
@@ -1029,14 +1029,14 @@ class UnivariateOreOperator(OreOperator):
 
     def xgcrd(self, other, **kwargs):
         """
-        Returns the greatest common right divisor of ``self`` and ``other`` together with the cofactors. 
+        Returns the greatest common right divisor of ``self`` and ``other`` together with the cofactors.
 
         INPUT:
 
         - ``other`` -- one operator which together with ``self`` can be coerced to a common parent.
         - ``prs`` (default: "essential") -- pseudo remainder sequence to be used. Possible values are
           "essential", "primitive", "classic", "subresultant", "monic".
-        
+
         OUTPUT:
 
         A triple `(g, s, t)` of operators such that `g` is the greatest common right divisor of ``self`` and
@@ -1048,11 +1048,11 @@ class UnivariateOreOperator(OreOperator):
            sage: A = OreAlgebra(ZZ['n'], 'Sn')
            sage: G = A.random_element(2)
            sage: L1, L2 = A.random_element(7), A.random_element(5)
-           sage: while L1.gcrd(L2) != 1: L2 = A.random_element(5)                       
-           sage: L1, L2 = L1*G, L2*G                                                        
+           sage: while L1.gcrd(L2) != 1: L2 = A.random_element(5)
+           sage: L1, L2 = L1*G, L2*G
            sage: L1.gcrd(L2) == G.normalize()
            True
-           sage: L3, S, T = L1.xgcrd(L2)                             
+           sage: L3, S, T = L1.xgcrd(L2)
            sage: S*L1 + T*L2 == L3
            True
 
@@ -1086,7 +1086,7 @@ class UnivariateOreOperator(OreOperator):
                    "monic" : __monicPRS__,
         }
 
-        if retval == "syzygy": 
+        if retval == "syzygy":
             prs = __primitivePRS__ # overrule any given options
         else:
             try:
@@ -1100,7 +1100,7 @@ class UnivariateOreOperator(OreOperator):
         r = (self, other)
         if r[0].order() < r[1].order():
             r = (other, self)
-        
+
         R = r[0].parent()
         RF = R.change_ring(R.base_ring().fraction_field())
 
@@ -1111,7 +1111,7 @@ class UnivariateOreOperator(OreOperator):
 
         additional = []
 
-        while not r[1].is_zero():  
+        while not r[1].is_zero():
             (r2, q, alpha, beta, correct) = prs(r, additional)
             if not correct:
                 if infolevel>0:
@@ -1148,10 +1148,10 @@ class UnivariateOreOperator(OreOperator):
         methods.
 
         * ``linalg`` (default) -- makes an ansatz for cofactors and solves a linear
-          system over the base ring. 
+          system over the base ring.
           Through the optional argument ``solver``, a callable object can be
           provided which the function should use for computing the kernel of
-          matrices with entries in the Ore algebra's base ring. 
+          matrices with entries in the Ore algebra's base ring.
 
         * ``euclid`` -- uses the extended Euclidean algorithm to compute a minimal
           syzygy between the operators in the input. Further optional arguments
@@ -1163,7 +1163,7 @@ class UnivariateOreOperator(OreOperator):
           ``to_list`` has to be present which specifies a function for computing the
           terms (input: an operator, a list of initial values, and the desired number
           of terms). This method is heuristic. It may be much faster than the others,
-          but with low probability its output is incorrect or it aborts with an error. 
+          but with low probability its output is incorrect or it aborts with an error.
 
         EXAMPLES::
 
@@ -1178,10 +1178,10 @@ class UnivariateOreOperator(OreOperator):
             (15*x^2 + 40*x + 25)*Dx^2 + (-37*x^2 - 46*x - 25)*Dx - 8*x^2 + 15*x - 33
             sage: B.lclm(A*B)
             (15*x^2 + 40*x + 25)*Dx^2 + (-37*x^2 - 46*x - 25)*Dx - 8*x^2 + 15*x - 33
-            sage: B.lclm(L, A*B) 
+            sage: B.lclm(L, A*B)
             (3225*x^5 + 18275*x^4 + 42050*x^3 + 49550*x^2 + 29925*x + 7375)*Dx^3 + (-7310*x^5 - 32035*x^4 - 64640*x^3 - 70730*x^2 - 40090*x - 9275)*Dx^2 + (-3311*x^5 - 3913*x^4 - 6134*x^3 - 20306*x^2 - 25147*x - 9605)*Dx - 344*x^5 + 645*x^4 - 7180*x^3 + 2054*x^2 + 30044*x + 22509
 
-        
+
         """
 
         if len(other) != 1:
@@ -1221,9 +1221,9 @@ class UnivariateOreOperator(OreOperator):
 
     def _lclm_linalg(self, other, **kwargs):
         """
-        lclm algorithm based on ansatz and linear algebra over the base ring. 
+        lclm algorithm based on ansatz and linear algebra over the base ring.
 
-        see docstring of lclm for further information. 
+        see docstring of lclm for further information.
         """
 
         solver = kwargs["solver"] if "solver" in kwargs else None
@@ -1267,8 +1267,8 @@ class UnivariateOreOperator(OreOperator):
         see docstring of lclm for further information.
         """
 
-        # lclm based on guessing an operator for a generic linear combination of two solutions. 
-        
+        # lclm based on guessing an operator for a generic linear combination of two solutions.
+
         A = self.parent()
         R = A.base_ring()
         K = R.base_ring().fraction_field()
@@ -1283,7 +1283,7 @@ class UnivariateOreOperator(OreOperator):
         V = other.normalize().numerator()
 
         # bound on the order of the output
-        r_lcm = U.order() + V.order() 
+        r_lcm = U.order() + V.order()
 
         # expected degree of the non-removable part of the leading coefficient
         # heuristic: assume a factor of lc is removable if its multiplicity is 1 and its degree is >20
@@ -1311,7 +1311,7 @@ class UnivariateOreOperator(OreOperator):
     def xlclm(self, other):
         """
         Computes the least common left multiple of ``self`` and ``other`` along
-        with the appropriate cofactors. 
+        with the appropriate cofactors.
 
         That is, it returns a triple `(L,U,V)` such that `L=U*self=V*other` and
         `L` has minimal possible order.
@@ -1334,7 +1334,7 @@ class UnivariateOreOperator(OreOperator):
             Univariate Ore algebra in Dx over Univariate Polynomial Ring in x over Rational Field
             sage: U.parent()
             Univariate Ore algebra in Dx over Fraction Field of Univariate Polynomial Ring in x over Rational Field
-        
+
         """
         A = self
         B = other
@@ -1348,23 +1348,23 @@ class UnivariateOreOperator(OreOperator):
             A = A.change_ring(K)
             B = B.change_ring(K)
             L0 = L.change_ring(K)
-        
+
         return (L, L0 // A, L0 // B)
 
     def resultant(self, other):
         """
-        Returns the resultant between this operator and ``other``. 
+        Returns the resultant between this operator and ``other``.
 
         INPUT:
-        
+
         - ``other`` -- some operator that lives in the same algebra as ``self``.
-        
+
         OUTPUT:
 
         The resultant between ``self`` and ``other``, which is defined as the determinant of the
         `(n+m) x (n+m)` matrix `[ A, D*A, ..., D^{m-1}*A, B, D*B, ..., D^{n-1}*B ]` constructed
         from the coefficient vectors of the operators obtained from ``self`` and ``other`` by
-        multiplying them by powers of the parent's generator. 
+        multiplying them by powers of the parent's generator.
 
         EXAMPLES::
 
@@ -1404,12 +1404,12 @@ class UnivariateOreOperator(OreOperator):
         A = None
         D = Alg.gen()
 
-        # for better performance, we don't use the sylvester matrix 
+        # for better performance, we don't use the sylvester matrix
         for i in range(m):
             A = self if A is None else D*A
             mat.append((A % other).coefficients(sparse=False,padd=m-1))
 
-        from sage.matrix.constructor import matrix      
+        from sage.matrix.constructor import matrix
         return s.factorial(other.leading_coefficient(), n) * matrix(Alg.base_ring().fraction_field(), mat).det()
 
     def companion_matrix(self):
@@ -1417,7 +1417,7 @@ class UnivariateOreOperator(OreOperator):
         Returns the companion matrix of ``self``.
 
         If `r` is the order of ``self`` and `y` is annihilated by ``self``, then the companion matrix
-        as computed by this method is an `r\times r` matrix `M` such that 
+        as computed by this method is an `r\times r` matrix `M` such that
         `[\partial y,\partial^2 y,\dots,\partial^r y] = M [y,\partial y,\dots,\partial^{r-1}y]^T`.
 
         In the shift case, if `c_i` is a sequence annihilated by ``self``, then also
@@ -1462,7 +1462,7 @@ class UnivariateOreOperator(OreOperator):
         where ``self`` and ``other`` live. (See docstring of OreAlgebra for information
         about product rules.)
 
-        If no ``solver`` is specified, the the Ore algebra's solver is used.         
+        If no ``solver`` is specified, the the Ore algebra's solver is used.
 
         EXAMPLES::
 
@@ -1475,7 +1475,7 @@ class UnivariateOreOperator(OreOperator):
            x*Dx - x - 1
            sage: ((x+1)*Dx^2 + (x-1)*Dx + 8).symmetric_product((x-1)*Dx^2 + (2*x+3)*Dx + (8*x+5))
            (29*x^8 - 4*x^7 - 55*x^6 - 34*x^5 - 23*x^4 + 80*x^3 + 95*x^2 - 42*x - 46)*Dx^4 + (174*x^8 + 150*x^7 + 48*x^6 - 294*x^5 - 864*x^4 - 646*x^3 + 232*x^2 + 790*x + 410)*Dx^3 + (783*x^8 + 1661*x^7 - 181*x^6 - 1783*x^5 - 3161*x^4 - 3713*x^3 + 213*x^2 + 107*x - 1126)*Dx^2 + (1566*x^8 + 5091*x^7 + 2394*x^6 + 2911*x^5 - 10586*x^4 - 23587*x^3 - 18334*x^2 - 2047*x + 5152)*Dx + 2552*x^8 + 3795*x^7 + 8341*x^6 + 295*x^5 - 6394*x^4 - 24831*x^3 - 35327*x^2 - 23667*x - 13708
-           
+
            sage: A.<Sx> = OreAlgebra(R, 'Sx')
            sage: (Sx - 2).symmetric_product(x*Sx - (x+1))
            x*Sx - 2*x - 2
@@ -1483,7 +1483,7 @@ class UnivariateOreOperator(OreOperator):
            x*Sx - 2*x - 2
            sage: ((x+1)*Sx^2 + (x-1)*Sx + 8).symmetric_product((x-1)*Sx^2 + (2*x+3)*Sx + (8*x+5))
            (-8*x^8 - 13*x^7 + 300*x^6 + 1640*x^5 + 3698*x^4 + 4373*x^3 + 2730*x^2 + 720*x)*Sx^4 + (16*x^8 + 34*x^7 - 483*x^6 - 1947*x^5 - 2299*x^4 - 2055*x^3 - 4994*x^2 - 4592*x)*Sx^3 + (-64*x^8 + 816*x^7 + 1855*x^6 - 21135*x^5 - 76919*x^4 - 35377*x^3 + 179208*x^2 + 283136*x + 125440)*Sx^2 + (1024*x^7 + 1792*x^6 - 39792*x^5 - 250472*x^4 - 578320*x^3 - 446424*x^2 + 206528*x + 326144)*Sx - 32768*x^6 - 61440*x^5 + 956928*x^4 + 4897984*x^3 + 9390784*x^2 + 7923200*x + 2329600
-        
+
         """
         if not isinstance(other, UnivariateOreOperator):
             raise TypeError("unexpected argument in symmetric_product")
@@ -1495,7 +1495,7 @@ class UnivariateOreOperator(OreOperator):
         R = self.base_ring().fraction_field()
         zero = R.zero()
         one = R.one()
-        
+
         A = self.change_ring(R)
         a = A.order()
         B = other.change_ring(R)
@@ -1517,17 +1517,17 @@ class UnivariateOreOperator(OreOperator):
             raise ValueError("no product rule found")
 
         if b == 1:
-            
+
             D = A.parent().gen()
             D1 = D(R.one())
             h = -B[0]/B[1] # B = D - h
             if h == D1:
-                return A            
+                return A
 
             # define g such that (D - h)(u) == 0 iff (D - g)(1/u) == 0.
             g = (D1 - pr[0] - pr[1]*h)/(pr[1] + pr[2]*h)
-            
-            # define p, q such that "D*1/u == p*1/u*D + q*1/u" 
+
+            # define p, q such that "D*1/u == p*1/u*D + q*1/u"
             #p = (g - D1)/(D1 - h); q = g - p*D1
             p = pr[1] + pr[2]*g
             q = pr[0] + pr[1]*g
@@ -1542,7 +1542,7 @@ class UnivariateOreOperator(OreOperator):
                 c = coeffs[i]
                 if not c.is_zero():
                     L += c*Dk
-            
+
             return A.parent()(L).normalize()
 
         # general case via linear algebra
@@ -1553,10 +1553,10 @@ class UnivariateOreOperator(OreOperator):
         if solver is None:
             solver = Alg._solver()
 
-        # Dkuv[i][j] is the coefficient of D^i(u)*D^j(v) in the normal form of D^k(u*v) 
+        # Dkuv[i][j] is the coefficient of D^i(u)*D^j(v) in the normal form of D^k(u*v)
         Dkuv = [[zero for i in range(b + 1)] for j in range(a + 1)]
         Dkuv[0][0] = one
-        
+
         mat = [[Dkuv[i][j] for i in range(a) for j in range(b)]]
 
         from sage.matrix.constructor import Matrix
@@ -1615,7 +1615,7 @@ class UnivariateOreOperator(OreOperator):
            -x*Sx^3 + (x^3 + 2*x^2 + 3*x + 2)*Sx^2 + (2*x^3 + 2*x^2 + 4*x)*Sx - 8*x - 8
            sage: A.random_element().symmetric_power(0)
            Sx - 1
-        
+
         """
         if exp < 0:
             raise TypeError("unexpected exponent received in symmetric_power")
@@ -1693,24 +1693,24 @@ class UnivariateOreOperator(OreOperator):
         - ``poly`` -- a multivariate polynomial, say in the variables `x0,x1,x2,...`, with coefficients
           in the base ring of the parent of ``self``.
           The number of variables in the parent of ``poly`` must be at least the order of ``self``.
-        - ``solver`` -- if specified, this function will be used for computing the nullspace of 
+        - ``solver`` -- if specified, this function will be used for computing the nullspace of
           polynomial matrices
-        - ``blocks`` -- if set to an integer greater than 1, the variables of the polynomial ring 
+        - ``blocks`` -- if set to an integer greater than 1, the variables of the polynomial ring
           represent the shifts of several solutions of this operator. In this case, the polynomial
           ring must have ``blocks*n`` many variables, for some `n` which is at least the order of ``self``.
           Then the first ``n`` variables represent the shifts of one solution, the second ``n`` variables
           represent the shifts of a second solution, and so on.
-        
+
         OUTPUT:
 
-          An operator `L` with the following property. 
+          An operator `L` with the following property.
           Let `A` be the parent of ``self``.
           For a function `f` write `Df,D^2f,...` for the functions obtained from `f` by letting the generator
-          of `A` act on them. 
+          of `A` act on them.
           Then the output `L` is such that for all `f` annihilated by ``self`` we have
           `L(p(f,Df,D^2f,...))=0`, where `p` is the input polynomial.
 
-        The method requires that a product rule is associated to `A`. 
+        The method requires that a product rule is associated to `A`.
         (See docstring of OreAlgebra for information about product rules.)
 
         NOTE:
@@ -1725,10 +1725,10 @@ class UnivariateOreOperator(OreOperator):
           sage: L = (n+2)*Sn^2 - (2*n+3)*x*Sn + (n+1)
           sage: L.annihilator_of_polynomial(y1^2-y2*y0) # random; Turan's determinant
           (2*n^4 + 31*n^3 + 177*n^2 + 440*n + 400)*Sn^3 + ((-8*x^2 + 2)*n^4 + (-100*x^2 + 21)*n^3 + (-462*x^2 + 75)*n^2 + (-935*x^2 + 99)*n - 700*x^2 + 28)*Sn^2 + ((8*x^2 - 2)*n^4 + (92*x^2 - 27)*n^3 + (390*x^2 - 129)*n^2 + (721*x^2 - 261)*n + 490*x^2 - 190)*Sn - 2*n^4 - 17*n^3 - 51*n^2 - 64*n - 28
-          sage: M = L.annihilator_of_associate(Sn).symmetric_power(2).lclm(L.annihilator_of_associate(Sn^2).symmetric_product(L)) # same by lower level methods. 
+          sage: M = L.annihilator_of_associate(Sn).symmetric_power(2).lclm(L.annihilator_of_associate(Sn^2).symmetric_product(L)) # same by lower level methods.
           sage: M.order() # overshoots
           7
-          sage: M % L.annihilator_of_polynomial(y1^2-y2*y0) 
+          sage: M % L.annihilator_of_polynomial(y1^2-y2*y0)
           0
 
           sage: K = ZZ; R.<x> = K['x']
@@ -1743,7 +1743,7 @@ class UnivariateOreOperator(OreOperator):
             return self
         elif self.order() == 0:
             return self.one()
-        
+
         A = self.parent()
         pr = A._product_rule()
         R = poly.parent()
@@ -1784,7 +1784,7 @@ class UnivariateOreOperator(OreOperator):
                     shift_cache[exp] = pr[0]*m + pr[1]*(A*m0 + x*B) + pr[2]*A*B
                 out += sigma(c)*shift_cache[exp]
             return p.map_coefficients(delta) + out
-        
+
         if len(vars) > blocks*r:
             subs = {}
             for j in range(blocks):
@@ -1816,12 +1816,12 @@ class UnivariateOreOperator(OreOperator):
         """
         Returns the `k`-th exterior power of this operator.
 
-        This is an operator which annihilates the Wronskian of any `k` solutions of this operator. 
+        This is an operator which annihilates the Wronskian of any `k` solutions of this operator.
         The exterior power is unique up to left-multiplication by base ring elements. This method
-        returns a normalized operator. 
+        returns a normalized operator.
 
-        If the optional argument ``skip`` is supplied, we take a `k` times `k` Wronskian in which 
-        the rows corresponding to the `i`-th derivative is skipped for all `i` in the list. 
+        If the optional argument ``skip`` is supplied, we take a `k` times `k` Wronskian in which
+        the rows corresponding to the `i`-th derivative is skipped for all `i` in the list.
 
         When `k` exceeds the order of ``self``, we raise an error rather than returning the operator 1.
 
@@ -1836,7 +1836,7 @@ class UnivariateOreOperator(OreOperator):
            (36*t^4 - 120*t^3 + 76*t^2 + 40*t + 4)*Dt^3 + (-36*t^4 + 84*t^3 + 56*t^2 - 148*t - 28)*Dt^2 + (9*t^4 - 6*t^3 - 12*t^2 - 76*t + 109)*Dt - 42*t^4 + 73*t^3 - 15*t^2 - 15*t + 51
            sage: L.exterior_power(3)
            (6*t^2 - 10*t - 2)*Dt - 3*t^2 + 2*t + 7
-        
+
         """
         from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
         from sage.matrix.constructor import matrix
@@ -1850,12 +1850,12 @@ class UnivariateOreOperator(OreOperator):
 
     def adjoint(self):
         """
-        Returns the adjoint of this operator. 
+        Returns the adjoint of this operator.
 
-        The adjoint is a map `a` from the Ore algebra to itself with the property that 
-        `a(A*B)==a(B)*a(A)` and `a(a(A))==A` for all operators `A` and `B`. 
+        The adjoint is a map `a` from the Ore algebra to itself with the property that
+        `a(A*B)==a(B)*a(A)` and `a(a(A))==A` for all operators `A` and `B`.
 
-        This method may not be defined for every Ore algebra. A necessary (but not 
+        This method may not be defined for every Ore algebra. A necessary (but not
         sufficient) requirement is that sigma be invertible.
 
         EXAMPLES::
@@ -1894,7 +1894,7 @@ class UnivariateOreOperator(OreOperator):
         for c in reversed(self.coefficients(sparse=False)):
             out = c + out.map_coefficients(sinv)*D - out.map_coefficients(sinv).map_coefficients(delta)
 
-        # at this point, out is the desired operator as element of k(x)[D, sinv, -(delta o sinv)]. 
+        # at this point, out is the desired operator as element of k(x)[D, sinv, -(delta o sinv)].
         # mapping this back to the original algebra requires a case distinction.
 
         x = A.base_ring().gen()
@@ -1906,7 +1906,7 @@ class UnivariateOreOperator(OreOperator):
             raise NotImplementedError
 
     # coefficient-related functions
-    
+
     def order(self):
         """
         Returns the order of this operator, which is defined as the maximal power `i` of the
@@ -1955,8 +1955,8 @@ class UnivariateOreOperator(OreOperator):
         Return the coefficient vector of this operator.
 
         If the degree is less than the number given in the optional
-        argument ``padd``, the list is padded with zeros so as to ensure 
-        that the output has length ``padd`` + 1. Any further 
+        argument ``padd``, the list is padded with zeros so as to ensure
+        that the output has length ``padd`` + 1. Any further
 
         EXAMPLES::
 
@@ -1968,7 +1968,7 @@ class UnivariateOreOperator(OreOperator):
            [-4, 0, 0, 5, 0, 0]
            sage: (5*Sx^3-4).coefficients(sparse=False,padd=1)
            [-4, 0, 0, 5]
-        
+
         """
         padd = args.setdefault("padd", -1)
         args['padd'] = 0
@@ -1999,7 +1999,7 @@ def __primitivePRS__(r,additional):
     newRem = (alpha*r[0]).quo_rem(r[1],fractionFree=True)
     beta = newRem[1].content()
     r2 = newRem[1].map_coefficients(lambda p: p//beta)
-    
+
     return ((r[1],r2),newRem[0],alpha,beta,True)
 
 def __classicPRS__(r,additional):
