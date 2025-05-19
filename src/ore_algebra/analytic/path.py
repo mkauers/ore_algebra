@@ -27,6 +27,7 @@ from sage.rings.rational_field import Q as QQ
 from sage.rings.cc import CC
 from sage.rings.real_mpfi import RIF
 from sage.rings.cif import CIF
+from sage.rings.complex_interval_field import ComplexIntervalField
 from sage.rings.qqbar import QQbar
 from sage.rings.rational import Rational
 from sage.rings.real_lazy import RLF
@@ -1336,10 +1337,16 @@ class Path(SageObject):
         """
         assert npoints in (1, 2)
 
+        # Forgoing the exact test here would not lead to incorrect enclosures but
+        # may cause intermediate points between a real singular point and
+        # another point lying right on the branch cut to be represented as
+        # intervals with a nontrivial imaginary part (cf.
+        # _rationalize_intermediate_point)
+        is_real = a.is_real() and b.is_real()
+        # is_real = a.iv().imag().is_zero() and b.iv().imag().is_zero()
         vec = b.iv() - a.iv()
         length = abs(vec)
         dir = vec/abs(vec)
-        is_real = a.iv().imag().is_zero() and b.iv().imag().is_zero()
 
         t = ~factor
         if npoints == 1:
@@ -1467,6 +1474,17 @@ class Path(SageObject):
             NotImplementedError: cannot subdivide singular step 2/3*I -->
             -2.00... + [0.66...]*I involving an inexact point on or too close to
             a local branch cut
+
+        Thanks to Eric Pichon-Pharabod for these examples where rationalization
+        of a point on a branch cut would fail::
+
+            sage: from ore_algebra.analytic.monodromy import monodromy_matrices
+            sage: dop = ((38654705664*x^13 + 458219323392*x^12 + 2505173893120*x^11 + 8363789254656*x^10 + 19024458088448*x^9 + 31133232005120*x^8 + 37710927521792*x^7 + 34231890840320*x^6 + 23286791725072*x^5 + 11724728791736*x^4 + 4246887837249*x^3 + 1047957765651*x^2 + 157894624755*x + 10970415225)*Dx^4 +
+            ....: (773094113280*x^12 + 8421893996544*x^11 + 42014309613568*x^10 + 126917686591488*x^9 + 258562070937600*x^8 + 374240951042048*x^7 + 394605490954240*x^6 + 305401965805056*x^5 + 172182710109376*x^4 + 68963362939480*x^3 + 18625850545806*x^2 + 3045691826964*x + 228025927710)*Dx^3 +
+            ....: (4735201443840*x^11 + 47032911790080*x^10 + 212127046434816*x^9 + 573435624292352*x^8 + 1032320760938496*x^7 + 1299464550891520*x^6 + 1167069514836992*x^5 + 747825081884160*x^4 + 335033800815488*x^3 + 99945016169884*x^2 + 17866840468671*x + 1449979910307)*Dx^2 +
+            ....: (10050223472640*x^10 + 90155859836928*x^9 + 363477923266560*x^8 + 867276389613568*x^7 + 1356222792990720*x^6 + 1452304518856704*x^5 + 1078491576002560*x^4 + 548401619599104*x^3 + 182731924949184*x^2 + 36027613802612*x + 3191561027253)*Dx + 5800621768704*x^9 + 46446648754176*x^8 + 165033497591808*x^7 + 341514566762496*x^6 + 453571595010048*x^5 + 400921227214848*x^4 + 235848118120448*x^3 + 89034104867072*x^2 + 19571300755424*x + 1908585647784)
+            sage: monodromy_matrices(dop, 0)
+            ...
         """
 
         # When handling a singular step, we must make sure that the new point
@@ -1524,11 +1542,15 @@ class Path(SageObject):
             # little of what we are trying to do makes sense.
             if m.overlaps(CIF(a.iv())) or m.overlaps(CIF(b.iv())):
                 continue
+            # When handling a singular step, we want the rationalized point to
+            # be on the correct side of the cut. Note that is_real implies that
+            # singular_end is None. We can skip clipping the box in this case
+            # since the rationalized point is then real as well by construction.
             if singular_end is not None:
                 # TODO: strict=False for i>1 once we have better support for
                 # evaluation right on a non-real branch cut
                 m = _clip_to_half_plane(m, singular_end, side_of_cut,
-                                        strict=not is_real)
+                                        strict=True)
             r = _rationalize(m, is_real)
             if is_real and a.iv().real() < r < b.iv().real():
                 break
@@ -1781,19 +1803,26 @@ def polygon_around(point, size=17):
     return polygon
 
 def _clip_to_half_plane(m, singular_end, side_of_cut, strict):
-    y_cut = singular_end.iv().imag()
-    if side_of_cut >= 0:
-        if strict:
-            clip_imag = RIF(y_cut.upper(), 'inf')
+    _CIF = CIF
+    while True:
+        y_cut = _CIF(singular_end.value).imag()
+        if side_of_cut >= 0:
+            if strict:
+                clip_imag = RIF(y_cut.upper(), 'inf')
+            else:
+                # try with an interval that may overlap the cut, but just
+                # slightly, in the hope of finding a nice rational point right
+                # on the cut
+                clip_imag = RIF(y_cut.lower(), 'inf')
         else:
-            # try with an interval that may overlap the cut, but just slightly,
-            # in the hope of finding a nice rational point right on the cut
-            clip_imag = RIF(y_cut.lower(), 'inf')
-    else:
-        # in that case we want a point strictly below the cut
-        clip_imag = RIF('-inf', y_cut.lower())
-    clip_box = CIF(RIF('-inf', 'inf'), clip_imag)
-    return m.intersection(clip_box)
+            # in that case we want a point strictly below the cut
+            clip_imag = RIF('-inf', y_cut.lower())
+        clip_box = _CIF(RIF('-inf', 'inf'), clip_imag)
+        # m may be so tight that, for instance, y_cut.upper() > m
+        if m.overlaps(clip_box):
+            return m.intersection(clip_box)
+        else:
+            _CIF = ComplexIntervalField(2*_CIF.precision())
 
 def _rationalize(civ, real=False):
     from sage.rings.real_mpfi import RealIntervalField
