@@ -121,7 +121,7 @@ class DFiniteFunctionRing(Parent):
 
         Parent.__init__(self, category=Algebras(self._base_ring))
 
-    #conversion
+    # conversion
 
     def _element_constructor_(self, x=None, check=True, is_gen = False, construct=False, **kwds):
         r"""
@@ -191,7 +191,7 @@ class DFiniteFunctionRing(Parent):
         if isinstance(x, list):
             return self._construct_list(x, n)
 
-        #conversion for numbers
+        # conversion for numbers
         elif x in QQ:
             if n:
                 Sn = self.ore_algebra().gen()
@@ -200,11 +200,11 @@ class DFiniteFunctionRing(Parent):
                 Dy = self.ore_algebra().gen()
                 return UnivariateDFiniteFunction(self,Dy,{0:x})
 
-        #conversion for rational functions
+        # conversion for rational functions
         elif x in self.base_ring().fraction_field():
             return self._construct_rational(x, n)
 
-        #conversion for symbolic constants
+        # conversion for symbolic constants
         elif x.is_constant():
             if n:
                 Sn = self.ore_algebra().gen()
@@ -213,7 +213,7 @@ class DFiniteFunctionRing(Parent):
                 Dy = self.ore_algebra().gen()
                 return UnivariateDFiniteFunction(self,Dy,{0:x})
         else:
-            #conversion for symbolic expressions
+            # conversion for symbolic expressions
             return self._construct_symbolic(x, n)
 
     def _construct_dfinite(self,x, n):
@@ -250,8 +250,8 @@ class DFiniteFunctionRing(Parent):
             sage: D2(a1)
             Univariate D-finite sequence defined by the annihilating operator n*Sn - n - 1 and the initial conditions {0: 0, 1: 1}
 
-            #D1(a2) would not work since a2 is defined over ``NN`` but D1 has domain ``ZZ``
-
+        Note that D1(a2) would not work since a2 is defined over ``NN``
+        but D1 has domain ``ZZ``.
         """
         if self._coerce_map_from_(x.parent()):
             if n:
@@ -350,7 +350,7 @@ class DFiniteFunctionRing(Parent):
 
         if n:
 
-            #getting the operator
+            # getting the operator
             A = self.ore_algebra()
             N = R.gen()
             Sn = A.gen()
@@ -358,10 +358,10 @@ class DFiniteFunctionRing(Parent):
             g = x.denominator()
             ann = A(g(n+1)*f(n)*Sn - g(n)*f(n+1))
 
-            #getting the order of the operator
+            # getting the order of the operator
             ord = 1
 
-            #initial values, singularities and pols of the new operator
+            # initial values, singularities and pols of the new operator
             singularities_positive = ann.singularities()
             singularities_negative = set()
             if self._backward_calculation is True:
@@ -395,11 +395,11 @@ class DFiniteFunctionRing(Parent):
 
             ann = x.denominator()**2*(x*Dy - x.derivative())
 
-            #getting the operator of the sequence
+            # getting the operator of the sequence
             s_ann = ann.to_S(OreAlg)
             ord = s_ann.order()
 
-            #initial values and singularities of the sequence operator
+            # initial values and singularities of the sequence operator
             singularities_positive = s_ann.singularities()
 
             initial_val = set(range(ord)).union(singularities_positive)
@@ -470,7 +470,7 @@ class DFiniteFunctionRing(Parent):
 
         operands = exp.operands()
 
-        #add, mul
+        # add, mul
         if operator == add_vararg or operator == mul_vararg:
             while len(operands) > 1:
                 operands.append( operator(self(operands.pop()), self(operands.pop())) )
@@ -586,7 +586,7 @@ class DFiniteFunctionRing(Parent):
         """
         try:
             return (self.ore_algebra() == right.ore_algebra() and self.domain() == right.domain())
-        except Exception:
+        except (TypeError, AttributeError, ValueError):
             return False
 
     def is_integral_domain(self, proof = True):
@@ -1290,8 +1290,6 @@ class DFiniteFunction(RingElement):
         else:
             return self.initial_conditions().__is_zero__()
 
-
-
     def __eq__(self, right):
         r"""
         Return whether the two DFiniteFunctions ``self`` and ``right`` are equal.
@@ -1312,7 +1310,6 @@ class DFiniteFunction(RingElement):
         if self.parent() != right.parent():
             right = self.parent()(right)
         return (self.__add_without_compress__(-right)).__is_zero__()
-
 
     def __ne__(self, right):
         r"""
@@ -1674,9 +1671,10 @@ class DFiniteFunction(RingElement):
         Singularities that might be saved will not be considered, unless they are within the first `r` terms. To get all saved
         values (initial values plus singularities) use the method ``initial_conditions``
 
-        EXAMPLES::
+        EXAMPLES:
 
-            #discrete case
+        Discrete case::
+
             sage: from ore_algebra import *
             sage: A = OreAlgebra(QQ['n'],'Sn')
             sage: D1 = DFiniteFunctionRing(A,ZZ)
@@ -1684,14 +1682,14 @@ class DFiniteFunction(RingElement):
             sage: a.initial_values()
             [0, 1]
 
-            #differential case
+        Differential case::
+
             sage: from ore_algebra import *
             sage: B = OreAlgebra(QQ['x'],'Dx')
             sage: D2 = DFiniteFunctionRing(B)
             sage: b = UnivariateDFiniteFunction(D2, "(x-3)*Dx - 1", {0:-3})
             sage: b.initial_values()
             [-3]
-
         """
         if self.parent().ore_algebra().is_S():
             if self.parent()._backward_calculation is False and min(self.initial_conditions()) < 0:
@@ -1711,9 +1709,10 @@ class DFiniteFunction(RingElement):
         In the differential case this method will return the coefficient sequence of ``self`` in form of a UnivariateDFiniteSequence object.
         To get all saved values of a UnivariateDFiniteFunction one has to call this method twice (see examples).
 
-        EXAMPLES::
+        EXAMPLES:
 
-            #discrete case
+        Discrete case::
+
             sage: from ore_algebra import *
             sage: A = OreAlgebra(QQ['n'],'Sn')
             sage: D1 = DFiniteFunctionRing(A,ZZ)
@@ -1721,7 +1720,8 @@ class DFiniteFunction(RingElement):
             sage: a.initial_conditions()
             {-1: 2, 0: 0, 1: 1, 4: 3}
 
-            #differential case
+        Differential case::
+
             sage: from ore_algebra import *
             sage: B = OreAlgebra(QQ['x'],'Dx')
             sage: D2 = DFiniteFunctionRing(B)
@@ -1730,11 +1730,10 @@ class DFiniteFunction(RingElement):
             Univariate D-finite sequence defined by the annihilating operator (-3*n - 3)*Sn + n - 1 and the initial conditions {0: -3}
             sage: b.initial_conditions().initial_conditions()
             {0: -3}
-
         """
         return self._initial_values
 
-#############################################################################################################
+##############################################################################
 
 class UnivariateDFiniteSequence(DFiniteFunction):
     r"""
@@ -3032,7 +3031,6 @@ class UnivariateDFiniteFunction(DFiniteFunction):
             [1, 1, 1/2, 1/6, 1/24, 1/120, 1/720, 1/5040, 1/40320, 1/362880, 1/3628800]
             sage: e.expand(10,True)
             [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
-
         """
         result = self._initial_values.expand(n)
         if deriv is True:
