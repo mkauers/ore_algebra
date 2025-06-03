@@ -128,9 +128,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
             out += alg_theta([R(p) for p in coeffs[i].coefficients(sparse=False)])*(S**i)
 
         out = out.numerator().change_ring(alg.base_ring()).to_D(alg)
-        out = alg.gen()**(len(coeffs)-1)*out
-
-        return out
+        return alg.gen()**(len(coeffs)-1)*out
 
     def to_F(self, alg):  # s2delta
         """

@@ -667,8 +667,7 @@ class DFiniteFunctionRing(Parent):
             r = "Ring of D-finite sequences over "
         else:
             r = "Ring of D-finite functions over "
-        r = r + self._base_ring._repr_()
-        return r
+        return r + self._base_ring._repr_()
 
     def _latex_(self):
         r"""
@@ -783,8 +782,7 @@ class DFiniteFunctionRing(Parent):
         if R is self._base_ring:
             return self
         else:
-            D = DFiniteFunctionRing(self._ore_algebra.change_ring(R), self._domain)
-            return D
+            return DFiniteFunctionRing(self._ore_algebra.change_ring(R), self._domain)
 
     def change_domain(self,R):
         r"""
@@ -2260,8 +2258,7 @@ class UnivariateDFiniteSequence(DFiniteFunction):
             if n >= min_degree:
                 int_val_prod.update({(n-min_degree)+ord:self[(n-min_degree)+ord] * right[(n-min_degree)+ord] if (self[(n-min_degree)+ord] is not None and right[(n-min_degree)+ord] is not None) else None})
 
-        prod = UnivariateDFiniteSequence(self.parent(), prod_ann, int_val_prod)
-        return prod
+        return UnivariateDFiniteSequence(self.parent(), prod_ann, int_val_prod)
 
 
     def cauchy_product(self, right):
@@ -3229,8 +3226,7 @@ class UnivariateDFiniteFunction(DFiniteFunction):
             s_ann = A(N - (n - ord) )*s_ann
 
         seq = UnivariateDFiniteSequence(DFiniteFunctionRing(A,NN),s_ann,int_val)
-        integral = UnivariateDFiniteFunction(self.parent(), ann, seq)
-        return integral
+        return UnivariateDFiniteFunction(self.parent(), ann, seq)
 
     # evaluation
 

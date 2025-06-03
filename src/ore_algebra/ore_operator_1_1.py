@@ -337,8 +337,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
             v += 1
         if v > 0:
             u = (self//A.gen()**v)._denominator_bound()
-            u = Factorization([(sigma(p, -v), e) for (p, e) in u])
-            return u
+            return Factorization([(sigma(p, -v), e) for (p, e) in u])
 
         n = L.dispersion()
         A = sigma(L[r], -r)

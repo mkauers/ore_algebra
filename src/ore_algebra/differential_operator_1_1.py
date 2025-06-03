@@ -233,8 +233,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             for j in range(i + 1):
                 out[j] += (-1 if (i+j) % 2 else 1)*stirling[i][j]*c << (ord-i)
         val = min(pol.valuation() for pol in out)
-        out = alg([pol >> val for pol in out])
-        return out
+        return alg([pol >> val for pol in out])
 
     def annihilator_of_integral(self):
         r"""
@@ -1282,7 +1281,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
                 dop.base_ring().base_ring(),
                 mypoint.value.parent(),
                 *(sol.leftmost.as_number_field_element() for sol in sols))
-        res = [FormalSum(
+        return [FormalSum(
                     [(c/ZZ(k).factorial(),
                       LogMonomial(dx, sol.leftmost.as_number_field_element(), n, k))
                         for n, vec in enumerate(sol.value)
@@ -1290,8 +1289,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
                         if not c.is_zero()],
                     FormalSums(ring),
                     reduce=False)
-               for sol in sols]
-        return res
+                for sol in sols]
 
     def numerical_solution(self, ini, path, eps=1e-16, post_transform=None, **kwds):
         r"""
@@ -1999,8 +1997,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             basis = [conv(b) for b in basis]
         wwinf = Linf.local_integral_basis(f, val_fct=v, raise_val_fct=rv,
                                           basis=basis, infolevel=infolevel, **val_kwargs)
-        vv = [conv(w) for w in wwinf]
-        return vv
+        return [conv(w) for w in wwinf]
 
     def _normalize_basis_at_infinity(self, uu, vv, infolevel=0, solver=None, modulus=None):
         r"""
@@ -2393,8 +2390,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             Univariate Ore algebra in Dz over Fraction Field of Univariate Polynomial Ring in z over Number Field in a with defining polynomial y^3 - y^2 + y - 2 with a = -0.1766049820996622? - 1.202820819285479?*I
         """
         from .analytic.factorization import right_factor
-        rfac = right_factor(self, verbose=verbose)
-        return rfac
+        return right_factor(self, verbose=verbose)
 
     def is_provably_irreducible(self, prec=None, max_prec=100000, *, verbose=False):
         r"""
