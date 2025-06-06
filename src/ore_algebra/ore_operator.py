@@ -30,6 +30,7 @@ from sage.functions.generalized import sign
 
 from .generalized_series import ContinuousGeneralizedSeries, GeneralizedSeriesMonoid
 
+
 class OreOperator(RingElement):
     """
     An Ore operator. This is an abstract class whose instances represent elements of ``OreAlgebra``.
@@ -42,7 +43,7 @@ class OreOperator(RingElement):
 
     # constructor
 
-    def __init__(self, parent, is_gen = False, construct=False):
+    def __init__(self, parent, is_gen=False, construct=False):
         RingElement.__init__(self, parent)
         self._is_gen = is_gen
 
@@ -229,7 +230,6 @@ class OreOperator(RingElement):
         else:
             d = {k: R(c).change_ring(K) for k,c in self.dict().items()}
             return A(d)
-
 
     def __iter__(self):
         return iter(self.list())
@@ -544,9 +544,9 @@ class OreOperator(RingElement):
                 c = sign(c)
             except (TypeError, ValueError):
                 c = c.parent().one()
-        return self.parent()((~c)*num)
+        return self.parent()((~c) * num)
 
-    def map_coefficients(self, f, new_base_ring = None):
+    def map_coefficients(self, f, new_base_ring=None):
         """
         Returns the operator obtained by applying ``f`` to the non-zero
         coefficients of self.
@@ -833,7 +833,7 @@ class UnivariateOreOperator(OreOperator):
         return self.parent()([left*c for c in self])
 
     def reduce(self, basis, normalize=False, cofactors=False, infolevel=0, coerce=True):
-        ## compatibility method for multivariate case
+        # compatibility method for multivariate case
 
         if cofactors:
             raise NotImplementedError
@@ -880,15 +880,15 @@ class UnivariateOreOperator(OreOperator):
             qlcs.append(sigma(qlcs[-1]))
 
         if fractionFree:
-            op = lambda x,y:x//y
+            op = lambda x,y: x//y
         else:
-            op = lambda x,y:x/y
-        while(orddiff >= 0):
-            currentOrder=p.order()
+            op = lambda x,y: x/y
+        while orddiff >= 0:
+            currentOrder = p.order()
             cfquo = op(p.leading_coefficient(),qlcs[orddiff]) * D**(orddiff)
             quo = quo+cfquo
             p = p - cfquo*q
-            if p.order()==currentOrder:
+            if p.order() == currentOrder:
                 p = self
                 q = other
                 op = lambda x,y:x/y
@@ -993,15 +993,15 @@ class UnivariateOreOperator(OreOperator):
         prs = kwargs["prs"] if "prs" in kwargs else None
         infolevel = kwargs["infolevel"] if "infolevel" in kwargs else 0
 
-        r = (self,other)
-        if (r[0].order()<r[1].order()):
-            r=(other,self)
+        r = (self, other)
+        if (r[0].order() < r[1].order()):
+            r = (other, self)
 
-        prslist = {"essential" : __essentialPRS__,
-                   "primitive" : __primitivePRS__,
-                   "classic" : __classicPRS__,
-                   "subresultant" : __subresultantPRS__,
-                   "monic" : __monicPRS__,
+        prslist = {"essential": __essentialPRS__,
+                   "primitive": __primitivePRS__,
+                   "classic": __classicPRS__,
+                   "subresultant": __subresultantPRS__,
+                   "monic": __monicPRS__,
                    }
 
         try:
@@ -1014,16 +1014,16 @@ class UnivariateOreOperator(OreOperator):
 
         additional = []
         while not r[1].is_zero():
-            (r2,q,alpha,beta,correct)=prs(r,additional)
+            r2, q, alpha, beta, correct = prs(r, additional)
             if not correct:
-                if infolevel>0:
+                if infolevel > 0:
                     print("switching to primitive PRS")
                 prs = __primitivePRS__
             else:
-                r=r2
-                if infolevel>1:
+                r = r2
+                if infolevel > 1:
                     print(r[0].order())
-        r=r[0]
+        r = r[0]
 
         return r.normalize()
 
@@ -1079,15 +1079,15 @@ class UnivariateOreOperator(OreOperator):
             elif self.is_zero():
                 return self.parent().one(), self.parent().zero()
 
-        prslist = {"essential" : __essentialPRS__,
-                   "primitive" : __primitivePRS__,
-                   "classic" : __classicPRS__,
-                   "subresultant" : __subresultantPRS__,
-                   "monic" : __monicPRS__,
-        }
+        prslist = {"essential": __essentialPRS__,
+                   "primitive": __primitivePRS__,
+                   "classic": __classicPRS__,
+                   "subresultant": __subresultantPRS__,
+                   "monic": __monicPRS__,
+                   }
 
         if retval == "syzygy":
-            prs = __primitivePRS__ # overrule any given options
+            prs = __primitivePRS__  # overrule any given options
         else:
             try:
                 prs = prslist[prs]
@@ -1107,21 +1107,23 @@ class UnivariateOreOperator(OreOperator):
         a11, a12, a21, a22 = RF.one(), RF.zero(), RF.zero(), RF.one()
 
         if prs is None:
-            prs = __classicPRS__ if R.base_ring().is_field() else (__essentialPRS__ if retval=="bezout" else __primitivePRS__)
+            prs = __classicPRS__ if R.base_ring().is_field() else (__essentialPRS__
+                                                                   if retval == "bezout"
+                                                                   else __primitivePRS__)
 
         additional = []
 
         while not r[1].is_zero():
-            (r2, q, alpha, beta, correct) = prs(r, additional)
+            r2, q, alpha, beta, correct = prs(r, additional)
             if not correct:
-                if infolevel>0:
+                if infolevel > 0:
                     print("switching to primitive PRS")
                 prs = __primitivePRS__
             else:
                 r = r2
                 bInv = ~beta
                 a11, a12, a21, a22 = a21, a22, bInv*(alpha*a11 - q*a21), bInv*(alpha*a12 - q*a22)
-                if infolevel>1:
+                if infolevel > 1:
                     print(r[0].order())
         if retval == "syzygy":
             c = a21.denominator().lcm(a22.denominator())
@@ -1129,7 +1131,7 @@ class UnivariateOreOperator(OreOperator):
 
         r = r[0]
         c = RF.base_ring().one() if prs is __classicPRS__ else ~r.content()
-        return (self.parent()(c*r), c*a11, c*a12) if self.order()>=other.order() else (self.parent()(c*r), c*a12, c*a11)
+        return (self.parent()(c*r), c*a11, c*a12) if self.order() >= other.order() else (self.parent()(c*r), c*a12, c*a11)
 
     def lclm(self, *other, **kwargs):
         """
@@ -1275,7 +1277,7 @@ class UnivariateOreOperator(OreOperator):
         if 'to_list' in kwargs:
             terms = kwargs['to_list']
         elif A.is_S():
-            terms = lambda L, n : L.to_list([K.random_element() for i in range(L.order())], n)
+            terms = lambda L, n: L.to_list([K.random_element() for i in range(L.order())], n)
         else:
             raise TypeError("don't know how to expand a generic solution for operators in " + str(A))
 
@@ -1287,9 +1289,9 @@ class UnivariateOreOperator(OreOperator):
 
         # expected degree of the non-removable part of the leading coefficient
         # heuristic: assume a factor of lc is removable if its multiplicity is 1 and its degree is >20
-        d_ess = sum([ p.degree() for L in (U, V)
-                                 for p, e in L.leading_coefficient().factor()
-                                 if e==1 and p.degree() > 20 ])
+        d_ess = sum([p.degree() for L in (U, V)
+                     for p, e in L.leading_coefficient().factor()
+                     if e == 1 and p.degree() > 20])
         d_ess = U.leading_coefficient().degree() + V.leading_coefficient().degree() - d_ess
 
         # expected degree of the removable part of the leading coefficient
@@ -1528,7 +1530,7 @@ class UnivariateOreOperator(OreOperator):
             g = (D1 - pr[0] - pr[1]*h)/(pr[1] + pr[2]*h)
 
             # define p, q such that "D*1/u == p*1/u*D + q*1/u"
-            #p = (g - D1)/(D1 - h); q = g - p*D1
+            # p = (g - D1)/(D1 - h); q = g - p*D1
             p = pr[1] + pr[2]*g
             q = pr[0] + pr[1]*g
 
@@ -1537,7 +1539,7 @@ class UnivariateOreOperator(OreOperator):
             L = coeffs[0]
             Dk = A.parent().one()
             for i in range(1, A.order() + 1):
-                #Dk = Dk.map_coefficients(sigma_u)*D + Dk.map_coefficients(delta_u) [[buggy??]]
+                # Dk = Dk.map_coefficients(sigma_u)*D + Dk.map_coefficients(delta_u) [[buggy??]]
                 Dk = (p*D + q)*Dk
                 c = coeffs[i]
                 if not c.is_zero():
@@ -1590,8 +1592,7 @@ class UnivariateOreOperator(OreOperator):
             mat.append([Dkuv[i][j] for i in range(a) for j in range(b)])
             sol = solver(Matrix(mat).transpose())
 
-        L = A.parent()(list(sol[0]))
-        return L
+        return A.parent()(list(sol[0]))
 
     def symmetric_power(self, exp, solver=None):
         """
@@ -1640,15 +1641,14 @@ class UnivariateOreOperator(OreOperator):
 
         EXAMPLES::
 
-           sage: from ore_algebra import *
-           sage: R.<x> = ZZ['x']
-           sage: A.<Dx> = OreAlgebra(R, 'Dx')
-           sage: (Dx^2 + x*Dx + 5).annihilator_of_associate(Dx + 7*x+3)
-           (42*x^2 + 39*x + 7)*Dx^2 + (42*x^3 + 39*x^2 - 77*x - 39)*Dx + 168*x^2 + 174*x + 61
-           sage: A.<Sx> = OreAlgebra(R, 'Sx')
-           sage: (Sx^2 + x*Sx + 5).annihilator_of_associate(Sx + 7*x+3)
-           (42*x^2 + 88*x + 35)*Sx^2 + (42*x^3 + 130*x^2 + 53*x - 65)*Sx + 210*x^2 + 860*x + 825
-
+            sage: from ore_algebra import *
+            sage: R.<x> = ZZ['x']
+            sage: A.<Dx> = OreAlgebra(R, 'Dx')
+            sage: (Dx^2 + x*Dx + 5).annihilator_of_associate(Dx + 7*x+3)
+            (42*x^2 + 39*x + 7)*Dx^2 + (42*x^3 + 39*x^2 - 77*x - 39)*Dx + 168*x^2 + 174*x + 61
+            sage: A.<Sx> = OreAlgebra(R, 'Sx')
+            sage: (Sx^2 + x*Sx + 5).annihilator_of_associate(Sx + 7*x+3)
+            (42*x^2 + 88*x + 35)*Sx^2 + (42*x^3 + 130*x^2 + 53*x - 65)*Sx + 210*x^2 + 860*x + 825
         """
         if not isinstance(other, UnivariateOreOperator):
             raise TypeError("unexpected argument in symmetric_product")
@@ -1681,8 +1681,7 @@ class UnivariateOreOperator(OreOperator):
             mat.append(B.coefficients(sparse=False,padd=a-1))
             sol = solver(Matrix(mat).transpose())
 
-        L = A.parent()(list(sol[0]))
-        return L
+        return A.parent()(list(sol[0]))
 
     def annihilator_of_polynomial(self, poly, solver=None, blocks=1):
         """
@@ -1764,9 +1763,9 @@ class UnivariateOreOperator(OreOperator):
         sigma = A.sigma()
         delta = A.delta()
 
-        shift_cache = { R.one().exponents()[0] : R.one() }
+        shift_cache = {R.one().exponents()[0]: R.one()}
         for j in range(blocks):
-            J = j*len(vars)//blocks
+            J = j * len(vars) // blocks
             for i in range(r - 1):
                 shift_cache[vars[J + i].exponents()[0]] = vars[J + i + 1]
             shift_cache[vars[J + r - 1].exponents()[0]] = \
@@ -1804,11 +1803,12 @@ class UnivariateOreOperator(OreOperator):
         from sage.matrix.constructor import Matrix
         sol = []
 
-        while len(sol) == 0:
+        while not sol:
 
             shifts.append(shift(shifts[-1]))
             basis = basis.union(shifts[-1].monomials())
-            sol = solver(Matrix(K, [[shifts[i].monomial_coefficient(m) for i in range(len(shifts))] for m in basis ]))
+            sol = solver(Matrix(K, [[shifts[i].monomial_coefficient(m)
+                                     for i in range(len(shifts))] for m in basis]))
 
         return self.parent()(list(sol[0]))
 
@@ -1842,9 +1842,10 @@ class UnivariateOreOperator(OreOperator):
         from sage.matrix.constructor import matrix
 
         r = self.order()
-        assert(1 <= k <= r)
+        assert 1 <= k <= r
         B = self.base_ring()
-        R = PolynomialRing(B, ['f' + str(i) + '_' + str(j) for i in range(k) for j in range(r + len(skip)) ])
+        R = PolynomialRing(B, [f'f{i}_{j}'
+                               for i in range(k) for j in range(r + len(skip))])
         poly = matrix(R, k, r + len(skip), R.gens()).delete_columns(skip).submatrix(0, 0, k, k).det()
         return self.annihilator_of_polynomial(poly, blocks=k).normalize()
 
@@ -1939,12 +1940,12 @@ class UnivariateOreOperator(OreOperator):
     leading_coefficient.__doc__ = OreOperator.leading_coefficient.__doc__
     constant_coefficient.__doc__ = OreOperator.constant_coefficient.__doc__
 
-    def map_coefficients(self, f, new_base_ring = None):
+    def map_coefficients(self, f, new_base_ring=None):
         """
         Returns the polynomial obtained by applying ``f`` to the non-zero
         coefficients of self.
         """
-        poly = self.polynomial().map_coefficients(f, new_base_ring = new_base_ring)
+        poly = self.polynomial().map_coefficients(f, new_base_ring=new_base_ring)
         if new_base_ring is None:
             return self.parent()(poly)
         else:
@@ -1985,6 +1986,7 @@ class UnivariateOreOperator(OreOperator):
     coefficients.__doc__ = OreOperator.coefficients.__doc__
     exponents.__doc__ = OreOperator.exponents.__doc__
 
+
 #############################################################################################################
 
 def __primitivePRS__(r,additional):
@@ -2000,15 +2002,17 @@ def __primitivePRS__(r,additional):
     beta = newRem[1].content()
     r2 = newRem[1].map_coefficients(lambda p: p//beta)
 
-    return ((r[1],r2),newRem[0],alpha,beta,True)
+    return ((r[1], r2), newRem[0], alpha, beta, True)
 
-def __classicPRS__(r,additional):
+
+def __classicPRS__(r, additional):
     """
     Computes one division step in the classic polynomial remainder sequence.
     """
 
     newRem = r[0].quo_rem(r[1])
     return ((r[1],newRem[1]),newRem[0],r[0].parent().base_ring().one(),r[0].parent().base_ring().one(),True)
+
 
 def __monicPRS__(r,additional):
     """
@@ -2019,7 +2023,7 @@ def __monicPRS__(r,additional):
     beta = newRem[1].leading_coefficient() if not newRem[1].is_zero() else r[0].parent().base_ring().one()
     return ((r[1],newRem[1].primitive_part()),newRem[0],r[0].parent().base_ring().one(),beta,True)
 
-#def __essentialPRS__(r,additional):
+# def __essentialPRS__(r,additional):
 #    """
 #    Computes one division step in the improved polynomial remainder sequence.
 #    """
@@ -2055,44 +2059,46 @@ def __monicPRS__(r,additional):
 
 #    return ((r[1],r2),newRem[0],alpha2,beta,True)
 
-def __essentialPRS__(r,additional):
+
+def __essentialPRS__(r, additional):
     """
     Computes one division step in the essential polynomial remainder sequence.
     """
 
     d1 = r[0].order()
     d0 = r[1].order()
-    orddiff = d1-d0
+    orddiff = d1 - d0
 
     R = r[0].parent()
     Rbase = R.base_ring()
     sigma = R.sigma()
 
-    if (len(additional)==0):
+    if len(additional) == 0:
         phi = -Rbase.one()
-        initD=d0+d1
+        initD = d0 + d1
         essentialPart = sigma(gcd(sigma(r[0].leading_coefficient(),-orddiff),r[1].leading_coefficient()),-d0)
         gamma1 = 1
         gamma2 = sigma.factorial(sigma(essentialPart,d0),orddiff+1)
         beta = (-Rbase.one())*sigma.factorial(sigma(phi,1),orddiff)*gamma2
     else:
-        (initD,essentialPart,gamma0,gamma1,d2,phi) = (additional.pop(),additional.pop(),additional.pop(),additional.pop(),additional.pop(),additional.pop())
-        orddiff2 = d2-d1
+        initD, essentialPart, gamma0, gamma1, d2, phi = (additional.pop() for _ in range(6))
+        orddiff2 = d2 - d1
         gamma2 = sigma.factorial(sigma(essentialPart,d1),orddiff2)*gamma1*sigma.factorial(sigma(essentialPart,initD-d0+1),orddiff2)
         phi = sigma.factorial(-gamma0*r[0].leading_coefficient(),orddiff2) / sigma.factorial(sigma(phi,1),orddiff2-1)
         beta = (-Rbase.one())*sigma.factorial(sigma(phi,1),orddiff)*r[0].leading_coefficient()*gamma2/sigma.factorial(gamma1,orddiff+1)
 
     alpha = sigma.factorial(r[1].leading_coefficient(),orddiff+1)
-    newRem = (alpha*r[0]).quo_rem(r[1],fractionFree=True)
+    newRem = (alpha*r[0]).quo_rem(r[1], fractionFree=True)
     try:
         r2 = newRem[1].map_coefficients(lambda p: p/beta)
     except (TypeError, ValueError, AttributeError):
         return ((0, 0), 0, 0, 0, False)
     additional.extend([phi, d1, gamma2, gamma1, essentialPart, initD])
 
-    return ((r[1],r2),newRem[0],alpha,beta,True)
+    return ((r[1], r2), newRem[0], alpha, beta, True)
 
-def __subresultantPRS__(r,additional):
+
+def __subresultantPRS__(r, additional):
     """
     Computes one division step in the subresultant polynomial remainder sequence.
     """
@@ -2105,11 +2111,11 @@ def __subresultantPRS__(r,additional):
     Rbase = R.base_ring()
     sigma = R.sigma()
 
-    if (len(additional)==0):
+    if len(additional) == 0:
         phi = -Rbase.one()
         beta = (-Rbase.one())*sigma.factorial(sigma(phi,1),orddiff)
     else:
-        (d2,phi) = (additional.pop(),additional.pop())
+        d2, phi = (additional.pop(),additional.pop())
         orddiff2 = d2-d1
         phi = sigma.factorial(-r[0].leading_coefficient(),orddiff2) / sigma.factorial(sigma(phi,1),orddiff2-1)
         beta = (-Rbase.one())*sigma.factorial(sigma(phi,1),orddiff)*r[0].leading_coefficient()
