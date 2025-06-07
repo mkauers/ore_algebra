@@ -21,7 +21,7 @@ one generator.
 from functools import reduce
 
 from sage.arith.misc import previous_prime as pp
-from sage.arith.misc import GCD as gcd
+from sage.arith.misc import gcd
 from sage.arith.functions import lcm
 from sage.arith.srange import srange
 from sage.arith.misc import divisors
@@ -153,28 +153,27 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
 
         .. NOTE::
 
-          - Even if no ``rhs`` is given, the output will be a list of tuples ``[(p1,), (p2,),...]``
-            and not just a list of plain polynomials.
-          - If no ``degree`` is given, a basis of all the polynomial solutions is returned.
-            This feature may not be implemented for all algebras.
+            - Even if no ``rhs`` is given, the output will be a list of tuples ``[(p1,), (p2,),...]``
+              and not just a list of plain polynomials.
+            - If no ``degree`` is given, a basis of all the polynomial solutions is returned.
+              This feature may not be implemented for all algebras.
 
         EXAMPLES::
 
-          sage: from ore_algebra import *
-          sage: R.<n> = ZZ['n']; A.<Sn> = OreAlgebra(R, 'Sn')
-          sage: L = 2*Sn^2 + 3*(n-7)*Sn + 4
-          sage: L.polynomial_solutions((n^2+4*n-8, 4*n^2-5*n+3))
-          [(-70*n + 231, 242, -113)]
-          sage: L(-70*n + 231)
-          -210*n^2 + 1533*n - 2275
-          sage: 242*(n^2+4*n-8) - 113*(4*n^2-5*n+3)
-          -210*n^2 + 1533*n - 2275
+            sage: from ore_algebra import *
+            sage: R.<n> = ZZ['n']; A.<Sn> = OreAlgebra(R, 'Sn')
+            sage: L = 2*Sn^2 + 3*(n-7)*Sn + 4
+            sage: L.polynomial_solutions((n^2+4*n-8, 4*n^2-5*n+3))
+            [(-70*n + 231, 242, -113)]
+            sage: L(-70*n + 231)
+            -210*n^2 + 1533*n - 2275
+            sage: 242*(n^2+4*n-8) - 113*(4*n^2-5*n+3)
+            -210*n^2 + 1533*n - 2275
 
-          sage: R.<x> = ZZ['x']; A.<Dx> = OreAlgebra(R, 'Dx')
-          sage: L = (x*Dx - 19).lclm( x*Dx - 4 )
-          sage: L.polynomial_solutions()
-          [(x^4,), (x^19,)]
-
+            sage: R.<x> = ZZ['x']; A.<Dx> = OreAlgebra(R, 'Dx')
+            sage: L = (x*Dx - 19).lclm( x*Dx - 4 )
+            sage: L.polynomial_solutions()
+            [(x^4,), (x^19,)]
         """
         A = self.parent()
         R = A.base_ring()
@@ -231,42 +230,41 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
 
         .. NOTE::
 
-          - Even if no ``rhs`` is given, the output will be a list of tuples ``[(p1,), (p2,),...]``
-            and not just a list of plain rational functions.
-          - If no ``denominator`` is given, a basis of all the rational solutions is returned.
-            This feature may not be implemented for all algebras.
-          - If no ``degree`` is given, a basis of all the polynomial solutions is returned.
-            This feature may not be implemented for all algebras.
+            - Even if no ``rhs`` is given, the output will be a list of tuples ``[(p1,), (p2,),...]``
+              and not just a list of plain rational functions.
+            - If no ``denominator`` is given, a basis of all the rational solutions is returned.
+              This feature may not be implemented for all algebras.
+            - If no ``degree`` is given, a basis of all the polynomial solutions is returned.
+              This feature may not be implemented for all algebras.
 
         EXAMPLES::
 
-          sage: from ore_algebra import *
-          sage: R.<x> = ZZ['x']; A.<Dx> = OreAlgebra(R, 'Dx')
-          sage: L = ((x+3)*Dx + 2).lclm(x*Dx + 3).symmetric_product((x+4)*Dx-2)
-          sage: L.rational_solutions()
-          [((-x^2 - 8*x - 16)/x^3,),
-           ((-x^5 + 96*x^3 + 584*x^2 + 1344*x + 1152)/(x^5 + 6*x^4 + 9*x^3),)]
-          sage: L.rational_solutions((1, x))
-          [((x^2 + 8*x + 16)/(x^2 + 6*x + 9), 0, 0),
-           ((x^5 + 7*x^4 + 2*x^3 - 73*x^2 - 168*x - 144)/(x^5 + 6*x^4 + 9*x^3), 0, 0),
-           ((-2*x - 7)/(x^2 + 6*x + 9), 288, 42)]
-          sage: L(_[0][0]) == _[0][1] + _[0][2]*x
-          True
+            sage: from ore_algebra import *
+            sage: R.<x> = ZZ['x']; A.<Dx> = OreAlgebra(R, 'Dx')
+            sage: L = ((x+3)*Dx + 2).lclm(x*Dx + 3).symmetric_product((x+4)*Dx-2)
+            sage: L.rational_solutions()
+            [((-x^2 - 8*x - 16)/x^3,),
+             ((-x^5 + 96*x^3 + 584*x^2 + 1344*x + 1152)/(x^5 + 6*x^4 + 9*x^3),)]
+            sage: L.rational_solutions((1, x))
+            [((x^2 + 8*x + 16)/(x^2 + 6*x + 9), 0, 0),
+             ((x^5 + 7*x^4 + 2*x^3 - 73*x^2 - 168*x - 144)/(x^5 + 6*x^4 + 9*x^3), 0, 0),
+             ((-2*x - 7)/(x^2 + 6*x + 9), 288, 42)]
+            sage: L(_[0][0]) == _[0][1] + _[0][2]*x
+            True
 
-          sage: (x*(x*Dx-5)).rational_solutions([1])
-          [(-x^5, 0), (1/x, -6)]
+            sage: (x*(x*Dx-5)).rational_solutions([1])
+            [(-x^5, 0), (1/x, -6)]
 
-          sage: R.<n> = ZZ['n']; A.<Sn> = OreAlgebra(R, 'Sn');
-          sage: L = ((n+3)*Sn - n).lclm((2*n+5)*Sn - (2*n+1))
-          sage: L.rational_solutions()
-          [(-1/(n^3 + 3*n^2 + 2*n),),
-           ((-n^3 + n^2 + 6*n + 3)/(4*n^5 + 20*n^4 + 35*n^3 + 25*n^2 + 6*n),)]
+            sage: R.<n> = ZZ['n']; A.<Sn> = OreAlgebra(R, 'Sn');
+            sage: L = ((n+3)*Sn - n).lclm((2*n+5)*Sn - (2*n+1))
+            sage: L.rational_solutions()
+            [(-1/(n^3 + 3*n^2 + 2*n),),
+             ((-n^3 + n^2 + 6*n + 3)/(4*n^5 + 20*n^4 + 35*n^3 + 25*n^2 + 6*n),)]
 
-          sage: L = (2*n^2 - n - 2)*Sn^2 + (-n^2 - n - 1)*Sn + n^2 - 14
-          sage: y = (-n + 1)/(n^2 + 2*n - 2)
-          sage: L.rational_solutions((L(y),))
-          [((n - 1)/(n^2 + 2*n - 2), -1)]
-
+            sage: L = (2*n^2 - n - 2)*Sn^2 + (-n^2 - n - 1)*Sn + n^2 - 14
+            sage: y = (-n + 1)/(n^2 + 2*n - 2)
+            sage: L.rational_solutions((L(y),))
+            [((n - 1)/(n^2 + 2*n - 2), -1)]
         """
         A = self.parent()
         R = A.base_ring()
@@ -337,7 +335,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
             v += 1
         if v > 0:
             u = (self//A.gen()**v)._denominator_bound()
-            return Factorization([(sigma(p, -v), e) for (p, e) in u])
+            return Factorization([(sigma(p, -v), e) for p, e in u])
 
         n = L.dispersion()
         A = sigma(L[r], -r)
@@ -399,11 +397,10 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
 
         EXAMPLES::
 
-          sage: from ore_algebra import *
-          sage: R.<x> = ZZ['x']; A.<Sx> = OreAlgebra(R, 'Sx');
-          sage: ((x+5)*Sx - x).dispersion()
-          4
-
+            sage: from ore_algebra import *
+            sage: R.<x> = ZZ['x']; A.<Sx> = OreAlgebra(R, 'Sx');
+            sage: ((x+5)*Sx - x).dispersion()
+            4
         """
         s = self.spread(p)
         return max(max(s), -1) if len(s) > 0 else -1
@@ -424,13 +421,12 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
 
         EXAMPLES::
 
-          sage: from ore_algebra import *
-          sage: R.<x> = ZZ['x']; A.<Sx> = OreAlgebra(R, 'Sx');
-          sage: ((x+5)*Sx - x).spread()
-          [4]
-          sage: ((x+5)*Sx - x).lclm((x+19)*Sx - x).spread()
-          [3, 4, 17, 18]
-
+            sage: from ore_algebra import *
+            sage: R.<x> = ZZ['x']; A.<Sx> = OreAlgebra(R, 'Sx');
+            sage: ((x+5)*Sx - x).spread()
+            [4]
+            sage: ((x+5)*Sx - x).lclm((x+19)*Sx - x).spread()
+            [3, 4, 17, 18]
         """
         raise NotImplementedError  # abstract
 
@@ -440,14 +436,14 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
 
         INPUT:
 
-          - ``p`` -- polynomial at whose root the Newton polygon is to be determined.
-            ``p`` must be an element of the parent's base ring (or its fraction field).
-            The value `p=1/x` represents the point at infinity.
+        - ``p`` -- polynomial at whose root the Newton polygon is to be determined.
+          ``p`` must be an element of the parent's base ring (or its fraction field).
+          The value `p=1/x` represents the point at infinity.
 
         OUTPUT:
 
-           A list of pairs ``(gamma, q)`` such that ``gamma`` is a slope in the Newton
-           polygon and ``q`` is the associated polynomial, as elements of the base ring.
+        A list of pairs ``(gamma, q)`` such that ``gamma`` is a slope in the Newton
+        polygon and ``q`` is the associated polynomial, as elements of the base ring.
 
         EXAMPLES::
 
@@ -612,26 +608,24 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
 
         OUTPUT:
 
-          A left multiple of ``self`` whose coefficients are polynomials, whose order is `m` more than
-          ``self``, and whose leading coefficient has as low a degree as possible under these conditions.
+        A left multiple of ``self`` whose coefficients are polynomials, whose order is `m` more than
+        ``self``, and whose leading coefficient has as low a degree as possible under these conditions.
 
-          The output is not unique. With low probability, the leading coefficient degree in the output
-          may not be minimal.
+        The output is not unique. With low probability, the leading coefficient degree in the output
+        may not be minimal.
 
         EXAMPLES::
 
-          sage: from ore_algebra import *
-          sage: R.<n> = ZZ['n']
-          sage: A.<Sn> = OreAlgebra(R, 'Sn')
-          sage: P = (-n^3 - 2*n^2 + 6*n + 9)*Sn^2 + (6*n^3 + 8*n^2 - 20*n - 30)*Sn - 8*n^3 - 12*n^2 + 20*n + 12
-          sage: Q = P.desingularize()
-          sage: Q.order() # random
-          3
-          sage: Q.leading_coefficient().degree()
-          1
-
+            sage: from ore_algebra import *
+            sage: R.<n> = ZZ['n']
+            sage: A.<Sn> = OreAlgebra(R, 'Sn')
+            sage: P = (-n^3 - 2*n^2 + 6*n + 9)*Sn^2 + (6*n^3 + 8*n^2 - 20*n - 30)*Sn - 8*n^3 - 12*n^2 + 20*n + 12
+            sage: Q = P.desingularize()
+            sage: Q.order() # random
+            3
+            sage: Q.leading_coefficient().degree()
+            1
         """
-
         L = self.numerator()
         A = L.parent()
         if A.base_ring().is_field():
@@ -701,39 +695,38 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
 
         EXAMPLES::
 
-          sage: from ore_algebra import *
-          sage: R.<x> = QQ['x']; A.<Dx> = OreAlgebra(R, 'Dx');
-          sage: L = x*Dx^2 + Dx; p = 1  ## L(log(x)) == 0
-          sage: L.associate_solutions(Dx, p)
-          [(-x^2*Dx + x, -x)]
-          sage: (M, m) = _[0]
-          sage: Dx*M == p + m*L  ## this implies int(log(x)) == M(log(x)) = x*log(x) - x
-          True
+            sage: from ore_algebra import *
+            sage: R.<x> = QQ['x']; A.<Dx> = OreAlgebra(R, 'Dx');
+            sage: L = x*Dx^2 + Dx; p = 1  ## L(log(x)) == 0
+            sage: L.associate_solutions(Dx, p)
+            [(-x^2*Dx + x, -x)]
+            sage: (M, m) = _[0]
+            sage: Dx*M == p + m*L  ## this implies int(log(x)) == M(log(x)) = x*log(x) - x
+            True
 
-          sage: R.<x> = QQ['x']; A.<Dx> = OreAlgebra(R, 'Dx');
-          sage: L = x^2*Dx^2 + x*Dx + (x^2 - 1); p = 1  ## L(bessel(x)) == 0
-          sage: L.associate_solutions(Dx, p)
-          [(-Dx - 1/x, -1/x^2)]
-          sage: (M, m) = _[0]
-          sage: Dx*M == p + m*L  ## this implies int(bessel(x)) == -bessel'(x) -1/x*bessel(x)
-          True
+            sage: R.<x> = QQ['x']; A.<Dx> = OreAlgebra(R, 'Dx');
+            sage: L = x^2*Dx^2 + x*Dx + (x^2 - 1); p = 1  ## L(bessel(x)) == 0
+            sage: L.associate_solutions(Dx, p)
+            [(-Dx - 1/x, -1/x^2)]
+            sage: (M, m) = _[0]
+            sage: Dx*M == p + m*L  ## this implies int(bessel(x)) == -bessel'(x) -1/x*bessel(x)
+            True
 
-          sage: R.<n> = QQ['n']; A.<Sn> = OreAlgebra(R, 'Sn');
-          sage: L = Sn^2 - Sn - 1; p = 1  ## L(fib(n)) == 0
-          sage: L.associate_solutions(Sn - 1, p)
-          [(Sn, 1)]
-          sage: (M, m) = _[0]
-          sage: (Sn-1)*M == p + m*L  ## this implies sum(fib(n)) == fib(n+1)
-          True
+            sage: R.<n> = QQ['n']; A.<Sn> = OreAlgebra(R, 'Sn');
+            sage: L = Sn^2 - Sn - 1; p = 1  ## L(fib(n)) == 0
+            sage: L.associate_solutions(Sn - 1, p)
+            [(Sn, 1)]
+            sage: (M, m) = _[0]
+            sage: (Sn-1)*M == p + m*L  ## this implies sum(fib(n)) == fib(n+1)
+            True
 
-          sage: R.<n> = QQ['n']; A.<Sn> = OreAlgebra(R, 'Sn');
-          sage: L = Sn^3 - 2*Sn^2 - 2*Sn + 1; p = 1  ## L(fib(n)^2) == 0
-          sage: L.associate_solutions(Sn - 1, p)
-          [(1/2*Sn^2 - 1/2*Sn - 3/2, 1/2)]
-          sage: (M, m) = _[0]
-          sage: (Sn-1)*M == p + m*L  ## this implies sum(fib(n)^2) == 1/2*fib(n+2)^2 - 1/2*fib(n+1)^2 - 3/2*fib(n)^2
-          True
-
+            sage: R.<n> = QQ['n']; A.<Sn> = OreAlgebra(R, 'Sn');
+            sage: L = Sn^3 - 2*Sn^2 - 2*Sn + 1; p = 1  ## L(fib(n)^2) == 0
+            sage: L.associate_solutions(Sn - 1, p)
+            [(1/2*Sn^2 - 1/2*Sn - 3/2, 1/2)]
+            sage: (M, m) = _[0]
+            sage: (Sn-1)*M == p + m*L  ## this implies sum(fib(n)^2) == 1/2*fib(n+2)^2 - 1/2*fib(n+1)^2 - 3/2*fib(n)^2
+            True
         """
         P = self
         A = P.parent()
@@ -975,14 +968,14 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
 
         EXAMPLES::
 
-           sage: from ore_algebra import *
-           sage: R.<x> = ZZ['x']; A.<Sx> = OreAlgebra(R)
-           sage: (x^2*(x+1)*Sx + 3*(x+1/2)).finite_singularities()
-           [(x + 1/2, [[1, 1, 1]]), (x, [[-3, 1, x^4 - 3*x^3 + 3*x^2 - x]])]
+            sage: from ore_algebra import *
+            sage: R.<x> = ZZ['x']; A.<Sx> = OreAlgebra(R)
+            sage: (x^2*(x+1)*Sx + 3*(x+1/2)).finite_singularities()
+            [(x + 1/2, [[1, 1, 1]]), (x, [[-3, 1, x^4 - 3*x^3 + 3*x^2 - x]])]
 
-           sage: C.<q> = ZZ[]; R.<x> = C['x']; A.<Qx> = OreAlgebra(R)
-           sage: ((q^2*x-1)*Qx-(x-1)).finite_singularities()
-           [(-x + 1, [[0, 1, q*x^2 + (-q - 1)*x + 1]])]
+            sage: C.<q> = ZZ[]; R.<x> = C['x']; A.<Qx> = OreAlgebra(R)
+            sage: ((q^2*x-1)*Qx-(x-1)).finite_singularities()
+            [(-x + 1, [[0, 1, q*x^2 + (-q - 1)*x + 1]])]
         """
         from sage.rings.finite_rings.finite_field_constructor import FiniteField as GF
 
@@ -1130,13 +1123,12 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
 
         EXAMPLES::
 
-           sage: from ore_algebra import *
-           sage: R.<x> = ZZ[]; A.<Sx> = OreAlgebra(R)
-           sage: (((x+1)*Sx + (x+5))*(2*x*Sx + 3)).left_factors()
-           [[(-x - 1)*Sx - x - 5]]
-           sage: (((x+1)*Sx + (x+5))*(2*x*Sx + 3)).right_factors()
-           [[x*Sx + 3/2]]
-
+            sage: from ore_algebra import *
+            sage: R.<x> = ZZ[]; A.<Sx> = OreAlgebra(R)
+            sage: (((x+1)*Sx + (x+5))*(2*x*Sx + 3)).left_factors()
+            [[(-x - 1)*Sx - x - 5]]
+            sage: (((x+1)*Sx + (x+5))*(2*x*Sx + 3)).right_factors()
+            [[x*Sx + 3/2]]
         """
         return [[f.adjoint() for f in F] for F in
                 self.adjoint().right_factors(order, early_termination, infolevel)]
@@ -1174,30 +1166,28 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
 
         EXAMPLES::
 
-           sage: from ore_algebra import *
-           sage: R.<n> = ZZ['n']; A.<Sn> = OreAlgebra(R, 'Sn');
-           sage: L = (-25*n^6 - 180*n^5 - 584*n^4 - 1136*n^3 - 1351*n^2 - 860*n - 220)*Sn^2 + (50*n^6 + 560*n^5 + 2348*n^4 + 5368*n^3 + 7012*n^2 + 4772*n + 1298)*Sn - 200*n^5 - 1540*n^4 - 5152*n^3 - 8840*n^2 - 7184*n - 1936
-           sage: L.right_factors()
-           [[(n^2 + 6/5*n + 9/25)*Sn - 2*n^2 - 32/5*n - 128/25], [(n^2 + 2*n + 1)*Sn - 4*n - 2]]
-           sage: ((Sn - n)*(n*Sn - 1)).right_factors()
-           [[n*Sn - 1]]
-           sage: ((Sn - n).lclm(n*Sn - 1)).right_factors()
-           [[n*Sn - 1], [Sn - n]]
-           sage: (Sn^2 - 2*Sn + 1).right_factors()
-           [[Sn - 1, n*Sn - n - 1]]
+            sage: from ore_algebra import *
+            sage: R.<n> = ZZ['n']; A.<Sn> = OreAlgebra(R, 'Sn');
+            sage: L = (-25*n^6 - 180*n^5 - 584*n^4 - 1136*n^3 - 1351*n^2 - 860*n - 220)*Sn^2 + (50*n^6 + 560*n^5 + 2348*n^4 + 5368*n^3 + 7012*n^2 + 4772*n + 1298)*Sn - 200*n^5 - 1540*n^4 - 5152*n^3 - 8840*n^2 - 7184*n - 1936
+            sage: L.right_factors()
+            [[(n^2 + 6/5*n + 9/25)*Sn - 2*n^2 - 32/5*n - 128/25], [(n^2 + 2*n + 1)*Sn - 4*n - 2]]
+            sage: ((Sn - n)*(n*Sn - 1)).right_factors()
+            [[n*Sn - 1]]
+            sage: ((Sn - n).lclm(n*Sn - 1)).right_factors()
+            [[n*Sn - 1], [Sn - n]]
+            sage: (Sn^2 - 2*Sn + 1).right_factors()
+            [[Sn - 1, n*Sn - n - 1]]
 
-           sage: R.<x> = QQ['x']; A.<Qx> = OreAlgebra(R, q=2)
-           sage: ((2*x+3)*Qx - (8*x+3)).lclm(x*Qx-2*(x+5)).right_factors()
-           [[(x + 3/2)*Qx - 4*x - 3/2], [x*Qx - 2*x - 10]]
-           sage: (((2*x-1)*Qx-(x-1)).lclm(Qx-(x-3))).right_factors()
-           [[(x - 1/2)*Qx - 1/2*x + 1/2], [Qx - x + 3]]
-           sage: (((2*x-1)*Qx-(x-1))*(Qx-(x-3))).right_factors()
-           [[Qx - x + 3]]
-           sage: (((2*x-1)*Qx-(x-1))*(x^2*Qx-(x-3))).right_factors()
-           [[x^2*Qx - x + 3]]
-
+            sage: R.<x> = QQ['x']; A.<Qx> = OreAlgebra(R, q=2)
+            sage: ((2*x+3)*Qx - (8*x+3)).lclm(x*Qx-2*(x+5)).right_factors()
+            [[(x + 3/2)*Qx - 4*x - 3/2], [x*Qx - 2*x - 10]]
+            sage: (((2*x-1)*Qx-(x-1)).lclm(Qx-(x-3))).right_factors()
+            [[(x - 1/2)*Qx - 1/2*x + 1/2], [Qx - x + 3]]
+            sage: (((2*x-1)*Qx-(x-1))*(Qx-(x-3))).right_factors()
+            [[Qx - x + 3]]
+            sage: (((2*x-1)*Qx-(x-1))*(x^2*Qx-(x-3))).right_factors()
+            [[x^2*Qx - x + 3]]
         """
-
         if self.is_zero():
             raise ZeroDivisionError
 
@@ -1461,7 +1451,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
 
         OUTPUT:
 
-        A linear combination as described if it exists, and None otherwise.
+        A linear combination as described if it exists, and ``None`` otherwise.
 
         EXAMPLES::
 
@@ -1681,7 +1671,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         value of this object, and not on the choice of the specific set of
         arguments.
 
-        EXAMPLES: see ``global_integral_basis``
+        EXAMPLES: see :meth:`global_integral_basis`
 
         """
         if basis:
@@ -2095,7 +2085,9 @@ def _orePowerSolver(P):
 
 def _listToOre(l, order, R):
     r"""
-    Converts a list of values into an Ore polynomial in R. l[0] will be used for the leading coefficient, l[len(l)-1] for the trailing coefficient.
+    Converts a list of values into an Ore polynomial in R.
+
+    l[0] will be used for the leading coefficient, l[len(l)-1] for the trailing coefficient.
 
     INPUT:
 
@@ -2107,7 +2099,7 @@ def _listToOre(l, order, R):
     S = R.gen()
     n = R.base_ring().gen()
     res = 0
-    d = len(l)//order
+    d = len(l) // order
     for i in range(len(l)):
         res = res+l[i]*n**(i % d)*S**(i//d)
     return res
