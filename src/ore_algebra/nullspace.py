@@ -1027,7 +1027,7 @@ def _kronecker(subsolver, presolver, mat, degrees, infolevel):
     def phi(poly): ##### MOST TIME IS SPENT IN THIS FUNCTION (in particular by __call__)
         terms = {}
         poly = poly(*shift).dict()
-        for exp in poly.keys():
+        for exp in poly:
             n = exp[0]
             d = 1
             for i in range(len(degrees) - 1):

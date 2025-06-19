@@ -682,7 +682,7 @@ class UnivariateOreOperator(OreOperator):
             f, _ = canonical_coercion(f, self.base_ring().zero())
             R = f.parent()
         except (TypeError, ValueError):
-            if isinstance(f, PowerSeries) or isinstance(f, LaurentSeries):
+            if isinstance(f, (PowerSeries, LaurentSeries)):
                 prec = f.precision_relative()
                 if prec is infinity:
                     prec = None
