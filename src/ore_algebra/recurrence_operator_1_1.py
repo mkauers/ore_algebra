@@ -1053,7 +1053,7 @@ class UnivariateRecurrenceOperatorOverUnivariateRing(UnivariateOreOperatorOverUn
                             for i in range(len(adjustment)):
                                 rest[i] += newcoeff*adjustment[i]
 
-            for a in sols.keys():
+            for a in sols:
                 for eexp in sols[a]:
                     refined_solutions.append(G([gamma, ram, rho, subexp, alpha - a/ram, [PS(p, len(p)) for p in eexp]]))
 
