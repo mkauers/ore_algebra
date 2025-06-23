@@ -1393,6 +1393,169 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
 
     # FIXME: Find a better name, this one is ambiguous
     # FIXME: Right now, if the input is 0, the function goes into an infinite loop
+
+    def right_factor_eigenring(self,single_factor=True):
+        r"""
+        Returns a right hand factors of this operator or a list of factors.
+
+        INPUT:
+
+        - ``single_factor`` (optional) -- if set to ``True`` (default), only the first computed factor will be returned. If set to ``False``, all factors that can be computed using the eigenring method will be returned.
+
+        
+        OUTPUT:
+
+        A right factor of the given operator or 'failed' if none could be found. If single_factor is set to false than a list of all right factors of the given operator that could be computed will be retuned.
+
+        Note that this implementation does not construct factors that involve
+        algebraic extensions of the constant field.
+
+        This is a implementation and algorithm only works for the standard shift and differential case.
+
+        EXAMPLES::
+
+           sage: from ore_algebra import *
+           sage: R.<n>=FractionField(PolynomialRing(ZZ,"n"))
+           sage: A.<Sn> = OreAlgebra(R, 'Sn')
+           sage: L = (Sn-1).lclm(Sn-n)
+           sage: L.right_factor_eigenring()
+           sage: Sn - 1
+
+           sage: from ore_algebra import *
+           sage: from ore_algebra.ideal import *
+           sage: R.<x>=FractionField(PolynomialRing(ZZ,"x"))
+           sage: A.<Dx> = OreAlgebra(R, 'Dx')
+           sage: L=(x-1)*Dx^2-x^2*Dx+(x^2-x+1)
+           sage: L.right_factor_eigenring(single_factor=False)
+           [Dx - 1, Dx - x]
+
+
+        """
+
+        from ore_algebra import OreAlgebra
+        from sage.matrix.constructor import identity_matrix
+        from ore_algebra.ideal import solve_coupled_system_CVM
+        from sage.modules.free_module_element import vector
+
+        operator=self
+        order=operator.order()
+        base=operator.parent().base()
+        algebra=operator.parent()
+        if operator.order()<=1: 
+            return "failed"
+    
+        if algebra.is_D():
+            d_case = True
+            x = algebra.is_D()
+        elif algebra.is_S():
+            d_case = False
+            x = algebra.is_S()
+        else:
+            raise NotImplementedError
+
+        #use an ansatz with degree deg
+        for deg in range(1,order):
+            #generate variables
+            var_names = [f'{x}'] + [f'p{i}' for i in range((deg + 1)*(order + 1))]
+            S=PolynomialRing(QQ,var_names)
+            Frac=S.fraction_field()
+            if d_case: 
+                A = OreAlgebra(Frac, (
+                    "D" + var_names[0],
+                    lambda p: p,
+                    lambda f: (f.derivative(S.gens()[0])) + sum([f.derivative(S.gens()[i])*S.gens()[i+1] for i in range(1,len(S.gens())-1)])))
+            else:
+                subst={S.gens()[0]:S.gens()[0]+1}
+                subst.update({S.gens()[i]: S.gens()[i + 1] for i in range(1,(deg+1)*(order+1))})
+                A=OreAlgebra(Frac,("S"+var_names[0],lambda p:p.subs(subst),lambda p:0))
+            D=A.gen()
+            ansatz=sum([S.gens()[1:][i*(order+1)]*D**i for i in range(deg+1)])
+            operator=A(operator)
+            rem = (operator * ansatz) % operator 
+            
+            rem_coeffs=[r.numerator() for r in rem.coefficients(sparse=False)]
+            coeffs=matrix(Frac,[[r.coefficient(cc) for cc in S.gens()[1:]] for r in rem_coeffs])
+
+            #adjust the coefficients if needed
+            if not d_case:
+                for j in range(order,(deg+1)*(order+1),order+1):
+                    for i in range(len(rem_coeffs)):
+                        if j == i * (order+1) + order and coeffs[i,j] == 0:
+                            for k in range(i,len(rem_coeffs)): 
+                                if coeffs[k,j] != 0:
+                                    coeffs.swap_rows(i,k)
+                                    break
+                        if j != i * (order + 1) + order and coeffs[i,j] != 0:
+                            if coeffs.nrows() > (j + 1)/(order + 1) - 1 and coeffs[(j + 1) // (order + 1) - 1,j] == 0:
+                                for k in range((j + 1) // (order + 1) - 1,len(rem_coeffs)): 
+                                    if coeffs[k,j] != 0:
+                                        coeffs.swap_rows((j + 1) // (order + 1) - 1,k)
+                                        break
+                            if coeffs.nrows() > (j + 1) // (order + 1) - 1 and coeffs[(j + 1) // (order + 1) - 1,j] != 0:
+                                coeffs.add_multiple_of_row(i,(j + 1) // (order + 1) - 1,-coeffs[i,j] / coeffs[(j + 1) // (order + 1) - 1,j])
+            coeffs=[list(c) for c in coeffs]
+            mat=[]
+            #construct matrix to compute a basis of the eigenring
+            idmat=[m.list() for m in identity_matrix(base,(deg + 1) * order)]
+            idmat.pop(0)
+            for line in coeffs: #coefficients of Dx^i
+                for _ in range(order - 1):
+                    mat.append(idmat.pop(0))
+                if idmat!=[]:
+                    idmat.pop(0)
+                denominator=sum(line.pop(i * (order + 1) + order - i) for i in range(deg + 1))
+                mat.append([(-m / (denominator if denominator != 0 else 1)) for m in line]) 
+                if idmat==[]:
+                    break
+            
+            mm=[[base(n) for n in m] for m in mat]
+            res=solve_coupled_system_CVM(mm,[],algebra)
+            res=[sum([r[0][i] * D**(i // (deg + 1))  for i in range(len(r[0])) if i % (rem.order() + 1) == 0]) for r in res]
+
+            #check if non constant solution is found
+            if  not all(r in QQ for r in res):
+                break
+        
+        result=[]
+        while res !=[] :
+            p=res.pop()
+            if p in QQ: 
+                continue
+            sol=[]
+            #find a linear dependence between powers of P to get the minimal polynomial
+            for bound in range(2,5): #currently 5 is set as the highes bound for relations
+                powers = [A(1), p]  
+                for _ in range(1, bound):  
+                    powers.append((p * powers[-1]) % operator)
+                max_order = max([op.order() for op in powers])
+                vecs = [vector(base, [op.coefficients(sparse=False)[i] if i < len(op.coefficients()) else 0 for i in range(max_order + 1)]) for op in powers]
+                m = matrix(Frac, vecs).transpose()
+                resb = m.right_kernel().basis()
+                if resb == [] or all(sum(v) not in QQ for v in resb):
+                    continue
+                for r in resb:
+                    if sum(r) in QQ:
+                        resb=r
+                        break
+                #compute the eigenvalues
+                R = PolynomialRing(QQ, "z")
+                z=R.gen()
+                mpoly = -sum([QQ(resb[ii]) * z**(ii) for ii in range(0,len(resb))])
+                if mpoly in QQ:
+                    continue
+                sol=mpoly.roots(multiplicities=False)
+                if sol == []:
+                    continue
+                if single_factor:
+                    return  operator.gcrd(A(p)-A(sol[0]))
+                else: 
+                    break
+            result+=[operator.gcrd(A(p)-A(s)) for s in sol]
+
+        if result==[]:
+            return "failed"
+        return list(set(result))
+
     def value_function(self, op, place, **kwargs):
         r"""
         Compute the value of the operator ``op`` in the algebra quotient of the ambient Ore algebra by `self`, at the place ``place``.
