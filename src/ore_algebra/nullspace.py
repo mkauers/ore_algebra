@@ -1880,13 +1880,18 @@ def _quick_check(subsolver, modsolver, modulus, cutoffdim, mat, degrees, infolev
         check_dict = dict(zip(x, [ 17*j + 13 for j in range(len(x)) ]))
         def check_eval(elt):
             return elt.substitute(check_dict)
-    check_mat = check_mat_ring.matrix([check_eval(mat[i,j])
-                                       for i in range(mat.nrows())
-                                       for j in range(mat.ncols())])
+
+    try: 
+        check_mat = check_mat_ring.matrix([check_eval(mat[i,j])
+                                           for i in range(mat.nrows())
+                                           for j in range(mat.ncols())])
+    except ZeroDivisionError: # unlucky evaluation point
+        _info(infolevel, "Quick check skipped because of unlucky evaluation point.", alter = -1)
+        return subsolver(mat, degrees=degrees, infolevel=_alter_infolevel(infolevel, -2, 1))
 
     _info(infolevel, "Starting modular solver...", alter = -1)
     check_sol = modsolver(check_mat)
-
+    
     _info(infolevel, "Modular solver predicts " + str(len(check_sol)) + " solutions", alter = -1)
 
     if len(check_sol) <= cutoffdim:
