@@ -5,7 +5,8 @@ Database for annihilating operators, i.e. elements of certain ``OreAlgebras``,
 for various discrete and differentiable symbolic functions.
 
 The following discrete functions are supported:
-    - binomial(an+b, cn+d) where a,b,c,d are fixed rational numbers and n is the variable
+    - binomial(an+b, cn+d) where a,b,c,d are fixed rational numbers
+      and n is the variable
     - factorial(n)
     - harmonic_number(n)
 
@@ -58,26 +59,35 @@ def symbolic_database(A, f, inner=None, k=0):
 
     INPUT:
 
-    - `A` -- an OreAlgebra from which the annihilating operator for `f` should come from
+    - `A` -- an OreAlgebra from which the annihilating operator for `f`
+      should come from
 
-    - `f` - a symbolic operator. It is important that not the symbolic expression itself is handled to this method but only
-        the operator (which can be accessed via the command ``.operator()``
+    - `f` - a symbolic operator. It is important that not the symbolic
+      expression itself is handled to this method but only
+      the operator (which can be accessed via the command ``.operator()``
 
-    - ``inner`` (default ``None``) -- for differentiable functions an inner function can be handed over. Then not an operator
-        for f(x) but for f(inner) is returned. However ``inner`` has to be a linear function, i.e. of the form u*x + v for
-        u,v in QQ. For discrete functions ``inner`` does not have any impact.
+    - ``inner`` (default ``None``) -- for differentiable functions
+      an inner function can be handed over. Then not an operator
+      for f(x) but for f(inner) is returned. However ``inner`` has to be a
+      linear function, i.e. of the form u*x + v for
+      u,v in QQ. For discrete functions ``inner`` does not have any impact.
 
-    - `k` (default 0) -- a rational number that has to be handed over if the symolic operator `f` depends on two variables (such as binomial(k,n) or bessel_I(k,x) ) because only operators for univariate functions can be returned and
-        therefore one variable has to be assigned with a certain value `k`
+    - `k` (default 0) -- a rational number that has to be handed over if
+      the symbolic operator `f` depends on two variables (such as
+      binomial(k,n) or bessel_I(k,x) ) because only operators for
+      univariate functions can be returned and therefore one variable
+      has to be assigned with a certain value `k`
 
     OUTPUT:
 
-    An element from the OreAlgebra `A`, that represents a differential/recurrence equation which annihilates f(x) or if
+    An element from the OreAlgebra `A`, that represents a
+    differential/recurrence equation which annihilates f(x) or if
      ``inner`` is not ``None`` an element from `A` which annihilates f(inner).
 
-    EXAMPLES::
+    EXAMPLES:
 
-        #discrete case
+    Discrete case::
+
         sage: from ore_algebra import *
         sage: from ore_algebra.dfinite_symbolic import symbolic_database
         sage: A = OreAlgebra(QQ['n'],'Sn')
@@ -89,7 +99,8 @@ def symbolic_database(A, f, inner=None, k=0):
         sage: symbolic_database(A,g,None,5)
         (n + 1)*Sn + n - 5
 
-        #differential case
+    Differential case::
+
         sage: B = OreAlgebra(QQ['x'],'Dx')
         sage: x = var('x')
         sage: f = sin(x).operator()
@@ -101,7 +112,6 @@ def symbolic_database(A, f, inner=None, k=0):
         sage: h = bessel_I(4,2*x+1).operator()
         sage: symbolic_database(B,h,2*x+1,4)
         (4*x^2 + 4*x + 1)*Dx^2 + (4*x + 2)*Dx - 16*x^2 - 16*x - 68
-
     """
     n = A.is_S()
     k = A(k)

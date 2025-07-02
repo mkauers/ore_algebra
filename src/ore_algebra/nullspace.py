@@ -170,37 +170,37 @@ systematic benchmarking with random matrices and meaningful matrices
 testsuite
 
 """
+from datetime import datetime
 import math
 
-from sage.arith.misc import CRT_basis
-from sage.arith.misc import XGCD as xgcd
-from sage.arith.misc import GCD as gcd
 from sage.arith.functions import lcm
+from sage.arith.misc import CRT_basis
+from sage.arith.misc import GCD as gcd
+from sage.arith.misc import XGCD as xgcd
 from sage.arith.misc import previous_prime as pp
+from sage.arith.multi_modular import MAX_MODULUS
 from sage.categories.finite_fields import FiniteFields
-from sage.misc.misc_c import prod
+from sage.matrix.berlekamp_massey import berlekamp_massey
+from sage.matrix.constructor import Matrix
+from sage.matrix.matrix_space import MatrixSpace
 from sage.misc.cachefunc import cached_function
 from sage.misc.lazy_import import lazy_import
 from sage.misc.lazy_string import lazy_string
+from sage.misc.misc_c import prod
+from sage.modules.free_module import VectorSpace
+from sage.modules.free_module_element import vector
+from sage.parallel.decorate import parallel
+from sage.rings.finite_rings.finite_field_constructor import FiniteField as GF
+from sage.rings.integer_ring import ZZ
 from sage.rings.polynomial.polynomial_element import Polynomial
 from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
-from sage.rings.integer_ring import ZZ
 from sage.rings.rational_field import QQ
-from sage.rings.finite_rings.finite_field_constructor import FiniteField as GF
-from sage.matrix.berlekamp_massey import berlekamp_massey
-from sage.arith.multi_modular import MAX_MODULUS
-from sage.parallel.decorate import parallel
-from sage.matrix.constructor import Matrix
-from sage.matrix.matrix_space import MatrixSpace
-from sage.modules.free_module_element import vector
-from sage.modules.free_module import VectorSpace
-from datetime import datetime
 
 lazy_import('sage.rings.polynomial.multi_polynomial_libsingular', 'MPolynomialRing_libsingular')
 
 
 #####################
-####### tools #######
+#       tools       #
 #####################
 
 class NoSolution(ArithmeticError):
@@ -210,6 +210,7 @@ class NoSolution(ArithmeticError):
 
     def __str__(self):
         return "no solution"
+
 
 # used in nullspace_gauss
 
@@ -235,7 +236,9 @@ def heuristic_row_content(row, ring):
         return gcd(row)
 
     k = QQ(n).sqrt().n().ceil()
-    return gcd([row[0], row[1]] + [sum(row[i] for i in range(2,n) if i%k==l) for l in range(k)])
+    return gcd([row[0], row[1]] + [sum(row[i] for i in range(2, n) if i % k == l)
+                                   for l in range(k)])
+
 
 def cancel_heuristic_content(g, orig_row, cancel_constants=True):
     if not g or g.is_one() or (not cancel_constants and g.is_constant()):
@@ -244,7 +247,7 @@ def cancel_heuristic_content(g, orig_row, cancel_constants=True):
     for j, a in enumerate(row):
         if not a:
             continue
-        quo, rem =  a.quo_rem(g)
+        quo, rem = a.quo_rem(g)
         if rem:
             gnew = g.gcd(rem)
             if gnew.is_one():
@@ -258,7 +261,8 @@ def cancel_heuristic_content(g, orig_row, cancel_constants=True):
             row[j] = quo
     return row
 
-### good pivot selection strategy:
+
+# ## good pivot selection strategy:
 #  1. measure nz_fillin by rows^EXPONENT*cols
 #  2. select candidates for which nz_fillin < ALPHA*(min_nz_fillin + BETA)
 #  3. for each candidate, estimate term fillin caused by pivot multiplication
@@ -275,17 +279,17 @@ def _pivot(mat, r, n, c, m, zero):
 
     EXPONENT, ALPHA, BETA = 2, 2, 10   # removed: GAMMA = 1
 
-    ## throughout this function, matrix indices (i, j) are understood relative to (r, c).
-    ## if (i, j) is a pivot candidate, the final pivot will be (i + r, j + c).
+    # throughout this function, matrix indices (i, j) are understood relative to (r, c).
+    # if (i, j) is a pivot candidate, the final pivot will be (i + r, j + c).
     n = n - r
     m = m - c
 
-    nz_in_row = [ 0 for i in range(n) ]  # number of nonzero elements in row i
-    nz_in_col = [ 0 for j in range(m) ]  # number of nonzero elements in col j
-    zero_matrix = True                    # any nonzero elements at all?
+    nz_in_row = [0 for i in range(n)]  # number of nonzero elements in row i
+    nz_in_col = [0 for j in range(m)]  # number of nonzero elements in col j
+    zero_matrix = True                 # any nonzero elements at all?
 
     # number of nonzero elements in those rows i for which mat[i][j] is nonzero
-    nz_in_rows_for_col = [ 0 for j in range(m) ]
+    nz_in_rows_for_col = [0 for j in range(m)]
 
     for i in range(n):
         mati = mat[i + r]
@@ -296,14 +300,14 @@ def _pivot(mat, r, n, c, m, zero):
                 zero_matrix = False
 
     if zero_matrix:
-        return None # early termination: zero matrix
+        return None  # early termination: zero matrix
 
     for i in range(n):
         mati = mat[i + r]
         for j in range(m):
             if mati[j + c]:
                 if nz_in_row[i] == 1 or nz_in_col[j] == 1:
-                    return (i + r, j + c) # early termination: row or column with only one nonzero entry
+                    return (i + r, j + c)  # early termination: row or column with only one nonzero entry
                 nz_in_rows_for_col[j] += nz_in_row[i]
 
     piv_cand = []
@@ -313,7 +317,7 @@ def _pivot(mat, r, n, c, m, zero):
         mati = mat[i + r]
         for j in range(m):
             if mati[j + c]:
-                w = (nz_in_row[i] - 1)**EXPONENT*(nz_in_col[j] - 1) # expected fillin
+                w = (nz_in_row[i] - 1)**EXPONENT*(nz_in_col[j] - 1)  # expected fillin
                 if w < min_nz_fillin:
                     min_nz_fillin = w
                     bound = ALPHA*(min_nz_fillin + BETA)
@@ -321,7 +325,7 @@ def _pivot(mat, r, n, c, m, zero):
                 elif w <= bound:
                     piv_cand.append((i, j, w, nz_in_row[i] - 1))
 
-    piv_cand = [ cand for cand in piv_cand if cand[2] <= bound ]
+    piv_cand = [cand for cand in piv_cand if cand[2] <= bound]
 
     if len(piv_cand) == 1:
         return (piv_cand[0][0] + r, piv_cand[0][1] + c)
@@ -333,6 +337,7 @@ def _pivot(mat, r, n, c, m, zero):
         K = R.base_ring()
         if K == ZZ:
             elsize = {}
+
             def size(ij):
                 if ij not in elsize:
                     pol = mat[ij[0] + r][ij[1] + c].coefficients()
@@ -346,12 +351,14 @@ def _pivot(mat, r, n, c, m, zero):
                 return pol.degree() - pol.ord()
         else:
             elsize = {}
+
             def size(ij):
                 if ij not in elsize:
                     elsize[ij] = len(mat[ij[0] + r][ij[1] + c].coefficients())
                 return elsize[ij]
     else:
         elsize = {}
+
         def size(ij):
             if ij not in elsize:
                 elsize[ij] = len(mat[ij[0] + r][ij[1] + c].coefficients())
@@ -384,11 +391,14 @@ def _pivot(mat, r, n, c, m, zero):
     del piv_cand
     return (pivot[0] + r, pivot[1] + c)
 
+
 def _leading_coefficient(p):
+    # now both works
     try:
-        return p.leading_coefficient() ## good for univariate polynomials
+        return p.leading_coefficient()  # good for univariate polynomials
     except (AttributeError, TypeError):
-        return p.lc() ## good for multivariate polynomials
+        return p.lc()  # good for multivariate polynomials
+
 
 def _normalize(sol):
     "make solution vectors monic"
@@ -420,23 +430,25 @@ def _normalize(sol):
 
     return sol
 
+
 def _select_regular_square_submatrix(V0, n, m, dim, one, zero):
     # Determine the indices i[1], i[2], ..., i[dim] so that when viewing the vectors in V0 as columns of a matrix,
     # picking the rows with these indices yields the identity matrix.
     # A value error is raised if a different format is encountered.
     # This function is used by newton and wiedemann.
-    idxB = [ -1 for k in range(dim) ]
+    idxB = [-1 for k in range(dim)]
     for k in range(dim):
-        ek = [(one if i==k else zero) for i in range(dim)]
+        ek = [(one if i == k else zero) for i in range(dim)]
         for i in range(m):
-            if [ V0[j][i] for j in range(dim) ] == ek:
+            if [V0[j][i] for j in range(dim)] == ek:
                 idxB[k] = i
                 break # i-th row is k-th unit vector
     if set(idxB) != set(range(dim)):
         raise ValueError
-    idxA = [ i for i in range(m) if idxB.count(i) == 0  ]
+    idxA = [i for i in range(m) if idxB.count(i) == 0]
 
     return idxA, idxB
+
 
 def _info(infolevel, *message, **kwargs):
     if infolevel in ZZ:
@@ -452,10 +464,12 @@ def _info(infolevel, *message, **kwargs):
         print(m, end='')
     print("")
 
+
 def _alter_infolevel(infolevel, dlevel, dprefix):
     if infolevel in ZZ:
         infolevel = (infolevel, 0)
     return (infolevel[0] + dlevel, infolevel[1] + dprefix)
+
 
 def _launch_info(infolevel, name, dim=None, deg=None, domain=None):
     def make_message():
@@ -467,20 +481,22 @@ def _launch_info(infolevel, name, dim=None, deg=None, domain=None):
         if domain is not None:
             try:
                 message = message + ", domain=" + domain._latex_()
-            except:
+            except AttributeError:
                 message = message + ", domain=" + str(domain)
         return message + "."
     _info(infolevel, lazy_string(make_message))
 
-if hasattr(Polynomial, 'rational_reconstruction'): # sage >= 9.8
+
+if hasattr(Polynomial, 'rational_reconstruction'):  # sage >= 9.8
     def _rational_reconstruction(pol, *args, **kwds):
         return pol.rational_reconstruction(*args, **kwds)
 else:
     def _rational_reconstruction(pol, *args, **kwds):
         return pol.rational_reconstruct(*args, **kwds)
 
+
 ########################################
-####### solvers and transformers #######
+#       solvers and transformers       #
 ########################################
 
 def sage_native(mat, degrees=[], infolevel=0):
@@ -510,6 +526,7 @@ def sage_native(mat, degrees=[], infolevel=0):
     """
     _launch_info(infolevel, "sage_native", dim=mat.dimensions(), domain=mat.parent().base_ring())
     return _normalize(list(mat.right_kernel_matrix()))
+
 
 def gauss(pivot=_pivot, ncpus=1, fun=None):
     r"""
@@ -555,6 +572,7 @@ def gauss(pivot=_pivot, ncpus=1, fun=None):
         return _gauss(pivot, ncpus, fun, mat, degrees, infolevel)
     return gauss_solver
 
+
 def _gauss(pivot, ncpus, fun, mat, degrees, infolevel):
     r"""
     Internal version of nullspace.gauss_
@@ -570,7 +588,7 @@ def _gauss(pivot, ncpus, fun, mat, degrees, infolevel):
 
     if n == 0:
         return [vector(R, v) for v in VectorSpace(QQ, m).basis()]
-    mat = list(filter(any, [ [ R(el) for el in row ] for row in mat ] )) # discard zero rows.
+    mat = list(filter(any, [[R(el) for el in row ] for row in mat])) # discard zero rows.
     n = len(mat)
 
     r = 0 # current row
@@ -580,12 +598,12 @@ def _gauss(pivot, ncpus, fun, mat, degrees, infolevel):
     for j in range(m):
         col_perm[j] = j
 
-    _info(infolevel, "forward elimination...", alter = -1)
+    _info(infolevel, "forward elimination...", alter=-1)
 
     # forward elimination
     for c in range(m):
 
-        _info(infolevel, "column ", c, " out of ", m, "...", alter = -2)
+        _info(infolevel, "column ", c, " out of ", m, "...", alter=-2)
 
         if fun is not None:
             fun(mat, c)
@@ -640,17 +658,17 @@ def _gauss(pivot, ncpus, fun, mat, degrees, infolevel):
     dim = m - r # dimension of the solution space
 
     if dim == 0:
-        _info(infolevel, "No solution.", alter = -1)
+        _info(infolevel, "No solution.", alter=-1)
         return [] # no solution
 
-    _info(infolevel, "Constructing ", dim, " nullspace basis vectors.", alter = -1)
+    _info(infolevel, "Constructing ", dim, " nullspace basis vectors.", alter=-1)
 
-    sol = [[ zero for i in range(m) ] for j in range(dim) ]
+    sol = [[zero for _ in range(m)] for _ in range(dim)]
     for i in range(dim):
         sol[-i-1][-i-1] = one
 
     for i in range(r - 1, -1, -1):
-        _info(infolevel, "Coordinate ", i, alter = -2)
+        _info(infolevel, "Coordinate ", i, alter=-2)
         mati = mat[i]
         for j in range(dim):
             solj = sol[j]
@@ -725,26 +743,28 @@ def _hermite(early_termination, mat, degrees, infolevel, truncate=None):
     # and, if len(degrees)>0, only solutions whose degree is at most degrees[0] are returned.
 
     n, m = mat.dimensions()
-    matdeg = max( mat[i,j].degree() for i in range(n) for j in range(m) )
-    _launch_info(infolevel, "hermite", dim=(n,m), deg=matdeg, domain=mat.parent().base_ring())
+    matdeg = max(mat[i, j].degree() for i in range(n) for j in range(m))
+    _launch_info(infolevel, "hermite", dim=(n, m),
+                 deg=matdeg, domain=mat.parent().base_ring())
 
     if truncate is not None:
         deg = truncate
         early_termination = False
     elif len(degrees) < 1:
-        deg = (min(n, m) + 1)*matdeg
+        deg = (min(n, m) + 1) * matdeg
     else:
         deg = degrees[0] + matdeg
         early_termination = False
-    R = mat.parent().base_ring() # expected to be univariate polynomial ring over a field
-    V, done = _hermite_rec(early_termination, R, mat, deg + 1, [0 for i in range(m) ], \
+    R = mat.parent().base_ring()  # expected to be univariate polynomial ring over a field
+    V, done = _hermite_rec(early_termination, R, mat, deg + 1,
+                           [0 for _ in range(m)],
                            _alter_infolevel(infolevel, -1, 1))
     V = V.transpose()
     if truncate is not None:
         if len(degrees) > 0:
-            V = [ v for v in V if max(p.degree() for p in v) <= degrees[0] ]
+            V = [v for v in V if max(p.degree() for p in v) <= degrees[0]]
     elif not done:
-        V = [ v for v in V if max(p.degree() for p in v) <= deg - matdeg ]
+        V = [v for v in V if max(p.degree() for p in v) <= deg - matdeg]
     # if the coefficient domain is a field, make the lowest-indexed nonzero component of each vector monic
     if R.base_ring().is_field():
         one = R.base_ring().one()
@@ -759,7 +779,7 @@ def _hermite(early_termination, mat, degrees, infolevel, truncate=None):
 
 
 def _hermite_base(early_termination, R, A, u, D):
-    ### this should be in cython.
+    # this should be in cython.
     r"""
     Base case of Hermite-Padé (iterative version):
 
@@ -791,8 +811,8 @@ def _hermite_base(early_termination, R, A, u, D):
     x = R.gen()
     one = R.one()
     zero = R.zero()
-    V = [ [ (one if i==j else zero) for i in range(m) ] for j in range(m) ]
-    infinity = max(D) + u + 1 # larger than the largest possible value in D throughout this calculation
+    V = [[(one if i == j else zero) for i in range(m)] for j in range(m)]
+    infinity = max(D) + u + 1  # larger than the largest possible value in D throughout this calculation
     one = R.base_ring().one()
     zero = R.base_ring().zero()
 
@@ -872,7 +892,8 @@ def _hermite_rec(early_termination, R, A, cut, offset, infolevel):
     if cut <= 64:
         # B = low degree coeffs of A.
         _info(infolevel, "base case: switching to direct method.")
-        B = [ [ A[i,j].coefficients(sparse=False)[:cut] for j in range(A.ncols()) ] for i in range(A.nrows()) ]
+        B = [[A[i, j].coefficients(sparse=False)[:cut]
+              for j in range(A.ncols())] for i in range(A.nrows())]
         z = R.base_ring().zero()
         for row in B:
             for pol in row:
@@ -881,17 +902,17 @@ def _hermite_rec(early_termination, R, A, cut, offset, infolevel):
         return _hermite_base(early_termination, R, B, cut, offset)
 
     # 1. write A = A0 + A1 x^ceil(k/2) with deg(A0), deg(A1) < ceil(k/2)
-    cut2 = int(math.ceil(cut/2))
+    cut2 = int(math.ceil(cut / 2))
 
     _info(infolevel, "descending into first recursive call...")
     # 2. compute V0 such that A0*V0 == 0 mod x^ceil(k/2) recursively
     V0, done = _hermite_rec(early_termination, R, A, cut2, offset, _alter_infolevel(infolevel, -1, 1))
     _info(infolevel, "...done")
-    if done: # we don't check for false alarm
+    if done:  # we don't check for false alarm
         return V0, done
 
     # 3. set B=A1*V0 rem x^ceil(k/2)
-    B = (A*V0).apply_map(lambda p : p.shift(-cut2))
+    B = (A * V0).apply_map(lambda p: p.shift(-cut2))
 
     # 4. compute V1 such that B*V1 == 0 mod x^ceil(k/2) recursively
     _info(infolevel, "descending into second recursive call...")
@@ -899,7 +920,7 @@ def _hermite_rec(early_termination, R, A, cut, offset, infolevel):
     _info(infolevel, "...done")
 
     # 5. return V0*V1
-    return V0*V1, done
+    return V0 * V1, done
 
 
 def kronecker(subsolver, presolver=None):
@@ -969,17 +990,19 @@ def _kronecker(subsolver, presolver, mat, degrees, infolevel):
     # 1. for each variable, determine the maximal degree of the nullspace basis
     Kimg = GF(pp(MAX_MODULUS)) if K.characteristic() == 0 else K
     Rimg = Kimg[x0]
+
     def freeof(u, x):
         return u.is_zero() or u.degree(x) == 0
+
     if len(degrees) < len(x) - 1:
-        _info(infolevel, "probing for output degrees...", alter = -1)
+        _info(infolevel, "probing for output degrees...", alter=-1)
         if presolver is None:
             presolver = subsolver
         degrees = []
-        evaluator = [Rimg(59 + 17*j) for j in range(len(x))]
+        evaluator = [Rimg(59 + 17 * j) for j in range(len(x))]
         for i in range(len(x)):
             if all(freeof(u, x[i]) for r in mat for u in r):
-                degrees.append(1) ## variable does not appear in matrix, won't appear in solution
+                degrees.append(1)  # variable does not appear in matrix, won't appear in solution
             else:
                 myev = list(evaluator)
                 myev[i] = Rimg(x0)
@@ -988,9 +1011,9 @@ def _kronecker(subsolver, presolver, mat, degrees, infolevel):
                     return []
 
                 degrees.append(max(max(p.degree() for p in v) for v in sol) + 3)
-        _info(infolevel, "... done. Expecting degree vector to be ", degrees, alter = -1)
+        _info(infolevel, "... done. Expecting degree vector to be ", degrees, alter=-1)
     else:
-        degrees = [ d + 3 for d in degrees ]
+        degrees = [d + 3 for d in degrees]
 
     # 2. kronecker substitution: x[i] |--> x[0]^(deg[0]*deg[1]*...*deg[i-1])
     # all variables are translated by some offset in order to make it unlikely that
@@ -998,12 +1021,13 @@ def _kronecker(subsolver, presolver, mat, degrees, infolevel):
     # but are returned by the subsolver as (1,x^998).
     Rimg = K[x0]
     z = K.zero()
-    shift = [ R(x[j] - (159 + 117*j)) for j in range(len(x)) ]
+    shift = [R(x[j] - (159 + 117*j)) for j in range(len(x))]
+
     @cached_function
     def phi(poly): ##### MOST TIME IS SPENT IN THIS FUNCTION (in particular by __call__)
         terms = {}
         poly = poly(*shift).dict()
-        for exp in poly.keys():
+        for exp in poly:
             n = exp[0]
             d = 1
             for i in range(len(degrees) - 1):
@@ -1018,8 +1042,9 @@ def _kronecker(subsolver, presolver, mat, degrees, infolevel):
     sol = subsolver(mat, degrees=[prod(degrees)], infolevel=_alter_infolevel(infolevel, -1, 1))
 
     # 4. undo kronecker substitution x^u |--> prod(x[i]^(u quo degprod[i-1] rem deg[i]), i=0..len(x))
-    _info(infolevel, "undo substitution.", alter = -1)
-    unshift = [ R(x[j] + (159 + 117*j)) for j in range(len(x)) ]
+    _info(infolevel, "undo substitution.", alter=-1)
+    unshift = [R(x[j] + (159 + 117*j)) for j in range(len(x))]
+
     def unphi(p):
         exp = [0 for i in range(len(x))]
         d = {}
@@ -1034,7 +1059,8 @@ def _kronecker(subsolver, presolver, mat, degrees, infolevel):
                 else:
                     break
         return R(d)(*unshift)
-    sol = [ v.apply_map(unphi, R) for v in sol ]
+
+    sol = [v.apply_map(unphi, R) for v in sol]
 
     if R.base_ring().is_field():
         one = R.base_ring().one()
@@ -1117,7 +1143,7 @@ def _lagrange(subsolver, start_point, ncpus, mat, degrees, infolevel):
     zero = R.base_ring().zero()
 
     degree_known = (len(degrees) > 0)
-    bound =  2*degrees[0] + 3 if degree_known else 16
+    bound = 2 * degrees[0] + 3 if degree_known else 16
 
     if char > 0 and char < start_point + bound:
         raise ValueError("not enough evaluation points")
@@ -1155,7 +1181,7 @@ def _lagrange(subsolver, start_point, ncpus, mat, degrees, infolevel):
             for k in range(j, m):
                 v[k] *= piv
 
-        return [ vector(R, v) for v in V ]
+        return [vector(R, v) for v in V]
 
     # double the number of evaluation points until a solution is reached.
 
@@ -1166,7 +1192,7 @@ def _lagrange(subsolver, start_point, ncpus, mat, degrees, infolevel):
 
         start_point += bound
         bound *= 2
-        _info(infolevel, "Taking ", bound, " more interpolation points...", alter = -1)
+        _info(infolevel, "Taking ", bound, " more interpolation points...", alter=-1)
         if start_point + bound > char:
             raise ValueError("not enough evaluation points")
         points = [R(start_point + p) for p in range(bound)]
@@ -1179,7 +1205,7 @@ def _lagrange(subsolver, start_point, ncpus, mat, degrees, infolevel):
             try:
                 mymat = mat.apply_map(lambda q: (q.numerator() * q.denominator().inverse_mod(mod)) % mod, R)
             except ValueError:
-                _info(infolevel, "Unlucky evaluation point encountered.", alter = -1)
+                _info(infolevel, "Unlucky evaluation point encountered.", alter=-1)
                 if bound > 128:
                     bound /= 4
                     start_point -= bound
@@ -1189,7 +1215,7 @@ def _lagrange(subsolver, start_point, ncpus, mat, degrees, infolevel):
 
         Vnew = _lagrange_rec(mod, mymat, Mprime, 0, bound, M, subsolver, _alter_infolevel(infolevel, -2, 1))
 
-        _info(infolevel, "Combining with previous partial solution...", alter = -1)
+        _info(infolevel, "Combining with previous partial solution...", alter=-1)
         inv = xgcd(modulus, mod)[1]*modulus
         for i in range(len(V)):
             for j in range(len(V[i])):
@@ -1199,7 +1225,7 @@ def _lagrange(subsolver, start_point, ncpus, mat, degrees, infolevel):
         # at this point V is correct mod 'modulus'
 
         # check for termination
-        _info(infolevel, "Checking for termination...", alter = -1)
+        _info(infolevel, "Checking for termination...", alter=-1)
         split = modulus.degree()//2
         W = []
         done = True
@@ -1211,7 +1237,7 @@ def _lagrange(subsolver, start_point, ncpus, mat, degrees, infolevel):
             except ValueError:
                 done = False
                 break
-            w = [ (p*d) % modulus for p in v ]
+            w = [(p*d) % modulus for p in v]
             W.append(w)
             if any(mat*vector(R, w)):
                 done = False
@@ -1223,7 +1249,7 @@ def _lagrange(subsolver, start_point, ncpus, mat, degrees, infolevel):
             for k in range(j, m):
                 w[k] *= piv
 
-    return [ vector(R, v) for v in W ]
+    return [vector(R, v) for v in W]
 
 
 def product_tree(x, points, a, b):
@@ -1234,10 +1260,10 @@ def product_tree(x, points, a, b):
     if b - a == 1:
         return (x - points[a], None, None)
 
-    split = int(math.ceil((a+b)/2))
+    split = int(math.ceil((a + b) / 2))
     left = product_tree(x, points, a, split)
     right = product_tree(x, points, split, b)
-    return (left[0]*right[0], left, right)
+    return (left[0] * right[0], left, right)
 
 
 def multipoint_evaluate(poly, points, a, b, product_tree, L):
@@ -1261,10 +1287,10 @@ def _lagrange_base(mat, MprimeA, subsolver, infolevel):
 
     R = mat[0][0].parent()
     K = R.base_ring()
-    V = subsolver(Matrix(K, [[ p[0] for p in v ] for v in mat]), infolevel=infolevel)
+    V = subsolver(Matrix(K, [[p[0] for p in v] for v in mat]), infolevel=infolevel)
     if len(V) == 0:
         raise NoSolution
-    return [[ R(p/MprimeA) for p in v ] for v in V]
+    return [[R(p/MprimeA) for p in v] for v in V]
 
 
 def _lagrange_rec(mod, mat, Mprime, a, b, product_tree, subsolver, infolevel):
@@ -1278,15 +1304,15 @@ def _lagrange_rec(mod, mat, Mprime, a, b, product_tree, subsolver, infolevel):
     M_left = product_tree[1][0]
     M_right = product_tree[2][0]
 
-    mymat = [ [ p % M_left for p in v ] for v in mat ]
+    mymat = [[p % M_left for p in v] for v in mat]
     V_left = _lagrange_rec(mod, mymat, Mprime, a, split, product_tree[1], subsolver, infolevel)
     del mymat
 
-    mymat = [ [ p % M_right for p in v ] for v in mat ]
+    mymat = [[p % M_right for p in v] for v in mat]
     V_right = _lagrange_rec(mod, mymat, Mprime, split, b, product_tree[2], subsolver, infolevel)
     del mymat
 
-    return [ list(map(lambda v_l, v_r: M_right*v_l + M_left*v_r, V_left[i], V_right[i])) for i in range(len(V_left)) ]
+    return [list(map(lambda v_l, v_r: M_right*v_l + M_left*v_r, V_left[i], V_right[i])) for i in range(len(V_left))]
 
 
 def galois(subsolver, max_modulus=MAX_MODULUS, proof=False):
@@ -1386,7 +1412,7 @@ def cra(subsolver, max_modulus=MAX_MODULUS, proof=False, ncpus=1):
     #. If the solution candidate is not correct, consider some more primes and try again.
 
     """
-    def cra_solver(mat, degrees=[], infolevel=0) :
+    def cra_solver(mat, degrees=[], infolevel=0):
         r"""See docstring of cra() for further information."""
         return _cra(subsolver, max_modulus, proof, ncpus, mat, degrees, infolevel)
     return cra_solver
@@ -1411,9 +1437,9 @@ def _cra(subsolver, max_modulus, proof, ncpus, mat, degrees, infolevel):
 
     # precomputed material used in the homomorphic termination check
     check_prime = pp(max_modulus)
-    check_eval = [ 17*j + 13 for j in range(len(x)) ]
+    check_eval = [17 * j + 13 for j in range(len(x))]
     check_field = GF(check_prime)
-    check_mat = mat.apply_map( lambda pol : pol(*check_eval), check_field )
+    check_mat = mat.apply_map(lambda pol: pol(*check_eval), check_field)
 
     V = None
     M = 1
@@ -1426,7 +1452,7 @@ def _cra(subsolver, max_modulus, proof, ncpus, mat, degrees, infolevel):
 
     while True:
 
-        _info(infolevel, math.floor(math.log(M, 10)/2), " decimal digits completed.", alter = -1)
+        _info(infolevel, math.floor(math.log(M, 10)/2), " decimal digits completed.", alter=-1)
 
         # compute solution(s) modulo p
         try:
@@ -1455,7 +1481,7 @@ def _cra(subsolver, max_modulus, proof, ncpus, mat, degrees, infolevel):
                 m = prod(primes)
                 # now Vp is a solution mod m, and m is the product of 'ncpus' many primes.
         except ArithmeticError: # unlucky prime may cause division by zero when mapping QQ --> Z_p
-            _info(infolevel, "unlucky modulus ", m, " discarded (division by zero)", alter = -1)
+            _info(infolevel, "unlucky modulus ", m, " discarded (division by zero)", alter=-1)
             continue
 
         # degenerate situations
@@ -1474,12 +1500,12 @@ def _cra(subsolver, max_modulus, proof, ncpus, mat, degrees, infolevel):
             V = [ [R(e) for e in v] for v in Vp ]
             M = m
             degrees = true_degrees
-            _info(infolevel, "expecting solution degrees ", degrees, alter = -1)
+            _info(infolevel, "expecting solution degrees ", degrees, alter=-1)
         elif len(V) < len(Vp): # this prime is unlucky, skip it
-            _info(infolevel, "unlucky modulus ", m, " discarded (dimension defect)", alter = -1)
+            _info(infolevel, "unlucky modulus ", m, " discarded (dimension defect)", alter=-1)
             continue
         elif any(degrees[i] < true_degrees[i] for i in range(len(x))): # this prime is unlucky, skip it
-            _info(infolevel, "unlucky modulus ", m, " discarded (degree mismatch: ", true_degrees, ")", alter = -1)
+            _info(infolevel, "unlucky modulus ", m, " discarded (degree mismatch: ", true_degrees, ")", alter=-1)
             continue
 
         # combine the new solution with the known partial solution
@@ -1504,7 +1530,7 @@ def _cra(subsolver, max_modulus, proof, ncpus, mat, degrees, infolevel):
                         d *= (d*c).rational_reconstruction(M).denominator()
                 w = vector(R, [e.map_coefficients( lambda c: ((d*c + m) % M) - m, ZZ ) for e in v ])
                 if (not proof and any(check_mat * vector(check_field, [e(*check_eval) for e in w]))) or \
-                       (proof and any(mat * w) ):
+                   (proof and any(mat * w) ):
                     raise ArithmeticError # more primes needed
                 sol.append(w)
             return sol # if no error was raised for any of the v in V, then we are done
@@ -1512,7 +1538,7 @@ def _cra(subsolver, max_modulus, proof, ncpus, mat, degrees, infolevel):
             pass
 
 
-def newton(subsolver, inverse=lambda mat:mat.inverse()):
+def newton(subsolver, inverse=lambda mat: mat.inverse()):
     r"""
     Constructs a solver based on x-adic lifting for matrices with entries over `K[x]` where `K` is a field.
 
@@ -1555,10 +1581,11 @@ def newton(subsolver, inverse=lambda mat:mat.inverse()):
         basis vectors are viewed as the columns of a matrix, this matrix contains every possible unit
         vector as row
     """
-    def newton_solver(mat, degrees=[], infolevel=0) :
+    def newton_solver(mat, degrees=[], infolevel=0):
         r"""See docstring of newton() for further information."""
         return _newton(subsolver, inverse, mat, degrees, infolevel)
     return newton_solver
+
 
 def _newton(subsolver, inverse, mat, degrees, infolevel):
     r"""
@@ -1567,8 +1594,8 @@ def _newton(subsolver, inverse, mat, degrees, infolevel):
     n, m = mat.dimensions()
     R = mat.parent().base_ring()
     x = R.gen()
-    matdeg = max( mat[i,j].degree() for i in range(n) for j in range(m) )
-    _launch_info(infolevel, "newton", dim = (n, m), deg = matdeg, domain = R)
+    matdeg = max(mat[i, j].degree() for i in range(n) for j in range(m))
+    _launch_info(infolevel, "newton", dim=(n, m), deg=matdeg, domain=R)
 
     if len(degrees) < 1:
         bound = 2*(min(n, m) + 1)*matdeg
@@ -1605,27 +1632,27 @@ def _newton(subsolver, inverse, mat, degrees, infolevel):
     xk = x
     k = 1
     while k < bound:
-        _info(infolevel, "lifting completed mod ", xk, alter = -1)
-        #Ainv -= (Ainv*(A*Ainv).apply_map(lambda p: p.shift(-k))).apply_map(lambda p: (p%xk).shift(k))
-        U = A*Ainv # MOST COSTLY STEP
+        _info(infolevel, "lifting completed mod ", xk, alter=-1)
+        # Ainv -= (Ainv*(A*Ainv).apply_map(lambda p: p.shift(-k))).apply_map(lambda p: (p%xk).shift(k))
+        U = A * Ainv  # MOST COSTLY STEP
         for i in range(rank):
             for j in range(rank):
-                U[i,j] = U[i,j].shift(-k)
-        U = Ainv*U # MOST COSTLY STEP
+                U[i, j] = U[i, j].shift(-k)
+        U = Ainv * U  # MOST COSTLY STEP
         for i in range(rank):
             for j in range(rank):
-                Ainv[i,j] -= (U[i,j]%xk).shift(k)
+                Ainv[i, j] -= (U[i, j] % xk).shift(k)
         k *= 2
         xk *= xk
-    _info(infolevel, "lifting completed.", alter = -1)
+    _info(infolevel, "lifting completed.", alter=-1)
 
     # solution of the system
-    X = -Ainv*B
+    X = -Ainv * B
 
     # put back unit vectors
     zero = R.zero()
     one = R.one()
-    V = [ [zero for i in range(m)] for j in range(dim) ]
+    V = [[zero for _ in range(m)] for _ in range(dim)]
     for i in range(dim):
         for j in range(len(idxA)):
             V[i][idxA[j]] = X[j][i]
@@ -1715,6 +1742,7 @@ def _clear(subsolver, mat, degrees, infolevel):
             newR = R.ring_of_integers()
         except AttributeError:
             newR = R.ring()
+
         def common_denominator(row):
             den = newR.one()
             for p in row:
@@ -1722,12 +1750,13 @@ def _clear(subsolver, mat, degrees, infolevel):
             return den
     elif R.base_ring().fraction_field()[R.gens()] == R:
         # entries are polynomials over some fraction field
-        oldK = R.base_ring() # e.g. QQ
+        oldK = R.base_ring()  # e.g. QQ
         try:
-            newK = oldK.ring_of_integers() # e.g. ZZ
+            newK = oldK.ring_of_integers()  # e.g. ZZ
         except AttributeError:
             newK = oldK.ring()
-        newR = newK[R.gens()] # e.g. ZZ[x]
+        newR = newK[R.gens()]  # e.g. ZZ[x]
+
         def common_denominator(row):
             den = newK.one()
             for p in row:
@@ -1802,7 +1831,7 @@ def _merge(subsolver, mat, degrees, infolevel):
         B = PolynomialRing(B.base_ring(), lower_gens + upper_gens)
 
         if field:
-            B = B.fraction_field() ### Sage 6.8: cast F(ZZ[x])[y] -> F(ZZ[x,y]) no longer works
+            B = B.fraction_field()  # Sage 6.8: cast F(ZZ[x])[y] -> F(ZZ[x,y]) no longer works
 
         mat = mat.change_ring(B)
 
@@ -1863,21 +1892,23 @@ def _quick_check(subsolver, modsolver, modulus, cutoffdim, mat, degrees, infolev
     x = R.gens()
 
     if not (K == QQ or K == ZZ):
-        _info(infolevel, "Unexpected ring encountered; skipping quick check.", alter = -1)
+        _info(infolevel, "Unexpected ring encountered; skipping quick check.", alter=-1)
         return subsolver(mat, degrees=degrees, infolevel=_alter_infolevel(infolevel, -1, 1))
 
     check_prime = pp(modulus) if R.characteristic() == 0 else R.characteristic()
     K_check = GF(check_prime)
     check_mat_ring = MatrixSpace(K_check, mat.nrows(), mat.ncols())
     if isinstance(R, MPolynomialRing_libsingular):
-        check_x = [ K_check(17*j + 13) for j in range(len(x)) ]
+        check_x = [K_check(17 * j + 13) for j in range(len(x))]
+
         def check_eval(pol):
             y = K_check.zero()
             for m, c in pol.dict().items():
                 y += K_check(c)*prod([check_x[i]**m[i] for i in m.nonzero_positions()])
             return y
     else:
-        check_dict = dict(zip(x, [ 17*j + 13 for j in range(len(x)) ]))
+        check_dict = dict(zip(x, [17 * j + 13 for j in range(len(x))]))
+
         def check_eval(elt):
             return elt.substitute(check_dict)
 
@@ -1889,7 +1920,12 @@ def _quick_check(subsolver, modsolver, modulus, cutoffdim, mat, degrees, infolev
         _info(infolevel, "Quick check skipped because of unlucky evaluation point.", alter = -1)
         return subsolver(mat, degrees=degrees, infolevel=_alter_infolevel(infolevel, -2, 1))
 
-    _info(infolevel, "Starting modular solver...", alter = -1)
+    check_mat = check_mat_ring.matrix([check_eval(mat[i, j])
+                                       for i in range(mat.nrows())
+                                       for j in range(mat.ncols())])
+
+    _info(infolevel, "Starting modular solver...", alter=-1)
+    
     check_sol = modsolver(check_mat)
     
     _info(infolevel, "Modular solver predicts " + str(len(check_sol)) + " solutions", alter = -1)
@@ -1987,27 +2023,27 @@ def _compress(subsolver, presolver, modulus, mat, degrees, infolevel):
         row = list(matp[r])
         matp.set_row(r, [z for q in range(m)]) # replace r-th row by zeros
         if len(presolver(matp, degrees=[], infolevel=_alter_infolevel(infolevel, -3, 1))) == len(Vp):
-            useless_rows.append(r) # not needed; keep the zeros and proceed
+            useless_rows.append(r)  # not needed; keep the zeros and proceed
         else:
             matp.set_row(r, row) # needed; put back original elements
         if n - len(useless_rows) == m - len(useless_columns) - len(Vp):
-            break # all other rows are needed for dimension reasons
+            break  # all other rows are needed for dimension reasons
 
     if len(useless_rows) > 0:
         _info(infolevel, "discarding ", len(useless_rows), " rows", alter=-1)
         mat = mat.delete_rows(useless_rows)
 
     # call subsolver on reduced matrix
-    V = subsolver(mat, degrees = degrees, infolevel = _alter_infolevel(infolevel, -1, 1))
+    V = subsolver(mat, degrees=degrees, infolevel=_alter_infolevel(infolevel, -1, 1))
 
     # put back zeros into solution vectors
     if len(useless_columns) > 0:
         _info(infolevel, "inserting zero rows into solution vector", alter=-1)
-        V = [ list(v) for v in V ]
+        V = [list(v) for v in V]
         for v in V:
             for j in useless_columns:
                 v.insert(j, zero)
-        V = [ vector(R, v) for v in V ]
+        V = [vector(R, v) for v in V]
 
     return V
 
@@ -2062,7 +2098,7 @@ def _berlekamp_massey(data):
 
     try:
         d = lcm([p.denominator() for p in M])
-    except:
+    except (TypeError, ValueError, AttributeError):
         d = R.one()
 
     return [-R(d*p) for p in M]
@@ -2082,11 +2118,11 @@ def _wiedemann(A, degrees, infolevel):
     if n != m:
         _info(infolevel, "Bringing matrix into square form", alter=-1)
         A = A.transpose() * A
-        (n, m) = A.dimensions()
+        n, m = A.dimensions()
 
-    x_base = vector(R, [R.random_element() for i in range(m) ])
-    x = A*x_base
-    y = vector(R, [R.random_element() for i in range(m) ])
+    x_base = vector(R, [R.random_element() for _ in range(m)])
+    x = A * x_base
+    y = vector(R, [R.random_element() for _ in range(m)])
 
     _info(infolevel, "Computing Krylov basis", alter=-1)
     data = [y*x]
@@ -2101,19 +2137,19 @@ def _wiedemann(A, degrees, infolevel):
     x = ZZ.zero()
     while x.is_zero():
         _info(infolevel, "Computing solution vector", alter=-1)
-        xi = vector(R, [R.random_element() for i in range(m) ]) # while loop needed to catch unlucky choice
-        x = M[0]*xi
+        xi = vector(R, [R.random_element() for _ in range(m)])  # while loop needed to catch unlucky choice
+        x = M[0] * xi
         for i in range(1, len(M)):
             _info(infolevel, "power ", i, alter=-2)
-            xi = A*xi  ###### MOST EXPENSIVE STEP (if matrix is big and entries are small)
-            x += M[i]*xi
+            xi = A * xi  ###### MOST EXPENSIVE STEP (if matrix is big and entries are small)
+            x += M[i] * xi
 
-    return _normalize([ vector(R, x) ])
+    return _normalize([vector(R, x)])
 
 
-#################################################################################################################
+############################################################################
 
-#def take_picture(mat, idx):
+# def take_picture(mat, idx):
 #    f = open("/scratch/mkauers/picbignaive" + str(idx) + ".m", "w")
 #    f.write("{")
 #    for i in range(len(mat) - 1):

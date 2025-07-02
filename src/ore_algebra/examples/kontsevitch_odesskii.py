@@ -69,9 +69,7 @@ def h(t, prec):
     Pol, la = PolynomialRing(C, 'la').objgen()
     char = (la+1/la-tr).numerator()
     rt = char.roots(multiplicities=False)[0]
-    val = (rt.log()/C(2*i*pi))**2
-
-    return val
+    return (rt.log()/C(2*i*pi))**2
 
 
 def reconstruct(val, terms, t):
@@ -79,8 +77,8 @@ def reconstruct(val, terms, t):
     cur = val
     for _ in range(terms):
         # simplest_rational is too slow
-        rat = QQ(pari.bestappr(cur, (1/t).sqrt()))
-        cur = (cur - rat)/t
+        rat = QQ(pari.bestappr(cur, (1 / t).sqrt()))
+        cur = (cur - rat) / t
         coeffs.append(rat)
     return coeffs
 
@@ -93,8 +91,7 @@ def h_series(terms):
     t = ZZ(2)**(-sz)
     val = h(t, prec)
     logger.info("h(t) = %s", val)
-    ser = reconstruct(val, terms, t)
-    return ser
+    return reconstruct(val, terms, t)
 
 
 # print([(coeffs[k+1].denom()/coeffs[k].denom()) for k in range(2, len(coeffs)-2)])

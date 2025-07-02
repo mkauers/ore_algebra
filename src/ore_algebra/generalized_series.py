@@ -1431,9 +1431,7 @@ class DiscreteGeneralizedSeries(RingElement):
         # x^{-1}^{4} --> x^{-4}
         out = re.sub(r"\^\(-1\)\^(?P<exp>[0-9]*)", r"^(-\g<exp>)", out)
         # (5) --> 5
-        out = re.sub(r"\((?P<exp>[0-9]*)\)", r"\g<exp>", out)
-
-        return out
+        return re.sub(r"\((?P<exp>[0-9]*)\)", r"\g<exp>", out)
 
     def _latex_(self):
 
@@ -1480,9 +1478,7 @@ class DiscreteGeneralizedSeries(RingElement):
         # x^{-1/3}^{17} --> x^{-17/3}
         out = re.sub(r"\^\{-1/(?P<den>[0-9]*)\}\^\{(?P<num>[0-9]*)\}", r"^{-\g<num>/\g<den>}", out)
         # x^{-1}^{4} --> x^{-4}
-        out = re.sub(r"\^\{-1\}\^\{(?P<exp>[0-9]*)\}", r"^{-\g<exp>}", out)
-
-        return out
+        return re.sub(r"\^\{-1\}\^\{(?P<exp>[0-9]*)\}", r"^{-\g<exp>}", out)
 
     def superexponential_part(self):
         return self.__gamma

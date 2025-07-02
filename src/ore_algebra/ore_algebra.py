@@ -82,7 +82,7 @@ if True:
     import datetime
     try:
         v = version()
-    except:
+    except NameError:
         v = "2013-01-01"
 
     if datetime.date(int(v[-10:-6]), int(v[-5:-3]), int(v[-2:])) >= datetime.date(2013, 05, 15):
@@ -154,7 +154,7 @@ def is_suitable_base_ring(R):
         return True
     elif isinstance(R, FractionField_generic):
         return is_suitable_base_ring(R.ring())
-    elif isinstance(R, PolynomialRing_general) or isinstance(R, MPolynomialRing_base):
+    elif isinstance(R, (PolynomialRing_general, MPolynomialRing_base)):
         return is_suitable_base_ring(R.base_ring())
     else:
         return False
@@ -294,10 +294,7 @@ class Sigma_class:
             for x in self.__R.gens():
                 if self(x) != other(x):
                     return False
-            for x in other.__R.gens():
-                if self(x) != other(x):
-                    return False
-            return True
+            return all(self(x) == other(x) for x in other.__R.gens())
         except Exception:
             return False
 
@@ -576,10 +573,7 @@ class Delta_class:
             for x in self.__R.gens():
                 if self(x) != other(x):
                     return False
-            for x in other.__R.gens():
-                if self(x) != other(x):
-                    return False
-            return True
+            return all(self(x) == other(x) for x in other.__R.gens())
         except Exception:
             return False
 
@@ -1132,9 +1126,7 @@ class OreAlgebra_generic(UniqueRepresentation, Parent):
             if out is not None and out is not False:
                 return True
             out = self.associated_commutative_algebra()._coerce_map_from_(P)
-            if out is not None and out is not False:
-                return True
-            return False
+            return bool(out is not None and out is not False)
 
     def _sage_input_(self, sib, coerced):
         # one for generators following the naming convention
@@ -1625,9 +1617,7 @@ class OreAlgebra_generic(UniqueRepresentation, Parent):
         Return ``False`` since Ore algebras are not finite (unless the base ring is 0).
         """
         R = self.base_ring()
-        if R.is_finite() and R.order() == 1:
-            return True
-        return False
+        return bool(R.is_finite() and R.order() == 1)
 
     def is_exact(self):
         r"""
@@ -1736,14 +1726,14 @@ class OreAlgebra_generic(UniqueRepresentation, Parent):
             return nullspace.sage_native
         elif isinstance(R, number_field_base.NumberField):
             return nullspace.cra(nullspace.sage_native)
-        elif not (isinstance(R, MPolynomialRing_base) or isinstance(R, PolynomialRing_general) or isinstance(R, FractionField_generic)):
+        elif not (isinstance(R, (MPolynomialRing_base, PolynomialRing_general, FractionField_generic))):
             return nullspace.sage_native  # for lack of better ideas.
 
         B = R.base_ring()
         field = R.is_field()
         merge_levels = 0
 
-        while (isinstance(B, MPolynomialRing_base) or isinstance(B, PolynomialRing_general) or isinstance(B, FractionField_generic)):
+        while (isinstance(B, (MPolynomialRing_base, PolynomialRing_general, FractionField_generic))):
             field = field or B.is_field()
             merge_levels += 1
             B = B.base_ring()

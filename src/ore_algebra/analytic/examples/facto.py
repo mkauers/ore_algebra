@@ -103,7 +103,7 @@ cluzeau_dop = 125*z**3*(1207249920*z+31)*(859963392000*z**2+10368000*z+1)*Dz**4+
 # (=-972) at point 3 involves the resolution of a large system. !Not Fuchsian!
 salvy_dop = (z**2*Dz + 3)*((z - 3)*Dz + 4*z**5)
 
-# The Maple command DEtools[DFactor] fails to factor the operator QPP (it stops 
+# The Maple command DEtools[DFactor] fails to factor the operator QPP (it stops
 # after >10min returning a warning message).
 # The operators QPP and QPPR have the same local exponents structure, but QPPR
 # is irreducible.

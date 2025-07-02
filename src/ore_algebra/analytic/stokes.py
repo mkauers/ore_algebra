@@ -168,15 +168,28 @@ We double-check the above results using Borel-Laplace summation::
     sage: mat_left = bl.fundamental_matrix(dop1, x0, pi/16, RBF(1e-40))    # not tested (85 s)
     sage: mat_right = bl.fundamental_matrix(dop1, x0, -pi/16, RBF(1e-40))  # not tested (83 s)
 
-The matrix `stokes[-1]` is expressed in the basis
-`f_1 = e^{-1/x} x + \cdots,
- f_2 = e^{-2/x} x^{3/4} + \cdots,
- f_3 = e^{-3/x} x + \cdots`,
+The matrix ``stokes[-1]`` is expressed in the basis
+
+.. MATH::
+
+    \begin{cases}
+    f_1 = e^{-1/x} x + \cdots,\\
+    f_2 = e^{-2/x} x^{3/4} + \cdots,\\
+    f_3 = e^{-3/x} x + \cdots,
+    \end{cases}
+
 while the change of variables `z = -x` leads to a Stokes matrix naturally
 expressed in the basis
-`e^{3/z} z = -f_3,
- e^{2/z} z^{3/4} = (-1)^{3/4} f_2,
- e^{1/z} z = -f_1`. ::
+
+.. MATH::
+
+    \begin{cases}
+    e^{3/z} z = -f_3,\\
+    e^{2/z} z^{3/4} = (-1)^{3/4} f_2,\\
+    e^{1/z} z = -f_1`
+    \end{cases}
+
+so that::
 
     sage: P = matrix(QQbar, 4)
     sage: P[0,3] = P[2,1] = P[3,0] = -1; P[1,2] = QQbar(-1)^(3/4)
@@ -833,6 +846,7 @@ def stokes_dict(dop, eps=1e-16):
 
     The Stokes matrices are expressed relative to a basis of solutions of
     ``dop`` obtained as follows:
+
     - For each exponential part `e^{α/x}`, consider the equation `L·z(x) = 0`
       obtained from ``dop·y(x) = 0`` by the change of dependent variable
       `y(x) = e^{α/x} z(x)`. The method
@@ -840,6 +854,7 @@ def stokes_dict(dop, eps=1e-16):
       can be used to compute a specific basis of the solutions of `L` free from
       exponentials. Multiply each basis element by `e^{α/x}` to obtain a
       solution of ``dop``.
+
     - Sort the exponential parts `e^{α/x}`
       * firstly by decreasing real part of `α`,
       * then by absolute value of the imaginary part,

@@ -8,7 +8,7 @@ The functions taking polynomials with coefficients in number fields
 (including QQ) are limited to coefficients with numerator one.
 """
 
-from cpython.int cimport PyInt_AsLong
+from cpython.long cimport PyLong_AsLong
 
 from sage.libs.arb.acb cimport *
 from sage.libs.arb.acb_poly cimport *
@@ -41,7 +41,7 @@ import cython
 
 def cbf(pol, n, tgt):
     cdef Polynomial_complex_arb _pol = (<Polynomial_complex_arb> pol)
-    cdef long _n = PyInt_AsLong(n)
+    cdef long _n = PyLong_AsLong(n)
     cdef long i
 
     cdef ComplexBall res = <ComplexBall> (ComplexBall.__new__(ComplexBall))
@@ -57,7 +57,7 @@ def cbf(pol, n, tgt):
     return res
 
 cdef ZZX_c _nf(Polynomial_generic_dense pol, n) except *:
-    cdef unsigned long _n = PyInt_AsLong(n)
+    cdef unsigned long _n = PyLong_AsLong(n)
     cdef long i
 
     cdef NumberFieldElement c
@@ -85,7 +85,7 @@ def nf(pol, n, tgt):
 
 cdef int _qnf(mpz_t a, mpz_t b, Polynomial_generic_dense pol, n) except -1:
 
-    cdef unsigned long _n = PyInt_AsLong(n)
+    cdef unsigned long _n = PyLong_AsLong(n)
     cdef long i
 
     cdef NumberFieldElement_quadratic c
@@ -167,7 +167,7 @@ def qq_or_qqi_to_cbf(zzpols not None, n, tgt):
     cdef fmpz_t _n
 
     fmpz_init(_n)
-    fmpz_set_ui(_n, PyInt_AsLong(n))
+    fmpz_set_ui(_n, PyLong_AsLong(n))
 
     cdef ComplexBall res = ComplexBall.__new__(ComplexBall)
     res._parent = tgt
@@ -197,7 +197,7 @@ def qq(pol, n, tgt):
 
     cdef fmpz_t _n
     fmpz_init(_n)
-    fmpz_set_ui(_n, PyInt_AsLong(n))
+    fmpz_set_ui(_n, PyLong_AsLong(n))
 
     cdef fmpz_t tmp
     fmpz_init(tmp)
