@@ -39,6 +39,8 @@ from sage.structure.formal_sum import FormalSum, FormalSums
 from sage.symbolic.all import SR
 
 from .generalized_series import GeneralizedSeriesMonoid, _binomial
+from .guessing import guess
+from .ore_algebra import OreAlgebra
 from .ore_algebra import OreAlgebra_generic
 from .ore_operator_1_1 import UnivariateOreOperatorOverUnivariateRing
 from .ore_operator import UnivariateOreOperator
@@ -2391,6 +2393,207 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         """
         from .analytic.factorization import right_factor
         return right_factor(self, verbose=verbose)
+
+    def hyperexponential_solutions(self, guessing = 10, one_solution = False):
+        r"""
+        Finds order 1 right factors of this operator
+
+        INPUT:
+            - A differential operator L in K(x)[Dx] where K is Q or an algebraic
+            extension of Q.
+            - (optional) A integer ``guessing`` indicating what degree the
+            solutions could have in order to speed up computations. If set to
+            0/False, no guessing attempts are made.
+            - (optional) A boolean ``one_solution``, set to False by default,
+            indicating whether we want all solutions or just one.
+
+        OUTPUT:
+            - The list of hyperexponential solutions, under the form of a list
+            of right factors of degree 1 of L.
+            - The list of algebraic extensions used, the elements of the list
+            are under the form (root of P, P).
+
+        .. NOTE::
+            - The method comes from section 3.6 of the book D-Finite functions
+            by Manuel Kauers.
+            - Algebraic extensions are important because the degree 1 factor can
+            have coefficients in a larger field than the one given in input.
+            - It's also possible that some algebraic extensions are unused in
+            the result because the algebraic numbers have cancelled out.
+
+        EXAMPLES::
+            sage: from ore_algebra import *
+            sage: R.<x> = PolynomialRing(QQ); A.<Dx> = OreAlgebra(R)
+            sage: (Dx^2 - 2*Dx + 1).hyperexponential_solutions()
+            ([x*Dx - x - 1, Dx - 1], [])
+            sage: (x^2*Dx^2 + x*Dx - 2).hyperexponential_solutions()
+            ([x*Dx - a0, x*Dx + a0], [(a0, x^2 - 2)])
+        """
+
+        def product(l): #cartesian product iterator
+            if not l:
+                yield []
+            else:
+                for x in l[0]:
+                    for rest in product(l[1:]):
+                        yield [x] + rest
+
+        """ STEP 0 : FINDING SINGULARITIES """
+        R = self.base_ring() #Q[x]
+        x = R.gen()
+        K = R.base_ring() #Q
+        Dx = self.parent().gen()
+
+        L = self.numerator()
+        L_des = L.lclm(Dx - R.random_element()) #desingularization by hand
+        lc = gcd(L_des.leading_coefficient(),L.leading_coefficient())
+
+        factors = list(lc.factor())
+        factors = [f[0] for f in factors if f[0].degree()>1]
+
+        a = [] #list of extensions
+        i = 0
+        while factors:
+            f = factors[0]
+            K = K.extension(f,'a'+str(i))
+            a.append((K.gen(),f))
+            factors2 = []
+            for f in factors:
+                factors2+= list(f.change_ring(K).factor())
+            factors = [f for (f,_) in factors2 if f.degree()>1]
+            factors = list(set(factors))
+            i+=1
+        R2 = PolynomialRing(K, x)
+        x = R2.gen()
+        L = L.change_ring(R2)
+
+        sing = [r for (r,m) in L_des.change_ring(R2).leading_coefficient().roots()]
+
+        """ CRIMINAL RING EXTENSION """
+        polys = []
+        for xi in sing+[infinity]:
+            if xi != infinity: L_xi = L.annihilator_of_composition(x+xi)
+            else: L_xi = L.annihilator_of_composition(~x)
+            for S in L_xi.generalized_series_solutions(n=1, ramification=False):
+                K2 = S.base_ring()
+                while K2 != K:
+                    polys.append(K2.defining_polynomial())
+                    K2 = K2.base_ring()
+        polys = list(set(polys))
+
+        factors2 = []
+        for p in polys:
+            factors2 += list(R(p).factor())
+        factors = [f for (f,_) in factors2 if f.degree()>1]
+        factors = list(set(factors))
+
+        while factors:
+            f = factors[0]
+            K = K.extension(f,'a'+str(i))
+            a.append((K.gen(),f))
+            factors2 = []
+            for f in factors:
+                factors2+= list(f.change_ring(K).factor())
+            factors = [f for (f,_) in factors2 if f.degree()>1]
+            factors = list(set(factors))
+            i+=1
+        R2 = PolynomialRing(K, x)
+        x = R2.gen()
+        L = L.change_ring(R2)
+
+        """ STEP 1 : CALCULATING EXPONENTIAL PARTS """
+        E = []
+        dim_alpha = {}
+
+        for xi in sing + [infinity]:
+            E_xi = []
+            if xi != infinity: L_xi = L.annihilator_of_composition(x+xi)
+            else:
+                L_xi = L.annihilator_of_composition(~x)
+            for S in L_xi.generalized_series_solutions(n=1, ramification=False):
+                alpha, log_der = S.initial_exponent(), S.logarithmic_derivative_exponential_part()
+                for k in E_xi:
+                    if k[1] - alpha in ZZ and k[2] - log_der == (k[1] - alpha)/x:
+                        if dim_alpha[k][2] - alpha > 0: dim_alpha[k] = [dim_alpha[k][0]+1, dim_alpha[k][1]+1, alpha, log_der]
+                        else:
+                            dim_alpha[k][0]+=1
+                            dim_alpha[k][1]+=1
+                        break
+                else:
+                    E_xi.append((xi , alpha, log_der))
+                    dim_alpha[(xi , alpha, log_der)] = [1, 1, alpha, log_der]
+            E.append(E_xi)
+        sol = []
+
+        """ STEP 1.5 : GUESSING SOLUTIONS"""
+        if guessing:
+            nb = 2*guessing + 10
+            for l in E:
+                for k in l:
+                    if dim_alpha[k][0]==1 and dim_alpha[k][1]==1: # only look for degree 1
+                        if k[0] == infinity: L_xi = L.annihilator_of_composition(~x)
+                        else: L_xi = L.annihilator_of_composition(x+k[0])
+                        coeffs = L_xi.dict()
+                        L_shift = sum( coeffs[i] * (Dx + dim_alpha[k][3])**i for i in coeffs)
+                        seq = L_shift.power_series_solutions(nb)[0].list()
+
+                        try:
+                            seq = [QQ(k) for k in seq]
+                            M_shift = guess(seq, OreAlgebra(ZZ[str(x)], str(Dx)))
+                            coeffs = M_shift.dict()
+                            M_xi = sum( coeffs[i] * (Dx - dim_alpha[k][3])**i for i in coeffs)
+                            if k[0] == infinity: M = M_xi.annihilator_of_composition(~x)
+                            else: M = M_xi.annihilator_of_composition(x-k[0])
+                            if M.order()==1 and L.quo_rem(M)[1]==0:
+                                sol.append(M)
+                                if one_solution: return sol,a
+                                for xi in sing + [infinity]: #lowering the dimension at singularities
+                                    if xi != infinity: M_xi = M.annihilator_of_composition(x+xi)
+                                    else: M_xi = M.annihilator_of_composition(~x)
+                                    S = M_xi.generalized_series_solutions(n=1, ramification=False)[0]
+                                    alpha, log_der = S.initial_exponent(), S.logarithmic_derivative_exponential_part()
+                                    for kk in dim_alpha:
+                                        if kk[0] == xi and kk[1] - alpha in ZZ and kk[2] - log_der == (kk[1] - alpha)/x:
+                                            dim_alpha[kk][0]-=1
+                                            break
+                        except: pass
+
+            E = [[k for k in l if dim_alpha[k][0]>0] for l in E]
+
+        """ STEP 2 : FINDING SOLUTIONS """
+        coeffs = L.dict()
+        for comb in product(E):
+            if sum(alpha for (_, alpha, _) in comb) in ZZ and all( dim_alpha[m][0] > 0 for m in comb):
+                exp_part_log_der = 0
+                d_bound = 0
+                for (xi, alpha, log_der) in comb:
+                    d_bound -= dim_alpha[(xi,alpha,log_der)][2]
+                    if xi != infinity: exp_part_log_der += dim_alpha[(xi,alpha,log_der)][3].subs({x:x-xi})
+                    else: exp_part_log_der += dim_alpha[(xi,alpha,log_der)][3].subs({x:K.one()/x})*(-1)/x**2 + dim_alpha[(xi,alpha,log_der)][2]/x
+
+                L_shift = sum( coeffs[i] * (Dx + exp_part_log_der)**i for i in coeffs)
+                L_shift = L_shift.numerator()
+
+                """ FINDING POLYNOMIAL SOLUTIONS BY HAND """
+                d_bound = ZZ(d_bound)
+                sys = [R2(L_shift(x**i)).padded_list(d_bound + L_shift.degree() + 1) for i in range(d_bound+1)]
+                sys.reverse()
+                M = matrix(K,sys)
+                ker = M.left_kernel()
+                lker = ker.basis()
+                pol_sol = []
+                for tup in lker:
+                    P = sum(tup[i] * x**(d_bound - i) for i in range(d_bound + 1))
+                    pol_sol.append(P)
+
+                for P in pol_sol:
+                    log_der_sol = exp_part_log_der + P.derivative(x)/P
+                    sol.append( log_der_sol.denominator()*Dx - log_der_sol.numerator() )
+                    if one_solution: return sol,a
+                    for m in comb:
+                        dim_alpha[m][0]-=1
+
+        return sol,a
 
     def is_provably_irreducible(self, prec=None, max_prec=100000, *, verbose=False):
         r"""
