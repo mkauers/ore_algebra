@@ -2463,11 +2463,11 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             factors = [f for (f,_) in factors2 if f.degree()>1]
             factors = list(set(factors))
             i+=1
-        R2 = PolynomialRing(K, x)
-        x = R2.gen()
-        L = L.change_ring(R2)
+        R = PolynomialRing(K, x)
+        x = R.gen()
+        L = L.change_ring(R)
 
-        sing = [r for (r,m) in L_des.change_ring(R2).leading_coefficient().roots()]
+        sing = [r for (r,m) in lc.change_ring(R).roots()]
 
         """ CRIMINAL RING EXTENSION """
         polys = []
@@ -2497,9 +2497,9 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             factors = [f for (f,_) in factors2 if f.degree()>1]
             factors = list(set(factors))
             i+=1
-        R2 = PolynomialRing(K, x)
-        x = R2.gen()
-        L = L.change_ring(R2)
+        R = PolynomialRing(K, x)
+        x = R.gen()
+        L = L.change_ring(R)
 
         """ STEP 1 : CALCULATING EXPONENTIAL PARTS """
         E = []
@@ -2508,8 +2508,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         for xi in sing + [infinity]:
             E_xi = []
             if xi != infinity: L_xi = L.annihilator_of_composition(x+xi)
-            else:
-                L_xi = L.annihilator_of_composition(~x)
+            else: L_xi = L.annihilator_of_composition(~x)
             for S in L_xi.generalized_series_solutions(n=1, ramification=False):
                 alpha, log_der = S.initial_exponent(), S.logarithmic_derivative_exponential_part()
                 for k in E_xi:
@@ -2576,7 +2575,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
 
                 """ FINDING POLYNOMIAL SOLUTIONS BY HAND """
                 d_bound = ZZ(d_bound)
-                sys = [R2(L_shift(x**i)).padded_list(d_bound + L_shift.degree() + 1) for i in range(d_bound+1)]
+                sys = [R(L_shift(x**i)).padded_list(d_bound + L_shift.degree() + 1) for i in range(d_bound+1)]
                 sys.reverse()
                 M = matrix(K,sys)
                 ker = M.left_kernel()
