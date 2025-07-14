@@ -1720,9 +1720,7 @@ class OreAlgebra_generic(UniqueRepresentation, Parent):
             pass
 
         # make a reasonable choice
-        if R in FiniteFields():
-            return nullspace.sage_native
-        elif R is ZZ or R is QQ:
+        if R in FiniteFields() or (R is ZZ or R is QQ):
             return nullspace.sage_native
         elif isinstance(R, number_field_base.NumberField):
             return nullspace.cra(nullspace.sage_native)
