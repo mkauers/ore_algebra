@@ -171,7 +171,8 @@ def guess(data, algebra, **kwargs):
 
     if isinstance(data, str):
         with open(data) as f:
-            data = [K(line) for line in f]
+            L = K.fraction_field()
+            data = [L(line) for line in f]
 
     if (data[0] == 0 or data[1] == 0) and (A.is_C() or A.is_S() or A.is_D()):
 
