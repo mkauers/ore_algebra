@@ -1432,9 +1432,7 @@ def guess_mult(data, algebra, **kwargs):
         for i in range_dim:
             if algebra.is_D(i):
                 power.append(_ff_factory(C))
-            elif algebra.is_S(i):
-                power.append(_power_factory(C))
-            elif algebra.is_Q(i):
+            elif algebra.is_S(i) or algebra.is_Q(i):
                 power.append(_power_factory(C))
 
         sol = guess_mult_raw(C, data, terms, points, power, A, B, **kwargs)
