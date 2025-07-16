@@ -1436,87 +1436,52 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         from sage.matrix.constructor import identity_matrix
         from ore_algebra.ideal import solve_coupled_system_CVM
         from sage.modules.free_module_element import vector
+        from sage.all import binomial
+        from sage.misc.flatten import flatten
 
         operator=self
-        order=operator.order()
         base=operator.parent().base()
         algebra=operator.parent()
+        result=[]
         if operator.order()<=1: 
             return "failed"
     
         if algebra.is_D():
             d_case = True
-            x = algebra.is_D()
         elif algebra.is_S():
             d_case = False
-            x = algebra.is_S()
+            factor=algebra(1)
+            while operator%(factor*algebra.gen())==algebra(0):
+                factor=factor*algebra.gen()
+            if factor !=1 :
+                operator=operator//factor
+                result=[factor]
+                if operator.order()<=1:
+                    return result[0] if single_factor else result
         else:
             raise NotImplementedError
+        D=algebra.gen()
+        order=operator.order()
 
         #use an ansatz with degree deg
-        for deg in range(1,order):
-            #generate variables
-            var_names = [f'{x}'] + [f'p{i}' for i in range((deg + 1)*(order + 1))]
-            S=PolynomialRing(QQ,var_names)
-            Frac=S.fraction_field()
-            if d_case: 
-                A = OreAlgebra(Frac, (
-                    "D" + var_names[0],
-                    lambda p: p,
-                    lambda f: (f.derivative(S.gens()[0])) + sum([f.derivative(S.gens()[i])*S.gens()[i+1] for i in range(1,len(S.gens())-1)])))
+        for deg in range(1,order):         
+            if d_case:
+                coef_matrices=[matrix([sum(binomial(n,k) * operator.coefficients(sparse=False)[n] * (D**(max(n - k + i, 0)) % operator) for n in range(k, order + 1)).coefficients(sparse=False, padd=order)[0:deg + 1] for i in range(deg + 1)]).transpose() for k in range(order + 1)]
             else:
-                subst={S.gens()[0]:S.gens()[0]+1}
-                subst.update({S.gens()[i]: S.gens()[i + 1] for i in range(1,(deg+1)*(order+1))})
-                A=OreAlgebra(Frac,("S"+var_names[0],lambda p:p.subs(subst),lambda p:0))
-            D=A.gen()
-            ansatz=sum([S.gens()[1:][i*(order+1)]*D**i for i in range(deg+1)])
-            operator=A(operator)
-            rem = (operator * ansatz) % operator 
+                coef_matrices=[matrix([(operator.coefficients(sparse=False)[n] * (D**(n + i) % operator)).coefficients(sparse=False,padd=order)[0:deg + 1] for i in range(deg + 1)]).transpose() for n in range(order + 1)]
+            coef_matrices=[coef_matrices[-1].inverse() * cc for cc in coef_matrices[0:-1]]
             
-            rem_coeffs=[r.numerator() for r in rem.coefficients(sparse=False)]
-            coeffs=matrix(Frac,[[r.coefficient(cc) for cc in S.gens()[1:]] for r in rem_coeffs])
-
-            #adjust the coefficients if needed
-            if not d_case:
-                for j in range(order,(deg+1)*(order+1),order+1):
-                    for i in range(len(rem_coeffs)):
-                        if j == i * (order+1) + order and coeffs[i,j] == 0:
-                            for k in range(i,len(rem_coeffs)): 
-                                if coeffs[k,j] != 0:
-                                    coeffs.swap_rows(i,k)
-                                    break
-                        if j != i * (order + 1) + order and coeffs[i,j] != 0:
-                            if coeffs.nrows() > (j + 1)/(order + 1) - 1 and coeffs[(j + 1) // (order + 1) - 1,j] == 0:
-                                for k in range((j + 1) // (order + 1) - 1,len(rem_coeffs)): 
-                                    if coeffs[k,j] != 0:
-                                        coeffs.swap_rows((j + 1) // (order + 1) - 1,k)
-                                        break
-                            if coeffs.nrows() > (j + 1) // (order + 1) - 1 and coeffs[(j + 1) // (order + 1) - 1,j] != 0:
-                                coeffs.add_multiple_of_row(i,(j + 1) // (order + 1) - 1,-coeffs[i,j] / coeffs[(j + 1) // (order + 1) - 1,j])
-            coeffs=[list(c) for c in coeffs]
             mat=[]
-            #construct matrix to compute a basis of the eigenring
-            idmat=[m.list() for m in identity_matrix(base,(deg + 1) * order)]
-            idmat.pop(0)
-            for line in coeffs: #coefficients of Dx^i
-                for _ in range(order - 1):
-                    mat.append(idmat.pop(0))
-                if idmat!=[]:
-                    idmat.pop(0)
-                denominator=sum(line.pop(i * (order + 1) + order - i) for i in range(deg + 1))
-                mat.append([(-m / (denominator if denominator != 0 else 1)) for m in line]) 
-                if idmat==[]:
-                    break
-            
+            for k in range(deg + 1):
+                mat += [[1 if j == 1 + i + k * (order) else 0 for j in range((deg+1) * (order))]    for i in range((order - 1))]
+                mat += [flatten([[-cc[k][i] for cc in coef_matrices]for i in range(deg + 1)])]
             mm=[[base(n) for n in m] for m in mat]
             res=solve_coupled_system_CVM(mm,[],algebra)
-            res=[sum([r[0][i] * D**(i // (deg + 1))  for i in range(len(r[0])) if i % (rem.order() + 1) == 0]) for r in res]
-
+            res=[sum([r[0][i] * D**(i // (deg + 1))  for i in range(len(r[0])) if i % (order) == 0]) for r in res]
             #check if non constant solution is found
             if  not all(r in QQ for r in res):
                 break
         
-        result=[]
         while res !=[] :
             p=res.pop()
             if p in QQ: 
@@ -1524,12 +1489,12 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
             sol=[]
             #find a linear dependence between powers of P to get the minimal polynomial
             for bound in range(2,5): #currently 5 is set as the highes bound for relations
-                powers = [A(1), p]  
+                powers = [algebra(1), p]  
                 for _ in range(1, bound):  
                     powers.append((p * powers[-1]) % operator)
                 max_order = max([op.order() for op in powers])
                 vecs = [vector(base, [op.coefficients(sparse=False)[i] if i < len(op.coefficients()) else 0 for i in range(max_order + 1)]) for op in powers]
-                m = matrix(Frac, vecs).transpose()
+                m = matrix(base, vecs).transpose()
                 resb = m.right_kernel().basis()
                 if resb == [] or all(sum(v) not in QQ for v in resb):
                     continue
@@ -1547,10 +1512,10 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
                 if sol == []:
                     continue
                 if single_factor:
-                    return  operator.gcrd(A(p)-A(sol[0]))
+                    return  operator.gcrd(algebra(p)-algebra(sol[0]))
                 else: 
                     break
-            result+=[operator.gcrd(A(p)-A(s)) for s in sol]
+            result+=[operator.gcrd(algebra(p)-algebra(s)) for s in sol]
 
         if result==[]:
             return "failed"
