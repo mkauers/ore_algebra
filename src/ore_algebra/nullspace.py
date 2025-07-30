@@ -152,6 +152,7 @@ AUTHOR:
 
 from datetime import datetime
 import math
+from itertools import product
 
 from sage.arith.functions import lcm
 from sage.arith.misc import CRT_basis
@@ -1319,6 +1320,22 @@ def _lagrange_rec(mod, mat, Mprime, a, b, product_tree, subsolver, infolevel):
                      V_right[i]))
             for i in range(len(V_left))]
 
+def _interpolation_linear_combination(coeffs, b, product_tree):
+    # alg 10.9 from vzgathen/gerhard
+    # b=length of coeffs
+
+    if b == 1:
+        return coeffs[0]
+
+    split = int(math.ceil(b/2))
+
+    M_left = product_tree[1][0]
+    M_right = product_tree[2][0]
+
+    p_left = _interpolation_linear_combination(coeffs[:split], split, product_tree[1])
+    p_right = _interpolation_linear_combination(coeffs[split:], b - split, product_tree[2])
+
+    return M_right*p_left + M_left*p_right
 
 def galois(subsolver, max_modulus=MAX_MODULUS, proof=False):
     r"""
@@ -1371,7 +1388,191 @@ def galois(subsolver, max_modulus=MAX_MODULUS, proof=False):
 
 
 def _galois(subsolver, max_modulus, proof, mat, degrees, infolevel):
-    raise NotImplementedError
+    r"""
+    Internal version of nullspace.galois_.
+    """
+
+    n, m = mat.dimensions()
+    R = mat.parent().base_ring()  # R = K[x]
+
+    x = R.gens()
+    K = R.base_ring()  # K = QQ(y)
+    _launch_info(infolevel, "galois", dim=(n, m), domain=R)
+
+    J = K.base_ring()
+    if not J == QQ:
+        raise TypeError  # base field must be extension of QQ
+
+    y = K.gens()  # y = alpha
+    if not len(y) == 1:
+        raise TypeError  # base field must be single extension of QQ
+
+    mp = y[0].minpoly()
+    assert mp.degree() > 1  # proper field extension necessary
+    assert mp.is_irreducible()  # minpoly() does not guarantee irreducibility
+
+    p = pp(max_modulus)
+
+    M = 1
+    V = None
+
+    while True:  # eventually calls pp(2), which throws exception
+        # new prime
+        p = pp(p)
+        Zp_x = GF(p)[x]
+
+        mp_mod_p = mp.change_ring(GF(p))
+        rootlist = mp_mod_p.roots()
+
+        if rootlist == []:
+            # zip* won't work
+            continue
+
+        roots, multiplicity = zip(*rootlist)
+        if not all(mult == 1 for mult in multiplicity):
+            # poly not squarefree
+            continue
+        if not len(roots) == mp_mod_p.degree():
+            # factors got lost
+            continue
+
+        # for fast interpolation later
+        var('new_x')
+        S = PolynomialRing(GF(p), 'new_x')
+        bound = len(roots)
+        M_tree = product_tree(new_x, roots, 0, bound)
+        mod = M_tree[0]
+
+        Vpr = [0] * len(roots)
+        x_max_degree = [0] * len(x)
+        
+        
+        B = [] # holds all matrices for subsolver call, efficiency > storage
+        for i in range(n):
+            for j in range(m):
+                a_ij = mat[i][j]
+                coeffpoly = Zp_x(0)
+                exp = Zp_x(0)
+                if a_ij != R.zero():
+                    coeffpoly = a_ij.coefficients()
+                    exp = a_ij.exponents()
+
+                new_coeffs = []
+                for coeff in coeffpoly:
+                    new_c = [S(c) for c in list(coeff)]
+                    new_cpoly = S((dict(zip(range(len(list(coeff))), new_c))))
+                    eval_result = []
+                    multipoint_evaluate(new_cpoly, roots, 0, bound, M_tree, eval_result)
+                    new_coeffs.append(eval_result)
+                new_coeffs = list(zip(*new_coeffs))
+                B.append([Zp_x(dict(zip(exp, i))) for i in new_coeffs])
+
+        for l, mat_mod_p in enumerate(list(zip(*B))):
+            _info(infolevel, "calling subsolver", alter=-1)
+            mat_root = matrix(Zp_x, [mat_mod_p[i:i + m] for i in range(0, len(mat_mod_p), m)])
+            Vpr[l] = subsolver(mat_root, degrees=degrees, infolevel=_alter_infolevel(infolevel, -2, 1))
+
+            # find maximal degree of all x in our solutions
+            for i in range(len(Vpr[l])):
+                for j in range(m):
+                    if len(x) == 1:
+                        deg = Vpr[l][i][j].degree()
+                        if deg > x_max_degree[0]:
+                            x_max_degree[0] = deg
+                    else:  # multivariate case
+                        deg = Vpr[l][i][j].degrees()
+                        for k, d in enumerate(deg):
+                            if d > x_max_degree[k]:
+                                x_max_degree[k] = d
+
+        if len(x) == 1:
+            monomial_exponents = range(x_max_degree[0] + 1)
+        else:
+            monomial_exponents = list(product(*[range(i + 1) for i in x_max_degree]))
+
+        # reorder the solutions
+        # assume all Vpr have same number of vectors = same dimension of vector space
+        # now the roots are on the innermost level
+        Vp_zip = [list(zip(*elem)) for elem in list(zip(*Vpr))]
+
+        ## combine results by interpolation: Zp[x] -> Zp(y)[x]
+        Vp = [0] * len(Vp_zip)
+        for i in range(len(Vp_zip)):
+            Vp_i = [0] * m
+            for j in range(m):
+                Vp_i_j = [0] * len(monomial_exponents)
+                for k, mon in enumerate(monomial_exponents):
+                    values = []
+                    for l in range(len(roots)):
+                        values.append(GF(p)(Vp_zip[i][j][l][mon]))  # in Zp
+
+                    Mprime = []
+                    multipoint_evaluate(mod.derivative(new_x), roots, 0, bound, M_tree, Mprime)
+                    coeffs = [v / mp for v, mp in zip(values, Mprime)]
+                    interpol = _interpolation_linear_combination(coeffs, bound, M_tree).coefficients(sparse=False)
+
+                    while len(interpol) < len(roots):
+                        interpol.append(0)
+                    Vp_i_j_k = [ZZ(a) for a in interpol]  # in Z
+                    Vp_i_j[k] = Vp_i_j_k
+                Vp_i[j] = Vp_i_j
+            Vp[i] = Vp_i
+
+        # CRA
+
+        if V is None:  # first iteration
+            V = Vp
+            M = p
+
+        if M != p:  # second iteration or later
+            # holds because p changes at the very beginning of each loop iteration
+            # merge current candidate Vp to previous result V
+            (g, M0, p0) = xgcd(p, M)
+            for i in range(len(V)):
+                Vi = V[i]
+                Vpi = Vp[i]
+                for j in range(len(Vi)):
+                    for k in range(len(monomial_exponents)):
+                        for l in range(len(roots)):
+                            Vi[j][k][l] = Vi[j][k][l] * M0 * p + Vpi[j][k][l] * p0 * M
+            M *= p
+
+        # Rational Reconstruction
+
+        try:  # is M already big enough?
+            sol = []
+            M_half = M // 2
+            for i in range(len(V)):
+                d = ZZ.one()
+                for j in range(len(V[0])):
+                    for k in range(len(V[0][0])):
+                        for l in range(len(roots)):
+                            d *= (d * V[i][j][k][l]).rational_reconstruction(M).denominator()
+
+                solution_vector = [0] * len(V[0])
+                for j in range(len(V[0])):
+
+                    polynomial = R(0)
+                    for k, exp in enumerate(monomial_exponents):
+
+                        polynomial_part = R(0)
+                        for l in range(len(roots)):
+                            s = R(((d * V[i][j][k][l] + M_half) % M) - M_half)
+                            polynomial_part += s * y[0] ** l
+                        if len(x) == 1:
+                            mon = x[0] ** exp
+                        else:
+                            mon = prod([x[i] ** e for i, e in enumerate(exp)])
+                        polynomial += polynomial_part * mon
+
+                    solution_vector[j] = polynomial
+
+                sol.append(vector(solution_vector))
+        except(ArithmeticError):
+            continue
+
+        if not any([any(mat * s) for s in sol]):
+            return (sol)
 
 
 def cra(subsolver, max_modulus=MAX_MODULUS, proof=False, ncpus=1):
