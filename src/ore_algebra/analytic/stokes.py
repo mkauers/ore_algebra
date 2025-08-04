@@ -356,6 +356,7 @@ def _singular_directions(sing, ini_prec=53):
     pi = IC.base().pi()
 
     # Compute the list of pairs (s0, s1) s.t. -π < arg(s1-s0) ≤ 0
+    # XXX Delay/avoid exact comparisons with 0 and π?
     chords = []
     for s0, s1 in itertools.combinations(sing, 2):
         theta = (IC(s1) - IC(s0)).arg()
