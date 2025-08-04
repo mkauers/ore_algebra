@@ -675,6 +675,44 @@ should now handle them in the right order::
     [[-3.50000000...] + [+/- ...]*I  [3.75000000...] + [+/- ...]*I]
     [ [3.00000000...] + [+/- ...]*I [-3.50000000...] + [+/- ...]*I]
 
+Handling of branches for an exact point lying right on the branch cut but whose
+natural interval approximation overlaps the branch cut (note that changing
+``iv`` to ``CBF(b)`` in the last input line would make the corresponding test
+fail, because ``CBF(b)`` would then be evaluated after ``b`` is exactified!)::
+
+    sage: a = QQbar(2*exp(I*2*pi/3))
+    sage: b = a + a.conjugate()
+    sage: iv = CBF(b); iv
+    -2.000000000000000 + [+/- 1.09e-19]*I
+    sage: (Dx*x*Dx).numerical_transition_matrix([0, b])[0,0]
+    [0.6931471805599453...] + [3.141592653589793...]*I
+    sage: (Dx*x*Dx).numerical_transition_matrix([0, b - I/10^1000])[0,0]
+    [0.6931471805599453...] + [-3.141592653589793...]*I
+    sage: (Dx*x*Dx).numerical_transition_matrix([0, iv])[0,0]
+    WARNING:ore_algebra.analytic.local_solutions:evaluating a singular local expansion on an interval crossing the branch cut; this may cause failures later
+    [0.6931471805599453...] + [+/- 3.15]*I
+
+Same with subdivision::
+
+    sage: ((x-1)*Dx*x*Dx).numerical_transition_matrix([0, b])[0,0]
+    [0.6931471805599453...] + [3.141592653589793...]*I
+    sage: ((x-1)*Dx*x*Dx).numerical_transition_matrix([0, b - I/10^1000])[0,0]
+    [0.6931471805599453...] + [-3.141592653589793...]*I
+    sage: ((x-1)*Dx*x*Dx).numerical_transition_matrix([0, iv])[0,0]
+    Traceback (most recent call last):
+    ...
+    NotImplementedError: cannot subdivide singular step ... involving an inexact
+    point on or too close to a local branch cut
+
+Same when the branch cut is not real::
+
+    sage: r = QQbar(I*sqrt(2))
+    sage: b = a + a.conjugate() + r
+    sage: (Dx*(x^2+2)*Dx).numerical_transition_matrix([r, b])[0,0]
+    [0.4904146265058631...] + [2.526112944919405...]*I
+    sage: (Dx*(x^2+2)*Dx).numerical_transition_matrix([r, b - I/10^100])[0,0]
+    [0.4904146265058631...] + [-3.757072362260180...]*I
+
 Miscellaneous tests::
 
     sage: dop =  -452*Dx^10 + (-2*x^2 - x - 1/2)*Dx^9 + (1/2*x + 22)*Dx^8 + (1/4*x^2 + x)*Dx^7 + (1/3*x^2 - 1/2*x + 1/3)*Dx^6 + (-3*x^2 + x + 1)*Dx^5 + (x^2 - 4/3*x)*Dx^4 + (2*x^2 - 2*x)*Dx^3 + (2*x^2 + x)*Dx^2 + (-2/3*x^2 - 5/27*x - 1/3)*Dx - 18*x^2 + 6/5*x - 6
