@@ -1484,7 +1484,7 @@ class Path(SageObject):
             sage: _test((9*x^2+4)*Dx+1, 2*i/3, -1+i, -2+2*i/3)
 
             sage: val_below = ((9*x^2+4)*Dx+1).numerical_transition_matrix([2*i/3, i/2, -1/2+2*i/3])[0,0]
-            sage: val_above = ((9*x^2+4)*Dx+1).numerical_transition_matrix([2*i/3, i/2, -1/2+2*i/3])[0,0]
+            sage: val_above = ((9*x^2+4)*Dx+1).numerical_transition_matrix([2*i/3, i, -1/2+2*i/3])[0,0]
             sage: val_both = ((9*x^2+4)*Dx+1).numerical_transition_matrix([2*i/3, CBF(-1/2+2*i/3)])[0,0]
             sage: val_below in val_both, val_above in val_both
             (True, True)

@@ -689,7 +689,8 @@ fail, because ``CBF(b)`` would then be evaluated after ``b`` is exactified!)::
     sage: (Dx*x*Dx).numerical_transition_matrix([0, b - I/10^1000])[0,0]
     [0.6931471805599453...] + [-3.141592653589793...]*I
     sage: (Dx*x*Dx).numerical_transition_matrix([0, iv])[0,0]
-    WARNING:ore_algebra.analytic.local_solutions:evaluating a singular local expansion on an interval crossing the branch cut; this may cause failures later
+    WARNING:ore_algebra.analytic.local_solutions:evaluating a singular local
+    expansion on an interval crossing the branch cut...
     [0.6931471805599453...] + [+/- 3.15]*I
 
 Same with subdivision::
