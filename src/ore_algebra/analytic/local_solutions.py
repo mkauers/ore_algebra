@@ -836,6 +836,13 @@ def log_series_values(Jets, expo, psum, pt, derivatives, is_numeric,
         pt = pt.parent().complex_field()(pt)
         Jets = Jets.change_ring(Scalars.complex_field())
         psum = psum.change_ring(Jets)
+        if (isinstance(pt.parent(), ComplexBallField)
+                and pt.real() < 0
+                and pt.imag().contains_zero()
+                and not pt.imag().is_zero()):
+            logger.warning("evaluating a singular local expansion on an "
+                        "interval crossing the branch cut; final accuracy may "
+                        "be limited regardless of input and working precision")
     high = Jets([0] + [(-1)**(k+1)*~pt**k/k
                        for k in range(1, derivatives)])
     expo_iv = expo.as_ball(Jets.base_ring())

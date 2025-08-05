@@ -883,16 +883,37 @@ class Step(SageObject):
             sage: Dops, x, Dx = DifferentialOperators()
             sage: (Dx - 1).numerical_solution([1], [0, RealField(10)(.33), 1])
             [2.71828182845904...]
+
+        Thanks to Eric Pichon-Pharabod for this example where log_series_values
+        would end up being called on an interval crossing a branch cut even
+        though the path was exact::
+
+            sage: from ore_algebra.analytic.monodromy import monodromy_matrices
+            sage: dop = ((x^8 - 287*x^7 - 351*x^6 + 1719*x^5 + 3226*x^4 - 1196*x^3 - 6544*x^2 - 5280*x - 1376)*Dx^4 +
+            ....: (10*x^7 - 2308*x^6 + 1314*x^5 + 17928*x^4 + 7928*x^3 - 35760*x^2 - 44080*x - 14688)*Dx^3 +
+            ....: (25*x^6 - 4217*x^5 + 10816*x^4 + 24742*x^3 - 40724*x^2 - 91112*x - 40704)*Dx^2 +
+            ....: (15*x^5 - 1480*x^4 + 6928*x^3 - 7248*x^2 - 43936*x - 28256)*Dx + x^4 - 22*x^3 - 60*x^2 - 2216*x - 2224)
+            sage: monodromy_matrices(dop, 0)
+            ...
         """
         if self.start._sage_value_has_fast_coerce(self.end):
-            return Tgt(self.delta())
-        P = Tgt
-        while True:
-            delta = P(self.end.value) - P(self.start.value)
-            if (delta.accuracy() >= 7*Tgt.precision()//8
-                    or delta.rad() <= 2*(self.start.rad() + self.end.rad())):
-                return Tgt(delta)
-            P = type(P)(2*P.precision())
+            delta = Tgt(self.delta())
+        else:
+            while True:
+                delta = Tgt(self.end.value) - Tgt(self.start.value)
+                if (delta.accuracy() >= 7*Tgt.precision()//8
+                        or delta.rad() <= 2*(self.start.rad() + self.end.rad())):
+                    break
+                Tgt = type(Tgt)(2*Tgt.precision())
+        # For singular steps whose end is on the branch cut, we need the
+        # imaginary part of the output to be exactly zero for the evaluation at
+        # high precision to converge. (Strictly speaking this is not necessary
+        # for poles...)
+        if (self.start.is_singular() and delta.imag().contains_zero()
+                and delta.real() < 0
+                and self.start.cmp_imag(self.end, uncomparable=2) == 0):
+            delta = Tgt(delta.real())
+        return delta
 
     def direction(self):
         delta = self.approx_delta(IC)
