@@ -75,9 +75,9 @@ Finally, to deduce a numeric bound, we fix a disk of validity ``|t| ≤ ρ`` and
 bound the value at ``ρ`` of the majorant series::
 
     sage: tmaj.bound(RBF(1))
-    [2.212445766787241e-11 +/- 5.44e-27]
+    [2.212445766787236e-11 +/- 6.82e-27]
     sage: tmaj.bound(RBF(2))
-    [0.00346092101224178 +/- 9.91e-19]
+    [0.00346092101224170 +/- 4.04e-18]
 
 If we are not happy with these bounds, we can spend more computational effort
 trying to make them tighter::
@@ -85,7 +85,7 @@ trying to make them tighter::
     sage: maj.refine()
     sage: maj.refine()
     sage: maj.tail_majorant(20, [res]).bound(RBF(2))
-    [0.001295756152020835 +/- 4.55e-19]
+    [0.001295756152020812 +/- 5.92e-19]
 
 Another object occasionally of interest is ::
 
@@ -488,10 +488,6 @@ class HyperexpMajorant(MajorantSeries):
         return "({}{})*exp(int({}))".format(shift_part, (~self.den)*self.num,
                                                                 self.integrand)
 
-    @cached_method
-    def _den_expanded(self):
-        return prod(pol**m for (pol, m) in self.den)
-
     def inv_exp_part_series0(self, ord):
         # This uses the fact that the integral in the definition of self starts
         # at zero!
@@ -617,7 +613,10 @@ class HyperexpMajorant(MajorantSeries):
         pert_rad = Pol([rad, 1])
         shx_ser = pert_rad.power_trunc(self.shift, ord)
         num_ser = Pol(self.num).compose_trunc(pert_rad, ord) # XXX: remove Pol()
-        den_ser = Pol(self._den_expanded()).compose_trunc(pert_rad, ord)
+        den_ser_factored = [
+            Pol(pol).compose_trunc(pert_rad, ord)._power_trunc(m, ord)
+            for pol, m in self.den]
+        den_ser = _mul_trunc_balanced(den_ser_factored, ord, Pol.one())
         if den_ser[0].contains_zero():
             # we will never obtain a finite bound using this result
             raise BoundPrecisionError
@@ -2581,3 +2580,13 @@ def _log2abs(x):
     else:
         lower = below.log(2)
     return lower.union(upper)
+
+def _mul_trunc_balanced(factors, order, one):
+    if len(factors) == 1:
+        return factors[0]
+    elif not factors:
+        return one
+    m = len(factors)//2
+    lo = _mul_trunc_balanced(factors[:m], order, one)
+    hi = _mul_trunc_balanced(factors[m:], order, one)
+    return lo._mul_trunc_(hi, order)
