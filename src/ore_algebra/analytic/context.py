@@ -195,3 +195,6 @@ class Context:
         return self._algorithm_index(k0) < self._algorithm_index(k1)
 
 dctx = Context() # default context
+
+def set_default_bounds_prec(bounds_prec):
+    dctx._set_interval_fields(bounds_prec)

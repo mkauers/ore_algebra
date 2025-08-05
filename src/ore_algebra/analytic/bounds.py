@@ -155,7 +155,18 @@ from .polynomial_root import PolynomialRoot
 logger = logging.getLogger(__name__)
 
 class BoundPrecisionError(Exception):
-    pass
+
+    def __init__(self, *args, **kwds):
+        super().__init__(*args, **kwds)
+        try:
+            self.add_note(
+                "Hint: Try increasing the bounds_prec parameter, if supported "
+                "by the function you are calling, or changing the default "
+                "value using "
+                "ore_algebra.analytic.context.set_default_bounds_prec(...). "
+                f"The current default is {dctx.IR.precision()}.")
+        except AttributeError:
+            pass
 
 class BadBound(Exception):
     pass
