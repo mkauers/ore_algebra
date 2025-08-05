@@ -2528,7 +2528,7 @@ def _test_diffop_bound(
         sage: from ore_algebra.analytic.bounds import _test_diffop_bound
         sage: _test_diffop_bound(ords=[2], degs=[2], pplens=[1], prec=100,
         ....:         seed=0, verbose=True)
-        testing operator: ((1/457*i - 6/457)*x^2 + (-1/457*i + 1/457)*x + 1/457*i - 3/457)*Dx^2 + ((-1/106*i + 1/106)*x^2 + (-2/53*i + 2/53)*x)*Dx + (1/214*i + 1/107)*x - 6/107*i - 1/107
+        testing operator: ((1/2285*i - 3/457)*x^2 + (-1/914*i + 1/914)*x + 1/914*i - 3/914)*Dx^2 + ((-1/212*i + 1/212)*x^2 + (-1/53*i + 2/159)*x)*Dx + (1/428*i + 1/214)*x - 3/107*i - 1/10272
     """
     from sage.rings.number_field.number_field import QuadraticField
 

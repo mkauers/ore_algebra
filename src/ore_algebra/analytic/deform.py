@@ -192,8 +192,8 @@ Three singularities in general position::
 
     sage: path = [-1, 1]
     sage: PathDeformer(Path(path, dop)).analytic_path
-    [(-1+0j), (-0.46...+0j), (-0.06...+0j), (0.29...+0j), (0.64...+0j),
-    (0.75+0j), (1+0j)]
+    [(-1+0j), ...(-0.46...+0j), ...(-0.06...+0j), ...(0.29...+0j),
+    ...(0.64...+0j), (0.75+0j), (1+0j)]
 
     sage: path = [-1,2*I,1]
     sage: pdef = PathDeformer(Path(path, dop))
