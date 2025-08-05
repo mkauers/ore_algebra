@@ -1295,311 +1295,6 @@ class Path(SageObject):
         new = Path(new, self.dop)
         return new
 
-    # The default factor of 0.5 works well in most cases, but for some operators
-    # (with no obvious pattern for now) 0.4 is much better.
-    def _intermediate_points(self, a, b, npoints, factor=IR(0.5),
-                             rel_tol=IR(0.125)):
-        r"""
-        Find one or two intermediate points along [a,b] suitable for summing
-        local solutions.
-
-        * In one-point mode, we look for a point m such that the series at a is
-          converges reasonably fast at m, and m is a good base for a new series
-          expansion.
-
-        * In two-point mode, we look for points m and c such that the series
-          at m converges reasonably fast at both a and c.
-
-        In both cases, the function may return fewer than npoints points if
-        a and b are close.
-
-        TESTS::
-
-            sage: from ore_algebra import OreAlgebra
-            sage: Pol.<x> = QQ[]
-            sage: Dop.<Dx> = OreAlgebra(Pol)
-
-        Thanks to Eric Pichon for this example where subdivision used to fail::
-
-            sage: from ore_algebra.analytic.examples.misc import pichon1_dop as dop
-            sage: step = [-1, 14521345101433106/10^17 - 1393025865960824/10^16*I]
-            sage: dop.numerical_transition_matrix(step, eps=2^(-100))[0,0]
-            [4.1258139030954317471185203831...] + [-1.3139743385825166508256917441...]*I
-
-            sage: dop2 = ((4065620328000*x^9 + 17619429495600*x^8 -
-            ....: 31381285474260*x^7 + 9196905421857*x^6 + 768859358196*x^5 -
-            ....: 97692678456*x^4 - 3409817952*x^3 + 517208800*x^2 + 11716864*x +
-            ....: 1748672)*Dx^3 + (24393721968000*x^8 + 69435616723200*x^7 -
-            ....: 146739205631880*x^6 + 37105615874628*x^5 +
-            ....: 1813796126280*x^4 + 29043241764*x^3 + 3396418776*x^2 -
-            ....: 2478525840*x - 18822624)*Dx^2 + (24393721968000*x^7 +
-            ....: 33154656472800*x^6 - 105168296827800*x^5 +
-            ....: 18161461388034*x^4 + 143883037728*x^3 +
-            ....: 198323267016*x^2 + 3242277984*x - 171991488)*Dx)
-            sage: step = [-134879941225471131681/7*I + 12/11, -119/8*I + 12/11]
-            sage: dop2.numerical_transition_matrix(step, assume_analytic=True).trace() # long time (~6.5 s)
-            [6...e+72 +/- ...] + [-4.6...e+72 +/- ...]*I
-
-        ...and for this one, showing that step subdivision could silently change
-        the homotopy class of the path, leading to incorrect results::
-
-            sage: l = [0, -5/100*I, -6/10-5/100*I, -8/10-5/100*I, -7/10-1/10*I,
-            ....:      -6/10-5/100*I, -5/100*I, 0]
-            sage: dop.numerical_transition_matrix(l + list(reversed(l)))
-            [[1.000000000...] + [+/- ...]*I        [+/- ...] + [+/- ...]*I]
-            [       [+/- ...] + [+/- ...]*I   [1.0000000...] + [+/- ...]*I]
-
-        Simple examples demonstrating essentially the same issue::
-
-            sage: ((x - 1)*Dx - 1).numerical_transition_matrix([0, 100+i/10])
-            [[-99.0000000000...] + [-0.100000000000...]*I]
-            sage: ((x^2 + 1)*Dx - 1).numerical_transition_matrix([0, 200*i-1/7])
-            [[0.207877720258...] + [0.0010394053945...]*I]
-        """
-        assert npoints in (1, 2)
-
-        # Forgoing the exact test here would not lead to incorrect enclosures but
-        # may cause intermediate points between a real singular point and
-        # another point lying right on the branch cut to be represented as
-        # intervals with a nontrivial imaginary part (cf.
-        # _rationalize_intermediate_point)
-        is_real = a.is_real() and b.is_real()
-        # is_real = a.iv().imag().is_zero() and b.iv().imag().is_zero()
-        vec = b.iv() - a.iv()
-        length = abs(vec)
-        dir = vec/abs(vec)
-
-        t = ~factor
-        if npoints == 1:
-            newlength = factor*a.dist_to_sing()
-        elif npoints == 2:
-            den = t**2 - 1
-            newlength = length
-
-        # For entire series, subdivide enough to (mostly) avoid term humps.
-        if a.dist_to_sing().is_infinity():
-            if a.is_singular():
-                # a is the unique finite singular point of dop; we need an
-                # equation centered on it for growth_parameters() to work.
-                assert a.is_exact()
-                dop_a = self.dop.shift(a)
-            else:
-                # Using the original operator saves a potentially costly shift
-                # and does not change(?) the growth parameters. Also, shifting
-                # to inexact points is not implemented (when a path has inexact
-                # vertices, we take an exact approximation and add a detour).
-                dop_a = self.dop
-            _, exponential_growth = dop_a.growth_parameters()
-            if exponential_growth > 0 and newlength > 2*~exponential_growth:
-                newlength = ~exponential_growth
-
-        channel_half_width = a.dist_to_sing()
-        sing_overlapping_a = 0
-        for s in self.dop._singularities(IC):
-            if s.overlaps(a.iv()):
-                sing_overlapping_a += 1
-                continue
-            h = (s - a.iv())/dir
-            xs, ys = h.real(), h.imag()
-            # Find the closest singularity (if any) that projects orthogonally
-            # on the step that we are splitting...
-            if not (IR.zero() > xs) and not (xs > length):
-                channel_half_width = min(channel_half_width, ys.below_abs())
-            # ...and the largest disk centered somewhere on [a, b], with a on
-            # the boundary, that is free of singularities (newlength =
-            # factor*radius of this disk)
-            if npoints == 2:
-                newlength1 = (((t*abs(h))**2 - ys**2).sqrt() - xs)/den
-                if newlength1 < newlength:
-                    newlength = newlength1
-        if sing_overlapping_a != int(a.is_singular()):
-            raise PathPrecisionError
-
-        # if npoints == 2:
-        #     _m0 = a.iv() + newlength*dir
-        #     _dist = min(abs(_m0-s) for s in self.dop._singularities(IC))
-        #     assert (factor*_dist).overlaps(newlength)
-
-        if npoints == 2 and newlength < length < 2*newlength:
-            newlength = length/2
-
-        res = []
-        for p in range(1, npoints + 1):
-
-            if not p*newlength*(1 + rel_tol) < length:
-                # Better go straight to point b
-                break
-
-            m = a.iv() + p*newlength*dir
-            m = self._rationalize_intermediate_point(
-                p, m, a, b, vec, dir, length, newlength, channel_half_width,
-                rel_tol, is_real)
-
-            # At the moment the action parameter is for debugging purposes; it
-            # is not used to choose the actual action taken
-            if npoints == 2:
-                action = "connect" if p == 2 else "expand"
-            else:
-                action = None
-            res.append(Point(m, self.dop, action=action))
-
-        return res
-
-    def _rationalize_intermediate_point(self, p, m0, a, b, vec, dir,
-                                        length, newlength,
-                                        channel_half_width, rel_tol, is_real):
-        r"""
-        Attempt to make m0 real and/or a simple Gaussian rational by perturbing
-        it slightly.
-
-        TESTS::
-
-            sage: from ore_algebra import OreAlgebra
-            sage: Pol.<x> = QQ[]
-            sage: Dop.<Dx> = OreAlgebra(Pol)
-
-        Handling of branch cuts::
-
-            sage: def _test(dop, a, b, c):
-            ....:     mat0 = dop.numerical_transition_matrix([a, b, c], 1e-25)
-            ....:     mat1 = dop.numerical_transition_matrix([a, c])
-            ....:     assert sum(abs(x) for x in (mat0 - mat1).list()) < RBF(1e-5)
-
-            sage: dop = ((x*(x*Dx+1/2) - x*Dx*(x*Dx-1)^4*(x*Dx-1/3)*(x*Dx-2/3))
-            ....:        .annihilator_of_composition(1/x^6)
-            ....:        .symmetric_product(x*Dx-3).borel_transform())
-            sage: a = dop.leading_coefficient().roots(QQbar, multiplicities=False)[-1]; a
-            3.000000000000000? + 5.196152422706632?*I
-            sage: _test(dop, -a.conjugate(), 3 + 6*i, a) # long time
-            sage: _test(dop, a, 3 + 6*i, -a.conjugate()) # long time
-
-            sage: (dop.numerical_transition_matrix(
-            ....:     [-a.conjugate(), 519615242270664/10^14*i, a])
-            ....:  - dop.numerical_transition_matrix(
-            ....:     [-a.conjugate(), 519615242270663/10^14*i, a])).trace()
-            [4.9455150710314...] + [2.3803933603710...]*I
-
-            sage: _test((x^2+2)*Dx-1, -1+sqrt(2)*i, 2*i, sqrt(2)*i)
-            sage: _test((x^2+4)*Dx+1, 2*i/3, -1+i, -2+2*i/3)
-            sage: _test((9*x^2+4)*Dx+1, 2*i/3, -1+i, -2+2*i/3)
-
-            sage: val_below = ((9*x^2+4)*Dx+1).numerical_transition_matrix([2*i/3, i/2, -1/2+2*i/3])[0,0]
-            sage: val_above = ((9*x^2+4)*Dx+1).numerical_transition_matrix([2*i/3, i, -1/2+2*i/3])[0,0]
-            sage: val_both = ((9*x^2+4)*Dx+1).numerical_transition_matrix([2*i/3, CBF(-1/2+2*i/3)])[0,0]
-            sage: val_below in val_both, val_above in val_both
-            (True, True)
-
-            sage: ((9*x^2+4)*Dx+1).numerical_transition_matrix([2*i/3, CBF(-2+2*i/3)])[0,0]
-            Traceback (most recent call last):
-            ...
-            NotImplementedError: cannot subdivide singular step 2/3*I -->
-            -2.00... + [0.66...]*I involving an inexact point on or too close to
-            a local branch cut
-
-        Thanks to Eric Pichon-Pharabod for these examples where rationalization
-        of a point on a branch cut would fail::
-
-            sage: from ore_algebra.analytic.monodromy import monodromy_matrices
-            sage: dop = ((38654705664*x^13 + 458219323392*x^12 + 2505173893120*x^11 + 8363789254656*x^10 + 19024458088448*x^9 + 31133232005120*x^8 + 37710927521792*x^7 + 34231890840320*x^6 + 23286791725072*x^5 + 11724728791736*x^4 + 4246887837249*x^3 + 1047957765651*x^2 + 157894624755*x + 10970415225)*Dx^4 +
-            ....: (773094113280*x^12 + 8421893996544*x^11 + 42014309613568*x^10 + 126917686591488*x^9 + 258562070937600*x^8 + 374240951042048*x^7 + 394605490954240*x^6 + 305401965805056*x^5 + 172182710109376*x^4 + 68963362939480*x^3 + 18625850545806*x^2 + 3045691826964*x + 228025927710)*Dx^3 +
-            ....: (4735201443840*x^11 + 47032911790080*x^10 + 212127046434816*x^9 + 573435624292352*x^8 + 1032320760938496*x^7 + 1299464550891520*x^6 + 1167069514836992*x^5 + 747825081884160*x^4 + 335033800815488*x^3 + 99945016169884*x^2 + 17866840468671*x + 1449979910307)*Dx^2 +
-            ....: (10050223472640*x^10 + 90155859836928*x^9 + 363477923266560*x^8 + 867276389613568*x^7 + 1356222792990720*x^6 + 1452304518856704*x^5 + 1078491576002560*x^4 + 548401619599104*x^3 + 182731924949184*x^2 + 36027613802612*x + 3191561027253)*Dx + 5800621768704*x^9 + 46446648754176*x^8 + 165033497591808*x^7 + 341514566762496*x^6 + 453571595010048*x^5 + 400921227214848*x^4 + 235848118120448*x^3 + 89034104867072*x^2 + 19571300755424*x + 1908585647784)
-            sage: monodromy_matrices(dop, 0)
-            ...
-        """
-
-        # When handling a singular step, we must make sure that the new point
-        # lies on the correct side of the branch cut.
-
-        # When is_real is True, the real part of the new point will be exactly
-        # zero by construction. It may look like we only need to consider
-        # possible singular steps when p == 1, but this is not the case, since a
-        # call with p == 2 may decide to return only one point.
-        singular_end = side_of_cut = None
-        if not is_real:
-            assert not vec.contains_zero()
-            # Even if a and b are both singular, only the branch cut at a
-            # matters if we are going left, only that at b if going right.
-            # If vec.real() contains 0, the box in which we search for a simple
-            # point cannot overlap the cut without containing the singularity.
-            if b.is_singular() and vec.real() > 0:
-                # incoming singular step; c must be on the same side as a
-                singular_end = b
-                side_of_cut = a.cmp_imag(b, uncomparable=-2)
-            if a.is_singular() and vec.real() < 0:
-                # outgoing singular step; c must be on the same side as b
-                singular_end = a
-                side_of_cut = b.cmp_imag(a, uncomparable=-2)
-
-        if side_of_cut == -2:
-            raise NotImplementedError("cannot subdivide singular step "
-                    f"{a} --> {b} involving an inexact point on or too close "
-                    "to a local branch cut")
-
-        # In addition, to preserve the homotopy class of the path, the angular
-        # perturbation needs to be small enough (absolute perturbations <=
-        # channel_half_width/√2, up to numerical errors, are safe). However, we
-        # allow for larger perturbations in the direction of the step. This is
-        # interesting mainly for steps along one of the axes.
-
-        # somewhat arbitrary, just so that the sequel does not fail with entire
-        # functions
-        if channel_half_width.is_infinity():
-            channel_half_width = newlength
-
-        for i in range(3, -2, -1):
-
-            delta = dir*IC(p*newlength.add_error(rel_tol*newlength),
-                           IR.zero().add_error(rel_tol*channel_half_width))
-            rel_tol = rel_tol**2 if i else IR(0.)
-            # The condition p*newlength*(1 + rel_tol) < length holds and
-            # implies |δ| < length in exact arithmetic, but, due to the
-            # wrapping effect in the multiplication by dir, the interval
-            # version may not hold.
-            if not abs(delta) < length:
-                continue
-            m = CIF(a.iv() + delta)
-            # If overestimation in the previous step made m contain a or b,
-            # little of what we are trying to do makes sense.
-            if m.overlaps(CIF(a.iv())) or m.overlaps(CIF(b.iv())):
-                continue
-            # When handling a singular step, we want the rationalized point to
-            # be on the correct side of the cut. Note that is_real implies that
-            # singular_end is None. We can skip clipping the box in this case
-            # since the rationalized point is then real as well by construction.
-            if singular_end is not None:
-                # TODO: strict=False for i>1 once we have better support for
-                # evaluation right on a non-real branch cut
-                m = _clip_to_half_plane(m, singular_end, side_of_cut,
-                                        strict=True)
-            r = _rationalize(m, is_real)
-            if is_real and a.iv().real() < r < b.iv().real():
-                break
-            # Check that the new point is on the correct side of the cut
-            if singular_end is not None:
-                c = Point(r, self.dop)
-                new_side_of_cut = c.cmp_imag(singular_end, uncomparable=-2)
-                logger.debug("singular_end=%s, side_of_cut=%s, "
-                             "new_side_of_cut=%s",
-                             singular_end, side_of_cut, new_side_of_cut)
-                # ok if both below, both across, or both (on or above)
-                if not (new_side_of_cut == side_of_cut
-                        or new_side_of_cut >= 0 and side_of_cut >= 0):
-                    logger.debug("side-of-cut check failed")
-                    continue
-            # Check that the homotopy class of the path did not change
-            c = Point(m0.union(r), self.dop)
-            try:
-                Step(a, c).check_singularity()
-                Step(c, b).check_singularity()
-                break
-            except ValueError:
-                logger.debug("homotopy check failed (m0=%s, m=%s, r=%s)",
-                            m0, m, r)
-        else:
-            raise ValueError(f"failed to subdivide (sub)step {a}-->{b}")
-        return r
-
     def subdivide(self, mode, thr=IR(0.6)):
         # TODO:
         # - support paths passing very close to singular points
@@ -1636,7 +1331,7 @@ class Path(SageObject):
                 # path.
                 skip = True
             else:
-                newpts = self._intermediate_points(cur, next, npoints)
+                newpts = _intermediate_points(self.dop, cur, next, npoints)
                 logger.debug("... + %s", newpts)
                 new.extend(newpts)
             if skip or len(newpts) < npoints:
@@ -1666,7 +1361,7 @@ class Path(SageObject):
         if safe_le(dist, thr*rad):
             return other
         else:
-            [via] = self._intermediate_points(sing, other, 1)
+            [via] = _intermediate_points(self.dop, sing, other, 1)
             return via
 
     def deform(self):
@@ -1822,6 +1517,310 @@ def polygon_around(point, size=17):
         x = _rationalize(IC(x))
         polygon.append(Point(x, point.dop))
     return polygon
+
+# The default factor of 0.5 works well in most cases, but for some operators
+# (with no obvious pattern for now) 0.4 is much better.
+def _intermediate_points(dop, a, b, npoints, factor=IR(0.5), rel_tol=IR(0.125)):
+    r"""
+    Find one or two intermediate points along [a,b] suitable for summing
+    local solutions.
+
+    * In one-point mode, we look for a point m such that the series at a is
+        converges reasonably fast at m, and m is a good base for a new series
+        expansion.
+
+    * In two-point mode, we look for points m and c such that the series
+        at m converges reasonably fast at both a and c.
+
+    In both cases, the function may return fewer than npoints points if
+    a and b are close.
+
+    TESTS::
+
+        sage: from ore_algebra import OreAlgebra
+        sage: Pol.<x> = QQ[]
+        sage: Dop.<Dx> = OreAlgebra(Pol)
+
+    Thanks to Eric Pichon for this example where subdivision used to fail::
+
+        sage: from ore_algebra.analytic.examples.misc import pichon1_dop as dop
+        sage: step = [-1, 14521345101433106/10^17 - 1393025865960824/10^16*I]
+        sage: dop.numerical_transition_matrix(step, eps=2^(-100))[0,0]
+        [4.1258139030954317471185203831...] + [-1.3139743385825166508256917441...]*I
+
+        sage: dop2 = ((4065620328000*x^9 + 17619429495600*x^8 -
+        ....: 31381285474260*x^7 + 9196905421857*x^6 + 768859358196*x^5 -
+        ....: 97692678456*x^4 - 3409817952*x^3 + 517208800*x^2 + 11716864*x +
+        ....: 1748672)*Dx^3 + (24393721968000*x^8 + 69435616723200*x^7 -
+        ....: 146739205631880*x^6 + 37105615874628*x^5 +
+        ....: 1813796126280*x^4 + 29043241764*x^3 + 3396418776*x^2 -
+        ....: 2478525840*x - 18822624)*Dx^2 + (24393721968000*x^7 +
+        ....: 33154656472800*x^6 - 105168296827800*x^5 +
+        ....: 18161461388034*x^4 + 143883037728*x^3 +
+        ....: 198323267016*x^2 + 3242277984*x - 171991488)*Dx)
+        sage: step = [-134879941225471131681/7*I + 12/11, -119/8*I + 12/11]
+        sage: dop2.numerical_transition_matrix(step, assume_analytic=True).trace() # long time (~6.5 s)
+        [6...e+72 +/- ...] + [-4.6...e+72 +/- ...]*I
+
+    ...and for this one, showing that step subdivision could silently change
+    the homotopy class of the path, leading to incorrect results::
+
+        sage: l = [0, -5/100*I, -6/10-5/100*I, -8/10-5/100*I, -7/10-1/10*I,
+        ....:      -6/10-5/100*I, -5/100*I, 0]
+        sage: dop.numerical_transition_matrix(l + list(reversed(l)))
+        [[1.000000000...] + [+/- ...]*I        [+/- ...] + [+/- ...]*I]
+        [       [+/- ...] + [+/- ...]*I   [1.0000000...] + [+/- ...]*I]
+
+    Simple examples demonstrating essentially the same issue::
+
+        sage: ((x - 1)*Dx - 1).numerical_transition_matrix([0, 100+i/10])
+        [[-99.0000000000...] + [-0.100000000000...]*I]
+        sage: ((x^2 + 1)*Dx - 1).numerical_transition_matrix([0, 200*i-1/7])
+        [[0.207877720258...] + [0.0010394053945...]*I]
+    """
+    assert npoints in (1, 2)
+
+    # Forgoing the exact test here would not lead to incorrect enclosures but
+    # may cause intermediate points between a real singular point and
+    # another point lying right on the branch cut to be represented as
+    # intervals with a nontrivial imaginary part (cf.
+    # _rationalize_intermediate_point)
+    is_real = a.is_real() and b.is_real()
+    # is_real = a.iv().imag().is_zero() and b.iv().imag().is_zero()
+    vec = b.iv() - a.iv()
+    length = abs(vec)
+    dir = vec/abs(vec)
+
+    t = ~factor
+    if npoints == 1:
+        newlength = factor*a.dist_to_sing()
+    elif npoints == 2:
+        den = t**2 - 1
+        newlength = length
+
+    # For entire series, subdivide enough to (mostly) avoid term humps.
+    if a.dist_to_sing().is_infinity():
+        if a.is_singular():
+            # a is the unique finite singular point of dop; we need an
+            # equation centered on it for growth_parameters() to work.
+            assert a.is_exact()
+            dop_a = dop.shift(a)
+        else:
+            # Using the original operator saves a potentially costly shift
+            # and does not change(?) the growth parameters. Also, shifting
+            # to inexact points is not implemented (when a path has inexact
+            # vertices, we take an exact approximation and add a detour).
+            dop_a = dop
+        _, exponential_growth = dop_a.growth_parameters()
+        if exponential_growth > 0 and newlength > 2*~exponential_growth:
+            newlength = ~exponential_growth
+
+    channel_half_width = a.dist_to_sing()
+    sing_overlapping_a = 0
+    for s in dop._singularities(IC):
+        if s.overlaps(a.iv()):
+            sing_overlapping_a += 1
+            continue
+        h = (s - a.iv())/dir
+        xs, ys = h.real(), h.imag()
+        # Find the closest singularity (if any) that projects orthogonally
+        # on the step that we are splitting...
+        if not (IR.zero() > xs) and not (xs > length):
+            channel_half_width = min(channel_half_width, ys.below_abs())
+        # ...and the largest disk centered somewhere on [a, b], with a on
+        # the boundary, that is free of singularities (newlength =
+        # factor*radius of this disk)
+        if npoints == 2:
+            newlength1 = (((t*abs(h))**2 - ys**2).sqrt() - xs)/den
+            if newlength1 < newlength:
+                newlength = newlength1
+    if sing_overlapping_a != int(a.is_singular()):
+        raise PathPrecisionError
+
+    # if npoints == 2:
+    #     _m0 = a.iv() + newlength*dir
+    #     _dist = min(abs(_m0-s) for s in dop._singularities(IC))
+    #     assert (factor*_dist).overlaps(newlength)
+
+    if npoints == 2 and newlength < length < 2*newlength:
+        newlength = length/2
+
+    res = []
+    for p in range(1, npoints + 1):
+
+        if not p*newlength*(1 + rel_tol) < length:
+            # Better go straight to point b
+            break
+
+        m = a.iv() + p*newlength*dir
+        m = _rationalize_intermediate_point(dop, p, m, a, b, vec, dir, length,
+                                            newlength, channel_half_width,
+                                            rel_tol, is_real)
+
+        # At the moment the action parameter is for debugging purposes; it
+        # is not used to choose the actual action taken
+        if npoints == 2:
+            action = "connect" if p == 2 else "expand"
+        else:
+            action = None
+        res.append(Point(m, dop, action=action))
+
+    return res
+
+def _rationalize_intermediate_point(dop, p, m0, a, b, vec, dir,
+                                    length, newlength,
+                                    channel_half_width, rel_tol, is_real):
+    r"""
+    Attempt to make m0 real and/or a simple Gaussian rational by perturbing
+    it slightly.
+
+    TESTS::
+
+        sage: from ore_algebra import OreAlgebra
+        sage: Pol.<x> = QQ[]
+        sage: Dop.<Dx> = OreAlgebra(Pol)
+
+    Handling of branch cuts::
+
+        sage: def _test(dop, a, b, c):
+        ....:     mat0 = dop.numerical_transition_matrix([a, b, c], 1e-25)
+        ....:     mat1 = dop.numerical_transition_matrix([a, c])
+        ....:     assert sum(abs(x) for x in (mat0 - mat1).list()) < RBF(1e-5)
+
+        sage: dop = ((x*(x*Dx+1/2) - x*Dx*(x*Dx-1)^4*(x*Dx-1/3)*(x*Dx-2/3))
+        ....:        .annihilator_of_composition(1/x^6)
+        ....:        .symmetric_product(x*Dx-3).borel_transform())
+        sage: a = dop.leading_coefficient().roots(QQbar, multiplicities=False)[-1]; a
+        3.000000000000000? + 5.196152422706632?*I
+        sage: _test(dop, -a.conjugate(), 3 + 6*i, a) # long time
+        sage: _test(dop, a, 3 + 6*i, -a.conjugate()) # long time
+
+        sage: (dop.numerical_transition_matrix(
+        ....:     [-a.conjugate(), 519615242270664/10^14*i, a])
+        ....:  - dop.numerical_transition_matrix(
+        ....:     [-a.conjugate(), 519615242270663/10^14*i, a])).trace()
+        [4.9455150710314...] + [2.3803933603710...]*I
+
+        sage: _test((x^2+2)*Dx-1, -1+sqrt(2)*i, 2*i, sqrt(2)*i)
+        sage: _test((x^2+4)*Dx+1, 2*i/3, -1+i, -2+2*i/3)
+        sage: _test((9*x^2+4)*Dx+1, 2*i/3, -1+i, -2+2*i/3)
+
+        sage: val_below = ((9*x^2+4)*Dx+1).numerical_transition_matrix([2*i/3, i/2, -1/2+2*i/3])[0,0]
+        sage: val_above = ((9*x^2+4)*Dx+1).numerical_transition_matrix([2*i/3, i, -1/2+2*i/3])[0,0]
+        sage: val_both = ((9*x^2+4)*Dx+1).numerical_transition_matrix([2*i/3, CBF(-1/2+2*i/3)])[0,0]
+        sage: val_below in val_both, val_above in val_both
+        (True, True)
+
+        sage: ((9*x^2+4)*Dx+1).numerical_transition_matrix([2*i/3, CBF(-2+2*i/3)])[0,0]
+        Traceback (most recent call last):
+        ...
+        NotImplementedError: cannot subdivide singular step 2/3*I -->
+        -2.00... + [0.66...]*I involving an inexact point on or too close to
+        a local branch cut
+
+    Thanks to Eric Pichon-Pharabod for these examples where rationalization
+    of a point on a branch cut would fail::
+
+        sage: from ore_algebra.analytic.monodromy import monodromy_matrices
+        sage: dop = ((38654705664*x^13 + 458219323392*x^12 + 2505173893120*x^11 + 8363789254656*x^10 + 19024458088448*x^9 + 31133232005120*x^8 + 37710927521792*x^7 + 34231890840320*x^6 + 23286791725072*x^5 + 11724728791736*x^4 + 4246887837249*x^3 + 1047957765651*x^2 + 157894624755*x + 10970415225)*Dx^4 +
+        ....: (773094113280*x^12 + 8421893996544*x^11 + 42014309613568*x^10 + 126917686591488*x^9 + 258562070937600*x^8 + 374240951042048*x^7 + 394605490954240*x^6 + 305401965805056*x^5 + 172182710109376*x^4 + 68963362939480*x^3 + 18625850545806*x^2 + 3045691826964*x + 228025927710)*Dx^3 +
+        ....: (4735201443840*x^11 + 47032911790080*x^10 + 212127046434816*x^9 + 573435624292352*x^8 + 1032320760938496*x^7 + 1299464550891520*x^6 + 1167069514836992*x^5 + 747825081884160*x^4 + 335033800815488*x^3 + 99945016169884*x^2 + 17866840468671*x + 1449979910307)*Dx^2 +
+        ....: (10050223472640*x^10 + 90155859836928*x^9 + 363477923266560*x^8 + 867276389613568*x^7 + 1356222792990720*x^6 + 1452304518856704*x^5 + 1078491576002560*x^4 + 548401619599104*x^3 + 182731924949184*x^2 + 36027613802612*x + 3191561027253)*Dx + 5800621768704*x^9 + 46446648754176*x^8 + 165033497591808*x^7 + 341514566762496*x^6 + 453571595010048*x^5 + 400921227214848*x^4 + 235848118120448*x^3 + 89034104867072*x^2 + 19571300755424*x + 1908585647784)
+        sage: monodromy_matrices(dop, 0)
+        ...
+    """
+
+    # When handling a singular step, we must make sure that the new point
+    # lies on the correct side of the branch cut.
+
+    # When is_real is True, the real part of the new point will be exactly
+    # zero by construction. It may look like we only need to consider
+    # possible singular steps when p == 1, but this is not the case, since a
+    # call with p == 2 may decide to return only one point.
+    singular_end = side_of_cut = None
+    if not is_real:
+        assert not vec.contains_zero()
+        # Even if a and b are both singular, only the branch cut at a
+        # matters if we are going left, only that at b if going right.
+        # If vec.real() contains 0, the box in which we search for a simple
+        # point cannot overlap the cut without containing the singularity.
+        if b.is_singular() and vec.real() > 0:
+            # incoming singular step; c must be on the same side as a
+            singular_end = b
+            side_of_cut = a.cmp_imag(b, uncomparable=-2)
+        if a.is_singular() and vec.real() < 0:
+            # outgoing singular step; c must be on the same side as b
+            singular_end = a
+            side_of_cut = b.cmp_imag(a, uncomparable=-2)
+
+    if side_of_cut == -2:
+        raise NotImplementedError("cannot subdivide singular step "
+                f"{a} --> {b} involving an inexact point on or too close "
+                "to a local branch cut")
+
+    # In addition, to preserve the homotopy class of the path, the angular
+    # perturbation needs to be small enough (absolute perturbations <=
+    # channel_half_width/√2, up to numerical errors, are safe). However, we
+    # allow for larger perturbations in the direction of the step. This is
+    # interesting mainly for steps along one of the axes.
+
+    # somewhat arbitrary, just so that the sequel does not fail with entire
+    # functions
+    if channel_half_width.is_infinity():
+        channel_half_width = newlength
+
+    for i in range(3, -2, -1):
+
+        delta = dir*IC(p*newlength.add_error(rel_tol*newlength),
+                        IR.zero().add_error(rel_tol*channel_half_width))
+        rel_tol = rel_tol**2 if i else IR(0.)
+        # The condition p*newlength*(1 + rel_tol) < length holds and
+        # implies |δ| < length in exact arithmetic, but, due to the
+        # wrapping effect in the multiplication by dir, the interval
+        # version may not hold.
+        if not abs(delta) < length:
+            continue
+        m = CIF(a.iv() + delta)
+        # If overestimation in the previous step made m contain a or b,
+        # little of what we are trying to do makes sense.
+        if m.overlaps(CIF(a.iv())) or m.overlaps(CIF(b.iv())):
+            continue
+        # When handling a singular step, we want the rationalized point to
+        # be on the correct side of the cut. Note that is_real implies that
+        # singular_end is None. We can skip clipping the box in this case
+        # since the rationalized point is then real as well by construction.
+        if singular_end is not None:
+            # TODO: strict=False for i>1 once we have better support for
+            # evaluation right on a non-real branch cut
+            m = _clip_to_half_plane(m, singular_end, side_of_cut,
+                                    strict=True)
+        r = _rationalize(m, is_real)
+        if is_real and a.iv().real() < r < b.iv().real():
+            break
+        # Check that the new point is on the correct side of the cut
+        if singular_end is not None:
+            c = Point(r, dop)
+            new_side_of_cut = c.cmp_imag(singular_end, uncomparable=-2)
+            logger.debug("singular_end=%s, side_of_cut=%s, "
+                            "new_side_of_cut=%s",
+                            singular_end, side_of_cut, new_side_of_cut)
+            # ok if both below, both across, or both (on or above)
+            if not (new_side_of_cut == side_of_cut
+                    or new_side_of_cut >= 0 and side_of_cut >= 0):
+                logger.debug("side-of-cut check failed")
+                continue
+        # Check that the homotopy class of the path did not change
+        c = Point(m0.union(r), dop)
+        try:
+            Step(a, c).check_singularity()
+            Step(c, b).check_singularity()
+            break
+        except ValueError:
+            logger.debug("homotopy check failed (m0=%s, m=%s, r=%s)",
+                        m0, m, r)
+    else:
+        raise ValueError(f"failed to subdivide (sub)step {a}-->{b}")
+    return r
 
 def _clip_to_half_plane(m, singular_end, side_of_cut, strict):
     _CIF = CIF
