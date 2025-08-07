@@ -189,7 +189,7 @@ analytic at a non-apparent dominant singular point of the operator::
     sage: Recops.<Sn> = OreAlgebra(Pols_n)
     sage: dop = ((n+3)^2*Sn^2-(n+2)*(3*n+11)/2*Sn+(n+4)*(n+1)/2).to_D(Diffops)
 
-    sage: bound_coefficients(dop, [1,1/4], order=2, n0=50, prec=1000)
+    sage: bound_coefficients(dop, [1,1/4], order=2, n0=50, prec=1000)  # long time
     1.00...*([...] + [...]*I + B(5.37...*(4/7)^n, n >= 50))
 
     sage: bound_coefficients(dop, [1,1/4], order=2, n0=50, known_analytic=[0,1])
@@ -301,9 +301,9 @@ General exponents::
 
 ::
 
-    sage: test_monomial(alpha=-3/2, beta=1)
+    sage: test_monomial(alpha=-3/2, beta=1)  # long time
     (True, ... + B([...]*n^(-13/2)*log(n), n >= ...) + O(...^n)))
-    sage: test_monomial(alpha=2/3, beta=1)
+    sage: test_monomial(alpha=2/3, beta=1)  # long time
     (True, ... + B([...]*n^(-13/3)*log(n), n >= ...) + O(...^n)))
 
 Here our code disagrees with ``asympotic_expansions.SingularityAnalysis``, but
@@ -462,7 +462,7 @@ Algebraic exponents::
 
 Varying the position of the singularity::
 
-    sage: test_monomial(zeta=2, alpha=1/2, beta=1)
+    sage: test_monomial(zeta=2, alpha=1/2, beta=1)  # long time
     (True, ... + B([...]*n^(-9/2)*log(n), n >= ...) + O((...)^n)))
 
 ::
