@@ -807,7 +807,16 @@ class Step(SageObject):
         self.end = end
         self.reversed = reversed
         self.type = type
-        self.max_split = 3 if max_split is None else max_split
+        if (self.start.is_singular() and not self.end.is_exact()
+                and not self.end.iv().real() >= 0
+                and self.end.cmp_imag(self.start, uncomparable=-2) == -2):
+            if max_split is not None and max_split >= 1:
+                logger.warning("overriding max_split for inexact singular step")
+            self.max_split = 0
+        elif max_split is None:
+            self.max_split = 3
+        else:
+            self.max_split = max_split
 
     def _repr_(self):
         type = "" if self.type is None else f"[{self.type}] "
@@ -943,14 +952,13 @@ class Step(SageObject):
         assert not self.end.is_singular()
         # Ensure that the substeps correspond to convergent series when
         # splitting a singular step
-        if self.start.is_singular():
-            mid = (self.start.iv() + 2*self.end.iv())/3
-        else:
-            mid = (self.start.iv() + self.end.iv())/2
-        mid = Point(mid, self.start.dop)
-        mid = mid.rationalize()
+        factor = IR(2/3) if self.start.is_singular() else IR(1/2)
+        [mid] = _intermediate_points(self.start.dop, self.start, self.end,
+                                     npoints=1, rel_tol=IR(1e-30),
+                                     factor=factor,
+                                     fraction_of_step=True)
         s0 = Step(self.start, mid, reversed=self.reversed,
-                    type="split", max_split=self.max_split-1)
+                  type="split", max_split=self.max_split-1)
         if self.reversed:
             s1 = Step(self.end, mid, type="split", max_split=self.max_split-1)
         else:
@@ -1520,20 +1528,34 @@ def polygon_around(point, size=17):
 
 # The default factor of 0.5 works well in most cases, but for some operators
 # (with no obvious pattern for now) 0.4 is much better.
-def _intermediate_points(dop, a, b, npoints, factor=IR(0.5), rel_tol=IR(0.125)):
+def _intermediate_points(dop, a, b, npoints, factor=IR(0.5), rel_tol=IR(0.125),
+                         fraction_of_step=False):
     r"""
     Find one or two intermediate points along [a,b] suitable for summing
     local solutions.
 
-    * In one-point mode, we look for a point m such that the series at a is
-        converges reasonably fast at m, and m is a good base for a new series
-        expansion.
+    INPUT:
 
-    * In two-point mode, we look for points m and c such that the series
-        at m converges reasonably fast at both a and c.
+    * ``npoints`` -- Mode of operation.
 
-    In both cases, the function may return fewer than npoints points if
-    a and b are close.
+      In one-point mode, we look for a point ``m`` such that the series at a is
+      converges reasonably fast at ``m``, and ``m`` is a good base for a new
+      series expansion.
+
+      In two-point mode, we look for points ``m`` and ``c`` such that the series
+      at ``m`` converges reasonably fast at both ``a`` and ``c``.
+
+      In both cases, the function may return fewer than ``npoints`` points if
+      ``a`` and ``b`` are close.
+
+    * ``factor`` -- Approximate fraction of the distance to the singularity
+      that each of the new step(s) should cover.
+
+    * ``rel_tol`` -- Tolerance on the position of the new points.
+
+    * ``fraction_of_step`` (one-point mode only) -- If True, ``factor`` is
+      relative of the length of [a,b] instead of the distance to the
+      singularity.
 
     TESTS::
 
@@ -1593,8 +1615,12 @@ def _intermediate_points(dop, a, b, npoints, factor=IR(0.5), rel_tol=IR(0.125)):
 
     t = ~factor
     if npoints == 1:
-        newlength = factor*a.dist_to_sing()
+        if fraction_of_step:
+            newlength = factor*length
+        else:
+            newlength = factor*a.dist_to_sing()
     elif npoints == 2:
+        assert not fraction_of_step
         den = t**2 - 1
         newlength = length
 
@@ -1708,6 +1734,7 @@ def _rationalize_intermediate_point(dop, p, m0, a, b, vec, dir,
         sage: val_below = ((9*x^2+4)*Dx+1).numerical_transition_matrix([2*i/3, i/2, -1/2+2*i/3])[0,0]
         sage: val_above = ((9*x^2+4)*Dx+1).numerical_transition_matrix([2*i/3, i, -1/2+2*i/3])[0,0]
         sage: val_both = ((9*x^2+4)*Dx+1).numerical_transition_matrix([2*i/3, CBF(-1/2+2*i/3)])[0,0]
+        ...
         sage: val_below in val_both, val_above in val_both
         (True, True)
 
