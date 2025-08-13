@@ -98,10 +98,20 @@ class PolynomialRoot(SageObject):
         """
         if self.pol.base_ring() is QQ:
             # bypass ANRoot.exactify()
-            x = self.pol.parent().gen()
-            den = self.pol.monic().denominator()
-            pol = self.pol(x/den).monic()
-            assert pol.denominator().is_one()
+            assert self.pol.is_monic()
+            den = self.pol.denominator()
+            if den.is_one():
+                pol = self.pol
+            else:
+                deg = self.pol.degree()
+                denpow = ZZ.one()
+                newc = [None]*(deg + 1)
+                newc[deg] = QQ.one()
+                for i in range(deg - 1, -1, -1):
+                    denpow *= den
+                    newc[i] = denpow*self.pol[i]
+                pol = self.pol.parent()(newc)
+                assert pol.denominator().is_one()
             nf = NumberField(pol, 'a', check=False)
             rt = ANRoot(pol, self.all_roots[self.index]*den)
             gen = AlgebraicGenerator(nf, rt)
