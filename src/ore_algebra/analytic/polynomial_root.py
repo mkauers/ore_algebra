@@ -67,8 +67,10 @@ class PolynomialRoot(SageObject):
         return hash((self.pol, self.index))
 
     def as_ball(self, tgt):
-        alg = self.as_algebraic()
         prec = tgt.precision()
+        if self.all_roots[self.index].prec() >= prec:
+            return tgt(self.all_roots[self.index])
+        alg = self.as_algebraic()
         if alg._value.prec() < prec:
             # avoid the loop in AlgebraicNumber_base._more_precision()...
             alg._value = alg._descr._interval_fast(prec)

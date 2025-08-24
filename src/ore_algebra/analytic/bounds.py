@@ -85,7 +85,7 @@ trying to make them tighter::
     sage: maj.refine()
     sage: maj.refine()
     sage: maj.tail_majorant(20, [res]).bound(RBF(2))
-    [0.001295756152020812 +/- 5.92e-19]
+    [0.00129575615202081...]
 
 Another object occasionally of interest is ::
 
