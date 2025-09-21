@@ -132,7 +132,7 @@ class GeneralizedSeriesMonoid(UniqueRepresentation, Parent):
         and whose product with any other object is zero. In a strict mathematical sense,
         the set of all generalized series therefore does not form a monoid.
 
-        Nonzero objects involving no logariths (i.e., deg(q)==0) admit a multiplicative
+        Nonzero objects involving no logarithms (i.e., deg(q)==0) admit a multiplicative
         inverse if the series part has finite precision.
 
         Coercion is supported from constants, polynomials, power series and Laurent
@@ -188,13 +188,27 @@ class GeneralizedSeriesMonoid(UniqueRepresentation, Parent):
 
     def var(self):
         """
-        Returns the variable name associated to this monoid.
+        Return the variable name associated to this monoid.
+
+        EXAMPLES::
+
+            sage: from ore_algebra.generalized_series import GeneralizedSeriesMonoid
+            sage: G = GeneralizedSeriesMonoid(QQ, 'x')
+            sage: G.var()
+            'x'
         """
         return self.__var
 
     def gen(self):
         """
-        Returns the generator of this monoid
+        Return the generator of this monoid
+
+        EXAMPLES::
+
+            sage: from ore_algebra.generalized_series import GeneralizedSeriesMonoid
+            sage: G = GeneralizedSeriesMonoid(QQ, 'x')
+            sage: G.gen()
+            x
         """
         try:
             return self.__gen
@@ -210,23 +224,38 @@ class GeneralizedSeriesMonoid(UniqueRepresentation, Parent):
 
     def exp_ring(self):
         r"""
-        Returns the ring which is used to store the exponential part of a generalized series.
+        Return the ring which is used to store the exponential part of a generalized series.
         It is the univariate polynomial ring in over ``self.base()`` in the variable ``self.var()``.
 
         A polynomial `p` represents the exponential part `\exp(\int_0^x p(t^{1/r})/t dt)`,
         where `r` is the object's ramification.
 
         In particular, a constant polynomial `\alpha` represents \exp(\alpha\log(x))=x^\alpha`.
+
+        EXAMPLES::
+
+            sage: from ore_algebra.generalized_series import GeneralizedSeriesMonoid
+            sage: G = GeneralizedSeriesMonoid(QQ, 'x')
+            sage: G.exp_ring()
+            Univariate Polynomial Ring in x over Rational Field
         """
         return self.__exp_ring
 
     def tail_ring(self):
         r"""
-        Returns the ring which is used to store the non-exponential part (the tail) of a generalized series.
+        Return the ring which is used to store the non-exponential part (the tail) of a generalized series.
         It is the univariate polynomial ring in the variable "LOG" over the power series ring in ``self.var()``
         over ``self.base()``.
 
         A polynomial `p(x,y)` represents the tail `p(x^{1/r}, \log(x))`.
+
+        EXAMPLES::
+
+            sage: from ore_algebra.generalized_series import GeneralizedSeriesMonoid
+            sage: G = GeneralizedSeriesMonoid(QQ, 'x')
+            sage: G.tail_ring()
+            Univariate Polynomial Ring in LOG over Power Series Ring in x
+            over Rational Field
         """
         return self.__tail_ring
 
@@ -243,7 +272,14 @@ class GeneralizedSeriesMonoid(UniqueRepresentation, Parent):
 
     def random_element(self):
         """
-        Returns a random element of this monoid.
+        Return a random element of this monoid.
+
+        EXAMPLES::
+
+            sage: from ore_algebra.generalized_series import GeneralizedSeriesMonoid
+            sage: G = GeneralizedSeriesMonoid(QQ, 'x')
+            sage: G.random_element()  # random
+            exp(-1116*x^(-2) - x^(-1))*x^(-2)*((3/2 - 1/5*x + 2*x^2 + 1/14*x^3 + x^4 - x^5 + 3*x^6 + x^7 + 1/6*x^9 + 1/2*x^11 - x^15 + 1/2*x^16 - 19/2*x^17 - 3/4*x^18 - 34/3*x^19 + O(x^20))*log(x)^2 + (-2 + x - x^2 + x^4 + 1/32*x^5 + 1/31*x^6 + 7/3*x^7 + 1/8*x^8 + 33*x^9 + 1/5*x^10 + x^11 - 6*x^12 - x^13 + 3*x^14 - 17*x^15 + 1/8*x^16 + x^17 + 2*x^18 + x^19 + O(x^20))*log(x) + 2 + 3*x - 1/2*x^2 + x^3 + 4*x^4 - 2*x^5 + 1/2*x^7 + x^8 + 7/3*x^9 - 1/5*x^10 - x^11 + 5/91*x^14 - 1/19*x^15 - x^16 - 9/11*x^17 + 9*x^18 + x^19 + O(x^20))
         """
         if self.is_continuous():
             return self(self.__tail_ring.random_element(), exp=self.__exp_ring.random_element())
@@ -264,13 +300,20 @@ class GeneralizedSeriesMonoid(UniqueRepresentation, Parent):
 
     def is_exact(self):
         """
-        Returns ``False``, because series objects are inherently approximate.
+        Return ``False``, because series objects are inherently approximate.
+
+        EXAMPLES::
+
+            sage: from ore_algebra.generalized_series import GeneralizedSeriesMonoid
+            sage: G = GeneralizedSeriesMonoid(QQ, 'x')
+            sage: G.is_exact()
+            False
         """
         return False
 
     def base_extend(self, ext, name='a'):
         """
-        Returns a monoid with an extended coefficient domain.
+        Return a monoid with an extended coefficient domain.
 
         INPUT:
 
@@ -435,7 +478,8 @@ class ContinuousGeneralizedSeries(RingElement):
 
     def __getitem__(self, key):
         """
-        Returns a particular coefficient of the tail.
+        Return a particular coefficient of the tail.
+
         The tail is regarded as an element of C[[x^(1/r)]][log(x)].
         The input of the method is either a pair (a,b) where a is the
         exponent of log(x) and b the exponent of x, or just a rational
@@ -694,7 +738,7 @@ class ContinuousGeneralizedSeries(RingElement):
 
     def exponential_part(self):
         """
-        Returns the exponential part of this series.
+        Return the exponential part of this series.
 
         This is the series obtained from ``self`` by discarding the tail.
 
@@ -737,7 +781,7 @@ class ContinuousGeneralizedSeries(RingElement):
 
     def logarithmic_derivative_exponential_part(self):
         """
-        Returns the logarithmic derivative of the exponential part of the generalized series
+        Return the logarithmic derivative of the exponential part of the generalized series
         """
         x = self.__exp.parent().gen()
         return (x*self.__exp).subs({x : 1/x})
@@ -751,7 +795,7 @@ class ContinuousGeneralizedSeries(RingElement):
 
     def tail(self):
         """
-        Returns the tail of this series.
+        Return the tail of this series.
 
         This is the series object which is obtained from ``self`` by dropping the exponential part.
 
@@ -772,7 +816,7 @@ class ContinuousGeneralizedSeries(RingElement):
 
     def ramification(self):
         """
-        Returns the ramification of this series object.
+        Return the ramification of this series object.
 
         This is the smallest positive integer `r` such that replacing `x` by `x^r` in the series
         clears the denominators of all exponents.
@@ -794,7 +838,7 @@ class ContinuousGeneralizedSeries(RingElement):
 
     def order(self):
         r"""
-        Returns the order of this series.
+        Return the order of this series.
 
         The order is defined as the maximal coefficient ring element `\alpha`
         such that for all terms `x^i\log(x)^j` appearing in this series we have
@@ -823,7 +867,7 @@ class ContinuousGeneralizedSeries(RingElement):
 
     def base(self):
         """
-        Returns the parent's coefficient domain.
+        Return the parent's coefficient domain.
         """
         return self.parent().base()
 
@@ -881,7 +925,7 @@ class ContinuousGeneralizedSeries(RingElement):
 
     def substitute(self, e):
         """
-        Returns the series object obtained from ``self`` by replacing `x` by `x^e`, where `e` is
+        Return the series object obtained from ``self`` by replacing `x` by `x^e`, where `e` is
         a positive rational number.
 
         EXAMPLES::
@@ -927,7 +971,7 @@ class ContinuousGeneralizedSeries(RingElement):
 
     def derivative(self):
         """
-        Returns the derivative of ``self``
+        Return the derivative of ``self``
 
         EXAMPLES::
 
@@ -970,6 +1014,14 @@ class ContinuousGeneralizedSeries(RingElement):
         """
         The precision of ``self`` is the minimum of the precisions of all the power series objects
         contained in it.
+
+        EXAMPLES::
+
+            sage: from ore_algebra.generalized_series import GeneralizedSeriesMonoid
+            sage: G = GeneralizedSeriesMonoid(QQ, 'x')
+            sage: f = G(1+x+x^2, exp=1+x+x^2, ramification=2)
+            sage: f.prec()
+            +Infinity
         """
         t = self.__tail
 
@@ -985,6 +1037,14 @@ class ContinuousGeneralizedSeries(RingElement):
         This is the exponent `\alpha` such that the series is `c x^\alpha e^{\ldots} (1 + \ldots)`.
 
         .. TODO:: Add examples.
+
+        EXAMPLES::
+
+            sage: from ore_algebra.generalized_series import GeneralizedSeriesMonoid
+            sage: G = GeneralizedSeriesMonoid(QQ, 'x')
+            sage: f = G(1+x+x^2, exp=1+x+x^2, ramification=2)
+            sage: f.initial_exponent()
+            1
         """
         return self.__exp.constant_coefficient()
 
@@ -998,6 +1058,14 @@ class ContinuousGeneralizedSeries(RingElement):
 
         - L -- the list of all tuples (i,j) such that `c x^j \log(x)^i` , with
           `c \neq 0` , is a term of the polynomial part of ``self``
+
+        EXAMPLES::
+
+            sage: from ore_algebra.generalized_series import GeneralizedSeriesMonoid
+            sage: G = GeneralizedSeriesMonoid(QQ, 'x')
+            sage: f = G(1+x+x^2, exp=1+x+x^2, ramification=2)
+            sage: f.tail_support()
+            [(0, 0), (0, 1), (0, 2)]
         """
         cc = self.__tail.coefficients(sparse=False)
         return [(i, j) for i, cci in enumerate(cc)
@@ -1039,7 +1107,13 @@ class ContinuousGeneralizedSeries(RingElement):
         non-negative if and only if the series is bounded in a neighborhood of
         0.
 
+        EXAMPLES::
 
+            sage: from ore_algebra.generalized_series import GeneralizedSeriesMonoid
+            sage: G = GeneralizedSeriesMonoid(QQ, 'x')
+            sage: f = G(1+x+x^2, exp=1+x+x^2, ramification=2)
+            sage: f.valuation()
+            1
 
         TODO examples
 
@@ -1251,7 +1325,8 @@ class DiscreteGeneralizedSeries(RingElement):
 
     def __getitem__(self, key):
         """
-        Returns a particular coefficient of the tail.
+        Return a particular coefficient of the tail.
+
         The tail is regarded as an element of C[[x^(-1/r)]][log(x)].
         The input of the method is either a pair (a,b) where a is the
         exponent of log(x) and b the exponent of x, or just a rational
