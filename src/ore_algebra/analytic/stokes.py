@@ -749,7 +749,7 @@ def stokes_matrices(dop, eps=1e-15):
     This method is a generator. It produces the pairs `(e^{iω}, M)` where `ω`
     is a singular direction and `M` is the corresponding Stokes matrix.
 
-    See :func:`stokes_matrices` for more information on the conventions used to
+    See :func:`stokes_dict` for more information on the conventions used to
     define the Stokes matrices.
 
     EXAMPLES::
