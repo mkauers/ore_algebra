@@ -127,7 +127,7 @@ Richard-Jung (2011), §5::
     [[+/- ...] + [2.0000000000000...]*I  1.000...]
 
 An example with three aligned Stokes values (result checked by comparing with
-Borel-Laplace summation) where and exact calculation should be possible(?)::
+Borel-Laplace summation) where an exact calculation should be possible(?)::
 
     sage: dop = 2*DD^3+(x-5)*DD^2+(2*x+2)*DD-2*x
     sage: stokes = stokes_dict(dop)
