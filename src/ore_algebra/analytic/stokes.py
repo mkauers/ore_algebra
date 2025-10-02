@@ -479,6 +479,10 @@ def interval_triangle_is_empty(sing, a, b, c):
     return True
 
 
+class BadTriangle(Exception):
+    pass
+
+
 class SingConnectionDict(dict):
     r"""
     TESTS::
@@ -557,8 +561,13 @@ class SingConnectionDict(dict):
         vsort = sorted([a, b, c],
                        key=polynomial_root.sort_key_bottom_to_top_with_cuts)
         if flat:
-            assert vsort[1] is b, ("trying to compute a short edge of a flat "
-                                   "triangle using the long edge")
+            # We only close flat triangles by combining the two short edges. The
+            # other cases are no more difficult to implement (this is how things
+            # are done in the current version of the paper, for simplicity) but
+            # involve matrix inverses. We could also detect remove flat
+            # triangles from the queue as soon as their long edge is known.
+            if vsort[1] is not b:
+                raise BadTriangle
             return self[b,c]*self[a,b]
 
         # We only call orient2d on nondegenerate triangles. Except in extreme
@@ -591,7 +600,6 @@ class SingConnectionDict(dict):
 
     def _close_triangle(self, t):
         a, b, c = self._decompose_missing_edge(t)
-        # logger.debug("closing triangle %s", t)
         # Could share a little work between the two calls...
         mat_ac = self._combine_edges(a, b, c, t.flat)
         mat_ca = self._combine_edges(c, b, a, t.flat)
@@ -669,6 +677,7 @@ class SingConnectionDict(dict):
         logger.debug("sing = %s", sing)
 
         # XXX This is O(n⁴)! Better way to propagate the transition matrices?
+
         # (1) Closed triangles that we can check to contain no other singular
         # points using interval tests only. We might miss some empty triangles,
         # but it only matters if that prevents us from reaching some edges, and
@@ -703,6 +712,8 @@ class SingConnectionDict(dict):
             # the symbolic-numeric factorization algorithm.)
             try:
                 a1, b1, mat_ab, mat_ba = self._close_triangle(triangles.pop())
+            except BadTriangle:
+                continue
             except KeyError:
                 try:
                     a1, b1, mat_ab, mat_ba = next(spine)
