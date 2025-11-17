@@ -82,7 +82,7 @@ def symbolic_database(A, f, inner=None, k=0):
 
     An element from the OreAlgebra `A`, that represents a
     differential/recurrence equation which annihilates f(x) or if
-     ``inner`` is not ``None`` an element from `A` which annihilates f(inner).
+    ``inner`` is not ``None`` an element from `A` which annihilates f(inner).
 
     EXAMPLES:
 
