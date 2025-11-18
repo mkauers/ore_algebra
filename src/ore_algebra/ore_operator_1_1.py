@@ -1419,7 +1419,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
            sage: A.<Sn> = OreAlgebra(R, 'Sn')
            sage: L = (Sn-1).lclm(Sn-n)
            sage: L.right_factor_eigenring()
-           sage: Sn - 1
+           Sn - 1
 
            sage: from ore_algebra import *
            sage: from ore_algebra.ideal import *

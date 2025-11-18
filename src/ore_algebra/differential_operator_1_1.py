@@ -2397,21 +2397,24 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
         Finds order 1 right factors of this operator
 
         INPUT:
-            - A differential operator L in K(x)[Dx] where K is Q or an algebraic
-            extension of Q.
-            - (optional) A integer ``guessing`` indicating what degree the
-            solutions could have in order to speed up computations. If set to
-            0/False, no guessing attempts are made.
-            - (optional) A boolean ``one_solution``, set to False by default,
-            indicating whether we want all solutions or just one.
+
+        - A differential operator L in K(x)[Dx] where K is Q or an algebraic
+        extension of Q.
+        - (optional) A integer ``guessing`` indicating what degree the
+        solutions could have in order to speed up computations. If set to
+        0/False, no guessing attempts are made.
+        - (optional) A boolean ``one_solution``, set to False by default,
+        indicating whether we want all solutions or just one.
 
         OUTPUT:
-            - The list of hyperexponential solutions, under the form of a list
-            of right factors of degree 1 of L.
-            - The list of algebraic extensions used, the elements of the list
-            are under the form (root of P, P).
+
+        - The list of hyperexponential solutions, under the form of a list
+        of right factors of degree 1 of L.
+        - The list of algebraic extensions used, the elements of the list
+        are under the form (root of P, P).
 
         .. NOTE::
+
             - The method comes from section 3.6 of the book D-Finite functions
             by Manuel Kauers.
             - Algebraic extensions are important because the degree 1 factor can
@@ -2420,6 +2423,7 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
             the result because the algebraic numbers have cancelled out.
 
         EXAMPLES::
+
             sage: from ore_algebra import *
             sage: R.<x> = PolynomialRing(QQ); A.<Dx> = OreAlgebra(R)
             sage: (Dx^2 - 2*Dx + 1).hyperexponential_solutions()
