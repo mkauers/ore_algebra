@@ -369,7 +369,8 @@ def _monodromy_matrices(dop, base, eps=1e-16, sing=None, **kwds):
 
     OUTPUT:
 
-    A list of ``LocalMonodromyData`` named tuples, with fields:
+    An iterator producing named tuples of type ``LocalMonodromyData``, with the
+    following fields:
 
     - ``point`` -- a singular point of ``dop``, represented as an element of
       ``QQbar``,
