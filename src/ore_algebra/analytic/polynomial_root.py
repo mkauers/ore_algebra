@@ -340,8 +340,8 @@ class _sort_key:
 
 class sort_key_left_to_right_real_last(_sort_key):
     r"""
-    Sort by increasing real part, then by absolute value of the imaginary part,
-    then by increasing imaginary part.
+    Sort by increasing real part, then by decreasing absolute value of the
+    imaginary part, then by increasing imaginary part.
 
     Thus purely real values come last for each real part. This is intended for
     sorting the exponential parts of the local solutions of a differential
