@@ -8,6 +8,7 @@ from Cython.Build import cythonize
 try:
     import sage.env
     import sage.version
+    from sage.env import SAGE_LIB
 except ImportError:
     raise ValueError("this package requires SageMath")
 
@@ -31,6 +32,7 @@ def do_cythonize():
                 "*",
                 ["src/ore_algebra/analytic/*.pyx"],
             )],
+            include_path=[SAGE_LIB],
             aliases = sage.env.cython_aliases(required_modules=(), optional_modules=()),
             # gdb_debug=True,
             # annotate=True,
@@ -70,7 +72,6 @@ setup(
     ],
     package_dir = {'': 'src/'},
     ext_modules = extensions,
-    include_dirs = sage.env.sage_include_directories(),
     cmdclass = {'test': TestCommand},
     zip_safe=False,
     extras_require={'passagemath': ['fpylll',
