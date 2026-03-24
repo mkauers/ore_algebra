@@ -1686,6 +1686,13 @@ class OreAlgebra_generic(UniqueRepresentation, Parent):
         except AttributeError:
             pass
         R = self._commutative_ring = PolynomialRing(self.base_ring(), self.variable_names())
+        from . import ore_operator_mult
+        if len(self.variable_names()) > 0 and self._operator_class is ore_operator_mult.MultivariateOreOperator:
+            try:
+                from sage.rings.polynomial.multi_polynomial_libsingular import MPolynomialRing_libsingular
+                R = self._commutative_ring = MPolynomialRing_libsingular(self.base_ring(), 1, self.variable_names())
+            except ImportError:
+                pass            
         return R
 
     def ideal(self, gens, coerce=True, is_known_to_be_a_groebner_basis=False):
