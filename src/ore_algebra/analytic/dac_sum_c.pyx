@@ -13,9 +13,7 @@ from sage.libs.flint.acb_mat cimport *
 from sage.libs.flint.acb_poly cimport *
 from sage.libs.flint.arb cimport *
 from sage.libs.flint.arf cimport arf_is_nan, arf_set_mag
-from sage.libs.flint.fmpq cimport *
 from sage.libs.flint.fmpq_poly cimport *
-from sage.libs.flint.fmpq_vec cimport *
 from sage.libs.flint.fmpz cimport *
 from sage.libs.flint.fmpz_mat cimport *
 from sage.libs.flint.fmpz_poly cimport *
@@ -26,11 +24,95 @@ from sage.libs.flint.mag cimport *
 from sage.libs.flint.gr_mat cimport gr_mat_pascal
 
 cdef extern from "flint_wrap.h":
-    int _fmpq_poly_interpolate_fmpq_vec(fmpz * poly, fmpz_t den, const fmpq * xs, const fmpq * ys, slong n)
     void gr_ctx_init_fmpz(gr_ctx_t ctx) noexcept
     void GR_MUST_SUCCEED(int status) noexcept
     mp_limb_t FLINT_BIT_COUNT(mp_limb_t x) noexcept
     cdef slong WORD_MAX
+
+
+cdef extern from *:
+    """
+    /* Compatibility shim for the inverse-transpose-Vandermonde computation in
+     * pitvdm_stdpts: FLINT 3.4 dropped _fmpq_poly_interpolate_fmpz_vec and
+     * added _fmpq_poly_interpolate_fmpq_vec, so we keep two implementations
+     * with identical observable behaviour and select between them at compile
+     * time on __FLINT_RELEASE. The points used here are integer, so both
+     * formulations are mathematically equivalent. */
+    #include "flint_wrap.h"
+
+    #if __FLINT_RELEASE >= 30400
+    static inline void _oa_pitvdm_stdpts_impl(fmpz_mat_t matnum, fmpz_t matden, slong n) {
+        slong i, j;
+        fmpz_t tmp;
+        fmpz_init(tmp);
+        fmpq *points = _fmpq_vec_init(2*n - 1);
+        fmpq *values = _fmpq_vec_init(2*n - 1);
+        fmpz *rowden = _fmpz_vec_init(n);
+        fmpq_zero(points);
+        for (i = 1; i < n; i++) {
+            fmpq_set_si(points + 2*i - 1,  i, 1);
+            fmpq_set_si(points + 2*i,     -i, 1);
+        }
+        /* FIXME This repeats essentially the same computation n times.
+         * (And we could also share some work between different values of n by
+         * working in the Newton basis...) */
+        for (i = 0; i < n; i++) {
+            j = (i == 0) ? 0 : 2*i - 1;
+            fmpq_one(values + j);
+            _fmpq_poly_interpolate_fmpq_vec(fmpz_mat_entry(matnum, i, 0),
+                                            rowden + i, points, values, 2*n - 1);
+            fmpq_zero(values + j);
+        }
+        _fmpz_vec_lcm(matden, rowden, n);
+        for (i = 0; i < n; i++) {
+            fmpz_divexact(tmp, matden, rowden + i);
+            _fmpz_vec_scalar_mul_fmpz(fmpz_mat_entry(matnum, i, 0),
+                                      fmpz_mat_entry(matnum, i, 0),
+                                      2*n - 1, tmp);
+        }
+        _fmpz_vec_clear(rowden, n);
+        _fmpq_vec_clear(values, 2*n - 1);
+        _fmpq_vec_clear(points, 2*n - 1);
+        fmpz_clear(tmp);
+    }
+    #else  /* __FLINT_RELEASE < 30400 */
+    static inline void _oa_pitvdm_stdpts_impl(fmpz_mat_t matnum, fmpz_t matden, slong n) {
+        slong i, j;
+        fmpz_t tmp;
+        fmpz_init(tmp);
+        fmpz *points = _fmpz_vec_init(2*n - 1);
+        fmpz *values = _fmpz_vec_init(2*n - 1);
+        fmpz *rowden = _fmpz_vec_init(n);
+        fmpz_zero(points);
+        for (i = 1; i < n; i++) {
+            fmpz_set_si(points + 2*i - 1,  i);
+            fmpz_set_si(points + 2*i,     -i);
+        }
+        /* FIXME This repeats essentially the same computation n times.
+         * (And we could also share some work between different values of n by
+         * working in the Newton basis...) */
+        for (i = 0; i < n; i++) {
+            j = (i == 0) ? 0 : 2*i - 1;
+            fmpz_one(values + j);
+            _fmpq_poly_interpolate_fmpz_vec(fmpz_mat_entry(matnum, i, 0),
+                                            rowden + i, points, values, 2*n - 1);
+            fmpz_zero(values + j);
+        }
+        _fmpz_vec_lcm(matden, rowden, n);
+        for (i = 0; i < n; i++) {
+            fmpz_divexact(tmp, matden, rowden + i);
+            _fmpz_vec_scalar_mul_fmpz(fmpz_mat_entry(matnum, i, 0),
+                                      fmpz_mat_entry(matnum, i, 0),
+                                      2*n - 1, tmp);
+        }
+        _fmpz_vec_clear(rowden, n);
+        _fmpz_vec_clear(values, 2*n - 1);
+        _fmpz_vec_clear(points, 2*n - 1);
+        fmpz_clear(tmp);
+    }
+    #endif
+    """
+    void _oa_pitvdm_stdpts_impl(fmpz_mat_t matnum, fmpz_t matden, slong n) noexcept
 
 from sage.rings.complex_arb cimport ComplexBall
 from sage.rings.polynomial.polynomial_complex_arb cimport Polynomial_complex_arb
@@ -1780,38 +1862,10 @@ cdef void pitvdm_stdpts(fmpz_mat_t matnum, fmpz_t matden, slong n) noexcept:
     (The entry in column 0 ≤ j < 2n-1 of the row associated to -i is equal to
     (-1)^j times the corresponding entry in the row associated to i.)
     """
-    cdef slong i, j
     assert n >= 1
     assert fmpz_mat_nrows(matnum) == n
-    assert fmpz_mat_ncols(matnum) == 2*n-1
-    cdef fmpz_t tmp
-    fmpz_init(tmp)
-    cdef fmpq *points = _fmpq_vec_init(2*n-1)
-    cdef fmpq *values = _fmpq_vec_init(2*n-1)
-    cdef fmpz *rowden = _fmpz_vec_init(n)
-    fmpq_zero(points)
-    for i in range(1, n):
-        fmpq_set_si(points + 2*i - 1,  i, 1)
-        fmpq_set_si(points + 2*i,     -i, 1)
-    # FIXME This repeats essentially the same computation n times.
-    # (And we could also share some work between different values of n by
-    # working in the Newton basis...)
-    for i in range(n):
-        j = 0 if i == 0 else 2*i - 1
-        fmpq_one(values + j)
-        _fmpq_poly_interpolate_fmpq_vec(fmpz_mat_entry(matnum, i, 0),
-                                        rowden + i, points, values, 2*n-1)
-        fmpq_zero(values + j)
-    _fmpz_vec_lcm(matden, rowden, n)
-    for i in range(n):
-        fmpz_divexact(tmp, matden, rowden + i)
-        _fmpz_vec_scalar_mul_fmpz(fmpz_mat_entry(matnum, i, 0),
-                                  fmpz_mat_entry(matnum, i, 0),
-                                  2*n-1, tmp)
-    _fmpz_vec_clear(rowden, n)
-    _fmpq_vec_clear(values, 2*n-1)
-    _fmpq_vec_clear(points, 2*n-1)
-    fmpz_clear(tmp)
+    assert fmpz_mat_ncols(matnum) == 2*n - 1
+    _oa_pitvdm_stdpts_impl(matnum, matden, n)
 
 
 cdef void eval_reverse_stdpts(acb_ptr val, slong n, const acb_poly_struct *pol,
