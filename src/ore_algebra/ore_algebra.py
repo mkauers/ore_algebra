@@ -1692,7 +1692,7 @@ class OreAlgebra_generic(UniqueRepresentation, Parent):
                 from sage.rings.polynomial.multi_polynomial_libsingular import MPolynomialRing_libsingular
                 R = self._commutative_ring = MPolynomialRing_libsingular(self.base_ring(), 1, self.variable_names())
             except ImportError:
-                pass            
+                pass
         return R
 
     def ideal(self, gens, coerce=True, is_known_to_be_a_groebner_basis=False):

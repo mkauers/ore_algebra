@@ -1439,58 +1439,58 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
         from sage.functions.other import binomial
         from sage.misc.flatten import flatten
 
-        operator=self
-        base=operator.parent().base()
-        algebra=operator.parent()
-        result=[]
-        if operator.order()<=1: 
+        operator = self
+        base = operator.parent().base()
+        algebra = operator.parent()
+        result = []
+        if operator.order() <= 1:
             return "failed"
-    
+
         if algebra.is_D():
             d_case = True
         elif algebra.is_S():
             d_case = False
-            factor=algebra(1)
-            while operator%(factor*algebra.gen())==algebra(0):
-                factor=factor*algebra.gen()
-            if factor !=1 :
-                operator=operator//factor
-                result=[factor]
-                if operator.order()<=1:
+            factor = algebra(1)
+            while operator % (factor * algebra.gen()) == algebra(0):
+                factor = factor * algebra.gen()
+            if factor != 1:
+                operator = operator // factor
+                result = [factor]
+                if operator.order() <= 1:
                     return result[0] if single_factor else result
         else:
             raise NotImplementedError
-        D=algebra.gen()
-        order=operator.order()
+        D = algebra.gen()
+        order = operator.order()
 
-        #use an ansatz with degree deg
-        for deg in range(1,order):         
+        # use an ansatz with degree deg
+        for deg in range(1, order):
             if d_case:
-                coef_matrices=[matrix([sum(binomial(n,k) * operator.coefficients(sparse=False)[n] * (D**(max(n - k + i, 0)) % operator) for n in range(k, order + 1)).coefficients(sparse=False, padd=order)[0:deg + 1] for i in range(deg + 1)]).transpose() for k in range(order + 1)]
+                coef_matrices = [matrix([sum(binomial(n,k) * operator.coefficients(sparse=False)[n] * (D**(max(n - k + i, 0)) % operator) for n in range(k, order + 1)).coefficients(sparse=False, padd=order)[0:deg + 1] for i in range(deg + 1)]).transpose() for k in range(order + 1)]
             else:
-                coef_matrices=[matrix([(operator.coefficients(sparse=False)[n] * (D**(n + i) % operator)).coefficients(sparse=False,padd=order)[0:deg + 1] for i in range(deg + 1)]).transpose() for n in range(order + 1)]
-            coef_matrices=[coef_matrices[-1].inverse() * cc for cc in coef_matrices[0:-1]]
-            
-            mat=[]
+                coef_matrices = [matrix([(operator.coefficients(sparse=False)[n] * (D**(n + i) % operator)).coefficients(sparse=False,padd=order)[0:deg + 1] for i in range(deg + 1)]).transpose() for n in range(order + 1)]
+            coef_matrices = [coef_matrices[-1].inverse() * cc for cc in coef_matrices[0:-1]]
+
+            mat = []
             for k in range(deg + 1):
                 mat += [[1 if j == 1 + i + k * (order) else 0 for j in range((deg+1) * (order))]    for i in range((order - 1))]
                 mat += [flatten([[-cc[k][i] for cc in coef_matrices]for i in range(deg + 1)])]
-            mm=[[base(n) for n in m] for m in mat]
-            res=solve_coupled_system_CVM(mm,[],algebra)
-            res=[sum([r[0][i] * D**(i // (deg + 1))  for i in range(len(r[0])) if i % (order) == 0]) for r in res]
-            #check if non constant solution is found
-            if  not all(r in QQ for r in res):
+            mm = [[base(n) for n in m] for m in mat]
+            res = solve_coupled_system_CVM(mm,[],algebra)
+            res = [sum([r[0][i] * D**(i // (deg + 1))  for i in range(len(r[0])) if i % (order) == 0]) for r in res]
+            # check if non constant solution is found
+            if not all(r in QQ for r in res):
                 break
-        
-        while res !=[] :
-            p=res.pop()
-            if p in QQ: 
+
+        while res:
+            p = res.pop()
+            if p in QQ:
                 continue
-            sol=[]
-            #find a linear dependence between powers of P to get the minimal polynomial
-            for bound in range(2,5): #currently 5 is set as the highes bound for relations
-                powers = [algebra(1), p]  
-                for _ in range(1, bound):  
+            sol = []
+            # find a linear dependence between powers of P to get the minimal polynomial
+            for bound in range(2, 5):  # currently 5 is set as the highes bound for relations
+                powers = [algebra(1), p]
+                for _ in range(1, bound):
                     powers.append((p * powers[-1]) % operator)
                 max_order = max([op.order() for op in powers])
                 vecs = [vector(base, [op.coefficients(sparse=False)[i] if i < len(op.coefficients()) else 0 for i in range(max_order + 1)]) for op in powers]
@@ -1500,24 +1500,24 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
                     continue
                 for r in resb:
                     if sum(r) in QQ:
-                        resb=r
+                        resb = r
                         break
-                #compute the eigenvalues
+                # compute the eigenvalues
                 R = PolynomialRing(QQ, "z")
-                z=R.gen()
-                mpoly = -sum([QQ(resb[ii]) * z**(ii) for ii in range(0,len(resb))])
+                z = R.gen()
+                mpoly = -sum([QQ(resb[ii]) * z**(ii) for ii in range(len(resb))])
                 if mpoly in QQ:
                     continue
-                sol=mpoly.roots(multiplicities=False)
-                if sol == []:
+                sol = mpoly.roots(multiplicities=False)
+                if not sol:
                     continue
                 if single_factor:
-                    return  operator.gcrd(algebra(p)-algebra(sol[0]))
-                else: 
+                    return operator.gcrd(algebra(p) - algebra(sol[0]))
+                else:
                     break
-            result+=[operator.gcrd(algebra(p)-algebra(s)) for s in sol]
+            result += [operator.gcrd(algebra(p) - algebra(s)) for s in sol]
 
-        if result==[]:
+        if not result:
             return "failed"
         return list(set(result))
 
