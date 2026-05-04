@@ -1320,6 +1320,7 @@ def _lagrange_rec(mod, mat, Mprime, a, b, product_tree, subsolver, infolevel):
                      V_right[i]))
             for i in range(len(V_left))]
 
+
 def _interpolation_linear_combination(coeffs, b, product_tree):
     # alg 10.9 from vzgathen/gerhard
     # b=length of coeffs
@@ -1327,7 +1328,7 @@ def _interpolation_linear_combination(coeffs, b, product_tree):
     if b == 1:
         return coeffs[0]
 
-    split = int(math.ceil(b/2))
+    split = int(math.ceil(b / 2))
 
     M_left = product_tree[1][0]
     M_right = product_tree[2][0]
@@ -1335,7 +1336,8 @@ def _interpolation_linear_combination(coeffs, b, product_tree):
     p_left = _interpolation_linear_combination(coeffs[:split], split, product_tree[1])
     p_right = _interpolation_linear_combination(coeffs[split:], b - split, product_tree[2])
 
-    return M_right*p_left + M_left*p_right
+    return M_right * p_left + M_left * p_right
+
 
 def galois(subsolver, max_modulus=MAX_MODULUS, proof=False):
     r"""
@@ -1424,7 +1426,7 @@ def _galois(subsolver, max_modulus, proof, mat, degrees, infolevel):
         mp_mod_p = mp.change_ring(GF(p))
         rootlist = mp_mod_p.roots()
 
-        if rootlist == []:
+        if not rootlist:
             # zip* won't work
             continue
 
@@ -1437,17 +1439,17 @@ def _galois(subsolver, max_modulus, proof, mat, degrees, infolevel):
             continue
 
         # for fast interpolation later
-        var('new_x')
+        # new_x = SR.var('new_x')
         S = PolynomialRing(GF(p), 'new_x')
+        new_x = S.gen()
         bound = len(roots)
         M_tree = product_tree(new_x, roots, 0, bound)
         mod = M_tree[0]
 
         Vpr = [0] * len(roots)
         x_max_degree = [0] * len(x)
-        
-        
-        B = [] # holds all matrices for subsolver call, efficiency > storage
+
+        B = []  # holds all matrices for subsolver call, efficiency > storage
         for i in range(n):
             for j in range(m):
                 a_ij = mat[i][j]
@@ -1469,7 +1471,7 @@ def _galois(subsolver, max_modulus, proof, mat, degrees, infolevel):
 
         for l, mat_mod_p in enumerate(list(zip(*B))):
             _info(infolevel, "calling subsolver", alter=-1)
-            mat_root = matrix(Zp_x, [mat_mod_p[i:i + m] for i in range(0, len(mat_mod_p), m)])
+            mat_root = Matrix(Zp_x, [mat_mod_p[i:i + m] for i in range(0, len(mat_mod_p), m)])
             Vpr[l] = subsolver(mat_root, degrees=degrees, infolevel=_alter_infolevel(infolevel, -2, 1))
 
             # find maximal degree of all x in our solutions
@@ -1495,7 +1497,7 @@ def _galois(subsolver, max_modulus, proof, mat, degrees, infolevel):
         # now the roots are on the innermost level
         Vp_zip = [list(zip(*elem)) for elem in list(zip(*Vpr))]
 
-        ## combine results by interpolation: Zp[x] -> Zp(y)[x]
+        # combine results by interpolation: Zp[x] -> Zp(y)[x]
         Vp = [0] * len(Vp_zip)
         for i in range(len(Vp_zip)):
             Vp_i = [0] * m
@@ -1568,7 +1570,7 @@ def _galois(subsolver, max_modulus, proof, mat, degrees, infolevel):
                     solution_vector[j] = polynomial
 
                 sol.append(vector(solution_vector))
-        except(ArithmeticError):
+        except ArithmeticError:
             continue
 
         if not any([any(mat * s) for s in sol]):
@@ -2044,7 +2046,7 @@ def _merge(subsolver, mat, degrees, infolevel):
 
         _info(infolevel, "changing base ring to ", str(B), alter=-1)
 
-    except:  # ring was not of expected form, or conversion failed
+    except (TypeError, ValueError, AttributeError):  # ring was not of expected form, or conversion failed
         _info(infolevel, "leaving base ring as it is: ", str(R), alter=-1)
 
     return subsolver(mat, degrees=degrees, infolevel=_alter_infolevel(infolevel, -2, 1))
