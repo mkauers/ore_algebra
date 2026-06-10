@@ -42,7 +42,7 @@ from .tools import generalized_series_term_valuation
 class GeneralizedSeriesFunctor(ConstructionFunctor):
     rank = 15
 
-    def __init__(self, x, type):
+    def __init__(self, x, type) -> None:
         Functor.__init__(self, Rings().Commutative(), Rings().Commutative())
         self.x = x
         self.type = type
@@ -50,19 +50,20 @@ class GeneralizedSeriesFunctor(ConstructionFunctor):
     def _apply_functor(self, R):
         return GeneralizedSeriesMonoid(R, self.x, self.type)
 
-    def __eq__(self, other):
+    def __eq__(self, other) -> bool:
         return type(self) is type(other) and self.x == other.x
 
     def merge(self, other):
         return self if self == other else None
 
-    def __str__(self):
+    def __str__(self) -> str:
         return "GeneralizedSeries in " + str(self.x)
 
 
 class GeneralizedSeriesMonoid(UniqueRepresentation, Parent):
     """
     Objects of this class represent parents of generalized series objects.
+
     They depend on a coefficient ring, which must be either QQ or a number field,
     and a variable name. The type must be \"continuous\" or \"discrete\"
     """
@@ -80,9 +81,9 @@ class GeneralizedSeriesMonoid(UniqueRepresentation, Parent):
             raise ValueError("type must be either \"continuous\" or \"discrete\"")
         return super().__classcall__(cls, base, x, type, default_prec=default_prec)
 
-    def __init__(self, base, x, type, default_prec=None):
+    def __init__(self, base, x, type, default_prec=None) -> None:
         r"""
-        Creates a monoid of generalized series objects.
+        Create a monoid of generalized series objects.
 
         INPUT:
 
@@ -180,21 +181,21 @@ class GeneralizedSeriesMonoid(UniqueRepresentation, Parent):
         Parent.__init__(self, base=base, names=(x,),
                         category=Rings().Commutative())
 
-    def is_discrete(self):
+    def is_discrete(self) -> bool:
         return self.__type == "discrete"
 
-    def is_continuous(self):
+    def is_continuous(self) -> bool:
         return self.__type == "continuous"
 
     def var(self):
         """
-        Returns the variable name associated to this monoid.
+        Return the variable name associated to this monoid.
         """
         return self.__var
 
     def gen(self):
         """
-        Returns the generator of this monoid
+        Return the generator of this monoid.
         """
         try:
             return self.__gen
@@ -210,7 +211,8 @@ class GeneralizedSeriesMonoid(UniqueRepresentation, Parent):
 
     def exp_ring(self):
         r"""
-        Returns the ring which is used to store the exponential part of a generalized series.
+        Return the ring which is used to store the exponential part of a generalized series.
+
         It is the univariate polynomial ring in over ``self.base()`` in the variable ``self.var()``.
 
         A polynomial `p` represents the exponential part `\exp(\int_0^x p(t^{1/r})/t dt)`,
@@ -222,7 +224,8 @@ class GeneralizedSeriesMonoid(UniqueRepresentation, Parent):
 
     def tail_ring(self):
         r"""
-        Returns the ring which is used to store the non-exponential part (the tail) of a generalized series.
+        Return the ring which is used to store the non-exponential part (the tail) of a generalized series.
+
         It is the univariate polynomial ring in the variable "LOG" over the power series ring in ``self.var()``
         over ``self.base()``.
 
@@ -243,34 +246,33 @@ class GeneralizedSeriesMonoid(UniqueRepresentation, Parent):
 
     def random_element(self):
         """
-        Returns a random element of this monoid.
+        Return a random element of this monoid.
         """
         if self.is_continuous():
             return self(self.__tail_ring.random_element(), exp=self.__exp_ring.random_element())
-        else:
-            raise NotImplementedError
+        raise NotImplementedError
 
-    def _repr_(self):
+    def _repr_(self) -> str:
         return "Monoid of " + self.__type + " generalized series in " + self.var() + " over " + str(self.base())
 
-    def _latex_(self):
+    def _latex_(self) -> str:
         x = self.var()
         if self.is_continuous():
             return r"\bigcup_{r>0}\bigcup_{p\in " + self.base()._latex_() + "[" + x + "]}" \
                    + r"\exp\bigl(\int_x x^{-1} p(x^{-1/r})\bigr)" \
                    + self.base()._latex_() + "[[" + x + r"^{1/r}]][\log(" + x + ")]"
-        else:
-            return self._repr_()
 
-    def is_exact(self):
+        return self._repr_()
+
+    def is_exact(self) -> bool:
         """
-        Returns ``False``, because series objects are inherently approximate.
+        Return ``False``, because series objects are inherently approximate.
         """
         return False
 
     def base_extend(self, ext, name='a'):
         """
-        Returns a monoid with an extended coefficient domain.
+        Return a monoid with an extended coefficient domain.
 
         INPUT:
 
@@ -296,9 +298,7 @@ class GeneralizedSeriesMonoid(UniqueRepresentation, Parent):
             True
             sage: G1.random_element().parent() is G2
             False
-
         """
-
         if not isinstance(ext, Parent):
             # assuming ext is an irreducible univariate polynomial over self.base()
             ext = self.base().extension(ext, name)
@@ -310,7 +310,8 @@ class ContinuousGeneralizedSeries(RingElement):
     """
     Objects of this class represent generalized series objects.
 
-    See the docstring of ``GeneralizedSeriesMonoid`` for further information.
+    See the docstring of :class:`GeneralizedSeriesMonoid`
+    for further information.
     """
 
     def __init__(self, parent, tail, exp=0, ramification=1, make_monic=False):
@@ -352,8 +353,8 @@ class ContinuousGeneralizedSeries(RingElement):
         val = min((c.valuation() for c in tail2.coefficients()), default=0)
 
         if val in ZZ:
-            tail = tail2*x**(-val)
-            exp += val/ramification
+            tail = tail2 * x**(-val)
+            exp += val / ramification
 
         # The list of coefficients contains things like O(x^1) which cannot get
         # converted into power series rings. But they still test equal to 0 so
@@ -369,7 +370,7 @@ class ContinuousGeneralizedSeries(RingElement):
             self.__tail = parent.tail_ring().zero()
         else:
             exp = parent.exp_ring()(exp)
-            alpha = min(c.valuation()/ramification for c in p.coefficients())
+            alpha = min(c.valuation() / ramification for c in p.coefficients())
 
             if not alpha.is_zero():
                 # move part of the tail to the exponential part
@@ -408,7 +409,7 @@ class ContinuousGeneralizedSeries(RingElement):
 
     def __call__(self, arg):
         """
-        Evaluate this generalized series approximately at some approximate nonzero real or complex number
+        Evaluate this generalized series approximately at some approximate nonzero real or complex number.
         """
         if arg.parent().is_exact() and (not self.__exp.is_zero() or self.__ramification > 1):
             R = RR
@@ -435,31 +436,33 @@ class ContinuousGeneralizedSeries(RingElement):
 
     def __getitem__(self, key):
         """
-        Returns a particular coefficient of the tail.
+        Return a particular coefficient of the tail.
+
         The tail is regarded as an element of C[[x^(1/r)]][log(x)].
         The input of the method is either a pair (a,b) where a is the
         exponent of log(x) and b the exponent of x, or just a rational
         number, which amounts to the same as choosing a=0.
+
         Note that the exponent b only refers to the tail, excluding the
         polynomial part alpha of the series.
         """
         if key in QQ:
-            return self.__tail[0][key*self.__ramification]
-        elif len(key) == 2:
-            return self.__tail[key[0]][key[1]*self.__ramification]
-        else:
-            raise KeyError
+            return self.__tail[0][key * self.__ramification]
+        if len(key) == 2:
+            return self.__tail[key[0]][key[1] * self.__ramification]
+        raise KeyError
 
     def base_extend(self, ext, name='a'):
         """
-        Lifts ``self`` to a domain with an enlarged coefficient domain.
+        Lift ``self`` to a domain with an enlarged coefficient domain.
 
         INPUT:
 
-        - ``ext`` -- either a univariate irreducible polynomial over ``self.base()`` or an algebraic
+        - ``ext`` -- either a univariate irreducible polynomial
+          over ``self.base()`` or an algebraic
           extension field of ``self.base()``
-        - ``name`` (optional) -- if ``ext`` is a polynomial, this is used as a name for the generator
-          of the algebraic extension.
+        - ``name`` (optional) -- if ``ext`` is a polynomial, this is used
+          as a name for the generator of the algebraic extension.
 
         EXAMPLES::
 
@@ -472,7 +475,8 @@ class ContinuousGeneralizedSeries(RingElement):
             sage: s.base_extend(x^2 + 2, 'a')
             exp(-9/2*x^(-2/3))*(1 + x^(1/3) + x^(2/3))
             sage: _.parent()
-            Monoid of continuous generalized series in x over Number Field in a with defining polynomial x^2 + 2
+            Monoid of continuous generalized series in x over Number Field in a
+            with defining polynomial x^2 + 2
             sage: s == s.base_extend(x^2 + 2, 'a')
             True
             sage: s is s.base_extend(x^2 + 2, 'a')
@@ -483,9 +487,13 @@ class ContinuousGeneralizedSeries(RingElement):
     def __inflate(self, s):
         """
         Write exp and tail of self as if it was a series with ramification s.
+
         s has to be a positive integer multiple of self's ramification.
-        returns a pair (E, T), where E is the exponential part and T the tail
-        such that ContinuousGeneralizedSeries(self.parent(), T, exp=E, ramification=s) == self
+
+        This returns a pair (E, T), where E is the exponential part
+        and T the tail such that
+        ContinuousGeneralizedSeries(self.parent(), T, exp=E,
+        ramification=s) == self.
         """
         r = self.ramification()
         if s == r:
@@ -493,7 +501,7 @@ class ContinuousGeneralizedSeries(RingElement):
 
         quo = ZZ(s / r)
 
-        if r*quo != s or s <= 0:
+        if r * quo != s or s <= 0:
             raise ValueError("s must be a positive integer multiple of the ramification")
 
         exp = self.__exp
@@ -506,7 +514,7 @@ class ContinuousGeneralizedSeries(RingElement):
 
         return (new_exp, new_tail)
 
-    def __eq__(self, other):
+    def __eq__(self, other) -> bool:
 
         if not isinstance(other, ContinuousGeneralizedSeries) or self.parent() is not other.parent():
             try:
@@ -518,7 +526,7 @@ class ContinuousGeneralizedSeries(RingElement):
         return self.__ramification == other.__ramification and self.__exp == other.__exp \
             and self.__tail == other.__tail
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return hash((self.__ramification, self.__exp, self.__tail))
 
     def _mul_(self, other):
@@ -576,7 +584,7 @@ class ContinuousGeneralizedSeries(RingElement):
                                            exp=-self.__exp,
                                            ramification=self.ramification())
 
-    def _repr_(self):
+    def _repr_(self) -> str:
 
         x = str(self.__tail.base_ring().gen())
         r = self.ramification()
@@ -635,7 +643,7 @@ class ContinuousGeneralizedSeries(RingElement):
 
         return rep
 
-    def _latex_(self):
+    def _latex_(self) -> str:
 
         x = self.__tail.base_ring().gen()._latex_()
         r = self.ramification()
@@ -694,7 +702,7 @@ class ContinuousGeneralizedSeries(RingElement):
 
     def exponential_part(self):
         """
-        Returns the exponential part of this series.
+        Return the exponential part of this series.
 
         This is the series obtained from ``self`` by discarding the tail.
 
@@ -713,12 +721,13 @@ class ContinuousGeneralizedSeries(RingElement):
         """
         return ContinuousGeneralizedSeries(self.parent(), 1, exp=self.__exp, ramification=self.ramification())
 
-    def has_exponential_part(self):
-        """
-        True if ``self`` has a nontrivial exponential part.
+    def has_exponential_part(self) -> bool:
+        r"""
+        Return ``True`` if ``self`` has a nontrivial exponential part.
 
-        Note that the exponential part may not show up in form of an \"exp\" term in the printout,
-        but may also simply consist of some power `x^\alpha` with nonzero `\alpha`.
+        Note that the exponential part may not show up in form of an
+        \"exp\" term in the printout, but may also simply consist of
+        some power `x^\alpha` with nonzero `\alpha`.
 
         EXAMPLES::
 
@@ -737,23 +746,24 @@ class ContinuousGeneralizedSeries(RingElement):
 
     def logarithmic_derivative_exponential_part(self):
         """
-        Returns the logarithmic derivative of the exponential part of the generalized series
+        Return the logarithmic derivative of the exponential part of the generalized series.
         """
         x = self.__exp.parent().gen()
-        return (x*self.__exp).subs({x : 1/x})
+        return (x * self.__exp).subs({x: 1 / x})
         # Multiply by x because everything seems to be shifted
 
-    def has_logarithms(self):
+    def has_logarithms(self) -> bool:
         """
-        True if ``self`` contains logarithmic terms.
+        Return ``True`` if ``self`` contains logarithmic terms.
         """
         return self.__tail.degree() > 0
 
     def tail(self):
         """
-        Returns the tail of this series.
+        Return the tail of this series.
 
-        This is the series object which is obtained from ``self`` by dropping the exponential part.
+        This is the series object which is obtained from ``self`` by
+        dropping the exponential part.
 
         EXAMPLES::
 
@@ -768,14 +778,16 @@ class ContinuousGeneralizedSeries(RingElement):
             sage: _.tail()
             1 + x
         """
-        return ContinuousGeneralizedSeries(self.parent(), self.__tail, exp=0, ramification=self.ramification())
+        return ContinuousGeneralizedSeries(self.parent(), self.__tail, exp=0,
+                                           ramification=self.ramification())
 
     def ramification(self):
         """
-        Returns the ramification of this series object.
+        Return the ramification of this series object.
 
-        This is the smallest positive integer `r` such that replacing `x` by `x^r` in the series
-        clears the denominators of all exponents.
+        This is the smallest positive integer `r` such that replacing
+        `x` by `x^r` in the series clears the denominators of all
+        exponents.
 
         EXAMPLES::
 
@@ -794,7 +806,7 @@ class ContinuousGeneralizedSeries(RingElement):
 
     def order(self):
         r"""
-        Returns the order of this series.
+        Return the order of this series.
 
         The order is defined as the maximal coefficient ring element `\alpha`
         such that for all terms `x^i\log(x)^j` appearing in this series we have
@@ -823,13 +835,13 @@ class ContinuousGeneralizedSeries(RingElement):
 
     def base(self):
         """
-        Returns the parent's coefficient domain.
+        Return the parent's coefficient domain.
         """
         return self.parent().base()
 
-    def similar(self, other, reference=ZZ):
+    def similar(self, other, reference=ZZ) -> bool:
         r"""
-        Checks whether ``self`` and ``other`` are similar.
+        Check whether ``self`` and ``other`` are similar.
 
         Similarity is defined as follows. Let `A` and `B` be two generalized series objects
         with exponential part `\exp(\int_0^x a(t^{1/r})/t dt)` and `\exp(\int_0^x b(t^{1/r})/t dt)`
@@ -865,23 +877,23 @@ class ContinuousGeneralizedSeries(RingElement):
         Ae, _ = self.__inflate(s)
         Be, _ = other.__inflate(s)
 
-        return s*(Ae - Be) in reference
+        return s * (Ae - Be) in reference
 
-    def is_zero(self):
+    def is_zero(self) -> bool:
         """
-        True if ``self`` is the monoid's zero element.
+        Return ``True`` if ``self`` is the monoid's zero element.
         """
         return self.__tail.is_zero()
 
-    def is_one(self):
+    def is_one(self) -> bool:
         """
-        True if ``self`` is the monoid's one element.
+        Return ``True`` if ``self`` is the monoid's one element.
         """
         return not self.has_exponential_part() and self.__tail.is_one()
 
     def substitute(self, e):
         """
-        Returns the series object obtained from ``self`` by replacing `x` by `x^e`, where `e` is
+        Return the series object obtained from ``self`` by replacing `x` by `x^e`, where `e` is
         a positive rational number.
 
         EXAMPLES::
@@ -927,7 +939,7 @@ class ContinuousGeneralizedSeries(RingElement):
 
     def derivative(self):
         """
-        Returns the derivative of ``self``
+        Return the derivative of ``self``.
 
         EXAMPLES::
 
@@ -1251,7 +1263,8 @@ class DiscreteGeneralizedSeries(RingElement):
 
     def __getitem__(self, key):
         """
-        Returns a particular coefficient of the tail.
+        Return a particular coefficient of the tail.
+
         The tail is regarded as an element of C[[x^(-1/r)]][log(x)].
         The input of the method is either a pair (a,b) where a is the
         exponent of log(x) and b the exponent of x, or just a rational
@@ -1260,18 +1273,17 @@ class DiscreteGeneralizedSeries(RingElement):
         polynomial part alpha of the series.
         """
         if key in QQ:
-            return self.__expansion[0][-key*self.__ramification]
-        elif len(key) == 2:
-            return self.__expansion[key[0]][-key[1]*self.__ramification]
-        else:
-            raise KeyError
+            return self.__expansion[0][-key * self.__ramification]
+        if len(key) == 2:
+            return self.__expansion[key[0]][-key[1] * self.__ramification]
+        raise KeyError
 
     def subs(self, *args, **kwargs):
         raise NotImplementedError
 
     def base_extend(self, ext, name='a'):
         """
-        Lifts ``self`` to a domain with an enlarged coefficient domain.
+        Lift ``self`` to a domain with an enlarged coefficient domain.
 
         INPUT:
 
@@ -1301,7 +1313,7 @@ class DiscreteGeneralizedSeries(RingElement):
 
     def __inflate(self, s):
 
-        quo = s/self.__ramification
+        quo = s / self.__ramification
 
         if quo == 1:
             return (self.__subexp, self.__expansion)
@@ -1394,7 +1406,7 @@ class DiscreteGeneralizedSeries(RingElement):
                                          [-self.__gamma, self.__ramification, ~self.__rho, -self.__subexp,
                                           -self.__alpha, ~self.__expansion])
 
-    def _repr_(self):
+    def _repr_(self) -> str:
 
         if self.is_zero():
             return self.__expansion._repr_()
@@ -1441,7 +1453,7 @@ class DiscreteGeneralizedSeries(RingElement):
         # (5) --> 5
         return re.sub(r"\((?P<exp>[0-9]*)\)", r"\g<exp>", out)
 
-    def _latex_(self):
+    def _latex_(self) -> str:
 
         if self.is_zero():
             return self.__expansion._latex_()
@@ -1506,7 +1518,7 @@ class DiscreteGeneralizedSeries(RingElement):
     def base(self):
         return self.parent().base()
 
-    def similar(self, other, reference=ZZ):
+    def similar(self, other, reference=ZZ) -> bool:
 
         if not isinstance(other, DiscreteGeneralizedSeries) or self.parent() is not other.parent():
             try:
@@ -1519,10 +1531,10 @@ class DiscreteGeneralizedSeries(RingElement):
             self.__ramification == other.__ramification and self.__subexp == other.__subexp and \
             self.__ramification*(self.__alpha - other.__alpha) in reference
 
-    def is_zero(self):
+    def is_zero(self) -> bool:
         return self.__expansion.is_zero()
 
-    def is_one(self):
+    def is_one(self) -> bool:
         return self.__gamma == 0 and self.__rho == 1 and self.__subexp.is_zero() and self.__alpha == 0 \
             and self.__expansion.is_one()
 
@@ -1557,23 +1569,25 @@ class DiscreteGeneralizedSeries(RingElement):
 
     def prec(self):
         """
-        The precision of ``self`` is the minimum of the precisions of all the power series objects
-        contained in it.
+        Return the precision.
+
+        The precision of ``self`` is the minimum of the precisions of
+        all the power series objects contained in it.
         """
         t = self.__expansion
         if t.is_zero():
             return infinity
-        return min(c.prec() for c in t.coefficients())/self.__ramification
+        return min(c.prec() for c in t.coefficients()) / self.__ramification
 
 
-############################################################################################################
+###############################################################################
 
 def _binomial(lam, j):  # works also when lambda is not an integer
     if isinstance(lam, int):
         lam = ZZ(lam)
     b = one = lam.parent().one()
     for jj in range(j):
-        b *= lam/(j - jj)
+        b *= lam / (j - jj)
         lam -= one
     return b  # checked.
 
@@ -1609,7 +1623,7 @@ def _sub_expansion(coeffs, ram, i, n, prec):
 
 def _generalized_series_shift_quotient(x, prec=5, shift=1, gamma=0, rho=1, subexp=None, ramification=None, alpha=0):
     r"""
-    Computes a series expansion for the shift quotient of some discrete generalized series.
+    Compute a series expansion for the shift quotient of some discrete generalized series.
 
     INPUT:
 
