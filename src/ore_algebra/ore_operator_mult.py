@@ -112,10 +112,9 @@ class MultivariateOreOperator(OreOperator):
         """
         if R == self.base_ring():
             return self
-        else:
-            return self.parent().change_ring(R)(self)
+        return self.parent().change_ring(R)(self)
 
-    def _repr(self):
+    def _repr(self, name=None):
         return self.__poly._repr_()
 
     def _repr_(self):
@@ -267,8 +266,7 @@ class MultivariateOreOperator(OreOperator):
     def map_coefficients(self, f, new_base_ring=None):
         if new_base_ring is None:
             return self.parent()(self.__poly.map_coefficients(f))
-        else:
-            return self.parent()(self.__poly.map_coefficients(f, new_base_ring=new_base_ring))
+        return self.parent()(self.__poly.map_coefficients(f, new_base_ring=new_base_ring))
 
     def coefficients(self):
         return self.__poly.coefficients()
@@ -389,11 +387,11 @@ class MultivariateOreOperator(OreOperator):
         p = self
         r0 = self.parent().zero()
         c = self.base_ring().one()
-        cofs = [self.parent().zero()]*len(basis)
+        cofs = [self.parent().zero()] * len(basis)
         range_basis = [k for k in range(len(basis)) if not basis[k].is_zero()]
 
         # keep track of sugar if sugar is associated to self and to all the basis elements
-        basis_sugar = [0]*len(basis)
+        basis_sugar = [0] * len(basis)
         try:
             for i in range(len(basis)):
                 basis_sugar[i] = basis[i].sugar
@@ -417,7 +415,7 @@ class MultivariateOreOperator(OreOperator):
                 b = basis[k]
                 tau = prod(x**i for x, i in zip(gens, e - exp[k]))
                 info(2, str(len(candidates)) + " basis elements apply, taking no " + str(k) + " with leading monomial " + str(b.lm()))
-                b0 = tau*b
+                b0 = tau * b
                 b0lc = b0.lc()
                 if sugar is not None:
                     sugar = max(sugar, tau.tdeg() + basis_sugar[k])
@@ -436,10 +434,10 @@ class MultivariateOreOperator(OreOperator):
                             gcd = gcd.gcd(uu)
                     if not gcd.is_one() and not gcd.is_zero():
                         c /= gcd
-                        p = p.map_coefficients(lambda u: u//gcd)
-                        r0 = r0.map_coefficients(lambda u: u//gcd)
+                        p = p.map_coefficients(lambda u: u // gcd)
+                        r0 = r0.map_coefficients(lambda u: u // gcd)
                         for i in range(len(cofs)):
-                            cofs[i] = cofs[i].map_coefficients(lambda u: u//gcd)
+                            cofs[i] = cofs[i].map_coefficients(lambda u: u // gcd)
                 else:
                     if cofactors:
                         cofs[k] += (p.lc() / b0lc) * tau
