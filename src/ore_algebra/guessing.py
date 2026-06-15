@@ -256,7 +256,7 @@ def guess(data, algebra, **kwargs):
 
         def cleanup(rat):
             rat = KK(rat)
-            n, d = rat.numerator(), rat.denominator() # live in QQ[t]
+            n, d = rat.numerator(), rat.denominator()  # live in QQ[t]
             nn, nd = n.numerator(), n.denominator()
             dn, dd = d.numerator(), d.denominator()
             return KK2(K(nn*dd)/K(nd*dn))
@@ -442,7 +442,7 @@ def guess_raw(data, A, order=-1, degree=-1, lift=None, solver=None, cut=25, ensu
              for j in range(order + 1)]
         sol[l] = A(c)
         sol[l] *= ~sol[l].leading_coefficient().leading_coefficient()
-        if sol[l].is_one() and any(data): # catch degenerate solution obtained for [0,0,0,1]
+        if sol[l].is_one() and any(data):  # catch degenerate solution obtained for [0,0,0,1]
             sol[l] = None
             info(2, lazy_string("degenerate solution discarded."))
 
@@ -660,7 +660,7 @@ def _guess_via_hom(data, A, modulus, to_hom, **kwargs):
                 del kwargs['return_short_path']
 
             if A.is_C():
-                kwargs['path'] = [(Lp.order(), Lp.degree())] # there is no curve for algebraic equations
+                kwargs['path'] = [(Lp.order(), Lp.degree())]  # there is no curve for algebraic equations
 
         elif 'return_short_path' in kwargs:
             # subsequent iterations: stick to the path we have.
@@ -673,7 +673,7 @@ def _guess_via_hom(data, A, modulus, to_hom, **kwargs):
             # sequential version
 
             imgs = []
-            for i in range(max(1, nn - 3)): # do several imgs before proceeding with a reconstruction attempt
+            for i in range(max(1, nn - 3)):  # do several imgs before proceeding with a reconstruction attempt
 
                 data_mod = None
                 while data_mod is None:
@@ -826,7 +826,7 @@ def _guess_via_gcrd(data, A, **kwargs):
         sort_key = lambda p: (p[0] + 1)*(p[1] + 1)
         prelude = []
     else:
-        r2d = lambda r: (N - 2*r - 2)//(r + 1) # python integer division intended.
+        r2d = lambda r: (N - 2*r - 2)//(r + 1)  # python integer division intended.
         path = [(r, r2d(r)) for r in range(1, N)]
         path = [p for p in path if min(p[0] - 1, p[1]) >= 0]
         (r, d) = (1, 1)
@@ -835,7 +835,7 @@ def _guess_via_gcrd(data, A, **kwargs):
             prelude.append((r, d))
             (r, d) = (d, r + d)
         path = prelude + path
-        sort_key = lambda p: 2*p[0] + (p[0] + 1)*(p[1] + 1) # give some preference to small orders
+        sort_key = lambda p: 2*p[0] + (p[0] + 1)*(p[1] + 1)  # give some preference to small orders
 
     max_deg = max_ord = len(data)
     min_deg = 0
@@ -863,16 +863,16 @@ def _guess_via_gcrd(data, A, **kwargs):
         min_ord = kwargs['min_order']
         del kwargs['min_order']
 
-    subguesser = guess_hp if A.is_C() else guess_raw # default = hp for algeqs and raw for other
+    subguesser = guess_hp if A.is_C() else guess_raw  # default = hp for algeqs and raw for other
     if 'method' in kwargs:
         if kwargs['method'] == 'linalg':
             subguesser = guess_raw
         elif kwargs['method'] == 'hp':
             subguesser = guess_hp
         elif kwargs['method'] == 'automatic' or kwargs['method'] == 'default':
-            pass # same as when no method is specified
+            pass  # same as when no method is specified
         else:
-            subguesser = kwargs['method'] # callable
+            subguesser = kwargs['method']  # callable
         del kwargs['method']
 
     path = [p for p in path if min_ord <= p[0] and p[0] <= max_ord and min_deg <= p[1] and p[1] <= max_deg]
@@ -1077,11 +1077,15 @@ def _merge_homomorphic_images(v, mod, vp, p, reconstruct=True):
 
     if R.characteristic() == 0:
         mod2 = mod // ZZ(2)
-        adjust = lambda c: ((c + mod2) % mod) - mod2
+
+        def adjust(c):
+            return ((c + mod2) % mod) - mod2
     else:
         if mod.degree() <= 5:  # require at least 5 evaluation points
             return vmod, mod
-        adjust = lambda c: c % mod
+
+        def adjust(c):
+            return c % mod
 
     coords = list(vmod)
 
@@ -1095,7 +1099,7 @@ def _merge_homomorphic_images(v, mod, vp, p, reconstruct=True):
             else:
                 d *= _rat_recon(d*c, mod)[1]
     except (ArithmeticError, ValueError):
-        return vmod, mod # reconstruction failed
+        return vmod, mod  # reconstruction failed
 
     # rat recon succeeded, the common denominator is d. clear it and normalize numerators.
 
@@ -1127,17 +1131,18 @@ def _rat_recon(a, m, u=None):
       if deg(m) < 6, we use sage's builtin
 
     """
-
-    K = m.parent() # GF(p)[t] or ZZ
+    K = m.parent()  # GF(p)[t] or ZZ
 
     if K is ZZ:
-        score_fun = lambda p, q: abs(p*q)
+        def score_fun(p, q):
+            return abs(p * q)
         bound = m // ZZ(10000)
         early_termination_bound = m // ZZ(1000000)
         if u is None:
             u = m
     else:
-        score_fun = lambda p, q: p.degree() + q.degree()
+        def score_fun(p, q):
+            return p.degree() + q.degree()
         bound = m.degree() - 3
         early_termination_bound = m.degree() - 6
         if u is None:
@@ -1172,7 +1177,7 @@ def _rat_recon(a, m, u=None):
     while True:
 
         quo = pp // p
-        (pp, qq, p, q) = (p, q, pp - quo*p, qq - quo*q)
+        pp, qq, p, q = (p, q, pp - quo*p, qq - quo*q)
 
         if p.is_zero() or score_fun(q, one) > u:
             break
@@ -1200,7 +1205,7 @@ _ff_cache = {}
 
 
 def _ff_factory(domain):
-    characteristic = domain.characteristic() # that's the only information that matters here
+    characteristic = domain.characteristic()  # that's the only information that matters here
     try:
         return _ff_cache[characteristic]
     except KeyError:
@@ -1387,11 +1392,11 @@ def guess_mult(data, algebra, **kwargs):
     terms = [(p, o) for o in op_terms for p in pol_terms]
     info(1, str(len(terms)) + " terms.")
 
-    offset = [0]*dim # left offset needed in the index space
-    A = [] # A(n,u,v)
-    B = [] # B(n,u,v)
-    ## e.g.: [x^n] x^u D^v sum(a[n]x^n, n=0..infty) = power(*A(n,u,v)) * a[B(n,u,v)]
-    ##        n^u S^v a[n] = power(*A(n,u,v)) a[B[n,u,v]]
+    offset = [0]*dim  # left offset needed in the index space
+    A = []  # A(n,u,v)
+    B = []  # B(n,u,v)
+    # e.g.: [x^n] x^u D^v sum(a[n]x^n, n=0..infty) = power(*A(n,u,v)) * a[B(n,u,v)]
+    #        n^u S^v a[n] = power(*A(n,u,v)) a[B[n,u,v]]
 
     for i in range_dim:
         if algebra.is_D(i):
@@ -1444,10 +1449,11 @@ def guess_mult(data, algebra, **kwargs):
         to_hom = (lambda mod: GF(mod)) if C is QQ else (lambda mod: (lambda pol: C(pol)(-mod[0])))
         R = ZZ if C is QQ else C.base()
         mod = [R.one()]
-        sol = None
         power = [None] * dim
         imgs = []
         kwargs['infolevel'] = infolevel - 2
+
+        first_round = True
 
         while not all(m.is_zero() for m in mod):
 
@@ -1466,19 +1472,20 @@ def guess_mult(data, algebra, **kwargs):
                     A[i] = lambda n, u, v: (phi(q), n*u)
                     power[i] = _power_factory(C_mod)
 
-            ## compute modular image
+            # compute modular image
             kwargs['phi'] = phi
             solp = guess_mult_raw(C_mod, data, terms, points, power, A, B, **kwargs)
             del kwargs['phi']
 
-            if sol is None: ## initialization
+            if first_round:  # initialization
+                first_round = False
 
-                ## early termination check
+                # early termination check
                 if len(solp) == 0:
                     info(1, lazy_string(lambda: datetime.today().ctime() + " : multivariate guessing completed by early termination."))
                     return algebra.ideal([])
 
-                ## extract support of solutions
+                # extract support of solutions
                 for i in range(len(terms)):
                     if all(v[i].is_zero() for v in solp):
                         terms[i] = None
@@ -1509,7 +1516,7 @@ def guess_mult(data, algebra, **kwargs):
                         for i in range(len(solp)):
                             try:
                                 solp[i], p[i] = _merge_homomorphic_images(solp[i], p[i], solpp[i], pp, reconstruct=False)
-                            except:
+                            except ValueError:
                                 info(2, "unlucky modulus " + str(pp) + " discarded")
 
                     imgs = [None]*(len(imgs) + 1)
@@ -1518,11 +1525,11 @@ def guess_mult(data, algebra, **kwargs):
                         try:
                             # if all mod[i] are zero in the end, this will terminate the while loop
                             sol[i], mod[i] = _merge_homomorphic_images(sol[i], mod[i], solp[i], p[i], reconstruct=True)
-                        except:
+                        except ValueError:
                             info(2, "unlucky modulus " + str(p[i]) + " discarded")
 
     elif C.base_ring().fraction_field() is QQ and isinstance(C.base(), PolynomialRing_general) and len(C.base().gens()) == 1:
-        ### C = QQ(t)
+        # C = QQ(t)
 
         raise NotImplementedError
 
@@ -1624,7 +1631,7 @@ def guess_mult_raw(C, data, terms, points, power, A, B, **kwargs):
 
     try:
         while True:
-            points.remove(None) # in place
+            points.remove(None)  # in place
     except ValueError:
         pass
 
