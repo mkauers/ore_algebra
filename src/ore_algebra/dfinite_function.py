@@ -70,7 +70,8 @@ class DFiniteFunctionRing(Parent):
 
 # constructor
 
-    def __init__(self, ore_algebra, domain = NN, name=None, element_class=None, category=None):
+    def __init__(self, ore_algebra, domain=NN, name=None,
+                 element_class=None, category=None):
         r"""
         Constructor for a D-finite function ring.
 
@@ -123,7 +124,8 @@ class DFiniteFunctionRing(Parent):
 
     # conversion
 
-    def _element_constructor_(self, x=None, check=True, is_gen = False, construct=False, **kwds):
+    def _element_constructor_(self, x=None, check=True,
+                              is_gen=False, construct=False, **kwds):
         r"""
         Convert ``x`` into this ring, possibly non-canonically.
 
@@ -405,7 +407,7 @@ class DFiniteFunctionRing(Parent):
             initial_val = set(range(ord)).union(singularities_positive)
             int_val = {n:(x.derivative(n)(0)/factorial(n)) for n in initial_val}
 
-            #getting the coefficient sequence
+            # getting the coefficient sequence
             seq = UnivariateDFiniteSequence(DFiniteFunctionRing(OreAlg,NN),s_ann, int_val)
 
             return UnivariateDFiniteFunction(self,ann,seq)
@@ -473,7 +475,8 @@ class DFiniteFunctionRing(Parent):
         # add, mul
         if operator == add_vararg or operator == mul_vararg:
             while len(operands) > 1:
-                operands.append( operator(self(operands.pop()), self(operands.pop())) )
+                operands.append(operator(self(operands.pop()),
+                                         self(operands.pop())))
             return operands[0]
 
         # pow
@@ -483,7 +486,7 @@ class DFiniteFunctionRing(Parent):
             if exponent in ZZ and exponent >= 0:
                 return operator(self(operands[0]),ZZ(operands[1]))
 
-            #sqrt - only works for sqrt(u*x+v) (linear inner function) - not implemented for sequences
+            # sqrt - only works for sqrt(u*x+v) (linear inner function) - not implemented for sequences
             elif (not n) and (exponent - QQ(0.5) in ZZ) and (exponent >= 0):
                 if R(operands[0]).degree() > 1:
                     raise ValueError("Sqrt implemented only for linear inner function")
@@ -3006,9 +3009,10 @@ class UnivariateDFiniteFunction(DFiniteFunction):
     def list(self):
         raise NotImplementedError
 
-    def expand(self, n, deriv = False):
+    def expand(self, n, deriv=False):
         r"""
         Return a list of the first `n+1` coefficients of ``self`` if ``deriv``is ``False``.
+
         If ``deriv`` is ``True`` the first `n+1` derivations of self at x=0 are returned.
 
         INPUT:
@@ -3030,8 +3034,8 @@ class UnivariateDFiniteFunction(DFiniteFunction):
             [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
         """
         result = self._initial_values.expand(n)
-        if deriv is True:
-            result = [result[i]* factorial(i) for i in range(len(result))]
+        if deriv:
+            result = [result[i] * factorial(i) for i in range(len(result))]
 
         return result
 
@@ -3150,18 +3154,20 @@ class UnivariateDFiniteFunction(DFiniteFunction):
             cauchy = sum([x*y for x,y in zip(a,b)])
             int_val_prod.update({n:cauchy})
 
-        #critical points for forward calculation
-        critical_points_positive = lseq.critical_points(ord).union( rseq.critical_points(ord) )
+        # critical points for forward calculation
+        critical_points_positive = lseq.critical_points(ord).union(
+            rseq.critical_points(ord)
+        )
         for n in singularities_positive:
-            critical_points_positive.update(range(n+1,n+ord+1))
+            critical_points_positive.update(range(n+1, n+ord+1))
 
         for n in critical_points_positive:
             a = lseq.expand(n)
             b = rseq.expand(n)
             b.reverse()
-            cauchy = sum([x*y for x,y in zip(a,b)])
+            cauchy = sum([x*y for x, y in zip(a, b)])
             int_val_prod.update({n:cauchy})
-            s_ann = A(N - (n - ord) )*s_ann
+            s_ann = A(N - (n - ord)) * s_ann
 
         seq = UnivariateDFiniteSequence(DFiniteFunctionRing(A,NN),s_ann,int_val_prod)
 
@@ -3201,29 +3207,29 @@ class UnivariateDFiniteFunction(DFiniteFunction):
             True
 
         """
-        #getting the new operators
+        # getting the new operators
         ann = self.ann().annihilator_of_integral()
         A = OreAlgebra(self.parent().base_ring().change_var('n'),'Sn')
         N = A.base_ring().gen()
         s_ann = ann.to_S(A)
         ord = s_ann.order()
 
-        #initial values and singularities of the sequence operator
+        # initial values and singularities of the sequence operator
         singularities_positive = s_ann.singularities()
 
         initial_val = set(range(ord)).union(singularities_positive)
         int_val = {n:self[n-1]/QQ(n) for n in initial_val if n > 0}
         int_val.update({0:0})
 
-        #critical points for forward calculation
+        # critical points for forward calculation
         critical_points_positive = self.initial_conditions().critical_points(ord)
         for n in singularities_positive:
-            critical_points_positive.update(range(n+1,n+ord+1))
+            critical_points_positive.update(range(n+1, n+ord+1))
         critical_points_positive.difference_update({0})
 
         for n in critical_points_positive:
-            int_val.update({n:self[n-1]/n})
-            s_ann = A(N - (n - ord) )*s_ann
+            int_val.update({n:self[n-1] / n})
+            s_ann = A(N - (n - ord)) * s_ann
 
         seq = UnivariateDFiniteSequence(DFiniteFunctionRing(A,NN),s_ann,int_val)
         return UnivariateDFiniteFunction(self.parent(), ann, seq)
@@ -3259,7 +3265,7 @@ class UnivariateDFiniteFunction(DFiniteFunction):
             return self.initial_conditions()[n]
         return 0
 
-    def evaluate(self, z, n = 0):
+    def evaluate(self, z, n=0):
         r"""
         Tries to numerically evaluate the n-th derivative of ``self`` at  `z`
 

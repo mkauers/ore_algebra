@@ -1402,7 +1402,6 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
 
         - ``single_factor`` (optional) -- if set to ``True`` (default), only the first computed factor will be returned. If set to ``False``, all factors that can be computed using the eigenring method will be returned.
 
-        
         OUTPUT:
 
         A right factor of the given operator or 'failed' if none could be found. If single_factor is set to false than a list of all right factors of the given operator that could be computed will be retuned.
@@ -1473,11 +1472,15 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
 
             mat = []
             for k in range(deg + 1):
-                mat += [[1 if j == 1 + i + k * (order) else 0 for j in range((deg+1) * (order))]    for i in range((order - 1))]
+                mat += [[1 if j == 1 + i + k * (order) else 0
+                         for j in range((deg+1) * (order))]
+                        for i in range((order - 1))]
                 mat += [flatten([[-cc[k][i] for cc in coef_matrices]for i in range(deg + 1)])]
             mm = [[base(n) for n in m] for m in mat]
-            res = solve_coupled_system_CVM(mm,[],algebra)
-            res = [sum([r[0][i] * D**(i // (deg + 1))  for i in range(len(r[0])) if i % (order) == 0]) for r in res]
+            res = solve_coupled_system_CVM(mm, [], algebra)
+            res = [sum([r[0][i] * D**(i // (deg + 1))
+                        for i in range(len(r[0])) if i % (order) == 0])
+                   for r in res]
             # check if non constant solution is found
             if not all(r in QQ for r in res):
                 break
