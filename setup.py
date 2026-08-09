@@ -33,7 +33,8 @@ def do_cythonize():
                 ["src/ore_algebra/analytic/*.pyx"],
             )],
             include_path=[SAGE_LIB],
-            aliases = sage.env.cython_aliases(required_modules=(), optional_modules=()),
+            # optional so that it works during sdist (which needslessly invokes Cython)
+            aliases = sage.env.cython_aliases(required_modules=(), optional_modules=('flint',)),
             # gdb_debug=True,
             # annotate=True,
         )
