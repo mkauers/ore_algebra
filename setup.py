@@ -27,13 +27,17 @@ class TestCommand(Command):
             raise SystemExit("Doctest failures")
 
 def do_cythonize():
+    # flint is "optional" so that it works during sdist (which needslessly invokes Cython)
+    aliases = sage.env.cython_aliases(required_modules=(), optional_modules=('flint',))
+    if 'FLINT_LIBRARIES' not in aliases:
+        aliases['FLINT_LIBRARIES'] = ['flint']
     return cythonize(
             [Extension(
                 "*",
                 ["src/ore_algebra/analytic/*.pyx"],
             )],
             include_path=[SAGE_LIB],
-            aliases = sage.env.cython_aliases(required_modules=(), optional_modules=()),
+            aliases=aliases,
             # gdb_debug=True,
             # annotate=True,
         )
