@@ -834,7 +834,7 @@ class OreLeftIdeal(Ideal_nc):
         # D must involve exactly one generator Dgen of the ambient algebra, and this generator must move exactly one
         # generator var of the ground ring.
         A = self.ring()
-        Dgen = [Dgen for Dgen in A.gens() if D.degree(Dgen) != 0] # the unique generator of A appearing in D
+        Dgen = [Dgen for Dgen in A.gens() if D.degree(Dgen) != 0]  # the unique generator of A appearing in D
         var = [k for k in A.base_ring().gens() if D*k != k*D]  # D must commute with all but exactly one
         if len(Dgen) != 1 or len(var) != 1:
             raise ValueError("bad choice of delta")
@@ -1433,7 +1433,7 @@ def solve_CVM_system(PA, P=None, algebra=None, solver=None, infolevel=0):
             j += 1
         rr.append(i + 1)
 
-    for index in range(1, len(rr)): #go through blocks
+    for index in range(1, len(rr)):  # go through blocks
         RHS = []
         Ai = list(PA[rr[index - 1] : rr[index], rr[index - 1] : rr[index]])
 
@@ -1474,7 +1474,7 @@ def solve_CVM_system(PA, P=None, algebra=None, solver=None, infolevel=0):
             ffNew.append(res + g[j])
         ff = ffNew
 
-    ff= [f for f in ff if sum([p**2 for p in f]) != 0]
+    ff = [f for f in ff if sum([p**2 for p in f]) != 0]
     if P is None:
         return ff
     else:

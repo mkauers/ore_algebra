@@ -225,10 +225,10 @@ class OreOperator(RingElement):
             return self
         elif R.is_field():
             d = {k: R(c).numerator().change_ring(K)/R(c).denominator().change_ring(K)
-                 for k,c in self.dict().items()}
+                 for k, c in self.dict().items()}
             return A(d)
         else:
-            d = {k: R(c).change_ring(K) for k,c in self.dict().items()}
+            d = {k: R(c).change_ring(K) for k, c in self.dict().items()}
             return A(d)
 
     def __iter__(self):
@@ -260,7 +260,7 @@ class OreOperator(RingElement):
 
     # arithmetic
 
-    def __floordiv__(self,right):
+    def __floordiv__(self, right):
         """
         Quotient of quotient with remainder.
 
@@ -447,7 +447,7 @@ class OreOperator(RingElement):
         if R.is_field():
             return self.leading_coefficient()
 
-        coeffs = self.coefficients() # nonzero coefficients only
+        coeffs = self.coefficients()  # nonzero coefficients only
         if len(coeffs) == 1:
             return coeffs[0]
 
@@ -459,7 +459,7 @@ class OreOperator(RingElement):
             except (TypeError, ValueError, AttributeError):
                 c = R.zero()
             if not proof and not c.is_zero() and \
-               sum(len(p.coefficients()) for p in coeffs) > 1000: # no shortcut for small operators
+               sum(len(p.coefficients()) for p in coeffs) > 1000:  # no shortcut for small operators
                 return c
 
             coeffs.append(c)
@@ -673,7 +673,7 @@ class UnivariateOreOperator(OreOperator):
         if "action" in kwds:
             D = kwds["action"]
         else:
-            D = lambda p:p
+            D = lambda p: p
 
         if self.is_zero():
             return self.base_ring().zero()*f
@@ -688,7 +688,7 @@ class UnivariateOreOperator(OreOperator):
                     prec = None
                 R = f.parent()
                 R = LaurentSeriesRing(R.base_ring(), R.gen(), default_prec=prec)
-            elif isinstance(f,ContinuousGeneralizedSeries):
+            elif isinstance(f, ContinuousGeneralizedSeries):
                 prec = f.prec()
                 R = f.parent()
                 R = GeneralizedSeriesMonoid(R.base_ring(), R.gen(),
@@ -806,7 +806,7 @@ class UnivariateOreOperator(OreOperator):
         if right.is_zero():
             return right
 
-        R = self.parent() # Ore algebra
+        R = self.parent()  # Ore algebra
         sigma = R.sigma()
         delta = R.delta()
         D = R.associated_commutative_algebra().gen()
@@ -821,7 +821,7 @@ class UnivariateOreOperator(OreOperator):
             def times_D(b):
                 return b.map_coefficients(sigma)*D + b.map_coefficients(delta)
 
-        DiB = right.polynomial() # D^i * B, for i=0,1,2,...
+        DiB = right.polynomial()  # D^i * B, for i=0,1,2,...
         res = self[0]*DiB
         for i in range(1, self.order() + 1):
             DiB = times_D(DiB)
@@ -1236,7 +1236,7 @@ class UnivariateOreOperator(OreOperator):
         s = B.order()
         D = A.parent().gen()
 
-        t = max(r, s) # current hypothesis for the order of the lclm
+        t = max(r, s)  # current hypothesis for the order of the lclm
 
         rowsA = [A]
         for i in range(t - r):
@@ -1303,7 +1303,7 @@ class UnivariateOreOperator(OreOperator):
         r = r_lcm - 1 + d_res*r_lcm/sqrt((1+d_ess)*d_res*r_lcm)
         d = d_ess + sqrt((1+d_ess)*d_res*r_lcm)/r_lcm
 
-        n = int(1.20 * (r + 2) * (d + 2) + 10) # number of terms needed + some buffer
+        n = int(1.20 * (r + 2) * (d + 2) + 10)  # number of terms needed + some buffer
 
         data = list(map(lambda p, q: 1234*p + 4321*q, terms(U, n), terms(V, n)))
 
@@ -1522,7 +1522,7 @@ class UnivariateOreOperator(OreOperator):
 
             D = A.parent().gen()
             D1 = D(R.one())
-            h = -B[0]/B[1] # B = D - h
+            h = -B[0]/B[1]  # B = D - h
             if h == D1:
                 return A
 
@@ -1582,7 +1582,7 @@ class UnivariateOreOperator(OreOperator):
                         Dkuv[i][j] += Bred[j]*Dkuv[i][b]
                     Dkuv[i][b] = zero
 
-            for j in range(b): # not b + 1
+            for j in range(b):  # not b + 1
                 if not Dkuv[a][j] == zero:
                     for i in range(a):
                         Dkuv[i][j] += Ared[i]*Dkuv[a][j]
@@ -1623,7 +1623,7 @@ class UnivariateOreOperator(OreOperator):
         elif exp == 0:
             D = self.parent().gen()
             R = D.base_ring()
-            return D - R(D(R.one())) # annihilator of 1
+            return D - R(D(R.one()))  # annihilator of 1
         elif exp == 1:
             return self
         elif exp % 2 == 1:
@@ -1771,7 +1771,7 @@ class UnivariateOreOperator(OreOperator):
             shift_cache[vars[J + r - 1].exponents()[0]] = \
                 (-1/L.leading_coefficient())*sum(L[i]*vars[J + i] for i in range(r))
 
-        def shift(p): # computes D( p ), as element of R
+        def shift(p):  # computes D( p ), as element of R
             out = R.zero()
             for m, c in zip(p.monomials(), p.coefficients()):
                 exp = m.exponents()[0]
@@ -1799,7 +1799,7 @@ class UnivariateOreOperator(OreOperator):
             solver = A._solver()
 
         shifts = [poly]
-        basis = set(poly.monomials()) # set of all monomials appearing in any of the shifts
+        basis = set(poly.monomials())  # set of all monomials appearing in any of the shifts
         from sage.matrix.constructor import Matrix
         sol = []
 
