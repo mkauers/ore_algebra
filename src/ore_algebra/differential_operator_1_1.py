@@ -2394,33 +2394,33 @@ class UnivariateDifferentialOperatorOverUnivariateRing(UnivariateOreOperatorOver
 
     def hyperexponential_solutions(self, guessing=10, one_solution=False):
         r"""
-        Finds order 1 right factors of this operator
+        Finds order 1 right factors of this operator.
 
         INPUT:
 
         - A differential operator L in K(x)[Dx] where K is Q or an algebraic
-        extension of Q.
+          extension of Q.
         - (optional) A integer ``guessing`` indicating what degree the
-        solutions could have in order to speed up computations. If set to
-        0/False, no guessing attempts are made.
+          solutions could have in order to speed up computations. If set to
+          0/False, no guessing attempts are made.
         - (optional) A boolean ``one_solution``, set to False by default,
-        indicating whether we want all solutions or just one.
+          indicating whether we want all solutions or just one.
 
         OUTPUT:
 
         - The list of hyperexponential solutions, under the form of a list
-        of right factors of degree 1 of L.
+          of right factors of degree 1 of L.
         - The list of algebraic extensions used, the elements of the list
-        are under the form (root of P, P).
+          are under the form (root of P, P).
 
         .. NOTE::
 
             - The method comes from section 3.6 of the book D-Finite functions
-            by Manuel Kauers.
+              by Manuel Kauers.
             - Algebraic extensions are important because the degree 1 factor can
-            have coefficients in a larger field than the one given in input.
+              have coefficients in a larger field than the one given in input.
             - It's also possible that some algebraic extensions are unused in
-            the result because the algebraic numbers have cancelled out.
+              the result because the algebraic numbers have cancelled out.
 
         EXAMPLES::
 

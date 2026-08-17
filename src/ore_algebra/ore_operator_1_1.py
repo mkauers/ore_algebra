@@ -1404,7 +1404,10 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
 
         OUTPUT:
 
-        A right factor of the given operator or 'failed' if none could be found. If single_factor is set to false than a list of all right factors of the given operator that could be computed will be retuned.
+        A right factor of the given operator or 'failed' if none could
+        be found. If ``single_factor`` is set to ``False`` then a list
+        of all right factors of the given operator that could be
+        computed will be returned.
 
         Note that this implementation does not construct factors that involve
         algebraic extensions of the constant field.
@@ -1491,7 +1494,7 @@ class UnivariateOreOperatorOverUnivariateRing(UnivariateOreOperator):
                 continue
             sol = []
             # find a linear dependence between powers of P to get the minimal polynomial
-            for bound in range(2, 5):  # currently 5 is set as the highes bound for relations
+            for bound in range(2, 5):  # currently 5 is set as the highest bound for relations
                 powers = [algebra(1), p]
                 for _ in range(1, bound):
                     powers.append((p * powers[-1]) % operator)
