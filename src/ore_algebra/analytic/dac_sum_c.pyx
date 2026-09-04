@@ -40,6 +40,10 @@ cdef extern from *:
      * formulations are mathematically equivalent. */
     #include "flint_wrap.h"
 
+    #ifndef slong
+    #define slong mp_limb_signed_t
+    #endif
+
     #if __FLINT_RELEASE >= 30400
     static inline void _oa_pitvdm_stdpts_impl(fmpz_mat_t matnum, fmpz_t matden, slong n) {
         slong i, j;
